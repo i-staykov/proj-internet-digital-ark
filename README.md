@@ -13,7 +13,7 @@ A reproducible pipeline for collecting historical **domain names for 1996–2001
 
 ```bash
 uv sync            # create .venv and install the exact locked dependencies
-uv run ark init    # create the local database (data/ark.duckdb)
+uv run ark init    # create the local databases (data/ark.duckdb + data/queue.sqlite)
 ```
 
 ## Commands

@@ -7,6 +7,7 @@ import typer
 from loguru import logger
 
 from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
 
 app = typer.Typer(
     name="ark",
@@ -27,10 +28,12 @@ def _setup(
 
 @app.command()
 def init() -> None:
-    """Create the database and apply the schema."""
+    """Create the databases and apply their schemas."""
     conn = connect()
     init_db(conn)
-    logger.info(f"database ready at {DEFAULT_DB_PATH}")
+    logger.info(f"provenance store ready at {DEFAULT_DB_PATH}")
+    connect_queue()
+    logger.info(f"work queue ready at {DEFAULT_QUEUE_PATH}")
 
 
 @app.command()
