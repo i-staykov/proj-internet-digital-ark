@@ -7,7 +7,7 @@ A reproducible pipeline for collecting historical **domain names for 1996–2001
 ## Requirements
 
 - **[`uv`](https://docs.astral.sh/uv/)** — manages Python, the virtual environment, dependencies, and the lockfile. Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`. Python itself is installed automatically by `uv` (pinned to 3.12 via `.python-version`).
-- **Optional: [`just`](https://github.com/casey/just)** - makefile for python, command runner for the shortcuts below (`brew install just`). Everything also works with plain `uv run`.
+- **Optional: [`just`](https://github.com/casey/just)** - Makefile for python, command runner for the shortcuts below (`brew install just`). Everything also works with plain `uv run`.
 
 ## Setup
 
@@ -27,12 +27,14 @@ uv sync        # create .venv and install the exact locked dependencies
 
 The raw `uv run` commands are the **reproducibility contract** (they work with only `uv` installed); `just` is convenience. CI runs the same `check` sequence on every push and PR.
 
+The pipeline runs as ordered stages: `ark seed` → `ark verify` → `ark download` → `ark export`. Run `ark --help` for the full list.
+
 ## Verify it works
 
 ```bash
 uv sync
-uv run ark        # → "Hello from ark!"
-just check        # lint + format-check + tests, all green
+uv run ark --help   # lists the pipeline commands
+just check          # lint + format-check + tests, all green
 ```
 
 ## Data

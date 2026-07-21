@@ -8,7 +8,10 @@ authors = [
     { name = "ivaylostaykov-work", email = "ivaylo.staykov@taktile.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "loguru>=0.7.3",
+    "typer>=0.27.0",
+]
 
 [project.scripts]
 ark = "ark:main"
