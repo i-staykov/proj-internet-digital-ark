@@ -11,15 +11,19 @@ Short notes on why I made certain architectural design choices. Details belong i
 - **CI on GitHub Actions** (lint, format check, tests on every push)
   - familiar from work and cheap insurance that a clean machine still builds
   - unit tests only, network mocked: keeps CI fast and deterministic
+- **Large data stays out of git**
+  - legacy baseline (~1.2 GB) and intermediates are ignored; only net-new output + evidence manifest get committed
+- **Baseline never modified, output is disjoint net-new**
+  - legacy files load read-only for dedup; our additions ship separately so the group can verify before merging
 - **DuckDB + SQLite**, one per workload
   - DuckDB: system of record + analytics (dedup, yield stats, exports)
   - SQLite (WAL): crawler work-queue, many tiny commits for crash-resume; stdlib, zero extra deps
     - `claim` is a single SQL statement, which is what makes double-claiming impossible without any locking code in future parallelization.
 - **PSL (Public Suffix List) snapshot pinned in the repo** (for `tldextract`)
   - the registrable domain is our output unit; live-fetching the suffix list would make it depend on download day
+- **PSL** used to canonicalize how domains are converted into registerables as per III.8
 - **Evidence rule enforced by the schema**
   - `domain_year.evidence_id` is NOT NULL, so an unevidenced year assignment is impossible; tested
-- **Large data stays out of git**
-  - legacy baseline (~1.2 GB) and intermediates are ignored; only net-new output + evidence manifest get committed
-- **Baseline never modified, output is disjoint net-new**
-  - legacy files load read-only for dedup; our additions ship separately so the group can verify before merging
+  - all writes go through helpers; `assign_year` takes only an evidence id and derives domain + year from that row, so a mismatched assignment cannot be expressed
+    - **a piece of evidence valid for multiple years is regarded as different pieces of evidence**
+
