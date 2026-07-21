@@ -1,0 +1,35 @@
+[project]
+name = "ark"
+version = "0.1.0"
+description = "Internet Digital Ark — historical domain collection (1996–2001) with per-year evidence"
+readme = "README.md"
+authors = [
+    { name = "Ivaylo Staykov", email = "ivaylo.staykov@student.hpi.uni-potsdam.de" },
+    { name = "ivaylostaykov-work", email = "ivaylo.staykov@taktile.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+ark = "ark:main"
+
+[build-system]
+requires = ["uv_build>=0.11.9,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.22",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F = pycodestyle + pyflakes, I = import sorting, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

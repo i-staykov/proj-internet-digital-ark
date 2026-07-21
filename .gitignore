@@ -1,5 +1,26 @@
-# Personal / private working context — never commit
+# Personal / private working context
 PersonalContext.md
 RecentContext.md
 plan.md
 todo.md
+
+# macOS junk
+.DS_Store
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Data policy — big data stays out of git; only our small net-new deliverable goes in.
+# NEVER commit (GitHub rejects >100MB files); big input/intermediate data:
+legacy-data/
+data/
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.warc
+*.warc.gz
