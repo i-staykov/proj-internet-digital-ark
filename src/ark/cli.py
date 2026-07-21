@@ -6,6 +6,8 @@ from typing import Annotated
 import typer
 from loguru import logger
 
+from ark.db import DEFAULT_DB_PATH, connect, init_db
+
 app = typer.Typer(
     name="ark",
     help="Collect historical domains (1996-2001) with per-year evidence.",
@@ -21,6 +23,14 @@ def _setup(
 ) -> None:
     logger.remove()
     logger.add(sys.stderr, level="DEBUG" if verbose else "INFO", format=_LOG_FORMAT)
+
+
+@app.command()
+def init() -> None:
+    """Create the database and apply the schema."""
+    conn = connect()
+    init_db(conn)
+    logger.info(f"database ready at {DEFAULT_DB_PATH}")
 
 
 @app.command()

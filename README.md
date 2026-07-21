@@ -12,7 +12,8 @@ A reproducible pipeline for collecting historical **domain names for 1996–2001
 ## Setup
 
 ```bash
-uv sync        # create .venv and install the exact locked dependencies
+uv sync            # create .venv and install the exact locked dependencies
+uv run ark init    # create the local database (data/ark.duckdb)
 ```
 
 ## Commands
@@ -52,5 +53,6 @@ The `legacy-data/` baseline (~1.2 GB) is expected at `./legacy-data/`. It is **g
 ├── src/ark/                # the package (pipeline modules + CLI)
 ├── tests/                  # pytest suite (network mocked)
 ├── legacy-data/            # provided baseline, git-ignored (not in repo)
+├── data/                   # local DuckDB + intermediate artifacts, git-ignored
 └── docs/                   # task brief and project notes
 ```
