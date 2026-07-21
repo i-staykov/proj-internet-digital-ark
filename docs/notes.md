@@ -15,6 +15,8 @@ Short notes on why I made certain architectural design choices. Details belong i
   - DuckDB: system of record + analytics (dedup, yield stats, exports)
   - SQLite (WAL): crawler work-queue, many tiny commits for crash-resume; stdlib, zero extra deps
     - `claim` is a single SQL statement, which is what makes double-claiming impossible without any locking code in future parallelization.
+- **PSL (Public Suffix List) snapshot pinned in the repo** (for `tldextract`)
+  - the registrable domain is our output unit; live-fetching the suffix list would make it depend on download day
 - **Evidence rule enforced by the schema**
   - `domain_year.evidence_id` is NOT NULL, so an unevidenced year assignment is impossible; tested
 - **Large data stays out of git**

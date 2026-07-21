@@ -18,7 +18,7 @@ __pycache__/
 # Data policy — big data stays out of git; only our small net-new deliverable goes in.
 # NEVER commit (GitHub rejects >100MB files); big input/intermediate data:
 legacy-data/
-data/
+/data/
 *.duckdb
 *.duckdb.wal
 *.parquet
