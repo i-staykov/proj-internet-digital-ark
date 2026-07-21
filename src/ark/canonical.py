@@ -19,8 +19,10 @@ extract = tldextract.TLDExtract(
     fallback_to_snapshot=False,
 )
 
-_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$") # define accepted label characters for domain names
-_IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$") # define pattern to match IPv4 addresses
+# define accepted label characters for domain names
+_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+# define pattern to match IPv4 addresses
+_IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
 
 def to_registrable(raw: str) -> str | None:
@@ -34,18 +36,27 @@ def to_registrable(raw: str) -> str | None:
     host = unquote(raw).strip().lower()
     if not host:
         return None
-    # scheme, path, query, fragment, userinfo, port
-    host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", host) # remove URL scheme
-    host = host.removeprefix("//") # remove scheme-relative prefix
-    host = re.split(r"[/?#]", host, maxsplit=1)[0] # remove suffix
-    host = host.rsplit("@", maxsplit=1)[-1] # remove userinfo
-    host = re.sub(r":\d+$", "", host) # remove port
-    host = host.rstrip(".") # remove trailing dot
-    if not host or _IPV4.match(host): # remove empty or IPv4 addresses
+    # remove URL scheme
+    host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", host)
+    # remove scheme-relative prefix
+    host = host.removeprefix("//")
+    # remove path, query and fragment
+    host = re.split(r"[/?#]", host, maxsplit=1)[0]
+    # remove userinfo
+    host = host.rsplit("@", maxsplit=1)[-1]
+    # remove port
+    host = re.sub(r":\d+$", "", host)
+    # remove trailing dot
+    host = host.rstrip(".")
+    # remove empty or IPv4 addresses
+    if not host or _IPV4.match(host):
         return None
-    if not all(_LABEL.match(label) for label in host.split(".")): # remove invalid labels
+    # remove invalid labels
+    if not all(_LABEL.match(label) for label in host.split(".")):
         return None
-    result = extract(host) # extract domain and suffix using the pinned PSL
-    if not result.domain or not result.suffix: # reject if either is missing
+    # extract domain and suffix using the pinned PSL
+    result = extract(host)
+    # reject if either is missing
+    if not result.domain or not result.suffix:
         return None
     return f"{result.domain}.{result.suffix}"
