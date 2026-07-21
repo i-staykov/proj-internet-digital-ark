@@ -1,12 +1,15 @@
 """Command-line entry point for the ark pipeline."""
 
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from loguru import logger
 
 from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.ingest import ingest_legacy
+from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
 
 app = typer.Typer(
@@ -34,6 +37,36 @@ def init() -> None:
     logger.info(f"provenance store ready at {DEFAULT_DB_PATH}")
     connect_queue()
     logger.info(f"work queue ready at {DEFAULT_QUEUE_PATH}")
+
+
+@app.command(name="ingest-legacy")
+def ingest_legacy_cmd(
+    legacy_dir: Annotated[
+        Path, typer.Option(help="Folder holding the provided baseline files.")
+    ] = Path("legacy-data"),
+) -> None:
+    """Load the baseline year files and merge stats into the store."""
+    conn = connect()
+    init_db(conn)
+    all_stats = ingest_legacy(conn, legacy_dir)
+    ingested = [s for s in all_stats if not s["skipped"]]
+    total_rows = sum(s.get("year_rows", 0) for s in ingested)
+    total_rejected = sum(s.get("rejected", 0) for s in ingested)
+    logger.info(
+        f"done: {len(ingested)} files ingested, {len(all_stats) - len(ingested)} skipped, "
+        f"{total_rows} year rows added, {total_rejected} lines rejected"
+    )
+
+
+@app.command(name="legacy-review")
+def legacy_review_cmd(
+    legacy_dir: Annotated[
+        Path, typer.Option(help="Folder holding the provided baseline files.")
+    ] = Path("legacy-data"),
+) -> None:
+    """Write the grouped droplist of baseline lines the pipeline excludes."""
+    counts = review_legacy(legacy_dir)
+    logger.info(f"see {DEFAULT_DROPLIST_PATH} ({sum(counts.values())} distinct entries)")
 
 
 @app.command()

@@ -2,7 +2,7 @@
 
 A reproducible pipeline for collecting historical **domain names for 1996–2001**, where every domain in a yearly file is backed by **item-level, per-year evidence**. For example, a Wayback/CDX timestamp, a dated snapshot, or a WHOIS creation date. It grows an existing ~8.2M-domain baseline, and its output is a **separate, verifiable set of net-new additions** (the baseline is never modified).
 
-> This is a student trial project.
+> This is a student trial project. See `docs/notes.md` for further documentation.
 
 ## Requirements
 
@@ -41,6 +41,20 @@ just check          # lint + format-check + tests, all green
 ## Data
 
 The `legacy-data/` baseline (~1.2 GB) is expected at `./legacy-data/`. It is **git-ignored** (too large for GitHub) so clone the code, then drop the data folder in place.
+
+Our own results in `output/` **are** committed: they are small and they are the project's work product. Intermediate artifacts (the DuckDB database, downloaded pages) live in the git-ignored `data/`.
+
+# Baseline ingest and review
+
+With `legacy-data/` in place (the `.txt` files and the one `.csv`), load the provided baseline and audit it:
+
+```bash
+uv run ark init             # create the local databases
+uv run ark ingest-legacy    # canonicalize + load the six year files (~2 min)
+uv run ark legacy-review    # write output/legacy_review/dropped_domains.txt (~2 min)
+```
+
+Every line passes through one canonicalizer (`src/ark/canonical.py`) that reduces hosts to registered domains using the vendored PSL snapshot plus a documented list of retired ccTLDs (`.yu`, `.an`, ...). Lines that cannot be a registered domain are dropped; `dropped_domains.txt` lists every one of them, grouped by reason, and rerunning the commands above reproduces the file exactly on any machine.
 
 
 ## Layout

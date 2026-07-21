@@ -26,4 +26,23 @@ Short notes on why I made certain architectural design choices. Details belong i
   - `domain_year.evidence_id` is NOT NULL, so an unevidenced year assignment is impossible; tested
   - all writes go through helpers; `assign_year` takes only an evidence id and derives domain + year from that row, so a mismatched assignment cannot be expressed
     - **a piece of evidence valid for multiple years is regarded as different pieces of evidence**
+- **Baseline unit is the registered domain (III.8)**
+  - the legacy files contain hostnames (1.4M lines with subdomains like `001sun01.marshall.com`); we collapse to registered domains, so counts differ from the prior line counts (8.2M lines -> 6.87M domain-year pairs); documented, files untouched
+- **2026 PSL + historical ccTLD patch, not a "2001 PSL"**
+  - no authoritative 2001 list exists (the PSL started ~2007) and early lists were less complete; we pin today's PSL and add retired ccTLDs (`.yu`, `.an`, ...) as extra suffixes, recovering ~1.8k real early-web domains
+- **Underscores tolerated in discarded subdomains only**
+  - `a_ashe.howard.edu` -> `howard.edu` is recovered; an underscore in the registered label itself stays invalid
+- **Full droplist is a committed deliverable**
+  - `output/legacy_review/dropped_domains.txt`: every provided line we exclude (0.149%), grouped by reason, reproducible via `ark legacy-review`
+
+## Definition: what we count as a valid domain
+
+Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
+
+1. **Normalize.** Percent-decode, trim whitespace, lowercase. Strip URL parts if present: scheme (`http://`), path/query/fragment, userinfo (`user@`), port (`:80`), trailing dot.
+2. **Require hostname syntax.** Labels of letters, digits, hyphens (no hyphen at a label edge). Underscores are tolerated, but only in subdomain labels that get discarded anyway. IP addresses are not domains.
+3. **Split against the Public Suffix List** (pinned snapshot of 2026-07-20, plus a documented patch of retired ccTLDs like `.yu`, `.an`). The result must have both a registered label and a public suffix. This rejects bare suffixes (`ab.ca` is a registry zone, not a registration) and suffix-less names (`localhost`).
+4. **Keep only the registered domain** (registered label + suffix, e.g. `bbc.co.uk`), discarding subdomains (`www.`, machine names) per SPEC III.8.
+
+Everything else is dropped with a stated reason; the droplist above holds every dropped baseline line for inspection.
 

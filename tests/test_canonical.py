@@ -36,6 +36,11 @@ def test_plain_com() -> None:
         ("members.tripod.com", "tripod.com"),
         # mis-encoded seed-file lines
         ("%20agfood-alliance.ab.ca", "agfood-alliance.ab.ca"),
+        # underscores in discarded subdomains are tolerated
+        ("a_ashe.howard.edu", "howard.edu"),
+        # retired ccTLDs of the early web resolve via HISTORICAL_SUFFIXES
+        ("beograd.yu", "beograd.yu"),
+        ("adder.labis.fon.bg.ac.yu", "bg.ac.yu"),
         # garbage in, None out
         ("", None),
         ("   ", None),
@@ -44,7 +49,31 @@ def test_plain_com() -> None:
         ("$b#m#e#m#b#e#r.ne.jp", None),
         ("ww[w.scoti1laxndkphhot", None),
         ("com", None),
+        # a bare public suffix is not a registered domain
+        ("ab.ca", None),
+        # underscore in the registered label itself stays invalid
+        ("ace_daikin.com.sg", None),
     ],
 )
 def test_to_registrable(raw: str, expected: str | None) -> None:
     assert to_registrable(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "reason_part"),
+    [
+        ("ab.ca", "bare public suffix"),
+        ("192.168.0.1", "ip address"),
+        ("ace_daikin.com.sg", "registered label"),
+        ("chevrolet-online", "no known public suffix"),
+        ("example.com", None),
+    ],
+)
+def test_reject_reason(raw: str, reason_part: str | None) -> None:
+    from ark.canonical import reject_reason
+
+    reason = reject_reason(raw)
+    if reason_part is None:
+        assert reason is None
+    else:
+        assert reason is not None and reason_part in reason
