@@ -1,20 +1,11 @@
 # Lines from the provided 1996-2001 year files that the pipeline drops
 # Reproduce with: uv run ark legacy-review (see README)
-# 12231 dropped lines (9340 distinct entries) out of 8224963 lines (0.149%)
+# 12220 dropped lines (9329 distinct entries) out of 8224963 lines (0.149%)
 
-## invalid hostname syntax (5208 distinct entries)
-,cp-ii.com	[1997.txt]
+## invalid hostname syntax (5197 distinct entries)
 -my-tr-ranch.com	[2001.txt]
 -s-love.com	[2001.txt]
 -sc.ucssc.indiana.edu	[1999.txt]
-.acap.upenn.edu	[1999.txt]
-.infoseek.go.com	[2001.txt]
-.netreach.net	[1997.txt]
-.servers.digitaldaze.com	[2001.txt]
-.tqn.com	[1999.txt]
-.www.comdo-it.com	[1997.txt]
-.www.dukemath.com	[1999.txt]
-.www.entrepreneurs.net	[1997.txt]
 1-.net	[1996.txt]
 1-888-learner:8080.com	[1999.txt]
 101percent:82.com	[1999.txt]
@@ -1391,7 +1382,6 @@ dlr:8081.de	[1997.txt]
 dma:8001.gov	[1997.txt]
 dmi:8080.dk	[1996.txt]
 dmotorworks:8000.com	[1997.txt]
-dmoz.org,	[2000.txt]
 dnb:800.com	[1997.txt]
 dnug:18.dk	[1999.txt]
 do-johodai:8080.ac.jp	[1999.txt]
@@ -2546,7 +2536,6 @@ kidlink:70.org	[1996.txt]
 kidsoft:81.com	[1997.txt]
 kiep:8000.go.kr	[1999.txt]
 kiko:8080.go.jp	[1999.txt]
-kim@.love.au	[1999.txt]
 kimchinet:81.com	[1997.txt]
 kindai-shashin:7777.co.jp	[1999.txt]
 kingsseafood:8383.com	[1999.txt]

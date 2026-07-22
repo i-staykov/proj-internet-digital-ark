@@ -36,6 +36,11 @@ def test_plain_com() -> None:
         ("members.tripod.com", "tripod.com"),
         # mis-encoded seed-file lines
         ("%20agfood-alliance.ab.ca", "agfood-alliance.ab.ca"),
+        # stray separator punctuation around the name is removed
+        (".www.comdo-it.com", "comdo-it.com"),
+        (",cp-ii.com", "cp-ii.com"),
+        # a leading hyphen would alter the name itself, so it stays invalid
+        ("-s-love.com", None),
         # underscores in discarded subdomains are tolerated
         ("a_ashe.howard.edu", "howard.edu"),
         # retired ccTLDs of the early web resolve via HISTORICAL_SUFFIXES

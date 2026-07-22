@@ -69,8 +69,9 @@ def _canonicalize(raw: str) -> tuple[str | None, str | None]:
     host = host.rsplit("@", maxsplit=1)[-1]
     # remove port
     host = re.sub(r":\d+$", "", host)
-    # remove trailing dot
-    host = host.rstrip(".")
+    # remove stray separator punctuation around the name (".www.foo.com", ",foo.com");
+    # never leading hyphens: those would alter the name itself
+    host = host.strip(".,")
     if not host:
         return None, "empty line"
     if _IPV4.match(host):
