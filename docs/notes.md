@@ -61,6 +61,12 @@ Short notes on why I made certain architectural design choices. Details belong i
   - added obligations: normalization/salvage audit file, execution logs kept from every run, merged master lists + full archive (with checksum) at delivery
   - merged master lists (~180MB) ship in the archive, not in git; net-new additions stay committed in `output/`
 
+- **UKWA dataset host is dead in 2026; data moved to the BL repository (finding)**
+  - `data.webarchive.org.uk` is a stale DNS alias to a retired GitHub Pages domain and no longer resolves; the documented download path soft-redirects to the homepage
+  - docs survive at `ukwa.github.io/opendata` (18 per-year CDX files 1996-2013, unsorted, schema confirmed: capture timestamp in column 2)
+  - current home is the British Library research repository (`bl.iro.bl.uk`, dataset id `3c39a755-...`), which sits behind bot protection: file links must be fetched via a browser
+  - report material: link rot hit the SPEC's own primary source within ~15 years, an argument for the archive-everything premise of the project itself
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:

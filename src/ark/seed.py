@@ -13,6 +13,7 @@ from loguru import logger
 
 from ark.canonical import to_registrable
 from ark.db import add_candidate, ensure_source
+from ark.metrics import record_metrics
 from ark.work_queue import enqueue
 
 CDX_TASK = "cdx_verify"
@@ -51,4 +52,5 @@ def seed_from_file(
     stats["new_candidates"] = len(batch)
     stats["enqueued"] = enqueue(queue_conn, CDX_TASK, sorted(batch))
     logger.info(f"{path.name}: {stats}")
+    record_metrics(conn, "seed", path.stem, stats)
     return stats

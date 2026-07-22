@@ -14,6 +14,7 @@ from loguru import logger
 
 from ark.db import assign_year, ensure_source, record_evidence
 from ark.ingest import YEARS
+from ark.metrics import record_metrics
 from ark.seed import CDX_TASK
 from ark.work_queue import claim, mark_done, mark_failed, reset_in_flight
 
@@ -87,4 +88,5 @@ def verify_batch(
             stats["years_assigned"] += found_years
         logger.info(f"{domain}: {found_years} year(s) evidenced")
     logger.info(f"verify batch: {stats}")
+    record_metrics(conn, "verify", SOURCE_NAME, stats)
     return stats

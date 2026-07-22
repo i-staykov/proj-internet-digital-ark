@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 from ark.canonical import to_registrable
 from ark.db import ensure_source
+from ark.metrics import record_metrics
 
 YEARS = range(1996, 2002)
 MERGE_STATS_FILENAME = "merge_stats_new0714.csv"
@@ -140,6 +141,7 @@ def ingest_year_file(
     _append_samples(report_path, f"{marker}: changed by canonicalization", changed_samples)
     _append_samples(report_path, f"{marker}: rejected", rejected_samples)
     logger.info(str(stats))
+    record_metrics(conn, "ingest-legacy", marker, stats)
     return stats
 
 
