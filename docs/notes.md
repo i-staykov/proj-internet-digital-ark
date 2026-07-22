@@ -61,11 +61,21 @@ Short notes on why I made certain architectural design choices. Details belong i
   - added obligations: normalization/salvage audit file, execution logs kept from every run, merged master lists + full archive (with checksum) at delivery
   - merged master lists (~180MB) ship in the archive, not in git; net-new additions stay committed in `output/`
 
-- **UKWA dataset host is dead in 2026; data moved to the BL repository (finding)**
-  - `data.webarchive.org.uk` is a stale DNS alias to a retired GitHub Pages domain and no longer resolves; the documented download path soft-redirects to the homepage
-  - docs survive at `ukwa.github.io/opendata` (18 per-year CDX files 1996-2013, unsorted, schema confirmed: capture timestamp in column 2)
-  - current home is the British Library research repository (`bl.iro.bl.uk`, dataset id `3c39a755-...`), which sits behind bot protection: file links must be fetched via a browser
-  - report material: link rot hit the SPEC's own primary source within ~15 years, an argument for the archive-everything premise of the project itself
+- **UKWA bulk CDX (JISC 1996-2013) is not publicly retrievable in 2026 (finding)**
+  - `data.webarchive.org.uk` is a stale DNS alias to a retired GitHub Pages domain; the successor path on `www.webarchive.org.uk` soft-404s even the correct filenames (`1996.cdx.gz` ... `2013.cdx.gz`, recovered from a 2015 Wayback snapshot of the directory listing)
+  - the BL research repository record (`bl.iro.bl.uk`, dataset `3c39a755-...`) is metadata-only and its download link points back to the dead host; the dataset DOI 404s; Wayback never archived the files; no archive.org mirror; GLAM Workbench cites the dead DOI
+  - path forward: request access from the British Library (`web-archivist@bl.uk`); Arquivo.pt promoted to bulk wave 1 meanwhile
+  - report material: link rot took the SPEC's own primary source offline within ~15 years, which is itself the strongest argument for this project's premise
+  - 2026-07-22: access request sent via the BL repository contact form (bl.iro.bl.uk/contact), citing the record and the broken link; treated as fire-and-forget, not a blocker
+
+- **Arquivo.pt bulk CDXJ has no 1996-2001 coverage (finding)**
+  - 214 collection files (18-374 GB each, multi-TB total), named by collection not year
+  - sampled AWP1 (the earliest-numbered collection): 40 MB slice = 227k captures, all timestamped 2008, none in our window
+  - Arquivo's crawls begin 2008 (like Common Crawl); its bulk dumps are out-of-window and too large to mine for a sliver → not a source for 1996-2001
+- **Reality check on bulk sources for 1996-2001 (strategic)**
+  - of the SPEC's named bulk index sources, Arquivo = 2008+, UKWA = link-rotted (access requested), Common Crawl = 2008+
+  - the Internet Archive (Wayback) is effectively the one archive with broad 1996-2001 coverage, and it is primarily per-domain via the CDX API, not a bulk download
+  - consequence: the volume engine shifts from "download-and-parse bulk indexes" to (a) dated directory/portal snapshots where the snapshot date evidences every listed domain (no per-domain calls), and (b) a large candidate pool (DMOZ, seed files) verified against IA CDX at scale, which makes async throughput necessary rather than optional
 
 ## Definition: what we count as a valid domain
 
