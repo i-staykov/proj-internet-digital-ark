@@ -35,6 +35,12 @@ Short notes on why I made certain architectural design choices. Details belong i
 - **Full droplist is a committed deliverable**
   - `output/legacy_review/dropped_domains.txt`: every provided line we exclude (0.149%), grouped by reason, reproducible via `ark legacy-review`
 
+## 2026-07-22
+
+- **Optimization target: net-new volume** (Prof. Ding: "let's use the results to tell")
+  - the scored metric is the count of non-overlapping, evidence-backed domains vs the provided baseline; source order now follows expected yield
+  - validity and evidence rules stay unchanged: every counted domain remains deduplicated, evidence-backed, and valid
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:

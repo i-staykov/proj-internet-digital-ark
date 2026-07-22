@@ -10,6 +10,7 @@ from loguru import logger
 from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
+from ark.stats import collect_stats, format_stats
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
 
 app = typer.Typer(
@@ -91,6 +92,13 @@ def download() -> None:
 def export() -> None:
     """Write net-new year files and the evidence manifest to output/."""
     logger.info("export: not implemented yet")
+
+
+@app.command()
+def stats() -> None:
+    """Print the scoreboard: net-new counts on top of the baseline."""
+    conn = connect()
+    typer.echo(format_stats(collect_stats(conn)))
 
 
 def main() -> None:

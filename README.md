@@ -30,6 +30,8 @@ The raw `uv run` commands are the **reproducibility contract** (they work with o
 
 The pipeline runs as ordered stages: `ark seed` → `ark verify` → `ark download` → `ark export`. Run `ark --help` for the full list.
 
+`uv run ark stats` prints the scoreboard at any time: how many domains and (domain, year) pairs have been added on top of the provided baseline, per year, plus the size of the unverified candidate pool.
+
 ## Verify it works
 
 ```bash
