@@ -50,6 +50,12 @@ Short notes on why I made certain architectural design choices. Details belong i
 - **Percent-encoding is decoded, not stripped** (`%20foo.ab.ca` -> `foo.ab.ca`)
   - decoded characters either belong to the hostname or cause rejection; non-ascii results stay rejected, which matches the era (IDN only exists since 2003)
 
+- **What "unverified" means (evidence standard for negatives)**
+  - a candidate stays unverified only after deterministic empty answers from the index for all six year windows; transport errors are retried, empty answers are not
+  - the first three unverified domains were re-probed without the status-200 filter: still zero captures, so IA genuinely never archived them in-window
+  - absence in one archive is not proof of non-existence: WHOIS and other archives remain open routes, hence candidate pool, not rejection
+- **Verification queries match `*.domain`** (domain plus all subdomains)
+  - a 1998 capture of `shop.foo.com` proves `foo.com` existed in 1998; the earlier prefix form missed subdomain-only captures
 - **Delivery spec adopted (Prof. Ding, feedback #2)**
   - approach confirmed: registered-domain unit, untouched originals, separate additions, conservative salvage
   - added obligations: normalization/salvage audit file, execution logs kept from every run, merged master lists + full archive (with checksum) at delivery

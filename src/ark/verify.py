@@ -30,9 +30,10 @@ def _cdx_fetcher() -> Fetcher:
     cdx = cdx_toolkit.CDXFetcher(source="ia")
 
     def fetch(domain: str, year: int) -> tuple[str, str] | None:
-        # one in-year capture suffices as proof, so limit=1
+        # *.domain matches the domain and all subdomains; a capture of
+        # shop.foo.com proves foo.com existed. one in-year capture suffices
         for obj in cdx.iter(
-            f"{domain}/*", from_ts=str(year), to=str(year), limit=1, filter=["status:200"]
+            f"*.{domain}", from_ts=str(year), to=str(year), limit=1, filter=["status:200"]
         ):
             return obj["timestamp"], obj["url"]
         return None
