@@ -50,6 +50,11 @@ Short notes on why I made certain architectural design choices. Details belong i
 - **Percent-encoding is decoded, not stripped** (`%20foo.ab.ca` -> `foo.ab.ca`)
   - decoded characters either belong to the hostname or cause rejection; non-ascii results stay rejected, which matches the era (IDN only exists since 2003)
 
+- **Delivery spec adopted (Prof. Ding, feedback #2)**
+  - approach confirmed: registered-domain unit, untouched originals, separate additions, conservative salvage
+  - added obligations: normalization/salvage audit file, execution logs kept from every run, merged master lists + full archive (with checksum) at delivery
+  - merged master lists (~180MB) ship in the archive, not in git; net-new additions stay committed in `output/`
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:

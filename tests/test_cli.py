@@ -13,7 +13,9 @@ def test_help_lists_commands() -> None:
     assert "seed" in result.output
 
 
-def test_export_stub_runs() -> None:
+def test_export_runs_after_init(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init"]).exit_code == 0
     result = runner.invoke(app, ["export"])
     assert result.exit_code == 0
 

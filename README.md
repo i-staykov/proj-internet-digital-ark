@@ -42,6 +42,14 @@ uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
 
 Seeding is idempotent: re-running the same file adds nothing twice, and lines already known (baseline or earlier runs) are skipped. The per-file result is logged as a funnel: `lines / invalid / already_known / new_candidates / enqueued`. Queued domains wait in the crash-safe work queue for `ark verify`.
 
+```bash
+uv run ark verify [--batch-size N]   # check queued domains year-by-year against the IA CDX index
+uv run ark export                    # write the result files (see below)
+uv run ark audit                     # normalization/salvage audit CSV over the baseline files
+```
+
+`ark export` writes three things: the **net-new additions** per year plus their `evidence_manifest.csv` (with a Wayback link per line) to `output/netnew/`, the unverified **candidates** to `output/candidate_unverified.txt`, and the large **merged master lists** (baseline + additions) to the git-ignored `data/exports/`. Every run of any command also appends to a permanent execution log in `data/logs/`.
+
 Every command documents itself: `uv run ark --help` lists all commands, `uv run ark seed --help` shows the arguments of one. Add `-v` before a command (`uv run ark -v seed ...`) for debug logging.
 
 ## Verify it works

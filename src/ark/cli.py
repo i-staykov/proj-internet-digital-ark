@@ -7,11 +7,14 @@ from typing import Annotated
 import typer
 from loguru import logger
 
+from ark.audit import write_audit
 from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.export import export_all
 from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.seed import seed_from_file
 from ark.stats import collect_stats, format_stats
+from ark.verify import verify_batch
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
 
 app = typer.Typer(
@@ -21,6 +24,7 @@ app = typer.Typer(
 )
 
 _LOG_FORMAT = "{time:HH:mm:ss} | {level: <7} | {message}"
+_LOG_FILE = "data/logs/ark_{time:YYYY-MM-DD}.log"
 
 
 @app.callback()
@@ -29,6 +33,8 @@ def _setup(
 ) -> None:
     logger.remove()
     logger.add(sys.stderr, level="DEBUG" if verbose else "INFO", format=_LOG_FORMAT)
+    # every run leaves a permanent execution log; the delivery requires them
+    logger.add(_LOG_FILE, level="DEBUG", format="{time} | {level: <7} | {message}")
 
 
 @app.command()
@@ -92,9 +98,15 @@ def seed(
 
 
 @app.command()
-def verify() -> None:
-    """Check candidate domains for per-year evidence via CDX and WHOIS."""
-    logger.info("verify: not implemented yet")
+def verify(
+    batch_size: Annotated[
+        int, typer.Option("--batch-size", "-b", help="Domains to verify in this run.")
+    ] = 25,
+) -> None:
+    """Check queued candidates for per-year evidence via the IA CDX index."""
+    conn = connect()
+    queue_conn = connect_queue()
+    verify_batch(conn, queue_conn, batch_size)
 
 
 @app.command()
@@ -105,8 +117,19 @@ def download() -> None:
 
 @app.command()
 def export() -> None:
-    """Write net-new year files and the evidence manifest to output/."""
-    logger.info("export: not implemented yet")
+    """Write net-new year files, candidates, manifest, and merged masters."""
+    conn = connect()
+    export_all(conn)
+
+
+@app.command()
+def audit(
+    legacy_dir: Annotated[
+        Path, typer.Option(help="Folder holding the provided baseline files.")
+    ] = Path("legacy-data"),
+) -> None:
+    """Write the normalization/salvage audit CSV over the baseline files."""
+    write_audit(legacy_dir)
 
 
 @app.command()
