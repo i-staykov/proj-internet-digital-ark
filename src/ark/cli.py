@@ -10,6 +10,7 @@ from loguru import logger
 from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
+from ark.seed import seed_from_file
 from ark.stats import collect_stats, format_stats
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
 
@@ -71,9 +72,23 @@ def legacy_review_cmd(
 
 
 @app.command()
-def seed() -> None:
-    """Load and normalize seed domains into the candidate pool."""
-    logger.info("seed: not implemented yet")
+def seed(
+    seed_file: Annotated[
+        Path,
+        typer.Argument(help="File with one host or URL per line.", exists=True, readable=True),
+    ],
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="Read at most this many non-blank lines."),
+    ] = None,
+) -> None:
+    """Load seed domains into the candidate pool and queue unknown ones.
+
+    Example: ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
+    """
+    conn = connect()
+    queue_conn = connect_queue()
+    seed_from_file(conn, queue_conn, seed_file, limit)
 
 
 @app.command()

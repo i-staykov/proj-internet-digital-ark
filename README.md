@@ -32,6 +32,18 @@ The pipeline runs as ordered stages: `ark seed` → `ark verify` → `ark downlo
 
 `uv run ark stats` prints the scoreboard at any time: how many domains and (domain, year) pairs have been added on top of the provided baseline, per year, plus the size of the unverified candidate pool.
 
+### Collecting
+
+```bash
+uv run ark seed <file> [--limit N]   # canonicalize a seed file, register candidates,
+                                     # queue domains the store has never seen
+uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
+```
+
+Seeding is idempotent: re-running the same file adds nothing twice, and lines already known (baseline or earlier runs) are skipped. The per-file result is logged as a funnel: `lines / invalid / already_known / new_candidates / enqueued`. Queued domains wait in the crash-safe work queue for `ark verify`.
+
+Every command documents itself: `uv run ark --help` lists all commands, `uv run ark seed --help` shows the arguments of one. Add `-v` before a command (`uv run ark -v seed ...`) for debug logging.
+
 ## Verify it works
 
 ```bash

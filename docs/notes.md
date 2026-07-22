@@ -41,6 +41,9 @@ Short notes on why I made certain architectural design choices. Details belong i
   - the scored metric is the count of non-overlapping, evidence-backed domains vs the provided baseline; source order now follows expected yield
   - validity and evidence rules stay unchanged: every counted domain remains deduplicated, evidence-backed, and valid
 
+- **Prior URL seed files are near-exhausted for new domains**
+  - probing 200k lines of `deduplicated_urls_2001-2002` yielded 3 domains not already in the baseline; the prior work evidently mined these files
+  - consequence: bulk archive indexes (Arquivo.pt, UK Web Archive) move up the source order; seed files stay as a low-priority back-verification pool
 - **Stray separator punctuation around a name is salvaged** (`.www.foo.com` -> `foo.com`)
   - only characters that cannot belong to any label (dots, commas); a leading hyphen would alter the name itself and stays invalid
   - recovered just 11 baseline lines; kept because the upcoming URL seed files are far messier
