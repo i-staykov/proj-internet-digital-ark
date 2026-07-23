@@ -4,7 +4,7 @@ import gzip
 from collections import Counter
 from pathlib import Path
 
-from ark.sources import SOURCES, parse_early_web_cdx, parse_isc_survey
+from ark.sources import SOURCES, parse_arquivo_cdxj, parse_early_web_cdx, parse_isc_survey
 
 CDX_LINES = [
     " CDX N b a m s c k r V v D d g M n",
@@ -95,4 +95,41 @@ def test_isc_skips_pre_window_survey_file(tmp_path: Path) -> None:
 def test_isc_is_registered_as_artifact_master() -> None:
     spec = SOURCES["isc_survey"]
     assert spec.evidence_type == "artifact_listing"
+    assert spec.is_candidate_only is False
+
+
+CDXJ_LINES = [
+    'com,example)/ 19961013223438 {"url": "http://www.example.com:80/", "status": "200"}',
+    '1,208,96,204)/ 19961013223438 {"url": "http://204.96.208.1:80/", "status": "200"}',
+    'org,foo)/x 19961014000000 {"url": "http://foo.org/x", "status": "404"}',
+    'com,late)/ 20080101000000 {"url": "http://late.com/", "status": "200"}',
+    "garbage line without json",
+]
+
+
+def test_arquivo_cdxj_filters_and_yields(tmp_path: Path) -> None:
+    fixture = tmp_path / "Roteiro.cdxj"
+    fixture.write_text("\n".join(CDXJ_LINES) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_arquivo_cdxj(fixture, stats))
+
+    # the raw url comes from the JSON; the parser does not canonicalize, so the
+    # bare-IP capture is still yielded (the loader's canonicalizer drops it)
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("http://www.example.com:80/", 1996, "19961013223438"),
+        ("http://204.96.208.1:80/", 1996, "19961013223438"),
+    ]
+    assert records[0].evidence_url == (
+        "https://arquivo.pt/wayback/19961013223438/http://www.example.com:80/"
+    )
+    assert stats["non_200"] == 1
+    assert stats["out_of_window"] == 1
+    assert stats["malformed"] == 1
+    assert stats["lines"] == 5
+
+
+def test_arquivo_is_registered_as_cdx_master() -> None:
+    spec = SOURCES["arquivo_roteiro"]
+    assert spec.evidence_type == "cdx_timestamp"
     assert spec.is_candidate_only is False

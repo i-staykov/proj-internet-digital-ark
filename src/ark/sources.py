@@ -6,6 +6,7 @@ rest (canonicalization, staging, evidence routing, audit, metrics).
 """
 
 import gzip
+import json
 import re
 from collections import Counter
 from collections.abc import Iterator
@@ -97,6 +98,45 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=tokens[-1], year=year, evidence_value=survey)
 
 
+def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 capture in an Arquivo.pt CDXJ file.
+
+    Each line is `SURT-key timestamp {json}`; the JSON carries the original url
+    and status. The capture timestamp is item-level evidence (a web-archive
+    capture, like IA CDX), so no recheck is needed.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.split(" ", 2)
+            if len(parts) < 3:
+                stats["malformed"] += 1
+                continue
+            timestamp = parts[1]
+            try:
+                record = json.loads(parts[2])
+            except json.JSONDecodeError:
+                stats["malformed"] += 1
+                continue
+            url = record.get("url")
+            if not url or len(timestamp) != 14 or not timestamp.isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(timestamp[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            if record.get("status") != "200":
+                stats["non_200"] += 1
+                continue
+            yield BulkRecord(
+                raw=url,
+                year=year,
+                evidence_value=timestamp,
+                evidence_url=f"https://arquivo.pt/wayback/{timestamp}/{url}",
+            )
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -111,5 +151,12 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="isc_domain_survey",
         parse=parse_isc_survey,
+    ),
+    "arquivo_roteiro": SourceSpec(
+        key="arquivo_roteiro",
+        source_name="arquivo_roteiro",
+        evidence_type="cdx_timestamp",
+        acquisition_method="arquivo_cdxj",
+        parse=parse_arquivo_cdxj,
     ),
 }

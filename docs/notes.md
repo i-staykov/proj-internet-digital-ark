@@ -199,6 +199,12 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the Jul 1996 `.org` host list (`wb_nw_9607_org`) added only 14 net-new pairs, near-redundant with the 9607 domains list (its .org domains were already there); kept and documented as low-yield
   - evidence caveat for the report: "seen in DNS with >=1 host on the survey date" is narrower than the full registry zone but arguably stronger than an archive capture as proof a domain existed; state the semantics plainly
 
+- **Arquivo Roteiro.cdxj ingested: tiny net-new, as expected (finding)**
+  - 44,379 captures (all 1996, all status 200) -> 3,442 unique registered domains (201 bare-IP captures dropped, ~44k host URLs collapsed to their registered domain)
+  - only **7 net-new 1996 pairs, 0 net-new domains**: 1996 coverage is now dense (baseline + Early Web + ISC), and Roteiro's mostly-European academic hosts were already present
+  - value is corroboration not growth: +3,442 `cdx_timestamp` evidence rows (an Arquivo capture per domain, source `arquivo_roteiro`), 98 pairs newly reaching 2+ sources; and it is a second web archive (non-IA) for those pairs
+  - validates the reusable CDXJ parser; informs the (Opt) `IA.cdxj` decision: Arquivo collections overlap heavily with what we already hold, so 51 GB of `IA.cdxj` is unlikely to be worth it unless a later gap analysis says otherwise
+
 - **Net-new output moved out of git (policy change, Ivo approved)**
   - the committed deliverable premise ("net-new is small") no longer holds: after ISC, `output/` is ~96 MB (`evidence_manifest.csv` 80 MB, `1997.txt` 14 MB) and growing with every source, heading for GitHub's 100 MB limit
   - `output/` is now git-ignored and ships in the Phase 7 delivery archive, regenerable on any machine via `ark export` (same treatment the merged masters in `data/exports/` already get); the repo commits code + docs only
