@@ -1,4 +1,4 @@
-"""Scoreboard queries: net-new pairs and domains vs the baseline."""
+"""Scoreboard: net-new vs the baseline, and cross-source corroboration."""
 
 import duckdb
 
@@ -6,26 +6,41 @@ from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, 
 from ark.stats import collect_stats, format_stats
 
 
-def _populated_db() -> duckdb.DuckDBPyConnection:
+def _fresh_db() -> duckdb.DuckDBPyConnection:
     conn = connect(":memory:")
     init_db(conn)
+    return conn
+
+
+def _assign(conn, domain: str, source: int, year: int, etype: str, value: str) -> None:
+    assign_year(conn, record_evidence(conn, domain, source, year, etype, value))
+
+
+def _populated_db() -> duckdb.DuckDBPyConnection:
+    conn = _fresh_db()
     prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    art = ensure_source(conn, "isc_survey", "timestamped")
+    link = ensure_source(conn, "ukwa_link", "candidate_only")
 
-    # baseline-only domain
+    # baseline pair, cross-confirmed by a second master source (and a same-source
+    # duplicate row that must NOT inflate the distinct-source count)
     add_candidate(conn, "base.com", prior)
-    assign_year(conn, record_evidence(conn, "base.com", prior, 1997, "prior_reused", "1997.txt"))
-    # genuinely net-new domain
+    _assign(conn, "base.com", prior, 1997, "prior_reused", "1997.txt")
+    record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970101000000")
+    record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970202000000")
+    # net-new pair, plus a candidate-only link_target row that must NOT corroborate
     add_candidate(conn, "new.com", cdx)
-    assign_year(
-        conn, record_evidence(conn, "new.com", cdx, 1998, "cdx_timestamp", "19980101000000")
-    )
-    # baseline domain gaining a new year: net-new pair, not a net-new domain
+    _assign(conn, "new.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    record_evidence(conn, "new.com", link, 1998, "link_target", "graph-row")
+    # one baseline year, one net-new year on the same domain
     add_candidate(conn, "mixed.com", prior)
-    assign_year(conn, record_evidence(conn, "mixed.com", prior, 1996, "prior_reused", "1996.txt"))
-    assign_year(
-        conn, record_evidence(conn, "mixed.com", cdx, 1999, "cdx_timestamp", "19990101000000")
-    )
+    _assign(conn, "mixed.com", prior, 1996, "prior_reused", "1996.txt")
+    _assign(conn, "mixed.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+    # net-new pair cross-confirmed by two master sources (no baseline)
+    add_candidate(conn, "corr.com", cdx)
+    _assign(conn, "corr.com", cdx, 2000, "cdx_timestamp", "20000101000000")
+    record_evidence(conn, "corr.com", art, 2000, "artifact_listing", "isc-2000")
     # unverified candidate
     add_candidate(conn, "cand.org", cdx)
     return conn
@@ -33,16 +48,74 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
 
 def test_collect_stats_counts() -> None:
     stats = collect_stats(_populated_db())
-    assert stats["netnew_domains"] == 1
-    assert stats["netnew_pairs_total"] == 2
-    assert stats["netnew_pairs_by_year"] == {1998: 1, 1999: 1}
+    assert stats["netnew_domains"] == 2
+    assert stats["netnew_pairs_total"] == 3
+    assert stats["netnew_pairs_by_year"] == {1998: 1, 1999: 1, 2000: 1}
     assert stats["baseline_domains"] == 2
-    assert stats["total_domains"] == 4
-    assert stats["total_pairs"] == 4
+    assert stats["total_domains"] == 5
+    assert stats["total_pairs"] == 5
     assert stats["candidate_pool"] == 1
+
+
+def test_corroboration_counts_distinct_master_sources() -> None:
+    stats = collect_stats(_populated_db())
+    assert stats["evidence_rows"] == 9
+    assert list(stats["evidence_rows_by_type"].items()) == [
+        ("cdx_timestamp", 5),
+        ("prior_reused", 2),
+        ("artifact_listing", 1),
+        ("link_target", 1),
+    ]
+    # base.com/1997 and corr.com/2000 each have two master sources; the
+    # same-source duplicate and the link_target row add no source
+    assert stats["avg_sources_per_pair"] == 1.4
+    assert stats["corroborated_pairs"] == 2
+    assert stats["baseline_corroborated"] == 1
+
+
+def test_candidate_only_evidence_never_corroborates() -> None:
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    link = ensure_source(conn, "ukwa_link", "candidate_only")
+    add_candidate(conn, "foo.com", cdx)
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    record_evidence(conn, "foo.com", link, 1998, "link_target", "graph-row")
+
+    stats = collect_stats(conn)
+    assert stats["corroborated_pairs"] == 0
+    assert stats["avg_sources_per_pair"] == 1.0
+
+
+def test_same_source_rows_count_once() -> None:
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    add_candidate(conn, "foo.com", cdx)
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    record_evidence(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980202000000")
+
+    stats = collect_stats(conn)
+    # two rows, one source: not corroborated
+    assert stats["corroborated_pairs"] == 0
+    assert stats["avg_sources_per_pair"] == 1.0
+
+
+def test_netnew_pair_survives_unrelated_baseline_year() -> None:
+    conn = _fresh_db()
+    prior = ensure_source(conn, "prior_task", "timestamped")
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    add_candidate(conn, "foo.com", prior)
+    _assign(conn, "foo.com", prior, 1996, "prior_reused", "1996.txt")
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+
+    stats = collect_stats(conn)
+    # 1998 is net-new even though the domain is in the baseline for 1996
+    assert stats["netnew_pairs_by_year"] == {1998: 1}
+    assert stats["netnew_domains"] == 0
 
 
 def test_format_stats_renders() -> None:
     out = format_stats(collect_stats(_populated_db()))
     assert "net-new domains" in out
     assert "1998: 1" in out
+    assert "cross-source corroboration" in out
+    assert "avg sources per assigned pair" in out

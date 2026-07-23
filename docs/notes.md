@@ -180,13 +180,21 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - 224 files, 4.38M lines, 2.16M distinct domains, 2,278,722 (domain, year) pairs with capture timestamps; runtime 2:00 min end to end
   - 99.992% of those pairs were already in the baseline: net-new = 175 domains / 182 pairs
   - conclusion: the baseline was evidently mined from the IA Wayback index for 1996-1999, so IA-derived bulk sources corroborate the baseline rather than grow it
-  - the corroboration is itself a deliverable: 2.28M baseline pairs now carry independent capture-level evidence with a Wayback URL each (previously `prior_reused` only), which is the cross-validation obligation arriving early and at scale
+  - the corroboration is itself a deliverable: 2.28M baseline pairs now carry a second capture-level source (a Wayback URL each), previously `prior_reused` only, which is the cross-validation obligation arriving early and at scale (honesty caveat below: both sources are IA-derived, so this is cross-source, not yet provenance-independent, corroboration)
   - strategy consequence: net-new volume must come from non-IA-derived sources; next in line are the ISC survey lists (DNS-observed, independent of web archives; the Jul 1997 list holds 1.3M domains against 220k in the 1997 baseline) and webbase-2001 (an independent Stanford crawl)
 
 - **All 175 net-new domains are www-label registrations (finding)**
   - every single one is the label `www` registered directly under a public suffix (`www.cl`, `www.com.pk`, `www.mil.lv`); these are real registrable domains per the PSL, with live captures (5 of 5 spot-checked against web.archive.org, all resolving)
   - likely dropped by the prior work's normalization: stripping `www.` unconditionally turns `www.cl` into the bare suffix `cl`, which is then rejected and the domain disappears; our canonicalizer splits against the PSL first, so the registration survives
   - kept: they satisfy every signed-off validity and evidence rule; flagged as a class in the report
+
+- **Corroboration metric in `ark stats` (for the report)**
+  - the `evidence` table holds one row per (domain, year) per source, so a pair can carry several sources; no schema change was needed to track cross-validation (`domain_year` keeps its single representative FK, which is the evidence wall)
+  - `ark stats` now reports, over all asserted (domain, year) pairs: total evidence rows, average distinct master-eligible sources per pair, count of pairs with 2+ sources, how many of those were already in the baseline, and a per-evidence-type row count
+  - only master-eligible evidence corroborates; candidate-only (`link_target`) rows are excluded (they do not prove existence), enforced by filtering to the master types drawn from `evidence_types.MASTER_TYPES` so code and taxonomy cannot drift
+  - net-new is defined over the evidence table too: a (domain, year) is net-new iff it is assigned and has no `prior_reused` evidence for that year, which is robust regardless of which row made the assignment (the earlier "assigned row's type" test agreed only by ingest order)
+  - **honesty caveat (state it in the report):** "sources" means distinct source rows, not independent provenance. Today's figures (avg 1.33 sources/pair, 2,278,540 pairs with 2+ sources) are entirely baseline-vs-Early-Web, and both trace to the Internet Archive, so this is cross-source coverage, not provenance-independent confirmation. Genuinely independent corroboration begins when the non-IA sources land (ISC = DNS survey, webbase = Stanford crawl)
+  - every `ark stats` run writes the exact figures to `run_metrics` (command `stats`), so the reported numbers leave a timestamped audit trail (the execution-log obligation)
 
 - **Audit policy for bulk sources (decision)**
   - every dropped line is written to the per-source audit CSV (completeness for the audit deliverable; early_web produced 1.22M drops, mostly era-typical bare-IP captures, a 131 MB CSV), corrections are sampled with exact totals in run_metrics

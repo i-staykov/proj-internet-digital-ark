@@ -13,6 +13,7 @@ from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.export import export_all
 from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
+from ark.metrics import record_metrics
 from ark.seed import seed_from_file
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
@@ -162,7 +163,10 @@ def audit(
 def stats() -> None:
     """Print the scoreboard: net-new counts on top of the baseline."""
     conn = connect()
-    typer.echo(format_stats(collect_stats(conn)))
+    scoreboard = collect_stats(conn)
+    typer.echo(format_stats(scoreboard))
+    # the exact reported figures leave a timestamped audit trail
+    record_metrics(conn, "stats", "scoreboard", scoreboard)
 
 
 def main() -> None:
