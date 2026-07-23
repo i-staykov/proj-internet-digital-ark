@@ -85,3 +85,20 @@ def test_assign_year_rejects_unknown_evidence() -> None:
     conn, _ = _db_with_source()
     with pytest.raises(ValueError, match="unknown evidence_id"):
         assign_year(conn, 424242)
+
+
+def test_assign_year_refuses_candidate_only_evidence() -> None:
+    conn, sid = _db_with_source()
+    domain = add_candidate(conn, "linked.com", sid)
+    eid = record_evidence(conn, domain, sid, 1999, "link_target", "graph-row")
+    # the taxonomy wall: candidate-only evidence can never reach domain_year
+    with pytest.raises(ValueError, match="candidate-only"):
+        assign_year(conn, eid)
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+
+
+def test_ensure_source_refuses_kind_change() -> None:
+    conn = _fresh_db()
+    ensure_source(conn, "some_source", "timestamped")
+    with pytest.raises(ValueError, match="registered as timestamped"):
+        ensure_source(conn, "some_source", "candidate_only")

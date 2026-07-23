@@ -12,10 +12,40 @@ from pathlib import Path
 import duckdb
 
 from ark.canonical import to_registrable
+from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
 
-SCHEMA_SQL = """
+_EVIDENCE_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(ALL_TYPES))
+
+# evidence and domain_year are defined separately so the taxonomy migration
+# below can recreate them from the exact same DDL
+_EVIDENCE_TABLE_SQL = f"""
+CREATE TABLE IF NOT EXISTS evidence (
+    evidence_id        BIGINT PRIMARY KEY DEFAULT nextval('evidence_seq'),
+    domain             TEXT NOT NULL REFERENCES domain(domain),
+    source_id          INTEGER NOT NULL REFERENCES source(source_id),
+    evidence_year      INTEGER NOT NULL CHECK (evidence_year BETWEEN 1996 AND 2001),
+    evidence_type      TEXT NOT NULL CHECK (evidence_type IN ({_EVIDENCE_TYPE_LIST})),
+    evidence_value     TEXT NOT NULL,
+    evidence_url       TEXT,
+    acquisition_method TEXT,
+    captured_at        TIMESTAMPTZ,
+    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+"""
+
+_DOMAIN_YEAR_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS domain_year (
+    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
+    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (domain, assigned_year)
+)
+"""
+
+SCHEMA_SQL = f"""
 CREATE SEQUENCE IF NOT EXISTS source_seq START 1;
 
 CREATE TABLE IF NOT EXISTS source (
@@ -35,28 +65,17 @@ CREATE TABLE IF NOT EXISTS domain (
 
 CREATE SEQUENCE IF NOT EXISTS evidence_seq START 1;
 
-CREATE TABLE IF NOT EXISTS evidence (
-    evidence_id        BIGINT PRIMARY KEY DEFAULT nextval('evidence_seq'),
-    domain             TEXT NOT NULL REFERENCES domain(domain),
-    source_id          INTEGER NOT NULL REFERENCES source(source_id),
-    evidence_year      INTEGER NOT NULL CHECK (evidence_year BETWEEN 1996 AND 2001),
-    evidence_type      TEXT NOT NULL CHECK (evidence_type IN (
-                           'cdx_timestamp', 'snapshot_date', 'dated_directory',
-                           'dated_index', 'whois_creation', 'edgar_filing',
-                           'prior_reused', 'other')),
-    evidence_value     TEXT NOT NULL,
-    evidence_url       TEXT,
-    acquisition_method TEXT,
-    captured_at        TIMESTAMPTZ,
-    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+{_EVIDENCE_TABLE_SQL};
 
-CREATE TABLE IF NOT EXISTS domain_year (
-    domain        TEXT    NOT NULL REFERENCES domain(domain),
-    assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
-    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
-    verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (domain, assigned_year)
+{_DOMAIN_YEAR_TABLE_SQL};
+
+CREATE TABLE IF NOT EXISTS ingested_file (
+    source_name TEXT NOT NULL,
+    file_name   TEXT NOT NULL,
+    sha256      TEXT NOT NULL,
+    record_rows BIGINT NOT NULL,
+    ingested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_name, file_name)
 );
 """
 
@@ -70,16 +89,64 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
 
 
 def init_db(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the tables and constraints. Safe to run repeatedly."""
+    """Create the tables and constraints. Safe to run repeatedly.
+
+    Also upgrades a store whose evidence CHECK predates the signed-off
+    taxonomy: the constraint cannot be altered in place, so the affected
+    tables are rebuilt and refilled inside one transaction.
+    """
     for statement in filter(str.strip, SCHEMA_SQL.split(";")):
         conn.execute(statement)
+    if not _evidence_check_is_current(conn):
+        _migrate_evidence_types(conn)
+
+
+def _evidence_check_is_current(conn: duckdb.DuckDBPyConnection) -> bool:
+    """True when the evidence CHECK constraint lists every taxonomy type."""
+    rows = conn.execute(
+        "SELECT constraint_text FROM duckdb_constraints() "
+        "WHERE table_name = 'evidence' AND constraint_type = 'CHECK'"
+    ).fetchall()
+    text = " ".join(row[0] for row in rows)
+    return all(f"'{name}'" in text for name in ALL_TYPES)
+
+
+def _migrate_evidence_types(conn: duckdb.DuckDBPyConnection) -> None:
+    """Rebuild evidence and domain_year under the current evidence-type list.
+
+    Transactional: an interrupted migration leaves the old tables untouched.
+    Sequences are preserved, so evidence ids never repeat across the rebuild.
+    """
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        conn.execute("CREATE TEMP TABLE _evidence_copy AS SELECT * FROM evidence")
+        conn.execute("CREATE TEMP TABLE _domain_year_copy AS SELECT * FROM domain_year")
+        conn.execute("DROP TABLE domain_year")
+        conn.execute("DROP TABLE evidence")
+        conn.execute(_EVIDENCE_TABLE_SQL)
+        conn.execute(_DOMAIN_YEAR_TABLE_SQL)
+        conn.execute("INSERT INTO evidence SELECT * FROM _evidence_copy")
+        conn.execute("INSERT INTO domain_year SELECT * FROM _domain_year_copy")
+        conn.execute("DROP TABLE _evidence_copy")
+        conn.execute("DROP TABLE _domain_year_copy")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def ensure_source(conn: duckdb.DuckDBPyConnection, name: str, kind: str) -> int:
-    """Get or create a source by name and return its id."""
-    row = conn.execute("SELECT source_id FROM source WHERE name = ?", [name]).fetchone()
+    """Get or create a source by name and return its id.
+
+    A name re-registered with a different kind is refused, so the source
+    table can never silently misdescribe a source's semantics.
+    """
+    row = conn.execute("SELECT source_id, kind FROM source WHERE name = ?", [name]).fetchone()
     if row is not None:
-        return row[0]
+        source_id, existing_kind = row
+        if existing_kind != kind:
+            raise ValueError(f"source {name} is registered as {existing_kind}, not {kind}")
+        return source_id
     return conn.execute(
         "INSERT INTO source (name, kind) VALUES (?, ?) RETURNING source_id",
         [name, kind],
@@ -129,15 +196,18 @@ def assign_year(conn: duckdb.DuckDBPyConnection, evidence_id: int) -> bool:
     """Assign the (domain, year) named by an evidence row to that year's file.
 
     Domain and year come from the evidence itself, so an assignment backed by
-    the wrong proof cannot be expressed. Returns False if already assigned.
+    the wrong proof cannot be expressed, and candidate-only evidence is
+    refused outright (the taxonomy wall). Returns False if already assigned.
     """
     row = conn.execute(
-        "SELECT domain, evidence_year FROM evidence WHERE evidence_id = ?",
+        "SELECT domain, evidence_year, evidence_type FROM evidence WHERE evidence_id = ?",
         [evidence_id],
     ).fetchone()
     if row is None:
         raise ValueError(f"unknown evidence_id: {evidence_id}")
-    domain, year = row
+    domain, year, evidence_type = row
+    if evidence_type in CANDIDATE_ONLY_TYPES:
+        raise ValueError(f"candidate-only evidence ({evidence_type}) cannot assign a year")
     inserted = conn.execute(
         "INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id) "
         "VALUES (?, ?, ?) RETURNING domain",

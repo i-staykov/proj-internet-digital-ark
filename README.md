@@ -1,94 +1,61 @@
-# Internet Digital Ark Project
+# Internet Digital Ark
 
-A reproducible pipeline for collecting historical **domain names for 1996–2001**, where every domain in a yearly file is backed by **item-level, per-year evidence**. For example, a Wayback/CDX timestamp, a dated snapshot, or a WHOIS creation date. It grows an existing ~8.2M-domain baseline, and its output is a **separate, verifiable set of net-new additions** (the baseline is never modified).
+A reproducible pipeline that collects historical **domain names for 1996–2001**, each backed by **item-level, per-year evidence** (an archive capture, a dated index, or a WHOIS creation date). It grows a provided ~8.2M-domain baseline and ships its additions as a **separate, verifiable set**; the baseline is never modified.
 
-> This is a student trial project. See `docs/notes.md` for further documentation.
+> This is a student trial project. See `docs/notes.md` for more details.
 
 ## Requirements
 
-- **[`uv`](https://docs.astral.sh/uv/)** — manages Python, the virtual environment, dependencies, and the lockfile. Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`. Python itself is installed automatically by `uv` (pinned to 3.12 via `.python-version`).
-- **Optional: [`just`](https://github.com/casey/just)** - Makefile for python, command runner for the shortcuts below (`brew install just`). Everything also works with plain `uv run`.
+[`uv`](https://docs.astral.sh/uv/) only — it installs Python 3.12, the dependencies, and their locked versions. Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`, then `uv sync`. Every command below runs under `uv run` with nothing else installed; the optional [`just`](https://github.com/casey/just) wraps the same commands.
 
-## Setup
+## Reproduce the processing
 
-```bash
-uv sync            # create .venv and install the exact locked dependencies
-uv run ark init    # create the local databases (data/ark.duckdb + data/queue.sqlite)
-```
-
-## Commands
-
-| Task | With `just` | Raw (only `uv` needed) |
-|---|---|---|
-| Run the CLI | `just run …` | `uv run ark …` |
-| Tests | `just test` | `uv run pytest` |
-| Lint | `just lint` | `uv run ruff check .` |
-| Format | `just fmt` | `uv run ruff format .` |
-| Full check | `just check` | `uv run ruff check . && uv run ruff format --check . && uv run pytest` |
-
-The raw `uv run` commands are the **reproducibility contract** (they work with only `uv` installed); `just` is convenience. CI runs the same `check` sequence on every push and PR.
-
-The pipeline runs as ordered stages: `ark seed` → `ark verify` → `ark download` → `ark export`. Run `ark --help` for the full list.
-
-`uv run ark stats` prints the scoreboard at any time: how many domains and (domain, year) pairs have been added on top of the provided baseline, per year, plus the size of the unverified candidate pool.
-
-### Collecting
+Place the provided baseline in `./legacy-data/` (the six year `.txt` files and the one `.csv`), then run the stages in order:
 
 ```bash
-uv run ark seed <file> [--limit N]   # canonicalize a seed file, register candidates,
-                                     # queue domains the store has never seen
-uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
+uv run ark init            # create the local databases
+uv run ark ingest-legacy   # load the baseline read-only (~2 min)
+uv run ark legacy-review   # write output/legacy_review/dropped_domains.txt
+uv run ark audit           # write the normalization/salvage audit CSV
+
+uv run ark ingest <source> <files...>   # bulk sources that carry a date in the file
+uv run ark seed <file> [--limit N]      # year-unlabelled sources -> candidate pool
+uv run ark verify [--batch-size N]      # prove candidates year-by-year via the IA CDX API
+
+uv run ark export          # write the deliverable (see Structure)
+uv run ark stats           # scoreboard: additions on top of the baseline
 ```
 
-Seeding is idempotent: re-running the same file adds nothing twice, and lines already known (baseline or earlier runs) are skipped. The per-file result is logged as a funnel: `lines / invalid / already_known / new_candidates / enqueued`. Queued domains wait in the crash-safe work queue for `ark verify`.
+Every stage is re-runnable and resumable: re-running skips work already done, so an interrupted run is finished by running it again. Each run appends to a log in `data/logs/`. Run `uv run ark --help` for all commands and their arguments.
+
+External bulk sources are downloaded into `data/raw/` first. For example, the Internet Archive Early Web CDX dataset (the first `ingest` source, `early_web`):
 
 ```bash
-uv run ark verify [--batch-size N]   # check queued domains year-by-year against the IA CDX index
-uv run ark export                    # write the result files (see below)
-uv run ark audit                     # normalization/salvage audit CSV over the baseline files
+uvx --from internetarchive ia download early-web_cdx-lang-cdxa \
+    --glob='*.cdx.gz' --destdir=data/raw/early_web --no-directories
+uv run ark ingest early_web data/raw/early_web/*.cdx.gz
 ```
 
-`ark export` writes three things: the **net-new additions** per year plus their `evidence_manifest.csv` (with a Wayback link per line) to `output/netnew/`, the unverified **candidates** to `output/candidate_unverified.txt`, and the large **merged master lists** (baseline + additions) to the git-ignored `data/exports/`. Every run of any command also appends to a permanent execution log in `data/logs/`.
+**Reproducibility.** `uv.lock` pins exact dependency versions and the Public Suffix List is vendored in the repo, so canonicalization and the baseline processing are deterministic on any machine; only the live-archive queries depend on network state. `uv run` is the contract (works with only `uv` installed); CI runs lint, format-check, and tests on every push.
 
-Every command documents itself: `uv run ark --help` lists all commands, `uv run ark seed --help` shows the arguments of one. Add `-v` before a command (`uv run ark -v seed ...`) for debug logging.
+## Structure
 
-## Verify it works
-
-```bash
-uv sync
-uv run ark --help   # lists the pipeline commands
-just check          # lint + format-check + tests, all green
-```
-
-## Data
-
-The `legacy-data/` baseline (~1.2 GB) is expected at `./legacy-data/`. It is **git-ignored** (too large for GitHub) so clone the code, then drop the data folder in place.
-
-Our own results in `output/` **are** committed: they are small and they are the project's work product. Intermediate artifacts (the DuckDB database, downloaded pages) live in the git-ignored `data/`.
-
-# Baseline ingest and review
-
-With `legacy-data/` in place (the `.txt` files and the one `.csv`), load the provided baseline and audit it:
-
-```bash
-uv run ark init             # create the local databases
-uv run ark ingest-legacy    # canonicalize + load the six year files (~2 min)
-uv run ark legacy-review    # write output/legacy_review/dropped_domains.txt (~2 min)
-```
-
-Every line passes through one canonicalizer (`src/ark/canonical.py`) that reduces hosts to registered domains using the vendored PSL snapshot plus a documented list of retired ccTLDs (`.yu`, `.an`, ...). Lines that cannot be a registered domain are dropped; `dropped_domains.txt` lists every one of them, grouped by reason, and rerunning the commands above reproduces the file exactly on any machine.
-
-
-## Layout
+Only `output/` is committed — it is the work product. Everything large stays under the git-ignored `data/` and `legacy-data/`.
 
 ```
-├── pyproject.toml          # project metadata, dependencies, tool config
-├── uv.lock                 # exact pinned versions (reproducibility)
-├── justfile                # task shortcuts
-├── .github/workflows/ci.yml
-├── src/ark/                # the package (pipeline modules + CLI)
-├── tests/                  # pytest suite (network mocked)
-├── legacy-data/            # provided baseline, git-ignored (not in repo)
-├── data/                   # local DuckDB + intermediate artifacts, git-ignored
-└── docs/                   # task brief and project notes
+output/
+├── netnew/                    # the additions: one file per year (1996..2001)
+│   └── evidence_manifest.csv  # every addition traced to its evidence (+ a Wayback link)
+├── candidate_unverified.txt   # domains awaiting per-year evidence
+└── legacy_review/
+    └── dropped_domains.txt    # every excluded baseline line, grouped by reason
+
+data/            # git-ignored: DuckDB store, work queue, downloaded sources (raw/),
+                 # audit CSVs (reports/), merged master lists (exports/), logs/
+legacy-data/     # git-ignored: the provided baseline, dropped in (not in the repo)
+src/ark/         # the pipeline package and the `ark` CLI
+tests/           # pytest suite (network mocked)
+docs/            # task brief, plan, notes
 ```
+
+`ark export` writes the committed additions to `output/netnew/` and the large **merged master lists** (baseline + additions) to the git-ignored `data/exports/` for the delivery archive.

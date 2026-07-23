@@ -34,3 +34,23 @@ def test_seed_takes_positional_path(tmp_path, monkeypatch) -> None:
 def test_seed_rejects_missing_file() -> None:
     result = runner.invoke(app, ["seed", "no-such-file.txt"])
     assert result.exit_code != 0
+
+
+def test_ingest_runs_on_cdx_file(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    fixture = tmp_path / "sample.cdx"
+    fixture.write_text(
+        "com,example)/ 19970601120000 http://example.com:80/ text/html 200 B - - 9 f.arc.gz\n",
+        encoding="utf-8",
+    )
+    assert runner.invoke(app, ["init"]).exit_code == 0
+    result = runner.invoke(app, ["ingest", "early_web", str(fixture)])
+    assert result.exit_code == 0
+
+
+def test_ingest_rejects_unknown_source(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    fixture = tmp_path / "sample.cdx"
+    fixture.write_text("x\n", encoding="utf-8")
+    result = runner.invoke(app, ["ingest", "no_such_source", str(fixture)])
+    assert result.exit_code != 0

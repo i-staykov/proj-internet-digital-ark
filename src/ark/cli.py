@@ -8,11 +8,13 @@ import typer
 from loguru import logger
 
 from ark.audit import write_audit
+from ark.bulk import ingest_files
 from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.export import export_all
 from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.seed import seed_from_file
+from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
 from ark.verify import verify_batch
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
@@ -75,6 +77,30 @@ def legacy_review_cmd(
     """Write the grouped droplist of baseline lines the pipeline excludes."""
     counts = review_legacy(legacy_dir)
     logger.info(f"see {DEFAULT_DROPLIST_PATH} ({sum(counts.values())} distinct entries)")
+
+
+@app.command(name="ingest")
+def ingest_cmd(
+    source: Annotated[
+        str, typer.Argument(help=f"Bulk source key: one of {', '.join(sorted(SOURCES))}.")
+    ],
+    files: Annotated[
+        list[Path],
+        typer.Argument(help="Source files to ingest (gzip ok).", exists=True, readable=True),
+    ],
+) -> None:
+    """Ingest bulk source files through the shared audited loader.
+
+    Idempotent per file: a file already in the ledger is skipped whole.
+    Example: ark ingest early_web data/raw/early_web/*.cdx.gz
+    """
+    spec = SOURCES.get(source)
+    if spec is None:
+        raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
+    conn = connect()
+    init_db(conn)
+    queue_conn = connect_queue()
+    ingest_files(conn, spec, files, queue_conn=queue_conn)
 
 
 @app.command()
