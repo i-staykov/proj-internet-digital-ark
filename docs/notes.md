@@ -173,6 +173,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - audit CSV per source in the `ark audit` format: every dropped line, corrections sampled at 100 per reason per file, exact totals in run_metrics; audit rows reach the CSV only after the file's transaction commits
   - a failing file is logged and skipped, the rest of the run continues; candidate queueing derives from durable evidence rows, so re-running the command repairs any crash window
   - the evidence CHECK constraint was migrated to the signed-off taxonomy (transactional rebuild + refill; store backed up first as `data/ark.duckdb.bak-pre-taxonomy`); `assign_year` now refuses candidate-only evidence outright, closing the one unguarded path into `domain_year`
+    - the migration was a one-time upgrade of the single existing store; its code + test and the backup were removed once it succeeded (a fresh clone builds the taxonomy schema directly, so nothing needs upgrading)
   - validation: 87 tests green; 3 independent adversarial review passes (data integrity, taxonomy compliance, scale) ran before the code touched real data, and every finding was fixed the same night
 
 - **Early Web CDX ingested: near-total baseline overlap (finding)**
