@@ -40,10 +40,10 @@ uv run ark ingest early_web data/raw/early_web/*.cdx.gz
 
 ## Structure
 
-Only `output/` is committed — it is the work product. Everything large stays under the git-ignored `data/` and `legacy-data/`.
+The repo holds code and docs only; all data stays out of git. `output/` is the generated deliverable — git-ignored and regenerable via `ark export`, shipped in the delivery archive.
 
 ```
-output/
+output/          # git-ignored, regenerable via `ark export`; shipped in the archive
 ├── netnew/                    # the additions: one file per year (1996..2001)
 │   └── evidence_manifest.csv  # every addition traced to its evidence (+ a Wayback link)
 ├── candidate_unverified.txt   # domains awaiting per-year evidence
@@ -58,4 +58,4 @@ tests/           # pytest suite (network mocked)
 docs/            # task brief, plan, notes
 ```
 
-`ark export` writes the committed additions to `output/netnew/` and the large **merged master lists** (baseline + additions) to the git-ignored `data/exports/` for the delivery archive.
+`ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.

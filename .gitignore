@@ -15,10 +15,13 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
-# Data policy — big data stays out of git; only our small net-new deliverable goes in.
-# NEVER commit (GitHub rejects >100MB files); big input/intermediate data:
+# Data policy — big data stays out of git; the repo commits code + docs only.
+# The net-new deliverable (output/) grew large once real sources landed, so it
+# now ships in the delivery archive, regenerable on any machine via `ark export`.
+# NEVER commit (GitHub rejects >100MB files); big input/intermediate/output data:
 legacy-data/
 /data/
+output/
 *.duckdb
 *.duckdb.wal
 *.parquet

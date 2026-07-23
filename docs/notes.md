@@ -13,6 +13,7 @@ Short notes on why I made certain architectural design choices. Details belong i
   - unit tests only, network mocked: keeps CI fast and deterministic
 - **Large data stays out of git**
   - legacy baseline (~1.2 GB) and intermediates are ignored; only net-new output + evidence manifest get committed
+  - superseded 2026-07-23: `output/` is now git-ignored too (it grew to ~96 MB once real sources landed); see the 2026-07-23 policy entry
 - **Baseline never modified, output is disjoint net-new**
   - legacy files load read-only for dedup; our additions ship separately so the group can verify before merging
 - **DuckDB + SQLite**, one per workload
@@ -188,6 +189,27 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - likely dropped by the prior work's normalization: stripping `www.` unconditionally turns `www.cl` into the bare suffix `cl`, which is then rejected and the domain disappears; our canonicalizer splits against the PSL first, so the registration survives
   - kept: they satisfy every signed-off validity and evidence rule; flagged as a class in the report
 
+- **ISC survey ingested: the first large net-new tranche (finding)**
+  - 5 files, 2.45M lines, ~15s; the Jul 1995 file was skipped whole (pre-window; ledger row with 0 records)
+  - net-new jumped from 183 domains / 193 pairs to **397,151 domains / 1,132,322 pairs**, dominated by 1997 (1,035,854 net-new pairs)
+  - why 1997 explodes: the Jul 1997 ISC survey lists 1.21M in-window domains against only 219,918 in the 1997 baseline (IA barely archived 1997), so ~1.03M are net-new; verified by sampling (e.g. `00.co.nz` carries only ISC 1997 evidence; `microsoft.com/1997` correctly stays non-net-new, backed by prior_reused + cdx + isc)
+  - this is the point of a DNS-derived source: ISC is independent of the Internet Archive, so unlike Early Web it GROWS the baseline instead of only corroborating it
+  - **the whole tranche rests on the `artifact_listing` evidence type** (domain observed in DNS with >=1 host on the survey date), which is flagged for Prof. Ding's confirmation. If he accepts DNS-survey presence as year evidence, net-new is 1.13M pairs; if not, ISC becomes candidate seeds. The interim email must ask this explicitly, because it is the difference between ~1.13M and ~193 net-new pairs.
+  - first provenance-independent corroboration: ISC also supplies evidence for ~530k already-assigned pairs, so those baseline pairs are now confirmed by a genuinely non-IA source (the earlier Early Web corroboration was IA-on-IA)
+  - the Jul 1996 `.org` host list (`wb_nw_9607_org`) added only 14 net-new pairs, near-redundant with the 9607 domains list (its .org domains were already there); kept and documented as low-yield
+  - evidence caveat for the report: "seen in DNS with >=1 host on the survey date" is narrower than the full registry zone but arguably stronger than an archive capture as proof a domain existed; state the semantics plainly
+
+- **Net-new output moved out of git (policy change, Ivo approved)**
+  - the committed deliverable premise ("net-new is small") no longer holds: after ISC, `output/` is ~96 MB (`evidence_manifest.csv` 80 MB, `1997.txt` 14 MB) and growing with every source, heading for GitHub's 100 MB limit
+  - `output/` is now git-ignored and ships in the Phase 7 delivery archive, regenerable on any machine via `ark export` (same treatment the merged masters in `data/exports/` already get); the repo commits code + docs only
+  - reproducibility is unaffected: the method is in git, the data regenerates from `ingest-legacy` + `ingest` + `export`
+
+- **"net-new domains" vs "net-new pairs" are different metrics (verified, not a bug)**
+  - net-new domains (397,151) = domains entirely absent from the baseline; net-new pairs (1,132,322) = new (domain, year) facts, which include new years for domains that ARE in the baseline for other years
+  - 1997 shows the split most: of 1,035,854 net-new 1997 pairs, 651,214 are baseline domains getting their missing 1997 year (IA barely archived 1997), 384,640 are brand-new domains
+  - no double-counting: `domain_year` PK is (domain, year), 1997 has 1,255,772 rows = 1,255,772 distinct domains; and non-baseline domains (397,154) == net-new domains (397,151) + unassigned candidates (3), exactly
+  - open question for the report/Ding: is "the score" distinct net-new domains or net-new (domain, year) pairs? the scoreboard prints both; the deliverable is per-year files, which argues for pairs
+
 - **Corroboration metric in `ark stats` (for the report)**
   - the `evidence` table holds one row per (domain, year) per source, so a pair can carry several sources; no schema change was needed to track cross-validation (`domain_year` keeps its single representative FK, which is the evidence wall)
   - `ark stats` now reports, over all asserted (domain, year) pairs: total evidence rows, average distinct master-eligible sources per pair, count of pairs with 2+ sources, how many of those were already in the baseline, and a per-evidence-type row count
@@ -223,7 +245,7 @@ Two structural rules hold across all types:
 | Type | What one row asserts | What a negative means | Disposition |
 |---|---|---|---|
 | `prior_reused` | The provided baseline already lists this (domain, year); reused read-only per III.1 | n/a (we never generate baseline negatives) | Master; **excluded from the scored metric** (it is the baseline, not net-new) |
-| `cdx_timestamp` | An IA CDX capture with an in-year 14-digit timestamp and HTTP 200 for the domain or a subdomain (`*.domain`) proves it served content that year | Deterministic empty CDX answers for all six year windows: IA never archived it in-window (not proof of non-existence, so it stays a candidate) | Master; the gold standard every candidate is verified against |
+| `cdx_timestamp` | A web-archive CDX capture (IA, Arquivo.pt, ...; the `source` names which) with an in-year 14-digit timestamp and HTTP 200 for the domain or a subdomain (`*.domain`) proves it served content that year | Deterministic empty CDX answers for all six year windows: IA never archived it in-window (not proof of non-existence, so it stays a candidate) | Master; the gold standard every candidate is verified against |
 | `artifact_listing` | The domain is a line in a **dated data file** whose own provenance fixes the year (ISC survey list = survey date; ODP RDF dump = generation stamp) | Absence from a given dated file means only "not in that file", weaker than a CDX negative | Master (direct, §VII "dated index files"); ISC/ODP semantics flagged for Ding's confirmation in the interim email |
 | `link_source` | From a UKWA host link-graph row `year\|source\|target`, the **source** host was crawled (HTTP 200) that year to produce the link | n/a per-domain (the graph is precomputed, not queried) | Master (brief lists UKWA host/link graphs among its index sources, §V) |
 | `link_target` | From the same row, the **target** host was merely linked-to; this does **not** prove it existed or was active (dead links, typos, later registration are common) | n/a | **Candidate-only**; reaches masters only after per-domain verification (§IV/§VII route link-discovered hosts to the validation queue) |

@@ -4,7 +4,7 @@ import gzip
 from collections import Counter
 from pathlib import Path
 
-from ark.sources import SOURCES, parse_early_web_cdx
+from ark.sources import SOURCES, parse_early_web_cdx, parse_isc_survey
 
 CDX_LINES = [
     " CDX N b a m s c k r V v D d g M n",
@@ -57,4 +57,42 @@ def test_parser_reads_plain_text_too(tmp_path: Path) -> None:
 def test_early_web_is_registered_as_master_cdx_source() -> None:
     spec = SOURCES["early_web"]
     assert spec.evidence_type == "cdx_timestamp"
+    assert spec.is_candidate_only is False
+
+
+ISC_LINES = ["banc-agricol.ad", "1.2.3.4 test.eowyn.fr.eu.org", "", "ad"]
+
+
+def test_isc_reads_domains_and_host_lists(tmp_path: Path) -> None:
+    fixture = tmp_path / "wb_nw_9607.domains.gz"
+    fixture.write_bytes(gzip.compress(("\n".join(ISC_LINES) + "\n").encode("utf-8")))
+    stats: Counter = Counter()
+
+    records = list(parse_isc_survey(fixture, stats))
+
+    # survey date 9607 -> 1996; the last whitespace token is the host
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("banc-agricol.ad", 1996, "1996-07"),
+        ("test.eowyn.fr.eu.org", 1996, "1996-07"),
+        ("ad", 1996, "1996-07"),
+    ]
+    assert stats["lines"] == 4
+
+
+def test_isc_skips_pre_window_survey_file(tmp_path: Path) -> None:
+    # the Jul 1995 survey is before our window and must be skipped whole
+    fixture = tmp_path / "wb_nw_9507.domains.gz"
+    fixture.write_bytes(gzip.compress(b"foo.com\n"))
+    stats: Counter = Counter()
+
+    records = list(parse_isc_survey(fixture, stats))
+
+    assert records == []
+    assert stats["out_of_window_file"] == 1
+    assert stats["lines"] == 0
+
+
+def test_isc_is_registered_as_artifact_master() -> None:
+    spec = SOURCES["isc_survey"]
+    assert spec.evidence_type == "artifact_listing"
     assert spec.is_candidate_only is False
