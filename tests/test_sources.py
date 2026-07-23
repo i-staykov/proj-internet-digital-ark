@@ -4,7 +4,13 @@ import gzip
 from collections import Counter
 from pathlib import Path
 
-from ark.sources import SOURCES, parse_arquivo_cdxj, parse_early_web_cdx, parse_isc_survey
+from ark.sources import (
+    SOURCES,
+    parse_arquivo_cdxj,
+    parse_early_web_cdx,
+    parse_isc_survey,
+    parse_ukwa_link_source,
+)
 
 CDX_LINES = [
     " CDX N b a m s c k r V v D d g M n",
@@ -132,4 +138,69 @@ def test_arquivo_cdxj_filters_and_yields(tmp_path: Path) -> None:
 def test_arquivo_is_registered_as_cdx_master() -> None:
     spec = SOURCES["arquivo_roteiro"]
     assert spec.evidence_type == "cdx_timestamp"
+    assert spec.is_candidate_only is False
+
+
+UKWA_LINES = [
+    "1995|bssv01.lancs.ac.uk|www.env.uea.ac.uk\t2",
+    "1996|acorn.educ.nottingham.ac.uk|www.planete.net\t2",
+    "1998|albert.hep.ph.ic.ac.uk|www.clrc.ac.uk\t1",
+    "2001|foo.co.uk|bar.com\t5",
+    "malformed line without pipes",
+]
+
+
+def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
+    fixture = tmp_path / "host-linkage.tsv.gz"
+    fixture.write_bytes(gzip.compress(("\n".join(UKWA_LINES) + "\n").encode("utf-8")))
+    stats: Counter = Counter()
+
+    records = list(parse_ukwa_link_source(fixture, stats))
+
+    # only the source host, only in-window years; the 1995 row is dropped
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("acorn.educ.nottingham.ac.uk", 1996, "host_link_graph:1996"),
+        ("albert.hep.ph.ic.ac.uk", 1998, "host_link_graph:1998"),
+        ("foo.co.uk", 2001, "host_link_graph:2001"),
+    ]
+    assert stats["out_of_window"] == 1
+    assert stats["malformed"] == 1
+
+
+def test_ukwa_stops_after_the_window(tmp_path: Path) -> None:
+    # the graph is year-sorted; the parser breaks at the first post-2001 row
+    # (skipping the huge out-of-window tail and the truncated download end)
+    rows = [
+        "2000|a.co.uk|x.com\t1",
+        "2001|b.co.uk|y.com\t1",
+        "2002|c.co.uk|z.com\t1",
+        "2005|d.co.uk|w.com\t1",
+    ]
+    fixture = tmp_path / "host-linkage.tsv.gz"
+    fixture.write_bytes(gzip.compress(("\n".join(rows) + "\n").encode("utf-8")))
+    stats: Counter = Counter()
+
+    records = list(parse_ukwa_link_source(fixture, stats))
+
+    assert [(r.raw, r.year) for r in records] == [("a.co.uk", 2000), ("b.co.uk", 2001)]
+
+
+def test_ukwa_tolerates_truncated_gzip(tmp_path: Path) -> None:
+    rows = "\n".join(f"199{y}|host{y}.co.uk|t.com\t1" for y in range(6, 10)) + "\n"
+    blob = gzip.compress(rows.encode("utf-8"))
+    # lop off the gzip tail so decompression raises partway through
+    fixture = tmp_path / "host-linkage.tsv.gz"
+    fixture.write_bytes(blob[: len(blob) - 20])
+    stats: Counter = Counter()
+
+    # must not raise; yields the intact prefix and records the truncation
+    records = list(parse_ukwa_link_source(fixture, stats))
+
+    assert len(records) >= 1
+    assert stats["truncated_tail"] == 1
+
+
+def test_ukwa_link_source_is_master() -> None:
+    spec = SOURCES["ukwa_link_source"]
+    assert spec.evidence_type == "link_source"
     assert spec.is_candidate_only is False

@@ -137,6 +137,41 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+# the host link graph is sorted by year ascending, so once we pass the window
+# nothing in-window remains; this also stops before the truncated 2002+ tail of
+# our partial download (Wayback drops the 20.9 GB stream mid-transfer)
+_UKWA_LAST_YEAR = max(YEARS)
+
+
+def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the SOURCE host of each UKWA host-link-graph row as `link_source`.
+
+    Rows are `year|source_host|target_host<TAB>count`. The source host was
+    crawled (HTTP 200) that year to produce the link, so it is direct evidence;
+    the target host (a bare inbound link) is candidate-only and handled by a
+    separate Phase-3 source. The graph's granularity is the year.
+    """
+    with _open_text(path) as fh:
+        try:
+            for line in fh:
+                stats["lines"] += 1
+                parts = line.rstrip("\n").split("\t", 1)[0].split("|")
+                if len(parts) != 3 or not parts[0].isdigit():
+                    stats["malformed"] += 1
+                    continue
+                year = int(parts[0])
+                if year > _UKWA_LAST_YEAR:
+                    break
+                if year not in YEARS:
+                    stats["out_of_window"] += 1
+                    continue
+                yield BulkRecord(raw=parts[1], year=year, evidence_value=f"host_link_graph:{year}")
+        except (EOFError, OSError):
+            # a truncated gzip tail (the 2002+ region of our partial download);
+            # everything in-window was already yielded before this point
+            stats["truncated_tail"] += 1
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -158,5 +193,12 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="cdx_timestamp",
         acquisition_method="arquivo_cdxj",
         parse=parse_arquivo_cdxj,
+    ),
+    "ukwa_link_source": SourceSpec(
+        key="ukwa_link_source",
+        source_name="ukwa_link_source",
+        evidence_type="link_source",
+        acquisition_method="ukwa_host_link_graph",
+        parse=parse_ukwa_link_source,
     ),
 }

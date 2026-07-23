@@ -205,6 +205,14 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - value is corroboration not growth: +3,442 `cdx_timestamp` evidence rows (an Arquivo capture per domain, source `arquivo_roteiro`), 98 pairs newly reaching 2+ sources; and it is a second web archive (non-IA) for those pairs
   - validates the reusable CDXJ parser; informs the (Opt) `IA.cdxj` decision: Arquivo collections overlap heavily with what we already hold, so 51 GB of `IA.cdxj` is unlikely to be worth it unless a later gap analysis says otherwise
 
+- **UKWA host link graph ingested (link_source): complete for our window; recon size was overestimated (finding)**
+  - download is unreliable: Wayback serves the ~2.0 GB gz stream but advertises a 20.9 GB Content-Length (the decompressed size), serves no byte-ranges (no resume), and drops the connection mid-transfer (curl exit 18). Our copy is a partial download.
+  - it does not matter: the file is year-sorted ascending and 1996-2001 is its head, fully transferred before any truncation (verified: clean 2001->2002 transition at line ~166,890, and zero in-window rows in the next 5M lines). The parser breaks at the first post-2001 row, reading only the in-window head.
+  - the recon's "184k-10.9M links/year" was wrong for THIS file: 1996-2001 is only **~166,890 rows** total; the 20.9 GB decompressed bulk is 2002-2010 (out of window)
+  - yield: 32,865 unique (.uk-heavy) source domains, 39,454 `link_source` evidence rows, **+15,822 net-new domains / +23,821 net-new pairs**, concentrated in the thin later years ISC could not reach (1998 +944, 1999 +1,584, 2000 +2,595, 2001 +18,643)
+  - reproducibility: the partial-file checksum is not reproducible (truncation point varies), but the 1996-2001 content is deterministic (always the fully-transferred head); documented for the report
+  - consequence for Phase 3: `link_target` candidates are likewise bounded by ~167k rows, so a modest candidate pool
+
 - **Net-new output moved out of git (policy change, Ivo approved)**
   - the committed deliverable premise ("net-new is small") no longer holds: after ISC, `output/` is ~96 MB (`evidence_manifest.csv` 80 MB, `1997.txt` 14 MB) and growing with every source, heading for GitHub's 100 MB limit
   - `output/` is now git-ignored and ships in the Phase 7 delivery archive, regenerable on any machine via `ark export` (same treatment the merged masters in `data/exports/` already get); the repo commits code + docs only
