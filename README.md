@@ -24,6 +24,7 @@ uv run ark verify [--batch-size N]      # prove candidates year-by-year via the 
 
 uv run ark export          # write the deliverable (see Structure)
 uv run ark stats           # scoreboard: additions on top of the baseline
+uv run ark check           # integrity gate: fails (non-zero) if any invariant is violated
 ```
 
 Every stage is re-runnable and resumable: re-running skips work already done, so an interrupted run is finished by running it again. Each run appends to a log in `data/logs/`. Run `uv run ark --help` for all commands and their arguments.

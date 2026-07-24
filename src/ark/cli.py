@@ -9,6 +9,7 @@ from loguru import logger
 
 from ark.audit import write_audit
 from ark.bulk import ingest_files
+from ark.checks import collect_checks, format_checks
 from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.export import export_all
 from ark.ingest import ingest_legacy
@@ -167,6 +168,17 @@ def stats() -> None:
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
     record_metrics(conn, "stats", "scoreboard", scoreboard)
+
+
+@app.command()
+def check() -> None:
+    """Run integrity checks over the store; exit non-zero if any fails."""
+    conn = connect()
+    results = collect_checks(conn)
+    typer.echo(format_checks(results))
+    record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
+    if any(not r["ok"] for r in results):
+        raise typer.Exit(code=1)
 
 
 def main() -> None:
