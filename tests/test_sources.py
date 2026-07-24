@@ -1,4 +1,4 @@
-"""Early Web CDX parser: field handling, filters, per-file stats."""
+"""Bulk source parsers: field handling, filters, per-file stats, registration."""
 
 import gzip
 from collections import Counter
@@ -174,12 +174,11 @@ def test_afnic_emits_every_in_window_registered_year(tmp_path: Path) -> None:
     records = list(parse_afnic_fr(fixture, stats))
 
     pairs = {(r.raw, r.year) for r in records}
-    assert pairs == {
-        ("keep.fr", 1998), ("keep.fr", 1999), ("keep.fr", 2000), ("keep.fr", 2001),
-        ("wd.fr", 1997), ("wd.fr", 1998), ("wd.fr", 1999),
-        ("old.fr", 1996), ("old.fr", 1997), ("old.fr", 1998),
-        ("old.fr", 1999), ("old.fr", 2000), ("old.fr", 2001),
-    }
+    assert pairs == (
+        {("keep.fr", y) for y in (1998, 1999, 2000, 2001)}  # created 1998, still active
+        | {("wd.fr", y) for y in (1997, 1998, 1999)}  # withdrawn mid-1999
+        | {("old.fr", y) for y in range(1996, 2002)}  # created pre-window, active
+    )
     # every record carries its auditable registration interval, no year outside window
     assert all(r.evidence_value.startswith("registered ") for r in records)
     assert all(1996 <= r.year <= 2001 for r in records)
