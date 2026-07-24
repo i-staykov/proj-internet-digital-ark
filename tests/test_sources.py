@@ -141,6 +141,15 @@ def test_arquivo_is_registered_as_cdx_master() -> None:
     assert spec.is_candidate_only is False
 
 
+def test_arquivo_ia_shares_the_roteiro_parser_under_its_own_source_name() -> None:
+    spec = SOURCES["arquivo_ia"]
+    assert spec.source_name == "arquivo_ia"
+    assert spec.evidence_type == "cdx_timestamp"
+    assert spec.is_candidate_only is False
+    # same tested CDXJ parser, so no new parsing logic to trust
+    assert spec.parse is SOURCES["arquivo_roteiro"].parse
+
+
 UKWA_LINES = [
     "1995|bssv01.lancs.ac.uk|www.env.uea.ac.uk\t2",
     "1996|acorn.educ.nottingham.ac.uk|www.planete.net\t2",

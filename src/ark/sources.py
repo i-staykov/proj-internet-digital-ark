@@ -194,6 +194,15 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="arquivo_cdxj",
         parse=parse_arquivo_cdxj,
     ),
+    # the Internet Archive's donated Portuguese-web collection (1996-2007), same
+    # CDXJ format as Roteiro but a distinct source so provenance stays separate
+    "arquivo_ia": SourceSpec(
+        key="arquivo_ia",
+        source_name="arquivo_ia",
+        evidence_type="cdx_timestamp",
+        acquisition_method="arquivo_cdxj",
+        parse=parse_arquivo_cdxj,
+    ),
     "ukwa_link_source": SourceSpec(
         key="ukwa_link_source",
         source_name="ukwa_link_source",
