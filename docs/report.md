@@ -13,18 +13,18 @@ We grow the provided ~8.2M-line baseline with **net-new, evidence-backed** regis
 
 | Metric | Value |
 |---|--:|
-| Net-new registered domains (absent from baseline) | **462,394** |
-| Net-new (domain, year) pairs | **1,300,091** |
+| Net-new registered domains (absent from baseline) | **463,362** |
+| Net-new (domain, year) pairs | **1,302,722** |
 | Baseline domains (read-only) | 4,824,656 |
-| Total domains in store | 5,287,053 |
-| Total (domain, year) pairs in store | 8,167,004 |
-| Evidence rows | 11,041,061 |
+| Total domains in store | 5,288,021 |
+| Total (domain, year) pairs in store | 8,169,635 |
+| Evidence rows | 11,044,356 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 96,999 | 1,037,938 | 11,130 | 25,148 | 51,618 | 77,258 |
+| 97,031 | 1,038,067 | 11,384 | 25,697 | 52,415 | 78,128 |
 
 The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr` and materially by Arquivo `.pt` and the UK Web Archive.
 
@@ -44,7 +44,8 @@ The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1
 - **One row per (domain, year) per source.** The `evidence` table records every observation; a pair can carry several rows from several sources. This makes cross-source corroboration free (no schema change) and lets net-new be defined robustly over the evidence table (a pair is net-new iff it is assigned and carries no `prior_reused` evidence).
 - **Shared bulk ingester.** Every source is a small parser that yields `(raw, year, evidence_value, evidence_url)`; one audited loader handles canonicalization, set-based staging, evidence + `domain_year` writes, per-source audit CSVs, run metrics, and a **per-file sha256 ledger** (same name + same bytes skips; different bytes fails loudly). Per-file transactions; audit rows are written only after a file commits; a failed file is isolated and the run continues. Adversarially reviewed (3 passes) before first real use.
 - **Work queue (SQLite, WAL).** Crash-safe queue for the per-domain verification path; enqueue derives from durable evidence rows, so re-running repairs any crash window.
-- **Reproducibility.** `uv` + pinned lockfile + committed PSL; CI runs `ruff check`, `ruff format --check`, `pytest` (104 tests). Raw `uv run …` is the reproducibility contract; a `justfile` wraps it.
+- **Reproducibility.** `uv` + pinned lockfile + committed PSL; CI runs `ruff check`, `ruff format --check`, `pytest` (114 tests). Raw `uv run …` is the reproducibility contract; a `justfile` wraps it.
+- **Integrity gate (`ark check`).** Six read-only invariants over the whole store, exiting non-zero if any is violated: (1) the evidence wall is intact (every assignment points at an evidence row for the same domain and year); (2) no annual assignment is backed by candidate-only evidence; (3) every assigned pair has ≥1 master-eligible evidence row for that exact year; (4) no duplicate (domain, year); (5) every year in 1996–2001; (6) every stored domain is a well-formed registrable name. **All six pass** on the current store (5.28M domains / 8.17M pairs).
 
 ### Evidence types (standard of proof; what a negative means)
 
@@ -73,6 +74,8 @@ All figures are net-new **on top of the baseline** (measured per source; see not
 | UK Web Archive host link graph | `link_source` | 1996–2001 | +15,822 | +23,821 | mostly `.uk`; thin later years |
 | AFNIC `.fr` open data | `whois_creation` | 1996–2001 | +39,367 | +117,829 | registration-interval; thin years **5–6×** |
 | ODP / DMOZ dumps | `artifact_listing` | 2000–2001 | +3,339 | +8,423 | heavy baseline overlap; mostly 2000 |
+| Internet Scout archive | `dated_directory` | 1996–2001 | +137 | +311 | curated non-IA long tail; most records undated |
+| RDAP on UKWA link-targets | `whois_creation` | 1996–2001 | +831 | +2,320 | **Phase-4 engine**: undated candidates dated via RDAP, no CDX |
 
 **Key strategic finding:** the baseline is Internet-Archive-derived (Early Web CDX overlapped it 99.99%). Net-new volume therefore comes from **non-IA sources** — DNS surveys (ISC), national registries (`.fr`), and national web archives (`.pt`, `.uk`) — which is also why the additions are geographically complementary.
 
@@ -102,11 +105,15 @@ All figures are net-new **on top of the baseline** (measured per source; see not
 - **Per-year evidence, no forward-fill (III.7/III.1).** A domain enters a year file only with its own in-year evidence; first-appearance never infers later years. Cross-year duplication is required where independently evidenced.
 - **Net-new domains vs net-new pairs.** Distinct metrics: 462,394 domains are entirely absent from the baseline; 1,300,091 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
 - **Cross-source corroboration.** Average **1.35** master-eligible sources per assigned pair; **2,556,568** pairs carry ≥2 sources. Honesty caveat: most current corroboration is Internet-Archive-on-Internet-Archive (baseline + Early Web + Arquivo all trace to IA); genuinely provenance-independent corroboration comes from ISC (DNS) and AFNIC (registry), which is where it matters.
-- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 142,248 · `link_source` 39,454.
+- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 144,568 · `link_source` 39,454 · `dated_directory` 975.
 
 ## 5. CDX / verification execution notes
 
-Per-domain IA CDX verification was re-scoped to **one collapsed query per domain** (`collapse=timestamp:4`, measured 2026-07-22) rather than six. It has not yet been run at scale, because Phase 3 prioritized direct-evidence sources that need no verification. The Phase 4 verification engine is **RDAP-first**: registry RDAP/WHOIS returns exact creation years with no IA-CDX-style rate ceiling (Verisign answered in ~0.13 s in testing), so large *undated* candidate pools can be turned into dated `whois_creation` evidence far more cheaply than CDX-verifying each; collapsed CDX becomes the fallback for domains RDAP cannot date. When run, this section will report the tools used, seeds queried, batching, success rates, failure handling (per brief §VI: adapt batch size / concurrency / retry on 504/429, never quit), and net-new added.
+The Phase-4 verification engine is **RDAP-first** and is now implemented (`ark rdap`): registry RDAP returns exact registration years with no IA-CDX-style rate ceiling, so large *undated* candidate pools become dated `whois_creation` evidence far more cheaply than CDX-verifying each. A queryable RDAP record proves current registration, so (by the interval reasoning above) it dates every in-window year `[max(1996, creation), 2001]`.
+
+**First run — UKWA link-target candidates.** The 6,266 UKWA link-target hosts (linked-to in 1996–2001, previously candidate-only) that were not already held were run through `ark rdap`: of 6,246 queried, **811 dated in window (net-new), 1,351 created after 2001, 4,084 no longer registered / no RDAP** — **+831 net-new domains / +2,320 net-new pairs**, in the mid/thin years. The ~13% in-window hit rate reflects link-target ephemerality; a less ephemeral pool would hit higher. The command is resumable (skips already-tried domains) and scales to larger pools (Domains Project, webbase, `deduplicated_urls`).
+
+Per-domain IA CDX verification was re-scoped to **one collapsed query per domain** (`collapse=timestamp:4`, measured 2026-07-22) and is retained as the **fallback** for domains RDAP cannot date; it has not been run at scale. When run, it will report per brief §VI: tools, seeds queried, batching, success rates, failure handling (adapt batch size / concurrency / retry on 504/429, never quit), and net-new added.
 
 ## 6. Limitations & how to reproduce
 
@@ -135,5 +142,5 @@ Source URLs and exact rescue notes are per-source in [notes.md](notes.md). Downl
 
 ## Appendix — status of the plan
 
-**Done:** foundation + provenance store; baseline; seven direct-evidence bulk sources (above); evidence taxonomy; corroboration metric; the 2026-07-24 evidence ruling and source hunt.
-**Pending (Phase 4+):** RDAP-first verification engine; candidate verification (webbase, Domains Project, UKWA link targets, `deduplicated_urls`); sparse-year gap-fill (1998/1999); feedback loop; final QA sweep and archive packaging.
+**Done:** foundation + provenance store; baseline; nine sources (seven bulk + Internet Scout + RDAP-on-link-targets); evidence taxonomy; corroboration metric; the 2026-07-24 evidence ruling and source hunt; the `ark check` integrity gate (6 invariants, all pass); the `ark rdap` Phase-4 engine, demonstrated on UKWA link-targets.
+**Pending (Phase 4+):** scale RDAP to larger candidate pools (webbase, Domains Project, `deduplicated_urls`); collapsed CDX verify as fallback; sparse-year gap-fill (1998/1999); feedback loop; final archive packaging (merged lists, candidates, droplist, audit CSVs, provenance export, logs, Word report + checksum).

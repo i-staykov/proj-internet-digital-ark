@@ -301,6 +301,12 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - **low yield, stated honestly: 18,508 of 21,922 archive records carry NO `<dc:date>`** (verified genuinely absent, not a parse miss) and cannot be dated from this feed, so they are skipped; only the ~3,400 dated in-window records contribute. The 2026-07-24 hunt's ~2-5k estimate assumed per-record dates that mostly are not present
   - value: small, but a curated non-IA all-years long tail (scholarly / gov / edu / international). Reproduce: harvest the OAI feed (browser UA, follow `resumptionToken`), then `ark ingest internet_scout <file>`
 
+- **RDAP verification engine run on UKWA link-target candidates (`rdap`, `whois_creation`): +831 net-new domains / +2,320 net-new pairs (Phase-4 engine demonstrated end-to-end)**
+  - engine: `ark rdap` (`src/ark/rdap.py`) queries `rdap.org/domain/<d>` and reads the `registration` event year. A queryable record means currently registered, so per the `whois_creation` interval standard it assigns every in-window year in [max(1996, creation), 2001]. Offline-tested (injected fetch); resumable (skips already-tried domains)
+  - candidate pool: the **6,266 UKWA `link_target` hosts** (linked-to in 1996-2001, candidate-only) that were NOT already in the store, i.e. the deferred candidate side of the UKWA graph, turned into dated evidence with no IA CDX query at all
+  - result over 6,246 queried: **811 dated in-window (net-new), 1,351 registered but created after 2001, 4,084 no longer registered / no RDAP.** 831 distinct rdap domains, **+831 net-new domains / +2,320 net-new pairs**, concentrated in the mid/thin years (1998 +172, 1999 +492, 2000 +758, 2001 +831; 1996 +8, 1997 +59). Scoreboard 462,531 / 1,300,402 -> **463,362 / 1,302,722**. Each row records `rdap creation <year>`; `ark check` still passes
+  - significance: proves the Phase-4 strategy - undated candidate pools become dated `whois_creation` evidence via RDAP, far cheaper than CDX. The ~13% in-window hit rate reflects link-target ephemerality (many linked-to hosts are long deleted -> no RDAP, or re-registered post-2001); a less ephemeral pool would hit higher. The same `ark rdap <file>` scales to larger pools (Domains Project, webbase, deduplicated_urls)
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
