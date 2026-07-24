@@ -5,6 +5,7 @@ registering a SourceSpec here; the shared loader in bulk.py handles the
 rest (canonicalization, staging, evidence routing, audit, metrics).
 """
 
+import csv
 import gzip
 import json
 import re
@@ -172,6 +173,63 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             stats["truncated_tail"] += 1
 
 
+# AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or
+# recently-withdrawn .fr domain. Column 1 is the domain, column 11 the creation
+# date and column 12 the WHOIS-withdrawal date, both DD-MM-YYYY (12 empty = still
+# registered). A .fr creation date resets on re-registration, so the pair
+# (creation, withdrawal) documents one CONTINUOUS registration interval: the
+# domain was registered every year from creation until withdrawal (or now). Per
+# brief III.6 a record demonstrating continued registration in a year is valid
+# year evidence, so we emit one record per in-window year the domain was
+# registered, not only the creation year. Domains withdrawn before 1996 or
+# created after 2001 contribute nothing in window.
+_AFNIC_MIN_FIELDS = 12
+_AFNIC_NAME_COL = 0
+_AFNIC_CREATED_COL = 10
+_AFNIC_WITHDRAWN_COL = 11
+_AFNIC_DATE = re.compile(r"^(\d{2})-(\d{2})-(\d{4})$")
+_AFNIC_FIRST_YEAR = min(YEARS)
+_AFNIC_LAST_YEAR = max(YEARS)
+
+
+def _afnic_year(token: str) -> int | None:
+    """Year from a DD-MM-YYYY AFNIC date cell, or None if blank/malformed."""
+    match = _AFNIC_DATE.match(token.strip())
+    return int(match.group(3)) if match else None
+
+
+def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window year each .fr domain was registered."""
+    with _open_text(path) as fh:
+        reader = csv.reader(fh, delimiter=";")
+        next(reader, None)  # header row
+        for row in reader:
+            stats["lines"] += 1
+            if len(row) < _AFNIC_MIN_FIELDS:
+                stats["malformed"] += 1
+                continue
+            created = _afnic_year(row[_AFNIC_CREATED_COL])
+            if created is None:
+                stats["no_creation_date"] += 1
+                continue
+            withdrawn_cell = row[_AFNIC_WITHDRAWN_COL].strip()
+            withdrawn = _afnic_year(withdrawn_cell) if withdrawn_cell else None
+            start = max(created, _AFNIC_FIRST_YEAR)
+            end = _AFNIC_LAST_YEAR if withdrawn is None else min(withdrawn, _AFNIC_LAST_YEAR)
+            if end < start:
+                stats["out_of_window"] += 1
+                continue
+            # the interval is the auditable basis for every year assigned
+            interval = f"registered {row[_AFNIC_CREATED_COL].strip()}..{withdrawn_cell or 'active'}"
+            for year in range(start, end + 1):
+                yield BulkRecord(
+                    raw=row[_AFNIC_NAME_COL],
+                    year=year,
+                    evidence_value=interval,
+                    evidence_url="https://opendata.afnic.fr/",
+                )
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -209,5 +267,14 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_source",
         acquisition_method="ukwa_host_link_graph",
         parse=parse_ukwa_link_source,
+    ),
+    # AFNIC .fr open data: registration-interval evidence (whois_creation),
+    # one year per in-window year the domain was continuously registered
+    "afnic_fr": SourceSpec(
+        key="afnic_fr",
+        source_name="afnic_fr",
+        evidence_type="whois_creation",
+        acquisition_method="afnic_open_data",
+        parse=parse_afnic_fr,
     ),
 }

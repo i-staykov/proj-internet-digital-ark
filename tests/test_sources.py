@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ark.sources import (
     SOURCES,
+    parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_early_web_cdx,
     parse_isc_survey,
@@ -148,6 +149,48 @@ def test_arquivo_ia_shares_the_roteiro_parser_under_its_own_source_name() -> Non
     assert spec.is_candidate_only is False
     # same tested CDXJ parser, so no new parsing logic to trust
     assert spec.parse is SOURCES["arquivo_roteiro"].parse
+
+
+# name;PaysBE;DeptBE;VilleBE;NomBE;Sousdomaine;Type;PaysTit;DeptTit;IDN;Creation;Retrait
+AFNIC_HEADER = (
+    '"Nom de domaine";"Pays BE";"Departement BE";"Ville BE";"Nom BE";'
+    '"Sous domaine";"Type du titulaire";"Pays titulaire";"Departement titulaire";'
+    '"Domaine IDN";"Date de création";"Date de retrait du WHOIS"'
+)
+AFNIC_ROWS = [
+    "keep.fr;FR;75;PARIS;REG;fr;;;;0;15-03-1998;",  # created 1998, still active -> 1998-2001
+    "wd.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1997;10-06-1999",  # withdrawn 1999 -> 1997-1999
+    "old.fr;FR;75;PARIS;REG;fr;;;;0;20-05-1994;",  # created pre-window, active -> 1996-2001
+    "future.fr;FR;75;PARIS;REG;fr;;;;0;10-10-2012;",  # created after window -> nothing
+    "predrop.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1993;15-02-1995",  # withdrawn pre-window -> nothing
+    "nodate.fr;FR;75;PARIS;REG;fr;;;;0;;",  # no creation date -> skipped
+]
+
+
+def test_afnic_emits_every_in_window_registered_year(tmp_path: Path) -> None:
+    fixture = tmp_path / "afnic.csv"
+    fixture.write_text("\n".join([AFNIC_HEADER, *AFNIC_ROWS]) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+    records = list(parse_afnic_fr(fixture, stats))
+
+    pairs = {(r.raw, r.year) for r in records}
+    assert pairs == {
+        ("keep.fr", 1998), ("keep.fr", 1999), ("keep.fr", 2000), ("keep.fr", 2001),
+        ("wd.fr", 1997), ("wd.fr", 1998), ("wd.fr", 1999),
+        ("old.fr", 1996), ("old.fr", 1997), ("old.fr", 1998),
+        ("old.fr", 1999), ("old.fr", 2000), ("old.fr", 2001),
+    }
+    # every record carries its auditable registration interval, no year outside window
+    assert all(r.evidence_value.startswith("registered ") for r in records)
+    assert all(1996 <= r.year <= 2001 for r in records)
+    assert stats["no_creation_date"] == 1  # nodate.fr
+    assert stats["out_of_window"] == 2  # future.fr + predrop.fr
+
+
+def test_afnic_is_registered_as_whois_creation_master() -> None:
+    spec = SOURCES["afnic_fr"]
+    assert spec.evidence_type == "whois_creation"
+    assert spec.is_candidate_only is False
 
 
 UKWA_LINES = [
