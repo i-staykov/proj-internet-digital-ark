@@ -294,6 +294,13 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - caveats for the report: (a) `c2000` is a truncated 1 MB prefix of the ~170 MB Aug-2000 content dump, and the FULL 2000 content dump is not recoverable (Wayback archived only the 2000 `structure.rdf`, which carries no external links), so 2000 is badly undercounted here; (b) the KT dumps are the Kids-and-Teens theme only; (c) heavy baseline overlap
   - available but not done (low ROI): the three FULL 2001 content dumps (2001-01-22 / 06-16 / 10-20, ~170 MB each, downloadable via Wayback `id_`) would add more 2001, but 2001 is our least-thin year and ODP overlap is heavy, so deferred unless completeness is wanted
 
+- **Internet Scout Report archive ingested (`internet_scout`, `dated_directory`): +137 net-new domains / +311 net-new pairs (finding)**
+  - source: the Internet Scout Report archive via OAI-PMH (archives.internetscout.org/OAI, `oai_dc`), harvested with a browser UA (the bot UA gets 403); 21,922 records across ScoutReport + 11 sibling publication sets. Each record is an editorial review of a live site; `<dc:date>` (when present) is the Scout Report publication year, which attests the site was live that year -> `dated_directory` (Ding: dated directory/index sources are direct)
+  - parser: regex per `<record>`, take the `<dc:date>` year + `<dc:identifier>` site URL(s), with the OAI header id as the evidence reference; filter to 1996-2001
+  - yield: **+137 net-new domains / +311 net-new pairs** (975 evidence rows over 686 domains; new pairs spread across all six years: 1996 +24, 1997 +70, 1998 +82, 1999 +57, 2000 +39, 2001 +39)
+  - **low yield, stated honestly: 18,508 of 21,922 archive records carry NO `<dc:date>`** (verified genuinely absent, not a parse miss) and cannot be dated from this feed, so they are skipped; only the ~3,400 dated in-window records contribute. The 2026-07-24 hunt's ~2-5k estimate assumed per-record dates that mostly are not present
+  - value: small, but a curated non-IA all-years long tail (scholarly / gov / edu / international). Reproduce: harvest the OAI feed (browser UA, follow `resumptionToken`), then `ark ingest internet_scout <file>`
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:

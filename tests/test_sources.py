@@ -9,6 +9,7 @@ from ark.sources import (
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_early_web_cdx,
+    parse_internet_scout,
     parse_isc_survey,
     parse_odp,
     parse_ukwa_link_source,
@@ -228,6 +229,52 @@ def test_odp_extracts_dated_external_sites_only(tmp_path: Path) -> None:
 def test_odp_is_registered_as_artifact_listing_master() -> None:
     spec = SOURCES["odp"]
     assert spec.evidence_type == "artifact_listing"
+    assert spec.is_candidate_only is False
+
+
+def _scout_record(oai_id: str, year: str, urls: list[str], extra: str = "") -> str:
+    ids = "".join(f"<dc:identifier>{u}</dc:identifier>" for u in urls)
+    return (
+        f"<record><header><identifier>{oai_id}</identifier>"
+        "<datestamp>2003-04-02</datestamp></header><metadata><oai_dc:dc>"
+        f"<dc:date>{year}</dc:date><dc:description>d</dc:description>{extra}{ids}"
+        "</oai_dc:dc></metadata></record>"
+    )
+
+
+def test_internet_scout_extracts_in_window_reviewed_sites(tmp_path: Path) -> None:
+    fixture = tmp_path / "scout_oai.xml"
+    fixture.write_text(
+        "<OAI-PMH><ListRecords>"
+        + _scout_record("oai:scout:1", "1998", ["http://www.example.com/"])
+        + _scout_record("oai:scout:2", "1989", ["http://old.example.org/"])  # out of window
+        + _scout_record("oai:scout:3", "2000", ["http://a.net/", "https://b.org/x"])
+        + _scout_record(
+            "oai:scout:4", "1997", [], extra="<dc:identifier>internal-id-999</dc:identifier>"
+        )
+        + "</ListRecords></OAI-PMH>",
+        encoding="utf-8",
+    )
+    stats: Counter = Counter()
+    records = list(parse_internet_scout(fixture, stats))
+
+    assert {(r.raw, r.year) for r in records} == {
+        ("http://www.example.com/", 1998),
+        ("http://a.net/", 2000),
+        ("https://b.org/x", 2000),
+    }
+    # the OAI record id is the auditable evidence reference
+    assert (
+        next(r.evidence_value for r in records if r.raw == "http://www.example.com/")
+        == "oai:scout:1"
+    )
+    assert stats["out_of_window"] == 1  # the 1989 record
+    assert stats["no_url"] == 1  # record 4 has only a non-URL identifier
+
+
+def test_internet_scout_is_registered_as_dated_directory_master() -> None:
+    spec = SOURCES["internet_scout"]
+    assert spec.evidence_type == "dated_directory"
     assert spec.is_candidate_only is False
 
 

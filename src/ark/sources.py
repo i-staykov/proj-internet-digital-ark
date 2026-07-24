@@ -230,6 +230,44 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 )
 
 
+# Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an
+# editorial review of a live site; <dc:date> is the Scout Report publication year
+# (the archive spans 1994-2007, matching the Report's lifespan; a handful of
+# pre-1994 dc:date anomalies fall outside our window and drop out). The
+# publication date attests the site was live that year -> dated_directory (Ding
+# 2026-07-24: dated directory/index sources are direct). Site URLs are in
+# <dc:identifier>; the <header><identifier> is the auditable OAI record id.
+_SCOUT_RECORD = re.compile(r"<record>.*?</record>", re.S)
+_SCOUT_OAI_ID = re.compile(r"<identifier>([^<]+)</identifier>")
+_SCOUT_DATE = re.compile(r"<dc:date>(\d{4})</dc:date>")
+_SCOUT_URL = re.compile(r"<dc:identifier>(https?://[^<]+)</dc:identifier>")
+
+
+def parse_internet_scout(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per reviewed site per in-window Scout Report year."""
+    with _open_text(path) as fh:
+        text = fh.read()
+    for match in _SCOUT_RECORD.finditer(text):
+        block = match.group(0)
+        stats["scout_records"] += 1  # own key: "records" is the loader's yielded-count
+        year_match = _SCOUT_DATE.search(block)
+        if year_match is None:
+            stats["no_date"] += 1
+            continue
+        year = int(year_match.group(1))
+        if year not in YEARS:
+            stats["out_of_window"] += 1
+            continue
+        oai = _SCOUT_OAI_ID.search(block)
+        record_id = oai.group(1) if oai else "scout"
+        urls = _SCOUT_URL.findall(block)
+        if not urls:
+            stats["no_url"] += 1
+            continue
+        for url in urls:
+            yield BulkRecord(raw=url, year=year, evidence_value=record_id)
+
+
 # ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
 # artifact_listing evidence (Ding 2026-07-24: dated index files are direct). The
 # `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
@@ -323,6 +361,15 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="whois_creation",
         acquisition_method="afnic_open_data",
         parse=parse_afnic_fr,
+    ),
+    # Internet Scout Report archive: editorial directory entries, each dated by
+    # its Scout Report publication year (dated_directory)
+    "internet_scout": SourceSpec(
+        key="internet_scout",
+        source_name="internet_scout",
+        evidence_type="dated_directory",
+        acquisition_method="scout_report_oai",
+        parse=parse_internet_scout,
     ),
     # ODP / DMOZ RDF content dump: dated data file -> artifact_listing; the
     # dump's generation stamp fixes the year (c2000 = 2000, kt2001xx = 2001)
