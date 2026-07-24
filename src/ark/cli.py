@@ -1,6 +1,8 @@
 """Command-line entry point for the ark pipeline."""
 
 import sys
+import time
+from collections import Counter
 from pathlib import Path
 from typing import Annotated
 
@@ -9,12 +11,22 @@ from loguru import logger
 
 from ark.audit import write_audit
 from ark.bulk import ingest_files
+from ark.canonical import to_registrable
 from ark.checks import collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.db import (
+    DEFAULT_DB_PATH,
+    add_candidate,
+    assign_year,
+    connect,
+    ensure_source,
+    init_db,
+    record_evidence,
+)
 from ark.export import export_all
-from ark.ingest import ingest_legacy
+from ark.ingest import YEARS, ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.rdap import creation_year
 from ark.seed import seed_from_file
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
@@ -168,6 +180,85 @@ def stats() -> None:
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
     record_metrics(conn, "stats", "scoreboard", scoreboard)
+
+
+@app.command()
+def rdap(
+    candidates: Annotated[
+        Path,
+        typer.Argument(
+            help="File with one candidate domain or URL per line.", exists=True, readable=True
+        ),
+    ],
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="Query at most this many not-yet-tried domains.")
+    ] = 1000,
+    delay: Annotated[
+        float, typer.Option("--delay", help="Seconds to pause between RDAP queries (politeness).")
+    ] = 0.15,
+) -> None:
+    """Date undated candidates via RDAP into whois_creation evidence (Phase 4 engine).
+
+    A queryable RDAP record proves current registration; the registration year
+    plus continuity gives the in-window years [max(1996, creation), 2001].
+    Resumable: domains already tried via RDAP are skipped.
+    """
+    first, last = min(YEARS), max(YEARS)
+    conn = connect()
+    init_db(conn)
+    source_id = ensure_source(conn, "rdap", "timestamped")
+    tried = {
+        row[0]
+        for row in conn.execute(
+            "SELECT DISTINCT domain FROM evidence WHERE source_id = ?", [source_id]
+        ).fetchall()
+    }
+    stats: Counter = Counter()
+    queried = 0
+    with candidates.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            raw = line.strip()
+            if not raw:
+                continue
+            domain = to_registrable(raw)
+            if domain is None:
+                stats["rejected"] += 1
+                continue
+            if domain in tried:
+                stats["skipped_tried"] += 1
+                continue
+            if queried >= limit:
+                break
+            tried.add(domain)
+            queried += 1
+            year = creation_year(domain)
+            if year is None:
+                stats["no_rdap"] += 1
+            elif year > last:
+                stats["created_after_window"] += 1
+            else:
+                add_candidate(conn, domain, source_id)
+                for target_year in range(max(year, first), last + 1):
+                    assign_year(
+                        conn,
+                        record_evidence(
+                            conn,
+                            domain,
+                            source_id,
+                            target_year,
+                            "whois_creation",
+                            f"rdap creation {year}",
+                            acquisition_method="rdap",
+                        ),
+                    )
+                stats["dated"] += 1
+            if delay:
+                time.sleep(delay)
+    stats["queried"] = queried
+    summary = dict(stats)
+    record_metrics(conn, "rdap", "rdap", summary)
+    logger.info(f"rdap: {summary}")
+    typer.echo(f"rdap: {summary}")
 
 
 @app.command()

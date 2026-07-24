@@ -21,6 +21,7 @@ uv run ark audit           # write the normalization/salvage audit CSV
 uv run ark ingest <source> <files...>   # bulk sources that carry a date in the file
 uv run ark seed <file> [--limit N]      # year-unlabelled sources -> candidate pool
 uv run ark verify [--batch-size N]      # prove candidates year-by-year via the IA CDX API
+uv run ark rdap <candidates> [-n N]     # date candidates via RDAP -> whois_creation evidence
 
 uv run ark export          # write the deliverable (see Structure)
 uv run ark stats           # scoreboard: additions on top of the baseline
