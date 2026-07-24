@@ -230,6 +230,53 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 )
 
 
+# ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
+# artifact_listing evidence (Ding 2026-07-24: dated index files are direct). The
+# `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
+# each cataloged site is an external URL in a `link r:resource="..."` or an
+# `ExternalPage about="..."`. The RDF is malformed pseudo-XML, so URLs are pulled
+# by regex, not an XML parser. Some dumps are truncated downloads (gzip EOF
+# mid-stream); tolerate that like UKWA, keeping everything decoded so far.
+_ODP_GENERATED = re.compile(r"Generated at (\d{4})-(\d{2})-(\d{2})")
+_ODP_URL = re.compile(r'(?:r:resource|about)="(https?://[^"]+)"')
+_ODP_NAME_YEAR = re.compile(r"(?:19|20)\d{2}")
+
+
+def _odp_fallback_year(name: str) -> int | None:
+    """Year from the dump filename (e.g. c2000, kt200106), a fallback if the
+    Generated-at stamp is missing."""
+    match = _ODP_NAME_YEAR.search(name)
+    return int(match.group(0)) if match else None
+
+
+def parse_odp(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per cataloged external site in a dated ODP RDF dump."""
+    year = _odp_fallback_year(path.name)
+    dump_date = None
+    try:
+        with _open_text(path) as fh:
+            for line in fh:
+                stats["lines"] += 1
+                if dump_date is None:
+                    stamp = _ODP_GENERATED.search(line)
+                    if stamp:
+                        dump_date = f"{stamp[1]}-{stamp[2]}-{stamp[3]}"
+                        year = int(stamp[1])
+                for url in _ODP_URL.findall(line):
+                    if year is None:
+                        stats["no_year"] += 1
+                        continue
+                    yield BulkRecord(
+                        raw=url,
+                        year=year,
+                        evidence_value=f"odp {dump_date or path.stem}",
+                    )
+    except (EOFError, OSError):
+        # truncated download (e.g. the c2000 prefix); everything before the
+        # truncation was already yielded
+        stats["truncated_tail"] += 1
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -276,5 +323,14 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="whois_creation",
         acquisition_method="afnic_open_data",
         parse=parse_afnic_fr,
+    ),
+    # ODP / DMOZ RDF content dump: dated data file -> artifact_listing; the
+    # dump's generation stamp fixes the year (c2000 = 2000, kt2001xx = 2001)
+    "odp": SourceSpec(
+        key="odp",
+        source_name="odp",
+        evidence_type="artifact_listing",
+        acquisition_method="odp_rdf_dump",
+        parse=parse_odp,
     ),
 }

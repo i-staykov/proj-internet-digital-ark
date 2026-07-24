@@ -10,6 +10,7 @@ from ark.sources import (
     parse_arquivo_cdxj,
     parse_early_web_cdx,
     parse_isc_survey,
+    parse_odp,
     parse_ukwa_link_source,
 )
 
@@ -189,6 +190,44 @@ def test_afnic_emits_every_in_window_registered_year(tmp_path: Path) -> None:
 def test_afnic_is_registered_as_whois_creation_master() -> None:
     spec = SOURCES["afnic_fr"]
     assert spec.evidence_type == "whois_creation"
+    assert spec.is_candidate_only is False
+
+
+ODP_RDF = [
+    "<RDF>",
+    "<!-- Generated at 2000-08-07 08:00:40 GMT on  -->",
+    '<Topic r:id="Top/Arts">',
+    "  <catid>2</catid>",
+    '  <link r:resource="http://www.example.com/"/>',
+    '  <link r:resource="http://sub.example.org:80/path"/>',
+    '  <narrow r:resource="Top/Arts/Music"/>',  # internal topic ref, not a URL
+    "</Topic>",
+    '<ExternalPage about="https://www.another.net/home">',
+    "  <title>Another</title>",
+    "</ExternalPage>",
+    "</RDF>",
+]
+
+
+def test_odp_extracts_dated_external_sites_only(tmp_path: Path) -> None:
+    fixture = tmp_path / "c2000.rdf"  # plain (no .gz) -> read as text
+    fixture.write_text("\n".join(ODP_RDF) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+    records = list(parse_odp(fixture, stats))
+
+    # the generation stamp fixes the year; the internal topic ref is excluded
+    assert {(r.raw, r.year) for r in records} == {
+        ("http://www.example.com/", 2000),
+        ("http://sub.example.org:80/path", 2000),
+        ("https://www.another.net/home", 2000),
+    }
+    # every row is stamped with the dump date for provenance
+    assert {r.evidence_value for r in records} == {"odp 2000-08-07"}
+
+
+def test_odp_is_registered_as_artifact_listing_master() -> None:
+    spec = SOURCES["odp"]
+    assert spec.evidence_type == "artifact_listing"
     assert spec.is_candidate_only is False
 
 
