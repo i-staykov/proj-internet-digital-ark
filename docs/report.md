@@ -14,19 +14,19 @@ We grow the provided ~8.2M-line baseline with **net-new, evidence-backed** regis
 | Metric | Value |
 |---|--:|
 | Net-new registered domains (absent from baseline) | **463,365** |
-| Net-new (domain, year) pairs | **1,302,735** |
+| Net-new (domain, year) pairs | **1,310,390** |
 | Baseline domains (read-only) | 4,824,656 |
 | Total domains in store | 5,288,024 |
-| Total (domain, year) pairs in store | 8,169,648 |
-| Evidence rows | 11,044,382 |
+| Total (domain, year) pairs in store | 8,177,303 |
+| Evidence rows | 11,064,191 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 97,033 | 1,038,069 | 11,386 | 25,699 | 52,417 | 78,131 |
+| 97,444 | 1,038,855 | 13,025 | 27,478 | 54,360 | 79,228 |
 
-The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr` and materially by Arquivo `.pt` and the UK Web Archive.
+The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr`, materially by Arquivo `.pt` and the UK Web Archive, and further by RDAP gap-fill of held domains' missing years.
 
 ---
 
@@ -76,6 +76,7 @@ All figures are net-new **on top of the baseline** (measured per source; see not
 | ODP / DMOZ dumps | `artifact_listing` | 2000–2001 | +3,339 | +8,423 | heavy baseline overlap; mostly 2000 |
 | Internet Scout archive | `dated_directory` | 1996–2001 | +137 | +311 | curated non-IA long tail; most records undated |
 | RDAP on UKWA link-targets | `whois_creation` | 1996–2001 | +831 | +2,320 | **Phase-4 engine**: undated candidates dated via RDAP, no CDX |
+| RDAP gap-fill (sandwich gaps) | `whois_creation` | 1996–2001 | +0 | +7,655 | fills held domains' missing years (present in Y and Y+2); 42% hit; thin years |
 
 **Key strategic finding:** the baseline is Internet-Archive-derived (Early Web CDX overlapped it 99.99%). Net-new volume therefore comes from **non-IA sources** — DNS surveys (ISC), national registries (`.fr`), and national web archives (`.pt`, `.uk`) — which is also why the additions are geographically complementary.
 
@@ -106,13 +107,15 @@ All figures are net-new **on top of the baseline** (measured per source; see not
 - **Per-year evidence, no forward-fill (III.7/III.1).** A domain enters a year file only with its own in-year evidence; first-appearance never infers later years. Cross-year duplication is required where independently evidenced.
 - **Net-new domains vs net-new pairs.** Distinct metrics: 462,394 domains are entirely absent from the baseline; 1,300,091 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
 - **Cross-source corroboration.** Average **1.35** master-eligible sources per assigned pair; **2,556,568** pairs carry ≥2 sources. Honesty caveat: most current corroboration is Internet-Archive-on-Internet-Archive (baseline + Early Web + Arquivo all trace to IA); genuinely provenance-independent corroboration comes from ISC (DNS) and AFNIC (registry), which is where it matters.
-- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 144,581 · `link_source` 39,454 · `dated_directory` 975.
+- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 164,403 · `link_source` 39,454 · `dated_directory` 975.
 
 ## 5. CDX / verification execution notes
 
 The Phase-4 verification engine is **RDAP-first** and is now implemented (`ark rdap`): registry RDAP returns exact registration years with no IA-CDX-style rate ceiling, so large *undated* candidate pools become dated `whois_creation` evidence far more cheaply than CDX-verifying each. A queryable RDAP record proves current registration, so (by the interval reasoning above) it dates every in-window year `[max(1996, creation), 2001]`.
 
-**First run — UKWA link-target candidates.** The 6,266 UKWA link-target hosts (linked-to in 1996–2001, previously candidate-only) that were not already held were run through `ark rdap`: of 6,246 queried, **811 dated in window (net-new), 1,351 created after 2001, 4,084 no longer registered / no RDAP** — **+831 net-new domains / +2,320 net-new pairs**, in the mid/thin years. The ~13% in-window hit rate reflects link-target ephemerality; a less ephemeral pool would hit higher. The command is resumable (skips already-tried domains) and scales to larger pools (Domains Project, webbase, `deduplicated_urls`).
+**First run — UKWA link-target candidates.** The 6,266 UKWA link-target hosts (linked-to in 1996–2001, previously candidate-only) that were not already held were run through `ark rdap`: of 6,246 queried, **811 dated in window (net-new), 1,351 created after 2001, 4,084 no longer registered / no RDAP** — **+831 net-new domains / +2,320 net-new pairs**, in the mid/thin years. The ~13% in-window hit rate reflects link-target ephemerality.
+
+**Second run — gap-fill.** The same engine fills *held* domains' missing in-window years: a domain present in year Y and Y+2 but missing Y+1 almost certainly existed in Y+1, and its RDAP registration interval supplies the evidence. Of **470,816** such "sandwich-gap" domains, a 10,000 systematic sample was run: **4,192 dated (42% hit)** — a filled gap is a net-new pair (the baseline lacked that year) — for **+7,655 net-new pairs concentrated in the thin years** (1998 +1,639, 1999 +1,779, 2000 +1,943). The 42% hit far exceeds the link-target run because these domains provably existed around the gap, so more survive. The remaining ~460k sandwich-gap candidates are a documented lever (RDAP-rate-bound: ~4k pairs per 10k queried). `ark check` passes after every run.
 
 Per-domain IA CDX verification was re-scoped to **one collapsed query per domain** (`collapse=timestamp:4`, measured 2026-07-22) and is retained as the **fallback** for domains RDAP cannot date; it has not been run at scale. When run, it will report per brief §VI: tools, seeds queried, batching, success rates, failure handling (adapt batch size / concurrency / retry on 504/429, never quit), and net-new added.
 

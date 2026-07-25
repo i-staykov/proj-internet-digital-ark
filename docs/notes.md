@@ -321,6 +321,12 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the one repeatable avenue that remains: a **current ccTLD name list -> RDAP for creation dates** (the same pattern that gave +831 from UKWA link-targets). It is bounded by the ~few-per-second RDAP rate, so each run adds hundreds, not an AFNIC-scale tranche; parked as a future incremental lever if a free ccTLD zone/name list is located
   - **Phase-7 delivery packaged** this session: `scripts/package_delivery.sh` assembles `output/internet-digital-ark-delivery.tar.gz` (80 MB: merged masters, net-new additions, `evidence_manifest.csv`, candidates, droplist, audit CSVs, logs, source snapshot, `report.docx`, README) with per-file + archive SHA256. `report.md -> report.docx` via pandoc
 
+- **Gap-fill via RDAP: +7,655 net-new pairs in the thin years, 42% hit (finding — best RDAP run yet)**
+  - the existing `ark rdap` engine also fills HELD domains' missing in-window years: a domain present in year Y and Y+2 but missing Y+1 almost certainly existed in Y+1, and its RDAP registration interval supplies the evidence for the still-registered ones (a filled gap = a net-new pair, since the baseline lacked that year). No new CDX build needed
+  - found **470,816 "sandwich-gap" domains** (assigned Y and Y+2, missing Y+1); ran a 10,000 systematic sample: **4,192 dated (42% hit — far above the 13% link-target rate, because these domains provably existed around the gap so more survive)**, 1,781 created after 2001, 4,027 no longer registered / no RDAP
+  - yield: **+7,655 net-new pairs**, concentrated in the thin years (1998 +1,639, 1999 +1,779, 2000 +1,943; 1996 +411, 1997 +786, 2001 +1,097). +0 net-new domains (held domains gaining missing years). Scoreboard 463,365 / 1,302,735 -> 463,365 / **1,310,390**. `ark check` passes
+  - the remaining ~460k sandwich-gap candidates are the clearest remaining lever: RDAP-rate-bound (~4k pairs per 10k queried, ~3.7 h/run), so each bounded run adds thousands of thin-year pairs; the full pool extrapolates to ~197k pairs but needs ~90 h of RDAP
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
