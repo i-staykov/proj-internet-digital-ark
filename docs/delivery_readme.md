@@ -3,7 +3,7 @@
 Evidence-backed annual domain lists for **1996–2001**, grown on top of the provided
 ~8.2M-line baseline. Every annual-file entry traces to item-level, per-year evidence.
 
-**Headline (2026-07-25):** 463,365 net-new registered domains · 1,302,735 net-new
+**Headline (2026-07-25):** 463,364 net-new registered domains · 1,303,508 net-new
 (domain, year) pairs, on top of 4.82M baseline domains. Full analysis in `report.docx`.
 
 ## What's in this archive
@@ -32,6 +32,16 @@ prior evidence (`prior_reused`). Confirmed by Prof. Ding (2026-07-24) that dated
 surveys, archive indexes, host/link graphs, dated directory/index files, and WHOIS
 records all count as direct annual evidence. Candidate-only data never assigns a year.
 
+Within `whois_creation`, RDAP rows attest **the creation year only**, per brief III.6: an
+RDAP response carries no registration history, so it cannot speak to any later year, and
+RDAP spans ~590 registries whose creation-date semantics are not established (9,664
+assignments that had relied on an inferred registration interval were withdrawn on
+2026-07-25). AFNIC `.fr` rows attest every in-window year of the span
+`[creation, deletion-or-now]`, because AFNIC's own registrar documentation states that its
+creation date is "the last creation date of the domain name", which puts it at or after any
+prior deletion and makes the span continuous by construction. Report §2 gives the citation,
+the two reproducible live cases, and the size of the exposure if a reviewer rejects it.
+
 ## How to reproduce
 
 With only [`uv`](https://docs.astral.sh/uv/) installed, from `source/`:
@@ -46,7 +56,8 @@ uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
 uv run ark ingest afnic_fr   data/raw/afnic/*.csv
 uv run ark ingest odp        data/raw/odp/*.gz
 uv run ark ingest internet_scout data/raw/scout/scout_oai.xml
-uv run ark rdap  data/raw/ukwa/link_target_candidates.txt   # RDAP creation-date verification
+uv run ark rdap  data/raw/ukwa/link_target_candidates.txt   # query RDAP -> run journal
+uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz  # journal -> creation-year evidence
 uv run ark export                                     # regenerate masters/additions/manifest
 uv run ark stats                                      # the scoreboard
 uv run ark check                                      # integrity gate (must pass)

@@ -21,7 +21,8 @@ uv run ark audit           # write the normalization/salvage audit CSV
 uv run ark ingest <source> <files...>   # bulk sources that carry a date in the file
 uv run ark seed <file> [--limit N]      # year-unlabelled sources -> candidate pool
 uv run ark verify [--batch-size N]      # prove candidates year-by-year via the IA CDX API
-uv run ark rdap <candidates> [-n N]     # date candidates via RDAP -> whois_creation evidence
+uv run ark rdap <candidates> [-n N]     # query RDAP -> a per-run journal file (collection only)
+uv run ark ingest rdap_snapshot <journal>   # journal -> creation-year evidence, hashed into the ledger
 
 uv run ark export          # write the deliverable (see Structure)
 uv run ark stats           # scoreboard: additions on top of the baseline
@@ -31,6 +32,15 @@ bash scripts/package_delivery.sh   # assemble the delivery archive (tar.gz + SHA
 ```
 
 Every stage is re-runnable and resumable: re-running skips work already done, so an interrupted run is finished by running it again. Each run appends to a log in `data/logs/`. Run `uv run ark --help` for all commands and their arguments.
+
+One maintenance script sits outside the pipeline, for stores built before 2026-07-25 only:
+
+```bash
+uv run python scripts/restrict_whois_creation_to_creation_year.py rdap          # dry run, reports what it would delete
+uv run python scripts/restrict_whois_creation_to_creation_year.py rdap --apply  # delete
+```
+
+It prunes WHOIS/RDAP evidence down to the creation year, the one year such a record attests (brief III.6). `ark rdap` has enforced that rule since 2026-07-25, so a store built with the current code needs no migration. See the 2026-07-25 entry in [docs/notes.md](docs/notes.md).
 
 External bulk sources are downloaded into `data/raw/` first. For example, the Internet Archive Early Web CDX dataset (the first `ingest` source, `early_web`):
 

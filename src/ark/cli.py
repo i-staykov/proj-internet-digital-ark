@@ -13,20 +13,18 @@ from ark.audit import write_audit
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.checks import collect_checks, format_checks
-from ark.db import (
-    DEFAULT_DB_PATH,
-    add_candidate,
-    assign_year,
-    connect,
-    ensure_source,
-    init_db,
-    record_evidence,
-)
+from ark.db import DEFAULT_DB_PATH, connect, init_db
 from ark.export import export_all
-from ark.ingest import YEARS, ingest_legacy
+from ark.ingest import ingest_legacy
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
-from ark.rdap import creation_year
+from ark.rdap import (
+    journal_path,
+    lookup,
+    open_journal_for_write,
+    queried_domains,
+    write_journal_line,
+)
 from ark.seed import seed_from_file
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
@@ -41,6 +39,8 @@ app = typer.Typer(
 
 _LOG_FORMAT = "{time:HH:mm:ss} | {level: <7} | {message}"
 _LOG_FILE = "data/logs/ark_{time:YYYY-MM-DD}.log"
+# flush the RDAP journal this often, so a killed run keeps nearly all its work
+_RDAP_FLUSH_EVERY = 25
 
 
 @app.callback()
@@ -191,74 +191,67 @@ def rdap(
         ),
     ],
     limit: Annotated[
-        int, typer.Option("--limit", "-n", help="Query at most this many not-yet-tried domains.")
+        int, typer.Option("--limit", "-n", help="Query at most this many not-yet-queried domains.")
     ] = 1000,
     delay: Annotated[
         float, typer.Option("--delay", help="Seconds to pause between RDAP queries (politeness).")
     ] = 0.15,
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Journal to write (default data/raw/rdap/rdap_<UTC>.jsonl.gz)."),
+    ] = None,
 ) -> None:
-    """Date undated candidates via RDAP into whois_creation evidence (Phase 4 engine).
+    """Query RDAP for candidate domains and write a per-run journal file.
 
-    A queryable RDAP record proves current registration; the registration year
-    plus continuity gives the in-window years [max(1996, creation), 2001].
-    Resumable: domains already tried via RDAP are skipped.
+    Collection only: writes no evidence and never opens the store, so it runs
+    alongside other stages. Turn a journal into evidence with
+    `ark ingest rdap_snapshot <journal>`, which hashes it into the file ledger
+    like any other source. Keeping whole responses means a later change of
+    evidence standard is a re-parse, not a migration.
+
+    Resumable: any domain already recorded in a journal in the same folder is
+    skipped, so an interrupted run is finished by running the command again.
     """
-    first, last = min(YEARS), max(YEARS)
-    conn = connect()
-    init_db(conn)
-    source_id = ensure_source(conn, "rdap", "timestamped")
-    tried = {
-        row[0]
-        for row in conn.execute(
-            "SELECT DISTINCT domain FROM evidence WHERE source_id = ?", [source_id]
-        ).fetchall()
-    }
+    path = out or journal_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    already = queried_domains(path.parent)
+    logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
     stats: Counter = Counter()
     queried = 0
-    with candidates.open(encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            raw = line.strip()
-            if not raw:
-                continue
-            domain = to_registrable(raw)
-            if domain is None:
-                stats["rejected"] += 1
-                continue
-            if domain in tried:
-                stats["skipped_tried"] += 1
-                continue
-            if queried >= limit:
-                break
-            tried.add(domain)
-            queried += 1
-            year = creation_year(domain)
-            if year is None:
-                stats["no_rdap"] += 1
-            elif year > last:
-                stats["created_after_window"] += 1
-            else:
-                add_candidate(conn, domain, source_id)
-                for target_year in range(max(year, first), last + 1):
-                    assign_year(
-                        conn,
-                        record_evidence(
-                            conn,
-                            domain,
-                            source_id,
-                            target_year,
-                            "whois_creation",
-                            f"rdap creation {year}",
-                            acquisition_method="rdap",
-                        ),
-                    )
-                stats["dated"] += 1
-            if delay:
-                time.sleep(delay)
+    with open_journal_for_write(path) as journal:
+        with candidates.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                raw = line.strip()
+                if not raw:
+                    continue
+                domain = to_registrable(raw)
+                if domain is None:
+                    stats["rejected"] += 1
+                    continue
+                if domain in already:
+                    stats["skipped_journalled"] += 1
+                    continue
+                if queried >= limit:
+                    break
+                already.add(domain)
+                queried += 1
+                record = lookup(domain)
+                write_journal_line(journal, record)
+                stats["dated" if record["creation_year"] is not None else "not_dated"] += 1
+                # flush periodically so an interrupted run keeps its work
+                if queried % _RDAP_FLUSH_EVERY == 0:
+                    journal.flush()
+                if delay:
+                    time.sleep(delay)
+    if queried == 0:
+        path.unlink(missing_ok=True)
+        logger.info("rdap: nothing new to query; no journal written")
     stats["queried"] = queried
     summary = dict(stats)
-    record_metrics(conn, "rdap", "rdap", summary)
-    logger.info(f"rdap: {summary}")
+    logger.info(f"rdap: {summary} -> {path if queried else 'no journal'}")
     typer.echo(f"rdap: {summary}")
+    if queried:
+        typer.echo(f"journal: {path}\nnext: uv run ark ingest rdap_snapshot {path}")
 
 
 @app.command()

@@ -16,6 +16,7 @@ from typing import IO
 
 from ark.bulk import BulkRecord, SourceSpec
 from ark.ingest import YEARS
+from ark.rdap import RDAP_REDIRECTOR, attested_years, open_journal
 
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
@@ -315,6 +316,50 @@ def parse_odp(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
+# An `ark rdap` run journal: one JSON object per line, format documented in
+# ark.rdap. The journal is the artifact, so this evidence replays from a hashed
+# file like every other source. Only the creation year is attested (III.6), so a
+# domain yields at most one record; the rule itself lives in rdap.attested_years.
+def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per journalled domain whose creation year is in window."""
+    try:
+        with open_journal(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                stats["journal_lines"] += 1
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    stats["unparseable_line"] += 1
+                    continue
+                domain = record.get("domain")
+                if not domain:
+                    stats["no_domain"] += 1
+                    continue
+                year = record.get("creation_year")
+                if not isinstance(year, int):
+                    # journalled as undatable: no RDAP, 404, or transport failure
+                    stats["not_dated"] += 1
+                    continue
+                years = attested_years(year)
+                if not years:
+                    stats["outside_window"] += 1
+                    continue
+                for target_year in years:
+                    yield BulkRecord(
+                        raw=domain,
+                        year=target_year,
+                        evidence_value=f"rdap creation {year}",
+                        evidence_url=f"{RDAP_REDIRECTOR}{domain}",
+                    )
+    except (EOFError, OSError):
+        # journal from an interrupted run; everything before the last flush was
+        # already yielded, and the missing tail is re-queried on the next run
+        stats["truncated_tail"] += 1
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -379,5 +424,14 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="odp_rdf_dump",
         parse=parse_odp,
+    ),
+    # kept distinct from the legacy `rdap` source, whose rows predate the
+    # journal and so cannot be replayed from a file (see notes.md 2026-07-25)
+    "rdap_snapshot": SourceSpec(
+        key="rdap_snapshot",
+        source_name="rdap_snapshot",
+        evidence_type="whois_creation",
+        acquisition_method="rdap_journal_file",
+        parse=parse_rdap_snapshot,
     ),
 }
