@@ -1,7 +1,7 @@
 # Internet Digital Ark — Delivery Report
 
 *Reconstructing evidence-backed annual domain lists for 1996–2001.*
-Status as of 2026-07-24 (interim). Full decision history: [notes.md](notes.md). Plan: [plan.md](plan.md).
+Status as of 2026-07-25. Full decision history: [notes.md](notes.md). Plan: [plan.md](plan.md).
 
 ---
 
@@ -46,7 +46,7 @@ These figures are **lower than the 2026-07-24 scoreboard by 9,664 pairs and 1 do
 - **One row per (domain, year) per source.** The `evidence` table records every observation; a pair can carry several rows from several sources. This makes cross-source corroboration free (no schema change) and lets net-new be defined robustly over the evidence table (a pair is net-new iff it is assigned and carries no `prior_reused` evidence).
 - **Shared bulk ingester.** Every source is a small parser that yields `(raw, year, evidence_value, evidence_url)`; one audited loader handles canonicalization, set-based staging, evidence + `domain_year` writes, per-source audit CSVs, run metrics, and a **per-file sha256 ledger** (same name + same bytes skips; different bytes fails loudly). Per-file transactions; audit rows are written only after a file commits; a failed file is isolated and the run continues. Adversarially reviewed (3 passes) before first real use.
 - **Work queue (SQLite, WAL).** Crash-safe queue for the per-domain verification path; enqueue derives from durable evidence rows, so re-running repairs any crash window.
-- **Reproducibility.** `uv` + pinned lockfile + committed PSL; CI runs `ruff check`, `ruff format --check`, `pytest` (114 tests). Raw `uv run …` is the reproducibility contract; a `justfile` wraps it.
+- **Reproducibility.** `uv` + pinned lockfile + committed PSL; CI runs `ruff check`, `ruff format --check`, `pytest` (124 tests). Raw `uv run …` is the reproducibility contract; a `justfile` wraps it.
 - **Integrity gate (`ark check`).** Six read-only invariants over the whole store, exiting non-zero if any is violated: (1) the evidence wall is intact (every assignment points at an evidence row for the same domain and year); (2) no annual assignment is backed by candidate-only evidence; (3) every assigned pair has ≥1 master-eligible evidence row for that exact year; (4) no duplicate (domain, year); (5) every year in 1996–2001; (6) every stored domain is a well-formed registrable name. **All six pass** on the current store (5.28M domains / 8.17M pairs).
 
 ### Evidence types (standard of proof; what a negative means)
@@ -137,7 +137,111 @@ The Phase-4 verification engine is **RDAP-first** and is now implemented (`ark r
 
 **Second run, gap-fill on held domains.** The same engine adds in-window years to domains already held in other years. The **"sandwich gap" (assigned in Y and Y+2, missing Y+1) is a selection heuristic, not the evidence mechanism**: such domains are much likelier to have survived to the present, which lifts the RDAP hit rate to **42%** against 13% for link-targets. What gets assigned is still only the creation year, so a run fills the targeted gap year only when the creation year lands on it. Of **470,816** sandwich-gap domains, 15,000 were queried in two batches (5,676 dated) for **+2,273 net-new pairs** on held domains and +0 net-new domains. The remaining ~455k are a modest lever at roughly 1.5–2k pairs per 10k queried; closing a held domain's other missing years honestly requires year-tied evidence (collapsed CDX), not RDAP. `ark check` passes after every run.
 
-Per-domain IA CDX verification was re-scoped to **one collapsed query per domain** (`collapse=timestamp:4`, measured 2026-07-22) and is retained as the **fallback** for domains RDAP cannot date; it has not been run at scale. When run, it will report per brief §VI: tools, seeds queried, batching, success rates, failure handling (adapt batch size / concurrency / retry on 504/429, never quit), and net-new added.
+### 5.1 IA CDX verification engine (brief §VI, §IX.5)
+
+**Tools.** No third-party CDX client. `src/ark/cdx.py` calls the public Wayback CDX server
+directly over `urllib` (Python 3.12 standard library), driven by `ark cdx`. An earlier
+implementation used `cdx_toolkit` with six requests per domain; it was replaced because one
+request can answer all six years. Everything is exercised by 15 offline unit tests with an
+injected fetcher, so no test touches the network.
+
+**Endpoint and query.** `https://web.archive.org/cdx/search/cdx` with:
+
+```
+url=*.<domain>   from=1996   to=2001   filter=statuscode:200
+fl=timestamp     collapse=timestamp:4  limit=3000
+```
+
+`*.<domain>` matches the domain and every subdomain, so a capture of `www.example.com` evidences
+`example.com`. `filter=statuscode:200` keeps only captures that served content. `fl=timestamp`
+reduces each row to 14 bytes. `collapse=timestamp:4` asks the server to fold repeated years.
+
+The collapse is treated as a payload optimisation only, never as correctness: the server collapses
+*adjacent* rows and orders results by URL key, so a domain with many subdomains still returns a
+year repeatedly. Years are therefore deduplicated client-side. A response that reaches `limit` may
+have been truncated before some year appeared, so truncation is detected and each still-missing
+year gets one `limit=1` probe.
+
+**Seeds queried.** The bracketed-gap pool from `ark gaps`: domains already held in year Y-1 **and**
+Y+1 but missing Y, so the flanking years bracket the missing one. **470,614 domains / 494,716 known
+gaps**, ordered thinnest gap year first (1998, 1999, 2000, 2001, 1996, 1997) and spread
+deterministically by `hash(domain)` inside each tier. Alphabetical ordering was rejected after it
+was found to cluster numeric-prefix junk (`0171.com`, `1-800-…`) at the head of the run.
+
+Because one query returns every year, the unit of work is the domain and the run records **all**
+years returned, not only the bracketed gap. This is where most of the yield came from.
+
+**Batching and concurrency.** Sequential batches of 1,200 domains, 8 concurrent requests per batch,
+paced by an adaptive governor. Batches rather than one long job so each journal file completes and
+can be ingested while later batches still run, and so an interruption costs at most one batch's
+tail. Runs are resumable: a domain already *answered* in any journal is skipped.
+
+**Measured throughput and the concurrency ceiling.** Concurrency, not pacing, is the lever: a
+wildcard CDX query costs the server 2-16 s on a light domain. Measured 2026-07-25:
+
+| Concurrent requests | Domains answered | Transport failures |
+|--:|--:|--:|
+| 1 | 100% | 0 |
+| 4 | 100% | 0 |
+| 8 | 82% | 16% |
+| 16 | 30% | 70% |
+| 32 | 17% | 83% |
+
+Past roughly 8 concurrent requests the service drops connections and returns its own `504`s, so
+**8 is the operating point and ~800-1,000 answered domains per hour is the ceiling.** Higher
+settings measure faster only because a refused connection returns instantly; they do not produce
+more answers. This is reported because it bounds what any candidate-verification programme of this
+design can achieve against the public interface.
+
+**Timeout, measured rather than assumed.** The server kills a heavily archived domain's query at a
+consistent ~60.7 s, so it already fails fast on our behalf. A shorter client timeout is a false
+economy: at 30 s a run answered 51 of 100 domains (695 answers/hour), at 180 s it answered 82 of
+the same 100 (802 answers/hour), because roughly a third of domains reply between 30 s and 60 s.
+The client timeout is therefore **70 s**, just above the server's own limit.
+
+**Two query strategies, compared head to head** (8 capture-rich domains, sequential, 2026-07-25):
+
+| Strategy | Mean per domain | Failures | Years found |
+|---|--:|--:|---|
+| One collapsed six-year query | **26.9 s** | 3/8 | identical |
+| Six per-year `limit=1` probes | 73.6 s | 1/8 | identical |
+
+Where both strategies answered, the years agreed **4/4 with no disagreement**, so they are
+correctness-equivalent. The collapsed query is 2.7x faster and is the default; the per-year
+strategy is slower but succeeds on the heavy domains the collapsed query cannot finish, so it is
+retained as a second sweep (`ark cdx --per-year`) that picks up unanswered domains automatically.
+
+**Error handling (brief §VI.c).** Retryable statuses are `0` (transport failure), `429`, `500`,
+`502`, `503`, `504`, up to 4 attempts. On `429`/`503`/`504` the governor multiplies its pace by 1.5
+and honours `Retry-After`; after 5 consecutive successes it eases back by 0.8, floor 50 ms, ceiling
+capped (2 s in production runs) so that one bad patch cannot leave the run crawling. An early pilot
+demonstrated why the ceiling matters: with a 30 s ceiling and slow recovery, six throttles drove
+the pace to the ceiling and it never returned, the tail crawling at 45 s per domain. Rate limits
+are treated as signals to adapt, never as grounds to abandon the route.
+
+**A failure is never recorded as an absence.** A transport failure or 5xx means the question was
+not answered, so the journal records the status and the domain stays eligible for a later run.
+Only an HTTP 200 settles a domain. This distinction is load-bearing: an earlier version counted
+failures as "no captures", which both understated the hit rate and would have permanently dropped
+2,727 domains from every subsequent run.
+
+**Success rate and yield.** Among domains that answered, **95-100% had at least one in-window
+capture**, averaging **3.6 years per domain**. Ingested yield is **1.15 net-new (domain, year)
+pairs per domain queried**. Calibration and pilot runs alone (roughly 2,400 domains) added **+840
+net-new pairs**, all in the thin years: 1998 +231, 2000 +479, 2001 +130. Every batch is followed by
+`ark check`, which has passed throughout.
+
+**Reproduce.** From a store that already holds the bulk sources:
+
+```bash
+uv run ark gaps                       # -> data/raw/cdx/gap_candidates.txt (470,614 domains)
+uv run ark cdx data/raw/cdx/gap_candidates.txt -n 1200 --workers 8 --timeout 70
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_<stamp>.jsonl.gz
+uv run ark cdx data/raw/cdx/gap_candidates.txt --per-year   # optional sweep of unanswered domains
+```
+
+Each journal is hashed into the file ledger with its record count, so the evidence replays from
+bytes on disk rather than from the live service, whose answers change over time.
 
 ## 6. Limitations & how to reproduce
 
@@ -146,7 +250,7 @@ Per-domain IA CDX verification was re-scoped to **one collapsed query per domain
 - **Floor effects.** AFNIC's File A holds every `.fr` name live at the file date plus every name deleted since **28 January 2014** (per its user guide, confirmed against the file: the 11,902 in-window domains carrying a deletion date spread evenly across 2014-2026). So only `.fr` domains deleted before that date are missing. Combined with the `crDate` reset described in §2, which drops in-window domains that were later traded or re-registered, the `.fr` yield undercounts and cannot over-count.
 - **Year coverage.** 1997 is inflated by ISC (a real gap the baseline had); 1998/1999 were thin and are now materially filled; 2000 is partially served (the surviving ODP Aug-2000 dump is a truncated prefix, and the full content dump is unrecoverable).
 - **Evidence-type caveats.** `artifact_listing` / `link_source` / `whois_creation` negatives are weaker than a CDX negative; each type's standard and its negative meaning are stated in §2.
-- **The legacy RDAP tranche has weaker provenance than every other source.** Its 3,106 pairs (0.24% of the additions, source name `rdap`) were written directly from live queries before the journal architecture existed, so they have no hashed source file and no per-record URL; their provenance is the evidence value, the ingest timestamp, the run metrics, and the execution logs. Every other source replays from a file whose sha256 is in the ledger. Newer RDAP evidence, under source name `rdap_snapshot`, does too. The legacy rows were deliberately left in place rather than re-queried, because re-querying in 2026 returns *different* creation dates for any domain that has since changed hands, which would silently alter the result set.
+- **The legacy RDAP tranche has weaker provenance than every other source.** Its 3,106 pairs (0.24% of the additions, source name `rdap`) were written directly from live queries before the journal architecture existed, so they have no hashed source file and no per-record URL; their provenance is the evidence value, the ingest timestamp, the run metrics, and the execution logs. Every other source replays from a file whose sha256 is in the ledger. **All RDAP evidence currently in the store is of this legacy kind:** the journal architecture described in §5 is implemented and tested but has not yet been run at scale, so no `rdap_snapshot` source row exists yet. The legacy rows were deliberately left in place rather than re-queried, because re-querying in 2026 returns *different* creation dates for any domain that has since changed hands, which would silently alter the result set.
 - **One standard is not uniform inside `whois_creation`.** RDAP rows attest a single creation year (the strict III.6 reading, since RDAP spans ~590 registries whose creation-date semantics are not established). AFNIC rows attest every year their registration span covers, on the strength of AFNIC's own documented `crDate` behaviour. Two different strengths of claim under one type name, deliberately and visibly: every row records the basis it rests on (`rdap creation 1998` vs `registered 16-03-1999..active`), so either can be recounted independently. §2 gives the reasoning and the size of the AFNIC exposure (69,111 pairs).
 
 **How to reproduce.** With only `uv` installed:

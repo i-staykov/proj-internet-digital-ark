@@ -24,6 +24,10 @@ uv run ark verify [--batch-size N]      # prove candidates year-by-year via the 
 uv run ark rdap <candidates> [-n N]     # query RDAP -> a per-run journal file (collection only)
 uv run ark ingest rdap_snapshot <journal>   # journal -> creation-year evidence, hashed into the ledger
 
+uv run ark gaps                         # list held domains whose missing year is bracketed
+uv run ark cdx <domains> [-n N] [--workers N]   # ask IA CDX which years hold a capture -> journal
+uv run ark ingest cdx_snapshot <journal>    # journal -> per-year capture evidence
+
 uv run ark export          # write the deliverable (see Structure)
 uv run ark stats           # scoreboard: additions on top of the baseline
 uv run ark check           # integrity gate: fails (non-zero) if any invariant is violated
@@ -32,6 +36,16 @@ bash scripts/package_delivery.sh   # assemble the delivery archive (tar.gz + SHA
 ```
 
 Every stage is re-runnable and resumable: re-running skips work already done, so an interrupted run is finished by running it again. Each run appends to a log in `data/logs/`. Run `uv run ark --help` for all commands and their arguments.
+
+The two network stages (`ark rdap`, `ark cdx`) write a per-run **journal** and no evidence, then an `ingest` step turns journals into evidence. They therefore never hold the store's single write lock, so a long `ark cdx` pass runs for hours alongside other work. `ark cdx` sends one collapsed query per domain covering all six years, paced by a governor that eases up while the service is healthy and backs off on 429/503/504 honouring `Retry-After`; concurrency is the throughput lever because a wildcard CDX query costs about 20 seconds. A practical long run looks like:
+
+```bash
+uv run ark gaps                                              # -> data/raw/cdx/gap_candidates.txt
+for i in $(seq 1 12); do
+  uv run ark cdx data/raw/cdx/gap_candidates.txt -n 5000 --workers 24
+done
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz
+```
 
 One maintenance script sits outside the pipeline, for stores built before 2026-07-25 only:
 

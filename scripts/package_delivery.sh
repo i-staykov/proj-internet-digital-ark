@@ -6,6 +6,17 @@ set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJ"
 
+# The source snapshot below comes from `git archive HEAD`, so an uncommitted or
+# stale tree ships code that does not match the shipped data and report. This
+# has happened: an archive once paired post-narrowing data with pre-narrowing
+# code, and a reviewer running it would have regenerated the withdrawn rows.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "refusing to package: tracked files are modified, so source/ would not match the results" >&2
+    echo "commit (or stash) first, then re-run." >&2
+    git status --short --untracked-files=no >&2
+    exit 1
+fi
+
 STAGE="output/delivery"
 ARCHIVE="output/internet-digital-ark-delivery.tar.gz"
 rm -rf "$STAGE"

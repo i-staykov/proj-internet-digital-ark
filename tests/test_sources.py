@@ -9,6 +9,7 @@ from ark.sources import (
     SOURCES,
     parse_afnic_fr,
     parse_arquivo_cdxj,
+    parse_cdx_snapshot,
     parse_early_web_cdx,
     parse_internet_scout,
     parse_isc_survey,
@@ -399,4 +400,45 @@ def test_rdap_snapshot_is_registered_apart_from_the_legacy_source() -> None:
     assert spec.source_name == "rdap_snapshot"
     assert spec.evidence_type == "whois_creation"
     assert spec.acquisition_method == "rdap_journal_file"
+    assert spec.is_candidate_only is False
+
+
+def test_cdx_snapshot_yields_a_record_per_returned_year(tmp_path) -> None:
+    path = _journal(
+        tmp_path,
+        [
+            {"domain": "hit.com", "status": 200, "years": [1997, 1999], "truncated": False},
+            {"domain": "none.com", "status": 200, "years": [], "truncated": False},
+            {"domain": "err.com", "status": 503, "years": [], "truncated": False},
+            {"domain": "out.com", "status": 200, "years": [2005], "truncated": False},
+        ],
+        name="cdx_20260725T120000Z.jsonl",
+    )
+    stats: Counter = Counter()
+    records = list(parse_cdx_snapshot(path, stats))
+
+    # one record per year actually returned, no inference of adjacent years
+    assert [(r.raw, r.year) for r in records] == [("hit.com", 1997), ("hit.com", 1999)]
+    assert records[0].evidence_value == "cdx capture 1997"
+    assert stats["journal_lines"] == 4
+    assert stats["query_failed"] == 1
+    assert stats["no_capture_in_window"] == 2  # none.com and the out-of-window one
+
+
+def test_cdx_snapshot_counts_truncated_responses(tmp_path) -> None:
+    path = _journal(
+        tmp_path,
+        [{"domain": "big.com", "status": 200, "years": [1998], "truncated": True}],
+        name="cdx_20260725T130000Z.jsonl",
+    )
+    stats: Counter = Counter()
+    assert len(list(parse_cdx_snapshot(path, stats))) == 1
+    assert stats["truncated_response"] == 1
+
+
+def test_cdx_snapshot_is_registered_as_a_cdx_master_source() -> None:
+    spec = SOURCES["cdx_snapshot"]
+    assert spec.source_name == "ia_cdx_bulk"
+    assert spec.evidence_type == "cdx_timestamp"
+    assert spec.acquisition_method == "ia_cdx_collapsed_query"
     assert spec.is_candidate_only is False
