@@ -316,6 +316,11 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - method note: dedup-before-verify saved a ~4 h RDAP run (planned 15-20k queries) that would have found ~0 net-new. "Measure before scaling" again
   - broader read: the direct net-new avenues are now largely exhausted (national registries / archives gave the wins: AFNIC .fr, Arquivo .pt, UKWA .uk; global crawls overlap the baseline). Remaining upside is niche (untested national archives, WHOIS creation dates for capture-less tails) or corroboration/gap-fill, not large tranches
 
+- **Registry open-data re-check: no new free historical source (finding)**
+  - looked again for AFNIC-style registry open data (per-domain creation dates) for other ccTLDs. Result: nothing free reaches 1996-2001. CENTR publishes only aggregate counts; OpenINTEL/DomainMetaData/WhoisFreaks publish current name lists or paid feeds (OpenINTEL measurements start 2015); commercial WHOIS bulk is paid. AFNIC `.fr` remains the one open registry file with in-window creation dates
+  - the one repeatable avenue that remains: a **current ccTLD name list -> RDAP for creation dates** (the same pattern that gave +831 from UKWA link-targets). It is bounded by the ~few-per-second RDAP rate, so each run adds hundreds, not an AFNIC-scale tranche; parked as a future incremental lever if a free ccTLD zone/name list is located
+  - **Phase-7 delivery packaged** this session: `scripts/package_delivery.sh` assembles `output/internet-digital-ark-delivery.tar.gz` (80 MB: merged masters, net-new additions, `evidence_manifest.csv`, candidates, droplist, audit CSVs, logs, source snapshot, `report.docx`, README) with per-file + archive SHA256. `report.md -> report.docx` via pandoc
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
