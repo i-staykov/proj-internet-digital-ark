@@ -16,6 +16,7 @@ from typing import IO
 
 from ark.bulk import BulkRecord, SourceSpec
 from ark.ingest import YEARS
+from ark.rdap import RDAP_REDIRECTOR, attested_years, open_journal
 
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
@@ -230,6 +231,44 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 )
 
 
+# Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an
+# editorial review of a live site; <dc:date> is the Scout Report publication year
+# (the archive spans 1994-2007, matching the Report's lifespan; a handful of
+# pre-1994 dc:date anomalies fall outside our window and drop out). The
+# publication date attests the site was live that year -> dated_directory (Ding
+# 2026-07-24: dated directory/index sources are direct). Site URLs are in
+# <dc:identifier>; the <header><identifier> is the auditable OAI record id.
+_SCOUT_RECORD = re.compile(r"<record>.*?</record>", re.S)
+_SCOUT_OAI_ID = re.compile(r"<identifier>([^<]+)</identifier>")
+_SCOUT_DATE = re.compile(r"<dc:date>(\d{4})</dc:date>")
+_SCOUT_URL = re.compile(r"<dc:identifier>(https?://[^<]+)</dc:identifier>")
+
+
+def parse_internet_scout(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per reviewed site per in-window Scout Report year."""
+    with _open_text(path) as fh:
+        text = fh.read()
+    for match in _SCOUT_RECORD.finditer(text):
+        block = match.group(0)
+        stats["scout_records"] += 1  # own key: "records" is the loader's yielded-count
+        year_match = _SCOUT_DATE.search(block)
+        if year_match is None:
+            stats["no_date"] += 1
+            continue
+        year = int(year_match.group(1))
+        if year not in YEARS:
+            stats["out_of_window"] += 1
+            continue
+        oai = _SCOUT_OAI_ID.search(block)
+        record_id = oai.group(1) if oai else "scout"
+        urls = _SCOUT_URL.findall(block)
+        if not urls:
+            stats["no_url"] += 1
+            continue
+        for url in urls:
+            yield BulkRecord(raw=url, year=year, evidence_value=record_id)
+
+
 # ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
 # artifact_listing evidence (Ding 2026-07-24: dated index files are direct). The
 # `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
@@ -274,6 +313,50 @@ def parse_odp(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     except (EOFError, OSError):
         # truncated download (e.g. the c2000 prefix); everything before the
         # truncation was already yielded
+        stats["truncated_tail"] += 1
+
+
+# An `ark rdap` run journal: one JSON object per line, format documented in
+# ark.rdap. The journal is the artifact, so this evidence replays from a hashed
+# file like every other source. Only the creation year is attested (III.6), so a
+# domain yields at most one record; the rule itself lives in rdap.attested_years.
+def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per journalled domain whose creation year is in window."""
+    try:
+        with open_journal(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                stats["journal_lines"] += 1
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    stats["unparseable_line"] += 1
+                    continue
+                domain = record.get("domain")
+                if not domain:
+                    stats["no_domain"] += 1
+                    continue
+                year = record.get("creation_year")
+                if not isinstance(year, int):
+                    # journalled as undatable: no RDAP, 404, or transport failure
+                    stats["not_dated"] += 1
+                    continue
+                years = attested_years(year)
+                if not years:
+                    stats["outside_window"] += 1
+                    continue
+                for target_year in years:
+                    yield BulkRecord(
+                        raw=domain,
+                        year=target_year,
+                        evidence_value=f"rdap creation {year}",
+                        evidence_url=f"{RDAP_REDIRECTOR}{domain}",
+                    )
+    except (EOFError, OSError):
+        # journal from an interrupted run; everything before the last flush was
+        # already yielded, and the missing tail is re-queried on the next run
         stats["truncated_tail"] += 1
 
 
@@ -324,6 +407,15 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="afnic_open_data",
         parse=parse_afnic_fr,
     ),
+    # Internet Scout Report archive: editorial directory entries, each dated by
+    # its Scout Report publication year (dated_directory)
+    "internet_scout": SourceSpec(
+        key="internet_scout",
+        source_name="internet_scout",
+        evidence_type="dated_directory",
+        acquisition_method="scout_report_oai",
+        parse=parse_internet_scout,
+    ),
     # ODP / DMOZ RDF content dump: dated data file -> artifact_listing; the
     # dump's generation stamp fixes the year (c2000 = 2000, kt2001xx = 2001)
     "odp": SourceSpec(
@@ -332,5 +424,14 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="odp_rdf_dump",
         parse=parse_odp,
+    ),
+    # kept distinct from the legacy `rdap` source, whose rows predate the
+    # journal and so cannot be replayed from a file (see notes.md 2026-07-25)
+    "rdap_snapshot": SourceSpec(
+        key="rdap_snapshot",
+        source_name="rdap_snapshot",
+        evidence_type="whois_creation",
+        acquisition_method="rdap_journal_file",
+        parse=parse_rdap_snapshot,
     ),
 }

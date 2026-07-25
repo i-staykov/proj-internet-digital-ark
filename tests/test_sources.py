@@ -1,6 +1,7 @@
 """Bulk source parsers: field handling, filters, per-file stats, registration."""
 
 import gzip
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -9,8 +10,10 @@ from ark.sources import (
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_early_web_cdx,
+    parse_internet_scout,
     parse_isc_survey,
     parse_odp,
+    parse_rdap_snapshot,
     parse_ukwa_link_source,
 )
 
@@ -231,6 +234,52 @@ def test_odp_is_registered_as_artifact_listing_master() -> None:
     assert spec.is_candidate_only is False
 
 
+def _scout_record(oai_id: str, year: str, urls: list[str], extra: str = "") -> str:
+    ids = "".join(f"<dc:identifier>{u}</dc:identifier>" for u in urls)
+    return (
+        f"<record><header><identifier>{oai_id}</identifier>"
+        "<datestamp>2003-04-02</datestamp></header><metadata><oai_dc:dc>"
+        f"<dc:date>{year}</dc:date><dc:description>d</dc:description>{extra}{ids}"
+        "</oai_dc:dc></metadata></record>"
+    )
+
+
+def test_internet_scout_extracts_in_window_reviewed_sites(tmp_path: Path) -> None:
+    fixture = tmp_path / "scout_oai.xml"
+    fixture.write_text(
+        "<OAI-PMH><ListRecords>"
+        + _scout_record("oai:scout:1", "1998", ["http://www.example.com/"])
+        + _scout_record("oai:scout:2", "1989", ["http://old.example.org/"])  # out of window
+        + _scout_record("oai:scout:3", "2000", ["http://a.net/", "https://b.org/x"])
+        + _scout_record(
+            "oai:scout:4", "1997", [], extra="<dc:identifier>internal-id-999</dc:identifier>"
+        )
+        + "</ListRecords></OAI-PMH>",
+        encoding="utf-8",
+    )
+    stats: Counter = Counter()
+    records = list(parse_internet_scout(fixture, stats))
+
+    assert {(r.raw, r.year) for r in records} == {
+        ("http://www.example.com/", 1998),
+        ("http://a.net/", 2000),
+        ("https://b.org/x", 2000),
+    }
+    # the OAI record id is the auditable evidence reference
+    assert (
+        next(r.evidence_value for r in records if r.raw == "http://www.example.com/")
+        == "oai:scout:1"
+    )
+    assert stats["out_of_window"] == 1  # the 1989 record
+    assert stats["no_url"] == 1  # record 4 has only a non-URL identifier
+
+
+def test_internet_scout_is_registered_as_dated_directory_master() -> None:
+    spec = SOURCES["internet_scout"]
+    assert spec.evidence_type == "dated_directory"
+    assert spec.is_candidate_only is False
+
+
 UKWA_LINES = [
     "1995|bssv01.lancs.ac.uk|www.env.uea.ac.uk\t2",
     "1996|acorn.educ.nottingham.ac.uk|www.planete.net\t2",
@@ -293,4 +342,61 @@ def test_ukwa_tolerates_truncated_gzip(tmp_path: Path) -> None:
 def test_ukwa_link_source_is_master() -> None:
     spec = SOURCES["ukwa_link_source"]
     assert spec.evidence_type == "link_source"
+    assert spec.is_candidate_only is False
+
+
+_JOURNAL_NAME = "rdap_20260725T120000Z.jsonl"
+
+
+def _journal(tmp_path: Path, records: list[dict], name: str = _JOURNAL_NAME) -> Path:
+    path = tmp_path / name
+    body = "".join(json.dumps(r) + "\n" for r in records)
+    if name.endswith(".gz"):
+        with gzip.open(path, "wt", encoding="utf-8") as fh:
+            fh.write(body)
+    else:
+        path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_rdap_snapshot_yields_only_the_creation_year(tmp_path) -> None:
+    path = _journal(
+        tmp_path,
+        [
+            {"domain": "in.com", "status": 200, "creation_year": 1998, "response": {}},
+            {"domain": "early.com", "status": 200, "creation_year": 1995, "response": {}},
+            {"domain": "late.com", "status": 200, "creation_year": 2004, "response": {}},
+            {"domain": "gone.com", "status": 404, "creation_year": None, "response": None},
+        ],
+    )
+    stats: Counter = Counter()
+    records = list(parse_rdap_snapshot(path, stats))
+    # one record, for the creation year alone; out-of-window years attest nothing
+    assert [(r.raw, r.year) for r in records] == [("in.com", 1998)]
+    assert records[0].evidence_value == "rdap creation 1998"
+    assert records[0].evidence_url == "https://rdap.org/domain/in.com"
+    assert stats["journal_lines"] == 4
+    assert stats["outside_window"] == 2
+    assert stats["not_dated"] == 1
+
+
+def test_rdap_snapshot_reads_gzip_and_skips_junk_lines(tmp_path) -> None:
+    path = tmp_path / "rdap_20260725T130000Z.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write(json.dumps({"domain": "ok.fr", "creation_year": 2000}) + "\n")
+        fh.write("\n")
+        fh.write("{not json\n")
+        fh.write(json.dumps({"creation_year": 1997}) + "\n")  # no domain
+    stats: Counter = Counter()
+    records = list(parse_rdap_snapshot(path, stats))
+    assert [(r.raw, r.year) for r in records] == [("ok.fr", 2000)]
+    assert stats["unparseable_line"] == 1
+    assert stats["no_domain"] == 1
+
+
+def test_rdap_snapshot_is_registered_apart_from_the_legacy_source() -> None:
+    spec = SOURCES["rdap_snapshot"]
+    assert spec.source_name == "rdap_snapshot"
+    assert spec.evidence_type == "whois_creation"
+    assert spec.acquisition_method == "rdap_journal_file"
     assert spec.is_candidate_only is False
