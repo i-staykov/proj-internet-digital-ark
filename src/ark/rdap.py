@@ -26,7 +26,6 @@ RDAP body (null unless the query returned 200 with valid JSON).
 `fetch` and `sleep` are injected so the logic is tested offline.
 """
 
-import gzip
 import json
 import time
 import urllib.error
@@ -34,7 +33,28 @@ import urllib.request
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO
+
+from ark.journal import journal_path as _journal_path
+from ark.journal import (
+    open_journal,
+    open_journal_for_write,
+    write_journal_line,
+)
+from ark.journal import queried_domains as _queried_domains
+
+__all__ = [
+    "JOURNAL_DIR",
+    "RDAP_REDIRECTOR",
+    "attested_years",
+    "creation_year",
+    "journal_path",
+    "lookup",
+    "open_journal",
+    "open_journal_for_write",
+    "queried_domains",
+    "registration_year",
+    "write_journal_line",
+]
 
 # (status_code, body) pairs; status 0 means a transport error (retryable)
 Fetch = Callable[[str], tuple[int, str]]
@@ -43,7 +63,7 @@ RDAP_REDIRECTOR = "https://rdap.org/domain/"
 _RETRYABLE = frozenset({0, 429, 500, 502, 503, 504})
 
 JOURNAL_DIR = Path("data/raw/rdap")
-_JOURNAL_GLOB = "rdap_*.jsonl*"
+JOURNAL_PREFIX = "rdap"
 
 
 def _http_get(url: str, timeout: float = 20.0) -> tuple[int, str]:
@@ -150,50 +170,9 @@ def lookup(
 
 def journal_path(directory: Path = JOURNAL_DIR, now: datetime | None = None) -> Path:
     """Path for a new run journal. One file per run, never appended to again."""
-    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
-    return directory / f"rdap_{stamp}.jsonl.gz"
-
-
-def open_journal(path: Path) -> IO[str]:
-    """Open a journal for reading, gzipped or plain."""
-    if path.suffix == ".gz":
-        return gzip.open(path, "rt", encoding="utf-8", errors="replace")
-    return path.open(encoding="utf-8", errors="replace")
-
-
-def open_journal_for_write(path: Path) -> IO[str]:
-    """Open a journal for writing, gzipped unless the path says otherwise."""
-    if path.suffix == ".gz":
-        return gzip.open(path, "wt", encoding="utf-8")
-    return path.open("w", encoding="utf-8")
-
-
-def write_journal_line(fh: IO[str], record: dict) -> None:
-    fh.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
+    return _journal_path(directory, JOURNAL_PREFIX, now)
 
 
 def queried_domains(directory: Path = JOURNAL_DIR) -> set[str]:
-    """Every domain already recorded in a run journal, so runs never repeat work.
-
-    Truncation is tolerated: an interrupted run leaves a journal readable up to
-    its last flush, and whatever it lost is simply queried again next time.
-    """
-    seen: set[str] = set()
-    if not directory.is_dir():
-        return seen
-    for path in sorted(directory.glob(_JOURNAL_GLOB)):
-        try:
-            with open_journal(path) as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        domain = json.loads(line).get("domain")
-                    except ValueError:
-                        continue
-                    if domain:
-                        seen.add(domain)
-        except (EOFError, OSError):
-            continue
-    return seen
+    """Every domain already recorded in a run journal, so runs never repeat work."""
+    return _queried_domains(directory, JOURNAL_PREFIX)

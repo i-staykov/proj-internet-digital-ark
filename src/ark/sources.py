@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import IO
 
 from ark.bulk import BulkRecord, SourceSpec
+from ark.cdx import evidence_years as cdx_evidence_years
 from ark.ingest import YEARS
-from ark.rdap import RDAP_REDIRECTOR, attested_years, open_journal
+from ark.journal import open_journal
+from ark.rdap import RDAP_REDIRECTOR, attested_years
 
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
@@ -360,6 +362,48 @@ def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
+# An `ark cdx` run journal: one JSON object per queried domain, format documented
+# in ark.cdx. A returned in-window capture year is evidence for that year and no
+# other, so there is no inference to make here (III.7).
+def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window year a CDX query returned for a domain."""
+    try:
+        with open_journal(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                stats["journal_lines"] += 1
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    stats["unparseable_line"] += 1
+                    continue
+                domain = record.get("domain")
+                if not domain:
+                    stats["no_domain"] += 1
+                    continue
+                if record.get("status") != 200:
+                    stats["query_failed"] += 1
+                    continue
+                if record.get("truncated"):
+                    stats["truncated_response"] += 1
+                years = list(cdx_evidence_years(record, min(YEARS), max(YEARS)))
+                if not years:
+                    stats["no_capture_in_window"] += 1
+                    continue
+                for year in years:
+                    yield BulkRecord(
+                        raw=domain,
+                        year=year,
+                        evidence_value=f"cdx capture {year}",
+                        evidence_url=f"https://web.archive.org/web/{year}/{domain}",
+                    )
+    except (EOFError, OSError):
+        # journal from an interrupted run; the missing tail is re-queried next run
+        stats["truncated_tail"] += 1
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -433,5 +477,12 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="whois_creation",
         acquisition_method="rdap_journal_file",
         parse=parse_rdap_snapshot,
+    ),
+    "cdx_snapshot": SourceSpec(
+        key="cdx_snapshot",
+        source_name="ia_cdx_bulk",
+        evidence_type="cdx_timestamp",
+        acquisition_method="ia_cdx_collapsed_query",
+        parse=parse_cdx_snapshot,
     ),
 }
