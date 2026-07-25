@@ -4,7 +4,7 @@ from pathlib import Path
 
 import duckdb
 
-from ark.db import add_candidate, connect, ensure_source, init_db
+from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.seed import seed_from_file
 from ark.work_queue import connect_queue, counts
 
@@ -17,7 +17,7 @@ def _stores() -> tuple[duckdb.DuckDBPyConnection, object]:
 
 def test_seed_funnel(tmp_path: Path) -> None:
     conn, queue_conn = _stores()
-    # known.com is already in the store, like a baseline domain
+    # on file but with no confirmed year: this is a candidate, not settled work
     sid = ensure_source(conn, "prior_task", "timestamped")
     add_candidate(conn, "known.com", sid)
 
@@ -29,13 +29,35 @@ def test_seed_funnel(tmp_path: Path) -> None:
 
     assert stats["lines"] == 5
     assert stats["invalid"] == 1
-    assert stats["already_known"] == 1
+    # already on file, but unproven, so it is queued rather than dismissed
+    assert stats["already_candidate"] == 1
+    assert stats["already_confirmed_baseline"] == 0
     # fresh.org and its www variant collapse into one new candidate
     assert stats["new_candidates"] == 2
-    assert stats["enqueued"] == 2
-    assert counts(queue_conn, "cdx_verify") == {"pending": 2}
+    assert stats["enqueued"] == 3
+    assert counts(queue_conn, "cdx_verify") == {"pending": 3}
     # candidates are registered but unverified: no year rows
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+
+
+def test_seed_skips_only_domains_with_a_confirmed_year(tmp_path: Path) -> None:
+    conn, queue_conn = _stores()
+    sid = ensure_source(conn, "prior_task", "timestamped")
+    # one domain confirmed from the baseline, one confirmed by our own evidence
+    for domain, evidence_type in (("base.com", "prior_reused"), ("ours.com", "cdx_timestamp")):
+        add_candidate(conn, domain, sid)
+        assign_year(conn, record_evidence(conn, domain, sid, 1997, evidence_type, "19970101000000"))
+
+    fixture = tmp_path / "seeds.txt"
+    fixture.write_text("base.com\nours.com\nnew.com\n", encoding="utf-8")
+    stats = seed_from_file(conn, queue_conn, fixture)
+
+    # the two confirmed ones are counted apart, and neither is re-queued
+    assert stats["already_confirmed_baseline"] == 1
+    assert stats["already_confirmed_by_us"] == 1
+    assert stats["already_candidate"] == 0
+    assert stats["new_candidates"] == 1
+    assert stats["enqueued"] == 1
 
 
 def test_seed_limit(tmp_path: Path) -> None:

@@ -402,6 +402,12 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - **resume bug fixed for RDAP (2026-07-26).** `ark rdap` was calling `queried_domains` with no predicate, so every journalled record counted as settled including transport failures - the same defect fixed for CDX a day earlier and missed here. RDAP's predicate is deliberately NOT identical to CDX's: a `404` IS an answer ("no RDAP record exists for this name", which re-asking will not change), while `0` and `5xx` are failures that must be retried. `rdap.answered` accepts `(200, 404)`; `cdx.answered` accepts `200` only
   - **rejected: refreshing the CDX gap list as the store grows.** A CDX query answers all six years at once, so a newly bracketed gap on an already-queried domain is already known, and for domains the run will never reach the refresh changes nothing (Ivo, 2026-07-26)
 
+- **Seeding: only a confirmed year settles a domain (2026-07-26)**
+  - `seed.py` classified a domain as `already_known` if it appeared in the `domain` table at all, and skipped it. That is wrong for exactly the population the candidate pool is made of: a domain on file with NO assigned year is a candidate, reached by a candidate-only source, or dated outside 1996-2001, or queried and unanswered. Those were counted as settled and never enqueued, while `ark export` still listed them as candidates
+  - now three states instead of one: `already_confirmed_baseline` (has a year, carries `prior_reused`), `already_confirmed_by_us` (has a year from our own evidence), `already_candidate` (on file, no year -> still queued). This also discharges the long-standing "split `already_known` into baseline vs earlier-seeded" item
+  - classification moved from one query per line to one set-based query, which matters at the 600k-domain seed files that section B will feed it
+  - verified while here that both verification selectors already drop fully-covered domains: of 31,492 domains holding all six in-window years, 0 appear in the RDAP pool and 147 (0.03%) appear in the CDX pool, those being domains whose gaps the CDX run itself filled after the list was generated. Accepted as the staleness cost of not regenerating the list mid-run (Ivo, 2026-07-26)
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the
