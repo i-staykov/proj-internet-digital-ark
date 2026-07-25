@@ -389,6 +389,90 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - ordering fix: `ark gaps` now spreads domains by `hash(domain)` inside each year tier. Alphabetical order clustered numeric-prefix junk at the head, so a run that cannot finish the pool would spend its whole budget on the least promising names
   - full §VI/§IX.5 write-up, including the reproduce commands, is report §5.1
 
+- **RDAP spiked against IA CDX on comparable work; CDX wins per hour, so both run concurrently (2026-07-26)**
+  - question (Ivo): IA CDX turned out slow at ~1,000 domains/hour, so is a fast RDAP pass worth running too? His refinement made the test fair: RDAP evidence counts only for the registration year, so the population must be domains that existed in LATER years but not earlier ones, where a creation date can still land on something new
+  - population initially defined as domains whose earliest held in-window year is later than 1996, on the assumption that a creation date must precede everything already held (**wrong, see the correction below**; the `--pre-first` flag this used no longer exists, it became `--creation`). **4,679,861 domains, 15,465,849 addressable year-slots**, an order of magnitude larger than the 470,614-domain bracketed pool. Ordered by E descending, since a later first-held year leaves more room
+  - measured on 200 domains: **2,880 domains/hour** (sequential, 0.05 s pacing), 95 dated (47.5%), 105 not dated. Of the 95: **0** created before 1996, **66** created at or after the year already held (nothing gained), **29** landed on a genuinely new year. Examples: `mediater.net` created 1999 first held 2001, `prconsultantsgroup.com` created 2000 first held 2001
+  - yield recorded at the time as 0.145 pairs/domain (~418/hour) against IA CDX at 1.15 per domain and ~1,000 domains/hour (~1,150/hour). **That RDAP figure came from a flawed test and is superseded by the correction below; the CDX figures stand.** The structural point holds regardless: CDX wins per hour despite being far slower per query, because a capture answers any year while a creation date answers one
+  - **decision: RDAP does not replace CDX and is not worth optimising further.** rdap.org's own ceiling is ~1 request/second, so going faster means bypassing the redirector and resolving registry endpoints per TLD through the IANA bootstrap, which is real work for a source with one seventh of CDX's yield per query
+  - **but both now run concurrently**, because they hit entirely different services and neither is CPU-bound: combined ~1,568 net-new pairs/hour, a free +36% over CDX alone. This is also the cross-validation the brief asks for, since a domain both engines answer is corroborated by two independent provenances
+  - **CORRECTION, same day: the yield above understated RDAP because the analysis was wrong.** The test used was `creation_year >= earliest_held_year -> already covered`, which is false. A creation date is NOT bounded by the years already held: it resets when a name is dropped and re-registered, so a domain held in 1997 can legitimately report creation in 1999, and that evidences 1999. Ivo caught the reasoning. Re-measured against the actual `domain_year` rows, the same population gave **130 new pairs where the flawed test reported 29** (800 queried, 388 dated, 235 dated in-window, 105 of those already held). Corrected yield **0.163 pairs/domain**
+  - **selector replaced with Ivo's rule (2026-07-26):** the population is every domain missing an in-window year ADJACENT to one it holds, ordered by how many such years are missing (each is another chance for the date to land somewhere new). `ark gaps --creation` -> `creation_addressable_domains` in `src/ark/gaps.py`. **5,256,528 domains / 8,680,273 addressable years**, replacing the earlier "earliest held year > 1996" rule which wrongly excluded post-held creation years
+  - **honest outcome: the better rule did not produce a better yield.** Measured on 200 domains: dated share rose from 47.5% to **57.5%**, but new pairs per domain came out at **0.145**, statistically indistinguishable from the old selector's 0.163. Reason: "most missing years" selects domains held in few years, and for those the creation year is very often the single year already held (the ISC 1997 survey coincides with many 1997 registrations) - 48 of 77 in-window dates were already held. **RDAP yields ~0.15 pairs per domain however the population is chosen, so ~400-470 pairs/hour is this engine's ceiling.** The rule was kept because it is principled, not because it measured better
+  - **resume bug fixed for RDAP (2026-07-26).** `ark rdap` was calling `queried_domains` with no predicate, so every journalled record counted as settled including transport failures - the same defect fixed for CDX a day earlier and missed here. RDAP's predicate is deliberately NOT identical to CDX's: a `404` IS an answer ("no RDAP record exists for this name", which re-asking will not change), while `0` and `5xx` are failures that must be retried. `rdap.answered` accepts `(200, 404)`; `cdx.answered` accepts `200` only
+  - **rejected: refreshing the CDX gap list as the store grows.** A CDX query answers all six years at once, so a newly bracketed gap on an already-queried domain is already known, and for domains the run will never reach the refresh changes nothing (Ivo, 2026-07-26)
+
+## Definition: the two verification engines and how they work together
+
+Both engines turn an undated or partially dated domain into per-year evidence, and both follow the
+same collect-then-interpret shape, but they answer different questions and are therefore given
+different populations. Neither writes to the store while collecting.
+
+**The pipeline, per engine**
+
+| | IA CDX | RDAP |
+|---|---|---|
+| Select | `ark gaps` -> `sandwich_gap_domains` | `ark gaps --creation` -> `creation_addressable_domains` |
+| Population | bracketed: held Y-1 **and** Y+1, missing Y | any in-window year missing **adjacent** to a held one |
+| Size | 470,614 domains | 5,256,528 domains |
+| Ordering | thinnest gap year first, then `hash(domain)` | most missing years first, then `hash(domain)` |
+| Collect | `ark cdx` -> `cdx.lookup_years` | `ark rdap` -> `rdap.lookup` |
+| Journal | `data/raw/cdx/cdx_<UTC>.jsonl.gz` | `data/raw/rdap/rdap_<UTC>.jsonl.gz` |
+| Interpret | `ark ingest cdx_snapshot` -> `cdx.evidence_years` | `ark ingest rdap_snapshot` -> `rdap.attested_years` |
+| Evidence type | `cdx_timestamp` | `whois_creation` |
+| Years per answer | **all six**, whichever have captures | **exactly one**, the creation year |
+
+**Why the populations differ.** The engines are not interchangeable. A capture answers any year, so
+CDX is asked about domains whose missing year is bracketed and therefore near-certain to have
+existed. A creation date answers one year only, so RDAP is asked about domains where some missing
+year could plausibly BE the creation year. Handing RDAP a "was this alive in 1999?" question it
+structurally cannot answer is the waste this split avoids.
+
+**The pools are nested, not disjoint.** Every bracketed gap is by definition adjacent-and-missing,
+so the CDX pool sits entirely inside the RDAP pool (measured: 470,467 of 470,614, the small
+shortfall being ingests that landed after the CDX list was written). RDAP adds 4,786,061 domains
+CDX never sees. **The overlap is deliberate and is not waste**: the two engines ask different
+questions about the same domain, and where both confirm the same (domain, year), `assign_year` keeps
+the first assignment while the second evidence row is still stored. That is corroboration from two
+genuinely independent provenances, which is what the project is otherwise weak on, since most
+existing corroboration traces back to the Internet Archive on both sides.
+
+**No shared queue, and none is needed at this scale.** Each engine skips only what its own journals
+have answered. The SQLite work queue exists but is used solely by the older `ark verify`. Since a
+night's run reaches under 1% of either pool, coordination would cost more than the duplication it
+saves.
+
+**The unit of work is the domain, not the (domain, year) pair.** One CDX query returns every year;
+one RDAP query returns one date. Nothing tracks per-pair attempts, which is why the selectors encode
+"which domains are worth asking about" rather than "which pairs remain unproven".
+
+**Unconfirmed is handled by reason, not uniformly.** This distinction is load-bearing:
+
+- **A definitive negative is final.** CDX returning HTTP 200 with no in-window years means the
+  archive holds nothing for that domain in 1996-2001, and its index for those years does not change,
+  so the domain is marked answered and never re-queried. RDAP returning 404 is the same kind of
+  finding. Re-asking would burn a slot at ~1,000 queries/hour to receive the same answer.
+- **A failure is not an answer.** A transport error or 5xx means the question never landed, so the
+  domain stays eligible and the next batch picks it up, which is what makes the runs resumable.
+  Recording failures as answers cost 2,727 domains once before it was caught.
+
+**The store is written in exactly one place: `ark ingest <spec> <journal>`.** One journal becomes one
+transaction (`bulk.py`): domain rows, evidence rows, year assignments, the `ingested_file` ledger row
+and run metrics all commit together, and the audit CSV is written only afterwards. Collection writes
+nothing, which is what lets an hours-long run proceed against a single-writer database. (`ark gaps`,
+`ark stats` and `ark check` each append one `run_metrics` row, so they take the write lock, but only
+for an instant.)
+
+**Operational rule: never ingest a journal that is still being written.** The ledger stores the
+file's sha256 and the loader raises on a mismatch rather than re-reading it, so ingesting a
+half-written journal ledgers it at a partial hash; once the collector appends more, that file can
+never be ingested again and its remaining records become silently unreachable. Ingest completed
+journals only, meaning everything except the newest file in each directory while a run is live.
+
+**Rates, measured 2026-07-25/26.** CDX ~1,000 answered domains/hour at 1.15 net-new pairs per
+domain (~1,150 pairs/hour); RDAP ~2,800 domains/hour at ~0.15 (~420 pairs/hour). Run concurrently
+they reach ~1,555 pairs/hour, because they are network-bound against different services.
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:

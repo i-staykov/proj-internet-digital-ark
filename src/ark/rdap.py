@@ -173,6 +173,17 @@ def journal_path(directory: Path = JOURNAL_DIR, now: datetime | None = None) -> 
     return _journal_path(directory, JOURNAL_PREFIX, now)
 
 
+def answered(record: dict) -> bool:
+    """Whether a journal record settles a domain, so a later run can skip it.
+
+    A 200 is an answer and so is a 404: "no RDAP record exists for this name" is
+    a finding, not a failure, and re-asking will not change it. A transport error
+    or a 5xx means the question never landed, and treating that as settled would
+    silently drop the domain from every later run.
+    """
+    return record.get("status") in (200, 404)
+
+
 def queried_domains(directory: Path = JOURNAL_DIR) -> set[str]:
-    """Every domain already recorded in a run journal, so runs never repeat work."""
-    return _queried_domains(directory, JOURNAL_PREFIX)
+    """Domains a run journal already ANSWERED, so runs never repeat settled work."""
+    return _queried_domains(directory, JOURNAL_PREFIX, answered=answered)

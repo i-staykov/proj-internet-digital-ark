@@ -104,9 +104,12 @@ def test_journal_round_trip_and_resume_set(tmp_path) -> None:
     path = journal_path(tmp_path)
     assert path.name.startswith("rdap_") and path.name.endswith(".jsonl.gz")
     with open_journal_for_write(path) as fh:
-        write_journal_line(fh, {"domain": "a.com", "creation_year": 1997})
-        write_journal_line(fh, {"domain": "b.com", "creation_year": None})
-    # a later run skips everything any journal in the folder already covers
+        write_journal_line(fh, {"domain": "a.com", "status": 200, "creation_year": 1997})
+        write_journal_line(fh, {"domain": "b.com", "status": 404, "creation_year": None})
+        # a transport failure is not an answer, so this one must be retried
+        write_journal_line(fh, {"domain": "c.com", "status": 0, "creation_year": None})
+    # a later run skips only what was actually answered: 200 (dated) and 404
+    # ("no RDAP record", a finding), never a failed request
     assert queried_domains(tmp_path) == {"a.com", "b.com"}
 
 
