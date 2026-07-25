@@ -324,8 +324,8 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 - **Gap-fill via RDAP: +7,655 net-new pairs in the thin years, 42% hit (finding — best RDAP run yet)**
   - the existing `ark rdap` engine also fills HELD domains' missing in-window years: a domain present in year Y and Y+2 but missing Y+1 almost certainly existed in Y+1, and its RDAP registration interval supplies the evidence for the still-registered ones (a filled gap = a net-new pair, since the baseline lacked that year). No new CDX build needed
   - found **470,816 "sandwich-gap" domains** (assigned Y and Y+2, missing Y+1); ran a 10,000 systematic sample: **4,192 dated (42% hit — far above the 13% link-target rate, because these domains provably existed around the gap so more survive)**, 1,781 created after 2001, 4,027 no longer registered / no RDAP
-  - yield: **+7,655 net-new pairs**, concentrated in the thin years (1998 +1,639, 1999 +1,779, 2000 +1,943; 1996 +411, 1997 +786, 2001 +1,097). +0 net-new domains (held domains gaining missing years). Scoreboard 463,365 / 1,302,735 -> 463,365 / **1,310,390**. `ark check` passes
-  - the remaining ~460k sandwich-gap candidates are the clearest remaining lever: RDAP-rate-bound (~4k pairs per 10k queried, ~3.7 h/run), so each bounded run adds thousands of thin-year pairs; the full pool extrapolates to ~197k pairs but needs ~90 h of RDAP
+  - run 1 yield: **+7,655 net-new pairs** (1998 +1,639, 1999 +1,779, 2000 +1,943; 1996 +411, 1997 +786, 2001 +1,097). Run 2 (5,000 more queried, 1,484 dated): **+2,782 pairs** (1998 +606, 1999 +507, 2000 +837). **Combined gap-fill: +10,437 net-new pairs**; +0 net-new domains (held domains gaining missing years). Scoreboard 463,365 / 1,302,735 -> 463,365 / **1,313,172**. `ark check` passes after each run
+  - the remaining ~455k sandwich-gap candidates are the clearest remaining lever: RDAP-rate-bound (~3-4k pairs per 10k queried, ~3.7 h/run), so each bounded run adds thousands of thin-year pairs; the full pool extrapolates to well over 100k pairs but needs many hours of RDAP
 
 ## Definition: what we count as a valid domain
 
