@@ -83,7 +83,7 @@ data/            # git-ignored: DuckDB store, work queue, downloaded sources (ra
 legacy-data/     # git-ignored: the provided baseline, dropped in (not in the repo)
 src/ark/         # the pipeline package and the `ark` CLI
 tests/           # pytest suite (network mocked)
-docs/            # task brief, plan, notes
+docs/            # task brief, sources.md (per-source documentation), plan, notes
 ```
 
 `ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.

@@ -19,6 +19,7 @@ Evidence-backed annual domain lists for **1996–2001**, grown on top of the pro
 | `audit/` | Normalization/salvage audit CSVs (every correction and drop, per source) |
 | `logs/` | Execution logs + `run_metrics` outputs (per-run statistics) |
 | `source/` | Full source code + config snapshot (also the git repo) |
+| `sources.md` | Per-source documentation: acquisition method, how the year is established, why each carries its evidence type, measured yield, caveats, reproduction command |
 | `notes.md` | The decision log: every source, method, yield, and caveat, with dates |
 | `SHA256SUMS` | Checksums for every file in this archive |
 

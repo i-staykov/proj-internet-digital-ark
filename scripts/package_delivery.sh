@@ -27,6 +27,7 @@ cp docs/report.md "$STAGE/report.md"
 [ -f output/report.docx ] && cp output/report.docx "$STAGE/report.docx"
 cp docs/delivery_readme.md "$STAGE/README.md"
 cp docs/notes.md "$STAGE/notes.md"
+cp docs/sources.md "$STAGE/sources.md"
 
 # merged master year lists + net-new additions + provenance
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true

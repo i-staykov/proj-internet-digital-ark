@@ -81,7 +81,7 @@ Live corroboration, reproducible by any reviewer from the open data file plus on
 
 ## 3. Sources & methods
 
-All figures are net-new **on top of the baseline** (measured per source; see notes.md for full method + caveats).
+All figures are net-new **on top of the baseline**. Per-source acquisition method, date semantics, the argument for each evidence type, caveats and reproduction commands are in [sources.md](sources.md); dated decisions are in [notes.md](notes.md).
 
 | Source | Evidence type | Years | Net-new domains | Net-new pairs | Note |
 |---|---|---|--:|--:|---|
