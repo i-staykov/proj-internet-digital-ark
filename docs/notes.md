@@ -307,6 +307,15 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - result over 6,246 queried: **811 dated in-window (net-new), 1,351 registered but created after 2001, 4,084 no longer registered / no RDAP.** 831 distinct rdap domains, **+831 net-new domains / +2,320 net-new pairs**, concentrated in the mid/thin years (1998 +172, 1999 +492, 2000 +758, 2001 +831; 1996 +8, 1997 +59). Scoreboard 462,531 / 1,300,402 -> **463,362 / 1,302,722**. Each row records `rdap creation <year>`; `ark check` still passes
   - significance: proves the Phase-4 strategy - undated candidate pools become dated `whois_creation` evidence via RDAP, far cheaper than CDX. The ~13% in-window hit rate reflects link-target ephemerality (many linked-to hosts are long deleted -> no RDAP, or re-registered post-2001); a less ephemeral pool would hit higher. The same `ark rdap <file>` scales to larger pools (Domains Project, webbase, deduplicated_urls)
 
+## 2026-07-25
+
+- **webbase-2001 evaluated via RDAP: ~99.99% already held, not a net-new source (finding)**
+  - LAW's webbase-2001 URL list (720 MB, 118M URLs from Stanford's 2001 crawl; `data.law.di.unimi.it/webdata/webbase-2001/`) -> 738,625 distinct hosts -> **603,245 distinct registered domains, of which 603,202 (99.99%) were already in the store**; only 43 not-held candidates
+  - RDAP'd the 43: **3 dated in-window (+3 net-new domains / +13 pairs)**, 5 created after 2001, 35 no longer registered / no RDAP. Scoreboard 463,362 / 1,302,722 -> 463,365 / 1,302,735
+  - conclusion: like Early Web CDX (99.99% baseline overlap) and the `deduplicated_urls` files (100% held), the popular 2001 web is already fully covered by our baseline + sources. webbase is a large crawl but adds essentially nothing net-new. Retired as a net-new source
+  - method note: dedup-before-verify saved a ~4 h RDAP run (planned 15-20k queries) that would have found ~0 net-new. "Measure before scaling" again
+  - broader read: the direct net-new avenues are now largely exhausted (national registries / archives gave the wins: AFNIC .fr, Arquivo .pt, UKWA .uk; global crawls overlap the baseline). Remaining upside is niche (untested national archives, WHOIS creation dates for capture-less tails) or corroboration/gap-fill, not large tranches
+
 ## Definition: what we count as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
