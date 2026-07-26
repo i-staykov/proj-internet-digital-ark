@@ -192,3 +192,79 @@ running, all six investigations active.
 - **Packaging** now refuses a stale `output/` the same way it refuses a dirty tree, after catching
   the archive shipping 1,513 fewer pairs than the store held. The archive also ships the query
   journals (1.7 MB), which is what lets a reviewer reproduce both network stages with no network.
+
+---
+
+## Synthesis for your return (2026-07-26, 07:00)
+
+**Where it stands.** 463,565 net-new domains over **1,313,177 net-new pairs**, from 463,364 /
+1,308,206 when you went to bed. `ark check` 9/9 PASS, 195 tests (from 176), ruff clean, 28 commits
+on `feature`, working tree clean. **The delivery archive is built and verified**: 128 MB, 94 files,
+93/93 checksums OK, unpacks cleanly, its `source/COMMIT.txt` matches HEAD, and its six year files
+hold exactly 1,313,177 lines, matching the scoreboard.
+
+**Collection is still running.** Both engines and the supervisor are alive and will keep adding
+pairs to the store. That makes `output/` stale the moment they land anything, which is now
+detected rather than silent: packaging refuses to build from an `output/` older than the store. To
+fold in whatever they collect between now and when you read this:
+
+```
+bash scripts/maintain.sh          # ingest finished journals, print the scoreboard
+uv run ark export
+bash scripts/package_delivery.sh
+```
+
+**What got done.** Every remaining `H` item, all of `B7`, and one section-C source.
+
+| | |
+|---|---|
+| H1 | `just` recipes for every documented command; the `check` collision resolved by giving neither validation the bare name |
+| H2 | Reproduction rewritten as 24 numbered steps, each with the output it should print; inputs (51 GB, network) split from the rebuild (offline, ~10 min) |
+| H4 | Auxiliary seed pool shipped: **3,595,769 hostnames and URLs** over 2.2M domains |
+| B7 | **Four** section VII rounds, **+1,577 pairs**, plus the verification sample that closes the loop |
+| H3/H6/H7 | Archive built and verified; fresh clone with only `uv` syncs, lints, passes 195 tests, and runs the integrity gate |
+| H8 | Read-through against §IX; added report §7 answering whether each route is worth expanding |
+
+**Four bugs found, all in shipping paths.**
+
+1. **The documented ingest glob could permanently lose evidence.** `cdx_*.jsonl.gz` matches a
+   journal a collector is still writing, and the parser tolerates a half-written gzip stream rather
+   than refusing it. An ingest issued mid-run would ledger the hash of a partial file, and every
+   later ingest of the finished one would fail its hash check with the rest unreachable. It had not
+   fired yet (26 ledgered journals, 0 mismatches) purely by timing. Runs now publish under `.part`
+   and rename on exit.
+2. **Fixing that broke termination.** Making SIGTERM raise so the rename happens meant `SystemExit`
+   propagated into `ThreadPoolExecutor.__exit__`, which waits for every queued task, so `pkill` was
+   ignored and the run needed `kill -9`. Handling a signal is half the job; what the process does on
+   the way out is the half that hides.
+3. **A test was overwriting a shipping artifact.** `export_all` took three output paths but wrote
+   the contribution tables to the real `data/reports` regardless, so the suite replaced the
+   per-source table with its own two-row store. Packaging after a test run would have shipped a
+   table describing 2 domains instead of 5.29M.
+4. **Two `just` globs were quietly wrong**, found by expanding each one and comparing the count
+   against the file ledger. The ISC pattern missed one of the five files it claimed to ingest.
+
+**The judgement call I would most like you to check.** A parallel source review ranked 100hot.com
+first of six and projected 700-1,100 net-new domains as master `dated_directory` evidence. Its
+prescribed markup is not in the pages and the productive captures are different ones, but it was
+right that the listed hosts are plain text, so a text scan finds 488 net-new pairs the link
+extractor misses. **I declined to assert them**, because a regex cannot separate a listed entry from
+an advertisement, and our own rule is that only curated entries count. They went to the candidate
+pool instead, and were then verified: of 298 discovered candidates, 233 answered and **198 (85%)
+held an in-window capture**, giving +278 pairs and +198 domains that now rest on archive captures
+naming specific years rather than on a page's say-so. The cost was one 40-minute batch.
+
+**Same discipline, applied to the directory route.** Archived HTML carries typos, and this route
+produced `arvard.edu`, `gov.edu` and `gintysuooly.com`. So a name no other source attests is never
+asserted from a listing; it is demoted to the candidate pool. That split now lives in `ark.expand`
+with a tool that applies it to any journal, so the safe path is the easy one.
+
+**Measurements worth keeping.** The archive refused us for hours, then returned degraded, so
+concurrency was re-measured rather than assumed: 4 workers ~185 answered/hour at 64%, **8 workers
+~383 at 92.5%**, 12 workers ~262 at 84%. Throughput halved; the optimum did not move. Nothing was
+corrupted, because a failure is never recorded as an answer.
+
+**Open, and deliberately so.** The candidate pool holds 5,583 domains; the bracketed CDX pool still
+holds ~470,000 unqueried domains, which report §7 argues is the one route that converts hours into
+pairs at a stable rate. Section E stays skipped by your decision. `plan.md` and `todo.md` are
+current, with every box ticked in the sitting its work landed.
