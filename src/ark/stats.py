@@ -1,4 +1,4 @@
-"""The scoreboard: how much we have added on top of the baseline, and how
+"""The scoreboard: how much has been added on top of the baseline, and how
 many sources back each assertion.
 
 Everything is computed over the evidence table, which holds one row per

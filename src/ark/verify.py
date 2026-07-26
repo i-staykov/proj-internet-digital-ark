@@ -1,6 +1,6 @@
 """Verify queued candidates against the Internet Archive CDX index.
 
-For each claimed domain we ask, year by year, whether the archive holds a
+For each claimed domain this asks, year by year, whether the archive holds a
 capture inside that calendar year. One in-year capture is item-level proof;
 its timestamp becomes the evidence and the (domain, year) pair is assigned.
 The fetcher is injectable so tests never touch the network.

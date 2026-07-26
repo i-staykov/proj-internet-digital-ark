@@ -44,7 +44,8 @@ DEFAULT_LIMIT = 3000
 
 # Sit just above the server's own limit. Measured 2026-07-25: a collapsed
 # six-year query answers a light domain in 2-16 s, and the SERVER kills a heavily
-# archived one at a consistent ~60.7 s, so it already fails fast on our behalf.
+# archived one at a consistent ~60.7 s, so the server already fails fast on
+# the client's behalf.
 # A client timeout only needs headroom above that. Cutting in earlier is a false
 # economy: at 30 s the run answered 51 of 100 domains (695 answers/hour), at 180 s
 # it answered 82 of the same 100 (802 answers/hour), because roughly a third of

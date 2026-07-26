@@ -141,9 +141,9 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# the host link graph is sorted by year ascending, so once we pass the window
+# the host link graph is sorted by year ascending, so once the scan passes the window
 # nothing in-window remains; this also stops before the truncated 2002+ tail of
-# our partial download (Wayback drops the 20.9 GB stream mid-transfer)
+# the partial download (Wayback drops the 20.9 GB stream mid-transfer)
 _UKWA_LAST_YEAR = max(YEARS)
 
 
@@ -209,7 +209,7 @@ def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # (creation, withdrawal) documents one CONTINUOUS registration interval: the
 # domain was registered every year from creation until withdrawal (or now). Per
 # brief III.6 a record demonstrating continued registration in a year is valid
-# year evidence, so we emit one record per in-window year the domain was
+# year evidence, so one record is emitted per in-window year the domain was
 # registered, not only the creation year. Domains withdrawn before 1996 or
 # created after 2001 contribute nothing in window.
 _AFNIC_MIN_FIELDS = 12
@@ -262,8 +262,8 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an
 # editorial review of a live site; <dc:date> is the Scout Report publication year
 # (the archive spans 1994-2007, matching the Report's lifespan; a handful of
-# pre-1994 dc:date anomalies fall outside our window and drop out). The
-# publication date attests the site was live that year -> dated_directory (Ding
+# pre-1994 dc:date anomalies fall outside the window and drop out). The
+# publication date attests the site was live that year -> dated_directory (the
 # 2026-07-24: dated directory/index sources are direct). Site URLs are in
 # <dc:identifier>; the <header><identifier> is the auditable OAI record id.
 _SCOUT_RECORD = re.compile(r"<record>.*?</record>", re.S)
@@ -298,7 +298,7 @@ def parse_internet_scout(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 
 # ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
-# artifact_listing evidence (Ding 2026-07-24: dated index files are direct). The
+# artifact_listing evidence: a dated index file is direct evidence. The
 # `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
 # each cataloged site is an external URL in a `link r:resource="..."` or an
 # `ExternalPage about="..."`. The RDF is malformed pseudo-XML, so URLs are pulled

@@ -121,3 +121,27 @@ running, all six investigations active.
 - **Risk flagged:** the section-C investigation agents depend on IA CDX, so their Mosaic / 100hot /
   WWW-Virtual-Library verdicts could be false negatives caused by this outage. Not taking any "dead"
   verdict at face value without re-checking against the outage window.
+
+**05:55-07:10 — G3, G4, H0 and a corrected metric.** Store **1,308,206** net-new pairs.
+
+- **G4 contribution tables**, written by `ark export` into the audit folder: `source_contribution.csv`
+  per source and `year_growth.csv` per year in the supplied `merge_stats` column shape. Validating
+  them **found a real defect**: the net-new *pair* column had been computed with the net-new *domain*
+  test, which silently zeroed every gap-filling source (`ia_cdx_bulk` read 0 instead of 3,324, ISC
+  read 432,577 instead of 1,132,129). Fixed, and the column now sums **exactly** to the scoreboard,
+  which a test asserts.
+- **G2 corroboration by provenance lineage.** The headline "2,562,315 pairs with 2+ sources" was ~77%
+  Internet-Archive-on-Internet-Archive. Grouping sources by the body of observation they derive from
+  gives the honest figure: **583,634 pairs confirmed by 2+ independent lineages, 6,067 of them
+  net-new**. Both are now reported side by side.
+- **G3 reliability sampling at zero query cost**, by cross-referencing claims against the 2,587
+  domains the CDX engine has already answered. `cdx_timestamp` 100% (a self-consistency check that
+  validates the query path), `artifact_listing` **35%**, RDAP 32%. The 35% is published with its
+  reading: a DNS survey records that a domain resolved, the archive records that someone crawled it,
+  so the 65% disagreement **is** the coverage the archive lacks. A source agreeing 100% would be
+  redundant.
+- **H0 slop purge complete**, verified by count across every shipping surface (all 0). Also caught a
+  stale "6 invariants" in the appendix, now 9.
+- **Engines:** RDAP healthy throughout. IA still flapping between 25% and 40% availability; the
+  supervisor holds and resumes CDX correctly. The three remaining section-C investigations are the
+  IA-dependent ones and are still running.

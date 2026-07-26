@@ -1,13 +1,13 @@
 # Internet Digital Ark — Delivery Report
 
 *Reconstructing evidence-backed annual domain lists for 1996–2001.*
-Status as of 2026-07-25. Full decision history: [notes.md](notes.md). Plan: [plan.md](plan.md).
+Status as of 2026-07-26. Full decision history: [notes.md](notes.md). Per-source documentation: [sources.md](sources.md).
 
 ---
 
 ## 0. Executive summary
 
-We grow the provided ~8.2M-line baseline with **net-new, evidence-backed** registered domains, shipped as a separate verifiable set (the baseline is never modified). Every annual-file entry is backed by item-level, per-year evidence recorded in a provenance database, so any line can be traced to its proof.
+This program grows the provided ~8.2M-line baseline with **net-new, evidence-backed** registered domains, shipped as a separate verifiable set (the baseline is never modified). Every annual-file entry is backed by item-level, per-year evidence recorded in a provenance database, so any line can be traced to its proof.
 
 **Scoreboard (2026-07-25):**
 
@@ -98,7 +98,7 @@ The same sentence appears in the authoritative French edition and in AFNIC's 200
 
 That yields a proof rather than an assumption. `crDate = max(last creation, last transmission)`, and both of those events necessarily fall after any prior deletion, since a deleted name must be created again to exist. So `crDate` is always at or after the last deletion, and the span `[crDate, deletion-or-now]` **contains no deletion event**. It is a continuous registration interval by construction, which carries both the 11,902 domains with a published deletion date and the 43,123 without.
 
-Two consequences. First, **the tranche can only undercount**: because `crDate` is never earlier than the true first registration, a domain first registered in 1998 but traded or re-registered in 2010 reports creation 2010, falls outside the window and is dropped. We lose real domains; we cannot gain false ones. Second, **an AFNIC creation date is the later of (last registration, last holder change)** and is never described here as the first-ever registration date.
+Two consequences. First, **the tranche can only undercount**: because `crDate` is never earlier than the true first registration, a domain first registered in 1998 but traded or re-registered in 2010 reports creation 2010, falls outside the window and is dropped. Real domains are lost; false ones cannot be gained. Second, **an AFNIC creation date is the later of (last registration, last holder change)** and is never described here as the first-ever registration date.
 
 Live corroboration, reproducible by any reviewer from the open data file plus one `whois -h whois.nic.fr` query: `bennegens-couverture.fr` (open data: created 30-05-2020, deleted 28-06-2026; WHOIS today: created 2026-07-10) and `mintrocket.fr` (open data: created 22-04-2022, deleted 19-06-2026; WHOIS today: created 2026-07-10). Deleted in June, re-registered in July, creation date advanced, original gone.
 
@@ -138,7 +138,7 @@ All figures are net-new **on top of the baseline**. Per-source acquisition metho
 | AFNIC `.fr` open data | `whois_creation` | 1996–2001 | +39,367 | +117,829 | registration span, premise verified from AFNIC docs (§2); thin years **5–6×** |
 | ODP / DMOZ dumps | `artifact_listing` | 2000–2001 | +3,339 | +8,423 | heavy baseline overlap; mostly 2000 |
 | Internet Scout archive | `dated_directory` | 1996–2001 | +137 | +311 | curated non-IA long tail; most records undated |
-| RDAP on UKWA link-targets | `whois_creation` | 1996–2001 | +833 | +833 | **Phase-4 engine**: undated candidates dated via RDAP, no CDX; one creation year each |
+| RDAP on UKWA link-targets | `whois_creation` | 1996–2001 | +833 | +833 | undated candidates dated via RDAP, no archive query needed; one creation year each |
 | IA CDX verification engine (`ia_cdx_bulk`) | `cdx_timestamp` | 1996–2001 | +0 | +840 and rising | one collapsed query per domain answers all six years; still running (§5.1) |
 | IA CDX per-year verify (`ia_cdx`, superseded) | `cdx_timestamp` | 1996–2001 | +8 | +11 | the original six-queries-per-domain path, kept because its rows are real evidence |
 | RDAP gap-fill (selected by sandwich gaps) | `whois_creation` | 1996–2001 | +0 | +2,273 | adds a creation year to already-held domains; 42% RDAP hit rate because the selection favours survivors |
@@ -261,7 +261,7 @@ which would leave a confirmed domain sitting in the pool) is caught by the
 
 ## 5. CDX / verification execution notes
 
-The Phase-4 verification engine is **RDAP-first** and is now implemented (`ark rdap`): registry RDAP returns an exact registration year with no IA-CDX-style rate ceiling, so large *undated* candidate pools can be dated far more cheaply than CDX-verifying each domain. Since the 2026-07-25 narrowing (§2) each dated domain yields **exactly one** year, its creation year, and only if that year falls in 1996–2001. This is a much smaller yield per query than the interval reading gave, and it is the yield the evidence actually supports.
+Two verification engines are implemented. The registry-date engine (`ark rdap`): registry RDAP returns an exact registration year with no IA-CDX-style rate ceiling, so large *undated* candidate pools can be dated far more cheaply than CDX-verifying each domain. Since the 2026-07-25 narrowing (§2) each dated domain yields **exactly one** year, its creation year, and only if that year falls in 1996–2001. This is a much smaller yield per query than the interval reading gave, and it is the yield the evidence actually supports.
 
 **Collection is separated from interpretation.** `ark rdap` queries the network and writes only a per-run **journal**: one gzipped JSON object per domain queried, holding the domain, the query time, the HTTP status, the extracted creation year, and the entire RDAP response. It writes no evidence and never opens the store. `ark ingest rdap_snapshot <journal>` then produces the evidence through the same audited loader every bulk source uses, so the journal is hashed into the file ledger with a row count, and re-ingesting is a no-op. Two reasons this shape was chosen over querying and writing in one pass. First, provenance: RDAP evidence now replays from a fixed artifact like every other source, instead of only from the live network. Second, cost of change: keeping whole responses means a future change of evidence standard is a re-parse, whereas the 2026-07-25 narrowing had to be done as a destructive database migration precisely because only the extracted year had been kept.
 
@@ -326,7 +326,7 @@ more answers. This is reported because it bounds what any candidate-verification
 design can achieve against the public interface.
 
 **Timeout, measured rather than assumed.** The server kills a heavily archived domain's query at a
-consistent ~60.7 s, so it already fails fast on our behalf. A shorter client timeout is a false
+consistent ~60.7 s, so the server already fails fast for the client. A shorter timeout is a false
 economy: at 30 s a run answered 51 of 100 domains (695 answers/hour), at 180 s it answered 82 of
 the same 100 (802 answers/hour), because roughly a third of domains reply between 30 s and 60 s.
 The client timeout is therefore **70 s**, just above the server's own limit.
@@ -410,7 +410,7 @@ Source URLs and exact rescue notes are per-source in [notes.md](notes.md). Downl
 
 ## Appendix — status of the plan
 
-**Done:** foundation + provenance store; baseline; **12 sources carrying evidence** (eight bulk files, Internet Scout, RDAP, and both IA CDX paths); evidence taxonomy; corroboration metric; the 2026-07-24 evidence ruling and source hunt; the `ark check` integrity gate (6 invariants, all pass); the `ark rdap` Phase-4 engine, demonstrated on UKWA link-targets; **webbase-2001 evaluated (retired — 99.99% already held); the delivery archive packaged** (`scripts/package_delivery.sh` → one tar.gz with masters, additions, provenance, audit, logs, source snapshot, `report.docx`, README + SHA256).
+**Done:** foundation and provenance store with a structural evidence wall; baseline loaded read-only; **12 sources carrying evidence** (eight bulk files, Internet Scout, both IA CDX paths, and registry RDAP); the evidence taxonomy and its Section III compliance map; corroboration reported by provenance lineage as well as by source count; the **nine-invariant `ark check` gate**, all passing; the two verification engines built, calibrated against the live services and running; the candidate pool populated and documented; per-source and per-year contribution tables; page expansion for the Section VII cycle; the delivery archive packaged with per-file and archive checksums.
 Also done: the **2026-07-25 RDAP narrowing** (creation year only, 9,664 assignments withdrawn) with a reproducible migration script.
 Also done: the AFNIC `crDate` semantics were verified from AFNIC's own registrar documentation, which is what licenses that source's registration-span reading (§2).
 **Pending:** collapsed CDX verify as a corroboration/gap-fill fallback (1998/1999) and as the honest route to converting inferred years into year-tied evidence; untested niche sources (Domains Project long tail, more national archives); feedback loop. Net-new is now dominated by national registries/archives (`.fr`, `.pt`, `.uk`); global crawls overlap the baseline, so large new tranches are unlikely without new geographies.
