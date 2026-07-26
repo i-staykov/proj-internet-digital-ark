@@ -82,7 +82,9 @@ cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 
 # the provenance graph as Parquet: which source saw which domain in which year,
 # so any shipped line can be traced without the source data or the database
-cp output/provenance/*.parquet output/provenance/LOAD.sql "$STAGE/provenance/" 2>/dev/null || true
+# everything the export wrote, not a hand-listed subset: naming the files here
+# once shipped the data without trace.py, the tool the README tells them to run
+cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
