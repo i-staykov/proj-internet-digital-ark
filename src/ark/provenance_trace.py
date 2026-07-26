@@ -8,8 +8,9 @@ only requirement is `uv`, which the rest of the delivery already needs:
     uv run --with duckdb --no-project python trace.py example.com
     uv run --with duckdb --no-project python trace.py example.com 1998
 
-Run it from inside the folder that holds the Parquet files; the table names in
-`LOAD.sql` are relative to it for the same reason.
+Paths resolve from this file's own location, so it runs from any working
+directory. `LOAD.sql` beside it does not: its table names are relative, so the
+DuckDB CLI route has to be run from inside the folder.
 """
 
 import sys
@@ -25,7 +26,7 @@ def load(directory: Path):
     for table in TABLES:
         path = directory / f"{table}.parquet"
         if not path.exists():
-            raise SystemExit(f"{path} not found; run this from inside the provenance folder")
+            raise SystemExit(f"{path} not found; is this a complete provenance folder?")
         conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
     return conn
 
@@ -43,7 +44,9 @@ def summarise(conn) -> None:
         """
     ).fetchone()
     if example:
-        print(f"\nTry:  python trace.py {example[0]} {example[1]}")
+        print(
+            f"\nTry:  uv run --with duckdb --no-project python trace.py {example[0]} {example[1]}"
+        )
 
 
 def trace(conn, domain: str, year: int | None) -> None:

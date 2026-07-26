@@ -1,7 +1,7 @@
 [project]
 name = "ark"
 version = "0.1.0"
-description = "Internet Digital Ark — historical domain collection (1996–2001) with per-year evidence"
+description = "Internet Digital Ark: historical domain collection (1996-2001) with per-year evidence"
 readme = "README.md"
 authors = [
     { name = "Ivaylo Staykov", email = "ivaylo.staykov@student.hpi.uni-potsdam.de" },

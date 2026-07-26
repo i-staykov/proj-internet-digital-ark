@@ -262,7 +262,7 @@ def download(
     into evidence with `ark ingest expansion_links <journal> --round N` for the
     candidate half, and `ark ingest expansion_directory <journal> --round N` for
     pages asserted to be curated directories, whose capture date evidences their
-    entries under section IV.i.
+    entries.
 
     Resumable: a page already answered in a journal in the same folder is skipped.
     """
@@ -427,7 +427,7 @@ def rdap(
         typer.echo(f"journal: {path}\nnext: uv run ark ingest rdap_snapshot {path}")
         # a domain RDAP cannot date leaves no trace after interpretation, which is
         # right for a pool of already-held domains and wrong for unknown ones,
-        # where III.10.c wants the undatable ones kept as candidates
+        # where the undatable ones are meant to be kept as candidates
         if stats.get("not_dated"):
             typer.echo(
                 f"note: {stats['not_dated']:,} domains could not be dated; if this list was not "
@@ -587,8 +587,8 @@ def cdx(
         typer.echo(f"journal: {path}\nnext: uv run ark ingest cdx_snapshot {path}")
         # interpretation keeps only years the archive returned, so a domain it could
         # not date leaves no trace. That is right for a pool drawn from domains
-        # already held, and wrong for a pool of unknown ones, where III.10.c wants
-        # the undatable ones kept as candidates.
+        # already held, and wrong for a pool of unknown ones, where the undatable
+        # ones are meant to be kept as candidates.
         undated = stats.get("no_capture", 0) + stats.get("failed_0", 0)
         if undated:
             typer.echo(
@@ -606,16 +606,16 @@ def rebuild(
 ) -> None:
     """Rebuild the result from a provenance export, with no source data.
 
-    Loads the exported evidence graph into a fresh store and re-runs the
+    Loads the exported evidence graph into the store and re-runs the
     exporter over it, which regenerates the annual files, the merged masters,
     the candidate list and the manifest. Run `ark check` afterwards to put the
     rebuilt store through the same integrity gate as the original.
 
-    Example: ark rebuild provenance/
+    Example: ark rebuild ../provenance
     """
     conn = connect()
     load_provenance(conn, provenance_dir)
-    stats = export_all(conn, provenance_dir=provenance_dir)
+    stats = export_all(conn)
     typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
 
 

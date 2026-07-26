@@ -85,7 +85,7 @@ sources:
 candidates:
     uv run ark seed data/raw/webbase/hosts.txt
     uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
-    uv run ark seed data/raw/100hot/candidate_hosts.txt
+    uv run ark seed seeds/100hot_hosts.txt
 
 # This is the reproduction path for the two network stages: it re-derives
 # evidence from the stored responses, so it needs no network and gives the same

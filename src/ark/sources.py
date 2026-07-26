@@ -516,7 +516,7 @@ def parse_expansion_links(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_expansion_directory(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Entries listed on an archived page asserted to be a curated directory.
 
-    Section IV.i grants that the capture date of such a page is item-level
+    The brief grants that the capture date of such a page is item-level
     evidence for every domain listed on it, needing no further verification. The
     assertion that a page IS a curated directory is made per seed, on the record.
     """

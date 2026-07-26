@@ -83,7 +83,7 @@ def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENAN
     This is the reproduction path that needs no source data: the export holds
     every observation and every assignment, so re-running the exporter over it
     regenerates the annual files, and the integrity gate re-runs against it too.
-    Measured on the shipped export: the thirteen result files come back
+    Measured on the shipped export: the fourteen result files come back
     byte-identical in about six seconds.
     """
     counts: dict[str, int] = {}

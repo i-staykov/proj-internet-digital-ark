@@ -14,7 +14,7 @@ existed, which is not the same as the archive holding a capture of it. Dead
 links, typographical errors and names registered only later are all common. So an
 extracted host is candidate-only by default and cannot assign a year on its own.
 
-The exception the brief grants (section IV.i) is a curated directory page: where a
+The exception the brief grants is a curated directory page: where a
 human editor listed a site in a dated catalogue, the page's capture date is
 item-level evidence for every entry on it, with no further verification needed.
 That cannot be detected from markup, so it is asserted per seed rather than
@@ -200,7 +200,7 @@ def read_seeds(lines: list[str]) -> list[tuple[str, bool]]:
 def split_by_corroboration(records: list[dict], known: set[str]) -> tuple[list[dict], list[dict]]:
     """Split expansion records into the corroborated half and the rest.
 
-    Section IV.i lets a curated directory page's capture date evidence every
+    The brief lets a curated directory page's capture date evidence every
     domain listed on it. That is sound for the page and unsound for the parser:
     archived HTML carries transcription typos, and this route has produced
     `arvard.edu` from a `harvard.edu` link, plus `gov.edu` and `gintysuooly.com`.

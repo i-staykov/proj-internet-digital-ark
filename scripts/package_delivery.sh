@@ -45,7 +45,7 @@ mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
 if command -v pandoc >/dev/null 2>&1; then
-    pandoc docs/report.md -o "$STAGE/report.docx" --toc --standalone
+    pandoc docs/report.md -o "$STAGE/report.docx" --standalone
 else
     echo "warning: pandoc not installed, shipping the report as markdown only" >&2
 fi
@@ -60,7 +60,10 @@ cp docs/sources.md "$STAGE/sources.md"
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
-cp output/candidate_unverified.txt "$STAGE/candidates.txt" 2>/dev/null || true
+# No `|| true` here: the candidate pool is a named deliverable, and swallowing a
+# missing result file shipped an archive without it once, silently. `ark export`
+# writes it, so a failure here means the export was not run.
+cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
@@ -68,9 +71,12 @@ cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/
 cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds/" 2>/dev/null || true
 
 # the raw responses of every archive and registry query, so both network stages
-# replay from bytes rather than from a service whose answers change
-cp data/raw/cdx/cdx_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
-cp data/raw/rdap/rdap_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+# replay from bytes rather than from a service whose answers change. `find`, not
+# a flat glob: a ledgered CDX journal once sat one directory down and was matched
+# by neither the packaging glob nor the ingest glob, so the evidence behind a
+# headline result was the evidence that did not ship.
+find data/raw/cdx -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+find data/raw/rdap -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 # every expansion journal, whatever round subdirectory it landed in. Enumerating
 # rounds by hand shipped rounds 1 to 3 and silently dropped round 4, while the
 # archive readme still told the reader to restore it.
