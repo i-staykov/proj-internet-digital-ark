@@ -3,7 +3,9 @@
 import sys
 import time
 from collections import Counter
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -18,12 +20,15 @@ from ark.cdx import RateGovernor, http_fetch, lookup_years, lookup_years_per_yea
 from ark.cdx import answered as cdx_answered
 from ark.checks import collect_checks, format_checks
 from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.expand import answered as expand_answered
+from ark.expand import expand_page, read_seeds
 from ark.export import export_all
 from ark.gaps import write_creation_candidates, write_gap_candidates
 from ark.ingest import YEARS, ingest_legacy
-from ark.journal import journal_path, open_journal_for_write, queried_domains, write_journal_line
+from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.provenance import PROVENANCE_DIR, load_provenance
 from ark.rdap import (
     JOURNAL_DIR as RDAP_JOURNAL_DIR,
 )
@@ -34,6 +39,7 @@ from ark.rdap import (
     lookup,
 )
 from ark.seed import seed_from_file
+from ark.seeds import combine_parts, write_source_part
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
 from ark.verify import verify_batch
@@ -51,6 +57,26 @@ _LOG_FILE = "data/logs/ark_{time:YYYY-MM-DD}.log"
 _JOURNAL_FLUSH_EVERY = 25
 CDX_JOURNAL_DIR = Path("data/raw/cdx")
 CDX_JOURNAL_PREFIX = "cdx"
+EXPAND_JOURNAL_DIR = Path("data/raw/expand")
+EXPAND_JOURNAL_PREFIX = "expand"
+
+
+@contextmanager
+def _abortable_pool(workers: int) -> Iterator[ThreadPoolExecutor]:
+    """A worker pool that drops its queued work when the run stops early.
+
+    `with ThreadPoolExecutor(...)` waits for every queued task on the way out.
+    These runs submit the whole batch up front, so on Ctrl-C or SIGTERM that
+    turns "stop" into "first finish the eleven hundred requests still queued",
+    and the process looks like it is ignoring the signal. Cancelling the pending
+    futures loses nothing: an unanswered domain was never journalled, so the next
+    run simply asks again.
+    """
+    pool = ThreadPoolExecutor(workers)
+    try:
+        yield pool
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 @app.callback()
@@ -112,6 +138,15 @@ def ingest_cmd(
         list[Path],
         typer.Argument(help="Source files to ingest (gzip ok).", exists=True, readable=True),
     ],
+    round_: Annotated[
+        int,
+        typer.Option(
+            "--round",
+            help="Discovery round to stamp on newly seen domains. Round 0 is a directly "
+            "ingested source; a re-discovery round should carry its own number so the "
+            "expansion cycle is traceable.",
+        ),
+    ] = 0,
 ) -> None:
     """Ingest bulk source files through the shared audited loader.
 
@@ -124,7 +159,38 @@ def ingest_cmd(
     conn = connect()
     init_db(conn)
     queue_conn = connect_queue()
-    ingest_files(conn, spec, files, queue_conn=queue_conn)
+    ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+@app.command(name="seed-pool")
+def seed_pool(
+    source: Annotated[
+        str,
+        typer.Argument(help=f"Bulk source key: one of {', '.join(sorted(SOURCES))}."),
+    ],
+    files: Annotated[
+        list[Path],
+        typer.Argument(help="The same source files that were ingested.", readable=True),
+    ],
+) -> None:
+    """Extract a source's raw hostnames and URLs into the auxiliary seed pool.
+
+    Deliberately not called `seed`: `ark seed` loads candidate DOMAINS into the
+    verification pool, while this writes the HOSTNAME and URL download seeds
+    that III.8's registered-domain counting unit necessarily discards.
+
+    Reads the same files through the same parser as `ark ingest`, keeping the raw
+    value instead of the canonical one, so a seed cannot disagree with the
+    evidence it came from. Re-running a source replaces only its own rows.
+
+    Example: ark seed-pool isc_survey data/raw/isc_survey/*.gz
+    """
+    spec = SOURCES.get(source)
+    if spec is None:
+        raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
+    stats = write_source_part(spec, files)
+    combined = combine_parts(connect())
+    typer.echo(f"seed-pool {source}: {dict(stats)}\nseed pool: {combined}")
 
 
 @app.command()
@@ -160,9 +226,106 @@ def verify(
 
 
 @app.command()
-def download() -> None:
-    """Download verified pages and extract outbound links."""
-    logger.info("download: not implemented yet")
+def download(
+    seeds: Annotated[
+        Path,
+        typer.Argument(
+            help="Seed file: one page URL per line, optionally TAB 'directory' to assert "
+            "the page is a curated catalogue.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="Fetch at most this many not-yet-done pages.")
+    ] = 100,
+    workers: Annotated[int, typer.Option("--workers", help="Concurrent fetches.")] = 4,
+    delay: Annotated[
+        float, typer.Option("--delay", help="Starting seconds between requests.")
+    ] = 0.3,
+    captures: Annotated[
+        int,
+        typer.Option(
+            "--captures", help="In-window captures to fetch per page (each is its own year)."
+        ),
+    ] = 2,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out", help="Journal to write (default data/raw/expand/expand_<UTC>.jsonl.gz)."
+        ),
+    ] = None,
+) -> None:
+    """Fetch archived pages and extract the domains they link to (brief section VII).
+
+    Collection only: writes a per-run journal and never opens the store. Turn it
+    into evidence with `ark ingest expansion_links <journal> --round N` for the
+    candidate half, and `ark ingest expansion_directory <journal> --round N` for
+    pages asserted to be curated directories, whose capture date evidences their
+    entries under section IV.i.
+
+    Resumable: a page already answered in a journal in the same folder is skipped.
+    """
+    path = out or journal_path(EXPAND_JOURNAL_DIR, EXPAND_JOURNAL_PREFIX)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    done = queried_domains(path.parent, EXPAND_JOURNAL_PREFIX, answered=expand_answered)
+    seed_list = [
+        (url, curated)
+        for url, curated in read_seeds(
+            seeds.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        if url not in done
+    ][:limit]
+
+    first, last = min(YEARS), max(YEARS)
+    governor = RateGovernor(delay=delay, max_delay=5.0)
+    fetch = http_fetch(70.0)
+    stats: Counter = Counter({"seeds": len(seed_list), "skipped_done": len(done)})
+    written = 0
+    if seed_list:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
+            futures = {
+                pool.submit(
+                    expand_page,
+                    url,
+                    first,
+                    last,
+                    fetch,
+                    governor,
+                    curated=curated,
+                    per_page_captures=captures,
+                ): url
+                for url, curated in seed_list
+            }
+            for future in tqdm(as_completed(futures), total=len(futures), unit="page"):
+                try:
+                    records = future.result()
+                except Exception as exc:  # noqa: BLE001 (one bad page must not end the run)
+                    logger.warning(f"{futures[future]}: {exc}")
+                    stats["errored"] += 1
+                    continue
+                for record in records:
+                    # the journal keys on the page URL, so a record needs it even
+                    # when the fetch failed and there is nothing else to say
+                    record["domain"] = record["page_url"]
+                    write_journal_line(journal, record)
+                    written += 1
+                    stats["captures" if record["status"] == 200 else "failed"] += 1
+                    stats["domains_found"] += len(record.get("domains") or [])
+                if written % _JOURNAL_FLUSH_EVERY == 0:
+                    journal.flush()
+    if written == 0:
+        path.unlink(missing_ok=True)
+        logger.info("download: nothing new to fetch; no journal written")
+    summary = dict(stats)
+    logger.info(f"download: {summary} -> {path if written else 'no journal'}")
+    typer.echo(f"download: {summary}")
+    if written:
+        typer.echo(
+            f"journal: {path}\n"
+            f"next: uv run ark ingest expansion_links {path} --round 1\n"
+            f"      uv run ark ingest expansion_directory {path} --round 1"
+        )
 
 
 @app.command()
@@ -228,7 +391,7 @@ def rdap(
     logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
     stats: Counter = Counter()
     queried = 0
-    with open_journal_for_write(path) as journal:
+    with journal_writer(path) as journal:
         with candidates.open(encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 raw = line.strip()
@@ -262,6 +425,14 @@ def rdap(
     typer.echo(f"rdap: {summary}")
     if queried:
         typer.echo(f"journal: {path}\nnext: uv run ark ingest rdap_snapshot {path}")
+        # a domain RDAP cannot date leaves no trace after interpretation, which is
+        # right for a pool of already-held domains and wrong for unknown ones,
+        # where III.10.c wants the undatable ones kept as candidates
+        if stats.get("not_dated"):
+            typer.echo(
+                f"note: {stats['not_dated']:,} domains could not be dated; if this list was not "
+                f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
+            )
 
 
 @app.command()
@@ -378,7 +549,7 @@ def cdx(
     governor = RateGovernor(delay=delay, max_delay=max_delay)
     written = 0
     if targets:
-        with open_journal_for_write(path) as journal, ThreadPoolExecutor(workers) as pool:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
             strategy = lookup_years_per_year if per_year else lookup_years
             fetch = http_fetch(timeout)
             futures = {
@@ -414,6 +585,38 @@ def cdx(
     typer.echo(f"cdx: {summary}")
     if written:
         typer.echo(f"journal: {path}\nnext: uv run ark ingest cdx_snapshot {path}")
+        # interpretation keeps only years the archive returned, so a domain it could
+        # not date leaves no trace. That is right for a pool drawn from domains
+        # already held, and wrong for a pool of unknown ones, where III.10.c wants
+        # the undatable ones kept as candidates.
+        undated = stats.get("no_capture", 0) + stats.get("failed_0", 0)
+        if undated:
+            typer.echo(
+                f"note: {undated:,} domains got no in-window capture; if this list was not "
+                f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
+            )
+
+
+@app.command()
+def rebuild(
+    provenance_dir: Annotated[
+        Path,
+        typer.Argument(help="Folder holding the provenance Parquet files."),
+    ] = PROVENANCE_DIR,
+) -> None:
+    """Rebuild the result from a provenance export, with no source data.
+
+    Loads the exported evidence graph into a fresh store and re-runs the
+    exporter over it, which regenerates the annual files, the merged masters,
+    the candidate list and the manifest. Run `ark check` afterwards to put the
+    rebuilt store through the same integrity gate as the original.
+
+    Example: ark rebuild provenance/
+    """
+    conn = connect()
+    load_provenance(conn, provenance_dir)
+    stats = export_all(conn, provenance_dir=provenance_dir)
+    typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
 
 
 @app.command()

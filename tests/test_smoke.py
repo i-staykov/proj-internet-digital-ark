@@ -1,6 +1,6 @@
 """Smoke test: the `ark` package imports and its entry point is callable.
 
-Trivial on purpose — its real job is to prove `uv run pytest` is wired up and green
+Trivial on purpose: its real job is to prove `uv run pytest` is wired up and green
 from day one. Every later module (db, canonicalize, cdx, whois) adds its own tests
 alongside this one.
 """

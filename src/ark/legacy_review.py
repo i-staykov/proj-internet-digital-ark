@@ -1,7 +1,7 @@
-"""Full review of the provided baseline: which lines we drop, and why.
+"""Full review of the provided baseline: which lines are dropped, and why.
 
 Writes a complete, grouped droplist so the research group can inspect
-every line our canonicalizer excludes from the provided year files.
+every line the canonicalizer excludes from the provided year files.
 """
 
 from collections import defaultdict

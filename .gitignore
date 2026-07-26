@@ -7,9 +7,6 @@ todo.md
 # macOS junk
 .DS_Store
 
-# Local research notes (kept out of git)
-docs/1996-2001 Historical Domain Datasets.md
-
 # Python / uv
 .venv/
 __pycache__/

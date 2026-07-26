@@ -1,0 +1,4 @@
+# pilot seeds: early-web pages likely to carry many outbound links
+http://www.yahoo.com/
+http://vlib.org/
+http://www.dmoz.org/

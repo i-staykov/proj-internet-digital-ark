@@ -10,7 +10,9 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.ingest import YEARS
+from ark.provenance import PROVENANCE_DIR, write_provenance
 
 NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
@@ -28,7 +30,12 @@ def export_all(
     netnew_dir: Path = NETNEW_DIR,
     candidates_path: Path = CANDIDATES_PATH,
     masters_dir: Path = MASTERS_DIR,
+    report_dir: Path = DEFAULT_REPORT_DIR,
+    provenance_dir: Path = PROVENANCE_DIR,
 ) -> dict[str, int]:
+    """Write every result file. Every destination is a parameter, so a caller
+    that redirects the outputs redirects all of them; leaving one hardcoded let
+    the test suite overwrite the real contribution tables with a test store."""
     stats: dict[str, int] = {}
 
     for year in YEARS:
@@ -65,6 +72,14 @@ def export_all(
         ORDER BY d.domain
     """
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
+
+    # per-source and per-year contribution tables, which ship in the audit folder
+    stats.update(write_contribution_tables(conn, report_dir))
+
+    # the provenance graph itself, so a reader can ask "why is this domain in
+    # this year?" without the source data or a copy of the database
+    provenance = write_provenance(conn, provenance_dir)
+    stats["provenance_mb"] = provenance["megabytes"]
 
     logger.info(f"export: {stats}")
     return stats

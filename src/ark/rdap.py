@@ -15,7 +15,7 @@ returns a journal record; the caller appends those to a per-run journal file,
 and `ark ingest rdap_snapshot <journal>` turns them into evidence through the
 same audited loader every other source uses. Keeping the whole response means a
 later change of standard is a re-parse rather than a database migration, which
-is exactly what the 2026-07-25 narrowing cost us when only the year was kept.
+is exactly what the 2026-07-25 narrowing cost when only the year was kept.
 
 Journal format: one JSON object per line, gzipped, with keys
 `domain`, `queried_at`, `status`, `creation_year`, `response`.
@@ -131,7 +131,7 @@ def creation_year(
 ) -> int | None:
     """Look up a domain's registration year via RDAP, or None if unavailable.
 
-    None covers every "we cannot date it" case: not currently registered (404),
+    None covers every undatable case: not currently registered (404),
     no RDAP for the TLD, malformed response, or repeated transport failure.
     """
     status, body = _fetch_with_retries(f"{RDAP_REDIRECTOR}{domain}", fetch, retries, sleep)

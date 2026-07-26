@@ -141,19 +141,22 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# the host link graph is sorted by year ascending, so once we pass the window
+# the host link graph is sorted by year ascending, so once the scan passes the window
 # nothing in-window remains; this also stops before the truncated 2002+ tail of
-# our partial download (Wayback drops the 20.9 GB stream mid-transfer)
+# the partial download (Wayback drops the 20.9 GB stream mid-transfer)
 _UKWA_LAST_YEAR = max(YEARS)
 
 
-def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield the SOURCE host of each UKWA host-link-graph row as `link_source`.
+_UKWA_SOURCE_COL = 1
+_UKWA_TARGET_COL = 2
 
-    Rows are `year|source_host|target_host<TAB>count`. The source host was
-    crawled (HTTP 200) that year to produce the link, so it is direct evidence;
-    the target host (a bare inbound link) is candidate-only and handled by a
-    separate Phase-3 source. The graph's granularity is the year.
+
+def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRecord]:
+    """Yield one host per in-window host-link-graph row, from the chosen column.
+
+    Rows are `year|source_host|target_host<TAB>count`, sorted by year ascending,
+    so the scan stops once it passes the window. That also stops before the
+    truncated 2002+ tail of the partial download.
     """
     with _open_text(path) as fh:
         try:
@@ -169,11 +172,34 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 if year not in YEARS:
                     stats["out_of_window"] += 1
                     continue
-                yield BulkRecord(raw=parts[1], year=year, evidence_value=f"host_link_graph:{year}")
+                yield BulkRecord(
+                    raw=parts[host_column], year=year, evidence_value=f"host_link_graph:{year}"
+                )
         except (EOFError, OSError):
-            # a truncated gzip tail (the 2002+ region of our partial download);
+            # a truncated gzip tail (the 2002+ region of the partial download);
             # everything in-window was already yielded before this point
             stats["truncated_tail"] += 1
+
+
+def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the SOURCE host of each row as `link_source`, which is direct evidence.
+
+    The source host was crawled with HTTP 200 in that year to produce the link, so
+    its existence that year is attested.
+    """
+    yield from _parse_ukwa(path, stats, _UKWA_SOURCE_COL)
+
+
+def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the TARGET host of each row as `link_target`, which is candidate-only.
+
+    Being linked to proves nothing about the target: dead links, typographical
+    errors and names registered only later are all common in a link graph. The row
+    is kept for provenance and to prioritise verification, and can never assign a
+    year on its own. Targets are worldwide, unlike the `.uk`-biased source hosts,
+    which is why they are worth holding as candidates at all.
+    """
+    yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
 
 
 # AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or
@@ -183,7 +209,7 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # (creation, withdrawal) documents one CONTINUOUS registration interval: the
 # domain was registered every year from creation until withdrawal (or now). Per
 # brief III.6 a record demonstrating continued registration in a year is valid
-# year evidence, so we emit one record per in-window year the domain was
+# year evidence, so one record is emitted per in-window year the domain was
 # registered, not only the creation year. Domains withdrawn before 1996 or
 # created after 2001 contribute nothing in window.
 _AFNIC_MIN_FIELDS = 12
@@ -236,8 +262,8 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an
 # editorial review of a live site; <dc:date> is the Scout Report publication year
 # (the archive spans 1994-2007, matching the Report's lifespan; a handful of
-# pre-1994 dc:date anomalies fall outside our window and drop out). The
-# publication date attests the site was live that year -> dated_directory (Ding
+# pre-1994 dc:date anomalies fall outside the window and drop out). The
+# publication date attests the site was live that year -> dated_directory (the
 # 2026-07-24: dated directory/index sources are direct). Site URLs are in
 # <dc:identifier>; the <header><identifier> is the auditable OAI record id.
 _SCOUT_RECORD = re.compile(r"<record>.*?</record>", re.S)
@@ -272,7 +298,7 @@ def parse_internet_scout(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 
 # ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
-# artifact_listing evidence (Ding 2026-07-24: dated index files are direct). The
+# artifact_listing evidence: a dated index file is direct evidence. The
 # `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
 # each cataloged site is an external URL in a `link r:resource="..."` or an
 # `ExternalPage about="..."`. The RDF is malformed pseudo-XML, so URLs are pulled
@@ -404,6 +430,99 @@ def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
+# An `ark download` journal: one JSON object per fetched page capture, format
+# documented in ark.expand. The same journal is read by two sources, each taking
+# the half it is entitled to, because a link's worth depends on whether the page
+# carrying it is a curated catalogue.
+def _parse_expansion(path: Path, stats: Counter, curated: bool) -> Iterator[BulkRecord]:
+    try:
+        with open_journal(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    stats["unparseable_line"] += 1
+                    continue
+                if record.get("status") != 200:
+                    stats["fetch_failed"] += 1
+                    continue
+                if bool(record.get("curated")) is not curated:
+                    stats["other_half"] += 1
+                    continue
+                year = record.get("year")
+                page = record.get("page_url") or "page"
+                stamp = record.get("timestamp") or ""
+                if not isinstance(year, int) or year not in YEARS:
+                    stats["out_of_window"] += 1
+                    continue
+                domains = record.get("domains") or []
+                if not domains:
+                    stats["no_outbound_links"] += 1
+                    continue
+                stats["pages"] += 1
+                for domain in domains:
+                    yield BulkRecord(
+                        raw=domain,
+                        year=year,
+                        evidence_value=f"linked from {page} captured {stamp}",
+                        evidence_url=f"https://web.archive.org/web/{stamp}/{page}"
+                        if stamp
+                        else None,
+                    )
+    except (EOFError, OSError):
+        stats["truncated_tail"] += 1
+
+
+def parse_ncsa_whats_new(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per site announced in NCSA's "What's New" pages.
+
+    The pages are the era's announcement list for newly launched sites, dated by
+    the issue that carried them. The harvest on disk is one `domain<TAB>date` row
+    per announced entry, extracted from the archived issues in `issues-1996/` and
+    checksummed alongside them.
+
+    Entries only. Navigation and masthead links are not announcements, and the
+    distinction is what lets this carry `dated_directory` rather than being
+    candidate-grade.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            raw, _, date = line.partition("\t")
+            if len(date) < 4 or not date[:4].isdigit():
+                stats["no_date"] += 1
+                continue
+            yield BulkRecord(
+                raw=raw,
+                year=int(date[:4]),
+                evidence_value=f"ncsa whats-new entry {date}",
+            )
+
+
+def parse_expansion_links(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Hosts linked from an ordinary archived page: candidate-only.
+
+    The page's author linked to them, which is not evidence the host existed:
+    that is what verification is for.
+    """
+    yield from _parse_expansion(path, stats, curated=False)
+
+
+def parse_expansion_directory(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Entries listed on an archived page asserted to be a curated directory.
+
+    Section IV.i grants that the capture date of such a page is item-level
+    evidence for every domain listed on it, needing no further verification. The
+    assertion that a page IS a curated directory is made per seed, on the record.
+    """
+    yield from _parse_expansion(path, stats, curated=True)
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -477,6 +596,38 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="whois_creation",
         acquisition_method="rdap_journal_file",
         parse=parse_rdap_snapshot,
+    ),
+    # the target side of the same file: candidate-only, so the loader records the
+    # evidence and enqueues the host but never assigns a year
+    "ukwa_link_target": SourceSpec(
+        key="ukwa_link_target",
+        source_name="ukwa_link_target",
+        evidence_type="link_target",
+        acquisition_method="ukwa_host_link_graph",
+        parse=parse_ukwa_link_target,
+    ),
+    "expansion_links": SourceSpec(
+        key="expansion_links",
+        source_name="page_expansion",
+        evidence_type="link_target",
+        acquisition_method="archived_page_outbound_link",
+        parse=parse_expansion_links,
+    ),
+    "expansion_directory": SourceSpec(
+        key="expansion_directory",
+        source_name="page_directory",
+        evidence_type="dated_directory",
+        acquisition_method="archived_directory_page",
+        parse=parse_expansion_directory,
+    ),
+    # NCSA "What's New": the era's announcement list for newly launched sites,
+    # and the only 1996 editorial directory artifact that survives
+    "ncsa_whats_new": SourceSpec(
+        key="ncsa_whats_new",
+        source_name="ncsa_whats_new",
+        evidence_type="dated_directory",
+        acquisition_method="ncsa_whats_new_pages",
+        parse=parse_ncsa_whats_new,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

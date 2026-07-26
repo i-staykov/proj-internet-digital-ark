@@ -119,3 +119,70 @@ def test_format_stats_renders() -> None:
     assert "1998: 1" in out
     assert "cross-source corroboration" in out
     assert "avg sources per assigned pair" in out
+
+
+def test_independent_corroboration_ignores_same_lineage_agreement() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    # three Internet-Archive-derived sources: the baseline itself, an IA dataset,
+    # and the IA-donated Arquivo index. Agreement among them is coverage, not
+    # independent confirmation.
+    ia_sources = [
+        ensure_source(conn, n, "timestamped") for n in ("prior_task", "early_web_cdx", "arquivo_ia")
+    ]
+    add_candidate(conn, "ia-only.com", ia_sources[0])
+    for sid, etype in zip(
+        ia_sources, ("prior_reused", "cdx_timestamp", "cdx_timestamp"), strict=True
+    ):
+        assign_year(conn, record_evidence(conn, "ia-only.com", sid, 1998, etype, "19980101000000"))
+
+    # a domain confirmed by a DNS survey and a registry file: different lineages
+    isc = ensure_source(conn, "isc_survey", "timestamped")
+    afnic = ensure_source(conn, "afnic_fr", "timestamped")
+    add_candidate(conn, "two-lineage.fr", isc)
+    assign_year(
+        conn, record_evidence(conn, "two-lineage.fr", isc, 1997, "artifact_listing", "1997-07")
+    )
+    record_evidence(
+        conn, "two-lineage.fr", afnic, 1997, "whois_creation", "registered 01-01-1997..active"
+    )
+
+    stats = collect_stats(conn)
+
+    # three sources agree on the IA-only pair, so the weak figure counts it ...
+    assert stats["corroborated_pairs"] == 2
+    # ... but only the cross-lineage pair is independently confirmed
+    assert stats["independently_corroborated_pairs"] == 1
+    assert stats["evidence_rows_by_lineage"]["internet_archive"] == 3
+    conn.close()
+
+
+def test_an_unmapped_source_is_its_own_lineage() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    # conservative default: something newly added is not assumed to share a lineage
+    a = ensure_source(conn, "brand_new_source", "timestamped")
+    b = ensure_source(conn, "isc_survey", "timestamped")
+    add_candidate(conn, "x.com", a)
+    assign_year(conn, record_evidence(conn, "x.com", a, 1999, "cdx_timestamp", "19990101000000"))
+    record_evidence(conn, "x.com", b, 1999, "artifact_listing", "1999-07")
+
+    assert collect_stats(conn)["independently_corroborated_pairs"] == 1
+    conn.close()
+
+
+def test_every_source_has_an_explicit_provenance_lineage() -> None:
+    """An unclassified source would silently become its own lineage.
+
+    `_lineage_case_sql` falls through to the source name, so a new source that
+    nobody classified counts as independent of everything else and inflates the
+    independent-corroboration headline. NCSA arrived that way: an editorial
+    directory reported as its own body of observation, corroborating ODP.
+    """
+    from ark.sources import SOURCES
+    from ark.stats import PROVENANCE_LINEAGE
+
+    unclassified = {
+        spec.source_name for spec in SOURCES.values() if spec.source_name not in PROVENANCE_LINEAGE
+    }
+    assert not unclassified, f"classify these in PROVENANCE_LINEAGE: {sorted(unclassified)}"
