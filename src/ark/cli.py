@@ -28,6 +28,7 @@ from ark.ingest import YEARS, ingest_legacy
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.provenance import PROVENANCE_DIR, load_provenance
 from ark.rdap import (
     JOURNAL_DIR as RDAP_JOURNAL_DIR,
 )
@@ -594,6 +595,28 @@ def cdx(
                 f"note: {undated:,} domains got no in-window capture; if this list was not "
                 f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
             )
+
+
+@app.command()
+def rebuild(
+    provenance_dir: Annotated[
+        Path,
+        typer.Argument(help="Folder holding the provenance Parquet files."),
+    ] = PROVENANCE_DIR,
+) -> None:
+    """Rebuild the result from a provenance export, with no source data.
+
+    Loads the exported evidence graph into a fresh store and re-runs the
+    exporter over it, which regenerates the annual files, the merged masters,
+    the candidate list and the manifest. Run `ark check` afterwards to put the
+    rebuilt store through the same integrity gate as the original.
+
+    Example: ark rebuild provenance/
+    """
+    conn = connect()
+    load_provenance(conn, provenance_dir)
+    stats = export_all(conn, provenance_dir=provenance_dir)
+    typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
 
 
 @app.command()

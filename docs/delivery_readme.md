@@ -67,18 +67,27 @@ Any domain from `masters/` or `additions/` works. If you already run DuckDB, `LO
 folder loads the five Parquet tables instead; run it from inside `provenance/`, since its paths are
 relative.
 
-### 2. Re-derive the result from the shipped inputs (about 10 minutes)
+### 2. Rebuild the result from the evidence (about 1 minute)
 
-Unpack the code and rebuild. The collectors are not re-run: every archive and registry query was
-recorded with its raw response, so this replays stored bytes instead of asking services that answer
-differently today.
+Regenerate every result file from `provenance/` and put the rebuilt store through the same
+integrity gate. This needs **no source data and no network**: the export holds every observation
+and every assignment, so the exporter can run over it again.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync
-just reproduce
-just check          # lint, tests, then the nine data invariants
+uv run ark rebuild ../provenance     # regenerates the annual files, masters, candidates, manifest
+uv run ark check                     # the nine integrity invariants, against the rebuilt store
 ```
+
+Then compare what it wrote against what shipped; they are byte-identical:
+
+```
+for y in 1996 1997 1998 1999 2000 2001; do cmp output/netnew/$y.txt ../additions/$y.txt; done
+```
+
+This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
+itself from the original sources, which is tier 3.
 
 ### 3. Rebuild from the original sources (hours)
 

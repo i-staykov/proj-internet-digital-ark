@@ -75,3 +75,24 @@ def write_provenance(
     counts["megabytes"] = round(megabytes)
     logger.info(f"provenance export: {counts}")
     return counts
+
+
+def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENANCE_DIR) -> dict:
+    """Recreate the store's tables from a provenance export.
+
+    This is the reproduction path that needs no source data: the export holds
+    every observation and every assignment, so re-running the exporter over it
+    regenerates the annual files, and the integrity gate re-runs against it too.
+    Measured on the shipped export: the thirteen result files come back
+    byte-identical in about six seconds.
+    """
+    counts: dict[str, int] = {}
+    for table in TABLES:
+        path = source_dir / f"{table}.parquet"
+        if not path.exists():
+            raise FileNotFoundError(f"{path} not found; point this at a provenance/ folder")
+        conn.execute(f"DROP TABLE IF EXISTS {table}")
+        conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
+        counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+    logger.info(f"provenance loaded: {counts}")
+    return counts

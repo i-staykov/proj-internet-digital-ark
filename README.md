@@ -13,14 +13,14 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 | Tier | What it proves | Cost | How |
 |---|---|---|---|
 | **1. Verify the shipped result** | Every shipped pair traces to a recorded observation, and no file has changed | ~10 s | `bash verify.sh` at the archive root; `provenance/trace.py` for any single domain |
-| **2. Re-derive from shipped inputs** | The result follows from the recorded queries and the bulk sources, using this code | ~10 min | Part 2 below, or `just reproduce` |
-| **3. Rebuild from original sources** | The bulk sources themselves are what we say they are | hours + 51 GB | Part 1, then Part 2 |
+| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild provenance/` then `ark check` |
+| **3. Rebuild from the original sources** | The evidence itself follows from the source data | hours + 51 GB | Part 1, then Part 2 below |
 
 **Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
 
-**Tier 2** replays the collectors' stored responses rather than re-querying anything, so it is deterministic and offline. Verify it by comparing `ark stats` against the shipped year files, which `ark check` also enforces.
+**Tier 2** loads `provenance/` into a fresh store and re-runs the exporter, regenerating all thirteen result files **byte-identically** and re-running the nine invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
-**Tier 3** is the only tier that needs the 51 GB of bulk sources. One 47 GB capture index is most of that: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
+**Tier 3** is the full pipeline below, and the only tier that needs the source data: the ~51 GB of bulk sources **and** the supplied baseline in `legacy-data/`, since the annual masters are baseline plus additions and "net-new" is defined against it. One 47 GB capture index is most of the bulk: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
 
 ## Reproduce the results
 
@@ -33,7 +33,7 @@ Every step below prints what it did, and the expected output is given so a misma
 
 ### Part 1: get the inputs
 
-**The baseline** goes in `./legacy-data/`: the six year files plus `merge_stats_new0714.csv`. Confirm it is the expected one:
+**The baseline** goes in `./legacy-data/`: the six year files, `merge_stats_new0714.csv`, and `deduplicated_urls_2001-2002.txt`. These are the supplied files, not shipped back in the delivery archive; tier 3 needs them because the annual masters are baseline plus additions and "net-new" is defined against the baseline. Confirm it is the expected one:
 
 ```bash
 wc -l legacy-data/1996.txt legacy-data/1997.txt legacy-data/1998.txt \
