@@ -1,0 +1,61 @@
+# Round 2 seeds: the WWW Virtual Library's own subject libraries, asserted as
+# curated directories under section IV.i.
+#
+# The assertion is made from the catalogue's own words, not its reputation. The
+# 1999-01-25 capture of http://vlib.org/ carries
+#   <META name="description" content="Directory of the Virtual Library, an
+#    expert-run catalog of sections of the web">
+# and DC.Type "Bibliography", and every URL below is one of the subject sections
+# that page lists. So each is an editorially maintained catalogue, which is what
+# IV.i requires before a page's capture date may evidence the domains listed on
+# it without further validation.
+#
+# Round 1 established why this route is needed: directory HOME pages yielded 92
+# domains and zero new candidates, because they link to their own categories and
+# to sites the baseline already holds. The catalogued resources live one level in.
+http://www.vlib.org/	directory
+http://ipmwww.ncsu.edu/cernag/cern.html	directory
+http://www.beerinfo.com/vlib/index.html	directory
+http://www.gardenweb.com/vl/	directory
+http://src.doc.ic.ac.uk/bySubject/Computing/Overview.html	directory
+http://www.dataspace.com:84/WWW/vlib/comp-graphics.html	directory
+http://src.doc.ic.ac.uk/bySubject/Computing/Languages.html	directory
+http://wdvl.internet.com/Vlib/	directory
+http://www.analysys.com/vlib/	directory
+http://www.cais.com/makulow/vlj.html	directory
+http://www.csu.edu.au/education/library.html	directory
+http://dawww.essex.ac.uk/~roehl/PsycIndex/cogdir/cognitive.html	directory
+http://www.indiana.edu/~vlib/	directory
+http://www.emich.edu/~linguist/www-vl.html	directory
+http://www.ce.gatech.edu/WWW-CE/home.html	directory
+http://www.che.ufl.edu/WWW-CHE/index.html	directory
+http://arioch.gsfc.nasa.gov/wwwvl/ee.html	directory
+http://CDR.stanford.edu/html/WWW-ME/home.html	directory
+http://rbse.jsc.nasa.gov/virt-lib/soft-eng.html	directory
+http://anthrotech.com/resources/	directory
+http://www.fisk.edu/vl/Literature/Overview.html	directory
+http://www.artswire.org/Artswire/www/dance/dance.html	directory
+http://history.cc.ukans.edu/history/WWW_history_main.html	directory
+http://www.comlab.ox.ac.uk/archive/other/museums.html	directory
+http://www.bris.ac.uk/Depts/Philosophy/VL/	directory
+http://crrm.univ-mrs.fr/vl/vlis.html	directory
+http://www.brint.com/km/	directory
+http://www.isn.ethz.ch/linkslib/	directory
+http://www.ulb.ac.be/ceese/sustvl.html	directory
+http://www.undcp.org/unlinks.html	directory
+http://www.law.indiana.edu/law/v-lib/lawindex.html	directory
+http://www.hkkk.fi/EconVLib.html/	directory
+http://www.cob.ohio-state.edu/dept/fin/overview.htm	directory
+http://www.cis.ufl.edu/~thoth/library/recreation.html	directory
+http://www.justwright.com/sports/	directory
+http://lanic.utexas.edu/las.html	directory
+http://www.pitt.edu/~wwwes/	directory
+http://www.chem.ucla.edu/chempointers.html	directory
+http://spirit.lib.uconn.edu/PoliSci/polisci.htm	directory
+http://vlib.stanford.edu/Overview.html	directory
+http://www.ugems.psu.edu/~owens/VL/	directory
+http://www.mth.uea.ac.uk/VL/Overview.html	directory
+http://cuisung.unige.ch/vl/Home.html	directory
+http://cuiwww.unige.ch/vl/Home.html	directory
+http://www.vlib.org.ar	directory
+http://conbio.rice.edu/vl/database/	directory

@@ -1,0 +1,49 @@
+# Round 1 seeds: directory, navigation and yellow-page pages plausibly active 1996-2001.
+#
+# No page is asserted as `directory` here on purpose. Section IV.i lets a curated
+# directory page's capture date evidence every domain listed on it, with no further
+# validation, which makes the assertion master-grade evidence. Asserting it from the
+# reputation of a hostname would be guessing. Round 1 therefore collects every page as
+# candidate-only link_target, and the fetched pages are then read to decide which ones
+# genuinely are curated catalogues before any is re-run with the assertion.
+#
+# Format: one URL per line, optionally TAB 'directory'.
+
+# Yahoo!, the dominant curated directory of the period
+http://www.yahoo.com/
+http://dir.yahoo.com/
+http://www.yahoo.com/Computers_and_Internet/
+http://www.yahoo.com/Business_and_Economy/Companies/
+http://www.yahoo.com/Arts/
+http://www.yahoo.com/Recreation/
+http://www.yahoo.com/Science/
+http://www.yahoo.com/Society_and_Culture/
+
+# Open Directory Project / DMOZ, the volunteer-edited catalogue
+http://www.dmoz.org/
+http://dmoz.org/Computers/
+http://dmoz.org/Arts/
+http://dmoz.org/Business/
+
+# WWW Virtual Library, the oldest subject catalogue on the web
+http://vlib.org/
+http://www.vlib.org/Overview.html
+
+# Portals and navigation hubs that carried large curated link sets
+http://www.excite.com/
+http://www.lycos.com/
+http://www.infoseek.com/
+http://www.altavista.com/
+http://www.webcrawler.com/
+http://www.magellan.excite.com/
+http://www.looksmart.com/
+http://www.starting-point.com/
+
+# Yellow-page and business-directory sites
+http://www.bigbook.com/
+http://www.switchboard.com/
+http://www.worldpages.com/
+
+# Early "what's new" and site-of-the-day lists, dense with outbound links
+http://www.whatsnu.com/
+http://cool.infi.net/
