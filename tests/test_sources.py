@@ -16,6 +16,7 @@ from ark.sources import (
     parse_odp,
     parse_rdap_snapshot,
     parse_ukwa_link_source,
+    parse_ukwa_link_target,
 )
 
 CDX_LINES = [
@@ -442,3 +443,33 @@ def test_cdx_snapshot_is_registered_as_a_cdx_master_source() -> None:
     assert spec.evidence_type == "cdx_timestamp"
     assert spec.acquisition_method == "ia_cdx_collapsed_query"
     assert spec.is_candidate_only is False
+
+
+UKWA_ROWS = [
+    "1998|source-a.co.uk|target-a.com\t3",
+    "1999|source-b.co.uk|target-b.de\t1",
+    "2003|late.co.uk|late-target.com\t9",
+]
+
+
+def test_ukwa_source_and_target_read_different_columns(tmp_path: Path) -> None:
+    fixture = tmp_path / "host-linkage.tsv"
+    fixture.write_text("\n".join(UKWA_ROWS) + "\n", encoding="utf-8")
+
+    src_stats: Counter = Counter()
+    sources = [(r.raw, r.year) for r in parse_ukwa_link_source(fixture, src_stats)]
+    tgt_stats: Counter = Counter()
+    targets = [(r.raw, r.year) for r in parse_ukwa_link_target(fixture, tgt_stats)]
+
+    assert sources == [("source-a.co.uk", 1998), ("source-b.co.uk", 1999)]
+    assert targets == [("target-a.com", 1998), ("target-b.de", 1999)]
+    # the scan stops at the first out-of-window year rather than reading on
+    assert src_stats["lines"] == 3 and tgt_stats["lines"] == 3
+
+
+def test_ukwa_target_is_registered_as_candidate_only() -> None:
+    spec = SOURCES["ukwa_link_target"]
+    assert spec.evidence_type == "link_target"
+    # this is the whole point: being linked to can never assign a year
+    assert spec.is_candidate_only is True
+    assert SOURCES["ukwa_link_source"].is_candidate_only is False

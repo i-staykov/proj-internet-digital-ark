@@ -147,13 +147,16 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 _UKWA_LAST_YEAR = max(YEARS)
 
 
-def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield the SOURCE host of each UKWA host-link-graph row as `link_source`.
+_UKWA_SOURCE_COL = 1
+_UKWA_TARGET_COL = 2
 
-    Rows are `year|source_host|target_host<TAB>count`. The source host was
-    crawled (HTTP 200) that year to produce the link, so it is direct evidence;
-    the target host (a bare inbound link) is candidate-only and handled by a
-    separate Phase-3 source. The graph's granularity is the year.
+
+def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRecord]:
+    """Yield one host per in-window host-link-graph row, from the chosen column.
+
+    Rows are `year|source_host|target_host<TAB>count`, sorted by year ascending,
+    so the scan stops once it passes the window. That also stops before the
+    truncated 2002+ tail of the partial download.
     """
     with _open_text(path) as fh:
         try:
@@ -169,11 +172,34 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 if year not in YEARS:
                     stats["out_of_window"] += 1
                     continue
-                yield BulkRecord(raw=parts[1], year=year, evidence_value=f"host_link_graph:{year}")
+                yield BulkRecord(
+                    raw=parts[host_column], year=year, evidence_value=f"host_link_graph:{year}"
+                )
         except (EOFError, OSError):
-            # a truncated gzip tail (the 2002+ region of our partial download);
+            # a truncated gzip tail (the 2002+ region of the partial download);
             # everything in-window was already yielded before this point
             stats["truncated_tail"] += 1
+
+
+def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the SOURCE host of each row as `link_source`, which is direct evidence.
+
+    The source host was crawled with HTTP 200 in that year to produce the link, so
+    its existence that year is attested.
+    """
+    yield from _parse_ukwa(path, stats, _UKWA_SOURCE_COL)
+
+
+def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the TARGET host of each row as `link_target`, which is candidate-only.
+
+    Being linked to proves nothing about the target: dead links, typographical
+    errors and names registered only later are all common in a link graph. The row
+    is kept for provenance and to prioritise verification, and can never assign a
+    year on its own. Targets are worldwide, unlike the `.uk`-biased source hosts,
+    which is why they are worth holding as candidates at all.
+    """
+    yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
 
 
 # AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or
@@ -477,6 +503,15 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="whois_creation",
         acquisition_method="rdap_journal_file",
         parse=parse_rdap_snapshot,
+    ),
+    # the target side of the same file: candidate-only, so the loader records the
+    # evidence and enqueues the host but never assigns a year
+    "ukwa_link_target": SourceSpec(
+        key="ukwa_link_target",
+        source_name="ukwa_link_target",
+        evidence_type="link_target",
+        acquisition_method="ukwa_host_link_graph",
+        parse=parse_ukwa_link_target,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

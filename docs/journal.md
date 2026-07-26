@@ -52,3 +52,17 @@ line and make both engines look permanently busy.
 
 **Engines:** ingested the completed journals, **+3,115 pairs** banked. Store now **1,307,463**
 net-new pairs. Both engines running, supervisor healthy.
+
+**03:10-03:45 — C dispatched, B1 done (candidate pool fixed).** Section C is six independent live
+source investigations, so it went out as a parallel workflow rather than being done serially; B1 is
+independent of its findings, so it was done meanwhile instead of idling.
+
+- **The empty candidate pool was a missing ingester, not a bug in the stats.**
+  `parse_ukwa_link_source` only ever yielded the source host, and its own docstring promised a
+  target-side source that was never written. Now built, sharing one reader with the source side.
+- **Candidate pool 4 -> 5,439 domains**, from 88,263 `link_target` evidence rows over 69,152 distinct
+  targets. Zero year assignments from candidate-only evidence, as the taxonomy requires.
+- **Finding: 92% of link targets (63,716 of 69,152) were already held.** Being linked to from the
+  `.uk` web in this window is overwhelmingly a property of sites the baseline already covers, so the
+  target side is worth its obscure 8% tail rather than volume. Worth stating in the report so the
+  pool's size is not mistaken for pool value.
