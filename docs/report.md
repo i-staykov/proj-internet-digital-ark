@@ -167,22 +167,19 @@ concurrency was re-measured rather than assumed (185 answered/hour at 4 workers,
 
 ## 8. Page expansion and the discovery cycle
 
-**Rounds and seeds.** Four rounds were run: a pilot on high-fanout early pages, then directory,
-navigation and yellow-page sites; then the WWW Virtual Library's subject libraries, asserted as
-curated catalogues; then further subject libraries found in the previous round's own outbound links.
-That last round closes the loop: its seed list was produced by the pipeline, not by hand. Captures
-use the Wayback `id_` modifier, which serves the original stored bytes rather than a rewritten page,
-so the extracted links are the ones the author published.
-
-**Depth decides yield.** Home pages returned 92 domains and zero new candidates, because a portal
-front page links to its own categories rather than outward. Curated catalogues one level in returned
-**1,577 pairs**, concentrated in 1998 and 1999.
+**Depth decides yield.** A pilot on three portal home pages returned nothing. Round 1 broadened to
+27 directory and navigation sites: 92 outbound domains found, all already held. Portal front pages
+link inward, not outward. Rounds 2 through 4 targeted the WWW Virtual Library's subject libraries,
+each an editorially maintained catalogue: **1,577 pairs**, concentrated in 1998 and 1999. Round 3
+processed 641 captures already on disk from the source survey rather than re-downloading; round 4's
+seed list was produced by the pipeline, not by hand. The code README documents how to reproduce each
+round and extend with further ones.
 
 **Why extracted names are split.** A curated page's capture date may evidence the domains listed on
 it, which is sound for the page and unsound for the parser: archived HTML carries transcription
-errors, and this route produced `arvard.edu` from a `harvard.edu` link. A sample put roughly 40% of
-never-before-seen names in that class, so a name some other source already attests is kept as dated
-evidence, and a name nothing else attests becomes a candidate.
+errors, and this route produced `arvard.edu` from a `harvard.edu` link. Roughly 40% of
+never-before-seen names were in that class, so a name some other source already attests is kept as
+dated evidence, and a name nothing else attests becomes a candidate.
 
 **The cycle was closed, not just described.** Of 298 discovered candidates queried against the
 archive, 233 answered and **198 (85%) held an in-window capture**, adding 278 pairs: high enough to

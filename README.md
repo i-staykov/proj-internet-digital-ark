@@ -147,6 +147,35 @@ uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
 
 A running collector writes `<journal>.jsonl.gz.part` and renames it on exit, so the `ingest` globs never pick up a half-written file (which would record the hash of its first lines and lock the rest of the run out of the ledger). The rename happens on Ctrl-C and on `kill` as well; only `kill -9` leaves a `.part` behind, and renaming it by hand makes it ingestable. Either way, a later run still reads `.part` files when deciding what to skip, so nothing already answered is asked twice.
 
+### Page expansion
+
+The expansion cycle fetches archived pages from the Wayback Machine, extracts the domains they link to, and splits the result by corroboration: a domain some other source already attests becomes dated evidence (its capture year), while a never-before-seen name becomes a candidate. One round:
+
+```bash
+uv run ark download seeds/expansion/seeds_round4.txt -n 250 --workers 3 --captures 2 \
+    --out data/raw/expand/round5/expand_round5.jsonl.gz
+uv run python scripts/split_expansion_journal.py \
+    data/raw/expand/round5/expand_round5.jsonl.gz --write
+uv run ark ingest expansion_directory \
+    data/raw/expand/round5/expand_round5_corroborated.jsonl.gz --round 5
+uv run ark ingest expansion_links \
+    data/raw/expand/round5/expand_round5_unverified.jsonl.gz --round 5
+```
+
+Or `just expand-round seeds/expansion/seeds_round4.txt 5`, which runs the same four steps.
+
+`ark download` requests each seed URL from the Wayback CDX API, fetches up to two original-byte captures per URL, and writes a journal. `split_expansion_journal.py` reads the journal and the store, divides each page's outbound links into corroborated (known to the store from some other source) and uncorroborated (never seen), and writes two journals. The corroborated half is ingested as `expansion_directory` with `dated_directory` evidence; the uncorroborated half as `expansion_links` with `link_target` evidence, which is candidate-only.
+
+The delivered result used four numbered rounds. Round 1 fetched portals and directories as candidate-only links (the `directory` assertion was deliberately withheld until a page was read). Rounds 2 and 4 fetched WWW Virtual Library subject pages, each asserted as a curated catalogue. Round 3 processed 641 VLib captures already on disk from the source survey via `scripts/journal_from_wwwvl.py --write`, then the same two-step ingest; since no download was needed, there is no `seeds_round3.txt`, which is why the shipped seed files are numbered 1, 2, 4. The seed files are in `seeds/expansion/`.
+
+Discovered candidates can then be verified against the archive to close the loop:
+
+```bash
+uv run ark cdx data/raw/cdx/discovered_candidates.txt -n 298 --workers 4 --timeout 70 \
+    --out data/raw/cdx/cdx_discovered.jsonl.gz
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_discovered.jsonl.gz
+```
+
 **Reproducibility.** `uv.lock` pins exact dependency versions and the Public Suffix List is vendored, so canonicalization and the baseline processing are deterministic on any machine. `uv run` is the contract and works with only `uv` installed. CI runs lint, format-check and tests on every push.
 
 ## Structure
