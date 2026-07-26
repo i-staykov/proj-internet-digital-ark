@@ -56,8 +56,10 @@ stats:
 check: verify-repo check-data
 
 # --- reproducing the result --------------------------------------------------
-# Stages 1 to 3 need no network and rebuild the store from the files in
-# data/raw/; stage 4 queries live services; stage 5 writes the deliverable.
+# All six stages are offline. Stages 1 to 3 read the bulk files in data/raw/,
+# stage 4 replays the journals the collectors already wrote, stage 5 rebuilds the
+# hostname/URL seed pool, and stage 6 writes and proves the deliverable. To
+# collect NEW evidence, see the network recipes further down.
 
 # stage 1: create the stores, load the supplied baseline read-only (~2 min)
 baseline:
@@ -95,6 +97,8 @@ journals:
     uv run ark ingest expansion_directory data/raw/expand/round2/expand_round2.jsonl.gz --round 2
     uv run ark ingest expansion_directory data/raw/expand/wwwvl/expand_wwwvl_corroborated.jsonl.gz --round 3
     uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
+    uv run ark ingest expansion_directory data/raw/expand/round4/expand_round4_corroborated.jsonl.gz --round 4
+    uv run ark ingest expansion_links     data/raw/expand/round4/expand_round4_unverified.jsonl.gz --round 4
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
 # registered-domain counting unit drops. Reads the same source files again.
@@ -128,14 +132,22 @@ rdap-batch n="2500":
     uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt
     uv run ark rdap data/raw/rdap/creation_candidates.txt -n {{n}}
 
-# one page-expansion round over the curated seed list (brief section VII)
-expand-round:
-    uv run ark download data/raw/expand/seeds_pilot.txt
-    uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz
-    uv run ark ingest expansion_directory data/raw/expand/expand_*.jsonl.gz
+# one page-expansion round (brief section VII). Pass a seed list and a round
+# number, e.g. `just expand-round seeds/expansion/seeds_round4.txt 5`. The split
+# step is not optional: it keeps a curated page's transcription typos out of
+# master evidence by demoting names no other source attests.
+expand-round seeds round:
+    uv run ark download {{seeds}} -n 250 --workers 3 --captures 2 \
+        --out data/raw/expand/round{{round}}/expand_round{{round}}.jsonl.gz
+    uv run python scripts/split_expansion_journal.py \
+        data/raw/expand/round{{round}}/expand_round{{round}}.jsonl.gz --write
+    uv run ark ingest expansion_directory \
+        data/raw/expand/round{{round}}/expand_round{{round}}_corroborated.jsonl.gz --round {{round}}
+    uv run ark ingest expansion_links \
+        data/raw/expand/round{{round}}/expand_round{{round}}_unverified.jsonl.gz --round {{round}}
 
 # --- shipping ----------------------------------------------------------------
 
-# build the delivery archive (refuses to run on a dirty tree)
+# build the delivery archive (refuses a dirty tree or a stale output/)
 package:
     bash scripts/package_delivery.sh
