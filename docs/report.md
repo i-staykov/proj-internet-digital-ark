@@ -216,7 +216,25 @@ which would leave a confirmed domain sitting in the pool) is caught by the
 
 - **Per-year evidence, no forward-fill (III.7/III.1).** A domain enters a year file only with its own in-year evidence; first-appearance never infers later years. Cross-year duplication is required where independently evidenced.
 - **Net-new domains vs net-new pairs.** Distinct metrics: 463,364 domains are entirely absent from the baseline; 1,303,508 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
-- **Cross-source corroboration.** Average **1.35** master-eligible sources per assigned pair; **2,558,322** pairs carry ≥2 sources. Honesty caveat: most current corroboration is Internet-Archive-on-Internet-Archive (baseline + Early Web + Arquivo all trace to IA); genuinely provenance-independent corroboration comes from ISC (DNS) and AFNIC (registry), which is where it matters.
+- **Corroboration, reported at two strengths because they mean different things.** The weaker
+  figure counts distinct *sources* behind an asserted pair: **2,562,315 pairs carry two or more**, at
+  an average of 1.35. That figure flatters the result, because the supplied baseline, the Early Web
+  CDX dataset and Arquivo's `IA.cdxj` donation all trace back to the Internet Archive, so a pair
+  carrying all three is well covered but confirmed by one organisation's crawling.
+  The stronger figure counts distinct *provenance lineages*, grouping every source deriving from the
+  same body of observation: **583,634 pairs are confirmed by two or more independent lineages, of
+  which 6,067 are net-new additions.** A DNS survey and a registry file have no common ancestor, so
+  their agreement is real confirmation; two Internet Archive datasets agreeing is not. Evidence rows
+  by lineage: Internet Archive 9,182,414 · DNS survey 1,662,395 · registry 150,697 · UK Web Archive
+  127,717 · editorial directory 20,604 · Arquivo.pt 3,442. A source not yet assigned a lineage counts
+  as its own, which is the conservative default. Both figures are computed by `ark stats` from the
+  evidence table and are reproducible.
+- **Corroboration accrues as a by-product rather than by spending queries on it.** Of the evidence
+  rows the two verification engines have added, **61% (CDX) and 50% (RDAP) land on pairs another
+  source already evidences**, because the engines ask about a domain and record every year they get
+  back rather than stopping at the first unproven one. No request is spent re-proving a year purely
+  to corroborate it: with the archive answering roughly 1,000 domains an hour, a query is better
+  spent on a year nothing yet evidences.
 - **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 148,221 · `link_source` 39,454 · `dated_directory` 975.
 
 ## 5. CDX / verification execution notes

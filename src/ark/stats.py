@@ -7,11 +7,20 @@ assigned but has no prior_reused (baseline) evidence; a domain is net-new
 when it is assigned but has no baseline evidence at all. This is robust
 regardless of which evidence row happened to make the assignment.
 
-Corroboration counts the distinct master-eligible sources behind each
-asserted pair (candidate-only evidence proves nothing and is excluded).
-"Sources" here means distinct source rows, not distinct provenance: two
-IA-derived sources both count, so a high number is cross-source coverage,
-not proof of provenance independence.
+Corroboration is reported at two strengths, because they mean different things.
+
+Cross-SOURCE corroboration counts distinct source rows behind an asserted pair.
+It is the weaker figure: the supplied baseline, the Early Web CDX dataset and the
+Arquivo `IA.cdxj` donation all trace back to the Internet Archive, so a pair
+carrying all three is well covered but confirmed by one organisation's crawling.
+
+Cross-PROVENANCE corroboration counts distinct collection lineages, grouping every
+source that ultimately derives from the same body of observation. Two sources in
+different lineages agreeing is genuine independent confirmation: a DNS survey and
+a registry file have no common ancestor. That is the figure worth quoting, and it
+is much smaller than the cross-source one.
+
+Candidate-only evidence proves nothing and is excluded from both.
 """
 
 import duckdb
@@ -19,6 +28,31 @@ import duckdb
 from ark.evidence_types import MASTER_TYPES
 
 BASELINE_TYPE = "prior_reused"
+
+# Which body of observation each source ultimately derives from. Sources sharing a
+# lineage cannot independently confirm one another, however many rows they carry:
+# the baseline was built from Internet Archive holdings, Early Web IS an IA
+# dataset, and Arquivo's `IA.cdxj` was donated by IA, so agreement among them is
+# coverage rather than confirmation. A source absent from this map is treated as
+# its own lineage, which is the conservative default for anything newly added.
+PROVENANCE_LINEAGE = {
+    "prior_task": "internet_archive",
+    "early_web_cdx": "internet_archive",
+    "arquivo_ia": "internet_archive",
+    "ia_cdx": "internet_archive",
+    "ia_cdx_bulk": "internet_archive",
+    "page_expansion": "internet_archive",
+    "page_directory": "internet_archive",
+    "isc_survey": "dns_survey",
+    "afnic_fr": "registry",
+    "rdap": "registry",
+    "rdap_snapshot": "registry",
+    "ukwa_link_source": "uk_web_archive",
+    "ukwa_link_target": "uk_web_archive",
+    "arquivo_roteiro": "arquivo_pt",
+    "odp": "editorial_directory",
+    "internet_scout": "editorial_directory",
+}
 # only existence-proving evidence corroborates an assertion
 _MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES))
 
@@ -77,6 +111,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
         "evidence_rows": sum(evidence_by_type.values()),
         "evidence_rows_by_type": evidence_by_type,
         **_corroboration(conn),
+        **_independent_corroboration(conn),
     }
 
 
@@ -108,6 +143,52 @@ def _corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def _lineage_case_sql(alias: str = "s.name") -> str:
+    """SQL mapping a source name to its provenance lineage, unknown names to themselves."""
+    whens = " ".join(
+        f"WHEN '{name}' THEN '{lineage}'" for name, lineage in sorted(PROVENANCE_LINEAGE.items())
+    )
+    return f"CASE {alias} {whens} ELSE {alias} END"
+
+
+def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
+    """Pairs confirmed by two or more genuinely independent collection lineages."""
+    lineage = _lineage_case_sql()
+    independent, netnew_independent = conn.execute(
+        f"""
+        WITH pair_lineages AS (
+            SELECT e.domain, e.evidence_year,
+                   count(DISTINCT {lineage}) AS n_lineages,
+                   count(*) FILTER (WHERE e.evidence_type = ?) > 0 AS has_baseline
+            FROM evidence e
+            JOIN source s ON s.source_id = e.source_id
+            JOIN domain_year dy
+              ON dy.domain = e.domain AND dy.assigned_year = e.evidence_year
+            WHERE e.evidence_type IN ({_MASTER_TYPE_LIST})
+            GROUP BY e.domain, e.evidence_year
+        )
+        SELECT count(*) FILTER (WHERE n_lineages >= 2),
+               count(*) FILTER (WHERE n_lineages >= 2 AND NOT has_baseline)
+        FROM pair_lineages
+        """,
+        [BASELINE_TYPE],
+    ).fetchone()
+    by_lineage = dict(
+        conn.execute(
+            f"""
+            SELECT {lineage} AS lineage, count(*) FROM evidence e
+            JOIN source s ON s.source_id = e.source_id
+            GROUP BY 1 ORDER BY 2 DESC
+            """
+        ).fetchall()
+    )
+    return {
+        "independently_corroborated_pairs": independent,
+        "independently_corroborated_netnew": netnew_independent,
+        "evidence_rows_by_lineage": by_lineage,
+    }
+
+
 def format_stats(stats: dict) -> str:
     lines = [
         "== scoreboard ==",
@@ -122,7 +203,13 @@ def format_stats(stats: dict) -> str:
         f"avg sources per assigned pair:      {stats['avg_sources_per_pair']:>12.4f}",
         f"pairs with 2+ sources:              {stats['corroborated_pairs']:>12,}",
         f"    of which already in baseline:   {stats['baseline_corroborated']:>12,}",
+        "== independent corroboration (2+ provenance lineages) ==",
+        f"pairs confirmed independently:      {stats['independently_corroborated_pairs']:>12,}",
+        f"    of which net-new:               {stats['independently_corroborated_netnew']:>12,}",
     ]
+    for lineage, count in stats["evidence_rows_by_lineage"].items():
+        lines.append(f"    {lineage}: {count:,}")
+    lines += ["== evidence rows by type =="]
     for etype, count in stats["evidence_rows_by_type"].items():
         lines.append(f"    {etype}: {count:,}")
     lines += [
