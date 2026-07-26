@@ -103,7 +103,7 @@ cannot be inflated.
 | UK Web Archive link graph | `link_source` | 16,235 | 23,821 |
 | Arquivo.pt capture indexes | `cdx_timestamp` | 7,001 | 17,696 |
 | Wayback CDX engine | `cdx_timestamp` | 207 | 11,943 |
-| ODP directory dumps | `artifact_listing` | 3,369 | 8,423 |
+| ODP directory dumps (2000, 2001) | `artifact_listing` | 3,369 | 8,423 |
 | RDAP (journalled) | `whois_creation` | 5 | 5,341 |
 | RDAP (legacy) | `whois_creation` | 833 | 3,106 |
 | Archived directory pages | `dated_directory` | 20 | 1,577 |
@@ -115,10 +115,6 @@ cannot be inflated.
 archived ranked listings, 38 from the Stanford WebBase crawl host list, 19 named on directory pages
 but attested nowhere else, 4 from earlier probes. WebBase carries no dates, so it seeds candidates
 and never an annual file; 99.99% of its hosts were already held.
-
-The ODP rows are dated dumps, not the undated 2015 aggregate: a truncated August 2000 content dump
-and two Kids-and-Teens dumps from 2001, each carrying its own generation stamp, so they assign only
-2000 and 2001.
 
 Evidence rows and pairs differ: Early Web CDX contributes 2.28M rows but 182 net-new pairs, because
 the baseline derives from the same archive. Those rows are corroboration, and the net-new volume
@@ -171,16 +167,12 @@ concurrency was re-measured rather than assumed (185 answered/hour at 4 workers,
 
 ## 8. Page expansion and the discovery cycle
 
-The brief asks for a cycle rather than a single pass: harvest a source, extract candidate seeds,
-validate them against dated evidence, then download the validated pages and feed their outbound
-links into the next round. Four rounds were run.
-
-**Rounds and seeds.** A pilot on high-fanout early pages, then directory, navigation and yellow-page
-sites; then the WWW Virtual Library's subject libraries, asserted as curated catalogues; then further
-subject libraries found in the previous round's own outbound links. That last round closes the loop:
-its seed list was produced by the pipeline, not by hand. Captures use the Wayback `id_` modifier,
-which serves the original stored bytes rather than a rewritten page, so the extracted links are the
-ones the author published.
+**Rounds and seeds.** Four rounds were run: a pilot on high-fanout early pages, then directory,
+navigation and yellow-page sites; then the WWW Virtual Library's subject libraries, asserted as
+curated catalogues; then further subject libraries found in the previous round's own outbound links.
+That last round closes the loop: its seed list was produced by the pipeline, not by hand. Captures
+use the Wayback `id_` modifier, which serves the original stored bytes rather than a rewritten page,
+so the extracted links are the ones the author published.
 
 **Depth decides yield.** Home pages returned 92 domains and zero new candidates, because a portal
 front page links to its own categories rather than outward. Curated catalogues one level in returned

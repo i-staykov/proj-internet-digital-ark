@@ -119,13 +119,8 @@ keeps growing. The journals and provenance export shipped here do not move.
 
 A domain is in `masters/<year>.txt` only with item-level evidence for that year: a web-archive
 capture, a dated survey or directory file, a host-link-graph row, a registry record, or the
-baseline's own prior evidence. An earlier appearance never implies a later year.
-
-Registry records are read two ways, deliberately. An RDAP response carries no registration history,
-so it attests its creation year only. The `.fr` registry file attests every in-window year between
-creation and deletion, because that registry documents its creation date as "the last creation date
-of the domain name", which places it at or after any earlier deletion. The report gives the citation
-and the size of the exposure if that reading is rejected.
+baseline's own prior evidence. An earlier appearance never implies a later year. The report gives
+the standard in full, including how registry dates are read.
 
 Data that only suggests a domain existed, such as being linked to from another site, never assigns a
 year. It goes to `candidates.txt` until it earns its own evidence.

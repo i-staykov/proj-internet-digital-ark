@@ -174,5 +174,3 @@ docs/            # SPEC, sources.md (per-source documentation), report
 ```
 
 `ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.
-
-**The auxiliary seed pool** answers a different question from the annual files. The registered domain is the counting unit, so `foo.com`, `www.foo.com` and `shop.foo.com` are one line in `1998.txt`. That is right for counting and wrong for downloading, since a crawler given `foo.com` never reaches pages that only ever existed at `shop.foo.com`. `ark seed-pool` therefore re-reads each source through the same parser as `ark ingest` and keeps the raw value instead of the canonical one, which is why a seed can never disagree with the evidence it came from. The pool holds **3,595,769 distinct hostnames and URLs** across 2,195,955 registered domains, each labelled with the year its source dates it to.
