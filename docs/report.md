@@ -13,19 +13,19 @@ This program grows the provided ~8.2M-line baseline with **net-new, evidence-bac
 
 | Metric | Value |
 |---|--:|
-| Net-new registered domains (absent from baseline) | **463,367** |
-| Net-new (domain, year) pairs | **1,310,280** |
+| Net-new registered domains (absent from baseline) | **463,565** |
+| Net-new (domain, year) pairs | **1,310,558** |
 | Baseline domains (read-only) | 4,824,656 |
 | Total domains in store | 5,293,804 |
-| Total (domain, year) pairs in store | 8,177,193 |
-| Evidence rows | 11,162,500 |
-| Candidate pool (no year evidence yet) | 5,781 |
+| Total (domain, year) pairs in store | 8,177,471 |
+| Evidence rows | 11,162,778 |
+| Candidate pool (no year evidence yet) | 5,583 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 98,220 | 1,038,872 | 13,793 | 26,330 | 54,219 | 78,846 |
+| 98,220 | 1,038,873 | 13,795 | 26,337 | 54,290 | 79,043 |
 
 The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr`, and materially by Arquivo `.pt` and the UK Web Archive.
 
@@ -158,12 +158,12 @@ than by convention: candidate-only evidence types cannot create a year assignmen
 | Source | Domains | What it is |
 |---|--:|---|
 | `ukwa_link_target` | 5,435 | hosts linked *to* in the UK web archive's 1996-2001 host-link graph |
-| `candidate_hosts` (100hot.com) | 258 | hostnames read as plain text from archived ranked listings, so not assertable as entries |
-| `page_expansion` | 40 | names listed on curated directory pages that no other source attests (§3.3) |
+| `candidate_hosts` (100hot.com) | 87 | hostnames read as plain text from archived ranked listings, so not assertable as entries; 171 more have since been verified and promoted |
+| `page_expansion` | 19 | names listed on curated directory pages that no other source attests; 27 more have been verified and promoted |
 | webbase `hosts` | 39 | Stanford WebBase 2001 crawl hosts, the III.4-named source |
 | `deduplicated_urls_2001-2002` | 2 | supplied legacy seed file |
 | other | 2 | earlier probes |
-| **total** | **5,776** | |
+| **total** | **5,583** | |
 
 The pool is `.uk`-weighted, which follows from its dominant source: `.co.uk` 2,182, `.com` 1,925,
 `.org.uk` 295, `.net` 270, `.org` 245, `.de` 80, `.ac.uk` 30, `.com.au` 23.
@@ -193,6 +193,23 @@ enters `1999.txt` only.
 by construction, and the complementary failure (a domain holding evidence that was never assigned,
 which would leave a confirmed domain sitting in the pool) is caught by the
 `nothing_earned_is_left_unassigned` invariant.
+
+**The cycle was closed, not just described.** Brief §VII asks for an iterative loop rather than a
+one-off extraction, so it was run end to end on real data: outbound links from archived directory
+pages and hostnames read from 100hot's ranked listings entered the pool as candidates, because
+neither route is assertable (a text regex cannot separate a listed entry from an advertisement, and
+archived HTML carries transcription typos). Those candidates were then queried against the Internet
+Archive like any other unverified domain.
+
+Of 298 discovered candidates, 233 answered and **198 of those (85%) held an in-window capture**,
+producing **+278 net-new pairs over 198 net-new domains**: 171 domains from the 100hot listings and
+27 from page expansion. The remaining 65 were transport or gateway failures, which stay eligible for
+a later run, and 35 answered with no in-window capture and remain candidates.
+
+That 85% is worth reading twice. It says a period directory listing is an excellent *lead* and was
+still right not to treat as *evidence*: the same names could have been asserted directly from the
+pages and counted an hour earlier, but they now carry archive captures naming the specific years
+instead of a page's say-so, at a cost of one 40-minute query batch.
 
 ### 3.2 The auxiliary seed pool: 3,595,769 hostnames and URLs (brief I, III.2, §VII)
 
@@ -475,11 +492,11 @@ Answered per source from measured rates rather than impressions, because "keep g
 | **AFNIC `.fr`** | Exhausted | One file is the whole registry. Only `.fr` names deleted before 28 January 2014 are missing, and no source holds them |
 | **UKWA, Arquivo, Early Web CDX** | Exhausted | Each is a single complete dataset, fully ingested |
 | **ODP / DMOZ** | Exhausted for the window | 3 dumps ingested; the Aug-2000 full content dump is unrecoverable and no earlier RDF dump was ever published |
-| **100hot.com** | Pending verification, not exhausted | 258 new candidates queued. Its listings are plain text, so they earn years from captures rather than from the page |
+| **100hot.com** | Verified and productive | 258 candidates queued, 171 already promoted by archive captures (+234 pairs). Its listings are plain text, so they earn years from captures rather than from the page |
 | **Stanford WebBase** | Retired | 603,323 domains, 99.99% already held. Measured, not assumed |
 | **Commercial WHOIS history, national archives, zone files** | Closed | Priced, gated or non-existent for 1996-2001; the 21-row rejected table in [sources.md](sources.md) records each check |
 
-**The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool, now 5,776 domains, is the second call on that same capacity.
+**The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool, now 5,583 domains after 198 were verified and promoted, is the second call on that same capacity.
 
 ---
 

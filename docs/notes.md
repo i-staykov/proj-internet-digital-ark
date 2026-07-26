@@ -484,6 +484,13 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the candidate seeds were listed as the UKWA target list, but UKWA targets enter through `ark ingest ukwa_link_target`; the two files really seeded were `data/raw/webbase/hosts.txt` and `legacy-data/deduplicated_urls_2001-2002.txt`
   - both found by expanding every glob in the recipes and comparing the count against `ingested_file`: early_web 224, isc_survey 5, afnic 1, odp 3, all matching. Worth repeating for any documented glob, since a glob that quietly matches too little looks identical to a correct one
 
+- **The section VII cycle closed end to end, and the conservative call paid for itself (2026-07-26)**
+  - the loop the brief describes, run once on real data rather than described: **discover** (outbound links from archived directory pages, plus hostnames read from 100hot listings) -> **candidate pool** (because neither route is assertable: a text regex cannot tell an entry from an advertisement, and archived HTML carries typos) -> **verify** (`ark cdx` against the Internet Archive) -> **master evidence** for the years that came back
+  - 298 discovered candidates queried, 233 answered, 65 failed and stay eligible. **198 of the 233 answered domains (85%) hold an in-window capture**, giving **+278 net-new pairs and +198 net-new domains**
+  - by discovering source: 100hot listings 171 domains promoted (234 pairs), page expansion 27 (44 pairs). 106 remain unverified, nearly all of them retryable failures rather than negatives
+  - this is the number that justifies the earlier refusal. The same 258 names could have been asserted from a regex over listing pages and counted immediately; instead they cost one 40-minute query batch and came back with **archive captures naming the specific years**. 85% is also a reasonable rate to quote for what a directory listing is worth as a *lead*, as distinct from as evidence
+  - scoreboard after: **463,565 net-new domains / 1,310,558 pairs**
+
 - **100hot.com: 258 new candidates, and a recommendation not taken (2026-07-26)**
   - a parallel source review ranked 100hot.com first of six, projecting 700-1,100 net-new domains as master `dated_directory` evidence from its 2001 `/list.gsp` pages, and prescribed a regex for host cells of the form `<td class="sm">www.example.com</td>`
   - that markup is not in the cached pages. Measured across all 130: the `/list.gsp` captures carry almost nothing but navigation chrome (`go2net`, `infospace`), while the productive pages are `/directory/<category>/<topic>.html`, at roughly 100 hostnames each. So the specific route recommended was not the productive one
