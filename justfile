@@ -116,8 +116,16 @@ deliver:
     uv run ark stats
     uv run ark check
 
-# the whole result from an empty store, no network required
+# tier 3: the whole result from an empty store. Needs the bulk sources in
+# data/raw/ AND the supplied baseline in legacy-data/, since the annual masters
+# are baseline plus additions and net-new is defined against it.
 reproduce: baseline sources candidates journals seeds deliver
+
+# tier 2: regenerate every result file from a provenance export instead, which
+# needs no source data at all. About a minute, and byte-identical.
+rebuild dir="output/provenance":
+    uv run ark rebuild {{dir}}
+    uv run ark check
 
 # --- collecting more (network) -----------------------------------------------
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
