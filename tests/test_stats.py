@@ -169,3 +169,20 @@ def test_an_unmapped_source_is_its_own_lineage() -> None:
 
     assert collect_stats(conn)["independently_corroborated_pairs"] == 1
     conn.close()
+
+
+def test_every_source_has_an_explicit_provenance_lineage() -> None:
+    """An unclassified source would silently become its own lineage.
+
+    `_lineage_case_sql` falls through to the source name, so a new source that
+    nobody classified counts as independent of everything else and inflates the
+    independent-corroboration headline. NCSA arrived that way: an editorial
+    directory reported as its own body of observation, corroborating ODP.
+    """
+    from ark.sources import SOURCES
+    from ark.stats import PROVENANCE_LINEAGE
+
+    unclassified = {
+        spec.source_name for spec in SOURCES.values() if spec.source_name not in PROVENANCE_LINEAGE
+    }
+    assert not unclassified, f"classify these in PROVENANCE_LINEAGE: {sorted(unclassified)}"

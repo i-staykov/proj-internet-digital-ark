@@ -538,3 +538,17 @@ def test_expansion_specs_carry_the_right_dispositions() -> None:
     assert SOURCES["expansion_links"].is_candidate_only is True
     assert SOURCES["expansion_directory"].is_candidate_only is False
     assert SOURCES["expansion_directory"].evidence_type == "dated_directory"
+
+
+def test_ncsa_whats_new_dates_each_entry_by_its_issue(tmp_path) -> None:
+    from ark.sources import parse_ncsa_whats_new
+
+    path = tmp_path / "ncsa.tsv"
+    path.write_text("example.com\t1996-01-01\nother.org\t1996-07-15\nundated.net\t\n")
+    stats: Counter = Counter()
+    records = list(parse_ncsa_whats_new(path, stats))
+
+    assert [(r.raw, r.year) for r in records] == [("example.com", 1996), ("other.org", 1996)]
+    # an entry the harvest could not date is counted, never dated by assumption
+    assert stats["no_date"] == 1
+    assert records[0].evidence_value == "ncsa whats-new entry 1996-01-01"

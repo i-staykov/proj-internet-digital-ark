@@ -52,6 +52,7 @@ PROVENANCE_LINEAGE = {
     "arquivo_roteiro": "arquivo_pt",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
+    "ncsa_whats_new": "editorial_directory",
 }
 # only existence-proving evidence corroborates an assertion
 _MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES))

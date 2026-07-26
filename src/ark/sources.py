@@ -476,6 +476,34 @@ def _parse_expansion(path: Path, stats: Counter, curated: bool) -> Iterator[Bulk
         stats["truncated_tail"] += 1
 
 
+def parse_ncsa_whats_new(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per site announced in NCSA's "What's New" pages.
+
+    The pages are the era's announcement list for newly launched sites, dated by
+    the issue that carried them. The harvest on disk is one `domain<TAB>date` row
+    per announced entry, extracted from the archived issues in `issues-1996/` and
+    checksummed alongside them.
+
+    Entries only. Navigation and masthead links are not announcements, and the
+    distinction is what lets this carry `dated_directory` rather than being
+    candidate-grade.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            raw, _, date = line.partition("\t")
+            if len(date) < 4 or not date[:4].isdigit():
+                stats["no_date"] += 1
+                continue
+            yield BulkRecord(
+                raw=raw,
+                year=int(date[:4]),
+                evidence_value=f"ncsa whats-new entry {date}",
+            )
+
+
 def parse_expansion_links(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Hosts linked from an ordinary archived page: candidate-only.
 
@@ -591,6 +619,15 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="dated_directory",
         acquisition_method="archived_directory_page",
         parse=parse_expansion_directory,
+    ),
+    # NCSA "What's New": the era's announcement list for newly launched sites,
+    # and the only 1996 editorial directory artifact that survives
+    "ncsa_whats_new": SourceSpec(
+        key="ncsa_whats_new",
+        source_name="ncsa_whats_new",
+        evidence_type="dated_directory",
+        acquisition_method="ncsa_whats_new_pages",
+        parse=parse_ncsa_whats_new,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",
