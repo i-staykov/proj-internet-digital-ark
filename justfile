@@ -79,6 +79,7 @@ sources:
     uv run ark ingest odp               data/raw/odp/*.gz
     uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
     uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
+    uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
 
 # stage 3: grow the candidate pool from the year-unlabelled host lists
 candidates:

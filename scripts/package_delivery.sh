@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Assemble the Phase-7 delivery archive: one compressed archive + checksum
-# containing everything Prof. Ding enumerated. Run from anywhere; paths are
-# resolved relative to the repo root. Regenerate the data first with `ark export`.
+# Assemble the delivery archive: one compressed file plus its checksum, holding
+# the results, the evidence behind them, the code that produced them, and the
+# documentation. Run from anywhere; paths resolve relative to the repo root.
+# Regenerate the data first with `ark export`.
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJ"
@@ -33,16 +34,23 @@ if [ "$SHIPPED" != "$STORED" ]; then
     exit 1
 fi
 
-STAGE="output/delivery"
-ARCHIVE="output/internet-digital-ark-delivery.tar.gz"
+# The unpacked folder is named for what it holds, so a reviewer who extracts it
+# among other downloads can still tell what it is.
+RELEASE="internet-digital-ark-1996-2001"
+STAGE="output/$RELEASE"
+ARCHIVE="output/$RELEASE.tar.gz"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals}
+mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance}
 
-# report + docs
+# The Word report is generated from the markdown, never maintained separately:
+# a hand-made copy silently went 18 hours stale once, so the two disagreed.
+if command -v pandoc >/dev/null 2>&1; then
+    pandoc docs/report.md -o "$STAGE/report.docx" --toc --standalone
+else
+    echo "warning: pandoc not installed, shipping the report as markdown only" >&2
+fi
 cp docs/report.md "$STAGE/report.md"
-[ -f output/report.docx ] && cp output/report.docx "$STAGE/report.docx"
 cp docs/delivery_readme.md "$STAGE/README.md"
-cp docs/notes.md "$STAGE/notes.md"
 cp docs/sources.md "$STAGE/sources.md"
 
 # merged master year lists + net-new additions + provenance
@@ -69,6 +77,10 @@ find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 
+# the provenance graph as Parquet: which source saw which domain in which year,
+# so any shipped line can be traced without the source data or the database
+cp output/provenance/*.parquet output/provenance/LOAD.sql "$STAGE/provenance/" 2>/dev/null || true
+
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 cp data/logs/* "$STAGE/logs/" 2>/dev/null || true
@@ -79,6 +91,17 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
-tar -czf "$ARCHIVE" -C output delivery
-shasum -a 256 "$ARCHIVE" | tee "$ARCHIVE.sha256"
-echo "archive: $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1)); staged files: $(find "$STAGE" -type f | wc -l | tr -d ' ')"
+tar -czf "$ARCHIVE" -C output "$RELEASE"
+shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+
+# Everything needed to hand the archive over by link, in one block to copy.
+cat <<EOF
+
+Delivery archive ready.
+
+  filename   $(basename "$ARCHIVE")
+  size       $(du -h "$ARCHIVE" | cut -f1) ($(wc -c < "$ARCHIVE" | tr -d ' ') bytes)
+  format     tar + gzip (extract: tar -xzf $(basename "$ARCHIVE"))
+  sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
+  contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
+EOF

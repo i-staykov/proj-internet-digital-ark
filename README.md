@@ -71,6 +71,7 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 12 | `uv run ark ingest odp data/raw/odp/*.gz` | `files_ingested: 3`, `evidence_rows: 19629` |
 | 13 | `uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 39454` |
 | 14 | `uv run ark ingest ukwa_link_target data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 88263`, `enqueued: 5436` (same file, candidate side) |
+| 14b | `uv run ark ingest ncsa_whats_new data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv` | `evidence_rows: 4916`, `year_rows: 7` |
 | 15 | `uv run ark seed data/raw/webbase/hosts.txt` | `lines: 738625`, `new_candidates: 39` |
 | 16 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
 | 17 | `uv run ark seed data/raw/100hot/candidate_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
@@ -78,7 +79,7 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 19 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
 | 20 | the six `ark ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the corroborated half adds `year_rows: 1577` across four rounds, the rest enqueues candidates |
 | 21 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
-| 22 | `uv run ark export` | `source_rows: 16`, one per source carrying evidence, and one `netnew_<year>` count per year |
+| 22 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
 | 23 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
 | 24 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
@@ -95,7 +96,7 @@ For the archive as delivered that total is **1,322,358 pairs over 463,565 domain
 Then, to assemble the archive that was delivered:
 
 ```bash
-bash scripts/package_delivery.sh   # tar.gz plus its SHA256
+bash scripts/package_delivery.sh   # tar.gz plus its SHA256, and prints the filename, size, format and checksum
 ```
 
 It refuses to build from a modified working tree, or from an `output/` older than the store, because either one ships code and data that disagree.
@@ -151,6 +152,7 @@ output/          # git-ignored, regenerable via `ark export`; shipped in the arc
 ├── seeds/
 │   ├── download_seeds.txt     # auxiliary seed pool: hostnames and URLs, one per line
 │   └── download_seeds.csv     # the same seeds with their domain, year and source
+├── provenance/                # the evidence graph as Parquet + LOAD.sql (241 MB)
 └── legacy_review/
     └── dropped_domains.txt    # every excluded baseline line, grouped by reason
 

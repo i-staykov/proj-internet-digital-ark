@@ -1,13 +1,11 @@
 # Sources
 
 Every source that contributes evidence, with its acquisition method, how its year is established,
-why it carries the evidence type it does, and what it actually yielded. Brief §III.11 requires that
-each collected list be accompanied by an explanation of its acquisition method and time basis;
+why it carries the evidence type it does, and what it actually yielded. Each collected list needs an explanation of how it was acquired and what fixes its dates;
 this file is that explanation, per source.
 
 Figures are measured from the provenance store, not estimated. `net-new` means absent from the
-supplied baseline. Two sources are still accumulating (`ia_cdx_bulk` and `rdap`), so their figures
-are a floor.
+supplied baseline. Collection is complete, so these are final counts.
 
 **How per-source attribution is counted, since it is easy to misread.** A source's net-new domains
 are those carrying its evidence, holding an assigned year, and having no `prior_reused` row. This is
@@ -83,7 +81,6 @@ pipeline counts registered domains. Neither is wrong, they count different thing
 figures must not be compared directly. 1997 shows the largest reduction simply because it has the
 most `www.`-style duplication.
 
-**Brief clause.** III.1 (reuse prior evidence), III.8 (registered domain as the unit).
 
 ---
 
@@ -101,9 +98,8 @@ Every host in that file was observed in DNS on that date, so the file's own prov
 year for all of its lines. Files dated outside 1996-2001 are skipped whole.
 
 **Evidence type: `artifact_listing`, and why.** A line in a dated data file whose provenance fixes
-the year. The brief lists dated index files among valid time-evidence sources (§VII), and this
-reading was confirmed in writing on 2026-07-24 as direct annual evidence needing no archive
-recheck.
+the year. A dated index file is direct annual evidence for the lines it contains, and needs no
+archive recheck.
 
 **Yield.** 2,450,346 records read, **1,662,395 evidence rows, +396,973 net-new domains / +1,132,129
 net-new pairs.** The single largest contribution, and 1997 alone accounts for over a million pairs
@@ -117,7 +113,6 @@ means only "not seen in that survey", which is weaker than an empty archive inde
 
 **Reproduce.** `ark ingest isc_survey data/raw/isc_survey/*.gz`
 
-**Brief clause.** §VII (dated index files), III.1.d.
 
 ---
 
@@ -191,7 +186,6 @@ each rose 5.7x to 6.1x.
 **Reproduce.** Download the monthly A file from `opendata.afnic.fr`, unzip, then
 `ark ingest afnic_fr data/raw/afnic/*.csv`
 
-**Brief clause.** III.6, III.1.d.
 
 ---
 
@@ -224,7 +218,6 @@ file: 1996-2001 is only ~166,890 rows, and the 20.9 GB bulk is 2002-2010.
 
 **Reproduce.** `ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz`
 
-**Brief clause.** §V (host/link graphs), III.1.d, III.2 (targets to the candidate pool).
 
 ---
 
@@ -255,7 +248,6 @@ qualitative call held.
 
 **Reproduce.** `ark ingest arquivo_ia data/raw/arquivo/IA.cdxj`
 
-**Brief clause.** §V (archive indexes), III.1.d.
 
 ---
 
@@ -298,7 +290,6 @@ weaker than a capture. Absence from a dump means only "not in that dump".
 
 **Reproduce.** `ark ingest odp data/raw/odp/*.gz`
 
-**Brief clause.** §VII (dated index files), III.4 (addressed above), III.1.d.
 
 ---
 
@@ -310,7 +301,7 @@ years hold a capture. One collapsed query answers all six years.
 **How obtained.** `ark cdx` writes a per-run journal holding one JSON object per queried domain;
 `ark ingest cdx_snapshot` turns journals into evidence. Collection never opens the store, so a
 multi-hour run cannot block anything else. Full execution notes, including the measured concurrency
-ceiling and error handling, are in report §5.1.
+ceiling and error handling, are in the report.
 
 **Date semantics.** The 14-digit capture timestamps returned by the index, filtered to
 `statuscode:200` and the 1996-2001 window. A year counts only if the archive returned a capture in
@@ -318,7 +309,7 @@ it, so there is no inference of any kind.
 
 **Evidence type: `cdx_timestamp`.** Same standard as any archive capture.
 
-**Yield so far.** Still accumulating: **29,827 evidence rows, 11,932 net-new pairs** over ~8,344
+**Yield.** **29,827 evidence rows, 11,932 net-new pairs** over ~8,344
 answered domains. Measured 1.15 net-new pairs per domain queried, and 95-100% of the bracketed-gap
 population has at least one in-window capture, averaging 3.6 years each.
 
@@ -329,7 +320,6 @@ recorded as absences, so a transport error leaves the domain eligible for a late
 **Reproduce.** `ark gaps` then `ark cdx data/raw/cdx/gap_candidates.txt --workers 8` then
 `ark ingest cdx_snapshot data/raw/cdx/cdx_<stamp>.jsonl.gz`
 
-**Brief clause.** §VI (CDX as key infrastructure), VII.c, III.1.d.
 
 ---
 
@@ -370,7 +360,6 @@ across all six years, and RDAP alone attests none of them.
 **Reproduce.** `ark gaps --creation` then `ark rdap data/raw/rdap/creation_candidates.txt` then
 `ark ingest rdap_snapshot data/raw/rdap/rdap_<stamp>.jsonl.gz`
 
-**Brief clause.** III.6, III.10.c.
 
 ---
 
@@ -396,15 +385,14 @@ Internet-Archive-on-Internet-Archive, so it is cross-source but not provenance-i
 net-new domains are `www`-label registrations under a public suffix (`www.cl`, `www.com.pk`), and
 five of five spot-checked resolve on Wayback.
 
-**Brief clause.** §V, III.1.d.
 
 ---
 
 ## `page_directory`: archived curated directory pages (section VII expansion)
 
 **What it is.** Wayback captures of pages that are curated catalogues, read for the sites they
-list. Brief §IV.i grants that such a page's capture date is item-level evidence for every domain
-listed on it, with no further validation, which is what makes this route worth the care it takes.
+list. Such a page's capture date is item-level evidence for every domain listed on it, with no
+further validation, which is what makes this route worth the care it takes.
 
 **How obtained.** `ark download <seeds>` fetches each seed page's in-window captures and extracts
 its outbound registered domains, writing a journal; `ark ingest expansion_directory <journal>` turns
@@ -462,7 +450,6 @@ earlier estimate of 2,000-5,000 net-new domains assumed per-record dates that mo
 
 **Reproduce.** `ark ingest internet_scout data/raw/scout/scout_oai.xml`
 
-**Brief clause.** §IV.c, §V.1, III.1.d.
 
 ---
 
@@ -480,7 +467,6 @@ Value is the 3,442 corroborating rows and a second, non-IA archive lineage.
 
 **Reproduce.** `ark ingest arquivo_roteiro data/raw/arquivo/Roteiro.cdxj`
 
-**Brief clause.** §V, III.1.d.
 
 ---
 
@@ -510,7 +496,7 @@ of a page that linked to it.
 
 ## Evaluated and rejected
 
-Recorded so that negative results are visible rather than silently omitted, as §VIII expects.
+Recorded so that negative results are visible rather than silently omitted.
 
 | Source | Verdict |
 |---|---|
