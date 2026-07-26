@@ -363,6 +363,28 @@ settings measure faster only because a refused connection returns instantly; the
 more answers. This is reported because it bounds what any candidate-verification programme of this
 design can achieve against the public interface.
 
+**The service then refused us outright, and the operating point survived it.** After several hours
+of sustained querying on 2026-07-26, `web.archive.org` began refusing connections while
+`rdap.org` stayed healthy from the same machine, so the cause was the service rather than the
+network. Two things followed. First, nothing was corrupted: a failure is never recorded as an
+answer (§5.1, instrumentation), so every refused domain stayed eligible and the outage cost hours
+rather than data. Second, the supervisor was given a reachability probe, per §VI's instruction to
+adapt rather than abandon a route, so it holds work back instead of queuing it against a host that
+has stopped accepting connections.
+
+When the service returned it was much slower, which made the concurrency question worth asking
+again rather than assuming the earlier calibration still held:
+
+| Workers | Answered/hour | Answered share |
+|--:|--:|--:|
+| 4 | ~185 | 64% |
+| 8 | **~383** | **92.5%** |
+| 12 | ~262 | 84% |
+
+So throughput fell by roughly half while **the shape stayed the same**: 8 still beats both
+neighbours on both axes. The concurrency ceiling is a property of the service's architecture and
+does not move when its latency does, which is the useful part of the finding.
+
 **Timeout, measured rather than assumed.** The server kills a heavily archived domain's query at a
 consistent ~60.7 s, so the server already fails fast for the client. A shorter timeout is a false
 economy: at 30 s a run answered 51 of 100 domains (695 answers/hour), at 180 s it answered 82 of
