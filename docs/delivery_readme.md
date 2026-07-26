@@ -3,7 +3,7 @@
 Evidence-backed annual domain lists for 1996-2001, built on top of the supplied ~8.2M-line
 baseline. Every line in an annual file traces to a specific dated observation.
 
-**463,566 net-new registered domains over 1,322,365 net-new (domain, year) pairs**, plus 3,595,769
+**1,322,365 net-new (domain, year) pairs over 463,566 net-new registered domains**, plus 3,595,769
 hostname and URL download seeds. Method and results: `report.docx`.
 
 ## What is in here
@@ -15,7 +15,7 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
-| `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so the full rebuild needs nothing sourced separately |
+| `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so no baseline has to be sourced separately |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The full evidence graph as Parquet, plus `trace.py` and `LOAD.sql` for querying it. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audit files, and the per-source contribution tables |
@@ -23,12 +23,12 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `journals/` | The raw responses of every archive, registry and page query made |
 | `source/` | The code and configuration that produced everything here, plus the commit it was built from |
-| `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, and why it carries the evidence type it does |
+| `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, why it carries the evidence type it does, and what was rejected |
 | `SHA256SUMS` | Checksum for every file in this archive |
 | `verify.sh` | Runs every check below in one command |
 
-`source/` contains the code's own README, which documents the pipeline command by command. This
-file describes the archive.
+`source/source.tar.gz` holds the code's own README, which documents the pipeline command by command.
+This file describes the archive.
 
 ## Checking the result
 
@@ -36,7 +36,7 @@ Three levels, in increasing cost. **The first two need no downloads and no netwo
 
 ### 1. Verify what is here (one command, about 10 seconds)
 
-Before unpacking, check the archive file itself against the checksum published with it:
+Before unpacking, from the folder that holds the archive:
 
 ```
 shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
@@ -48,8 +48,8 @@ Then, from inside this folder:
 bash verify.sh
 ```
 
-That checks every file against `SHA256SUMS`, confirms the six annual addition files hold the
-number of pairs claimed above, and confirms **every one of those pairs appears in
+That checks every file against `SHA256SUMS`, prints the pair count of the six annual addition
+files, and confirms **every one of those pairs appears in
 `additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
 needs only `shasum` and `python3`, and prints a verdict per check.
 
@@ -102,8 +102,8 @@ cp -R ../baseline legacy-data       # from inside the unpacked source/
 just reproduce
 ```
 
-The bulk sources total about 51 GB, of which a single 47 GB capture index is most of it.
-**Skipping that one file costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**,
+The bulk sources total about 50 GB, of which a single 47 GB capture index is most of it.
+**Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
 reproducing 98.7% of the result.
 
 ## Evidence standard

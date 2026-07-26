@@ -13,21 +13,21 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 | Tier | What it proves | Cost | How |
 |---|---|---|---|
 | **1. Verify the shipped result** | Every shipped pair traces to a recorded observation, and no file has changed | ~10 s | `bash verify.sh` at the archive root; `provenance/trace.py` for any single domain |
-| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild provenance/` then `ark check` |
-| **3. Rebuild from the original sources** | The evidence itself follows from the source data | hours + 51 GB | Part 1, then Part 2 below |
+| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild ../provenance` then `ark check` |
+| **3. Rebuild from the original sources** | The evidence itself follows from the source data | hours + 50 GB | Part 1, then Part 2 below |
 
 **Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
 
-**Tier 2** loads `provenance/` into a fresh store and re-runs the exporter, regenerating all thirteen result files **byte-identically** and re-running the nine invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
+**Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the nine invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
-**Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~51 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
+**Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
 
 ## Reproduce the results
 
 Two jobs, and only the first needs the network:
 
-- **Part 1, get the inputs** (tier 3 only). The provided baseline, plus the bulk source files. About 51 GB, so they are fetched rather than shipped.
-- **Part 2, rebuild the result** (tier 2). Deterministic and offline, roughly 10 minutes. This reproduces the shipped numbers exactly.
+- **Part 1, get the inputs** (tier 3 only). The bulk source files, about 50 GB, so they are fetched rather than shipped.
+- **Part 2, rebuild the result** (tier 3). Deterministic and offline, under an hour. This reproduces the shipped numbers exactly.
 
 Every step below prints what it did, and the expected output is given so a mismatch is visible immediately rather than three steps later. Every step is re-runnable: work already done is skipped, so an interrupted run is finished by running the same command again. Each run appends to a log in `data/logs/`.
 
@@ -85,27 +85,27 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 12 | `uv run ark ingest odp data/raw/odp/*.gz` | `files_ingested: 3`, `evidence_rows: 19629` |
 | 13 | `uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 39454` |
 | 14 | `uv run ark ingest ukwa_link_target data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 88263`, `enqueued: 5436` (same file, candidate side) |
-| 14b | `uv run ark ingest ncsa_whats_new data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv` | `evidence_rows: 4916`, `year_rows: 7` |
-| 15 | `uv run ark seed data/raw/webbase/hosts.txt` | `lines: 738625`, `new_candidates: 39` |
-| 16 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
-| 17 | `uv run ark seed data/raw/100hot/candidate_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
-| 18 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
-| 19 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
-| 20 | the six `ark ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the corroborated half adds `year_rows: 1577` across four rounds, the rest enqueues candidates |
-| 21 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
-| 22 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
-| 23 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 24 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 15 | `uv run ark ingest ncsa_whats_new data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv` | `evidence_rows: 4916`, `year_rows: 7` |
+| 16 | `uv run ark seed data/raw/webbase/hosts.txt` | `lines: 738625`, `new_candidates: 39` |
+| 17 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
+| 18 | `uv run ark seed seeds/100hot_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
+| 19 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
+| 20 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
+| 21 | the six `ark ingest expansion_*` commands in `just journals` | replays the archived-page fetches; the corroborated half adds `year_rows: 1577` across four rounds, the rest enqueues candidates |
+| 22 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
+| 23 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
+| 24 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
+| 25 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
-Steps 6 to 14 are independent of each other, so their order does not matter. Steps 18 to 20 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 20's corroboration split is judged against what the store holds by then.
+Steps 6 to 15 are independent of each other, so their order does not matter. Steps 19 to 21 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 21's corroboration split is judged against what the store holds by then.
 
-Steps 22 and 23 print the size of the result, which grows every time more evidence is collected, so they are quoted as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 23 equals the line count of the shipped year files, and step 24 fails if it does not.
+Steps 23 and 24 print the size of the result, which grows every time more evidence is collected, so they are quoted as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 24 equals the line count of the shipped year files, and step 25 fails if it does not.
 
 ```bash
 wc -l output/netnew/*.txt   # total equals the net-new pair count printed by ark stats
 ```
 
-For the archive as delivered that total is **1,322,358 pairs over 463,565 domains**, with `output/netnew/evidence_manifest.csv` naming the evidence behind every one of them.
+For the archive as delivered that total is **1,322,365 pairs over 463,566 domains**, with `output/netnew/evidence_manifest.csv` naming the evidence behind every one of them.
 
 Then, to assemble the archive that was delivered:
 
@@ -119,7 +119,7 @@ It refuses to build from a modified working tree, or from an `output/` older tha
 
 ```bash
 just setup       # step 1
-just reproduce   # steps 2 to 24: baseline -> sources -> candidates -> journals -> seeds -> deliver
+just reproduce   # steps 2 to 25: baseline -> sources -> candidates -> journals -> seeds -> deliver
 just check       # lint + format-check + tests, then the nine data invariants
 ```
 
@@ -171,4 +171,4 @@ docs/            # SPEC, sources.md (per-source documentation), report
 
 `ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.
 
-**The auxiliary seed pool** answers a different question from the annual files. Brief III.8 makes the registered domain the counting unit, so `foo.com`, `www.foo.com` and `shop.foo.com` are one line in `1998.txt`. That is right for counting and wrong for downloading, since a crawler given `foo.com` never reaches pages that only ever existed at `shop.foo.com`. `ark seed-pool` therefore re-reads each source through the same parser as `ark ingest` and keeps the raw value instead of the canonical one, which is why a seed can never disagree with the evidence it came from. The pool holds **3,595,769 distinct hostnames and URLs** across 2,195,955 registered domains, each labelled with the year its source dates it to.
+**The auxiliary seed pool** answers a different question from the annual files. The registered domain is the counting unit, so `foo.com`, `www.foo.com` and `shop.foo.com` are one line in `1998.txt`. That is right for counting and wrong for downloading, since a crawler given `foo.com` never reaches pages that only ever existed at `shop.foo.com`. `ark seed-pool` therefore re-reads each source through the same parser as `ark ingest` and keeps the raw value instead of the canonical one, which is why a seed can never disagree with the evidence it came from. The pool holds **3,595,769 distinct hostnames and URLs** across 2,195,955 registered domains, each labelled with the year its source dates it to.

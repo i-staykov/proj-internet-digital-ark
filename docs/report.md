@@ -11,7 +11,7 @@ Per-source detail is in `sources.md`. How to reproduce and verify is in the arch
 |---|--:|--:|
 | **Net-new (this work)** | **463,566** | **1,322,365** |
 | Baseline (read-only) | 4,824,656 | 6,866,913 |
-| Merged total | 5,293,805 | 8,189,278 |
+| Merged total | 5,288,222 | 8,189,278 |
 
 Net-new pairs by year: 1996 **100,650**, 1997 **1,039,572**, 1998 **15,849**, 1999 **26,873**,
 2000 **57,644**, 2001 **81,777**. 1997 dominates because the supplied 1997 file held 219,918 pairs
@@ -30,7 +30,7 @@ included, passes through one canonicalizer:
 2. **Require hostname syntax.** Letters, digits, hyphens, no hyphen at a label edge. IP addresses
    are not domains.
 3. **Split against a pinned Public Suffix List** snapshot, committed with the code, plus a patch for
-   ccTLDs retired since the window (`.yu`, `.an`, `.cs`, `.gb`, `.tp`, `.zr`). Both a registered
+   the nine retired ccTLDs the list omits. Both a registered
    label and a public suffix must remain, which rejects bare suffixes (`ab.ca`) and suffix-less
    names (`localhost`).
 4. **Keep the registered domain.** `www.example.com` and `shop.example.com` both become
@@ -48,9 +48,9 @@ correction and drop is written to an audit file with its reason.
 8,224,963 supplied lines yield 4,824,656 domains over 6,866,913 pairs. The 1,358,050-line difference
 is not lost domains:
 
-- **12,220 lines (0.149%) excluded**, each listed with its reason in `dropped_domains.txt`: invalid
-  hostname syntax 5,197, bare public suffix 1,418, no known public suffix 1,382, IP address 1,298,
-  invalid character 34.
+- **12,220 lines (0.149%) excluded**, grouped by reason as 9,329 distinct entries in
+  `dropped_domains.txt`: invalid hostname syntax 5,197, bare public suffix 1,418, no known public
+  suffix 1,382, IP address 1,298, invalid character 34.
 - **1,345,830 lines collapse**, because `www.foo.com`, `shop.foo.com` and `foo.com` are three
   supplied lines and one registered domain.
 
@@ -83,7 +83,7 @@ placing it at or after any earlier deletion. Each row records its own basis, so 
 recounted; rejecting the interval reading costs 69,111 pairs.
 
 **Deduplication** is within each year: the key is `(domain, assigned_year)`. Cross-year repetition is
-expected, since a domain appears in every year independently evidenced.
+expected, since each year a domain appears in is evidenced independently.
 
 **Per-domain basis.** `additions/evidence_manifest.csv` holds one row per added (domain, year) with
 the source, evidence type and artifact behind it, so a domain in three annual files has three rows,
@@ -92,19 +92,19 @@ each documented separately. `provenance/trace.py` prints the same for any domain
 **Nine invariants** run over the whole store and exit non-zero on violation, so nothing ships
 unverified. They check that every assignment points at eligible evidence for that exact year, that
 no pair is duplicated or out of range, that every domain is well-formed, and that the net-new count
-cannot be inflated. Each has a test that plants the violation and confirms the gate catches it.
+cannot be inflated.
 
 ## 5. Source contributions
 
-**Eligible for the annual files:**
+**Eligible for the annual files.** Domains found by more than one source count in each row:
 
 | Source | Type | Domains | Pairs |
 |---|---|--:|--:|
 | ISC DNS surveys | `artifact_listing` | 396,973 | 1,132,129 |
 | `.fr` registry | `whois_creation` | 40,166 | 117,829 |
 | UK Web Archive link graph | `link_source` | 16,235 | 23,821 |
-| Arquivo.pt capture index | `cdx_timestamp` | 7,001 | 17,689 |
-| Wayback CDX engine | `cdx_timestamp` | 199 | 11,932 |
+| Arquivo.pt capture indexes | `cdx_timestamp` | 7,001 | 17,696 |
+| Wayback CDX engine | `cdx_timestamp` | 207 | 11,943 |
 | ODP directory dumps | `artifact_listing` | 3,369 | 8,423 |
 | RDAP (journalled) | `whois_creation` | 5 | 5,341 |
 | RDAP (legacy) | `whois_creation` | 833 | 3,106 |
@@ -114,10 +114,10 @@ cannot be inflated. Each has a test that plants the violation and confirms the g
 | NCSA What's New | `dated_directory` | 1 | 7 |
 
 **Candidate pool only: 5,583 domains**: 5,435 hosts linked to in the UK link graph, 87 from
-archived ranked listings, 39 from a crawl host list, 19 named on directory pages but attested
-nowhere else, 3 from earlier probes.
+archived ranked listings, 38 from a crawl host list, 19 named on directory pages but attested
+nowhere else, 4 from earlier probes.
 
-Evidence rows and pairs differ informatively: Early Web CDX contributes 2.28M rows but 182 net-new
+Evidence rows and pairs differ: Early Web CDX contributes 2.28M rows but 182 net-new
 pairs, because the baseline derives from the same archive. Those rows are corroboration, and the
 net-new volume comes from sources of different origin, which also explains the geographic skew.
 **2,578,019 pairs carry two or more sources; 589,937 are confirmed by two or more genuinely
@@ -139,9 +139,9 @@ standard is a re-parse rather than a migration, and the result replays offline.
 
 ## 7. Verification against the web archive
 
-**Tools and strategy.** One collapsed CDX query per domain covers all six years, with client-side
-year deduplication and a per-year probe fallback when truncated. Targets are domains missing a year
-they are bracketed by, thinnest year first.
+**Tools and strategy.** One CDX query per domain covers all six years by collapsing the result,
+with client-side year deduplication and a per-year probe when that result comes back truncated.
+Targets are domains missing a year they are bracketed by, thinnest year first.
 
 **Concurrency is the service's limit.** Answered share by workers: 100% at 1-4, 82% at 8, 30% at
 16, 17% at 32, so the operating point is 8. Timeout was measured too: the service kills heavy
@@ -156,9 +156,8 @@ stayed reachable: nothing was corrupted, every refused domain stayed eligible, a
 gained a reachability probe. On recovery throughput had halved, so concurrency was re-measured
 rather than assumed (185 answered/hour at 4 workers, 383 at 8, 262 at 12) and the optimum held at 8.
 
-**Domains added.** 11,171 domains queried, 8,493 answered, **199 net-new domains and 11,932 net-new
-pairs**, about 1.40 pairs per answered domain, against a target pool of ~470,000 that remains
-available.
+**Domains added.** 11,171 domains queried, 8,493 answered (76%), **11,932 net-new pairs**:
+11,652 previously unevidenced years for domains already held, plus 199 new domains.
 
 **Page expansion.** Four rounds of fetching archived directory pages and extracting listed domains.
 Home pages returned 92 domains and zero new candidates, since they link to their own categories;
@@ -173,10 +172,10 @@ leads, not evidence.
   what a global crawl caught, so the complementary gains are national.
 - **`.fr` undercounts.** The registry file omits names deleted before 28 January 2014, and the
   creation-date reset in section 4 drops re-registered names. It cannot overcount.
-- **Uneven years.** 1998 and 1999 were thin and materially improved; 2000 is partly served, since
+- **Uneven years.** 1998 and 1999 gained least; 2000 is partly served, since
   the surviving August 2000 directory dump is a truncated prefix.
-- **Negatives differ in strength.** An empty archive index is stronger than absence from a survey,
-  which means only "not in that artifact".
+- **Negatives differ in strength.** An empty archive index is a stronger negative than absence from
+  a survey, since that absence means only "not in that artifact".
 - **One legacy tranche is weaker.** 3,106 pairs predate journalling and have no hashed source file.
   They were not re-queried: a re-query today returns different creation dates for domains that have
   changed hands, which would alter rather than reproduce the result.
@@ -185,13 +184,13 @@ leads, not evidence.
 ## 9. Whether further expansion is worthwhile
 
 **Yes, in one direction.** Archive gap-filling converts hours into pairs at a stable measured rate
-(1.40 pairs per answered domain against ~470,000 unqueried domains), so it is bounded by time spent
+(1.07 pairs per domain queried against ~470,000 unqueried domains), so it is bounded by time spent
 rather than by the source. Registry dates are worth running only because they use a different
 service: 0.15 pairs per domain is structural, since a capture answers any year while a creation date
 answers one. Page expansion is worth continuing only into leaf catalogues that document themselves
 as curated.
 
 **Everything exhaustible from a file has been exhausted:** the DNS surveys, the registry file, the
-national archives and the early-web index are each complete datasets, fully ingested, with no
-further in-window files in existence. Commercial WHOIS history, zone files and further national
+national archives and the early-web index are each complete datasets, fully ingested, with nothing
+further found anywhere checked. Commercial WHOIS history, zone files and further national
 archives are priced, gated or non-existent for this window; each check is recorded in `sources.md`.

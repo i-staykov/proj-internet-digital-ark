@@ -527,6 +527,59 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - two defects found and fixed while building it. The first cross-connection copy used `executemany` over 2.2M domains and ran for minutes holding the store's write lock; doing the anti-join in SQL against the part files takes 0.85 s. The second: ODP URLs contain commas (`.../0,6109,393333,00.html`), and although the CSV quoted them correctly, a reader that sniffs quoting from the first rows finds none and splits those URLs into extra columns, so the seed column is now always quoted
   - honest framing for the report: the pool is mostly deeper granularity on domains already held rather than new domains. Its value is for the downloading phase the brief describes, not for the scored pair count, and it is reported separately from the score for that reason
 
+## 2026-07-26 (final review pass)
+
+An independent audit of the whole delivery against the SPEC, with the report and the two READMEs treated as the graded artifacts. Every figure below was re-measured against `output/provenance/*.parquet` before the fix was written, and four of the audit's own claims did not survive that re-measurement; those are recorded here too, because a plan that is trusted rather than checked is how most of these defects got in.
+
+- **`ark rebuild` overwrote the evidence it was handed (blocking)**
+  - `rebuild()` passed `provenance_dir=` straight through to `export_all`, so the documented tier-2 command `uv run ark rebuild ../provenance` re-exported Parquet **into the folder it had just read**. A Parquet round-trip is not byte-identical, so a reviewer who ran tier 2 and then re-ran `verify.sh` saw files differ and would reasonably conclude the archive was tampered with; one who rebuilt first had the shipped evidence silently replaced by a re-derivation of itself, which destroys the independence of the whole check
+  - fix: `export_all(conn)`, letting the destination default. The parameter itself stays, because it is what stops the **test suite** clobbering shipping artifacts; the lesson is that the same door it closed for tests it opened for reviewers
+  - this is the defect the "run the reviewer path twice" step exists to catch, and it is the reason that step is not optional
+
+- **The report's own results table did not add up (blocking)**
+  - section 1 gave the merged domain total as 5,293,805, which is the store's whole `domain` table and therefore includes the 5,583 candidates the same section calls excluded. The shipped masters hold **5,288,222** (`cat data/exports/*.txt | sort -u | wc -l`), and 5,293,805 - 5,288,222 = 5,583 exactly. The Domains column now adds up (463,566 + 4,824,656) as the Pairs column always did. First table a reviewer reads
+
+- **Two contributing sources were missing from the report's source table (blocking-adjacent)**
+  - the Pairs column summed to 1,322,347 against the headline 1,322,365: the superseded `ia_cdx` route (8 domains, 11 pairs) and `arquivo_roteiro` (0 domains, 7 pairs) both ship and both appear in `sources.md`, but neither had a row. Folded each into the row for the same service rather than adding rows, so the column now sums to **exactly 1,322,365**
+  - the Domains column sums to 465,122 against a headline 463,566 and **can never sum**, because a domain found by two sources counts in both rows. Kept the column, since the SPEC asks for additions counted by source, and said so in the table's lead-in instead of leaving a reviewer to find the discrepancy
+  - one Arquivo figure everywhere now: **17,696**, both indexes, with each sentence's subject reworded to "the Arquivo indexes" rather than the single 47 GB file. Carrying both 17,689 and 17,696 was how the drift started
+
+- **Section 7 stated an arithmetic impossibility (high)**
+  - "199 net-new domains and 11,932 net-new pairs" cannot both be true: 199 domains across six years cannot carry more than 1,194 pairs. Measured split: the 11,932 are **280 pairs on 199 brand-new domains plus 11,652 previously unevidenced years on domains the baseline already held**. That is exactly what gap-filling is, the report never said it, and saying it makes the result look better rather than worse
+  - the projection in section 9 used 1.40 pairs per *answered* domain against *unqueried* domains, but only 76% of queried domains answer, so it overstated expected yield by about a third. Now **1.07 pairs per domain queried**. This is the only number in the document arguing for future work, so it is the one that has to be conservative
+
+- **A false claim about the test suite, deleted rather than narrowed (high)**
+  - section 4 claimed each of the nine invariants has a test planting the violation. `tests/test_checks.py` has **four** such tests, plus a clean-store test and an exemption test. Deleted the sentence: it is a claim about tests inside a report about data, and the preceding sentence already carries the rigour
+
+- **Contribution table could not be reconciled with the candidate pool (medium)**
+  - `per_source` built `FROM evidence`, so the four sources that only ever fed the candidate pool vanished, and the shipped candidate column summed to 5,455 against the report's 5,583. Now `FROM source LEFT JOIN evidence`, with `count(e.evidence_id)`, so a candidate-only source appears with zero evidence rows. The column sums to **5,583**, matching both the report and `output/candidate_unverified.txt`
+  - knock-on, decided deliberately: this widens the CSV from 17 rows to 21, so `sources.md`'s summary table can no longer be a row-for-row transcription of it. Rather than add four all-zero rows to a document a human reads, the table's caption now says it lists the sources that carry evidence rows, and points at the CSV for the seed lists. Its net-new pairs column sums to **1,322,365** after the missing `ncsa_whats_new` row was restored
+
+- **The evidence behind the report's showcase result was not in the archive (blocking)**
+  - `data/raw/cdx/verify_sample/cdx_discovered.jsonl.gz` sat one directory below a flat `cp data/raw/cdx/cdx_*.jsonl.gz` glob, and holds the **278 record rows** behind section 7's "198 (85%) held an in-window capture, adding 278 pairs". Moved it up one level; the ledger keys on file name only, so the store is untouched and the file stays "already ingested". Both the packaging and ingest globs reach it now: 32 journals, all at one level
+  - the packaging script already carried a comment about this exact bug being hit once for the expansion journals, which is why that line uses `find`. The CDX and RDAP lines never got the same treatment; both now use `find` too, so the next journal that lands in a subdirectory does not repeat it a third time
+
+- **Tier 3 could not complete: an undocumented input (blocking)**
+  - the documented step `ark seed data/raw/100hot/candidate_hosts.txt` names a 49 KB authored file that no shipped document explains how to obtain, and the CLI declares the argument `exists=True`, so the step aborts and takes `just reproduce` with it. It is authored, not downloaded, so documenting a download route would be a fiction: copied it to `seeds/100hot_hosts.txt` and tracked it beside the already-tracked expansion seed lists, so it ships inside `source/source.tar.gz`. Only tracked files reach that archive, which is why this needed a commit rather than a `git add`
+
+- **`report.docx` opened on a broken field (blocking)**
+  - pandoc's `--toc` writes a TOC field with no cached result, so the first two rendered lines of the primary deliverable were the heading "Table of Contents" followed by the literal `TOC \o "1-3" \h \z \u`, in every viewer that does not refresh fields. It was also the only content in the docx not present in the markdown. Dropped `--toc`; nine numbered sections do not need one
+
+- **A staleness guard that had stopped looking (medium)**
+  - `scripts/refresh_report_figures.py` carried rewriters for the report, the archive readme and `sources.md` whose anchors none of those documents still use. It matched nothing, printed "already current" for each, and so reported success precisely because it had gone blind, while the README total it was supposed to protect sat 7 pairs and 1 domain stale. Reduced to the one demonstrably live rewriter, which now raises if its anchor disappears. A rewriter that cannot find its anchor is worse than no rewriter
+
+- **Claims corrected against the code they describe (medium)**
+  - the PSL patch covers **nine** retired ccTLDs (`.yu .an .bu .cs .dd .gb .tp .um .zr`), not the six the report listed: the report was understating its own work
+  - the candidate breakdown read "39 from a crawl host list ... 3 from earlier probes"; measured by `discovered_source` it is 5,435 + 87 + **38** + 19 + **4** = 5,583. Two errors that happened to cancel, which is why the total looked right
+  - "1998 and 1999 were thin and materially improved" was backwards. Against their own masters, 1998 gained 1.7% and 1999 1.9%, the two *least* improved years, while 2000, described as only partly served, gained 4.2%. Misstating the data in a limitations section undercuts the section's purpose
+  - six sites in `src/` cited clause numbers that do not exist in the SPEC ("IV.i", "III.10.c"): `grep -c` returns 0 for both. Deleted the locators, kept the substance, since a reviewer cannot look up a clause that was never written
+  - `verify.sh` was documented as confirming the annual files "hold the number of pairs claimed"; it prints the counts and compares them to nothing, so check 2 passed whatever the files contained. The description now says what it does
+
+- **Audit claims that did NOT survive re-measurement, recorded so they are not re-adopted**
+  - the `.fr` interval exposure was said to measure 69,111 "two ways". Only one gives that: pairs whose backing AFNIC row assigns a year other than the creation year = **69,111**; the same restricted to pairs no other non-baseline source backs = **69,044**. The figure shipping in the report was already right and `sources.md` was the stale one, so the fix stood, but the stated justification for it did not
+  - the missing `output/candidate_unverified.txt` was filed as a documentation nit. It was live: the file was absent from `output/` at review time, and because the packaging script swallowed the copy with `2>/dev/null || true`, the next repackage would have shipped an archive with **no candidates.txt at all**, silently, and candidates are a deliverable the professor named explicitly. Dropped the `|| true`, so a missing result file now fails the build instead of quietly shrinking the delivery
+  - the plan's own claim that the report needed cutting for length was wrong in the other direction: it renders to 1,678 words in the docx, already inside the target, and the higher markdown count is inflated by table pipes
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the
