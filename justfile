@@ -82,6 +82,7 @@ sources:
 candidates:
     uv run ark seed data/raw/webbase/hosts.txt
     uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
+    uv run ark seed data/raw/100hot/candidate_hosts.txt
 
 # This is the reproduction path for the two network stages: it re-derives
 # evidence from the stored responses, so it needs no network and gives the same
@@ -91,14 +92,23 @@ journals:
     uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz
     uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
 
-# stage 5: write the deliverable, then prove it
+# stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
+# registered-domain counting unit drops. Reads the same source files again.
+seeds:
+    uv run ark seed-pool isc_survey       data/raw/isc_survey/*.gz
+    uv run ark seed-pool odp              data/raw/odp/*.gz
+    uv run ark seed-pool internet_scout   data/raw/scout/scout_oai.xml
+    uv run ark seed-pool ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
+    uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
+
+# stage 6: write the deliverable, then prove it
 deliver:
     uv run ark export
     uv run ark stats
     uv run ark check
 
 # the whole result from an empty store, no network required
-reproduce: baseline sources candidates journals deliver
+reproduce: baseline sources candidates journals seeds deliver
 
 # --- collecting more (network) -----------------------------------------------
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
