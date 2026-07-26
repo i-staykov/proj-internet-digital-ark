@@ -3,7 +3,7 @@
 Evidence-backed annual domain lists for **1996-2001**, grown on top of the provided
 ~8.2M-line baseline. Every annual-file entry traces to item-level, per-year evidence.
 
-**Headline (2026-07-26):** 463,565 net-new registered domains · 1,315,421 net-new
+**Headline (2026-07-26):** 463,565 net-new registered domains · 1,322,358 net-new
 (domain, year) pairs, on top of 4.82M baseline domains, plus an auxiliary pool of
 3,595,769 hostname and URL download seeds. Full analysis in `report.docx`.
 

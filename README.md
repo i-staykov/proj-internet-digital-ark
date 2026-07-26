@@ -46,10 +46,12 @@ uvx --from internetarchive ia download early-web_cdx-lang-cdxa \
 Anything rescued from a host that no longer serves it is pinned by hash, so a re-fetch that returns something different is caught rather than ingested:
 
 ```bash
-shasum -a 256 -c data/raw/checksums.sha256
+cd data/raw && shasum -a 256 -c checksums.sha256   # expect 235 OK lines
 ```
 
-**The network journals ship with the delivery** (1.7 MB, in `data/raw/cdx/` and `data/raw/rdap/`). They hold the raw responses of every archive and registry query made, so Part 2 replays both network stages from bytes on disk and needs no network at all. This also means the result does not drift when a live service changes its answer.
+The manifest lists paths relative to `data/raw/`, which is why the command runs from there.
+
+**The network journals ship with the delivery** (5.5 MB, from `data/raw/cdx/`, `data/raw/rdap/` and `data/raw/expand/`). They hold the raw responses of every archive, registry and page query made, so Part 2 replays every network stage from bytes on disk and needs no network at all. This also means the result does not drift when a live service changes its answer.
 
 ### Part 2: rebuild the result
 
@@ -74,7 +76,7 @@ shasum -a 256 -c data/raw/checksums.sha256
 | 17 | `uv run ark seed data/raw/100hot/candidate_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
 | 18 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
 | 19 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
-| 20 | the four `ark ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the corroborated half adds `year_rows: 1267`, the rest enqueues candidates |
+| 20 | the six `ark ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the corroborated half adds `year_rows: 1577` across four rounds, the rest enqueues candidates |
 | 21 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 22 | `uv run ark export` | `source_rows: 16`, one per source carrying evidence, and one `netnew_<year>` count per year |
 | 23 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
@@ -88,7 +90,7 @@ Steps 22 and 23 print the size of the result, which grows every time more eviden
 wc -l output/netnew/*.txt   # total equals the net-new pair count printed by ark stats
 ```
 
-For the archive as delivered that total is **1,308,314 pairs over 463,364 domains**, with `output/netnew/evidence_manifest.csv` naming the evidence behind every one of them.
+For the archive as delivered that total is **1,322,358 pairs over 463,565 domains**, with `output/netnew/evidence_manifest.csv` naming the evidence behind every one of them.
 
 Then, to assemble the archive that was delivered:
 

@@ -24,9 +24,9 @@ hundred out of ~460,000. Where a source's yield is quoted as a delta elsewhere, 
 | `afnic_fr` | `whois_creation` | 1 | 142,248 | 40,166 | 117,829 |
 | `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
 | `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
+| `ia_cdx_bulk` | `cdx_timestamp` | 32 | 29,827 | 199 | 11,932 |
 | `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 27 | 17,529 | 199 | 7,041 |
-| `rdap_snapshot` | `whois_creation` | 10 | 7,784 | 4 | 3,295 |
+| `rdap_snapshot` | `whois_creation` | 15 | 12,309 | 5 | 5,341 |
 | `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
 | `page_directory` | `dated_directory` | 3 | 12,872 | 20 | 1,577 |
 | `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
@@ -318,7 +318,7 @@ it, so there is no inference of any kind.
 
 **Evidence type: `cdx_timestamp`.** Same standard as any archive capture.
 
-**Yield so far.** Still accumulating: **2,286 evidence rows, 840 net-new pairs** over ~1,500
+**Yield so far.** Still accumulating: **29,827 evidence rows, 11,932 net-new pairs** over ~8,344
 answered domains. Measured 1.15 net-new pairs per domain queried, and 95-100% of the bracketed-gap
 population has at least one in-window capture, averaging 3.6 years each.
 
@@ -502,7 +502,7 @@ runs remain attributable.
 
 `page_expansion` holds the candidate-only half of the section VII route: outbound links from pages
 not asserted to be curated directories, plus names from directory pages that no other source
-attests. 242 evidence rows and, by design, **zero pairs**. It is doing its job when it stays at
+attests. 248 evidence rows and, by design, **zero pairs**. It is doing its job when it stays at
 zero, because every domain it holds is queued for verification rather than credited on the say-so
 of a page that linked to it.
 

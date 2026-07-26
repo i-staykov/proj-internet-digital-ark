@@ -60,9 +60,10 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # replay from bytes rather than from a service whose answers change
 cp data/raw/cdx/cdx_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
 cp data/raw/rdap/rdap_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
-cp data/raw/expand/expand_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
-cp data/raw/expand/round2/*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
-cp data/raw/expand/wwwvl/*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+# every expansion journal, whatever round subdirectory it landed in. Enumerating
+# rounds by hand shipped rounds 1 to 3 and silently dropped round 4, while the
+# archive readme still told the reader to restore it.
+find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 
 # the seed lists those page fetches ran against, so section VII is repeatable
 mkdir -p "$STAGE/seeds/expansion"

@@ -14,22 +14,22 @@ This program grows the provided ~8.2M-line baseline with **net-new, evidence-bac
 | Metric | Value |
 |---|--:|
 | Net-new registered domains (absent from baseline) | **463,565** |
-| Net-new (domain, year) pairs | **1,315,421** |
+| Net-new (domain, year) pairs | **1,322,358** |
 | Baseline domains (read-only) | 4,824,656 |
 | Total domains in store | 5,293,804 |
-| Total (domain, year) pairs in store | 8,182,334 |
-| Evidence rows | 11,174,705 |
+| Total (domain, year) pairs in store | 8,189,271 |
+| Evidence rows | 11,191,528 |
 | Candidate pool (no year evidence yet) | 5,583 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 99,705 | 1,038,890 | 14,523 | 26,780 | 55,430 | 80,093 |
+| 100,643 | 1,039,572 | 15,849 | 26,873 | 57,644 | 81,777 |
 
 The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr`, and materially by Arquivo `.pt` and the UK Web Archive.
 
-These figures are **lower by 9,664 pairs and 1 domain than the pre-narrowing figure of the same day** (463,365 / 1,313,172), because RDAP evidence was narrowed to the creation year alone on 2026-07-25 (§2, "Narrowing applied to RDAP evidence"). The withdrawn rows were the only ones in the store resting on an inference rather than on a year-specific record.
+The 2026-07-25 narrowing of RDAP evidence to the creation year alone (§2, "Narrowing applied to RDAP evidence") withdrew **9,664 pairs and 1 domain** from that day's scoreboard, taking it from 463,365 / 1,313,172 to 463,364 / 1,303,508; collection since then raised the totals to the figures above. The withdrawn rows were the only ones in the store resting on an inference rather than on a year-specific record.
 
 ---
 
@@ -85,7 +85,7 @@ both correct at their own unit and must not be compared directly.
 | `link_source` | In a UKWA host-link-graph row `year\|source\|target`, the **source** host was crawled (HTTP 200) that year | n/a (precomputed graph) | Master |
 | `whois_creation` | A registry record fixes a registration date. **RDAP: the creation year and no other** (III.6). **AFNIC `.fr`:** the registry's documented `crDate` semantics make `[creation, deletion-or-now]` a continuous registration span, so every in-window year it covers | Missing/blocked WHOIS proves nothing | Master |
 | `dated_directory` | An editorial entry on a directory page captured by a web archive on a known date | "Not listed there", weak | Master (direct) |
-| `link_target` | In the same UKWA row, the **target** host was merely linked-to | n/a | **Candidate-only**, never assigns a year. Defined but **currently unpopulated** (0 rows): the target-side ingester is not yet built |
+| `link_target` | In the same UKWA row, or on an archived page, the **target** host was merely linked-to | n/a | **Candidate-only**, never assigns a year. **88,511 rows**, every one routed to the candidate pool for independent verification |
 
 **Evidence-standard ruling (Prof. Ding, 2026-07-24):** valid year evidence is not limited to web captures. Dated DNS surveys, archive indexes, host/link graphs, dated directory/index files, and WHOIS registration records all count as direct annual evidence, provided the year association is explicit and documented and the provenance (source name, dataset date, assignment method, record id) is retained. The store retains all four per row, with one substitution worth stating: the dataset date is the ingest timestamp (`ingested_at`, always populated) rather than a capture timestamp, since `captured_at` is unpopulated across all evidence rows. The record identifier is `evidence_value` plus the source file's sha256 in the ledger; a per-record URL exists only for archive-capture rows, so 1,167,790 addition rows carry no clickable locator.
 
@@ -140,7 +140,7 @@ All figures are net-new **on top of the baseline**. Per-source acquisition metho
 | ODP / DMOZ dumps | `artifact_listing` | 2000–2001 | +3,339 | +8,423 | heavy baseline overlap; mostly 2000 |
 | Internet Scout archive | `dated_directory` | 1996–2001 | +137 | +311 | curated non-IA long tail; most records undated |
 | RDAP on UKWA link-targets | `whois_creation` | 1996–2001 | +833 | +833 | undated candidates dated via RDAP, no archive query needed; one creation year each |
-| IA CDX verification engine (`ia_cdx_bulk`) | `cdx_timestamp` | 1996–2001 | +0 | +840 and rising | one collapsed query per domain answers all six years; still running (§5.1) |
+| IA CDX verification engine (`ia_cdx_bulk`) | `cdx_timestamp` | 1996–2001 | +199 | +11,932 and rising | one collapsed query per domain answers all six years; still running (§5.1) |
 | IA CDX per-year verify (`ia_cdx`, superseded) | `cdx_timestamp` | 1996–2001 | +8 | +11 | the original six-queries-per-domain path, kept because its rows are real evidence |
 | RDAP gap-fill (selected by sandwich gaps) | `whois_creation` | 1996–2001 | +0 | +2,273 | adds a creation year to already-held domains; 42% RDAP hit rate because the selection favours survivors |
 
@@ -271,7 +271,7 @@ the domain list alone.
 ## 4. Annual evidence logic & result statistics
 
 - **Per-year evidence, no forward-fill (III.7/III.1).** A domain enters a year file only with its own in-year evidence; first-appearance never infers later years. Cross-year duplication is required where independently evidenced.
-- **Net-new domains vs net-new pairs.** Distinct metrics: 463,364 domains are entirely absent from the baseline; 1,303,508 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
+- **Net-new domains vs net-new pairs.** Distinct metrics: 463,565 domains are entirely absent from the baseline; 1,322,358 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
 - **Reliability sampling per evidence type, and why a low rate is not a defect.** Cross-referencing
   every claim against the 2,587 domains the CDX engine has actually answered gives a corroboration
   rate per type: `cdx_timestamp` 100% (11,020 of 11,045), `artifact_listing` **35%** (1,184 of 3,342),
@@ -313,7 +313,7 @@ the domain list alone.
   back rather than stopping at the first unproven one. No request is spent re-proving a year purely
   to corroborate it: with the archive answering roughly 1,000 domains an hour, a query is better
   spent on a year nothing yet evidences.
-- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,310,422 · `artifact_listing` 1,682,024 · `whois_creation` 148,221 · `link_source` 39,454 · `dated_directory` 975.
+- **Evidence rows by type:** `prior_reused` 6,866,913 · `cdx_timestamp` 2,340,249 · `artifact_listing` 1,682,024 · `whois_creation` 160,530 · `link_target` 88,511 · `link_source` 39,454 · `dated_directory` 13,847.
 
 ## 5. CDX / verification execution notes
 
@@ -424,7 +424,8 @@ retained as a second sweep (`ark cdx --per-year`) that picks up unanswered domai
 **Error handling (brief §VI.c).** Retryable statuses are `0` (transport failure), `429`, `500`,
 `502`, `503`, `504`, up to 4 attempts. On `429`/`503`/`504` the governor multiplies its pace by 1.5
 and honours `Retry-After`; after 5 consecutive successes it eases back by 0.8, floor 50 ms, ceiling
-capped (2 s in production runs) so that one bad patch cannot leave the run crawling. An early pilot
+capped at 5 s (the `--max-delay` default, which no production run overrides) so that one bad
+patch cannot leave the run crawling. An early pilot
 demonstrated why the ceiling matters: with a 30 s ceiling and slow recovery, six throttles drove
 the pace to the ceiling and it never returned, the tail crawling at 45 s per domain. Rate limits
 are treated as signals to adapt, never as grounds to abandon the route.
@@ -460,7 +461,7 @@ bytes on disk rather than from the live service, whose answers change over time.
 - **Floor effects.** AFNIC's File A holds every `.fr` name live at the file date plus every name deleted since **28 January 2014** (per its user guide, confirmed against the file: the 11,880 in-window domains carrying a deletion date spread evenly across 2014-2026). So only `.fr` domains deleted before that date are missing. Combined with the `crDate` reset described in §2, which drops in-window domains that were later traded or re-registered, the `.fr` yield undercounts and cannot over-count.
 - **Year coverage.** 1997 is inflated by ISC (a real gap the baseline had); 1998/1999 were thin and are now materially filled; 2000 is partially served (the surviving ODP Aug-2000 dump is a truncated prefix, and the full content dump is unrecoverable).
 - **Evidence-type caveats.** `artifact_listing` / `link_source` / `whois_creation` negatives are weaker than a CDX negative; each type's standard and its negative meaning are stated in §2.
-- **The legacy RDAP tranche has weaker provenance than every other source.** Its 3,106 pairs (0.24% of the additions, source name `rdap`) were written directly from live queries before the journal architecture existed, so they have no hashed source file and no per-record URL; their provenance is the evidence value, the ingest timestamp, the run metrics, and the execution logs. Every other source replays from a file whose sha256 is in the ledger. The journal architecture described in §5 is now running: the `rdap_snapshot` source carries **2,476 evidence rows backing 1,071 pairs** from five hashed journal files, and everything it collects from here on replays from bytes on disk. The legacy rows were deliberately left in place rather than re-queried, because re-querying in 2026 returns *different* creation dates for any domain that has since changed hands, which would silently alter the result set.
+- **The legacy RDAP tranche has weaker provenance than every other source.** Its 3,106 pairs (0.24% of the additions, source name `rdap`) were written directly from live queries before the journal architecture existed, so they have no hashed source file and no per-record URL; their provenance is the evidence value, the ingest timestamp, the run metrics, and the execution logs. Every other source replays from a file whose sha256 is in the ledger. The journal architecture described in §5 is now running: the `rdap_snapshot` source carries **12,309 evidence rows backing 5,341 pairs** from 15 hashed journal files, and everything it collects from here on replays from bytes on disk. The legacy rows were deliberately left in place rather than re-queried, because re-querying in 2026 returns *different* creation dates for any domain that has since changed hands, which would silently alter the result set.
 - **One standard is not uniform inside `whois_creation`.** RDAP rows attest a single creation year (the strict III.6 reading, since RDAP spans ~590 registries whose creation-date semantics are not established). AFNIC rows attest every year their registration span covers, on the strength of AFNIC's own documented `crDate` behaviour. Two different strengths of claim under one type name, deliberately and visibly: every row records the basis it rests on (`rdap creation 1998` vs `registered 16-03-1999..active`), so either can be recounted independently. §2 gives the reasoning and the size of the AFNIC exposure (69,111 pairs).
 
 **How to reproduce.** With only `uv` installed, and **with no network access**:
@@ -471,7 +472,7 @@ just reproduce     # baseline -> sources -> candidates -> journals -> seeds -> d
 just check         # lint, format-check and tests, then the nine data invariants
 ```
 
-`README.md` in the code snapshot gives the same run as 22 numbered steps, each with the output it should print, so a mismatch is visible at the step that caused it rather than at the end. It also separates the two halves that get conflated: acquiring the bulk sources (about 51 GB, network, hours) from rebuilding the result once they are on disk (offline, about ten minutes).
+`README.md` in the code snapshot gives the same run as 24 numbered steps, each with the output it should print, so a mismatch is visible at the step that caused it rather than at the end. It also separates the two halves that get conflated: acquiring the bulk sources (about 51 GB, network, hours) from rebuilding the result once they are on disk (offline, about ten minutes).
 
 The rebuild needs no network because the two collectors do not run in it. `ark cdx` and `ark rdap` write a per-run **journal**, one gzipped JSON object per queried domain holding the whole response, and no evidence; a later `ark ingest` turns journals into evidence through the same hashed-file loader every other source uses. Those journals ship in the archive (1.7 MB), so the result is derived from bytes rather than from services that answer differently today, and re-running any step is a no-op on work already done.
 
@@ -494,7 +495,7 @@ Answered per source from measured rates rather than impressions, because "keep g
 | **ODP / DMOZ** | Exhausted for the window | 3 dumps ingested; the Aug-2000 full content dump is unrecoverable and no earlier RDF dump was ever published |
 | **100hot.com** | Verified and productive | 258 candidates queued, 171 already promoted by archive captures (+234 pairs). Its listings are plain text, so they earn years from captures rather than from the page |
 | **Stanford WebBase** | Retired | 603,323 domains, 99.99% already held. Measured, not assumed |
-| **Commercial WHOIS history, national archives, zone files** | Closed | Priced, gated or non-existent for 1996-2001; the 21-row rejected table in [sources.md](sources.md) records each check |
+| **Commercial WHOIS history, national archives, zone files** | Closed | Priced, gated or non-existent for 1996-2001; the 17-row rejected table in [sources.md](sources.md) records each check |
 
 **The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool, now 5,583 domains after 198 were verified and promoted, is the second call on that same capacity.
 
