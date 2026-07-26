@@ -468,6 +468,7 @@ Recorded so that negative results are visible rather than silently omitted, as Â
 | ODP full 2001 content dumps | Verified unavailable in 2026: the URL serves a "Page Has Moved" stub |
 | ODP full Aug-2000 content dump | Unrecoverable; only `structure.rdf` was archived, which has no external links |
 | Public 1998-2001 zone files | None survive anywhere checked (DNS-OARC, resellers, academic torrents) |
+| Australian Web Archive (PANDORA/Trove) | The CDX endpoints at `webarchive.nla.gov.au/awa/cdx` and `web.archive.org.au/awa/cdx` return **HTTP 200 carrying an Anubis anti-bot proof-of-work challenge**, not CDX data. Machine access would require solving the challenge, so the archive is not usable programmatically. Worth recording precisely, because an earlier check read the 200 status as a live endpoint without reading the body |
 | Other ccTLD registry open data | Nothing free reaches 1996-2001. CENTR publishes aggregates only; OpenINTEL starts 2015; commercial WHOIS is paid. AFNIC `.fr` is the sole open registry file with in-window creation dates |
 | SNAP web graphs | Nodes are anonymised integers with no URL mapping |
 | Yahoo! Webscope AltaVista graph | Programme unreachable; crawl date too vague for per-year evidence |
