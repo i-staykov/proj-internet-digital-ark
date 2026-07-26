@@ -2,20 +2,34 @@
 
 A reproducible pipeline that collects historical **domain names for 1996-2001**, each backed by **item-level, per-year evidence** (an archive capture, a dated index, or a WHOIS creation date). It grows a provided ~8.2M-domain baseline and ships its additions as a **separate, verifiable set**; the baseline is never modified.
 
-> This is a student trial project. See `docs/notes.md` for more details.
-
 ## Requirements
 
 [`uv`](https://docs.astral.sh/uv/) only. It installs Python 3.12, the dependencies, and their locked versions. Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`, then `uv sync`. Every command below runs under `uv run` with nothing else installed; the optional [`just`](https://github.com/casey/just) wraps the same commands.
 
+## Three ways to check this work
+
+Pick by how much you want to spend. **The first two need no downloads and no network**, and the delivery archive's own `README.md` describes the same three from the archive's side.
+
+| Tier | What it proves | Cost | How |
+|---|---|---|---|
+| **1. Verify the shipped result** | Every shipped pair traces to a recorded observation, and no file has changed | ~10 s | `bash verify.sh` at the archive root; `provenance/trace.py` for any single domain |
+| **2. Re-derive from shipped inputs** | The result follows from the recorded queries and the bulk sources, using this code | ~10 min | Part 2 below, or `just reproduce` |
+| **3. Rebuild from original sources** | The bulk sources themselves are what we say they are | hours + 51 GB | Part 1, then Part 2 |
+
+**Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
+
+**Tier 2** replays the collectors' stored responses rather than re-querying anything, so it is deterministic and offline. Verify it by comparing `ark stats` against the shipped year files, which `ark check` also enforces.
+
+**Tier 3** is the only tier that needs the 51 GB of bulk sources. One 47 GB capture index is most of that: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
+
 ## Reproduce the results
 
-Two separate jobs, and only the first one needs the network:
+Two jobs, and only the first needs the network:
 
-- **Part 1, get the inputs.** The provided baseline, plus the bulk source files. About 51 GB, so they are fetched rather than shipped.
-- **Part 2, rebuild the result.** Deterministic and offline, roughly 10 minutes. This is the part that reproduces the shipped numbers exactly.
+- **Part 1, get the inputs** (tier 3 only). The provided baseline, plus the bulk source files. About 51 GB, so they are fetched rather than shipped.
+- **Part 2, rebuild the result** (tier 2). Deterministic and offline, roughly 10 minutes. This reproduces the shipped numbers exactly.
 
-Every step below prints what it did, and the expected output is given so a mismatch is visible immediately rather than three steps later. Every step is also re-runnable: work already done is skipped, so an interrupted run is finished by running the same command again. Each run also appends to a log in `data/logs/`.
+Every step below prints what it did, and the expected output is given so a mismatch is visible immediately rather than three steps later. Every step is re-runnable: work already done is skipped, so an interrupted run is finished by running the same command again. Each run appends to a log in `data/logs/`.
 
 ### Part 1: get the inputs
 
@@ -129,15 +143,6 @@ uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
 
 A running collector writes `<journal>.jsonl.gz.part` and renames it on exit, so the `ingest` globs never pick up a half-written file (which would record the hash of its first lines and lock the rest of the run out of the ledger). The rename happens on Ctrl-C and on `kill` as well; only `kill -9` leaves a `.part` behind, and renaming it by hand makes it ingestable. Either way, a later run still reads `.part` files when deciding what to skip, so nothing already answered is asked twice.
 
-One maintenance script sits outside the pipeline, for stores built before 2026-07-25 only:
-
-```bash
-uv run python scripts/restrict_whois_creation_to_creation_year.py rdap          # dry run, reports what it would delete
-uv run python scripts/restrict_whois_creation_to_creation_year.py rdap --apply  # delete
-```
-
-It prunes WHOIS/RDAP evidence down to the creation year, the one year such a record attests (brief III.6). `ark rdap` has enforced that rule since 2026-07-25, so a store built with the current code needs no migration. See the 2026-07-25 entry in [docs/notes.md](docs/notes.md).
-
 **Reproducibility.** `uv.lock` pins exact dependency versions and the Public Suffix List is vendored, so canonicalization and the baseline processing are deterministic on any machine. `uv run` is the contract and works with only `uv` installed. CI runs lint, format-check and tests on every push.
 
 ## Structure
@@ -161,7 +166,7 @@ data/            # git-ignored: DuckDB store, work queue, downloaded sources (ra
 legacy-data/     # git-ignored: the provided baseline, dropped in (not in the repo)
 src/ark/         # the pipeline package and the `ark` CLI
 tests/           # pytest suite (network mocked)
-docs/            # task brief, sources.md (per-source documentation), plan, notes
+docs/            # SPEC, sources.md (per-source documentation), report
 ```
 
 `ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.
