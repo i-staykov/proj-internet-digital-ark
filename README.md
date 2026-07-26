@@ -73,6 +73,7 @@ shasum -a 256 -c data/raw/checksums.sha256
 | 16 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
 | 17 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
 | 18 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
+| 18b | the four `ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the curated half adds `year_rows: 1267`, the rest enqueues candidates |
 | 19 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 20 | `uv run ark export` | `source_rows: 14`, one per source that contributed evidence, and one `netnew_<year>` count per year |
 | 21 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |

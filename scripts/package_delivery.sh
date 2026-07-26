@@ -44,6 +44,13 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # replay from bytes rather than from a service whose answers change
 cp data/raw/cdx/cdx_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
 cp data/raw/rdap/rdap_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+cp data/raw/expand/expand_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+cp data/raw/expand/round2/*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+cp data/raw/expand/wwwvl/*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+
+# the seed lists those page fetches ran against, so section VII is repeatable
+mkdir -p "$STAGE/seeds/expansion"
+cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true

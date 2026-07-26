@@ -91,6 +91,10 @@ candidates:
 journals:
     uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz
     uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
+    uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 1
+    uv run ark ingest expansion_directory data/raw/expand/round2/expand_round2.jsonl.gz --round 2
+    uv run ark ingest expansion_directory data/raw/expand/wwwvl/expand_wwwvl_corroborated.jsonl.gz --round 3
+    uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
 # registered-domain counting unit drops. Reads the same source files again.
