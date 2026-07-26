@@ -58,8 +58,19 @@ cd source
 ```
 
 Put the bulk source files back under `data/raw/` (each one's download route is in
-`sources.md`), copy this archive's `journals/` into `data/raw/cdx/` and `data/raw/rdap/`,
-and put the provided baseline in `legacy-data/`. Then:
+`sources.md`) and the provided baseline in `legacy-data/`. Then restore the shipped
+journals to the directories the commands below read, by name:
+
+```
+cdx_*.jsonl.gz                  -> data/raw/cdx/
+rdap_*.jsonl.gz                 -> data/raw/rdap/
+expand_2*.jsonl.gz              -> data/raw/expand/
+expand_round2.jsonl.gz          -> data/raw/expand/round2/
+expand_wwwvl_*.jsonl.gz         -> data/raw/expand/wwwvl/
+```
+
+The `seeds/expansion/*.txt` files are the page lists those fetches ran against, kept so
+the section VII rounds can be repeated rather than only replayed. Then:
 
 ```
 uv run ark init                                             # create the stores
@@ -79,9 +90,20 @@ uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
 
 uv run ark seed data/raw/webbase/hosts.txt                  # candidate pool
 uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
+uv run ark seed data/raw/100hot/candidate_hosts.txt
 
 uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz    # replay the archive queries
 uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz  # replay the registry queries
+uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 1
+uv run ark ingest expansion_directory data/raw/expand/round2/*.jsonl.gz --round 2
+uv run ark ingest expansion_directory data/raw/expand/wwwvl/*_corroborated.jsonl.gz --round 3
+uv run ark ingest expansion_links     data/raw/expand/wwwvl/*_unverified.jsonl.gz --round 3
+
+uv run ark seed-pool isc_survey       data/raw/isc_survey/*.gz    # the hostname/URL seed pool
+uv run ark seed-pool odp              data/raw/odp/*.gz
+uv run ark seed-pool internet_scout   data/raw/scout/scout_oai.xml
+uv run ark seed-pool ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
+uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
 
 uv run ark export                                           # masters, additions, manifest
 uv run ark stats                                            # the scoreboard
