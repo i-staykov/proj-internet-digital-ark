@@ -31,6 +31,7 @@ def test_export_all(tmp_path: Path) -> None:
         candidates_path=tmp_path / "candidates.txt",
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
     )
 
     # net-new 1997 holds only the cdx-evidenced domain
@@ -55,6 +56,7 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
         candidates_path=tmp_path / "candidates.txt",
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
     )
 
     # the contribution tables were the one destination not under the caller's
@@ -62,4 +64,29 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
     # store; a shipping artifact must not be reachable from a test run
     assert (tmp_path / "reports" / "source_contribution.csv").exists()
     assert (tmp_path / "reports" / "year_growth.csv").exists()
+    assert (tmp_path / "provenance" / "evidence.parquet").exists()
     conn.close()
+
+
+def test_no_export_destination_can_be_missed_by_a_test() -> None:
+    """Every Path parameter of `export_all` must be redirectable, and redirected.
+
+    Checking the files this suite happens to know about is not enough: twice now
+    a new destination was added with a default pointing at the real delivery
+    tree, and the tests overwrote a shipping artifact because nobody passed it.
+    First the contribution tables, then the 241 MB provenance export. This
+    compares the signature against what the test above actually overrides, so
+    the next destination fails here instead of in the archive.
+    """
+    import inspect
+
+    from ark.export import export_all
+
+    destinations = {
+        name
+        for name, param in inspect.signature(export_all).parameters.items()
+        if isinstance(param.default, Path)
+    }
+    source = inspect.getsource(test_export_all)
+    missed = {name for name in destinations if f"{name}=" not in source}
+    assert not missed, f"test_export_all must redirect these: {sorted(missed)}"
