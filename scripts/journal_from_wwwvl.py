@@ -43,7 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from ark.expand import outbound_domains  # noqa: E402
+from ark.expand import outbound_domains, split_by_corroboration  # noqa: E402
 from ark.ingest import YEARS  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
@@ -118,19 +118,6 @@ def known_domains() -> set[str]:
         return {row[0] for row in conn.execute("SELECT domain FROM domain").fetchall()}
     finally:
         conn.close()
-
-
-def split_by_corroboration(records: list[dict], known: set[str]) -> tuple[list[dict], list[dict]]:
-    """Split each page's links into the corroborated half and the rest."""
-    curated, unverified = [], []
-    for record in records:
-        seen = [d for d in record["domains"] if d in known]
-        unseen = [d for d in record["domains"] if d not in known]
-        if seen:
-            curated.append({**record, "domains": seen, "curated": True})
-        if unseen:
-            unverified.append({**record, "domains": unseen, "curated": False})
-    return curated, unverified
 
 
 def _write(path: Path, records: list[dict]) -> None:

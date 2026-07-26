@@ -8,6 +8,7 @@ from ark.expand import (
     page_captures_url,
     read_seeds,
     snapshot_url,
+    split_by_corroboration,
 )
 
 
@@ -125,3 +126,54 @@ def test_answered_requires_a_real_reply() -> None:
     assert answered({"status": 200}) is True
     assert answered({"status": 0}) is False
     assert answered({"status": 504}) is False
+
+
+def test_corroboration_split_keeps_known_names_curated_and_routes_the_rest() -> None:
+    records = [
+        {
+            "page_url": "http://cat.example/",
+            "year": 1998,
+            "status": 200,
+            "curated": True,
+            "domains": ["known.com", "arvard.edu", "also-known.org"],
+        },
+    ]
+    curated, unverified = split_by_corroboration(records, known={"known.com", "also-known.org"})
+
+    # the page is a curated catalogue either way; the split is about each NAME,
+    # because archived HTML carries typos like arvard.edu for harvard.edu
+    assert curated[0]["domains"] == ["known.com", "also-known.org"]
+    assert curated[0]["curated"] is True
+    assert unverified[0]["domains"] == ["arvard.edu"]
+    # candidate-only, so it must earn its own year rather than take the page's
+    assert unverified[0]["curated"] is False
+
+
+def test_corroboration_split_discards_nothing() -> None:
+    records = [
+        {
+            "page_url": "http://c/",
+            "year": 1999,
+            "status": 200,
+            "curated": True,
+            "domains": ["a.com", "b.com", "c.com"],
+        }
+    ]
+    curated, unverified = split_by_corroboration(records, known={"b.com"})
+    kept = {d for r in curated + unverified for d in r["domains"]}
+    assert kept == {"a.com", "b.com", "c.com"}
+
+
+def test_a_page_with_no_corroborated_names_yields_no_curated_record() -> None:
+    records = [
+        {
+            "page_url": "http://c/",
+            "year": 1999,
+            "status": 200,
+            "curated": True,
+            "domains": ["never-seen.example"],
+        }
+    ]
+    curated, unverified = split_by_corroboration(records, known=set())
+    assert curated == []
+    assert len(unverified) == 1
