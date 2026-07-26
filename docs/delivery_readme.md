@@ -16,7 +16,7 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
-| `provenance/` | The full evidence graph as Parquet, plus `LOAD.sql`. This is what makes the result checkable offline |
+| `provenance/` | The full evidence graph as Parquet, plus `trace.py` and `LOAD.sql` for querying it. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audit files, and the per-source contribution tables |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
@@ -24,6 +24,7 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `source/` | The code and configuration that produced everything here, plus the commit it was built from |
 | `sources.md` | Per-source detail: what each source is, how it was obtained, what fixes its dates, what it yielded |
 | `SHA256SUMS` | Checksum for every file in this archive |
+| `verify.sh` | Runs every check below in one command |
 
 `source/` contains the code's own README, which documents the pipeline command by command. This
 file describes the archive.
@@ -32,22 +33,44 @@ file describes the archive.
 
 Three levels, in increasing cost. **The first two need no downloads and no network.**
 
-**1. Verify what is here** (minutes). The annual lists, the manifest and the provenance graph are
-self-contained, so any line can be traced to its evidence:
+### 1. Verify what is here (one command, about 10 seconds)
+
+Before unpacking, check the archive file itself against the checksum published with it:
+
+```
+shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
+```
+
+Then, from inside this folder:
+
+```
+bash verify.sh
+```
+
+That checks every file against `SHA256SUMS`, confirms the six annual addition files hold the
+number of pairs claimed above, and confirms **every one of those pairs appears in
+`additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
+needs only `shasum` and `python3`, and prints a verdict per check.
+
+To look up why any single domain is in any given year, use the provenance export. It needs no
+database installed, only [`uv`](https://docs.astral.sh/uv/):
 
 ```
 cd provenance
-duckdb -init LOAD.sql        # or: python -c "import duckdb; ..." using the same SQL
+uv run --with duckdb --no-project python trace.py                    # what is in the export
+uv run --with duckdb --no-project python trace.py bbc.co.uk 1999     # why this domain, this year
 ```
 
-`LOAD.sql` rebuilds a queryable store from the Parquet files and ends with a worked example that
-traces one domain-year to the observations supporting it. Cross-checks worth running: the six
-`additions/` files should total 1,322,365 lines, and every one of those pairs should appear in
-`additions/evidence_manifest.csv`.
+The second command prints one line per observation: which source saw the domain, what kind of
+evidence it is, and the artifact or capture timestamp it came from, with a link where one exists.
+Any domain from `masters/` or `additions/` works. If you already run DuckDB, `LOAD.sql` in the same
+folder loads the five Parquet tables instead; run it from inside `provenance/`, since its paths are
+relative.
 
-**2. Re-derive the result from the shipped inputs** (about 10 minutes). Unpack the code, restore the
-journals, and rebuild. The collectors are not re-run: every archive and registry query was recorded
-with its raw response, so the rebuild replays stored bytes instead of asking services that answer
+### 2. Re-derive the result from the shipped inputs (about 10 minutes)
+
+Unpack the code and rebuild. The collectors are not re-run: every archive and registry query was
+recorded with its raw response, so this replays stored bytes instead of asking services that answer
 differently today.
 
 ```
@@ -57,13 +80,13 @@ just reproduce
 just check          # lint, tests, then the nine data invariants
 ```
 
-The code README lists the same run as numbered steps with the output each should print, and says
-where to put the journals and the bulk source files.
+### 3. Rebuild from the original sources (hours)
 
-**3. Rebuild from the original sources** (hours). Only needed to re-derive the bulk sources
-themselves. Their download routes are in `sources.md`; they total about 51 GB, of which a single
-47 GB capture index is the bulk. **Skipping that one file costs exactly 17,696 pairs over 7,001
-domains and leaves about 4 GB to download**, which reproduces 98.7% of the result.
+Only needed to re-derive the bulk sources themselves. **`README.md` inside `source/` documents this
+route step by step**, including where each file goes and the output each command should print;
+`sources.md` gives each source's download route. They total about 51 GB, of which a single 47 GB
+capture index is the bulk. **Skipping that one file costs exactly 17,696 pairs over 7,001 domains
+and leaves about 4 GB to download**, which reproduces 98.7% of the result.
 
 ## Evidence standard
 

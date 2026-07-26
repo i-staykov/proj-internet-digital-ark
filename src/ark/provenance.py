@@ -24,6 +24,7 @@ a reader holding only this archive cannot trace a baseline pair, and the point o
 the export is that it answers questions without anything else on hand.
 """
 
+import shutil
 from pathlib import Path
 
 import duckdb
@@ -32,19 +33,28 @@ from loguru import logger
 PROVENANCE_DIR = Path("output/provenance")
 TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
-LOAD_SQL = """-- Rebuild a queryable provenance store from this folder:
+LOAD_SQL = """-- For the DuckDB command-line tool, run from INSIDE this folder:
+--     duckdb -init LOAD.sql
+-- The paths below are relative, so a different working directory will fail.
+--
+-- If you do not have the DuckDB CLI, do not install it. `trace.py` next to this
+-- file answers the same question with only `uv`:
+--     uv run --with duckdb --no-project python trace.py example.com 1998
+
 CREATE TABLE source        AS SELECT * FROM read_parquet('source.parquet');
 CREATE TABLE domain        AS SELECT * FROM read_parquet('domain.parquet');
 CREATE TABLE evidence      AS SELECT * FROM read_parquet('evidence.parquet');
 CREATE TABLE domain_year   AS SELECT * FROM read_parquet('domain_year.parquet');
 CREATE TABLE ingested_file AS SELECT * FROM read_parquet('ingested_file.parquet');
 
--- Why is a domain in a given annual file? One row per supporting observation:
-SELECT s.name AS source, e.evidence_type, e.evidence_value, e.evidence_url
+-- Why is a domain in a given annual file? One row per supporting observation.
+-- Replace the domain and year with any line from additions/ or masters/.
+SELECT dy.assigned_year, s.name AS source, e.evidence_type, e.evidence_value
 FROM domain_year dy
-JOIN evidence e ON e.evidence_id = dy.evidence_id
-JOIN source   s ON s.source_id   = e.source_id
-WHERE dy.domain = 'example.com' AND dy.assigned_year = 1998;
+JOIN evidence e ON e.domain = dy.domain AND e.evidence_year = dy.assigned_year
+JOIN source   s ON s.source_id = e.source_id
+WHERE dy.domain = 'example.com'
+ORDER BY dy.assigned_year;
 """
 
 
@@ -59,6 +69,8 @@ def write_provenance(
         conn.execute(f"COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     (out_dir / "LOAD.sql").write_text(LOAD_SQL, encoding="utf-8")
+    # the query tool ships beside the data, so the export is usable on its own
+    shutil.copyfile(Path(__file__).with_name("provenance_trace.py"), out_dir / "trace.py")
     megabytes = sum(p.stat().st_size for p in out_dir.glob("*.parquet")) / 1024 / 1024
     counts["megabytes"] = round(megabytes)
     logger.info(f"provenance export: {counts}")

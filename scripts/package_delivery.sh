@@ -50,6 +50,9 @@ else
     echo "warning: pandoc not installed, shipping the report as markdown only" >&2
 fi
 cp docs/report.md "$STAGE/report.md"
+# the reviewer's own check, runnable from inside the unpacked folder
+cp scripts/verify_delivery.sh "$STAGE/verify.sh"
+chmod +x "$STAGE/verify.sh"
 cp docs/delivery_readme.md "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
 

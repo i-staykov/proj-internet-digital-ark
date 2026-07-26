@@ -152,3 +152,8 @@ expand-round seeds round:
 # build the delivery archive (refuses a dirty tree or a stale output/)
 package:
     bash scripts/package_delivery.sh
+
+# check a built delivery the way a reviewer would: checksums, pair counts, and
+# that every shipped pair traces to an observation
+verify-delivery dir="output/internet-digital-ark-1996-2001":
+    bash scripts/verify_delivery.sh {{dir}}
