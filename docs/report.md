@@ -9,22 +9,23 @@ Status as of 2026-07-26. Full decision history: [notes.md](notes.md). Per-source
 
 This program grows the provided ~8.2M-line baseline with **net-new, evidence-backed** registered domains, shipped as a separate verifiable set (the baseline is never modified). Every annual-file entry is backed by item-level, per-year evidence recorded in a provenance database, so any line can be traced to its proof.
 
-**Scoreboard (2026-07-25):**
+**Scoreboard (2026-07-26):**
 
 | Metric | Value |
 |---|--:|
-| Net-new registered domains (absent from baseline) | **463,364** |
-| Net-new (domain, year) pairs | **1,303,508** |
+| Net-new registered domains (absent from baseline) | **463,367** |
+| Net-new (domain, year) pairs | **1,310,280** |
 | Baseline domains (read-only) | 4,824,656 |
-| Total domains in store | 5,288,024 |
-| Total (domain, year) pairs in store | 8,170,421 |
-| Evidence rows | 11,048,009 |
+| Total domains in store | 5,293,804 |
+| Total (domain, year) pairs in store | 8,177,193 |
+| Evidence rows | 11,162,500 |
+| Candidate pool (no year evidence yet) | 5,781 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 97,582 | 1,038,814 | 12,101 | 25,550 | 52,012 | 77,449 |
+| 98,220 | 1,038,872 | 13,793 | 26,330 | 54,219 | 78,846 |
 
 The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr`, and materially by Arquivo `.pt` and the UK Web Archive.
 

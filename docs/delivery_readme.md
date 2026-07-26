@@ -3,7 +3,7 @@
 Evidence-backed annual domain lists for **1996-2001**, grown on top of the provided
 ~8.2M-line baseline. Every annual-file entry traces to item-level, per-year evidence.
 
-**Headline (2026-07-26):** 463,364 net-new registered domains · 1,308,314 net-new
+**Headline (2026-07-26):** 463,367 net-new registered domains · 1,310,280 net-new
 (domain, year) pairs, on top of 4.82M baseline domains, plus an auxiliary pool of
 3,595,769 hostname and URL download seeds. Full analysis in `report.docx`.
 
@@ -14,7 +14,7 @@ Evidence-backed annual domain lists for **1996-2001**, grown on top of the provi
 | `report.docx` / `report.md` | The delivery report (sources, architecture, results, limitations, reproduction) |
 | `masters/1996.txt … 2001.txt` | **Merged master year lists**: baseline + net-new, deduplicated within each year, one registered domain per line |
 | `additions/1996.txt … 2001.txt` | **Net-new additions only**: the domains this program added on top of the baseline |
-| `additions/evidence_manifest.csv` | **Provenance export**: one row per added (domain, year), carrying the representative evidence row behind it. Corroborating evidence is not exported: the store holds 11.05M evidence rows against 1.3M exported, and the cross-validation figures in the report are computed from the store |
+| `additions/evidence_manifest.csv` | **Provenance export**: one row per added (domain, year), carrying the representative evidence row behind it. Corroborating evidence is not exported: the store holds roughly 11M evidence rows against the 1.3M exported here, and the cross-validation figures in the report are computed from the store |
 | `candidates.txt` | Candidate/unresolved domains (no per-year evidence yet); never mixed into the annual masters |
 | `seeds/download_seeds.txt` | **Auxiliary seed pool**: one hostname or URL per line, for subsequent webpage downloads. The registered domain is the counting unit for the annual files (III.8), so `www.foo.com` and `shop.foo.com` collapse to one line there; this pool keeps that granularity, which is what a crawler needs |
 | `seeds/download_seeds.csv` | The same seeds with the registered domain, the year the source dates them to, and which source they came from |
@@ -67,6 +67,7 @@ rdap_*.jsonl.gz                 -> data/raw/rdap/
 expand_2*.jsonl.gz              -> data/raw/expand/
 expand_round2.jsonl.gz          -> data/raw/expand/round2/
 expand_wwwvl_*.jsonl.gz         -> data/raw/expand/wwwvl/
+expand_round4*.jsonl.gz         -> data/raw/expand/round4/
 ```
 
 The `seeds/expansion/*.txt` files are the page lists those fetches ran against, kept so
@@ -98,6 +99,8 @@ uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 
 uv run ark ingest expansion_directory data/raw/expand/round2/*.jsonl.gz --round 2
 uv run ark ingest expansion_directory data/raw/expand/wwwvl/*_corroborated.jsonl.gz --round 3
 uv run ark ingest expansion_links     data/raw/expand/wwwvl/*_unverified.jsonl.gz --round 3
+uv run ark ingest expansion_directory data/raw/expand/round4/*_corroborated.jsonl.gz --round 4
+uv run ark ingest expansion_links     data/raw/expand/round4/*_unverified.jsonl.gz --round 4
 
 uv run ark seed-pool isc_survey       data/raw/isc_survey/*.gz    # the hostname/URL seed pool
 uv run ark seed-pool odp              data/raw/odp/*.gz
