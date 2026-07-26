@@ -40,7 +40,7 @@ RELEASE="internet-digital-ark-1996-2001"
 STAGE="output/$RELEASE"
 ARCHIVE="output/$RELEASE.tar.gz"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance}
+mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
@@ -79,6 +79,13 @@ find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev
 # the seed lists those page fetches ran against, so section VII is repeatable
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
+
+# The supplied baseline, shipped back so the full rebuild needs nothing sourced
+# separately. Only the files the pipeline reads: the six year files, the merge
+# statistics, and the one legacy URL list that feeds the candidate pool.
+cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/" 2>/dev/null || true
+cp legacy-data/merge_stats_new0714.csv "$STAGE/baseline/" 2>/dev/null || true
+cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/" 2>/dev/null || true
 
 # the provenance graph as Parquet: which source saw which domain in which year,
 # so any shipped line can be traced without the source data or the database
