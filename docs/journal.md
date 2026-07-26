@@ -1,4 +1,4 @@
-# journal.md — unattended session, 2026-07-26
+# journal.md: unattended session, 2026-07-26
 
 Live log of an autonomous stretch on the `feature` branch, 02:20 to 16:00 CEST. Only decisions,
 findings and numbers that matter; the full reasoning goes to [notes.md](notes.md) as usual, and the
@@ -25,11 +25,11 @@ Journals are ingested at checkpoints, never while being written.
 
 ## Log
 
-**02:20 — session start.** Supervisor launched. Verified its `pgrep` guard matches `bin/ark cdx`
+**02:20: session start.** Supervisor launched. Verified its `pgrep` guard matches `bin/ark cdx`
 (the real venv process) rather than `ark cdx`, which would also match the supervisor's own command
 line and make both engines look permanently busy.
 
-**02:20-03:10 — A4, A5, A6 (correctness made provable).** Committed as one unit.
+**02:20-03:10: A4, A5, A6 (correctness made provable).** Committed as one unit.
 
 - **The integrity gate went from 6 invariants to 9**, and the new three were each measured clean
   before being added, so they are regression guards rather than bug reports. The valuable one is
@@ -53,7 +53,7 @@ line and make both engines look permanently busy.
 **Engines:** ingested the completed journals, **+3,115 pairs** banked. Store now **1,307,463**
 net-new pairs. Both engines running, supervisor healthy.
 
-**03:10-03:45 — C dispatched, B1 done (candidate pool fixed).** Section C is six independent live
+**03:10-03:45: C dispatched, B1 done (candidate pool fixed).** Section C is six independent live
 source investigations, so it went out as a parallel workflow rather than being done serially; B1 is
 independent of its findings, so it was done meanwhile instead of idling.
 
@@ -67,7 +67,7 @@ independent of its findings, so it was done meanwhile instead of idling.
   target side is worth its obscure 8% tail rather than volume. Worth stating in the report so the
   pool's size is not mistaken for pool value.
 
-**03:45-04:20 — B2, B3.** Candidate pool **4 -> 5,478**.
+**03:45-04:20: B2, B3.** Candidate pool **4 -> 5,478**.
 
 - **webbase measured properly at last:** 738,625 hostnames -> 603,323 distinct registered domains,
   603,141 already baseline, 64 already ours, **39 new**. The three-way seeding split turns the old
@@ -83,7 +83,7 @@ independent of its findings, so it was done meanwhile instead of idling.
   `ark seed` on the same list when they leave domains undated, which protects a future run over
   unknown domains from losing them silently.
 
-**04:20-04:40 — B4, B5 (candidate pool documented).** New report **§3.1**.
+**04:20-04:40: B4, B5 (candidate pool documented).** New report **§3.1**.
 
 - Composition by discovering source, TLD mix, and what promotes a candidate (per year, never per
   domain).
@@ -97,7 +97,7 @@ independent of its findings, so it was done meanwhile instead of idling.
 **Engines:** +440 pairs from an RDAP journal. Store **1,307,903** net-new pairs. C workflow still
 running, all six investigations active.
 
-**04:40-05:55 — B6 (`ark download`, §VII expansion) and an Internet Archive outage.**
+**04:40-05:55: B6 (`ark download`, §VII expansion) and an Internet Archive outage.**
 
 - **`ark download` built**, replacing a one-line stub. Journals one record *per capture* rather than
   per page, since a directory captured in 1998 and 2000 evidences its entries in each year
@@ -122,7 +122,7 @@ running, all six investigations active.
   WWW-Virtual-Library verdicts could be false negatives caused by this outage. Not taking any "dead"
   verdict at face value without re-checking against the outage window.
 
-**05:55-07:10 — G3, G4, H0 and a corrected metric.** Store **1,308,206** net-new pairs.
+**05:55-07:10: G3, G4, H0 and a corrected metric.** Store **1,308,206** net-new pairs.
 
 - **G4 contribution tables**, written by `ark export` into the audit folder: `source_contribution.csv`
   per source and `year_growth.csv` per year in the supplied `merge_stats` column shape. Validating

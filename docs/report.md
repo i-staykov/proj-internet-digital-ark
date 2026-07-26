@@ -1,4 +1,4 @@
-# Internet Digital Ark — Delivery Report
+# Internet Digital Ark: Delivery Report
 
 *Reconstructing evidence-backed annual domain lists for 1996–2001.*
 Status as of 2026-07-26. Full decision history: [notes.md](notes.md). Per-source documentation: [sources.md](sources.md).
@@ -34,11 +34,11 @@ These figures are **lower by 9,664 pairs and 1 domain than the pre-narrowing fig
 
 ## 1. Data definition & cleaning
 
-- **Counting unit — the registered domain** (brief III.8). Every host or URL, from every source, is reduced to its registrable domain before it touches the database, via a canonicalizer built on a **pinned Public Suffix List snapshot** (committed with the package, so extraction is deterministic and offline) plus a documented patch of **retired 1996–2001 ccTLDs** (`.yu`, `.an`, `.cs`, `.gb`, `.tp`, `.zr`, …) that the modern PSL dropped. `www.example.com`, `foo.example.com`, and platform user-paths (`geocities.com/…`) all collapse to `example.com` / `geocities.com`.
+- **Counting unit: the registered domain** (brief III.8). Every host or URL, from every source, is reduced to its registrable domain before it touches the database, via a canonicalizer built on a **pinned Public Suffix List snapshot** (committed with the package, so extraction is deterministic and offline) plus a documented patch of **retired 1996–2001 ccTLDs** (`.yu`, `.an`, `.cs`, `.gb`, `.tp`, `.zr`, …) that the modern PSL dropped. `www.example.com`, `foo.example.com`, and platform user-paths (`geocities.com/…`) all collapse to `example.com` / `geocities.com`.
 - **Validity rules.** A name must have a registrable label plus a public suffix; bare suffixes (`co.uk` alone), IP addresses, and syntactically invalid hosts are rejected. Underscores are tolerated in subdomains (common in the era) but not in the registered label.
-- **Salvage — conservative, deterministic, audited.** Leading/trailing punctuation is stripped (`.www.foo.com`, `,foo.com`); never leading hyphens (that would alter the name). Every correction and every drop is written to an audit CSV; nothing is guessed.
-- **Baseline cleaning results.** **8,224,963** supplied hostname lines → **4,824,656 registered domains / 6,866,913 (domain, year) pairs**. The 1,358,050-line difference is **not** lost domains: 12,220 lines (0.149%) yield no valid registered domain and are listed with reasons in `dropped_domains.txt`, and the other 1,345,830 **collapse** because `www.foo.com`, `shop.foo.com` and `foo.com` are three supplied lines and one registered domain, which III.8 mandates as the counting unit. Per-year reconciliation in §1.1. Normalization audit: **~1.45M lines corrected**; droplist: **12,220 dropped** across 5 reason groups (`dropped_domains.txt`, reason-grouped). Originals are never edited — suspect rows are flagged, not rewritten; merged master lists are exports.
-- **Deduplication.** Within each year (the `domain_year` primary key is `(domain, assigned_year)`); cross-year duplication is required and expected (a domain appears in every year it is independently evidenced for — brief III.7).
+- **Salvage: conservative, deterministic, audited.** Leading/trailing punctuation is stripped (`.www.foo.com`, `,foo.com`); never leading hyphens (that would alter the name). Every correction and every drop is written to an audit CSV; nothing is guessed.
+- **Baseline cleaning results.** **8,224,963** supplied hostname lines → **4,824,656 registered domains / 6,866,913 (domain, year) pairs**. The 1,358,050-line difference is **not** lost domains: 12,220 lines (0.149%) yield no valid registered domain and are listed with reasons in `dropped_domains.txt`, and the other 1,345,830 **collapse** because `www.foo.com`, `shop.foo.com` and `foo.com` are three supplied lines and one registered domain, which III.8 mandates as the counting unit. Per-year reconciliation in §1.1. Normalization audit: **~1.45M lines corrected**; droplist: **12,220 dropped** across 5 reason groups (`dropped_domains.txt`, reason-grouped). Originals are never edited: suspect rows are flagged, not rewritten; merged master lists are exports.
+- **Deduplication.** Within each year (the `domain_year` primary key is `(domain, assigned_year)`); cross-year duplication is required and expected (a domain appears in every year it is independently evidenced for, per brief III.7).
 
 ### 1.1 Per-year reconciliation: supplied lines against shipped pairs
 
@@ -143,7 +143,7 @@ All figures are net-new **on top of the baseline**. Per-source acquisition metho
 | IA CDX per-year verify (`ia_cdx`, superseded) | `cdx_timestamp` | 1996–2001 | +8 | +11 | the original six-queries-per-domain path, kept because its rows are real evidence |
 | RDAP gap-fill (selected by sandwich gaps) | `whois_creation` | 1996–2001 | +0 | +2,273 | adds a creation year to already-held domains; 42% RDAP hit rate because the selection favours survivors |
 
-**Key strategic finding:** the baseline is Internet-Archive-derived (Early Web CDX overlapped it 99.99%). Net-new volume therefore comes from **non-IA sources** — DNS surveys (ISC), national registries (`.fr`), and national web archives (`.pt`, `.uk`) — which is also why the additions are geographically complementary.
+**Key strategic finding:** the baseline is Internet-Archive-derived (Early Web CDX overlapped it 99.99%). Net-new volume therefore comes from **non-IA sources**: DNS surveys (ISC), national registries (`.fr`), and national web archives (`.pt`, `.uk`). That is also why the additions are geographically complementary.
 
 ### 3.1 The candidate pool (brief III.2, III.4, III.5, §IX.2)
 
@@ -201,13 +201,13 @@ which would leave a confirmed domain sitting in the pool) is caught by the
 | Source | Verdict |
 |---|---|
 | webbase-2001 (Stanford, via LAW) | 603,245 domains but **99.99% already held** (baseline covers the popular 2001 web); only 43 net-new candidates → +3 via RDAP |
-| Common Crawl | Starts 2008 — out of window |
+| Common Crawl | Starts 2008, out of window |
 | InterNIC / historical gTLD zone files | No dated 1996–2001 SLD snapshot survives anywhere; IA never crawled the FTP zone data |
-| DMOZ 1998/1999 RDF dumps | Never existed — earliest dated ODP RDF is 2000-07-20 |
+| DMOZ 1998/1999 RDF dumps | Never existed; the earliest dated ODP RDF is 2000-07-20 |
 | RIPE database dumps | All `domain:` objects are reverse `in-addr.arpa`; zero forward domains |
 | DNS-OARC root zone | Member-gated + TLD-delegations only (no second-level domains) |
 | CAIDA Skitter/DZDB, Route Views | IP/router-level or out of window; not registered domains |
-| Kulturarw3 (`.se`), Netarkivet (`.dk`), BnF (`.fr`) | Reading-room / gated — no bulk download |
+| Kulturarw3 (`.se`), Netarkivet (`.dk`), BnF (`.fr`) | Reading-room / gated, no bulk download |
 | Commercial WHOIS bulk | Paid; redundant with free RDAP |
 | SNAP, Yahoo Webscope, TREC WT10g | Anonymized / defunct / licence-gated |
 | DNS Census (2013), OpenINTEL (2015+), Rapid7 Sonar (2013+) | Out of window |
@@ -378,7 +378,7 @@ bytes on disk rather than from the live service, whose answers change over time.
 ## 6. Limitations & how to reproduce
 
 **Limitations (stated plainly).**
-- **Geographic skew.** Net-new additions over-represent `.fr` (AFNIC), `.pt` (Arquivo), and `.uk` (UKWA) relative to a global population — because the baseline already holds what IA's global crawl caught, so the complementary gains are national. Documented, not hidden.
+- **Geographic skew.** Net-new additions over-represent `.fr` (AFNIC), `.pt` (Arquivo), and `.uk` (UKWA) relative to a global population, because the baseline already holds what IA's global crawl caught, so the complementary gains are national. Documented, not hidden.
 - **Floor effects.** AFNIC's File A holds every `.fr` name live at the file date plus every name deleted since **28 January 2014** (per its user guide, confirmed against the file: the 11,880 in-window domains carrying a deletion date spread evenly across 2014-2026). So only `.fr` domains deleted before that date are missing. Combined with the `crDate` reset described in §2, which drops in-window domains that were later traded or re-registered, the `.fr` yield undercounts and cannot over-count.
 - **Year coverage.** 1997 is inflated by ISC (a real gap the baseline had); 1998/1999 were thin and are now materially filled; 2000 is partially served (the surviving ODP Aug-2000 dump is a truncated prefix, and the full content dump is unrecoverable).
 - **Evidence-type caveats.** `artifact_listing` / `link_source` / `whois_creation` negatives are weaker than a CDX negative; each type's standard and its negative meaning are stated in §2.
@@ -408,7 +408,7 @@ Source URLs and exact rescue notes are per-source in [notes.md](notes.md). Downl
 
 ---
 
-## Appendix — status of the plan
+## Appendix: status of the plan
 
 **Done:** foundation and provenance store with a structural evidence wall; baseline loaded read-only; **12 sources carrying evidence** (eight bulk files, Internet Scout, both IA CDX paths, and registry RDAP); the evidence taxonomy and its Section III compliance map; corroboration reported by provenance lineage as well as by source count; the **nine-invariant `ark check` gate**, all passing; the two verification engines built, calibrated against the live services and running; the candidate pool populated and documented; per-source and per-year contribution tables; page expansion for the Section VII cycle; the delivery archive packaged with per-file and archive checksums.
 Also done: the **2026-07-25 RDAP narrowing** (creation year only, 9,664 assignments withdrawn) with a reproducible migration script.

@@ -39,7 +39,7 @@ Those rows are not waste, they are corroboration.
 
 ---
 
-## `prior_task` — the supplied baseline
+## `prior_task`: the supplied baseline
 
 **What it is.** The six annual files provided with the task (`1996.txt` through `2001.txt`),
 holding 8,224,963 hostname lines, plus `merge_stats_new0714.csv` describing how they were built.
@@ -80,7 +80,7 @@ most `www.`-style duplication.
 
 ---
 
-## `isc_survey` — Internet Domain Survey host lists
+## `isc_survey`: Internet Domain Survey host lists
 
 **What it is.** The Network Wizards / Lottor / ISC Internet Domain Survey `.domains` lists, a DNS
 census taken on a stated date. Five intact files survive for 1996-1997.
@@ -114,7 +114,7 @@ means only "not seen in that survey", which is weaker than an empty archive inde
 
 ---
 
-## `afnic_fr` — AFNIC `.fr` registry open data
+## `afnic_fr`: AFNIC `.fr` registry open data
 
 **What it is.** The monthly `.fr` open-data file published by AFNIC, the French registry:
 `202606_OPENDATA_A-NomsDeDomaineEnPointFr`, 122 MB zip expanding to a 697 MB semicolon-delimited
@@ -188,7 +188,7 @@ each rose 5.7x to 6.1x.
 
 ---
 
-## `ukwa_link_source` — UK Web Archive host link graph
+## `ukwa_link_source`: UK Web Archive host link graph
 
 **What it is.** The JISC UK Web Domain Dataset host link graph 1996-2010, rows of
 `year|source_host|target_host<TAB>count`.
@@ -221,7 +221,7 @@ file: 1996-2001 is only ~166,890 rows, and the 20.9 GB bulk is 2002-2010.
 
 ---
 
-## `arquivo_ia` — Arquivo.pt `IA.cdxj` capture index
+## `arquivo_ia`: Arquivo.pt `IA.cdxj` capture index
 
 **What it is.** A 50.93 GB CDXJ capture index donated to Arquivo.pt by the Internet Archive,
 covering the Portuguese web 1996-2007, roughly 124M captures.
@@ -252,7 +252,7 @@ qualitative call held.
 
 ---
 
-## `odp` — Open Directory Project (DMOZ) RDF content dumps
+## `odp`: Open Directory Project (DMOZ) RDF content dumps
 
 **What it is.** Three surviving ODP content dumps: a truncated prefix of the August 2000 full dump,
 and two complete Kids-and-Teens dumps from June and November 2001.
@@ -295,7 +295,7 @@ weaker than a capture. Absence from a dump means only "not in that dump".
 
 ---
 
-## `ia_cdx_bulk` — IA CDX verification engine
+## `ia_cdx_bulk`: IA CDX verification engine
 
 **What it is.** Per-domain queries against the public Wayback CDX server, asking which in-window
 years hold a capture. One collapsed query answers all six years.
@@ -326,7 +326,7 @@ recorded as absences, so a transport error leaves the domain eligible for a late
 
 ---
 
-## `rdap` — registry creation dates via RDAP
+## `rdap`: registry creation dates via RDAP
 
 **What it is.** Registry RDAP lookups through the `rdap.org` redirector, reading the `registration`
 event year.
@@ -367,7 +367,7 @@ across all six years, and RDAP alone attests none of them.
 
 ---
 
-## `early_web_cdx` — IA Early Web CDX dataset
+## `early_web_cdx`: IA Early Web CDX dataset
 
 **What it is.** The Internet Archive's "Early Web" CDX language dataset, 224 classic-CDX files
 covering 1996-1999.
@@ -393,7 +393,7 @@ five of five spot-checked resolve on Wayback.
 
 ---
 
-## `internet_scout` — Internet Scout Report archive
+## `internet_scout`: Internet Scout Report archive
 
 **What it is.** The Internet Scout Report, a weekly curated review of scholarly, government and
 educational sites, harvested over OAI-PMH.
@@ -418,7 +418,7 @@ earlier estimate of 2,000-5,000 net-new domains assumed per-record dates that mo
 
 ---
 
-## `arquivo_roteiro` — Arquivo.pt `Roteiro.cdxj`
+## `arquivo_roteiro`: Arquivo.pt `Roteiro.cdxj`
 
 **What it is.** A 13.6 MB CDXJ index of a 1996 crawl of the Portuguese web, about 75,000 pages.
 
@@ -436,7 +436,7 @@ Value is the 3,442 corroborating rows and a second, non-IA archive lineage.
 
 ---
 
-## `ia_cdx` — per-year CDX verification (superseded)
+## `ia_cdx`: per-year CDX verification (superseded)
 
 The original verification path, six queries per domain (one per year), used to prove the pipeline
 end to end. **11 evidence rows, 8 net-new domains.** Superseded by `ia_cdx_bulk`, which answers all

@@ -1,4 +1,4 @@
-# Internet Digital Ark — Delivery Archive
+# Internet Digital Ark: Delivery Archive
 
 Evidence-backed annual domain lists for **1996–2001**, grown on top of the provided
 ~8.2M-line baseline. Every annual-file entry traces to item-level, per-year evidence.
@@ -11,9 +11,9 @@ Evidence-backed annual domain lists for **1996–2001**, grown on top of the pro
 | Path | Contents |
 |---|---|
 | `report.docx` / `report.md` | The delivery report (sources, architecture, results, limitations, reproduction) |
-| `masters/1996.txt … 2001.txt` | **Merged master year lists** — baseline + net-new, deduplicated within each year, one registered domain per line |
-| `additions/1996.txt … 2001.txt` | **Net-new additions only** — the domains this program added on top of the baseline |
-| `additions/evidence_manifest.csv` | **Provenance export** — one row per added (domain, year), carrying the representative evidence row behind it. Corroborating evidence is not exported: the store holds 11.05M evidence rows against 1.3M exported, and the cross-validation figures in the report are computed from the store |
+| `masters/1996.txt … 2001.txt` | **Merged master year lists**: baseline + net-new, deduplicated within each year, one registered domain per line |
+| `additions/1996.txt … 2001.txt` | **Net-new additions only**: the domains this program added on top of the baseline |
+| `additions/evidence_manifest.csv` | **Provenance export**: one row per added (domain, year), carrying the representative evidence row behind it. Corroborating evidence is not exported: the store holds 11.05M evidence rows against 1.3M exported, and the cross-validation figures in the report are computed from the store |
 | `candidates.txt` | Candidate/unresolved domains (no per-year evidence yet); never mixed into the annual masters |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `audit/` | Normalization/salvage audit CSVs (every correction and drop, per source) |
