@@ -20,18 +20,25 @@ hundred out of ~460,000. Where a source's yield is quoted as a delta elsewhere, 
 
 | Source | Evidence type | Files | Evidence rows | Net-new domains | Net-new pairs |
 |---|---|--:|--:|--:|--:|
-| `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
 | `isc_survey` | `artifact_listing` | 5 | 1,662,395 | 396,973 | 1,132,129 |
 | `afnic_fr` | `whois_creation` | 1 | 142,248 | 40,166 | 117,829 |
 | `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
 | `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
 | `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
+| `ia_cdx_bulk` | `cdx_timestamp` | 24 | 10,632 | 0 | 4,124 |
 | `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 15+ | 2,286 | 0 | 840 |
-| `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
+| `page_directory` | `dated_directory` | 2 | 11,336 | 15 | 1,267 |
+| `rdap_snapshot` | `whois_creation` | 5 | 2,476 | 3 | 1,071 |
 | `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
-| `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
+| `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
 | `ia_cdx` | `cdx_timestamp` | live | 11 | 8 | 11 |
+| `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
+| `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
+| `ukwa_link_target` | `link_target` | 1 | 88,263 | 0 | 0 |
+| `page_expansion` | `link_target` | 2 | 242 | 0 | 0 |
+
+Generated from `data/reports/source_contribution.csv`, which `ark export` rewrites, so it is a
+measurement of the shipped store rather than a hand-kept tally.
 
 Note the difference between evidence rows and pairs: `early_web_cdx` contributes 2.28M evidence
 rows but only 182 net-new pairs, because almost everything it holds was already in the baseline.
@@ -393,6 +400,47 @@ five of five spot-checked resolve on Wayback.
 
 ---
 
+## `page_directory`: archived curated directory pages (section VII expansion)
+
+**What it is.** Wayback captures of pages that are curated catalogues, read for the sites they
+list. Brief §IV.i grants that such a page's capture date is item-level evidence for every domain
+listed on it, with no further validation, which is what makes this route worth the care it takes.
+
+**How obtained.** `ark download <seeds>` fetches each seed page's in-window captures and extracts
+its outbound registered domains, writing a journal; `ark ingest expansion_directory <journal>` turns
+that into evidence. Seed lists are tracked in `seeds/expansion/`. For the WWW Virtual Library
+subject pages already harvested to `data/raw/wwwvl/` during a source survey,
+`scripts/journal_from_wwwvl.py` writes the same journal format from the bytes on disk rather than
+re-fetching them, and the ingest path is then identical.
+
+**Date semantics.** The 14-digit Wayback capture timestamp of the directory page. A listing dated
+1998 evidences its entries for 1998 only; nothing is carried into adjacent years.
+
+**Why the curated assertion is made per seed, on the record.** The `directory` marker in a seed file
+is what promotes a page's links from candidate-only `link_target` to master `dated_directory`, so it
+is never asserted from a hostname's reputation. For the Virtual Library it was taken from the
+catalogue's own 1999-01-25 capture, which declares itself "an expert-run catalog of sections of the
+web" with `DC.Type: Bibliography` and lists its subject sections; those sections are the pages
+seeded.
+
+**Guard against phantom domains.** A listing is a claim by the linking page, and archived HTML
+carries transcription typos: this route produced `gov.edu` and `gintysuooly.com`, and a review of
+the same source measured roughly 40% of never-before-seen names as typos. So a name that no other
+source attests is written to a separate journal and ingested as `expansion_links`, which is
+candidate-only, while names already attested independently are asserted under IV.i. Of 1,267
+net-new pairs, all but a handful sit on domains corroborated elsewhere.
+
+**Yield.** 11,336 evidence rows, **1,267 net-new pairs over 15 net-new domains**, concentrated in
+the thinnest years: 1998 +485 and 1999 +464. Per-round figures and the round 1 negative result are
+in the decision log.
+
+**Caveats.** (a) English-language and academically weighted, since the Virtual Library is a
+university-maintained subject catalogue; (b) the corroboration split depends on what the store
+already held when the journal was written, so it is run after the bulk sources, not before;
+(c) 28 of 46 round 2 seed pages had no usable in-window capture, which is normal for 1990s hosts.
+
+---
+
 ## `internet_scout`: Internet Scout Report archive
 
 **What it is.** The Internet Scout Report, a weekly curated review of scholarly, government and
@@ -451,6 +499,12 @@ Wayback URL.
 `cdx_snapshot` writes under the source name `ia_cdx_bulk`. `deduplicated_urls_2001-2002` and
 `mid_slice` are candidate-only source names with zero evidence rows, retained so earlier seeding
 runs remain attributable.
+
+`page_expansion` holds the candidate-only half of the section VII route: outbound links from pages
+not asserted to be curated directories, plus names from directory pages that no other source
+attests. 242 evidence rows and, by design, **zero pairs**. It is doing its job when it stays at
+zero, because every domain it holds is queued for verification rather than credited on the say-so
+of a page that linked to it.
 
 ---
 

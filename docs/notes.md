@@ -484,6 +484,11 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the candidate seeds were listed as the UKWA target list, but UKWA targets enter through `ark ingest ukwa_link_target`; the two files really seeded were `data/raw/webbase/hosts.txt` and `legacy-data/deduplicated_urls_2001-2002.txt`
   - both found by expanding every glob in the recipes and comparing the count against `ingested_file`: early_web 224, isc_survey 5, afnic 1, odp 3, all matching. Worth repeating for any documented glob, since a glob that quietly matches too little looks identical to a correct one
 
+- **Concurrency re-measured after the outage; 8 workers confirmed, 12 is worse (2026-07-26)**
+  - the Internet Archive began answering again around 02:53 after refusing connections for hours, but degraded: 4 workers gave ~185 answered domains/hour at a 64% answered share, against the ~1,000/hour measured before the outage
+  - stepped the pool up and measured each setting on live traffic rather than assuming the old calibration still held. **4 workers: ~185/hour, 64% answered. 8 workers: ~383/hour, 92.5%. 12 workers: ~262/hour, 84%.** So 12 is worse than 8 on both axes, and the pre-outage operating point of 8 survives a service that is otherwise much slower than it was
+  - the shape matches the original calibration (answered share 82% at 8, collapsing above), which is the useful part: the service's concurrency ceiling is a property of the service and does not move when its latency does. Left running at 8
+
 - **Section VII expansion, two rounds, and why round 1 had to fail first (2026-07-26)**
   - **round 1: 27 directory and navigation home pages, 19 fetched, 92 domains, 187 evidence rows, 0 new candidates and 0 net-new pairs.** A complete miss, and the useful kind: a directory HOME page links to its own category pages (same domain, excluded) and to the handful of major sites the baseline already holds. The catalogued sites live one level in
   - deliberately no page was asserted as a curated directory in round 1. Under IV.i that assertion makes a page's capture date master evidence for everything listed on it, and asserting it from the reputation of a hostname would be guessing
