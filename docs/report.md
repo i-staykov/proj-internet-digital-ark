@@ -114,15 +114,15 @@ cannot be inflated.
 **Candidate pool only: 5,583 domains**: 5,435 hosts linked to in the UK link graph, 87 from
 archived ranked listings, 38 from the Stanford WebBase crawl host list, 19 named on directory pages
 but attested nowhere else, 4 from earlier probes. WebBase carries no dates, so it seeds candidates
-and never an annual file; 99.99% of its hosts were already held, which is why 38 remain.
+and never an annual file; 99.99% of its hosts were already held.
 
 The ODP rows are dated dumps, not the undated 2015 aggregate: a truncated August 2000 content dump
 and two Kids-and-Teens dumps from 2001, each carrying its own generation stamp, so they assign only
-2000 and 2001. No dump is spread across years it does not cover.
+2000 and 2001.
 
-Evidence rows and pairs differ: Early Web CDX contributes 2.28M rows but 182 net-new
-pairs, because the baseline derives from the same archive. Those rows are corroboration, and the
-net-new volume comes from sources of different origin, which also explains the geographic skew.
+Evidence rows and pairs differ: Early Web CDX contributes 2.28M rows but 182 net-new pairs, because
+the baseline derives from the same archive. Those rows are corroboration, and the net-new volume
+comes from sources of different origin, which also explains the geographic skew.
 **2,578,019 pairs carry two or more sources; 589,937 are confirmed by two or more genuinely
 independent lineages**, 10,207 of them net-new.
 
@@ -178,9 +178,9 @@ links into the next round. Four rounds were run.
 **Rounds and seeds.** A pilot on high-fanout early pages, then directory, navigation and yellow-page
 sites; then the WWW Virtual Library's subject libraries, asserted as curated catalogues; then further
 subject libraries found in the previous round's own outbound links. That last round closes the loop:
-its seed list was produced by the pipeline, not by hand. Captures are fetched with the Wayback `id_`
-modifier, which serves the original stored bytes rather than a rewritten page, so the extracted links
-are the ones the author published.
+its seed list was produced by the pipeline, not by hand. Captures use the Wayback `id_` modifier,
+which serves the original stored bytes rather than a rewritten page, so the extracted links are the
+ones the author published.
 
 **Depth decides yield.** Home pages returned 92 domains and zero new candidates, because a portal
 front page links to its own categories rather than outward. Curated catalogues one level in returned
@@ -188,10 +188,9 @@ front page links to its own categories rather than outward. Curated catalogues o
 
 **Why extracted names are split.** A curated page's capture date may evidence the domains listed on
 it, which is sound for the page and unsound for the parser: archived HTML carries transcription
-errors, and this route produced `arvard.edu` from a `harvard.edu` link, plus `gov.edu` and
-`gintysuooly.com`. A sample put roughly 40% of never-before-seen names in that class, so a name some
-other source already attests is kept as dated evidence, and a name nothing else attests becomes a
-candidate.
+errors, and this route produced `arvard.edu` from a `harvard.edu` link. A sample put roughly 40% of
+never-before-seen names in that class, so a name some other source already attests is kept as dated
+evidence, and a name nothing else attests becomes a candidate.
 
 **The cycle was closed, not just described.** Of 298 discovered candidates queried against the
 archive, 233 answered and **198 (85%) held an in-window capture**, adding 278 pairs: high enough to
