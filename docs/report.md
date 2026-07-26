@@ -157,10 +157,12 @@ than by convention: candidate-only evidence types cannot create a year assignmen
 | Source | Domains | What it is |
 |---|--:|---|
 | `ukwa_link_target` | 5,435 | hosts linked *to* in the UK web archive's 1996-2001 host-link graph |
+| `candidate_hosts` (100hot.com) | 258 | hostnames read as plain text from archived ranked listings, so not assertable as entries |
+| `page_expansion` | 40 | names listed on curated directory pages that no other source attests (§3.3) |
 | webbase `hosts` | 39 | Stanford WebBase 2001 crawl hosts, the III.4-named source |
 | `deduplicated_urls_2001-2002` | 2 | supplied legacy seed file |
 | other | 2 | earlier probes |
-| **total** | **5,478** | |
+| **total** | **5,776** | |
 
 The pool is `.uk`-weighted, which follows from its dominant source: `.co.uk` 2,182, `.com` 1,925,
 `.org.uk` 295, `.net` 270, `.org` 245, `.de` 80, `.ac.uk` 30, `.com.au` 23.
@@ -454,7 +456,7 @@ Answered per source from measured rates rather than impressions, because "keep g
 | **Stanford WebBase** | Retired | 603,323 domains, 99.99% already held. Measured, not assumed |
 | **Commercial WHOIS history, national archives, zone files** | Closed | Priced, gated or non-existent for 1996-2001; the 21-row rejected table in [sources.md](sources.md) records each check |
 
-**The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool (5,478 domains before the 100hot seeding, plus 258 after) is the second call on that same capacity.
+**The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool, now 5,776 domains, is the second call on that same capacity.
 
 ---
 
