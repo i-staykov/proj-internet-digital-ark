@@ -197,11 +197,12 @@ running, all six investigations active.
 
 ## Synthesis for your return (2026-07-26, 07:00)
 
-**Where it stands.** 463,565 net-new domains over **1,313,177 net-new pairs**, from 463,364 /
-1,308,206 when you went to bed. `ark check` 9/9 PASS, 195 tests (from 176), ruff clean, 28 commits
-on `feature`, working tree clean. **The delivery archive is built and verified**: 128 MB, 94 files,
-93/93 checksums OK, unpacks cleanly, its `source/COMMIT.txt` matches HEAD, and its six year files
-hold exactly 1,313,177 lines, matching the scoreboard.
+**Where it stands.** 463,565 net-new domains over **1,315,421 net-new pairs**, from 463,364 /
+1,308,206 when you went to bed. `ark check` 9/9 PASS, 195 tests (from 176), ruff clean, 30 commits
+on `feature`, working tree clean. **The delivery archive is built and verified**: 128 MB, 97 files,
+every checksum OK, unpacks cleanly, its `source/COMMIT.txt` matches HEAD, and its six year files
+hold exactly 1,315,421 lines, matching the scoreboard. It was rebuilt at 08:45 to fold in the pairs
+collected after the first build.
 
 **Collection is still running.** Both engines and the supervisor are alive and will keep adding
 pairs to the store. That makes `output/` stale the moment they land anything, which is now
