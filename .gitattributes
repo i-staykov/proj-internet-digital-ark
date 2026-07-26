@@ -1,0 +1,6 @@
+# Files that stay in the repository but must not travel in the delivery.
+# `git archive` builds the shipped source snapshot, so anything tracked ends up
+# in front of the reader unless it is marked here. A session log reached the
+# submission this way once, and the decision log would have followed it.
+docs/notes.md export-ignore
+.gitattributes export-ignore
