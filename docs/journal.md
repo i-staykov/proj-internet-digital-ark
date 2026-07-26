@@ -145,3 +145,50 @@ running, all six investigations active.
 - **Engines:** RDAP healthy throughout. IA still flapping between 25% and 40% availability; the
   supervisor holds and resumes CDX correctly. The three remaining section-C investigations are the
   IA-dependent ones and are still running.
+
+**07:10-04:25: H1, H2, H4, B7, H7 and four bugs.** Store **1,309,970** net-new pairs (from
+1,308,206), 9/9 invariants PASS, **192 tests** (from 176), ruff clean, 13 commits.
+
+- **H1 `just` recipes, and the collision resolved.** `just verify-repo` validates the code,
+  `just check-data` validates the data, `just check` runs both, so neither can be mistaken for the
+  other. The pipeline is six named stages chained by `just reproduce`.
+- **A latent bug found while wiring that up, and it was the dangerous kind.** The documented ingest
+  glob `data/raw/cdx/cdx_*.jsonl.gz` matches a journal a collector is still writing, and the parser
+  tolerates a half-written gzip stream rather than refusing it (measured: 121 records out of the
+  live file). So an ingest issued mid-run would have ledgered the hash of a partial file, and every
+  later ingest of the finished one would fail its hash check with the rest of the run unreachable.
+  Checked whether it had already bitten: 26 ledgered journals, 0 mismatches, pure luck of timing.
+  Runs now write `<name>.part` and rename on exit.
+- **That fix then broke termination, which is worth recording.** Making SIGTERM raise `SystemExit`
+  so the rename happens exposed the other half: the collectors submit the whole batch up front and
+  `ThreadPoolExecutor` waits for every queued task on exit, so `pkill` was silently ignored and the
+  run needed `kill -9`. Fixed by cancelling pending futures. Handling a signal is only half the job;
+  what the process does on the way out is the half that hides.
+- **A test was overwriting a shipping artifact.** `data/reports/source_contribution.csv` held two
+  rows, `prior_task` and `ia_cdx` with one evidence row each, and its mtime was the last test run.
+  `export_all` took three output paths but wrote the contribution tables to the real `data/reports`
+  regardless. Packaging after a test run would have shipped a per-source table describing 2 domains
+  instead of 5.29M.
+- **H2 reproduction instructions rewritten** as 22 numbered steps, each with one command and the
+  output it should print, and inputs (51 GB, network) split from the rebuild (offline, ~10 min).
+  Every figure measured rather than inferred, which caught two of my own wrong numbers.
+- **H4 auxiliary seed pool: 3,595,769 hostnames and URLs** over 2,195,955 domains. III.8 makes the
+  registered domain the counting unit, so `shop.foo.com` collapses into `foo.com` and a crawler
+  never reaches it. `ark seed-pool` re-reads each source through the *same parser* as `ark ingest`
+  and keeps the raw value, so a seed cannot disagree with its own evidence.
+- **B7 three expansion rounds, +1,267 pairs**, landing in the thinnest years (1998 +485, 1999 +464).
+  Round 1 failed usefully: directory home pages gave 92 domains and zero new candidates, which is
+  what pointed at the subject pages one level in. No page was called a curated directory until the
+  catalogue's own metadata said so.
+- **A source review's top recommendation declined.** It projected 700-1,100 net-new domains from
+  100hot.com as master directory evidence. Its prescribed markup is not in the pages, and the
+  productive captures are different ones, but it was right that the listed hosts are plain text: a
+  text scan finds 488 net-new pairs the link extractor misses. Asserting them would break our own
+  rule that only curated *entries* count, since a regex cannot tell an entry from an advertisement.
+  Seeded as candidates instead: **258 new**, each to earn its own year from a capture.
+- **Concurrency re-measured** after the outage rather than assumed: 4 workers ~185 answered/hour at
+  64%, 8 workers ~383 at 92.5%, 12 workers ~262 at 84%. The pre-outage operating point of 8 holds.
+- **H7 fresh clone passes** with only `uv`: sync, lint, 192 tests, `ark init`, `ark check` ALL PASS.
+- **Packaging** now refuses a stale `output/` the same way it refuses a dirty tree, after catching
+  the archive shipping 1,513 fewer pairs than the store held. The archive also ships the query
+  journals (1.7 MB), which is what lets a reviewer reproduce both network stages with no network.
