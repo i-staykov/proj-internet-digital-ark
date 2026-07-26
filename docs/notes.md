@@ -457,6 +457,12 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - classification moved from one query per line to one set-based query, which matters at the 600k-domain seed files that section B will feed it
   - verified while here that both verification selectors already drop fully-covered domains: of 31,492 domains holding all six in-window years, 0 appear in the RDAP pool and 147 (0.03%) appear in the CDX pool, those being domains whose gaps the CDX run itself filled after the list was generated. Accepted as the staleness cost of not regenerating the list mid-run (Ivo, 2026-07-26)
 
+- **`just` recipes for every documented command, and the `check` name collision resolved (2026-07-26)**
+  - the collision Ivo flagged: `just check` ran lint plus tests while `ark check` runs the nine data invariants. Two different validations, one name, and the failure mode is running one and believing the other passed
+  - resolved by refusing to give either the bare name: `just verify-repo` validates the code (lint, format-check, tests), `just check-data` validates the data (`ark check`), and `just check` runs BOTH, which is what someone typing it actually wants
+  - the pipeline is now five named stages (`baseline`, `sources`, `candidates`, `journals`, `deliver`) with `just reproduce` chaining them, plus `cdx-batch`, `rdap-batch` and `expand-round` for the network collectors. Verified with `just --dry-run reproduce`, which prints the twenty underlying `uv run` commands in order
+  - the raw `uv run` commands stay the reproducibility contract, because they need nothing but uv. `just` is a convenience layer over the same strings, never a second definition of the pipeline
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the

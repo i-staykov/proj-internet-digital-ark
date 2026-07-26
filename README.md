@@ -6,7 +6,7 @@ A reproducible pipeline that collects historical **domain names for 1996–2001*
 
 ## Requirements
 
-[`uv`](https://docs.astral.sh/uv/) only — it installs Python 3.12, the dependencies, and their locked versions. Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`, then `uv sync`. Every command below runs under `uv run` with nothing else installed; the optional [`just`](https://github.com/casey/just) wraps the same commands.
+[`uv`](https://docs.astral.sh/uv/) only. It installs Python 3.12, the dependencies, and their locked versions. Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`, then `uv sync`. Every command below runs under `uv run` with nothing else installed; the optional [`just`](https://github.com/casey/just) wraps the same commands.
 
 ## Reproduce the processing
 
@@ -36,6 +36,16 @@ bash scripts/package_delivery.sh   # assemble the delivery archive (tar.gz + SHA
 ```
 
 Every stage is re-runnable and resumable: re-running skips work already done, so an interrupted run is finished by running it again. Each run appends to a log in `data/logs/`. Run `uv run ark --help` for all commands and their arguments.
+
+**Or with `just`.** If [`just`](https://github.com/casey/just) is installed, every command above has a named recipe, so the order is harder to get wrong. `just --list` shows them all. The whole result rebuilds from an empty store with no network access:
+
+```bash
+just setup       # uv sync
+just reproduce   # baseline -> sources -> candidates -> journals -> deliver
+just check       # lint + format-check + tests, then the nine data invariants
+```
+
+`just reproduce` chains the five stages (`baseline`, `sources`, `candidates`, `journals`, `deliver`), each runnable on its own. Two names deserve their spelling: `just check-data` runs `ark check`, which validates the **data**, and `just verify-repo` runs lint, format-check and tests, which validate the **code**. Calling either one plain `check` invites running one and believing the other passed, so `just check` runs both.
 
 The two network stages (`ark rdap`, `ark cdx`) write a per-run **journal** and no evidence, then an `ingest` step turns journals into evidence. They therefore never hold the store's single write lock, so a long `ark cdx` pass runs for hours alongside other work. `ark cdx` sends one collapsed query per domain covering all six years, paced by a governor that eases up while the service is healthy and backs off on 429/503/504 honouring `Retry-After`; concurrency is the throughput lever because a wildcard CDX query costs about 20 seconds. A practical long run looks like:
 
