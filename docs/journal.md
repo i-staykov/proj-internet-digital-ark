@@ -197,17 +197,24 @@ running, all six investigations active.
 
 ## Synthesis for your return (2026-07-26, 07:00)
 
-**Where it stands.** 463,565 net-new domains over **1,315,421 net-new pairs**, from 463,364 /
-1,308,206 when you went to bed. `ark check` 9/9 PASS, 195 tests (from 176), ruff clean, 30 commits
-on `feature`, working tree clean. **The delivery archive is built and verified**: 128 MB, 97 files,
-every checksum OK, unpacks cleanly, its `source/COMMIT.txt` matches HEAD, and its six year files
-hold exactly 1,315,421 lines, matching the scoreboard. It was rebuilt at 08:45 to fold in the pairs
-collected after the first build.
+**Where it stands.** 463,565 net-new domains over **1,322,358 net-new pairs**, from 463,364 /
+1,308,206 when you went to bed. `ark check` 9/9 PASS, 195 tests (from 176), ruff clean, 32 commits
+on `feature`, working tree clean. **The delivery archive is built and verified**: 128 MB, 111 files,
+110/110 checksums OK, unpacks cleanly, `source/COMMIT.txt` matches HEAD, and its six year files hold
+exactly 1,322,358 lines, matching the scoreboard. A fresh clone with only `uv` syncs, lints, passes
+195 tests, and returns ALL PASS.
 
-**Collection is still running.** Both engines and the supervisor are alive and will keep adding
-pairs to the store. That makes `output/` stale the moment they land anything, which is now
-detected rather than silent: packaging refuses to build from an `output/` older than the store. To
-fold in whatever they collect between now and when you read this:
+**Collection is stopped, deliberately.** Both collectors were shut down cleanly at 12:55 so the
+store would stop moving while the final export, audit fixes and packaging were done; every journal
+published (zero `.part` files left behind) and all were ingested. To resume:
+
+```
+nohup bash scripts/supervise_engines.sh 43000 8 &   # collectors, 8 workers is the measured optimum
+nohup bash scripts/maintain_loop.sh 43000 &         # folds finished journals in every 20 min
+```
+
+After resuming, folding new pairs into the deliverable is three commands, and packaging refuses to
+build from an `output/` older than the store rather than shipping a quiet mismatch:
 
 ```
 bash scripts/maintain.sh          # ingest finished journals, print the scoreboard
@@ -269,3 +276,37 @@ corrupted, because a failure is never recorded as an answer.
 holds ~470,000 unqueried domains, which report §7 argues is the one route that converts hours into
 pairs at a stable rate. Section E stays skipped by your decision. `plan.md` and `todo.md` are
 current, with every box ticked in the sitting its work landed.
+
+## Adversarial audit of the shipping documents (2026-07-26, 13:00)
+
+Ran a seven-way audit of every shipping surface against the store, the repo and each other, with
+each finding independently re-verified. **Twenty real defects, all now fixed**; one was rejected as
+a false positive. Two would have been visible to Prof. Ding:
+
+- **The documented checksum command did not work.** `checksums.sha256` listed 232 paths relative to
+  `data/raw/` and 3 relative to the repo root, so running it as documented verified 3 files and
+  reported the other 232 unreadable. Normalised to one base; **all 235 now verify.**
+- **The archive shipped rounds 1 to 3 of the expansion journals and not round 4**, while its own
+  readme told the reader to restore round 4, because the packaging script enumerated round
+  directories by hand. It now finds every journal under `data/raw/expand`.
+
+Wrong facts, not drift:
+
+- The `link_target` row of the evidence table said the type was **unpopulated (0 rows) and its
+  ingester not yet built**. It carries 88,511 rows, the ingest is step 14 of the documented rebuild,
+  and the report credited its output two sections later. It was also missing from the
+  evidence-rows-by-type list.
+- The rate governor's ceiling was given as 2 s; it is the 5 s `--max-delay` default and no
+  production run overrides it.
+- "22 numbered steps" (24) and "the 21-row rejected table" (17 rows).
+
+The remaining thirteen were hand-maintained figures that drift with every ingest, and the durable
+fix was to stop maintaining them by hand: `scripts/refresh_report_figures.py` now also owns the
+section 4 metrics bullet, the evidence-rows-by-type list, the `ia_cdx_bulk` and `rdap_snapshot`
+figures, the README archive total, and two per-source yields in `sources.md`. Anything it owns
+cannot be stale after a repackage, which is the class of error this audit mostly found.
+
+**What I would still check yourself.** The `page_directory` evidence rests on my reading that a
+page declaring itself "an expert-run catalog" satisfies IV.i. I verified that from the capture's own
+metadata rather than the site's reputation, and demoted every name no other source attests, but it
+is a judgement about evidence standards and therefore yours to confirm.
