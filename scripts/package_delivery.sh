@@ -17,6 +17,22 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     exit 1
 fi
 
+# The same argument as the clean-tree guard, applied to the data: output/ is a
+# snapshot taken by `ark export`, and every ingest since then makes it older than
+# the store. Shipping a stale one understates the result and contradicts the
+# report, which quotes the store. Caught this way once, 1,513 pairs behind.
+SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
+STORED=$(uv run python -c "
+import duckdb
+from ark.stats import collect_stats
+print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
+" 2>/dev/null | tail -1)
+if [ "$SHIPPED" != "$STORED" ]; then
+    echo "refusing to package: output/ holds $SHIPPED net-new pairs, the store holds $STORED" >&2
+    echo "run 'uv run ark export' first, then re-run." >&2
+    exit 1
+fi
+
 STAGE="output/delivery"
 ARCHIVE="output/internet-digital-ark-delivery.tar.gz"
 rm -rf "$STAGE"
