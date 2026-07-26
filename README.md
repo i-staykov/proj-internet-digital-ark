@@ -22,16 +22,16 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
 
-**What tier 3 actually returns, measured rather than assumed.** A full run takes about 20 minutes once the sources are on disk and rebuilds **1,319,272 of the 1,322,365 shipped pairs (99.77%)** over 462,726 of 463,566 domains, with all nine invariants passing. The 3,093-pair gap is two sources that predate journalling and so have no stored responses to replay: the legacy `rdap` tranche (3,106 pairs, the one the report's limitations already flags as having no hashed source file) and the superseded `ia_cdx` route (11 pairs). Nothing is lost in the process: those 840 domains return to the candidate pool, which grows from 5,583 to 6,423. Tier 2 is the check that reproduces the shipped result exactly, byte for byte; tier 3 re-derives everything that can be re-derived from files.
+Measured, a full run takes about 20 minutes and returns **1,319,272 of the 1,322,365 pairs (99.77%)**, all invariants passing. The gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the report's limitations) and the superseded `ia_cdx` route (11). Their 840 domains return to the candidate pool rather than being lost. Tier 2 is the byte-for-byte check; tier 3 re-derives what files can re-derive.
 
-**Two sources are live, not pinned.** `data/raw/checksums.sha256` pins 235 files, which is every source that can be pinned. The `.fr` open-data file cannot be: it is republished monthly, and this delivery used the June 2026 edition, so a reviewer downloading "the current A file" later gets a different one, with creation dates that have moved for any domain re-registered since. The Internet Scout OAI feed likewise keeps growing. Both are one-directional and small, but they mean a re-download does not have to match this run byte for byte, which is precisely why the journals and the provenance export ship.
+`data/raw/checksums.sha256` pins 235 files, every source that can be pinned. Two cannot: the `.fr` file is republished monthly (this used the June 2026 edition) and the Internet Scout feed keeps growing, so a later download need not match. The shipped journals and Parquet export do not move, which is the point of them.
 
 ## Reproduce the results
 
 Two jobs, and only the first needs the network:
 
 - **Part 1, get the inputs** (tier 3 only). The bulk source files, about 50 GB, so they are fetched rather than shipped.
-- **Part 2, rebuild the result** (tier 3). Deterministic and offline, about 20 minutes measured end to end. This reproduces the shipped numbers to 99.77%, with the gap accounted for above.
+- **Part 2, rebuild the result** (tier 3). Deterministic and offline, about 20 minutes measured. Returns 99.77% of the shipped numbers, with the gap accounted for above.
 
 Every step below prints what it did, and the expected output is given so a mismatch is visible immediately rather than three steps later. Every step is re-runnable: work already done is skipped, so an interrupted run is finished by running the same command again. Each run appends to a log in `data/logs/`.
 

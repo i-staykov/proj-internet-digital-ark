@@ -106,17 +106,14 @@ The bulk sources total about 50 GB, of which a single 47 GB capture index is mos
 **Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
 reproducing 98.7% of the result.
 
-**What this returns.** Measured: **1,319,272 of the 1,322,365 pairs (99.77%)**, over 462,726 of
-463,566 domains, with all nine invariants passing. Two sources predate journalling and have no
-stored responses to replay, so tier 3 cannot recreate them: the legacy `rdap` tranche (3,106 pairs,
-also noted in the report's limitations) and a superseded per-year CDX route (11 pairs). The 840
-domains involved are not lost, they return to the candidate pool. Tier 2 above is the check that
-reproduces the shipped files exactly; tier 3 re-derives what can be re-derived from source files.
+Measured, this returns **1,319,272 of the 1,322,365 pairs (99.77%)**, all invariants passing. The
+gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the
+report's limitations) and a superseded CDX route (11). Their 840 domains return to the candidate
+pool. Tier 2 above is the byte-for-byte check.
 
-**Two sources are live rather than hash-pinned**, so a later download need not match this one: the
-`.fr` registry file is republished monthly (this used the June 2026 edition) and the Internet Scout
-OAI feed keeps growing. The 235 files in `data/raw/checksums.sha256` are the ones that cannot drift.
-This is why the archive ships the network journals and the provenance export: they do not move.
+Two sources are also live rather than hash-pinned, so a later download need not match this one: the
+`.fr` file is republished monthly (this used the June 2026 edition) and the Internet Scout feed
+keeps growing. The journals and provenance export shipped here do not move.
 
 ## Evidence standard
 
