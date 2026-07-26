@@ -10,6 +10,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark.contribution import write_contribution_tables
 from ark.ingest import YEARS
 
 NETNEW_DIR = Path("output/netnew")
@@ -65,6 +66,9 @@ def export_all(
         ORDER BY d.domain
     """
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
+
+    # per-source and per-year contribution tables, which ship in the audit folder
+    stats.update(write_contribution_tables(conn))
 
     logger.info(f"export: {stats}")
     return stats
