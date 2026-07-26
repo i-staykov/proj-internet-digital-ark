@@ -463,6 +463,15 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the pipeline is now five named stages (`baseline`, `sources`, `candidates`, `journals`, `deliver`) with `just reproduce` chaining them, plus `cdx-batch`, `rdap-batch` and `expand-round` for the network collectors. Verified with `just --dry-run reproduce`, which prints the twenty underlying `uv run` commands in order
   - the raw `uv run` commands stay the reproducibility contract, because they need nothing but uv. `just` is a convenience layer over the same strings, never a second definition of the pipeline
 
+- **A journal is published only when its run stops, or the ledger would record half a file (bug, 2026-07-26)**
+  - found while writing the `just journals` recipe. The documented ingest command globs `data/raw/cdx/cdx_*.jsonl.gz`, and with the supervisor running there is almost always a journal being written. Confirmed empirically that `parse_cdx_snapshot` does not raise on a half-written gzip stream, it reports `truncated_tail` and yields the records it managed to read: 121 records out of the live journal
+  - so the sequence was: ingest hashes the partial bytes, parses 75 lines, commits evidence plus a ledger row for that hash. The collector then finishes writing, the file's hash no longer matches the ledger, and every later ingest raises `ledgered with different content` with the whole tail of the run unreachable until someone deletes the ledger row by hand
+  - checked whether it had already happened: 26 ledgered journals, 0 hash mismatches. Latent, not triggered, because every ingest so far landed between batches
+  - fixed in `journal.py`, which owns the invariant: a run writes `<name>.jsonl.gz.part` and renames to `<name>.jsonl.gz` when it stops. The ingest glob no longer matches a live run, while `queried_domains` globs `{prefix}_*.jsonl*` and still reads `.part` files, so a killed run's answers are not queried again
+  - the rename happens on any exit including Ctrl-C, an exception, and SIGTERM. SIGTERM needed a handler: Python exits on it without unwinding, so `finally` would not run and the journal would stay stranded as `.part`, and SIGTERM is exactly how `supervise_engines.sh` stops a collector
+  - a `.part` file surviving a hard kill (SIGKILL) is deliberately NOT auto-promoted. Promoting it would race a collector that is still writing, and on POSIX the rename would not stop the writes, which reintroduces the same bug. Renaming it by hand is the documented recovery
+  - 7 tests in `tests/test_journal.py`, one per property, including that a live journal is invisible to the ingest glob but visible to the resume scan
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the

@@ -47,6 +47,8 @@ just check       # lint + format-check + tests, then the nine data invariants
 
 `just reproduce` chains the five stages (`baseline`, `sources`, `candidates`, `journals`, `deliver`), each runnable on its own. Two names deserve their spelling: `just check-data` runs `ark check`, which validates the **data**, and `just verify-repo` runs lint, format-check and tests, which validate the **code**. Calling either one plain `check` invites running one and believing the other passed, so `just check` runs both.
 
+A running collector writes to `<journal>.jsonl.gz.part` and renames it on exit, so the `ingest` globs above never pick up a half-written file (which would ledger the hash of its first lines and lock out the rest of the run). The rename happens on Ctrl-C and on `kill` too; only a hard `kill -9` leaves a `.part` behind, and renaming it by hand makes it ingestable. Either way a later run reads `.part` files when deciding what it can skip, so no answer is ever queried twice.
+
 The two network stages (`ark rdap`, `ark cdx`) write a per-run **journal** and no evidence, then an `ingest` step turns journals into evidence. They therefore never hold the store's single write lock, so a long `ark cdx` pass runs for hours alongside other work. `ark cdx` sends one collapsed query per domain covering all six years, paced by a governor that eases up while the service is healthy and backs off on 429/503/504 honouring `Retry-After`; concurrency is the throughput lever because a wildcard CDX query costs about 20 seconds. A practical long run looks like:
 
 ```bash

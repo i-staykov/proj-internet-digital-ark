@@ -23,7 +23,7 @@ from ark.expand import expand_page, read_seeds
 from ark.export import export_all
 from ark.gaps import write_creation_candidates, write_gap_candidates
 from ark.ingest import YEARS, ingest_legacy
-from ark.journal import journal_path, open_journal_for_write, queried_domains, write_journal_line
+from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
 from ark.rdap import (
@@ -230,7 +230,7 @@ def download(
     stats: Counter = Counter({"seeds": len(seed_list), "skipped_done": len(done)})
     written = 0
     if seed_list:
-        with open_journal_for_write(path) as journal, ThreadPoolExecutor(workers) as pool:
+        with journal_writer(path) as journal, ThreadPoolExecutor(workers) as pool:
             futures = {
                 pool.submit(
                     expand_page,
@@ -338,7 +338,7 @@ def rdap(
     logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
     stats: Counter = Counter()
     queried = 0
-    with open_journal_for_write(path) as journal:
+    with journal_writer(path) as journal:
         with candidates.open(encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 raw = line.strip()
@@ -496,7 +496,7 @@ def cdx(
     governor = RateGovernor(delay=delay, max_delay=max_delay)
     written = 0
     if targets:
-        with open_journal_for_write(path) as journal, ThreadPoolExecutor(workers) as pool:
+        with journal_writer(path) as journal, ThreadPoolExecutor(workers) as pool:
             strategy = lookup_years_per_year if per_year else lookup_years
             fetch = http_fetch(timeout)
             futures = {
