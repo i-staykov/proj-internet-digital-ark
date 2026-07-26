@@ -95,7 +95,10 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
 tar -czf "$ARCHIVE" -C output "$RELEASE"
-shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+# The checksum file records the bare filename, not the build path: a reviewer
+# who downloads only the archive runs `shasum -c` beside it, and a stored path
+# of `output/...` makes that fail before they have checked anything.
+( cd output && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
 
 # Everything needed to hand the archive over by link, in one block to copy.
 cat <<EOF
