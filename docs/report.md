@@ -421,32 +421,46 @@ bytes on disk rather than from the live service, whose answers change over time.
 - **The legacy RDAP tranche has weaker provenance than every other source.** Its 3,106 pairs (0.24% of the additions, source name `rdap`) were written directly from live queries before the journal architecture existed, so they have no hashed source file and no per-record URL; their provenance is the evidence value, the ingest timestamp, the run metrics, and the execution logs. Every other source replays from a file whose sha256 is in the ledger. The journal architecture described in §5 is now running: the `rdap_snapshot` source carries **2,476 evidence rows backing 1,071 pairs** from five hashed journal files, and everything it collects from here on replays from bytes on disk. The legacy rows were deliberately left in place rather than re-queried, because re-querying in 2026 returns *different* creation dates for any domain that has since changed hands, which would silently alter the result set.
 - **One standard is not uniform inside `whois_creation`.** RDAP rows attest a single creation year (the strict III.6 reading, since RDAP spans ~590 registries whose creation-date semantics are not established). AFNIC rows attest every year their registration span covers, on the strength of AFNIC's own documented `crDate` behaviour. Two different strengths of claim under one type name, deliberately and visibly: every row records the basis it rests on (`rdap creation 1998` vs `registered 16-03-1999..active`), so either can be recounted independently. §2 gives the reasoning and the size of the AFNIC exposure (69,111 pairs).
 
-**How to reproduce.** With only `uv` installed:
+**How to reproduce.** With only `uv` installed, and **with no network access**:
+
 ```
-uv run ark ingest-legacy               # load baseline read-only
-uv run ark ingest early_web  data/raw/early_web/*.cdx.gz
-uv run ark ingest isc_survey data/raw/isc_survey/*.gz
-uv run ark ingest arquivo_roteiro data/raw/arquivo/Roteiro.cdxj
-uv run ark ingest arquivo_ia data/raw/arquivo/IA.cdxj
-uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
-uv run ark ingest afnic_fr   data/raw/afnic/*.csv
-uv run ark ingest odp        data/raw/odp/*.gz
-uv run ark ingest internet_scout data/raw/scout/scout_oai.xml
-uv run ark rdap  data/raw/ukwa/link_target_candidates.txt -n 6500   # network -> journal
-uv run ark rdap  data/raw/gapfill_candidates.txt -n 15000           # network -> journal
-uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz       # journal -> evidence
-uv run ark export            # net-new files + manifest + merged masters
-uv run ark stats             # the scoreboard
-uv run ark check             # integrity gate, must print ALL PASS
+uv sync            # install the locked dependencies
+just reproduce     # baseline -> sources -> candidates -> journals -> seeds -> deliverable
+just check         # lint, format-check and tests, then the nine data invariants
 ```
-The `ark rdap` steps are the only network-dependent stages, so their yield depends on which domains are still registered on the day they run. `ark rdap` writes a per-run **journal** (one gzipped JSON object per queried domain, holding the whole RDAP response) and no evidence; `ark ingest rdap_snapshot` turns journals into evidence through the same hashed-file loader as every other source. Re-running either step is a no-op on work already done. A store built **before 2026-07-25** carries the superseded interval rows and is migrated with `uv run python scripts/restrict_whois_creation_to_creation_year.py rdap --apply` (dry run by default); a store built with the current code needs no migration.
-Source URLs and exact rescue notes are per-source in [notes.md](notes.md). Downloaded data lives under `data/raw/` (git-ignored); the method is in git and the data regenerates.
+
+`README.md` in the code snapshot gives the same run as 22 numbered steps, each with the output it should print, so a mismatch is visible at the step that caused it rather than at the end. It also separates the two halves that get conflated: acquiring the bulk sources (about 51 GB, network, hours) from rebuilding the result once they are on disk (offline, about ten minutes).
+
+The rebuild needs no network because the two collectors do not run in it. `ark cdx` and `ark rdap` write a per-run **journal**, one gzipped JSON object per queried domain holding the whole response, and no evidence; a later `ark ingest` turns journals into evidence through the same hashed-file loader every other source uses. Those journals ship in the archive (1.7 MB), so the result is derived from bytes rather than from services that answer differently today, and re-running any step is a no-op on work already done.
+
+A store built **before 2026-07-25** carries the superseded interval rows and is migrated with `uv run python scripts/restrict_whois_creation_to_creation_year.py rdap --apply` (dry run by default); a store built with the current code needs no migration. Source URLs and exact rescue notes are per-source in [sources.md](sources.md).
+
+---
+
+## 7. Is further expansion worthwhile? (brief §IX, FINAL.5)
+
+Answered per source from measured rates rather than impressions, because "keep going" and "stop" are different recommendations and the brief asks which applies where.
+
+| Route | Verdict | Measured basis |
+|---|---|---|
+| **IA CDX gap-filling** | **Continue; the only route that scales with time alone** | 1.15 net-new pairs per answered domain, 8 workers sustaining 380-1,000 answered/hour depending on service health. The bracketed pool still holds ~470,000 unqueried domains, so yield is bounded by hours spent, not by the source |
+| **RDAP creation dates** | Continue while it runs free, do not optimise | 0.15 pairs per domain against CDX's 1.15. Structural: a capture answers any year, a creation date answers one. Worth running only because it hits a different service and therefore costs no CDX capacity |
+| **Section VII page expansion** | Continue, selectively | +1,267 pairs from 3 rounds. Home pages returned zero; curated subject catalogues returned 27 pairs per fetched page. Worth continuing only into leaf catalogue pages, and only where the catalogue documents itself as curated |
+| **ISC surveys** | Exhausted | All 5 surviving in-window lists ingested. The largest single contributor (1,132,129 pairs); no further files exist for the window |
+| **AFNIC `.fr`** | Exhausted | One file is the whole registry. Only `.fr` names deleted before 28 January 2014 are missing, and no source holds them |
+| **UKWA, Arquivo, Early Web CDX** | Exhausted | Each is a single complete dataset, fully ingested |
+| **ODP / DMOZ** | Exhausted for the window | 3 dumps ingested; the Aug-2000 full content dump is unrecoverable and no earlier RDF dump was ever published |
+| **100hot.com** | Pending verification, not exhausted | 258 new candidates queued. Its listings are plain text, so they earn years from captures rather than from the page |
+| **Stanford WebBase** | Retired | 603,323 domains, 99.99% already held. Measured, not assumed |
+| **Commercial WHOIS history, national archives, zone files** | Closed | Priced, gated or non-existent for 1996-2001; the 21-row rejected table in [sources.md](sources.md) records each check |
+
+**The short answer.** Everything that can be exhausted from a file has been. What remains is query-bound rather than source-bound: CDX gap-filling converts hours into pairs at a stable, measured rate against a pool two orders of magnitude larger than what has been consumed, and it is the direction to fund. The candidate pool (5,478 domains before the 100hot seeding, plus 258 after) is the second call on that same capacity.
 
 ---
 
 ## Appendix: status of the plan
 
-**Done:** foundation and provenance store with a structural evidence wall; baseline loaded read-only; **12 sources carrying evidence** (eight bulk files, Internet Scout, both IA CDX paths, and registry RDAP); the evidence taxonomy and its Section III compliance map; corroboration reported by provenance lineage as well as by source count; the **nine-invariant `ark check` gate**, all passing; the two verification engines built, calibrated against the live services and running; the candidate pool populated and documented; per-source and per-year contribution tables; page expansion for the Section VII cycle; the delivery archive packaged with per-file and archive checksums.
+**Done:** foundation and provenance store with a structural evidence wall; baseline loaded read-only; **16 sources carrying evidence rows** (the baseline, thirteen contributing master-eligible evidence, and two candidate-only by design); the evidence taxonomy and its Section III compliance map; corroboration reported by provenance lineage as well as by source count; the **nine-invariant `ark check` gate**, all passing; the two verification engines built, calibrated against the live services and running; the candidate pool populated and documented; per-source and per-year contribution tables; three Section VII expansion rounds with per-round yield; the auxiliary seed pool of 3.6M hostnames and URLs; the delivery archive packaged with per-file and archive checksums, refusing to build from a dirty tree or a stale export.
 Also done: the **2026-07-25 RDAP narrowing** (creation year only, 9,664 assignments withdrawn) with a reproducible migration script.
 Also done: the AFNIC `crDate` semantics were verified from AFNIC's own registrar documentation, which is what licenses that source's registration-span reading (§2).
-**Pending:** collapsed CDX verify as a corroboration/gap-fill fallback (1998/1999) and as the honest route to converting inferred years into year-tied evidence; untested niche sources (Domains Project long tail, more national archives); feedback loop. Net-new is now dominated by national registries/archives (`.fr`, `.pt`, `.uk`); global crawls overlap the baseline, so large new tranches are unlikely without new geographies.
+**Pending, and bounded by query hours rather than by ideas:** the bracketed CDX pool still holds roughly 470,000 unqueried domains, which is the one route whose yield is a function of time spent (§7); the 258 candidates seeded from 100hot.com await their own captures; further Section VII rounds into curated leaf catalogues. Net-new is dominated by national registries and archives (`.fr`, `.pt`, `.uk`), since global crawls overlap an Internet-Archive-derived baseline, so large new tranches would have to come from new geographies rather than from new global sources.
