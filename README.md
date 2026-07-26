@@ -41,7 +41,7 @@ wc -l legacy-data/1996.txt legacy-data/1997.txt legacy-data/1998.txt \
 # expect 8224963 total
 ```
 
-**The bulk sources** go in `data/raw/<source>/`, one folder per source. Sizes and routes differ a lot, so each source has its own entry in [docs/sources.md](docs/sources.md) giving what it is, where it came from, its licence, and what its dates mean. The two largest dominate the time:
+**The bulk sources** go in `data/raw/<source>/`, one folder per source. **[docs/sources.md](docs/sources.md) gives the download commands for each**, since the routes differ a lot: several are only available from web-archive captures, and one address still answers HTTP 200 with a stub instead of the file. Sizes:
 
 | Source | Folder | Size | Route |
 |---|---|---|---|

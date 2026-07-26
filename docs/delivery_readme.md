@@ -23,7 +23,7 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `journals/` | The raw responses of every archive, registry and page query made |
 | `source/` | The code and configuration that produced everything here, plus the commit it was built from |
-| `sources.md` | Per-source detail: what each source is, how it was obtained, what fixes its dates, what it yielded |
+| `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, and why it carries the evidence type it does |
 | `SHA256SUMS` | Checksum for every file in this archive |
 | `verify.sh` | Runs every check below in one command |
 
