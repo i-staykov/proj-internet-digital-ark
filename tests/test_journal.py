@@ -97,3 +97,35 @@ def test_the_resume_scan_keeps_what_it_read_from_a_truncated_journal(tmp_path) -
     # reach disk are still answers and must not be queried again
     path.write_bytes(path.read_bytes()[:-4])
     assert "one.com" in queried_domains(tmp_path, "rdap")
+
+
+def test_stopping_a_run_does_not_wait_for_its_queued_work() -> None:
+    """A stop request must not first drain the whole submitted batch.
+
+    The collectors submit every domain up front, so the default
+    `ThreadPoolExecutor.__exit__`, which waits for all queued tasks, turned
+    SIGTERM into a wait for hundreds of pending HTTP requests. Observed live: a
+    run kept going for minutes after `pkill` and had to be killed with -9.
+    """
+    import time as _time
+
+    from ark.cli import _abortable_pool
+
+    started, finished = [], []
+
+    def slow(index: int) -> int:
+        started.append(index)
+        _time.sleep(0.3)
+        finished.append(index)
+        return index
+
+    began = _time.monotonic()
+    with pytest.raises(SystemExit), _abortable_pool(2) as pool:
+        for i in range(200):
+            pool.submit(slow, i)
+        raise SystemExit(143)
+    elapsed = _time.monotonic() - began
+
+    # draining 200 tasks two at a time would take ~30s; cancelling takes one slot
+    assert elapsed < 5
+    assert len(finished) < 20

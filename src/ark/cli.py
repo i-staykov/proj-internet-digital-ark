@@ -3,7 +3,9 @@
 import sys
 import time
 from collections import Counter
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -56,6 +58,24 @@ CDX_JOURNAL_DIR = Path("data/raw/cdx")
 CDX_JOURNAL_PREFIX = "cdx"
 EXPAND_JOURNAL_DIR = Path("data/raw/expand")
 EXPAND_JOURNAL_PREFIX = "expand"
+
+
+@contextmanager
+def _abortable_pool(workers: int) -> Iterator[ThreadPoolExecutor]:
+    """A worker pool that drops its queued work when the run stops early.
+
+    `with ThreadPoolExecutor(...)` waits for every queued task on the way out.
+    These runs submit the whole batch up front, so on Ctrl-C or SIGTERM that
+    turns "stop" into "first finish the eleven hundred requests still queued",
+    and the process looks like it is ignoring the signal. Cancelling the pending
+    futures loses nothing: an unanswered domain was never journalled, so the next
+    run simply asks again.
+    """
+    pool = ThreadPoolExecutor(workers)
+    try:
+        yield pool
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 @app.callback()
@@ -262,7 +282,7 @@ def download(
     stats: Counter = Counter({"seeds": len(seed_list), "skipped_done": len(done)})
     written = 0
     if seed_list:
-        with journal_writer(path) as journal, ThreadPoolExecutor(workers) as pool:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
             futures = {
                 pool.submit(
                     expand_page,
@@ -528,7 +548,7 @@ def cdx(
     governor = RateGovernor(delay=delay, max_delay=max_delay)
     written = 0
     if targets:
-        with journal_writer(path) as journal, ThreadPoolExecutor(workers) as pool:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
             strategy = lookup_years_per_year if per_year else lookup_years
             fetch = http_fetch(timeout)
             futures = {
