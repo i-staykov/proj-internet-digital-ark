@@ -53,7 +53,7 @@ holding 8,224,963 hostname lines, plus `merge_stats_new0714.csv` describing how 
 
 **Date semantics.** The file a line appears in *is* its year. No inference.
 
-**Evidence type: `prior_reused`.** Prior evidence reused under III.1. Excluded from the scored
+**Evidence type: `prior_reused`.** Prior evidence, reused as given. Excluded from the scored
 metric, because it is the baseline rather than an addition.
 
 **Yield.** 8,224,963 supplied lines become **6,866,913 (domain, year) pairs over 4,824,656
@@ -63,7 +63,7 @@ registered domains.** That 1,358,050-line difference decomposes as:
   malformed names, bare public suffixes). Every one is listed with its reason in
   `dropped_domains.txt`.
 - **1,345,830 lines collapsed, not lost.** `www.foo.com`, `shop.foo.com` and `foo.com` are three
-  supplied lines and one registered domain, which III.8 mandates as the counting unit.
+  supplied lines and one registered domain, the counting unit.
 
 Per year, supplied lines against pairs held:
 
@@ -138,18 +138,14 @@ AFNIC states the behaviour in its own registrar documentation, *Technical Integr
 > creation date is the last creation date of the domain name** or the date of the last transmission
 > (trade or recover).
 
-The same sentence appears in the authoritative French edition and in AFNIC's 2009 EPP specification
-and its 2008 predecessor: four editions over seven years. Note that AFNIC is explicitly warning
-registrars that its creation date does *not* follow standard EPP object semantics, so this could
-not have been settled by reasoning from the RFCs.
+The same sentence appears across four editions over seven years, including the authoritative French
+one. The registry is explicitly warning registrars that its creation date does *not* follow standard
+EPP semantics, so this could not have been settled by reasoning from the RFCs.
 
 That yields a proof rather than an assumption. `crDate = max(last creation, last transmission)`, and
-both of those events necessarily fall after any prior deletion, since a deleted name must be created
-again to exist. So `crDate` is always at or after the last deletion, and the span
-`[crDate, deletion-or-now]` **contains no deletion event**. It is a continuous registration interval
-by construction, which carries both the 11,880 domains with a published deletion date and the 43,652
-without. (Those sum to one more than the 55,531 total because a single registered domain receives
-both an active and a withdrawn span, two supplied rows having collapsed onto it.)
+both events necessarily fall after any prior deletion, since a deleted name must be created again to
+exist. So `crDate` is always at or after the last deletion, and the span `[crDate, deletion-or-now]`
+**contains no deletion event**: a continuous registration interval by construction.
 
 Live corroboration, reproducible from the open-data file plus one `whois -h whois.nic.fr` query:
 `bennegens-couverture.fr` (open data: created 30-05-2020, deleted 28-06-2026; WHOIS today: created
@@ -176,12 +172,11 @@ each rose 5.7x to 6.1x.
   absent. Verified against the file: the 11,879 in-window domains carrying a deletion date spread
   evenly across 2014-2026.
 - **Geographic skew.** `.fr` only, which is complementary to the `.com`-heavy baseline.
-- **Column-order trap.** The 2015 guide lists `Date de création` seventh; the 2026 file ships it
-  eleventh. The parser reads the live header positions, verified against a real row. Code compared
-  against the guide will look mismatched; the code is right.
+- **Column-order trap.** The guide lists `Date de création` seventh; the current file ships it
+  eleventh, so the parser reads live header positions rather than fixed offsets.
 - **Standards residual.** A verified premise makes the span *sound*; it does not make it evidence
-  *tied to* a specific year in III.6's literal sense. Discounting the tranche to creation years only
-  would remove 69,105 pairs, and every row stores its span, so that recomputation is mechanical.
+  tied to a specific year in the strictest sense. Discounting to creation years only would remove
+  69,105 pairs, and since every row stores its span, that recomputation is mechanical.
 
 **Reproduce.** Download the monthly A file from `opendata.afnic.fr`, unzip, then
 `ark ingest afnic_fr data/raw/afnic/*.csv`
@@ -266,7 +261,7 @@ exactly one in-window row, the Aug-2000 prefix already held.
 `Last-Modified` header, and a generation stamp inside the file itself
 (`<!-- Generated at YYYY-MM-DD ... -->`).
 
-**Evidence type: `artifact_listing`, and why this is not the III.4 candidate case.** III.4 names
+**Evidence type: `artifact_listing`, and why this is not the candidate case.** The rules name
 DMOZ as a source without item-level year evidence, which would route it to the candidate pool. The
 distinction that matters is *what artifact was ingested*. An undated DMOZ listing carries no year
 and would indeed be candidate-only. What is ingested here is a **dated dump**: a downloaded file
@@ -335,9 +330,9 @@ writes a per-run journal holding the whole response, and `ark ingest rdap_snapsh
 current state of a registration plus that one historical timestamp: there is no registration
 history, so it cannot speak to any other year.
 
-**Evidence type: `whois_creation`, creation year only.** III.6 blesses "the annual file for the
-target year in which the creation date falls" and rules out more: a creation date alone "does not
-automatically establish that the domain remained registered ... in every subsequent year". An
+**Evidence type: `whois_creation`, creation year only.** A creation date supports the annual file
+for the year it falls in and nothing further: on its own it does not establish that the domain
+remained registered in any subsequent year. An
 earlier version of this pipeline read a creation date plus present registration as a continuous
 span, which required an unverified premise about each registry's re-registration policy; 9,664 such
 assignments were withdrawn. A domain dated outside 1996-2001 attests no year and
@@ -415,7 +410,7 @@ seeded.
 carries transcription typos: this route produced `gov.edu` and `gintysuooly.com`, and a review of
 the same source measured roughly 40% of never-before-seen names as typos. So a name that no other
 source attests is written to a separate journal and ingested as `expansion_links`, which is
-candidate-only, while names already attested independently are asserted under IV.i. Of 1,267
+candidate-only, while names already attested independently are asserted. Of 1,267
 net-new pairs, all but a handful sit on domains corroborated elsewhere.
 
 **Yield.** 11,336 evidence rows, **1,267 net-new pairs over 15 net-new domains**, concentrated in
@@ -426,6 +421,31 @@ in the decision log.
 university-maintained subject catalogue; (b) the corroboration split depends on what the store
 already held when the journal was written, so it is run after the bulk sources, not before;
 (c) 28 of 46 round 2 seed pages had no usable in-window capture, which is normal for 1990s hosts.
+
+---
+
+## `ncsa_whats_new`: NCSA "What's New" announcement pages
+
+**What it is.** The era's announcement list for newly launched sites, published as dated issues.
+The only surviving 1996 editorial directory artifact in this collection.
+
+**How obtained.** The archived 1996 issues, harvested to one `domain<TAB>date` row per announced
+entry and checksummed alongside the pages they came from.
+
+**Date semantics.** The issue date carrying the entry. Every row is 1996.
+
+**Evidence type: `dated_directory`.** Announcement entries are editorial: a site is listed because
+an editor added it on a given date. Navigation and masthead links are not entries and are excluded,
+which is what separates this from raw link scraping.
+
+**Yield.** 4,916 entries, **7 net-new pairs over 1 net-new domain**. The baseline covers 1996
+densely, so the value here is corroboration rather than volume: 4,916 rows attesting 1996 from an
+editorial lineage independent of archive captures and DNS surveys.
+
+**Caveats.** United States and academic bias, as the announcement list of one institution. One of
+the 4,916 names is attested by no other source and is recorded as such.
+
+**Reproduce.** `ark ingest ncsa_whats_new data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv`
 
 ---
 
@@ -479,12 +499,19 @@ Wayback URL.
 
 ---
 
-## Registered but not yet contributing
+## Source names that are not separate sources
 
-`rdap_snapshot` and `cdx_snapshot` are source specifications for the journal-ingest path;
-`cdx_snapshot` writes under the source name `ia_cdx_bulk`. `deduplicated_urls_2001-2002` and
-`mid_slice` are candidate-only source names with zero evidence rows, retained so earlier seeding
-runs remain attributable.
+Two names in the summary table are the journal-ingest path rather than distinct collections.
+`rdap_snapshot` is the RDAP source above, collected the reproducible way: it carries **12,309
+evidence rows and 5,341 net-new pairs**, and the split from the legacy `rdap` name exists so the
+tranche with hashed source files is countable apart from the one without. `cdx_snapshot` is the
+same arrangement for the archive engine and writes under `ia_cdx_bulk`.
+
+`ukwa_link_target` is the candidate-only half of the UK link graph described above: the same file
+read for its target hosts instead of its crawled hosts, 88,263 rows and zero pairs by design.
+
+`deduplicated_urls_2001-2002` and `mid_slice` are candidate-only names with zero evidence rows,
+retained so earlier seeding runs stay attributable.
 
 `page_expansion` holds the candidate-only half of the section VII route: outbound links from pages
 not asserted to be curated directories, plus names from directory pages that no other source
