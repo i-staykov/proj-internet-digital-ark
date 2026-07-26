@@ -20,7 +20,7 @@ fi
 STAGE="output/delivery"
 ARCHIVE="output/internet-digital-ark-delivery.tar.gz"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,logs,source}
+mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals}
 
 # report + docs
 cp docs/report.md "$STAGE/report.md"
@@ -35,6 +35,15 @@ cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/d
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 cp output/candidate_unverified.txt "$STAGE/candidates.txt" 2>/dev/null || true
 cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
+
+# the auxiliary seed pool: hostnames and URLs, the granularity the registered
+# domain counting unit necessarily drops
+cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds/" 2>/dev/null || true
+
+# the raw responses of every archive and registry query, so both network stages
+# replay from bytes rather than from a service whose answers change
+cp data/raw/cdx/cdx_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
+cp data/raw/rdap/rdap_*.jsonl.gz "$STAGE/journals/" 2>/dev/null || true
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true

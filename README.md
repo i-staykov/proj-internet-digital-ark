@@ -73,13 +73,14 @@ shasum -a 256 -c data/raw/checksums.sha256
 | 16 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
 | 17 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
 | 18 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
-| 19 | `uv run ark export` | `source_rows: 14`, one per source that contributed evidence, and one `netnew_<year>` count per year |
-| 20 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 21 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 19 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
+| 20 | `uv run ark export` | `source_rows: 14`, one per source that contributed evidence, and one `netnew_<year>` count per year |
+| 21 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
+| 22 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
 Steps 6 to 14 are independent of each other, so their order does not matter. Steps 17 and 18 must come after them, because a replayed query is evidence about a domain the bulk sources introduced.
 
-Steps 19 and 20 print the size of the result, which grows every time more evidence is collected, so they are quoted here as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 20 equals the line count of the shipped year files, and step 21 fails if it does not.
+Steps 20 and 21 print the size of the result, which grows every time more evidence is collected, so they are quoted here as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 21 equals the line count of the shipped year files, and step 22 fails if it does not.
 
 ```bash
 wc -l output/netnew/*.txt   # total equals the net-new pair count printed by ark stats
@@ -141,6 +142,9 @@ output/          # git-ignored, regenerable via `ark export`; shipped in the arc
 ├── netnew/                    # the additions: one file per year (1996..2001)
 │   └── evidence_manifest.csv  # every addition traced to its evidence (+ a Wayback link)
 ├── candidate_unverified.txt   # domains awaiting per-year evidence
+├── seeds/
+│   ├── download_seeds.txt     # auxiliary seed pool: hostnames and URLs, one per line
+│   └── download_seeds.csv     # the same seeds with their domain, year and source
 └── legacy_review/
     └── dropped_domains.txt    # every excluded baseline line, grouped by reason
 
@@ -153,3 +157,5 @@ docs/            # task brief, sources.md (per-source documentation), plan, note
 ```
 
 `ark export` writes the net-new additions to `output/netnew/`, the candidate list, and the large **merged master lists** (baseline + additions) to `data/exports/`. All of it is git-ignored and regenerable; the delivery archive is assembled from these outputs.
+
+**The auxiliary seed pool** answers a different question from the annual files. Brief III.8 makes the registered domain the counting unit, so `foo.com`, `www.foo.com` and `shop.foo.com` are one line in `1998.txt`. That is right for counting and wrong for downloading, since a crawler given `foo.com` never reaches pages that only ever existed at `shop.foo.com`. `ark seed-pool` therefore re-reads each source through the same parser as `ark ingest` and keeps the raw value instead of the canonical one, which is why a seed can never disagree with the evidence it came from. The pool holds **3,595,769 distinct hostnames and URLs** across 2,195,955 registered domains, each labelled with the year its source dates it to.

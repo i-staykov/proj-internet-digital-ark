@@ -484,6 +484,14 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the candidate seeds were listed as the UKWA target list, but UKWA targets enter through `ark ingest ukwa_link_target`; the two files really seeded were `data/raw/webbase/hosts.txt` and `legacy-data/deduplicated_urls_2001-2002.txt`
   - both found by expanding every glob in the recipes and comparing the count against `ingested_file`: early_web 224, isc_survey 5, afnic 1, odp 3, all matching. Worth repeating for any documented glob, since a glob that quietly matches too little looks identical to a correct one
 
+- **Auxiliary seed pool shipped: 3,595,769 hostnames and URLs (2026-07-26)**
+  - brief I asks for historical URL seeds alongside the domain lists, and III.2 allows an auxiliary seed pool for data with no year evidence of its own. III.8 makes the registered domain the counting unit, which is right for counting and wrong for downloading: a crawler given `foo.com` never reaches pages that only ever existed at `shop.foo.com`
+  - built without a second parser. Every bulk parser already yields `BulkRecord.raw`, the value as the source wrote it, before canonicalization. `ark seed-pool` re-reads the same files through the same parser and keeps the raw form, so a seed cannot disagree with the evidence it came from. Only seeds differing from their registered domain are kept, since an identical one adds nothing the year files lack
+  - yield by source: early_web 2,986,491 (URLs, the deepest granularity), isc_survey 512,804, ukwa_link_source 58,737, odp 36,157, internet_scout 1,630. **3,595,769 distinct seeds over 2,195,955 registered domains**, of which 19,699 domains are not in the baseline
+  - the command is `ark seed-pool`, deliberately not `ark seeds`: `ark seed` loads candidate DOMAINS into the verification pool, and two commands one letter apart doing different things is the same trap as the `check` collision
+  - two defects found and fixed while building it. The first cross-connection copy used `executemany` over 2.2M domains and ran for minutes holding the store's write lock; doing the anti-join in SQL against the part files takes 0.85 s. The second: ODP URLs contain commas (`.../0,6109,393333,00.html`), and although the CSV quoted them correctly, a reader that sniffs quoting from the first rows finds none and splits those URLs into extra columns, so the seed column is now always quoted
+  - honest framing for the report: the pool is mostly deeper granularity on domains already held rather than new domains. Its value is for the downloading phase the brief describes, not for the scored pair count, and it is reported separately from the score for that reason
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the

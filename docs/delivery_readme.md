@@ -1,10 +1,11 @@
 # Internet Digital Ark: Delivery Archive
 
-Evidence-backed annual domain lists for **1996–2001**, grown on top of the provided
+Evidence-backed annual domain lists for **1996-2001**, grown on top of the provided
 ~8.2M-line baseline. Every annual-file entry traces to item-level, per-year evidence.
 
-**Headline (2026-07-25):** 463,364 net-new registered domains · 1,303,508 net-new
-(domain, year) pairs, on top of 4.82M baseline domains. Full analysis in `report.docx`.
+**Headline (2026-07-26):** 463,364 net-new registered domains · 1,308,314 net-new
+(domain, year) pairs, on top of 4.82M baseline domains, plus an auxiliary pool of
+3,595,769 hostname and URL download seeds. Full analysis in `report.docx`.
 
 ## What's in this archive
 
@@ -15,6 +16,9 @@ Evidence-backed annual domain lists for **1996–2001**, grown on top of the pro
 | `additions/1996.txt … 2001.txt` | **Net-new additions only**: the domains this program added on top of the baseline |
 | `additions/evidence_manifest.csv` | **Provenance export**: one row per added (domain, year), carrying the representative evidence row behind it. Corroborating evidence is not exported: the store holds 11.05M evidence rows against 1.3M exported, and the cross-validation figures in the report are computed from the store |
 | `candidates.txt` | Candidate/unresolved domains (no per-year evidence yet); never mixed into the annual masters |
+| `seeds/download_seeds.txt` | **Auxiliary seed pool**: one hostname or URL per line, for subsequent webpage downloads. The registered domain is the counting unit for the annual files (III.8), so `www.foo.com` and `shop.foo.com` collapse to one line there; this pool keeps that granularity, which is what a crawler needs |
+| `seeds/download_seeds.csv` | The same seeds with the registered domain, the year the source dates them to, and which source they came from |
+| `journals/` | The raw responses of every archive and registry query made, one gzipped JSON-lines file per run. These are what make the two network stages reproducible offline: re-running the pipeline replays these bytes instead of re-querying services whose answers have since changed |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `audit/` | Normalization/salvage audit CSVs (every correction and drop, per source) |
 | `logs/` | Execution logs from every run. Per-run statistics live in the store's `run_metrics` table and are summarised in the report rather than exported separately |
@@ -53,27 +57,47 @@ tar -xzf source/source.tar.gz -C source/
 cd source
 ```
 
+Put the bulk source files back under `data/raw/` (each one's download route is in
+`sources.md`), copy this archive's `journals/` into `data/raw/cdx/` and `data/raw/rdap/`,
+and put the provided baseline in `legacy-data/`. Then:
+
 ```
-uv run ark ingest-legacy                              # load the baseline read-only
-uv run ark ingest early_web  data/raw/early_web/*.cdx.gz
-uv run ark ingest isc_survey data/raw/isc_survey/*.gz
-uv run ark ingest arquivo_roteiro data/raw/arquivo/Roteiro.cdxj
-uv run ark ingest arquivo_ia data/raw/arquivo/IA.cdxj
-uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
-uv run ark ingest afnic_fr   data/raw/afnic/*.csv
-uv run ark ingest odp        data/raw/odp/*.gz
-uv run ark ingest internet_scout data/raw/scout/scout_oai.xml
-uv run ark gaps --creation                                   # -> creation_candidates.txt
-uv run ark rdap  data/raw/rdap/creation_candidates.txt       # query RDAP -> run journal
-uv run ark gaps                                             # -> gap_candidates.txt
-uv run ark cdx   data/raw/cdx/gap_candidates.txt --workers 8   # query IA CDX -> run journal
-uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz   # journal -> creation-year evidence
-uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz     # journal -> per-year capture evidence
-uv run ark export                                     # regenerate masters/additions/manifest
-uv run ark stats                                      # the scoreboard
-uv run ark check                                      # integrity gate (must pass)
+uv run ark init                                             # create the stores
+uv run ark ingest-legacy                                    # load the baseline read-only
+uv run ark legacy-review                                    # write dropped_domains.txt
+uv run ark audit                                            # write the normalization audit
+
+uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
+uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
+uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
+uv run ark ingest arquivo_ia        data/raw/arquivo/IA.cdxj
+uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
+uv run ark ingest internet_scout    data/raw/scout/scout_oai.xml
+uv run ark ingest odp               data/raw/odp/*.gz
+uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
+uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
+
+uv run ark seed data/raw/webbase/hosts.txt                  # candidate pool
+uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
+
+uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz    # replay the archive queries
+uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz  # replay the registry queries
+
+uv run ark export                                           # masters, additions, manifest
+uv run ark stats                                            # the scoreboard
+uv run ark check                                            # integrity gate (must pass)
 ```
 
+**No network is required.** The two collectors are not re-run: `ingest cdx_snapshot` and
+`ingest rdap_snapshot` read the shipped journals, so the result is derived from bytes in
+this archive rather than from services that answer differently today. Each journal is
+hashed into a ledger on ingest, so a file whose contents changed is refused rather than
+silently loaded. To collect *more* evidence, `ark gaps` then `ark cdx` or `ark rdap` do
+run against the live services; `README.md` in `source/` documents that path.
+
+If [`just`](https://github.com/casey/just) is available, all of the above is
+`just reproduce`, and `just check` additionally runs the code's own test suite.
+
 Raw source files (download URLs and rescue notes) are documented per-source in
-`notes.md`. Downloaded data is not shipped in the archive; it regenerates from those
-URLs. The method is fully in `source/`.
+`sources.md`. Bulk downloads are not shipped in the archive; they regenerate from those
+routes. The method is fully in `source/`.

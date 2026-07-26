@@ -36,6 +36,7 @@ from ark.rdap import (
     lookup,
 )
 from ark.seed import seed_from_file
+from ark.seeds import combine_parts, write_source_part
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
 from ark.verify import verify_batch
@@ -138,6 +139,37 @@ def ingest_cmd(
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+@app.command(name="seed-pool")
+def seed_pool(
+    source: Annotated[
+        str,
+        typer.Argument(help=f"Bulk source key: one of {', '.join(sorted(SOURCES))}."),
+    ],
+    files: Annotated[
+        list[Path],
+        typer.Argument(help="The same source files that were ingested.", readable=True),
+    ],
+) -> None:
+    """Extract a source's raw hostnames and URLs into the auxiliary seed pool.
+
+    Deliberately not called `seed`: `ark seed` loads candidate DOMAINS into the
+    verification pool, while this writes the HOSTNAME and URL download seeds
+    that III.8's registered-domain counting unit necessarily discards.
+
+    Reads the same files through the same parser as `ark ingest`, keeping the raw
+    value instead of the canonical one, so a seed cannot disagree with the
+    evidence it came from. Re-running a source replaces only its own rows.
+
+    Example: ark seed-pool isc_survey data/raw/isc_survey/*.gz
+    """
+    spec = SOURCES.get(source)
+    if spec is None:
+        raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
+    stats = write_source_part(spec, files)
+    combined = combine_parts(connect())
+    typer.echo(f"seed-pool {source}: {dict(stats)}\nseed pool: {combined}")
 
 
 @app.command()

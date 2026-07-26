@@ -191,6 +191,42 @@ by construction, and the complementary failure (a domain holding evidence that w
 which would leave a confirmed domain sitting in the pool) is caught by the
 `nothing_earned_is_left_unassigned` invariant.
 
+### 3.2 The auxiliary seed pool: 3,595,769 hostnames and URLs (brief I, III.2, §VII)
+
+The candidate pool above answers "which domains might belong in an annual file?". The seed pool
+answers a different question: "what should the next crawl actually fetch?". Brief I asks for
+historical URL seeds alongside the domain lists, and §VII describes extracting domains, hostnames
+*and* URLs to feed later downloads.
+
+The two are separate because III.8 fixes the registered domain as the counting unit. `foo.com`,
+`www.foo.com` and `shop.foo.com` are one line in `1998.txt`, which is correct for counting and
+useless for downloading: a crawler handed `foo.com` never reaches pages that only ever existed at
+`shop.foo.com`. The collapse is required, so the granularity is preserved separately rather than
+discarded.
+
+`ark seed-pool` re-reads each source through **the same parser** used to ingest it, keeping the raw
+value instead of the canonical one. That is the safeguard worth stating: a seed cannot disagree with
+the evidence it came from, because both come from one pass over one file. Only values differing from
+their registered domain are kept, since an identical one adds nothing the annual files already lack.
+
+| Source | Distinct seeds | Granularity it adds |
+|---|--:|---|
+| `early_web` | 2,986,491 | full capture URLs, including path and query |
+| `isc_survey` | 512,804 | fully qualified hostnames from DNS survey lists |
+| `ukwa_link_source` | 58,737 | crawled host names from the host-link graph |
+| `odp` | 36,157 | the exact catalogued page URL, not merely its site |
+| `internet_scout` | 1,630 | the reviewed page URL |
+| **total (deduplicated)** | **3,595,769** | over 2,195,955 registered domains |
+
+Every seed carries the year its source dates it to, so the pool can be filtered to one target year
+before crawling. **19,699 of those registered domains are not in the baseline.**
+
+Stated plainly, because it governs how the number should be read: this pool is mostly *deeper
+granularity on domains already held*, not new domains. It contributes nothing to the scored pair
+count and is reported separately for that reason. Its value is to the download phase the brief
+describes, where 3.6M dated, deduplicated, provenance-tagged URLs are materially more useful than
+the domain list alone.
+
 
 **Novel methods / directions pursued.** (a) A one-day live-verified **bulk-source survey** (six parallel research tracks); (b) a 12-agent **direct-evidence source hunt** (2026-07-24) that live-verified 51 sources, overturning a supplied report's flagship leads (see negative results); (c) treating a registry's **registration span** as per-year evidence only after verifying the registry's creation-date semantics from its own documentation (AFNIC; deliberately *not* extended to RDAP, see §2); (d) byte-range **sampling spikes** to size a source before committing to a large download (Arquivo IA.cdxj).
 
