@@ -25,7 +25,7 @@ Two journals come out, not one, because a listing is a claim by the linking page
 and HTML carries typos: this harvest contains `gov.edu` and `gintysuooly.com`,
 and a parallel review of the same route measured roughly 40% of never-before-seen
 names as transcription errors. So a domain some independent source already
-attests is written as curated (its capture date evidences the year under IV.i),
+attests is written as curated (its capture date evidences the year),
 while a name appearing here and nowhere else is written as an ordinary outbound
 link, which routes it to the candidate pool to earn its own evidence. The split
 is therefore a statement about corroboration, not about the page.

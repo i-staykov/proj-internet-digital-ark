@@ -7,7 +7,7 @@
 # `directory` assertion would be false for them.
 #
 # Same standard as rounds 2 and 3: the assertion makes a capture date master
-# evidence under IV.i, and names no other source attests are split out afterwards
+# evidence as a curated catalogue, and names no other source attests are split out afterwards
 # rather than asserted.
 http://alt.venus.co.uk/VL/AppLingBBK	directory
 http://alt.venus.co.uk/VL/AppLingBBK/welcome.html	directory

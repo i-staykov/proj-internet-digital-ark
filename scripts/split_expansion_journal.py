@@ -7,7 +7,7 @@ archived HTML carries typos, and a curated page can still list `arvard.edu`.
 
 So a curated journal is split before ingest. Names some other source already
 attests stay curated and are ingested as `expansion_directory`, where the page's
-capture date evidences the year under IV.i. Names appearing nowhere else are
+capture date evidences the year. Names appearing nowhere else are
 written as ordinary links and ingested as `expansion_links`, which is
 candidate-only, so they earn their year from their own capture instead.
 

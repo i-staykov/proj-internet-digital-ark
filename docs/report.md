@@ -30,9 +30,8 @@ included, passes through one canonicalizer:
 2. **Require hostname syntax.** Letters, digits, hyphens, no hyphen at a label edge. IP addresses
    are not domains.
 3. **Split against a pinned Public Suffix List** snapshot, committed with the code, plus a patch for
-   the nine retired ccTLDs the list omits. Both a registered
-   label and a public suffix must remain, which rejects bare suffixes (`ab.ca`) and suffix-less
-   names (`localhost`).
+   the nine retired ccTLDs the list omits. Both a registered label and a public suffix must remain,
+   which rejects bare suffixes (`ab.ca`) and suffix-less names (`localhost`).
 4. **Keep the registered domain.** `www.example.com` and `shop.example.com` both become
    `example.com`.
 
@@ -55,7 +54,7 @@ is not lost domains:
   supplied lines and one registered domain.
 
 The supplied merge statistics count hostname lines while this counts registered domains, so the two
-are not comparable directly. The normalization audit records ~1.45M corrected lines, in `audit/`.
+are not directly comparable. The normalization audit records ~1.45M corrected lines, in `audit/`.
 
 ## 4. Annual evidence logic and evidentiary standard
 
@@ -65,7 +64,6 @@ appearance never implies a later year; a registration date never implies the yea
 This is structural, not conventional: each annual assignment is backed by a `NOT NULL` foreign key
 into one specific evidence row, and the function that creates assignments refuses candidate-only
 evidence.
-
 | Evidence type | What one row asserts | Annual file |
 |---|---|---|
 | `cdx_timestamp` | A web-archive capture, in-year timestamp, HTTP 200 | Yes |
@@ -82,8 +80,8 @@ because that registry documents its creation date as "the last creation date of 
 placing it at or after any earlier deletion. Each row records its own basis, so either reading can be
 recounted; rejecting the interval reading costs 69,111 pairs.
 
-**Deduplication** is within each year: the key is `(domain, assigned_year)`. Cross-year repetition is
-expected, since each year a domain appears in is evidenced independently.
+**Deduplication** is within each year, on `(domain, assigned_year)`. Cross-year repetition is
+expected and required, since each year a domain appears in is evidenced independently.
 
 **Per-domain basis.** `additions/evidence_manifest.csv` holds one row per added (domain, year) with
 the source, evidence type and artifact behind it, so a domain in three annual files has three rows,
@@ -114,8 +112,13 @@ cannot be inflated.
 | NCSA What's New | `dated_directory` | 1 | 7 |
 
 **Candidate pool only: 5,583 domains**: 5,435 hosts linked to in the UK link graph, 87 from
-archived ranked listings, 38 from a crawl host list, 19 named on directory pages but attested
-nowhere else, 4 from earlier probes.
+archived ranked listings, 38 from the Stanford WebBase crawl host list, 19 named on directory pages
+but attested nowhere else, 4 from earlier probes. WebBase carries no dates, so it seeds candidates
+and never an annual file; 99.99% of its hosts were already held, which is why 38 remain.
+
+The ODP rows are dated dumps, not the undated 2015 aggregate: a truncated August 2000 content dump
+and two Kids-and-Teens dumps from 2001, each carrying its own generation stamp, so they assign only
+2000 and 2001. No dump is spread across years it does not cover.
 
 Evidence rows and pairs differ: Early Web CDX contributes 2.28M rows but 182 net-new
 pairs, because the baseline derives from the same archive. Those rows are corroboration, and the
@@ -137,53 +140,81 @@ where a page documents itself as an editorial catalogue. **Collection separated 
 interpretation**: network stages write journals of raw responses and no evidence, so a change of
 standard is a re-parse rather than a migration, and the result replays offline.
 
-## 7. Verification against the web archive
+## 7. CDX execution notes
 
-**Tools and strategy.** One CDX query per domain covers all six years by collapsing the result,
-with client-side year deduplication and a per-year probe when that result comes back truncated.
-Targets are domains missing a year they are bracketed by, thinnest year first.
+**Tools.** Two, both existing public interfaces: the `internetarchive` client
+(`ia download early-web_cdx-lang-cdxa`) for bulk acquisition of the Early Web CDX dataset, and a
+purpose-built async client against the public CDX API at `web.archive.org/cdx/search/cdx` for
+targeted verification, which is the engine described below.
 
-**Concurrency is the service's limit.** Answered share by workers: 100% at 1-4, 82% at 8, 30% at
-16, 17% at 32, so the operating point is 8. Timeout was measured too: the service kills heavy
-queries at ~60.7 s, and a 30 s client timeout answered 51 of 100 domains against 82 at 180 s, so the
-client waits 70 s.
+**Seeds and strategy.** Targets are not arbitrary: a domain evidenced in two years but missing the
+year between them is far likelier to have existed than a random name, so the queue is built from
+those gaps, thinnest year first. One query per domain covers all six years by collapsing the result,
+with client-side year deduplication and a per-year probe when a collapsed result returns truncated.
+Requests run in batches of about 1,200 domains at 8 concurrent workers.
 
-**Errors and handling.** An adaptive governor grows the delay 1.5x on 429/503/504 honouring
-`Retry-After` and eases 0.8x after five successes, floor 50 ms, ceiling 5 s. **A failure is never
-recorded as an absence**: failures are counted per status and a domain is settled only by a real
-answer. This was tested when the service refused connections for several hours while other services
-stayed reachable: nothing was corrupted, every refused domain stayed eligible, and the supervisor
-gained a reachability probe. On recovery throughput had halved, so concurrency was re-measured
-rather than assumed (185 answered/hour at 4 workers, 383 at 8, 262 at 12) and the optimum held at 8.
+**Concurrency is the service's limit, and was measured.** Answered share by workers: 100% at 1-4,
+82% at 8, 30% at 16, 17% at 32, so the operating point is 8. So was the timeout: the service kills
+heavy queries at ~60.7 s, and a 30 s client timeout answered 51 of 100 domains against 82 at 180 s,
+so the client waits 70 s.
+
+**Errors and how they were handled.** An adaptive governor grows the delay 1.5x on 429/503/504
+honouring `Retry-After` and eases 0.8x after five successes, floor 50 ms, ceiling 5 s. **A failure is
+never recorded as an absence**: failures are counted per status and a domain is settled only by a
+real answer. This was tested when the service refused connections for several hours while other
+services stayed reachable: nothing was corrupted and every refused domain stayed eligible. On
+recovery throughput had halved, so concurrency was re-measured rather than assumed (185
+answered/hour at 4 workers, 383 at 8, 262 at 12) and the optimum held at 8.
 
 **Domains added.** 11,171 domains queried, 8,493 answered (76%), **11,932 net-new pairs**:
 11,652 previously unevidenced years for domains already held, plus 199 new domains.
 
-**Page expansion.** Four rounds of fetching archived directory pages and extracting listed domains.
-Home pages returned 92 domains and zero new candidates, since they link to their own categories;
-curated catalogues one level in returned **1,577 pairs**, concentrated in 1998 and 1999. The cycle
-was closed rather than described: of 298 discovered candidates queried, 233 answered and **198 (85%)
-held an in-window capture**, adding 278 pairs. That rate is why discovered names are treated as
-leads, not evidence.
+## 8. Page expansion and the discovery cycle
 
-## 8. Limitations
+The brief asks for a cycle rather than a single pass: harvest a source, extract candidate seeds,
+validate them against dated evidence, then download the validated pages and feed their outbound
+links into the next round. Four rounds were run.
+
+**Rounds and seeds.** A pilot on high-fanout early pages, then directory, navigation and yellow-page
+sites; then the WWW Virtual Library's subject libraries, asserted as curated catalogues; then further
+subject libraries found in the previous round's own outbound links. That last round is the feedback
+loop closing: its seed list was produced by the pipeline, not by hand. Captures are fetched with the
+Wayback `id_` modifier, which serves the original stored bytes rather than a rewritten page, so the
+extracted links are the ones the author published.
+
+**Depth decides yield.** Home pages returned 92 domains and zero new candidates, because a portal
+front page links to its own categories rather than outward. Curated catalogues one level in returned
+**1,577 pairs**, concentrated in 1998 and 1999.
+
+**Why extracted names are split.** A curated page's capture date may evidence the domains listed on
+it, which is sound for the page and unsound for the parser: archived HTML carries transcription
+errors, and this route produced `arvard.edu` from a `harvard.edu` link, plus `gov.edu` and
+`gintysuooly.com`. A sample put roughly 40% of never-before-seen names in that class. So a name some
+other source already attests is kept as dated evidence, and a name nothing else attests becomes a
+candidate instead.
+
+**The cycle was closed, not just described.** Of 298 discovered candidates queried against the
+archive, 233 answered and **198 (85%) held an in-window capture**, adding 278 pairs. That 85%
+justifies treating discovered names as leads worth verifying; the 40% error rate forbids treating
+them as evidence.
+
+## 9. Limitations
 
 - **Geographic skew.** Additions over-represent `.fr`, `.pt` and `.uk`: the baseline already holds
   what a global crawl caught, so the complementary gains are national.
 - **`.fr` undercounts.** The registry file omits names deleted before 28 January 2014, and the
   creation-date reset in section 4 drops re-registered names. It cannot overcount.
-- **Uneven years.** 1998 and 1999 gained least; 2000 is partly served, since
-  the surviving August 2000 directory dump is a truncated prefix.
+- **Uneven years.** 1998 and 1999 gained least; 2000 is partly served, since the surviving August
+  2000 directory dump is a truncated prefix.
 - **Negatives differ in strength.** An empty archive index is a stronger negative than absence from
   a survey, since that absence means only "not in that artifact".
 - **One legacy tranche is weaker.** 3,106 pairs predate journalling and have no hashed source file.
   They were not re-queried: a re-query today returns different creation dates for domains that have
-  changed hands, which would alter rather than reproduce the result. A rebuild from the original
-  sources therefore returns 99.77% of the pairs, with those domains falling back to the candidate
-  pool rather than being lost.
+  changed hands, altering rather than reproducing the result. A rebuild from the original sources
+  therefore returns 99.77% of the pairs, those domains falling back to the candidate pool.
 - **Not exhausted.** 5,583 candidates await evidence and ~470,000 domains remain unqueried.
 
-## 9. Whether further expansion is worthwhile
+## 10. Whether further expansion is worthwhile
 
 **Yes, in one direction.** Archive gap-filling converts hours into pairs at a stable measured rate
 (1.07 pairs per domain queried against ~470,000 unqueried domains), so it is bounded by time spent
