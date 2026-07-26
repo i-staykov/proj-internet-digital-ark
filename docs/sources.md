@@ -1,7 +1,7 @@
 # Sources
 
 One section per source: what it is, **how to obtain it**, what fixes its dates, and why it carries
-the evidence type it does. Yields are in the summary table below and are not repeated per source.
+the evidence type it does.
 
 Paths are relative to the repository root. Every ingest command assumes the file has been placed at
 the path shown.
