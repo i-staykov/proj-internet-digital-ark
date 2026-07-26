@@ -25,9 +25,9 @@ hundred out of ~460,000. Where a source's yield is quoted as a delta elsewhere, 
 | `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
 | `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
 | `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 26 | 14,154 | 199 | 5,719 |
+| `ia_cdx_bulk` | `cdx_timestamp` | 27 | 17,529 | 199 | 7,041 |
+| `rdap_snapshot` | `whois_creation` | 10 | 7,784 | 4 | 3,295 |
 | `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
-| `rdap_snapshot` | `whois_creation` | 8 | 5,626 | 3 | 2,373 |
 | `page_directory` | `dated_directory` | 3 | 12,872 | 20 | 1,577 |
 | `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
 | `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
