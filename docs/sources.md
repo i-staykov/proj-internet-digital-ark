@@ -272,8 +272,8 @@ distinction that matters is *what artifact was ingested*. An undated DMOZ listin
 and would indeed be candidate-only. What is ingested here is a **dated dump**: a downloaded file
 with a generation stamp, where every curated external URL inside it is a line in that file and the
 file's own date fixes the year for all of them. That is the same shape as an ISC survey list, and it
-is the class the 2026-07-24 ruling blessed as direct annual evidence "when the year association is
-explicit and documented". The year association here is explicit and triple-corroborated.
+qualifies as direct annual evidence because its year association is explicit and documented.
+Here that association is also triple-corroborated.
 
 For the same reason the type is `artifact_listing` and not `dated_directory`: `dated_directory` is
 reserved for a directory *page* captured by an archive on a known date, which is a different
@@ -340,7 +340,7 @@ target year in which the creation date falls" and rules out more: a creation dat
 automatically establish that the domain remained registered ... in every subsequent year". An
 earlier version of this pipeline read a creation date plus present registration as a continuous
 span, which required an unverified premise about each registry's re-registration policy; 9,664 such
-assignments were withdrawn on 2026-07-25. A domain dated outside 1996-2001 attests no year and
+assignments were withdrawn. A domain dated outside 1996-2001 attests no year and
 remains a candidate.
 
 Note the deliberate asymmetry with `afnic_fr`, which does use a span: that premise is documented and
