@@ -71,17 +71,18 @@ shasum -a 256 -c data/raw/checksums.sha256
 | 14 | `uv run ark ingest ukwa_link_target data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 88263`, `enqueued: 5436` (same file, candidate side) |
 | 15 | `uv run ark seed data/raw/webbase/hosts.txt` | `lines: 738625`, `new_candidates: 39` |
 | 16 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
-| 17 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
-| 18 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
-| 18b | the four `ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the curated half adds `year_rows: 1267`, the rest enqueues candidates |
-| 19 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
-| 20 | `uv run ark export` | `source_rows: 14`, one per source that contributed evidence, and one `netnew_<year>` count per year |
-| 21 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 22 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 17 | `uv run ark seed data/raw/100hot/candidate_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
+| 18 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
+| 19 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
+| 20 | the four `ark ingest expansion_*` commands in `just journals` | replays the section VII page fetches; the corroborated half adds `year_rows: 1267`, the rest enqueues candidates |
+| 21 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
+| 22 | `uv run ark export` | `source_rows: 16`, one per source carrying evidence, and one `netnew_<year>` count per year |
+| 23 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
+| 24 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
-Steps 6 to 14 are independent of each other, so their order does not matter. Steps 17 and 18 must come after them, because a replayed query is evidence about a domain the bulk sources introduced.
+Steps 6 to 14 are independent of each other, so their order does not matter. Steps 18 to 20 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 20's corroboration split is judged against what the store holds by then.
 
-Steps 20 and 21 print the size of the result, which grows every time more evidence is collected, so they are quoted here as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 21 equals the line count of the shipped year files, and step 22 fails if it does not.
+Steps 22 and 23 print the size of the result, which grows every time more evidence is collected, so they are quoted as shapes rather than as fixed numbers. The check that matters is that they agree with each other: the pair total from step 23 equals the line count of the shipped year files, and step 24 fails if it does not.
 
 ```bash
 wc -l output/netnew/*.txt   # total equals the net-new pair count printed by ark stats
@@ -92,14 +93,16 @@ For the archive as delivered that total is **1,308,314 pairs over 463,364 domain
 Then, to assemble the archive that was delivered:
 
 ```bash
-bash scripts/package_delivery.sh   # tar.gz plus its SHA256; refuses to run on a dirty tree
+bash scripts/package_delivery.sh   # tar.gz plus its SHA256
 ```
 
-**With `just`.** If [`just`](https://github.com/casey/just) is installed, the whole of Part 2 is five recipes, and `just --list` shows every one:
+It refuses to build from a modified working tree, or from an `output/` older than the store, because either one ships code and data that disagree.
+
+**With `just`.** If [`just`](https://github.com/casey/just) is installed, the whole of Part 2 is three commands, and `just --list` shows every recipe:
 
 ```bash
 just setup       # step 1
-just reproduce   # steps 2 to 21: baseline -> sources -> candidates -> journals -> deliver
+just reproduce   # steps 2 to 24: baseline -> sources -> candidates -> journals -> seeds -> deliver
 just check       # lint + format-check + tests, then the nine data invariants
 ```
 
