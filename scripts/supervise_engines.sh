@@ -12,13 +12,28 @@ set -uo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
 RUN_FOR_SECONDS="${1:-47000}"
+CDX_WORKERS="${2:-4}"
 END=$(( $(date +%s) + RUN_FOR_SECONDS ))
+
+# Only dispatch against a service that is actually answering. Section VI treats
+# rate limits and gateway errors as signals to adapt rather than to abandon a
+# route, and the adaptation that matters at this level is not queuing more work
+# against a host that has stopped accepting connections: on 2026-07-26
+# web.archive.org began refusing us outright while rdap.org stayed healthy, and
+# without this check the loop would have spent hours generating pure failures.
+reachable() {
+    curl -sS -o /dev/null --max-time 15 --head "$1" 2>/dev/null
+}
 
 while [ "$(date +%s)" -lt "$END" ]; do
     if ! pgrep -f "bin/ark cdx" >/dev/null; then
-        echo "$(date +%H:%M:%S) dispatching cdx batch"
-        ( uv run ark cdx data/raw/cdx/gap_candidates.txt \
-            -n 1200 --workers 8 --timeout 70 >> data/logs/cdx_longrun.log 2>&1 & )
+        if reachable https://web.archive.org/; then
+            echo "$(date +%H:%M:%S) dispatching cdx batch (${CDX_WORKERS} workers)"
+            ( uv run ark cdx data/raw/cdx/gap_candidates.txt \
+                -n 1200 --workers "$CDX_WORKERS" --timeout 70 >> data/logs/cdx_longrun.log 2>&1 & )
+        else
+            echo "$(date +%H:%M:%S) web.archive.org unreachable, holding cdx"
+        fi
     fi
     if ! pgrep -f "bin/ark rdap" >/dev/null; then
         echo "$(date +%H:%M:%S) dispatching rdap batch"

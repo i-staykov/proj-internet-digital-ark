@@ -11,6 +11,8 @@ from ark.sources import (
     parse_arquivo_cdxj,
     parse_cdx_snapshot,
     parse_early_web_cdx,
+    parse_expansion_directory,
+    parse_expansion_links,
     parse_internet_scout,
     parse_isc_survey,
     parse_odp,
@@ -473,3 +475,66 @@ def test_ukwa_target_is_registered_as_candidate_only() -> None:
     # this is the whole point: being linked to can never assign a year
     assert spec.is_candidate_only is True
     assert SOURCES["ukwa_link_source"].is_candidate_only is False
+
+
+EXPANSION_RECORDS = [
+    {
+        "domain": "http://dir.example/",
+        "page_url": "http://dir.example/",
+        "status": 200,
+        "timestamp": "19980101000000",
+        "year": 1998,
+        "curated": True,
+        "domains": ["listed-a.com", "listed-b.org"],
+    },
+    {
+        "domain": "http://blog.example/",
+        "page_url": "http://blog.example/",
+        "status": 200,
+        "timestamp": "19990101000000",
+        "year": 1999,
+        "curated": False,
+        "domains": ["linked-c.net"],
+    },
+    {
+        "domain": "http://dead.example/",
+        "page_url": "http://dead.example/",
+        "status": 503,
+        "timestamp": None,
+        "year": None,
+        "curated": True,
+        "domains": [],
+    },
+]
+
+
+def test_expansion_sources_split_the_same_journal_by_curation(tmp_path) -> None:
+    path = _journal(tmp_path, EXPANSION_RECORDS, name="expand_20260726T000000Z.jsonl")
+
+    dir_stats: Counter = Counter()
+    directory = [(r.raw, r.year) for r in parse_expansion_directory(path, dir_stats)]
+    link_stats: Counter = Counter()
+    links = [(r.raw, r.year) for r in parse_expansion_links(path, link_stats)]
+
+    # a curated page's entries are master evidence for its capture year
+    assert directory == [("listed-a.com", 1998), ("listed-b.org", 1998)]
+    # an ordinary page's outbound links are candidates only
+    assert links == [("linked-c.net", 1999)]
+    # each half counts the other half and the failed fetch, so nothing is silent
+    assert dir_stats["other_half"] == 1 and dir_stats["fetch_failed"] == 1
+    assert link_stats["other_half"] == 1 and link_stats["fetch_failed"] == 1
+
+
+def test_expansion_evidence_records_the_page_it_came_from(tmp_path) -> None:
+    path = _journal(tmp_path, EXPANSION_RECORDS[:1], name="expand_20260726T010000Z.jsonl")
+    records = list(parse_expansion_directory(path, Counter()))
+    assert records[0].evidence_value == "linked from http://dir.example/ captured 19980101000000"
+    assert records[0].evidence_url == (
+        "https://web.archive.org/web/19980101000000/http://dir.example/"
+    )
+
+
+def test_expansion_specs_carry_the_right_dispositions() -> None:
+    assert SOURCES["expansion_links"].is_candidate_only is True
+    assert SOURCES["expansion_directory"].is_candidate_only is False
+    assert SOURCES["expansion_directory"].evidence_type == "dated_directory"

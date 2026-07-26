@@ -430,6 +430,71 @@ def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
+# An `ark download` journal: one JSON object per fetched page capture, format
+# documented in ark.expand. The same journal is read by two sources, each taking
+# the half it is entitled to, because a link's worth depends on whether the page
+# carrying it is a curated catalogue.
+def _parse_expansion(path: Path, stats: Counter, curated: bool) -> Iterator[BulkRecord]:
+    try:
+        with open_journal(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    stats["unparseable_line"] += 1
+                    continue
+                if record.get("status") != 200:
+                    stats["fetch_failed"] += 1
+                    continue
+                if bool(record.get("curated")) is not curated:
+                    stats["other_half"] += 1
+                    continue
+                year = record.get("year")
+                page = record.get("page_url") or "page"
+                stamp = record.get("timestamp") or ""
+                if not isinstance(year, int) or year not in YEARS:
+                    stats["out_of_window"] += 1
+                    continue
+                domains = record.get("domains") or []
+                if not domains:
+                    stats["no_outbound_links"] += 1
+                    continue
+                stats["pages"] += 1
+                for domain in domains:
+                    yield BulkRecord(
+                        raw=domain,
+                        year=year,
+                        evidence_value=f"linked from {page} captured {stamp}",
+                        evidence_url=f"https://web.archive.org/web/{stamp}/{page}"
+                        if stamp
+                        else None,
+                    )
+    except (EOFError, OSError):
+        stats["truncated_tail"] += 1
+
+
+def parse_expansion_links(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Hosts linked from an ordinary archived page: candidate-only.
+
+    The page's author linked to them, which is not evidence the host existed:
+    that is what verification is for.
+    """
+    yield from _parse_expansion(path, stats, curated=False)
+
+
+def parse_expansion_directory(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Entries listed on an archived page asserted to be a curated directory.
+
+    Section IV.i grants that the capture date of such a page is item-level
+    evidence for every domain listed on it, needing no further verification. The
+    assertion that a page IS a curated directory is made per seed, on the record.
+    """
+    yield from _parse_expansion(path, stats, curated=True)
+
+
 SOURCES: dict[str, SourceSpec] = {
     "early_web": SourceSpec(
         key="early_web",
@@ -512,6 +577,20 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="ukwa_host_link_graph",
         parse=parse_ukwa_link_target,
+    ),
+    "expansion_links": SourceSpec(
+        key="expansion_links",
+        source_name="page_expansion",
+        evidence_type="link_target",
+        acquisition_method="archived_page_outbound_link",
+        parse=parse_expansion_links,
+    ),
+    "expansion_directory": SourceSpec(
+        key="expansion_directory",
+        source_name="page_directory",
+        evidence_type="dated_directory",
+        acquisition_method="archived_directory_page",
+        parse=parse_expansion_directory,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

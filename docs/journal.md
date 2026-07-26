@@ -96,3 +96,28 @@ independent of its findings, so it was done meanwhile instead of idling.
 
 **Engines:** +440 pairs from an RDAP journal. Store **1,307,903** net-new pairs. C workflow still
 running, all six investigations active.
+
+**04:40-05:55 — B6 (`ark download`, §VII expansion) and an Internet Archive outage.**
+
+- **`ark download` built**, replacing a one-line stub. Journals one record *per capture* rather than
+  per page, since a directory captured in 1998 and 2000 evidences its entries in each year
+  separately. Curated-directory status is **asserted per seed** (`<TAB>directory`), never inferred
+  from markup, because that assertion grants master evidence under §IV.i. Two source specs read the
+  same journal and take their respective halves. stdlib `html.parser`, no new dependency, 14 tests.
+- **`discovered_round` now threaded through the loader** and exposed as `ark ingest --round N`, which
+  is what §VII.f/h need to show an actual cycle.
+- **Internet Archive started refusing us.** The pilot failed on all three seeds; the local network was
+  healthy and `rdap.org` fine, but `web.archive.org` refused TCP on 443. Eight probes: **2 up, 6
+  refused, ~25% availability.** The CDX logs show the onset (`failed_0` per batch climbing to 436,
+  `failed_503: 66`).
+  - **No data was corrupted**, because failures are never recorded as answers. That decision, made
+    yesterday after the opposite bug cost 2,727 domains, is what made this lost *time* rather than
+    lost *data*.
+  - Adapted per §VI rather than abandoning: the supervisor now probes IA before dispatching and holds
+    CDX while it refuses; concurrency cut 8 -> 4. RDAP unaffected.
+  - **Lesson: killing a worker without killing its dispatcher just spawns another.** The original
+    batch loop survived a `pkill` of its child and immediately re-dispatched at 8 workers against a
+    refusing host, which looked like my new gate failing. Found by listing dispatchers, not workers.
+- **Risk flagged:** the section-C investigation agents depend on IA CDX, so their Mosaic / 100hot /
+  WWW-Virtual-Library verdicts could be false negatives caused by this outage. Not taking any "dead"
+  verdict at face value without re-checking against the outage window.

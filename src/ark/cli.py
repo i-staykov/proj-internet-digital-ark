@@ -18,6 +18,8 @@ from ark.cdx import RateGovernor, http_fetch, lookup_years, lookup_years_per_yea
 from ark.cdx import answered as cdx_answered
 from ark.checks import collect_checks, format_checks
 from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.expand import answered as expand_answered
+from ark.expand import expand_page, read_seeds
 from ark.export import export_all
 from ark.gaps import write_creation_candidates, write_gap_candidates
 from ark.ingest import YEARS, ingest_legacy
@@ -51,6 +53,8 @@ _LOG_FILE = "data/logs/ark_{time:YYYY-MM-DD}.log"
 _JOURNAL_FLUSH_EVERY = 25
 CDX_JOURNAL_DIR = Path("data/raw/cdx")
 CDX_JOURNAL_PREFIX = "cdx"
+EXPAND_JOURNAL_DIR = Path("data/raw/expand")
+EXPAND_JOURNAL_PREFIX = "expand"
 
 
 @app.callback()
@@ -112,6 +116,15 @@ def ingest_cmd(
         list[Path],
         typer.Argument(help="Source files to ingest (gzip ok).", exists=True, readable=True),
     ],
+    round_: Annotated[
+        int,
+        typer.Option(
+            "--round",
+            help="Discovery round to stamp on newly seen domains. Round 0 is a directly "
+            "ingested source; a re-discovery round should carry its own number so the "
+            "expansion cycle is traceable.",
+        ),
+    ] = 0,
 ) -> None:
     """Ingest bulk source files through the shared audited loader.
 
@@ -124,7 +137,7 @@ def ingest_cmd(
     conn = connect()
     init_db(conn)
     queue_conn = connect_queue()
-    ingest_files(conn, spec, files, queue_conn=queue_conn)
+    ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
 
 
 @app.command()
@@ -160,9 +173,106 @@ def verify(
 
 
 @app.command()
-def download() -> None:
-    """Download verified pages and extract outbound links."""
-    logger.info("download: not implemented yet")
+def download(
+    seeds: Annotated[
+        Path,
+        typer.Argument(
+            help="Seed file: one page URL per line, optionally TAB 'directory' to assert "
+            "the page is a curated catalogue.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="Fetch at most this many not-yet-done pages.")
+    ] = 100,
+    workers: Annotated[int, typer.Option("--workers", help="Concurrent fetches.")] = 4,
+    delay: Annotated[
+        float, typer.Option("--delay", help="Starting seconds between requests.")
+    ] = 0.3,
+    captures: Annotated[
+        int,
+        typer.Option(
+            "--captures", help="In-window captures to fetch per page (each is its own year)."
+        ),
+    ] = 2,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out", help="Journal to write (default data/raw/expand/expand_<UTC>.jsonl.gz)."
+        ),
+    ] = None,
+) -> None:
+    """Fetch archived pages and extract the domains they link to (brief section VII).
+
+    Collection only: writes a per-run journal and never opens the store. Turn it
+    into evidence with `ark ingest expansion_links <journal> --round N` for the
+    candidate half, and `ark ingest expansion_directory <journal> --round N` for
+    pages asserted to be curated directories, whose capture date evidences their
+    entries under section IV.i.
+
+    Resumable: a page already answered in a journal in the same folder is skipped.
+    """
+    path = out or journal_path(EXPAND_JOURNAL_DIR, EXPAND_JOURNAL_PREFIX)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    done = queried_domains(path.parent, EXPAND_JOURNAL_PREFIX, answered=expand_answered)
+    seed_list = [
+        (url, curated)
+        for url, curated in read_seeds(
+            seeds.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        if url not in done
+    ][:limit]
+
+    first, last = min(YEARS), max(YEARS)
+    governor = RateGovernor(delay=delay, max_delay=5.0)
+    fetch = http_fetch(70.0)
+    stats: Counter = Counter({"seeds": len(seed_list), "skipped_done": len(done)})
+    written = 0
+    if seed_list:
+        with open_journal_for_write(path) as journal, ThreadPoolExecutor(workers) as pool:
+            futures = {
+                pool.submit(
+                    expand_page,
+                    url,
+                    first,
+                    last,
+                    fetch,
+                    governor,
+                    curated=curated,
+                    per_page_captures=captures,
+                ): url
+                for url, curated in seed_list
+            }
+            for future in tqdm(as_completed(futures), total=len(futures), unit="page"):
+                try:
+                    records = future.result()
+                except Exception as exc:  # noqa: BLE001 (one bad page must not end the run)
+                    logger.warning(f"{futures[future]}: {exc}")
+                    stats["errored"] += 1
+                    continue
+                for record in records:
+                    # the journal keys on the page URL, so a record needs it even
+                    # when the fetch failed and there is nothing else to say
+                    record["domain"] = record["page_url"]
+                    write_journal_line(journal, record)
+                    written += 1
+                    stats["captures" if record["status"] == 200 else "failed"] += 1
+                    stats["domains_found"] += len(record.get("domains") or [])
+                if written % _JOURNAL_FLUSH_EVERY == 0:
+                    journal.flush()
+    if written == 0:
+        path.unlink(missing_ok=True)
+        logger.info("download: nothing new to fetch; no journal written")
+    summary = dict(stats)
+    logger.info(f"download: {summary} -> {path if written else 'no journal'}")
+    typer.echo(f"download: {summary}")
+    if written:
+        typer.echo(
+            f"journal: {path}\n"
+            f"next: uv run ark ingest expansion_links {path} --round 1\n"
+            f"      uv run ark ingest expansion_directory {path} --round 1"
+        )
 
 
 @app.command()

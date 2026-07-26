@@ -172,6 +172,7 @@ def ingest_file(
     source_id: int,
     path: Path,
     audit_fh: IO[str],
+    discovered_round: int = 0,
 ) -> dict:
     """Ingest one source file; a file already in the ledger is skipped whole.
 
@@ -206,11 +207,11 @@ def ingest_file(
     try:
         conn.execute(
             r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT domain, regexp_replace(domain, '^[^.]+\.', ''), ?
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source, discovered_round)
+            SELECT DISTINCT domain, regexp_replace(domain, '^[^.]+\.', ''), ?, ?
             FROM bulk_stage
             """,
-            [source_id],
+            [source_id, discovered_round],
         )
         # one evidence row per (domain, year) per source: the earliest capture
         # in this file, skipping pairs this source already evidenced; the
@@ -269,6 +270,7 @@ def ingest_files(
     paths: list[Path],
     queue_conn: sqlite3.Connection | None = None,
     report_dir: Path = DEFAULT_REPORT_DIR,
+    discovered_round: int = 0,
 ) -> dict:
     """Ingest many files of one source; each file is its own resumable unit."""
     kind = "candidate_only" if spec.is_candidate_only else "timestamped"
@@ -284,7 +286,7 @@ def ingest_files(
             fh.flush()
         for index, path in enumerate(ordered, start=1):
             try:
-                result = ingest_file(conn, spec, source_id, path, fh)
+                result = ingest_file(conn, spec, source_id, path, fh, discovered_round)
             except Exception as exc:
                 totals["files_failed"] += 1
                 logger.error(f"[{index}/{len(ordered)}] {path.name}: failed ({exc}); continuing")
