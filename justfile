@@ -69,7 +69,7 @@ baseline:
 # stage 2: ingest every bulk source already downloaded into data/raw/
 sources:
     uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
-    uv run ark ingest isc_survey        data/raw/isc_survey/*.domains.gz
+    uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     uv run ark ingest arquivo_ia        data/raw/arquivo/IA.cdxj
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
@@ -81,7 +81,7 @@ sources:
 # stage 3: grow the candidate pool from the year-unlabelled host lists
 candidates:
     uv run ark seed data/raw/webbase/hosts.txt
-    uv run ark seed data/raw/ukwa/link_target_candidates.txt
+    uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
 
 # This is the reproduction path for the two network stages: it re-derives
 # evidence from the stored responses, so it needs no network and gives the same

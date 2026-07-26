@@ -472,6 +472,18 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - a `.part` file surviving a hard kill (SIGKILL) is deliberately NOT auto-promoted. Promoting it would race a collector that is still writing, and on POSIX the rename would not stop the writes, which reintroduces the same bug. Renaming it by hand is the documented recovery
   - 7 tests in `tests/test_journal.py`, one per property, including that a live journal is invisible to the ingest glob but visible to the resume scan
 
+- **The test suite was overwriting a shipping artifact (bug, 2026-07-26)**
+  - noticed while collecting real per-step output for the reproduction instructions: `data/reports/source_contribution.csv` held two rows, `prior_task` and `ia_cdx` with one evidence row each, instead of the fourteen real sources. Its mtime was the minute the test suite had last run
+  - cause: `export_all` took `netnew_dir`, `candidates_path` and `masters_dir` as parameters but called `write_contribution_tables(conn)` with no directory, so that one table pair always went to the real `data/reports/`. `test_export_all` redirected the three destinations it could and silently clobbered the fourth
+  - this sat in the delivery path. Packaging straight after a test run would have shipped a contribution table describing 2 domains instead of 5,293,498, and that table is the evidence behind every per-source claim in the report
+  - fixed by making `report_dir` a parameter like the others: a caller that redirects the outputs must redirect all of them. The test passes `tmp_path / "reports"`, and a second test asserts both tables land where the caller asked
+  - real tables regenerated with `ark export`. `netnew_pairs` across the fourteen sources sums to 1,308,314, matching the scoreboard exactly, which is the check that says the regenerated table is the real one
+
+- **Two wrong file globs in the `just` recipes, caught by checking them against the ledger (2026-07-26)**
+  - `isc_survey` was written as `data/raw/isc_survey/*.domains.gz`, which silently misses `wb_nw_9607_org.gz`, one of the five files actually ingested. `*.gz` matches all five
+  - the candidate seeds were listed as the UKWA target list, but UKWA targets enter through `ark ingest ukwa_link_target`; the two files really seeded were `data/raw/webbase/hosts.txt` and `legacy-data/deduplicated_urls_2001-2002.txt`
+  - both found by expanding every glob in the recipes and comparing the count against `ingested_file`: early_web 224, isc_survey 5, afnic 1, odp 3, all matching. Worth repeating for any documented glob, since a glob that quietly matches too little looks identical to a correct one
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the
