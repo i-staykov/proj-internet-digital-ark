@@ -131,7 +131,9 @@ the row alone.
 registration, an in-window domain later traded or re-registered falls outside the window and is
 dropped, so the tranche undercounts and cannot overcount. The file omits `.fr` names deleted before
 28 January 2014. `.fr` only. Discounting the interval reading to creation years alone would remove
-69,111 pairs, and since every row stores its interval, that recomputation is mechanical.
+69,111 pairs, and since every row stores its interval, that recomputation is mechanical. This file
+is republished monthly and so cannot be hash-pinned: this delivery used the June 2026 edition, and
+a later download will differ wherever a domain has been re-registered since.
 
 ---
 
@@ -361,7 +363,8 @@ reviewed URL.
 
 **Evidence type: `dated_directory`.** An editorial entry on a dated directory artifact.
 
-**Caveat.** Scholarly and US-weighted by editorial policy.
+**Caveat.** Scholarly and US-weighted by editorial policy. The feed is live and keeps growing, so
+it cannot be hash-pinned either; a later harvest may hold records this one did not.
 
 ---
 

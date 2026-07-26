@@ -14,7 +14,7 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 |---|---|---|---|
 | **1. Verify the shipped result** | Every shipped pair traces to a recorded observation, and no file has changed | ~10 s | `bash verify.sh` at the archive root; `provenance/trace.py` for any single domain |
 | **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild ../provenance` then `ark check` |
-| **3. Rebuild from the original sources** | The evidence itself follows from the source data | hours + 50 GB | Part 1, then Part 2 below |
+| **3. Rebuild from the original sources** | The evidence itself follows from the source data | 50 GB download, then ~20 min | Part 1, then Part 2 below |
 
 **Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
 
@@ -22,12 +22,16 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
 
+**What tier 3 actually returns, measured rather than assumed.** A full run takes about 20 minutes once the sources are on disk and rebuilds **1,319,272 of the 1,322,365 shipped pairs (99.77%)** over 462,726 of 463,566 domains, with all nine invariants passing. The 3,093-pair gap is two sources that predate journalling and so have no stored responses to replay: the legacy `rdap` tranche (3,106 pairs, the one the report's limitations already flags as having no hashed source file) and the superseded `ia_cdx` route (11 pairs). Nothing is lost in the process: those 840 domains return to the candidate pool, which grows from 5,583 to 6,423. Tier 2 is the check that reproduces the shipped result exactly, byte for byte; tier 3 re-derives everything that can be re-derived from files.
+
+**Two sources are live, not pinned.** `data/raw/checksums.sha256` pins 235 files, which is every source that can be pinned. The `.fr` open-data file cannot be: it is republished monthly, and this delivery used the June 2026 edition, so a reviewer downloading "the current A file" later gets a different one, with creation dates that have moved for any domain re-registered since. The Internet Scout OAI feed likewise keeps growing. Both are one-directional and small, but they mean a re-download does not have to match this run byte for byte, which is precisely why the journals and the provenance export ship.
+
 ## Reproduce the results
 
 Two jobs, and only the first needs the network:
 
 - **Part 1, get the inputs** (tier 3 only). The bulk source files, about 50 GB, so they are fetched rather than shipped.
-- **Part 2, rebuild the result** (tier 3). Deterministic and offline, under an hour. This reproduces the shipped numbers exactly.
+- **Part 2, rebuild the result** (tier 3). Deterministic and offline, about 20 minutes measured end to end. This reproduces the shipped numbers to 99.77%, with the gap accounted for above.
 
 Every step below prints what it did, and the expected output is given so a mismatch is visible immediately rather than three steps later. Every step is re-runnable: work already done is skipped, so an interrupted run is finished by running the same command again. Each run appends to a log in `data/logs/`.
 

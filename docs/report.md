@@ -178,7 +178,9 @@ leads, not evidence.
   a survey, since that absence means only "not in that artifact".
 - **One legacy tranche is weaker.** 3,106 pairs predate journalling and have no hashed source file.
   They were not re-queried: a re-query today returns different creation dates for domains that have
-  changed hands, which would alter rather than reproduce the result.
+  changed hands, which would alter rather than reproduce the result. A rebuild from the original
+  sources therefore returns 99.77% of the pairs, with those domains falling back to the candidate
+  pool rather than being lost.
 - **Not exhausted.** 5,583 candidates await evidence and ~470,000 domains remain unqueried.
 
 ## 9. Whether further expansion is worthwhile

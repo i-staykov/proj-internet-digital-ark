@@ -90,7 +90,7 @@ for y in 1996 1997 1998 1999 2000 2001; do cmp output/netnew/$y.txt ../additions
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
 itself from the original sources, which is tier 3.
 
-### 3. Rebuild from the original sources (hours)
+### 3. Rebuild from the original sources (a download, then about 20 minutes)
 
 Only needed to re-derive the evidence itself. The supplied baseline ships here in `baseline/`; copy
 it to `legacy-data/` inside the unpacked source. The bulk sources are the only thing to fetch, and
@@ -105,6 +105,18 @@ just reproduce
 The bulk sources total about 50 GB, of which a single 47 GB capture index is most of it.
 **Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
 reproducing 98.7% of the result.
+
+**What this returns.** Measured: **1,319,272 of the 1,322,365 pairs (99.77%)**, over 462,726 of
+463,566 domains, with all nine invariants passing. Two sources predate journalling and have no
+stored responses to replay, so tier 3 cannot recreate them: the legacy `rdap` tranche (3,106 pairs,
+also noted in the report's limitations) and a superseded per-year CDX route (11 pairs). The 840
+domains involved are not lost, they return to the candidate pool. Tier 2 above is the check that
+reproduces the shipped files exactly; tier 3 re-derives what can be re-derived from source files.
+
+**Two sources are live rather than hash-pinned**, so a later download need not match this one: the
+`.fr` registry file is republished monthly (this used the June 2026 edition) and the Internet Scout
+OAI feed keeps growing. The 235 files in `data/raw/checksums.sha256` are the ones that cannot drift.
+This is why the archive ships the network journals and the provenance export: they do not move.
 
 ## Evidence standard
 
