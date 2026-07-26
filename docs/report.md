@@ -145,7 +145,52 @@ All figures are net-new **on top of the baseline**. Per-source acquisition metho
 
 **Key strategic finding:** the baseline is Internet-Archive-derived (Early Web CDX overlapped it 99.99%). Net-new volume therefore comes from **non-IA sources** — DNS surveys (ISC), national registries (`.fr`), and national web archives (`.pt`, `.uk`) — which is also why the additions are geographically complementary.
 
-**Candidate-vs-verified routing (brief III.4).** Sources without item-level year labels — StanfordWebBase/webbase, undated DMOZ, raw URL lists, UKWA link *targets* — are treated as **candidate seeds**, never written to annual files without per-item verification. The in-store candidate pool is small (4) because the large candidate lists are held as files under `data/raw/` and fed to the verification engine from there rather than parked in the store; they are queued for the Phase 4 engine.
+### 3.1 The candidate pool (brief III.2, III.4, III.5, §IX.2)
+
+Sources without item-level year labels never reach an annual file. They enter a candidate pool and
+can leave it only by earning year-specific evidence. The taxonomy enforces this structurally rather
+than by convention: candidate-only evidence types cannot create a year assignment, and the
+`no_candidate_leakage` invariant fails if one ever does.
+
+**Composition, by the source that discovered each domain:**
+
+| Source | Domains | What it is |
+|---|--:|---|
+| `ukwa_link_target` | 5,435 | hosts linked *to* in the UK web archive's 1996-2001 host-link graph |
+| webbase `hosts` | 39 | Stanford WebBase 2001 crawl hosts, the III.4-named source |
+| `deduplicated_urls_2001-2002` | 2 | supplied legacy seed file |
+| other | 2 | earlier probes |
+| **total** | **5,478** | |
+
+The pool is `.uk`-weighted, which follows from its dominant source: `.co.uk` 2,182, `.com` 1,925,
+`.org.uk` 295, `.net` 270, `.org` 245, `.de` 80, `.ac.uk` 30, `.com.au` 23.
+
+**Why it is this size rather than larger, which is the more interesting fact.** The undated pools are
+mostly *already held*, so seeding them adds provenance rather than population:
+
+- UKWA link targets: 69,152 distinct target domains, of which **63,716 (92%) were already held**. Being
+  linked to from the UK web in this window is overwhelmingly a property of sites the baseline already
+  covers.
+- Stanford WebBase: 738,625 hostnames collapsing to 603,323 registered domains, of which **603,205
+  were already held**, leaving 39.
+- `deduplicated_urls_2001-2002`: 1,097,867 lines, **zero** new candidates.
+
+The twelve later `deduplicated_urls` files (2002-2003 through 2013-2014) were deliberately **not**
+seeded. The file closest to the window yields nothing, so files drawn from progressively later crawls
+cannot do better, and their populations are dominated by domains registered after 2001. Adding them
+would enlarge the pool with names that could not have existed in-window, which degrades what the pool
+means. §IX.2 asks for a pool as large as *practicable*, not as large as possible.
+
+**What promotes a candidate.** A year-specific record for the year in question: an archive capture in
+that year, a dated index or directory artifact listing it, or a registry record establishing
+registration in that year. Promotion is per year, never per domain, so a candidate confirmed for 1999
+enters `1999.txt` only.
+
+**Candidates are provably not confirmed.** Every domain in the exported pool has no year assignment
+by construction, and the complementary failure (a domain holding evidence that was never assigned,
+which would leave a confirmed domain sitting in the pool) is caught by the
+`nothing_earned_is_left_unassigned` invariant.
+
 
 **Novel methods / directions pursued.** (a) A one-day live-verified **bulk-source survey** (six parallel research tracks); (b) a 12-agent **direct-evidence source hunt** (2026-07-24) that live-verified 51 sources, overturning a supplied report's flagship leads (see negative results); (c) treating a registry's **registration span** as per-year evidence only after verifying the registry's creation-date semantics from its own documentation (AFNIC; deliberately *not* extended to RDAP, see §2); (d) byte-range **sampling spikes** to size a source before committing to a large download (Arquivo IA.cdxj).
 

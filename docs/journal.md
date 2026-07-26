@@ -82,3 +82,17 @@ independent of its findings, so it was done meanwhile instead of idling.
   That is a property of the pools rather than the code, so both collectors now print a hint to run
   `ark seed` on the same list when they leave domains undated, which protects a future run over
   unknown domains from losing them silently.
+
+**04:20-04:40 — B4, B5 (candidate pool documented).** New report **§3.1**.
+
+- Composition by discovering source, TLD mix, and what promotes a candidate (per year, never per
+  domain).
+- The section leads with *why the pool is 5,478 rather than larger*, which is the more interesting
+  fact: the undated pools are 92-100% already held, so seeding them buys provenance rather than
+  population. That reframes a small pool from a weakness into a measurement.
+- B5 needed no new work: candidates have no assignment by construction, and the complementary
+  failure (evidence recorded but never assigned, which would leave a confirmed domain in the pool) is
+  what the new `nothing_earned_is_left_unassigned` invariant catches, measured at 0.
+
+**Engines:** +440 pairs from an RDAP journal. Store **1,307,903** net-new pairs. C workflow still
+running, all six investigations active.
