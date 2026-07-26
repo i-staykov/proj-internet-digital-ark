@@ -25,17 +25,17 @@ hundred out of ~460,000. Where a source's yield is quoted as a delta elsewhere, 
 | `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
 | `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
 | `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 24 | 10,632 | 0 | 4,124 |
+| `ia_cdx_bulk` | `cdx_timestamp` | 26 | 14,154 | 199 | 5,719 |
 | `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
-| `page_directory` | `dated_directory` | 2 | 11,336 | 15 | 1,267 |
-| `rdap_snapshot` | `whois_creation` | 5 | 2,476 | 3 | 1,071 |
+| `rdap_snapshot` | `whois_creation` | 8 | 5,626 | 3 | 2,373 |
+| `page_directory` | `dated_directory` | 3 | 12,872 | 20 | 1,577 |
 | `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
 | `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
 | `ia_cdx` | `cdx_timestamp` | live | 11 | 8 | 11 |
 | `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
 | `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
 | `ukwa_link_target` | `link_target` | 1 | 88,263 | 0 | 0 |
-| `page_expansion` | `link_target` | 2 | 242 | 0 | 0 |
+| `page_expansion` | `link_target` | 3 | 248 | 0 | 0 |
 
 Generated from `data/reports/source_contribution.csv`, which `ark export` rewrites, so it is a
 measurement of the shipped store rather than a hand-kept tally.

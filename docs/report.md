@@ -14,18 +14,18 @@ This program grows the provided ~8.2M-line baseline with **net-new, evidence-bac
 | Metric | Value |
 |---|--:|
 | Net-new registered domains (absent from baseline) | **463,565** |
-| Net-new (domain, year) pairs | **1,310,558** |
+| Net-new (domain, year) pairs | **1,313,177** |
 | Baseline domains (read-only) | 4,824,656 |
 | Total domains in store | 5,293,804 |
-| Total (domain, year) pairs in store | 8,177,471 |
-| Evidence rows | 11,162,778 |
+| Total (domain, year) pairs in store | 8,180,090 |
+| Evidence rows | 11,169,172 |
 | Candidate pool (no year evidence yet) | 5,583 |
 
 **Net-new (domain, year) pairs by year:**
 
 | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 |
 |--:|--:|--:|--:|--:|--:|
-| 98,220 | 1,038,873 | 13,795 | 26,337 | 54,290 | 79,043 |
+| 99,089 | 1,038,873 | 14,151 | 26,597 | 54,863 | 79,604 |
 
 The 1997 figure is dominated by the ISC DNS survey (the baseline barely covers 1997); the thin 1998–2000 years were lifted 5–6× by AFNIC `.fr`, and materially by Arquivo `.pt` and the UK Web Archive.
 
