@@ -142,10 +142,10 @@ standard is a re-parse rather than a migration, and the result replays offline.
 
 ## 7. CDX execution notes
 
-**Tools.** Two, both existing public interfaces: the `internetarchive` client
-(`ia download early-web_cdx-lang-cdxa`) for bulk acquisition of the Early Web CDX dataset, and a
-purpose-built async client against the public CDX API at `web.archive.org/cdx/search/cdx` for
-targeted verification, which is the engine described below.
+**Tools.** Two existing public interfaces: the `internetarchive` client
+(`ia download early-web_cdx-lang-cdxa`) for the bulk Early Web CDX dataset, and a purpose-built
+async client against the public CDX API at `web.archive.org/cdx/search/cdx` for targeted
+verification.
 
 **Seeds and strategy.** Targets are not arbitrary: a domain evidenced in two years but missing the
 year between them is far likelier to have existed than a random name, so the queue is built from
@@ -161,10 +161,10 @@ so the client waits 70 s.
 **Errors and how they were handled.** An adaptive governor grows the delay 1.5x on 429/503/504
 honouring `Retry-After` and eases 0.8x after five successes, floor 50 ms, ceiling 5 s. **A failure is
 never recorded as an absence**: failures are counted per status and a domain is settled only by a
-real answer. This was tested when the service refused connections for several hours while other
-services stayed reachable: nothing was corrupted and every refused domain stayed eligible. On
-recovery throughput had halved, so concurrency was re-measured rather than assumed (185
-answered/hour at 4 workers, 383 at 8, 262 at 12) and the optimum held at 8.
+real answer. This was tested when the service refused connections for several hours: nothing was
+corrupted and every refused domain stayed eligible. On recovery throughput had halved, so
+concurrency was re-measured rather than assumed (185 answered/hour at 4 workers, 383 at 8, 262 at
+12) and the optimum held at 8.
 
 **Domains added.** 11,171 domains queried, 8,493 answered (76%), **11,932 net-new pairs**:
 11,652 previously unevidenced years for domains already held, plus 199 new domains.
@@ -177,10 +177,10 @@ links into the next round. Four rounds were run.
 
 **Rounds and seeds.** A pilot on high-fanout early pages, then directory, navigation and yellow-page
 sites; then the WWW Virtual Library's subject libraries, asserted as curated catalogues; then further
-subject libraries found in the previous round's own outbound links. That last round is the feedback
-loop closing: its seed list was produced by the pipeline, not by hand. Captures are fetched with the
-Wayback `id_` modifier, which serves the original stored bytes rather than a rewritten page, so the
-extracted links are the ones the author published.
+subject libraries found in the previous round's own outbound links. That last round closes the loop:
+its seed list was produced by the pipeline, not by hand. Captures are fetched with the Wayback `id_`
+modifier, which serves the original stored bytes rather than a rewritten page, so the extracted links
+are the ones the author published.
 
 **Depth decides yield.** Home pages returned 92 domains and zero new candidates, because a portal
 front page links to its own categories rather than outward. Curated catalogues one level in returned
@@ -189,14 +189,13 @@ front page links to its own categories rather than outward. Curated catalogues o
 **Why extracted names are split.** A curated page's capture date may evidence the domains listed on
 it, which is sound for the page and unsound for the parser: archived HTML carries transcription
 errors, and this route produced `arvard.edu` from a `harvard.edu` link, plus `gov.edu` and
-`gintysuooly.com`. A sample put roughly 40% of never-before-seen names in that class. So a name some
+`gintysuooly.com`. A sample put roughly 40% of never-before-seen names in that class, so a name some
 other source already attests is kept as dated evidence, and a name nothing else attests becomes a
-candidate instead.
+candidate.
 
 **The cycle was closed, not just described.** Of 298 discovered candidates queried against the
-archive, 233 answered and **198 (85%) held an in-window capture**, adding 278 pairs. That 85%
-justifies treating discovered names as leads worth verifying; the 40% error rate forbids treating
-them as evidence.
+archive, 233 answered and **198 (85%) held an in-window capture**, adding 278 pairs: high enough to
+make discovered names worth verifying, against a 40% error rate that forbids trusting them.
 
 ## 9. Limitations
 
