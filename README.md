@@ -20,7 +20,7 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 2** loads `provenance/` into a fresh store and re-runs the exporter, regenerating all thirteen result files **byte-identically** and re-running the nine invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
-**Tier 3** is the full pipeline below, and the only tier that needs the source data: the ~51 GB of bulk sources **and** the supplied baseline in `legacy-data/`, since the annual masters are baseline plus additions and "net-new" is defined against it. One 47 GB capture index is most of the bulk: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
+**Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~51 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping it costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**, reproducing 98.7% of the result.
 
 ## Reproduce the results
 
@@ -33,7 +33,7 @@ Every step below prints what it did, and the expected output is given so a misma
 
 ### Part 1: get the inputs
 
-**The baseline** goes in `./legacy-data/`: the six year files, `merge_stats_new0714.csv`, and `deduplicated_urls_2001-2002.txt`. These are the supplied files, not shipped back in the delivery archive; tier 3 needs them because the annual masters are baseline plus additions and "net-new" is defined against the baseline. Confirm it is the expected one:
+**The baseline** goes in `./legacy-data/`: the six year files, `merge_stats_new0714.csv`, and `deduplicated_urls_2001-2002.txt`. The delivery archive ships these in `baseline/`, so `cp -R ../baseline legacy-data` is enough. Confirm it is the expected one:
 
 ```bash
 wc -l legacy-data/1996.txt legacy-data/1997.txt legacy-data/1998.txt \

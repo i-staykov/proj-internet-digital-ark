@@ -15,6 +15,7 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
+| `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so the full rebuild needs nothing sourced separately |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The full evidence graph as Parquet, plus `trace.py` and `LOAD.sql` for querying it. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audit files, and the per-source contribution tables |
@@ -91,11 +92,19 @@ itself from the original sources, which is tier 3.
 
 ### 3. Rebuild from the original sources (hours)
 
-Only needed to re-derive the bulk sources themselves. **`README.md` inside `source/` documents this
-route step by step**, including where each file goes and the output each command should print;
-`sources.md` gives each source's download route. They total about 51 GB, of which a single 47 GB
-capture index is the bulk. **Skipping that one file costs exactly 17,696 pairs over 7,001 domains
-and leaves about 4 GB to download**, which reproduces 98.7% of the result.
+Only needed to re-derive the evidence itself. The supplied baseline ships here in `baseline/`; copy
+it to `legacy-data/` inside the unpacked source. The bulk sources are the only thing to fetch, and
+**`README.md` inside `source/` documents the route step by step**, with each source's download
+address in `sources.md`.
+
+```
+cp -R ../baseline legacy-data       # from inside the unpacked source/
+just reproduce
+```
+
+The bulk sources total about 51 GB, of which a single 47 GB capture index is most of it.
+**Skipping that one file costs exactly 17,696 pairs over 7,001 domains and leaves about 4 GB**,
+reproducing 98.7% of the result.
 
 ## Evidence standard
 
