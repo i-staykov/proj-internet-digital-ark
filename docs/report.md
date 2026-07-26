@@ -216,6 +216,20 @@ which would leave a confirmed domain sitting in the pool) is caught by the
 
 - **Per-year evidence, no forward-fill (III.7/III.1).** A domain enters a year file only with its own in-year evidence; first-appearance never infers later years. Cross-year duplication is required where independently evidenced.
 - **Net-new domains vs net-new pairs.** Distinct metrics: 463,364 domains are entirely absent from the baseline; 1,303,508 pairs are new (domain, year) facts, which additionally include baseline domains gaining a missing year (notably 1997, which the baseline barely covered). Verified non-double-counting.
+- **Reliability sampling per evidence type, and why a low rate is not a defect.** Cross-referencing
+  every claim against the 2,587 domains the CDX engine has actually answered gives a corroboration
+  rate per type: `cdx_timestamp` 100% (11,020 of 11,045), `artifact_listing` **35%** (1,184 of 3,342),
+  `whois_creation` from RDAP 32% (24 of 74), `link_target` 98% (137), `link_source` 100% (25).
+  Three things must be read with those numbers. **A miss is not a disproof**: Internet Archive
+  coverage of 1996-2001 is incomplete, so this measures agreement, not accuracy. **The 100% for
+  `cdx_timestamp` is a self-consistency check**, the archive confirming its own index, which is useful
+  only as evidence the query path is sound. And **`artifact_listing`'s 35% is complementarity rather
+  than error**: a DNS survey records that a domain resolved, while the archive records that somebody
+  crawled its pages, and a registered, resolving domain that nobody archived is the normal case in
+  this era. A source that agreed with the archive 100% of the time would be redundant with it; the
+  65% is precisely the coverage the archive lacks, which is why the survey is the largest contributor.
+  Caveat on the population: these domains come from the bracketed-gap pool, not a random sample of all
+  pairs, so the rates describe that population.
 - **Per-source and per-year contribution tables ship as CSVs** in the archive's `audit/` folder:
   `source_contribution.csv` (per source: lineage, evidence type, files, evidence rows, domains
   touched, pairs backed, net-new domains, net-new pairs, candidate domains) and `year_growth.csv`
