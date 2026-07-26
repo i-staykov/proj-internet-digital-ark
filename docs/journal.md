@@ -66,3 +66,19 @@ independent of its findings, so it was done meanwhile instead of idling.
   `.uk` web in this window is overwhelmingly a property of sites the baseline already covers, so the
   target side is worth its obscure 8% tail rather than volume. Worth stating in the report so the
   pool's size is not mistaken for pool value.
+
+**03:45-04:20 — B2, B3.** Candidate pool **4 -> 5,478**.
+
+- **webbase measured properly at last:** 738,625 hostnames -> 603,323 distinct registered domains,
+  603,141 already baseline, 64 already ours, **39 new**. The three-way seeding split turns the old
+  "99.99% overlap" claim into a reproducible measurement.
+- **`deduplicated_urls_2001-2002`: 0 new candidates** from 1.1M lines. Exhausted, as predicted in
+  July. **Decided against seeding the twelve later files**: the one closest to the window yields
+  nothing, so later crawls cannot do better, and their post-2001 populations would dilute the pool's
+  meaning. §IX.2 asks for as large as *practicable*, not as large as possible.
+- **B3 turned out to need verification, not code.** All 6,352 domains left undatable by either engine
+  already hold an assigned year, because both engines are fed from already-held pools: an undatable
+  result is a held domain with an unfilled gap, not a candidate. So III.10.c holds by construction.
+  That is a property of the pools rather than the code, so both collectors now print a hint to run
+  `ark seed` on the same list when they leave domains undated, which protects a future run over
+  unknown domains from losing them silently.

@@ -262,6 +262,14 @@ def rdap(
     typer.echo(f"rdap: {summary}")
     if queried:
         typer.echo(f"journal: {path}\nnext: uv run ark ingest rdap_snapshot {path}")
+        # a domain RDAP cannot date leaves no trace after interpretation, which is
+        # right for a pool of already-held domains and wrong for unknown ones,
+        # where III.10.c wants the undatable ones kept as candidates
+        if stats.get("not_dated"):
+            typer.echo(
+                f"note: {stats['not_dated']:,} domains could not be dated; if this list was not "
+                f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
+            )
 
 
 @app.command()
@@ -414,6 +422,16 @@ def cdx(
     typer.echo(f"cdx: {summary}")
     if written:
         typer.echo(f"journal: {path}\nnext: uv run ark ingest cdx_snapshot {path}")
+        # interpretation keeps only years the archive returned, so a domain it could
+        # not date leaves no trace. That is right for a pool drawn from domains
+        # already held, and wrong for a pool of unknown ones, where III.10.c wants
+        # the undatable ones kept as candidates.
+        undated = stats.get("no_capture", 0) + stats.get("failed_0", 0)
+        if undated:
+            typer.echo(
+                f"note: {undated:,} domains got no in-window capture; if this list was not "
+                f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
+            )
 
 
 @app.command()
