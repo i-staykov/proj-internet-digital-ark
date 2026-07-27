@@ -34,10 +34,13 @@ WITH per_source AS (
     SELECT s.name AS source,
            {_lineage_case_sql()} AS lineage,
            any_value(e.evidence_type) AS evidence_type,
-           count(*) AS evidence_rows,
+           count(e.evidence_id) AS evidence_rows,
            count(DISTINCT e.domain) AS domains_touched
-    FROM evidence e
-    JOIN source s ON s.source_id = e.source_id
+    -- Driven from `source`, not from `evidence`: a source that only ever fed the
+    -- candidate pool has no evidence rows at all, and an inner join silently drops
+    -- it, so the candidate column could not be reconciled with the reported pool.
+    FROM source s
+    LEFT JOIN evidence e ON e.source_id = s.source_id
     GROUP BY s.name
 ),
 backed AS (

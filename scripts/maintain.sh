@@ -26,7 +26,7 @@ conn = duckdb.connect("data/ark.duckdb", read_only=True)
 # A net-new PAIR and a net-new DOMAIN are different tests: a baseline domain
 # gaining a year it lacked is a new pair on an old domain. Counting distinct
 # domains over the net-new pairs conflates them and reported 1,161,961 domains
-# against a true 463,565, so the two predicates are kept apart here as well.
+# against a true 463,566, so the two predicates are kept apart here as well.
 pairs = conn.execute(
     """
     SELECT count(*) FROM domain_year dy

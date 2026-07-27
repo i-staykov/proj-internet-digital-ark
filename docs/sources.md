@@ -22,13 +22,15 @@ the path shown.
 | `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
 | `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
 | `ia_cdx` | `cdx_timestamp` | live | 11 | 8 | 11 |
+| `ncsa_whats_new` | `dated_directory` | 1 | 4,916 | 1 | 7 |
 | `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
 | `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
 | `ukwa_link_target` | `link_target` | 1 | 88,263 | 0 | 0 |
 | `page_expansion` | `link_target` | 3 | 248 | 0 | 0 |
 
-Generated from `data/reports/source_contribution.csv`, which `ark export` rewrites, so it measures
-the shipped store rather than being a hand-kept tally.
+Figures from `data/reports/source_contribution.csv`, which `ark export` rewrites, so they measure
+the shipped store rather than being a hand-kept tally. Listed here are the sources that carry
+evidence rows; that file also records the seed lists that only ever fed the candidate pool.
 
 ---
 
@@ -129,7 +131,9 @@ the row alone.
 registration, an in-window domain later traded or re-registered falls outside the window and is
 dropped, so the tranche undercounts and cannot overcount. The file omits `.fr` names deleted before
 28 January 2014. `.fr` only. Discounting the interval reading to creation years alone would remove
-69,105 pairs, and since every row stores its interval, that recomputation is mechanical.
+69,111 pairs, and since every row stores its interval, that recomputation is mechanical. This file
+is republished monthly and so cannot be hash-pinned: this delivery used the June 2026 edition, and
+a later download will differ wherever a domain has been re-registered since.
 
 ---
 
@@ -167,7 +171,7 @@ evidence about the target.
 ## `arquivo_ia` and `arquivo_roteiro`: Arquivo.pt capture indexes
 
 **What it is.** Two CDXJ capture indexes published by the Portuguese web archive: `IA.cdxj`, a
-50.93 GB index donated by the Internet Archive covering 1996-2007, and `Roteiro.cdxj`, a smaller
+47 GB index donated by the Internet Archive covering 1996-2007, and `Roteiro.cdxj`, a smaller
 early Portuguese-web collection.
 
 **Get it.** A resumable single-connection download; `IA.cdxj` took about 8.5 hours.
@@ -187,8 +191,8 @@ Index: <https://arquivo.pt/datasets/cdxj/>
 
 **Evidence type: `cdx_timestamp`.** An archived capture with an in-year timestamp and HTTP 200.
 
-**Caveats.** Portuguese-web weighted. `IA.cdxj` is 47 GB on disk and is the single largest
-acquisition cost in the project; skipping it costs 17,696 pairs over 7,001 domains.
+**Caveats.** Portuguese-web weighted. `IA.cdxj` is the single largest
+acquisition cost in the project; skipping both indexes costs 17,696 pairs over 7,001 domains.
 
 ---
 
@@ -345,7 +349,8 @@ is empty and concatenate the pages into one file.
 ```bash
 mkdir -p data/raw/scout
 curl -A "Mozilla/5.0" \
-  "https://archives.internetscout.org/OAI?verb=ListRecords&metadataPrefix=oai_dc"
+  "https://archives.internetscout.org/OAI?verb=ListRecords&metadataPrefix=oai_dc" \
+  >> data/raw/scout/scout_oai.xml
 # then repeat with &resumptionToken=<token from the previous page> until none is returned
 uv run ark ingest internet_scout data/raw/scout/scout_oai.xml
 ```
@@ -358,7 +363,8 @@ reviewed URL.
 
 **Evidence type: `dated_directory`.** An editorial entry on a dated directory artifact.
 
-**Caveat.** Scholarly and US-weighted by editorial policy.
+**Caveat.** Scholarly and US-weighted by editorial policy. The feed is live and keeps growing, so
+it cannot be hash-pinned either; a later harvest may hold records this one did not.
 
 ---
 
@@ -396,7 +402,9 @@ both faster and no less accurate.
 
 ## Source names that are not separate sources
 
-`cdx_snapshot` is the journal-ingest specification that writes under the source name `ia_cdx_bulk`.
+`cdx_snapshot` is the journal-ingest specification that writes under the source name `ia_cdx_bulk`;
+`rdap_snapshot` writes under `rdap_snapshot`, `early_web` under `early_web_cdx`, and
+`expansion_directory` and `expansion_links` under `page_directory` and `page_expansion`.
 `deduplicated_urls_2001-2002` and `mid_slice` are candidate-only names with zero evidence rows,
 retained so earlier seeding runs stay attributable.
 
@@ -416,7 +424,7 @@ Recorded so that negative results are visible rather than silently omitted.
 | ODP full 2001 content dumps | Verified unavailable in 2026: the URL serves a "Page Has Moved" stub |
 | ODP full Aug-2000 content dump | Unrecoverable; only `structure.rdf` was archived, which has no external links |
 | Public 1998-2001 zone files | None survive anywhere checked (DNS-OARC, resellers, academic torrents) |
-| Australian Web Archive (PANDORA/Trove) | The CDX endpoints at `webarchive.nla.gov.au/awa/cdx` and `web.archive.org.au/awa/cdx` return **HTTP 200 carrying an Anubis anti-bot proof-of-work challenge**, not CDX data. Machine access would require solving the challenge, so the archive is not usable programmatically. Worth recording precisely, because an earlier check read the 200 status as a live endpoint without reading the body |
+| Australian Web Archive (PANDORA/Trove) | The CDX endpoints at `webarchive.nla.gov.au/awa/cdx` and `web.archive.org.au/awa/cdx` return **HTTP 200 carrying an Anubis anti-bot proof-of-work challenge**, not CDX data. Machine access would require solving the challenge, so the archive is not usable programmatically |
 | Other ccTLD registry open data | Nothing free reaches 1996-2001. CENTR publishes aggregates only; OpenINTEL starts 2015; commercial WHOIS is paid. AFNIC `.fr` is the sole open registry file with in-window creation dates |
 | SNAP web graphs | Nodes are anonymised integers with no URL mapping |
 | Yahoo! Webscope AltaVista graph | Programme unreachable; crawl date too vague for per-year evidence |

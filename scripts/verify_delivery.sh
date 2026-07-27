@@ -7,7 +7,7 @@
 #
 # Three checks, each printed with its own verdict:
 #   1. every file matches SHA256SUMS
-#   2. the six annual addition files hold the number of pairs the README claims
+#   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
 #
 # Exit status is non-zero if any check fails, so it can gate a script.

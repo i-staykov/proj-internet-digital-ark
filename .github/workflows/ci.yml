@@ -32,6 +32,6 @@ jobs:
       - name: Format check (ruff)
         run: uv run ruff format --check .
 
-      # Unit tests only — network is mocked, no archives hit, no legacy data needed.
+      # Unit tests only: network is mocked, no archives hit, no legacy data needed.
       - name: Tests (pytest)
         run: uv run pytest

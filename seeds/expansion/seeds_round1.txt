@@ -1,6 +1,6 @@
 # Round 1 seeds: directory, navigation and yellow-page pages plausibly active 1996-2001.
 #
-# No page is asserted as `directory` here on purpose. Section IV.i lets a curated
+# No page is asserted as `directory` here on purpose. The brief lets a curated
 # directory page's capture date evidence every domain listed on it, with no further
 # validation, which makes the assertion master-grade evidence. Asserting it from the
 # reputation of a hostname would be guessing. Round 1 therefore collects every page as

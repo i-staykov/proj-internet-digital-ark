@@ -1,5 +1,5 @@
 # Round 2 seeds: the WWW Virtual Library's own subject libraries, asserted as
-# curated directories under section IV.i.
+# curated directories under the brief's editorial-catalogue exception.
 #
 # The assertion is made from the catalogue's own words, not its reputation. The
 # 1999-01-25 capture of http://vlib.org/ carries
@@ -7,7 +7,7 @@
 #    expert-run catalog of sections of the web">
 # and DC.Type "Bibliography", and every URL below is one of the subject sections
 # that page lists. So each is an editorially maintained catalogue, which is what
-# IV.i requires before a page's capture date may evidence the domains listed on
+# that exception requires before a page's capture date may evidence the domains listed on
 # it without further validation.
 #
 # Round 1 established why this route is needed: directory HOME pages yielded 92
