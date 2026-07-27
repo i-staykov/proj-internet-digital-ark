@@ -73,7 +73,7 @@ evidence.
 | `dated_directory` | An editorial entry on a curated directory page captured on a known date | Yes |
 | `whois_creation` | A registry record; two readings below | Yes |
 | `prior_reused` | The baseline already lists this pair | Yes, excluded from the score |
-| `link_target` | Merely linked to, which shows neither existence nor activity | **No**, candidate only |
+| `link_target` | Merely linked to, doesn't show existence | **No**, candidate only |
 
 **Two readings of registry data.** An RDAP response carries no history, so it attests **its creation
 year only**. The `.fr` registry file attests every in-window year between creation and deletion,
