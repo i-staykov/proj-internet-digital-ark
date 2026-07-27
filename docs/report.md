@@ -64,6 +64,7 @@ appearance never implies a later year; a registration date never implies the yea
 This is structural, not conventional: each annual assignment is backed by a `NOT NULL` foreign key
 into one specific evidence row, and the function that creates assignments refuses candidate-only
 evidence.
+
 | Evidence type | What one row asserts | Annual file |
 |---|---|---|
 | `cdx_timestamp` | A web-archive capture, in-year timestamp, HTTP 200 | Yes |
@@ -94,7 +95,8 @@ cannot be inflated.
 
 ## 5. Source contributions
 
-**Eligible for the annual files.** Domains found by more than one source count in each row:
+**Eligible for the annual files.** A domain found by more than one source counts in each row, so
+the Domains column does not sum to the headline:
 
 | Source | Type | Domains | Pairs |
 |---|---|--:|--:|
@@ -123,8 +125,9 @@ comes from sources of different origin, which also explains the geographic skew.
 independent lineages**, 10,207 of them net-new.
 
 **The seed pool** holds 3,595,769 hostnames and URLs over 2,195,955 domains, each dated by its
-source, because the registered-domain unit discards what a crawler needs: given `foo.com`, a
-downloader never reaches `shop.foo.com`.
+source. It is extracted from the same source files that produce the annual evidence, by the same
+parsers, keeping the original hostname or URL before canonicalization. The registered-domain unit
+discards what a crawler needs: given `foo.com`, a downloader never reaches `shop.foo.com`.
 
 ## 6. Newly identified methods
 
@@ -163,7 +166,7 @@ concurrency was re-measured rather than assumed (185 answered/hour at 4 workers,
 12) and the optimum held at 8.
 
 **Domains added.** 11,171 domains queried, 8,493 answered (76%), **11,932 net-new pairs**:
-11,652 previously unevidenced years for domains already held, plus 199 new domains.
+11,652 previously unevidenced years for domains already held, plus 280 pairs on 199 new domains.
 
 ## 8. Page expansion and the discovery cycle
 
@@ -206,7 +209,7 @@ make discovered names worth verifying, against a 40% error rate that forbids tru
 **Yes, in one direction.** Archive gap-filling converts hours into pairs at a stable measured rate
 (1.07 pairs per domain queried against ~470,000 unqueried domains), so it is bounded by time spent
 rather than by the source. Registry dates are worth running only because they use a different
-service: 0.15 pairs per domain is structural, since a capture answers any year while a creation date
+service: 0.17 pairs per domain is structural, since a capture answers any year while a creation date
 answers one. Page expansion is worth continuing only into leaf catalogues that document themselves
 as curated.
 
