@@ -597,6 +597,39 @@ An independent audit of the whole delivery against the SPEC, with the report and
   - the Internet Scout OAI feed is live and keeps growing, so a later harvest can hold records this one did not
   - stated in both READMEs and in the two source sections rather than left for a reviewer to discover. It is also the clearest argument for why the archive ships the journals and the Parquet export at all: those are fixed, and the upstream files are not
 
+## 2026-07-28 / 29 (phase 2: rebasing onto merged260727)
+
+Ding's feedback set two binding rules for every future round: start from `merged260727`, and report true marginal additions after deduplication against it. Completeness is claimable only below 10,000 additions **and** below 0.1% growth. Phase 1 grew the reference set 17.38%, so the period is nowhere near closed. Two collectors ran throughout this work, which is why several of the findings below are about operating them rather than about the data.
+
+- **RDAP was silently discarding a fifth of its own pool (blocking)**
+  - `ark rdap` journals a record for every outcome, and `rdap.answered()` exists precisely so that only a 200 or a 404 settles a domain: its docstring says a transport error "means the question never landed, and treating that as settled would silently drop the domain from every later run". But `cli.py` called `queried_domains()` **without passing it**, so the default predicate counted every record as settled, rate limits and connection failures included
+  - measured impact: **12,888 domains** marked permanently done that had never actually been answered. Fixed by passing `answered=rdap_answered`; the skip count fell from 45,378 to 32,490, which is exactly the correctly-settled figure, so all 12,888 returned to the pool
+  - nothing was lost, and the reason is worth recording: journals are immutable and the predicate is applied **on read**. Correcting the rule retroactively restores wrongly-skipped work. `ark cdx` was never affected because it always passed its predicate
+  - the same night showed why the predicate matters. `--delay 0.05` is 20 requests a second from one IP; across a 12-hour window that drew 7,895 rate-limit responses, after which the registries refused connections outright and one batch returned 1,864 transport failures out of 1,910. The registries' own notices state that bulk query access from a single source is detected and limited, so that pace was never defensible. The delay is now the third argument to `supervise_engines.sh`, defaulting to 0.5 s, and dating recovered to roughly 870 per 2,500
+
+- **A second baseline could not be ingested at all, and failed quietly (blocking)**
+  - `ingest_year_file` decides a file is already ingested by matching `evidence_value` against `path.name`, which is bare `1996.txt`. The phase-1 baseline holds exactly those markers, so pointing the command at `merged260727` would log "already ingested, skipping" six times and change nothing. Six skip lines look like success
+  - fix: a `marker_prefix` threaded through `ingest_legacy`/`ingest_year_file` and exposed as `--marker-prefix`, so the release records as `merged260727/1996.txt`. Small, but it earned a test, because the failure mode is not an error: it is a whole round built on the wrong baseline and only discovered when the reviewer merges it
+  - ingest result: six files, 0 skipped, **0 year rows added**. That zero is the informative part. At registered-domain granularity `merged260727` contains no pair the store did not already hold, which is the expected consequence of it being the old baseline merged with phase 1's own output
+
+- **Export and stats disagreed about what "new" means, and only the rolling baseline exposed it (blocking)**
+  - `export.py` defined an addition by following `domain_year.evidence_id` and asking whether **that row** is baseline. `stats.py` asks whether **any** baseline evidence exists for that `(domain, year)`. Under a fixed baseline those agree. Under a rolling one they diverge, because `INSERT OR IGNORE` leaves an already-assigned pair pointing at its original CDX evidence even after a later release absorbs it
+  - consequence had it shipped: `output/netnew/` would have held **1,339,783** pairs instead of 17,418, re-claiming the whole of phase 1 as new against a baseline that already contained it. That is exactly what the feedback forbids: "do not report internal pipeline insertions as if they were new against the project". It would have been caught, but by Ding's merge rather than by us
+  - fix: export now uses the absence-of-baseline test, matching `stats.py` and `contribution.py`, which had it right all along
+  - the defect was found only because `ark check` failed and the failure was diagnosed rather than silenced. Worth stating plainly, since the tempting move was to weaken the check until it passed
+
+- **The double-counting check was moved off the store and onto the shipped artifact**
+  - `additions_not_double_counted` reported 1,322,365 offending after the rebase. Diagnosis first: all of them were backed by the `merged260727` marker, none by the original, and exactly 17,418 pairs had no baseline evidence at all. So the store was correct and the check encoded a single-baseline assumption
+  - a store-side reformulation would have been a tautology, since after the export fix "is an addition" and "has no baseline evidence" are the same predicate. So the check now reads `output/netnew/*.txt` and asserts that no shipped domain carries baseline evidence for that year. It tests the thing Ding actually receives
+  - the export directory is a parameter rather than a constant in the SQL, for the reason `export_all` already documents: a hardcoded path makes the test suite assert against the real deliverable. A missing export reports `[SKIP]` with a reason, because an empty `output/` must not be mistaken for a satisfied invariant
+  - the new test immediately earned itself: the year regex originally scanned the whole path and matched `output/netnew/` only by luck, failing against a temp directory. Now anchored to `([0-9]{4})\.txt$`
+
+- **Result of the rebase: 17,418 net-new pairs against `merged260727`**
+  - 1996: 2,220 | 1997: 1,319 | 1998: 3,465 | 1999: 336 | 2000: 5,598 | 2001: 4,480
+  - CDX contributed 12,890 year rows and RDAP 4,528, so the total reconciles to the two engines exactly. Net-new **domains** is 0, which is correct and expected: every domain found so far is one the merged baseline now knows, and the additions are years gained on domains already held. That is what the sandwich-gap strategy is for
+  - roughly one day of crawling, already above the 10,000-addition threshold, so the round cannot be claimed as approaching completeness
+  - candidate lists regenerated against the new picture: CDX 466,434 domains over 488,629 gap pairs, RDAP 5,252,144 domains over 8,656,851 addressable years. Both were written to a `.new` path and `mv`-ed into place, since `mv` is atomic on one filesystem and the collectors were still dispatching; a batch that read a half-written list would have skipped real targets silently
+
 ## Definition: the two verification engines and how they work together
 
 Both engines turn an undated or partially dated domain into per-year evidence, and both follow the
