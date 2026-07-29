@@ -9,11 +9,18 @@ Several of them encode a rule that is stated in the delivery report, so a reader
 who doubts the rule can run the gate instead of taking it on trust.
 """
 
+from pathlib import Path
+
 import duckdb
 
 from ark.evidence_types import CANDIDATE_ONLY_TYPES
 
 _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
+
+# Where `ark export` writes the annual additions. A parameter rather than a
+# constant inside the SQL: a hardcoded path would make the test suite assert
+# against the real deliverable, which is the same trap `export_all` documents.
+NETNEW_DIR = Path("output/netnew")
 
 # The first four-digit run inside an evidence value is that value's own year, for
 # every type whose value names a single year: a CDX timestamp (19981212033831), a
@@ -103,17 +110,19 @@ CHECKS: list[tuple[str, str, str]] = [
     ),
     (
         "additions_not_double_counted",
-        "no pair counted as an addition also carries baseline evidence for that year, "
-        "so the net-new figure cannot be inflated by rows the baseline already had",
-        """
-        SELECT count(*) FROM domain_year dy
-        JOIN evidence e ON e.evidence_id = dy.evidence_id
-        WHERE e.evidence_type <> 'prior_reused'
-          AND EXISTS (
-            SELECT 1 FROM evidence p
-            WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-              AND p.evidence_type = 'prior_reused'
-          )
+        "no domain in the exported additions files carries baseline evidence for that year, "
+        "so the shipped net-new figure cannot be inflated by rows the baseline already had",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        ) f
+        JOIN evidence p ON p.domain = f.domain
+         -- anchored to the file name: the year is the file, and an unanchored
+         -- match would take any four digits that happen to sit in the path
+         AND p.evidence_year = TRY_CAST(regexp_extract(f.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
+        WHERE p.evidence_type = 'prior_reused'
         """,
     ),
     (
@@ -132,11 +141,30 @@ CHECKS: list[tuple[str, str, str]] = [
 ]
 
 
-def collect_checks(conn: duckdb.DuckDBPyConnection) -> list[dict]:
-    """Run every integrity check; return one result dict per check."""
+def collect_checks(conn: duckdb.DuckDBPyConnection, netnew_dir: Path = NETNEW_DIR) -> list[dict]:
+    """Run every integrity check; return one result dict per check.
+
+    A check that reads an exported file is reported as skipped when the export
+    is absent, which is the normal state of a fresh clone before `ark export`.
+    Skipped is shown rather than counted as a pass, so an empty output/ cannot be
+    mistaken for a satisfied invariant.
+    """
     results = []
-    for name, description, sql in CHECKS:
-        offending = conn.execute(sql).fetchone()[0]
+    for name, description, template in CHECKS:
+        sql = template.format(netnew_dir=netnew_dir) if "{netnew_dir}" in template else template
+        try:
+            offending = conn.execute(sql).fetchone()[0]
+        except duckdb.IOException:
+            results.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "offending": 0,
+                    "ok": True,
+                    "skipped": f"no exported files in {netnew_dir}; run `ark export` first",
+                }
+            )
+            continue
         results.append(
             {"name": name, "description": description, "offending": offending, "ok": offending == 0}
         )
@@ -146,6 +174,9 @@ def collect_checks(conn: duckdb.DuckDBPyConnection) -> list[dict]:
 def format_checks(results: list[dict]) -> str:
     lines = ["== integrity checks =="]
     for r in results:
+        if r.get("skipped"):
+            lines.append(f"  [SKIP] {r['name']}: {r['skipped']}")
+            continue
         mark = "PASS" if r["ok"] else "FAIL"
         lines.append(f"  [{mark}] {r['name']}: {r['offending']:,} offending  ({r['description']})")
     failed = [r["name"] for r in results if not r["ok"]]

@@ -13,10 +13,26 @@ from loguru import logger
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
+from ark.stats import BASELINE_TYPE
 
 NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
 MASTERS_DIR = Path("data/exports")
+
+# A pair is an addition when the baseline holds NO evidence for that (domain, year),
+# which is the same test `stats.py` and `contribution.py` apply. It is deliberately
+# not "the row this assignment happens to point at is not baseline": the baseline
+# rolls forward, so once a release absorbs an earlier addition, that pair still
+# points at the original CDX row while now also carrying baseline evidence. Under
+# the weaker test every past addition would be re-exported as new against the
+# current baseline, which is exactly the double count the brief forbids.
+_NOT_IN_BASELINE = f"""
+    NOT EXISTS (
+        SELECT 1 FROM evidence p
+        WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
+          AND p.evidence_type = '{BASELINE_TYPE}'
+    )
+"""
 
 
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
@@ -40,9 +56,8 @@ def export_all(
 
     for year in YEARS:
         netnew_query = f"""
-            SELECT dy.domain FROM domain_year dy
-            JOIN evidence e ON dy.evidence_id = e.evidence_id
-            WHERE e.evidence_type != 'prior_reused' AND dy.assigned_year = {year}
+            SELECT DISTINCT dy.domain FROM domain_year dy
+            WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
             ORDER BY dy.domain
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
@@ -53,13 +68,13 @@ def export_all(
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
 
-    manifest_query = """
+    manifest_query = f"""
         SELECT dy.domain, dy.assigned_year, e.evidence_type, e.evidence_value,
                s.name AS source, e.acquisition_method, e.evidence_url
         FROM domain_year dy
         JOIN evidence e ON dy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
-        WHERE e.evidence_type != 'prior_reused'
+        WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
         ORDER BY dy.domain, dy.assigned_year
     """
     path = netnew_dir / "evidence_manifest.csv"

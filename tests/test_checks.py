@@ -1,5 +1,7 @@
 """Integrity checks: a clean store passes; a planted violation is caught."""
 
+from pathlib import Path
+
 import duckdb
 
 from ark.checks import collect_checks
@@ -20,12 +22,15 @@ def _clean_store() -> duckdb.DuckDBPyConnection:
     return conn
 
 
-def _results_by_name(conn: duckdb.DuckDBPyConnection) -> dict[str, dict]:
-    return {r["name"]: r for r in collect_checks(conn)}
+def _results_by_name(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path | None = None
+) -> dict[str, dict]:
+    # never the real output/: a check that reads files must be pointed at a fixture
+    return {r["name"]: r for r in collect_checks(conn, netnew_dir or Path("no-such-export"))}
 
 
 def test_clean_store_passes_all_checks() -> None:
-    results = collect_checks(_clean_store())
+    results = collect_checks(_clean_store(), Path("no-such-export"))
     assert results, "expected at least one check"
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
@@ -88,20 +93,39 @@ def test_registration_spans_are_exempt_from_the_year_match() -> None:
     assert _results_by_name(conn)["evidence_year_matches_its_value"]["ok"] is False
 
 
-def test_detects_an_addition_that_is_also_baseline() -> None:
+def test_detects_an_addition_that_is_also_baseline(tmp_path: Path) -> None:
+    """The invariant is about the SHIPPED file, not the store.
+
+    A pair the baseline already had is allowed to sit in the store carrying our
+    own evidence too: that is what a rolling baseline produces, since each
+    release absorbs the previous round's additions. What must never happen is
+    that pair appearing in the exported additions, where it would be counted a
+    second time.
+    """
     conn = _clean_store()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     prior = ensure_source(conn, "prior_task", "timestamped")
     add_candidate(conn, "both.com", cdx)
-    # assigned from our own evidence, so it counts as an addition ...
     assign_year(
         conn, record_evidence(conn, "both.com", cdx, 1998, "cdx_timestamp", "19980202000000")
     )
-    # ... while the baseline also had it, which would inflate net-new
     record_evidence(conn, "both.com", prior, 1998, "prior_reused", "1998.txt")
-    results = _results_by_name(conn)
+
+    # store alone is clean: the pair simply has evidence from both rounds
+    (tmp_path / "1998.txt").write_text("example.com\n", encoding="utf-8")
+    assert _results_by_name(conn, tmp_path)["additions_not_double_counted"]["ok"] is True
+
+    # shipping it as an addition is the violation
+    (tmp_path / "1998.txt").write_text("example.com\nboth.com\n", encoding="utf-8")
+    results = _results_by_name(conn, tmp_path)
     assert results["additions_not_double_counted"]["ok"] is False
     assert results["additions_not_double_counted"]["offending"] == 1
+
+
+def test_missing_export_is_skipped_not_silently_passed(tmp_path: Path) -> None:
+    result = _results_by_name(_clean_store(), tmp_path / "absent")
+    assert result["additions_not_double_counted"]["skipped"]
+    assert "ark export" in result["additions_not_double_counted"]["skipped"]
 
 
 def test_detects_master_evidence_left_unassigned() -> None:
