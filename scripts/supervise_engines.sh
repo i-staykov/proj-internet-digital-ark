@@ -13,6 +13,11 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 
 RUN_FOR_SECONDS="${1:-47000}"
 CDX_WORKERS="${2:-4}"
+# Seconds between RDAP requests. 0.05 (20/s) drew 7,895 rate-limit responses on
+# 2026-07-28 and the registries then refused connections outright for hours, so
+# the pace is now a parameter with a defensible default. Registry notices state
+# that bulk query access from a single source is detected and limited.
+RDAP_DELAY="${3:-0.5}"
 END=$(( $(date +%s) + RUN_FOR_SECONDS ))
 
 # Only dispatch against a service that is actually answering. Section VI treats
@@ -36,9 +41,9 @@ while [ "$(date +%s)" -lt "$END" ]; do
         fi
     fi
     if ! pgrep -f "bin/ark rdap" >/dev/null; then
-        echo "$(date +%H:%M:%S) dispatching rdap batch"
+        echo "$(date +%H:%M:%S) dispatching rdap batch (delay ${RDAP_DELAY}s)"
         ( uv run ark rdap data/raw/rdap/creation_candidates.txt \
-            -n 2500 --delay 0.05 >> data/logs/rdap_longrun.log 2>&1 & )
+            -n 2500 --delay "$RDAP_DELAY" >> data/logs/rdap_longrun.log 2>&1 & )
     fi
     sleep 120
 done

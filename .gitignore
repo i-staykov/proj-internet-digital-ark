@@ -19,6 +19,7 @@ __pycache__/
 # The net-new deliverable (output/) grew large once real sources landed, so it
 # now ships in the delivery archive, regenerable on any machine via `ark export`.
 # NEVER commit (GitHub rejects >100MB files); big input/intermediate/output data:
+feedback-phase-1/
 legacy-data/
 /data/
 output/

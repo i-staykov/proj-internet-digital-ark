@@ -36,6 +36,9 @@ from ark.rdap import (
     JOURNAL_PREFIX as RDAP_JOURNAL_PREFIX,
 )
 from ark.rdap import (
+    answered as rdap_answered,
+)
+from ark.rdap import (
     lookup,
 )
 from ark.seed import seed_from_file
@@ -387,7 +390,9 @@ def rdap(
     """
     path = out or journal_path(RDAP_JOURNAL_DIR, RDAP_JOURNAL_PREFIX)
     path.parent.mkdir(parents=True, exist_ok=True)
-    already = queried_domains(path.parent, RDAP_JOURNAL_PREFIX)
+    # only a 200 or a 404 settles a domain: a 429 or a transport failure means the
+    # question never landed, and skipping those would drop them from every later run
+    already = queried_domains(path.parent, RDAP_JOURNAL_PREFIX, answered=rdap_answered)
     logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
     stats: Counter = Counter()
     queried = 0
