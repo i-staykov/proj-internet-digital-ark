@@ -107,11 +107,20 @@ def ingest_legacy_cmd(
     legacy_dir: Annotated[
         Path, typer.Option(help="Folder holding the provided baseline files.")
     ] = Path("legacy-data"),
+    marker_prefix: Annotated[
+        str,
+        typer.Option(
+            "--marker-prefix",
+            help="Namespace for this baseline's evidence markers, e.g. 'merged260727'. Required "
+            "when loading a later release: the marker is the file name alone, so a second "
+            "1996.txt would otherwise be skipped as already ingested.",
+        ),
+    ] = "",
 ) -> None:
     """Load the baseline year files and merge stats into the store."""
     conn = connect()
     init_db(conn)
-    all_stats = ingest_legacy(conn, legacy_dir)
+    all_stats = ingest_legacy(conn, legacy_dir, marker_prefix=marker_prefix)
     ingested = [s for s in all_stats if not s["skipped"]]
     total_rows = sum(s.get("year_rows", 0) for s in ingested)
     total_rejected = sum(s.get("rejected", 0) for s in ingested)

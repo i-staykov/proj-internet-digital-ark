@@ -46,9 +46,17 @@ def ingest_year_file(
     path: Path,
     year: int,
     report_path: Path = DEFAULT_REPORT_PATH,
+    marker_prefix: str = "",
 ) -> dict[str, int | str | bool]:
-    """Canonicalize one legacy year file into domain/evidence/domain_year rows."""
-    marker = path.name
+    """Canonicalize one legacy year file into domain/evidence/domain_year rows.
+
+    `marker_prefix` namespaces the evidence marker, which is what makes a SECOND
+    baseline ingestable. The marker is otherwise the file name alone, so a later
+    release's `1996.txt` looks like the one already ingested and is skipped as
+    already done: quietly, behind six reassuring "already ingested" lines. Pass
+    the release name to keep the two distinct.
+    """
+    marker = f"{marker_prefix}/{path.name}" if marker_prefix else path.name
     stats: dict[str, int | str | bool] = {
         "file": marker,
         "year": year,
@@ -157,14 +165,20 @@ def ingest_legacy(
     conn: duckdb.DuckDBPyConnection,
     legacy_dir: Path,
     report_path: Path = DEFAULT_REPORT_PATH,
+    marker_prefix: str = "",
 ) -> list[dict[str, int | str | bool]]:
-    """Ingest all six year files and the merge stats. Idempotent per file."""
+    """Ingest all six year files and the merge stats. Idempotent per file.
+
+    Pass `marker_prefix` when loading a later baseline release, so its evidence
+    rows do not collide with an earlier release that used the same file names.
+    """
     missing = [year for year in YEARS if not (legacy_dir / f"{year}.txt").is_file()]
     if missing:
         raise FileNotFoundError(f"missing year files in {legacy_dir}: {missing}")
 
     all_stats = [
-        ingest_year_file(conn, legacy_dir / f"{year}.txt", year, report_path) for year in YEARS
+        ingest_year_file(conn, legacy_dir / f"{year}.txt", year, report_path, marker_prefix)
+        for year in YEARS
     ]
 
     csv_path = legacy_dir / MERGE_STATS_FILENAME
