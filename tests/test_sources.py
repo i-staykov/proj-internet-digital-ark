@@ -598,3 +598,75 @@ def test_nypw_evidences_only_the_year_it_names(tmp_path):
     path.write_text(_nypw_line("19990601120000", "http://once.com/"))
     records = list(SOURCES["nypw_firstcdx"].parse(path, Counter()))
     assert [r.year for r in records] == [1999]
+
+
+# --- Usenet announcement archives --------------------------------------------
+
+
+def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
+    """Most posts carry an RFC 822 date, but the Giganews donation rewrote a
+    large share as a bare YYYY/MM/DD, which parsedate_to_datetime rejects. In
+    comp.infosystems.www.announce that is 21,346 of 23,282 messages, so a parser
+    that only understands RFC 822 silently discards 92% of the archive."""
+    from ark.usenet import message_year
+
+    assert message_year("Tue, 18 Jun 1996 12:00:00 GMT") == 1996
+    assert message_year("1997/06/18") == 1997
+    assert message_year("1998-06-18") == 1998
+    assert message_year("2010/06/18") is None  # out of window
+    assert message_year("not a date") is None
+    assert message_year("") is None
+
+
+def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
+    """The From: domain counts because in vendor and announcement posts the
+    sender is very often the site itself, and it is the one string a mail system
+    validated rather than a human typed into a message body."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message(
+        "Check out http://www.example.com/new and https://other.co.uk/x",
+        "Someone <person@vendor.net>",
+    )
+    assert set(found) == {"example.com", "other.co.uk", "vendor.net"}
+
+
+def test_usenet_drops_infrastructure_hosts():
+    """Archive and Usenet plumbing is not a website anyone announced."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("see http://groups.google.com/x", "a@deja.com")
+    assert found == []
+
+
+def test_usenet_journal_records_the_message_id_as_evidence(tmp_path):
+    """The Message-ID is globally unique by design, so it names the exact post a
+    year assignment came from and a reviewer can go and read it."""
+    import gzip
+    import json
+
+    path = tmp_path / "usenet_dated.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "domain": "example.com",
+                    "year": 1997,
+                    "message_id": "<abc@host>",
+                    "group": "comp.infosystems.www.announce",
+                }
+            )
+            + "\n"
+        )
+    records = list(SOURCES["usenet_dated"].parse(path, Counter()))
+    assert len(records) == 1
+    assert records[0].year == 1997
+    assert "<abc@host>" in records[0].evidence_value
+
+
+def test_usenet_dated_is_master_and_mentions_are_candidate_only():
+    """The split is the whole safety argument: a corroborated domain can carry
+    the post date, an uncorroborated name cannot assign a year at all."""
+    assert SOURCES["usenet_dated"].evidence_type == "dated_directory"
+    assert not SOURCES["usenet_dated"].is_candidate_only
+    assert SOURCES["usenet_candidates"].is_candidate_only

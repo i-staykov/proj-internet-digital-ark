@@ -66,7 +66,6 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-
 # The Internet Archive's "Not Your Parents' Web" first-capture index. Eight
 # space-delimited fields per line:
 #   normalised-url  SURT  timestamp  original-url  mime  status  digest  length
@@ -103,6 +102,38 @@ def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 evidence_value=f"nypw first capture {timestamp}",
                 evidence_url=f"https://web.archive.org/web/{timestamp}/{original}",
             )
+
+
+# A `split_usenet.py` journal: one JSON object per (domain, year), carrying the
+# Message-ID of the post that dated it. Two specs read the same format because
+# the split has already decided which half is which; the evidence type is the
+# whole difference between them.
+def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            domain, year = record.get("domain"), record.get("year")
+            if not domain or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            group = record.get("group", "usenet")
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                # the Message-ID is the auditable identifier: globally unique by
+                # design, so a reviewer can name the exact post behind a year
+                evidence_value=f"{group} {record.get('message_id', '')}".strip(),
+                evidence_url=f"https://archive.org/details/usenet-{group.split('.')[0]}",
+            )
+
 
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
     """Read (year, 'YYYY-MM') from an ISC survey filename, or None if absent."""
@@ -666,6 +697,20 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="dated_directory",
         acquisition_method="ncsa_whats_new_pages",
         parse=parse_ncsa_whats_new,
+    ),
+    "usenet_dated": SourceSpec(
+        key="usenet_dated",
+        source_name="usenet_announce",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_date",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_candidates": SourceSpec(
+        key="usenet_candidates",
+        source_name="usenet_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_mention",
+        parse=_parse_usenet_journal,
     ),
     "nypw_firstcdx": SourceSpec(
         key="nypw_firstcdx",

@@ -401,36 +401,29 @@ both faster and no less accurate.
 ---
 
 
-## `nypw_firstcdx`: Internet Archive "Not Your Parents' Web" first-capture index
+## NYPW first-capture index: assessed and rejected on measurement
 
-Found 2026-08-01 while looking for national web-archive CDX releases, and the only source assessed
-this round that produces genuinely **new domains** rather than new years on domains already held.
+Assessed 2026-08-01. Worth recording in full, because the initial estimate was wrong by more than
+two orders of magnitude and the reason is a units error that is easy to repeat.
 
-- **What it is.** One line per URL holding that URL's *earliest* Wayback capture, in eight
-  space-delimited fields: normalised URL, SURT, 14-digit timestamp, original URL, mimetype, status,
-  digest, length. Published by the Internet Archive alongside the paper at
-  [arXiv:2507.14752](https://arxiv.org/abs/2507.14752).
-- **Where.** `https://archive.org/details/nypw_urls_CDXfirstentry`, two files:
-  `nypw_downsampled_root_firstcdx.gz` (321 MB, site roots) and `nypw_downsampled_deep_firstcdx.gz`
-  (1.68 GB, deep links). No login, no payment. The item metadata carries
-  `access-restricted-item = true`, which is misleading: both files return HTTP 200 and download.
-- **Richer sibling.** `https://archive.org/details/nypw_timemaps` (CC-BY 4.0) holds full TimeMaps
-  rather than just the first capture, bucketed by first-archived year: 19.35 GB across 49 files for
-  1996-2001. That version supplies *every* capture year per URL, so it is a gap-filler as well as a
-  discovery source. Not yet ingested.
-- **Year evidence.** A 14-digit capture timestamp with HTTP 200, so the same standard as
-  `early_web_cdx`. A first-capture row evidences the year it names and no other, which is III.7
-  applied without any inference at all.
-- **Provenance lineage.** `internet_archive`. It is a sample of the Archive's own CDX, so a pair it
-  confirms alongside `early_web_cdx` or a Wayback query carries one lineage, not two. Filing it
-  anywhere else would inflate the independent-corroboration count.
-- **It is a sample, not a census.** Derived from a 1-in-6000 ZipNum CDX sample (285M URLs reduced to
-  27.3M) with early years upsampled and over-represented domains logarithmically downsampled. Its
-  yield is therefore a floor for the method, not a ceiling.
-- **Language.** The in-window TLD mix is heavily non-English (jp, it, de, kr, pl, ru all prominent),
-  so a large share will fail the section 6 standard. Every row is a capture by construction, though,
-  which means every domain it contributes **can** be classified. That is the opposite of the RDAP
-  and AFNIC routes, whose pairs frequently have no archived page to read at all.
+- **What it is.** The Internet Archive's "Not Your Parents' Web" first-capture index
+  (`https://archive.org/details/nypw_urls_CDXfirstentry`), one line per URL holding that URL's
+  earliest Wayback capture in eight space-delimited fields. Public, no login, 321 MB for the roots
+  file. A richer sibling, `nypw_timemaps` (CC-BY 4.0), holds full TimeMaps bucketed by year, 19.35
+  GB for 1996-2001.
+- **The first estimate said 27,276 net-new domains.** It compared NYPW's *registered domains*
+  against `sort -u legacy-data/*.txt`, which is *raw hostname lines* from the *phase-1* baseline.
+  Two compounding errors: a baseline holding only `www.foo.com` makes `foo.com` look new when
+  canonicalization collapses both, and the phase-1 baseline predates merged260730.
+- **Measured against the store, the whole file yields 60 net-new pairs over 53 net-new domains.**
+  6,281,952 lines, 2,413,003 in-window pairs over 2,354,914 distinct in-window domains, of which the
+  store already holds all but 53. A 99.998% overlap, which makes sense: it is a sample of the same
+  Internet Archive CDX that the baseline and our own `early_web_cdx` and Wayback routes already
+  drain.
+- **Verdict: REJECT**, and do not pursue the 19.35 GB TimeMaps sibling either, since it samples the
+  same URL universe. `scripts/measure_nypw_yield.py` reproduces the measurement in about two
+  minutes. The parser (`nypw_firstcdx` in `sources.py`) is kept, tested and wired, so a future
+  release of the same family can be measured without rebuilding it.
 
 ## Australian Web Archive: the CDX endpoint is reachable again
 
@@ -447,10 +440,16 @@ earlier rejection is now half wrong.
   `https://github.com/GLAM-Workbench/trove-web-archives-titles`): 87,757 rows, 42,671 distinct
   hosts, 35,396 registrable domains, of which 29,727 are absent from the 1996-2001 baseline. The
   CSV has no date column, so it is seed-only and every hit needs the CDX call.
-- **Not yet worth a full run, and the reason is a weak measurement rather than a strong one.** A
-  39-host probe returned 6 in-window hits and all 6 were already held. Six data points is not
-  enough to retire a 29,727-domain pool; it is enough to put it behind NYPW in the queue. Recorded
-  here so the next person runs a proper sample rather than repeating the probe.
+- **Measured and rejected.** The PANDORA list gives 35,391 registered domains, of which **29,595
+  are in no annual file** and 29,594 are not even known to the store as domains, so on paper it is a
+  large English-language pool. A random 60-domain sample was then queried against the working
+  endpoint with `from=1996&to=2001`: **60 answered, 0 transport failures, and 0 with any in-window
+  capture.** PANDORA's selective harvesting is simply later than our window for the long tail; the
+  in-window Australian material that does exist is already held.
+- **Verdict: REJECT as both a net-new and a corroboration source**, on a clean 60-domain sample
+  rather than the 39-host probe that first suggested it. The endpoint correction above still stands
+  and is worth keeping: it is the answer to section 4's instruction to revisit blocked sources, and
+  the next person should not spend the afternoon rediscovering that the NLA host moved.
 
 ## Source names that are not separate sources
 

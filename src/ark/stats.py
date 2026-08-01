@@ -55,6 +55,11 @@ PROVENANCE_LINEAGE = {
     "ukwa_link_source": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
+    # Usenet is its own lineage: the archive is a Giganews donation of posts,
+    # entirely independent of any web crawl, so a pair it confirms alongside a
+    # Wayback capture is genuine cross-lineage corroboration.
+    "usenet_announce": "usenet",
+    "usenet_mention": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
