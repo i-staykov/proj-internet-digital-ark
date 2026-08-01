@@ -169,12 +169,55 @@ fi
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 
-# The supplied baseline, shipped back so the full rebuild needs nothing sourced
-# separately. Only the files the pipeline reads: the six year files, the merge
-# statistics, and the one legacy URL list that feeds the candidate pool.
-cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/" 2>/dev/null || true
-cp legacy-data/merge_stats_new0714.csv "$STAGE/baseline/" 2>/dev/null || true
-cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/" 2>/dev/null || true
+# BOTH baselines, in separate folders, because conflating them made the shipped
+# archive wrong about its own scoring reference.
+#
+# `original/` is the first baseline supplied to this project. It is what
+# `ark ingest-legacy` reads, so tier 3 needs it.
+#
+# `merged260730/` is the reference this round's additions are COUNTED against,
+# and it was previously not shipped at all. A reviewer following tier 3 would
+# have rebuilt against `original/` and scored against a baseline 408,542 lines
+# smaller, which cannot reproduce any headline in the report. Worse, the archive
+# looked self-contained while being unable to reproduce its own central figure.
+#
+# Ding supplied merged260730, so this ships his own file back to him. That is the
+# point: the archive should be checkable without reference to anything outside
+# it, and 162 MB of text is a small price for that.
+mkdir -p "$STAGE/baseline/original" "$STAGE/baseline/merged260730"
+cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/original/" 2>/dev/null || true
+cp legacy-data/merge_stats_new0714.csv "$STAGE/baseline/original/" 2>/dev/null || true
+cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/original/" 2>/dev/null || true
+
+MERGED="feedback-external-phase-2/Internet_Digital_Ark_submission_260729_feedback_2026-07-31_Updated_v3/merged260730"
+if [ -d "$MERGED" ]; then
+    cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/merged260730/"
+    cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/merged260730/" 2>/dev/null || true
+else
+    echo "warning: merged260730 not found, shipping without the scoring baseline" >&2
+fi
+
+cat > "$STAGE/baseline/README.txt" <<'BASELINES'
+Two baselines, and they are not interchangeable.
+
+original/
+    The first baseline supplied to this project. `ark ingest-legacy` reads these
+    six year files, so the tier-3 rebuild starts here. 8,224,963 raw lines.
+
+merged260730/
+    The shared reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, supplied
+    with the 31 July feedback. 10,263,632 raw lines, which collapse to 8,633,505
+    (domain, year) pairs over 5,490,102 registered domains under SPEC III.8.
+    Every "net-new" figure in report.md means "not present in these files".
+
+    The pipeline ingests these with a marker prefix so their rows are
+    distinguishable from our own evidence, which is what makes the net-new
+    calculation possible at all.
+
+If you score our additions against original/ instead of merged260730/ you will
+get a larger number than the report claims, because merged260730 already
+contains a previous round of additions.
+BASELINES
 
 # the provenance graph as Parquet: which source saw which domain in which year,
 # so any shipped line can be traced without the source data or the database

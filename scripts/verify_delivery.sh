@@ -102,10 +102,22 @@ else:
         sys.exit(1)
     n = sum(len(v) for v in english.values())
     share = f"{n / total * 100:.1f}%" if total else "0%"
-    print(
-        f"{'english-verified subset':<46} PASS  {n:,} of {total:,} additions "
-        f"({share}) verified English, all within the additions"
-    )
+    if n == 0:
+        # A vacuous pass is worse than a failure here. Every check below about
+        # the English set is trivially satisfied when the set is empty: the
+        # partition holds because 0 + everything = everything, the subset test
+        # holds because there is no subset, and the register has nothing to be
+        # inconsistent about. Shipping nothing would otherwise print six PASS
+        # lines, which is precisely the reading a reviewer must not be given.
+        print(
+            f"{'english-verified subset':<46} WARN  the English set is EMPTY, so every "
+            "check below about it is vacuous"
+        )
+    else:
+        print(
+            f"{'english-verified subset':<46} PASS  {n:,} of {total:,} additions "
+            f"({share}) verified English, all within the additions"
+        )
 
 # --- 5. the two shipped sets partition the additions --------------------------
 # This is the contract the report states: English-verified and unverified are
@@ -145,9 +157,11 @@ else:
             f"{len(extra_in_split):,} in a set but not an addition"
         )
         sys.exit(1)
+    verdict = "PASS" if n else "WARN"
+    note = "" if n else "  (vacuous: the English set is empty)"
     print(
-        f"{'the two sets partition the additions':<46} PASS  {n:,} English + "
-        f"{len(union) - n:,} unverified = {len(union):,} additions, no overlap"
+        f"{'the two sets partition the additions':<46} {verdict}  {n:,} English + "
+        f"{len(union) - n:,} unverified = {len(union):,} additions, no overlap{note}"
     )
 
 # --- 6. every rejection is justified per item ---------------------------------
@@ -167,11 +181,17 @@ else:
             f"{len(rows):,} rejections have no reason"
         )
         sys.exit(1)
-    kinds = sorted({r["reason"] for r in rows})
-    print(
-        f"{'every rejection carries a reason':<46} PASS  {len(rows):,} rejections, "
-        f"{len(kinds)} distinct reasons"
-    )
+    if not rows:
+        print(
+            f"{'every rejection carries a reason':<46} WARN  the register is EMPTY, so "
+            "no exclusion is documented"
+        )
+    else:
+        kinds = sorted({r["reason"] for r in rows})
+        print(
+            f"{'every rejection carries a reason':<46} PASS  {len(rows):,} rejections, "
+            f"{len(kinds)} distinct reasons"
+        )
 PY
 
 echo

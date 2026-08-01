@@ -11,7 +11,7 @@ engine, and reloads into a queryable database with one statement per table. It
 takes about a second to write, so it is regenerated with every delivery rather
 than maintained.
 
-Five tables, which together are the whole provenance graph:
+Six tables, which together are the whole provenance graph:
 
     source          who observed anything, and by what acquisition method
     domain          every registered domain, and which source first saw it
@@ -42,7 +42,8 @@ OPTIONAL_TABLES = ("domain_language",)
 
 TABLES = CORE_TABLES + OPTIONAL_TABLES
 
-LOAD_SQL = """-- For the DuckDB command-line tool, run from INSIDE this folder:
+LOAD_SQL = """-- Six tables: the five that make up the evidence graph, plus the language
+-- verdicts. For the DuckDB command-line tool, run from INSIDE this folder:
 --     duckdb -init LOAD.sql
 -- The paths below are relative, so a different working directory will fail.
 --

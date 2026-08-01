@@ -8,29 +8,32 @@ the path shown.
 
 ## Summary
 
-| Source | Evidence type | Files | Evidence rows | Net-new domains | Net-new pairs |
-|---|---|--:|--:|--:|--:|
-| `isc_survey` | `artifact_listing` | 5 | 1,662,395 | 396,973 | 1,132,129 |
-| `afnic_fr` | `whois_creation` | 1 | 142,248 | 40,166 | 117,829 |
-| `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
-| `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 32 | 29,827 | 199 | 11,932 |
-| `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
-| `rdap_snapshot` | `whois_creation` | 15 | 12,309 | 5 | 5,341 |
-| `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
-| `page_directory` | `dated_directory` | 3 | 12,872 | 20 | 1,577 |
-| `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
-| `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
-| `ia_cdx` | `cdx_timestamp` | live | 11 | 8 | 11 |
-| `ncsa_whats_new` | `dated_directory` | 1 | 4,916 | 1 | 7 |
-| `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
-| `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
-| `ukwa_link_target` | `link_target` | 1 | 88,263 | 0 | 0 |
-| `page_expansion` | `link_target` | 3 | 248 | 0 | 0 |
+**The per-source figures are not repeated here.** They live in
+`audit/source_contribution.csv`, which `ark export` rewrites from the store on every run, and the
+report's per-source table is generated from the same data. This section previously carried a
+hand-copied snapshot of that file which claimed to be generated and had drifted several rounds out of
+date: it omitted the largest contributor of the current round entirely and understated two others by
+a factor of two. Quoting counts in two places is how they come to disagree, so this file now
+describes the sources and the CSV counts them.
 
-Figures from `data/reports/source_contribution.csv`, which `ark export` rewrites, so they measure
-the shipped store rather than being a hand-kept tally. Listed here are the sources that carry
-evidence rows; that file also records the seed lists that only ever fed the candidate pool.
+Columns in `source_contribution.csv`:
+
+| Column | Meaning |
+|---|---|
+| `source` | the source name, matching the `source` table in `provenance/` |
+| `lineage` | the provenance family, used to decide whether two sources corroborate independently |
+| `evidence_type` | which taxonomy entry its rows carry, and so whether it is master-eligible |
+| `files_ingested` | source files or journals folded in |
+| `evidence_rows` | observations recorded, whether or not they became assignments |
+| `domains_touched` | distinct registered domains the source saw |
+| `pairs_backed` | (domain, year) pairs it evidences, including pairs the baseline already held |
+| `netnew_pairs` | of those, the pairs that are additions against merged260730 |
+| `netnew_domains` | domains absent from the baseline in every year |
+| `candidate_domains` | names it found that earned no year and went to the candidate pool |
+
+`pairs_backed` and `netnew_pairs` differ, sometimes substantially, and the feedback asks for both:
+a source can independently confirm a pair the baseline already contains, which is worth recording
+even though it adds nothing to the headline.
 
 ---
 
@@ -39,10 +42,11 @@ evidence rows; that file also records the seed lists that only ever fed the cand
 **What it is.** The six annual files provided with the task (`1996.txt` through `2001.txt`),
 8,224,963 hostname lines, plus `merge_stats_new0714.csv`.
 
-**Get it.** Ships in the delivery archive under `baseline/`.
+**Get it.** Ships in the delivery archive under `baseline/original/`. Note that this is *not* the
+baseline additions are scored against; that is `baseline/merged260730/`. See `baseline/README.txt`.
 
 ```bash
-cp -R <archive>/baseline legacy-data
+cp -R <archive>/baseline/original legacy-data
 uv run ark ingest-legacy
 ```
 
@@ -547,7 +551,7 @@ Tucows and the candidate verification included in the later figures:
 
 The candidate pool grew from 5,583 to 41,289, and verifying part of it produced the project's first
 net-new **domains**: 1,730 Usenet-discovered candidates queried against the archive, **1,065 with an
-in-window capture, a 62% hit rate**. All ten integrity checks pass.
+in-window capture, a 62% hit rate**. All twelve integrity checks pass.
 
 **The admission rule, which is the whole safety argument.** The post date is trustworthy and the URL
 beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the

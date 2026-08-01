@@ -20,7 +20,12 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the twelve invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
-**Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
+**Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/original/` folder, and the reference this round is scored against in `baseline/merged260730/`, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
+
+**These tier-3 cost figures date from the phase-1 archive and have not been re-measured.**
+They are indicative of the shape of the trade, not current. The Arquivo indexes now contribute
+zero net-new pairs against merged260730, because a later baseline absorbed them, so skipping
+them costs less than the figure above suggests.
 
 Measured, a full run takes about 20 minutes and returns **1,319,272 of the 1,322,365 pairs (99.77%)**, all invariants passing. The gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the report's limitations) and the superseded `ia_cdx` route (11). Their 840 domains return to the candidate pool rather than being lost. Tier 2 is the byte-for-byte check; tier 3 re-derives what files can re-derive.
 

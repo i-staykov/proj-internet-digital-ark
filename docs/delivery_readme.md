@@ -22,7 +22,7 @@ Two things a reader should know before opening anything:
 | Path | Contents |
 |---|---|
 | `report.docx`, `report.md` | The report: counting unit, normalization, validity and salvage rules, dropped-domain statistics, source contributions, annual evidence logic, deduplication, limitations, results |
-| `masters/1996.txt` … `2001.txt` | **Final annual lists**: baseline plus additions, deduplicated within each year, one registered domain per line |
+| `masters/1996.txt` … `2001.txt` | **Final annual lists**: `merged260730` normalized to registered domains, plus our additions, deduplicated within each year. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains and `dropped_domains.txt` removes invalid lines. `audit/year_growth.csv` reconciles it exactly |
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `additions_english/1996.txt` … `2001.txt` | **English-verified additions**: the site's archived body text for that year was read and was more than half English |
@@ -32,13 +32,14 @@ Two things a reader should know before opening anything:
 | `additions_unverified/1996.csv` … `2001.csv` | Per row a `status` (`disqualified` or `unchecked`) and, for a rejection, its `reason` |
 | `additions_unverified/disqualified.csv` | The register: every pair we judged and rejected, one row each, with the reason and the pages read |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
-| `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so no baseline has to be sourced separately |
+| `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
+| `baseline/merged260730/` | **The reference this round's additions are counted against.** See `baseline/README.txt`: scoring against `original/` instead gives a larger number than the report claims |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The full evidence graph as Parquet, plus `trace.py` and `LOAD.sql` for querying it. This is what makes the result checkable offline |
-| `audit/` | Normalization and salvage audit files, and the per-source contribution tables |
+| `audit/` | Normalization and salvage audit files, the per-source contribution table, `year_growth.csv`, and `engine_review.md`: the adversarial review of the verification engine and the ten defects it found |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
-| `journals/` | The raw responses of every archive, registry and page query made |
+| `journals/` | The raw responses of every archive, registry and page query made, plus the Usenet and Tucows extraction journals and the language verdicts. `lang_superseded/` holds verdicts from earlier engine versions, retained for audit and excluded from results by engine version |
 | `source/` | The code and configuration that produced everything here, plus the commit it was built from |
 | `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, why it carries the evidence type it does, and what was rejected |
 | `SHA256SUMS` | Checksum for every file in this archive |
@@ -53,7 +54,8 @@ Three levels, in increasing cost. **The first two need no downloads and no netwo
 
 ### 1. Verify what is here (one command, about 10 seconds)
 
-Before unpacking, from the folder that holds the archive:
+Before unpacking, from the folder that holds the archive. The `.sha256` sidecar is delivered
+**beside** the `.tar.gz`, not inside it, so if you only have the unpacked folder skip to `verify.sh`:
 
 ```
 shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
@@ -65,9 +67,14 @@ Then, from inside this folder:
 bash verify.sh
 ```
 
-That checks every file against `SHA256SUMS`, prints the pair count of the six annual addition
-files, and confirms **every one of those pairs appears in
-`additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
+It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero if any fails. It
+checks every file against `SHA256SUMS`, prints the pair count of the six annual addition files,
+confirms **every one of those pairs appears in `additions/evidence_manifest.csv`** so nothing is
+asserted without a recorded observation, and confirms the two shipped sets partition the additions.
+
+**It prints WARN rather than PASS where a check is vacuous.** If the English-verified set is empty,
+every statement about it is trivially true, and six PASS lines would be exactly the wrong impression.
+
 
 **On the three additions folders, and the one distinction that matters.** `additions/` is every
 net-new (domain, year) pair, which is what a merge against the shared baseline is scored on.
@@ -133,8 +140,24 @@ for y in 1996 1997 1998 1999 2000 2001; do
     cmp output/netnew/$y.txt            ../additions/$y.txt
     cmp output/netnew_english/$y.txt    ../additions_english/$y.txt
     cmp output/netnew_unverified/$y.txt ../additions_unverified/$y.txt
+    cmp data/exports/$y.txt             ../masters/$y.txt
 done
+cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
+cmp output/candidate_unverified.txt      ../candidates.txt
 ```
+
+**The archive renames things, so here is the map.** The pipeline writes to `output/` and
+`data/exports/`; the archive presents the same files under clearer names:
+
+| in the rebuild | in this archive |
+|---|---|
+| `output/netnew/<year>.txt` | `additions/<year>.txt` |
+| `output/netnew_english/<year>.txt` | `additions_english/<year>.txt` |
+| `output/netnew_unverified/<year>.txt` | `additions_unverified/<year>.txt` |
+| `output/netnew/evidence_manifest.csv` | `additions/evidence_manifest.csv` |
+| `output/candidate_unverified.txt` | `candidates.txt` |
+| `data/exports/<year>.txt` | `masters/<year>.txt` |
+| `output/provenance/` | `provenance/` |
 
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
 itself from the original sources, which is tier 3.
@@ -147,7 +170,7 @@ it to `legacy-data/` inside the unpacked source. The bulk sources are the only t
 address in `sources.md`.
 
 ```
-cp -R ../baseline legacy-data       # from inside the unpacked source/
+cp -R ../baseline/original legacy-data       # from inside the unpacked source/
 just reproduce
 ```
 
@@ -155,7 +178,9 @@ The bulk sources total about 50 GB, of which a single 47 GB capture index is mos
 **Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
 reproducing 98.7% of the result.
 
-Measured on the phase-1 archive this returned 99.77% of its pairs, all invariants passing. The
+Measured on the phase-1 archive this returned 99.77% of its pairs, all invariants passing. Those
+per-source cost figures are from that measurement and have not been re-measured for this round,
+so treat them as indicative. The
 gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the
 report's limitations) and a superseded CDX route (11). Their 840 domains return to the candidate
 pool. Tier 2 above is the byte-for-byte check.

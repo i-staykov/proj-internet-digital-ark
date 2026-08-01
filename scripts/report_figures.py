@@ -152,6 +152,31 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     }
     out["baseline_pairs"] = sum(out["baseline_by_year"].values())
 
+    # Feedback section 3 and section 7 both ask for this split, in those words:
+    # "records newly harvested since the previous submission" against "older
+    # pipeline records newly entering the shared merged baseline". The previous
+    # submission's position against merged260730 was 32,698 pairs, so everything
+    # above that is this round's harvest.
+    out["prior_round_pairs"] = 32698
+    out["harvested_this_round"] = out["netnew_pairs"] - out["prior_round_pairs"]
+
+    # Per year, the four language categories section 6.1 names, for unique
+    # domains as well as pairs. `syntax_anomalous` is structurally zero for our
+    # additions: every domain passed `to_registrable` before it could be stored
+    # at all, so an anomalous name cannot reach an annual file. Reported rather
+    # than omitted, because section 6.1 asks for the count.
+    out["unique_domains_by_verdict_year"] = {}
+    for year, verdict, n in conn.execute(f"""
+        SELECT dy.assigned_year, coalesce(dl.verdict, 'unchecked'), count(DISTINCT dy.domain)
+        FROM domain_year dy
+        LEFT JOIN domain_language dl
+          ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
+         AND dl.engine_version >= 3
+        WHERE {NOT_BASELINE} GROUP BY 1, 2
+    """).fetchall():
+        out["unique_domains_by_verdict_year"].setdefault(int(year), {})[verdict] = int(n)
+    out["syntax_anomalous"] = 0
+
     out["candidate_pool"] = conn.execute("""
         SELECT count(*) FROM (
             SELECT DISTINCT d.domain FROM domain d
