@@ -951,3 +951,69 @@ subset inside it. Non-CDX discovery continues as an explicitly secondary stream.
   within a tier. And short tokens are matched as whole dot-separated components,
   because `talk.bizarre` contains "biz": the same trap a suffix test hit on
   `news.announce.conferences`
+
+## 2026-08-01 (phase 4, later: the engine audited twice, ten defects, verdicts discarded again)
+
+Two adversarial reviews of `language.py`, briefed on opposite failure modes: one
+hunting pairs that could reach the English files wrongly, one hunting pairs that
+could be wrongly excluded. Both found real defects, and the overlap between them
+was the interesting part.
+
+- **The archive can answer a replay with a different year, and the audit trail
+  would have hidden it.** A 302 to the nearest capture in time, in any year,
+  followed silently by urllib and reported as 200. Verified: a request for the
+  1997 capture of `1697.com` returned the capture of 17 October 2000. Since
+  `evidence_urls` recorded the URL *asked for*, a reviewer refetching it would
+  get the same substitution and see agreement. **A provenance record that
+  confirms its own error is worse than none**, so the fetcher now returns the
+  served URL, out-of-year samples are dropped, and what is stored is what
+  answered
+- **The sampler was choosing things that are not the website.** Largest-record
+  selection under `matchType=domain` finds third-party application chrome:
+  `1stflatrate.com` was certified English for 2001 on an Ipswitch IMail login on
+  port 8383, and 68 evidence URLs behind `english` verdicts pointed at cgi-bin,
+  webmail, guestbooks or non-web ports. `robots.txt` is indexed as HTML 200 and
+  is often longer than a small site's homepage, so two domains were admitted on
+  a robots.txt alone
+- **The placeholder test had a hole exactly where the money was.** It returned
+  early above 1,000 characters, so a 1,060-character keyword link farm
+  (`2000s.com` 2001, English at confidence 1.000) was admitted on 60 characters
+  of margin. Three shapes of non-site need three shapes of test: unambiguous
+  phrases at any length, weak phrases judged on the residual text once the
+  phrase is removed (a 299-char plumber's page mentioning "under construction"
+  against a 55-char stub: 282 residual against 38), and a structural test for
+  the link-farm family, which contains no giveaway phrase at all
+- **A truncated sample was settling verdicts.** 124 of 839 `english` verdicts had
+  rested on a single page after the other fetch failed. Now a verdict on a
+  truncated sample stays unsettled, and `samples` is a budget of usable reads
+  rather than of attempts, so a pair whose largest captures are unreachable no
+  longer settles while 38 candidates sit unread
+
+- **The structural fix underneath all of them: nothing could re-judge a pair.**
+  Any verdict at all removed it from the work list for good, so every scoring
+  defect became permanent at the moment it produced output. That is why the same
+  class of bug has now cost this project two rounds of discarded verdicts.
+  Verdicts carry an engine version, only current-engine verdicts can reach an
+  annual file, and a pair leaves the queue only when asking again could not
+  change the answer. `no_capture_in_year` is the one undetermined that is final,
+  because the archive's index for a past year does not grow
+- **All 297 verdicts discarded, journals preserved.** Second time. The trade is
+  the same and so is the answer: this route's whole claim is that a verdict is
+  checkable, and a checkable verdict that is wrong is worse than none
+
+- **1996 and 1997 get a measured minority share of the budget.** They hold 25,599
+  additions and 48 capture-backed pairs, so a strict capture-backed queue leaves
+  both at zero English forever. A 200-pair unfiltered probe measured **5.4% of
+  1996 and 12.6% of 1997** with an in-year capture, 9.1% overall, against the 0%
+  an earlier sample of pre-Usenet 1996 domains suggested. The population changed
+  when Usenet brought in domains live enough for someone to post about them. One
+  early-year pair per ten capture-backed ones: roughly 65 verdicts gained there
+  against 320 elsewhere, and the arithmetic is in the code so the choice can be
+  reversed on evidence
+- **A review finding I did not act on.** Both agents suggested collecting `alt`
+  attribute text, since image-heavy pages of this era kept their English there.
+  Declined: `alt` text is frequently English boilerplate ("click here", "home")
+  on non-English sites, so it would bias toward admission. The asymmetry decides
+  it, as it did for the weak markers, just in the other direction: a false
+  admission is a claim we make to a reviewer, a false exclusion is a pair that
+  stays retryable. Recorded as a limitation instead
