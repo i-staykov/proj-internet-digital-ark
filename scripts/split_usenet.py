@@ -48,7 +48,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archives", nargs="+", type=Path)
     parser.add_argument("--write", action="store_true", help="Write both journals.")
+    parser.add_argument(
+        "--tag",
+        default="",
+        help="Suffix for the journal names. Needed for a later batch: the file ledger keys on "
+        "content, so rewriting a journal that is already ingested is refused as a hash mismatch.",
+    )
     args = parser.parse_args()
+    suffix = f"_{args.tag}" if args.tag else ""
+    dated_journal = OUT_DIR / f"usenet_dated{suffix}.jsonl.gz"
+    candidate_journal = OUT_DIR / f"usenet_candidates{suffix}.jsonl.gz"
 
     stats: Counter = Counter()
     # (domain, year) -> (message_id, group), keeping the first post that named it
@@ -90,14 +99,14 @@ def main() -> None:
         print("dry run; pass --write to create both journals")
         return
 
-    for path, batch in ((DATED_JOURNAL, dated), (CANDIDATE_JOURNAL, candidates)):
+    for path, batch in ((dated_journal, dated), (candidate_journal, candidates)):
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)
         print(f"wrote {path} ({len(batch):,} records)")
     print(
-        f"next: uv run ark ingest usenet_dated {DATED_JOURNAL}\n"
-        f"      uv run ark ingest usenet_candidates {CANDIDATE_JOURNAL}"
+        f"next: uv run ark ingest usenet_dated {dated_journal}\n"
+        f"      uv run ark ingest usenet_candidates {candidate_journal}"
     )
 
 
