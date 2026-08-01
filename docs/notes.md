@@ -834,3 +834,10 @@ Feedback section 4 asks for broader sources and for previously unavailable ones 
   - the chain now runs end to end: a Usenet post names a domain, it enters the candidate pool as `usenet_mention` with no year, `ark cdx` finds an in-window capture, and `ia_cdx_bulk` evidence promotes it into an annual file. `01ware.com`, `0800unlimited.com`, `080massage.com` and `090isp.co.uk` are the first four, all discovered by Usenet and confirmed by the archive
   - that is brief sections IV and VII working rather than being described: discover from a source without year labels, validate against a time-evidence service, feed back. Four is a small number, but it is the difference between a cycle that is documented and one that has been run
   - the input to it grew from 5,583 candidates to roughly 30,000, most of them Usenet-discovered, so the ceiling on this route is now set by how long the CDX engine runs rather than by how many names are known
+
+- **The candidate-verification hit rate is 49%, which reframes what the Usenet route is worth**
+  - the first completed batch: 337 Usenet-discovered candidates queried, **165 had an in-window archived capture (49%)**, 167 had none, 5 failed. Every one of the 165 became a net-new domain, because a candidate is by definition in no annual file
+  - **net-new domains went 0 to 169**, the first movement in that metric in the project's life
+  - at that rate the remaining candidates project to roughly 7,500 more. That is one 337-domain batch extrapolated 45-fold, so it is an order of magnitude and not a forecast, and the report should say so
+  - the more interesting reading is what the 49% says about Usenet itself. Half of the names mentioned in dated posts and never seen by any other source do have archived captures, which means they were real sites rather than typos. It is independent support for the source that no amount of internal consistency checking could give
+  - it also inverts the earlier priority. Usenet's *pairs* looked like the headline; its *candidates* are worth more, because a verified candidate is a new domain rather than a new year on a domain the baseline already had
