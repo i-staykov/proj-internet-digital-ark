@@ -823,3 +823,14 @@ Feedback section 4 asks for broader sources and for previously unavailable ones 
   - of 266 classified pairs, **156 got only one usable capture anyway**, because that is all the archive held for that domain in that year. Of the 110 that got two, only **3** came back mixed-language, meaning a share that is neither 0.0 nor 1.0. So the second sample could have altered at most about 1% of the answers
   - dropping to one sample would cut requests per pair from three to two, a 33% throughput gain against the binding constraint. **It was not taken.** The gain is 900 extra pairs out of 69,000, coverage moves from roughly 4% to 5%, and section 6 says "across the sampled captures" in the plural. Weakening the method for a rounding error in coverage is a bad trade
   - recorded because it is the right trade for someone running this to completion later, when the budget is hours rather than a night, and they should be able to make it knowingly rather than rediscover it
+
+- **The first archived-content language measurement, and what it shows**
+  - per year, of the additions the engine has reached and answered: 1998 **80.2% English**, 2000 **64.9%**, 2001 **61.6%**. Ding's TLD-stratified Common Crawl prior puts the *competitor's* 2000 and 2001 additions at 33.0% and 37.1%
+  - those are different populations measured by different methods, so it is not a like-for-like comparison and must not be presented as one. It is still the difference between a number derived from what a TLD suggests in 2024 and one derived from what the site said in 2000, which is exactly the substitution the feedback asks future reports to make
+  - coverage is the caveat and the reason `unclassified` is its own column: 799 of 87,458 additions reached. The claim is a measured rate per year with a stated sample size, not a census
+
+- **The discovery cycle closed, and produced the first net-new DOMAINS**
+  - net-new domains had been 0 for the whole project, because gap-filling adds years to domains the baseline already holds and the corroboration split does the same by construction
+  - the chain now runs end to end: a Usenet post names a domain, it enters the candidate pool as `usenet_mention` with no year, `ark cdx` finds an in-window capture, and `ia_cdx_bulk` evidence promotes it into an annual file. `01ware.com`, `0800unlimited.com`, `080massage.com` and `090isp.co.uk` are the first four, all discovered by Usenet and confirmed by the archive
+  - that is brief sections IV and VII working rather than being described: discover from a source without year labels, validate against a time-evidence service, feed back. Four is a small number, but it is the difference between a cycle that is documented and one that has been run
+  - the input to it grew from 5,583 candidates to roughly 30,000, most of them Usenet-discovered, so the ceiling on this route is now set by how long the CDX engine runs rather than by how many names are known
