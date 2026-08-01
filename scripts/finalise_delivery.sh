@@ -77,17 +77,23 @@ fi
 say "figures for the report and the email"
 uv run python scripts/report_figures.py
 
+say "filling the report and the email from those figures"
+# Fails loudly on any token it cannot fill, because a report containing the
+# literal text [ENGLISH] is worse than one containing a stale number.
+uv run python scripts/fill_report.py
+
 say "packaging"
 bash scripts/package_delivery.sh 2>&1 | tail -8
 
 say "next"
 cat <<'EOF'
 Before sending:
-  1. Update docs/report_260801.md and docs/email_draft_260801.md from the
-     figures above. Nothing in either may be a number this script did not print.
-  2. Re-run this script, because step 1 dirties the tree and package_delivery.sh
-     ships `git archive HEAD`: a report edited after packaging would not be the
-     report inside the archive.
+  1. `git add -A && git commit` the refilled report and email. package_delivery.sh
+     ships `git archive HEAD`, so an uncommitted report is not the report inside
+     the archive, and the clean-tree guard will have stopped the packaging above.
+  2. Re-run this script with --keep-running so the refill is inside the archive.
   3. Unpack the archive somewhere unrelated to this repo and follow its own
-     README literally. That test has found a defect that nothing else did.
+     README literally. That test has found two defects nothing else did.
+
+Edit docs/*.template.md, never docs/*.md: the latter are generated.
 EOF
