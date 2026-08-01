@@ -517,6 +517,21 @@ the URLs in each message.
 - **Provenance lineage:** `usenet`, its own family. The corpus is a donation of posts with no common
   ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine
   cross-lineage corroboration rather than the same organisation agreeing with itself.
+- **Choosing which of the 19,233 groups to take, measured rather than guessed.** The donation is
+  411 GB and size does not predict in-window yield: `alt.www.webmaster` cost 170 MB and returned one
+  pair because the whole group is 2006 to 2013. `scripts/fetch_usenet_groups.py` selects on the
+  group *name* and ranks by expected yield, with announcement forums first and commerce second,
+  because ordering by size put dead vanity archives at the head of the queue. 628 groups selected
+  within a 100 MB per-group cap, 5.7 GB in total.
+- **Two selection rules that are really the same rule.** Short tokens are matched as whole
+  dot-separated components, because `talk.bizarre` contains "biz" and is not a commerce group. That
+  is the trap `is_moderated_announce` hit when a suffix test reported `news.announce.conferences` as
+  ordinary discussion. And `net` was tried as a component token and removed: it matches
+  `alt.isd.net` and `alt.toxiccrisko.net`, which are vanity groups announcing nothing.
+- **Operationally, it is the secondary stream.** It downloads from `archive.org/download/`, a
+  different service from the `web.archive.org` CDX and replay endpoints the English engine uses, so
+  the two coexist. Everything it finds lands in the non-English-verified set by construction, since
+  a Usenet post dates a domain and says nothing about the language of its website.
 
 **Measured yield, 54 groups of 302 shortlisted.** Net-new pairs moved 32,698 to **96,158**, with
 Tucows and the candidate verification included in the later figures:
