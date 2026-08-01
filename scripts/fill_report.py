@@ -192,6 +192,7 @@ def substitutions(f: dict) -> dict[str, str]:
     # of settled verdicts that come back English.
     hours = 48
     classified = MEASURED_RATE * hours
+    subs["PROJECTED"] = f"{classified:,}"
     subs["PROJ_LOW"] = f"{int(classified * 0.7 * 0.55):,}"
     subs["PROJ_HIGH"] = f"{int(classified * 0.62):,}"
     subs["X"] = f"{t['english']:,}"
