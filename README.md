@@ -18,7 +18,7 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
 
-**Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the ten invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
+**Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the twelve invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
 **Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
 
@@ -103,7 +103,7 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 22 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 23 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
 | 24 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 25 | `uv run ark check` | ten `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 25 | `uv run ark check` | twelve `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
 Steps 6 to 15 are independent of each other, so their order does not matter. Steps 19 to 21 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 21's corroboration split is judged against what the store holds by then.
 
@@ -128,7 +128,7 @@ It refuses to build from a modified working tree, or from an `output/` older tha
 ```bash
 just setup       # step 1
 just reproduce   # steps 2 to 25: baseline -> sources -> candidates -> journals -> seeds -> deliver
-just check       # lint + format-check + tests, then the ten data invariants
+just check       # lint + format-check + tests, then the twelve data invariants
 ```
 
 Two of those names are deliberate. `just check-data` runs `ark check`, which validates the **data**; `just verify-repo` runs lint, format-check and tests, which validate the **code**. Giving either one the bare name `check` invites running one and believing the other passed, so `just check` runs both.
@@ -192,13 +192,31 @@ uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz       # -> the domain_langu
 uv run ark lang-report                                     # -> output/netnew_english/ + language_summary.csv
 ```
 
-Or `bash scripts/supervise_lang.sh 27000 400 2 1.5` to run it in batches for a long stretch.
+Or `bash scripts/supervise_lang.sh 27000 400 2 1.5` to run it in batches for a long stretch, with `bash scripts/watchdog_lang.sh 600 <deadline_epoch>` beside it. The watchdog tests **progress rather than presence**: a batch that hangs on a socket leaves the supervisor alive and the journal frozen, which a process check reports as healthy.
 
 Per pair it asks the CDX index for in-year captures of the domain, fetches up to `--samples` of them as **raw bytes**, decodes with `charset_normalizer` rather than assuming UTF-8, strips markup to body text, and classifies with `py3langid`. Captures under 200 characters or below 0.50 confidence are "not reliably classified" and leave the denominator entirely; the rest are weighted by text length, and a share strictly above 0.50 admits.
 
 **Language is not an evidence type.** Verdicts go to `domain_language`, keyed on the same (domain, year) pair as everything else, because every `evidence_type` answers "did this exist in this year" while a verdict answers "what was this", and a domain can be perfectly evidenced and still inadmissible. Each verdict stores **the exact snapshot URLs it read**, so any one can be refetched and recomputed; that is what separates it from a TLD prior.
 
-`ark lang-report` writes `output/netnew_english/<year>.txt`, the admitted subset, and `output/language_summary.csv`, the per-year and total mix of English, other, undetermined and **not-yet-classified** records plus the cross-year unique-domain roll-up. `unclassified` is counted apart from `undetermined` on purpose: a pair the engine has not reached is not the same claim as one it judged.
+#### Two disjoint sets, and the difference between them
+
+`ark lang-report` writes a **partition** of the additions, not a set and a subset of it:
+
+| path | what it holds |
+|---|---|
+| `output/netnew_english/<year>.txt` and `.csv` | pairs whose archived body text for that year was read and was more than half English |
+| `output/netnew_unverified/<year>.txt` and `.csv` | every other addition, with a `status` and a `reason` per row |
+| `output/disqualified.csv` | the per-item register: only pairs we judged and rejected |
+| `output/language_summary.csv` | the per-year and total mix, for both domain-year records and unique domains |
+
+The two annual sets are disjoint and sum to the total, so a reviewer can add them without double counting. Two integrity checks assert that against the shipped files rather than the README claiming it.
+
+The `status` column carries the distinction that matters most:
+
+- **`disqualified`** means the archive was asked and answered, and the pair failed the standard. Every one carries a `reason` from a closed vocabulary (`no_capture_in_year`, `no_readable_html_capture`, `insufficient_text`, `non_site_text`, `low_confidence`, `other_language`, `mixed_below_threshold`) and appears individually in the register.
+- **`unchecked`** means the engine has not reached the pair. **No claim is made about its language, and none about whether the archive holds a capture for it.**
+
+That second point is load-bearing. The capture query filters on `statuscode:200` and `mimetype:text/html`, so an empty result means "nothing matching that filter", not "nothing at all". Before the engine will write `no_capture_in_year` it sends a second, completely unfiltered index probe; if that probe also comes back empty the claim is earned, if it returns rows the reason becomes `no_readable_html_capture`, and if the probe itself fails the pair is left unsettled with no verdict written. A domain is never excluded on the strength of a question that was not asked.
 
 **Rate note.** This sends one CDX query plus up to `--samples` page fetches per pair, so it is several times heavier than `ark cdx`. `--min-delay` is the floor the adaptive governor may not ease below, and for this engine the floor rather than the worker count is what bounds the load on `web.archive.org`. A run at 4 workers with the old 0.05 s floor drew a connection refusal within four minutes. The engine now treats a refused connection as a throttle and stops itself after 25 consecutive failures.
 

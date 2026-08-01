@@ -872,3 +872,82 @@ Final position, all measured against `data/ark.duckdb` with the ten integrity ch
   - **the 1,164 verdicts collected before the fix were discarded rather than shipped.** They are known to contain false admissions of both kinds, and an English annual file whose contents cannot be trusted is worse than a shorter one. The journals are preserved under `data/raw/lang/superseded/`, so every discarded verdict is reproducible and the decision is auditable rather than a deletion
   - coverage went from 1,164 verdicts to zero and is rebuilding. That is the right direction: this project's whole claim is that a verdict is checkable, and a checkable verdict that is wrong is worse than none
   - **a test lesson worth more than the fix.** The first version of the limit test passed against the broken code, because the fake fetcher answered the same rows whatever limit it was given. A test that cannot observe the thing it asserts on is not a test. It records the requested URL now
+
+## 2026-08-01 (phase 4: the English-verified set becomes the deliverable)
+
+Ivo's instruction after reading feedback v3 again: from this round every annual
+addition must be English-verified, all Internet Archive request budget goes to
+that, and the deliverable ships two disjoint sets rather than one set with a
+subset inside it. Non-CDX discovery continues as an explicitly secondary stream.
+
+- **The open question to Ding is withdrawn, deliberately.** The previous plan
+  ended with a question about admitting pairs whose evidence is a registry date
+  rather than a capture. Ivo decided not to ask it: we ship both sets and let
+  the reviewer decide what to do with the second one. That is a cleaner contract
+  than a negotiated exception and it removes a dependency on a reply
+- **All CDX budget to the language engine, and this one is uncomfortable.**
+  `ark cdx` candidate verification is what moved net-new domains off zero, at a
+  62% hit rate, and it is stopped anyway. Both engines hit `web.archive.org` and
+  the contention was measured, not assumed: 344 pairs/hour with CDX competing
+  against **429 pairs/hour without it**, a 25% gain from doing less. The
+  candidate pool does not decay, and English verification is the admission
+  criterion for this round, so it cannot be deferred the way discovery can
+
+- **"No capture in this year" was being claimed on a filtered question**
+  - the capture query filters on `statuscode:200` and `mimetype:text/html`. A
+    year holding only redirects, plain text, or records the archive labelled
+    differently answers it empty, and the engine wrote that down as though the
+    archive held nothing at all. **That is disqualifying a domain on an
+    assumption**, which is the one thing this engine exists not to do
+  - an empty filtered result now triggers one unfiltered index probe before
+    anything is concluded. Nothing at all exists (`no_capture_in_year`),
+    something exists but not as readable HTML (`no_readable_html_capture`), or
+    the probe itself failed, in which case the pair stays unsettled and **no
+    verdict is written**. It costs one cheap request on the ~23% of pairs that
+    reach the branch
+  - `cdx.year_probe_url` does the same job with a `statuscode:200` filter and is
+    deliberately **not** reused. There a match only ever admits a pair, so a
+    filtered question errs toward caution; here a match only ever withholds a
+    rejection, so the same filter would point the caution the wrong way. Both
+    functions now say so, because merging them would silently restore the defect
+
+- **A rejection with no reason is an assertion, so rejections now carry one**
+  - `undetermined` was covering at least five different situations and a
+    reviewer could not tell an under-construction page from a registrar parking
+    page from a site we could not read. Closed vocabulary, stored per pair:
+    `no_capture_in_year`, `no_readable_html_capture`, `insufficient_text`,
+    `non_site_text`, `low_confidence`, `other_language`,
+    `mixed_below_threshold`
+  - `other_language` and `mixed_below_threshold` are split because both fail and
+    they fail differently. A reviewer weighing whether the 50% line sits in the
+    right place needs to see how many pairs are near it rather than nowhere near
+    it
+  - added by migration, not by editing the schema alone: `CREATE TABLE IF NOT
+    EXISTS` does nothing to a table that already exists, so a new column would
+    have reached fresh stores only and silently skipped every real one
+
+- **The deliverable is a partition now, not a set and a subset**
+  - the old shape shipped `netnew/` with every addition and `netnew_english/`
+    with a subset of those same pairs. The two overlapped, so a reviewer adding
+    them double-counted. Now a pair is on exactly one side and the sides sum to
+    the total
+  - three statuses, and the third is the one that matters. `verified` means the
+    archived text was read and was more than half English. `disqualified` means
+    the archive was asked and answered and the pair failed, with a reason and a
+    row in the register. **`unchecked` means the engine has not reached it, and
+    makes no claim about its language or about whether a capture exists**
+  - two integrity checks assert the partition against the shipped files rather
+    than the README claiming it, and `verify.sh` re-checks it from inside the
+    archive with no dependencies. Writing the third test found a real bug: an
+    `english` verdict was being counted as a disqualification
+
+- **The watchdog tests progress, not presence.** A batch that hangs on a socket
+  leaves the supervisor alive and the journal frozen, which a PID check reports
+  as healthy. The archive has refused this project three times, twice overnight,
+  so the expensive failure mode is precisely the quiet one
+- **Usenet group selection is ranked by expected yield, not by size.** Ordering
+  the 19,233 available groups by size put dead vanity archives at the head of
+  the queue. Announcement forums go first, commerce second, size breaks ties
+  within a tier. And short tokens are matched as whole dot-separated components,
+  because `talk.bizarre` contains "biz": the same trap a suffix test hit on
+  `news.announce.conferences`

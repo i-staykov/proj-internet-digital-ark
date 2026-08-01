@@ -199,6 +199,13 @@ def any_capture_url(domain: str, year: int) -> str:
     Deliberately minimal: one field and one row, because the answer needed is
     just whether the result is empty. It is the cheapest question the CDX API
     will answer.
+
+    **Not the same as `cdx.year_probe_url`, and they must not be merged.** That
+    one filters on `statuscode:200`, which is correct where it is used, because
+    there a match only ever admits a pair and a filtered question is the
+    conservative direction. Here a match only ever *withholds* a rejection, so
+    the same filter would point the caution the wrong way and put the domain
+    back on the wrong side of the very claim this function exists to avoid.
     """
     query = urllib.parse.urlencode(
         [

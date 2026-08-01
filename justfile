@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: ten invariants over the store, non-zero exit on any failure
+# the integrity gate: twelve invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 

@@ -106,6 +106,72 @@ else:
         f"{'english-verified subset':<46} PASS  {n:,} of {total:,} additions "
         f"({share}) verified English, all within the additions"
     )
+
+# --- 5. the two shipped sets partition the additions --------------------------
+# This is the contract the report states: English-verified and unverified are
+# disjoint and together they are the whole. If they overlapped, a reviewer
+# adding the two files would double-count; if they left a gap, the report's
+# headline would exceed what actually shipped. Both are checked here rather
+# than asserted in prose, because prose cannot be run.
+unverified_dir = Path("additions_unverified")
+if not unverified_dir.is_dir() or not english_dir.is_dir():
+    print(f"{'the two sets partition the additions':<46} SKIP  one of the two sets is absent")
+else:
+    unverified = {}
+    for year in years:
+        path = unverified_dir / f"{year}.txt"
+        unverified[year] = (
+            {line.strip() for line in path.read_text().splitlines() if line.strip()}
+            if path.exists()
+            else set()
+        )
+    overlap = {(d, y) for y in years for d in english[y] & unverified[y]}
+    union = {(d, y) for y in years for d in english[y] | unverified[y]}
+    claimed_pairs = {(d, y) for y, names in additions.items() for d in names}
+    missing_from_split = claimed_pairs - union
+    extra_in_split = union - claimed_pairs
+
+    if overlap:
+        sample = ", ".join(f"{d} ({y})" for d, y in sorted(overlap)[:3])
+        print(
+            f"{'the two sets partition the additions':<46} FAIL  {len(overlap):,} in "
+            f"both sets, e.g. {sample}"
+        )
+        sys.exit(1)
+    if missing_from_split or extra_in_split:
+        print(
+            f"{'the two sets partition the additions':<46} FAIL  "
+            f"{len(missing_from_split):,} additions in neither set, "
+            f"{len(extra_in_split):,} in a set but not an addition"
+        )
+        sys.exit(1)
+    print(
+        f"{'the two sets partition the additions':<46} PASS  {n:,} English + "
+        f"{len(union) - n:,} unverified = {len(union):,} additions, no overlap"
+    )
+
+# --- 6. every rejection is justified per item ---------------------------------
+# Ding is told that a pair outside the English set was either judged and
+# rejected for a stated reason, or not yet reached. The register is what makes
+# the first half of that inspectable, so an empty or reasonless register would
+# turn a documented exclusion back into an assertion.
+register = unverified_dir / "disqualified.csv"
+if not register.exists():
+    print(f"{'every rejection carries a reason':<46} SKIP  no disqualified.csv in this archive")
+else:
+    rows = list(csv.DictReader(register.open(newline="", encoding="utf-8")))
+    reasonless = [r for r in rows if not (r.get("reason") or "").strip()]
+    if reasonless:
+        print(
+            f"{'every rejection carries a reason':<46} FAIL  {len(reasonless):,} of "
+            f"{len(rows):,} rejections have no reason"
+        )
+        sys.exit(1)
+    kinds = sorted({r["reason"] for r in rows})
+    print(
+        f"{'every rejection carries a reason':<46} PASS  {len(rows):,} rejections, "
+        f"{len(kinds)} distinct reasons"
+    )
 PY
 
 echo

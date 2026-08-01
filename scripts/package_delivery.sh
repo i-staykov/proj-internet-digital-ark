@@ -40,16 +40,21 @@ RELEASE="internet-digital-ark-1996-2001"
 STAGE="output/$RELEASE"
 ARCHIVE="output/$RELEASE.tar.gz"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,additions_english,audit,logs,source,seeds,journals,provenance,baseline}
+mkdir -p "$STAGE"/{masters,additions,additions_english,additions_unverified,audit,logs,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
+# The current round's report, not the previous one. docs/report.md documents the
+# 26 July archive and is accurate about that artifact; shipping it beside this
+# round's data would give a reviewer a report whose figures the accompanying
+# files do not contain.
+REPORT="docs/report_260801.md"
 if command -v pandoc >/dev/null 2>&1; then
-    pandoc docs/report.md -o "$STAGE/report.docx" --standalone
+    pandoc "$REPORT" -o "$STAGE/report.docx" --standalone
 else
     echo "warning: pandoc not installed, shipping the report as markdown only" >&2
 fi
-cp docs/report.md "$STAGE/report.md"
+cp "$REPORT" "$STAGE/report.md"
 # the reviewer's own check, runnable from inside the unpacked folder
 cp scripts/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
@@ -60,18 +65,34 @@ cp docs/sources.md "$STAGE/sources.md"
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
+
+# The disqualification register: every pair the engine judged and rejected, one
+# row each with its reason. Not `|| true`: from this round it is a named
+# deliverable, because a rejection nobody can inspect is an assertion.
+cp output/disqualified.csv "$STAGE/additions_unverified/disqualified.csv"
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 
-# The English-verified subset feedback v3 section 6 admits, kept beside the
-# unrestricted additions rather than replacing them, because section 7 still
-# asks for true additions against merged260730 and the two answer different
-# questions. `language_summary.csv` is the per-year and total mix section 6.1
-# requires every future submission to carry.
+# The two disjoint sets. `additions_english/` is what feedback v3 section 6
+# admits; `additions_unverified/` is everything else, and the two partition
+# `additions/` exactly rather than one being a subset of the other. Both ship as
+# .txt and .csv: the text file is the list, the CSV carries the evidence behind
+# each row (English share, snapshot URLs read) or the reason for its exclusion.
+#
+# `additions/` stays beside them because section 7 still asks for true additions
+# against merged260730, which is the union and a different question.
 cp output/netnew_english/199[6-9].txt output/netnew_english/200[01].txt \
     "$STAGE/additions_english/" 2>/dev/null || true
+cp output/netnew_english/199[6-9].csv output/netnew_english/200[01].csv \
+    "$STAGE/additions_english/" 2>/dev/null || true
+cp output/netnew_unverified/199[6-9].txt output/netnew_unverified/200[01].txt \
+    "$STAGE/additions_unverified/" 2>/dev/null || true
+cp output/netnew_unverified/199[6-9].csv output/netnew_unverified/200[01].csv \
+    "$STAGE/additions_unverified/" 2>/dev/null || true
+# `language_summary.csv` is the per-year and total mix section 6.1 requires
+# every future submission to carry.
 cp output/language_summary.csv "$STAGE/additions_english/" 2>/dev/null || true
 cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 

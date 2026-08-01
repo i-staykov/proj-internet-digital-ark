@@ -14,8 +14,12 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `masters/1996.txt` … `2001.txt` | **Final annual lists**: baseline plus additions, deduplicated within each year, one registered domain per line |
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
-| `additions_english/1996.txt` … `2001.txt` | The subset admitted by the English-website standard: additions whose site was verified English from archived body text for that year |
-| `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-classified counts, plus the cross-year unique-domain roll-up |
+| `additions_english/1996.txt` … `2001.txt` | **English-verified additions**: the site's archived body text for that year was read and was more than half English |
+| `additions_english/1996.csv` … `2001.csv` | The same pairs with the evidence: English share, sample count, and the exact snapshot URLs read |
+| `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-reached counts, plus the cross-year unique-domain roll-up |
+| `additions_unverified/1996.txt` … `2001.txt` | **Everything else**, disjoint from the above. The two together are exactly `additions/` |
+| `additions_unverified/1996.csv` … `2001.csv` | Per row a `status` (`disqualified` or `unchecked`) and, for a rejection, its `reason` |
+| `additions_unverified/disqualified.csv` | The register: every pair we judged and rejected, one row each, with the reason and the pages read |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so no baseline has to be sourced separately |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
@@ -54,12 +58,29 @@ That checks every file against `SHA256SUMS`, prints the pair count of the six an
 files, and confirms **every one of those pairs appears in
 `additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
 
-**On the two additions folders.** `additions/` is every net-new (domain, year) pair, which is what
-the merge against the shared baseline is scored on. `additions_english/` is the subset whose website
-was verified as English-language for that year from archived page body text, which is the newer
-admission standard. They are kept separate because they answer different questions, and because the
-language verification is still running: `language_summary.csv` reports how much of the list has been
-reached, with `unclassified` counted apart from `undetermined` so coverage is not overstated. Every
+**On the three additions folders, and the one distinction that matters.** `additions/` is every
+net-new (domain, year) pair, which is what a merge against the shared baseline is scored on.
+`additions_english/` and `additions_unverified/` **partition** it: a pair is in exactly one of them,
+and the two sum to the whole, so they can be added together without double counting. `verify.sh`
+checks that rather than asking you to take it on trust.
+
+A pair sits outside the English set for one of two very different reasons, and the `status` column
+keeps them apart:
+
+- **`disqualified`** means the archive was asked and answered, and the pair failed the standard.
+  Every one of these carries a `reason` and appears individually in `disqualified.csv`, so any
+  exclusion can be inspected and disputed.
+- **`unchecked`** means the engine has not reached that pair yet. **No claim is made about its
+  language, and none about whether the archive holds a capture for it.** Verification is rate-bound
+  against `web.archive.org` and is still running; `language_summary.csv` reports how much of the
+  list has been read so coverage is never overstated.
+
+That second point is deliberate and load-bearing. The capture query filters on `statuscode:200` and
+`mimetype:text/html`, so an empty answer means "nothing matching that filter", not "nothing at all".
+Before `no_capture_in_year` is recorded, a second completely unfiltered index probe is sent; if that
+also comes back empty the claim is earned, if it returns rows the reason becomes
+`no_readable_html_capture`, and if the probe itself fails the pair is left unsettled with no verdict
+written. No domain is excluded on the strength of a question that was not asked. Every
 verdict records the exact snapshot URLs that were read, in the `domain_language` table of the
 provenance export, so any one of them can be refetched and recomputed.
 needs only `shasum` and `python3`, and prints a verdict per check.
