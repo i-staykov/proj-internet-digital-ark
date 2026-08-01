@@ -492,3 +492,65 @@ Recorded so that negative results are visible rather than silently omitted.
 | `early-web_parallel-language-urls` | 1,164,183 pre-2000 multilingual URL patterns with ISO-639 codes but **no timestamps**, so no per-year evidence. Multilingual by construction, which also works against the section 6 English rule. Seed-only at best |
 | OCLC Web Characterization Project | Only aggregate statistics were ever published; the host is gone |
 
+
+## `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
+
+Adopted 2026-08-01, and the largest single addition of this round. Giganews donated its Usenet
+archive to the Internet Archive in 2013; announcement and commerce groups carry a posting date beside
+the URLs in each message.
+
+- **Where.** Full per-group mbox archives inside the hierarchy items, for example
+  `https://archive.org/download/usenet-comp/comp.infosystems.www.announce.mbox.zip`. No login.
+  archive.org publishes a sha1 per file, so ingests are pinnable like every other raw source.
+- **A trap worth naming.** The per-date Giganews exports (`usenet-comp.infosystems`,
+  `usenet-comp.internet`) look like the right files and are nearly empty in window:
+  `comp.infosystems.www.announce.20140404.mbox.gz` holds nine posts, all 2005 to 2010. Use the
+  `.mbox.zip` full archives in the parent hierarchy item instead.
+- **Year evidence.** The `Date:` header, and the `Message-ID` is the evidence value. Message IDs are
+  globally unique by design, which makes this the "opaque record identifier" the integrity checks
+  already expect from a `dated_directory` row: a reviewer can name the exact post behind any year.
+- **Why it matters here specifically.** The date is intrinsic to the artifact rather than recovered
+  from a crawl. Our 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so no amount of
+  archive querying reaches them; a dated post does, because it does not need the site to have been
+  crawled at all.
+- **Provenance lineage:** `usenet`, its own family. The corpus is a donation of posts with no common
+  ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine
+  cross-lineage corroboration rather than the same organisation agreeing with itself.
+
+**Measured yield, four groups of 302 shortlisted.** Net-new pairs moved 32,698 to **61,883**:
+
+| year | before | after | change |
+|---|--:|--:|--:|
+| 1996 | 4,994 | 9,299 | +86% |
+| 1997 | 3,534 | 13,042 | +269% |
+| 1998 | 6,029 | 15,800 | +162% |
+| 1999 | 696 | 3,522 | +406% |
+| 2000 | 9,702 | 11,811 | +22% |
+| 2001 | 7,743 | 8,409 | +9% |
+
+A further 8,992 domains entered the candidate pool. All nine integrity checks pass.
+
+**The admission rule, which is the whole safety argument.** The post date is trustworthy and the URL
+beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the
+store already holds, and the corpus visibly contains `weddinqnetwork.com` and `dmjbuisness.co.uk`.
+So the same split `expand.py` applies to archived directory pages: a domain another source already
+places in an annual file is real and only its year is open, so the post dates it
+(`usenet_announce`, `dated_directory`); a name appearing only in Usenet is written as
+`usenet_mention` (`link_target`) and routed to the candidate pool to earn its own evidence. The test
+is "appears in `domain_year`", not "appears in `domain`", because the latter includes the candidate
+pool and a typo recorded by an earlier round would corroborate itself.
+
+Group purpose is recorded but does not gate admission, and that is the one place a reviewer might
+reasonably disagree. Once corroboration has established the domain is real, a URL in a dated public
+post is contemporaneous evidence of use whether the group was moderated or not. Every evidence row
+names its group, so filtering to moderated announcement groups only needs a query, not a reingest.
+
+**Two parser findings.** The Giganews donation rewrote a large share of `Date:` headers as a bare
+`YYYY/MM/DD`, which `parsedate_to_datetime` rejects outright: 21,346 of 23,282 messages in
+`comp.infosystems.www.announce`. Before that was handled the route measured 913 pairs and nothing
+before 2000; after, 6,885 across all six years. And **group size does not predict in-window
+content**: `alt.www.webmaster` is 170 MB and yielded one pair, being entirely 2006 to 2013.
+Out-of-window and unreadable dates are now counted separately so the two are distinguishable.
+
+**Remaining scale.** 302 groups shortlisted, four ingested. Marginal yield was still high at the
+fourth (the second pair of groups added 25,401 pairs), so this route is nowhere near exhausted.
