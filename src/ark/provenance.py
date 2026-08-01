@@ -31,7 +31,16 @@ import duckdb
 from loguru import logger
 
 PROVENANCE_DIR = Path("output/provenance")
-TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
+CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
+
+# Language verdicts are exported alongside the evidence graph so the
+# English-verified annual files rebuild from the export like everything else.
+# They are optional on load, because an export written before the English
+# standard existed has no such file and must still load: a reviewer holding the
+# earlier delivery archive should not meet a FileNotFoundError.
+OPTIONAL_TABLES = ("domain_language",)
+
+TABLES = CORE_TABLES + OPTIONAL_TABLES
 
 LOAD_SQL = """-- For the DuckDB command-line tool, run from INSIDE this folder:
 --     duckdb -init LOAD.sql
@@ -46,6 +55,10 @@ CREATE TABLE domain        AS SELECT * FROM read_parquet('domain.parquet');
 CREATE TABLE evidence      AS SELECT * FROM read_parquet('evidence.parquet');
 CREATE TABLE domain_year   AS SELECT * FROM read_parquet('domain_year.parquet');
 CREATE TABLE ingested_file AS SELECT * FROM read_parquet('ingested_file.parquet');
+
+-- English-website verdicts per (domain, year), with the snapshot URLs that were
+-- read. Absent from exports written before the English standard was imposed.
+CREATE TABLE domain_language AS SELECT * FROM read_parquet('domain_language.parquet');
 
 -- Why is a domain in a given annual file? One row per supporting observation.
 -- Replace the domain and year with any line from additions/ or masters/.
@@ -90,6 +103,14 @@ def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENAN
     for table in TABLES:
         path = source_dir / f"{table}.parquet"
         if not path.exists():
+            if table in OPTIONAL_TABLES:
+                # Create it empty rather than skip it, so everything downstream
+                # can query the table unconditionally instead of guarding.
+                from ark.db import init_db
+
+                init_db(conn)
+                counts[table] = 0
+                continue
             raise FileNotFoundError(f"{path} not found; point this at a provenance/ folder")
         conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")

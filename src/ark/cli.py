@@ -26,6 +26,29 @@ from ark.export import export_all
 from ark.gaps import write_creation_candidates, write_gap_candidates
 from ark.ingest import YEARS, ingest_legacy
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
+from ark.language import (
+    JOURNAL_DIR as LANG_JOURNAL_DIR,
+)
+from ark.language import (
+    JOURNAL_PREFIX as LANG_JOURNAL_PREFIX,
+)
+from ark.language import (
+    TARGETS_PATH as LANG_TARGETS_PATH,
+)
+from ark.language import (
+    answered as lang_answered,
+)
+from ark.language import (
+    bytes_fetcher,
+    classify_pair,
+    format_language_summary,
+    ingest_language_journal,
+    pair_key,
+    read_targets,
+    write_english_annual_files,
+    write_lang_targets,
+    write_language_summary,
+)
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
 from ark.provenance import PROVENANCE_DIR, load_provenance
@@ -58,6 +81,8 @@ _LOG_FORMAT = "{time:HH:mm:ss} | {level: <7} | {message}"
 _LOG_FILE = "data/logs/ark_{time:YYYY-MM-DD}.log"
 # flush the RDAP journal this often, so a killed run keeps nearly all its work
 _JOURNAL_FLUSH_EVERY = 25
+# consecutive `ark lang` failures that mean the archive has stopped answering
+_LANG_FAILURE_BREAKER = 25
 CDX_JOURNAL_DIR = Path("data/raw/cdx")
 CDX_JOURNAL_PREFIX = "cdx"
 EXPAND_JOURNAL_DIR = Path("data/raw/expand")
@@ -642,6 +667,201 @@ def check() -> None:
     record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
     if any(not r["ok"] for r in results):
         raise typer.Exit(code=1)
+
+
+@app.command(name="lang-targets")
+def lang_targets(
+    out: Annotated[Path, typer.Option("--out", help="Work list to write.")] = LANG_TARGETS_PATH,
+) -> None:
+    """Write the (domain, year) work list for English-website verification.
+
+    Every net-new pair that has no verdict yet, ordered so the years closest to
+    the completeness threshold are classified first.
+    """
+    conn = connect()
+    init_db(conn)
+    stats = write_lang_targets(conn, out)
+    typer.echo(f"lang-targets: {stats}")
+    typer.echo(f"targets: {out}\nnext: uv run ark lang {out} -n 200")
+
+
+@app.command()
+def lang(
+    targets: Annotated[
+        Path,
+        typer.Argument(
+            help="Work list: one `domain<TAB>year` per line, from `ark lang-targets`.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="Classify at most this many not-yet-done pairs.")
+    ] = 200,
+    workers: Annotated[int, typer.Option("--workers", help="Concurrent pairs.")] = 4,
+    delay: Annotated[
+        float, typer.Option("--delay", help="Starting seconds between requests (adapts).")
+    ] = 2.0,
+    min_delay: Annotated[
+        float,
+        typer.Option(
+            "--min-delay",
+            help="Floor the governor may not ease below. This engine sends up to `samples`+1 "
+            "requests per pair, so the floor, not the worker count, is what bounds the load on "
+            "web.archive.org. A 0.05 s floor at 4 workers drew a connection refusal in four "
+            "minutes on 1 August; 1.5 s holds the run near the ~1,000 requests/hour the CDX "
+            "engine sustained for days.",
+        ),
+    ] = 1.5,
+    samples: Annotated[
+        int, typer.Option("--samples", help="Captures to classify per (domain, year).")
+    ] = 2,
+    timeout: Annotated[
+        float, typer.Option("--timeout", help="Seconds to wait per request.")
+    ] = 45.0,
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Journal to write (default data/raw/lang/lang_<UTC>.jsonl.gz)."),
+    ] = None,
+) -> None:
+    """Verify the English-website standard per (domain, year) from archived text.
+
+    Feedback section 6 admits a domain to an annual file only when it belongs to
+    an English-language website, or one where English is more than half of the
+    reliably classified body text, judged from archived pages for that year
+    rather than from the domain spelling or its TLD.
+
+    Collection only: writes a per-run journal and never opens the store, so it
+    runs alongside the other engines. Turn journals into verdicts with
+    `ark ingest-lang <journal>`. Resumable: a pair already answered in a journal
+    in the same folder is skipped.
+
+    Rate note: this hits web.archive.org for one CDX query plus up to `samples`
+    page fetches per pair, so it is several times heavier than `ark cdx`. Run the
+    two together only at low worker counts.
+    """
+    path = out or journal_path(LANG_JOURNAL_DIR, LANG_JOURNAL_PREFIX)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    already = queried_domains(path.parent, LANG_JOURNAL_PREFIX, answered=lang_answered)
+    logger.info(f"lang: {len(already):,} pairs already journalled; writing {path}")
+
+    stats: Counter = Counter()
+    work: list[tuple[str, int]] = []
+    for domain, year in read_targets(
+        targets.read_text(encoding="utf-8", errors="replace").splitlines()
+    ):
+        if pair_key(domain, year) in already:
+            stats["skipped_journalled"] += 1
+            continue
+        work.append((domain, year))
+        if len(work) >= limit:
+            break
+
+    governor = RateGovernor(delay=delay, min_delay=min_delay, max_delay=15.0)
+    cdx_fetch = http_fetch(timeout)
+    page_fetch = bytes_fetcher(timeout)
+    written = 0
+    if work:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
+            futures = {
+                pool.submit(
+                    classify_pair,
+                    domain,
+                    year,
+                    cdx_fetch,
+                    page_fetch,
+                    governor,
+                    samples=samples,
+                ): (domain, year)
+                for domain, year in work
+            }
+            consecutive_failures = 0
+            for future in tqdm(as_completed(futures), total=len(futures), unit="pair"):
+                try:
+                    record = future.result()
+                except Exception as exc:  # noqa: BLE001 (one bad pair must not end the run)
+                    logger.warning(f"{futures[future]}: {exc}")
+                    stats["errored"] += 1
+                    continue
+                write_journal_line(journal, record)
+                written += 1
+                if not lang_answered(record):
+                    stats[f"failed_{record['status']}"] += 1
+                    consecutive_failures += 1
+                else:
+                    consecutive_failures = 0
+                    stats[record["verdict"]] += 1
+                    stats["captures_read"] += len(record.get("evidence_urls") or [])
+                if written % _JOURNAL_FLUSH_EVERY == 0:
+                    journal.flush()
+                # Stop rather than keep dialling a service that has stopped
+                # answering. An unbroken run of failures is not bad luck, it is
+                # the archive declining our traffic, and continuing turns a
+                # temporary refusal into a durable one. Nothing is lost: an
+                # unanswered pair was never settled, so the next run asks again.
+                if consecutive_failures >= _LANG_FAILURE_BREAKER:
+                    stats["circuit_broken"] = 1
+                    logger.error(
+                        f"lang: {consecutive_failures} consecutive failures; stopping so the "
+                        f"archive is not hammered. Journal kept at {path}."
+                    )
+                    break
+    if written == 0:
+        path.unlink(missing_ok=True)
+        logger.info("lang: nothing new to classify; no journal written")
+
+    stats["classified"] = written
+    stats["throttles"] = governor.throttles
+    stats["final_delay_ms"] = int(governor.delay * 1000)
+    summary = dict(stats)
+    logger.info(f"lang: {summary} -> {path if written else 'no journal'}")
+    typer.echo(f"lang: {summary}")
+    if written:
+        typer.echo(f"journal: {path}\nnext: uv run ark ingest-lang {path}")
+
+
+@app.command(name="ingest-lang")
+def ingest_lang(
+    journals: Annotated[
+        list[Path],
+        typer.Argument(help="`ark lang` journals to fold into domain_language.", exists=True),
+    ],
+) -> None:
+    """Fold `ark lang` journals into the domain_language table.
+
+    Language is not evidence, so this writes no evidence rows and touches no
+    annual assignment. It records what each website was in each year, which the
+    exporter then uses to decide admission.
+    """
+    conn = connect()
+    init_db(conn)
+    total: Counter = Counter()
+    for path in journals:
+        summary = ingest_language_journal(conn, path)
+        typer.echo(f"{path.name}: {summary}")
+        for key, value in summary.items():
+            if isinstance(value, int):
+                total[key] += value
+    typer.echo(f"ingest-lang: {dict(total)}")
+
+
+@app.command(name="lang-report")
+def lang_report() -> None:
+    """Write the English-verified annual files and the section 6.1 language table.
+
+    Two artifacts. `output/netnew_english/` holds the admissible subset, the
+    additions the English standard permits. `output/language_summary.csv` is the
+    per-year and total mix of English, other, undetermined and not-yet-classified
+    records, plus the cross-year unique-domain roll-up, which is the shape
+    feedback 6.1 requires every future submission to report.
+    """
+    conn = connect()
+    init_db(conn)
+    counts = write_english_annual_files(conn)
+    rows = write_language_summary(conn)
+    typer.echo(format_language_summary(rows))
+    typer.echo(f"\nenglish annual files: {counts}")
+    record_metrics(conn, "lang-report", "language_summary", counts)
 
 
 def main() -> None:

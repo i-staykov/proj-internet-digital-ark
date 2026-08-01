@@ -733,3 +733,50 @@ Two structural rules hold across all types:
 
 Gray zone recorded for the ingester: on a `dated_directory` page, only curated **entries** count as `dated_directory`; incidental outbound links from the same page (nav bars, ads, reciprocal-link footers) are `link_target`-grade candidates. Drawing that line lives in the per-source parser.
 
+
+## 2026-08-01 (phase 3: the English-website standard)
+
+Feedback v3 section 6 imposes a new admission rule: a domain enters an annual file only if it belongs to an English-language website, or one where English is more than 50% of reliably classified body text, judged **at website level from archived page body text** and explicitly not from the domain spelling or the TLD. This is an admission criterion, not a post-hoc filter, so until a language pipeline existed the next submission had zero admissible additions regardless of how many pairs the engines collected. Ding also writes that his own language table is "a provisional aggregate estimate ... using a TLD-stratified Common Crawl 2024-10 page-language prior and is not a per-domain historical-language verification", and that future reports "must replace the provisional estimate with archived-content evidence". That is the deliverable this session builds.
+
+- **Language is not evidence, so it is a new table rather than a new evidence type**
+  - every existing `evidence_type` answers "did this domain exist in this year". A language verdict answers "what was this website in this year". The two are orthogonal: a domain can be perfectly evidenced and still inadmissible, and an inadmissible domain has lost none of its evidence
+  - adding an eighth `evidence_type` would have put a non-existence claim inside a taxonomy that `MASTER_TYPES`, the schema CHECK constraint and four integrity checks all read as "proof this existed". `assign_year` would then have had to special-case it, which is the kind of exception that quietly becomes the rule
+  - so: `domain_language (domain, assigned_year, verdict, english_share, samples, top_other, evidence_urls)`, keyed on the same pair as `domain_year`. Verdicts are `english`, `other`, `undetermined`
+  - `evidence_urls` stores the exact snapshot URLs that were read. **That column is the entire difference between this and a TLD prior**: a reviewer can refetch what we classified and recompute the verdict. Ding asked for archived-content evidence, and a verdict nobody can check is not evidence
+
+- **Two thirds of our additions can be classified at all, and one third cannot. Measured, not assumed**
+  - per net-new (domain, year), does any `cdx_timestamp` evidence exist for that exact pair? If yes the archive provably holds an in-year capture and there is body text to read; if no, the pair rests on a registry creation date or a DNS survey line and there may be nothing at all
+  - result: **21,825 of 32,698 (66.7%) are capture-backed**. By year: 1996 0.4%, 1997 0.0%, 1998 86.5%, 1999 5.9%, 2000 93.5%, 2001 96.5%
+  - this is a hard ceiling on the admissible set before language is even considered, and it is not something more crawling fixes: the Internet Archive did not capture those sites in those years
+
+- **The planned year priority was exactly backwards, and a calibration run proved it before the code shipped**
+  - the plan said to classify 1996 and 1997 first, because feedback section 5 puts both under 10,000 additions and therefore closest to the completeness threshold. Sound about completeness, wrong about this engine
+  - the first calibration run spent its whole budget on 1996 and returned 74 answers, **every one `undetermined` with zero captures found**. Cross-checked against the measurement above (1996 is 0.4% capture-backed) and against four of those domains re-queried by hand on a healthy connection, which returned genuine HTTP 200 with zero rows. The engine was right; the priority was wrong
+  - `write_lang_targets` now orders capture-backed pairs first, then by year volume within that group. Requests against the archive are the scarce resource and they go where a verdict can change the admitted set. The completeness argument for 1996 and 1997 has not gone away; it simply cannot be served by page-text classification
+
+- **The archive refused us within four minutes, and the governor could not see it**
+  - the first design sent up to 4 requests per pair (1 CDX query plus 3 snapshot fetches) at 4 workers with a 0.05 s floor. That is an order of magnitude more traffic than the CDX engine's sustained ~1,000 requests/hour. After roughly 400 requests `web.archive.org` began refusing TCP connections while ping and DNS stayed healthy. Third refusal in this project's history
+  - the real defect was not the pace but the blindness. `RateGovernor` backs off on 429, 503 and 504. **A refused connection is status 0, which was not a throttle signal**, so the run kept dialling at full speed at exactly the moment it should have stopped. Silence was being read as success
+  - two fixes. Status 0 now backs the governor off like an explicit 429. And `ark lang` carries a circuit breaker: 25 consecutive failures ends the batch, because an unbroken run of failures is not bad luck, it is the archive declining our traffic, and continuing turns a temporary refusal into a durable one. Nothing is lost, since an unanswered pair was never settled
+  - `--min-delay` is now an explicit option rather than an inherited default. For an engine whose unit of work costs three requests, the floor is what bounds the load, not the worker count
+
+- **Classifier decisions, each of which changes the measured English share**
+  - **`charset_normalizer` over raw bytes, never UTF-8 over text.** Pages of this period are frequently latin-1, Shift-JIS or GB2312 with no declared charset. Decoding those as UTF-8 produces mojibake, mojibake classifies as undetermined, and undetermined pages leave the denominator, so the error would have **raised** the measured English share. This is why the module carries its own bytes fetcher instead of reusing `cdx.py`'s, whose fetcher decodes with `errors="replace"` and destroys the evidence before we see it
+  - **`py3langid`**: pure Python, no model download, deterministic, and with `norm_probs=True` it returns a real probability so a confidence threshold means something. `langdetect` is non-deterministic without a seed, which would make a verdict unreproducible
+  - **under 200 characters of stripped text is "not reliably classified"** and leaves the denominator entirely. Under-construction notices, image-only splash pages and framesets are everywhere in this period, and identifying a language from a dozen words is noise presented as a measurement
+  - **under 0.50 confidence is excluded rather than counted as non-English.** Section 6 puts low-confidence cases outside the annual files. Counting them as non-English instead would drag genuinely English sites out, which is a different error from the one the rule is guarding against
+  - **captures are weighted by classified text length**, so a substantial English page outweighs a one-line non-English redirect notice instead of each counting once
+  - **strictly greater than 0.50 admits**, so an exact half fails, per the wording "more than 50%"
+  - **extracted text is joined across tag boundaries with a space.** Concatenating `<p>Test</p><p>Hello</p>` into `TestHello` invents n-grams the classifier reads as evidence of another language. Found by a test, not by reading the code
+  - validated live before the refusal: `bbc.co.uk` 1999 returns `english` at share 1.0 from three distinct sampled pages, `lemonde.fr` 1999 returns `other` at share 0.0 with top other `fr`
+
+- **`unclassified` is reported separately from `undetermined`**
+  - a pair the engine has not reached yet is not the same claim as one it judged and could not resolve. Collapsing them would overstate how much of the list has actually been read, and section 6.1 is a reporting requirement, so an inflated denominator there is a misstatement to the reviewer
+
+- **`init_db` split the schema on `;` including semicolons inside comments**
+  - a semicolon in a new `--` comment cut a `CREATE TABLE` in half and failed with a parser error pointing at prose. Comment lines are now stripped before the split, which keeps the explanation in the source and out of the executed SQL
+  - minor, but it is the second time this session that a defect surfaced only because a test ran the real code path rather than a description of it
+
+- **`domain_language` is in the provenance export, and optional on load**
+  - the English-verified annual files must rebuild in tier 2 like everything else, so the table is exported to Parquet with the rest of the evidence graph
+  - it is optional on **load**, because an export written before the English standard existed has no such file, and a reviewer holding the earlier delivery archive must not meet a `FileNotFoundError`. A missing file creates the table empty rather than skipping it, so everything downstream can query it unconditionally
