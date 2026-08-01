@@ -112,6 +112,59 @@ find data/raw/rdap -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/n
 # archive readme still told the reader to restore it.
 find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 
+# Usenet, Tucows and the language verdicts. These were missing, and the omission
+# was not small: Usenet and Tucows together carry most of this round's additions,
+# and without their journals the documented tier-3 replay simply cannot reach
+# them. The language journals matter for a different reason: they hold the
+# per-capture readings behind every English verdict, so shipping them is what
+# lets a reviewer re-derive the verdicts rather than only re-read our conclusion.
+# 18 MB for all three, against 144 journals already shipped.
+#
+# This is the second time a source's journals have failed to ship while the
+# README told the reader to replay them. Hence `find` per source directory, and
+# hence the count printed at the end.
+find data/raw/usenet -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+find data/raw/tucows -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+find data/raw/lang -maxdepth 1 -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+
+# Superseded language journals go in their own folder, clearly named. They are
+# the verdicts produced by earlier versions of the classifier, kept so that a
+# discarded verdict is auditable rather than merely deleted. They must not sit
+# beside the current ones: the README tells the reader to ingest
+# `lang_*.jsonl.gz`, and although the engine-version gate would keep these out
+# of any annual file, a folder named `superseded` says so without relying on it.
+if compgen -G "data/raw/lang/superseded/*.jsonl.gz" > /dev/null; then
+    mkdir -p "$STAGE/journals/lang_superseded"
+    cp data/raw/lang/superseded/*.jsonl.gz "$STAGE/journals/lang_superseded/"
+    cat > "$STAGE/journals/lang_superseded/README.txt" <<'SUPERSEDED'
+Language verdicts produced by superseded versions of the classifier.
+
+They are here for audit, not for use. Each was discarded after a defect was
+found in the engine that produced it, and they are kept so that a discarded
+verdict remains reproducible rather than simply deleted.
+
+Every record carries no `engine_version` field, or one below the current
+ENGINE_VERSION in src/ark/language.py. The exporter admits a verdict to an
+annual file only at the current version, so ingesting these cannot put a
+superseded verdict into a result file. They will, correctly, be re-judged.
+
+What was wrong with them, in order of discovery:
+
+  v1  The CDX index limit was passed the page-fetch count, so the engine asked
+      the index for two rows and reported that as the whole archive. 75.4% of
+      pairs with any capture were censored this way. Captures were also taken in
+      URL-key order, so framesets and redirect stubs dominated the sample, and
+      registrar parking pages scored English at confidence 1.000.
+
+  v2  A replay request could be answered with a capture from a different year
+      and reported as success, so a verdict could be dated wrongly while its
+      recorded URL made the error invisible. Selection preferred robots.txt and
+      vendor webmail pages over site content. The placeholder test skipped any
+      page over 1,000 characters, admitting keyword link farms. A verdict could
+      be settled on a truncated sample after a fetch failure.
+SUPERSEDED
+fi
+
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
@@ -131,11 +184,35 @@ cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
+# The engine review, so the process behind the report's audit section can be
+# inspected rather than credited. A report that says "two adversarial reviews
+# were run" and ships no record of them is asking to be believed.
+cp docs/engine_review_260801.md "$STAGE/audit/engine_review.md" 2>/dev/null || true
 cp data/logs/* "$STAGE/logs/" 2>/dev/null || true
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
+
+# Every journal on disk must be in the archive. Naming source directories by hand
+# has now failed twice: once a ledgered CDX journal sat one directory down and
+# matched neither the packaging glob nor the ingest glob, and once Usenet, Tucows
+# and the language verdicts were simply never added, which silently removed the
+# evidence behind most of a round's additions from the tier-3 replay the README
+# documents. Counting is cheap and catches the next one.
+ON_DISK=$(find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' | wc -l | tr -d ' ')
+SHIPPED_JOURNALS=$(find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' | wc -l | tr -d ' ')
+if [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
+    echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
+    echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
+    find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -exec basename {} \; \
+        | sort > /tmp/ark_on_disk.txt
+    find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' -exec basename {} \; \
+        | sort > /tmp/ark_shipped.txt
+    comm -23 /tmp/ark_on_disk.txt /tmp/ark_shipped.txt >&2
+    exit 1
+fi
+echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )

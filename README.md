@@ -103,7 +103,9 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 22 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 23 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
 | 24 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 25 | `uv run ark check` | twelve `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 25 | `uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz` | replays the English verification: one verdict per (domain, year), from the snapshot URLs the journals name |
+| 26 | `uv run ark lang-report` | the two disjoint sets in `output/netnew_english/` and `output/netnew_unverified/`, the per-item `disqualified.csv`, and the section 6.1 language table |
+| 27 | `uv run ark check` | twelve `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
 Steps 6 to 15 are independent of each other, so their order does not matter. Steps 19 to 21 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 21's corroboration split is judged against what the store holds by then.
 

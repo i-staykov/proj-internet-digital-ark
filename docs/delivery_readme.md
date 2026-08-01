@@ -1,10 +1,21 @@
 # Internet Digital Ark: 1996-2001 annual domain lists
 
-Evidence-backed annual domain lists for 1996-2001, built on top of the supplied ~8.2M-line
-baseline. Every line in an annual file traces to a specific dated observation.
+Evidence-backed annual domain lists for 1996-2001. Every line in an annual file traces to a specific
+dated observation, and from this round every line in the English-verified set traces to archived page
+text that was read and classified.
 
-**1,322,365 net-new (domain, year) pairs over 463,566 net-new registered domains**, plus 3,595,769
-hostname and URL download seeds. Method and results: `report.docx`.
+**The counts live in `report.docx` and in `verify.sh`, not here.** This file describes the archive's
+structure; quoting figures in two places is how they come to disagree, and this file has been wrong
+about them before. `bash verify.sh` prints the current totals from the shipped files themselves in
+about ten seconds.
+
+Two things a reader should know before opening anything:
+
+- **The reference baseline for this round is `merged260730`.** Additions are counted against it, so a
+  figure quoted against any earlier baseline is not comparable.
+- **`additions_english/` and `additions_unverified/` partition `additions/`.** They are disjoint and
+  sum to the whole, so they can be added together without double counting. `verify.sh` checks that
+  rather than asking you to trust it.
 
 ## What is in here
 
@@ -144,7 +155,7 @@ The bulk sources total about 50 GB, of which a single 47 GB capture index is mos
 **Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
 reproducing 98.7% of the result.
 
-Measured, this returns **1,319,272 of the 1,322,365 pairs (99.77%)**, all invariants passing. The
+Measured on the phase-1 archive this returned 99.77% of its pairs, all invariants passing. The
 gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the
 report's limitations) and a superseded CDX route (11). Their 840 domains return to the candidate
 pool. Tier 2 above is the byte-for-byte check.
