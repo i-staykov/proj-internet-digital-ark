@@ -66,6 +66,44 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+
+# The Internet Archive's "Not Your Parents' Web" first-capture index. Eight
+# space-delimited fields per line:
+#   normalised-url  SURT  timestamp  original-url  mime  status  digest  length
+# One line per URL, holding only that URL's EARLIEST Wayback capture, so a row
+# evidences exactly the year it names and no other. That is a narrower claim
+# than a full CDX file makes and it is exactly what III.7 wants: no inference
+# from a first appearance to any later year.
+_NYPW_FIELDS = 6
+
+
+def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 first capture."""
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.split()
+            if len(parts) < _NYPW_FIELDS:
+                stats["malformed"] += 1
+                continue
+            timestamp, original, status = parts[2], parts[3], parts[5]
+            if len(timestamp) != 14 or not timestamp.isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(timestamp[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            if status != "200":
+                stats["non_200"] += 1
+                continue
+            yield BulkRecord(
+                raw=original,
+                year=year,
+                evidence_value=f"nypw first capture {timestamp}",
+                evidence_url=f"https://web.archive.org/web/{timestamp}/{original}",
+            )
+
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
     """Read (year, 'YYYY-MM') from an ISC survey filename, or None if absent."""
     match = _ISC_SURVEY_CODE.search(name)
@@ -628,6 +666,13 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="dated_directory",
         acquisition_method="ncsa_whats_new_pages",
         parse=parse_ncsa_whats_new,
+    ),
+    "nypw_firstcdx": SourceSpec(
+        key="nypw_firstcdx",
+        source_name="nypw_firstcdx",
+        evidence_type="cdx_timestamp",
+        acquisition_method="nypw_first_capture_index",
+        parse=parse_nypw_firstcdx,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

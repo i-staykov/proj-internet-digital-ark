@@ -41,6 +41,11 @@ PROVENANCE_LINEAGE = {
     "arquivo_ia": "internet_archive",
     "ia_cdx": "internet_archive",
     "ia_cdx_bulk": "internet_archive",
+    # NYPW is a sample of the Internet Archive's own CDX, so a pair it confirms
+    # alongside early_web_cdx or a Wayback query has ONE lineage, not two. Filing
+    # it here rather than as its own family keeps the independent-corroboration
+    # count honest, which is the whole point of that measure.
+    "nypw_firstcdx": "internet_archive",
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",

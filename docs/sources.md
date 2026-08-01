@@ -400,6 +400,58 @@ both faster and no less accurate.
 
 ---
 
+
+## `nypw_firstcdx`: Internet Archive "Not Your Parents' Web" first-capture index
+
+Found 2026-08-01 while looking for national web-archive CDX releases, and the only source assessed
+this round that produces genuinely **new domains** rather than new years on domains already held.
+
+- **What it is.** One line per URL holding that URL's *earliest* Wayback capture, in eight
+  space-delimited fields: normalised URL, SURT, 14-digit timestamp, original URL, mimetype, status,
+  digest, length. Published by the Internet Archive alongside the paper at
+  [arXiv:2507.14752](https://arxiv.org/abs/2507.14752).
+- **Where.** `https://archive.org/details/nypw_urls_CDXfirstentry`, two files:
+  `nypw_downsampled_root_firstcdx.gz` (321 MB, site roots) and `nypw_downsampled_deep_firstcdx.gz`
+  (1.68 GB, deep links). No login, no payment. The item metadata carries
+  `access-restricted-item = true`, which is misleading: both files return HTTP 200 and download.
+- **Richer sibling.** `https://archive.org/details/nypw_timemaps` (CC-BY 4.0) holds full TimeMaps
+  rather than just the first capture, bucketed by first-archived year: 19.35 GB across 49 files for
+  1996-2001. That version supplies *every* capture year per URL, so it is a gap-filler as well as a
+  discovery source. Not yet ingested.
+- **Year evidence.** A 14-digit capture timestamp with HTTP 200, so the same standard as
+  `early_web_cdx`. A first-capture row evidences the year it names and no other, which is III.7
+  applied without any inference at all.
+- **Provenance lineage.** `internet_archive`. It is a sample of the Archive's own CDX, so a pair it
+  confirms alongside `early_web_cdx` or a Wayback query carries one lineage, not two. Filing it
+  anywhere else would inflate the independent-corroboration count.
+- **It is a sample, not a census.** Derived from a 1-in-6000 ZipNum CDX sample (285M URLs reduced to
+  27.3M) with early years upsampled and over-represented domains logarithmically downsampled. Its
+  yield is therefore a floor for the method, not a ceiling.
+- **Language.** The in-window TLD mix is heavily non-English (jp, it, de, kr, pl, ru all prominent),
+  so a large share will fail the section 6 standard. Every row is a capture by construction, though,
+  which means every domain it contributes **can** be classified. That is the opposite of the RDAP
+  and AFNIC routes, whose pairs frequently have no archived page to read at all.
+
+## Australian Web Archive: the CDX endpoint is reachable again
+
+Feedback section 4 asks for previously unavailable sources to be revisited. This is one, and the
+earlier rejection is now half wrong.
+
+- `https://webarchive.nla.gov.au/awa/cdx` still returns an Anubis anti-bot challenge. Dead.
+- **`https://web.archive.org.au/awa/cdx` answers normally**, verified 2026-08-01: it is a pywb
+  server returning `text/x-cdxj`, supporting `url`, `matchType=domain`, `from`/`to`, `limit`,
+  `collapse` and `output=json`. `?url=abc.net.au&from=1996&to=2001` returns a **19961017** capture
+  out of `NLA-EXTRACTION-1996-2004-ARCS-PART-04571-000005.arc.gz`, so in-window data is present.
+- **It is a lookup API, not a bulk dump**, so it needs a candidate list. The natural pairing is the
+  PANDORA titles list (GLAM Workbench, CC0,
+  `https://github.com/GLAM-Workbench/trove-web-archives-titles`): 87,757 rows, 42,671 distinct
+  hosts, 35,396 registrable domains, of which 29,727 are absent from the 1996-2001 baseline. The
+  CSV has no date column, so it is seed-only and every hit needs the CDX call.
+- **Not yet worth a full run, and the reason is a weak measurement rather than a strong one.** A
+  39-host probe returned 6 in-window hits and all 6 were already held. Six data points is not
+  enough to retire a 29,727-domain pool; it is enough to put it behind NYPW in the queue. Recorded
+  here so the next person runs a proper sample rather than repeating the probe.
+
 ## Source names that are not separate sources
 
 `cdx_snapshot` is the journal-ingest specification that writes under the source name `ia_cdx_bulk`;
@@ -424,7 +476,7 @@ Recorded so that negative results are visible rather than silently omitted.
 | ODP full 2001 content dumps | Verified unavailable in 2026: the URL serves a "Page Has Moved" stub |
 | ODP full Aug-2000 content dump | Unrecoverable; only `structure.rdf` was archived, which has no external links |
 | Public 1998-2001 zone files | None survive anywhere checked (DNS-OARC, resellers, academic torrents) |
-| Australian Web Archive (PANDORA/Trove) | The CDX endpoints at `webarchive.nla.gov.au/awa/cdx` and `web.archive.org.au/awa/cdx` return **HTTP 200 carrying an Anubis anti-bot proof-of-work challenge**, not CDX data. Machine access would require solving the challenge, so the archive is not usable programmatically |
+| Australian Web Archive (PANDORA/Trove) | **Superseded 2026-08-01, see the section above.** The earlier entry said both endpoints served an Anubis challenge. Half of that is now wrong: `web.archive.org.au/awa/cdx` answers normally |
 | Other ccTLD registry open data | Nothing free reaches 1996-2001. CENTR publishes aggregates only; OpenINTEL starts 2015; commercial WHOIS is paid. AFNIC `.fr` is the sole open registry file with in-window creation dates |
 | SNAP web graphs | Nodes are anonymised integers with no URL mapping |
 | Yahoo! Webscope AltaVista graph | Programme unreachable; crawl date too vague for per-year evidence |
@@ -433,4 +485,11 @@ Recorded so that negative results are visible rather than silently omitted.
 | GeoCities derivatives, DNS Census | 2009 and 2013 respectively, out of window |
 | Post-July-1997 ISC `.domains` lists | Do not exist; later survey editions publish aggregate counts only |
 | ISC January 1997 file | Corrupt in every known copy. Permanent gap |
+| Internet Archive Alexa crawls (`alexacrawls`, `webwidecrawl`) | 226,901 items from 1996 with per-item CDX, but **every payload returns HTTP 401**; only `_meta.xml` is public. No route in |
+| UKWA per-year bulk CDX (2026 recheck) | Docs survive at `ukwa.github.io/opendata/ukwa.ds.2/cdx/`; the download host serves the same 159-byte stub and the DOI now 403s behind Cloudflare. Wayback captured the directory listing but never the `.gz` files, which is why the link graph survived and the CDX did not. In-window size would have been ~13.4 GB |
+| New Zealand (National Library) | Both the web archive and the open-data page return an Imperva bot interstitial. NLNZ does publish CDX to archive.org, but those items are 2025-2026 crawls. Selective harvesting only began in 1999 |
+| Canada (Library and Archives Canada) | Federal web harvesting began December 2005, stated on their own front page. `open.canada.ca` returns zero web-archive index datasets. Entire archive postdates the window |
+| Ireland (National Library) | Archives via Archive-It, 138 collections, earliest captures 2011 |
+| `early-web_parallel-language-urls` | 1,164,183 pre-2000 multilingual URL patterns with ISO-639 codes but **no timestamps**, so no per-year evidence. Multilingual by construction, which also works against the section 6 English rule. Seed-only at best |
+| OCLC Web Characterization Project | Only aggregate statistics were ever published; the host is gone |
 

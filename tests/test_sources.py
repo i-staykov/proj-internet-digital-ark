@@ -552,3 +552,49 @@ def test_ncsa_whats_new_dates_each_entry_by_its_issue(tmp_path) -> None:
     # an entry the harvest could not date is counted, never dated by assumption
     assert stats["no_date"] == 1
     assert records[0].evidence_value == "ncsa whats-new entry 1996-01-01"
+
+
+# --- NYPW first-capture index ------------------------------------------------
+
+
+def _nypw_line(timestamp: str, original: str, status: str = "200") -> str:
+    """One line in the eight-field NYPW first-capture format."""
+    return (
+        f"https://example/ com,example)/ {timestamp} {original} text/html {status} DIGEST123 1097\n"
+    )
+
+
+def test_nypw_reads_timestamp_and_url_from_their_own_columns(tmp_path):
+    """The format is not classic CDX: the timestamp is field 2 and the URL
+    field 3, where early_web has them at 1 and 2. Reading the wrong column
+    silently yields a SURT as a domain and no year at all."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(_nypw_line("19970326221054", "http://0-0-0checkmate.com:80/"))
+    stats = Counter()
+    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
+    assert len(records) == 1
+    assert records[0].year == 1997
+    assert records[0].raw == "http://0-0-0checkmate.com:80/"
+
+
+def test_nypw_drops_out_of_window_and_non_200(tmp_path):
+    path = tmp_path / "nypw.txt"
+    path.write_text(
+        _nypw_line("20070717010807", "http://late.com/")
+        + _nypw_line("19980101000000", "http://redirect.com/", status="302")
+        + _nypw_line("19980101000000", "http://good.com/")
+    )
+    stats = Counter()
+    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
+    assert [r.raw for r in records] == ["http://good.com/"]
+    assert stats["out_of_window"] == 1
+    assert stats["non_200"] == 1
+
+
+def test_nypw_evidences_only_the_year_it_names(tmp_path):
+    """A first-capture row says the URL was archived in that year and nothing
+    about any later one, which is III.7 applied to this source."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(_nypw_line("19990601120000", "http://once.com/"))
+    records = list(SOURCES["nypw_firstcdx"].parse(path, Counter()))
+    assert [r.year for r in records] == [1999]
