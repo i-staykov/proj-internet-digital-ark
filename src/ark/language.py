@@ -1168,14 +1168,14 @@ def language_summary(conn) -> list[dict]:
 
     Feedback 6.1 requires English, named other, undetermined and
     syntax-anomalous counts, per year and for the six-year total, reported for
-    both domain-year records and cross-year unique domains. `unclassified` is
+    both domain-year records and cross-year unique domains. `unchecked` is
     ours rather than theirs: a pair the engine has not reached yet is not the
     same claim as one it judged undetermined, and collapsing the two would
     overstate how much of the list has actually been read.
     """
     rows = conn.execute(f"""
         SELECT dy.assigned_year,
-               coalesce(dl.verdict, 'unclassified') AS verdict,
+               coalesce(dl.verdict, 'unchecked') AS verdict,
                count(*) AS pairs
         FROM domain_year dy
         LEFT JOIN domain_language dl
@@ -1198,7 +1198,7 @@ def language_summary(conn) -> list[dict]:
                 "english": counts.get("english", 0),
                 "other": counts.get("other", 0),
                 "undetermined": counts.get("undetermined", 0),
-                "unclassified": counts.get("unclassified", 0),
+                "unchecked": counts.get("unchecked", 0),
             }
         )
     total = {
@@ -1207,7 +1207,7 @@ def language_summary(conn) -> list[dict]:
         "english": sum(r["english"] for r in summary),
         "other": sum(r["other"] for r in summary),
         "undetermined": sum(r["undetermined"] for r in summary),
-        "unclassified": sum(r["unclassified"] for r in summary),
+        "unchecked": sum(r["unchecked"] for r in summary),
     }
     summary.append(total)
 
@@ -1231,7 +1231,7 @@ def language_summary(conn) -> list[dict]:
             "english": unique[0],
             "other": unique[1],
             "undetermined": unique[2],
-            "unclassified": None,
+            "unchecked": None,
         }
     )
     return summary
@@ -1250,7 +1250,7 @@ def write_language_summary(conn, path: Path = LANGUAGE_SUMMARY_PATH) -> list[dic
                 "english",
                 "other",
                 "undetermined",
-                "unclassified",
+                "unchecked",
             ],
         )
         writer.writeheader()
@@ -1264,10 +1264,10 @@ def format_language_summary(rows: list[dict]) -> str:
     header = f"{'year':<15}{'added':>10}{'english':>10}{'other':>10}{'undet':>10}{'unclass':>10}"
     lines = [header, "-" * len(header)]
     for row in rows:
-        unclassified = "-" if row["unclassified"] is None else f"{row['unclassified']:,}"
+        unchecked = "-" if row["unchecked"] is None else f"{row['unchecked']:,}"
         lines.append(
             f"{str(row['year']):<15}{row['added_records']:>10,}{row['english']:>10,}"
-            f"{row['other']:>10,}{row['undetermined']:>10,}{unclassified:>10}"
+            f"{row['other']:>10,}{row['undetermined']:>10,}{unchecked:>10}"
         )
     return "\n".join(lines)
 

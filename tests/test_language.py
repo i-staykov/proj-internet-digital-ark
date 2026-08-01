@@ -542,7 +542,7 @@ def _classify(
     )
 
 
-def test_summary_counts_unclassified_apart_from_undetermined(tmp_path):
+def test_summary_counts_unchecked_apart_from_undetermined(tmp_path):
     """A pair the engine has not reached is not the same claim as one it judged
     and could not resolve. Collapsing them would overstate coverage to the
     reviewer, and section 6.1 is a reporting requirement."""
@@ -555,7 +555,7 @@ def test_summary_counts_unclassified_apart_from_undetermined(tmp_path):
     row = next(r for r in language_summary(conn) if r["year"] == 1998)
     assert row["added_records"] == 2
     assert row["undetermined"] == 1
-    assert row["unclassified"] == 1
+    assert row["unchecked"] == 1
 
 
 def test_summary_excludes_the_baseline(tmp_path):
@@ -649,7 +649,7 @@ def test_unchecked_pairs_are_never_reported_as_rejections(tmp_path):
 
 
 def test_format_language_summary_renders_the_unique_row():
-    """`unclassified` is None for the unique-domain roll-up, because a domain is
+    """`unchecked` is None for the unique-domain roll-up, because a domain is
     not unreached in the way a pair is. It must render, not crash."""
     from ark.language import format_language_summary
 
@@ -661,7 +661,7 @@ def test_format_language_summary_renders_the_unique_row():
                 "english": 5,
                 "other": 2,
                 "undetermined": 1,
-                "unclassified": 2,
+                "unchecked": 2,
             },
             {
                 "year": "UNIQUE_DOMAINS",
@@ -669,7 +669,7 @@ def test_format_language_summary_renders_the_unique_row():
                 "english": 4,
                 "other": 2,
                 "undetermined": 1,
-                "unclassified": None,
+                "unchecked": None,
             },
         ]
     )

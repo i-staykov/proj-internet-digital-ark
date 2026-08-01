@@ -26,10 +26,10 @@ Two things a reader should know before opening anything:
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `additions_english/1996.txt` … `2001.txt` | **English-verified additions**: the site's archived body text for that year was read and was more than half English |
-| `additions_english/1996.csv` … `2001.csv` | The same pairs with the evidence: English share, sample count, and the exact snapshot URLs read |
+| `additions_english/1996.csv` … `2001.csv` | The same pairs with the evidence. Columns: `domain,year,english_share,samples,snapshot_urls`, the last being space-separated Wayback `id_` URLs that can be refetched directly |
 | `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-reached counts, plus the cross-year unique-domain roll-up |
 | `additions_unverified/1996.txt` … `2001.txt` | **Everything else**, disjoint from the above. The two together are exactly `additions/` |
-| `additions_unverified/1996.csv` … `2001.csv` | Per row a `status` (`disqualified` or `unchecked`) and, for a rejection, its `reason` |
+| `additions_unverified/1996.csv` … `2001.csv` | Per row a `status` (`disqualified` or `unchecked`) and, for a rejection, its `reason`. Columns: `domain,year,status,reason,english_share,top_other,snapshot_urls` |
 | `additions_unverified/disqualified.csv` | The register: every pair we judged and rejected, one row each, with the reason and the pages read |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
@@ -44,6 +44,26 @@ Two things a reader should know before opening anything:
 | `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, why it carries the evidence type it does, and what was rejected |
 | `SHA256SUMS` | Checksum for every file in this archive |
 | `verify.sh` | Runs every check below in one command |
+
+## File formats
+
+Stated because a reader should not have to infer them from a hexdump.
+
+- **Every `.txt` list**: one registered domain per line, lowercase ASCII, C-locale sorted, newline
+  terminated, no header, no blank lines, no comments. A "registered domain" is the name at the
+  registrable boundary under the Public Suffix List, so `www.example.co.uk` appears as
+  `example.co.uk`. This is the counting unit throughout, and it is why our totals differ from a raw
+  line count of the same source data.
+- **Every `.csv`**: RFC 4180, comma separated, UTF-8, one header row, fields quoted only where
+  necessary. Column names are given in the table above for the annual CSVs and in `sources.md` for
+  `source_contribution.csv`.
+- **`journals/*.jsonl.gz`**: gzipped JSON Lines, one JSON object per query made. These are the raw
+  responses, so a stage can be replayed from bytes rather than from a service whose answers change.
+- **`provenance/*.parquet`**: Parquet with ZSTD compression, readable by any engine. `LOAD.sql`
+  recreates the six tables in DuckDB; `trace.py` answers the common question without SQL.
+- **Empty `audit/*.csv` files are meaningful, not broken.** Several audit files are a header and no
+  rows, which records that the audited condition did not occur: nothing was salvaged by that rule,
+  or no anomaly of that class was found. A missing file would be ambiguous, an empty one is not.
 
 `source/source.tar.gz` holds the code's own README, which documents the pipeline command by command.
 This file describes the archive.
@@ -85,9 +105,13 @@ checks that rather than asking you to take it on trust.
 A pair sits outside the English set for one of two very different reasons, and the `status` column
 keeps them apart:
 
-- **`disqualified`** means the archive was asked and answered, and the pair failed the standard.
-  Every one of these carries a `reason` and appears individually in `disqualified.csv`, so any
-  exclusion can be inspected and disputed.
+- **`disqualified`** means the engine reached this pair and it did not qualify. The `reason` says
+  which of two things happened: the archived text was classified and was not majority English
+  (`other_language`, `mixed_below_threshold`), or there was nothing there we could classify
+  (`no_capture_in_year`, `no_readable_html_capture`, `insufficient_text`, `non_site_text`,
+  `low_confidence`). Both are exclusions and both are documented per item in `disqualified.csv`, but
+  they are different claims and the reason column keeps them apart. Any exclusion can be inspected
+  and disputed.
 - **`unchecked`** means the engine has not reached that pair yet. **No claim is made about its
   language, and none about whether the archive holds a capture for it.** Verification is rate-bound
   against `web.archive.org` and is still running; `language_summary.csv` reports how much of the
