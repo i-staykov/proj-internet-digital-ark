@@ -554,3 +554,43 @@ Out-of-window and unreadable dates are now counted separately so the two are dis
 
 **Remaining scale.** 302 groups shortlisted, four ingested. Marginal yield was still high at the
 fourth (the second pair of groups added 25,401 pairs), so this route is nowhere near exhausted.
+
+## `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
+
+Adopted 2026-08-01. A dated index file in the sense of III.1, and the best-behaved dating of any
+source assessed this round.
+
+- **What it is.** ~32,600 items donated to archive.org in 2004, of which **11,499 fall in window**.
+  Each carries a release `date` and a `creator` field holding the software vendor's home page URL.
+- **Where.** Two cursor-paginated calls, no login:
+  `https://archive.org/services/search/v1/scrape?q=collection:tucows+AND+year:[1996+TO+2001]&fields=identifier,date,creator&count=10000`
+- **Year evidence.** The release date, with the item identifier as the evidence value, so a reviewer
+  can open `https://archive.org/details/<identifier>` and see the record.
+- **Provenance lineage:** `software_catalogue`, its own family. Independent of both web crawls and
+  Usenet, so agreement with either is real corroboration.
+
+**Measured yield.** 5,258 in-window pairs over 4,239 domains, of which **1,779 pairs and 775 domains
+are net-new**. After the corroboration split, **942 net-new pairs** entered the annual files and 746
+domains entered the candidate pool. Concentrated late: 2001 733, 2000 580, 1999 325, 1998 126.
+
+**Why it is split despite validating well.** Its dating is far better than Usenet's: against evidence
+the store already holds, the Tucows year is exactly right **78.7%** of the time and within one year
+**95.4%**, against 51.1% and 88.7% for a Usenet post date. The vendor URL is also a single structured
+field rather than free text, so it carries no transcription risk.
+
+It is still split, and the reason is the one that mattered. The catalogue was donated in 2004, so a
+`creator` URL may record where a vendor lived then rather than at release. The 78.7% agreement is
+measured **only on domains the store already knows**, which are the long-lived, well-covered ones.
+Drift would show precisely in the names we have never seen, which are exactly the 775 that would
+otherwise have become net-new domains on this source's unverified word. Consistency with the Usenet
+rule also beats a one-off exception.
+
+**Hard ceiling.** 2,036 of the 11,499 in-window items carry no `creator` at all, so roughly 18% of
+the catalogue cannot contribute however it is treated.
+
+**Measured negatives in the same family**, recorded so nobody repeats them: Winsite `INDEX.TXT`
+(7,057 entries, two email addresses and zero vendor domains in the whole file), Programmer's Library
+`FILES.txt` (authors identified by name and postal address, no URLs at all), CNET Download.com
+(excellent per-item dates, zero vendor URLs, because CNET deliberately kept users on CNET-hosted
+downloads), SimTel (mirror tarball is 216 GB and the CD indexes carry no author domains). Those
+indexes are pre-web in design, which settles the whole CD-ROM catalogue family at once.
