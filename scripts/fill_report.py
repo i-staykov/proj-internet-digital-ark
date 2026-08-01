@@ -198,9 +198,15 @@ def substitutions(f: dict) -> dict[str, str]:
     # share is measured rather than assumed. The low row applies a 70% duty
     # allowance for the archive refusing us, which it has done three times.
     english_share = 0.645
-    subs["PROJECTED"] = f"{classified:,}"
-    subs["PROJ_LOW"] = f"{int(classified * 0.7 * english_share):,}"
-    subs["PROJ_HIGH"] = f"{int(classified * english_share):,}"
+    # Rounded to the nearest 500. A projection quoted to four significant figures
+    # claims a precision the inputs do not have, and it invites being held to the
+    # exact number.
+    def _round(n: float) -> str:
+        return f"{int(round(n / 500.0) * 500):,}"
+
+    subs["PROJ_LOW"] = _round(classified * 0.7 * english_share)
+    subs["PROJ_HIGH"] = _round(classified * english_share)
+    subs["PROJECTED"] = _round(classified)
     subs["X"] = f"{t['english']:,}"
     return subs
 
