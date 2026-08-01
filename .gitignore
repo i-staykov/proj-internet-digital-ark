@@ -32,3 +32,4 @@ output/
 *.warc
 *.warc.gz
 SESSION_REPORT.md
+ivo-new-instructions.md
