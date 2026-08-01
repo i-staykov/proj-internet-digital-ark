@@ -40,7 +40,7 @@ RELEASE="internet-digital-ark-1996-2001"
 STAGE="output/$RELEASE"
 ARCHIVE="output/$RELEASE.tar.gz"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance,baseline}
+mkdir -p "$STAGE"/{masters,additions,additions_english,audit,logs,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
@@ -64,6 +64,15 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+
+# The English-verified subset feedback v3 section 6 admits, kept beside the
+# unrestricted additions rather than replacing them, because section 7 still
+# asks for true additions against merged260730 and the two answer different
+# questions. `language_summary.csv` is the per-year and total mix section 6.1
+# requires every future submission to carry.
+cp output/netnew_english/199[6-9].txt output/netnew_english/200[01].txt \
+    "$STAGE/additions_english/" 2>/dev/null || true
+cp output/language_summary.csv "$STAGE/additions_english/" 2>/dev/null || true
 cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered

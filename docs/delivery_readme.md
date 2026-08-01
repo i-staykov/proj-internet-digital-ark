@@ -14,6 +14,8 @@ hostname and URL download seeds. Method and results: `report.docx`.
 | `masters/1996.txt` … `2001.txt` | **Final annual lists**: baseline plus additions, deduplicated within each year, one registered domain per line |
 | `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
+| `additions_english/1996.txt` … `2001.txt` | The subset admitted by the English-website standard: additions whose site was verified English from archived body text for that year |
+| `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-classified counts, plus the cross-year unique-domain roll-up |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so no baseline has to be sourced separately |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
@@ -51,6 +53,15 @@ bash verify.sh
 That checks every file against `SHA256SUMS`, prints the pair count of the six annual addition
 files, and confirms **every one of those pairs appears in
 `additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
+
+**On the two additions folders.** `additions/` is every net-new (domain, year) pair, which is what
+the merge against the shared baseline is scored on. `additions_english/` is the subset whose website
+was verified as English-language for that year from archived page body text, which is the newer
+admission standard. They are kept separate because they answer different questions, and because the
+language verification is still running: `language_summary.csv` reports how much of the list has been
+reached, with `unclassified` counted apart from `undetermined` so coverage is not overstated. Every
+verdict records the exact snapshot URLs that were read, in the `domain_language` table of the
+provenance export, so any one of them can be refetched and recomputed.
 needs only `shasum` and `python3`, and prints a verdict per check.
 
 To look up why any single domain is in any given year, use the provenance export. It needs no
