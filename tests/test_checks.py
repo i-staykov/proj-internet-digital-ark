@@ -192,3 +192,22 @@ def test_english_check_skips_when_the_export_is_absent() -> None:
     satisfied invariant."""
     result = _results_by_name(_clean_store())["english_files_hold_only_verified_english"]
     assert result.get("skipped")
+
+
+def test_english_check_skips_when_the_export_is_present_but_empty(tmp_path) -> None:
+    """Distinct from an absent export, and it broke the gate when it first
+    happened: every English annual file is empty whenever nothing has been
+    verified yet, so read_csv infers no columns and the query cannot bind. An
+    empty admitted set trivially satisfies an invariant about what the admitted
+    set may contain, but a check that examined nothing must not read as one that
+    found nothing wrong."""
+    conn = _clean_store()
+    english_dir = tmp_path / "netnew_english"
+    english_dir.mkdir()
+    for year in range(1996, 2002):
+        (english_dir / f"{year}.txt").write_text("")
+    result = _results_by_name(conn, english_dir=english_dir)[
+        "english_files_hold_only_verified_english"
+    ]
+    assert result.get("skipped")
+    assert result["ok"]

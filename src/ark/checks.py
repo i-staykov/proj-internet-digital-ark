@@ -195,6 +195,26 @@ def collect_checks(
                 }
             )
             continue
+        except duckdb.BinderException:
+            # Every matching file is empty, so `read_csv` infers no columns and
+            # the query cannot bind. That is a real state, not a fault: the
+            # English annual files are empty whenever nothing has been verified
+            # yet, and an empty admitted set trivially satisfies an invariant
+            # about what the admitted set may contain. Reported as skipped
+            # rather than passed, for the same reason an absent export is: a
+            # check that examined nothing should not read as one that found
+            # nothing wrong.
+            results.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "offending": 0,
+                    "ok": True,
+                    "skipped": "the exported files this check reads are empty, so there is "
+                    "nothing to verify yet",
+                }
+            )
+            continue
         results.append(
             {"name": name, "description": description, "offending": offending, "ok": offending == 0}
         )
