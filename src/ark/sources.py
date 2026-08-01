@@ -135,7 +135,6 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-
 # The Tucows Software Library on archive.org: ~32,600 donated items, each with a
 # release `date` and a `creator` field holding the vendor's home page URL. That
 # is a dated index file in the sense of III.1, and unlike a URL typed into a
@@ -173,6 +172,7 @@ def parse_tucows(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             evidence_value=f"tucows release {identifier}",
             evidence_url=f"https://archive.org/details/{identifier}",
         )
+
 
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
     """Read (year, 'YYYY-MM') from an ISC survey filename, or None if absent."""

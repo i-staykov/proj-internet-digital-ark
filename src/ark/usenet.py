@@ -170,7 +170,13 @@ def iter_messages(path: Path) -> Iterator[bytes]:
     """Yield each raw message from an mbox, or from a zip holding one.
 
     The archives ship as `<group>.mbox.zip`. Reading the member directly avoids
-    unpacking 300 MB of mbox to disk for a single pass.
+    unpacking it to disk for a single pass.
+
+    It does hold the decompressed mbox in memory, which is the practical limit
+    on this route: the largest group taken so far is 150 MB compressed and
+    roughly 600 MB expanded. A group several times that would want a streaming
+    split instead, and nothing here depends on the whole blob being present
+    except the separator scan.
     """
     if path.suffix == ".zip":
         with zipfile.ZipFile(path) as archive:
@@ -184,6 +190,15 @@ def iter_messages(path: Path) -> Iterator[bytes]:
 
 
 def _split_mbox(blob: bytes) -> Iterator[bytes]:
+    """Split an mbox on its `From ` separators.
+
+    The classic mbox ambiguity applies: a body line beginning "From " is
+    supposed to be escaped to ">From ", and where an export failed to do that
+    this will cut a message in two. The consequence is bounded and safe rather
+    than silent, because the fragment after the cut carries no `Date` or
+    `Message-ID` header and is dropped by the caller. So a mis-split costs one
+    message, and cannot invent an evidence row.
+    """
     starts = [m.start() for m in _MESSAGE_SEP.finditer(blob)]
     if not starts:
         if blob.strip():
