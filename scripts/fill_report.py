@@ -164,7 +164,7 @@ def substitutions(f: dict) -> dict[str, str]:
     usenet = next((r["pairs"] for r in f["by_source"] if r["source"] == "usenet_announce"), 0)
     cb_share = 100.0 * f["capture_backed_total"] / f["netnew_pairs"] if f["netnew_pairs"] else 0.0
 
-    subs = {
+    subs: dict[str, str] = {
         "ENGLISH": f"{t['english']:,}",
         "UNVERIFIED": f"{unverified:,}",
         "TOTAL": f"{f['netnew_pairs']:,}",
@@ -183,6 +183,12 @@ def substitutions(f: dict) -> dict[str, str]:
         "REASON_TABLE": _section(md, "Every judged rejection, by reason"),
         "RATE": f"{MEASURED_RATE}",
     }
+    # Which year grew most is asserted in prose, so it is derived rather than
+    # typed: the ordering changes as the secondary stream ingests, and a
+    # sentence naming the wrong year is the kind of error a reviewer checks.
+    growth = {y: (f["netnew_by_year"].get(y, 0) - p) / p for y, p in PRIOR_BY_YEAR.items() if p}
+    subs["TOPGROWTH"] = str(max(growth, key=lambda y: growth[y]))
+
     for year, prior in PRIOR_BY_YEAR.items():
         now = f["netnew_by_year"].get(year, 0)
         subs[f"Y{year}"] = f"{now:,}"
