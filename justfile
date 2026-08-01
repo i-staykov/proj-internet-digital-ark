@@ -155,6 +155,53 @@ expand-round seeds round:
     uv run ark ingest expansion_links \
         data/raw/expand/round{{round}}/expand_round{{round}}_unverified.jsonl.gz --round {{round}}
 
+# --- the English-website standard (brief feedback v3 section 6) ---------------
+# Admission now needs more than existence: the site must have been English in
+# that year, judged from archived body text. These write journals like the other
+# collectors and never open the store.
+
+# write the (domain, year) work list, capture-backed pairs first, years interleaved
+lang-targets:
+    uv run ark lang-targets
+
+# one classification batch
+lang-batch n="400" workers="2" min_delay="1.5":
+    uv run ark lang data/raw/lang/lang_targets.txt -n {{n}} --workers {{workers}} \
+        --samples 2 --delay 2.0 --min-delay {{min_delay}}
+
+# fold journals into domain_language, then write the admitted subset and table
+lang-ingest:
+    uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz
+    uv run ark lang-report
+
+# run it in batches for a long stretch (seconds, batch, workers, floor)
+lang-supervise seconds="27000" batch="400" workers="2" min_delay="1.5":
+    bash scripts/supervise_lang.sh {{seconds}} {{batch}} {{workers}} {{min_delay}}
+
+# --- this round's new sources -------------------------------------------------
+
+# measure a Usenet archive's yield against the store BEFORE ingesting it.
+# The one source assessed without doing this was estimated at 27,276 net-new
+# domains and measured at 53, so this is not optional caution.
+# measure a Usenet archive's net-new yield before committing to it
+usenet-measure *archives:
+    uv run python scripts/measure_usenet_yield.py {{archives}}
+
+# split and ingest whatever has finished downloading
+usenet-ingest tag="auto":
+    bash scripts/ingest_new_usenet.sh {{tag}}
+
+# the Tucows software catalogue: release date plus vendor home page
+tucows:
+    uv run python scripts/split_tucows.py --write
+    uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz
+    uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz
+
+# One loop rather than several, because DuckDB takes a single writer.
+# fold everything the collectors have finished into the store, on a loop
+maintain iterations="26" pause="900":
+    bash scripts/maintain_phase3.sh {{iterations}} {{pause}}
+
 # --- shipping ----------------------------------------------------------------
 
 # build the delivery archive (refuses a dirty tree or a stale output/)

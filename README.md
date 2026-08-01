@@ -96,6 +96,10 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 19 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query; `files_ingested` equals the number of `cdx_*.jsonl.gz` files present |
 | 20 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query; `files_ingested` equals the number of `rdap_*.jsonl.gz` files present |
 | 21 | the six `ark ingest expansion_*` commands in `just journals` | replays the archived-page fetches; the corroborated half adds `year_rows: 1577` across four rounds, the rest enqueues candidates |
+| 21b | `uv run ark ingest usenet_dated data/raw/usenet/usenet_dated*.jsonl.gz` | dated website announcements from Usenet, the largest single source of this round |
+| 21c | `uv run ark ingest usenet_candidates data/raw/usenet/usenet_candidates*.jsonl.gz` | the uncorroborated half of the same, which enters the candidate pool rather than an annual file |
+| 21d | `uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz` | software-catalogue release dates with the vendor's home page |
+| 21e | `uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz` | and its uncorroborated half |
 | 22 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 23 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
 | 24 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
@@ -175,6 +179,45 @@ uv run ark cdx data/raw/cdx/discovered_candidates.txt -n 298 --workers 4 --timeo
     --out data/raw/cdx/cdx_discovered.jsonl.gz
 uv run ark ingest cdx_snapshot data/raw/cdx/cdx_discovered.jsonl.gz
 ```
+
+### Verifying the English-website standard (this part needs the network)
+
+The governing rule for the current round admits a domain to an annual file only when it belongs to an English-language website, or one where English is more than half of the reliably classified body text, judged **at website level from archived page body text** rather than from the domain spelling or its TLD. `ark lang` measures that per (domain, year).
+
+```bash
+uv run ark lang-targets                                    # -> data/raw/lang/lang_targets.txt
+uv run ark lang data/raw/lang/lang_targets.txt -n 400 \
+    --workers 2 --samples 2 --delay 2.0 --min-delay 1.5    # writes a journal, never opens the store
+uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz       # -> the domain_language table
+uv run ark lang-report                                     # -> output/netnew_english/ + language_summary.csv
+```
+
+Or `bash scripts/supervise_lang.sh 27000 400 2 1.5` to run it in batches for a long stretch.
+
+Per pair it asks the CDX index for in-year captures of the domain, fetches up to `--samples` of them as **raw bytes**, decodes with `charset_normalizer` rather than assuming UTF-8, strips markup to body text, and classifies with `py3langid`. Captures under 200 characters or below 0.50 confidence are "not reliably classified" and leave the denominator entirely; the rest are weighted by text length, and a share strictly above 0.50 admits.
+
+**Language is not an evidence type.** Verdicts go to `domain_language`, keyed on the same (domain, year) pair as everything else, because every `evidence_type` answers "did this exist in this year" while a verdict answers "what was this", and a domain can be perfectly evidenced and still inadmissible. Each verdict stores **the exact snapshot URLs it read**, so any one can be refetched and recomputed; that is what separates it from a TLD prior.
+
+`ark lang-report` writes `output/netnew_english/<year>.txt`, the admitted subset, and `output/language_summary.csv`, the per-year and total mix of English, other, undetermined and **not-yet-classified** records plus the cross-year unique-domain roll-up. `unclassified` is counted apart from `undetermined` on purpose: a pair the engine has not reached is not the same claim as one it judged.
+
+**Rate note.** This sends one CDX query plus up to `--samples` page fetches per pair, so it is several times heavier than `ark cdx`. `--min-delay` is the floor the adaptive governor may not ease below, and for this engine the floor rather than the worker count is what bounds the load on `web.archive.org`. A run at 4 workers with the old 0.05 s floor drew a connection refusal within four minutes. The engine now treats a refused connection as a throttle and stops itself after 25 consecutive failures.
+
+### New sources of this round
+
+```bash
+# Usenet: dated website announcements. Split by corroboration before ingest.
+uv run python scripts/split_usenet.py data/raw/usenet/*.mbox.zip --tag b1 --write
+uv run python scripts/measure_usenet_yield.py data/raw/usenet/*.zip   # yield before committing
+bash scripts/ingest_new_usenet.sh auto                                # or let the loop do it
+
+# Tucows: software release dates with the vendor's home page URL
+uv run python scripts/split_tucows.py --write
+
+# fold whatever the collectors have finished into the store, every 15 minutes
+bash scripts/maintain_phase3.sh 26 900
+```
+
+Both sources take the same corroboration split: a domain another source already places in an annual file carries the date as `dated_directory`, and a name appearing only in that source becomes a `link_target` candidate to earn its own evidence. `docs/sources.md` records the reasoning and every source rejected, with the measurement that rejected it.
 
 **Reproducibility.** `uv.lock` pins exact dependency versions and the Public Suffix List is vendored, so canonicalization and the baseline processing are deterministic on any machine. `uv run` is the contract and works with only `uv` installed. CI runs lint, format-check and tests on every push.
 
