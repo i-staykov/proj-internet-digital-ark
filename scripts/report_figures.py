@@ -133,6 +133,25 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         """).fetchall()
     ]
 
+    # Baseline pairs per year, by OUR counting unit, so the growth percentages in
+    # the completeness table are derived rather than copied. merged260730 ships
+    # 10,263,632 raw lines; collapsed to registered domains under SPEC III.8 that
+    # is what this measures, and the difference is a counting unit rather than a
+    # discrepancy.
+    out["baseline_by_year"] = {
+        int(y): int(n)
+        for y, n in conn.execute("""
+            SELECT dy.assigned_year, count(*) FROM domain_year dy
+            WHERE EXISTS (
+                SELECT 1 FROM evidence p
+                WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
+                  AND p.evidence_type = 'prior_reused'
+            )
+            GROUP BY 1 ORDER BY 1
+        """).fetchall()
+    }
+    out["baseline_pairs"] = sum(out["baseline_by_year"].values())
+
     out["candidate_pool"] = conn.execute("""
         SELECT count(*) FROM (
             SELECT DISTINCT d.domain FROM domain d
@@ -261,6 +280,20 @@ def markdown(f: dict) -> str:
     for row in f["by_source"]:
         add(f"| `{row['source']}` | {row['kind']} | {row['pairs']:,} | {row['domains']:,} |")
     add(f"| **Total** | | **{f['netnew_pairs']:,}** | |")
+    add("")
+
+    add("### Completeness")
+    add("")
+    add("| Year | Additions | Growth vs baseline | Under 10,000? | Under 0.1%? |")
+    add("|---|--:|--:|:-:|:-:|")
+    for year in sorted(f["netnew_by_year"]):
+        added = f["netnew_by_year"][year]
+        base = f["baseline_by_year"].get(year, 0)
+        growth = 100.0 * added / base if base else 0.0
+        add(
+            f"| {year} | {added:,} | {growth:.2f}% | "
+            f"{'yes' if added < 10000 else 'no'} | {'yes' if growth < 0.1 else 'no'} |"
+        )
     add("")
 
     add("### Every judged rejection, by reason")
