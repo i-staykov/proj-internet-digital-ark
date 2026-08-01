@@ -780,3 +780,36 @@ Feedback v3 section 6 imposes a new admission rule: a domain enters an annual fi
 - **`domain_language` is in the provenance export, and optional on load**
   - the English-verified annual files must rebuild in tier 2 like everything else, so the table is exported to Parquet with the rest of the evidence graph
   - it is optional on **load**, because an export written before the English standard existed has no such file, and a reviewer holding the earlier delivery archive must not meet a `FileNotFoundError`. A missing file creates the table empty rather than skipping it, so everything downstream can query it unconditionally
+
+## 2026-08-01 (phase 3, later: Usenet as a dated source, and three sources measured)
+
+Feedback section 4 asks for broader sources and for previously unavailable ones to be revisited. Two research sweeps ran against those families. **Every headline number they returned was re-measured against the store before anything was ingested, and two of the three did not survive that.** The method turned out to matter more than any individual result, so it is recorded first.
+
+- **Estimates in this space are unreliable by one to two orders of magnitude, so nothing is ingested on an estimate**
+  - the NYPW first-capture index was estimated at 27,276 net-new domains and measured at **53**. The estimate compared NYPW's *registered domains* against *raw hostname lines* from the *phase-1* baseline: a units error and a stale-baseline error, both of which inflate. Measured against the store, 2,354,914 in-window domains of which all but 53 are already held, a 99.998% overlap. That is exactly what a 1-in-6000 sample of the Internet Archive's own CDX should look like against a baseline already drawn from it
+  - a separate vein was estimated at 1,000 to 5,000 net-new domains and measured at 5
+  - the measurement scripts are committed (`measure_nypw_yield.py`, `measure_usenet_yield.py`) so every figure can be re-derived rather than believed. Two minutes of measurement avoided a 19.35 GB download
+
+- **Usenet announcement archives adopted: the date is intrinsic to the artifact**
+  - Giganews donated its Usenet archive to the Internet Archive. Announcement and commerce groups carry a posting date beside the URLs in each message, so the year comes from the artifact rather than from a crawl of the site
+  - that is the specific gap the capture-backed measurement exposed. Our 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so the archive holds nothing to verify against; a dated post does not need the site to have been crawled at all
+  - measured across eight groups of 302 shortlisted: net-new pairs **32,698 to 67,394**, and the gains land in the thin years. 1999 goes 696 to 5,098 and 1997 goes 3,534 to 13,820, against 2001 which moves 7,743 to 8,880. That distribution is the argument for the source, not a coincidence
+  - **the Message-ID is the evidence value.** Usenet message IDs are globally unique by design, which makes them exactly the "opaque record identifier" the integrity checks already expect from a `dated_directory` row: a reviewer can name the precise post behind any year assignment
+
+- **The admission rule: corroboration, applied per name, not per source**
+  - the post date is trustworthy and the URL beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the store already holds, and the corpus visibly contains `weddinqnetwork.com` and `dmjbuisness.co.uk`. Admitting those would put invented domains into an annual file, which is the one failure this project cannot afford
+  - so the same split `expand.py` applies to archived directory pages. A domain **another source already places in an annual file** is real, and the only open question is the year, which the post answers: that half is `dated_directory`. A name appearing only in Usenet is `link_target` and goes to the candidate pool to earn its own evidence
+  - **the test is "appears in `domain_year`", not "appears in `domain`"**. The latter includes the candidate pool, so a typo that an earlier round also recorded as a candidate would corroborate itself. That distinction is the whole guard
+  - group purpose is **reported, not enforced**, and this is the one place a reviewer might reasonably disagree. The stricter alternative admits only moderated announcement groups. It was not taken because, once corroboration has established the domain is real, a URL in a dated public post is contemporaneous evidence of use whether the group was moderated or not. Every evidence row names its group, so a reviewer who disagrees can filter rather than reingest
+
+- **Usenet is its own provenance lineage**
+  - the corpus is a donation of posts with no common ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine cross-lineage corroboration rather than the Internet Archive agreeing with itself. Filing it under `internet_archive` because that is where the files are hosted would have quietly inflated the independent-corroboration figure, which is the one corroboration number worth quoting
+
+- **Two parsing findings, both of which made a good source look barren**
+  - the Giganews donation rewrote a large share of `Date:` headers as a bare `YYYY/MM/DD`, which `parsedate_to_datetime` rejects outright: **21,346 of 23,282 messages** in `comp.infosystems.www.announce`. Before that was handled the route measured 913 pairs and produced nothing at all before 2000; after it, 6,885 across all six years. A source can look exhausted purely because of a header format
+  - **group size does not predict in-window content.** `alt.www.webmaster` is 170 MB and yielded one pair, being entirely 2006 to 2013. Out-of-window and unreadable dates are now counted separately, because they look identical under one counter and call for opposite responses: drop the source, or fix the parser
+  - the moderated-group classifier first tested for an `.announce` suffix, which reports `news.announce.conferences` as an ordinary discussion group. It tests components now
+
+- **Australian Web Archive: the endpoint recovered, the source still fails**
+  - `webarchive.nla.gov.au/awa/cdx` still serves an anti-bot challenge, but **`web.archive.org.au/awa/cdx` answers normally** and returns a 1996 capture for `abc.net.au`. Our rejection was stale, which is precisely what section 4 means by revisiting blocked sources, and the correction is worth keeping even though the source failed
+  - the pool looked strong: 35,391 PANDORA registered domains, 29,595 of them in no annual file. A random **60-domain** sample returned 60 answers, zero transport failures and **zero in-window captures**. Rejected on a clean sample rather than on the 39-host probe that first suggested it
