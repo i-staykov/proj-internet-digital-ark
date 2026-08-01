@@ -438,26 +438,39 @@ def write_lang_targets(conn, path: Path = TARGETS_PATH) -> dict:
 
     Requests against the archive are the scarce resource, so they go where a
     verdict can actually change the admitted set.
+
+    **Within that group the years are interleaved rather than worked in order.**
+    A run reaches only a fraction of the list, and feedback 6.1 requires the
+    language mix reported *per year*. Working 2000 to exhaustion before touching
+    2001 would spend a whole night producing one year's rate; round-robin over
+    the years produces a usable rate for each of them from the same budget. The
+    year priority then only decides who wins the remainder.
     """
     order = " ".join(f"WHEN {year} THEN {i}" for i, year in enumerate(YEAR_PRIORITY))
     query = f"""
-        SELECT dy.domain, dy.assigned_year,
-               EXISTS (
-                   SELECT 1 FROM evidence c
-                   WHERE c.domain = dy.domain AND c.evidence_year = dy.assigned_year
-                     AND c.evidence_type = 'cdx_timestamp'
-               ) AS has_capture
-        FROM domain_year dy
-        WHERE NOT EXISTS (
-            SELECT 1 FROM evidence p
-            WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-              AND p.evidence_type = 'prior_reused'
+        SELECT domain, assigned_year, has_capture FROM (
+            SELECT dy.domain, dy.assigned_year,
+                   EXISTS (
+                       SELECT 1 FROM evidence c
+                       WHERE c.domain = dy.domain AND c.evidence_year = dy.assigned_year
+                         AND c.evidence_type = 'cdx_timestamp'
+                   ) AS has_capture,
+                   row_number() OVER (
+                       PARTITION BY dy.assigned_year ORDER BY dy.domain
+                   ) AS rank_in_year
+            FROM domain_year dy
+            WHERE NOT EXISTS (
+                SELECT 1 FROM evidence p
+                WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
+                  AND p.evidence_type = 'prior_reused'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM domain_language dl
+                WHERE dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
+            )
         )
-        AND NOT EXISTS (
-            SELECT 1 FROM domain_language dl
-            WHERE dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
-        )
-        ORDER BY has_capture DESC, CASE dy.assigned_year {order} ELSE 9 END, dy.domain
+        ORDER BY has_capture DESC, rank_in_year,
+                 CASE assigned_year {order} ELSE 9 END, domain
     """  # noqa: S608 (order clause is built from an integer tuple)
     rows = conn.execute(query).fetchall()
     path.parent.mkdir(parents=True, exist_ok=True)

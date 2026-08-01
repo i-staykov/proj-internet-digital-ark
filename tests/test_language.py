@@ -417,3 +417,18 @@ def test_ingest_refuses_a_changed_file(tmp_path):
         fh.write(json.dumps({**record, "verdict": "other"}) + "\n")
     with pytest.raises(ValueError, match="sha256 mismatch"):
         ingest_language_journal(conn, path)
+
+
+def test_targets_interleave_years_within_the_capture_backed_group(tmp_path):
+    """A run reaches only a fraction of the list, and section 6.1 wants the mix
+    reported per year. Working one year to exhaustion first would spend the whole
+    budget producing a single year's rate."""
+    conn = _store()
+    for year in (1998, 2000, 2001):
+        for i in range(3):
+            _add_pair(conn, f"d{year}x{i}.com", year, "cdx_timestamp")
+    out = tmp_path / "t.txt"
+    write_lang_targets(conn, out)
+    years = [int(line.split("\t")[1]) for line in out.read_text().splitlines()]
+    # the first three targets must cover all three years, not three of one
+    assert set(years[:3]) == {1998, 2000, 2001}
