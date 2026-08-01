@@ -23,14 +23,26 @@ def _clean_store() -> duckdb.DuckDBPyConnection:
 
 
 def _results_by_name(
-    conn: duckdb.DuckDBPyConnection, netnew_dir: Path | None = None
+    conn: duckdb.DuckDBPyConnection,
+    netnew_dir: Path | None = None,
+    english_dir: Path | None = None,
 ) -> dict[str, dict]:
-    # never the real output/: a check that reads files must be pointed at a fixture
-    return {r["name"]: r for r in collect_checks(conn, netnew_dir or Path("no-such-export"))}
+    # Never the real output/: a check that reads files must be pointed at a
+    # fixture, or the suite asserts against the actual deliverable. Every
+    # file-reading directory needs its own override, and a new check that adds
+    # one without threading it here will quietly start doing exactly that.
+    return {
+        r["name"]: r
+        for r in collect_checks(
+            conn,
+            netnew_dir or Path("no-such-export"),
+            english_dir or Path("no-such-english-export"),
+        )
+    }
 
 
 def test_clean_store_passes_all_checks() -> None:
-    results = collect_checks(_clean_store(), Path("no-such-export"))
+    results = collect_checks(_clean_store(), Path("no-such-export"), Path("no-such-english-export"))
     assert results, "expected at least one check"
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
@@ -138,3 +150,45 @@ def test_detects_master_evidence_left_unassigned() -> None:
     results = _results_by_name(conn)
     assert results["nothing_earned_is_left_unassigned"]["ok"] is False
     assert results["nothing_earned_is_left_unassigned"]["offending"] == 1
+
+
+def test_detects_an_english_file_admitting_an_unverified_domain(tmp_path) -> None:
+    """The English annual files are a deliverable now, and the failure that
+    matters is one admitting a domain the standard does not: no verdict at all,
+    or a verdict for a different year. Neither is visible by inspection."""
+    conn = _clean_store()
+    english_dir = tmp_path / "netnew_english"
+    english_dir.mkdir()
+    # verified english for 1998, but shipped in the 2000 file
+    conn.execute(
+        "INSERT INTO domain_language (domain, assigned_year, verdict) VALUES (?, ?, ?)",
+        ["sub.co.uk", 1998, "english"],
+    )
+    (english_dir / "2000.txt").write_text("sub.co.uk\n")
+    result = _results_by_name(conn, english_dir=english_dir)[
+        "english_files_hold_only_verified_english"
+    ]
+    assert not result["ok"]
+    assert result["offending"] == 1
+
+
+def test_english_check_passes_when_the_verdict_matches_the_year(tmp_path) -> None:
+    conn = _clean_store()
+    english_dir = tmp_path / "netnew_english"
+    english_dir.mkdir()
+    conn.execute(
+        "INSERT INTO domain_language (domain, assigned_year, verdict) VALUES (?, ?, ?)",
+        ["sub.co.uk", 2000, "english"],
+    )
+    (english_dir / "2000.txt").write_text("sub.co.uk\n")
+    result = _results_by_name(conn, english_dir=english_dir)[
+        "english_files_hold_only_verified_english"
+    ]
+    assert result["ok"], result
+
+
+def test_english_check_skips_when_the_export_is_absent() -> None:
+    """A fresh clone has no output/, and an absent export must not read as a
+    satisfied invariant."""
+    result = _results_by_name(_clean_store())["english_files_hold_only_verified_english"]
+    assert result.get("skipped")

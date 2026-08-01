@@ -5,7 +5,7 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (nine integrity invariants over the
+# On naming: `ark check` validates the DATA (ten integrity invariants over the
 # store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: nine invariants over the store, non-zero exit on any failure
+# the integrity gate: ten invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 

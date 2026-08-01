@@ -21,6 +21,7 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 # constant inside the SQL: a hardcoded path would make the test suite assert
 # against the real deliverable, which is the same trap `export_all` documents.
 NETNEW_DIR = Path("output/netnew")
+ENGLISH_DIR = Path("output/netnew_english")
 
 # The first four-digit run inside an evidence value is that value's own year, for
 # every type whose value names a single year: a CDX timestamp (19981212033831), a
@@ -126,6 +127,26 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "english_files_hold_only_verified_english",
+        "every domain in the exported English annual files has an 'english' language verdict "
+        "for that exact year, so the admitted set cannot contain a site the standard excludes",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{english_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        ) f
+        WHERE NOT EXISTS (
+            SELECT 1 FROM domain_language dl
+            WHERE dl.domain = f.domain
+              AND dl.verdict = 'english'
+              -- anchored to the file name for the same reason as the check above
+              AND dl.assigned_year =
+                  TRY_CAST(regexp_extract(f.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
+        )
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",
@@ -141,7 +162,11 @@ CHECKS: list[tuple[str, str, str]] = [
 ]
 
 
-def collect_checks(conn: duckdb.DuckDBPyConnection, netnew_dir: Path = NETNEW_DIR) -> list[dict]:
+def collect_checks(
+    conn: duckdb.DuckDBPyConnection,
+    netnew_dir: Path = NETNEW_DIR,
+    english_dir: Path = ENGLISH_DIR,
+) -> list[dict]:
     """Run every integrity check; return one result dict per check.
 
     A check that reads an exported file is reported as skipped when the export
@@ -151,7 +176,12 @@ def collect_checks(conn: duckdb.DuckDBPyConnection, netnew_dir: Path = NETNEW_DI
     """
     results = []
     for name, description, template in CHECKS:
-        sql = template.format(netnew_dir=netnew_dir) if "{netnew_dir}" in template else template
+        needs_export = "{netnew_dir}" in template or "{english_dir}" in template
+        sql = (
+            template.format(netnew_dir=netnew_dir, english_dir=english_dir)
+            if needs_export
+            else template
+        )
         try:
             offending = conn.execute(sql).fetchone()[0]
         except duckdb.IOException:

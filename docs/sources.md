@@ -529,7 +529,7 @@ the URLs in each message.
 | 2000 | 9,702 | 11,811 | +22% |
 | 2001 | 7,743 | 8,409 | +9% |
 
-A further 8,992 domains entered the candidate pool. All nine integrity checks pass.
+A further 8,992 domains entered the candidate pool. All integrity checks pass.
 
 **The admission rule, which is the whole safety argument.** The post date is trustworthy and the URL
 beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the

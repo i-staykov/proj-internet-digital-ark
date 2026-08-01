@@ -18,7 +18,7 @@ Pick by how much you want to spend. **The first two need no downloads and no net
 
 **Tier 1** needs nothing from this repository: the archive ships `verify.sh` (checksums, pair counts, and that every pair appears in the evidence manifest) and `provenance/trace.py`, which prints the observations behind any domain-year using only `uv`.
 
-**Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the nine invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
+**Tier 2** loads `provenance/` into the store and re-runs the exporter, regenerating all fourteen result files **byte-identically** and re-running the ten invariants. It needs no source data at all, which is what makes it a one-minute check rather than an afternoon.
 
 **Tier 3** is the full pipeline below, and the only tier that needs the source data. The supplied baseline ships in the archive's `baseline/` folder, so the ~50 GB of bulk sources are the only thing to fetch. One 47 GB capture index is most of that: **skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**, reproducing 98.7% of the result.
 
@@ -103,7 +103,7 @@ The manifest lists paths relative to `data/raw/`, which is why the command runs 
 | 22 | `just seeds`, or the five `ark seed-pool` commands it wraps | rebuilds the auxiliary seed pool: `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
 | 23 | `uv run ark export` | one `netnew_<year>` count per year, the per-source table, and `provenance_mb: 241` for the Parquet evidence graph |
 | 24 | `uv run ark stats` | the scoreboard, headed by net-new domains and net-new (domain, year) pairs |
-| 25 | `uv run ark check` | nine `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
+| 25 | `uv run ark check` | ten `[PASS]` lines then `ALL PASS`; exits non-zero if any invariant fails |
 
 Steps 6 to 15 are independent of each other, so their order does not matter. Steps 19 to 21 must come after them, because a replayed query is evidence about a domain the bulk sources introduced, and step 21's corroboration split is judged against what the store holds by then.
 
@@ -128,7 +128,7 @@ It refuses to build from a modified working tree, or from an `output/` older tha
 ```bash
 just setup       # step 1
 just reproduce   # steps 2 to 25: baseline -> sources -> candidates -> journals -> seeds -> deliver
-just check       # lint + format-check + tests, then the nine data invariants
+just check       # lint + format-check + tests, then the ten data invariants
 ```
 
 Two of those names are deliberate. `just check-data` runs `ark check`, which validates the **data**; `just verify-repo` runs lint, format-check and tests, which validate the **code**. Giving either one the bare name `check` invites running one and believing the other passed, so `just check` runs both.
