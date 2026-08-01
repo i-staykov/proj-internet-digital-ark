@@ -22,6 +22,7 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 # against the real deliverable, which is the same trap `export_all` documents.
 NETNEW_DIR = Path("output/netnew")
 ENGLISH_DIR = Path("output/netnew_english")
+UNVERIFIED_DIR = Path("output/netnew_unverified")
 
 # The first four-digit run inside an evidence value is that value's own year, for
 # every type whose value names a single year: a CDX timestamp (19981212033831), a
@@ -147,6 +148,42 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "the_two_shipped_sets_are_disjoint",
+        "no domain appears in both the English-verified and the unverified annual file for the "
+        "same year, so the two shipped sets can be added together without double counting",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{english_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        ) e
+        JOIN read_csv(
+            '{unverified_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        ) u
+          ON u.domain = e.domain
+         AND TRY_CAST(regexp_extract(u.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
+           = TRY_CAST(regexp_extract(e.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
+        """,
+    ),
+    (
+        "the_unverified_file_holds_no_verified_english",
+        "no domain in an unverified annual file has an 'english' verdict for that year, which is "
+        "the other half of the partition: nothing admissible was left out of the admitted set",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{unverified_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        ) f
+        JOIN domain_language dl
+          ON dl.domain = f.domain
+         AND dl.assigned_year =
+             TRY_CAST(regexp_extract(f.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
+        WHERE dl.verdict = 'english'
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",
@@ -166,6 +203,7 @@ def collect_checks(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
     english_dir: Path = ENGLISH_DIR,
+    unverified_dir: Path = UNVERIFIED_DIR,
 ) -> list[dict]:
     """Run every integrity check; return one result dict per check.
 
@@ -176,9 +214,13 @@ def collect_checks(
     """
     results = []
     for name, description, template in CHECKS:
-        needs_export = "{netnew_dir}" in template or "{english_dir}" in template
+        needs_export = any(
+            token in template for token in ("{netnew_dir}", "{english_dir}", "{unverified_dir}")
+        )
         sql = (
-            template.format(netnew_dir=netnew_dir, english_dir=english_dir)
+            template.format(
+                netnew_dir=netnew_dir, english_dir=english_dir, unverified_dir=unverified_dir
+            )
             if needs_export
             else template
         )

@@ -522,7 +522,7 @@ def test_english_annual_files_hold_only_english_net_new(tmp_path):
     """The admitted file must be a strict subset of the additions, carrying only
     verdicts of english. Anything else would ship a domain the standard does not
     admit, which is the one failure this cannot have."""
-    from ark.language import write_english_annual_files
+    from ark.language import write_partitioned_annual_files
 
     conn = _store()
     _add_pair(conn, "yes.com", 1998, "cdx_timestamp")
@@ -534,9 +534,53 @@ def test_english_annual_files_hold_only_english_net_new(tmp_path):
     _classify(conn, "quiet.com", 1998, "undetermined")
     _classify(conn, "baseline.com", 1998, "english")
     out = tmp_path / "eng"
-    counts = write_english_annual_files(conn, out)
+    counts = write_partitioned_annual_files(conn, out, tmp_path / "un", tmp_path / "d.csv")
     assert counts["english_1998"] == 1
     assert (out / "1998.txt").read_text().split() == ["yes.com"]
+
+
+def test_the_two_sets_partition_the_additions_exactly(tmp_path):
+    """Disjoint and complete. The old shape shipped a subset inside the whole,
+    so a reviewer adding the two files together double-counted every admitted
+    domain."""
+    from ark.language import write_partitioned_annual_files
+
+    conn = _store()
+    for name, verdict in (
+        ("yes.com", "english"),
+        ("no.com", "other"),
+        ("quiet.com", "undetermined"),
+        ("later.com", None),
+    ):
+        _add_pair(conn, name, 1998, "cdx_timestamp")
+        if verdict:
+            _classify(conn, name, 1998, verdict)
+    english, unverified = tmp_path / "e", tmp_path / "u"
+    counts = write_partitioned_annual_files(conn, english, unverified, tmp_path / "d.csv")
+
+    left = set((english / "1998.txt").read_text().split())
+    right = set((unverified / "1998.txt").read_text().split())
+    assert left == {"yes.com"}
+    assert right == {"no.com", "quiet.com", "later.com"}
+    assert not (left & right), "a pair may appear on exactly one side"
+    assert len(left) + len(right) == 4
+    assert counts["disqualified"] == 2, "judged and rejected"
+    assert counts["unchecked"] == 1, "not reached, and not a rejection"
+
+
+def test_unchecked_pairs_are_never_reported_as_rejections(tmp_path):
+    """The register is the per-item justification for excluding a domain. A pair
+    the engine never reached has no justification and must not be in it."""
+    from ark.language import write_partitioned_annual_files
+
+    conn = _store()
+    _add_pair(conn, "later.com", 1998, "cdx_timestamp")
+    register = tmp_path / "d.csv"
+    write_partitioned_annual_files(conn, tmp_path / "e", tmp_path / "u", register)
+    assert "later.com" not in register.read_text()
+    unverified_csv = (tmp_path / "u" / "1998.csv").read_text()
+    assert "unchecked" in unverified_csv
+    assert "no_capture_in_year" not in unverified_csv
 
 
 def test_format_language_summary_renders_the_unique_row():
@@ -662,3 +706,138 @@ def test_the_index_limit_is_the_candidate_count_not_the_fetch_count():
     classify_pair("example.com", 1998, cdx_fetch, page_fetch, samples=2)
     assert f"limit={CANDIDATE_LIMIT}" in cdx_fetch.asked[0]
     assert "limit=2" not in cdx_fetch.asked[0]
+
+
+# --- "no capture" must be a measurement, never an assumption ----------------
+
+
+def _two_stage_fetchers(filtered_body: str, probe_body: str, probe_status: int = 200):
+    """Answer the filtered capture query and the unfiltered probe differently.
+
+    The single-body fake cannot express the case that matters here: a year in
+    which the archive holds captures that the filtered query excludes. The probe
+    is the request carrying `limit=1`, which is the only one asking "does
+    anything at all exist".
+    """
+    asked: list[str] = []
+
+    def cdx_fetch(url: str) -> tuple[int, str]:
+        asked.append(url)
+        if "limit=1&" in url or url.endswith("limit=1"):
+            return probe_status, probe_body
+        return 200, filtered_body
+
+    def page_fetch(url: str) -> tuple[int, bytes]:
+        return 0, b""
+
+    cdx_fetch.asked = asked  # type: ignore[attr-defined]
+    return cdx_fetch, page_fetch
+
+
+def test_no_capture_is_only_recorded_after_the_unfiltered_question():
+    """The filtered query asks for statuscode:200 AND mimetype:text/html. A year
+    holding only redirects answers it empty, and calling that "no capture in this
+    year" disqualifies a domain on a question that was never asked."""
+    cdx_fetch, page_fetch = _two_stage_fetchers("", "19980101000000\n")
+    record = classify_pair("example.com", 1998, cdx_fetch, page_fetch)
+    assert record["status"] == 200
+    assert record["verdict"] == "undetermined"
+    assert record["reason"] == "no_readable_html_capture"
+    assert len(cdx_fetch.asked) == 2, "the unfiltered probe must actually be sent"
+
+
+def test_no_capture_in_year_when_the_unfiltered_probe_is_also_empty():
+    cdx_fetch, page_fetch = _two_stage_fetchers("", "")
+    record = classify_pair("example.com", 1998, cdx_fetch, page_fetch)
+    assert record["reason"] == "no_capture_in_year"
+    assert answered(record)
+
+
+def test_a_failed_probe_leaves_the_pair_unsettled():
+    """If the probe itself fails we still do not know, so nothing may be
+    recorded. This is the same rule the CDX failure path follows."""
+    cdx_fetch, page_fetch = _two_stage_fetchers("", "", probe_status=503)
+    record = classify_pair("example.com", 1998, cdx_fetch, page_fetch)
+    assert record["status"] == 503
+    assert not answered(record)
+    assert record["reason"] is None
+
+
+def test_the_probe_carries_no_filters():
+    from ark.language import any_capture_url
+
+    url = any_capture_url("example.com", 1998)
+    assert "filter=" not in url
+    assert "from=1998" in url and "to=1998" in url
+
+
+# --- the reason vocabulary --------------------------------------------------
+
+
+def test_reason_separates_no_english_from_mixed_below_the_threshold():
+    """Both fail, and they fail differently. A reviewer weighing whether the 50%
+    line sits in the right place needs to see how many pairs are near it."""
+    only_other = score_samples([Sample("u", "de", 0.99, 1000)])
+    assert only_other["verdict"] == "other"
+    assert only_other["reason"] == "other_language"
+
+    mixed = score_samples([Sample("a", "en", 0.99, 400), Sample("b", "de", 0.99, 600)])
+    assert mixed["verdict"] == "other"
+    assert mixed["reason"] == "mixed_below_threshold"
+
+
+def test_english_verdicts_carry_no_reason():
+    admitted = score_samples([Sample("u", "en", 0.99, 1000)])
+    assert admitted["verdict"] == "english"
+    assert admitted["reason"] is None
+
+
+def test_undetermined_reasons_name_which_failure_it_was():
+    from ark.language import sample_rejection
+
+    short = score_samples([Sample("u", None, 0.0, 10, sample_rejection("hi"))])
+    assert short["reason"] == "insufficient_text"
+
+    parked = "This domain currently has no web site. " * 6
+    assert sample_rejection(parked) == "non_site_text"
+    assert score_samples([Sample("u", None, 0.0, 200, "non_site_text")])["reason"] == (
+        "non_site_text"
+    )
+
+    unsure = score_samples([Sample("u", "en", 0.10, 900)])
+    assert unsure["verdict"] == "undetermined"
+    assert unsure["reason"] == "low_confidence"
+
+
+def test_the_reason_survives_into_the_store(tmp_path):
+    """A reason that is computed and then dropped at the database boundary is
+    worth nothing: the per-item register reads from the store, not the journal."""
+    conn = connect(":memory:")
+    init_db(conn)
+    source_id = ensure_source(conn, "seed", "timestamped")
+    conn.execute(
+        "INSERT INTO domain (domain, discovered_source) VALUES (?, ?)",
+        ["example.com", source_id],
+    )
+    journal = tmp_path / "lang_test.jsonl.gz"
+    with gzip.open(journal, "wt") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "domain": pair_key("example.com", 1998),
+                    "registered_domain": "example.com",
+                    "year": 1998,
+                    "status": 200,
+                    "verdict": "other",
+                    "english_share": 0.4,
+                    "samples": 2,
+                    "top_other": "de",
+                    "evidence_urls": ["https://web.archive.org/web/1998id_/http://example.com/"],
+                    "reason": "mixed_below_threshold",
+                }
+            )
+            + "\n"
+        )
+    ingest_language_journal(conn, journal)
+    stored = conn.execute("SELECT verdict, reason FROM domain_language").fetchone()
+    assert stored == ("other", "mixed_below_threshold")

@@ -45,9 +45,9 @@ from ark.language import (
     ingest_language_journal,
     pair_key,
     read_targets,
-    write_english_annual_files,
     write_lang_targets,
     write_language_summary,
+    write_partitioned_annual_files,
 )
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
@@ -897,7 +897,7 @@ def lang_report() -> None:
     """
     conn = connect()
     init_db(conn)
-    counts = write_english_annual_files(conn)
+    counts = write_partitioned_annual_files(conn)
     rows = write_language_summary(conn)
     typer.echo(format_language_summary(rows))
     typer.echo(f"\nenglish annual files: {counts}")

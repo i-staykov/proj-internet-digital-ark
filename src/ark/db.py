@@ -88,10 +88,18 @@ CREATE TABLE IF NOT EXISTS domain_language (
     samples       INTEGER NOT NULL DEFAULT 0,
     top_other     TEXT,
     evidence_urls TEXT    NOT NULL DEFAULT '',
+    reason        TEXT,
     classified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (domain, assigned_year)
 );
 """
+
+# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does
+# nothing to a table that is already there, so a new column in SCHEMA_SQL reaches
+# fresh stores only and silently skips every existing one. Each entry is applied
+# with IF NOT EXISTS, so running this on either kind of store is a no-op or a
+# one-line change and never an error.
+MIGRATIONS = (("domain_language", "reason", "TEXT"),)
 
 
 def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
@@ -115,9 +123,11 @@ def _statements(schema: str) -> list[str]:
 
 
 def init_db(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the tables and constraints. Safe to run repeatedly."""
+    """Create the tables and constraints, then migrate. Safe to run repeatedly."""
     for statement in _statements(SCHEMA_SQL):
         conn.execute(statement)
+    for table, column, column_type in MIGRATIONS:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {column_type}")
 
 
 def ensure_source(conn: duckdb.DuckDBPyConnection, name: str, kind: str) -> int:

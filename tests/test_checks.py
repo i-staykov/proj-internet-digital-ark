@@ -26,6 +26,7 @@ def _results_by_name(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path | None = None,
     english_dir: Path | None = None,
+    unverified_dir: Path | None = None,
 ) -> dict[str, dict]:
     # Never the real output/: a check that reads files must be pointed at a
     # fixture, or the suite asserts against the actual deliverable. Every
@@ -37,12 +38,18 @@ def _results_by_name(
             conn,
             netnew_dir or Path("no-such-export"),
             english_dir or Path("no-such-english-export"),
+            unverified_dir or Path("no-such-unverified-export"),
         )
     }
 
 
 def test_clean_store_passes_all_checks() -> None:
-    results = collect_checks(_clean_store(), Path("no-such-export"), Path("no-such-english-export"))
+    results = collect_checks(
+        _clean_store(),
+        Path("no-such-export"),
+        Path("no-such-english-export"),
+        Path("no-such-unverified-export"),
+    )
     assert results, "expected at least one check"
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
@@ -211,3 +218,34 @@ def test_english_check_skips_when_the_export_is_present_but_empty(tmp_path) -> N
     ]
     assert result.get("skipped")
     assert result["ok"]
+
+
+def test_disjointness_check_catches_a_domain_in_both_sets(tmp_path) -> None:
+    """The partition is the contract with the reviewer. If a domain leaked into
+    both files, adding the two shipped sets together would double-count it, and
+    the report's headline would be wrong in a way prose cannot catch."""
+    english = tmp_path / "english"
+    unverified = tmp_path / "unverified"
+    english.mkdir()
+    unverified.mkdir()
+    (english / "1998.txt").write_text("both.com\n")
+    (unverified / "1998.txt").write_text("both.com\n")
+
+    results = _results_by_name(_clean_store(), None, english, unverified)
+    check = results["the_two_shipped_sets_are_disjoint"]
+    assert not check["ok"]
+    assert check["offending"] == 1
+
+
+def test_same_domain_in_different_years_is_not_an_overlap(tmp_path) -> None:
+    """A domain can be English in one year and unverified in another: the unit
+    is the pair, not the domain, so the check must be anchored to the year."""
+    english = tmp_path / "english"
+    unverified = tmp_path / "unverified"
+    english.mkdir()
+    unverified.mkdir()
+    (english / "1998.txt").write_text("site.com\n")
+    (unverified / "1999.txt").write_text("site.com\n")
+
+    results = _results_by_name(_clean_store(), None, english, unverified)
+    assert results["the_two_shipped_sets_are_disjoint"]["ok"]

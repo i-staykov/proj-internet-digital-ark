@@ -109,6 +109,38 @@ MAX_BODY_BYTES = 2_000_000
 
 DEFAULT_TIMEOUT = 45.0
 
+# Why a pair failed the English standard, as a fixed vocabulary rather than free
+# text. Ivo's instruction of 1 August is that every pair we *judged* and rejected
+# must be documented per item with its reason, and a reviewer can only aggregate
+# or audit those reasons if they are drawn from a closed set.
+#
+# The distinction these encode, and it is the important one: each of these means
+# the archive was asked and answered. A pair the engine has not reached carries
+# no reason at all and is reported as `unchecked`, never as a rejection.
+REASON_NO_CAPTURE_IN_YEAR = "no_capture_in_year"
+REASON_NO_HTML_CAPTURE = "no_readable_html_capture"
+REASON_INSUFFICIENT_TEXT = "insufficient_text"
+REASON_LOW_CONFIDENCE = "low_confidence"
+REASON_NON_SITE_TEXT = "non_site_text"
+REASON_OTHER_LANGUAGE = "other_language"
+REASON_MIXED_BELOW_THRESHOLD = "mixed_below_threshold"
+# Defensive. In the live flow captures that exist but cannot be read leave the
+# pair unsettled rather than judged, which is the correct handling and is tested.
+# The constant exists so `score_samples` has something honest to say if it is
+# ever called with nothing.
+REASON_CAPTURES_UNREADABLE = "captures_unreadable"
+
+REASONS = (
+    REASON_NO_CAPTURE_IN_YEAR,
+    REASON_NO_HTML_CAPTURE,
+    REASON_CAPTURES_UNREADABLE,
+    REASON_INSUFFICIENT_TEXT,
+    REASON_NON_SITE_TEXT,
+    REASON_LOW_CONFIDENCE,
+    REASON_OTHER_LANGUAGE,
+    REASON_MIXED_BELOW_THRESHOLD,
+)
+
 _WHITESPACE = re.compile(r"\s+")
 _SKIP_TAGS = frozenset({"script", "style", "noscript"})
 
@@ -151,6 +183,31 @@ def captures_url(domain: str, year: int, limit: int = CANDIDATE_LIMIT) -> str:
             ("fl", "timestamp,original,length"),
             ("collapse", "urlkey"),
             ("limit", str(limit)),
+        ]
+    )
+    return f"{CDX_ENDPOINT}?{query}"
+
+
+def any_capture_url(domain: str, year: int) -> str:
+    """Query for *any* in-year capture under a domain, with no filters at all.
+
+    Used only to settle the difference between "the archive holds nothing here"
+    and "the archive holds nothing that our filtered query asked for". Those are
+    different claims and only the first one justifies recording a domain as
+    having no capture in the year.
+
+    Deliberately minimal: one field and one row, because the answer needed is
+    just whether the result is empty. It is the cheapest question the CDX API
+    will answer.
+    """
+    query = urllib.parse.urlencode(
+        [
+            ("url", domain),
+            ("matchType", "domain"),
+            ("from", str(year)),
+            ("to", str(year)),
+            ("fl", "timestamp"),
+            ("limit", "1"),
         ]
     )
     return f"{CDX_ENDPOINT}?{query}"
@@ -342,6 +399,22 @@ def classify_text(text: str) -> tuple[str | None, float]:
     return str(lang), float(confidence)
 
 
+def sample_rejection(text: str) -> str | None:
+    """Why one capture cannot be counted, or None if it can.
+
+    `classify_text` collapses "too short" and "not a website" into the same
+    `(None, 0.0)`, which is right for scoring and useless for reporting: both
+    arrive as `undetermined` and a reviewer cannot tell an under-construction
+    page from a registrar parking page. This names them apart without changing
+    any verdict.
+    """
+    if len(text) < MIN_TEXT_CHARS:
+        return REASON_INSUFFICIENT_TEXT
+    if is_non_site_text(text):
+        return REASON_NON_SITE_TEXT
+    return None
+
+
 @dataclass
 class Sample:
     """One classified capture behind a verdict."""
@@ -350,6 +423,7 @@ class Sample:
     language: str | None
     confidence: float
     chars: int
+    rejection: str | None = None
 
 
 def score_samples(samples: Iterable[Sample]) -> dict:
@@ -361,7 +435,8 @@ def score_samples(samples: Iterable[Sample]) -> dict:
     denominator, which is exactly what "more than 50% of reliably classified
     body text" says.
     """
-    usable = [s for s in samples if s.language is not None and s.confidence >= MIN_CONFIDENCE]
+    collected = list(samples)
+    usable = [s for s in collected if s.language is not None and s.confidence >= MIN_CONFIDENCE]
     total = sum(s.chars for s in usable)
     if not usable or total == 0:
         return {
@@ -369,6 +444,7 @@ def score_samples(samples: Iterable[Sample]) -> dict:
             "english_share": None,
             "samples": 0,
             "top_other": None,
+            "reason": _undetermined_reason(collected),
         }
     by_language: dict[str, int] = {}
     for sample in usable:
@@ -377,12 +453,36 @@ def score_samples(samples: Iterable[Sample]) -> dict:
     share = english / total
     others = {lang: n for lang, n in by_language.items() if lang != "en"}
     top_other = max(others, key=lambda k: others[k]) if others else None
+    admitted = share > ENGLISH_THRESHOLD
+    # A site with no English at all and a site that is 45% English both fail, and
+    # they fail differently. The second is the case section 6 calls "mixed", and
+    # a reviewer weighing whether the 50% line sits in the right place needs to
+    # see how many pairs are near it rather than nowhere near it.
+    reason = None
+    if not admitted:
+        reason = REASON_OTHER_LANGUAGE if english == 0 else REASON_MIXED_BELOW_THRESHOLD
     return {
-        "verdict": VERDICT_ENGLISH if share > ENGLISH_THRESHOLD else VERDICT_OTHER,
+        "verdict": VERDICT_ENGLISH if admitted else VERDICT_OTHER,
         "english_share": round(share, 6),
         "samples": len(usable),
         "top_other": top_other,
+        "reason": reason,
     }
+
+
+def _undetermined_reason(collected: list[Sample]) -> str:
+    """Which of the four undetermined cases this was.
+
+    A pair can fail for more than one reason across its samples, so the reported
+    one is the most common. Ties go to the order in `REASONS`, which puts the
+    structural failures before the judgement calls, because "there was nothing to
+    read" is a more useful thing to tell a reviewer than "what there was scored
+    badly".
+    """
+    if not collected:
+        return REASON_CAPTURES_UNREADABLE
+    counts = Counter(s.rejection or REASON_LOW_CONFIDENCE for s in collected)
+    return min(counts, key=lambda r: (-counts[r], REASONS.index(r) if r in REASONS else 99))
 
 
 def pair_key(domain: str, year: int) -> str:
@@ -424,6 +524,7 @@ def classify_pair(
         "evidence_urls": [],
         "captures_found": 0,
         "fetch_failures": 0,
+        "reason": None,
     }
 
     # CANDIDATE_LIMIT, not `samples`: the index limit is how many captures to
@@ -445,11 +546,29 @@ def classify_pair(
     # which is how framesets and redirect stubs came to dominate the sample.
     captures.sort(key=lambda c: c[2], reverse=True)
     if not captures:
-        # The archive holds nothing for this domain in this year, so there is no
-        # body text to judge and the pair is undetermined. This is a real answer
-        # and settles the pair: the archive's index for a past year does not
-        # change, so re-asking would return the same emptiness.
+        # **The query above is filtered, so its emptiness is not the claim we
+        # want to record.** It asks for captures that are `statuscode:200` and
+        # `mimetype:text/html`; a year in which the archive holds only redirects,
+        # plain text, or records it labelled differently comes back empty from a
+        # question that was never "does anything exist here".
+        #
+        # Writing that down as "no capture in this year" would be disqualifying a
+        # domain on an assumption, which is the one thing this engine must not
+        # do. So ask the unfiltered question before concluding. It costs one
+        # cheap index request on the ~23% of pairs that reach this branch, and it
+        # turns a guess into a measurement.
+        probe_status, probe_body = _fetch_retrying(
+            any_capture_url(domain, year), cdx_fetch, gov, retries
+        )
+        if probe_status != 200:
+            # The probe failed, so we still do not know. Leave the pair
+            # unsettled rather than record a verdict we cannot support.
+            record["status"] = probe_status
+            return record
         record["status"] = 200
+        record["reason"] = (
+            REASON_NO_HTML_CAPTURE if probe_body.strip() else REASON_NO_CAPTURE_IN_YEAR
+        )
         return record
 
     collected: list[Sample] = []
@@ -472,7 +591,7 @@ def classify_pair(
         gov.on_success()
         text = body_text(decode_page(raw))
         language, confidence = classify_text(text)
-        collected.append(Sample(target, language, confidence, len(text)))
+        collected.append(Sample(target, language, confidence, len(text), sample_rejection(text)))
         urls.append(target)
 
     if not collected and record["fetch_failures"]:
@@ -600,7 +719,14 @@ def read_targets(lines: Iterable[str]) -> list[tuple[str, int]]:
 # --- reporting --------------------------------------------------------------
 
 NETNEW_ENGLISH_DIR = Path("output/netnew_english")
+NETNEW_UNVERIFIED_DIR = Path("output/netnew_unverified")
+DISQUALIFIED_PATH = Path("output/disqualified.csv")
 LANGUAGE_SUMMARY_PATH = Path("output/language_summary.csv")
+
+# A judged rejection whose reason pre-dates the reason vocabulary. Distinct from
+# an empty cell, which would read as "no reason applies", and distinct from
+# `unchecked`, which is not a rejection at all.
+REASON_NOT_RECORDED = "not_recorded"
 
 # The marginal contribution, which is the population feedback 6.1 asks about.
 _NOT_IN_BASELINE = """
@@ -612,29 +738,102 @@ _NOT_IN_BASELINE = """
 """
 
 
-def write_english_annual_files(conn, out_dir: Path = NETNEW_ENGLISH_DIR) -> dict[str, int]:
-    """Write the admissible subset: net-new pairs with an `english` verdict.
+# One row per net-new (domain, year), carrying its verdict if it has one. Both
+# halves of the partition are cut from this, which is why they cannot disagree:
+# a pair appears in exactly one of them because the CASE is exhaustive.
+_PARTITION_SQL = f"""
+    SELECT dy.domain,
+           dy.assigned_year AS year,
+           CASE WHEN dl.verdict = 'english' THEN 'english' ELSE 'unverified' END AS side,
+           CASE WHEN dl.verdict IS NULL THEN 'unchecked'
+                WHEN dl.verdict = 'english' THEN 'verified'
+                ELSE 'disqualified' END AS status,
+           dl.verdict AS verdict,
+           coalesce(dl.reason,
+                    CASE WHEN dl.verdict IS NULL THEN ''
+                         ELSE '{REASON_NOT_RECORDED}' END) AS reason,
+           dl.english_share AS english_share,
+           dl.top_other AS top_other,
+           coalesce(dl.samples, 0) AS samples,
+           coalesce(dl.evidence_urls, '') AS snapshot_urls
+    FROM domain_year dy
+    LEFT JOIN domain_language dl
+      ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
+    WHERE {_NOT_IN_BASELINE}
+"""
 
-    These are the annual files the English standard permits. The unrestricted
-    `output/netnew/` files stay beside them, because feedback section 7 asks for
-    true additions against merged260730 as well, and the two answer different
-    questions.
+
+def write_partitioned_annual_files(
+    conn,
+    english_dir: Path = NETNEW_ENGLISH_DIR,
+    unverified_dir: Path = NETNEW_UNVERIFIED_DIR,
+    register_path: Path = DISQUALIFIED_PATH,
+) -> dict[str, int]:
+    """Write the two disjoint sets, plus the per-item register of rejections.
+
+    **Disjoint is the point.** The previous shape shipped `netnew/` holding every
+    addition and `netnew_english/` holding a subset of those same pairs, so the
+    two overlapped and a reviewer adding them up would double-count. From this
+    round the deliverable is a partition: a pair is English-verified or it is
+    not, it appears in exactly one side, and the two sides sum to the total.
+    Ding merges against the baseline himself, so nothing here is pre-merged.
+
+    Three distinctions the files preserve, because collapsing any of them would
+    overstate what we know:
+
+    - `english` means archived body text for that year was read and was more
+      than half English. Nothing else earns it.
+    - `disqualified` means the archive was asked and answered, and the pair
+      failed. Every one carries a reason from a closed vocabulary and is listed
+      individually in the register.
+    - `unchecked` means the engine has not reached the pair. **No claim is made
+      about its language**, and in particular no claim is made about whether the
+      archive holds a capture for it. Guessing there would be exactly the
+      assumption this engine exists to avoid.
     """
-    out_dir.mkdir(parents=True, exist_ok=True)
+    english_dir.mkdir(parents=True, exist_ok=True)
+    unverified_dir.mkdir(parents=True, exist_ok=True)
+    register_path.parent.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
+
     for year in range(1996, 2002):
-        query = f"""
-            SELECT DISTINCT dy.domain FROM domain_year dy
-            JOIN domain_language dl
-              ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
-            WHERE dy.assigned_year = {year} AND dl.verdict = 'english' AND {_NOT_IN_BASELINE}
-            ORDER BY dy.domain
-        """  # noqa: S608 (year is an int from range)
-        path = out_dir / f"{year}.txt"
-        conn.execute(f"COPY ({query}) TO '{path}' (HEADER false)")
-        counts[f"english_{year}"] = conn.execute(
-            f"SELECT count(*) FROM ({query})"  # noqa: S608
-        ).fetchone()[0]
+        base = f"SELECT * FROM ({_PARTITION_SQL}) WHERE year = {year}"  # noqa: S608
+
+        english = f"SELECT DISTINCT domain FROM ({base}) WHERE side = 'english' ORDER BY domain"  # noqa: S608
+        conn.execute(f"COPY ({english}) TO '{english_dir / f'{year}.txt'}' (HEADER false)")
+        english_csv = (
+            "SELECT domain, year, english_share, samples, snapshot_urls "  # noqa: S608
+            f"FROM ({base}) WHERE side = 'english' ORDER BY domain"
+        )
+        conn.execute(f"COPY ({english_csv}) TO '{english_dir / f'{year}.csv'}' (HEADER true)")
+
+        unverified = (
+            f"SELECT DISTINCT domain FROM ({base}) WHERE side = 'unverified' ORDER BY domain"  # noqa: S608
+        )
+        conn.execute(f"COPY ({unverified}) TO '{unverified_dir / f'{year}.txt'}' (HEADER false)")
+        unverified_csv = (
+            "SELECT domain, year, status, reason, english_share, top_other, "  # noqa: S608
+            f"snapshot_urls FROM ({base}) WHERE side = 'unverified' ORDER BY status, domain"
+        )
+        conn.execute(f"COPY ({unverified_csv}) TO '{unverified_dir / f'{year}.csv'}' (HEADER true)")
+
+        for label, side in (("english", "english"), ("unverified", "unverified")):
+            counts[f"{label}_{year}"] = conn.execute(
+                f"SELECT count(*) FROM ({base}) WHERE side = '{side}'"  # noqa: S608
+            ).fetchone()[0]
+
+    register = (
+        "SELECT domain, year, verdict, reason, english_share, top_other, samples, "  # noqa: S608
+        f"snapshot_urls FROM ({_PARTITION_SQL}) WHERE status = 'disqualified' "
+        "ORDER BY year, reason, domain"
+    )
+    conn.execute(f"COPY ({register}) TO '{register_path}' (HEADER true)")
+    counts["disqualified"] = conn.execute(
+        f"SELECT count(*) FROM ({_PARTITION_SQL}) WHERE status = 'disqualified'"  # noqa: S608
+    ).fetchone()[0]
+    counts["unchecked"] = conn.execute(
+        f"SELECT count(*) FROM ({_PARTITION_SQL}) WHERE status = 'unchecked'"  # noqa: S608
+    ).fetchone()[0]
     return counts
 
 
@@ -782,6 +981,10 @@ def iter_verdicts(path: Path, stats: Counter) -> Iterator[dict]:
                     "samples": record.get("samples") or 0,
                     "top_other": record.get("top_other"),
                     "evidence_urls": " ".join(record.get("evidence_urls") or []),
+                    # Absent from journals written before the reason vocabulary
+                    # existed. Those verdicts stay valid; they just cannot say
+                    # why, and the export labels them so rather than guessing.
+                    "reason": record.get("reason"),
                 }
     except (EOFError, OSError):
         # journal from an interrupted run; everything before the last flush was
@@ -843,7 +1046,7 @@ def ingest_language_journal(conn, path: Path) -> dict:
         )
         conn.execute(
             "INSERT INTO domain_language (domain, assigned_year, verdict, english_share, "
-            "samples, top_other, evidence_urls) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "samples, top_other, evidence_urls, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 row["domain"],
                 row["assigned_year"],
@@ -852,6 +1055,7 @@ def ingest_language_journal(conn, path: Path) -> dict:
                 row["samples"],
                 row["top_other"],
                 row["evidence_urls"],
+                row["reason"],
             ],
         )
         written += 1
