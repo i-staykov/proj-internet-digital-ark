@@ -72,20 +72,23 @@ MODERATED_ANNOUNCE_GROUPS = frozenset(
 def is_moderated_announce(group: str) -> bool:
     """Whether a group is a moderated announcement forum.
 
-    Usenet convention carries most of this: a group whose last component is
-    `announce` or `moderated` is moderated by long-standing practice, so the
-    rule is expressed as a suffix test rather than a list nobody will maintain.
+    Usenet convention carries most of this: a group carrying an `announce` or
+    `moderated` component is moderated by long-standing practice, so the rule is
+    expressed as a component test rather than a list nobody will maintain.
+
+    Components rather than a suffix, because the marker is not always last:
+    `news.announce.conferences` and `news.announce.newgroups` are both moderated
+    announcement groups with the marker in the middle, and a suffix test reports
+    them as ordinary discussion.
+
     `MODERATED_ANNOUNCE_GROUPS` then names the handful that are moderated
-    announcement forums without saying so in their name, of which
+    announcement forums without saying so at all, of which
     `comp.internet.net-happenings` is the important one.
 
     This classification is reported, not enforced. See the module docstring.
     """
-    return (
-        group in MODERATED_ANNOUNCE_GROUPS
-        or group.endswith(".announce")
-        or group.endswith(".moderated")
-    )
+    parts = set(group.split("."))
+    return group in MODERATED_ANNOUNCE_GROUPS or bool(parts & {"announce", "moderated"})
 
 
 _URL = re.compile(r"https?://[^\s<>\"'\)\],;]+", re.IGNORECASE)

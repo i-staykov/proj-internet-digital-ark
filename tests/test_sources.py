@@ -703,5 +703,9 @@ def test_moderated_announce_follows_usenet_naming_convention():
     assert is_moderated_announce("comp.os.linux.announce")
     assert is_moderated_announce("misc.business.moderated")
     assert is_moderated_announce("comp.internet.net-happenings")
+    # the marker is not always last: a suffix test reports these as ordinary
+    # discussion groups, which is how the flaw was found
+    assert is_moderated_announce("news.announce.conferences")
+    assert is_moderated_announce("news.announce.newgroups")
     assert not is_moderated_announce("alt.internet.commerce")
     assert not is_moderated_announce("biz.marketplace")
