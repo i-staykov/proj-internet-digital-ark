@@ -72,6 +72,40 @@ if missing:
     print(f"{'evidence for every addition':<46} FAIL  {len(missing):,} unsupported, e.g. {sample}")
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
+
+# --- 4. the English-verified subset really is a subset ------------------------
+# The one failure this cannot be allowed to have: an annual file that admits a
+# domain under the English standard which is not among the additions at all, or
+# is admitted for a year it was never added for. Cheap to check and fatal if
+# wrong, so it is checked.
+english_dir = Path("additions_english")
+if not english_dir.is_dir():
+    print(f"{'english-verified subset':<46} SKIP  additions_english/ not in this archive")
+else:
+    english = {}
+    for year in years:
+        path = english_dir / f"{year}.txt"
+        english[year] = (
+            {line.strip() for line in path.read_text().splitlines() if line.strip()}
+            if path.exists()
+            else set()
+        )
+    stray = {
+        (d, y) for y, names in english.items() for d in names if d not in additions.get(y, set())
+    }
+    if stray:
+        sample = ", ".join(f"{d} ({y})" for d, y in sorted(stray)[:3])
+        print(
+            f"{'english-verified subset':<46} FAIL  {len(stray):,} admitted but not "
+            f"an addition for that year, e.g. {sample}"
+        )
+        sys.exit(1)
+    n = sum(len(v) for v in english.values())
+    share = f"{n / total * 100:.1f}%" if total else "0%"
+    print(
+        f"{'english-verified subset':<46} PASS  {n:,} of {total:,} additions "
+        f"({share}) verified English, all within the additions"
+    )
 PY
 
 echo
