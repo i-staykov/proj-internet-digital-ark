@@ -227,7 +227,12 @@ def substitutions(f: dict) -> dict[str, str]:
     # 258 of 400 records in the first complete v3 batch came back english, so the
     # share is measured rather than assumed. The low row applies a 70% duty
     # allowance for the archive refusing us, which it has done three times.
-    english_share = 0.645
+    # Measured across every completed batch on the corrected engine rather than
+    # the first one: a single batch read 64.5% and the three-batch figure is
+    # 57.2%, because the queue interleaves early-year pairs that yield less.
+    total_judged = t["english"] + t["other"] + t["undetermined"]
+    english_share = (t["english"] / total_judged) if total_judged else 0.60
+    subs["SHARE"] = f"{100 * english_share:.1f}%"
 
     # Rounded to the nearest 500. A projection quoted to four significant figures
     # claims a precision the inputs do not have, and it invites being held to the

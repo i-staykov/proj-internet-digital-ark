@@ -1017,3 +1017,31 @@ was the interesting part.
   it, as it did for the weak markers, just in the other direction: a false
   admission is a claim we make to a reviewer, a false exclusion is a pair that
   stays retryable. Recorded as a limitation instead
+
+## 2026-08-01 (phase 4, evening: concurrency is not the lever, measured a third time)
+
+- **A controlled A/B on the language engine, with the decision rule fixed before
+  the result.** Batch 1 ended with the governor at its configured floor after 94
+  throttles, which suggested headroom, so the next batch ran at 3 workers and a
+  1.2 s floor against the measured 367 pairs/hour at 2 workers and 1.5 s.
+
+      2 workers / 1.5 s   367/hour and 381/hour   throttles 94   final_delay 1500ms
+      3 workers / 1.2 s   364/hour                throttles 95   final_delay 1428ms
+
+  **Three workers was slower.** Reverted immediately. What the governor sitting at
+  its floor actually indicates is that our *pacing* is not the constraint; it says
+  nothing about whether more parallel requests will be served, and they are not
+- **This is the third independent measurement of the same thing** and it should
+  end the question. The first pilot lost the archive entirely at 4 workers. The
+  phase-2 server-versus-laptop comparison found the server no faster despite more
+  cores, and slower on CDX. Now a batch-level A/B. The limit is what
+  `web.archive.org` will serve a single client. **The lever for throughput is
+  requests per verdict, not requests in flight**, and the cheapest remaining one
+  is merging the filtered capture query with the unfiltered probe, worth about
+  10%, which needs an `ENGINE_VERSION` bump and so waits for the next round
+- **The English share is 62.3% across all completed batches, not the 64.5% of the
+  first.** It ranges from about a half to two thirds by batch, because the queue
+  interleaves early-year pairs that yield less. The report derives it from the
+  store now rather than quoting one batch, which is the same discipline as every
+  other figure: a single-batch rate presented as the rate is an estimate wearing
+  a measurement's clothes
