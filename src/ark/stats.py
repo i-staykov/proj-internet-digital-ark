@@ -60,6 +60,9 @@ PROVENANCE_LINEAGE = {
     # Wayback capture is genuine cross-lineage corroboration.
     "usenet_announce": "usenet",
     "usenet_mention": "usenet",
+    # Tucows is a software catalogue, independent of both web crawls and Usenet
+    "tucows_catalogue": "software_catalogue",
+    "tucows_mention": "software_catalogue",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

@@ -135,6 +135,45 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+
+# The Tucows Software Library on archive.org: ~32,600 donated items, each with a
+# release `date` and a `creator` field holding the vendor's home page URL. That
+# is a dated index file in the sense of III.1, and unlike a URL typed into a
+# Usenet post it is a single structured field rather than free text, so it does
+# not carry the same transcription risk.
+#
+# It does carry a different one. The catalogue was donated in 2004, so a
+# `creator` URL may record where the vendor lived then rather than at release.
+# Measured against evidence we already hold, the Tucows year is exactly right
+# 78.7% of the time and within one year 95.4%, which is far better than the
+# Usenet post date manages. But that sample is only domains the store already
+# knows, which are the long-lived ones, and drift would show precisely in the
+# names we have never seen. So this route takes the same corroboration split as
+# Usenet rather than being trusted outright.
+def parse_tucows(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per (vendor domain, release year) in the scraped index."""
+    with _open_text(path) as fh:
+        items = json.load(fh)
+    for item in items:
+        stats["items"] += 1
+        creator = item.get("creator")
+        if not creator:
+            stats["no_creator"] += 1
+            continue
+        if isinstance(creator, list):
+            creator = creator[0] if creator else ""
+        year_text = (item.get("date") or "")[:4]
+        if not year_text.isdigit() or int(year_text) not in YEARS:
+            stats["out_of_window"] += 1
+            continue
+        identifier = item.get("identifier", "")
+        yield BulkRecord(
+            raw=str(creator),
+            year=int(year_text),
+            evidence_value=f"tucows release {identifier}",
+            evidence_url=f"https://archive.org/details/{identifier}",
+        )
+
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
     """Read (year, 'YYYY-MM') from an ISC survey filename, or None if absent."""
     match = _ISC_SURVEY_CODE.search(name)
@@ -697,6 +736,20 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="dated_directory",
         acquisition_method="ncsa_whats_new_pages",
         parse=parse_ncsa_whats_new,
+    ),
+    "tucows_candidates": SourceSpec(
+        key="tucows_candidates",
+        source_name="tucows_mention",
+        evidence_type="link_target",
+        acquisition_method="tucows_release_vendor_url",
+        parse=_parse_usenet_journal,
+    ),
+    "tucows_dated": SourceSpec(
+        key="tucows_dated",
+        source_name="tucows_catalogue",
+        evidence_type="dated_directory",
+        acquisition_method="tucows_release_date",
+        parse=_parse_usenet_journal,
     ),
     "usenet_dated": SourceSpec(
         key="usenet_dated",
