@@ -18,11 +18,19 @@
 # Every intervention is logged with a timestamp, because a restart is evidence
 # about the archive's behaviour and belongs in the record.
 #
-# Usage: bash scripts/watchdog_lang.sh [check_seconds] [deadline_epoch]
+# The engine settings are parameters, not constants. They were hardcoded here,
+# which meant any retune of the supervisor would be silently reverted the first
+# time the watchdog restarted it, and the log would show a rate that no longer
+# matched the settings anyone believed were running.
+#
+# Usage: bash scripts/watchdog_lang.sh [check_seconds] [deadline_epoch] [batch] [workers] [min_delay]
 set -uo pipefail
 
 INTERVAL="${1:-600}"
 DEADLINE="${2:-0}"
+BATCH="${3:-400}"
+WORKERS="${4:-2}"
+MIN_DELAY="${5:-1.5}"
 LOG="data/logs/lang_watchdog.log"
 DIR="data/raw/lang"
 mkdir -p data/logs
@@ -35,8 +43,10 @@ restart() {
         echo "$(date '+%F %T') deadline reached, not restarting" >> "$LOG"
         return 1
     fi
-    nohup bash scripts/supervise_lang.sh "$remaining" 400 2 1.5 > /dev/null 2>&1 &
-    echo "$(date '+%F %T') restarted supervisor for ${remaining}s" >> "$LOG"
+    nohup bash scripts/supervise_lang.sh "$remaining" "$BATCH" "$WORKERS" "$MIN_DELAY" \
+        > /dev/null 2>&1 &
+    echo "$(date '+%F %T') restarted supervisor for ${remaining}s" \
+        "(batch=${BATCH} workers=${WORKERS} min_delay=${MIN_DELAY})" >> "$LOG"
     return 0
 }
 
@@ -51,7 +61,8 @@ progress() {
 
 [ "$DEADLINE" -eq 0 ] && DEADLINE=$(( $(date +%s) + 176000 ))
 last=$(progress)
-echo "$(date '+%F %T') watchdog start: every ${INTERVAL}s until $(date -r "$DEADLINE" '+%F %T')" >> "$LOG"
+echo "$(date '+%F %T') watchdog start: every ${INTERVAL}s until $(date -r "$DEADLINE" '+%F %T')" \
+    "(batch=${BATCH} workers=${WORKERS} min_delay=${MIN_DELAY})" >> "$LOG"
 
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     sleep "$INTERVAL"
