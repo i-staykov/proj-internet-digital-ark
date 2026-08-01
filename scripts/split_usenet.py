@@ -80,6 +80,7 @@ def main() -> None:
         conn.close()
 
     dated, candidates = [], []
+    from_moderated = 0
     for (domain, year), (message_id, group) in sorted(seen.items()):
         record = {
             "domain": domain,
@@ -87,13 +88,26 @@ def main() -> None:
             "message_id": message_id,
             "group": group,
         }
-        (dated if domain in attested else candidates).append(record)
+        if domain in attested:
+            dated.append(record)
+            if group in MODERATED_ANNOUNCE_GROUPS:
+                from_moderated += 1
+        else:
+            candidates.append(record)
 
     print(f"parse stats: {dict(stats)}")
     print(f"extracted pairs: {len(seen):,}")
     print(f"  corroborated (another source places the domain in an annual file): {len(dated):,}")
     print(
         f"  uncorroborated (candidate pool only)                             : {len(candidates):,}"
+    )
+    # Reported, not enforced: admission is decided by corroboration alone. A
+    # reviewer who wants only moderated announcements can filter on the group
+    # name, which every evidence row carries.
+    other = len(dated) - from_moderated
+    print(
+        f"  of the corroborated half, {from_moderated:,} come from moderated announcement "
+        f"groups and {other:,} from other groups"
     )
     if not args.write:
         print("dry run; pass --write to create both journals")
