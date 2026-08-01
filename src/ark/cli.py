@@ -896,7 +896,14 @@ def lang_report() -> None:
     feedback 6.1 requires every future submission to report.
     """
     conn = connect()
-    init_db(conn)
+    # No `init_db` here, deliberately. This command only reads the store and
+    # writes files, and calling it broke the reviewer's own reproduction path:
+    # `ark rebuild` recreates tables with `CREATE TABLE AS SELECT` from Parquet,
+    # which carries the data but not the primary keys, so re-running the schema
+    # afterwards fails trying to add a foreign key against a `source` table that
+    # now has no unique constraint. Found by unpacking the delivery archive and
+    # following its README literally, which is the only way this class of bug
+    # ever shows up.
     counts = write_partitioned_annual_files(conn)
     rows = write_language_summary(conn)
     typer.echo(format_language_summary(rows))

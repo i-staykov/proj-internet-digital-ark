@@ -110,13 +110,19 @@ and every assignment, so the exporter can run over it again.
 tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync
 uv run ark rebuild ../provenance     # regenerates the annual files, masters, candidates, manifest
-uv run ark check                     # the nine integrity invariants, against the rebuilt store
+uv run ark lang-report               # regenerates the two disjoint sets and the language summary
+uv run ark check                     # the twelve integrity invariants, against the rebuilt store
 ```
 
-Then compare what it wrote against what shipped; they are byte-identical:
+Then compare what it wrote against what shipped. All three sets come back byte-identical, which is
+the point: the split is derived from the evidence, not asserted alongside it.
 
 ```
-for y in 1996 1997 1998 1999 2000 2001; do cmp output/netnew/$y.txt ../additions/$y.txt; done
+for y in 1996 1997 1998 1999 2000 2001; do
+    cmp output/netnew/$y.txt            ../additions/$y.txt
+    cmp output/netnew_english/$y.txt    ../additions_english/$y.txt
+    cmp output/netnew_unverified/$y.txt ../additions_unverified/$y.txt
+done
 ```
 
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
