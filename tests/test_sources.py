@@ -691,3 +691,17 @@ def test_usenet_dated_is_master_and_mentions_are_candidate_only():
     assert SOURCES["usenet_dated"].evidence_type == "dated_directory"
     assert not SOURCES["usenet_dated"].is_candidate_only
     assert SOURCES["usenet_candidates"].is_candidate_only
+
+
+def test_moderated_announce_follows_usenet_naming_convention():
+    """A group whose last component is announce or moderated is moderated by
+    long-standing convention, so the rule is a suffix test rather than a list
+    nobody will maintain. The named set covers the ones that are moderated
+    announcement forums without saying so."""
+    from ark.usenet import is_moderated_announce
+
+    assert is_moderated_announce("comp.os.linux.announce")
+    assert is_moderated_announce("misc.business.moderated")
+    assert is_moderated_announce("comp.internet.net-happenings")
+    assert not is_moderated_announce("alt.internet.commerce")
+    assert not is_moderated_announce("biz.marketplace")

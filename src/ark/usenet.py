@@ -39,7 +39,7 @@ The stricter alternative would admit only moderated announcement groups. It was
 not taken because, once corroboration has established that the domain is real,
 a URL written in a dated public post is contemporaneous evidence that the site
 was in use that year whether the group was moderated or not: advertising a dead
-site is unusual. `MODERATED_ANNOUNCE_GROUPS` therefore exists to *report* the
+site is unusual. `is_moderated_announce` therefore exists to *report* the
 split rather than to gate it, every evidence row names the group it came from,
 and a reviewer who disagrees can filter on that name without reprocessing
 anything.
@@ -60,19 +60,33 @@ from ark.bulk import BulkRecord
 from ark.canonical import to_registrable
 from ark.ingest import YEARS
 
-# Groups whose stated purpose is announcing new websites and which were
-# moderated, so a post is an editorial entry in a dated listing rather than a
-# passing mention. Everything not named here is treated as candidate-only.
+# Moderated announcement forums whose names do not follow the `.announce` or
+# `.moderated` convention that `is_moderated_announce` relies on.
 MODERATED_ANNOUNCE_GROUPS = frozenset(
     {
-        "comp.infosystems.www.announce",
         "comp.internet.net-happenings",
-        "comp.software.shareware.announce",
-        "misc.entrepreneurs.moderated",
-        "misc.business.marketing.moderated",
-        "misc.business.moderated",
     }
 )
+
+
+def is_moderated_announce(group: str) -> bool:
+    """Whether a group is a moderated announcement forum.
+
+    Usenet convention carries most of this: a group whose last component is
+    `announce` or `moderated` is moderated by long-standing practice, so the
+    rule is expressed as a suffix test rather than a list nobody will maintain.
+    `MODERATED_ANNOUNCE_GROUPS` then names the handful that are moderated
+    announcement forums without saying so in their name, of which
+    `comp.internet.net-happenings` is the important one.
+
+    This classification is reported, not enforced. See the module docstring.
+    """
+    return (
+        group in MODERATED_ANNOUNCE_GROUPS
+        or group.endswith(".announce")
+        or group.endswith(".moderated")
+    )
+
 
 _URL = re.compile(r"https?://[^\s<>\"'\)\],;]+", re.IGNORECASE)
 # the Giganews rewrite: a bare `YYYY/MM/DD` or `YYYY-MM-DD` where RFC 822 expects

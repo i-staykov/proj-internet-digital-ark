@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import duckdb  # noqa: E402
 
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
-from ark.usenet import MODERATED_ANNOUNCE_GROUPS, parse_usenet  # noqa: E402
+from ark.usenet import is_moderated_announce, parse_usenet  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
 OUT_DIR = Path("data/raw/usenet")
@@ -64,7 +64,7 @@ def main() -> None:
     seen: dict[tuple[str, int], tuple[str, str]] = {}
     for path in args.archives:
         group = group_of(path)
-        moderated = group in MODERATED_ANNOUNCE_GROUPS
+        moderated = is_moderated_announce(group)
         stats["moderated_groups" if moderated else "other_groups"] += 1
         for record in parse_usenet(path, stats):
             key = (record.raw, record.year)
@@ -90,7 +90,7 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(record)
-            if group in MODERATED_ANNOUNCE_GROUPS:
+            if is_moderated_announce(group):
                 from_moderated += 1
         else:
             candidates.append(record)

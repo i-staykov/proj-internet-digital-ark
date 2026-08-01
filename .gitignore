@@ -31,3 +31,4 @@ output/
 *.parquet
 *.warc
 *.warc.gz
+SESSION_REPORT.md
