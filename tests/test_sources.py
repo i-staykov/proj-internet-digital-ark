@@ -613,9 +613,30 @@ def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
     assert message_year("Tue, 18 Jun 1996 12:00:00 GMT") == 1996
     assert message_year("1997/06/18") == 1997
     assert message_year("1998-06-18") == 1998
-    assert message_year("2010/06/18") is None  # out of window
+    assert message_year("2010/06/18") == 2010  # readable, filtered later by window
     assert message_year("not a date") is None
     assert message_year("") is None
+
+
+def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
+    """One counter for both hides which problem a barren source has. An archive
+    that is entirely out of window should be dropped; one whose dates cannot be
+    parsed means the parser is wrong. alt.www.webmaster is 170 MB and 100%
+    out of window, while comp.infosystems.www.announce looked 92% undated until
+    the Giganews date format was handled."""
+    from ark.usenet import parse_usenet
+
+    path = tmp_path / "g.mbox"
+    path.write_text(
+        "From x\nDate: 2008/01/01\nMessage-ID: <a@h>\nFrom: p@vendor.com\n\nhttp://a.com/\n"
+        "From x\nDate: garbled nonsense\nMessage-ID: <b@h>\nFrom: p@vendor.com\n\nhttp://b.com/\n"
+        "From x\nDate: 1998/01/01\nMessage-ID: <c@h>\nFrom: p@vendor.com\n\nhttp://c.com/\n"
+    )
+    stats = Counter()
+    records = list(parse_usenet(path, stats))
+    assert stats["out_of_window"] == 1
+    assert stats["unreadable_date"] == 1
+    assert {r.year for r in records} == {1998}
 
 
 def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):

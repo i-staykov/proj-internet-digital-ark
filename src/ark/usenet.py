@@ -24,16 +24,25 @@ announcing new websites is an editorially curated dated listing, which the brief
 treats as master-eligible. A commerce or marketplace group is people advertising,
 where a URL may be a competitor, a typo or an aspiration.
 
-So the module separates the two axes rather than averaging them:
+**Corroboration is what gates admission**, and it is the only thing that does. A
+domain another source already places in an annual file is real, so the only open
+question is the year, which the post answers with an auditable Message-ID: that
+half becomes `dated_directory`. A name appearing only in Usenet has neither its
+existence nor its year independently attested, so it becomes `link_target` and
+goes to the candidate pool to earn its own evidence. This is the same split
+`expand.py` applies to archived directory pages, and for the same reason: the
+post may be sound while the transcription is not.
 
-- **Group purpose** decides the evidence type. Moderated announcement groups are
-  `dated_directory`; everything else is `link_target`, which is candidate-only
-  and can never assign a year on its own.
-- **Corroboration** decides admission within the announcement groups. A domain
-  some other source already attests keeps its dated evidence; a name appearing
-  only here goes to the candidate pool to earn its own. This is the same split
-  `expand.py` applies to archived directory pages, and for the same reason: the
-  page (or post) may be sound while the transcription is not.
+Group purpose is recorded rather than enforced, and that is a deliberate choice
+worth stating because it is the one place a reviewer might reasonably disagree.
+The stricter alternative would admit only moderated announcement groups. It was
+not taken because, once corroboration has established that the domain is real,
+a URL written in a dated public post is contemporaneous evidence that the site
+was in use that year whether the group was moderated or not: advertising a dead
+site is unusual. `MODERATED_ANNOUNCE_GROUPS` therefore exists to *report* the
+split rather than to gate it, every evidence row names the group it came from,
+and a reviewer who disagrees can filter on that name without reprocessing
+anything.
 
 Nothing is discarded either way. A name that cannot be admitted becomes a
 candidate, which is what the candidate pool is for.
@@ -59,6 +68,9 @@ MODERATED_ANNOUNCE_GROUPS = frozenset(
         "comp.infosystems.www.announce",
         "comp.internet.net-happenings",
         "comp.software.shareware.announce",
+        "misc.entrepreneurs.moderated",
+        "misc.business.marketing.moderated",
+        "misc.business.moderated",
     }
 )
 
@@ -109,7 +121,7 @@ def message_year(raw_date: str) -> int | None:
         match = _ISO_DATE.match(text)
         if match:
             year = int(match.group(1))
-    return year if year in YEARS else None
+    return year
 
 
 def urls_in(text: str) -> list[str]:
@@ -180,8 +192,17 @@ def parse_usenet(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             stats["unparseable_message"] += 1
             continue
         year = message_year(message.get("Date", ""))
+        # Counted apart on purpose. A group that is entirely out of window and a
+        # group whose dates cannot be read look identical under one counter, and
+        # they call for opposite responses: drop the source, or fix the parser.
+        # `alt.www.webmaster` is 170 MB and 100% out of window (2006 to 2013),
+        # while `comp.infosystems.www.announce` looked 92% undated until the
+        # Giganews date format was handled.
         if year is None:
-            stats["no_usable_date"] += 1
+            stats["unreadable_date"] += 1
+            continue
+        if year not in YEARS:
+            stats["out_of_window"] += 1
             continue
         message_id = (message.get("Message-ID") or "").strip()
         if not message_id:
