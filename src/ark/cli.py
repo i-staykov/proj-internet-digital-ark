@@ -532,6 +532,16 @@ def cdx(
             "safety valve, and a high ceiling turns one throttle burst into a stalled run.",
         ),
     ] = 5.0,
+    min_delay: Annotated[
+        float,
+        typer.Option(
+            "--min-delay",
+            help="Floor the governor may not ease below. The default is the historic pace that "
+            "sustained roughly 1,000 domains/hour for days. Raise it when another engine is "
+            "already querying web.archive.org, since the floor, not the worker count, is what "
+            "bounds the combined load.",
+        ),
+    ] = 0.05,
     timeout: Annotated[
         float,
         typer.Option("--timeout", help="Seconds to wait per request before giving up."),
@@ -585,7 +595,7 @@ def cdx(
                 break
 
     first, last = min(YEARS), max(YEARS)
-    governor = RateGovernor(delay=delay, max_delay=max_delay)
+    governor = RateGovernor(delay=delay, min_delay=min_delay, max_delay=max_delay)
     written = 0
     if targets:
         with journal_writer(path) as journal, _abortable_pool(workers) as pool:
