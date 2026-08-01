@@ -432,3 +432,105 @@ def test_targets_interleave_years_within_the_capture_backed_group(tmp_path):
     years = [int(line.split("\t")[1]) for line in out.read_text().splitlines()]
     # the first three targets must cover all three years, not three of one
     assert set(years[:3]) == {1998, 2000, 2001}
+
+
+# --- the section 6.1 report -------------------------------------------------
+
+
+def _classify(conn, domain: str, year: int, verdict: str) -> None:
+    conn.execute(
+        "INSERT INTO domain_language (domain, assigned_year, verdict, english_share, samples) "
+        "VALUES (?, ?, ?, ?, 1)",
+        [domain, year, verdict, 1.0 if verdict == "english" else 0.0],
+    )
+
+
+def test_summary_counts_unclassified_apart_from_undetermined(tmp_path):
+    """A pair the engine has not reached is not the same claim as one it judged
+    and could not resolve. Collapsing them would overstate coverage to the
+    reviewer, and section 6.1 is a reporting requirement."""
+    from ark.language import language_summary
+
+    conn = _store()
+    _add_pair(conn, "seen.com", 1998, "cdx_timestamp")
+    _add_pair(conn, "unseen.com", 1998, "cdx_timestamp")
+    _classify(conn, "seen.com", 1998, "undetermined")
+    row = next(r for r in language_summary(conn) if r["year"] == 1998)
+    assert row["added_records"] == 2
+    assert row["undetermined"] == 1
+    assert row["unclassified"] == 1
+
+
+def test_summary_excludes_the_baseline(tmp_path):
+    """6.1 asks for the language profile of records this submission added, not
+    of the baseline, which is Ding's to measure and ours to leave alone."""
+    from ark.language import language_summary
+
+    conn = _store()
+    _add_pair(conn, "mine.com", 1998, "cdx_timestamp")
+    _add_pair(conn, "theirs.com", 1998, "prior_reused")
+    row = next(r for r in language_summary(conn) if r["year"] == 1998)
+    assert row["added_records"] == 1
+
+
+def test_summary_carries_a_total_and_a_unique_domain_rollup():
+    """6.1 requires both domain-year records and cross-year unique domains."""
+    from ark.language import language_summary
+
+    conn = _store()
+    for year in (1998, 1999):
+        _add_pair(conn, "both.com", year, "cdx_timestamp")
+        _classify(conn, "both.com", year, "english")
+    rows = {r["year"]: r for r in language_summary(conn)}
+    assert rows["TOTAL"]["english"] == 2  # two domain-year records
+    assert rows["UNIQUE_DOMAINS"]["english"] == 1  # one domain across both
+
+
+def test_english_annual_files_hold_only_english_net_new(tmp_path):
+    """The admitted file must be a strict subset of the additions, carrying only
+    verdicts of english. Anything else would ship a domain the standard does not
+    admit, which is the one failure this cannot have."""
+    from ark.language import write_english_annual_files
+
+    conn = _store()
+    _add_pair(conn, "yes.com", 1998, "cdx_timestamp")
+    _add_pair(conn, "no.com", 1998, "cdx_timestamp")
+    _add_pair(conn, "quiet.com", 1998, "cdx_timestamp")
+    _add_pair(conn, "baseline.com", 1998, "prior_reused")
+    _classify(conn, "yes.com", 1998, "english")
+    _classify(conn, "no.com", 1998, "other")
+    _classify(conn, "quiet.com", 1998, "undetermined")
+    _classify(conn, "baseline.com", 1998, "english")
+    out = tmp_path / "eng"
+    counts = write_english_annual_files(conn, out)
+    assert counts["english_1998"] == 1
+    assert (out / "1998.txt").read_text().split() == ["yes.com"]
+
+
+def test_format_language_summary_renders_the_unique_row():
+    """`unclassified` is None for the unique-domain roll-up, because a domain is
+    not unreached in the way a pair is. It must render, not crash."""
+    from ark.language import format_language_summary
+
+    text = format_language_summary(
+        [
+            {
+                "year": 1998,
+                "added_records": 10,
+                "english": 5,
+                "other": 2,
+                "undetermined": 1,
+                "unclassified": 2,
+            },
+            {
+                "year": "UNIQUE_DOMAINS",
+                "added_records": 8,
+                "english": 4,
+                "other": 2,
+                "undetermined": 1,
+                "unclassified": None,
+            },
+        ]
+    )
+    assert "UNIQUE_DOMAINS" in text
+    assert text.strip().endswith("-")
