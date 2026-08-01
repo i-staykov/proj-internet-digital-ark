@@ -35,7 +35,7 @@ reason, so no exclusion is left as an assertion. Pairs the engine has not yet re
 
 **On the size of the English set, and what it will be.** Verification is bound by how fast the
 Internet Archive will answer, not by anything in the pipeline: measured throughput is about [RATE]
-(domain, year) pairs per hour, of which 55 to 60% come back English. The engine is running
+(domain, year) pairs per hour, of which 64% come back English. The engine is running
 continuously and I expect roughly **[PROJ_LOW] to [PROJ_HIGH] English-verified pairs by Monday
 midday**, at which point I will send updated files.
 

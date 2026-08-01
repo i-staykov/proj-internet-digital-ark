@@ -40,7 +40,9 @@ DOCUMENTS = (
 # Measured, not derived from the store: these come from the supervisor logs and
 # from the previous round's recorded position. Kept here rather than inline in
 # the prose so there is one place to correct them.
-MEASURED_RATE = 375
+# Measured over a complete batch on the corrected engine: 400 pairs classified
+# between 14:02:53 and 15:08:18 CEST on 1 August, 65.4 minutes.
+MEASURED_RATE = 367
 PRIOR_BY_YEAR = {1996: 4994, 1997: 3534, 1998: 6029, 1999: 696, 2000: 9702, 2001: 7743}
 
 
@@ -192,9 +194,13 @@ def substitutions(f: dict) -> dict[str, str]:
     # of settled verdicts that come back English.
     hours = 48
     classified = MEASURED_RATE * hours
+    # 258 of 400 records in the first complete v3 batch came back english, so the
+    # share is measured rather than assumed. The low row applies a 70% duty
+    # allowance for the archive refusing us, which it has done three times.
+    english_share = 0.645
     subs["PROJECTED"] = f"{classified:,}"
-    subs["PROJ_LOW"] = f"{int(classified * 0.7 * 0.55):,}"
-    subs["PROJ_HIGH"] = f"{int(classified * 0.62):,}"
+    subs["PROJ_LOW"] = f"{int(classified * 0.7 * english_share):,}"
+    subs["PROJ_HIGH"] = f"{int(classified * english_share):,}"
     subs["X"] = f"{t['english']:,}"
     return subs
 

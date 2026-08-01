@@ -25,21 +25,21 @@ Current position against merged260730:
 
 | | pairs |
 |---|--:|
-| English-verified additions | **0** |
-| Non-verified additions (disjoint) | 119,360 |
-| Total additions | 119,360 |
+| English-verified additions | **258** |
+| Non-verified additions (disjoint) | 125,459 |
+| Total additions | 125,717 |
 
 Every pair that was checked and rejected is listed individually in `disqualified.csv` with the
 reason, so no exclusion is left as an assertion. Pairs the engine has not yet reached are labelled
 `unchecked` and make no claim either way.
 
 **On the size of the English set, and what it will be.** Verification is bound by how fast the
-Internet Archive will answer, not by anything in the pipeline: measured throughput is about 375
-(domain, year) pairs per hour, of which 55 to 60% come back English. The engine is running
-continuously and I expect roughly **6,930 to 11,160 English-verified pairs by Monday
+Internet Archive will answer, not by anything in the pipeline: measured throughput is about 367
+(domain, year) pairs per hour, of which 64% come back English. The engine is running
+continuously and I expect roughly **7,953 to 11,362 English-verified pairs by Monday
 midday**, at which point I will send updated files.
 
-That leads to my one question. At this rate, verifying the whole current backlog of 119,360
+That leads to my one question. At this rate, verifying the whole current backlog of 125,717
 additions would take several weeks of continuous querying. **Would you prefer that I keep the engine
 running to build the English set as large as possible, or stop at a given date and submit what is
 verified by then?** I am happy either way; it mainly affects whether I keep discovering new domains
