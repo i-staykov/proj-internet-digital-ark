@@ -7,7 +7,8 @@ re-hunt, and a reviewer who doubts a figure can run this and compare instead of
 taking it on trust.
 
     uv run python scripts/report_figures.py
-    uv run python scripts/report_figures.py --json    # for machine use
+    uv run python scripts/report_figures.py --json      # for machine use
+    uv run python scripts/report_figures.py --markdown  # the report's tables
 
 Everything is read-only, so it is safe to run while the collectors are working.
 """
@@ -205,13 +206,88 @@ def render(f: dict) -> str:
     return "\n".join(lines)
 
 
+def markdown(f: dict) -> str:
+    """The report's tables, ready to paste.
+
+    Transcribing figures by hand into prose is where a report acquires a number
+    the data does not support, and this report's whole claim is that it has
+    none. Emitting the tables from the same query that produced the figures
+    removes the step where that can happen.
+    """
+    lines: list[str] = []
+    add = lines.append
+    t = f["verdict_totals"]
+    unverified = t["other"] + t["undetermined"] + t["unchecked"]
+
+    add("### Headline")
+    add("")
+    add("| | figure |")
+    add("|---|--:|")
+    add(f"| net-new (domain, year) pairs vs merged260730 | **{f['netnew_pairs']:,}** |")
+    add(f"| over unique domains | {f['netnew_unique_domains']:,} |")
+    add(
+        "| domains absent from the baseline in every year | "
+        f"**{f['netnew_domains_absent_from_baseline']:,}** |"
+    )
+    add(f"| English-verified pairs | **{t['english']:,}** |")
+    add(f"| non-verified pairs (disjoint) | {unverified:,} |")
+    add(f"| of those, judged and disqualified | {t['other'] + t['undetermined']:,} |")
+    add(f"| of those, not yet reached | {t['unchecked']:,} |")
+    add(f"| candidate pool | {f['candidate_pool']:,} |")
+    add("")
+
+    add("### Per year")
+    add("")
+    add("| Year | Net-new pairs | English-verified | Disqualified | Not yet reached |")
+    add("|---|--:|--:|--:|--:|")
+    for year in sorted(f["verdicts_by_year"]):
+        row = f["verdicts_by_year"][year]
+        added = sum(row.values())
+        disq = row.get("other", 0) + row.get("undetermined", 0)
+        add(
+            f"| {year} | {added:,} | {row.get('english', 0):,} | {disq:,} | "
+            f"{row.get('unchecked', 0):,} |"
+        )
+    add(
+        f"| **Total** | **{f['netnew_pairs']:,}** | **{t['english']:,}** | "
+        f"**{t['other'] + t['undetermined']:,}** | **{t['unchecked']:,}** |"
+    )
+    add("")
+
+    add("### Per source")
+    add("")
+    add("| Source | Kind | Net-new pairs | Domains |")
+    add("|---|---|--:|--:|")
+    for row in f["by_source"]:
+        add(f"| `{row['source']}` | {row['kind']} | {row['pairs']:,} | {row['domains']:,} |")
+    add(f"| **Total** | | **{f['netnew_pairs']:,}** | |")
+    add("")
+
+    add("### Every judged rejection, by reason")
+    add("")
+    if f["disqualified_by_reason"]:
+        add("| Reason | Pairs |")
+        add("|---|--:|")
+        for reason, n in f["disqualified_by_reason"].items():
+            add(f"| `{reason}` | {n:,} |")
+    else:
+        add("None yet: the engine has produced no rejections at this snapshot.")
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--markdown", action="store_true", help="report tables, ready to paste")
     args = parser.parse_args()
     conn = duckdb.connect(str(DB), read_only=True)
     f = figures(conn)
-    print(json.dumps(f, indent=2) if args.json else render(f))
+    if args.json:
+        print(json.dumps(f, indent=2))
+    elif args.markdown:
+        print(markdown(f))
+    else:
+        print(render(f))
 
 
 if __name__ == "__main__":
