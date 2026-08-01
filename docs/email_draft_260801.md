@@ -26,8 +26,8 @@ Current position against merged260730:
 | | pairs |
 |---|--:|
 | English-verified additions | **258** |
-| Non-verified additions (disjoint) | 125,459 |
-| Total additions | 125,717 |
+| Non-verified additions (disjoint) | 125,462 |
+| Total additions | 125,720 |
 
 Every pair that was checked and rejected is listed individually in `disqualified.csv` with the
 reason, so no exclusion is left as an assertion. Pairs the engine has not yet reached are labelled
@@ -40,7 +40,7 @@ and on that rate the set should reach roughly **8,000 to 11,500 pairs by Monday 
 That is arithmetic rather than a promise: the Internet Archive has throttled this project before, and
 the lower figure already allows for it. I will send the actual number and the updated files on Monday.
 
-That leads to my one question. At this rate, verifying the whole current backlog of 125,717
+That leads to my one question. At this rate, verifying the whole current backlog of 125,720
 additions would take several weeks of continuous querying. **Would you prefer that I keep the engine
 running to build the English set as large as possible, or stop at a given date and submit what is
 verified by then?** I am happy either way; it mainly affects whether I keep discovering new domains

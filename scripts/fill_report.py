@@ -136,24 +136,48 @@ def per_year_table(f: dict) -> str:
 
 
 def source_table(f: dict) -> str:
+    """The per-source table, with every column feedback section 7 names.
+
+    Two things this gets right that an earlier version did not. `candidate_domains`
+    is included, because section 7 asks for "candidates found" and dropping it
+    meant the heading claimed a completeness the table did not have. And sources
+    with **zero** net-new pairs are listed rather than filtered out, because
+    section 7 asks for "zero-yield or failure reasons" and a source that
+    contributed nothing this round is exactly what that means: filtering them out
+    answered the question by hiding it.
+    """
     conn = duckdb.connect(str(DB), read_only=True)
     rows = conn.execute("""
         SELECT source, evidence_type, files_ingested, evidence_rows,
                pairs_backed, netnew_pairs, netnew_domains, candidate_domains
         FROM read_csv('data/reports/source_contribution.csv', header = true)
-        WHERE evidence_type <> 'prior_reused' AND netnew_pairs > 0
-        ORDER BY netnew_pairs DESC
+        WHERE evidence_type <> 'prior_reused'
+        ORDER BY netnew_pairs DESC, candidate_domains DESC, source
     """).fetchall()
     conn.close()
     lines = [
         "| Source | Evidence type | Files | Evidence rows | Accepted pairs |"
-        " Net-new vs merged260730 | Net-new domains |",
-        "|---|---|--:|--:|--:|--:|--:|",
+        " Net-new pairs | Domains absent from baseline | Candidates found |",
+        "|---|---|--:|--:|--:|--:|--:|--:|",
     ]
-    for src, etype, files, ev, backed, netnew, newdom, _cand in rows:
+    contributing = 0
+    for src, etype, files, ev, backed, netnew, newdom, cand in rows:
+        if netnew == 0 and cand == 0 and backed == 0:
+            continue
+        if netnew:
+            contributing += 1
         lines.append(
-            f"| `{src}` | `{etype}` | {files:,} | {ev:,} | {backed:,} | {netnew:,} | {newdom:,} |"
+            f"| `{src}` | `{etype}` | {files:,} | {ev:,} | {backed:,} | {netnew:,} | "
+            f"{newdom:,} | {cand:,} |"
         )
+    lines.append("")
+    lines.append(
+        f"{contributing} sources contributed net-new pairs this round. Rows showing zero there are "
+        "sources from earlier rounds whose additions the shared baseline has since absorbed, or "
+        "candidate-only sources whose whole contribution is names awaiting evidence. Both are "
+        "listed rather than filtered out: a source that yielded nothing is part of what section 7 "
+        "asks to be reported."
+    )
     return "\n".join(lines)
 
 
@@ -204,6 +228,7 @@ def substitutions(f: dict) -> dict[str, str]:
     # share is measured rather than assumed. The low row applies a 70% duty
     # allowance for the archive refusing us, which it has done three times.
     english_share = 0.645
+
     # Rounded to the nearest 500. A projection quoted to four significant figures
     # claims a precision the inputs do not have, and it invites being held to the
     # exact number.
