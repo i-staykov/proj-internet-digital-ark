@@ -47,11 +47,26 @@ uv run python scripts/split_usenet.py "${pending[@]}" --tag "$tag" --write >> "$
     exit 1
 }
 
+# The exit status of each ingest decides whether the archives are marked, and
+# it used to be discarded. On 1 August a concurrent reader held the DuckDB write
+# lock, both ingests failed, and 92 archives were marked processed anyway: the
+# journals survived on disk but nothing would ever have offered them again, so
+# the work was silently lost rather than deferred. The comment below already
+# claimed this behaviour; now the code does it.
+ingested=1
 for half in dated candidates; do
     journal="$DIR/usenet_${half}_${tag}.jsonl.gz"
     [ -f "$journal" ] || continue
-    uv run ark ingest "usenet_${half}" "$journal" >> "$LOG" 2>&1
+    if ! uv run ark ingest "usenet_${half}" "$journal" >> "$LOG" 2>&1; then
+        echo "$(date '+%F %T') ingest of ${journal} FAILED" >> "$LOG"
+        ingested=0
+    fi
 done
+
+if [ "$ingested" -eq 0 ]; then
+    echo "$(date '+%F %T') leaving archives unmarked so the next pass retries" >> "$LOG"
+    exit 1
+fi
 
 # Mark only after a clean ingest, so a failure leaves the work to the next run.
 printf '%s\n' "${pending[@]##*/}" >> "$DONE"

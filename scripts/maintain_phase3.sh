@@ -24,6 +24,22 @@ for i in $(seq 1 "$ITERATIONS"); do
 
     bash scripts/ingest_new_usenet.sh auto >> "$LOG" 2>&1
 
+    # Re-offer every Usenet journal on disk, not only the ones this pass split.
+    # Ledgering is by content hash, so an already-ingested journal is skipped in
+    # milliseconds and this costs nothing; what it buys is that a journal
+    # orphaned by a failed ingest gets picked up on the next pass instead of
+    # sitting on disk forever. That happened on 1 August: two journals holding
+    # 92 archives' worth of work were written, failed to ingest against a locked
+    # store, and nothing would have offered them again.
+    for journal in data/raw/usenet/usenet_dated_*.jsonl.gz; do
+        [ -e "$journal" ] || continue
+        uv run ark ingest usenet_dated "$journal" >> "$LOG" 2>&1
+    done
+    for journal in data/raw/usenet/usenet_candidates_*.jsonl.gz; do
+        [ -e "$journal" ] || continue
+        uv run ark ingest usenet_candidates "$journal" >> "$LOG" 2>&1
+    done
+
     # Language journals are ledgered by content, so re-offering an ingested one
     # is skipped rather than double counted; no marker file is needed.
     for journal in data/raw/lang/lang_*.jsonl.gz; do
