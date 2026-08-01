@@ -52,8 +52,30 @@ def test_captures_url_keeps_both_filters():
 
 
 def test_parse_captures_rejects_out_of_year_rows():
-    body = "19980101000000 http://a.com/\n19990101000000 http://a.com/b\nrubbish\n"
-    assert parse_captures(body, 1998) == [("19980101000000", "http://a.com/")]
+    body = "19980101000000 http://a.com/ 500\n19990101000000 http://a.com/b 500\nrubbish\n"
+    assert parse_captures(body, 1998) == [("19980101000000", "http://a.com/", 500)]
+
+
+def test_parse_captures_tolerates_a_missing_length():
+    """A capture with no usable length must still be considered, sorting last
+    rather than being dropped."""
+    body = "19980101000000 http://a.com/ -\n19980202000000 http://a.com/b 900\n"
+    assert parse_captures(body, 1998) == [
+        ("19980101000000", "http://a.com/", 0),
+        ("19980202000000", "http://a.com/b", 900),
+    ]
+
+
+def test_captures_url_asks_for_far_more_candidates_than_it_fetches():
+    """The limit used to be the sample count, so a run at --samples 2 asked the
+    index for two rows and reported captures_found: 2 whatever the archive held.
+    Measured on adguys.com 2000: 2 seen, 33 actually available, and the pair was
+    stored undetermined. One index row is bytes; a page fetch is a request."""
+    from ark.language import CANDIDATE_LIMIT
+
+    assert CANDIDATE_LIMIT >= 20
+    assert f"limit={CANDIDATE_LIMIT}" in captures_url("example.com", 1998)
+    assert "length" in captures_url("example.com", 1998)
 
 
 # --- decoding and text extraction -------------------------------------------
@@ -142,7 +164,16 @@ def test_score_names_the_top_other_language():
 
 
 def _fetchers(cdx_body: str, pages: dict[str, bytes], cdx_status: int = 200):
+    """Fake fetchers that also RECORD the CDX url, so a test can assert on the
+    limit that was actually requested. Without that the fake answers whatever it
+    likes regardless of the limit, and a test cannot tell the difference between
+    asking for 2 candidates and asking for 40. That is exactly how the censored
+    `captures_found` defect survived its own test."""
+
+    asked: list[str] = []
+
     def cdx_fetch(url: str) -> tuple[int, str]:
+        asked.append(url)
         return cdx_status, cdx_body
 
     def page_fetch(url: str) -> tuple[int, bytes]:
@@ -150,6 +181,7 @@ def _fetchers(cdx_body: str, pages: dict[str, bytes], cdx_status: int = 200):
             return 200, pages[url]
         return 0, b""
 
+    cdx_fetch.asked = asked  # type: ignore[attr-defined]
     return cdx_fetch, page_fetch
 
 
@@ -534,3 +566,99 @@ def test_format_language_summary_renders_the_unique_row():
     )
     assert "UNIQUE_DOMAINS" in text
     assert text.strip().endswith("-")
+
+
+# --- placeholder pages are not websites -------------------------------------
+
+
+def test_registrar_parking_page_is_not_a_website():
+    """A parking page reading 'currently has no web site' is fluent English, so
+    the classifier is confident and wrong. ajpca.com earned an english verdict
+    at confidence 1.000 this way and entered output/netnew_english/2000.txt: a
+    domain that provably had no site admitted under a rule about websites."""
+    from ark.language import is_non_site_text
+
+    park = (
+        "ajpca.com currently has no web site. The domain ajpca.com does not "
+        "currently have a web site. This domain is registered. Please contact "
+        "your registrar for more information about setting up a web site. "
+    ) * 2
+    assert is_non_site_text(park)
+    assert classify_text(park) == (None, 0.0)
+
+
+def test_frames_notice_is_not_a_website():
+    """alpinvest.com scored english 1.0 on a Netscape-frames notice while its
+    other capture was 2,110 characters of Dutch."""
+    from ark.language import is_non_site_text
+
+    notice = (
+        "This page is designed to be viewed by a browser which supports "
+        "Netscape Frames extension. If you are seeing this message you are "
+        "using a browser which does not support frames. Please upgrade. "
+    )
+    assert is_non_site_text(notice)
+    assert classify_text(notice) == (None, 0.0)
+
+
+def test_a_real_page_mentioning_construction_is_still_a_website():
+    """The marker has to be the whole page, not a passing remark. A real site
+    with 'under construction' in one corner carries far more text."""
+    from ark.language import is_non_site_text
+
+    real = (
+        "Welcome to the Acme Widget Company of Ohio. We manufacture precision "
+        "widgets for the automotive and aerospace industries and have done so "
+        "since 1948. Our catalogue lists over four hundred parts, and our "
+        "engineering staff can produce custom tooling to your specification. "
+        "Please telephone or write for a quotation. Our new online ordering "
+        "system is still under construction and will open later this year. "
+    ) * 3
+    assert not is_non_site_text(real)
+    assert classify_text(real)[0] == "en"
+
+
+def test_classification_is_case_folded():
+    """py3langid's model is trained on prose, and an all-capitals page is out of
+    distribution for it. Folding only ever raises confidence."""
+    shout = (
+        "GREAT SAVINGS ON PILLOW TOP MATTRESS SETS. WE CARRY ALL MAJOR BRANDS "
+        "OF FURNITURE AND BEDDING AT DISCOUNT PRICES. VISIT OUR SHOWROOM TODAY. "
+    ) * 3
+    lang, confidence = classify_text(shout)
+    assert lang == "en"
+    assert confidence > 0.99
+
+
+def test_classify_pair_fetches_the_largest_captures_first():
+    """Page size is the best proxy for 'has body text' available without
+    spending a fetch. Taking the first rows instead sampled whatever sorted
+    first by URL key, which is how framesets came to dominate."""
+    cdx = (
+        "19980101000000 http://example.com/tiny 120\n"
+        "19980202000000 http://example.com/big 9000\n"
+        "19980303000000 http://example.com/mid 3000\n"
+    )
+    big = "https://web.archive.org/web/19980202000000id_/http://example.com/big"
+    mid = "https://web.archive.org/web/19980303000000id_/http://example.com/mid"
+    cdx_fetch, page_fetch = _fetchers(cdx, {big: _page(ENGLISH), mid: _page(ENGLISH)})
+    record = classify_pair("example.com", 1998, cdx_fetch, page_fetch, samples=2)
+    assert record["captures_found"] == 3
+    assert set(record["evidence_urls"]) == {big, mid}
+
+
+def test_the_index_limit_is_the_candidate_count_not_the_fetch_count():
+    """The defect this guards: classify_pair passed `samples` as the CDX limit,
+    so a run at --samples 2 asked the index for two rows and reported
+    captures_found: 2 whatever the archive held. adguys.com 2000 was stored
+    undetermined on 2 rows while the archive held 33 including 5 KB pages.
+
+    The first version of this test could not catch it, because the fake fetcher
+    answered the same rows regardless of the limit. It asserts on the requested
+    URL now."""
+    from ark.language import CANDIDATE_LIMIT
+
+    cdx_fetch, page_fetch = _fetchers("19980101000000 http://example.com/ 500\n", {})
+    classify_pair("example.com", 1998, cdx_fetch, page_fetch, samples=2)
+    assert f"limit={CANDIDATE_LIMIT}" in cdx_fetch.asked[0]
+    assert "limit=2" not in cdx_fetch.asked[0]

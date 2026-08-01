@@ -95,6 +95,13 @@ ENGLISH_THRESHOLD = 0.50
 # page is a language splash screen.
 DEFAULT_SAMPLES = 3
 
+# Index rows to consider before choosing which pages to fetch. Deliberately far
+# larger than DEFAULT_SAMPLES: one index row is a few bytes of an existing
+# response, a page fetch is a whole request against a service that has refused
+# this project before. Asking for many candidates and fetching few is the one
+# lever here that buys accuracy without buying traffic.
+CANDIDATE_LIMIT = 40
+
 # A capture larger than this is truncated before decoding. 1990s pages are small;
 # anything much bigger is a database dump or a mislabelled binary, and reading it
 # whole costs far more than the classification is worth.
@@ -106,7 +113,7 @@ _WHITESPACE = re.compile(r"\s+")
 _SKIP_TAGS = frozenset({"script", "style", "noscript"})
 
 
-def captures_url(domain: str, year: int, limit: int = DEFAULT_SAMPLES) -> str:
+def captures_url(domain: str, year: int, limit: int = CANDIDATE_LIMIT) -> str:
     """Query for distinct in-year HTML captures anywhere under one domain.
 
     `matchType=domain` reaches subdomains, because in this period the content
@@ -115,6 +122,21 @@ def captures_url(domain: str, year: int, limit: int = DEFAULT_SAMPLES) -> str:
     captures of one page, so a small sample spans the site instead of sampling
     the same front page three times. The mimetype filter keeps images and
     archives out; classifying a GIF wastes a fetch and returns nothing.
+
+    **`limit` is the number of candidates to consider, not the number of pages
+    to fetch, and conflating the two was a real defect.** The limit used to be
+    the sample count, so a run at `--samples 2` asked the index for two rows and
+    then reported `captures_found: 2` no matter what the archive actually held.
+    Measured on `adguys.com` 2000: the engine saw 2 captures and stored
+    `undetermined`, while the same query at `limit=50` returns **33** captures
+    including pages of 5,193 bytes. 869 of the 1,152 pairs with any capture,
+    75.4%, were censored this way. One index row costs a few bytes of response;
+    a page fetch costs a request. Asking for many and fetching few is close to
+    free.
+
+    `length` is requested so the caller can spend its fetches on the largest
+    pages, which is the difference between reading a frameset and reading the
+    site.
     """
     # The CDX API accepts repeated `filter` parameters and ANDs them, which a
     # dict cannot express, so the query is built as ordered pairs.
@@ -126,7 +148,7 @@ def captures_url(domain: str, year: int, limit: int = DEFAULT_SAMPLES) -> str:
             ("to", str(year)),
             ("filter", "statuscode:200"),
             ("filter", "mimetype:text/html"),
-            ("fl", "timestamp,original"),
+            ("fl", "timestamp,original,length"),
             ("collapse", "urlkey"),
             ("limit", str(limit)),
         ]
@@ -134,9 +156,15 @@ def captures_url(domain: str, year: int, limit: int = DEFAULT_SAMPLES) -> str:
     return f"{CDX_ENDPOINT}?{query}"
 
 
-def parse_captures(body: str, year: int) -> list[tuple[str, str]]:
-    """(timestamp, original_url) pairs from a `fl=timestamp,original` response."""
-    captures: list[tuple[str, str]] = []
+def parse_captures(body: str, year: int) -> list[tuple[str, str, int]]:
+    """(timestamp, original_url, stored_length) from a CDX response.
+
+    The length is the archived record's size as the index reports it. It is not
+    the length of the body text, but it separates a 400-byte frameset from a
+    5 KB page without spending a fetch to find out, and a missing or unparseable
+    value sorts last rather than dropping the capture.
+    """
+    captures: list[tuple[str, str, int]] = []
     for line in body.splitlines():
         parts = line.split()
         if len(parts) < 2:
@@ -146,7 +174,10 @@ def parse_captures(body: str, year: int) -> list[tuple[str, str]]:
             continue
         if int(timestamp[:4]) != year:
             continue
-        captures.append((timestamp, original))
+        length = 0
+        if len(parts) > 2 and parts[2].isdigit():
+            length = int(parts[2])
+        captures.append((timestamp, original, length))
     return captures
 
 
@@ -246,15 +277,68 @@ def _classifier():  # pragma: no cover - exercised through classify_text
     return _identifier
 
 
+# Phrases that mark a page as NOT a website: registrar parking, a frames
+# notice, a placeholder. Each was found admitting a domain to the English annual
+# files that had no site at all. `ajpca.com` served "ajpca.com currently has no
+# web site" and scored english at confidence 1.000; `alpinvest.com` scored
+# english 1.0 on a Netscape-frames notice while its other capture was 2,110
+# characters of Dutch.
+_NON_SITE_MARKERS = (
+    "currently has no web site",
+    "does not currently have a web site",
+    "this domain is registered",
+    "this domain name is registered",
+    "domain is for sale",
+    "this domain may be for sale",
+    "under construction",
+    "coming soon",
+    "designed to be viewed by a browser",
+    "browser which supports",
+    "does not support frames",
+    "your browser does not support frames",
+    "no frames capable browser",
+    "index of /",
+    "default web site page",
+    "welcome to your new web server",
+)
+
+# A marker inside a substantial page is a passing remark, not the whole page. A
+# real site mentioning "under construction" in one corner carries far more text
+# than a placeholder whose entire content is the notice.
+_NON_SITE_MAX_CHARS = 1000
+
+
+def is_non_site_text(text: str) -> bool:
+    """Whether a page is a placeholder rather than a website.
+
+    Section 6 admits "an English-language website". A registrar parking page is
+    not a website in any sense the rule intends, and it is written in fluent
+    English, so the classifier is confident and wrong. Rejecting these is the
+    difference between measuring what a site was and measuring what its
+    registrar's placeholder said.
+    """
+    if len(text) > _NON_SITE_MAX_CHARS:
+        return False
+    lowered = text.lower()
+    return any(marker in lowered for marker in _NON_SITE_MARKERS)
+
+
 def classify_text(text: str) -> tuple[str | None, float]:
     """(language code, confidence) for one page, or (None, 0.0) if unusable.
 
     Returns None for text too short to classify, which section 6 calls "not
-    reliably classified" and keeps out of the share entirely.
+    reliably classified" and keeps out of the share entirely, and for a page
+    that is a placeholder rather than a website.
+
+    Classification runs on case-folded text. py3langid's model is trained on
+    ordinary prose, and an all-capitals page is out of distribution for it:
+    measured on one real capture, the same words scored 0.92 upper-case and
+    1.000 lower-case, and a shoutier example in the corpus was confidently
+    assigned Maltese. Folding costs nothing and only ever raises confidence.
     """
-    if len(text) < MIN_TEXT_CHARS:
+    if len(text) < MIN_TEXT_CHARS or is_non_site_text(text):
         return None, 0.0
-    lang, confidence = _classifier().classify(text)
+    lang, confidence = _classifier().classify(text.lower())
     return str(lang), float(confidence)
 
 
@@ -342,13 +426,24 @@ def classify_pair(
         "fetch_failures": 0,
     }
 
-    status, body = _fetch_retrying(captures_url(domain, year, samples), cdx_fetch, gov, retries)
+    # CANDIDATE_LIMIT, not `samples`: the index limit is how many captures to
+    # CHOOSE FROM, and passing the fetch count here is what censored
+    # `captures_found` and starved the selection.
+    status, body = _fetch_retrying(
+        captures_url(domain, year, CANDIDATE_LIMIT), cdx_fetch, gov, retries
+    )
     if status != 200:
         record["status"] = status
         return record
 
     captures = parse_captures(body, year)
     record["captures_found"] = len(captures)
+    # Spend the fetches on the largest archived records. The index reports each
+    # record's stored size, so the biggest pages can be picked without fetching
+    # anything, and page size is the best available proxy for "has body text".
+    # Taking the first N rows instead sampled whatever sorted first by URL key,
+    # which is how framesets and redirect stubs came to dominate the sample.
+    captures.sort(key=lambda c: c[2], reverse=True)
     if not captures:
         # The archive holds nothing for this domain in this year, so there is no
         # body text to judge and the pair is undetermined. This is a real answer
@@ -359,7 +454,7 @@ def classify_pair(
 
     collected: list[Sample] = []
     urls: list[str] = []
-    for timestamp, original in captures[:samples]:
+    for timestamp, original, _length in captures[:samples]:
         target = snapshot_url(timestamp, original)
         gov.wait()
         page_status, raw = fetch_bytes(target)
