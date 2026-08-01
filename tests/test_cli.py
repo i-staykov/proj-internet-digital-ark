@@ -54,3 +54,36 @@ def test_ingest_rejects_unknown_source(tmp_path, monkeypatch) -> None:
     fixture.write_text("x\n", encoding="utf-8")
     result = runner.invoke(app, ["ingest", "no_such_source", str(fixture)])
     assert result.exit_code != 0
+
+
+def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeypatch) -> None:
+    """`ark rebuild` DROPS the store's tables before recreating them from
+    Parquet. On a finished delivery that is the tier-2 reviewer path; during
+    collection it silently discards everything ingested since the last export,
+    and the maintenance loop keeps that window open almost all the time."""
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init"]).exit_code == 0
+    assert runner.invoke(app, ["export"]).exit_code == 0
+
+    # one more ingest after the export, which is the hazard exactly
+    import duckdb
+
+    conn = duckdb.connect("data/ark.duckdb")
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES ('later', 'later.gz', 'abc', 1)"
+    )
+    conn.close()
+
+    result = runner.invoke(app, ["rebuild", "output/provenance"])
+    assert result.exit_code != 0
+    assert "refusing to rebuild" in result.output
+
+
+def test_rebuild_proceeds_when_the_export_is_current(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init"]).exit_code == 0
+    assert runner.invoke(app, ["export"]).exit_code == 0
+    result = runner.invoke(app, ["rebuild", "output/provenance"])
+    assert result.exit_code == 0, result.output
+    assert "rebuilt from" in result.output

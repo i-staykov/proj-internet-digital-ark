@@ -98,21 +98,34 @@ def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENAN
     regenerates the annual files, and the integrity gate re-runs against it too.
     Measured on the shipped export: the fourteen result files come back
     byte-identical in about six seconds.
+
+    **Every table is dropped before any is created, in reverse dependency
+    order.** Dropping and recreating one at a time works only on an empty store,
+    because `domain` references `source` and DuckDB refuses to drop a table a
+    foreign key still points at. That made this fail on any store that had
+    already been initialised, which is the ordinary case for anyone told to run
+    `ark export` before rebuilding.
     """
+    missing = [t for t in CORE_TABLES if not (source_dir / f"{t}.parquet").exists()]
+    if missing:
+        absent = source_dir / f"{missing[0]}.parquet"
+        raise FileNotFoundError(f"{absent} not found; point this at a provenance/ folder")
+
+    for table in reversed(TABLES):
+        conn.execute(f"DROP TABLE IF EXISTS {table}")
+
     counts: dict[str, int] = {}
     for table in TABLES:
         path = source_dir / f"{table}.parquet"
         if not path.exists():
-            if table in OPTIONAL_TABLES:
-                # Create it empty rather than skip it, so everything downstream
-                # can query the table unconditionally instead of guarding.
-                from ark.db import init_db
+            # An optional table absent from an older export is created empty
+            # rather than skipped, so everything downstream can query it
+            # unconditionally instead of guarding.
+            from ark.db import init_db
 
-                init_db(conn)
-                counts[table] = 0
-                continue
-            raise FileNotFoundError(f"{path} not found; point this at a provenance/ folder")
-        conn.execute(f"DROP TABLE IF EXISTS {table}")
+            init_db(conn)
+            counts[table] = 0
+            continue
         conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     logger.info(f"provenance loaded: {counts}")

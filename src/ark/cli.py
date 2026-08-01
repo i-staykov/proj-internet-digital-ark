@@ -652,6 +652,10 @@ def rebuild(
         Path,
         typer.Argument(help="Folder holding the provenance Parquet files."),
     ] = PROVENANCE_DIR,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Rebuild even when the store is ahead of the export."),
+    ] = False,
 ) -> None:
     """Rebuild the result from a provenance export, with no source data.
 
@@ -660,9 +664,35 @@ def rebuild(
     the candidate list and the manifest. Run `ark check` afterwards to put the
     rebuilt store through the same integrity gate as the original.
 
+    Refuses when the store holds ingested files the export does not, because
+    this command DROPS the store's tables before recreating them from Parquet.
+    On a finished delivery that is exactly right. During collection it is
+    destructive: anything ingested since the last `ark export` is not in the
+    Parquet yet and would be discarded without a word. Pass --force if the
+    discard is intended.
+
     Example: ark rebuild ../provenance
     """
     conn = connect()
+    ledger_query = "SELECT count(*) FROM ingested_file"
+    try:
+        in_store = conn.execute(ledger_query).fetchone()[0]
+    except Exception:  # noqa: BLE001 - an empty store has no ledger yet, which is fine
+        in_store = 0
+    parquet = provenance_dir / "ingested_file.parquet"
+    in_export = 0
+    if parquet.exists():
+        in_export = conn.execute(
+            f"SELECT count(*) FROM read_parquet('{parquet}')"  # noqa: S608
+        ).fetchone()[0]
+    if in_store > in_export and not force:
+        raise typer.BadParameter(
+            f"refusing to rebuild: the store holds {in_store:,} ingested files and "
+            f"{provenance_dir} holds {in_export:,}. Rebuilding drops the store's tables, so "
+            f"the {in_store - in_export:,} newer ingests would be discarded. Run `ark export` "
+            f"first, or pass --force if that is what you want."
+        )
+
     load_provenance(conn, provenance_dir)
     stats = export_all(conn)
     typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
