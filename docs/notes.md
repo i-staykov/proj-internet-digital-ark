@@ -1045,3 +1045,32 @@ was the interesting part.
   store now rather than quoting one batch, which is the same discipline as every
   other figure: a single-batch rate presented as the rate is an estimate wearing
   a measurement's clothes
+
+## 2026-08-01 (phase 4, close: the deliverable, and what three review rounds cost and bought)
+
+- **Shipped 1,541 English-verified pairs of 151,949 additions, with 1,056
+  exclusions documented per item.** The English figure is 1.0% of the total and
+  that ratio is the honest headline: the standard was imposed three days ago and
+  verification is bound by what `web.archive.org` will serve one client, measured
+  at 367 pairs/hour against a backlog of two weeks
+- **Three adversarial review rounds, and they earned their cost.** Two on the
+  engine found ten defects, four of which had already put a wrong domain in a
+  generated file. One on the report found twenty-five problems, of which the most
+  serious was that its headline claimed 93 English verdicts against files that
+  shipped empty. A fourth pass verified the fixes and found twelve more, including
+  two different "measured" rates for one engine and an estimate carried forward as
+  a measurement. **None of this was found by testing; all of it was found by
+  reading adversarially with a brief.** The lesson to carry: a green test suite
+  says the code does what it was written to do, not that what it was written to do
+  is right
+- **The most valuable single finding was a provenance failure, not a logic bug.**
+  The archive answers a replay it cannot serve exactly with a capture from another
+  year, and because the engine stored the URL it asked for rather than the one
+  that answered, a reviewer re-checking a wrong verdict would have seen agreement.
+  An audit trail that confirms its own error is worse than no audit trail, because
+  it converts a detectable mistake into an undetectable one
+- **The deliverable was verified from outside the repo before shipping.** Checksum,
+  unpack, `verify.sh` with six PASS and no vacuous check, then the full tier-2
+  rebuild from the shipped Parquet: twelve invariants pass and 25 of 25 result
+  files return byte-identical. That test has now found two defects nothing else
+  did, and it is the reason it is written into the handoff as mandatory
