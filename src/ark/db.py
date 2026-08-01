@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS domain_language (
     top_other     TEXT,
     evidence_urls TEXT    NOT NULL DEFAULT '',
     reason        TEXT,
+    engine_version INTEGER NOT NULL DEFAULT 0,
     classified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (domain, assigned_year)
 );
@@ -99,7 +100,10 @@ CREATE TABLE IF NOT EXISTS domain_language (
 # fresh stores only and silently skips every existing one. Each entry is applied
 # with IF NOT EXISTS, so running this on either kind of store is a no-op or a
 # one-line change and never an error.
-MIGRATIONS = (("domain_language", "reason", "TEXT"),)
+MIGRATIONS = (
+    ("domain_language", "reason", "TEXT"),
+    ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
+)
 
 
 def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:

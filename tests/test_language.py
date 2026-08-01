@@ -176,10 +176,13 @@ def _fetchers(cdx_body: str, pages: dict[str, bytes], cdx_status: int = 200):
         asked.append(url)
         return cdx_status, cdx_body
 
-    def page_fetch(url: str) -> tuple[int, bytes]:
+    def page_fetch(url: str) -> tuple[int, bytes, str]:
+        # Third element is the URL that ANSWERED. Here it always equals the URL
+        # asked for; `_redirecting_fetchers` is the harness for the case where
+        # the archive substitutes a capture from another year.
         if url in pages:
-            return 200, pages[url]
-        return 0, b""
+            return 200, pages[url], url
+        return 0, b"", url
 
     cdx_fetch.asked = asked  # type: ignore[attr-defined]
     return cdx_fetch, page_fetch
@@ -286,13 +289,65 @@ def test_targets_exclude_baseline_pairs(tmp_path):
 
 
 def test_targets_exclude_pairs_already_classified(tmp_path):
+    from ark.language import ENGINE_VERSION
+
     conn = _store()
     _add_pair(conn, "new.com", 1998, "cdx_timestamp")
     conn.execute(
-        "INSERT INTO domain_language (domain, assigned_year, verdict) VALUES (?, ?, ?)",
-        ["new.com", 1998, "english"],
+        "INSERT INTO domain_language (domain, assigned_year, verdict, engine_version) "
+        "VALUES (?, ?, ?, ?)",
+        ["new.com", 1998, "english", ENGINE_VERSION],
     )
     assert write_lang_targets(conn, tmp_path / "t.txt")["targets"] == 0
+
+
+def test_a_verdict_we_could_not_settle_stays_in_the_work_list(tmp_path):
+    """Any verdict at all used to remove a pair for good, which made every
+    scoring defect permanent: nothing could re-judge the pairs a broken engine
+    had already answered. An `undetermined` that means "we could not tell" is
+    not an answer, so it stays retryable."""
+    from ark.language import ENGINE_VERSION
+
+    conn = _store()
+    _add_pair(conn, "retry.com", 1998, "cdx_timestamp")
+    conn.execute(
+        "INSERT INTO domain_language "
+        "(domain, assigned_year, verdict, reason, engine_version) VALUES (?, ?, ?, ?, ?)",
+        ["retry.com", 1998, "undetermined", "insufficient_text", ENGINE_VERSION],
+    )
+    assert write_lang_targets(conn, tmp_path / "t.txt")["targets"] == 1
+
+
+def test_no_capture_in_year_is_final(tmp_path):
+    """The one undetermined that will not change: the archive's index for a past
+    year does not grow, and this reason means it was asked without filters."""
+    from ark.language import ENGINE_VERSION
+
+    conn = _store()
+    _add_pair(conn, "empty.com", 1998, "cdx_timestamp")
+    conn.execute(
+        "INSERT INTO domain_language "
+        "(domain, assigned_year, verdict, reason, engine_version) VALUES (?, ?, ?, ?, ?)",
+        ["empty.com", 1998, "undetermined", "no_capture_in_year", ENGINE_VERSION],
+    )
+    assert write_lang_targets(conn, tmp_path / "t.txt")["targets"] == 0
+
+
+def test_a_verdict_from_a_superseded_engine_is_re_judged(tmp_path):
+    """746 known-bad `english` verdicts from the pre-fix engine sit in
+    data/raw/lang/superseded/. Before this, one re-ingest would have made them
+    permanent, because nothing distinguished them from current ones and no pair
+    with a verdict was ever re-queued."""
+    from ark.language import ENGINE_VERSION
+
+    conn = _store()
+    _add_pair(conn, "stale.com", 1998, "cdx_timestamp")
+    conn.execute(
+        "INSERT INTO domain_language "
+        "(domain, assigned_year, verdict, engine_version) VALUES (?, ?, ?, ?)",
+        ["stale.com", 1998, "english", ENGINE_VERSION - 1],
+    )
+    assert write_lang_targets(conn, tmp_path / "t.txt")["targets"] == 1
 
 
 def test_targets_put_capture_backed_pairs_first(tmp_path):
@@ -469,11 +524,21 @@ def test_targets_interleave_years_within_the_capture_backed_group(tmp_path):
 # --- the section 6.1 report -------------------------------------------------
 
 
-def _classify(conn, domain: str, year: int, verdict: str) -> None:
+def _classify(
+    conn, domain: str, year: int, verdict: str, engine_version: int | None = None
+) -> None:
+    from ark.language import ENGINE_VERSION
+
     conn.execute(
-        "INSERT INTO domain_language (domain, assigned_year, verdict, english_share, samples) "
-        "VALUES (?, ?, ?, ?, 1)",
-        [domain, year, verdict, 1.0 if verdict == "english" else 0.0],
+        "INSERT INTO domain_language (domain, assigned_year, verdict, english_share, samples, "
+        "engine_version) VALUES (?, ?, ?, ?, 1, ?)",
+        [
+            domain,
+            year,
+            verdict,
+            1.0 if verdict == "english" else 0.0,
+            ENGINE_VERSION if engine_version is None else engine_version,
+        ],
     )
 
 
@@ -727,8 +792,8 @@ def _two_stage_fetchers(filtered_body: str, probe_body: str, probe_status: int =
             return probe_status, probe_body
         return 200, filtered_body
 
-    def page_fetch(url: str) -> tuple[int, bytes]:
-        return 0, b""
+    def page_fetch(url: str) -> tuple[int, bytes, str]:
+        return 0, b"", url
 
     cdx_fetch.asked = asked  # type: ignore[attr-defined]
     return cdx_fetch, page_fetch
@@ -841,3 +906,206 @@ def test_the_reason_survives_into_the_store(tmp_path):
     ingest_language_journal(conn, journal)
     stored = conn.execute("SELECT verdict, reason FROM domain_language").fetchone()
     assert stored == ("other", "mixed_below_threshold")
+
+
+# --- the archive can answer with a different year ---------------------------
+
+
+def _redirecting_fetchers(cdx_body: str, served_for: dict[str, tuple[bytes, str]]):
+    """Answer a replay request with a body and a DIFFERENT served URL.
+
+    `web.archive.org` redirects a replay it cannot serve exactly to the nearest
+    capture in time, in any year, and urllib follows it silently and returns
+    200. This harness is the only way to express that in a test.
+    """
+
+    def cdx_fetch(url: str) -> tuple[int, str]:
+        return 200, cdx_body
+
+    def page_fetch(url: str) -> tuple[int, bytes, str]:
+        if url in served_for:
+            body, served = served_for[url]
+            return 200, body, served
+        return 0, b"", url
+
+    return cdx_fetch, page_fetch
+
+
+def test_a_capture_served_from_another_year_is_not_classified():
+    """The worst failure available to this engine. A 1997 request answered with
+    2000 content would date a website's language by the wrong year, and because
+    the old code recorded the URL it ASKED for, a reviewer refetching it would
+    get the same substitution and see agreement. The audit trail would confirm
+    the error rather than expose it."""
+    cdx = "19970601000000 http://1697.com/ 4000\n"
+    asked = "https://web.archive.org/web/19970601000000id_/http://1697.com/"
+    served = "https://web.archive.org/web/20001017120626id_/http://1697.com/"
+    cdx_fetch, page_fetch = _redirecting_fetchers(cdx, {asked: (_page(ENGLISH), served)})
+    record = classify_pair("1697.com", 1997, cdx_fetch, page_fetch)
+    assert record["verdict"] != "english"
+    assert not answered(record), "nothing was learned about 1997, so nothing may be settled"
+    assert record["year_substitutions"] == 1
+
+
+def test_evidence_urls_record_what_answered_not_what_was_asked():
+    """A reviewer must be able to refetch the page we actually read."""
+    cdx = "19980101000000 http://example.com/ 4000\n"
+    asked = "https://web.archive.org/web/19980101000000id_/http://example.com/"
+    served = "https://web.archive.org/web/19980315090000id_/http://example.com/"
+    cdx_fetch, page_fetch = _redirecting_fetchers(cdx, {asked: (_page(ENGLISH), served)})
+    record = classify_pair("example.com", 1998, cdx_fetch, page_fetch)
+    assert record["verdict"] == "english"
+    assert record["evidence_urls"] == [served], "the served URL, not the requested one"
+
+
+# --- candidate selection ----------------------------------------------------
+
+
+def test_robots_txt_is_never_a_content_sample():
+    """The index labels robots.txt as text/html status 200, and on a small site
+    it is often LONGER than the homepage, so a length-descending sort picked it
+    first. Two domains were admitted as English websites on a robots.txt and
+    nothing else."""
+    from ark.language import is_content_url
+
+    assert not is_content_url("http://www.1125.com/robots.txt")
+    assert is_content_url("http://www.1125.com/")
+
+    cdx = "19980101000000 http://a.com/robots.txt 785\n19980101000000 http://a.com/ 358\n"
+    home = "https://web.archive.org/web/19980101000000id_/http://a.com/"
+    cdx_fetch, page_fetch = _fetchers(cdx, {home: _page(ENGLISH)})
+    record = classify_pair("a.com", 1998, cdx_fetch, page_fetch, samples=1)
+    assert record["evidence_urls"] == [home]
+
+
+def test_vendor_application_pages_are_not_the_website():
+    """1stflatrate.com was certified an English website for 2001 on an Ipswitch
+    IMail login screen served from port 8383. The English in that page is the
+    vendor's interface, not the site's body text."""
+    from ark.language import is_content_url
+
+    assert not is_content_url("http://mail.1stflatrate.com:8383/readmail.31116.cgi")
+    assert not is_content_url("http://a.com/cgi-bin/search.pl")
+    assert not is_content_url("http://a.com/guestbook.cgi")
+    assert is_content_url("http://a.com/about.html")
+
+
+def test_the_same_document_is_not_sampled_twice():
+    """collapse=urlkey collapses identical keys, and www/apex/index.htm are
+    three keys for one page, so both fetch slots went to the front page."""
+    from ark.language import document_key
+
+    assert document_key("http://www.foo.com:80/") == document_key("http://foo.com/")
+    assert document_key("http://www.foo.com/index.htm") == document_key("http://foo.com/")
+    assert document_key("http://foo.com/a/") != document_key("http://foo.com/b/")
+
+
+def test_a_junk_capture_does_not_end_the_sampling():
+    """samples is a budget of usable reads, not of attempts. A pair whose two
+    largest captures happen to be unreachable was settled undetermined while
+    unread candidates sat in the same index response."""
+    cdx = (
+        "19980101000000 http://a.com/big.html 9000\n"
+        "19980102000000 http://a.com/mid.html 5000\n"
+        "19980103000000 http://a.com/small.html 1000\n"
+    )
+    good = "https://web.archive.org/web/19980103000000id_/http://a.com/small.html"
+    cdx_fetch, page_fetch = _fetchers(cdx, {good: _page(ENGLISH)})
+    record = classify_pair("a.com", 1998, cdx_fetch, page_fetch, samples=1)
+    assert record["evidence_urls"] == [good], "it walked past the two unreachable candidates"
+    assert record["verdict"] == "english"
+
+
+# --- what counts as a website -----------------------------------------------
+
+
+def test_a_keyword_link_farm_is_not_a_website():
+    """2000s.com 2001 reached the shipped annual file on 1,060 characters of
+    comma-separated category names, fluent English and confidently classified.
+    No phrase catches this family, so the test has to be structural."""
+    from ark.language import is_non_site_text
+
+    farm = (
+        "Finance Loan , Debt , Personal Finance , Investing , Insurance , Mortgage , "
+        "Credit Cards , Gambling Video Poker , Blackjack , Roulette , Casino , Slots , "
+        "Shopping Books , Computers , Electronics , Toys , Apparel , Jewelry , Music , "
+        "Travel Hotels , Flights , Car Rental , Cruises , Vacations , Resorts , Flights "
+    ) * 4
+    assert len(farm) > 1000, "and the old code returned False above 1000 characters"
+    assert is_non_site_text(farm)
+
+
+def test_a_forwarding_notice_is_not_a_website():
+    """1pm.com 2000, admitted on 221 characters announcing a move."""
+    from ark.language import is_non_site_text
+
+    assert is_non_site_text(
+        "1st Polymer Market The 1st Polymer Market has teamed up with the Plastics "
+        "Platform and has moved to www.plasticsplatform.com. A note to registered "
+        "users: your user name and password are valid to enter the Plastics Platform."
+    )
+
+
+def test_ordinary_short_english_sites_survive_the_placeholder_test():
+    """The asymmetry is total: a false positive here can only ever withhold an
+    English admission, never grant one. 'under construction' and 'best viewed
+    with' are ordinary prose on a real site."""
+    from ark.language import is_non_site_text
+
+    real_pages = [
+        "Meadowbank Plumbing and Heating. Established 1974, serving the Lothians for "
+        "over twenty years. We install and repair boilers, radiators and bathroom "
+        "suites. Our online price list is under construction. Telephone 0131 555 0134 "
+        "for a free quotation, or write to us at 14 Meadowbank Terrace, Edinburgh.",
+        "The Fenwick Historical Society meets on the first Tuesday of every month in "
+        "the parish hall. Our archive holds parish records, photographs and maps "
+        "dating from 1841. This site is best viewed with a browser which supports "
+        "tables. New members are always welcome and the annual subscription is four "
+        "pounds, payable to the treasurer.",
+    ]
+    for page in real_pages:
+        assert not is_non_site_text(page), page[:40]
+
+
+def test_escaped_markup_is_not_counted_as_prose():
+    """convert_charrefs turns &lt;p&gt; into the literal text <p>, so a page that
+    escaped its own markup fed tag names, attributes and URLs to the classifier
+    as ASCII tokens that read as English."""
+    html = "<html><body>Bonjour tout le monde &lt;a href=&quot;http://x.com/&quot;&gt;"
+    html += "Click Here&lt;/a&gt; &lt;br&gt;</body></html>"
+    text = body_text(html)
+    assert "href" not in text
+    assert "<a" not in text and "<br>" not in text
+    assert "Bonjour" in text and "Click Here" in text
+
+
+def test_a_gzip_encoded_capture_is_decompressed():
+    """A capture whose original response carried Content-Encoding: gzip replays
+    as compressed bytes, which decode to noise and score as unusable."""
+    assert ENGLISH.strip()[:20] in decode_page(gzip.compress(ENGLISH.encode()))
+
+
+def test_samples_below_one_is_refused():
+    """captures[:0] is empty, so the old code settled the pair at status 200
+    with no page fetched at all. One typo in a recipe would have settled the
+    whole remaining work list as rejected in minutes."""
+    cdx_fetch, page_fetch = _fetchers("19980101000000 http://a.com/ 500\n", {})
+    with pytest.raises(ValueError, match="at least 1"):
+        classify_pair("a.com", 1998, cdx_fetch, page_fetch, samples=0)
+
+
+def test_early_years_are_threaded_into_the_head_of_the_queue(tmp_path):
+    """1996 and 1997 hold 25,599 additions and 48 capture-backed pairs between
+    them, so a strict capture-backed ordering leaves both at zero English
+    verdicts forever. A measured 9.1% of their pairs do have a capture, so they
+    are worth a minority share of the budget rather than none of it."""
+    conn = _store()
+    for i in range(60):
+        _add_pair(conn, f"cap{i:03d}.com", 2000, "cdx_timestamp")
+    for i in range(60):
+        _add_pair(conn, f"early{i:03d}.com", 1996, "whois_creation")
+    out = tmp_path / "t.txt"
+    write_lang_targets(conn, out)
+    head = [line.split("\t")[1] for line in out.read_text().splitlines()[:30]]
+    assert "1996" in head, "the early years must reach the head of the queue"
+    assert head.count("2000") > head.count("1996"), "but capture-backed work still dominates"

@@ -39,6 +39,7 @@ Collection writes a journal and never opens the store, like the other engines.
 """
 
 import csv
+import gzip
 import json
 import re
 import urllib.error
@@ -67,8 +68,10 @@ from ark.expand import snapshot_url
 from ark.journal import open_journal
 from ark.metrics import record_metrics
 
-# (status_code, body_bytes); status 0 means a transport error, which is retryable
-FetchBytes = Callable[[str], tuple[int, bytes]]
+# (status_code, body_bytes, served_url). The third element exists because the
+# archive can answer a replay request by redirecting to a capture from a
+# different year, and only the served URL reveals that.
+FetchBytes = Callable[[str], tuple[int, bytes, str]]
 
 VERDICT_ENGLISH = "english"
 VERDICT_OTHER = "other"
@@ -100,7 +103,7 @@ DEFAULT_SAMPLES = 3
 # response, a page fetch is a whole request against a service that has refused
 # this project before. Asking for many candidates and fetching few is the one
 # lever here that buys accuracy without buying traffic.
-CANDIDATE_LIMIT = 40
+CANDIDATE_LIMIT = 100
 
 # A capture larger than this is truncated before decoding. 1990s pages are small;
 # anything much bigger is a database dump or a mislabelled binary, and reading it
@@ -108,6 +111,26 @@ CANDIDATE_LIMIT = 40
 MAX_BODY_BYTES = 2_000_000
 
 DEFAULT_TIMEOUT = 45.0
+
+# Bumped whenever a change alters what a verdict would be. Stamped into every
+# journal record and stored beside every verdict, so a verdict produced by a
+# superseded engine can be found and re-judged instead of quietly outliving the
+# defect that produced it.
+#
+# This exists because it nearly went wrong. Three scoring defects were found on
+# 1 August after the engine had produced 1,164 verdicts, and seven more the same
+# afternoon. Nothing in the pipeline could tell a pre-fix verdict from a post-fix
+# one: the journals are ordinary files with ordinary names, the ingester
+# ledgers by content hash, and `write_lang_targets` skipped any pair that had a
+# row at all. One re-ingest of an archived journal would have made known-wrong
+# admissions permanent.
+#
+#   1  first release
+#   2  index limit, capture ordering, parking pages
+#   3  year substitution, non-content URLs, document dedup, link farms,
+#      escaped markup, truncated samples, gzip captures
+ENGINE_VERSION = 3
+
 
 # Why a pair failed the English standard, as a fixed vocabulary rather than free
 # text. Ivo's instruction of 1 August is that every pair we *judged* and rejected
@@ -141,7 +164,18 @@ REASONS = (
     REASON_MIXED_BELOW_THRESHOLD,
 )
 
+# Verdicts that will not change if we ask again. `english` and `other` were read
+# and classified; `no_capture_in_year` was asked without filters and the
+# archive's index for a past year does not change. Everything else means we tried
+# and could not tell, which a later run with a better sample may settle, so it
+# stays in the work list rather than being written off.
+FINAL_VERDICTS = (VERDICT_ENGLISH, VERDICT_OTHER)
+FINAL_UNDETERMINED_REASONS = (REASON_NO_CAPTURE_IN_YEAR,)
+
 _WHITESPACE = re.compile(r"\s+")
+# `<p>`, `</a>`, `<img src=...>` appearing as literal text after entity
+# conversion. Anchored on a letter, `/` or `!` so ordinary "a < b" survives.
+_ESCAPED_TAG = re.compile(r"<[a-zA-Z/!][^<>]{0,200}>")
 _SKIP_TAGS = frozenset({"script", "style", "noscript"})
 
 
@@ -220,6 +254,81 @@ def any_capture_url(domain: str, year: int) -> str:
     return f"{CDX_ENDPOINT}?{query}"
 
 
+# Paths that are not the website's prose, however large the stored record is.
+#
+# `robots.txt` is the expensive one: the index labels it `text/html` with status
+# 200, so it passes both filters, and on a small site it is often *longer* than
+# the homepage, which put it first under a length-descending sort. Measured on
+# `1125.com` 2001, the archive holds exactly two URLs for the year and
+# `robots.txt` is 785 bytes against the homepage's 358. Two domains were admitted
+# as English websites on a robots.txt and nothing else.
+_NON_CONTENT_PATTERNS = (
+    "/robots.txt",
+    "/favicon.ico",
+    "/sitemap.xml",
+    "/cgi-bin/",
+    "/webmail",
+    "readmail",
+    "/guestbook",
+    "/counter",
+    "/banner",
+)
+_NON_CONTENT_SUFFIXES = (".cgi", ".pl", ".css", ".js", ".txt", ".xml", ".ico")
+
+# Ports other than the web ports. A capture on :8383 is almost always a vendor
+# application, not the site: `1stflatrate.com` was certified an English website
+# for 2001 on an Ipswitch IMail login screen served from port 8383.
+_WEB_PORTS = ("", ":80", ":443")
+
+
+def is_content_url(url: str) -> bool:
+    """Whether a captured URL plausibly holds the website's own body text.
+
+    Sorting candidates by stored size and taking the largest systematically
+    picks the biggest record under the domain, and on a 1996-2001 domain the
+    biggest record is very often third-party application chrome: webmail, a CGI
+    search, a guestbook. The English in those pages is the vendor's interface,
+    not the site's. Filtering them out is what makes the size sort mean
+    "the most substantial page" rather than "the largest blob".
+    """
+    lowered = url.lower()
+    parsed = urllib.parse.urlsplit(lowered if "//" in lowered else f"http://{lowered}")
+    host, path = parsed.netloc, parsed.path
+    port = f":{parsed.port}" if parsed.port else ""
+    if port not in _WEB_PORTS:
+        return False
+    if any(pattern in path for pattern in _NON_CONTENT_PATTERNS):
+        return False
+    if path.endswith(_NON_CONTENT_SUFFIXES):
+        return False
+    if "webmail" in host or "mail." in host:
+        return False
+    return True
+
+
+_INDEX_NAMES = ("index.html", "index.htm", "default.htm", "default.html", "home.htm", "home.html")
+
+
+def document_key(url: str) -> str:
+    """A key that collapses URLs naming the same document.
+
+    `collapse=urlkey` is a server-side collapse of *identical* keys, and
+    `http://www.foo.com:80/`, `http://foo.com/` and `http://www.foo.com/index.htm`
+    are three different keys for one page. At two samples per pair that spends
+    the whole budget reading the front page twice and never reaches the site.
+    Measured: 8 of 181 two-sample records read the same document twice.
+    """
+    lowered = url.lower()
+    parsed = urllib.parse.urlsplit(lowered if "//" in lowered else f"http://{lowered}")
+    host = parsed.netloc.removesuffix(":80").removesuffix(":443").removeprefix("www.")
+    path = parsed.path or "/"
+    for name in _INDEX_NAMES:
+        if path.endswith("/" + name):
+            path = path[: -len(name)]
+            break
+    return f"{host}{path.rstrip('/') or '/'}?{parsed.query}"
+
+
 def parse_captures(body: str, year: int) -> list[tuple[str, str, int]]:
     """(timestamp, original_url, stored_length) from a CDX response.
 
@@ -245,23 +354,50 @@ def parse_captures(body: str, year: int) -> list[tuple[str, str, int]]:
     return captures
 
 
-def _http_get_bytes(url: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[int, bytes]:
-    """Fetch raw bytes, because the encoding is what we are about to detect."""
+def _http_get_bytes(url: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[int, bytes, str]:
+    """Fetch raw bytes, and report **which URL actually answered**.
+
+    The third element is not bookkeeping. `web.archive.org` answers a replay
+    request it cannot serve exactly with a 302 to the nearest capture in time,
+    **in any year**, and urllib follows that silently and returns 200. Verified
+    live: a request for the 1997 capture of `1697.com` was answered with the
+    capture of 17 October 2000.
+
+    Left unchecked that is the worst failure this engine can have. The pair
+    would be admitted for 1997 on text written in 2000, and because
+    `evidence_urls` recorded the URL we *asked* for, a reviewer refetching it
+    would get the same substitution and see agreement. The audit trail would
+    confirm the error instead of exposing it, which is worse than having no
+    audit trail at all.
+
+    So the caller gets the served URL and checks its year. Recording what
+    answered, rather than what was asked, is the only version of this that a
+    reviewer can actually check.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (https)
-            return response.status, response.read(MAX_BODY_BYTES)
+            return response.status, response.read(MAX_BODY_BYTES), response.geturl()
     except urllib.error.HTTPError as exc:
-        return exc.code, b""
+        return exc.code, b"", url
     except (urllib.error.URLError, TimeoutError, OSError):
-        return 0, b""
+        return 0, b"", url
 
 
 def bytes_fetcher(timeout: float = DEFAULT_TIMEOUT) -> FetchBytes:
-    def fetch(url: str) -> tuple[int, bytes]:
+    def fetch(url: str) -> tuple[int, bytes, str]:
         return _http_get_bytes(url, timeout)
 
     return fetch
+
+
+_SNAPSHOT_YEAR = re.compile(r"/web/(\d{4})\d{10}")
+
+
+def served_year(url: str) -> int | None:
+    """The year of the capture a Wayback replay URL points at."""
+    match = _SNAPSHOT_YEAR.search(url)
+    return int(match.group(1)) if match else None
 
 
 def decode_page(raw: bytes) -> str:
@@ -274,6 +410,15 @@ def decode_page(raw: bytes) -> str:
     """
     if not raw:
         return ""
+    # A capture whose original response carried `Content-Encoding: gzip` replays
+    # as compressed bytes, which decode to binary noise and score as unusable.
+    # Sniffing the magic number is more robust than trusting a header the replay
+    # layer may not repeat.
+    if raw[:2] == b"\x1f\x8b":
+        try:
+            raw = gzip.decompress(raw)
+        except (OSError, EOFError):
+            return ""
     best = from_bytes(raw).best()
     if best is not None:
         return str(best)
@@ -320,7 +465,13 @@ def body_text(html: str) -> str:
     # Joined on a space, not concatenated: a tag boundary is a word boundary, and
     # running "Test" and "Hello" into "TestHello" invents n-grams that the
     # classifier then reads as evidence of some other language.
-    return _WHITESPACE.sub(" ", " ".join(collector.chunks)).strip()
+    text = _WHITESPACE.sub(" ", " ".join(collector.chunks)).strip()
+    # `convert_charrefs` turns `&lt;p&gt;` into the literal text `<p>`, so a page
+    # that escaped its own markup feeds tag names, attribute names and URLs to
+    # the classifier as though they were prose. Those tokens are ASCII and read
+    # as English, which biases a non-English page carrying an escaped-HTML block
+    # toward admission.
+    return _WHITESPACE.sub(" ", _ESCAPED_TAG.sub(" ", text)).strip()
 
 
 _identifier = None
@@ -347,6 +498,9 @@ def _classifier():  # pragma: no cover - exercised through classify_text
 # web site" and scored english at confidence 1.000; `alpinvest.com` scored
 # english 1.0 on a Netscape-frames notice while its other capture was 2,110
 # characters of Dutch.
+# Phrases that mean the page is not a website, wherever they appear. Each of
+# these is the *whole point* of the page it sits on: nothing else says "this
+# domain is registered" in passing.
 _NON_SITE_MARKERS = (
     "currently has no web site",
     "does not currently have a web site",
@@ -354,37 +508,107 @@ _NON_SITE_MARKERS = (
     "this domain name is registered",
     "domain is for sale",
     "this domain may be for sale",
-    "under construction",
-    "coming soon",
-    "designed to be viewed by a browser",
-    "browser which supports",
-    "does not support frames",
-    "your browser does not support frames",
-    "no frames capable browser",
-    "index of /",
     "default web site page",
     "welcome to your new web server",
+    # Forwarding notices. `1pm.com` 2000 was admitted as an English website on
+    # 221 characters saying the market "has teamed up with the Plastics Platform
+    # and has moved to www.plasticsplatform.com". A page whose content is a
+    # redirection notice is not the website it points at.
+    "has moved to",
+    "this site has moved",
+    "we have moved",
+    "site has relocated",
+    "please update your bookmarks",
+    # `<noframes>` fallback content. Unambiguous: this text exists only to be
+    # shown when the real page cannot be, so it is never the site's own prose.
+    "designed to be viewed by a browser",
+    "does not support frames",
+    "no frames capable browser",
 )
 
-# A marker inside a substantial page is a passing remark, not the whole page. A
-# real site mentioning "under construction" in one corner carries far more text
-# than a placeholder whose entire content is the notice.
-_NON_SITE_MAX_CHARS = 1000
+# Phrases that are placeholder language on a stub and ordinary prose on a real
+# site. A plumber writing "our online price list is under construction" is
+# running a website; a page whose entire content is those three words is not.
+# Kept apart from the list above because a substring test on these rejects
+# genuine short English sites, and the asymmetry is total: a false positive can
+# only ever withhold an admission, never grant one.
+_WEAK_NON_SITE_MARKERS = (
+    "under construction",
+    "coming soon",
+    "browser which supports",
+    "best viewed with",
+    "index of /",
+)
+
+# How much text may remain, once every weak marker is removed, for the page to
+# still count as a placeholder. Length alone cannot do this job: a real plumber's
+# page mentioning "our price list is under construction" measures 299 characters
+# and a genuine stub measures 55, so any threshold that catches the stub also
+# catches the plumber. What separates them is what is left when the marker is
+# taken away, which is 282 characters against 38.
+_WEAK_MARKER_RESIDUAL_CHARS = 120
+
+# Sentence-ending punctuation per character. Prose runs well above this; a
+# keyword list does not have sentences at all.
+_MIN_PUNCTUATION_DENSITY = 0.002
+_SEPARATOR_DENSITY = 0.02
+
+
+def is_link_farm(text: str) -> bool:
+    """Whether a page is a keyword list rather than prose.
+
+    A phrase list cannot catch this family, because a monetised parking page
+    contains no giveaway phrase: it is a wall of comma-separated category names.
+    `2000s.com` 2001 was admitted as an English website on 1,060 characters
+    reading "Finance Loan , Debt , Personal Finance , Investing , Insurance ...
+    Gambling Video Poker , Blackjack , Roulette ... Shopping Books , Computers".
+    Fluent English, confidently classified, and not a website.
+
+    So the test is structural: many separators, almost no sentences. Both
+    conditions are required, because a legitimate site can have a dense nav bar
+    and a legitimate short page can lack a full stop.
+    """
+    if not text:
+        return False
+    separators = text.count(",") + text.count("|") + text.count("·")
+    sentences = text.count(". ") + text.count("! ") + text.count("? ")
+    return (
+        separators / len(text) > _SEPARATOR_DENSITY
+        and sentences / len(text) < _MIN_PUNCTUATION_DENSITY
+    )
 
 
 def is_non_site_text(text: str) -> bool:
     """Whether a page is a placeholder rather than a website.
 
-    Section 6 admits "an English-language website". A registrar parking page is
-    not a website in any sense the rule intends, and it is written in fluent
-    English, so the classifier is confident and wrong. Rejecting these is the
-    difference between measuring what a site was and measuring what its
-    registrar's placeholder said.
+    Section 6 admits "an English-language website". A registrar parking page, a
+    forwarding notice and a keyword link farm are all fluent English and none of
+    them is a website, so the classifier is confident and wrong on every one.
+    Rejecting them is the difference between measuring what a site was and
+    measuring what its registrar's placeholder said.
+
+    **Three tests, because one shape of check cannot catch three shapes of
+    non-site.** Strong phrases apply at any length: nothing says "this domain is
+    registered" in passing. Weak phrases apply only to a very short page,
+    because "under construction" and "best viewed with" are ordinary prose on a
+    real site and a substring test on them rejects genuine English businesses.
+    And the structural test catches the family that has no phrase at all.
+
+    The earlier version returned False for anything over 1,000 characters before
+    testing anything, which is how a 1,060-character link farm reached the
+    shipped annual files on 60 characters of margin.
     """
-    if len(text) > _NON_SITE_MAX_CHARS:
+    if not text:
         return False
     lowered = text.lower()
-    return any(marker in lowered for marker in _NON_SITE_MARKERS)
+    if any(marker in lowered for marker in _NON_SITE_MARKERS):
+        return True
+    residual = lowered
+    for marker in _WEAK_NON_SITE_MARKERS:
+        residual = residual.replace(marker, " ")
+    if len(residual) < len(lowered) and len(residual.strip()) <= _WEAK_MARKER_RESIDUAL_CHARS:
+        return True
+    return is_link_farm(text)
 
 
 def classify_text(text: str) -> tuple[str | None, float]:
@@ -517,6 +741,12 @@ def classify_pair(
     The record always states what happened, including failure, so a later run
     knows whether the question was answered or merely attempted.
     """
+    if samples < 1:
+        # `captures[:0]` is empty, so the old code reached the scoring path with
+        # nothing collected and no fetch failures, settled the pair at status 200
+        # and recorded `undetermined`. One typo in a recipe would have settled
+        # the whole remaining work list as rejected without a single page fetch.
+        raise ValueError(f"samples must be at least 1, got {samples}")
     gov = governor or RateGovernor()
     fetch_bytes = page_fetch or bytes_fetcher()
     record: dict = {
@@ -532,6 +762,7 @@ def classify_pair(
         "captures_found": 0,
         "fetch_failures": 0,
         "reason": None,
+        "engine_version": ENGINE_VERSION,
     }
 
     # CANDIDATE_LIMIT, not `samples`: the index limit is how many captures to
@@ -546,12 +777,21 @@ def classify_pair(
 
     captures = parse_captures(body, year)
     record["captures_found"] = len(captures)
-    # Spend the fetches on the largest archived records. The index reports each
-    # record's stored size, so the biggest pages can be picked without fetching
-    # anything, and page size is the best available proxy for "has body text".
-    # Taking the first N rows instead sampled whatever sorted first by URL key,
-    # which is how framesets and redirect stubs came to dominate the sample.
-    captures.sort(key=lambda c: c[2], reverse=True)
+    # Narrow to plausible content, then collapse URLs naming one document, and
+    # only then sort by size. Size is a good tiebreaker among real pages and a
+    # bad selector on its own: it reliably picks robots.txt over a small
+    # homepage and a webmail login over a site's front page.
+    captures = [c for c in captures if is_content_url(c[1])]
+    seen_documents: set[str] = set()
+    deduplicated: list[tuple[str, str, int]] = []
+    for capture in sorted(captures, key=lambda c: c[2], reverse=True):
+        key = document_key(capture[1])
+        if key in seen_documents:
+            continue
+        seen_documents.add(key)
+        deduplicated.append(capture)
+    captures = deduplicated
+    record["captures_usable"] = len(captures)
     if not captures:
         # **The query above is filtered, so its emptiness is not the claim we
         # want to record.** It asks for captures that are `statuscode:200` and
@@ -580,10 +820,19 @@ def classify_pair(
 
     collected: list[Sample] = []
     urls: list[str] = []
-    for timestamp, original, _length in captures[:samples]:
+    # A budget of usable reads, not of attempts. The old hard slice `[:samples]`
+    # meant a pair whose two largest captures happened to be junk was settled
+    # `undetermined` while 38 unread candidates sat in the same index response.
+    # Walking on costs a fetch only when a fetch was wasted, and the cap stops
+    # a pathological domain from consuming the run.
+    attempts = 0
+    for timestamp, original, _length in captures:
+        if len(collected) >= samples or attempts >= samples * 3:
+            break
+        attempts += 1
         target = snapshot_url(timestamp, original)
         gov.wait()
-        page_status, raw = fetch_bytes(target)
+        page_status, raw, served = fetch_bytes(target)
         if page_status != 200 or not raw:
             record["fetch_failures"] += 1
             # A transport error (status 0) backs the pace off just like an
@@ -596,12 +845,20 @@ def classify_pair(
                 gov.on_throttle()
             continue
         gov.on_success()
+        # **What answered, not what was asked.** The archive redirects a replay
+        # it cannot serve exactly to the nearest capture in time, in any year,
+        # so a 1997 request can be answered with 2000 content and a clean 200.
+        # Classifying that would date a website's language by the wrong year.
+        actual = served_year(served)
+        if actual is not None and actual != year:
+            record["year_substitutions"] = record.get("year_substitutions", 0) + 1
+            continue
         text = body_text(decode_page(raw))
         language, confidence = classify_text(text)
-        collected.append(Sample(target, language, confidence, len(text), sample_rejection(text)))
-        urls.append(target)
+        collected.append(Sample(served, language, confidence, len(text), sample_rejection(text)))
+        urls.append(served)
 
-    if not collected and record["fetch_failures"]:
+    if not collected and (record["fetch_failures"] or record.get("year_substitutions")):
         # Captures exist but none could be read, so nothing was learned and the
         # pair stays eligible for a later run rather than being recorded as
         # undetermined on the strength of a transport failure.
@@ -612,6 +869,17 @@ def classify_pair(
     record["evidence_urls"] = urls
     record["text_chars"] = sum(s.chars for s in collected)
     record.update(score_samples(collected))
+
+    # A verdict reached on a truncated sample is not settled. If reads were lost
+    # and more candidates existed than we managed to read, the site was not
+    # sampled as designed, and the risk is asymmetric: `1stflatrate.com` was
+    # certified English for 2001 on one surviving page after the other fetch
+    # failed. Measured across the journals, 124 of 839 `english` verdicts rested
+    # on a single page after a lost fetch. Leaving these open costs a re-read;
+    # settling them ships a claim the sample does not support.
+    truncated = record["fetch_failures"] or record.get("year_substitutions")
+    if truncated and len(collected) < min(samples, len(captures)):
+        record["status"] = 0
     return record
 
 
@@ -637,6 +905,30 @@ TARGETS_PATH = JOURNAL_DIR / "lang_targets.txt"
 # Within the capture-backed group, work the years whose additions are largest
 # first, so a run that stops early has still produced the most admissible pairs.
 YEAR_PRIORITY = (2000, 2001, 1998, 1996, 1997, 1999)
+
+# The two years that cannot be served by a capture-backed queue at all.
+EARLY_YEARS = (1996, 1997)
+
+# One early-year pair enters the queue for every EARLY_YEAR_STRIDE capture-backed
+# pairs. A deliberate, measured, and slightly inefficient choice.
+#
+# The arithmetic, because this is a real trade and not a free improvement.
+# Between them 1996 and 1997 hold 25,599 additions and 48 capture-backed pairs,
+# so a strict capture-backed ordering leaves both years at **zero** English
+# verdicts however long the engine runs. A 200-pair unfiltered probe measured
+# what those pairs are actually worth: 5.4% of 1996 and 12.6% of 1997 do have an
+# in-year capture, 9.1% overall. That is far below the ~100% of the
+# capture-backed queue, but it is not the zero an earlier sample of pre-Usenet
+# 1996 domains suggested. The population changed when Usenet announcements
+# brought in domains that were live enough for someone to post about them.
+#
+# At this stride roughly a tenth of the budget goes to the early years, buying
+# an estimated 60 to 70 English verdicts there at a cost of about 320 elsewhere.
+# Worth it because feedback 6.1 requires the language mix reported **per year**,
+# and two years reading zero looks like a gap in the method rather than in the
+# archive. Raise the stride to spend less on them; the cost is stated so the
+# choice can be reversed on evidence rather than taste.
+EARLY_YEAR_STRIDE = 10
 
 
 def write_lang_targets(conn, path: Path = TARGETS_PATH) -> dict:
@@ -668,6 +960,15 @@ def write_lang_targets(conn, path: Path = TARGETS_PATH) -> dict:
     year priority then only decides who wins the remainder.
     """
     order = " ".join(f"WHEN {year} THEN {i}" for i, year in enumerate(YEAR_PRIORITY))
+    # A pair leaves the work list only when asking again could not change the
+    # answer. Any verdict at all used to be enough, which made every defect
+    # permanent: the three scoring bugs found on 1 August, and the seven found
+    # that afternoon, had all produced verdicts that nothing could ever revisit.
+    final_verdicts = ", ".join(f"'{v}'" for v in FINAL_VERDICTS)
+    final_reasons = ", ".join(f"'{r}'" for r in FINAL_UNDETERMINED_REASONS)
+    engine_version = ENGINE_VERSION
+    early_years = ", ".join(str(y) for y in EARLY_YEARS)
+    stride = EARLY_YEAR_STRIDE
     query = f"""
         SELECT domain, assigned_year, has_capture FROM (
             SELECT dy.domain, dy.assigned_year,
@@ -688,10 +989,20 @@ def write_lang_targets(conn, path: Path = TARGETS_PATH) -> dict:
             AND NOT EXISTS (
                 SELECT 1 FROM domain_language dl
                 WHERE dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
+                  AND dl.engine_version >= {engine_version}
+                  AND (dl.verdict IN ({final_verdicts})
+                       OR dl.reason IN ({final_reasons}))
             )
         )
-        ORDER BY has_capture DESC, rank_in_year,
-                 CASE assigned_year {order} ELSE 9 END, domain
+        ORDER BY
+            -- One queue, three densities. Capture-backed pairs advance one
+            -- position each; early-year pairs advance one position per stride,
+            -- so they thread through the head of the list instead of sitting
+            -- behind all 24,000 of the others; everything else waits.
+            CASE WHEN has_capture THEN rank_in_year
+                 WHEN assigned_year IN ({early_years}) THEN rank_in_year * {stride}
+                 ELSE 1000000 + rank_in_year END,
+            CASE assigned_year {order} ELSE 9 END, domain
     """  # noqa: S608 (order clause is built from an integer tuple)
     rows = conn.execute(query).fetchall()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -766,6 +1077,14 @@ _PARTITION_SQL = f"""
     FROM domain_year dy
     LEFT JOIN domain_language dl
       ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
+     -- Only verdicts from the current engine are shippable. A verdict produced
+     -- by a superseded engine is not evidence of anything: three scoring
+     -- defects on 1 August, and seven more the same afternoon, each changed
+     -- what a verdict would have been. Gating here rather than trusting the
+     -- table to be clean means a stale row cannot reach an annual file even if
+     -- one is re-ingested by accident, and the pair reports as `unchecked`,
+     -- which is what it truthfully is.
+     AND dl.engine_version >= {ENGINE_VERSION}
     WHERE {_NOT_IN_BASELINE}
 """
 
@@ -992,6 +1311,9 @@ def iter_verdicts(path: Path, stats: Counter) -> Iterator[dict]:
                     # existed. Those verdicts stay valid; they just cannot say
                     # why, and the export labels them so rather than guessing.
                     "reason": record.get("reason"),
+                    # 0 for journals written before versioning, which is right:
+                    # they are by definition older than the current engine.
+                    "engine_version": record.get("engine_version") or 0,
                 }
     except (EOFError, OSError):
         # journal from an interrupted run; everything before the last flush was
@@ -1053,7 +1375,8 @@ def ingest_language_journal(conn, path: Path) -> dict:
         )
         conn.execute(
             "INSERT INTO domain_language (domain, assigned_year, verdict, english_share, "
-            "samples, top_other, evidence_urls, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "samples, top_other, evidence_urls, reason, engine_version) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 row["domain"],
                 row["assigned_year"],
@@ -1063,6 +1386,7 @@ def ingest_language_journal(conn, path: Path) -> dict:
                 row["top_other"],
                 row["evidence_urls"],
                 row["reason"],
+                row["engine_version"],
             ],
         )
         written += 1
