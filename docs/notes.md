@@ -848,3 +848,17 @@ Feedback section 4 asks for broader sources and for previously unavailable ones 
   - candidate verification moves a metric that had been **0 for the life of the project**. Measured hit rate across two batches: 165 of 337, then 74 of 122, so roughly half to three fifths of Usenet-discovered names have an in-window capture and become net-new domains
   - so: per request, `ark cdx` yields about 0.5 net-new domains and 0.8 net-new pairs, while `ark lang` yields one classified pair for three requests and adds neither. With a fixed request budget and three hours left, that is not a close call
   - **this is a scheduling decision, not a change of priority.** The English standard still gates admission and the engine still has 68,000 pairs to work through. It wants a long unattended stretch, which the next window can give it
+
+## 2026-08-01, session close
+
+Final position, all measured against `data/ark.duckdb` with the ten integrity checks passing:
+
+    net-new (domain, year) pairs   32,698 -> 96,158   (+194%)
+    net-new domains                     0 ->  1,065   (first movement in the project's life)
+    candidate pool                  5,583 -> 41,289
+    English-verified pairs                     689 across four years
+    tests                             204 ->    253
+
+- **The session's most useful habit was refusing to ingest anything on an estimate.** Three of five sources assessed were rejected, two after their headline numbers proved wrong by two orders of magnitude: NYPW at 27,276 estimated against 53 measured, and an ISP-directory vein at 1,000 to 5,000 estimated against 5. Both estimates came from comparing the wrong things (registered domains against raw hostname lines, a stale baseline against a current one), and both would have been believed without a measurement script. `measure_nypw_yield.py` and `measure_usenet_yield.py` are committed so the next assessment starts from a measurement rather than a claim
+- **The Usenet finding generalises.** What made it work was not Usenet: it was that the date is *intrinsic to the artifact* rather than recovered from a crawl. That property is what reaches 1996 to 1999, where the archive's own coverage is thinnest and where every capture-based route necessarily fails. Mailing-list archives share the property and were assessed and rejected on population rather than structure; anything else with a dated record and a URL beside it deserves the same look
+- **Discovery turned out to be cheaper than verification, which inverts the plan.** The candidate pool grew from 5,583 to 41,289 in one night while verification reached 1,730 of them. The bottleneck is no longer finding names, it is asking the archive about them, and that is bounded by a rate limit rather than by ingenuity

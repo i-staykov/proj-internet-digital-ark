@@ -518,18 +518,21 @@ the URLs in each message.
   ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine
   cross-lineage corroboration rather than the same organisation agreeing with itself.
 
-**Measured yield, four groups of 302 shortlisted.** Net-new pairs moved 32,698 to **61,883**:
+**Measured yield, 54 groups of 302 shortlisted.** Net-new pairs moved 32,698 to **96,158**, with
+Tucows and the candidate verification included in the later figures:
 
 | year | before | after | change |
 |---|--:|--:|--:|
-| 1996 | 4,994 | 9,299 | +86% |
-| 1997 | 3,534 | 13,042 | +269% |
-| 1998 | 6,029 | 15,800 | +162% |
-| 1999 | 696 | 3,522 | +406% |
-| 2000 | 9,702 | 11,811 | +22% |
-| 2001 | 7,743 | 8,409 | +9% |
+| 1996 | 4,994 | 10,076 | +102% |
+| 1997 | 3,534 | 15,569 | +341% |
+| 1998 | 6,029 | 25,313 | +320% |
+| 1999 | 696 | 14,019 | **+1,914%** |
+| 2000 | 9,702 | 18,902 | +95% |
+| 2001 | 7,743 | 12,279 | +59% |
 
-A further 8,992 domains entered the candidate pool. All integrity checks pass.
+The candidate pool grew from 5,583 to 41,289, and verifying part of it produced the project's first
+net-new **domains**: 1,730 Usenet-discovered candidates queried against the archive, **1,065 with an
+in-window capture, a 62% hit rate**. All ten integrity checks pass.
 
 **The admission rule, which is the whole safety argument.** The post date is trustworthy and the URL
 beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the
