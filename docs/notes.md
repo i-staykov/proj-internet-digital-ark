@@ -1109,3 +1109,11 @@ was the interesting part.
   replays Usenet, Tucows and the language verdicts, and the deliver stage runs
   `lang-report` after `export`. Before this, the recipe the README points tier-3
   readers at rebuilt the previous round's result and stopped
+- **The re-cut archive was blind-verified before being called done.** From a
+  directory unrelated to the repo: sidecar checksum, unpack, verify.sh six PASS
+  (2,402 + 149,547 = 151,949, no overlap, 1,686 rejections over 6 reasons),
+  tier-2 rebuild ALL PASS, and all 26 README comparisons byte-identical. 624 MB,
+  381 files. The projection window is now computed from the watchdog's own
+  deadline epoch at fill time instead of a hardcoded 48 hours, and the email
+  quotes the size the English set reaches by Monday 12:00 UTC, current count
+  included
