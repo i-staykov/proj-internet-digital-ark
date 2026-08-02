@@ -24,7 +24,7 @@ END=$(( $(date +%s) + RUN_FOR_SECONDS ))
 # rate limits and gateway errors as signals to adapt rather than to abandon a
 # route, and the adaptation that matters at this level is not queuing more work
 # against a host that has stopped accepting connections: on 2026-07-26
-# web.archive.org began refusing us outright while rdap.org stayed healthy, and
+# web.archive.org began refusing this project outright while rdap.org stayed healthy, and
 # without this check the loop would have spent hours generating pure failures.
 reachable() {
     curl -sS -o /dev/null --max-time 15 --head "$1" 2>/dev/null

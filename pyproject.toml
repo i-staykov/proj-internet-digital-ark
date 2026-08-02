@@ -12,6 +12,7 @@ dependencies = [
     "cdx-toolkit>=0.9.39",
     "duckdb>=1.5.4",
     "loguru>=0.7.3",
+    "py3langid>=0.3.0",
     "pyarrow>=25.0.0",
     "tldextract>=5.3.1",
     "tqdm>=4.69.0",

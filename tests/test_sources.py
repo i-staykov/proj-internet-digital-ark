@@ -95,7 +95,7 @@ def test_isc_reads_domains_and_host_lists(tmp_path: Path) -> None:
 
 
 def test_isc_skips_pre_window_survey_file(tmp_path: Path) -> None:
-    # the Jul 1995 survey is before our window and must be skipped whole
+    # the Jul 1995 survey is before the window and must be skipped whole
     fixture = tmp_path / "wb_nw_9507.domains.gz"
     fixture.write_bytes(gzip.compress(b"foo.com\n"))
     stats: Counter = Counter()
@@ -552,3 +552,160 @@ def test_ncsa_whats_new_dates_each_entry_by_its_issue(tmp_path) -> None:
     # an entry the harvest could not date is counted, never dated by assumption
     assert stats["no_date"] == 1
     assert records[0].evidence_value == "ncsa whats-new entry 1996-01-01"
+
+
+# --- NYPW first-capture index ------------------------------------------------
+
+
+def _nypw_line(timestamp: str, original: str, status: str = "200") -> str:
+    """One line in the eight-field NYPW first-capture format."""
+    return (
+        f"https://example/ com,example)/ {timestamp} {original} text/html {status} DIGEST123 1097\n"
+    )
+
+
+def test_nypw_reads_timestamp_and_url_from_their_own_columns(tmp_path):
+    """The format is not classic CDX: the timestamp is field 2 and the URL
+    field 3, where early_web has them at 1 and 2. Reading the wrong column
+    silently yields a SURT as a domain and no year at all."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(_nypw_line("19970326221054", "http://0-0-0checkmate.com:80/"))
+    stats = Counter()
+    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
+    assert len(records) == 1
+    assert records[0].year == 1997
+    assert records[0].raw == "http://0-0-0checkmate.com:80/"
+
+
+def test_nypw_drops_out_of_window_and_non_200(tmp_path):
+    path = tmp_path / "nypw.txt"
+    path.write_text(
+        _nypw_line("20070717010807", "http://late.com/")
+        + _nypw_line("19980101000000", "http://redirect.com/", status="302")
+        + _nypw_line("19980101000000", "http://good.com/")
+    )
+    stats = Counter()
+    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
+    assert [r.raw for r in records] == ["http://good.com/"]
+    assert stats["out_of_window"] == 1
+    assert stats["non_200"] == 1
+
+
+def test_nypw_evidences_only_the_year_it_names(tmp_path):
+    """A first-capture row says the URL was archived in that year and nothing
+    about any later one, which is III.7 applied to this source."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(_nypw_line("19990601120000", "http://once.com/"))
+    records = list(SOURCES["nypw_firstcdx"].parse(path, Counter()))
+    assert [r.year for r in records] == [1999]
+
+
+# --- Usenet announcement archives --------------------------------------------
+
+
+def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
+    """Most posts carry an RFC 822 date, but the Giganews donation rewrote a
+    large share as a bare YYYY/MM/DD, which parsedate_to_datetime rejects. In
+    comp.infosystems.www.announce that is 21,346 of 23,282 messages, so a parser
+    that only understands RFC 822 silently discards 92% of the archive."""
+    from ark.usenet import message_year
+
+    assert message_year("Tue, 18 Jun 1996 12:00:00 GMT") == 1996
+    assert message_year("1997/06/18") == 1997
+    assert message_year("1998-06-18") == 1998
+    assert message_year("2010/06/18") == 2010  # readable, filtered later by window
+    assert message_year("not a date") is None
+    assert message_year("") is None
+
+
+def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
+    """One counter for both hides which problem a barren source has. An archive
+    that is entirely out of window should be dropped; one whose dates cannot be
+    parsed means the parser is wrong. alt.www.webmaster is 170 MB and 100%
+    out of window, while comp.infosystems.www.announce looked 92% undated until
+    the Giganews date format was handled."""
+    from ark.usenet import parse_usenet
+
+    path = tmp_path / "g.mbox"
+    path.write_text(
+        "From x\nDate: 2008/01/01\nMessage-ID: <a@h>\nFrom: p@vendor.com\n\nhttp://a.com/\n"
+        "From x\nDate: garbled nonsense\nMessage-ID: <b@h>\nFrom: p@vendor.com\n\nhttp://b.com/\n"
+        "From x\nDate: 1998/01/01\nMessage-ID: <c@h>\nFrom: p@vendor.com\n\nhttp://c.com/\n"
+    )
+    stats = Counter()
+    records = list(parse_usenet(path, stats))
+    assert stats["out_of_window"] == 1
+    assert stats["unreadable_date"] == 1
+    assert {r.year for r in records} == {1998}
+
+
+def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
+    """The From: domain counts because in vendor and announcement posts the
+    sender is very often the site itself, and it is the one string a mail system
+    validated rather than a human typed into a message body."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message(
+        "Check out http://www.example.com/new and https://other.co.uk/x",
+        "Someone <person@vendor.net>",
+    )
+    assert set(found) == {"example.com", "other.co.uk", "vendor.net"}
+
+
+def test_usenet_drops_infrastructure_hosts():
+    """Archive and Usenet plumbing is not a website anyone announced."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("see http://groups.google.com/x", "a@deja.com")
+    assert found == []
+
+
+def test_usenet_journal_records_the_message_id_as_evidence(tmp_path):
+    """The Message-ID is globally unique by design, so it names the exact post a
+    year assignment came from and a reviewer can go and read it."""
+    import gzip
+    import json
+
+    path = tmp_path / "usenet_dated.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "domain": "example.com",
+                    "year": 1997,
+                    "message_id": "<abc@host>",
+                    "group": "comp.infosystems.www.announce",
+                }
+            )
+            + "\n"
+        )
+    records = list(SOURCES["usenet_dated"].parse(path, Counter()))
+    assert len(records) == 1
+    assert records[0].year == 1997
+    assert "<abc@host>" in records[0].evidence_value
+
+
+def test_usenet_dated_is_master_and_mentions_are_candidate_only():
+    """The split is the whole safety argument: a corroborated domain can carry
+    the post date, an uncorroborated name cannot assign a year at all."""
+    assert SOURCES["usenet_dated"].evidence_type == "dated_directory"
+    assert not SOURCES["usenet_dated"].is_candidate_only
+    assert SOURCES["usenet_candidates"].is_candidate_only
+
+
+def test_moderated_announce_follows_usenet_naming_convention():
+    """A group whose last component is announce or moderated is moderated by
+    long-standing convention, so the rule is a suffix test rather than a list
+    nobody will maintain. The named set covers the ones that are moderated
+    announcement forums without saying so."""
+    from ark.usenet import is_moderated_announce
+
+    assert is_moderated_announce("comp.os.linux.announce")
+    assert is_moderated_announce("misc.business.moderated")
+    assert is_moderated_announce("comp.internet.net-happenings")
+    # the marker is not always last: a suffix test reports these as ordinary
+    # discussion groups, which is how the flaw was found
+    assert is_moderated_announce("news.announce.conferences")
+    assert is_moderated_announce("news.announce.newgroups")
+    assert not is_moderated_announce("alt.internet.commerce")
+    assert not is_moderated_announce("biz.marketplace")

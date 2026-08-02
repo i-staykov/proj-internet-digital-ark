@@ -11,7 +11,7 @@ engine, and reloads into a queryable database with one statement per table. It
 takes about a second to write, so it is regenerated with every delivery rather
 than maintained.
 
-Five tables, which together are the whole provenance graph:
+Six tables, which together are the whole provenance graph:
 
     source          who observed anything, and by what acquisition method
     domain          every registered domain, and which source first saw it
@@ -31,9 +31,19 @@ import duckdb
 from loguru import logger
 
 PROVENANCE_DIR = Path("output/provenance")
-TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
+CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
-LOAD_SQL = """-- For the DuckDB command-line tool, run from INSIDE this folder:
+# Language verdicts are exported alongside the evidence graph so the
+# English-verified annual files rebuild from the export like everything else.
+# They are optional on load, because an export written before the English
+# standard existed has no such file and must still load: a reviewer holding the
+# earlier delivery archive should not meet a FileNotFoundError.
+OPTIONAL_TABLES = ("domain_language",)
+
+TABLES = CORE_TABLES + OPTIONAL_TABLES
+
+LOAD_SQL = """-- Six tables: the five that make up the evidence graph, plus the language
+-- verdicts. For the DuckDB command-line tool, run from INSIDE this folder:
 --     duckdb -init LOAD.sql
 -- The paths below are relative, so a different working directory will fail.
 --
@@ -46,6 +56,10 @@ CREATE TABLE domain        AS SELECT * FROM read_parquet('domain.parquet');
 CREATE TABLE evidence      AS SELECT * FROM read_parquet('evidence.parquet');
 CREATE TABLE domain_year   AS SELECT * FROM read_parquet('domain_year.parquet');
 CREATE TABLE ingested_file AS SELECT * FROM read_parquet('ingested_file.parquet');
+
+-- English-website verdicts per (domain, year), with the snapshot URLs that were
+-- read. Absent from exports written before the English standard was imposed.
+CREATE TABLE domain_language AS SELECT * FROM read_parquet('domain_language.parquet');
 
 -- Why is a domain in a given annual file? One row per supporting observation.
 -- Replace the domain and year with any line from additions/ or masters/.
@@ -85,13 +99,34 @@ def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENAN
     regenerates the annual files, and the integrity gate re-runs against it too.
     Measured on the shipped export: the fourteen result files come back
     byte-identical in about six seconds.
+
+    **Every table is dropped before any is created, in reverse dependency
+    order.** Dropping and recreating one at a time works only on an empty store,
+    because `domain` references `source` and DuckDB refuses to drop a table a
+    foreign key still points at. That made this fail on any store that had
+    already been initialised, which is the ordinary case for anyone told to run
+    `ark export` before rebuilding.
     """
+    missing = [t for t in CORE_TABLES if not (source_dir / f"{t}.parquet").exists()]
+    if missing:
+        absent = source_dir / f"{missing[0]}.parquet"
+        raise FileNotFoundError(f"{absent} not found; point this at a provenance/ folder")
+
+    for table in reversed(TABLES):
+        conn.execute(f"DROP TABLE IF EXISTS {table}")
+
     counts: dict[str, int] = {}
     for table in TABLES:
         path = source_dir / f"{table}.parquet"
         if not path.exists():
-            raise FileNotFoundError(f"{path} not found; point this at a provenance/ folder")
-        conn.execute(f"DROP TABLE IF EXISTS {table}")
+            # An optional table absent from an older export is created empty
+            # rather than skipped, so everything downstream can query it
+            # unconditionally instead of guarding.
+            from ark.db import init_db
+
+            init_db(conn)
+            counts[table] = 0
+            continue
         conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     logger.info(f"provenance loaded: {counts}")

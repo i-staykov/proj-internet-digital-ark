@@ -8,29 +8,32 @@ the path shown.
 
 ## Summary
 
-| Source | Evidence type | Files | Evidence rows | Net-new domains | Net-new pairs |
-|---|---|--:|--:|--:|--:|
-| `isc_survey` | `artifact_listing` | 5 | 1,662,395 | 396,973 | 1,132,129 |
-| `afnic_fr` | `whois_creation` | 1 | 142,248 | 40,166 | 117,829 |
-| `ukwa_link_source` | `link_source` | 1 | 39,454 | 16,235 | 23,821 |
-| `arquivo_ia` | `cdx_timestamp` | 1 | 28,247 | 7,001 | 17,689 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 32 | 29,827 | 199 | 11,932 |
-| `odp` | `artifact_listing` | 3 | 19,629 | 3,369 | 8,423 |
-| `rdap_snapshot` | `whois_creation` | 15 | 12,309 | 5 | 5,341 |
-| `rdap` | `whois_creation` | live | 5,973 | 833 | 3,106 |
-| `page_directory` | `dated_directory` | 3 | 12,872 | 20 | 1,577 |
-| `internet_scout` | `dated_directory` | 1 | 975 | 137 | 311 |
-| `early_web_cdx` | `cdx_timestamp` | 224 | 2,278,722 | 175 | 182 |
-| `ia_cdx` | `cdx_timestamp` | live | 11 | 8 | 11 |
-| `ncsa_whats_new` | `dated_directory` | 1 | 4,916 | 1 | 7 |
-| `arquivo_roteiro` | `cdx_timestamp` | 1 | 3,442 | 0 | 7 |
-| `prior_task` | `prior_reused` | 6 | 6,866,913 | baseline | baseline |
-| `ukwa_link_target` | `link_target` | 1 | 88,263 | 0 | 0 |
-| `page_expansion` | `link_target` | 3 | 248 | 0 | 0 |
+**The per-source figures are not repeated here.** They live in
+`audit/source_contribution.csv`, which `ark export` rewrites from the store on every run, and the
+report's per-source table is generated from the same data. This section previously carried a
+hand-copied snapshot of that file which claimed to be generated and had drifted several rounds out of
+date: it omitted the largest contributor of the current round entirely and understated two others by
+a factor of two. Quoting counts in two places is how they come to disagree, so this file now
+describes the sources and the CSV counts them.
 
-Figures from `data/reports/source_contribution.csv`, which `ark export` rewrites, so they measure
-the shipped store rather than being a hand-kept tally. Listed here are the sources that carry
-evidence rows; that file also records the seed lists that only ever fed the candidate pool.
+Columns in `source_contribution.csv`:
+
+| Column | Meaning |
+|---|---|
+| `source` | the source name, matching the `source` table in `provenance/` |
+| `lineage` | the provenance family, used to decide whether two sources corroborate independently |
+| `evidence_type` | which taxonomy entry its rows carry, and so whether it is master-eligible |
+| `files_ingested` | source files or journals folded in |
+| `evidence_rows` | observations recorded, whether or not they became assignments |
+| `domains_touched` | distinct registered domains the source saw |
+| `pairs_backed` | (domain, year) pairs it evidences, including pairs the baseline already held |
+| `netnew_pairs` | of those, the pairs that are additions against merged260730 |
+| `netnew_domains` | domains absent from the baseline in every year |
+| `candidate_domains` | names it found that earned no year and went to the candidate pool |
+
+`pairs_backed` and `netnew_pairs` differ, sometimes substantially, and the feedback asks for both:
+a source can independently confirm a pair the baseline already contains, which is worth recording
+even though it adds nothing to the headline.
 
 ---
 
@@ -39,10 +42,11 @@ evidence rows; that file also records the seed lists that only ever fed the cand
 **What it is.** The six annual files provided with the task (`1996.txt` through `2001.txt`),
 8,224,963 hostname lines, plus `merge_stats_new0714.csv`.
 
-**Get it.** Ships in the delivery archive under `baseline/`.
+**Get it.** Ships in the delivery archive under `baseline/original/`. Note that this is *not* the
+baseline additions are scored against; that is `baseline/merged260730/`. See `baseline/README.txt`.
 
 ```bash
-cp -R <archive>/baseline legacy-data
+cp -R <archive>/baseline/original legacy-data
 uv run ark ingest-legacy
 ```
 
@@ -400,6 +404,57 @@ both faster and no less accurate.
 
 ---
 
+
+## NYPW first-capture index: assessed and rejected on measurement
+
+Assessed 2026-08-01. Worth recording in full, because the initial estimate was wrong by more than
+two orders of magnitude and the reason is a units error that is easy to repeat.
+
+- **What it is.** The Internet Archive's "Not Your Parents' Web" first-capture index
+  (`https://archive.org/details/nypw_urls_CDXfirstentry`), one line per URL holding that URL's
+  earliest Wayback capture in eight space-delimited fields. Public, no login, 321 MB for the roots
+  file. A richer sibling, `nypw_timemaps` (CC-BY 4.0), holds full TimeMaps bucketed by year, 19.35
+  GB for 1996-2001.
+- **The first estimate said 27,276 net-new domains.** It compared NYPW's *registered domains*
+  against `sort -u legacy-data/*.txt`, which is *raw hostname lines* from the *phase-1* baseline.
+  Two compounding errors: a baseline holding only `www.foo.com` makes `foo.com` look new when
+  canonicalization collapses both, and the phase-1 baseline predates merged260730.
+- **Measured against the store, the whole file yields 60 net-new pairs over 53 net-new domains.**
+  6,281,952 lines, 2,413,003 in-window pairs over 2,354,914 distinct in-window domains, of which the
+  store already holds all but 53. A 99.998% overlap, which makes sense: it is a sample of the same
+  Internet Archive CDX that the baseline and this project's own `early_web_cdx` and Wayback routes already
+  drain.
+- **Verdict: REJECT**, and do not pursue the 19.35 GB TimeMaps sibling either, since it samples the
+  same URL universe. `scripts/measure_nypw_yield.py` reproduces the measurement in about two
+  minutes. The parser (`nypw_firstcdx` in `sources.py`) is kept, tested and wired, so a future
+  release of the same family can be measured without rebuilding it.
+
+## Australian Web Archive: the CDX endpoint is reachable again
+
+Feedback section 4 asks for previously unavailable sources to be revisited. This is one, and the
+earlier rejection is now half wrong.
+
+- `https://webarchive.nla.gov.au/awa/cdx` still returns an Anubis anti-bot challenge. Dead.
+- **`https://web.archive.org.au/awa/cdx` answers normally**, verified 2026-08-01: it is a pywb
+  server returning `text/x-cdxj`, supporting `url`, `matchType=domain`, `from`/`to`, `limit`,
+  `collapse` and `output=json`. `?url=abc.net.au&from=1996&to=2001` returns a **19961017** capture
+  out of `NLA-EXTRACTION-1996-2004-ARCS-PART-04571-000005.arc.gz`, so in-window data is present.
+- **It is a lookup API, not a bulk dump**, so it needs a candidate list. The natural pairing is the
+  PANDORA titles list (GLAM Workbench, CC0,
+  `https://github.com/GLAM-Workbench/trove-web-archives-titles`): 87,757 rows, 42,671 distinct
+  hosts, 35,396 registrable domains, of which 29,727 are absent from the 1996-2001 baseline. The
+  CSV has no date column, so it is seed-only and every hit needs the CDX call.
+- **Measured and rejected.** The PANDORA list gives 35,391 registered domains, of which **29,595
+  are in no annual file** and 29,594 are not even known to the store as domains, so on paper it is a
+  large English-language pool. A random 60-domain sample was then queried against the working
+  endpoint with `from=1996&to=2001`: **60 answered, 0 transport failures, and 0 with any in-window
+  capture.** PANDORA's selective harvesting is simply later than this window for the long tail; the
+  in-window Australian material that does exist is already held.
+- **Verdict: REJECT as both a net-new and a corroboration source**, on a clean 60-domain sample
+  rather than the 39-host probe that first suggested it. The endpoint correction above still stands
+  and is worth keeping: it is the answer to section 4's instruction to revisit blocked sources, and
+  the next person should not spend the afternoon rediscovering that the NLA host moved.
+
 ## Source names that are not separate sources
 
 `cdx_snapshot` is the journal-ingest specification that writes under the source name `ia_cdx_bulk`;
@@ -424,7 +479,7 @@ Recorded so that negative results are visible rather than silently omitted.
 | ODP full 2001 content dumps | Verified unavailable in 2026: the URL serves a "Page Has Moved" stub |
 | ODP full Aug-2000 content dump | Unrecoverable; only `structure.rdf` was archived, which has no external links |
 | Public 1998-2001 zone files | None survive anywhere checked (DNS-OARC, resellers, academic torrents) |
-| Australian Web Archive (PANDORA/Trove) | The CDX endpoints at `webarchive.nla.gov.au/awa/cdx` and `web.archive.org.au/awa/cdx` return **HTTP 200 carrying an Anubis anti-bot proof-of-work challenge**, not CDX data. Machine access would require solving the challenge, so the archive is not usable programmatically |
+| Australian Web Archive (PANDORA/Trove) | **Superseded 2026-08-01, see the section above.** The earlier entry said both endpoints served an Anubis challenge. Half of that is now wrong: `web.archive.org.au/awa/cdx` answers normally |
 | Other ccTLD registry open data | Nothing free reaches 1996-2001. CENTR publishes aggregates only; OpenINTEL starts 2015; commercial WHOIS is paid. AFNIC `.fr` is the sole open registry file with in-window creation dates |
 | SNAP web graphs | Nodes are anonymised integers with no URL mapping |
 | Yahoo! Webscope AltaVista graph | Programme unreachable; crawl date too vague for per-year evidence |
@@ -433,4 +488,132 @@ Recorded so that negative results are visible rather than silently omitted.
 | GeoCities derivatives, DNS Census | 2009 and 2013 respectively, out of window |
 | Post-July-1997 ISC `.domains` lists | Do not exist; later survey editions publish aggregate counts only |
 | ISC January 1997 file | Corrupt in every known copy. Permanent gap |
+| Internet Archive Alexa crawls (`alexacrawls`, `webwidecrawl`) | 226,901 items from 1996 with per-item CDX, but **every payload returns HTTP 401**; only `_meta.xml` is public. No route in |
+| UKWA per-year bulk CDX (2026 recheck) | Docs survive at `ukwa.github.io/opendata/ukwa.ds.2/cdx/`; the download host serves the same 159-byte stub and the DOI now 403s behind Cloudflare. Wayback captured the directory listing but never the `.gz` files, which is why the link graph survived and the CDX did not. In-window size would have been ~13.4 GB |
+| New Zealand (National Library) | Both the web archive and the open-data page return an Imperva bot interstitial. NLNZ does publish CDX to archive.org, but those items are 2025-2026 crawls. Selective harvesting only began in 1999 |
+| Canada (Library and Archives Canada) | Federal web harvesting began December 2005, stated on their own front page. `open.canada.ca` returns zero web-archive index datasets. Entire archive postdates the window |
+| Ireland (National Library) | Archives via Archive-It, 138 collections, earliest captures 2011 |
+| `early-web_parallel-language-urls` | 1,164,183 pre-2000 multilingual URL patterns with ISO-639 codes but **no timestamps**, so no per-year evidence. Multilingual by construction, which also works against the section 6 English rule. Seed-only at best |
+| OCLC Web Characterization Project | Only aggregate statistics were ever published; the host is gone |
+| Mailing-list archives (2026-08-01) | Assessed because section 4 names them and they share the property that made Usenet work, a date intrinsic to the artifact. **The population is wrong even though the structure is right.** archive.org's mailing-list holdings in window are overwhelmingly hobbyist digests (`sf-lovers`, `GLOWBUGS` ham radio) with almost no commercial or website content. The W3C public lists are live and browsable at `lists.w3.org/Archives/Public/` but small and technical: `www-announce` ran for only 3 archive periods, `www-talk` 121 and `www-html` 246, all discussion among a small standards community whose domains the baseline already holds in full. A 1997 `www-announce` month carries 53 messages against the 20,000-plus domains a single Usenet commerce group yields. Not worth a parser |
 
+
+## `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
+
+Adopted 2026-08-01, and the largest single addition of this round. Giganews donated its Usenet
+archive to the Internet Archive in 2013; announcement and commerce groups carry a posting date beside
+the URLs in each message.
+
+- **Where.** Full per-group mbox archives inside the hierarchy items, for example
+  `https://archive.org/download/usenet-comp/comp.infosystems.www.announce.mbox.zip`. No login.
+  archive.org publishes a sha1 per file, so ingests are pinnable like every other raw source.
+- **A trap worth naming.** The per-date Giganews exports (`usenet-comp.infosystems`,
+  `usenet-comp.internet`) look like the right files and are nearly empty in window:
+  `comp.infosystems.www.announce.20140404.mbox.gz` holds nine posts, all 2005 to 2010. Use the
+  `.mbox.zip` full archives in the parent hierarchy item instead.
+- **Year evidence.** The `Date:` header, and the `Message-ID` is the evidence value. Message IDs are
+  globally unique by design, which makes this the "opaque record identifier" the integrity checks
+  already expect from a `dated_directory` row: a reviewer can name the exact post behind any year.
+- **Why it matters here specifically.** The date is intrinsic to the artifact rather than recovered
+  from a crawl. The 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so no amount of
+  archive querying reaches them; a dated post does, because it does not need the site to have been
+  crawled at all.
+- **Provenance lineage:** `usenet`, its own family. The corpus is a donation of posts with no common
+  ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine
+  cross-lineage corroboration rather than the same organisation agreeing with itself.
+- **Choosing which of the 19,233 groups to take, measured rather than guessed.** The donation is
+  411 GB and size does not predict in-window yield: `alt.www.webmaster` cost 170 MB and returned one
+  pair because the whole group is 2006 to 2013. `scripts/fetch_usenet_groups.py` selects on the
+  group *name* and ranks by expected yield, with announcement forums first and commerce second,
+  because ordering by size put dead vanity archives at the head of the queue. 628 groups selected
+  within a 100 MB per-group cap, 5.7 GB in total.
+- **Two selection rules that are really the same rule.** Short tokens are matched as whole
+  dot-separated components, because `talk.bizarre` contains "biz" and is not a commerce group. That
+  is the trap `is_moderated_announce` hit when a suffix test reported `news.announce.conferences` as
+  ordinary discussion. And `net` was tried as a component token and removed: it matches
+  `alt.isd.net` and `alt.toxiccrisko.net`, which are vanity groups announcing nothing.
+- **Operationally, it is the secondary stream.** It downloads from `archive.org/download/`, a
+  different service from the `web.archive.org` CDX and replay endpoints the English engine uses, so
+  the two coexist. Everything it finds lands in the non-English-verified set by construction, since
+  a Usenet post dates a domain and says nothing about the language of its website.
+
+**Measured yield, 54 groups of 302 shortlisted.** Net-new pairs moved 32,698 to **96,158**, with
+Tucows and the candidate verification included in the later figures:
+
+| year | before | after | change |
+|---|--:|--:|--:|
+| 1996 | 4,994 | 10,076 | +102% |
+| 1997 | 3,534 | 15,569 | +341% |
+| 1998 | 6,029 | 25,313 | +320% |
+| 1999 | 696 | 14,019 | **+1,914%** |
+| 2000 | 9,702 | 18,902 | +95% |
+| 2001 | 7,743 | 12,279 | +59% |
+
+The candidate pool grew from 5,583 to 41,289, and verifying part of it produced the project's first
+net-new **domains**: 1,730 Usenet-discovered candidates queried against the archive, **1,065 with an
+in-window capture, a 62% hit rate**. All twelve integrity checks pass.
+
+**The admission rule, which is the whole safety argument.** The post date is trustworthy and the URL
+beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the
+store already holds, and the corpus visibly contains `weddinqnetwork.com` and `dmjbuisness.co.uk`.
+So the same split `expand.py` applies to archived directory pages: a domain another source already
+places in an annual file is real and only its year is open, so the post dates it
+(`usenet_announce`, `dated_directory`); a name appearing only in Usenet is written as
+`usenet_mention` (`link_target`) and routed to the candidate pool to earn its own evidence. The test
+is "appears in `domain_year`", not "appears in `domain`", because the latter includes the candidate
+pool and a typo recorded by an earlier round would corroborate itself.
+
+Group purpose is recorded but does not gate admission, and that is the one place a reviewer might
+reasonably disagree. Once corroboration has established the domain is real, a URL in a dated public
+post is contemporaneous evidence of use whether the group was moderated or not. Every evidence row
+names its group, so filtering to moderated announcement groups only needs a query, not a reingest.
+
+**Two parser findings.** The Giganews donation rewrote a large share of `Date:` headers as a bare
+`YYYY/MM/DD`, which `parsedate_to_datetime` rejects outright: 21,346 of 23,282 messages in
+`comp.infosystems.www.announce`. Before that was handled the route measured 913 pairs and nothing
+before 2000; after, 6,885 across all six years. And **group size does not predict in-window
+content**: `alt.www.webmaster` is 170 MB and yielded one pair, being entirely 2006 to 2013.
+Out-of-window and unreadable dates are now counted separately so the two are distinguishable.
+
+**Remaining scale.** 302 groups shortlisted, four ingested. Marginal yield was still high at the
+fourth (the second pair of groups added 25,401 pairs), so this route is nowhere near exhausted.
+
+## `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
+
+Adopted 2026-08-01. A dated index file in the sense of III.1, and the best-behaved dating of any
+source assessed this round.
+
+- **What it is.** ~32,600 items donated to archive.org in 2004, of which **11,499 fall in window**.
+  Each carries a release `date` and a `creator` field holding the software vendor's home page URL.
+- **Where.** Two cursor-paginated calls, no login:
+  `https://archive.org/services/search/v1/scrape?q=collection:tucows+AND+year:[1996+TO+2001]&fields=identifier,date,creator&count=10000`
+- **Year evidence.** The release date, with the item identifier as the evidence value, so a reviewer
+  can open `https://archive.org/details/<identifier>` and see the record.
+- **Provenance lineage:** `software_catalogue`, its own family. Independent of both web crawls and
+  Usenet, so agreement with either is real corroboration.
+
+**Measured yield.** 5,258 in-window pairs over 4,239 domains, of which **1,779 pairs and 775 domains
+are net-new**. After the corroboration split, **942 net-new pairs** entered the annual files and 746
+domains entered the candidate pool. Concentrated late: 2001 733, 2000 580, 1999 325, 1998 126.
+
+**Why it is split despite validating well.** Its dating is far better than Usenet's: against evidence
+the store already holds, the Tucows year is exactly right **78.7%** of the time and within one year
+**95.4%**, against 51.1% and 88.7% for a Usenet post date. The vendor URL is also a single structured
+field rather than free text, so it carries no transcription risk.
+
+It is still split, and the reason is the one that mattered. The catalogue was donated in 2004, so a
+`creator` URL may record where a vendor lived then rather than at release. The 78.7% agreement is
+measured **only on domains the store already knows**, which are the long-lived, well-covered ones.
+Drift would show precisely in the names never seen before, which are exactly the 775 that would
+otherwise have become net-new domains on this source's unverified word. Consistency with the Usenet
+rule also beats a one-off exception.
+
+**Hard ceiling.** 2,036 of the 11,499 in-window items carry no `creator` at all, so roughly 18% of
+the catalogue cannot contribute however it is treated.
+
+**Measured negatives in the same family**, recorded so nobody repeats them: Winsite `INDEX.TXT`
+(7,057 entries, two email addresses and zero vendor domains in the whole file), Programmer's Library
+`FILES.txt` (authors identified by name and postal address, no URLs at all), CNET Download.com
+(excellent per-item dates, zero vendor URLs, because CNET deliberately kept users on CNET-hosted
+downloads), SimTel (mirror tarball is 216 GB and the CD indexes carry no author domains). Those
+indexes are pre-web in design, which settles the whole CD-ROM catalogue family at once.

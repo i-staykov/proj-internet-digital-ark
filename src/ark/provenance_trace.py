@@ -16,7 +16,13 @@ DuckDB CLI route has to be run from inside the folder.
 import sys
 from pathlib import Path
 
+# `domain_language` is loaded but optional: an export written before the English
+# standard existed has no such file, and this tool must still open that archive.
+# It was previously omitted from this list while its Parquet file shipped beside
+# the others, so a reviewer listing the tables was told the archive held five
+# when it held six, and the English verdicts looked absent.
 TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
+OPTIONAL_TABLES = ("domain_language",)
 
 
 def load(directory: Path):
@@ -28,12 +34,23 @@ def load(directory: Path):
         if not path.exists():
             raise SystemExit(f"{path} not found; is this a complete provenance folder?")
         conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
+    for table in OPTIONAL_TABLES:
+        path = directory / f"{table}.parquet"
+        if path.exists():
+            conn.execute(f"CREATE TABLE {table} AS SELECT * FROM read_parquet('{path}')")
     return conn
 
 
 def summarise(conn) -> None:
     print("Provenance export loaded.\n")
-    for table in TABLES:
+    present = list(TABLES) + [
+        t
+        for t in OPTIONAL_TABLES
+        if conn.execute(
+            "SELECT count(*) FROM duckdb_tables() WHERE table_name = ?", [t]
+        ).fetchone()[0]
+    ]
+    for table in present:
         count = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         print(f"  {table:<16} {count:>12,} rows")
     example = conn.execute(

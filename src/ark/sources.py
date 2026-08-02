@@ -66,6 +66,114 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+# The Internet Archive's "Not Your Parents' Web" first-capture index. Eight
+# space-delimited fields per line:
+#   normalised-url  SURT  timestamp  original-url  mime  status  digest  length
+# One line per URL, holding only that URL's EARLIEST Wayback capture, so a row
+# evidences exactly the year it names and no other. That is a narrower claim
+# than a full CDX file makes and it is exactly what III.7 wants: no inference
+# from a first appearance to any later year.
+_NYPW_FIELDS = 6
+
+
+def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 first capture."""
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.split()
+            if len(parts) < _NYPW_FIELDS:
+                stats["malformed"] += 1
+                continue
+            timestamp, original, status = parts[2], parts[3], parts[5]
+            if len(timestamp) != 14 or not timestamp.isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(timestamp[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            if status != "200":
+                stats["non_200"] += 1
+                continue
+            yield BulkRecord(
+                raw=original,
+                year=year,
+                evidence_value=f"nypw first capture {timestamp}",
+                evidence_url=f"https://web.archive.org/web/{timestamp}/{original}",
+            )
+
+
+# A `split_usenet.py` journal: one JSON object per (domain, year), carrying the
+# Message-ID of the post that dated it. Two specs read the same format because
+# the split has already decided which half is which; the evidence type is the
+# whole difference between them.
+def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            domain, year = record.get("domain"), record.get("year")
+            if not domain or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            group = record.get("group", "usenet")
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                # the Message-ID is the auditable identifier: globally unique by
+                # design, so a reviewer can name the exact post behind a year
+                evidence_value=f"{group} {record.get('message_id', '')}".strip(),
+                evidence_url=f"https://archive.org/details/usenet-{group.split('.')[0]}",
+            )
+
+
+# The Tucows Software Library on archive.org: ~32,600 donated items, each with a
+# release `date` and a `creator` field holding the vendor's home page URL. That
+# is a dated index file in the sense of III.1, and unlike a URL typed into a
+# Usenet post it is a single structured field rather than free text, so it does
+# not carry the same transcription risk.
+#
+# It does carry a different one. The catalogue was donated in 2004, so a
+# `creator` URL may record where the vendor lived then rather than at release.
+# Measured against evidence already held, the Tucows year is exactly right
+# 78.7% of the time and within one year 95.4%, which is far better than the
+# Usenet post date manages. But that sample is only domains the store already
+# knows, which are the long-lived ones, and drift would show precisely in the
+# names never seen before. So this route takes the same corroboration split as
+# Usenet rather than being trusted outright.
+def parse_tucows(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per (vendor domain, release year) in the scraped index."""
+    with _open_text(path) as fh:
+        items = json.load(fh)
+    for item in items:
+        stats["items"] += 1
+        creator = item.get("creator")
+        if not creator:
+            stats["no_creator"] += 1
+            continue
+        if isinstance(creator, list):
+            creator = creator[0] if creator else ""
+        year_text = (item.get("date") or "")[:4]
+        if not year_text.isdigit() or int(year_text) not in YEARS:
+            stats["out_of_window"] += 1
+            continue
+        identifier = item.get("identifier", "")
+        yield BulkRecord(
+            raw=str(creator),
+            year=int(year_text),
+            evidence_value=f"tucows release {identifier}",
+            evidence_url=f"https://archive.org/details/{identifier}",
+        )
+
+
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
     """Read (year, 'YYYY-MM') from an ISC survey filename, or None if absent."""
     match = _ISC_SURVEY_CODE.search(name)
@@ -628,6 +736,41 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="dated_directory",
         acquisition_method="ncsa_whats_new_pages",
         parse=parse_ncsa_whats_new,
+    ),
+    "tucows_candidates": SourceSpec(
+        key="tucows_candidates",
+        source_name="tucows_mention",
+        evidence_type="link_target",
+        acquisition_method="tucows_release_vendor_url",
+        parse=_parse_usenet_journal,
+    ),
+    "tucows_dated": SourceSpec(
+        key="tucows_dated",
+        source_name="tucows_catalogue",
+        evidence_type="dated_directory",
+        acquisition_method="tucows_release_date",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_dated": SourceSpec(
+        key="usenet_dated",
+        source_name="usenet_announce",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_date",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_candidates": SourceSpec(
+        key="usenet_candidates",
+        source_name="usenet_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_mention",
+        parse=_parse_usenet_journal,
+    ),
+    "nypw_firstcdx": SourceSpec(
+        key="nypw_firstcdx",
+        source_name="nypw_firstcdx",
+        evidence_type="cdx_timestamp",
+        acquisition_method="nypw_first_capture_index",
+        parse=parse_nypw_firstcdx,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

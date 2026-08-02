@@ -69,7 +69,41 @@ CREATE TABLE IF NOT EXISTS ingested_file (
     ingested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (source_name, file_name)
 );
+
+-- Language verification, deliberately NOT an evidence type. Every row in
+-- `evidence` answers "did this domain exist in this year". A language verdict
+-- answers "what was this website in this year", which is orthogonal, and a
+-- domain can be perfectly evidenced and still inadmissible under the English
+-- standard. Mixing the two would corrupt a taxonomy that MASTER_TYPES, the
+-- evidence_type CHECK and four integrity checks all depend on.
+--
+-- `evidence_urls` is what separates this from a TLD prior: it names the exact
+-- snapshots that were read, so a reviewer can refetch them and recompute the
+-- verdict.
+CREATE TABLE IF NOT EXISTS domain_language (
+    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
+    verdict       TEXT    NOT NULL CHECK (verdict IN ('english', 'other', 'undetermined')),
+    english_share DOUBLE,
+    samples       INTEGER NOT NULL DEFAULT 0,
+    top_other     TEXT,
+    evidence_urls TEXT    NOT NULL DEFAULT '',
+    reason        TEXT,
+    engine_version INTEGER NOT NULL DEFAULT 0,
+    classified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (domain, assigned_year)
+);
 """
+
+# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does
+# nothing to a table that is already there, so a new column in SCHEMA_SQL reaches
+# fresh stores only and silently skips every existing one. Each entry is applied
+# with IF NOT EXISTS, so running this on either kind of store is a no-op or a
+# one-line change and never an error.
+MIGRATIONS = (
+    ("domain_language", "reason", "TEXT"),
+    ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
+)
 
 
 def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
@@ -80,10 +114,24 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(path))
 
 
+def _statements(schema: str) -> list[str]:
+    """Split the schema into statements, ignoring `--` comment lines.
+
+    Statements are separated on `;`, so a semicolon inside a comment would cut a
+    CREATE TABLE in half and fail with a parser error pointing at prose. Comments
+    are stripped before the split rather than after, which keeps the explanatory
+    text in the source and out of the executed SQL.
+    """
+    body = "\n".join(line for line in schema.splitlines() if not line.lstrip().startswith("--"))
+    return [statement for statement in body.split(";") if statement.strip()]
+
+
 def init_db(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the tables and constraints. Safe to run repeatedly."""
-    for statement in filter(str.strip, SCHEMA_SQL.split(";")):
+    """Create the tables and constraints, then migrate. Safe to run repeatedly."""
+    for statement in _statements(SCHEMA_SQL):
         conn.execute(statement)
+    for table, column, column_type in MIGRATIONS:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {column_type}")
 
 
 def ensure_source(conn: duckdb.DuckDBPyConnection, name: str, kind: str) -> int:

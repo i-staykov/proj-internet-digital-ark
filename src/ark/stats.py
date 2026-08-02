@@ -41,6 +41,11 @@ PROVENANCE_LINEAGE = {
     "arquivo_ia": "internet_archive",
     "ia_cdx": "internet_archive",
     "ia_cdx_bulk": "internet_archive",
+    # NYPW is a sample of the Internet Archive's own CDX, so a pair it confirms
+    # alongside early_web_cdx or a Wayback query has ONE lineage, not two. Filing
+    # it here rather than as its own family keeps the independent-corroboration
+    # count honest, which is the whole point of that measure.
+    "nypw_firstcdx": "internet_archive",
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",
@@ -50,6 +55,14 @@ PROVENANCE_LINEAGE = {
     "ukwa_link_source": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
+    # Usenet is its own lineage: the archive is a Giganews donation of posts,
+    # entirely independent of any web crawl, so a pair it confirms alongside a
+    # Wayback capture is genuine cross-lineage corroboration.
+    "usenet_announce": "usenet",
+    "usenet_mention": "usenet",
+    # Tucows is a software catalogue, independent of both web crawls and Usenet
+    "tucows_catalogue": "software_catalogue",
+    "tucows_mention": "software_catalogue",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

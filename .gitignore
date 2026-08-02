@@ -3,6 +3,8 @@ PersonalContext.md
 RecentContext.md
 plan.md
 todo.md
+READFIRST.md
+handoff.md
 
 # macOS junk
 .DS_Store
@@ -20,6 +22,7 @@ __pycache__/
 # now ships in the delivery archive, regenerable on any machine via `ark export`.
 # NEVER commit (GitHub rejects >100MB files); big input/intermediate/output data:
 feedback-phase-1/
+feedback-external-phase-2/
 legacy-data/
 /data/
 output/
@@ -28,3 +31,5 @@ output/
 *.parquet
 *.warc
 *.warc.gz
+SESSION_REPORT.md
+ivo-new-instructions.md

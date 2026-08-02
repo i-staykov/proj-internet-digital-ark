@@ -5,8 +5,8 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (nine integrity invariants over the
-# store) while the test suite validates the CODE. Naming either one plain
+# On naming: `ark check` validates the DATA (twelve integrity invariants over
+# the store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
 
@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: nine invariants over the store, non-zero exit on any failure
+# the integrity gate: twelve invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 
@@ -100,6 +100,11 @@ journals:
     uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
     uv run ark ingest expansion_directory data/raw/expand/round4/expand_round4_corroborated.jsonl.gz --round 4
     uv run ark ingest expansion_links     data/raw/expand/round4/expand_round4_unverified.jsonl.gz --round 4
+    uv run ark ingest usenet_dated        data/raw/usenet/usenet_dated*.jsonl.gz
+    uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
+    uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
+    uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
+    uv run ark ingest-lang                data/raw/lang/lang_*.jsonl.gz
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
 # registered-domain counting unit drops. Reads the same source files again.
@@ -110,9 +115,11 @@ seeds:
     uv run ark seed-pool ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
     uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
 
-# stage 6: write the deliverable, then prove it
+# stage 6: write the deliverable, then prove it. `lang-report` comes after
+# `export` because it partitions what the export wrote.
 deliver:
     uv run ark export
+    uv run ark lang-report
     uv run ark stats
     uv run ark check
 
@@ -154,6 +161,53 @@ expand-round seeds round:
         data/raw/expand/round{{round}}/expand_round{{round}}_corroborated.jsonl.gz --round {{round}}
     uv run ark ingest expansion_links \
         data/raw/expand/round{{round}}/expand_round{{round}}_unverified.jsonl.gz --round {{round}}
+
+# --- the English-website standard (brief feedback v3 section 6) ---------------
+# Admission now needs more than existence: the site must have been English in
+# that year, judged from archived body text. These write journals like the other
+# collectors and never open the store.
+
+# write the (domain, year) work list, capture-backed pairs first, years interleaved
+lang-targets:
+    uv run ark lang-targets
+
+# one classification batch
+lang-batch n="400" workers="2" min_delay="1.5":
+    uv run ark lang data/raw/lang/lang_targets.txt -n {{n}} --workers {{workers}} \
+        --samples 2 --delay 2.0 --min-delay {{min_delay}}
+
+# fold journals into domain_language, then write the admitted subset and table
+lang-ingest:
+    uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz
+    uv run ark lang-report
+
+# run it in batches for a long stretch (seconds, batch, workers, floor)
+lang-supervise seconds="27000" batch="400" workers="2" min_delay="1.5":
+    bash scripts/supervise_lang.sh {{seconds}} {{batch}} {{workers}} {{min_delay}}
+
+# --- this round's new sources -------------------------------------------------
+
+# measure a Usenet archive's yield against the store BEFORE ingesting it.
+# The one source assessed without doing this was estimated at 27,276 net-new
+# domains and measured at 53, so this is not optional caution.
+# measure a Usenet archive's net-new yield before committing to it
+usenet-measure *archives:
+    uv run python scripts/measure_usenet_yield.py {{archives}}
+
+# split and ingest whatever has finished downloading
+usenet-ingest tag="auto":
+    bash scripts/ingest_new_usenet.sh {{tag}}
+
+# the Tucows software catalogue: release date plus vendor home page
+tucows:
+    uv run python scripts/split_tucows.py --write
+    uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz
+    uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz
+
+# One loop rather than several, because DuckDB takes a single writer.
+# fold everything the collectors have finished into the store, on a loop
+maintain iterations="26" pause="900":
+    bash scripts/maintain_phase3.sh {{iterations}} {{pause}}
 
 # --- shipping ----------------------------------------------------------------
 

@@ -52,7 +52,7 @@ def seed_from_file(
         "invalid": 0,
         # already carries a confirmed year, so there is nothing to verify
         "already_confirmed_baseline": 0,
-        "already_confirmed_by_us": 0,
+        "already_confirmed_own_evidence": 0,
         # on file but with no confirmed year: still a candidate, still queued
         "already_candidate": 0,
         "new_candidates": 0,
@@ -95,7 +95,7 @@ def seed_from_file(
             continue
         has_year, in_baseline = state
         if has_year:
-            key = "already_confirmed_baseline" if in_baseline else "already_confirmed_by_us"
+            key = "already_confirmed_baseline" if in_baseline else "already_confirmed_own_evidence"
             stats[key] += 1
             continue
         # on file, no confirmed year: a candidate that was never queued

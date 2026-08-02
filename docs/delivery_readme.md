@@ -1,60 +1,87 @@
 # Internet Digital Ark: 1996-2001 annual domain lists
 
-Evidence-backed annual domain lists for 1996-2001, built on top of the supplied ~8.2M-line
-baseline. Every line in an annual file traces to a specific dated observation.
+Evidence-backed annual domain lists for 1996-2001. Every line in an annual file traces to a specific
+dated observation, and every line in the English-verified set traces to archived page text that was
+read and classified.
 
-**1,322,365 net-new (domain, year) pairs over 463,566 net-new registered domains**, plus 3,595,769
-hostname and URL download seeds. Method and results: `report.docx`.
+**The counts live in `report.docx` and in `verify.sh`, not here.** Quoting figures in two places is how
+they come to disagree. `bash verify.sh` prints the current totals from the shipped files in about ten
+seconds.
+
+Two things to know before opening anything:
+
+- **The reference baseline is `merged260730`.** Additions are counted against it, so a figure quoted
+  against any earlier baseline is not comparable.
+- **`additions_english/` and `additions_unverified/` partition `additions/`.** They are disjoint and
+  sum to the whole, so they can be added together without double counting. `verify.sh` checks that.
 
 ## What is in here
 
 | Path | Contents |
 |---|---|
-| `report.docx`, `report.md` | The report: counting unit, normalization, validity and salvage rules, dropped-domain statistics, source contributions, annual evidence logic, deduplication, limitations, results |
-| `masters/1996.txt` … `2001.txt` | **Final annual lists**: baseline plus additions, deduplicated within each year, one registered domain per line |
-| `additions/1996.txt` … `2001.txt` | **Additions only**: what this work added on top of the baseline |
+| `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
+| `masters/<year>.txt` | **Final annual lists**: merged260730 normalized to registered domains, plus the additions. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains; `audit/year_growth.csv` reconciles it exactly |
+| `additions/<year>.txt` | **Additions only**, against merged260730 |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
+| `additions_english/<year>.txt` and `.csv` | **English-verified additions.** The CSV columns are `domain,year,english_share,samples,snapshot_urls`, the last being space-separated Wayback `id_` URLs that refetch directly |
+| `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-reached, for pairs and for unique domains |
+| `additions_unverified/<year>.txt` and `.csv` | **Everything else**, disjoint from the above. CSV columns `domain,year,status,reason,english_share,top_other,snapshot_urls` |
+| `additions_unverified/disqualified.csv` | The register: every pair judged and rejected, one row each, with the reason and the pages read |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
-| `baseline/` | The supplied 1996-2001 files this work was built on, unmodified, so no baseline has to be sourced separately |
+| `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
+| `baseline/merged260730/` | **The reference the additions are counted against.** See `baseline/README.txt` |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
-| `provenance/` | The full evidence graph as Parquet, plus `trace.py` and `LOAD.sql` for querying it. This is what makes the result checkable offline |
-| `audit/` | Normalization and salvage audit files, and the per-source contribution tables |
+| `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
+| `audit/` | Normalization and salvage audits, the per-source contribution table, `year_growth.csv`, and `engine_review.md`: the adversarial review of the verification engine |
+| `journals/` | Raw responses of every archive, registry and page query made, plus the extraction journals and language verdicts. `lang_superseded/` holds verdicts from earlier engine versions, kept for audit and excluded from results by version |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
-| `journals/` | The raw responses of every archive, registry and page query made |
-| `source/` | The code and configuration that produced everything here, plus the commit it was built from |
-| `sources.md` | Per-source detail: what each source is, **the commands to download it**, what fixes its dates, why it carries the evidence type it does, and what was rejected |
-| `SHA256SUMS` | Checksum for every file in this archive |
-| `verify.sh` | Runs every check below in one command |
+| `source/` | The code that produced everything here, plus the commit it was built from |
+| `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
+| `SHA256SUMS`, `verify.sh` | Checksum for every file, and the checker |
 
-`source/source.tar.gz` holds the code's own README, which documents the pipeline command by command.
-This file describes the archive.
+**`status` in the unverified CSVs takes two values, and the difference matters.** `disqualified` means
+the archive was asked and answered and the pair failed the standard; every one carries a reason and
+appears in `disqualified.csv`. `unchecked` means the engine has not reached the pair, and **no claim is
+made about its language, nor about whether the archive holds a capture for it**. Verification is
+rate-bound against `web.archive.org` and still running.
+
+## File formats
+
+- **Every `.txt` list**: one registered domain per line, lowercase ASCII, C-locale sorted, newline
+  terminated, no header, no blank lines. A "registered domain" is the name at the registrable boundary
+  under the Public Suffix List, so `www.example.co.uk` appears as `example.co.uk`. This is the counting
+  unit throughout, and it is why these totals differ from a raw line count of the same source data.
+- **Every `.csv`**: RFC 4180, comma separated, UTF-8, one header row.
+- **`journals/*.jsonl.gz`**: gzipped JSON Lines, one object per query made.
+- **`provenance/*.parquet`**: Parquet with ZSTD, readable by any engine. `LOAD.sql` recreates the
+  tables in DuckDB; `trace.py` answers the common question without SQL.
+- **Empty `audit/*.csv` files are meaningful, not broken.** A header and no rows records that the
+  audited condition did not occur. A missing file would be ambiguous; an empty one is not.
 
 ## Checking the result
 
-Three levels, in increasing cost. **The first two need no downloads and no network.**
+### 1. Verify what is here (about 10 seconds)
 
-### 1. Verify what is here (one command, about 10 seconds)
-
-Before unpacking, from the folder that holds the archive:
+The `.sha256` sidecar is delivered **beside** the `.tar.gz`, not inside it:
 
 ```
 shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
 ```
 
-Then, from inside this folder:
+Then from inside this folder:
 
 ```
 bash verify.sh
 ```
 
-That checks every file against `SHA256SUMS`, prints the pair count of the six annual addition
-files, and confirms **every one of those pairs appears in
-`additions/evidence_manifest.csv`**, so nothing is asserted without a recorded observation. It
-needs only `shasum` and `python3`, and prints a verdict per check.
+It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure. It
+checks every file against `SHA256SUMS`, counts the annual addition files, confirms every pair appears
+in `additions/evidence_manifest.csv`, and confirms the two shipped sets partition the additions. It
+prints WARN rather than PASS where a check would be vacuous.
 
-To look up why any single domain is in any given year, use the provenance export. It needs no
-database installed, only [`uv`](https://docs.astral.sh/uv/):
+To look up why a single domain is in a given year, no database needed, only
+[`uv`](https://docs.astral.sh/uv/):
 
 ```
 cd provenance
@@ -62,65 +89,77 @@ uv run --with duckdb --no-project python trace.py                    # what is i
 uv run --with duckdb --no-project python trace.py bbc.co.uk 1999     # why this domain, this year
 ```
 
-The second command prints one line per observation: which source saw the domain, what kind of
-evidence it is, and the artifact or capture timestamp it came from, with a link where one exists.
-Any domain from `masters/` or `additions/` works. If you already run DuckDB, `LOAD.sql` in the same
-folder loads the five Parquet tables instead; run it from inside `provenance/`, since its paths are
-relative.
+One line per observation: which source saw the domain, what kind of evidence, and the artifact or
+capture timestamp, with a link where one exists.
 
 ### 2. Rebuild the result from the evidence (about 1 minute)
 
-Regenerate every result file from `provenance/` and put the rebuilt store through the same
-integrity gate. This needs **no source data and no network**: the export holds every observation
-and every assignment, so the exporter can run over it again.
+No source data and no network: the export holds every observation and every assignment.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync
-uv run ark rebuild ../provenance     # regenerates the annual files, masters, candidates, manifest
-uv run ark check                     # the nine integrity invariants, against the rebuilt store
+uv run ark rebuild ../provenance     # annual files, masters, candidates, manifest
+uv run ark lang-report               # the two disjoint sets and the language summary
+uv run ark check                     # the twelve integrity invariants
 ```
 
-Then compare what it wrote against what shipped; they are byte-identical:
+All three sets come back byte-identical:
 
 ```
-for y in 1996 1997 1998 1999 2000 2001; do cmp output/netnew/$y.txt ../additions/$y.txt; done
+for y in 1996 1997 1998 1999 2000 2001; do
+    cmp output/netnew/$y.txt            ../additions/$y.txt
+    cmp output/netnew_english/$y.txt    ../additions_english/$y.txt
+    cmp output/netnew_unverified/$y.txt ../additions_unverified/$y.txt
+    cmp data/exports/$y.txt             ../masters/$y.txt
+done
+cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
+cmp output/candidate_unverified.txt      ../candidates.txt
 ```
+
+The archive renames things, so here is the map:
+
+| in the rebuild | in this archive |
+|---|---|
+| `output/netnew/<year>.txt` | `additions/<year>.txt` |
+| `output/netnew_english/<year>.txt` | `additions_english/<year>.txt` |
+| `output/netnew_unverified/<year>.txt` | `additions_unverified/<year>.txt` |
+| `output/netnew/evidence_manifest.csv` | `additions/evidence_manifest.csv` |
+| `output/candidate_unverified.txt` | `candidates.txt` |
+| `data/exports/<year>.txt` | `masters/<year>.txt` |
+| `output/provenance/` | `provenance/` |
 
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
-itself from the original sources, which is tier 3.
+from the original sources, which is tier 3.
 
 ### 3. Rebuild from the original sources (a download, then about 20 minutes)
 
-Only needed to re-derive the evidence itself. The supplied baseline ships here in `baseline/`; copy
-it to `legacy-data/` inside the unpacked source. The bulk sources are the only thing to fetch, and
-**`README.md` inside `source/` documents the route step by step**, with each source's download
-address in `sources.md`.
+**`README.md` inside `source/` documents the route step by step**, with each source's download address
+in `sources.md`.
 
 ```
-cp -R ../baseline legacy-data       # from inside the unpacked source/
+cp -R ../baseline/original/. legacy-data/       # from inside the unpacked source/
 just reproduce
 ```
 
-The bulk sources total about 50 GB, of which a single 47 GB capture index is most of it.
-**Skipping the Arquivo indexes costs 17,696 pairs over 7,001 domains and leaves about 3 GB**,
-reproducing 98.7% of the result.
+About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
+about 3 GB** and reproduced 98.7% of the phase-1 archive. Measured on that archive this returned 99.77%
+of its pairs with all invariants passing; those per-source cost figures have not been re-measured for
+this round, so treat them as indicative. The gap is two sources with no journal to replay, whose 840
+domains return to the candidate pool. Tier 2 above is the byte-for-byte check.
 
-Measured, this returns **1,319,272 of the 1,322,365 pairs (99.77%)**, all invariants passing. The
-gap is two sources with no journal to replay: the legacy `rdap` tranche (3,106 pairs, see the
-report's limitations) and a superseded CDX route (11). Their 840 domains return to the candidate
-pool. Tier 2 above is the byte-for-byte check.
-
-Two sources are also live rather than hash-pinned, so a later download need not match this one: the
-`.fr` file is republished monthly (this used the June 2026 edition) and the Internet Scout feed
-keeps growing. The journals and provenance export shipped here do not move.
+Two sources are live rather than hash-pinned, so a later download need not match: the `.fr` file is
+republished monthly (this used the June 2026 edition) and the Internet Scout feed keeps growing. The
+journals and the provenance export shipped here do not move.
 
 ## Evidence standard
 
-A domain is in `masters/<year>.txt` only with item-level evidence for that year: a web-archive
-capture, a dated survey or directory file, a host-link-graph row, a registry record, or the
-baseline's own prior evidence. An earlier appearance never implies a later year. The report gives
-the standard in full, including how registry dates are read.
+A domain is in `masters/<year>.txt` only with item-level evidence for that year: a web-archive capture,
+a dated survey or directory file, a host-link-graph row, a registry record, or the baseline's own prior
+evidence. An earlier appearance never implies a later year.
 
 Data that only suggests a domain existed, such as being linked to from another site, never assigns a
 year. It goes to `candidates.txt` until it earns its own evidence.
+
+The report gives the standard in full, including how registry dates are read and how the English
+verification decides.

@@ -15,26 +15,26 @@ Short notes on why I made certain architectural design choices. Details belong i
   - legacy baseline (~1.2 GB) and intermediates are ignored; only net-new output + evidence manifest get committed
   - superseded 2026-07-23: `output/` is now git-ignored too (it grew to ~96 MB once real sources landed); see the 2026-07-23 policy entry
 - **Baseline never modified, output is disjoint net-new**
-  - legacy files load read-only for dedup; our additions ship separately so the group can verify before merging
+  - legacy files load read-only for dedup; the additions ship separately so the group can verify before merging
 - **DuckDB + SQLite**, one per workload
   - DuckDB: system of record + analytics (dedup, yield stats, exports)
   - SQLite (WAL): crawler work-queue, many tiny commits for crash-resume; stdlib, zero extra deps
     - `claim` is a single SQL statement, which is what makes double-claiming impossible without any locking code in future parallelization.
 - **PSL (Public Suffix List) snapshot pinned in the repo** (for `tldextract`)
-  - the registrable domain is our output unit; live-fetching the suffix list would make it depend on download day
+  - the registrable domain is the output unit; live-fetching the suffix list would make it depend on download day
 - **PSL** used to canonicalize how domains are converted into registerables as per III.8
 - **Evidence rule enforced by the schema**
   - `domain_year.evidence_id` is NOT NULL, so an unevidenced year assignment is impossible; tested
   - all writes go through helpers; `assign_year` takes only an evidence id and derives domain + year from that row, so a mismatched assignment cannot be expressed
     - **a piece of evidence valid for multiple years is regarded as different pieces of evidence**
 - **Baseline unit is the registered domain (III.8)**
-  - the legacy files contain hostnames (1.4M lines with subdomains like `001sun01.marshall.com`); we collapse to registered domains, so counts differ from the prior line counts (8.2M lines -> 6.87M domain-year pairs); documented, files untouched
+  - the legacy files contain hostnames (1.4M lines with subdomains like `001sun01.marshall.com`); the pipeline collapses to registered domains, so counts differ from the prior line counts (8.2M lines -> 6.87M domain-year pairs); documented, files untouched
 - **2026 PSL + historical ccTLD patch, not a "2001 PSL"**
-  - no authoritative 2001 list exists (the PSL started ~2007) and early lists were less complete; we pin today's PSL and add retired ccTLDs (`.yu`, `.an`, ...) as extra suffixes, recovering ~1.8k real early-web domains
+  - no authoritative 2001 list exists (the PSL started ~2007) and early lists were less complete; pin today's PSL and add retired ccTLDs (`.yu`, `.an`, ...) as extra suffixes, recovering ~1.8k real early-web domains
 - **Underscores tolerated in discarded subdomains only**
   - `a_ashe.howard.edu` -> `howard.edu` is recovered; an underscore in the registered label itself stays invalid
 - **Full droplist is a committed deliverable**
-  - `output/legacy_review/dropped_domains.txt`: every provided line we exclude (0.149%), grouped by reason, reproducible via `ark legacy-review`
+  - `output/legacy_review/dropped_domains.txt`: every provided line excluded (0.149%), grouped by reason, reproducible via `ark legacy-review`
 
 ## 2026-07-22
 
@@ -71,7 +71,7 @@ Short notes on why I made certain architectural design choices. Details belong i
 
 - **Arquivo.pt bulk CDXJ has no 1996-2001 coverage (finding, corrected same day, see below)**
   - 214 collection files (18-374 GB each, multi-TB total), named by collection not year
-  - sampled AWP1 (the earliest-numbered collection): 40 MB slice = 227k captures, all timestamped 2008, none in our window
+  - sampled AWP1 (the earliest-numbered collection): 40 MB slice = 227k captures, all timestamped 2008, none in the window
   - Arquivo's crawls begin 2008 (like Common Crawl); its bulk dumps are out-of-window and too large to mine for a sliver → not a source for 1996-2001
 - **Reality check on bulk sources for 1996-2001 (strategic)**
   - of the SPEC's named bulk index sources, Arquivo = 2008+, UKWA = link-rotted (access requested), Common Crawl = 2008+
@@ -82,14 +82,14 @@ Short notes on why I made certain architectural design choices. Details belong i
 
 One-day investigation across six parallel research tracks. Goal: find sources of 1996-2001 domains that are bulkier than querying the Internet Archive (IA) one domain at a time. Every claim below was verified against the live source on 2026-07-22, by HTTP HEAD requests, byte-range samples of the actual files, or full small downloads, never from documentation alone.
 
-Terms: CDX is the standard plain-text index format of web archives, one line per archived capture, carrying the URL, a 14-digit timestamp (YYYYMMDDhhmmss), and the HTTP status; CDXJ is its JSON-per-line variant. One capture line is exactly our unit of evidence: it proves the domain served content on that date.
+Terms: CDX is the standard plain-text index format of web archives, one line per archived capture, carrying the URL, a 14-digit timestamp (YYYYMMDDhhmmss), and the HTTP status; CDXJ is its JSON-per-line variant. One capture line is exactly the unit of evidence: it proves the domain served content on that date.
 
 **Correction of the earlier Arquivo.pt verdict**
 
 - the earlier recon sampled only the AWP* files (Arquivo.pt's own crawls, which start in 2008) out of a 214-file directory; the collection list behind arquivo.pt/collections identifies two in-window collections in the same directory, https://arquivo.pt/datasets/cdxj/
   - `Roteiro.cdxj` (13.6 MB): a 1996 crawl of the Portuguese web, ~75,000 pages, all timestamps 1996
   - `IA.cdxj` (50.9 GB): the Internet Archive's donated collection of the Portuguese web 1996-2007, ~124M captures; byte-range samples at several file offsets show 5-20% of lines with pre-2002 timestamps, so roughly 7-25M in-window captures
-- yield is bounded by the Portuguese web of the era (order 10^4 registered domains), but every line carries a full capture timestamp, so it meets our evidence bar
+- yield is bounded by the Portuguese web of the era (order 10^4 registered domains), but every line carries a full capture timestamp, so it meets the evidence bar
 - lesson for the report: sampling one file of a multi-file dataset is not an evaluation; read the collection metadata first
 
 **Tier 1: free, verified, downloadable today (adopted as the Phase 2 ingestion order, see the re-plan decision below)**
@@ -97,7 +97,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 1. IA "Early Web" language-annotation dataset, 1996-1999
    - https://archive.org/details/early-web_cdx-lang-cdxa (part of IA's 2021 "Early Web Datasets" researcher release, collection `earlywebdatasets`)
    - 224 CDX files, ~290 MB total, ~4.6M captures covering 4M+ websites, timestamps 1996-1999 only
-   - verified by downloading one file: standard CDX rows with HTTP status 200; this is our exact evidence format and covers our sparsest years
+   - verified by downloading one file: standard CDX rows with HTTP status 200; this is the exact evidence format needed and covers the sparsest years
    - estimated yield: 10^5 to 10^6 registered domains
 2. Stanford WebBase 2001 URL list, distributed by LAW (Laboratory for Web Algorithmics, University of Milan)
    - http://data.law.di.unimi.it/webdata/webbase-2001/webbase-2001.urls.gz (720,229,219 bytes; dataset page https://law.di.unimi.it/webdata/webbase-2001/)
@@ -133,16 +133,16 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 
 **Tier 3: small but highly defensible supplements**
 
-- ODP (Open Directory Project, also known as DMOZ) published weekly full data dumps; Wayback captured some from inside our window:
+- ODP (Open Directory Project, also known as DMOZ) published weekly full data dumps; Wayback captured some from inside the window:
   - Aug 2000 full dump, truncated: https://web.archive.org/web/20000815053618id_/http://dmoz.org/rdf/content.rdf.u8.gz ; the 2000-era crawler cut downloads at ~1 MB, so 1,048,293 of 122,809,149 bytes survive; the prefix decompresses cleanly to 19,086 URLs across 13,275 distinct hosts
   - "Kids and Teens" branch dumps, complete: https://web.archive.org/web/20010611215006id_/http://dmoz.org/rdf/kt-content.rdf.u8.gz (6,348 hosts) and https://web.archive.org/web/20011116104011id_/http://dmoz.org/rdf/kt-content.rdf.u8.gz (8,453 hosts)
-  - dating is triple-sourced: the Wayback capture timestamp, the preserved origin Last-Modified header, and a generation timestamp inside the file; no complete 1999-2001 full dump survives anywhere we could find
-- NCSA Mosaic "What's New" page for January 1996 (captured Dec 1996): ~1,300 hosts, double-dated (entries dated in-month, page captured in-year); our only 1996 directory artifact
+  - dating is triple-sourced: the Wayback capture timestamp, the preserved origin Last-Modified header, and a generation timestamp inside the file; no complete 1999-2001 full dump survives anywhere findable
+- NCSA Mosaic "What's New" page for January 1996 (captured Dec 1996): ~1,300 hosts, double-dated (entries dated in-month, page captured in-year); the only 1996 directory artifact
 - 100hot.com weekly top-100 category lists (heavily captured 1996-2001) and the WWW Virtual Library (captured Oct 1996): order 10^3 domains each, capture-dated
 
 **Confirmed dead ends (verified negatives, kept for the report)**
 
-- Common Crawl: earliest collection is CC-MAIN-2008-2009, starting 2008-05-09 (from its own index list, https://index.commoncrawl.org/collinfo.json); pre-2008 page content inside it fails our evidence bar because the capture timestamp is 2008+
+- Common Crawl: earliest collection is CC-MAIN-2008-2009, starting 2008-05-09 (from its own index list, https://index.commoncrawl.org/collinfo.json); pre-2008 page content inside it fails the evidence bar because the capture timestamp is 2008+
 - "Wayback bulk extractor" tools (Apify actor, cdx-tools, cdx_toolkit): all wrap the same rate-limited public API; none bypasses the 403
 - SNAP web graphs (Stanford): nodes are anonymized integers, no URL mapping is distributed
 - Yahoo! Webscope AltaVista graph ("circa 2002"): program unreachable in 2026, license forbade redistribution, crawl date too vague for per-year evidence
@@ -153,15 +153,15 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 **Preservation and method notes**
 
 - rescued files are in `data/raw/isc_survey/` (the four intact survey lists plus the Jul 1996 per-TLD .org host list) and `data/raw/odp/` (the three surviving dumps), with SHA-256 checksums in `data/raw/checksums.sha256`; large data stays out of git as usual
-- IA CDX API, measured: `collapse=timestamp:4` returns one capture per year per domain in a single request (6x fewer calls than our current per-year loop); observed throttling suggests ~60 requests per minute per IP is the polite ceiling
+- IA CDX API, measured: `collapse=timestamp:4` returns one capture per year per domain in a single request (6x fewer calls than the per-year loop); observed throttling suggests ~60 requests per minute per IP is the polite ceiling
   - caveat: measured on single-URL queries; the server collapses only adjacent rows sorted by URL key, so domain-wide (`matchType=domain`) queries return one row per year per URL key and years must be deduplicated client-side
 - a Wayback capture's completeness can be checked by comparing its CDX `length` field against the preserved `x-archive-orig-content-length` response header; this is how the truncated ODP dump was diagnosed
 
 - **Re-plan around the survey (tbd)**
-  - the plan is re-sequenced around Tier 1 above; request-gated datasets (Tier 2) are excluded from architectural decisions: we assume no reply within the project window and treat any reply as a bonus
+  - the plan is re-sequenced around Tier 1 above; request-gated datasets (Tier 2) are excluded from architectural decisions: assume no reply within the project window and treat any reply as a bonus
   - per-domain verification is re-scoped to one collapsed CDX query per domain (`collapse=timestamp:4`), spent first on a year-2000 gap-fill (the thinnest year after Tier 1) and on reliability sampling of weaker evidence types
   - one shared bulk ingester with small per-source parsers replaces per-source loaders, so droplist/audit parity and run metrics are structural
-  - III.4/§VII routing (the brief decides, not us): StanfordWebBase is named in III.4, so webbase-2001 enters as candidate seeds, and link-discovered hosts (UKWA link targets) take the same route; annual masters gain domains only via per-domain year verification
+  - III.4/§VII routing (the brief decides): StanfordWebBase is named in III.4, so webbase-2001 enters as candidate seeds, and link-discovered hosts (UKWA link targets) take the same route; annual masters gain domains only via per-domain year verification
   - `link_source` rows (host crawled with HTTP 200 in year Y) remain direct evidence: the brief itself lists "UK Web Archive host/link graphs" among its historical web-archive index sources (§V)
   - dated index files (ISC survey lists, ODP dumps) are used as direct evidence under §VII's "dated index files" time-evidence class; flagged for Prof. Ding's confirmation in the interim email
   - score consequence: candidates never count until verified, and at the ~60 requests/min ceiling (~86k domains/day) the webbase pool cannot be fully verified in-window; verification is priority-ordered (year-2000 gap-fill first, then sample-guided candidate batches)
@@ -187,7 +187,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 
 - **All 175 net-new domains are www-label registrations (finding)**
   - every single one is the label `www` registered directly under a public suffix (`www.cl`, `www.com.pk`, `www.mil.lv`); these are real registrable domains per the PSL, with live captures (5 of 5 spot-checked against web.archive.org, all resolving)
-  - likely dropped by the prior work's normalization: stripping `www.` unconditionally turns `www.cl` into the bare suffix `cl`, which is then rejected and the domain disappears; our canonicalizer splits against the PSL first, so the registration survives
+  - likely dropped by the prior work's normalization: stripping `www.` unconditionally turns `www.cl` into the bare suffix `cl`, which is then rejected and the domain disappears; the canonicalizer splits against the PSL first, so the registration survives
   - kept: they satisfy every signed-off validity and evidence rule; flagged as a class in the report
 
 - **ISC survey ingested: the first large net-new tranche (finding)**
@@ -204,11 +204,11 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - 44,379 captures (all 1996, all status 200) -> 3,442 unique registered domains (201 bare-IP captures dropped, ~44k host URLs collapsed to their registered domain)
   - only **7 net-new 1996 pairs, 0 net-new domains**: 1996 coverage is now dense (baseline + Early Web + ISC), and Roteiro's mostly-European academic hosts were already present
   - value is corroboration not growth: +3,442 `cdx_timestamp` evidence rows (an Arquivo capture per domain, source `arquivo_roteiro`), 98 pairs newly reaching 2+ sources; and it is a second web archive (non-IA) for those pairs
-  - validates the reusable CDXJ parser; informs the (Opt) `IA.cdxj` decision: Arquivo collections overlap heavily with what we already hold, so 51 GB of `IA.cdxj` is unlikely to be worth it unless a later gap analysis says otherwise
+  - validates the reusable CDXJ parser; informs the (Opt) `IA.cdxj` decision: Arquivo collections overlap heavily with what is already held, so 51 GB of `IA.cdxj` is unlikely to be worth it unless a later gap analysis says otherwise
 
 - **Arquivo `IA.cdxj` spike: GO, materially net-new in the thin years (finding; revises the Roteiro-based forecast directly above)**
   - method: 6 byte-range slices of 64 MB (402 MB total, 0.79% of the 50.93 GB file) spread evenly across the file; the server honors `Accept-Ranges`, and the file is SURT-sorted (TLD-then-host) so spread offsets sample different TLD/host bands rather than one alphabetical clump. Each slice parsed with the shipping `parse_arquivo_cdxj` + `to_registrable`, then classified read-only against the store (the store was ATTACHed READ_ONLY, so the spike could not mutate it)
-  - in the sample: 168,409 in-window HTTP-200 captures -> 1,492 distinct registered domains, of which **177 (11.9%) are brand-new** (never in our `domain` table), 12 already net-new via another source, 1,303 baseline overlap
+  - in the sample: 168,409 in-window HTTP-200 captures -> 1,492 distinct registered domains, of which **177 (11.9%) are brand-new** (never in the `domain` table), 12 already net-new via another source, 1,303 baseline overlap
   - the brand-new domains land in exactly the thin years: 1998 (9), 1999 (19), 2000 (100), 2001 (91); their TLDs are .pt (96), .com (52), .br (24), i.e. Portuguese/Brazilian hosts the IA-global baseline missed. This is the UKWA `.uk` pattern repeating for the Lusophone web
   - this overturns the Roteiro forecast above: Roteiro was 1996-only (a year already dense), so its ~0 net-new did not predict IA.cdxj's 1998-2001 `.pt` yield. A curated national donation is complementary to the global crawl precisely where the global crawl is thin
   - linear rate-based extrapolation to the full file: **~22k net-new domains / ~105k net-new pairs**; treat as order 10^4, not precise (0.79% sample, `.pt` band density varies across the file). Comparable in absolute terms to UKWA's +15,822
@@ -219,13 +219,13 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the 50.93 GB file downloaded clean on a single 8.5 h connection (resumable loop, exact-size match, sha256 recorded in `data/raw/checksums.sha256`), then ingested in ~4.5 min: 140.8M lines -> 14.82M in-window HTTP-200 captures -> 14,188 distinct registered domains (122.2M lines out of window = the 2002-2007 bulk; 2.0M non-200; 1.8M malformed)
   - **yield: +6,715 net-new domains / +17,689 net-new pairs** (412,973 -> 419,688 domains; 1,156,150 -> 1,173,839 pairs); +28,247 `cdx_timestamp` evidence rows. The scoreboard delta equals the ingest's `year_rows` (17,689) exactly, so the numbers reconcile
   - **98.4% of the net-new domains are `.pt`** (6,896 of 7,005 net-new IA domains; then .com 58, .br 24): the Portuguese national web the IA-global baseline never indexed, exactly the geographic-complement thesis. Live-replay spot-checks of net-new captures return 200 (e.g. `arquivo.pt/wayback/.../100limite.pt`, `.../100mais.pt`)
-  - **it fills our thinnest years**: new pairs by year 1998 +912, 1999 +2,667, 2000 +4,747, 2001 +9,323 (1996 +1, 1997 +39), i.e. **+89% on 1998, +165% on 1999, +183% on 2000, +50% on 2001** over the prior net-new pair counts. This is the strategic win: ISC stopped listing names after Jul 1997 and the baseline is thin post-1997, so a deep .pt crawl lands where we were weakest
+  - **it fills the thinnest years**: new pairs by year 1998 +912, 1999 +2,667, 2000 +4,747, 2001 +9,323 (1996 +1, 1997 +39), i.e. **+89% on 1998, +165% on 1999, +183% on 2000, +50% on 2001** over the prior net-new pair counts. This is the strategic win: ISC stopped listing names after Jul 1997 and the baseline is thin post-1997, so a deep .pt crawl lands where coverage was weakest
   - corroboration: IA.cdxj also added a second capture to 7,183 already-baseline domains; the honesty caveat holds, IA.cdxj is IA-donated so this corroboration shares the baseline's IA lineage (cross-source, not provenance-independent). The net-new .pt domains are new facts regardless of lineage
   - **spike accuracy, recorded honestly for method:** the 0.79% byte-range spike predicted ~22k net-new domains; actual is 6,715, a 3.3x overshoot. Cause: distinct-domain count was extrapolated linearly by bytes, but distinct-domain density is highly non-uniform on a SURT-sorted file dominated by deeply-crawled .pt hosts (the full file averages ~1,044 in-window captures per domain vs 113 in the sampled slices, so most bytes are a few hosts repeated). The spike's qualitative calls (GO, thin-year concentration, .pt complement) all held; only the magnitude did not. Lesson for future spikes: extrapolate distinct-entity counts with a clustering caveat, not as if they scale with rows/bytes
   - the store was backed up before the write (`data/ark.duckdb.bak-pre-ia`) and the backup removed once the yield reconciled
 
-- **UKWA host link graph ingested (link_source): complete for our window; recon size was overestimated (finding)**
-  - download is unreliable: Wayback serves the ~2.0 GB gz stream but advertises a 20.9 GB Content-Length (the decompressed size), serves no byte-ranges (no resume), and drops the connection mid-transfer (curl exit 18). Our copy is a partial download.
+- **UKWA host link graph ingested (link_source): complete for the window; recon size was overestimated (finding)**
+  - download is unreliable: Wayback serves the ~2.0 GB gz stream but advertises a 20.9 GB Content-Length (the decompressed size), serves no byte-ranges (no resume), and drops the connection mid-transfer (curl exit 18). The local copy is a partial download.
   - it does not matter: the file is year-sorted ascending and 1996-2001 is its head, fully transferred before any truncation (verified: clean 2001->2002 transition at line ~166,890, and zero in-window rows in the next 5M lines). The parser breaks at the first post-2001 row, reading only the in-window head.
   - the recon's "184k-10.9M links/year" was wrong for THIS file: 1996-2001 is only **~166,890 rows** total; the 20.9 GB decompressed bulk is 2002-2010 (out of window)
   - yield: 32,865 unique (.uk-heavy) source domains, 39,454 `link_source` evidence rows, **+15,822 net-new domains / +23,821 net-new pairs**, concentrated in the thin later years ISC could not reach (1998 +944, 1999 +1,584, 2000 +2,595, 2001 +18,643)
@@ -266,21 +266,21 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - dated DNS-survey presence is DIRECT annual evidence, no IA CDX confirmation required: ISC / Network Wizards recording >=1 host under a domain in an in-year survey is sufficient to place it in that year's file
   - the standard is not limited to webpage captures. Valid year-specific evidence includes dated DNS surveys, archive indexes, host/link graphs, dated directory/index files, and other reliable sources that directly attest a domain existed in the year. Explicitly blessed as direct: ISC survey records, Arquivo.pt capture indexes, and UKWA host/link graph records (the last "when their year association is explicit and documented"); none need the candidate pool merely for not being IA captures
   - required provenance per assignment: source name, survey/dataset date, year-assignment method, and record identifier / source-file reference, so each annual assignment is reproducible and auditable
-  - **impact: this confirms our master taxonomy wholesale.** `artifact_listing` (ISC), `cdx_timestamp` (Arquivo / Early Web / IA CDX), and `link_source` (UKWA) are all direct master evidence. The ~1.13M net-new pairs that rested on the ISC `artifact_listing` type (the ~1.13M-vs-193 swing flagged in the interim email) stand as master; nothing downgrades to candidate. The single largest project risk is retired
+  - **impact: this confirms the master taxonomy wholesale.** `artifact_listing` (ISC), `cdx_timestamp` (Arquivo / Early Web / IA CDX), and `link_source` (UKWA) are all direct master evidence. The ~1.13M net-new pairs that rested on the ISC `artifact_listing` type (the ~1.13M-vs-193 swing flagged in the interim email) stand as master; nothing downgrades to candidate. The single largest project risk is retired
   - **provenance already conforms** (verified 2026-07-24): every evidence row carries source name (`source.name`), the dated identifier (`evidence_value`: ISC `1997-07`, CDX full timestamp, UKWA `host_link_graph:2001`), the assignment method (`acquisition_method`), and a record id (`evidence_url` for captures; `evidence_value` + the `ingested_file` sha256 ledger for the rest). The §IX provenance export must surface these four fields per row
   - III.4 still governs genuinely UNLABELED sources (StanfordWebBase, undated DMOZ, raw URL lists): those remain candidate -> CDX-verify. The line Ding draws is per-item dated attestation (direct) vs. a bare list with no year (candidate)
 
 - **`whois_creation` evidence standard: registration-interval (decided with the AFNIC data in hand, 2026-07-24)**
   - a BARE creation date, on its own, supports only the creation year - III.6 is explicit that a creation date alone does not establish later years. BUT a source that also shows the registration CONTINUED (a later withdrawal date, or that the domain is still registered now) documents a CONTINUOUS registration interval, because a .fr (and standard gTLD) creation date RESETS on any re-registration. So a 1998 creation date on a domain still registered in 2026 proves an unbroken 1998->2026 registration, hence registration in 1999, 2000 and 2001
-  - III.6 accepts "a WHOIS record demonstrating continued registration in that year" as valid later-year evidence; a documented continuous interval IS exactly that for every year it spans. So for interval sources we assign every in-window year the domain was registered, not only the creation year. This is a documented fact, not the bare-creation-date inference III.6 declines
+  - III.6 accepts "a WHOIS record demonstrating continued registration in that year" as valid later-year evidence; a documented continuous interval IS exactly that for every year it spans. So for interval sources every in-window year the domain was registered is assigned, not only the creation year. This is a documented fact, not the bare-creation-date inference III.6 declines
   - applies now to AFNIC (creation + withdrawal columns); applies to the Phase 4 RDAP engine too (a queryable RDAP record means currently registered), with a per-registry check that the registry resets the creation date on re-registration (true for .fr and standard gTLDs; some ccTLDs keep the first-ever date - verify before trusting the interval there)
   - considered a confirmation email to Ding, decided against it (Ivo, 2026-07-24): the interval is defensible directly from III.6 and is recorded per row, so a reader can verify each assignment themselves (see the AFNIC yield entry). This supersedes the earlier "creation year only" reading, which had not yet accounted for the withdrawal-date column
   - **SUPERSEDED FOR RDAP on 2026-07-25 (next entry): RDAP now assigns the creation year only. Still in force for AFNIC, pending a separate call**
 
 - **RDAP restricted to the creation year, interval rows pruned (Ivo's call, 2026-07-25) - supersedes the entry above for RDAP**
-  - trigger: Ivo asked what an RDAP response actually gives us per domain before trusting the interval reading. Checked live against `rdap.verisign.com` for `daastol.com`: top-level keys are `entities, events, handle, ldhName, links, nameservers, notices, objectClassName, rdapConformance, secureDNS, status`, and `events` holds exactly four - registration 1998-07-06, expiration 2027-07-05, last changed 2026-07-19, last update of RDAP database 2026-07-25
+  - trigger: Ivo asked what an RDAP response actually gives per domain before trusting the interval reading. Checked live against `rdap.verisign.com` for `daastol.com`: top-level keys are `entities, events, handle, ldhName, links, nameservers, notices, objectClassName, rdapConformance, secureDNS, status`, and `events` holds exactly four - registration 1998-07-06, expiration 2027-07-05, last changed 2026-07-19, last update of RDAP database 2026-07-25
   - **so RDAP carries current state plus ONE historical timestamp. There is no registration history and no per-year attestation.** Two facts are extractable: created on date D, and registered now. Nothing observes 1999, 2000 or 2001
-  - the III.6 test, sentence by sentence: "valid evidence of when a domain was created" = the `registration` event (fine); "may support inclusion in the annual file for the target year in which the creation date falls" = the creation year is explicitly blessed (fine); "a WHOIS Creation Date alone does not automatically establish that the domain remained registered ... in every subsequent year", and later years "still require ... evidence tied to that specific year" = our interval claim fails. For 1999 we held a record showing registration in 2026 plus a creation date in 1998; reaching 1999 needs a third premise (registry creation dates reset on re-registration) that is an external assumption about registry policy, and one never verified per registry here - the ~1,100 ccTLD rows (.uk 503, .nl 66, .ca 32, .br 31, .cz 28, .no 17, .fi 8) were the known hole. Ding's ruling uses the same qualifier, sources that "directly attest"; a bridging deduction across 28 years is not direct attestation
+  - the III.6 test, sentence by sentence: "valid evidence of when a domain was created" = the `registration` event (fine); "may support inclusion in the annual file for the target year in which the creation date falls" = the creation year is explicitly blessed (fine); "a WHOIS Creation Date alone does not automatically establish that the domain remained registered ... in every subsequent year", and later years "still require ... evidence tied to that specific year" = the interval claim fails. For 1999 the store held a record showing registration in 2026 plus a creation date in 1998; reaching 1999 needs a third premise (registry creation dates reset on re-registration) that is an external assumption about registry policy, and one never verified per registry here - the ~1,100 ccTLD rows (.uk 503, .nl 66, .ca 32, .br 31, .cz 28, .no 17, .fi 8) were the known hole. Ding's ruling uses the same qualifier, sources that "directly attest"; a bridging deduction across 28 years is not direct attestation
   - **decision: RDAP evidence supports the creation year and nothing else, and only when that year falls in 1996-2001.** A domain RDAP dates outside the window attests no year and stays a candidate (still worth keeping: RDAP confirms it existed by then and exists now, which is exactly the candidate-pool case under III.4)
   - implementation: `attested_years()` in [`src/ark/rdap.py`](../src/ark/rdap.py) is the single place the rule lives (unit-tested, 2 new tests); `ark rdap` assigns only that year and counts `created_before_window` separately from `created_after_window`
   - rebuild: [`scripts/restrict_whois_creation_to_creation_year.py`](../scripts/restrict_whois_creation_to_creation_year.py), dry run unless `--apply`, parameterized by source. It aborts rather than guess if any creation year is unparseable, or if a doomed assignment could be re-pointed at other master evidence instead of deleted. Verified before applying: **0 of the 9,664 doomed assignments had alternative master evidence**, so the prune was a pure delete
@@ -298,13 +298,13 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - **empirical corroboration, re-run independently rather than taken on trust.** `bennegens-couverture.fr`: open data (June 2026) created 30-05-2020, permanently deleted 28-06-2026; `whois.nic.fr` today reports `created: 2026-07-10`. `mintrocket.fr`: open data created 22-04-2022, deleted 19-06-2026; `whois.nic.fr` today reports `created: 2026-07-10`. Deleted in June, re-registered in July, creation date advanced and the original is gone from the record. AFNIC emits neither of RFC 9083's `reregistration` or `reinstantiation` event actions, so a re-registration is indistinguishable from a first-ever one. Both cases are reproducible by a reviewer from the open data file plus one `whois -h whois.nic.fr` call
   - **why this makes the interval a proof rather than an assumption.** `crDate = max(last creation, last transmission)`. Both of those events necessarily fall after any prior deletion, since a deleted name must be created again to exist. Therefore `crDate >= the date of the last deletion`, and the span `[crDate, deletion-or-now]` contains NO deletion event. It is a continuous registration interval by construction. This carries BOTH AFNIC subsets, the 11,902 with a withdrawal date and the 43,123 without, so the earlier worry about the blank-withdrawal majority dissolves
   - **errors are one-directional.** Since `crDate` can only be later than the true first registration, a domain first registered in 1998 but traded or re-registered in 2010 shows creation 2010, falls out of window and is excluded. The tranche undercounts and cannot over-count, which is the safe direction for a scored metric where a false positive is what costs credibility
-  - **new caveat we must carry: `crDate` also resets on a "transmission (trade or recover)", i.e. a change of holder.** So an AFNIC creation date is the later of (last registration, last holder change) and must NEVER be described as the first-ever registration date. It does not weaken continuity (it can only move the date later), but the wording in report and notes has been corrected accordingly
+  - **new caveat to carry: `crDate` also resets on a "transmission (trade or recover)", i.e. a change of holder.** So an AFNIC creation date is the later of (last registration, last holder change) and must NEVER be described as the first-ever registration date. It does not weaken continuity (it can only move the date later), but the wording in report and notes has been corrected accordingly
   - **gaps, stated rather than buried:** (a) the load-bearing sentence is from 2015 and was removed in AFNIC's 2019 documentation rewrite, absent from the current December 2024 guide, so the explicit statement is 11 years old and current behaviour rests on the 2026 live cases above (the 2015 text and the 2026 behaviour were both confirmed first-hand; the claim that the current guide omits it was not independently re-checked); (b) the 2017 edition could not be read, its Wayback capture truncates at 1 MiB, so the lineage has one hole; (c) R being true makes the interval SOUND, not year-TIED in III.6's sense. That residual is interpretive, and only Ding can close it, but it can now be put to him as documented registry semantics rather than an assumption
   - **RDAP stays narrowed to the creation year**, because R is documented for `.fr` only and RDAP spans ~590 registries. The split is now principled: verified premise vs unverified one, not two readings of the same claim. Ivo's call (2026-07-25): not worth chasing R per-registry to recover RDAP's ~9,664 pairs
   - method note: run as a 7-family parallel documentary hunt (naming policy, procedures manual, AFNIC EPP docs, IETF EPP/RDAP standards, open data docs, French regulation via CPCE L45, live registry behaviour plus third-party), with every citation re-fetched by an independent adversarial verifier instructed to reject paraphrased or fabricated quotes. 50 agents, ~2.0M tokens, 43 min. Most structural findings (charter para 134, the create/restore/delete lifecycle, CPCE L45-1) were correctly downgraded to context-only: they establish that a deleted name becomes registrable afresh, but say nothing about the date
 
 - **RDAP re-architected: collection separated from interpretation, so its evidence replays from a hashed file (Ivo's call, 2026-07-25)**
-  - the problem: `ark rdap` queried the network AND wrote evidence in one pass, keeping only the extracted year. Two costs fell out of that coupling. (a) Provenance: the resulting rows had no source file, so unlike every other source they could not be replayed from bytes we hold, only by re-querying a network that now answers differently. (b) Cost of change: the 2026-07-25 narrowing had to be a destructive database migration plus a guard script plus a 4 GB backup, purely because the responses were gone
+  - the problem: `ark rdap` queried the network AND wrote evidence in one pass, keeping only the extracted year. Two costs fell out of that coupling. (a) Provenance: the resulting rows had no source file, so unlike every other source they could not be replayed from bytes held, only by re-querying a network that now answers differently. (b) Cost of change: the 2026-07-25 narrowing had to be a destructive database migration plus a guard script plus a 4 GB backup, purely because the responses were gone
   - Ivo's question that killed the first fix: an initial plan to post-hoc dump `creation_years.csv` and ingest it once would have needed redoing after every future run. Worse, it would have created a SECOND write path for the same evidence and the artifact was lossy (year only). Confirmed dead end in code: the loader keys the ledger on `(source_name, file_name)` and RAISES on a sha256 mismatch, so a single appended-to file can never be re-ingested
   - **new shape.** `ark rdap <candidates>` is now pure collection: it writes one immutable per-run journal (`data/raw/rdap/rdap_<UTC>.jsonl.gz`, one JSON object per queried domain with domain, queried_at, HTTP status, creation_year, and the WHOLE response) and touches no evidence table, indeed never opens the store. `ark ingest rdap_snapshot <journal>` is pure interpretation, running through the shared audited loader, so the journal earns a sha256 ledger row and a record count like any other source file. Future runs need no extra step: each run drops a new file, same shape as early_web's 224 files
   - side benefits that fell out: collection no longer contends for the single-writer store lock, so it can run alongside other stages; the interpretation step is offline and unit-tested; new rows carry an `evidence_url` (`https://rdap.org/domain/<d>`) and `acquisition_method=rdap_journal_file`, closing two provenance gaps for everything collected from here on; failures and 404s are journalled too, so a later run knows not to retry them and each run's coverage is auditable
@@ -328,7 +328,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the signed-off taxonomy files ODP under `artifact_listing`: "a line in a dated data FILE whose own provenance fixes the year." An ODP `content.rdf.u8.gz` dump is exactly that - a downloaded file with a generation stamp; every external-resource URL a human editor curated into the directory is a line in it, and the dump's date fixes the year for all of them (same shape as an ISC survey list)
   - `dated_directory` is a DIFFERENT mechanism, reserved for a directory PAGE captured by a web archive on a known date (a Wayback snapshot of a Yahoo / yellow-pages category page) - the Phase 4/5 page-harvesting route, not a downloaded dump. (A stray `dated_directory` label for ODP had crept into todo.md; corrected.)
   - why it is valid direct evidence (no CDX recheck): Prof. Ding's 2026-07-24 ruling explicitly blessed "archive indexes ... dated directory or index files" as direct annual evidence. A dated ODP dump is a dated index file, so a domain listed in the 2000-07 dump is direct evidence for 2000, and one in a 2001 dump direct for 2001. It is editorial (a human reviewed a live site and listed it). Negative caveat for the report: absence from a given dump means only "not in that dump", weaker than a CDX negative
-  - coverage: ODP contributes 2000 (our Aug-2000 dump) and 2001 (Kids-and-Teens dumps we hold + the three downloadable full 2001 content dumps); no 1998/1999 (those dumps never existed - see the hunt)
+  - coverage: ODP contributes 2000 (the Aug-2000 dump) and 2001 (the Kids-and-Teens dumps held + the three downloadable full 2001 content dumps); no 1998/1999 (those dumps never existed - see the hunt)
 
 - **ODP dumps ingested (`odp`, `artifact_listing`): +3,339 net-new domains / +8,423 net-new pairs (finding)**
   - three on-disk dumps: `c2000.gz` (Aug-2000 full content dump, but only a ~1 MB TRUNCATED prefix survives, so just the alphabetically-first categories `Top/Adult...`, year 2000), `kt200106.gz` + `kt200111.gz` (complete Kids-and-Teens subsets, year 2001). The `<!-- Generated at YYYY-MM-DD -->` stamp fixes each dump's year (2000-08-07, 2001-06-10, 2001-11-13)
@@ -336,7 +336,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - yield: 93,854 URLs -> 19,629 `artifact_listing` evidence rows over 19,367 domains. **+3,339 net-new domains, +8,423 net-new pairs** (2000 +6,477, 2001 +1,946); scoreboard 459,055 / 1,291,668 -> **462,394 / 1,300,091**. Each row records the dump date (e.g. `odp 2000-08-07`) so a reader can verify it
   - low net-new, as the hunt predicted: only 3,379 of 19,367 ODP domains are net-new (ODP curated popular live sites the IA baseline already holds); the value is mostly 2000 (a thinnish year) plus corroboration
   - caveats for the report: (a) `c2000` is a truncated 1 MB prefix of the ~170 MB Aug-2000 content dump, and the FULL 2000 content dump is not recoverable (Wayback archived only the 2000 `structure.rdf`, which carries no external links), so 2000 is badly undercounted here; (b) the KT dumps are the Kids-and-Teens theme only; (c) heavy baseline overlap
-  - available but not done (low ROI): the three FULL 2001 content dumps (2001-01-22 / 06-16 / 10-20, ~170 MB each, downloadable via Wayback `id_`) would add more 2001, but 2001 is our least-thin year and ODP overlap is heavy, so deferred unless completeness is wanted
+  - available but not done (low ROI): the three FULL 2001 content dumps (2001-01-22 / 06-16 / 10-20, ~170 MB each, downloadable via Wayback `id_`) would add more 2001, but 2001 is the least-thin year and ODP overlap is heavy, so deferred unless completeness is wanted
 
 - **Internet Scout Report archive ingested (`internet_scout`, `dated_directory`): +137 net-new domains / +311 net-new pairs (finding)**
   - source: the Internet Scout Report archive via OAI-PMH (archives.internetscout.org/OAI, `oai_dc`), harvested with a browser UA (the bot UA gets 403); 21,922 records across ScoutReport + 11 sibling publication sets. Each record is an editorial review of a live site; `<dc:date>` (when present) is the Scout Report publication year, which attests the site was live that year -> `dated_directory` (Ding: dated directory/index sources are direct)
@@ -357,7 +357,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 - **webbase-2001 evaluated via RDAP: ~99.99% already held, not a net-new source (finding)**
   - LAW's webbase-2001 URL list (720 MB, 118M URLs from Stanford's 2001 crawl; `data.law.di.unimi.it/webdata/webbase-2001/`) -> 738,625 distinct hosts -> **603,245 distinct registered domains, of which 603,202 (99.99%) were already in the store**; only 43 not-held candidates
   - RDAP'd the 43: **3 dated in-window (+3 net-new domains / +13 pairs)**, 5 created after 2001, 35 no longer registered / no RDAP. Scoreboard 463,362 / 1,302,722 -> 463,365 / 1,302,735. (Pair count recorded under the superseded interval reading; after the 2026-07-25 creation-year restriction these 3 domains contribute 3 pairs, not 13. The domain count is unchanged.)
-  - conclusion: like Early Web CDX (99.99% baseline overlap) and the `deduplicated_urls` files (which yielded 8 domains not already held, 6 of which other sources later dated), the popular 2001 web is already fully covered by our baseline + sources. webbase is a large crawl but adds essentially nothing net-new. Retired as a net-new source
+  - conclusion: like Early Web CDX (99.99% baseline overlap) and the `deduplicated_urls` files (which yielded 8 domains not already held, 6 of which other sources later dated), the popular 2001 web is already fully covered by the baseline + sources. webbase is a large crawl but adds essentially nothing net-new. Retired as a net-new source
   - method note: dedup-before-verify saved a ~4 h RDAP run (planned 15-20k queries) that would have found ~0 net-new. "Measure before scaling" again
   - broader read: the direct net-new avenues are now largely exhausted (national registries / archives gave the wins: AFNIC .fr, Arquivo .pt, UKWA .uk; global crawls overlap the baseline). Remaining upside is niche (untested national archives, WHOIS creation dates for capture-less tails) or corroboration/gap-fill, not large tranches
 
@@ -377,7 +377,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - same collection/interpretation split as RDAP, for a third reason beyond provenance and re-parsability: **DuckDB is single-writer**, so a multi-hour pass that wrote evidence directly would block every other stage for the length of the sprint. The collector never opens the store
   - `collapse=timestamp:4` is treated as a payload optimisation only, never as correctness: the server collapses adjacent rows and orders by URL key, so a year can still repeat and a response can hit `limit` before some year appears. Years are deduplicated locally, and a truncated response triggers one cheap `limit=1` probe per still-missing year
   - **`ark gaps` restricts the candidate set to bracketed gaps** (held in Y-1 AND Y+1, missing Y), ordered thinnest gap year first (1998, 1999, 2000, 2001, 1996, 1997). Ivo's call 2026-07-25: the adjacency rule (missing Y, present in Y-1 OR Y+1) is 17.5x larger (8,680,978 candidates over 5,256,682 domains) and too speculative for the time available. Bracketed pool: **470,627 domains / 494,764 known gaps**
-  - the unit of work is the DOMAIN, not the gap, because one query answers every year. A run therefore harvests years we never asked about, which is where most of the yield turned out to be
+  - the unit of work is the DOMAIN, not the gap, because one query answers every year. A run therefore harvests years never asked about, which is where most of the yield turned out to be
   - **calibration (three measured runs, this is the finding).** 1 worker at 1.0 s pacing: 15 domains in 5:11 = **20.7 s/domain**, zero throttles. So the bottleneck is per-query LATENCY (a wildcard CDX query costs ~20 s), not a request-rate ceiling, and the lever is concurrency. 12 workers: **2.2 s/domain (~1,650/h)**. 24 workers at 0.15 s pacing: 120 domains in 2:02 = **1.0 s/domain (~3,540/h)**, 1 throttle, governor recovered to 92 ms. A 20x speedup over sequential
   - **governor lesson (my error, corrected).** The first pilot used 4 workers with `max_delay=30s`, `backoff_factor=2.0` and recovery of 0.9x per 20 successes. Six throttles drove the pace to the 30 s ceiling and it never came back: 40 domains took 7:28 (11.2 s/domain) with the tail crawling at 45 s/domain. For a latency-bound workload the ceiling must be low and recovery fast; retuned to `max_delay=5s`, `backoff_factor=1.5`, recovery 0.8x per 5 successes. Pacing exists only to stay under the limiter, not to regulate throughput
   - **yield, measured not estimated.** First 40 domains: 39 with captures, 136 in-window years found, ingested as **136 evidence rows -> 48 net-new pairs** (1.2 net-new pairs per domain queried, versus ~0.15 for RDAP on the same pool). Scoreboard 1,303,508 -> **1,303,556** (1998 +14, 2000 +34). Hit rate varies sharply by position in the priority list (97% capture in the first 40, 50% in the next 60, 22% in the next 120), so per-batch yield must be tracked rather than extrapolated from the head of the list
@@ -386,8 +386,8 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 - **CDX engine tuned by measurement; two of my own inferences were wrong and are corrected here (2026-07-25)**
   - **ERROR 1, silent and serious: failures were being recorded as absences.** The status distribution across the first journals was 200:354, **0:2,727**, 503:4. Status 0 is a transport failure, but the run counted any record without years as `no_capture`, so 88% of high-concurrency requests were failing and being reported as "IA never archived this". Two consequences: the apparent collapse in hit rate (97% at the head, 1.5% deeper) was an artefact of my instrumentation, and because resume skipped any journalled domain, **2,727 domains would have been dropped from every later run**. Fixed three ways: failures are counted per status (`failed_0`, `failed_503`, `failed_504`) separately from genuine `no_capture`; `journal.queried_domains` takes an `answered` predicate and CDX passes `status == 200`, so only a real reply settles a domain; the affected domains returned to the queue automatically
   - lesson, added to PersonalContext: an instrument that cannot distinguish "no answer" from "answer is no" will invent a finding. Check the status distribution before trusting any throughput or hit-rate number
-  - **the concurrency ceiling is the service's, not ours.** Answered share by concurrent requests: 1 -> 100%, 4 -> 100%, 8 -> 82%, 16 -> 30%, 32 -> 17%. Past ~8 the server drops connections and emits its own 504s. **Operating point 8 workers, ~800-1,000 answered domains/hour.** The earlier "61,277/hour at 192 workers" was measuring refusals, not queries; 384 workers measured *slower* than 192, which was the first hint
-  - **ERROR 2: "fail fast" was a false economy.** From the A/B test the server appeared to kill heavy queries at a consistent ~60.7 s, so I cut the client timeout to 30 s expecting to halve the cost per answer. Measured against the same 100 domains: 30 s answered **51** (695 answers/h), 180 s answered **82** (802 answers/h). Roughly a third of domains reply between 30 s and 60 s, and cutting them off loses more than the saved waiting gains. Since the server already fails fast for us, the client timeout only needs headroom above its limit: **70 s**
+  - **the concurrency ceiling is the service's, not the client's.** Answered share by concurrent requests: 1 -> 100%, 4 -> 100%, 8 -> 82%, 16 -> 30%, 32 -> 17%. Past ~8 the server drops connections and emits its own 504s. **Operating point 8 workers, ~800-1,000 answered domains/hour.** The earlier "61,277/hour at 192 workers" was measuring refusals, not queries; 384 workers measured *slower* than 192, which was the first hint
+  - **ERROR 2: "fail fast" was a false economy.** From the A/B test the server appeared to kill heavy queries at a consistent ~60.7 s, so I cut the client timeout to 30 s expecting to halve the cost per answer. Measured against the same 100 domains: 30 s answered **51** (695 answers/h), 180 s answered **82** (802 answers/h). Roughly a third of domains reply between 30 s and 60 s, and cutting them off loses more than the saved waiting gains. Since the server already fails fast, the client timeout only needs headroom above its limit: **70 s**
   - **A/B test of the two query strategies** (Ivo's hypothesis, 8 capture-rich domains, sequential, no competing load). One collapsed six-year query: mean **26.9 s/domain**, 3/8 failures. Six per-year `limit=1` probes: mean **73.6 s/domain**, 1/8 failures. Where both answered, years agreed **4/4, zero disagreements**, so the strategies are correctness-equivalent. Verdict: the collapsed query stays the default (2.7x faster), and the per-year strategy is kept as `ark cdx --per-year` for a second sweep, because it succeeds on exactly the heavily archived domains the collapsed query cannot finish (`fieldguides.com`, `oreck.com` failed under A and returned all six years under B). Individual figures: A 2.2 s / 3.2 s / 9.1 s / 16.0 s on successes against B 25.1 s / 30.1 s / 50.0 s / 57.8 s / 86.0 s
   - the hypothesis was therefore half right: per-year probes are more robust but materially slower, so they belong in the fallback rather than the primary path
   - **yield, measured after the instrumentation fix.** Among answered domains, 95-100% hold at least one in-window capture, averaging 3.6 years each, ingesting at **1.15 net-new pairs per domain queried**. Calibration and pilots (~2,400 domains) banked **+840 net-new pairs**, entirely in thin years: 1998 +231, 2000 +479, 2001 +130. Scoreboard 1,303,508 -> **1,304,348**, `ark check` ALL PASS
@@ -430,8 +430,8 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - **operational lesson worth keeping: killing a worker without killing its dispatcher just makes the dispatcher spawn another.** The original batch loop survived a `pkill` of its child and immediately re-dispatched CDX at 8 workers against a refusing host, which looked like the reachability gate failing. Diagnosed by listing dispatchers rather than workers
 
 - **Undated pools seeded, and the legacy seed files measured to exhaustion (2026-07-26)**
-  - webbase `hosts.txt` seeded as the III.4-named candidate source: **738,625 hostnames -> 603,323 distinct registered domains**, of which **603,141 already confirmed from the baseline**, 64 already confirmed from our own sources, 1 already a candidate, and **39 genuinely new**. 78 invalid. The three-way split introduced with the seeding fix is what makes this legible: it restates the "99.99% already held" finding as a reproducible measurement rather than a claim
-  - `deduplicated_urls_2001-2002` seeded: **1,097,867 lines -> 0 new candidates** (916,133 already baseline, 8 ours, 3 already candidate, 2,239 invalid). Exhausted, exactly as the 2026-07-22 probe predicted
+  - webbase `hosts.txt` seeded as the III.4-named candidate source: **738,625 hostnames -> 603,323 distinct registered domains**, of which **603,141 already confirmed from the baseline**, 64 already confirmed from collected evidence, 1 already a candidate, and **39 genuinely new**. 78 invalid. The three-way split introduced with the seeding fix is what makes this legible: it restates the "99.99% already held" finding as a reproducible measurement rather than a claim
+  - `deduplicated_urls_2001-2002` seeded: **1,097,867 lines -> 0 new candidates** (916,133 already baseline, 8 from collected evidence, 3 already candidate, 2,239 invalid). Exhausted, exactly as the 2026-07-22 probe predicted
   - **decision: the 2002-2003 through 2013-2014 legacy seed files are NOT seeded.** Twelve files exist. The one closest to the window yields zero new candidates, so files drawn from progressively later crawls cannot do better, and their populations are dominated by domains registered after 2001. Adding them would inflate the candidate pool with names that could not have existed in-window, which degrades what the pool means rather than growing it. §IX.2 asks for the pool to be as large as practicable, not as large as possible
   - **III.10.c ("if the acquisition method cannot establish a year, the domain may enter only the candidate pool") is currently satisfied by construction, and that was verified rather than assumed.** Of the 6,352 domains queried and left undatable by either engine, **6,352 already hold an assigned year**: both engines are fed from pools of already-held domains, so an undatable result is a held domain with an unfilled gap, not a candidate
   - that is a property of the current pools, not of the code, so both collectors now print a hint when they leave domains undated, telling the operator to run `ark seed` on the same list if it was not drawn from held domains. Interpretation deliberately keeps only years the service returned, so without that step an undatable unknown domain would leave no trace
@@ -453,7 +453,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
 
 - **Seeding: only a confirmed year settles a domain (2026-07-26)**
   - `seed.py` classified a domain as `already_known` if it appeared in the `domain` table at all, and skipped it. That is wrong for exactly the population the candidate pool is made of: a domain on file with NO assigned year is a candidate, reached by a candidate-only source, or dated outside 1996-2001, or queried and unanswered. Those were counted as settled and never enqueued, while `ark export` still listed them as candidates
-  - now three states instead of one: `already_confirmed_baseline` (has a year, carries `prior_reused`), `already_confirmed_by_us` (has a year from our own evidence), `already_candidate` (on file, no year -> still queued). This also discharges the long-standing "split `already_known` into baseline vs earlier-seeded" item
+  - now three states instead of one: `already_confirmed_baseline` (has a year, carries `prior_reused`), `already_confirmed_own_evidence` (has a year from collected evidence), `already_candidate` (on file, no year -> still queued). This also discharges the long-standing "split `already_known` into baseline vs earlier-seeded" item
   - classification moved from one query per line to one set-based query, which matters at the 600k-domain seed files that section B will feed it
   - verified while here that both verification selectors already drop fully-covered domains: of 31,492 domains holding all six in-window years, 0 appear in the RDAP pool and 147 (0.03%) appear in the CDX pool, those being domains whose gaps the CDX run itself filled after the list was generated. Accepted as the staleness cost of not regenerating the list mid-run (Ivo, 2026-07-26)
 
@@ -496,7 +496,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - that markup is not in the cached pages. Measured across all 130: the `/list.gsp` captures carry almost nothing but navigation chrome (`go2net`, `infospace`), while the productive pages are `/directory/<category>/<topic>.html`, at roughly 100 hostnames each. So the specific route recommended was not the productive one
   - the review was right about the underlying mechanism, though: the listed hosts are **plain text**, not links, so the pipeline's own link extractor sees 1,749 domains and 20 net-new pairs, while a text scan sees 3,453 domains and 488 net-new pairs
   - **the master-evidence recommendation was still declined.** A text regex cannot tell a listed entry from an advertisement, a prose mention or a navigation label, and this project's own rule (recorded with the evidence taxonomy) is that only curated *entries* on a directory page are `dated_directory`, while everything incidental on the same page is candidate-grade. Asserting 488 pairs from a regex would break the rule that makes the other 1.3M defensible
-  - so the whole scan went to the candidate pool instead: **3,453 hostnames seeded, 3,187 already confirmed from the baseline, 8 from our own sources, 258 genuinely new**, all queued for CDX verification, where a capture will settle each on its own evidence
+  - so the whole scan went to the candidate pool instead: **3,453 hostnames seeded, 3,187 already confirmed from the baseline, 8 from collected evidence, 258 genuinely new**, all queued for CDX verification, where a capture will settle each on its own evidence
   - recorded because the disagreement is the point: a projection of ~1,000 net-new domains became 258 candidates once the evidence standard was applied, and the difference is entirely in what counts as proof rather than in the data
 
 - **Concurrency re-measured after the outage; 8 workers confirmed, 12 is worse (2026-07-26)**
@@ -614,7 +614,7 @@ Ding's feedback set two binding rules for every future round: start from `merged
 
 - **Export and stats disagreed about what "new" means, and only the rolling baseline exposed it (blocking)**
   - `export.py` defined an addition by following `domain_year.evidence_id` and asking whether **that row** is baseline. `stats.py` asks whether **any** baseline evidence exists for that `(domain, year)`. Under a fixed baseline those agree. Under a rolling one they diverge, because `INSERT OR IGNORE` leaves an already-assigned pair pointing at its original CDX evidence even after a later release absorbs it
-  - consequence had it shipped: `output/netnew/` would have held **1,339,783** pairs instead of 17,418, re-claiming the whole of phase 1 as new against a baseline that already contained it. That is exactly what the feedback forbids: "do not report internal pipeline insertions as if they were new against the project". It would have been caught, but by Ding's merge rather than by us
+  - consequence had it shipped: `output/netnew/` would have held **1,339,783** pairs instead of 17,418, re-claiming the whole of phase 1 as new against a baseline that already contained it. That is exactly what the feedback forbids: "do not report internal pipeline insertions as if they were new against the project". It would have been caught, but by Ding's merge rather than here
   - fix: export now uses the absence-of-baseline test, matching `stats.py` and `contribution.py`, which had it right all along
   - the defect was found only because `ark check` failed and the failure was diagnosed rather than silenced. Worth stating plainly, since the tempting move was to weaken the check until it passed
 
@@ -701,7 +701,7 @@ journals only, meaning everything except the newest file in each directory while
 domain (~1,150 pairs/hour); RDAP ~2,800 domains/hour at ~0.15 (~420 pairs/hour). Run concurrently
 they reach ~1,555 pairs/hour, because they are network-bound against different services.
 
-## Definition: what we count as a valid domain
+## Definition: what counts as a valid domain
 
 Implemented in [`src/ark/canonical.py`](../src/ark/canonical.py) (`to_registrable`); every domain from every source passes through it before touching the database. A line counts as a valid domain if, after the steps below, a registered domain remains:
 
@@ -723,7 +723,7 @@ Two structural rules hold across all types:
 
 | Type | What one row asserts | What a negative means | Disposition |
 |---|---|---|---|
-| `prior_reused` | The provided baseline already lists this (domain, year); reused read-only per III.1 | n/a (we never generate baseline negatives) | Master; **excluded from the scored metric** (it is the baseline, not net-new) |
+| `prior_reused` | The provided baseline already lists this (domain, year); reused read-only per III.1 | n/a (baseline negatives are never generated) | Master; **excluded from the scored metric** (it is the baseline, not net-new) |
 | `cdx_timestamp` | A web-archive CDX capture (IA, Arquivo.pt, ...; the `source` names which) with an in-year 14-digit timestamp and HTTP 200 for the domain or a subdomain (`*.domain`) proves it served content that year | Deterministic empty CDX answers for all six year windows: IA never archived it in-window (not proof of non-existence, so it stays a candidate) | Master; the gold standard every candidate is verified against |
 | `artifact_listing` | The domain is a line in a **dated data file** whose own provenance fixes the year (ISC survey list = survey date; ODP RDF dump = generation stamp) | Absence from a given dated file means only "not in that file", weaker than a CDX negative | Master (direct, §VII "dated index files"); ISC/ODP semantics flagged for Ding's confirmation in the interim email |
 | `link_source` | From a UKWA host link-graph row `year\|source\|target`, the **source** host was crawled (HTTP 200) that year to produce the link | n/a per-domain (the graph is precomputed, not queried) | Master (brief lists UKWA host/link graphs among its index sources, §V) |
@@ -733,3 +733,402 @@ Two structural rules hold across all types:
 
 Gray zone recorded for the ingester: on a `dated_directory` page, only curated **entries** count as `dated_directory`; incidental outbound links from the same page (nav bars, ads, reciprocal-link footers) are `link_target`-grade candidates. Drawing that line lives in the per-source parser.
 
+
+## 2026-08-01 (phase 3: the English-website standard)
+
+Feedback v3 section 6 imposes a new admission rule: a domain enters an annual file only if it belongs to an English-language website, or one where English is more than 50% of reliably classified body text, judged **at website level from archived page body text** and explicitly not from the domain spelling or the TLD. This is an admission criterion, not a post-hoc filter, so until a language pipeline existed the next submission had zero admissible additions regardless of how many pairs the engines collected. Ding also writes that his own language table is "a provisional aggregate estimate ... using a TLD-stratified Common Crawl 2024-10 page-language prior and is not a per-domain historical-language verification", and that future reports "must replace the provisional estimate with archived-content evidence". That is the deliverable this session builds.
+
+- **Language is not evidence, so it is a new table rather than a new evidence type**
+  - every existing `evidence_type` answers "did this domain exist in this year". A language verdict answers "what was this website in this year". The two are orthogonal: a domain can be perfectly evidenced and still inadmissible, and an inadmissible domain has lost none of its evidence
+  - adding an eighth `evidence_type` would have put a non-existence claim inside a taxonomy that `MASTER_TYPES`, the schema CHECK constraint and four integrity checks all read as "proof this existed". `assign_year` would then have had to special-case it, which is the kind of exception that quietly becomes the rule
+  - so: `domain_language (domain, assigned_year, verdict, english_share, samples, top_other, evidence_urls)`, keyed on the same pair as `domain_year`. Verdicts are `english`, `other`, `undetermined`
+  - `evidence_urls` stores the exact snapshot URLs that were read. **That column is the entire difference between this and a TLD prior**: a reviewer can refetch what was classified and recompute the verdict. Ding asked for archived-content evidence, and a verdict nobody can check is not evidence
+
+- **Two thirds of the additions can be classified at all, and one third cannot. Measured, not assumed**
+  - per net-new (domain, year), does any `cdx_timestamp` evidence exist for that exact pair? If yes the archive provably holds an in-year capture and there is body text to read; if no, the pair rests on a registry creation date or a DNS survey line and there may be nothing at all
+  - result: **21,825 of 32,698 (66.7%) are capture-backed**. By year: 1996 0.4%, 1997 0.0%, 1998 86.5%, 1999 5.9%, 2000 93.5%, 2001 96.5%
+  - this is a hard ceiling on the admissible set before language is even considered, and it is not something more crawling fixes: the Internet Archive did not capture those sites in those years
+
+- **The planned year priority was exactly backwards, and a calibration run proved it before the code shipped**
+  - the plan said to classify 1996 and 1997 first, because feedback section 5 puts both under 10,000 additions and therefore closest to the completeness threshold. Sound about completeness, wrong about this engine
+  - the first calibration run spent its whole budget on 1996 and returned 74 answers, **every one `undetermined` with zero captures found**. Cross-checked against the measurement above (1996 is 0.4% capture-backed) and against four of those domains re-queried by hand on a healthy connection, which returned genuine HTTP 200 with zero rows. The engine was right; the priority was wrong
+  - `write_lang_targets` now orders capture-backed pairs first, then by year volume within that group. Requests against the archive are the scarce resource and they go where a verdict can change the admitted set. The completeness argument for 1996 and 1997 has not gone away; it simply cannot be served by page-text classification
+
+- **The archive refused this project within four minutes, and the governor could not see it**
+  - the first design sent up to 4 requests per pair (1 CDX query plus 3 snapshot fetches) at 4 workers with a 0.05 s floor. That is an order of magnitude more traffic than the CDX engine's sustained ~1,000 requests/hour. After roughly 400 requests `web.archive.org` began refusing TCP connections while ping and DNS stayed healthy. Third refusal in this project's history
+  - the real defect was not the pace but the blindness. `RateGovernor` backs off on 429, 503 and 504. **A refused connection is status 0, which was not a throttle signal**, so the run kept dialling at full speed at exactly the moment it should have stopped. Silence was being read as success
+  - two fixes. Status 0 now backs the governor off like an explicit 429. And `ark lang` carries a circuit breaker: 25 consecutive failures ends the batch, because an unbroken run of failures is not bad luck, it is the archive declining the traffic, and continuing turns a temporary refusal into a durable one. Nothing is lost, since an unanswered pair was never settled
+  - `--min-delay` is now an explicit option rather than an inherited default. For an engine whose unit of work costs three requests, the floor is what bounds the load, not the worker count
+
+- **Classifier decisions, each of which changes the measured English share**
+  - **`charset_normalizer` over raw bytes, never UTF-8 over text.** Pages of this period are frequently latin-1, Shift-JIS or GB2312 with no declared charset. Decoding those as UTF-8 produces mojibake, mojibake classifies as undetermined, and undetermined pages leave the denominator, so the error would have **raised** the measured English share. This is why the module carries its own bytes fetcher instead of reusing `cdx.py`'s, whose fetcher decodes with `errors="replace"` and destroys the evidence before it is seen
+  - **`py3langid`**: pure Python, no model download, deterministic, and with `norm_probs=True` it returns a real probability so a confidence threshold means something. `langdetect` is non-deterministic without a seed, which would make a verdict unreproducible
+  - **under 200 characters of stripped text is "not reliably classified"** and leaves the denominator entirely. Under-construction notices, image-only splash pages and framesets are everywhere in this period, and identifying a language from a dozen words is noise presented as a measurement
+  - **under 0.50 confidence is excluded rather than counted as non-English.** Section 6 puts low-confidence cases outside the annual files. Counting them as non-English instead would drag genuinely English sites out, which is a different error from the one the rule is guarding against
+  - **captures are weighted by classified text length**, so a substantial English page outweighs a one-line non-English redirect notice instead of each counting once
+  - **strictly greater than 0.50 admits**, so an exact half fails, per the wording "more than 50%"
+  - **extracted text is joined across tag boundaries with a space.** Concatenating `<p>Test</p><p>Hello</p>` into `TestHello` invents n-grams the classifier reads as evidence of another language. Found by a test, not by reading the code
+  - validated live before the refusal: `bbc.co.uk` 1999 returns `english` at share 1.0 from three distinct sampled pages, `lemonde.fr` 1999 returns `other` at share 0.0 with top other `fr`
+
+- **`unclassified` is reported separately from `undetermined`**
+  - a pair the engine has not reached yet is not the same claim as one it judged and could not resolve. Collapsing them would overstate how much of the list has actually been read, and section 6.1 is a reporting requirement, so an inflated denominator there is a misstatement to the reviewer
+
+- **`init_db` split the schema on `;` including semicolons inside comments**
+  - a semicolon in a new `--` comment cut a `CREATE TABLE` in half and failed with a parser error pointing at prose. Comment lines are now stripped before the split, which keeps the explanation in the source and out of the executed SQL
+  - minor, but it is the second time this session that a defect surfaced only because a test ran the real code path rather than a description of it
+
+- **`domain_language` is in the provenance export, and optional on load**
+  - the English-verified annual files must rebuild in tier 2 like everything else, so the table is exported to Parquet with the rest of the evidence graph
+  - it is optional on **load**, because an export written before the English standard existed has no such file, and a reviewer holding the earlier delivery archive must not meet a `FileNotFoundError`. A missing file creates the table empty rather than skipping it, so everything downstream can query it unconditionally
+
+## 2026-08-01 (phase 3, later: Usenet as a dated source, and three sources measured)
+
+Feedback section 4 asks for broader sources and for previously unavailable ones to be revisited. Two research sweeps ran against those families. **Every headline number they returned was re-measured against the store before anything was ingested, and two of the three did not survive that.** The method turned out to matter more than any individual result, so it is recorded first.
+
+- **Estimates in this space are unreliable by one to two orders of magnitude, so nothing is ingested on an estimate**
+  - the NYPW first-capture index was estimated at 27,276 net-new domains and measured at **53**. The estimate compared NYPW's *registered domains* against *raw hostname lines* from the *phase-1* baseline: a units error and a stale-baseline error, both of which inflate. Measured against the store, 2,354,914 in-window domains of which all but 53 are already held, a 99.998% overlap. That is exactly what a 1-in-6000 sample of the Internet Archive's own CDX should look like against a baseline already drawn from it
+  - a separate vein was estimated at 1,000 to 5,000 net-new domains and measured at 5
+  - the measurement scripts are committed (`measure_nypw_yield.py`, `measure_usenet_yield.py`) so every figure can be re-derived rather than believed. Two minutes of measurement avoided a 19.35 GB download
+
+- **Usenet announcement archives adopted: the date is intrinsic to the artifact**
+  - Giganews donated its Usenet archive to the Internet Archive. Announcement and commerce groups carry a posting date beside the URLs in each message, so the year comes from the artifact rather than from a crawl of the site
+  - that is the specific gap the capture-backed measurement exposed. The 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so the archive holds nothing to verify against; a dated post does not need the site to have been crawled at all
+  - measured across eight groups of 302 shortlisted: net-new pairs **32,698 to 67,394**, and the gains land in the thin years. 1999 goes 696 to 5,098 and 1997 goes 3,534 to 13,820, against 2001 which moves 7,743 to 8,880. That distribution is the argument for the source, not a coincidence
+  - **the Message-ID is the evidence value.** Usenet message IDs are globally unique by design, which makes them exactly the "opaque record identifier" the integrity checks already expect from a `dated_directory` row: a reviewer can name the precise post behind any year assignment
+
+- **The admission rule: corroboration, applied per name, not per source**
+  - the post date is trustworthy and the URL beside it is human-typed. 35.4% of never-before-seen names are within a single edit of a name the store already holds, and the corpus visibly contains `weddinqnetwork.com` and `dmjbuisness.co.uk`. Admitting those would put invented domains into an annual file, which is the one failure this project cannot afford
+  - so the same split `expand.py` applies to archived directory pages. A domain **another source already places in an annual file** is real, and the only open question is the year, which the post answers: that half is `dated_directory`. A name appearing only in Usenet is `link_target` and goes to the candidate pool to earn its own evidence
+  - **the test is "appears in `domain_year`", not "appears in `domain`"**. The latter includes the candidate pool, so a typo that an earlier round also recorded as a candidate would corroborate itself. That distinction is the whole guard
+  - group purpose is **reported, not enforced**, and this is the one place a reviewer might reasonably disagree. The stricter alternative admits only moderated announcement groups. It was not taken because, once corroboration has established the domain is real, a URL in a dated public post is contemporaneous evidence of use whether the group was moderated or not. Every evidence row names its group, so a reviewer who disagrees can filter rather than reingest
+
+- **Usenet is its own provenance lineage**
+  - the corpus is a donation of posts with no common ancestor with any web crawl, so a pair confirmed by both Usenet and a Wayback capture is genuine cross-lineage corroboration rather than the Internet Archive agreeing with itself. Filing it under `internet_archive` because that is where the files are hosted would have quietly inflated the independent-corroboration figure, which is the one corroboration number worth quoting
+
+- **Two parsing findings, both of which made a good source look barren**
+  - the Giganews donation rewrote a large share of `Date:` headers as a bare `YYYY/MM/DD`, which `parsedate_to_datetime` rejects outright: **21,346 of 23,282 messages** in `comp.infosystems.www.announce`. Before that was handled the route measured 913 pairs and produced nothing at all before 2000; after it, 6,885 across all six years. A source can look exhausted purely because of a header format
+  - **group size does not predict in-window content.** `alt.www.webmaster` is 170 MB and yielded one pair, being entirely 2006 to 2013. Out-of-window and unreadable dates are now counted separately, because they look identical under one counter and call for opposite responses: drop the source, or fix the parser
+  - the moderated-group classifier first tested for an `.announce` suffix, which reports `news.announce.conferences` as an ordinary discussion group. It tests components now
+
+- **Australian Web Archive: the endpoint recovered, the source still fails**
+  - `webarchive.nla.gov.au/awa/cdx` still serves an anti-bot challenge, but **`web.archive.org.au/awa/cdx` answers normally** and returns a 1996 capture for `abc.net.au`. The rejection was stale, which is precisely what section 4 means by revisiting blocked sources, and the correction is worth keeping even though the source failed
+  - the pool looked strong: 35,391 PANDORA registered domains, 29,595 of them in no annual file. A random **60-domain** sample returned 60 answers, zero transport failures and **zero in-window captures**. Rejected on a clean sample rather than on the 39-host probe that first suggested it
+
+- **How much the Usenet post date can be trusted, measured against an independent source**
+  - for the 217,113 Usenet-dated pairs whose domain the Internet Archive also evidences, the archive attests **the exact same year for 51.1%** and **a year within one for 88.7%**. An earlier 30-domain spot check suggested 47% and 77%, so the full measurement is kinder, but the shape holds
+  - a disagreement is not automatically a Usenet error. The archive crawled sparsely in these years, so a site announced in 1997 and first captured in 1998 produces a mismatch in which the post is the better evidence. That is the whole reason this source reaches years the crawl cannot
+  - but it bounds the claim honestly: for roughly half of these pairs it asserts a year the archive does not independently confirm, resting on a dated public post. Brief III.1 accepts "a dated directory page, a dated index file", so this is a legitimate reading, and it is weaker than a capture. It goes in the next report's limitations rather than being left for a reviewer to discover
+
+- **The second sampled capture rarely changes the verdict, measured**
+  - of 266 classified pairs, **156 got only one usable capture anyway**, because that is all the archive held for that domain in that year. Of the 110 that got two, only **3** came back mixed-language, meaning a share that is neither 0.0 nor 1.0. So the second sample could have altered at most about 1% of the answers
+  - dropping to one sample would cut requests per pair from three to two, a 33% throughput gain against the binding constraint. **It was not taken.** The gain is 900 extra pairs out of 69,000, coverage moves from roughly 4% to 5%, and section 6 says "across the sampled captures" in the plural. Weakening the method for a rounding error in coverage is a bad trade
+  - recorded because it is the right trade for someone running this to completion later, when the budget is hours rather than a night, and they should be able to make it knowingly rather than rediscover it
+
+- **The first archived-content language measurement, and what it shows**
+  - per year, of the additions the engine has reached and answered: 1998 **80.2% English**, 2000 **64.9%**, 2001 **61.6%**. Ding's TLD-stratified Common Crawl prior puts the *competitor's* 2000 and 2001 additions at 33.0% and 37.1%
+  - those are different populations measured by different methods, so it is not a like-for-like comparison and must not be presented as one. It is still the difference between a number derived from what a TLD suggests in 2024 and one derived from what the site said in 2000, which is exactly the substitution the feedback asks future reports to make
+  - coverage is the caveat and the reason `unclassified` is its own column: 799 of 87,458 additions reached. The claim is a measured rate per year with a stated sample size, not a census
+
+- **The discovery cycle closed, and produced the first net-new DOMAINS**
+  - net-new domains had been 0 for the whole project, because gap-filling adds years to domains the baseline already holds and the corroboration split does the same by construction
+  - the chain now runs end to end: a Usenet post names a domain, it enters the candidate pool as `usenet_mention` with no year, `ark cdx` finds an in-window capture, and `ia_cdx_bulk` evidence promotes it into an annual file. `01ware.com`, `0800unlimited.com`, `080massage.com` and `090isp.co.uk` are the first four, all discovered by Usenet and confirmed by the archive
+  - that is brief sections IV and VII working rather than being described: discover from a source without year labels, validate against a time-evidence service, feed back. Four is a small number, but it is the difference between a cycle that is documented and one that has been run
+  - the input to it grew from 5,583 candidates to roughly 30,000, most of them Usenet-discovered, so the ceiling on this route is now set by how long the CDX engine runs rather than by how many names are known
+
+- **The candidate-verification hit rate is 49%, which reframes what the Usenet route is worth**
+  - the first completed batch: 337 Usenet-discovered candidates queried, **165 had an in-window archived capture (49%)**, 167 had none, 5 failed. Every one of the 165 became a net-new domain, because a candidate is by definition in no annual file
+  - **net-new domains went 0 to 169**, the first movement in that metric in the project's life
+  - at that rate the remaining candidates project to roughly 7,500 more. That is one 337-domain batch extrapolated 45-fold, so it is an order of magnitude and not a forecast, and the report should say so
+  - the more interesting reading is what the 49% says about Usenet itself. Half of the names mentioned in dated posts and never seen by any other source do have archived captures, which means they were real sites rather than typos. It is independent support for the source that no amount of internal consistency checking could give
+  - it also inverts the earlier priority. Usenet's *pairs* looked like the headline; its *candidates* are worth more, because a verified candidate is a new domain rather than a new year on a domain the baseline already had
+
+- **Stopped the language engine at 06:03 to give the archive budget to candidate verification**
+  - both engines share `web.archive.org` and the contention was measurable, not theoretical: `ark cdx` ran at 39 to 56 s/domain alongside `ark lang` and at **7.3 s/domain** once it had the service to itself, a six-fold recovery. Under contention its 250-domain batches were taking two hours, so their journals never landed and nothing was being ingested at all
+  - the trade, stated plainly. `ark lang` had classified about 1,600 pairs and produced a measured English rate for three years. More of it improves the precision of a sample; it does not change any claim, because the deliverable feedback section 6 asks for is the **engine plus a measured rate**, and both exist, are tested and are documented
+  - candidate verification moves a metric that had been **0 for the life of the project**. Measured hit rate across two batches: 165 of 337, then 74 of 122, so roughly half to three fifths of Usenet-discovered names have an in-window capture and become net-new domains
+  - so: per request, `ark cdx` yields about 0.5 net-new domains and 0.8 net-new pairs, while `ark lang` yields one classified pair for three requests and adds neither. With a fixed request budget and three hours left, that is not a close call
+  - **this is a scheduling decision, not a change of priority.** The English standard still gates admission and the engine still has 68,000 pairs to work through. It wants a long unattended stretch, which the next window can give it
+
+## 2026-08-01, session close
+
+Final position, all measured against `data/ark.duckdb` with the ten integrity checks passing:
+
+    net-new (domain, year) pairs   32,698 -> 96,158   (+194%)
+    net-new domains                     0 ->  1,065   (first movement in the project's life)
+    candidate pool                  5,583 -> 41,289
+    English-verified pairs                     689 across four years
+    tests                             204 ->    253
+
+- **The session's most useful habit was refusing to ingest anything on an estimate.** Three of five sources assessed were rejected, two after their headline numbers proved wrong by two orders of magnitude: NYPW at 27,276 estimated against 53 measured, and an ISP-directory vein at 1,000 to 5,000 estimated against 5. Both estimates came from comparing the wrong things (registered domains against raw hostname lines, a stale baseline against a current one), and both would have been believed without a measurement script. `measure_nypw_yield.py` and `measure_usenet_yield.py` are committed so the next assessment starts from a measurement rather than a claim
+- **The Usenet finding generalises.** What made it work was not Usenet: it was that the date is *intrinsic to the artifact* rather than recovered from a crawl. That property is what reaches 1996 to 1999, where the archive's own coverage is thinnest and where every capture-based route necessarily fails. Mailing-list archives share the property and were assessed and rejected on population rather than structure; anything else with a dated record and a URL beside it deserves the same look
+- **Discovery turned out to be cheaper than verification, which inverts the plan.** The candidate pool grew from 5,583 to 41,289 in one night while verification reached 1,730 of them. The bottleneck is no longer finding names, it is asking the archive about them, and that is bounded by a rate limit rather than by ingenuity
+
+- **Three defects that put wrong domains in the English annual files, and why the verdicts were discarded**
+  - an adversarial audit of the engine against live archived pages found three, each reproduced before being fixed:
+    - **the index limit was the fetch count.** `classify_pair` passed `samples` as the CDX limit, so a run at `--samples 2` asked the index for two rows and reported `captures_found: 2` whatever the archive held. **869 of the 1,152 pairs with any capture, 75.4%, were censored this way.** `adguys.com` 2000 was stored `undetermined` on 2 rows while the same query at `limit=50` returns 33, including pages of 5,193 bytes
+    - **captures were taken in index order**, which is URL-key order, so framesets and redirect stubs dominated the sample. The index reports each record's stored length, so the largest pages can now be chosen without spending a fetch
+    - **placeholder pages were admitted as English websites.** A registrar parking page is fluent English, so the classifier was confident and wrong. `ajpca.com` served "ajpca.com currently has no web site", scored `english` at confidence 1.000, and reached `output/netnew_english/2000.txt`. A domain that provably had no site, admitted under a rule about websites. `alpinvest.com` scored `english` 1.0 on a Netscape-frames notice while its other capture was 2,110 characters of Dutch
+  - verified live on those three pairs: `adguys.com` undetermined to **english** on 33 captures, `ajpca.com` english to **undetermined**, `alpinvest.com` english to **other** on 8,484 characters. One rescued pair and two false admissions removed
+  - **the 1,164 verdicts collected before the fix were discarded rather than shipped.** They are known to contain false admissions of both kinds, and an English annual file whose contents cannot be trusted is worse than a shorter one. The journals are preserved under `data/raw/lang/superseded/`, so every discarded verdict is reproducible and the decision is auditable rather than a deletion
+  - coverage went from 1,164 verdicts to zero and is rebuilding. That is the right direction: this project's whole claim is that a verdict is checkable, and a checkable verdict that is wrong is worse than none
+  - **a test lesson worth more than the fix.** The first version of the limit test passed against the broken code, because the fake fetcher answered the same rows whatever limit it was given. A test that cannot observe the thing it asserts on is not a test. It records the requested URL now
+
+## 2026-08-01 (phase 4: the English-verified set becomes the deliverable)
+
+Ivo's instruction after reading feedback v3 again: from this round every annual
+addition must be English-verified, all Internet Archive request budget goes to
+that, and the deliverable ships two disjoint sets rather than one set with a
+subset inside it. Non-CDX discovery continues as an explicitly secondary stream.
+
+- **The open question to Ding is withdrawn, deliberately.** The previous plan
+  ended with a question about admitting pairs whose evidence is a registry date
+  rather than a capture. Ivo decided not to ask it: ship both sets and let
+  the reviewer decide what to do with the second one. That is a cleaner contract
+  than a negotiated exception and it removes a dependency on a reply
+- **All CDX budget to the language engine, and this one is uncomfortable.**
+  `ark cdx` candidate verification is what moved net-new domains off zero, at a
+  62% hit rate, and it is stopped anyway. Both engines hit `web.archive.org` and
+  the contention was measured, not assumed: 344 pairs/hour with CDX competing
+  against **429 pairs/hour without it**, a 25% gain from doing less. The
+  candidate pool does not decay, and English verification is the admission
+  criterion for this round, so it cannot be deferred the way discovery can
+
+- **"No capture in this year" was being claimed on a filtered question**
+  - the capture query filters on `statuscode:200` and `mimetype:text/html`. A
+    year holding only redirects, plain text, or records the archive labelled
+    differently answers it empty, and the engine wrote that down as though the
+    archive held nothing at all. **That is disqualifying a domain on an
+    assumption**, which is the one thing this engine exists not to do
+  - an empty filtered result now triggers one unfiltered index probe before
+    anything is concluded. Nothing at all exists (`no_capture_in_year`),
+    something exists but not as readable HTML (`no_readable_html_capture`), or
+    the probe itself failed, in which case the pair stays unsettled and **no
+    verdict is written**. It costs one cheap request on the ~23% of pairs that
+    reach the branch
+  - `cdx.year_probe_url` does the same job with a `statuscode:200` filter and is
+    deliberately **not** reused. There a match only ever admits a pair, so a
+    filtered question errs toward caution; here a match only ever withholds a
+    rejection, so the same filter would point the caution the wrong way. Both
+    functions now say so, because merging them would silently restore the defect
+
+- **A rejection with no reason is an assertion, so rejections now carry one**
+  - `undetermined` was covering at least five different situations and a
+    reviewer could not tell an under-construction page from a registrar parking
+    page from a site that could not be read. Closed vocabulary, stored per pair:
+    `no_capture_in_year`, `no_readable_html_capture`, `insufficient_text`,
+    `non_site_text`, `low_confidence`, `other_language`,
+    `mixed_below_threshold`
+  - `other_language` and `mixed_below_threshold` are split because both fail and
+    they fail differently. A reviewer weighing whether the 50% line sits in the
+    right place needs to see how many pairs are near it rather than nowhere near
+    it
+  - added by migration, not by editing the schema alone: `CREATE TABLE IF NOT
+    EXISTS` does nothing to a table that already exists, so a new column would
+    have reached fresh stores only and silently skipped every real one
+
+- **The deliverable is a partition now, not a set and a subset**
+  - the old shape shipped `netnew/` with every addition and `netnew_english/`
+    with a subset of those same pairs. The two overlapped, so a reviewer adding
+    them double-counted. Now a pair is on exactly one side and the sides sum to
+    the total
+  - three statuses, and the third is the one that matters. `verified` means the
+    archived text was read and was more than half English. `disqualified` means
+    the archive was asked and answered and the pair failed, with a reason and a
+    row in the register. **`unchecked` means the engine has not reached it, and
+    makes no claim about its language or about whether a capture exists**
+  - two integrity checks assert the partition against the shipped files rather
+    than the README claiming it, and `verify.sh` re-checks it from inside the
+    archive with no dependencies. Writing the third test found a real bug: an
+    `english` verdict was being counted as a disqualification
+
+- **The watchdog tests progress, not presence.** A batch that hangs on a socket
+  leaves the supervisor alive and the journal frozen, which a PID check reports
+  as healthy. The archive has refused this project three times, twice overnight,
+  so the expensive failure mode is precisely the quiet one
+- **Usenet group selection is ranked by expected yield, not by size.** Ordering
+  the 19,233 available groups by size put dead vanity archives at the head of
+  the queue. Announcement forums go first, commerce second, size breaks ties
+  within a tier. And short tokens are matched as whole dot-separated components,
+  because `talk.bizarre` contains "biz": the same trap a suffix test hit on
+  `news.announce.conferences`
+
+## 2026-08-01 (phase 4, later: the engine audited twice, ten defects, verdicts discarded again)
+
+Two adversarial reviews of `language.py`, briefed on opposite failure modes: one
+hunting pairs that could reach the English files wrongly, one hunting pairs that
+could be wrongly excluded. Both found real defects, and the overlap between them
+was the interesting part.
+
+- **The archive can answer a replay with a different year, and the audit trail
+  would have hidden it.** A 302 to the nearest capture in time, in any year,
+  followed silently by urllib and reported as 200. Verified: a request for the
+  1997 capture of `1697.com` returned the capture of 17 October 2000. Since
+  `evidence_urls` recorded the URL *asked for*, a reviewer refetching it would
+  get the same substitution and see agreement. **A provenance record that
+  confirms its own error is worse than none**, so the fetcher now returns the
+  served URL, out-of-year samples are dropped, and what is stored is what
+  answered
+- **The sampler was choosing things that are not the website.** Largest-record
+  selection under `matchType=domain` finds third-party application chrome:
+  `1stflatrate.com` was certified English for 2001 on an Ipswitch IMail login on
+  port 8383, and 68 evidence URLs behind `english` verdicts pointed at cgi-bin,
+  webmail, guestbooks or non-web ports. `robots.txt` is indexed as HTML 200 and
+  is often longer than a small site's homepage, so two domains were admitted on
+  a robots.txt alone
+- **The placeholder test had a hole exactly where the money was.** It returned
+  early above 1,000 characters, so a 1,060-character keyword link farm
+  (`2000s.com` 2001, English at confidence 1.000) was admitted on 60 characters
+  of margin. Three shapes of non-site need three shapes of test: unambiguous
+  phrases at any length, weak phrases judged on the residual text once the
+  phrase is removed (a 299-char plumber's page mentioning "under construction"
+  against a 55-char stub: 282 residual against 38), and a structural test for
+  the link-farm family, which contains no giveaway phrase at all
+- **A truncated sample was settling verdicts.** 124 of 839 `english` verdicts had
+  rested on a single page after the other fetch failed. Now a verdict on a
+  truncated sample stays unsettled, and `samples` is a budget of usable reads
+  rather than of attempts, so a pair whose largest captures are unreachable no
+  longer settles while 38 candidates sit unread
+
+- **The structural fix underneath all of them: nothing could re-judge a pair.**
+  Any verdict at all removed it from the work list for good, so every scoring
+  defect became permanent at the moment it produced output. That is why the same
+  class of bug has now cost this project two rounds of discarded verdicts.
+  Verdicts carry an engine version, only current-engine verdicts can reach an
+  annual file, and a pair leaves the queue only when asking again could not
+  change the answer. `no_capture_in_year` is the one undetermined that is final,
+  because the archive's index for a past year does not grow
+- **All 297 verdicts discarded, journals preserved.** Second time. The trade is
+  the same and so is the answer: this route's whole claim is that a verdict is
+  checkable, and a checkable verdict that is wrong is worse than none
+
+- **1996 and 1997 get a measured minority share of the budget.** They hold 25,599
+  additions and 48 capture-backed pairs, so a strict capture-backed queue leaves
+  both at zero English forever. A 200-pair unfiltered probe measured **5.4% of
+  1996 and 12.6% of 1997** with an in-year capture, 9.1% overall, against the 0%
+  an earlier sample of pre-Usenet 1996 domains suggested. The population changed
+  when Usenet brought in domains live enough for someone to post about them. One
+  early-year pair per ten capture-backed ones: roughly 65 verdicts gained there
+  against 320 elsewhere, and the arithmetic is in the code so the choice can be
+  reversed on evidence
+- **A review finding I did not act on.** Both agents suggested collecting `alt`
+  attribute text, since image-heavy pages of this era kept their English there.
+  Declined: `alt` text is frequently English boilerplate ("click here", "home")
+  on non-English sites, so it would bias toward admission. The asymmetry decides
+  it, as it did for the weak markers, just in the other direction: a false
+  admission is a claim made to a reviewer, a false exclusion is a pair that
+  stays retryable. Recorded as a limitation instead
+
+## 2026-08-01 (phase 4, evening: concurrency is not the lever, measured a third time)
+
+- **A controlled A/B on the language engine, with the decision rule fixed before
+  the result.** Batch 1 ended with the governor at its configured floor after 94
+  throttles, which suggested headroom, so the next batch ran at 3 workers and a
+  1.2 s floor against the measured 367 pairs/hour at 2 workers and 1.5 s.
+
+      2 workers / 1.5 s   367/hour and 381/hour   throttles 94   final_delay 1500ms
+      3 workers / 1.2 s   364/hour                throttles 95   final_delay 1428ms
+
+  **Three workers was slower.** Reverted immediately. What the governor sitting at
+  its floor actually indicates is that the *pacing* is not the constraint; it says
+  nothing about whether more parallel requests will be served, and they are not
+- **This is the third independent measurement of the same thing** and it should
+  end the question. The first pilot lost the archive entirely at 4 workers. The
+  phase-2 server-versus-laptop comparison found the server no faster despite more
+  cores, and slower on CDX. Now a batch-level A/B. The limit is what
+  `web.archive.org` will serve a single client. **The lever for throughput is
+  requests per verdict, not requests in flight**, and the cheapest remaining one
+  is merging the filtered capture query with the unfiltered probe, worth about
+  10%, which needs an `ENGINE_VERSION` bump and so waits for the next round
+- **The English share is 62.3% across all completed batches, not the 64.5% of the
+  first.** It ranges from about a half to two thirds by batch, because the queue
+  interleaves early-year pairs that yield less. The report derives it from the
+  store now rather than quoting one batch, which is the same discipline as every
+  other figure: a single-batch rate presented as the rate is an estimate wearing
+  a measurement's clothes
+
+## 2026-08-01 (phase 4, close: the deliverable, and what three review rounds cost and bought)
+
+- **Shipped 1,541 English-verified pairs of 151,949 additions, with 1,056
+  exclusions documented per item.** The English figure is 1.0% of the total and
+  that ratio is the honest headline: the standard was imposed three days ago and
+  verification is bound by what `web.archive.org` will serve one client, measured
+  at 367 pairs/hour against a backlog of two weeks
+- **Three adversarial review rounds, and they earned their cost.** Two on the
+  engine found ten defects, four of which had already put a wrong domain in a
+  generated file. One on the report found twenty-five problems, of which the most
+  serious was that its headline claimed 93 English verdicts against files that
+  shipped empty. A fourth pass verified the fixes and found twelve more, including
+  two different "measured" rates for one engine and an estimate carried forward as
+  a measurement. **None of this was found by testing; all of it was found by
+  reading adversarially with a brief.** The lesson to carry: a green test suite
+  says the code does what it was written to do, not that what it was written to do
+  is right
+- **The most valuable single finding was a provenance failure, not a logic bug.**
+  The archive answers a replay it cannot serve exactly with a capture from another
+  year, and because the engine stored the URL it asked for rather than the one
+  that answered, a reviewer re-checking a wrong verdict would have seen agreement.
+  An audit trail that confirms its own error is worse than no audit trail, because
+  it converts a detectable mistake into an undetectable one
+- **The deliverable was verified from outside the repo before shipping.** Checksum,
+  unpack, `verify.sh` with six PASS and no vacuous check, then the full tier-2
+  rebuild from the shipped Parquet: twelve invariants pass and 25 of 25 result
+  files return byte-identical. That test has now found two defects nothing else
+  did, and it is the reason it is written into the handoff as mandatory
+
+## 2026-08-02 (phase 4, revision: one author, one round, half the words)
+
+- **The report is rewritten to Ivo's brief and the deliverable re-cut before
+  tonight's submission.** The instruction (`ivo-new-instructions.md`, 2 August):
+  one authorial voice with no first-person plural anywhere; sections that
+  compared this round against the previous IA CDX position now compare against
+  the merged260730 baseline in the shipped counting unit; the syntax-anomalous
+  column left the language tables because it describes the spelling of a name
+  and not the language of a site (stated in prose with its 9,329-entry file
+  instead); section 6 reports only this round's additions; section 9 keeps what
+  the audit changed and drops the narration of how it went; and the whole
+  document was cut from 4,694 to about 3,400 template words with no figure or
+  claim removed. Rule of thumb applied throughout: WHAT, not how
+- **Rounds are counted the way Ding counts them.** No submission happened on 29
+  July, so nothing may call that "our second round". The earlier position is
+  "the initial gathering" wherever it appears, and the 32,698 pairs it
+  contributed to merged260730 stay separated from this round's harvest, as
+  feedback section 3 asks
+- **The measured rate is now derived from the supervisor log, not typed.**
+  `fill_report.py` reads every completed batch whose journal is still current
+  and quotes pairs, minutes and batches beside the rate. The hand-typed 367 was
+  already stale at 356 across eleven batches, which is the same lesson as every
+  transcribed figure this project has had to correct: a number that is not
+  derived drifts
+- **The how-and-why moved out of the READMEs into `docs/documentation.md`.**
+  Both READMEs kept the what: the repo README is the command sequence with
+  expected outputs, the archive README is the contents table and the three
+  checks. Design reasoning (evidence wall, journals, rate governance,
+  ENGINE_VERSION, the partition, determinism tiers) lives in the one file whose
+  job that is, at meta level only, nothing a docstring already says
+- **`just reproduce` gained the steps this round added.** The journals stage now
+  replays Usenet, Tucows and the language verdicts, and the deliver stage runs
+  `lang-report` after `export`. Before this, the recipe the README points tier-3
+  readers at rebuilt the previous round's result and stopped
+- **The re-cut archive was blind-verified before being called done.** From a
+  directory unrelated to the repo: sidecar checksum, unpack, verify.sh six PASS
+  (2,402 + 149,547 = 151,949, no overlap, 1,686 rejections over 6 reasons),
+  tier-2 rebuild ALL PASS, and all 26 README comparisons byte-identical. 624 MB,
+  381 files. The projection window is now computed from the watchdog's own
+  deadline epoch at fill time instead of a hardcoded 48 hours, and the email
+  quotes the size the English set reaches by Monday 12:00 UTC, current count
+  included
+- **Report shortened again on Ivo's review, sections merged.** The engine, the
+  throughput, the two sets and the audit were four sections and are now one,
+  and the lowest-value details went entirely (the Usenet header-format finding,
+  the group-size note, the PANDORA endpoint correction, the estimate-error
+  anatomy; all still in sources.md, which ships). 3,035 filled words against
+  5,542 shipped yesterday. Feedback-document references now read "your section
+  N" so the renumbered report's own sections cannot be confused with them
+- **Final deliverable cut at 2,614 English of 151,949**, sha256
+  0e7dd6018bf607d27f82f2ed91b5e564939c4e709113d16e09bcb977a247a051, 624 MB, 382
+  files. Blind-verified from an unrelated directory: six verify.sh PASS with no
+  vacuous check, tier-2 ALL PASS, 26 of 26 comparisons byte-identical, no
+  unfilled tokens, no first-person plural in report.md, README.md or sources.md.
+  The clean-tree guard fired twice during assembly, both times correctly: the
+  engine kept verifying while the documents were being refilled, so the refill
+  changed figures the committed copy did not have yet
