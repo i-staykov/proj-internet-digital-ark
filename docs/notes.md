@@ -1117,3 +1117,10 @@ was the interesting part.
   deadline epoch at fill time instead of a hardcoded 48 hours, and the email
   quotes the size the English set reaches by Monday 12:00 UTC, current count
   included
+- **Report shortened again on Ivo's review, sections merged.** The engine, the
+  throughput, the two sets and the audit were four sections and are now one,
+  and the lowest-value details went entirely (the Usenet header-format finding,
+  the group-size note, the PANDORA endpoint correction, the estimate-error
+  anatomy; all still in sources.md, which ships). 3,035 filled words against
+  5,542 shipped yesterday. Feedback-document references now read "your section
+  N" so the renumbered report's own sections cannot be confused with them
