@@ -1124,3 +1124,11 @@ was the interesting part.
   anatomy; all still in sources.md, which ships). 3,035 filled words against
   5,542 shipped yesterday. Feedback-document references now read "your section
   N" so the renumbered report's own sections cannot be confused with them
+- **Final deliverable cut at 2,614 English of 151,949**, sha256
+  0e7dd6018bf607d27f82f2ed91b5e564939c4e709113d16e09bcb977a247a051, 624 MB, 382
+  files. Blind-verified from an unrelated directory: six verify.sh PASS with no
+  vacuous check, tier-2 ALL PASS, 26 of 26 comparisons byte-identical, no
+  unfilled tokens, no first-person plural in report.md, README.md or sources.md.
+  The clean-tree guard fired twice during assembly, both times correctly: the
+  engine kept verifying while the documents were being refilled, so the refill
+  changed figures the committed copy did not have yet
