@@ -11,7 +11,7 @@ It is still split, and the reason is worth stating because the temptation not to
 was real. The catalogue was donated in 2004, so a `creator` URL may record where
 a vendor lived then rather than at release. The 78.7% agreement is measured only
 on domains the store already knows, which are the long-lived, well-covered ones.
-Drift would show precisely in the names we have never seen, which are exactly
+Drift would show precisely in the names never seen before, which are exactly
 the 775 that would otherwise become net-new domains on this source's word alone.
 
 So the same rule as Usenet: a domain another source already places in an annual

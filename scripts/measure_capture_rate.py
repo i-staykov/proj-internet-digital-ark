@@ -3,7 +3,7 @@
 The language engine orders its work list by whether the store already holds
 `cdx_timestamp` evidence for the exact (domain, year). That ordering is a
 priority decision and nothing more: a pair without such evidence has never been
-asked, so its absence says only that we have not looked.
+asked, so its absence says only that the question was never asked.
 
 The question this settles is a budget question. 1996 and 1997 hold 25,647 of the
 96,522 additions and 21 capture-backed pairs between them, so under a strict

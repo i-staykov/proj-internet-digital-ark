@@ -21,6 +21,7 @@ templates, never the filled copies, or the next refresh discards the edit.
 import argparse
 import re
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -33,17 +34,58 @@ DB = Path("data/ark.duckdb")
 # and the numbers have to be refilled every time the archive is re-cut, so the
 # template is the thing that lives in git and the filled copy is a build product.
 DOCUMENTS = (
-    (Path("docs/report_260801.template.md"), Path("docs/report_260801.md")),
-    (Path("docs/email_draft_260801.template.md"), Path("docs/email_draft_260801.md")),
+    (Path("docs/report_260802.template.md"), Path("docs/report_260802.md")),
+    (Path("docs/email_draft_260802.template.md"), Path("docs/email_draft_260802.md")),
 )
 
-# Measured, not derived from the store: these come from the supervisor logs and
-# from the previous round's recorded position. Kept here rather than inline in
-# the prose so there is one place to correct them.
-# Measured over a complete batch on the corrected engine: 400 pairs classified
-# between 14:02:53 and 15:08:18 CEST on 1 August, 65.4 minutes.
-MEASURED_RATE = 367
-PRIOR_BY_YEAR = {1996: 4994, 1997: 3534, 1998: 6029, 1999: 696, 2000: 9702, 2001: 7743}
+SUPERVISOR_LOG = Path("data/logs/lang_supervisor.log")
+JOURNAL_DIR = Path("data/raw/lang")
+# Used only if the supervisor log cannot be read. It is the last figure the log
+# did produce, so a missing log gives a stale number rather than a wrong shape.
+FALLBACK_RATE = 356
+
+
+def measured_throughput() -> tuple[int, int, int, float]:
+    """Pairs per hour, over every batch whose journal is still current.
+
+    Quoting one batch as "the measured rate" is an estimate wearing a
+    measurement's clothes, and this report quoted two different rates for one
+    engine before the figures were derived. So the rate is computed here from
+    the supervisor's own log, over exactly the batches whose journals are in
+    `data/raw/lang/`. A journal that was superseded by an engine version bump
+    moves to `superseded/` and drops out of the average by itself.
+
+    Returns (pairs_per_hour, batches, pairs, minutes).
+    """
+    if not SUPERVISOR_LOG.exists():
+        return FALLBACK_RATE, 0, 0, 0.0
+    current = {p.name for p in JOURNAL_DIR.glob("*.jsonl.gz")}
+    started: datetime | None = None
+    batches = pairs = 0
+    minutes = 0.0
+    for line in SUPERVISOR_LOG.read_text(errors="replace").splitlines():
+        start = re.match(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) batch \d+ start", line)
+        if start:
+            started = datetime.strptime(start.group(1), "%Y-%m-%d %H:%M:%S")
+            continue
+        done = re.match(r"^(\d\d:\d\d:\d\d) \|.*'classified': (\d+).*-> (\S+)", line)
+        if not done or started is None:
+            continue
+        if Path(done.group(3)).name not in current:
+            continue
+        hh, mm, ss = (int(v) for v in done.group(1).split(":"))
+        ended = started.replace(hour=hh, minute=mm, second=ss)
+        # The completion line carries a time and no date, so a batch that ran
+        # across midnight ends "before" it started.
+        if ended < started:
+            ended += timedelta(days=1)
+        batches += 1
+        pairs += int(done.group(2))
+        minutes += (ended - started).total_seconds() / 60.0
+        started = None
+    if not minutes:
+        return FALLBACK_RATE, 0, 0, 0.0
+    return round(60.0 * pairs / minutes), batches, pairs, minutes
 
 
 def _section(md: str, heading: str) -> str:
@@ -57,11 +99,16 @@ def _section(md: str, heading: str) -> str:
 
 
 def language_pairs_table(f: dict) -> str:
-    """Section 6.1's table for domain-year records, per year and in total."""
+    """Section 6.1's table for domain-year records, per year and in total.
+
+    No syntax-anomalous column. It is structurally zero, and it describes the
+    spelling of the domain rather than the language of the site, so a column of
+    zeros beside English and Undetermined invites the reader to compare two
+    different things. The count is stated in prose instead.
+    """
     lines = [
-        "| Year | pairs added | English | Named other | Undetermined | Syntax-anomalous |"
-        " Not yet reached |",
-        "|---|--:|--:|--:|--:|--:|--:|",
+        "| Year | pairs added | English | Named other | Undetermined | Not yet reached |",
+        "|---|--:|--:|--:|--:|--:|",
     ]
     totals = {"added": 0, "english": 0, "other": 0, "undetermined": 0, "unchecked": 0}
     for year in sorted(f["verdicts_by_year"]):
@@ -72,11 +119,11 @@ def language_pairs_table(f: dict) -> str:
             totals[key] += row.get(key, 0)
         lines.append(
             f"| {year} | {added:,} | {row.get('english', 0):,} | {row.get('other', 0):,} | "
-            f"{row.get('undetermined', 0):,} | 0 | {row.get('unchecked', 0):,} |"
+            f"{row.get('undetermined', 0):,} | {row.get('unchecked', 0):,} |"
         )
     lines.append(
         f"| **Total** | **{totals['added']:,}** | **{totals['english']:,}** | "
-        f"**{totals['other']:,}** | **{totals['undetermined']:,}** | **0** | "
+        f"**{totals['other']:,}** | **{totals['undetermined']:,}** | "
         f"**{totals['unchecked']:,}** |"
     )
     return "\n".join(lines)
@@ -93,12 +140,11 @@ def language_domains_table(f: dict) -> str:
     """
     by_verdict = f["unique_domains_by_verdict"]
     lines = [
-        "| Scope | domains added | English | Named other | Undetermined | Syntax-anomalous |"
-        " Not yet reached |",
-        "|---|--:|--:|--:|--:|--:|--:|",
+        "| Scope | domains added | English | Named other | Undetermined | Not yet reached |",
+        "|---|--:|--:|--:|--:|--:|",
         f"| all six years, deduplicated | **{f['netnew_unique_domains']:,}** | "
         f"**{by_verdict.get('english', 0):,}** | **{by_verdict.get('other', 0):,}** | "
-        f"**{by_verdict.get('undetermined', 0):,}** | **0** | "
+        f"**{by_verdict.get('undetermined', 0):,}** | "
         f"**{by_verdict.get('unchecked', 0):,}** |",
         "",
         "A domain verified English in one year and another language in a different year counts in "
@@ -109,28 +155,26 @@ def language_domains_table(f: dict) -> str:
 
 
 def per_year_table(f: dict) -> str:
+    """Volume per year, beside the baseline it is measured against.
+
+    The verdict breakdown is section 3's table and the growth thresholds are
+    section 8's, so neither is repeated here.
+    """
     lines = [
-        "| Year | Net-new pairs | Capture-backed | English-verified | Disqualified |"
-        " Not yet reached |",
-        "|---|--:|--:|--:|--:|--:|",
+        "| Year | merged260730, this counting unit | Additions | Capture-backed |",
+        "|---|--:|--:|--:|",
     ]
-    t = f["verdict_totals"]
-    for year in sorted(f["verdicts_by_year"]):
-        row = f["verdicts_by_year"][year]
-        added = sum(row.values())
+    for year in sorted(f["netnew_by_year"]):
+        added = f["netnew_by_year"][year]
+        base = f["baseline_by_year"].get(year, 0)
         cb = f["capture_backed_by_year"].get(year, 0)
         share = 100.0 * cb / added if added else 0.0
-        disq = row.get("other", 0) + row.get("undetermined", 0)
-        lines.append(
-            f"| {year} | {added:,} | {cb:,} ({share:.1f}%) | {row.get('english', 0):,} | "
-            f"{disq:,} | {row.get('unchecked', 0):,} |"
-        )
+        lines.append(f"| {year} | {base:,} | {added:,} | {cb:,} ({share:.1f}%) |")
     cb_total = f["capture_backed_total"]
     cb_share = 100.0 * cb_total / f["netnew_pairs"] if f["netnew_pairs"] else 0.0
     lines.append(
-        f"| **Total** | **{f['netnew_pairs']:,}** | **{cb_total:,} ({cb_share:.1f}%)** | "
-        f"**{t['english']:,}** | **{t['other'] + t['undetermined']:,}** | "
-        f"**{t['unchecked']:,}** |"
+        f"| **Total** | **{f['baseline_pairs']:,}** | **{f['netnew_pairs']:,}** | "
+        f"**{cb_total:,} ({cb_share:.1f}%)** |"
     )
     return "\n".join(lines)
 
@@ -138,13 +182,12 @@ def per_year_table(f: dict) -> str:
 def source_table(f: dict) -> str:
     """The per-source table, with every column feedback section 7 names.
 
-    Two things this gets right that an earlier version did not. `candidate_domains`
-    is included, because section 7 asks for "candidates found" and dropping it
-    meant the heading claimed a completeness the table did not have. And sources
-    with **zero** net-new pairs are listed rather than filtered out, because
-    section 7 asks for "zero-yield or failure reasons" and a source that
-    contributed nothing this round is exactly what that means: filtering them out
-    answered the question by hiding it.
+    Scoped to sources that contribute to this round: net-new pairs or names in
+    the candidate pool. Sources from the initial gathering now score zero on
+    both, because merged260730 absorbed their additions, and listing twenty rows
+    of zeros reports the initial gathering rather than this round. Section 7's
+    "zero-yield or failure reasons" is answered by the assessment table beside
+    this one, which names the sources tried this round and rejected.
     """
     conn = duckdb.connect(str(DB), read_only=True)
     rows = conn.execute("""
@@ -162,7 +205,10 @@ def source_table(f: dict) -> str:
     ]
     contributing = 0
     for src, etype, files, ev, backed, netnew, newdom, cand in rows:
-        if netnew == 0 and cand == 0 and backed == 0:
+        # In if it added pairs this round, or if its whole contribution is names
+        # in the candidate pool. A source with accepted pairs and no net-new ones
+        # is an initial-gathering source the baseline has absorbed.
+        if netnew == 0 and not (cand > 0 and backed == 0):
             continue
         if netnew:
             contributing += 1
@@ -172,11 +218,8 @@ def source_table(f: dict) -> str:
         )
     lines.append("")
     lines.append(
-        f"{contributing} sources contributed net-new pairs this round. Rows showing zero there are "
-        "sources from earlier rounds whose additions the shared baseline has since absorbed, or "
-        "candidate-only sources whose whole contribution is names awaiting evidence. Both are "
-        "listed rather than filtered out: a source that yielded nothing is part of what section 7 "
-        "asks to be reported."
+        f"{contributing} sources contributed net-new pairs. Rows showing zero there are "
+        "candidate-only sources, whose whole contribution is names awaiting evidence."
     )
     return "\n".join(lines)
 
@@ -185,8 +228,7 @@ def substitutions(f: dict) -> dict[str, str]:
     t = f["verdict_totals"]
     unverified = t["other"] + t["undetermined"] + t["unchecked"]
     md = markdown(f)
-    usenet = next((r["pairs"] for r in f["by_source"] if r["source"] == "usenet_announce"), 0)
-    cb_share = 100.0 * f["capture_backed_total"] / f["netnew_pairs"] if f["netnew_pairs"] else 0.0
+    rate, batches, rate_pairs, rate_minutes = measured_throughput()
 
     subs: dict[str, str] = {
         "ENGLISH": f"{t['english']:,}",
@@ -197,39 +239,30 @@ def substitutions(f: dict) -> dict[str, str]:
         "CANDIDATES": f"{f['candidate_pool']:,}",
         "HARVESTED": f"{f['harvested_this_round']:,}",
         "CAPTUREBACKED": f"{f['capture_backed_total']:,}",
-        "CBSHARE": f"{cb_share:.1f}%",
-        "USENETPAIRS": f"{usenet:,}",
         "PER_YEAR_TABLE": per_year_table(f),
         "LANG_PAIRS_TABLE": language_pairs_table(f),
         "LANG_DOMAINS_TABLE": language_domains_table(f),
         "SOURCE_TABLE": source_table(f),
         "COMPLETENESS_TABLE": _section(md, "Completeness"),
         "REASON_TABLE": _section(md, "Every judged rejection, by reason"),
-        "RATE": f"{MEASURED_RATE}",
+        "RATE": f"{rate}",
+        "RATEBATCHES": f"{batches}",
+        "RATEPAIRS": f"{rate_pairs:,}",
+        "RATEMINUTES": f"{rate_minutes:,.0f}",
     }
-    # Which year grew most is asserted in prose, so it is derived rather than
-    # typed: the ordering changes as the secondary stream ingests, and a
-    # sentence naming the wrong year is the kind of error a reviewer checks.
-    growth = {y: (f["netnew_by_year"].get(y, 0) - p) / p for y, p in PRIOR_BY_YEAR.items() if p}
-    subs["TOPGROWTH"] = str(max(growth, key=lambda y: growth[y]))
-
-    for year, prior in PRIOR_BY_YEAR.items():
-        now = f["netnew_by_year"].get(year, 0)
-        subs[f"Y{year}"] = f"{now:,}"
-        change = 100.0 * (now - prior) / prior if prior else 0.0
-        subs[f"C{year}"] = f"+{change:,.0f}%"
+    base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
+    subs["BASELINESHARE"] = f"{base_share:.2f}%"
 
     # Projection to Monday 12:00 UTC. Stated as arithmetic in the report, so the
     # inputs are visible: the measured rate, the window, and the observed share
     # of settled verdicts that come back English.
     hours = 48
-    classified = MEASURED_RATE * hours
-    # 258 of 400 records in the first complete v3 batch came back english, so the
-    # share is measured rather than assumed. The low row applies a 70% duty
-    # allowance for the archive refusing us, which it has done three times.
-    # Measured across every completed batch on the corrected engine rather than
-    # the first one: a single batch read 64.5% and the three-batch figure is
-    # 57.2%, because the queue interleaves early-year pairs that yield less.
+    classified = rate * hours
+    # The English share is the store's, over every settled verdict, not one
+    # batch's: a single batch has read 64.5% and the running figure is nearer
+    # 58%, because the queue interleaves early-year pairs that yield less. The
+    # low projection applies a 70% duty allowance for the archive refusing the
+    # engine, which it has done three times.
     total_judged = t["english"] + t["other"] + t["undetermined"]
     english_share = (t["english"] / total_judged) if total_judged else 0.60
     subs["SHARE"] = f"{100 * english_share:.1f}%"
@@ -243,7 +276,6 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["PROJ_LOW"] = _round(classified * 0.7 * english_share)
     subs["PROJ_HIGH"] = _round(classified * english_share)
     subs["PROJECTED"] = _round(classified)
-    subs["X"] = f"{t['english']:,}"
     return subs
 
 

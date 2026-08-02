@@ -143,11 +143,11 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 #
 # It does carry a different one. The catalogue was donated in 2004, so a
 # `creator` URL may record where the vendor lived then rather than at release.
-# Measured against evidence we already hold, the Tucows year is exactly right
+# Measured against evidence already held, the Tucows year is exactly right
 # 78.7% of the time and within one year 95.4%, which is far better than the
 # Usenet post date manages. But that sample is only domains the store already
 # knows, which are the long-lived ones, and drift would show precisely in the
-# names we have never seen. So this route takes the same corroboration split as
+# names never seen before. So this route takes the same corroboration split as
 # Usenet rather than being trusted outright.
 def parse_tucows(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per (vendor domain, release year) in the scraped index."""

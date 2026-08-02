@@ -836,7 +836,7 @@ def lang(
                     journal.flush()
                 # Stop rather than keep dialling a service that has stopped
                 # answering. An unbroken run of failures is not bad luck, it is
-                # the archive declining our traffic, and continuing turns a
+                # the archive declining the traffic, and continuing turns a
                 # temporary refusal into a durable one. Nothing is lost: an
                 # unanswered pair was never settled, so the next run asks again.
                 if consecutive_failures >= _LANG_FAILURE_BREAKER:

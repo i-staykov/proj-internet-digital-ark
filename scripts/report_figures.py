@@ -103,7 +103,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
     # How many additions could in principle earn a verdict: the archive is known
-    # to hold an in-year capture because our own evidence names one. NOT a claim
+    # to hold an in-year capture because the evidence already names one. NOT a claim
     # that the rest have none, only that these are known to be classifiable.
     out["capture_backed_by_year"] = {
         int(y): int(n)
@@ -133,7 +133,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         """).fetchall()
     ]
 
-    # Baseline pairs per year, by OUR counting unit, so the growth percentages in
+    # Baseline pairs per year, by THIS counting unit, so the growth percentages in
     # the completeness table are derived rather than copied. merged260730 ships
     # 10,263,632 raw lines; collapsed to registered domains under SPEC III.8 that
     # is what this measures, and the difference is a counting unit rather than a
@@ -161,7 +161,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     out["harvested_this_round"] = out["netnew_pairs"] - out["prior_round_pairs"]
 
     # Per year, the four language categories section 6.1 names, for unique
-    # domains as well as pairs. `syntax_anomalous` is structurally zero for our
+    # domains as well as pairs. `syntax_anomalous` is structurally zero for these
     # additions: every domain passed `to_registrable` before it could be stored
     # at all, so an anomalous name cannot reach an annual file. Reported rather
     # than omitted, because section 6.1 asks for the count.

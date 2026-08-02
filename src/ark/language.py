@@ -133,7 +133,7 @@ ENGINE_VERSION = 3
 
 
 # Why a pair failed the English standard, as a fixed vocabulary rather than free
-# text. Ivo's instruction of 1 August is that every pair we *judged* and rejected
+# text. Ivo's instruction of 1 August is that every pair *judged* and rejected
 # must be documented per item with its reason, and a reviewer can only aggregate
 # or audit those reasons if they are drawn from a closed set.
 #
@@ -164,11 +164,11 @@ REASONS = (
     REASON_MIXED_BELOW_THRESHOLD,
 )
 
-# Verdicts that will not change if we ask again. `english` and `other` were read
-# and classified; `no_capture_in_year` was asked without filters and the
-# archive's index for a past year does not change. Everything else means we tried
-# and could not tell, which a later run with a better sample may settle, so it
-# stays in the work list rather than being written off.
+# Verdicts that will not change if the question is asked again. `english` and
+# `other` were read and classified; `no_capture_in_year` was asked without
+# filters and the archive's index for a past year does not change. Everything
+# else means the attempt failed to tell, which a later run with a better sample
+# may settle, so it stays in the work list rather than being written off.
 FINAL_VERDICTS = (VERDICT_ENGLISH, VERDICT_OTHER)
 FINAL_UNDETERMINED_REASONS = (REASON_NO_CAPTURE_IN_YEAR,)
 
@@ -226,7 +226,7 @@ def any_capture_url(domain: str, year: int) -> str:
     """Query for *any* in-year capture under a domain, with no filters at all.
 
     Used only to settle the difference between "the archive holds nothing here"
-    and "the archive holds nothing that our filtered query asked for". Those are
+    and "the archive holds nothing that the filtered query asked for". Those are
     different claims and only the first one justifies recording a domain as
     having no capture in the year.
 
@@ -365,7 +365,7 @@ def _http_get_bytes(url: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[int, by
 
     Left unchecked that is the worst failure this engine can have. The pair
     would be admitted for 1997 on text written in 2000, and because
-    `evidence_urls` recorded the URL we *asked* for, a reviewer refetching it
+    `evidence_urls` recorded the URL that was *asked* for, a reviewer refetching it
     would get the same substitution and see agreement. The audit trail would
     confirm the error instead of exposing it, which is worse than having no
     audit trail at all.
@@ -793,8 +793,8 @@ def classify_pair(
     captures = deduplicated
     record["captures_usable"] = len(captures)
     if not captures:
-        # **The query above is filtered, so its emptiness is not the claim we
-        # want to record.** It asks for captures that are `statuscode:200` and
+        # **The query above is filtered, so its emptiness is not the claim
+        # to record.** It asks for captures that are `statuscode:200` and
         # `mimetype:text/html`; a year in which the archive holds only redirects,
         # plain text, or records it labelled differently comes back empty from a
         # question that was never "does anything exist here".
@@ -808,8 +808,8 @@ def classify_pair(
             any_capture_url(domain, year), cdx_fetch, gov, retries
         )
         if probe_status != 200:
-            # The probe failed, so we still do not know. Leave the pair
-            # unsettled rather than record a verdict we cannot support.
+            # The probe failed, so the answer is still unknown. Leave the
+            # pair unsettled rather than record an unsupportable verdict.
             record["status"] = probe_status
             return record
         record["status"] = 200
@@ -836,7 +836,7 @@ def classify_pair(
         if page_status != 200 or not raw:
             record["fetch_failures"] += 1
             # A transport error (status 0) backs the pace off just like an
-            # explicit 429. When the archive stops wanting our traffic it does
+            # explicit 429. When the archive stops wanting the traffic it does
             # not always say so politely: on 1 August it began refusing TCP
             # connections outright while ping and DNS stayed healthy, and
             # because status 0 was not a throttle signal the run kept dialling
@@ -871,7 +871,7 @@ def classify_pair(
     record.update(score_samples(collected))
 
     # A verdict reached on a truncated sample is not settled. If reads were lost
-    # and more candidates existed than we managed to read, the site was not
+    # and more candidates existed than were read, the site was not
     # sampled as designed, and the risk is asymmetric: `1stflatrate.com` was
     # certified English for 2001 on one surviving page after the other fetch
     # failed. Measured across the journals, 124 of 839 `english` verdicts rested
@@ -937,7 +937,7 @@ def write_lang_targets(conn, path: Path = TARGETS_PATH) -> dict:
     The work list is the marginal contribution, not the whole store: feedback
     section 6.1 asks for the language profile of "records newly added by this
     submission", and the baseline's own language mix is Ding's to measure, not
-    ours to re-derive at several page fetches per pair.
+    this project's to re-derive at several page fetches per pair.
 
     **Pairs that already have `cdx_timestamp` evidence come first**, and this
     ordering is the difference between a useful run and a wasted one. Such a pair
@@ -1105,7 +1105,7 @@ def write_partitioned_annual_files(
     Ding merges against the baseline himself, so nothing here is pre-merged.
 
     Three distinctions the files preserve, because collapsing any of them would
-    overstate what we know:
+    overstate what is known:
 
     - `english` means archived body text for that year was read and was more
       than half English. Nothing else earns it.
@@ -1169,7 +1169,7 @@ def language_summary(conn) -> list[dict]:
     Feedback 6.1 requires English, named other, undetermined and
     syntax-anomalous counts, per year and for the six-year total, reported for
     both domain-year records and cross-year unique domains. `unchecked` is
-    ours rather than theirs: a pair the engine has not reached yet is not the
+    an addition to that vocabulary: a pair the engine has not reached yet is not the
     same claim as one it judged undetermined, and collapsing the two would
     overstate how much of the list has actually been read.
     """

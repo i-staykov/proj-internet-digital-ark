@@ -8,7 +8,7 @@ the date is intrinsic to the artifact rather than recovered from a crawl.
 That matters for the years this project is weakest in. A moderated announcement
 posted in 1997 saying "new site at example.com" is contemporaneous evidence that
 the site was live in 1997, and it does not depend on the Internet Archive having
-crawled it. Our 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so a
+crawled it. The 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so a
 route that does not need a capture reaches exactly where the crawl cannot.
 
 **Two things make this source dangerous, and both shape the design.**

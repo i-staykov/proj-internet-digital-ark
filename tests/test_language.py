@@ -278,7 +278,7 @@ def _add_pair(conn, domain: str, year: int, evidence_type: str) -> None:
 
 def test_targets_exclude_baseline_pairs(tmp_path):
     """The work list is the marginal contribution. Classifying the baseline
-    would cost several page fetches per pair to measure what is not ours."""
+    would cost several page fetches per pair to measure what Ding measures."""
     conn = _store()
     _add_pair(conn, "new.com", 1998, "cdx_timestamp")
     _add_pair(conn, "old.com", 1998, "prior_reused")
@@ -304,7 +304,7 @@ def test_targets_exclude_pairs_already_classified(tmp_path):
 def test_a_verdict_we_could_not_settle_stays_in_the_work_list(tmp_path):
     """Any verdict at all used to remove a pair for good, which made every
     scoring defect permanent: nothing could re-judge the pairs a broken engine
-    had already answered. An `undetermined` that means "we could not tell" is
+    had already answered. An `undetermined` that means "could not tell" is
     not an answer, so it stays retryable."""
     from ark.language import ENGINE_VERSION
 
@@ -560,7 +560,7 @@ def test_summary_counts_unchecked_apart_from_undetermined(tmp_path):
 
 def test_summary_excludes_the_baseline(tmp_path):
     """6.1 asks for the language profile of records this submission added, not
-    of the baseline, which is Ding's to measure and ours to leave alone."""
+    of the baseline, which is Ding's to measure and not this project's to touch."""
     from ark.language import language_summary
 
     conn = _store()
@@ -819,7 +819,7 @@ def test_no_capture_in_year_when_the_unfiltered_probe_is_also_empty():
 
 
 def test_a_failed_probe_leaves_the_pair_unsettled():
-    """If the probe itself fails we still do not know, so nothing may be
+    """If the probe itself fails the answer is still unknown, so nothing may be
     recorded. This is the same rule the CDX failure path follows."""
     cdx_fetch, page_fetch = _two_stage_fetchers("", "", probe_status=503)
     record = classify_pair("example.com", 1998, cdx_fetch, page_fetch)
@@ -948,7 +948,7 @@ def test_a_capture_served_from_another_year_is_not_classified():
 
 
 def test_evidence_urls_record_what_answered_not_what_was_asked():
-    """A reviewer must be able to refetch the page we actually read."""
+    """A reviewer must be able to refetch the page that was actually read."""
     cdx = "19980101000000 http://example.com/ 4000\n"
     asked = "https://web.archive.org/web/19980101000000id_/http://example.com/"
     served = "https://web.archive.org/web/19980315090000id_/http://example.com/"

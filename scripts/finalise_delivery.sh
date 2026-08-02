@@ -10,7 +10,7 @@
 # this script is the ordering that keeps those guards from firing.
 #
 # Order matters and is not arbitrary:
-#   1. stop collectors, so nothing writes while we read
+#   1. stop collectors, so nothing writes while the store is read
 #   2. wait for journals to be renamed off `.part`, or their tail is lost
 #   3. ingest everything, including anything orphaned by an earlier failure
 #   4. export, then rebuild the two shipped sets from the store
@@ -28,7 +28,7 @@ say() { printf '\n=== %s ===\n' "$1"; }
 
 if [ "$KEEP_RUNNING" -eq 0 ]; then
     say "stopping collectors"
-    # The watchdog first, or it restarts the supervisor we are about to stop.
+    # The watchdog first, or it restarts the supervisor being stopped.
     pkill -f watchdog_lang.sh
     pkill -f supervise_lang.sh
     pkill -f maintain_phase3.sh

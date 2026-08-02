@@ -48,7 +48,7 @@ mkdir -p "$STAGE"/{masters,additions,additions_english,additions_unverified,audi
 # 26 July archive and is accurate about that artifact; shipping it beside this
 # round's data would give a reviewer a report whose figures the accompanying
 # files do not contain.
-REPORT="docs/report_260801.md"
+REPORT="docs/report_260802.md"
 if command -v pandoc >/dev/null 2>&1; then
     pandoc "$REPORT" -o "$STAGE/report.docx" --standalone
 else
@@ -117,7 +117,7 @@ find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev
 # and without their journals the documented tier-3 replay simply cannot reach
 # them. The language journals matter for a different reason: they hold the
 # per-capture readings behind every English verdict, so shipping them is what
-# lets a reviewer re-derive the verdicts rather than only re-read our conclusion.
+# lets a reviewer re-derive the verdicts rather than only re-read the conclusion.
 # 18 MB for all three, against 144 journals already shipped.
 #
 # This is the second time a source's journals have failed to ship while the
@@ -211,10 +211,10 @@ merged260730/
     Every "net-new" figure in report.md means "not present in these files".
 
     The pipeline ingests these with a marker prefix so their rows are
-    distinguishable from our own evidence, which is what makes the net-new
+    distinguishable from this project's evidence, which is what makes the net-new
     calculation possible at all.
 
-If you score our additions against original/ instead of merged260730/ you will
+If you score these additions against original/ instead of merged260730/ you will
 get a larger number than the report claims, because merged260730 already
 contains a previous round of additions.
 BASELINES

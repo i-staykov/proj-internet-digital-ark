@@ -44,7 +44,7 @@ def test_only_bracketed_gaps_are_selected() -> None:
 
 def test_thinnest_gap_year_is_queried_first() -> None:
     conn, source_id = _store()
-    # a 1997 gap (our densest year) and a 1998 gap (our thinnest)
+    # a 1997 gap (the densest year) and a 1998 gap (the thinnest)
     _hold(conn, source_id, "dense.com", 1996)
     _hold(conn, source_id, "dense.com", 1998)
     _hold(conn, source_id, "thin.com", 1997)

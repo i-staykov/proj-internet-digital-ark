@@ -5,10 +5,10 @@
 # its journal, so completed work becomes ingestable while the next batch is
 # still going; and the pause between batches gives web.archive.org a gap, which
 # matters because this engine sends up to three requests per pair and the
-# archive refused us outright on 1 August when it did not get one.
+# archive refused this project outright on 1 August when it did not get one.
 #
 # The engine has its own circuit breaker: 25 consecutive failures ends a batch.
-# If that keeps happening the archive is declining our traffic, so the backoff
+# If that keeps happening the archive is declining the traffic, so the backoff
 # here lengthens rather than retrying at the same pace.
 #
 # Usage: bash scripts/supervise_lang.sh <seconds> [batch] [workers] [min_delay]

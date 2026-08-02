@@ -115,8 +115,8 @@ def test_registration_spans_are_exempt_from_the_year_match() -> None:
 def test_detects_an_addition_that_is_also_baseline(tmp_path: Path) -> None:
     """The invariant is about the SHIPPED file, not the store.
 
-    A pair the baseline already had is allowed to sit in the store carrying our
-    own evidence too: that is what a rolling baseline produces, since each
+    A pair the baseline already had is allowed to sit in the store carrying this
+    project's own evidence too: that is what a rolling baseline produces, since each
     release absorbs the previous round's additions. What must never happen is
     that pair appearing in the exported additions, where it would be counted a
     second time.

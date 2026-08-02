@@ -44,7 +44,9 @@ def load(directory: Path):
 def summarise(conn) -> None:
     print("Provenance export loaded.\n")
     present = list(TABLES) + [
-        t for t in OPTIONAL_TABLES if conn.execute(
+        t
+        for t in OPTIONAL_TABLES
+        if conn.execute(
             "SELECT count(*) FROM duckdb_tables() WHERE table_name = ?", [t]
         ).fetchone()[0]
     ]

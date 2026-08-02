@@ -95,7 +95,7 @@ def test_isc_reads_domains_and_host_lists(tmp_path: Path) -> None:
 
 
 def test_isc_skips_pre_window_survey_file(tmp_path: Path) -> None:
-    # the Jul 1995 survey is before our window and must be skipped whole
+    # the Jul 1995 survey is before the window and must be skipped whole
     fixture = tmp_path / "wb_nw_9507.domains.gz"
     fixture.write_bytes(gzip.compress(b"foo.com\n"))
     stats: Counter = Counter()

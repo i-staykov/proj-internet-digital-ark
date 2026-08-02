@@ -422,7 +422,7 @@ two orders of magnitude and the reason is a units error that is easy to repeat.
 - **Measured against the store, the whole file yields 60 net-new pairs over 53 net-new domains.**
   6,281,952 lines, 2,413,003 in-window pairs over 2,354,914 distinct in-window domains, of which the
   store already holds all but 53. A 99.998% overlap, which makes sense: it is a sample of the same
-  Internet Archive CDX that the baseline and our own `early_web_cdx` and Wayback routes already
+  Internet Archive CDX that the baseline and this project's own `early_web_cdx` and Wayback routes already
   drain.
 - **Verdict: REJECT**, and do not pursue the 19.35 GB TimeMaps sibling either, since it samples the
   same URL universe. `scripts/measure_nypw_yield.py` reproduces the measurement in about two
@@ -448,7 +448,7 @@ earlier rejection is now half wrong.
   are in no annual file** and 29,594 are not even known to the store as domains, so on paper it is a
   large English-language pool. A random 60-domain sample was then queried against the working
   endpoint with `from=1996&to=2001`: **60 answered, 0 transport failures, and 0 with any in-window
-  capture.** PANDORA's selective harvesting is simply later than our window for the long tail; the
+  capture.** PANDORA's selective harvesting is simply later than this window for the long tail; the
   in-window Australian material that does exist is already held.
 - **Verdict: REJECT as both a net-new and a corroboration source**, on a clean 60-domain sample
   rather than the 39-host probe that first suggested it. The endpoint correction above still stands
@@ -515,7 +515,7 @@ the URLs in each message.
   globally unique by design, which makes this the "opaque record identifier" the integrity checks
   already expect from a `dated_directory` row: a reviewer can name the exact post behind any year.
 - **Why it matters here specifically.** The date is intrinsic to the artifact rather than recovered
-  from a crawl. Our 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so no amount of
+  from a crawl. The 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so no amount of
   archive querying reaches them; a dated post does, because it does not need the site to have been
   crawled at all.
 - **Provenance lineage:** `usenet`, its own family. The corpus is a donation of posts with no common
@@ -604,7 +604,7 @@ field rather than free text, so it carries no transcription risk.
 It is still split, and the reason is the one that mattered. The catalogue was donated in 2004, so a
 `creator` URL may record where a vendor lived then rather than at release. The 78.7% agreement is
 measured **only on domains the store already knows**, which are the long-lived, well-covered ones.
-Drift would show precisely in the names we have never seen, which are exactly the 775 that would
+Drift would show precisely in the names never seen before, which are exactly the 775 that would
 otherwise have become net-new domains on this source's unverified word. Consistency with the Usenet
 rule also beats a one-off exception.
 
