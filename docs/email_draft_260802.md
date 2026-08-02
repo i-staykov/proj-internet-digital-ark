@@ -25,15 +25,15 @@ Against merged260730:
 
 | | pairs |
 |---|--:|
-| English-verified additions | **2,402** |
-| Non-verified additions (disjoint) | 149,547 |
+| English-verified additions | **2,614** |
+| Non-verified additions (disjoint) | 149,335 |
 | Total additions | 151,949 |
 
 Every pair that was checked and rejected is listed individually in `disqualified.csv` with its
 reason. Pairs the engine has not yet reached are labelled `unchecked` and make no claim either way.
 
 **On the size of the English set.** Verification is bound by how fast the Internet Archive will
-answer: measured throughput is 356 (domain, year) pairs per hour, of which 58.8% come back
+answer: measured throughput is 356 (domain, year) pairs per hour, of which 58.7% come back
 English. The engine runs continuously until Monday 12:00 UTC, and on that rate the set should reach
 roughly **7,500 to 9,500 pairs by then**. That is arithmetic rather than a promise,
 and the lower figure already allows for the Internet Archive throttling this project, which it has
