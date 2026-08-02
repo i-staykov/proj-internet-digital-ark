@@ -43,6 +43,9 @@ JOURNAL_DIR = Path("data/raw/lang")
 # Used only if the supervisor log cannot be read. It is the last figure the log
 # did produce, so a missing log gives a stale number rather than a wrong shape.
 FALLBACK_RATE = 356
+# When the engine stops and the numbers are refreshed for the last time:
+# Monday 3 August 2026, 12:00 UTC. The same epoch the watchdog was given.
+ENGINE_DEADLINE_EPOCH = 1785758400
 
 
 def measured_throughput() -> tuple[int, int, int, float]:
@@ -253,10 +256,14 @@ def substitutions(f: dict) -> dict[str, str]:
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
 
-    # Projection to Monday 12:00 UTC. Stated as arithmetic in the report, so the
-    # inputs are visible: the measured rate, the window, and the observed share
-    # of settled verdicts that come back English.
-    hours = 48
+    # Projection to the engine's cut-off, Monday 3 August 12:00 UTC. Stated as
+    # arithmetic in the report, so the inputs are visible: the measured rate,
+    # the window remaining at fill time, and the observed share of settled
+    # verdicts that come back English. The window is computed, not typed,
+    # because a hardcoded horizon goes stale every time the fill re-runs.
+    deadline = datetime.fromtimestamp(ENGINE_DEADLINE_EPOCH)
+    hours = max(0.0, (deadline - datetime.now()).total_seconds() / 3600.0)
+    subs["WINDOW"] = f"{hours:.0f}"
     classified = rate * hours
     # The English share is the store's, over every settled verdict, not one
     # batch's: a single batch has read 64.5% and the running figure is nearer
@@ -276,6 +283,10 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["PROJ_LOW"] = _round(classified * 0.7 * english_share)
     subs["PROJ_HIGH"] = _round(classified * english_share)
     subs["PROJECTED"] = _round(classified)
+    # What the email quotes: the size the English set reaches by the cut-off,
+    # so the current count plus the projected additions.
+    subs["MONDAY_LOW"] = _round(t["english"] + classified * 0.7 * english_share)
+    subs["MONDAY_HIGH"] = _round(t["english"] + classified * english_share)
     return subs
 
 

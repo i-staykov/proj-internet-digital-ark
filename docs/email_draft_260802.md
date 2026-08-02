@@ -34,10 +34,10 @@ reason. Pairs the engine has not yet reached are labelled `unchecked` and make n
 
 **On the size of the English set.** Verification is bound by how fast the Internet Archive will
 answer: measured throughput is 356 (domain, year) pairs per hour, of which 58.8% come back
-English. The engine runs continuously, and on that rate the set should reach roughly **7,000 to
-10,000 pairs by Monday midday**. That is arithmetic rather than a promise, and the lower figure
-already allows for the Internet Archive throttling this project, which it has done before. I will
-send the updated numbers and files on Monday.
+English. The engine runs continuously until Monday 12:00 UTC, and on that rate the set should reach
+roughly **7,500 to 9,500 pairs by then**. That is arithmetic rather than a promise,
+and the lower figure already allows for the Internet Archive throttling this project, which it has
+done before. I will send the updated numbers and files on Monday.
 
 That leads to my one question. At this rate, verifying the whole backlog of 151,949 additions would
 take several weeks of continuous querying. **Would you prefer I keep the engine running to build the
