@@ -33,9 +33,14 @@ DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
 # and the numbers have to be refilled every time the archive is re-cut, so the
 # template is the thing that lives in git and the filled copy is a build product.
+# The email draft lives OUTSIDE the tracked tree, in `private/`, and that is not
+# tidiness. `package_delivery.sh` ships `git archive HEAD`, so every tracked file
+# reaches the reviewer: the 2 August archive carried the draft's "notes for Ivo"
+# section, which is private reasoning about how to present the work to him.
+# Anything addressed to a person belongs in `private/`, which is git-ignored.
 DOCUMENTS = (
     (Path("docs/report_260802.template.md"), Path("docs/report_260802.md")),
-    (Path("docs/email_draft_260802.template.md"), Path("docs/email_draft_260802.md")),
+    (Path("private/email_draft_260802.template.md"), Path("private/email_draft_260802.md")),
 )
 
 SUPERVISOR_LOG = Path("data/logs/lang_supervisor.log")
@@ -311,6 +316,11 @@ def main() -> None:
 
     failed = False
     for template, target in DOCUMENTS:
+        # `private/` is git-ignored, so a fresh clone has no email template. That
+        # must not fail the report build, which is the part that ships.
+        if not template.exists():
+            print(f"{template}: absent, skipping")
+            continue
         remaining = fill(template, target, subs, args.check)
         if remaining:
             print(f"{template}: UNFILLED {remaining}", file=sys.stderr)

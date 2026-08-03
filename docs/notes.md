@@ -1194,3 +1194,15 @@ was the interesting part.
 - **Ruff now excludes `feedback-*` and `legacy-data`.** Ding's new drop includes
   his own Python, and linting incoming material either fails the gate on someone
   else's file or invites reformatting it until it is no longer his
+
+## 2026-08-03 (feedback v4: the scoring metric changed, and a privacy leak in the packaging)
+
+- **Email drafts moved out of the tracked tree into git-ignored `private/`.** The
+  2 August archive shipped `docs/email_draft_260802.md`, including its "notes for
+  Ivo" section, because `package_delivery.sh` ships `git archive HEAD` and that
+  means *every tracked file*. Nothing in it was deceptive, but private reasoning
+  about how to present work to a reviewer reached that reviewer. **The lesson is
+  about the packaging rule, not the draft: anything addressed to a person is
+  correspondence, and correspondence does not belong in a repository that is
+  archived wholesale.** `fill_report.py` now skips a missing template so a fresh
+  clone still builds the report
