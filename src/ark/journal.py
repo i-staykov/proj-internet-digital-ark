@@ -112,7 +112,22 @@ def journal_writer(path: Path) -> Iterator[IO[str]]:
 
 
 def write_journal_line(fh: IO[str], record: dict) -> None:
+    """Append one record and push it to disk.
+
+    The flush is not belt-and-braces, it is load-bearing. `scripts/watchdog_lang.sh`
+    decides whether a run has stalled by watching the journal's size on disk, and
+    gzip emits nothing until zlib fills a block. At normal speed the first block
+    lands inside the watchdog's window; on 3 August, with the archive answering in
+    ~15 s instead of ~2 s, it took 12.7 minutes, which a 10-minute window reads as
+    a stall. A healthy batch would have been killed and restarted all night.
+
+    So the file on disk now tracks progress, which is what the watchdog was always
+    documented to measure. The cost is a `Z_SYNC_FLUSH` per record, worth a few
+    bytes of compression on a 20 KB journal, against a monitor that cannot go
+    blind. Writes come from the collector's main thread, so no lock is needed.
+    """
     fh.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
+    fh.flush()
 
 
 def queried_domains(

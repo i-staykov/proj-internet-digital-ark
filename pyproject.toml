@@ -35,6 +35,10 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Incoming material, not project code: the feedback folders hold what the reviewer
+# supplied, including his own scripts. Linting them would either fail the gate on
+# someone else's file or tempt a reformat that makes it no longer his.
+extend-exclude = ["feedback-*", "legacy-data"]
 
 [tool.ruff.lint]
 # E/F = pycodestyle + pyflakes, I = import sorting, UP = pyupgrade, B = bugbear

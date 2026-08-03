@@ -1183,3 +1183,14 @@ was the interesting part.
   to a subdirectory the skip set does not glob, but the sentence overstates
   within-version retryability. Fix is to make `answered()` consult the reason
   rather than the status; it belongs with the two other queued engine changes
+- **The watchdog can see progress again, and the fix is one line.**
+  `write_journal_line` now flushes per record, so the journal's size on disk
+  tracks the run rather than lagging a zlib block behind it. Measured: the live
+  journal reached 324 bytes **22 seconds** into a batch, against 12.7 minutes
+  before, so the 600 s stall window is safe again and was restored. The test
+  asserts the property with no explicit flush by the caller and **was confirmed to
+  fail without the change**, because a test that passes either way tests nothing.
+  Cost is a `Z_SYNC_FLUSH` per record against a monitor that cannot go blind
+- **Ruff now excludes `feedback-*` and `legacy-data`.** Ding's new drop includes
+  his own Python, and linting incoming material either fails the gate on someone
+  else's file or invites reformatting it until it is no longer his

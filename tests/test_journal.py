@@ -87,6 +87,28 @@ def test_a_published_journal_is_gzipped(tmp_path) -> None:
         assert json.loads(raw.read())["domain"] == "zipped.com"
 
 
+def test_a_live_journal_grows_on_disk_as_records_are_written(tmp_path) -> None:
+    """The watchdog decides a run has stalled by watching this size.
+
+    `scripts/watchdog_lang.sh` reads journal bytes and restarts the supervisor when
+    they stop moving. gzip emits nothing until zlib fills a block, so without a
+    flush per record the file sits at zero for minutes: on 3 August, with the
+    archive answering slowly, the first block took 12.7 minutes against a
+    10-minute window, which reads as a stall on a perfectly healthy batch.
+
+    So this asserts what the monitor assumes, with no explicit flush by the caller.
+    """
+    path = _journal(tmp_path)
+    partial = in_flight_path(path)
+    with journal_writer(path) as fh:
+        write_journal_line(fh, {"domain": "first.com", "status": 200})
+        after_first = partial.stat().st_size
+        assert after_first > 0, "nothing reached disk, so the watchdog is blind"
+        for i in range(20):
+            write_journal_line(fh, {"domain": f"pair{i}.com", "status": 200})
+        assert partial.stat().st_size > after_first, "size must track progress"
+
+
 def test_the_resume_scan_keeps_what_it_read_from_a_truncated_journal(tmp_path) -> None:
     path = _journal(tmp_path)
     with journal_writer(path) as fh:
