@@ -1150,3 +1150,12 @@ was the interesting part.
   `ark lang` took ~40 s to finish its in-flight requests. Starting the replacement during that window
   would have put two engines on `web.archive.org`, which is the one thing this project has been
   careful never to do
+- **A watchdog that measures progress must be able to see progress.** The stall
+  test reads journal bytes, but the journal writer never flushes and gzip emits
+  nothing until zlib fills a block. That is invisible at normal speed, where the
+  first block lands inside the 10-minute window, and fatal at low speed, where a
+  healthy batch would be killed every 10 minutes forever. Raised the interval to
+  1800 s as the unattended mitigation; the correct fix is flushing per record so
+  the metric means what the design says it means. **The bug was not in the
+  watchdog's logic but in its assumption about the thing it observes**, which is
+  the failure mode a liveness check is supposed to avoid and this one inherited
