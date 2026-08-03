@@ -1132,3 +1132,21 @@ was the interesting part.
   The clean-tree guard fired twice during assembly, both times correctly: the
   engine kept verifying while the documents were being refilled, so the refill
   changed figures the committed copy did not have yet
+
+## 2026-08-03 (phase 4: an outage the design already covered)
+
+- **A one-hour network outage cost 25 pairs of work and nothing else.** Circuit breaker, supervisor
+  backoff and watchdog restart all fired in sequence without intervention. The load-bearing piece was
+  `answered()`, which admits only status 200: the four outage journals hold 100 records over 25
+  distinct pairs, every one status 0, so not one was marked settled. **The check that mattered was
+  the one written after a previous engine failed exactly this way**, and the cheapest way to confirm
+  it worked was to read the journals rather than trust the invariant
+- **Restarting deterministically beat relying on a scheduled handoff.** The supervisor's own window
+  still ended at the old deadline, and the watchdog would have restarted it there, but that handoff
+  would have happened at 14:00 with nobody awake. Killing and restarting both now, while the result
+  could be verified, converts an unattended dependency into a checked fact. The cost was five minutes
+  of an in-flight batch, whose pairs are retryable by the same `answered()` rule
+- **Draining before restarting is not optional.** The supervisor's bash exited immediately but
+  `ark lang` took ~40 s to finish its in-flight requests. Starting the replacement during that window
+  would have put two engines on `web.archive.org`, which is the one thing this project has been
+  careful never to do
