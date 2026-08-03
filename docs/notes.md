@@ -1159,3 +1159,27 @@ was the interesting part.
   the metric means what the design says it means. **The bug was not in the
   watchdog's logic but in its assumption about the thing it observes**, which is
   the failure mode a liveness check is supposed to avoid and this one inherited
+
+## 2026-08-03 (phase 4: engine extended to end of week, and one report claim found imprecise)
+
+- **8,277 English-verified pairs, 3.2x the 2,614 shipped on 2 August**, over 6,040
+  unique domains, with 6,094 rejections documented per item. The archive recovered
+  from the overnight slowdown: batches are back to ~73 min for 400 pairs, about
+  328 pairs/hour, of which **51% come back English** rather than the 58.8% quoted
+  in the submitted report. The share is falling because the queue has worked
+  through the capture-backed head and is now reaching thinner years, which is the
+  expected shape and worth stating in the follow-up rather than leaving to be noticed
+- **Run extended to Sunday 9 August 12:00 UTC** on Ivo's instruction ("keep this
+  running until the end of the week"). Read as through the weekend rather than
+  Friday, because over-running costs nothing while under-running loses days
+- **A claim in the shipped report is imprecise, and measuring it proved it.** The
+  report says a pair leaves the work queue "only when asking again could not
+  change the answer", with `no_capture_in_year` as the single final rejection. In
+  fact `answered()` skips any journal record at status 200, so
+  `insufficient_text`, `no_readable_html_capture`, `mixed_below_threshold` and
+  `non_site_text` are final too within an engine version: **0 of 14,371 answered
+  pairs has ever been re-asked**. About 2,763 pairs are affected. Nothing shipped
+  is wrong, and the cross-version path still works because superseded journals move
+  to a subdirectory the skip set does not glob, but the sentence overstates
+  within-version retryability. Fix is to make `answered()` consult the reason
+  rather than the status; it belongs with the two other queued engine changes
