@@ -143,6 +143,13 @@ cdx-batch n="1200" workers="8":
     uv run ark gaps
     uv run ark cdx data/raw/cdx/gap_candidates.txt -n {{n}} --workers {{workers}} --timeout 70
 
+# the candidate pool instead of the gap pool: domains held with no year at all,
+# so a capture adds a name rather than a year. Best English yield first, and the
+# supervisor runs batches until the deadline epoch you give it.
+cdx-pool until batch="1200" workers="8":
+    uv run python scripts/build_pool_candidates.py
+    bash scripts/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
+
 # one registry-date batch: creation year for domains adjacent to a held year
 rdap-batch n="2500":
     uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt

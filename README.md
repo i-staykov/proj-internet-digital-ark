@@ -156,6 +156,21 @@ uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
 
 `scripts/supervise_engines.sh` keeps both fed unattended.
 
+The other population is the candidate pool: domains the store holds with no year at all, so a
+capture makes a name net-new rather than adding a year to one already shipped. Separate list,
+separate journal name, same ingest command.
+
+```bash
+uv run python scripts/build_pool_candidates.py   # -> data/raw/cdx/pool_candidates.txt
+bash scripts/supervise_cdx_pool.sh $(date -v+5d +%s) 1200 8 900
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_*.jsonl.gz
+```
+
+The list is ordered best-first: TLDs that existed in 1996-2001, then by the English share of the
+TLD from the reviewer's own model, so a run that never finishes the pool has still spent its
+requests where the equivalent-English metric pays most. The supervisor takes a deadline epoch and
+polls journal growth to catch a batch that has hung while still looking alive.
+
 ### Page expansion
 
 ```bash

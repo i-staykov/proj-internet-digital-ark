@@ -1206,3 +1206,150 @@ was the interesting part.
   correspondence, and correspondence does not belong in a repository that is
   archived wholesale.** `fill_report.py` now skips a missing template so a fresh
   clone still builds the report
+
+## 2026-08-03 (the archive budget moves off English verification and onto the candidate pool)
+
+- **The English engine is stopped and the CDX engine has its allowance.** Ivo's
+  call, and the arithmetic backs it: verification re-reads captures for domains
+  already in the master files, so it moves the *reported* English share and moves
+  the equivalent-English score not at all. The score only rises when a name or a
+  year is added. Final English figures, all ingested before the switch:
+  **9,234 English-verified pairs over 6,803 unique domains**, 2,237 other, 4,576
+  undetermined, 16,047 classified in total out of the 151,949 net-new pairs. The
+  last batch published cleanly on SIGTERM (337 lines, 174 English), which is the
+  `.part` rename doing its job
+- **The candidate pool is the better buy and it is disjoint from the gap pool.**
+  112,946 domains carried with no assigned year, of which 826 some journal has
+  already answered, leaving **112,120 to query**. Mean English weight 0.6256
+  against the gap pool's 0.562, and a hit adds a *name* rather than a year on a
+  name already shipped. Worth **69,299 equivalent-English if every in-window name
+  hits**, and the two populations overlap in exactly zero domains, so neither
+  steals from the other
+- **Ordering by English share alone put junk at the top, and a three-domain probe
+  caught it.** The reviewer's model is built from CC-MAIN-2024-10, so it scores
+  today's brand gTLDs near 100% English, and the pinned PSL accepts them as
+  registrable. Parse noise out of Usenet headers and mail addresses
+  (`stopspam.aol`, `redneck.nec`, `aaaa.aaa`, `uk.zero`) therefore sorted above
+  every real target. The probe came back **3 of 3 with no capture**. Fix is a
+  first sort key that is not a heuristic: a TLD that did not exist in the window
+  cannot hold an in-window capture, so two-letter ccTLDs plus the original gTLDs
+  plus the 2001 round rank first and the other **1,348 names go to the tail**,
+  kept rather than deleted because the week will not reach them anyway
+- **Era eligibility was not enough either, and the store held the signal that
+  was.** Real ccTLDs cannot be filtered by era, so the two-letter coincidences
+  survived and sorted first on a ~100% English share: `what.ev.er`,
+  `bother.co.ck`, and a block of **241 forged `.mil` hostnames**
+  (`dumicsamvfs.mil`, `zydagy.mil`, `pemtagon.mil`) out of Usenet headers. Watched
+  live, the first 34 answers of the run were all from that head and returned
+  **2 hits**. The separating measurement is dated domains per right-most label
+  across the whole store: `.uk` 187,063, `.au` 78,952, `.nz` 24,365, `.gov` 1,017
+  against `.mil` 69, `.gu` 69, `.vi` 67, `.bb` 64, `.ck` 54, `.gh` 53. A TLD
+  contributing under a thousand dated domains to a 10.2M-pair store cannot move
+  the score whichever way it goes, so its queue position is not worth an argument
+  and it ranks behind every TLD that can. **2,591 names to the tail**, and the
+  head is now `.au`, then `.uk`, `.edu`, `.ca`, `.org`, `.com`, `.net`. This does
+  demote genuinely tiny ccTLDs along with the junk, correctly: the only question a
+  queue answers is what to spend the next thousand requests on. Note the trap in
+  the query, `domain.tld` holds the public suffix, so keying on it reports `.uk`
+  as 28 rather than 187,063 and would have demoted the second-best TLD in the pool
+- **The in-flight batch was left alone rather than restarted.** It read its 1,200
+  targets from the old ordering at dispatch, of which 938 are `.au` and 262 the
+  junk head, so 78% of it is work worth doing. Restarting to skip ~220 junk
+  queries would save about 35 minutes of a 140-hour run and is not worth the
+  churn; every later batch re-reads the list and gets the better order
+- **Per-TLD hit rate does not re-rank anything, so share is the right sort key.**
+  Measured over every CDX journal on disk: 26,625 answered records, **95.4%
+  carrying an in-window capture**, and per-TLD rates sit in a 90-99% band against
+  an English-share spread of 6.8% to 99%. That 95.4% is the *gap* pool's rate
+  though, drawn from domains already known to exist, so it is an upper bound on
+  what the candidate pool will do. The pool's own rate is measurable from the
+  first batches and should be reported rather than assumed
+- **One supervisor process, not the supervisor-plus-watchdog pair.** The pair
+  existed because a supervisor blocked on a batch cannot notice the batch has
+  hung. `scripts/supervise_cdx_pool.sh` backgrounds the batch and polls it
+  instead, which gets the same stall detection with one PID for `caffeinate` to
+  anchor to, and removes the failure mode where a watchdog restarts a supervisor
+  using settings that have since been retuned. Stall window is 900 s because a
+  single CDX query has been observed taking **183 seconds** to return, and the
+  detector must clear the archive's slowest honest answer
+- **Exhaustion is read from the batch's own output, never a tail of the shared
+  log.** A killed batch writes no summary, so a shared tail would still be showing
+  the previous batch's "nothing new to query" and the loop would stop about 90
+  batches early. That is the silent-stop failure the whole script exists to
+  prevent, so each dispatch truncates its own output file and the decision reads
+  that
+- **Pool journals are named `cdx_pool_<UTC>` and live in `data/raw/cdx/`
+  alongside the gap runs.** A separate directory would have needed edits in six
+  globs (README, justfile, `maintain_phase3.sh`, `maintain.sh`,
+  `package_delivery.sh`, `sources.md`) and missing one means pool journals
+  silently never ingest or never ship, which has happened before on this project.
+  The `cdx_pool_` name matches every existing `cdx_*` glob, including the engine's
+  own resume scan, so the two pools share a skip set (which is wanted: neither
+  should re-ask what the other settled) while staying distinguishable by name.
+  Proved end to end: the probe journal ingested as `cdx_snapshot` with the
+  expected 3 lines and 0 evidence rows
+- **Ceiling lowered from 5.0 s to 3.0 s.** On 29 July a throttle burst pinned a
+  run at the 5 s ceiling and it managed 240 domains/hour for the rest of the
+  batch. This workload is latency-bound, not pace-bound, so a low ceiling costs
+  nothing and buys recovery. Running at `-n 1200 --workers 8` until Sunday
+  9 August 12:00 UTC, with `caffeinate` anchored to the supervisor
+
+## 2026-08-04 (the equivalent-English metric, verified against the reviewer's own calculator)
+
+- **His worked example and his credited increment both reproduce exactly.** He
+  asked to have the calculation double-checked independently, so it was done
+  twice: once with his `equivalent_english_domains.py`, once with an
+  implementation written from his README rather than his code. His three-domain
+  example gives **1.2766**. Our increment gives **151,949 records and
+  91,814.6880 equivalent-English**, identical to his figure to the last decimal.
+  The merged 1996-2001 baseline after the merge measures **10,404,200 valid unique
+  records and 5,622,984.6434**, and the two implementations agree on it to
+  **0.0000**. So the metric is understood and applied the same way on both sides,
+  which is what he was actually asking to confirm
+- **His reported totals are the pre-merge baseline, not the post-merge one.**
+  10,263,632 / 5,531,053.6089 plus his credited increment predicts 5,622,868.2969
+  against the 5,622,984.6434 the merged files actually measure. The 116.35 gap is
+  in his merge, and 1.659986% is exactly 91,814.688 / 5,531,053.6089, so nothing
+  about the method is in dispute and it is not worth raising with him
+- **11,568 records in the merged baseline score zero because his own validator
+  rejects them, and none of them are ours.** All 151,949 of our net-new records
+  pass. The rejected ones are embedded ports (`intermarket:81.net`), underscore
+  labels (`server_http.italway.it`) and a few with no TLD at all
+  (`chevrolet-online`). **7,348 of them normalise cleanly** by stripping the port
+  and mapping `_` to `-`, and would then carry **3,785.5563 equivalent-English**,
+  which is 4% of a whole round's increment sitting in text formatting. Offered to
+  him as a normalised list rather than fixed unilaterally, because rewriting
+  hostnames in someone else's baseline is his call and not ours
+- **The metric confirms the pool ordering was the right call.** Mean weight of the
+  increment is 0.6042 and of the whole baseline 0.5405, while the candidate pool
+  ranked by TLD share is currently returning **0.98 equivalent-English per newly
+  dated domain** in the `.uk` block. First 15 hours of the switched budget:
+  16,186 records, **53.4% hit rate**, 5,894 newly dated domains, 9,135 pairs,
+  **5,791 equivalent-English**
+- **The stall detector in `supervise_cdx_pool.sh` was crying wolf, and the first
+  estimate of what that cost was wrong by an order of magnitude.** Every completed
+  batch logged `stalled: journal bytes N -> 0`, because `journal_bytes` stats the
+  `.part` and a finishing batch renames it away, so a clean completion read as a
+  frozen journal. First call was "no work lost, not urgent", which was true about
+  the data and wrong about the throughput. **Measured from the log: the loop slept
+  the whole 900 s stall window between checks, so a finished batch waited up to
+  that long to be re-dispatched. Six restarts overnight show 5.2, 10.0, 13, 15.0
+  and 15.8 idle minutes, averaging ~11 minutes against 50-90 minutes of work, so
+  12-17% of throughput, roughly 6,900 equivalent-English over the remaining
+  window.** The lesson is that "no data lost" is not the same as "not urgent", and
+  the cost of a supervisor bug lives in the schedule, not in the store
+- **Fix: noticing a finished batch and judging a stalled one are separate
+  clocks.** Liveness is polled every `POLL=30 s`, journal growth is judged every
+  `CHECK=900 s`, and the loop re-tests the PID after each sleep, because a dead
+  process cannot be stalled. Both paths were tested against a fake batch before
+  the swap, one that completes and one that stays alive writing nothing: the first
+  reports `stalled=0` within one poll, the second is caught after two windows,
+  which is the intended grace for a slow first block
+- **Applied by rename, not in place, and the live supervisor was deliberately not
+  restarted.** Editing a script bash is mid-execution corrupts its parse, because
+  bash reads the file lazily by offset. So the edit went to a copy in the same
+  directory and `mv` replaced the directory entry: inode 15314287 -> 15539531,
+  while the running process keeps its descriptor on the old inode and finishes on
+  the old logic. **The consequence to remember: the fix is on disk and NOT in
+  effect. PID 18309 keeps logging false stalls and losing ~11 min per batch until
+  someone restarts it**
