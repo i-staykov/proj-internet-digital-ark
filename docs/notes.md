@@ -1549,7 +1549,36 @@ Full write-up in `docs/source_research_260805.md`. The decisions, and the number
   unmeasured claim that reaches the client costs more than it gains, and this project has been wrong
   by two orders of magnitude twice already by trusting a plausible ranking over a measurement
 
-## 2026-08-05 (small Usenet groups are eight times more efficient per byte)
+## 2026-08-05 (the union is 147,271 net-new pairs, measured in one pass)
+
+- **3,479 archives measured together: 147,271 net-new pairs over 85,721 net-new domains,
+  98,066 equivalent-English at mean weight 0.6659.** Twenty-nine times the 5,000-pair acceptance
+  floor, on bytes on disk, with no extrapolation in it. For scale, the whole of last round's Usenet
+  work added 96,158 pairs and was the largest single addition the project has made
+- **Measured as a union rather than summed, deliberately.** Each tranche had been differenced against
+  the store separately, so adding 20,159 and 6,454 and the rest would double count every pair two
+  tranches share. That is the units trap that made the NYPW estimate wrong by two orders of
+  magnitude, and the cheapest defence against it is to re-measure the union in one pass rather than
+  to reason about the overlap. An intermediate union over the first 574 archives gave 72,315 pairs,
+  so the small-group tranche roughly doubled it
+- **The headline overstates what can ship today, and the split says by how much.** 74,508 of the
+  pairs are on domains another source already places in an annual file, so the post date settles the
+  only open question and they enter as `usenet_announce` immediately, worth 48,821
+  equivalent-English. The other 72,763 are on names seen only in Usenet and go to the candidate pool.
+  Typo upper bound 35.8%, in line with the 35.4% of the previous round, which is why that rule stays
+- **The uncorroborated half is deferred rather than lost.** The prior round measured a 62% hit rate
+  when Usenet-discovered candidates were queried against the archive, so those 72,763 pairs are worth
+  roughly 45,000 more once verified, which is work for the CDX engine after the gap run finishes
+- **The mean weight fell from 0.7085 to 0.6659 as the corpus widened past `uk.*`, `aus.*` and
+  `can.*`.** Expected, and the metric working: `.uk` is 0.9813 and `.com` 0.6321, so broadening away
+  from British material converges on the `.com` weight. Still far above the 0.4 threshold at which
+  volume would have to justify itself
+- **Stopped cleanly on a network outage.** Downloads were killed with about 15,000 groups still
+  unworked, and the four zero-byte `.tmp` partials the kill left behind were removed, because the
+  fetcher's rename-on-success discipline is only a guarantee if interrupted partials are cleared
+
+
+
 
 Third tranche, taken to test breadth rather than depth: the **smallest** unworked archives in `uk.*`,
 `aus.*` and `can.*`, ascending by size.

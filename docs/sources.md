@@ -608,6 +608,16 @@ window, and the waste is concentrated in whole groups, four of the 28 yielding e
 a few thousand `Date` headers before committing to a download removes most of it. Full measurement,
 the `uk.misc` diagnosis and the parser guidance are in `docs/source_research_260805.md`.
 
+**Measured union over 3,479 archives: 147,271 net-new pairs, 85,721 net-new domains, 98,066
+equivalent-English at mean weight 0.6659.** Measured in one pass rather than summed across tranches,
+because each tranche was differenced against the store separately and adding them would double count
+shared pairs. Of those, 74,508 pairs are on domains another source already attests and can carry the
+post date immediately (48,821 equivalent-English); 72,763 are on names seen only in Usenet and go to
+the candidate pool under the standing admission rule, at a 35.8% typo upper bound. **Small groups
+yield about 37 net-new pairs per megabyte against 4.5 for large ones**, because a small archive
+belongs to a group that died early and therefore falls inside the window, so the download queue
+should run ascending by size. Roughly 15,000 groups remain unworked.
+
 ## `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
 
 Adopted 2026-08-01. A dated index file in the sense of III.1, and the best-behaved dating of any
