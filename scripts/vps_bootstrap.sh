@@ -31,6 +31,26 @@ SHARD="${2:-data/raw/cdx/gap_shard1.txt}"
 WORKERS="${3:-4}"
 BUNDLE="${BUNDLE:-$HOME/ark-bundle.tar.gz}"
 
+# An earlier run on this box may still be going, and it must be stopped politely
+# rather than killed: SIGTERM makes the collector rename its in-flight `.part` to
+# a real journal, so the work it has already done survives and can be replayed.
+# A -9 would leave it stranded under a name no ingest glob will ever match.
+if pgrep -f "supervise_cdx_pool|bin/ark cdx" > /dev/null 2>&1; then
+    echo "== an engine is already running here, stopping it cleanly =="
+    pkill -f "supervise_cdx_pool" 2>/dev/null || true
+    for _ in $(seq 1 40); do
+        pgrep -f "supervise_cdx_pool" > /dev/null 2>&1 || break
+        sleep 1
+    done
+    pkill -f "bin/ark cdx" 2>/dev/null || true
+    sleep 6
+    if ls data/raw/cdx/*.part > /dev/null 2>&1; then
+        echo "   WARNING: a .part remains, so something did not unwind:"
+        ls -la data/raw/cdx/*.part
+    fi
+    echo "   stopped. Journals it wrote are in data/raw/cdx/ and are worth bringing home."
+fi
+
 echo "== syncing the environment =="
 uv sync --quiet
 

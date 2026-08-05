@@ -87,9 +87,23 @@ mkdir -p data/logs
 note() { echo "$(date '+%F %T') $*" >> "$LOG"; }
 
 journal_bytes() {
-    # the in-flight `.part` is what moves; a finished batch leaves the poll loop
-    # on its own, so there is no reason to watch anything else
-    stat -f '%z' "${JOURNAL}${PART}" 2>/dev/null || echo 0
+    # The in-flight `.part` is what moves; a finished batch leaves the poll loop
+    # on its own, so there is no reason to watch anything else.
+    #
+    # `wc -c` because the stat flags are not portable and getting this wrong is
+    # silent. `stat -f '%z'` is BSD; on GNU coreutils -f asks for FILE SYSTEM
+    # information and the format is rejected, so the function returned 0 every
+    # time. Measured on the Linux node: two consecutive 900s windows then both
+    # read 0, `0 <= 0` is true, and every perfectly healthy batch was declared
+    # stalled and restarted at the 30-minute mark. The data survived, because a
+    # killed batch still publishes its journal, but the false-stall path skips
+    # both the exhaustion check and the backoff escalation, so a second machine
+    # would have hammered a refusing archive at full pace for four days.
+    if [ -f "${JOURNAL}${PART}" ]; then
+        wc -c < "${JOURNAL}${PART}" | tr -d ' '
+    else
+        echo 0
+    fi
 }
 
 PART=".part"
@@ -118,7 +132,15 @@ stop_batch() {
 
 trap 'note "supervisor asked to stop"; stop_batch; exit 0' TERM INT
 
-note "start: until $(date -r "$DEADLINE" '+%F %T'), batch=${BATCH} workers=${WORKERS}" \
+# `date -r <epoch>` is BSD only. On GNU coreutils -r means "reference file", so
+# it errors and the log line reads "until ,". Cosmetic, since the loop compares
+# epochs as integers, but a supervisor whose log does not say when it stops is
+# hard to trust at 3am. GNU form first, BSD as the fallback.
+human_deadline() {
+    date -u -d "@$1" '+%F %T UTC' 2>/dev/null || date -u -r "$1" '+%F %T UTC'
+}
+
+note "start: until $(human_deadline "$DEADLINE"), batch=${BATCH} workers=${WORKERS}" \
     "check=${CHECK}s delay=${DELAY}/${MIN_DELAY}/${MAX_DELAY} timeout=${TIMEOUT}"
 
 pause=60
