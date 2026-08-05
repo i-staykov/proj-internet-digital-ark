@@ -156,6 +156,10 @@ uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
 
 `scripts/supervise_engines.sh` keeps both fed unattended.
 
+`ark gaps` orders by expected equivalent-English: the English share of the domain's TLD times the
+number of bracketed years a capture could fill. `--legacy-year-order` restores the pre-August-2026
+order (thinnest gap year first) for reproducing earlier rounds.
+
 The other population is the candidate pool: domains the store holds with no year at all, so a
 capture makes a name net-new rather than adding a year to one already shipped. Separate list,
 separate journal name, same ingest command.
@@ -165,6 +169,37 @@ uv run python scripts/build_pool_candidates.py   # -> data/raw/cdx/pool_candidat
 bash scripts/supervise_cdx_pool.sh $(date -v+5d +%s) 1200 8 900
 uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_*.jsonl.gz
 ```
+
+One supervisor drives either population, chosen by environment variable:
+
+```bash
+ARK_TARGETS=data/raw/cdx/gap_candidates.txt ARK_PREFIX=cdx_gap \
+    bash scripts/supervise_cdx_pool.sh $(date -v+5d +%s) 1200 8 900
+```
+
+### Collecting from more than one machine
+
+Split the list into disjoint slices and run one per machine. Assignment is by content hash, so the
+slices are disjoint and jointly complete with no coordination, and each machine still gets its fair
+share of the valuable head.
+
+```bash
+# on this machine, build both slices (only this one has the store)
+uv run ark gaps --shards 2 --shard 0 --out data/raw/cdx/gap_shard0.txt
+uv run ark gaps --shards 2 --shard 1 --out data/raw/cdx/gap_shard1.txt
+
+# ship slice 1 and the repo to the other machine, then there:
+ARK_TARGETS=data/raw/cdx/gap_shard1.txt ARK_PREFIX=cdx_gap_vps \
+    bash scripts/supervise_cdx_pool.sh <deadline_epoch> 1200 4 900
+
+# bring its journals back and replay them here
+rsync -av vps:~/proj-internet-digital-ark/data/raw/cdx/cdx_gap_vps_*.jsonl.gz data/raw/cdx/
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_gap_vps_*.jsonl.gz
+```
+
+The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
+never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal
+name, and keep the prefix starting `cdx_` so the ingest globs and the resume scan still see it.
 
 The list is ordered best-first: TLDs that existed in 1996-2001, then by the English share of the
 TLD from the reviewer's own model, so a run that never finishes the pool has still spent its

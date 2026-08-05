@@ -1353,3 +1353,156 @@ was the interesting part.
   the old logic. **The consequence to remember: the fix is on disk and NOT in
   effect. PID 18309 keeps logging false stalls and losing ~11 min per batch until
   someone restarts it**
+
+## 2026-08-04 (a trap does not fire while bash sits in `sleep`)
+
+- **The documented stop path was quietly broken, and the throughput fix repaired
+  it as a side effect.** `kill <supervisor>` appeared to do nothing for 20 s and
+  the process stayed up: bash defers a trapped signal until the currently running
+  *foreign* command returns, and the old loop was inside `sleep 900`. So the
+  advertised clean stop could hang for a quarter of an hour, and the only way to
+  hurry it was to kill the `sleep` child so bash could reach its handler. The
+  poll/stall split fixed this without being aimed at it, because the loop now
+  sleeps in 30 s slices. **Measured on the fixed script: SIGTERM at 12:21:30,
+  trap at 12:21:42, 12 seconds, and the in-flight journal published as a real
+  `.jsonl.gz`.** One long sleep had been doing three jobs badly: pacing the stall
+  check, noticing a finished batch, and bounding signal latency
+- **Stopped deliberately at 12:22 so the laptop could be closed.** `caffeinate`
+  holds off idle sleep, not clamshell sleep, so a lid close would have frozen the
+  batch mid-socket. Stopping first means the journal publishes on our terms.
+  Pool totals at the stop: **11,841 answered, 6,400 newly dated domains at a
+  54.0% hit rate, 9,888 new pairs, 6,287 equivalent-English**, all 17 journals
+  ingested and `ark check` ALL PASS
+
+## 2026-08-04 (the queue is reordered by measured yield, and provenance beats the TLD table)
+
+- **Ranking by English share alone was half right, and 14,686 real answers showed
+  which half.** Share says what a hit is worth; it says nothing about whether
+  there will be a hit, and the second factor varies far more. `.edu` scores 97.2%
+  English and returned **5 hits in 1,709 queries**, `.gov` and `.mil` zero in 614,
+  so roughly 2,300 queries and five hours went to blocks that returned almost
+  nothing. Ordering is now by **expected equivalent-English per query, P(hit) x
+  share**, with P(hit) measured from our own journals at the finest grain the
+  sample supports: per (source, TLD) cell at >= 25 answers, then per source, then
+  pool-wide
+- **The predictor is provenance, which the store knew all along.**
+  `ukwa_link_target` **90.0%** over 2,645 answers, `tucows_mention` **88.6%**,
+  `usenet_mention` **37.2%** over 11,992. Links harvested from real archived pages
+  hit; names merely *mentioned* in Usenet text mostly do not, and the `.edu` and
+  `.mil` collapses are the forged-header family already met as `dumicsamvfs.mil`.
+  Both factors are still needed, because source alone would rank a `.mil` Usenet
+  name highly on its 99.8% share and only the (source, TLD) cell knows that block
+  has never once hit. Effect: the first 10,000 queries now expect **0.351
+  equivalent-English each against about 0.24 under the old order**, and 3,383
+  names from the two 90% sources come out from behind 65,000 Usenet `.com` names
+- **A subtle bug in the first attempt, caught because the output disagreed with a
+  measurement taken an hour earlier.** Source was read from the pool query, but
+  **a domain that hits is given a year by the ingest and therefore leaves the
+  pool**, so the join saw only misses and reported the two sources at 1.5% and
+  0.9% instead of 90.0% and 37.4%. A hit-rate estimate over a population that
+  structurally excludes hits. Provenance for measurement is now asked separately,
+  in chunks, over all domains rather than only unassigned ones. The lesson is that
+  the sanity check was the earlier independent number, not the plausibility of the
+  new one
+- **The gap pool is now measurably the better target, and that reverses the
+  2 August judgement.** Measured: **482,993 still queryable, 95.4% hit rate over
+  26,625 answers, mean English weight 0.5618, so 0.536 equivalent-English per
+  query and about 258,800 available in the block.** The remaining candidate pool
+  averages 0.222 per query. The 2 August note called the candidate pool "the
+  better buy" on weight alone (0.6256 against 0.562) without a hit rate for
+  either, which was the same mistake as the TLD ranking one level up. Correct
+  order of work is now: the ~3,400 high-yield candidate names first, then the gap
+  pool, then the Usenet remainder. **Deferred on Ivo's instruction, not decided
+  against**
+
+## 2026-08-05 (the archive budget moves to the gap pool, and the 95.4% holds)
+
+- **Switched at 00:55 on measured yield, not on the 2 August guess.** The
+  candidate pool's high-value cells emptied out overnight exactly as the
+  cell-level estimate predicted: equivalent-English per batch fell 415, 372, 383,
+  348, 245, 249 and the batch in flight was tracking about 112. `ukwa_link_target`
+  ended at **4,909 answered, 90.6% hit, 417 left**, `tucows_mention` at 536, 86.2%,
+  210 left, leaving **93,336 `usenet_mention` names at 36.9% and roughly 0.22
+  equivalent-English per query**. Total still reachable in the pool's measured
+  cells was **343 equivalent-English over 1,167 queries**
+- **The in-flight batch was killed rather than finished, and the arithmetic says
+  that was right.** It had 637 queries left, worth about 127 equivalent-English on
+  the pool against about 341 on the gap pool over the same 24 minutes. The 626
+  records already written published on SIGTERM and ingested: 292 year rows over
+  179 domains. Cost of the kill was the handful of in-flight HTTP requests
+- **Gap list rebuilt before dispatch, and it grew.** 498,993 domains before,
+  **505,169 domains and 527,915 gap pairs** after, because tonight's newly dated
+  candidate-pool domains created 6,176 fresh bracketed gaps. Rebuilding rather
+  than reusing the 2 August file is what picked those up
+- **The main uncertainty is resolved: 98.2% on the unmeasured remainder.** The
+  0.536 equivalent-English per query rested on a 95.4% hit rate measured over the
+  gap pool's first 26,625 domains, which could have been a flattering head. First
+  live batch on the fresh list: **55 hits in 56 answers, 259 years returned**. So
+  the estimate was conservative rather than optimistic
+- **One supervisor now drives either population, by environment variable.**
+  `ARK_TARGETS` and `ARK_PREFIX`, defaulting to the candidate pool so every
+  existing invocation and every documented `pgrep` still behaves. Journals are
+  `cdx_gap_<UTC>` alongside `cdx_pool_<UTC>`, both inside the `cdx_*` glob that
+  the ingest commands and the resume scan already use, so the shared skip set
+  keeps either population from re-asking what the other settled. Two copies of a
+  60-line script would have drifted apart within the week
+- **A claim I wrote into `build_pool_candidates.py` this morning was false and is
+  corrected.** It said the engine skips already-answered domains only after
+  counting out `-n`, so a batch of 1,200 would query far fewer than 1,200 new
+  names. `ark cdx` in fact appends only unanswered domains and stops when that
+  list reaches `-n`, so no budget is ever wasted. Pre-filtering is still worth
+  doing, but for different reasons: the rates and ordering are then computed over
+  what is actually left, and the file stays readable
+
+## 2026-08-05 (the gap pool is ordered by the metric, and the collector can be split across machines)
+
+- **`ark gaps` now ranks by expected equivalent-English, and the thinnest-year
+  order it replaced is kept as `--legacy-year-order`.** The key is the English
+  share of the TLD times the number of bracketed years one query could fill. The
+  hit rate is deliberately left out: measured 96.0%, 96.9%, 97.1% and 97.5% on
+  consecutive batches, it is a near-constant factor over this population and
+  scales every target equally, so it changes no ordering. Effect on the first
+  50,000 queries, measured before the switch: **0.813 to 1.249 equivalent-English
+  per query, about 54% better**. The old order was feeding 2,249 `.de` at 13.2%
+  English, 833 `.dk` and 656 `.it` into the queue while 13,503 `.uk` at 98.1%
+  waited behind them. New head of the first 50,000: **14,392 `.uk`, 13,498 `.com`,
+  8,502 `.au`** against the old 31,555 `.com` plus the low-share ccTLDs
+- **Why year priority was right once and is wrong now.** It predates the metric
+  and served per-year completeness, which the SPEC asks for and the reviewer's
+  tables show. It survives as the tiebreak inside an equal-value tier, so year
+  balance still decides between two targets worth the same rather than overriding
+  value. Worth remembering that the visible consequence of the old order was that
+  1997 and 1999 received **zero** new pairs overnight: the queue never reached
+  their tiers
+- **The English-share table is vendored into `src/ark/data/tld_english_share.json`,
+  and that was a latent bug, not tidiness.** `build_pool_candidates.py` read it
+  from `feedback-phase-3/`, which is git-ignored since the packaging leak. A fresh
+  clone, or a second machine collecting in parallel, would have loaded no weights
+  and silently ranked every domain at zero. Pinned like the public suffix list and
+  for the same reason. Verified after vendoring: his three-domain example gives
+  **1.2766** exactly, over 1,306 TLDs with an English share
+- **`--shards N --shard I` splits a list across machines, by content hash rather
+  than by position.** Hash assignment needs no coordination, so slices stay
+  disjoint and jointly complete however often either machine regenerates its list.
+  Positional slicing would hand one machine the entire high-value head, which is
+  where an equivalent-English ordering puts most of the score. `blake2b` not
+  `hash()`: the built-in is salted per interpreter run, so two machines would
+  disagree about the split, double-querying some domains and skipping others. That
+  property is now pinned by a test that runs the hash in two subprocesses under
+  different `PYTHONHASHSEED` values
+- **Splitting is cheap only because collection was already separated from the
+  store.** A remote node needs the repo, `uv` and its slice; it writes journals and
+  never opens the database, so there is nothing to synchronise. The ledger keys on
+  `(source name, file name)`, so distinct `ARK_PREFIX` values are all the isolation
+  two nodes need. Had the SQLite work queue been the resume mechanism this would
+  have required a shared queue and a protocol
+- **The real constraint is the archive, not machines, and that bounds how much a
+  VPS should be given.** Throttles are running 343-406 per batch with `failed_504`
+  at ~74 and a steady single `failed_403`, so the service is limiting us without
+  banning us, per source address. A second address is a second budget, which is the
+  whole reason a split helps. It also means per-node concurrency should come *down*
+  when a node is added: section VI requires treating a rate limit as a signal to
+  adapt, and doubling load on a host that has already refused this project three
+  times is only defensible if the total stays near what it has shown it tolerates.
+  Recommended start for a second node is **4 workers, not 8**, with `failed_403`
+  watched as the abort signal

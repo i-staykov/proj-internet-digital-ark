@@ -1,11 +1,16 @@
 """Bracketed-gap selection and its priority ordering."""
 
+import pytest
+
 from ark.db import assign_year, connect, ensure_source, init_db, record_evidence
 from ark.gaps import (
     creation_addressable_domains,
+    equivalent_english_order,
     sandwich_gap_domains,
+    take_shard,
     write_creation_candidates,
     write_gap_candidates,
+    year_priority_order,
 )
 
 
@@ -42,7 +47,7 @@ def test_only_bracketed_gaps_are_selected() -> None:
     conn.close()
 
 
-def test_thinnest_gap_year_is_queried_first() -> None:
+def test_the_legacy_order_still_puts_the_thinnest_gap_year_first() -> None:
     conn, source_id = _store()
     # a 1997 gap (the densest year) and a 1998 gap (the thinnest)
     _hold(conn, source_id, "dense.com", 1996)
@@ -50,10 +55,103 @@ def test_thinnest_gap_year_is_queried_first() -> None:
     _hold(conn, source_id, "thin.com", 1997)
     _hold(conn, source_id, "thin.com", 1999)
 
-    domains = [row[0] for row in sandwich_gap_domains(conn)]
+    ordered = [row[0] for row in year_priority_order(sandwich_gap_domains(conn))]
     # 1998 outranks 1997, so the thin-year domain comes first
-    assert domains == ["thin.com", "dense.com"]
+    assert ordered == ["thin.com", "dense.com"]
     conn.close()
+
+
+def test_english_share_outranks_the_gap_year_it_used_to_lose_to() -> None:
+    """The whole point of the reorder: what an answer is worth beats which year it fills.
+
+    `low.de` sits in the thinnest year (1998) and would lead under the legacy
+    order. `high.uk` fills 1997, the densest year and last in YEAR_PRIORITY, but
+    `.uk` is 98.1% English against `.de` at 13.2%, so it is worth 7x more.
+    """
+    conn, source_id = _store()
+    _hold(conn, source_id, "low.de", 1997)
+    _hold(conn, source_id, "low.de", 1999)  # bracketed gap at 1998, the top-priority year
+    _hold(conn, source_id, "high.uk", 1996)
+    _hold(conn, source_id, "high.uk", 1998)  # bracketed gap at 1997, the bottom-priority year
+
+    rows = sandwich_gap_domains(conn)
+    assert [r[0] for r in year_priority_order(rows)] == ["low.de", "high.uk"]
+    assert [r[0] for r in equivalent_english_order(rows)] == ["high.uk", "low.de"]
+    conn.close()
+
+
+def test_more_fillable_years_outranks_a_higher_share_when_it_is_worth_more() -> None:
+    """Share alone is not the key: a query answers every year at once.
+
+    `two.de` can fill 1998 and 2000, worth 2 x 0.1324 = 0.2648. `one.net` can fill
+    one year at 0.4530. So the higher-share domain wins here, and would lose if
+    `two.*` had enough gaps to overtake it. This pins the product, not either factor.
+    """
+    conn, source_id = _store()
+    _hold(conn, source_id, "two.de", 1997)
+    _hold(conn, source_id, "two.de", 1999)
+    _hold(conn, source_id, "two.de", 2001)  # gaps at 1998 and 2000
+    _hold(conn, source_id, "one.net", 1997)
+    _hold(conn, source_id, "one.net", 1999)  # gap at 1998 only
+
+    rows = {row[0]: row[2] for row in sandwich_gap_domains(conn)}
+    assert rows == {"two.de": 2, "one.net": 1}
+    ordered = [r[0] for r in equivalent_english_order(sandwich_gap_domains(conn))]
+    assert ordered == ["one.net", "two.de"]
+    conn.close()
+
+
+def test_shards_are_disjoint_and_jointly_complete() -> None:
+    rows = [(f"d{i}.com", 0, 1) for i in range(500)]
+
+    slices = [take_shard(rows, 4, i) for i in range(4)]
+    names = [{row[0] for row in s} for s in slices]
+
+    # no domain is queried twice, which would waste archive budget
+    for i in range(4):
+        for j in range(i + 1, 4):
+            assert names[i].isdisjoint(names[j])
+    # and none is dropped
+    assert set().union(*names) == {row[0] for row in rows}
+
+
+def test_a_shard_keeps_the_priority_order_it_was_given() -> None:
+    """Slicing must not hand the whole high-value head to one machine."""
+    rows = [(f"d{i}.com", 0, 1) for i in range(200)]
+    ordered = equivalent_english_order(rows)
+
+    mine = take_shard(ordered, 3, 1)
+
+    assert mine == [row for row in ordered if row in mine]
+
+
+def test_sharding_is_stable_across_processes() -> None:
+    """PYTHONHASHSEED must not decide which machine owns a domain.
+
+    `hash()` on a str is salted per interpreter run. If sharding used it, two
+    machines would disagree about the split and would both query some domains
+    while both skipped others.
+    """
+    import subprocess
+    import sys
+
+    code = (
+        "import sys; sys.path.insert(0, 'src');"
+        "from ark.gaps import spread;"
+        "print(spread('stability.com').hex())"
+    )
+    first = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env={"PYTHONHASHSEED": "0"}
+    ).stdout
+    second = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env={"PYTHONHASHSEED": "1"}
+    ).stdout
+    assert first == second != ""
+
+
+def test_take_shard_rejects_an_impossible_slice() -> None:
+    with pytest.raises(ValueError):
+        take_shard([("a.com", 0, 1)], 3, 3)
 
 
 def test_write_gap_candidates_reports_what_it_wrote(tmp_path) -> None:
@@ -64,8 +162,31 @@ def test_write_gap_candidates_reports_what_it_wrote(tmp_path) -> None:
 
     summary = write_gap_candidates(conn, out)
 
-    assert summary == {"domains": 1, "gap_pairs": 1}
+    assert summary["domains"] == 1
+    assert summary["gap_pairs"] == 1
+    assert summary["of_total_domains"] == 1
+    assert summary["shards"] == 1
     assert out.read_text(encoding="utf-8").split() == ["gap.com"]
+    conn.close()
+
+
+def test_write_gap_candidates_writes_only_its_own_shard(tmp_path) -> None:
+    conn, source_id = _store()
+    for i in range(60):
+        _hold(conn, source_id, f"d{i}.com", 1997)
+        _hold(conn, source_id, f"d{i}.com", 1999)
+
+    written = []
+    for shard in range(3):
+        out = tmp_path / f"s{shard}.txt"
+        summary = write_gap_candidates(conn, out, shards=3, shard=shard)
+        names = out.read_text(encoding="utf-8").split()
+        assert summary["domains"] == len(names)
+        assert summary["of_total_domains"] == 60
+        written.append(set(names))
+
+    assert set().union(*written) == {f"d{i}.com" for i in range(60)}
+    assert sum(len(w) for w in written) == 60
     conn.close()
 
 

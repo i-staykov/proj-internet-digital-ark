@@ -57,15 +57,29 @@ TIMEOUT="${8:-70}"
 # so that a finished batch is re-dispatched promptly.
 POLL=30
 
-TARGETS="data/raw/cdx/pool_candidates.txt"
+# Which population to work, set by the caller rather than baked in. Two disjoint
+# lists go to the same index by the same method, so they want one supervisor and
+# not two copies that drift apart:
+#
+#   candidate pool (default), domains with no year at all, a hit adds a NAME
+#     ARK_TARGETS=data/raw/cdx/pool_candidates.txt ARK_PREFIX=cdx_pool
+#   gap pool, held domains with a bracketed missing year, a hit adds a YEAR
+#     ARK_TARGETS=data/raw/cdx/gap_candidates.txt  ARK_PREFIX=cdx_gap
+#
+# The prefix must start `cdx_` so the journals stay inside the `cdx_*` glob that
+# every ingest command and the engine's own resume scan already use. That shared
+# skip set is deliberate: neither population should ever re-ask a domain the
+# other has already settled.
+TARGETS="${ARK_TARGETS:-data/raw/cdx/pool_candidates.txt}"
+PREFIX="${ARK_PREFIX:-cdx_pool}"
 DIR="data/raw/cdx"
-LOG="data/logs/cdx_pool.log"
+LOG="data/logs/${PREFIX}.log"
 # One batch's own output, truncated per dispatch. The exhaustion and backoff
 # decisions are read from this and never from a tail of the shared log: a killed
 # batch writes no summary of its own, so a tail would still be showing the
 # PREVIOUS batch's "nothing new to query" and the loop would stop 90 batches
 # early, which is exactly the silent failure this whole script exists to avoid.
-BATCH_OUT="data/logs/cdx_pool_batch.out"
+BATCH_OUT="data/logs/${PREFIX}_batch.out"
 mkdir -p data/logs
 
 [ "$DEADLINE" -eq 0 ] && DEADLINE=$(( $(date +%s) + 86400 ))
@@ -83,7 +97,7 @@ BATCH_PID=""
 JOURNAL=""
 
 dispatch() {
-    JOURNAL="$DIR/cdx_pool_$(date -u +%Y%m%dT%H%M%SZ).jsonl.gz"
+    JOURNAL="$DIR/${PREFIX}_$(date -u +%Y%m%dT%H%M%SZ).jsonl.gz"
     : > "$BATCH_OUT"
     uv run ark cdx "$TARGETS" -n "$BATCH" --workers "$WORKERS" \
         --delay "$DELAY" --min-delay "$MIN_DELAY" --max-delay "$MAX_DELAY" \

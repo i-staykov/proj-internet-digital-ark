@@ -143,6 +143,15 @@ cdx-batch n="1200" workers="8":
     uv run ark gaps
     uv run ark cdx data/raw/cdx/gap_candidates.txt -n {{n}} --workers {{workers}} --timeout 70
 
+# split the gap list across machines: disjoint by content hash, so no domain is
+# ever queried twice and each slice keeps its share of the high-value head.
+gap-shards n="2":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for i in $(seq 0 $(({{n}} - 1))); do
+        uv run ark gaps --shards {{n}} --shard "$i" --out "data/raw/cdx/gap_shard${i}.txt"
+    done
+
 # the candidate pool instead of the gap pool: domains held with no year at all,
 # so a capture adds a name rather than a year. Best English yield first, and the
 # supervisor runs batches until the deadline epoch you give it.

@@ -205,3 +205,68 @@ start a thing, watch it, restart it, log what happened.
 The watchdog checks **progress rather than presence**. A batch hung on a socket leaves the supervisor
 alive and the journal frozen, which a PID check reports as healthy, and that is the failure that costs
 a night.
+
+## 10. Ordering the queue by what the score actually rewards
+
+Since August 2026 the reviewer scores **equivalent-English domains**: a
+(domain, year) record counts not 1 but the English page-language share of its
+right-most TLD, from a `CC-MAIN-2024-10` table he supplied. `foo.uk` is worth
+0.9813 of a record, `foo.de` 0.1324.
+
+That changes what a queue is for. Neither population can be finished: about
+575,000 domains remain against roughly 63,000 queries in a week, so the ordering
+decides the outcome and the tail is theoretical. Both list builders therefore rank
+by **expected equivalent-English per query**, and the two factors come from
+different places:
+
+- **what an answer is worth** is the TLD share, pinned in `src/ark/data/`;
+- **whether there will be an answer** is measured from our own journals, never
+  assumed.
+
+The candidate pool needs both because its hit rate varies enormously, from 90.6%
+for a link harvested off an archived page down to 36.9% for a name merely
+mentioned in Usenet text. The gap pool needs only the first, because a bracketed
+year is nearly always there: 96.0%, 96.9%, 97.1%, 97.5% on consecutive batches.
+There, the second factor is how many bracketed years one query can fill.
+
+Two mistakes are recorded in `notes.md` because both cost real hours. Ranking by
+share alone sent 1,709 queries at `.edu`, which scores 97.2% English and returned
+five hits; and estimating a hit rate from the pool query alone measured it over a
+population that structurally excludes hits, because a domain that hits is given a
+year and leaves the pool. The general lesson is that a plausible-looking ranking
+is worth nothing until its own output is measured against something independent.
+
+The pre-metric order, thinnest gap year first, survives as `--legacy-year-order`
+and as the tiebreak inside an equal-value tier, so year balance still decides
+between two targets worth the same. It was 54% worse per query as a primary key.
+
+## 11. Collecting from several machines at once
+
+Two things make this cheap, and both were built for other reasons.
+
+Collection never opens the store. A remote machine needs the repository, `uv` and
+a target list; it writes journals and nothing else, so there is no database to
+synchronise and no lock to contend. Had the SQLite work queue been the mechanism
+instead of journals, this would need a shared queue and a protocol.
+
+Journals are content-addressed in the ledger by `(source name, file name)`, so
+two machines can produce journals independently as long as their names differ.
+`ARK_PREFIX` gives each machine its own, and any prefix starting `cdx_` stays
+inside the globs the ingest commands and the resume scan already use.
+
+Splitting is by **content hash of the domain, not by position in the list**. Hash
+assignment needs no coordination: each machine derives the same answer from the
+domain alone, so the slices stay disjoint and jointly complete however often
+either side regenerates. Positional slicing would instead give one machine the
+entire high-value head, which under an equivalent-English ordering is where most
+of the score lives. The hash is `blake2b` rather than `hash()`, because the
+built-in is salted per interpreter run: two machines would disagree about the
+split, querying some domains twice and skipping others entirely.
+
+The real constraint is not machines but the archive. It rate-limits per source
+address, and it has refused this project outright three times. A second address is
+a second budget, which is why this helps at all, and also why per-node concurrency
+should go *down* when a node is added rather than staying flat. Section VI of the
+brief requires treating a rate limit as a signal to adapt; adding capacity to a
+service that is already throttling us is only defensible if total load stays near
+what it has shown it tolerates.

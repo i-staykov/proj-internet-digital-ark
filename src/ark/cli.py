@@ -489,12 +489,37 @@ def gaps(
             "re-registration and can therefore fall after years already held.",
         ),
     ] = False,
+    legacy_year_order: Annotated[
+        bool,
+        typer.Option(
+            "--legacy-year-order",
+            help="Order by thinnest gap year instead of by expected equivalent-English. The "
+            "pre-August-2026 order, kept for reproducing earlier rounds; measured 54% worse "
+            "per query under the current metric.",
+        ),
+    ] = False,
+    shards: Annotated[
+        int,
+        typer.Option(
+            "--shards",
+            help="Split the list into this many disjoint slices by content hash, so several "
+            "machines can collect in parallel without ever querying the same domain twice.",
+        ),
+    ] = 1,
+    shard: Annotated[
+        int, typer.Option("--shard", help="Which slice to write, from 0 to --shards minus 1.")
+    ] = 0,
 ) -> None:
     """List held domains worth a per-domain query, best target first.
 
     By default: domains whose missing year is bracketed by two held years, which
     is the population an archive query addresses. One archive query answers every
     year for a domain, so the output is a domain list. Feed it to `ark cdx`.
+
+    Ordered by expected equivalent-English: the English share of the domain's TLD
+    times the number of bracketed years a capture could fill. The hit rate is
+    near-uniform over this population, so what separates targets is what an answer
+    is worth, not the chance of getting one.
     """
     conn = connect()
     if creation:
@@ -503,7 +528,9 @@ def gaps(
         logger.info(f"gaps (creation): {summary} -> {out}")
         typer.echo(f"gaps (creation): {summary}\nwrote {out}\nnext: uv run ark rdap {out}")
         return
-    summary = write_gap_candidates(conn, out)
+    summary = write_gap_candidates(
+        conn, out, legacy_year_order=legacy_year_order, shards=shards, shard=shard
+    )
     record_metrics(conn, "gaps", "sandwich", summary)
     logger.info(f"gaps: {summary} -> {out}")
     typer.echo(f"gaps: {summary}\nwrote {out}\nnext: uv run ark cdx {out}")
