@@ -1506,3 +1506,43 @@ was the interesting part.
   times is only defensible if the total stays near what it has shown it tolerates.
   Recommended start for a second node is **4 workers, not 8**, with `failed_403`
   watched as the abort signal
+
+## 2026-08-05 (source research: ordinary Usenet groups pay, and archive.org's books do not)
+
+Full write-up in `docs/source_research_260805.md`. The decisions, and the numbers behind them:
+
+- **The Usenet name filter is exhausted, and it was never the thing that mattered.** All 697
+  archives under `data/raw/usenet/` are in `.processed` and the whole `biz.*` hierarchy is drained,
+  which looked like the end of the route. It is not: the filter selected on names containing
+  `announce`, `business`, `commerce`, so it had never once tried an ordinary discussion group. Eleven
+  such groups measured (`uk.d-i-y`, `rec.food.recipes`, `comp.infosystems.www.misc` among them)
+  return **8,819 net-new pairs from eight archives, mean equivalent-English weight 0.7389**. People
+  quote URLs in ordinary conversation and every post carries its own date, so the announcement
+  framing was an accident of how the first round happened to find the corpus. 18,536 groups remain
+- **The next selector should be a hierarchy quota, not a token list.** Take `uk.*`, `aus.*` and
+  `can.*` entire, 761 groups and 21.3 GB, because `.uk` is worth 0.9813 against 0.6321 for `.com` and
+  those groups are small enough to finish. The 100 MB per-group cap bought breadth before there was
+  evidence; there is evidence now, and five of the eighteen groups I asked for were skipped by it
+- **The yield is late, 1999-2001, which is the opposite shape to `usenet_announce`.** Complementary
+  rather than competing, but it does not help the years that are hardest to evidence
+- **`uk.misc.mbox.zip` is 172.9 MB and parses to one record.** Every other archive parsed in
+  proportion to its size, so this is a defect and not a property of the group. Left unresolved and
+  flagged as the first thing to fix before a bulk run, because a silent zero on a large group is
+  exactly the failure that makes a run look finished when it is not
+- **Dated periodicals work, dated books do not, and the reason is licensing rather than OCR.** A 1997
+  trade magazine printing `foo.com` is the same artifact shape as a dated directory page. Measured:
+  Boardwatch **216 net-new pairs from 27 items** at mean weight 0.6716, `computermagazines` **116
+  from 11 items** at 0.6323. But **57 of 60 sampled in-window books have no downloadable full text at
+  all**, so the 632,683-item book collection, and the Internet Yellow Pages editions with it, are out
+  of reach. The idea was right and the richest part of it is unavailable
+- **Subject matter decides this source, not corpus size.** `magazine_rack` holds 34,279 in-window
+  items and returns **0.4 net-new pairs per reachable item** against 10.5 for computing titles, a
+  26-fold gap, because its in-window holdings are Amiga zines and laboratory newsletters that print
+  no URLs. Recommending "archive.org texts" would have been recommending mostly nothing
+- **Web rings, portal directory trees and award lists are one bet, and it was not placeable today.**
+  All three are entirely `web.archive.org` workloads and both engines are on that host. The probe
+  script is written and committed. The one thing measured before stopping is worth keeping:
+  `nav.webring.yahoo.com` has **zero in-window captures**, so that hostname is wrong for the period
+- **Three sources were asked for and two are being reported.** The third is not padded in. An
+  unmeasured claim that reaches the client costs more than it gains, and this project has been wrong
+  by two orders of magnitude twice already by trusting a plausible ranking over a measurement
