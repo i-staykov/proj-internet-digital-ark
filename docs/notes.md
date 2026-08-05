@@ -1585,9 +1585,17 @@ was replaced with a measurement.
   captures from 19961019, and `webring.com` from 19981212. The member lists were query strings off
   the site root, `?ring=railring;list`, so there is no path prefix to match. **A wrong CDX match type
   is indistinguishable from an absent source**, which is worth remembering the next time a probe
-  returns a clean zero. Whether the archived list pages actually contain their members is still
-  unsettled: ten `;list` captures each yielded one domain, `webring.org` itself, and two fetches
-  returned empty bodies, so the CGI-stub reading is likely but not established
+  returns a clean zero
+- **Web rings then failed on the third pass, and the reason is the artifact rather than the access.**
+  Sorting the CDX rows by `length` and taking the largest gives real pages: the `railring` list at
+  20000422003921 is 14,154 bytes of genuine ring content. It **lists 20 member sites and contains 2
+  member URLs.** Every member is linked through `go.webring.org/go?ring=X;id=N;go` and the visible
+  text carries each site's title and description with no address at all, so the member domains are
+  simply not in the page. Recovering them is one Wayback redirect per member, against pages holding
+  about 20 members, which competes for the same IA budget as a gap engine already running at a 96%
+  hit rate. **Rejected as a bulk source on that comparison**, not on the source in isolation.
+  Sorting by `length` before judging a capture is the reusable half of this: the second pass called
+  these stubs and they are not
 - **Two more blocked payloads rechecked, both still blocked.** The Bibliotheca Alexandrina mirror of
   the Internet Archive (`web.archive.bibalex.org`) no longer resolves, which was the most promising
   non-IA route to early captures. `data.webarchive.org.uk` does not resolve either, a third distinct
