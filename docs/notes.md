@@ -1506,3 +1506,159 @@ was the interesting part.
   times is only defensible if the total stays near what it has shown it tolerates.
   Recommended start for a second node is **4 workers, not 8**, with `failed_403`
   watched as the abort signal
+
+## 2026-08-05 (source research: ordinary Usenet groups pay, and archive.org's books do not)
+
+Full write-up in `docs/source_research_260805.md`. The decisions, and the numbers behind them:
+
+- **The Usenet name filter is exhausted, and it was never the thing that mattered.** All 697
+  archives under `data/raw/usenet/` are in `.processed` and the whole `biz.*` hierarchy is drained,
+  which looked like the end of the route. It is not: the filter selected on names containing
+  `announce`, `business`, `commerce`, so it had never once tried an ordinary discussion group. Eleven
+  such groups measured (`uk.d-i-y`, `rec.food.recipes`, `comp.infosystems.www.misc` among them)
+  return **8,819 net-new pairs from eight archives, mean equivalent-English weight 0.7389**. People
+  quote URLs in ordinary conversation and every post carries its own date, so the announcement
+  framing was an accident of how the first round happened to find the corpus. 18,536 groups remain
+- **The next selector should be a hierarchy quota, not a token list.** Take `uk.*`, `aus.*` and
+  `can.*` entire, 761 groups and 21.3 GB, because `.uk` is worth 0.9813 against 0.6321 for `.com` and
+  those groups are small enough to finish. The 100 MB per-group cap bought breadth before there was
+  evidence; there is evidence now, and five of the eighteen groups I asked for were skipped by it
+- **The yield is late, 1999-2001, which is the opposite shape to `usenet_announce`.** Complementary
+  rather than competing, but it does not help the years that are hardest to evidence
+- **`uk.misc.mbox.zip` is 172.9 MB and parses to one record, and that is the group, not the parser.**
+  Measured rather than assumed: 248,074 messages, 243,662 out of window, 4,411 unreadable dates, one
+  in-window message left. The Giganews archive for that group is almost entirely 2003 onward, which
+  is `alt.www.webmaster` again in a different hierarchy. Size does not predict in-window content, and
+  the parser keeping `out_of_window` and `unreadable_date` on separate counters is what turned this
+  from a suspected defect into a ten-minute diagnosis
+- **Dated periodicals work, dated books do not, and the reason is licensing rather than OCR.** A 1997
+  trade magazine printing `foo.com` is the same artifact shape as a dated directory page. Measured:
+  Boardwatch **216 net-new pairs from 27 items** at mean weight 0.6716, `computermagazines` **116
+  from 11 items** at 0.6323. But **57 of 60 sampled in-window books have no downloadable full text at
+  all**, so the 632,683-item book collection, and the Internet Yellow Pages editions with it, are out
+  of reach. The idea was right and the richest part of it is unavailable
+- **Subject matter decides this source, not corpus size.** `magazine_rack` holds 34,279 in-window
+  items and returns **0.4 net-new pairs per reachable item** against 10.5 for computing titles, a
+  26-fold gap, because its in-window holdings are Amiga zines and laboratory newsletters that print
+  no URLs. Recommending "archive.org texts" would have been recommending mostly nothing
+- **Web rings, portal directory trees and award lists are one bet, and it was not placeable today.**
+  All three are entirely `web.archive.org` workloads and both engines are on that host. The probe
+  script is written and committed. The one thing measured before stopping is worth keeping:
+  `nav.webring.yahoo.com` has **zero in-window captures**, so that hostname is wrong for the period
+- **Three sources were asked for and two are being reported.** The third is not padded in. An
+  unmeasured claim that reaches the client costs more than it gains, and this project has been wrong
+  by two orders of magnitude twice already by trusting a plausible ranking over a measurement
+
+## 2026-08-05 (the union is 147,271 net-new pairs, measured in one pass)
+
+- **1,706 archives measured together: 147,271 net-new pairs over 85,721 net-new domains,
+  98,066 equivalent-English at mean weight 0.6659.** Twenty-nine times the 5,000-pair acceptance
+  floor, on bytes on disk, with no extrapolation in it. For scale, the whole of last round's Usenet
+  work added 96,158 pairs and was the largest single addition the project has made
+- **The figure is a floor, and finding that out was a near miss worth recording.** I first wrote it
+  up as covering all 3,479 archives on disk. It does not: the shell expanded the glob when the
+  measurement launched and the download was still running, so **1,773 archives arrived afterwards and
+  have never been parsed**. Reconciling the log's line count against the directory listing is what
+  caught it, and that reconciliation should be a habit, because attributing a number to the wrong
+  population is the same class of error that made the NYPW estimate wrong by 500x
+- **Measured as a union rather than summed, deliberately.** Each tranche had been differenced against
+  the store separately, so adding 20,159 and 6,454 and the rest would double count every pair two
+  tranches share. That is the units trap that made the NYPW estimate wrong by two orders of
+  magnitude, and the cheapest defence against it is to re-measure the union in one pass rather than
+  to reason about the overlap. An intermediate union over the first 574 archives gave 72,315 pairs,
+  so the small-group tranche roughly doubled it
+- **The headline overstates what can ship today, and the split says by how much.** 74,508 of the
+  pairs are on domains another source already places in an annual file, so the post date settles the
+  only open question and they enter as `usenet_announce` immediately, worth 48,821
+  equivalent-English. The other 72,763 are on names seen only in Usenet and go to the candidate pool.
+  Typo upper bound 35.8%, in line with the 35.4% of the previous round, which is why that rule stays
+- **The uncorroborated half is deferred rather than lost.** The prior round measured a 62% hit rate
+  when Usenet-discovered candidates were queried against the archive, so those 72,763 pairs are worth
+  roughly 45,000 more once verified, which is work for the CDX engine after the gap run finishes
+- **The mean weight fell from 0.7085 to 0.6659 as the corpus widened past `uk.*`, `aus.*` and
+  `can.*`.** Expected, and the metric working: `.uk` is 0.9813 and `.com` 0.6321, so broadening away
+  from British material converges on the `.com` weight. Still far above the 0.4 threshold at which
+  volume would have to justify itself
+- **Stopped cleanly on a network outage.** Downloads were killed with about 15,000 groups still
+  unworked, and the four zero-byte `.tmp` partials the kill left behind were removed, because the
+  fetcher's rename-on-success discipline is only a guarantee if interrupted partials are cleared
+
+
+
+
+Third tranche, taken to test breadth rather than depth: the **smallest** unworked archives in `uk.*`,
+`aus.*` and `can.*`, ascending by size.
+
+- **116 archives, 174 MB, 6,454 net-new pairs, 4,647 equivalent-English at mean weight 0.7201.**
+  That is **37.1 pairs per megabyte against 4.5** for the 28 large archives measured earlier, so the
+  small groups are roughly eight times cheaper per pair
+- **The mechanism is visible in the out-of-window share, 46% here against 76% there.** A small
+  archive belongs to a group that died early, and a group that died early is one whose traffic falls
+  inside the window. The large archives are large precisely because they ran on into the 2000s
+- **This inverts the reasoning behind the 100 MB cap.** It was framed as deferring the big groups
+  until there was evidence, which treated small groups as a compromise. They are the better
+  material, so the download queue should run ascending by size and simply keep going
+- **The two tranches were measured independently against the store, so their totals must not be
+  added.** Some pairs are common to both; the union was not computed and is somewhat under 26,613.
+  Saying 26,613 would be the same units error that made the NYPW estimate wrong
+- **The obvious form of the in-window screen is broken, and measuring it caught that.** Reading the
+  head of an mbox and dropping the group if the dates start after 2001 fails, because **the Giganews
+  exports are not in chronological order**: `uk.finance` yields thousands of in-window pairs and
+  reads as 2011-2013 over its first 2,000 messages. Striding across the whole archive fixes it, and
+  the corrected screen scores `uk.transport` 0.0%, `uk.finance` 41.7% and `uk.misc` 0.0%, which
+  matches their measured yields of zero, thousands and one record. `scripts/screen_usenet_archives.py`
+- **What the screen honestly buys is less than I claimed.** Striding needs the archive downloaded and
+  decompressed, so it prunes the ingest queue rather than the download queue. Given the size finding
+  that matters less than it looked, because ascending-size ordering is a good enough download rule
+
+
+
+Second half of the same session. The extrapolation above was the weakest thing in the report, so it
+was replaced with a measurement.
+
+- **28 groups, 20,159 net-new pairs, 14,266 equivalent-English, mean weight 0.7077.** Seventeen more
+  archives were downloaded and `scripts/measure_usenet_decay.py` written to accumulate pairs in a
+  fixed order and report, per batch of four, what is net-new against **both the store and every
+  earlier batch**. That is the decay curve read directly instead of assumed
+- **The cumulative curve fits `a * g^0.909`, so saturation has barely begun.** Against a store
+  holding 8,812,701 assigned pairs, these groups keep finding names it does not have. Projecting the
+  fit gives ~138,000 pairs at 200 groups and ~466,000 across all 761 groups of `uk.*`, `aus.*` and
+  `can.*`. The earlier 50,000-to-150,000 band was not wrong so much as wrong-shaped: the answer sits
+  at its upper end
+- **The marginal column is bimodal, not noisy, and that is the actionable finding.** Per group it
+  runs 989, 1386, 764, 314, 1041, 547, 0. A group whose archive covers the window yields about a
+  thousand pairs and a group whose archive starts in 2003 yields nothing: the last batch of four
+  contributed **exactly zero**. Across all 28 archives **4,023,027 of 5,283,482 messages are out of
+  window**, so 76% of the bytes buy nothing
+- **So the selector should gate on in-window date coverage, not on name or size.** Read the first few
+  thousand messages of an archive and abandon the group if the `Date` headers start after 2001. Name
+  filtering was the first round's rule and size capping the second; both are proxies for this
+- **`uk.misc` was not a parser defect after all.** 248,074 messages, 243,662 out of window, 4,411
+  unreadable dates, one in-window message. The group is late, exactly like the zero-yield batch, and
+  the parser's separate counters for `out_of_window` and `unreadable_date` are what made that a
+  ten-minute diagnosis. Corrected in the report, where I had called it a defect
+- **The book half of the periodicals lead is now closed on a second measurement.**
+  `folkscanomy_computer` was chosen specifically because it is not lending-restricted, and it still
+  gave **2 net-new pairs from 40 items with 36 unreachable**. So the constraint is not only lending
+  restriction, it is that in-window book scans largely carry no OCR text layer. Three collections
+  tested, same answer
+- **Web rings are not dead and my first pass was wrong about them.** `matchType=prefix` on
+  `www.webring.org/*` returns zero captures; `matchType=domain` on `webring.org` returns in-window
+  captures from 19961019, and `webring.com` from 19981212. The member lists were query strings off
+  the site root, `?ring=railring;list`, so there is no path prefix to match. **A wrong CDX match type
+  is indistinguishable from an absent source**, which is worth remembering the next time a probe
+  returns a clean zero
+- **Web rings then failed on the third pass, and the reason is the artifact rather than the access.**
+  Sorting the CDX rows by `length` and taking the largest gives real pages: the `railring` list at
+  20000422003921 is 14,154 bytes of genuine ring content. It **lists 20 member sites and contains 2
+  member URLs.** Every member is linked through `go.webring.org/go?ring=X;id=N;go` and the visible
+  text carries each site's title and description with no address at all, so the member domains are
+  simply not in the page. Recovering them is one Wayback redirect per member, against pages holding
+  about 20 members, which competes for the same IA budget as a gap engine already running at a 96%
+  hit rate. **Rejected as a bulk source on that comparison**, not on the source in isolation.
+  Sorting by `length` before judging a capture is the reusable half of this: the second pass called
+  these stubs and they are not
+- **Two more blocked payloads rechecked, both still blocked.** The Bibliotheca Alexandrina mirror of
+  the Internet Archive (`web.archive.bibalex.org`) no longer resolves, which was the most promising
+  non-IA route to early captures. `data.webarchive.org.uk` does not resolve either, a third distinct
+  host tried for the UKWA bulk CDX. Zenodo's DMOZ holdings are 2018-2020 research derivatives

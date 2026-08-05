@@ -17,12 +17,14 @@ Three numbers matter, and only the first is usually reported:
 
 import sys
 from collections import Counter, defaultdict
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import duckdb  # noqa: E402
 
+from ark.english_share import weight_of  # noqa: E402
 from ark.usenet import parse_usenet  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
@@ -98,6 +100,17 @@ def main() -> None:
         f"net-new pairs on names appearing only here        : "
         f"{len(new_pairs) - len(corroborated_pairs):,}"
     )
+    print()
+
+    # The scored metric since August 2026 is equivalent-English domains, so a
+    # count of pairs no longer says what a tranche is worth: 10,000 `.de` pairs
+    # score less than 1,500 `.uk` ones. Both totals are reported because only
+    # the corroborated half can enter the annual files immediately.
+    total = sum((weight_of(d) for d, _ in new_pairs), Decimal(0))
+    mean = total / len(new_pairs) if new_pairs else Decimal(0)
+    print(f"equivalent-English of net-new pairs: {total:.4f} (mean weight {mean:.4f})")
+    corroborated_ee = sum((weight_of(d) for d, _ in corroborated_pairs), Decimal(0))
+    print(f"equivalent-English of the corroborated half       : {corroborated_ee:.4f}")
     print()
 
     sample = sorted(new_domains)[:4000]
