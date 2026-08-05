@@ -16,7 +16,7 @@ mean TLD weight, not as a raw pair count.
 
 | # | Source | Access route | Licence | Dated artifact | Sample | Net-new pairs in sample | Extrapolated net-new pairs | Measured mean EE weight | Expected EE contribution |
 |---|---|---|---|---|---|--:|--:|--:|--:|
-| 1 | **Unexploited Usenet hierarchies** (`uk.*`, `aus.*`, `can.*`, `rec.*`, `comp.*`, and the `alt.*` remainder) | `archive.org/download/usenet-<hierarchy>/<group>.mbox.zip` | archive.org public item, Giganews donation | the post's own `Date:` header, `Message-ID` as evidence value | **3,479 archives, 17.1 GB, measured as a union in one pass** | **147,271** over 85,721 net-new domains | not extrapolated; roughly 15,000 groups remain unworked | **0.6659** | **98,066 measured**, of which 48,821 can enter annual files immediately |
+| 1 | **Unexploited Usenet hierarchies** (`uk.*`, `aus.*`, `can.*`, `rec.*`, `comp.*`, and the `alt.*` remainder) | `archive.org/download/usenet-<hierarchy>/<group>.mbox.zip` | archive.org public item, Giganews donation | the post's own `Date:` header, `Message-ID` as evidence value | **1,706 archives measured as a union in one pass; 3,479 are on disk** | **147,271** over 85,721 net-new domains | the 1,773 archives on disk but not yet measured are pure upside, and roughly 15,000 groups remain unworked | **0.6659** | **98,066 measured**, of which 48,821 can enter annual files immediately |
 | 2 | **archive.org dated computer and internet trade press** (Boardwatch, `collection:computermagazines`) | `archive.org/download/<id>/<id>_djvu.txt` | archive.org community texts, freely downloadable | the issue's publication year in item metadata | 34 + 40 items sampled, 38 with reachable full text | **216** (Boardwatch) and **116** (computermagazines) | 5,000 to 12,000 across `computermagazines` | **0.6716** and **0.6323** | **3,200 to 7,600** |
 
 Neither row is a guess about a corpus I have not touched: both come from parsing bytes now on disk
@@ -210,9 +210,18 @@ typo upper bound: 1,433 of 4,000 (35.8%) within one edit of a held name
 ```
 
 **147,271 net-new pairs over 85,721 net-new domains, 98,066 equivalent-English.** Measured on bytes
-on disk across 3,479 archives, with no extrapolation in it, and **twenty-nine times the 5,000-pair
-acceptance floor**. An earlier union over the first 574 archives gave 72,315 pairs and 51,236
-equivalent-English, so the second tranche of small groups roughly doubled the total.
+on disk, with no extrapolation in it, and **twenty-nine times the 5,000-pair acceptance floor**. An
+earlier union over the first 574 archives gave 72,315 pairs and 51,236 equivalent-English, so the
+small-group tranche roughly doubled the total.
+
+**The figure belongs to 1,706 archives, not to the 3,479 now on disk, and the difference is worth
+stating precisely.** The shell expanded the glob when the measurement launched, at which point the
+download was still running; the remaining **1,773 archives arrived afterwards and have never been
+parsed**. So 147,271 is a floor rather than the total for this corpus, and re-running the same
+command over everything now present will return more. I caught this only when reconciling the log's
+line count against the directory listing, which is the same class of population error that made the
+NYPW estimate wrong, and it is recorded here rather than quietly fixed because the reconciliation
+step is the transferable part.
 
 For scale, the whole of last round's Usenet work added 96,158 net-new pairs and was the largest
 single addition the project has made. This is larger, at a mean weight the metric rewards.
@@ -551,7 +560,7 @@ All under `data/raw/`, which is git-ignored, so nothing here can be committed by
 
 | Path | Contents | Size |
 |---|---|--:|
-| `data/raw/usenet_probe/` through `usenet_probe4/` | **3,479** `.mbox.zip` group archives, deliberately outside `data/raw/usenet/` so `ingest_new_usenet.sh` cannot sweep them into the store before they are judged. These hold the measured 147,271 net-new pairs. Four zero-byte `.tmp` partials from the interrupted download were removed, so every file present is complete | 17.1 GB |
+| `data/raw/usenet_probe/` through `usenet_probe4/` | **3,479** `.mbox.zip` group archives, deliberately outside `data/raw/usenet/` so `ingest_new_usenet.sh` cannot sweep them into the store before they are judged. **1,706 of them produced the measured 147,271 net-new pairs; the other 1,773 arrived after the measurement launched and are unmeasured.** Four zero-byte `.tmp` partials from the interrupted download were removed, so every file present is complete | 17.1 GB |
 | `data/raw/texts/cache/` | gzipped `_djvu.txt` for every item whose full text was reachable, so the measurement replays offline with no further requests | small |
 | `data/raw/texts/*_items.json` | per-item results for each probe: identifier, year, whether text was reachable, domains found | small |
 | `data/logs/probe_*.log`, `data/logs/measure_usenet_probe*.log` | the raw output of every measurement quoted above | small |

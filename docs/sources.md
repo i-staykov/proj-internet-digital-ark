@@ -608,8 +608,9 @@ window, and the waste is concentrated in whole groups, four of the 28 yielding e
 a few thousand `Date` headers before committing to a download removes most of it. Full measurement,
 the `uk.misc` diagnosis and the parser guidance are in `docs/source_research_260805.md`.
 
-**Measured union over 3,479 archives: 147,271 net-new pairs, 85,721 net-new domains, 98,066
-equivalent-English at mean weight 0.6659.** Measured in one pass rather than summed across tranches,
+**Measured union over 1,706 archives: 147,271 net-new pairs, 85,721 net-new domains, 98,066
+equivalent-English at mean weight 0.6659.** A further 1,773 archives are on disk unmeasured, having
+arrived after that measurement launched, so this is a floor for the corpus already downloaded. Measured in one pass rather than summed across tranches,
 because each tranche was differenced against the store separately and adding them would double count
 shared pairs. Of those, 74,508 pairs are on domains another source already attests and can carry the
 post date immediately (48,821 equivalent-English); 72,763 are on names seen only in Usenet and go to

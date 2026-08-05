@@ -1551,10 +1551,16 @@ Full write-up in `docs/source_research_260805.md`. The decisions, and the number
 
 ## 2026-08-05 (the union is 147,271 net-new pairs, measured in one pass)
 
-- **3,479 archives measured together: 147,271 net-new pairs over 85,721 net-new domains,
+- **1,706 archives measured together: 147,271 net-new pairs over 85,721 net-new domains,
   98,066 equivalent-English at mean weight 0.6659.** Twenty-nine times the 5,000-pair acceptance
   floor, on bytes on disk, with no extrapolation in it. For scale, the whole of last round's Usenet
   work added 96,158 pairs and was the largest single addition the project has made
+- **The figure is a floor, and finding that out was a near miss worth recording.** I first wrote it
+  up as covering all 3,479 archives on disk. It does not: the shell expanded the glob when the
+  measurement launched and the download was still running, so **1,773 archives arrived afterwards and
+  have never been parsed**. Reconciling the log's line count against the directory listing is what
+  caught it, and that reconciliation should be a habit, because attributing a number to the wrong
+  population is the same class of error that made the NYPW estimate wrong by 500x
 - **Measured as a union rather than summed, deliberately.** Each tranche had been differenced against
   the store separately, so adding 20,159 and 6,454 and the rest would double count every pair two
   tranches share. That is the units trap that made the NYPW estimate wrong by two orders of
