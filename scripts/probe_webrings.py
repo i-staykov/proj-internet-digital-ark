@@ -59,12 +59,19 @@ def fetch(url: str, retries: int = 3) -> bytes:
     raise RuntimeError("unreachable")
 
 
-def captures(pattern: str, limit: int) -> list[tuple[str, str]]:
-    """(timestamp, original) for in-window 200 captures of a URL pattern."""
+def captures(pattern: str, limit: int, match: str, contains: str | None) -> list[tuple[str, str]]:
+    """(timestamp, original) for in-window 200 captures of a URL pattern.
+
+    `matchType=domain` rather than `prefix`, because the member lists are not
+    under a path prefix: WebRing served them as query strings off the site root,
+    `webring.org/?ring=railring;list`. A prefix query on `www.webring.org/*`
+    returns nothing at all, which reads exactly like "this source does not exist"
+    and is the reason the first pass wrote the whole family off.
+    """
     query = urllib.parse.urlencode(
         {
             "url": pattern,
-            "matchType": "prefix" if pattern.endswith("*") else "exact",
+            "matchType": match,
             "from": "1996",
             "to": "2001",
             "filter": "statuscode:200",
@@ -77,19 +84,24 @@ def captures(pattern: str, limit: int) -> list[tuple[str, str]]:
     rows = []
     for line in body.splitlines():
         parts = line.split()
-        if len(parts) == 2:
-            rows.append((parts[0], parts[1]))
+        if len(parts) != 2:
+            continue
+        if contains and contains not in parts[1]:
+            continue
+        rows.append((parts[0], parts[1]))
     return rows
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pattern", required=True, help="URL or prefix pattern, may end in *")
+    parser.add_argument("--pattern", required=True, help="URL or host to query")
+    parser.add_argument("--match", default="domain", choices=("domain", "prefix", "exact"))
+    parser.add_argument("--contains", help="keep only captures whose URL holds this substring")
     parser.add_argument("--pages", type=int, default=12, help="captures to fetch")
     parser.add_argument("--delay", type=float, default=3.0, help="seconds between fetches")
     args = parser.parse_args()
 
-    rows = captures(args.pattern, args.pages * 4)
+    rows = captures(args.pattern, args.pages * 40, args.match, args.contains)
     print(f"{len(rows)} in-window captures listed for {args.pattern}", flush=True)
     if not rows:
         print("no in-window captures: nothing to measure")

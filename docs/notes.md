@@ -1525,10 +1525,12 @@ Full write-up in `docs/source_research_260805.md`. The decisions, and the number
   evidence; there is evidence now, and five of the eighteen groups I asked for were skipped by it
 - **The yield is late, 1999-2001, which is the opposite shape to `usenet_announce`.** Complementary
   rather than competing, but it does not help the years that are hardest to evidence
-- **`uk.misc.mbox.zip` is 172.9 MB and parses to one record.** Every other archive parsed in
-  proportion to its size, so this is a defect and not a property of the group. Left unresolved and
-  flagged as the first thing to fix before a bulk run, because a silent zero on a large group is
-  exactly the failure that makes a run look finished when it is not
+- **`uk.misc.mbox.zip` is 172.9 MB and parses to one record, and that is the group, not the parser.**
+  Measured rather than assumed: 248,074 messages, 243,662 out of window, 4,411 unreadable dates, one
+  in-window message left. The Giganews archive for that group is almost entirely 2003 onward, which
+  is `alt.www.webmaster` again in a different hierarchy. Size does not predict in-window content, and
+  the parser keeping `out_of_window` and `unreadable_date` on separate counters is what turned this
+  from a suspected defect into a ten-minute diagnosis
 - **Dated periodicals work, dated books do not, and the reason is licensing rather than OCR.** A 1997
   trade magazine printing `foo.com` is the same artifact shape as a dated directory page. Measured:
   Boardwatch **216 net-new pairs from 27 items** at mean weight 0.6716, `computermagazines` **116
@@ -1546,3 +1548,47 @@ Full write-up in `docs/source_research_260805.md`. The decisions, and the number
 - **Three sources were asked for and two are being reported.** The third is not padded in. An
   unmeasured claim that reaches the client costs more than it gains, and this project has been wrong
   by two orders of magnitude twice already by trusting a plausible ranking over a measurement
+
+## 2026-08-05 (the Usenet decay curve is measured, and it is nearly flat)
+
+Second half of the same session. The extrapolation above was the weakest thing in the report, so it
+was replaced with a measurement.
+
+- **28 groups, 20,159 net-new pairs, 14,266 equivalent-English, mean weight 0.7077.** Seventeen more
+  archives were downloaded and `scripts/measure_usenet_decay.py` written to accumulate pairs in a
+  fixed order and report, per batch of four, what is net-new against **both the store and every
+  earlier batch**. That is the decay curve read directly instead of assumed
+- **The cumulative curve fits `a * g^0.909`, so saturation has barely begun.** Against a store
+  holding 8,812,701 assigned pairs, these groups keep finding names it does not have. Projecting the
+  fit gives ~138,000 pairs at 200 groups and ~466,000 across all 761 groups of `uk.*`, `aus.*` and
+  `can.*`. The earlier 50,000-to-150,000 band was not wrong so much as wrong-shaped: the answer sits
+  at its upper end
+- **The marginal column is bimodal, not noisy, and that is the actionable finding.** Per group it
+  runs 989, 1386, 764, 314, 1041, 547, 0. A group whose archive covers the window yields about a
+  thousand pairs and a group whose archive starts in 2003 yields nothing: the last batch of four
+  contributed **exactly zero**. Across all 28 archives **4,023,027 of 5,283,482 messages are out of
+  window**, so 76% of the bytes buy nothing
+- **So the selector should gate on in-window date coverage, not on name or size.** Read the first few
+  thousand messages of an archive and abandon the group if the `Date` headers start after 2001. Name
+  filtering was the first round's rule and size capping the second; both are proxies for this
+- **`uk.misc` was not a parser defect after all.** 248,074 messages, 243,662 out of window, 4,411
+  unreadable dates, one in-window message. The group is late, exactly like the zero-yield batch, and
+  the parser's separate counters for `out_of_window` and `unreadable_date` are what made that a
+  ten-minute diagnosis. Corrected in the report, where I had called it a defect
+- **The book half of the periodicals lead is now closed on a second measurement.**
+  `folkscanomy_computer` was chosen specifically because it is not lending-restricted, and it still
+  gave **2 net-new pairs from 40 items with 36 unreachable**. So the constraint is not only lending
+  restriction, it is that in-window book scans largely carry no OCR text layer. Three collections
+  tested, same answer
+- **Web rings are not dead and my first pass was wrong about them.** `matchType=prefix` on
+  `www.webring.org/*` returns zero captures; `matchType=domain` on `webring.org` returns in-window
+  captures from 19961019, and `webring.com` from 19981212. The member lists were query strings off
+  the site root, `?ring=railring;list`, so there is no path prefix to match. **A wrong CDX match type
+  is indistinguishable from an absent source**, which is worth remembering the next time a probe
+  returns a clean zero. Whether the archived list pages actually contain their members is still
+  unsettled: ten `;list` captures each yielded one domain, `webring.org` itself, and two fetches
+  returned empty bodies, so the CGI-stub reading is likely but not established
+- **Two more blocked payloads rechecked, both still blocked.** The Bibliotheca Alexandrina mirror of
+  the Internet Archive (`web.archive.bibalex.org`) no longer resolves, which was the most promising
+  non-IA route to early captures. `data.webarchive.org.uk` does not resolve either, a third distinct
+  host tried for the UKWA bulk CDX. Zenodo's DMOZ holdings are 2018-2020 research derivatives

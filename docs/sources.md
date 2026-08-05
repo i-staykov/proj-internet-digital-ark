@@ -496,11 +496,15 @@ Recorded so that negative results are visible rather than silently omitted.
 | `early-web_parallel-language-urls` | 1,164,183 pre-2000 multilingual URL patterns with ISO-639 codes but **no timestamps**, so no per-year evidence. Multilingual by construction, which also works against the section 6 English rule. Seed-only at best |
 | OCLC Web Characterization Project | Only aggregate statistics were ever published; the host is gone |
 | Mailing-list archives (2026-08-01) | Assessed because section 4 names them and they share the property that made Usenet work, a date intrinsic to the artifact. **The population is wrong even though the structure is right.** archive.org's mailing-list holdings in window are overwhelmingly hobbyist digests (`sf-lovers`, `GLOWBUGS` ham radio) with almost no commercial or website content. The W3C public lists are live and browsable at `lists.w3.org/Archives/Public/` but small and technical: `www-announce` ran for only 3 archive periods, `www-talk` 121 and `www-html` 246, all discussion among a small standards community whose domains the baseline already holds in full. A 1997 `www-announce` month carries 53 messages against the 20,000-plus domains a single Usenet commerce group yields. Not worth a parser |
-| archive.org **books** (2026-08-05) | The idea is sound and the payload is not reachable. **57 of 60 sampled in-window items matching `subject:(internet)` publish no downloadable `_djvu.txt` at all**, because the 632,683-item `internetarchivebooks` collection is lending-restricted. The Internet Yellow Pages editions are in that restricted set. 2 net-new pairs from a 60-item sample. Lending restriction, not OCR, is what kills this |
+| archive.org **books**, three collections tested (2026-08-05) | The idea is sound and the payload is not there. `subject:(internet)`: **57 of 60 sampled in-window items publish no downloadable `_djvu.txt`**, 2 net-new pairs. `collection:folkscanomy_computer`, chosen specifically because it is *not* lending-restricted: **36 of 40 unreachable anyway, 2 net-new pairs from 40 items.** The constraint is therefore not only lending restriction but that in-window book scans largely carry no OCR text layer. The Internet Yellow Pages editions are unreachable either way. The book route is closed |
 | archive.org **`magazine_rack`** at large (2026-08-05) | 34,279 in-window items but **0.4 net-new pairs per reachable item**, against 10.5 for the computing trade press measured the same way on the same day. In-window holdings are Amiga user-group zines and laboratory newsletters, which print almost no URLs. The periodical route is only worth taking when scoped to computing and internet titles: see `docs/source_research_260805.md` |
 | Boardwatch **ISP Directory** volumes (2026-08-05) | The monthly magazine issues carry `_djvu.txt`; the separately catalogued directory volumes do not. `boardwatch-directory-of-internet-service-providers-july-august-1997_djvu.txt` returns a 146-byte stub. The most ISP-dense artifact of the family is the one without machine-readable text |
-| `nav.webring.yahoo.com` (2026-08-05) | **Zero in-window captures** for the entire host prefix in the Wayback CDX index. Yahoo! acquired WebRing in 1998 and this hostname postdates the useful period, so a web-ring probe must start from `webring.org` instead |
+| `nav.webring.yahoo.com` (2026-08-05) | **Zero in-window captures** for the entire host prefix. Wrong hostname for the period. `webring.org` (from 19961019) and `webring.com` (from 19981212) both do have in-window captures under `matchType=domain`, so the web-ring family is **not** rejected: see the report. A `matchType=prefix` query on `www.webring.org/*` also returns zero, because the member lists were query strings off the site root and there is no path prefix to match |
+| Bibliotheca Alexandrina IA mirror (2026-08-05) | `web.archive.bibalex.org` and `web.archive.org.bibalex.org` both fail to resolve; only the institutional landing page answers. This was the most promising non-IA route to early captures and it no longer exists |
+| `data.webarchive.org.uk` (2026-08-05) | Does not resolve. A third distinct host tried for the UKWA bulk CDX, after the 159-byte stub and the 403 DOI. Still no route in |
+| DMOZ / ODP copies on Zenodo (2026-08-05) | 12 hits, all 2018-2020 research derivatives of late DMOZ dumps. Out of window, and description text rather than dated listings. The ODP rejection stands |
 | `biz.*` Usenet hierarchy (2026-08-05) | Exhausted: no unprocessed `.mbox.zip` archives remain in the 19,233-group catalogue |
+| Late-starting Usenet groups (2026-08-05) | A selection rule rather than a rejection, and it costs more than any single source above. **4,023,027 of 5,283,482 messages across 28 probed archives are out of window**, concentrated in whole groups: four of the 28 contributed exactly zero net-new pairs, and `uk.misc` gave one record from 172.9 MB. Gate on in-window date coverage, not on group name or file size |
 
 
 ## `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
@@ -591,9 +595,17 @@ were: `uk.d-i-y`, `uk.finance`, `uk.local.london`, `uk.jobs.offered`, `rec.food.
 `rec.travel.usa-canada`, `comp.infosystems.www.misc` and others. Eight of them return **8,819 net-new
 pairs at a mean equivalent-English weight of 0.7389**, roughly 1,102 per group, concentrated in
 1999-2001. Ordinary conversation quotes URLs and every post is dated, so the announcement framing was
-an accident of how the corpus was first found. 18,536 groups remain unexploited; the recommended next
-selector is a hierarchy quota over `uk.*`, `aus.*` and `can.*` rather than a token list. Measurement,
-extrapolation and the `uk.misc` parser anomaly are in `docs/source_research_260805.md`.
+an accident of how the corpus was first found. 18,536 groups remain unexploited.
+
+**The decay was then measured rather than assumed, and it is nearly flat.** 28 groups accumulate to
+**20,159 net-new pairs and 14,266 equivalent-English at a mean weight of 0.7077**, against a store
+already holding 8,812,701 assigned pairs. The cumulative curve fits `a * g^0.909`, an exponent close
+enough to 1 that saturation has barely started, which projects to roughly 138,000 pairs at 200 groups
+and 466,000 across all 761 groups of `uk.*`, `aus.*` and `can.*`. **The right selector is neither
+name nor size but in-window date coverage:** 4,023,027 of 5,283,482 probed messages are out of
+window, and the waste is concentrated in whole groups, four of the 28 yielding exactly zero. Reading
+a few thousand `Date` headers before committing to a download removes most of it. Full measurement,
+the `uk.misc` diagnosis and the parser guidance are in `docs/source_research_260805.md`.
 
 ## `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
 
