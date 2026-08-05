@@ -114,6 +114,74 @@ figure: 8,819 net-new pairs from eight groups, 1,102 per group, at a mean weight
 establishes separately that global-interest hierarchies (`rec.*`, `comp.*`) behave like the regional
 ones rather than worse.
 
+### Small groups are eight times more efficient per byte, which was not expected
+
+A third tranche tested breadth rather than depth: the **smallest** unworked archives in `uk.*`,
+`aus.*` and `can.*`, taken in ascending size order.
+
+```bash
+uv run python scripts/probe_usenet_groups.py --from-file /tmp/probe3a.txt --out data/raw/usenet_probe3
+uv run python scripts/measure_usenet_yield.py data/raw/usenet_probe3/*.mbox.zip
+```
+
+```
+parse stats: messages 298,129  out_of_window 137,142  unreadable_date 2,742
+             messages_with_domains 152,454  records 191,681
+extracted 24,354 pairs over 17,750 domains
+net-new pairs  : 6,454
+net-new domains: 4,036
+  1996 61   1997 449   1998 763   1999 1,352   2000 1,934   2001 1,895
+net-new pairs on domains some other source attests: 3,688
+net-new pairs on names appearing only here        : 2,766
+equivalent-English of net-new pairs: 4647.2579 (mean weight 0.7201)
+typo upper bound: 1,327 of 4,000 (33.2%) within one edit of a held name
+```
+
+**116 archives, 174 MB, 6,454 net-new pairs at mean weight 0.7201.** Against the earlier tranche:
+
+| tranche | archives | bytes | net-new pairs | pairs per MB | out of window |
+|---|--:|--:|--:|--:|--:|
+| large groups (probes 1 and 2) | 28 | 4.5 GB | 20,159 | 4.5 | **76%** |
+| smallest groups (probe 3) | 116 | 174 MB | 6,454 | **37.1** | **46%** |
+
+**Small groups are roughly eight times more efficient per byte**, and the mechanism is in the last
+column: a small archive belongs to a group that died early, and a group that died early is one whose
+traffic falls inside the window. The large archives are large precisely because they ran on into the
+2000s, which is where three quarters of their bytes go.
+
+This inverts the assumption behind both earlier selection rules. Round two's 100 MB cap was framed as
+deferring the big groups until there was evidence, treating small ones as a compromise. They are not
+a compromise, they are the better material. **Run the download queue ascending by size and keep
+going.**
+
+The two tranches were measured independently against the store, so the totals must not simply be
+added: some pairs are common to both. The union was not computed and is somewhat under 26,613.
+
+### The in-window screen, and why the obvious version of it fails
+
+`scripts/screen_usenet_archives.py` implements the coverage gate, and building it exposed a defect in
+the idea as I had stated it.
+
+The obvious screen reads the **head** of each mbox and drops the group if the dates start after 2001.
+It does not work. Measured: `uk.finance`, which yields thousands of in-window pairs, reads as
+**2011-2013** over its first 2,000 messages. **The Giganews exports are not in chronological order**,
+so a contiguous sample is a sample of one arbitrary period rather than of the group.
+
+Striding across the whole archive fixes it, and the corrected screen separates the two populations
+cleanly on groups whose yield is already known independently:
+
+```
+in-window %  sampled         span  group          measured yield
+       0.0%    6,526    2002-2013  uk.transport   0 net-new pairs
+      41.7%    5,790    1995-2013  uk.finance     thousands
+       0.0%    6,202    2004-2013  uk.misc        1 record
+```
+
+Being honest about what this buys: striding still requires the archive to be downloaded and
+decompressed, so it prunes the **ingest** queue rather than the download queue. Given the size
+finding above that matters less than it first looked, because ascending-size ordering is a good
+enough download heuristic on its own.
+
 ### What this settles
 
 The answer to the sharp question is **yes: ordinary discussion groups pay, and pay well.** None of
@@ -429,7 +497,7 @@ All under `data/raw/`, which is git-ignored, so nothing here can be committed by
 
 | Path | Contents | Size |
 |---|---|--:|
-| `data/raw/usenet_probe/` and `data/raw/usenet_probe2/` | **28** `.mbox.zip` group archives, deliberately outside `data/raw/usenet/` so `ingest_new_usenet.sh` cannot sweep them into the store before they are judged. These hold the measured 20,159 net-new pairs | 4.5 GB |
+| `data/raw/usenet_probe/`, `usenet_probe2/`, `usenet_probe3/` | **28 large plus 277 small** `.mbox.zip` group archives, deliberately outside `data/raw/usenet/` so `ingest_new_usenet.sh` cannot sweep them into the store before they are judged. These hold the measured 20,159 and 6,454 net-new pairs, and the probe-3 download was still running when this was written | 5.1 GB |
 | `data/raw/texts/cache/` | gzipped `_djvu.txt` for every item whose full text was reachable, so the measurement replays offline with no further requests | small |
 | `data/raw/texts/*_items.json` | per-item results for each probe: identifier, year, whether text was reachable, domains found | small |
 | `data/logs/probe_*.log`, `data/logs/measure_usenet_probe*.log` | the raw output of every measurement quoted above | small |

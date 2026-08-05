@@ -1549,7 +1549,34 @@ Full write-up in `docs/source_research_260805.md`. The decisions, and the number
   unmeasured claim that reaches the client costs more than it gains, and this project has been wrong
   by two orders of magnitude twice already by trusting a plausible ranking over a measurement
 
-## 2026-08-05 (the Usenet decay curve is measured, and it is nearly flat)
+## 2026-08-05 (small Usenet groups are eight times more efficient per byte)
+
+Third tranche, taken to test breadth rather than depth: the **smallest** unworked archives in `uk.*`,
+`aus.*` and `can.*`, ascending by size.
+
+- **116 archives, 174 MB, 6,454 net-new pairs, 4,647 equivalent-English at mean weight 0.7201.**
+  That is **37.1 pairs per megabyte against 4.5** for the 28 large archives measured earlier, so the
+  small groups are roughly eight times cheaper per pair
+- **The mechanism is visible in the out-of-window share, 46% here against 76% there.** A small
+  archive belongs to a group that died early, and a group that died early is one whose traffic falls
+  inside the window. The large archives are large precisely because they ran on into the 2000s
+- **This inverts the reasoning behind the 100 MB cap.** It was framed as deferring the big groups
+  until there was evidence, which treated small groups as a compromise. They are the better
+  material, so the download queue should run ascending by size and simply keep going
+- **The two tranches were measured independently against the store, so their totals must not be
+  added.** Some pairs are common to both; the union was not computed and is somewhat under 26,613.
+  Saying 26,613 would be the same units error that made the NYPW estimate wrong
+- **The obvious form of the in-window screen is broken, and measuring it caught that.** Reading the
+  head of an mbox and dropping the group if the dates start after 2001 fails, because **the Giganews
+  exports are not in chronological order**: `uk.finance` yields thousands of in-window pairs and
+  reads as 2011-2013 over its first 2,000 messages. Striding across the whole archive fixes it, and
+  the corrected screen scores `uk.transport` 0.0%, `uk.finance` 41.7% and `uk.misc` 0.0%, which
+  matches their measured yields of zero, thousands and one record. `scripts/screen_usenet_archives.py`
+- **What the screen honestly buys is less than I claimed.** Striding needs the archive downloaded and
+  decompressed, so it prunes the ingest queue rather than the download queue. Given the size finding
+  that matters less than it looked, because ascending-size ordering is a good enough download rule
+
+
 
 Second half of the same session. The extrapolation above was the weakest thing in the report, so it
 was replaced with a measurement.
