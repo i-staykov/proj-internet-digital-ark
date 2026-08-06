@@ -1662,3 +1662,264 @@ was replaced with a measurement.
   the Internet Archive (`web.archive.bibalex.org`) no longer resolves, which was the most promising
   non-IA route to early captures. `data.webarchive.org.uk` does not resolve either, a third distinct
   host tried for the UKWA bulk CDX. Zenodo's DMOZ holdings are 2018-2020 research derivatives
+
+## 2026-08-06 (web.archive.org refuses connections, and the client could not see it)
+
+Phase 4, overnight. The task was to improve CDX throughput by experiment. The
+first experiment was void and the reason it was void is the finding.
+
+- **Baseline, measured over 13 gap journals and 22.5 hours: 647 queries/hour and
+  1,729 year-records/hour** on the local eight-worker engine. The number that
+  matters is not the mean but the spread: per-batch yield ran from 202 to 3,871
+  year-records/hour, a factor of 19. A mean over a distribution that wide is not
+  a throughput figure, it is two different regimes averaged together, so the
+  question became what puts a batch in the bad regime
+- **A first probe looked fast and was actually failing.** Six extra workers
+  alongside the running engine returned 93% transport failures at a flat ~3.5 s
+  each. Fast because refused, not fast because efficient. Killed it inside two
+  minutes. The lesson is narrow and worth keeping: **a latency figure means
+  nothing until the success rate is next to it**
+- **The refusals are web.archive.org's, not the local link's.** Eight requests
+  each to four hosts, sequential: google.com 8/8, one.one.one.one 8/8,
+  **archive.org 8/8, web.archive.org 2/8**. The failures gave up at a flat 3.3
+  to 3.5 s with `time_connect=0.000`, so the TCP connect never completed, and the
+  error was `OSError(50, 'Network is down')`. That error name is a red herring on
+  macOS: the link was demonstrably up, since three other hosts including
+  archive.org itself answered every time. Ruled out an IPv6 blackhole too, which
+  was the first guess and would have been tidy: `web.archive.org` publishes no
+  AAAA record at all, and forcing `curl -4` changed nothing
+- **The client's response to a refusal made the refusal last longer.** In
+  `_fetch_retrying`, `_THROTTLE_STATUSES` held only 429, 503 and 504, so a
+  refused connection arrived as status 0, skipped the backoff entirely, and was
+  retried up to four times at full pace. Those retries are themselves connection
+  attempts. So the failure mode is self-reinforcing: concurrency slightly over
+  the line produces refusals, refusals produce four times as many connection
+  attempts, and the run holds itself in the penalty box until the batch ends.
+  That is the mechanism behind the 19x spread, and it explains the worst batch
+  observed, 978 transport failures out of 1,199 queries
+- **Stopping the engine cleared it in under 90 seconds.** The host went from 2/8
+  to answering every request. So the penalty is short-lived and forgiving, which
+  is what makes pausing the right move rather than a costly one
+- **A refused connection and a client timeout were the same status and want
+  opposite handling.** Both arrived as 0. A refusal is evidence the pace is too
+  high. A timeout is the server having accepted the question and failed to
+  finish it, which is no evidence about pace at all, and asking again is close to
+  pure waste because the server kills a heavily archived domain at a consistent
+  ~60 s. They are now separated: `REFUSED = 0` backs the pace off and counts
+  toward a breaker, `TIMED_OUT = -1` does neither and is asked exactly once
+  instead of four times, saving up to three minutes of a worker per doomed domain
+- **A breaker was added rather than only a slower pace.** Once the host has
+  stopped taking connections, pacing does not help, because every queue position
+  spent is a certain failure. Twenty-five consecutive refusals now push the
+  governor's shared next-start time forward by 60 s, which holds the whole pool
+  off rather than only the thread that saw the last refusal. Reusing `_next_at`
+  meant no new machinery and no new lock
+- **Seven tests added, 305 in the suite.** The one worth naming is
+  `test_a_timeout_is_asked_once_and_does_not_slow_the_pace`, because the old code
+  passed every existing test while doing the wrong thing four times in a row
+- **Nothing was lost stopping the engine mid-batch.** The SIGTERM trap renamed
+  the journal cleanly and its 1,118 answers are on disk and will not be
+  re-queried, which is the `.part` design working as intended
+- **Open, and being measured next: the 504s are a separate problem from the
+  refusals.** At concurrency 1, on a quiet link, wildcard queries still returned
+  504. `url=*.domain` forces a range scan over every subdomain, and the server
+  gives up on the heavy ones. That is not a rate limit and backing off cannot fix
+  it. The candidate answer is a cheaper query shape
+
+## 2026-08-06 (the queue head was a clog of scans the server cannot finish)
+
+- **The head of the unanswered queue was 100% domains earlier batches had already
+  failed on.** Measured: of the first 200 unanswered domains in shard 0, 200 had
+  a prior failure; of the first 1,200, 384 did, their last status either 504 (35)
+  or a transport failure (349). The head was names like `warehouse.co.uk`,
+  `vccs.edu` and `autotrader.co.za` on their fourth or fifth attempt. Since only
+  an HTTP 200 marks a domain settled, and the engine always takes the first N
+  unanswered in file order, these came back to the head of every batch forever.
+  So roughly a third of every batch was being spent re-failing on the same names
+- **This also invalidated my own first two experiments, which is the more useful
+  lesson.** Both sampled "the first unanswered domains", believing that was the
+  queue head the engine sees. It is, but it is also the hardest possible sample:
+  a domain that answers leaves the population, so what accumulates at the front
+  is exactly what cannot be answered. A frontier measurement over that sample
+  read 0% served at every concurrency level and told me nothing about
+  concurrency. **Sampling the survivors of a filter measures the filter, not the
+  population**
+- **`url=*.domain` matches every subdomain, so the server cannot stop early.**
+  CDX returns rows ordered by URL key, so a wildcard has to walk the whole range
+  before it can answer, and `collapse=timestamp:4` saves payload only. An exact
+  host is ONE key, so its rows arrive in time order and collapse plus a small
+  limit lets the server stop as soon as it has the years. That is a structural
+  reason to expect the cheap shape to win, not a hope
+- **Measured on `warehouse.co.uk`, five batches' worth of failure:** the wildcard
+  gave 504 after 60.6 s and no years; apex plus www gave 200 in 20.5 s and four
+  years; the six-probe per-year sweep gave 200 in 249.4 s and **the same four
+  years**. So the cheap shape matched the expensive rescue at a twelfth of the
+  cost, and `lookup_years_per_year` is not the right fallback after all
+- **`lookup_years` now falls back to the hosts when the server gives up, and
+  never otherwise.** A scan that answers is never second-guessed, so no recall is
+  traded away on the healthy path. The doomed scan is also asked once instead of
+  four times, since 504 now stops the retry loop instead of buying three more
+  minutes of the same answer
+- **Validated live rather than argued.** Restarted on the identical 8-worker,
+  1,200-domain config so the code was the only variable. On the clogged head,
+  which had been returning nothing: **121 records, 119 answered, 29 rescued by the
+  fallback, 445 year-records, 2 failures.** Yield 1,670 year-records/hour against
+  a 1,729 baseline, while still inside the clog and paying a failed 60 s scan for
+  every rescue. The segment went from producing approximately zero to producing
+  at the whole-run average
+- **The recall cost of the fallback measured zero.** The ground truth was already
+  on disk: 46,370 domains have a wildcard answer in the journals, so asking the
+  hosts about a sample and diffing costs no second wildcard query. On 20 domains
+  that both shapes answered, the year sets were identical 20 times out of 20,
+  **0 of 64 year-records lost**. Small sample, but it bounds the risk of a change
+  that only ever runs where the alternative was no answer at all
+- **The 18.9% of answers that report no in-window capture are genuinely empty.**
+  10,793 domains sit in that state and are settled forever, so it was worth
+  checking. Of 14 sampled, the host query found years for 0, and dropping
+  `filter=statuscode:200` found a year for 1. So the negative verdicts are close
+  to right and there is no large recovery hiding there
+- **A data-quality worry that turned out to be bounded.** That sample contained
+  `nospamucdavis.edu`, `removenwu.edu` and `wwwultratech.net`, which are
+  anti-spam-munged addresses rather than domains, and would explain empty answers
+  neatly. Counted across the store: 2,093 dated domains match any such pattern,
+  0.038%, and most of those matches are real names (`wwwshop.com`, `spamfree.org`,
+  `removeme.org`). So the munged ones live in the candidate pool, not among dated
+  records, and this is not worth building a filter for
+
+## 2026-08-06 (two source agents, and what survived checking their work)
+
+Two research agents ran on disjoint spaces, one on directories and periodicals,
+one on non-IA web archives. Both reported honestly and both had a headline that
+needed correcting.
+
+- **The `matchType=host` finding is the night's biggest, and it verified.** The
+  archives agent measured the host form at a 15.6x speed-up over the wildcard
+  scan. Checked independently and by a different method, against the wildcard
+  answers already sitting in our own journals rather than by re-querying: median
+  **2.07 s against roughly 33 s**, and on every domain where both shapes answered
+  the year sets were **identical**, 0 of 34 year-records lost. The agent's own
+  independent count was 1 year lost in 49
+- **`www.` comes free, which halves the cheap query.** IA canonicalises
+  `http://www.abc.net.au/` and `http://abc.net.au/` onto the same SURT key prefix
+  `au,net,abc)/`, so a host query on the apex already covers www. Verified by
+  asking for `www.<domain>` explicitly and diffing: same year set every time.
+  So the fallback built earlier tonight was doing two requests where one does,
+  and `lookup_years_by_host` is now a single request
+- **The ordering is therefore inverted: cheap query first, wildcard scan as the
+  fallback.** Only an empty host answer falls through to the scan, because empty
+  is the one case where a subdomain-only capture could be hiding. Kept switchable
+  with `--wildcard-first` so an older run can be reproduced
+- **The Australian Web Archive is a mirror of IA, not a second source, and the
+  agent's "build this collector" ranking overstated it.** Its API is real and
+  excellent: `web.archive.org.au/awa/cdx`, no key, median **0.98 s**, no throttling
+  observed. But its in-window records live in files named
+  `NLA-EXTRACTION-1996-2004-ARCS`, and `.arc.gz` is the Internet Archive's own
+  container format, so the honest prior is that this is IA data the library
+  obtained rather than a crawl of its own. Tested that prior two ways: on 30 `.au`
+  domains where **our IA journal already says "no capture in window", AWA found
+  years for 0**, and on 30 where IA did return years, AWA was **identical for 26,
+  a subset for 3, a superset for 1, and held exactly 1 year IA did not**. So
+  the verdict is: worth building as a **load-shedding route for `.au`**, which is
+  1.7% of the queue but 87% of its first thousand under the equivalent-English
+  ordering, and **never usable as independent corroboration**, because it is the
+  same underlying crawl
+- **`fl` and `collapse` are silently ignored by the AWA endpoint**, so the urlkey
+  still leads every row and the timestamp is the SECOND field. Parsing it as the
+  first returns a clean, confident zero, which is how this nearly got written off
+  as an empty archive. Same shape of error as the `matchType` mistake recorded on
+  2 August: **a wrong parameter and an absent source look identical**
+- **Closed for good, with proof rather than a shrug:** the Memento aggregator was
+  decommissioned by LANL in September 2025 and every service subdomain is NXDOMAIN;
+  the UK Web Archive service is simply offline and says so on its front page, which
+  means the 159-byte stub three earlier attempts read as an access problem *was*
+  the outage page; Common Crawl's earliest crawl is 2008; `arquivo.pt` works but is
+  `.pt`-only, 0 of 20 on `.com` and `.co.uk`, a ceiling of about 380 domains
+- **The other agent's headline number is the extracted figure, not the admitted
+  one, and the difference is 2.6x.** It found five signals in the 28 GB of Usenet
+  already on disk that the parser never reads, and measured 25,710 net-new pairs
+  and 16,555 equivalent-English over a 320-archive sample. But "net-new" there
+  means "not already an admitted record", and a Usenet-only mention does not become
+  a record: it waits in the candidate pool for corroboration. Of those 25,710 pairs
+  only **9,991 are on domains the store already knows** and can enter at once,
+  worth **6,343 equivalent-English**, with the other 15,719 going to the candidate
+  pool. The store confirms the mechanism: 5,717,439 domains are known and only
+  5,501,772 hold an admitted year, so 215,667 are already waiting that way
+- **Even corrected it is the best-value lead open.** Scaling 6,343 by the agent's
+  own measured saturation exponent of 0.911 over the remaining archives gives
+  roughly **63,000 equivalent-English admitted, at zero network cost**, against the
+  capture engine's projected 31,613 by 9 August. Two independent fits agreeing on
+  that exponent, 0.911 from the new signals and 0.909 from the project's own
+  earlier body-URL work, is the part that makes the projection worth trusting
+- **The single cleanest piece of it is a hole in a regex.** `ark.usenet` requires
+  `https?://`, so a bare `www.foo.com` written by a human is invisible, and in
+  1996-1999 people wrote addresses that way constantly. That is the same kind of
+  evidence as a linked URL, from the same dated artifact, and it measured 11,817
+  net-new pairs on its own. The machine-written headers, `Message-ID` hosts,
+  `NNTP-Posting-Host` and `Path:` hops, are a different kind of claim and are left
+  for Ivo to rule on rather than switched on quietly
+- **A useful negative that generalises.** HathiTrust's Extracted Features is open
+  and domain tokens do survive OCR, but the net-new half of what it yields **is**
+  the OCR-damaged half: `0fficemed.com`, `0rth04me.com`, `3enniferf8sffny.edu`.
+  Real domains that appeared in print are already in the store, so what passes a
+  "is this net-new?" test is disproportionately the corrupted. Worth applying to
+  any print source before believing its projection
+
+## 2026-08-06 (the cheap query is not one shape but three, and a wrong turn found it)
+
+- **`matchType=host` is not the answer for a heavily archived domain, and
+  believing it was cost a wrong turn.** Both the research agent's 1.29 s median
+  and my own 2.07 s were measured on ORDINARY domains, because both samples were
+  drawn from names the wildcard scan had already answered. Run against the actual
+  clog it fails exactly as the wildcard does: `warehouse.co.uk`, `gigabyte.com`
+  and `bbc.co.uk` each returned 504 after about 60 s. One host can still hold
+  millions of rows. **A shape measured only on the easy cases is measured on the
+  wrong population**, which is the same sampling error I made earlier tonight in
+  the other direction
+- **So there are three tiers, and each one exists for a failure the others
+  measurably have.** `matchType=host` for the ordinary domain, about 2 s. The
+  apex and www ROOT pages, single CDX keys, for the heavily archived one: same
+  three domains answered in roughly 10 s each that way. The wildcard scan last,
+  and only when tier 1 answered with NOTHING, because that is the one case where
+  a subdomain-only capture could be hiding, and a domain with nothing on its own
+  host is lightly archived enough for the scan to be cheap
+- **A domain too big for one host is never sent to the wildcard.** The scan
+  covers every subdomain, so it is strictly more work than the host match that
+  just failed, and trying it would only buy another 60 s and another 504
+- **Tier 1 gets a 15 s leash rather than the full 70 s.** A cheap query that is
+  not cheap is by definition the wrong tier for that domain, and the tier answers
+  at a p90 of 6.24 s, so the leash keeps essentially every real answer. Without
+  it the ladder pays the server's own ~60 s timeout to learn a domain is heavy,
+  on every heavy domain: measured 122 s end to end for `warehouse.co.uk` against
+  an expected ~77 s with the leash
+- **Measured live, same 8 workers and same 1,200-domain batch as the baseline, so
+  the code is the only variable: 2,054 year-records/hour against the 1,729
+  baseline, up 19%,** and that is while still inside the clog, where 25 of the
+  first 55 answers came from the root-page tier and each one had paid a failed
+  tier-1 query first. Queries/hour is lower, 509 against 647, which is the right
+  trade: the clog domains cost two tiers but they are heavily archived, so they
+  return captures in most years
+- **The VPS journals were never brought home.** 1,569 records, 1,481 answered,
+  **5,793 year-records worth 5,137.6 equivalent-English**, sitting on the VPS
+  disk and absent from the store since it started. Rsynced; the maintain loop
+  ingests them on its next pass. Worth a standing habit rather than a one-off,
+  because a second machine's output is invisible to every measurement taken here
+- **The bare-www Usenet signal is real but roughly a quarter of the size the
+  agent's table suggests, and the difference is in what "net-new" was differenced
+  against.** Their per-signal rows difference against admitted records only, so
+  H4's 11,817 still contains pairs the shipped signal already sees; only their
+  "union minus B0" row subtracts the existing signal. Measured here the other way,
+  extracting with both regexes over the same 60 archives and 129,596 in-window
+  messages: **1,533 pairs only the bare-www regex sees, 526 of them not already
+  admitted, 337.0 equivalent-English, and only 296 of those on domains the store
+  already knows** and therefore admissible at once under the corroboration rule,
+  worth 186.7 equivalent-English. Scaling by the agent's own saturation exponent
+  of 0.911 gives roughly **8,550 equivalent-English admitted across the whole
+  corpus**, not the ~63,000 the five signals together promise
+- **Still worth doing, and the regex is now in.** `www.foo.com` written without a
+  scheme was invisible because `_URL` requires `https?://`, and that was the
+  ordinary way to write an address in 1996-1999. Anchored on the `www.` label
+  rather than accepting any bare host: a bare `foo.com` in prose is more often a
+  company name or half an email address, and the evidence wall is worth more than
+  the recall. **It changes nothing already shipped until the archives are
+  re-ingested**, which the content-hash ledger will refuse without a force, so
+  that is Ivo's call and not a decision to slip in overnight
