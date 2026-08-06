@@ -1923,3 +1923,35 @@ needed correcting.
   the recall. **It changes nothing already shipped until the archives are
   re-ingested**, which the content-hash ledger will refuse without a force, so
   that is Ivo's call and not a decision to slip in overnight
+
+## 2026-08-06 (the `.au` load-shedding route is designed and deliberately not built)
+
+The Australian Web Archive would move `.au` queries off the Internet Archive
+entirely. That is worth having: `.au` is 1.7% of the gap queue but 87% of its
+first thousand under the equivalent-English ordering, because `.au` carries the
+highest English share of any major TLD at 0.9904, and the endpoint answered every
+one of 250-plus requests with no throttling at a 0.98 s median. IA is the
+bottleneck, so moving that share off it is a real gain.
+
+It is not built, and the reason is an integrity risk rather than the work:
+
+- **It cannot be allowed to corroborate.** A candidate is promoted when two
+  INDEPENDENT sources agree. AWA's in-window records live in files named
+  `NLA-EXTRACTION-1996-2004-ARCS`, `.arc.gz` being the Internet Archive's own
+  container format, and measurement agrees with that reading: identical year sets
+  on 26 of 30 domains, and 0 finds on 30 where our IA journal already says
+  "nothing in window". So it is the same underlying crawl. Wiring it in as an
+  ordinary source would let it corroborate an IA capture, or a Usenet mention that
+  IA had already been asked about, and **quietly inflate the shipped figure with
+  agreement between two copies of one source**
+- Doing it properly means a source family shared with `cdx_snapshot`, so the
+  corroboration split treats the pair as one source, plus its own evidence type
+  and URL form, plus a check in `ark check` that no promotion rests on the pair
+  alone. That is an hour of careful work on the part of the pipeline whose whole
+  purpose is that the shipped number cannot be inflated, and it is not work to do
+  unsupervised at three in the morning against a deliverable already sent
+- The throughput it would buy is also the thing tonight's query ladder already
+  bought several times over, so the urgency is gone
+
+Recorded rather than attempted. The measurements needed to build it are in
+`handback-sources-B.md` and the corrections are in the 06 August source note above.
