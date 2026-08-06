@@ -2365,3 +2365,50 @@ reviewer. It does not survive.
   worth 330,000 EE. At 46,565 measured, the known reservoir is insufficient by
   itself, so the higher-value build is the **agent-driven discovery harness**: the
   10% now requires new source classes, not more of a source already worked
+
+## 2026-08-06 (the stratified sample: what the 382 GB of unworked Usenet is worth)
+
+- **Sampling design, chosen because the last projection died of a bad sample.**
+  The 15,058 unprocessed groups have a median size of 1.0 MB and a mean of 25.4 MB,
+  so a uniform draw is size-light against a heavy tail. Sampled 12 groups from each
+  of four size strata instead, drawn by `blake2b` order so the pick is deterministic
+  and not chosen for looking promising. 48 groups, 2.3 GB
+- **`probe_usenet_groups.py` has a default 200 MB cap and it silently skipped the
+  five largest groups in the sample**, all in stratum D: `alt.religion.scientology`,
+  `alt.revisionism`, `alt.politics.democrat`, `soc.culture.yugoslavia`,
+  `rec.motorcycles`. Stratum D holds 305 of the 382 GB, so measuring it with its top
+  members dropped would have understated the one band that decides the answer.
+  Re-fetched with `--max-mb 4000`. **The same cap was in force for the 5 August
+  probe**, which skipped `aus.general`, `can.general`, `rec.arts.books`,
+  `misc.consumers` and `soc.culture.british`. So that probe was biased in both
+  directions at once: hand-picked rich groups, minus its biggest archives
+- **Measured, per group, against the current store:** A `<0.5MB` 5.2 corroborated
+  EE, B `0.5-5MB` 28.0, C `5-50MB` 145.2, D `>50MB` 414.2. 54.8% of messages are out
+  of window, close to the 76% the 5 August probe saw
+- **Scaling those linearly gives 1,520,908 EE (27 points) and is wrong**, because
+  2,081 groups overlap each other; the sample only measures one group's yield against
+  the store. Fitting saturation within each stratum failed too: 12 points each, with
+  runs of identical values, and stratum A came out **superlinear at b=1.246**. The
+  exponent dominates the answer and a 12-group sample cannot pin it
+- **So the exponent was measured where the data already is.** The remainder is 82.8%
+  `alt.*` and there are 2,365 processed `alt.*` groups on disk with pairs. Their
+  cumulative corroborated-EE curve over 24 points fits **b = 0.746**. That is the
+  population that actually matters and it cost no bandwidth
+- **Central estimate: 385,683 EE, 6.9 points, from the 15,058 unprocessed groups.**
+  With Sunday's projected 3.2% that is **10.1%**, which is the reviewer's target.
+  Band on the exponent: b=0.65 gives 4.1 points, b=0.85 gives 12.0, so the honest
+  range for the round total is **7.3% to 15.2%**
+- **Where the value sits, and the download order that follows.** Stratum D is 60.3%
+  of the value but only 762 EE per GB; C is 33.5% at 1,814 EE/GB; A and B together
+  are 6% of the value but 5.9 GB and the best ratio on the board at 7,083 and 3,388
+  EE/GB. So take **A, B, C first: 77 GB for 153,025 EE**, then decide on D's 305 GB
+  for 232,658 EE
+- **Feasibility: this is one night, not a project.** 382 GB at 20 MB/s is about
+  5.3 hours, and splitting 4,175 archives took 54 minutes so 15,058 is roughly
+  3.3 hours of CPU. Disk is 571 GB free, and archives can be deleted after splitting
+  because the journals carry the evidence and `.processed` carries the ledger
+- **Caveats that belong next to the number.** b=0.746 comes from PROCESSED `alt.*`
+  groups, which were selected and may be richer than what is left; each stratum's
+  anchor rests on 12 groups, and stratum D's total came mostly from 4 of its 12; and
+  all of the above is corroborated EE, the half that enters annual files at once.
+  The uncorroborated half is roughly 1.45x more, and it lands in the candidate pool
