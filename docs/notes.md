@@ -2104,3 +2104,34 @@ The end-to-end check on tonight's engine change, done at the same time, is clean
 through 2001; `vccs.edu` gained 2001. Twelve of twelve sampled rescues are admitted
 records with an evidence row, so the ladder is producing real evidence and not just
 faster journal lines.
+
+## 2026-08-06 (the first completed batch on the ladder, before and after)
+
+The 300-domain batch size exists so a summary arrives every half hour instead of
+every two, and the first one is the cleanest before-and-after of the night.
+
+```
+before, 1,200 domains, wildcard-first, 8 workers
+  with_capture 1056  years_found 4218  queried 1198
+  failed_504 41  failed_503 22  failed_0 63  errored 2      throttles 507  final_delay 3000ms
+
+after, 300 domains, three-tier ladder, same 8 workers
+  with_capture  296  years_found 1144  queried  300
+  failed_-1 2                                          throttles 103  final_delay 2880ms
+```
+
+- **Hit rate 88.1% to 98.7%.** The domains that used to fail were not undatable,
+  they were being asked the wrong question
+- **Failures 10.5% to 0.7%, fifteen times fewer**, and the two that remain are
+  both `failed_-1`, the new TIMED_OUT status, so they are heavy domains rather
+  than refusals. **Zero refusals, zero 504s, zero 503s** in the whole batch, where
+  the old shape produced 126 failures in 1,198
+- **Years per query 3.52 to 3.81**, up 8%, on top of answering 10 points more of
+  the batch
+- **22 minutes for 300 domains: 818 queries/hour and 3,120 year-records/hour**
+  against the 647 and 1,729 baseline. So 1.26x the query rate and **1.80x the
+  year-records rate**, which is the one the metric follows
+- `throttles` fell from 507 to 103 even though the query rate rose, which is the
+  self-reinforcing loop unwinding: fewer doomed requests means fewer throttles
+  means fewer retries. `final_delay_ms` is still high at 2,880, so the governor is
+  still cautious, and that is the remaining headroom if anything is
