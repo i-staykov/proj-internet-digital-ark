@@ -2135,3 +2135,58 @@ after, 300 domains, three-tier ladder, same 8 workers
   self-reinforcing loop unwinding: fewer doomed requests means fewer throttles
   means fewer retries. `final_delay_ms` is still high at 2,880, so the governor is
   still cautious, and that is the remaining headroom if anything is
+
+## 2026-08-06 (the bare-www re-ingest, done on disk and measured against the store)
+
+Ingested. 22,400 new admitted pairs, **15,164.8 equivalent-English**, all twelve
+integrity checks passing. Predicted 15,169.7 before running it, so the estimate
+was 4.9 EE out. What made that possible was doing the whole comparison on disk.
+
+- **The ingest never reads the archives, it reads journals**, 102 of them holding
+  979,189 distinct (domain, year). So a re-split could be staged, diffed and
+  filtered before the store saw any of it. No forcing past the content-hash
+  ledger, no duplicates to clean up afterwards, and no need to touch the one
+  table whose integrity the delivery rests on
+- **Two safety gaps had to be closed first, and the first was nearly a mistake.**
+  `split_usenet.py` wrote only to `data/raw/usenet`, which `maintain_phase3.sh`
+  globs every cycle and ingests unconditionally. Writing a re-split there would
+  have put 1,069,193 unreviewed pairs in the store within minutes. It also opened
+  the store at the very end with no retry, after an hour of parsing
+- **Full re-split: 4,175 archives, 48.6M messages, 1,069,193 pairs, 54 minutes.**
+  Against the existing journals, 90,004 pairs were new
+- **Verified those were the regex and not gaps in the old journals**, which is the
+  claim the whole exercise rests on. Re-extracted the four highest-yield groups
+  with `_BARE_WWW` disabled: **3,750 of 3,750 sampled new pairs disappear without
+  it, 0 survive**. So the signal is real
+- **The headline of the diff was wrong by 2.6x and the reason is worth keeping.**
+  The diff compares against JOURNALS; equivalent-English is only earned against
+  the STORE. Of 55,193 pairs absent from the journals, **34,390 were already
+  admitted through another source**, mostly capture verification, so they buy an
+  evidence row and no pair and no metric. Checking journals answers "is this new
+  to this source", not "is this new to the collection"
+- **My 24,000 projection was too high, and the error was adding two overlapping
+  samples.** I projected small archives and large archives separately and summed
+  them. But the same domains appear in both, so saturation is corpus-wide rather
+  than per-subset. The small-archive projection ALONE was 21,577 pairs and 14,565
+  equivalent-English against an actual 20,803 and 13,795.7, within 5%. **Adding
+  the second projection was the whole mistake**
+- Final ingest was the wider option: 59,347 dated, of which 4,154 promotions, plus
+  34,811 candidates. 94,158 evidence rows for 22,400 admitted pairs. The 36,942
+  that only deepen provenance on already-admitted pairs cost nothing next to
+  23.7M `prior_reused` rows and strengthen the record
+- **31,073 of the new candidates were enqueued** for the capture engine, which is
+  where the remaining 23,882 equivalent-English of candidate-half value would come
+  from if it corroborates them
+- A pre-ingest copy of the store sits at `data/ark.duckdb.pre-barewww`, 5.2 GB.
+  It is the only real rollback, because `ark ingest` commits and undoing it
+  afterwards means deleting evidence rows that `domain_year` foreign keys point
+  at. Delete it once the result has been looked at
+
+Also answered, since it looked alarming: **23.7M `prior_reused` rows against 8.9M
+pairs is three baseline releases, not duplication.** The originals,
+`merged260727/` and `merged260730/`, each ingested under its own marker namespace,
+which is exactly what `--marker-prefix` exists for. 6,866,913 pairs appear in all
+three, 1,322,365 in two, 444,227 in one, which is 23,689,696 to the row. It cannot
+distort anything: `domain_year` is keyed on (domain, year) so one admitted row per
+pair, and all three carry the same `source_id`, so they cannot corroborate each
+other.

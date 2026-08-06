@@ -90,6 +90,14 @@ def main() -> None:
     ap.add_argument("--staged", type=Path, default=Path("data/staging/usenet_resplit"))
     ap.add_argument("--tag", default="resplit260806")
     ap.add_argument("--write", action="store_true", help="Write the NEW half as journals.")
+    ap.add_argument(
+        "--include-promoted",
+        action="store_true",
+        help="Also write the PROMOTED pairs into the dated journal. They are not what the wider "
+        "regex found: they are already candidates whose domain some other source has attested "
+        "since, so ingesting them adds a second evidence row to a post that already has one. "
+        "1,602 of the 4,154 would newly enter an annual file; the rest change nothing.",
+    )
     args = ap.parse_args()
 
     live: dict[tuple[str, int], str] = {}
@@ -133,8 +141,9 @@ def main() -> None:
 
     out = args.staged / "filtered"
     out.mkdir(parents=True, exist_ok=True)
+    dated_out = new_dated | promoted if args.include_promoted else new_dated
     for name, keys, source in (
-        (f"usenet_dated_{args.tag}new.jsonl.gz", new_dated, staged_dated),
+        (f"usenet_dated_{args.tag}new.jsonl.gz", dated_out, staged_dated),
         (f"usenet_candidates_{args.tag}new.jsonl.gz", new_cand, staged_cand),
     ):
         path = out / name
