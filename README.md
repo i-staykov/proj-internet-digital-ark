@@ -287,6 +287,22 @@ uv run python scripts/split_tucows.py --write
 bash scripts/maintain_phase3.sh 26 900   # fold finished collector output in, every 15 minutes
 ```
 
+### Reporting a round
+
+The reviewer set the reporting format on 6 August: five fields, where lines 1 and 2 are his merged
+database before our increment and line 5 is line 4 divided by line 2. `round_figures.py` prints them
+in his order, so the growth rate cannot drift between rounds by being divided by the wrong total.
+
+```bash
+uv run python scripts/round_figures.py            # the five fields, plus per-year and per-source
+uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on any disagreement
+```
+
+Always send with `--verify`. It writes the increment out per year, runs his own
+`equivalent_english_domains.py` over each file, and refuses the numbers if his total differs from
+ours or if his validator rejects a record we counted. A rejected record scores zero for him and full
+weight for us, which is a live risk every time a source widens its matching.
+
 ## Structure
 
 The repo holds code and docs only; all data stays out of git. `output/` is generated and regenerable

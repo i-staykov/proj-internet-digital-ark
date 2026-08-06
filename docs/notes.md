@@ -2190,3 +2190,48 @@ three, 1,322,365 in two, 444,227 in one, which is 23,689,696 to the row. It cann
 distort anything: `domain_year` is keyed on (domain, year) so one admitted row per
 pair, and all three carry the same `source_id`, so they cannot corroborate each
 other.
+
+## 2026-08-06 (the reviewer's reporting format, and whether our counting unit fits it)
+
+- **He asked for five fields and they decode cleanly, but the growth rate is not
+  the obvious one.** His example reads 10,263,632 records, 5,531,053.6089
+  equivalent-English, an increment of 151,949 and 91,814.6880, and a rate of
+  1.659986%. That rate is 91,814.688 / 5,531,053.6089, so **lines 1 and 2 are the
+  database BEFORE the increment and line 5 divides by the pre-increment total**.
+  Dividing by the post-increment total instead gives 1.688%, which is wrong by 2%
+  of itself and looks perfectly reasonable, so the convention is now in code
+  (`scripts/round_figures.py`) rather than in anyone's head
+- **Our unit is not an approximation of his, it is the same unit, and that is
+  measured rather than assumed.** This round's 148,444 records were written out
+  per year and scored with his own `equivalent_english_domains.py`: 102,009.2509,
+  agreeing with our implementation to **0.0000**, with **zero records rejected by
+  his validator**. That matters more this round than last, because the bare-www
+  regex widened what Usenet matches and a malformed hostname scores zero for him
+  and full weight for us. `--verify` now refuses to print numbers that disagree
+- **So lines 1 and 2 are quoted as his database, not ours.** 10,404,200 and
+  5,622,984.6434, our measurement of his merged files, already given to him on
+  4 August without objection. Our store holds 8,933,898 admitted pairs, which is
+  smaller and always will be; reporting our own total would invite a question
+  about why, when the answer changes nothing about the increment he credits
+- **Checked whether the hostnames the registered-domain unit discards are worth
+  claiming under his rule. They are not, and the number was tempting enough to be
+  worth writing down.** 624,224 fall inside the window and pass his validator,
+  carrying **434,951.97 equivalent-English**, which is 7.7% of his whole baseline.
+  But 553,199 of them come from the ISC reverse-DNS survey and are machines rather
+  than websites: the commonest leading labels are `pclan`, `dialup`, `hip`, `mail`,
+  `ftp`, `s96`. Submitting them would pad the count with things that were never web
+  pages and would contradict the English-website standard he set himself. Only the
+  71,031 from the UK Web Archive link graph are defensible. Offered in the email as
+  available on request rather than pushed, the same way the 11,568 malformed
+  baseline records were offered on 4 August
+- **The unit difference is stated once in the email even though it costs us
+  nothing to omit.** We count `www.example.com` and `example.com` as one record and
+  his validator would take both, so our increments are a floor. Worth one sentence
+  purely as insurance: if hostname-level counts ever appear from elsewhere, ours
+  must not read as weaker work at equal effort
+- **Round so far, local engine only, VPS journals still held back by the VPN:**
+  148,444 records and 102,009.2509 equivalent-English, 1.814148% growth, 119,674
+  distinct domains, 150,858 more dated but held back uncorroborated. Mean weight
+  0.6872 against last round's 0.6042, so **fewer records than last round's 151,949
+  but 11.1% more equivalent-English**, which is the pool ordering by TLD English
+  share doing what it was built to do
