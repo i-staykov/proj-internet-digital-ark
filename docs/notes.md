@@ -2235,3 +2235,34 @@ other.
   0.6872 against last round's 0.6042, so **fewer records than last round's 151,949
   but 11.1% more equivalent-English**, which is the pool ordering by TLD English
   share doing what it was built to do
+
+## 2026-08-06 (line 1 of the reviewer's format was the wrong count, caught by Ivo)
+
+- **His line 1 counts RAW records; I had reported the validator-passing subset.**
+  His calculator reads his merged 1996-2001 files as **10,415,768 unique nonempty
+  records, of which 10,404,200 are valid**, the remaining 11,568 being the embedded
+  ports and underscore labels found on 4 August. I put 10,404,200 in line 1. Ivo
+  spotted that it does not line up with anything the reviewer has said, and he was
+  right: **10,263,632 + 151,949 = 10,415,581**, which sits 187 from the raw count
+  and 11,381 from the valid one. So line 1 tracks the raw count, and quoting the
+  valid one reads as 11,568 records disappearing since his own last message. The
+  187 is inside his merge, the same place the 116.35 equivalent-English gap lives
+- **The lesson is narrower than "check the numbers" and worth keeping.** Both
+  10,404,200 and 5,622,984.6434 came from the same measurement on 4 August and both
+  were correct as measured. The error was pairing a validator-filtered record count
+  with an unfiltered lineage, which no amount of re-running the calculator would
+  have surfaced. **Reconciling against what the other side last said is a different
+  check from verifying your own arithmetic**, and only the first one catches this
+- **The increment was then checked against his actual annual files, which had never
+  been done.** All 152,773 records compared line by line against his six files:
+  **zero already present**. Our net-new definition rests on `verified_at` and the
+  absence of a `prior_reused` marker, and neither knows what he holds: our store
+  carries baseline releases only up to `merged260730`, while he has merged a round
+  on top. The two could drift apart with nothing here looking wrong
+- **Both checks now live in `scripts/round_figures.py --verify` and it exits
+  non-zero on either**, alongside the existing check that his calculator agrees to
+  0.0000 and rejects none of our records
+- **Round after folding in the VPS journals:** 152,773 records, 105,676.0387
+  equivalent-English, **1.879358%** growth, 122,381 distinct domains, 150,858 more
+  dated but held back. Mean weight **0.6917** against last round's 0.6042, so this
+  round beats 151,949 records on count and is **15.1% larger on equivalent-English**

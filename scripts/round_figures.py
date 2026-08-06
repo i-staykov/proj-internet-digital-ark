@@ -42,15 +42,23 @@ STORE = Path("data/ark.duckdb")
 CALCULATOR = Path(
     "feedback-phase-3/equivalent_english_domain_calculator/equivalent_english_domains.py"
 )
+MERGED_BASELINE = Path("feedback-phase-3/merged260802-2")
 
 # The engines started against the store at 20:09 UTC on 3 August, the first moment
 # anything in this round could have been written.
 SINCE = "2026-08-03 18:09:00+00"
 
-# His merged 1996-2001 files after the last round was folded in, measured with his
-# calculator and reported to him on 4 August without objection. His own message
+# His merged 1996-2001 files after the last round was folded in. His own message
 # quotes the PRE-merge pair, 10,263,632 and 5,531,053.6089, so do not copy those.
-BASELINE_PAIRS = 10_404_200
+#
+# BASELINE_PAIRS is the RAW record count, not the validator-passing subset, and the
+# difference matters: his calculator reports 10,415,768 unique nonempty records of
+# which 10,404,200 are valid, the other 11,568 being embedded ports and underscore
+# labels that score zero. His line 1 tracks the raw count. 10,263,632 plus the
+# 151,949 he credited is 10,415,581, which is 187 from the raw figure and 11,381
+# from the valid one, so quoting the valid count reads to him as 11,568 records
+# lost since his last message. The 187 is inside his own merge.
+BASELINE_PAIRS = 10_415_768
 BASELINE_EE = Decimal("5622984.6434")
 
 # Per-year equivalent-English of the same merged files, needed because the
@@ -136,6 +144,27 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def already_in_his_files(per_year: dict[int, list[str]]) -> int:
+    """Records we are about to report that his merged files already hold.
+
+    The increment is defined by `verified_at` plus the absence of a `prior_reused`
+    marker, and neither of those knows what he actually holds: our store carries the
+    baseline releases up to `merged260730`, while he has since merged a round on top.
+    So the two could drift apart without anything looking wrong here. Reporting a
+    pair he already has is the one error he would catch and we would not, which is
+    worth a pass over his annual files to rule out.
+    """
+    overlap = 0
+    for year, ours in sorted(per_year.items()):
+        path = MERGED_BASELINE / f"{year}.txt"
+        if not path.is_file():
+            raise SystemExit(f"merged baseline not found at {path}")
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            his = {line.strip().lower() for line in fh if line.strip()}
+        overlap += len(his & {d.lower() for d in ours})
+    return overlap
+
+
 def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     """Score the increment with his program, per year, and return his totals."""
     if not CALCULATOR.is_file():
@@ -149,7 +178,14 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     for year, domain in rows:
         per_year.setdefault(int(year), []).append(domain)
 
-    totals = {"ee": Decimal(0), "valid": 0, "invalid": 0, "records": 0, "by_year": {}}
+    totals = {
+        "ee": Decimal(0),
+        "valid": 0,
+        "invalid": 0,
+        "records": 0,
+        "by_year": {},
+        "overlap": already_in_his_files(per_year),
+    }
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for year, domains in sorted(per_year.items()):
@@ -225,18 +261,19 @@ def main() -> None:
         return
 
     print("\nverified with his equivalent_english_domains.py")
-    print(f"  records scored   : {his['records']:,}")
+    print(f"  records scored            : {his['records']:,}")
     print(f"  rejected by his validator : {his['invalid']:,}")
+    print(f"  already in his merged files: {his['overlap']:,}")
     print(f"  his equivalent-English    : {his['ee']:,.4f}")
     print(f"  ours                      : {ee:,.4f}")
     difference = his["ee"] - ee
     print(f"  difference                : {difference:,.4f}")
-    if difference != 0 or his["invalid"]:
+    if difference != 0 or his["invalid"] or his["overlap"]:
         raise SystemExit(
-            "his calculator disagrees, or rejects records we counted: "
-            "do not send these numbers until the cause is understood"
+            "his calculator disagrees, rejects records we counted, or the increment "
+            "is not disjoint from what he holds: do not send these numbers"
         )
-    print("  agreed exactly, and he rejects none of them")
+    print("  agreed exactly, he rejects none of them, and none are already his")
 
 
 if __name__ == "__main__":
