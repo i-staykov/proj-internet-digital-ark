@@ -159,6 +159,10 @@ cdx-pool until batch="1200" workers="8":
     uv run python scripts/build_pool_candidates.py
     bash scripts/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
 
+# what both CDX engines are doing right now, and whether the VPS journals are home
+engines:
+    bash scripts/engine_status.sh
+
 # one registry-date batch: creation year for domains adjacent to a held year
 rdap-batch n="2500":
     uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt

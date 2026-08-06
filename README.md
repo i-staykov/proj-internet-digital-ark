@@ -206,6 +206,27 @@ TLD from the reviewer's own model, so a run that never finishes the pool has sti
 requests where the equivalent-English metric pays most. The supervisor takes a deadline epoch and
 polls journal growth to catch a batch that has hung while still looking alive.
 
+Check both machines at once, including whether the remote journals have been brought home:
+
+```bash
+just engines
+```
+
+That last part is the one worth automating. A second machine's output is invisible to every
+measurement taken on the first, and the VPS once ran for a day and a half with 5,793 year-records
+sitting on its disk and absent from the store, because nothing here ever looked. `just engines`
+lists any remote journal missing locally and prints the `rsync` that fetches it.
+
+It also prints the tier mix, which is how a run's health reads at a glance. `host` is the cheap
+per-host query answering on its own, `root` is a domain so heavily archived that the archive gave up
+and the apex and www root pages rescued it, `scan` is the wildcard fallback. Drifting toward `root`
+means a clogged stretch of queue that will clear; drifting toward failures means the archive is
+refusing connections, and the fix is fewer workers, not more.
+
+**More workers do not buy more throughput.** The archive limits concurrent connections per IP, and
+8 and 12 workers measure the same, 506 against 510 queries/hour. What raises the ceiling is another
+address, which is the real argument for the second machine.
+
 ### Page expansion
 
 ```bash
