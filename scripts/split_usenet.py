@@ -25,6 +25,7 @@ import argparse
 import sys
 import time
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -64,6 +65,17 @@ def group_of(path: Path) -> str:
     return path.name.replace(".mbox.zip", "").replace(".mbox", "")
 
 
+def parse_one(path: Path) -> tuple[str, bool, list[tuple[str, int, str]], dict]:
+    """Parse a single archive. Module-level and picklable so it can run in a pool.
+
+    Returns the records in the order the archive yielded them, which is what lets
+    the parent merge results in path order and reproduce the serial result exactly.
+    """
+    stats: Counter = Counter()
+    records = [(r.raw, r.year, r.evidence_value) for r in parse_usenet(path, stats)]
+    return group_of(path), is_moderated_announce(group_of(path)), records, dict(stats)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archives", nargs="+", type=Path)
@@ -84,6 +96,15 @@ def main() -> None:
         "it finds, so a journal written there is in the store within minutes whether or not "
         "anyone has looked at it.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parse this many archives at once. Parsing is CPU-bound regex over message "
+        "bodies and the machine has 14 cores, so a bulk run is many times faster in a "
+        "pool. Results are merged in archive order, so the output is identical to a "
+        "serial run whatever this is set to.",
+    )
     args = parser.parse_args()
     suffix = f"_{args.tag}" if args.tag else ""
     out_dir = args.out_dir
@@ -96,14 +117,15 @@ def main() -> None:
     seen: dict[tuple[str, int], tuple[str, str]] = {}
     total = len(args.archives)
     started = time.monotonic()
-    for index, path in enumerate(args.archives, 1):
-        group = group_of(path)
-        moderated = is_moderated_announce(group)
+
+    def absorb(index: int, group: str, moderated: bool, records: list, got: dict) -> None:
         stats["moderated_groups" if moderated else "other_groups"] += 1
-        for record in parse_usenet(path, stats):
-            key = (record.raw, record.year)
+        for key, value in got.items():
+            stats[key] += value
+        for raw, year, evidence_value in records:
+            key = (raw, year)
             if key not in seen:
-                seen[key] = (record.evidence_value, group)
+                seen[key] = (evidence_value, group)
         # a full-corpus split is hours of work; silence for that long is
         # indistinguishable from a hang
         if total > 50 and (index % 100 == 0 or index == total):
@@ -115,6 +137,18 @@ def main() -> None:
                 f"{elapsed / 60:.0f} min elapsed, ~{left:.0f} min left",
                 flush=True,
             )
+
+    if args.workers > 1:
+        # chunksize 1 keeps a single huge archive from stalling a whole chunk while
+        # other workers idle; the archives differ in size by four orders of magnitude
+        with ProcessPoolExecutor(max_workers=args.workers) as pool:
+            for index, (group, moderated, records, got) in enumerate(
+                pool.map(parse_one, args.archives, chunksize=1), 1
+            ):
+                absorb(index, group, moderated, records, got)
+    else:
+        for index, path in enumerate(args.archives, 1):
+            absorb(index, *parse_one(path))
 
     conn = _open_store()
     try:

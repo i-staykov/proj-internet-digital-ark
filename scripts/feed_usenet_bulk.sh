@@ -24,7 +24,7 @@ PROCESSED="$DEST/.processed"
 LOG="data/logs/feed_usenet_bulk.log"
 # Release the next batch once the queue has drained to about this much, so the
 # splitter always has work but never a backlog it cannot finish.
-LOW_WATER=150
+LOW_WATER=400
 
 mkdir -p "$DEST" "$(dirname "$LOG")"
 touch "$PROCESSED"
