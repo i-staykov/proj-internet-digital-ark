@@ -2072,3 +2072,35 @@ is close to twice that, and the reason is a sampling artifact worth naming.
 - Still not re-ingested. The content-hash ledger will refuse the archives as
   already seen, and forcing it risks duplicate evidence rows in exactly the table
   whose integrity the delivery rests on. Ivo's call, with a real number now.
+
+## 2026-08-06 (the bare-www signal, finally measured over both halves of the corpus)
+
+Sampled the 178 large archives directly rather than assuming they behave like the
+small ones, which closes the estimate.
+
+- **10 large archives, 1,026 MB, 846,927 in-window messages: 5,966 pairs only the
+  bare-www regex sees, 1,231 admissible at once worth 786.9 equivalent-English**
+- **They yield 0.767 equivalent-English per MB against the small archives' 1.362,
+  so 56%.** Extrapolating the whole corpus from the small sample would have
+  overstated it by a third, which is what the earlier "likely nearer 30,000" guess
+  did. Damping each half by the measured saturation exponent of 0.911 and adding
+  them gives **14,565 from the 12,999 MB of small archives and 9,453 from the
+  15,713 MB of large ones, so about 24,000 equivalent-English admissible at once**
+  across the whole 28.7 GB, plus roughly 45,900 further pairs going to the
+  candidate pool
+- That is ~76% of what the capture engine is projected to add by 9 August, for no
+  network at all, and it is the strongest remaining lead. It needs a forced
+  re-ingest, which the content-hash ledger exists to prevent, so it stays Ivo's
+  call, but the number behind the call is now measured on both halves rather than
+  scaled from one
+- **The 56% gap is the same effect the project already knew about**, recorded on
+  5 August as smaller archives giving more domains per byte, and cut from the
+  interim report as too fine a detail for Ding. Worth keeping internally: it means
+  any per-byte projection from a sample of small archives is optimistic
+
+The end-to-end check on tonight's engine change, done at the same time, is clean.
+`warehouse.co.uk`, the domain five batches had failed on, now holds admitted
+`cdx_timestamp` evidence for 1998, 1999, 2000 and 2001; `gigabyte.com` for 1997
+through 2001; `vccs.edu` gained 2001. Twelve of twelve sampled rescues are admitted
+records with an evidence row, so the ladder is producing real evidence and not just
+faster journal lines.
