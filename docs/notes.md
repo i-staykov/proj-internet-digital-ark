@@ -2000,3 +2000,38 @@ wall instead. Recording it because it redirects where the next effort should go.
   reports its own health roughly every two hours. At 300 it reports every 35
   minutes. The cost is reloading the skip set more often, a few percent, and it is
   worth it for a run meant to go unwatched until Sunday
+
+## 2026-08-06 (1996 cannot be bought from the Internet Archive, and that is the answer to give Ding)
+
+The bracketed-gap queue can only target 1997-2000, because both flanking years
+must be in window, so 1996 is only ever gained incidentally: 31 of its 1,358 new
+records this round came from capture verification. 1996 is also the year furthest
+from the completeness standard. So the obvious move was a queue of domains held in
+1997 with no 1996 record, of which there are 812,177 never yet asked, a ceiling of
+452,192 equivalent-English if every one filled.
+
+Measured on 60 of them, 58 answered:
+
+- **0 of 58 had a 1996 capture. None.** With no successes in 58 trials the rate is
+  under about 5% at 95% confidence, and the true figure is probably far lower
+- **The reason is the Internet Archive's own 1996 coverage, not our method.** Its
+  earliest crawls were small. If a domain we hold for 1997 has no 1996 record from
+  us, the archive does not have a 1996 capture of it either. **So no amount of
+  capture verification will move 1996**, and the 812,177-domain queue with its
+  452,192 ceiling is worth approximately nothing for the year it was built for
+- **This is the honest answer to the completeness question rather than a hedge.**
+  The interim report says 1996 grew 0.1993% and is sparse "for reasons of method
+  rather than saturation". That is now measured rather than asserted, and sharper:
+  the method that produced 96% of this round's records is structurally incapable of
+  adding to 1996. Moving 1996 needs a different KIND of artifact, one dated by
+  something other than a crawl: a dated Usenet posting, a dated directory snapshot,
+  a periodical with a cover date
+- **The same query population is nonetheless a good queue, for the other years.**
+  Those 58 queries returned **78 marginal years, 1.34 per query, worth 0.642
+  equivalent-English per query against the bracketed-gap queue's measured 0.536**.
+  All of it in 1998-2001: 1998 5, 1999 27, 2000 24, 2001 22. So a domain held in
+  1997 and missing later years is slightly BETTER value than a bracketed gap, just
+  not for the reason it was tried. Worth queueing when the current 237,000-domain
+  shard runs dry, which at the measured rate is weeks away
+- Median 12.5 s per query, notably slower than the 2 s the ordinary domain costs,
+  because a domain that survived from 1997 is an old and heavily archived one
