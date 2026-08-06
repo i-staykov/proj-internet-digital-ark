@@ -2311,3 +2311,57 @@ other.
   allowed to finish **before** the Sunday measurement, or roughly 700 EE of
   collected work sits outside the figure, rising to ~2,900 EE if the last pull is
   10 hours stale
+
+## 2026-08-06 (the Usenet 330,000 EE projection is refuted, and why the error repeated)
+
+Ivo asked for the projection to be re-measured before it was promised to the
+reviewer. It does not survive.
+
+- **The 5 August fit predicted ~466,000 net-new pairs / ~330,000 equivalent-English
+  from the 761 groups of `uk.*`, `aus.*`, `can.*`. 740 of those 761 have since been
+  processed, so the prediction has already been tested by reality.** Actual:
+  **65,846 net-new admitted pairs, 46,565 equivalent-English**. The fit overstated
+  by **7.1x on admitted pairs**. On the looser "found and not already held" basis it
+  is 150,009 against 466,000, still **3.1x** over
+- **Root cause, and it is not the exponent.** The fit came from 28 hand-picked
+  probe groups (`uk.misc`, `uk.finance`, `aus.computers` and similar) which yielded
+  720 net-new pairs per group. Measured over 3,594 real groups in deterministic
+  random order, the corpus average is **122 found pairs and 76 equivalent-English
+  per group**. The sample was **3 to 6x richer than the population it was
+  extrapolated to**. The `g^0.909` exponent was roughly right; the constant was
+  wrong, because the sample was chosen for being promising
+- **A proper multi-point curve, built from the journals already on disk rather than
+  by re-downloading, gives cumulative EE = `179.3 * n^0.896` over 1,200 to 3,594
+  groups.** Marginal yield per 200-group batch runs 129, 93, 84, 77, 77, 52, 62, 80,
+  64, 148, 62, 66, 120, 44, 63, 45, 53, 50 EE/group: noisy but plateauing near 50 to
+  65, not collapsing. Saturation is mild. **`measure_usenet_decay.py` cannot produce
+  this any more**, because it differences against the store and all 4,175 archives
+  are now ingested, so every batch reads zero. The journals hold `group` per record,
+  which makes the same measurement possible without touching the network
+- **Why the earlier two-point tranche fit said `n^0.375` and was also wrong.** It
+  used ADMITTED EE at 697 and 4,175 archives, and tranche 1 was the name-filtered
+  announce/business selection whose dated fraction is far higher. So it conflated
+  genuine saturation with a drop in the corroborated share. Measuring on the found
+  basis separates the two
+- **Half of what Usenet finds is not admitted.** 437,460 found pairs / 274,186 EE
+  against 219,100 pairs / 137,867 EE admitted: **50.1%**. The other ~136,000 EE sits
+  in the candidate pool awaiting corroboration. That is real inventory but it
+  converts at roughly **0.358 EE per Internet Archive query** against the gap pool's
+  **0.707**, so it is a slow reservoir, not a quick win, and the engines are
+  correctly pointed at the gap pool for now
+- **The decisive unknown has moved.** It is no longer the saturation exponent, it is
+  **the quality of the 15,639 unprocessed groups**, which is a worse population than
+  the processed one: the English, in-window hierarchies are largely done, and the
+  5 August probe found 4,023,027 of 5,283,482 messages out of window with four of 28
+  groups yielding exactly zero. The measured 76 EE/group cannot be carried over.
+  Settling this needs a random sample of the UNPROCESSED remainder, which is a small
+  download, and no projection should be given to the reviewer before it exists
+- **Consequence for the reviewer's 10% request.** 10% is 562,298 EE; the round holds
+  105,676 and projects 180,249 by Sunday. Known sources do not close a 382,049 EE
+  gap on a short timeline, so the honest reply is a trajectory with a schedule rather
+  than agreement to "ASAP"
+- **Consequence for the harness decision, which this inverts.** The earlier
+  recommendation put the deterministic bulk pipeline first because Usenet looked
+  worth 330,000 EE. At 46,565 measured, the known reservoir is insufficient by
+  itself, so the higher-value build is the **agent-driven discovery harness**: the
+  10% now requires new source classes, not more of a source already worked
