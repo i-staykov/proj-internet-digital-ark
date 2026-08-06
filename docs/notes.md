@@ -1955,3 +1955,48 @@ It is not built, and the reason is an integrity risk rather than the work:
 
 Recorded rather than attempted. The measurements needed to build it are in
 `handback-sources-B.md` and the corrections are in the 06 August source note above.
+
+## 2026-08-06 (the ceiling is IA's per-IP concurrency, so the ladder's win is years per query)
+
+Spent the second half of the night trying to raise queries per hour and found the
+wall instead. Recording it because it redirects where the next effort should go.
+
+- **8 workers and 12 workers give the same throughput: 506 against 510
+  queries/hour.** Doubling concurrency earlier in the night looked promising
+  because the VPS went from 28.1 to 4.0 s/domain when it went from 4 to 8, but
+  that gain was the query ladder arriving at the same moment, not the workers
+- **The reason is that IA refuses the excess connection rather than queueing it.**
+  Measured while the local engine ran 12 workers: ten sequential host queries from
+  a separate process, so a 13th concurrent connection, and **6 of the 10 were
+  refused** at the same flat ~3.3 s signature seen earlier in the night, while the
+  engine's own failure count over the same window was 0 of 25. So the limit is on
+  concurrent connections per IP, the engine's twelve were inside it, and the
+  marginal one was not
+- **So 12 workers was strictly worse than 8: the same throughput with less margin
+  before the penalty box.** Settled both machines at 8
+- **Which means the honest reading of tonight's gain is different from the one I
+  first wrote.** Queries per hour did not move and cannot be moved from one IP.
+  What moved is **year-records per query**: the ladder converts a scan the server
+  gives up on, previously 60 seconds spent for nothing, into an answer. That is
+  why year-records/hour rose 19% while queries/hour fell slightly. The metric Ding
+  scores is equivalent-English, which follows year-records, so the improvement is
+  real, but it is a yield improvement and not a rate improvement, and calling it
+  the latter would have been wrong
+- **Corollary, and the useful part for planning: more capacity means more IPs, not
+  more workers.** The VPS is not a nice-to-have, it is the only lever that raises
+  the ceiling, and a third address would raise it again. That reframes "free
+  compute" as "a second rate-limit allowance"
+- **A hypothesis I formed and the data killed, worth recording so it is not tried
+  again.** Every batch's `final_delay_ms` looked pinned at the 3,000 ms ceiling,
+  which would have capped starts at 1,200/hour, and 504 sits in the throttle set
+  even though a 504 means *this query* was too big rather than that the service is
+  overloaded. Removing it looked like an easy multiplier. But reading every batch
+  summary rather than the worst two, `final_delay_ms` is **150, 224, 227, 466,
+  1994, 2880, 3000** ms: usually near the floor, not the ceiling. Pacing is
+  therefore not the binding constraint, and the change would have bought nothing
+  while removing a real safety valve
+- **Batches are now 300 domains rather than 1,200.** The governor's throttle count
+  and final delay are only printed when a batch ends, so at 1,200 an unattended run
+  reports its own health roughly every two hours. At 300 it reports every 35
+  minutes. The cost is reloading the skip set more often, a few percent, and it is
+  worth it for a run meant to go unwatched until Sunday
