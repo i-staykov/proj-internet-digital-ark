@@ -92,6 +92,21 @@ def is_moderated_announce(group: str) -> bool:
 
 
 _URL = re.compile(r"https?://[^\s<>\"'\)\],;]+", re.IGNORECASE)
+# An address written without a scheme, `www.foo.com`. `_URL` requires `https?://`,
+# so the shipped signal cannot see these at all, and in 1996-1999 people wrote
+# addresses this way constantly. It is the same claim from the same artifact as a
+# linked URL: a human writing down a website address in a message that carries its
+# own date.
+#
+# Anchored on the `www.` label rather than accepting any bare host. A bare
+# `foo.com` in running prose is more often a company name, a file name or half an
+# email address than an address, and the evidence wall is worth more than the
+# extra recall. The lookbehind keeps it off hosts already inside a URL or an email
+# address, where the preceding character is `/` or `@`.
+_BARE_WWW = re.compile(
+    r"(?<![\w.@/-])www\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+",
+    re.IGNORECASE,
+)
 # the Giganews rewrite: a bare `YYYY/MM/DD` or `YYYY-MM-DD` where RFC 822 expects
 # "Tue, 18 Jun 1996 12:00:00 GMT"
 _ISO_DATE = re.compile(r"^(\d{4})[/-](\d{1,2})[/-](\d{1,2})")
@@ -156,6 +171,10 @@ def domains_in_message(body: str, from_header: str) -> list[str]:
     found: dict[str, None] = {}
     for url in urls_in(body):
         domain = to_registrable(url)
+        if domain and domain not in INFRASTRUCTURE:
+            found[domain] = None
+    for host in _BARE_WWW.findall(body or ""):
+        domain = to_registrable(host)
         if domain and domain not in INFRASTRUCTURE:
             found[domain] = None
     _, address = email.utils.parseaddr(from_header or "")

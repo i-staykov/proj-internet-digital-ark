@@ -652,6 +652,39 @@ def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
     assert set(found) == {"example.com", "other.co.uk", "vendor.net"}
 
 
+def test_usenet_reads_an_address_written_without_a_scheme():
+    """The hole this closes: the URL regex requires `https?://`, so a human writing
+    `www.foo.com`, which was the ordinary way to write an address in 1996-1999, was
+    invisible to the shipped signal. Same artifact, same date header, same kind of
+    claim as a linked URL."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("Try www.warehouse.co.uk for prices, or WWW.UPPER.COM", "")
+    assert set(found) == {"warehouse.co.uk", "upper.com"}
+
+
+def test_a_bare_host_is_only_read_when_it_says_www():
+    """A bare `foo.com` in running prose is more often a company name, a file name
+    or half an email address than an address, and the evidence wall is worth more
+    than the extra recall."""
+    from ark.usenet import domains_in_message
+
+    assert domains_in_message("I work at bigcorp.com these days", "") == []
+
+
+def test_a_scheme_less_host_is_not_read_out_of_an_email_address():
+    from ark.usenet import domains_in_message
+
+    assert domains_in_message("mail me at bob@www.baz.net", "") == []
+
+
+def test_the_same_domain_is_not_counted_twice_for_both_spellings():
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("http://www.foo.com/x and later just www.foo.com", "")
+    assert found == ["foo.com"]
+
+
 def test_usenet_drops_infrastructure_hosts():
     """Archive and Usenet plumbing is not a website anyone announced."""
     from ark.usenet import domains_in_message
