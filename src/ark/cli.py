@@ -3,9 +3,10 @@
 import sys
 import time
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Annotated
 
@@ -16,7 +17,7 @@ from tqdm import tqdm
 from ark.audit import write_audit
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
-from ark.cdx import RateGovernor, http_fetch, lookup_years, lookup_years_per_year
+from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import collect_checks, format_checks
 from ark.db import DEFAULT_DB_PATH, connect, init_db
@@ -573,6 +574,26 @@ def cdx(
         float,
         typer.Option("--timeout", help="Seconds to wait per request before giving up."),
     ] = 70.0,
+    host_timeout: Annotated[
+        float,
+        typer.Option(
+            "--host-timeout",
+            help="Seconds to allow the cheap per-host query before giving up on it "
+            "and asking the root pages instead. Short on purpose: that tier answers "
+            "at a p90 of 6.2s, so anything slower is a domain it cannot serve, and "
+            "waiting the full timeout for that verdict is paid on every such domain.",
+        ),
+    ] = HOST_TIMEOUT,
+    wildcard_first: Annotated[
+        bool,
+        typer.Option(
+            "--wildcard-first",
+            help="Ask the `*.domain` scan before the cheap per-host query, which is "
+            "the old order. The default asks the host first because it measured a "
+            "median 2.07s against roughly 33s for the scan, with the same years "
+            "returned every time both answered. Use this to reproduce older runs.",
+        ),
+    ] = False,
     per_year: Annotated[
         bool,
         typer.Option(
@@ -626,7 +647,15 @@ def cdx(
     written = 0
     if targets:
         with journal_writer(path) as journal, _abortable_pool(workers) as pool:
-            strategy = lookup_years_per_year if per_year else lookup_years
+            strategy: Callable[..., dict] = (
+                lookup_years_per_year
+                if per_year
+                else partial(
+                    lookup_years,
+                    host_first=not wildcard_first,
+                    host_fetch=http_fetch(host_timeout),
+                )
+            )
             fetch = http_fetch(timeout)
             futures = {
                 pool.submit(strategy, d, first, last, fetch, governor=governor): d for d in targets
