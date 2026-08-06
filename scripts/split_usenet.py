@@ -23,6 +23,7 @@ recorded as a candidate would corroborate itself.
 
 import argparse
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -37,6 +38,25 @@ STORE = Path("data/ark.duckdb")
 OUT_DIR = Path("data/raw/usenet")
 DATED_JOURNAL = OUT_DIR / "usenet_dated.jsonl.gz"
 CANDIDATE_JOURNAL = OUT_DIR / "usenet_candidates.jsonl.gz"
+
+
+def _open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
+    """Open the store read-only, waiting out a writer rather than dying on one.
+
+    The store query happens AFTER every archive has been parsed, which over the
+    full corpus is hours of work, and `maintain_phase3.sh` holds a write lock
+    whenever it is mid-ingest. Failing here throws all of that away, which has
+    already happened once tonight to a measurement script.
+    """
+    for attempt in range(attempts):
+        try:
+            return duckdb.connect(str(STORE), read_only=True)
+        except duckdb.IOException:
+            if attempt == attempts - 1:
+                raise
+            print(f"store is locked, waiting ({attempt + 1}/{attempts})", flush=True)
+            time.sleep(pause)
+    raise RuntimeError("unreachable")
 
 
 def group_of(path: Path) -> str:
@@ -54,15 +74,29 @@ def main() -> None:
         help="Suffix for the journal names. Needed for a later batch: the file ledger keys on "
         "content, so rewriting a journal that is already ingested is refused as a hash mismatch.",
     )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=OUT_DIR,
+        help="Where to write the journals. Point this at a staging folder when the output is "
+        "meant to be filtered before it is ingested: `maintain_phase3.sh` globs "
+        "`data/raw/usenet/usenet_{dated,candidates}_*.jsonl.gz` every cycle and ingests what "
+        "it finds, so a journal written there is in the store within minutes whether or not "
+        "anyone has looked at it.",
+    )
     args = parser.parse_args()
     suffix = f"_{args.tag}" if args.tag else ""
-    dated_journal = OUT_DIR / f"usenet_dated{suffix}.jsonl.gz"
-    candidate_journal = OUT_DIR / f"usenet_candidates{suffix}.jsonl.gz"
+    out_dir = args.out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dated_journal = out_dir / f"usenet_dated{suffix}.jsonl.gz"
+    candidate_journal = out_dir / f"usenet_candidates{suffix}.jsonl.gz"
 
     stats: Counter = Counter()
     # (domain, year) -> (message_id, group), keeping the first post that named it
     seen: dict[tuple[str, int], tuple[str, str]] = {}
-    for path in args.archives:
+    total = len(args.archives)
+    started = time.monotonic()
+    for index, path in enumerate(args.archives, 1):
         group = group_of(path)
         moderated = is_moderated_announce(group)
         stats["moderated_groups" if moderated else "other_groups"] += 1
@@ -70,8 +104,19 @@ def main() -> None:
             key = (record.raw, record.year)
             if key not in seen:
                 seen[key] = (record.evidence_value, group)
+        # a full-corpus split is hours of work; silence for that long is
+        # indistinguishable from a hang
+        if total > 50 and (index % 100 == 0 or index == total):
+            elapsed = time.monotonic() - started
+            rate = index / elapsed if elapsed else 0
+            left = (total - index) / rate / 60 if rate else 0
+            print(
+                f"  {index:,}/{total:,} archives, {len(seen):,} pairs, "
+                f"{elapsed / 60:.0f} min elapsed, ~{left:.0f} min left",
+                flush=True,
+            )
 
-    conn = duckdb.connect(str(STORE), read_only=True)
+    conn = _open_store()
     try:
         attested = {
             r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
