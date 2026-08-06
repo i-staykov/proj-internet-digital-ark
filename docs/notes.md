@@ -2266,3 +2266,48 @@ other.
   equivalent-English, **1.879358%** growth, 122,381 distinct domains, 150,858 more
   dated but held back. Mean weight **0.6917** against last round's 0.6042, so this
   round beats 151,949 records on count and is **15.1% larger on equivalent-English**
+
+## 2026-08-06 (projecting the round to Sunday, and two errors that cancelled)
+
+- **Projection to Sun 9 Aug 12:00 UTC, the supervisor's own deadline (epoch
+  1786276800), 72.5h out: +100,007 admitted pairs and +74,573 equivalent-English**,
+  taking the round to 252,780 records and 180,249, a **3.206%** growth rate against
+  the 5,622,984.6434 baseline. Range: 77,738 with no further stalls, 19,668 if the
+  laptop stops now and only the VPS runs
+- **Projected from the queue itself rather than from a trailing rate.** The target
+  file is equivalent-English-ordered and `ark cdx` walks it in file order
+  (`cli.py:629-643`), skipping domains already ANSWERED, so the next N lines are
+  literally the next N queries. That makes the future readable instead of
+  extrapolated. **The high-weight head is nearly spent on the local shard:** mean
+  weight runs 0.973 for about 7 more hours, then decays to the .com floor of 0.632
+  by roughly hour 22 and stays there. Quoting today's ~1,000 EE/h forward would
+  have been wrong by a third
+- **First error, mine: the VPS rate was 9% too high.** I computed it as
+  `completed_batches * 300 / span`, but `cdx_gap_vps_20260806T004012Z.jsonl.gz`
+  holds 5 lines, not 300. Weighting each interval by the closing journal's actual
+  line count gives **288 domains/h, not 317**. Rule: never assume `-n` was reached
+- **Second error, mine: the local rate blended two regimes.** There is a structural
+  break at the batch dispatched 05:16 UTC (47 min against a ~14 min norm, 585
+  throttles, 129/300 failures). Before it, 1,097 domains/h; after it, **954/h**,
+  stable across 18 batches with no further escalation. Averaging across the break
+  gave 974/h and quietly assumed a regime that has not recurred
+- **Third correction, against both of the above: the .com body yields MORE than the
+  .uk head, so the pair count was conservative.** Years found per answered domain
+  is 3.849 for `.com` against 3.577 for `.uk/.au/.nz/.ie/.za`, a ratio of 1.076.
+  The forward slice is .com-heavy where the measuring window was .uk-heavy, so
+  pairs per domain rises from 1.118 to about 1.186 locally. **The two rate errors
+  cost 8% and this recovers 4%**, which is why the first figure of 77,293 was only
+  about 4% high rather than the 8.7% an audit that missed this effect concluded
+- **What the projection does NOT rest on, all checked:** the queue does not run dry
+  (225,642 and 236,952 still queued against ~86,000 consumption); the two shards
+  are disjoint, `comm -12` returns 0; and **nothing else is feeding**, since all
+  4,175 Usenet archives are processed with no download running. CDX is the only
+  engine, so a stopped engine costs its full rate
+- **The binding risk is power, not throughput.** `caffeinate -i` holds off idle
+  sleep only: `pmset -g assertions` shows `PreventSystemSleep 0`, so a closed lid
+  still sleeps, and the machine has been on battery for 42% of the last two days
+  across 8 transitions. Local is 76% of the projection. Also worth an operational
+  step rather than a number: the VPS journals must be rsynced and one maintain pass
+  allowed to finish **before** the Sunday measurement, or roughly 700 EE of
+  collected work sits outside the figure, rising to ~2,900 EE if the last pull is
+  10 hours stale
