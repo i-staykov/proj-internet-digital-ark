@@ -2035,3 +2035,40 @@ Measured on 60 of them, 58 answered:
   shard runs dry, which at the measured rate is weeks away
 - Median 12.5 s per query, notably slower than the 2 s the ordinary domain costs,
   because a domain that survived from 1997 is an old and heavily archived one
+
+## 2026-08-06 (the bare-www estimate, corrected upward on a bigger sample)
+
+The 60-archive figure earlier tonight scaled to roughly 8,550 equivalent-English
+admitted. Re-run over 400 archives, 1,454 MB and 1,459,120 in-window messages, it
+is close to twice that, and the reason is a sampling artifact worth naming.
+
+- **Measured on 400 archives: 13,825 pairs only the bare-www regex sees, 6,617 of
+  them not already admitted, 4,481.1 equivalent-English. Of those, 2,933 are on
+  domains the store already knows and can enter at once, worth 1,979.8.** The
+  `.uk` share is good, 1,446 of 6,617 pairs
+- **Scaled to the whole 12,999 MB of archives at or under 40 MB, an 8.94x step,
+  and damped by the measured saturation exponent of 0.911, that is 7.36x:
+  about 21,600 pairs admissible at once worth ~14,600 equivalent-English**, plus
+  ~27,100 more going to the candidate pool
+- **Why the first estimate was low.** Growth looked super-linear, 6.67x more
+  archives giving 12.6x more pairs, which should not happen to a saturating
+  process. It is not saturation reversing, it is that the shuffle put small
+  archives first: 60 archives were 159 MB and 400 were 1,454 MB, so 6.67x more
+  archives is 9.1x more bytes. Per byte the yield is nearly flat. **Scale by the
+  quantity the yield actually depends on, not by the one that is easy to count**
+- **The measurement ignores 55% of the corpus, but the corpus is not out of
+  reach, and I nearly recorded the opposite.** The 178 archives over 40 MB hold
+  15,713 MB of the 28,712 MB total, and both the research agent and I capped our
+  samples there because `iter_messages` expands an mbox into memory. It is easy to
+  read that cap as a loader limit and conclude that streaming would unlock new
+  material. It would not: **all 178 are in `.processed`**, so the ingest already
+  reads them and has done. The cap was sampling convenience, nothing more
+- **Which means the estimate is a floor, not a ceiling.** ~14,600 equivalent-English
+  covers the 45% of bytes that was sampled. If the yield per byte holds on the
+  larger archives, and there is no reason it should not, the full-corpus figure is
+  closer to **~30,000 equivalent-English admissible**, which makes the re-ingest
+  more attractive rather than less. Worth measuring properly before acting, by
+  sampling the large archives rather than assuming they behave like the small ones
+- Still not re-ingested. The content-hash ledger will refuse the archives as
+  already seen, and forcing it risks duplicate evidence rows in exactly the table
+  whose integrity the delivery rests on. Ivo's call, with a real number now.
