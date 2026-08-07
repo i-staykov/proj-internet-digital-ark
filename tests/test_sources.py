@@ -618,6 +618,21 @@ def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
     assert message_year("") is None
 
 
+def test_usenet_reads_a_date_header_that_is_not_a_string():
+    """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047
+    encoded, and `Header` has no `.strip()`. 8,258 archives went through before one
+    carried such a date, and it then aborted a whole 2,500-archive batch: the
+    splitter parses a batch in one call, so one bad archive unmarked all of them and
+    the maintain loop retried the same batch every 150s for six hours."""
+    from email.header import Header
+
+    from ark.usenet import message_year
+
+    assert message_year(Header("Tue, 18 Jun 1996 12:00:00 GMT")) == 1996
+    assert message_year(Header("1997/06/18")) == 1997
+    assert message_year(Header("not a date")) is None
+
+
 def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
     """One counter for both hides which problem a barren source has. An archive
     that is entirely out of window should be dropped; one whose dates cannot be

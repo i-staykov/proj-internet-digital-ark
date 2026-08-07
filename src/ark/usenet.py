@@ -142,7 +142,13 @@ def message_year(raw_date: str) -> int | None:
     """
     if not raw_date:
         return None
-    text = raw_date.strip()
+    # `Message.get` returns a `Header`, not a `str`, when the value is RFC 2047
+    # encoded, and `Header` has no `.strip()`. Rare enough that 8,258 archives
+    # passed before one hit it, and expensive enough that it cost a night: the
+    # splitter processes a batch in one call, so a single bad archive aborted all
+    # 2,500 of them, left them unmarked, and the maintain loop then retried the
+    # identical batch every 150 seconds until morning.
+    text = str(raw_date).strip()
     year: int | None = None
     try:
         parsed = email.utils.parsedate_to_datetime(text)
