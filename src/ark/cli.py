@@ -15,6 +15,7 @@ from loguru import logger
 from tqdm import tqdm
 
 from ark.audit import write_audit
+from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
@@ -132,16 +133,17 @@ def init() -> None:
 def ingest_legacy_cmd(
     legacy_dir: Annotated[
         Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = Path("legacy-data"),
+    ] = CURRENT_BASELINE_DIR,
     marker_prefix: Annotated[
         str,
         typer.Option(
             "--marker-prefix",
             help="Namespace for this baseline's evidence markers, e.g. 'merged260727'. Required "
             "when loading a later release: the marker is the file name alone, so a second "
-            "1996.txt would otherwise be skipped as already ingested.",
+            "1996.txt would otherwise be skipped as already ingested. Defaults to the current "
+            "release; pass the pair explicitly to load an older one.",
         ),
-    ] = "",
+    ] = CURRENT_BASELINE_MARKER,
 ) -> None:
     """Load the baseline year files and merge stats into the store."""
     conn = connect()
@@ -160,7 +162,7 @@ def ingest_legacy_cmd(
 def legacy_review_cmd(
     legacy_dir: Annotated[
         Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = Path("legacy-data"),
+    ] = CURRENT_BASELINE_DIR,
 ) -> None:
     """Write the grouped droplist of baseline lines the pipeline excludes."""
     counts = review_legacy(legacy_dir)

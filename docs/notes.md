@@ -2504,3 +2504,40 @@ reviewer. It does not survive.
 - **The candidate pool's equivalent-English is reported as an explicit UPPER BOUND**,
   648,508, assuming every held name is real and earns exactly one year. Given the
   munging above, the realised figure will be a fraction of it, and the line says so
+
+## 2026-08-07 (the 2 August baseline was never ingested, and what that cost)
+
+- **`merged260802-2` sat on disk for five days without being loaded.** No decision
+  was recorded anywhere; it was an omission. The mechanism already existed and had
+  been used twice, `--marker-prefix` having loaded `merged260727` and `merged260730`
+  under their own namespaces, and `round_figures.py` was already READING the 2 August
+  files for its disjointness check while the store's baseline stopped two releases
+  earlier
+- **The cost was that net-new silently included work the reviewer already holds.**
+  `ark stats` reported 614,413 net-new pairs of which 151,949 were the round he
+  credited on 2 August, so its growth figure read 6.8326% where the honest number was
+  5.1997%. This is the same failure shape as the line-1 error: not a wrong
+  calculation, a right calculation against a stale reference
+- **Measured before ingesting, because the risk was suppressing real claims.** His
+  files hold hostnames and ours hold registrable domains, so `www.foo.com` on his
+  side could mark our `foo.com` as baseline. Normalising his 10,415,768 host records
+  the way we normalise ours gives 8,785,620 distinct (domain, year), and the overlap
+  with our 794,097 net-new pairs was **exactly 151,949**, the credited round and not
+  one pair more. So the hostname-folding risk was zero in practice
+- **Ingested under marker `merged260802`: exactly 151,949 pairs reclassified**,
+  matching the prediction to the row, plus 166 pairs he holds that we did not.
+  12,572 of his lines were rejected by our validator, consistent with the 11,568
+  found on 4 August
+- **`ark check` then failed `additions_not_double_counted` with exactly 151,949
+  offending**, which is the invariant doing its job: the exported annual files
+  predated the ingest and still listed pairs that had just become baseline. The store
+  was right and the export was stale. `ark export` plus `ark lang-report` fixed it and
+  all twelve now pass
+- **The fix is structural rather than a constant.** `src/ark/baseline.py` now holds
+  which release is current, and `ingest-legacy`, `legacy-review`, `ark stats` and
+  `round_figures.py` all read it, so the ingest default and the reported growth rate
+  cannot drift apart. The hardcoded `ALREADY_CREDITED_EE` that patched this an hour
+  earlier is gone: a constant needing a hand edit every time he merges fails silently,
+  and it fails in our favour, which is worse than the bug it patched
+- **Round after all of it: 648,249 pairs, 399,409.7010 equivalent-English, 7.1032%.**
+  `ark stats` and `round_figures.py` agree to the digit from independent code paths

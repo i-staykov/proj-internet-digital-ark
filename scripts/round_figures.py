@@ -36,20 +36,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import duckdb  # noqa: E402
 
+from ark.baseline import (  # noqa: E402
+    CURRENT_BASELINE_DIR,
+    REVIEWER_BASELINE_EE,
+    REVIEWER_BASELINE_EE_BY_YEAR,
+    REVIEWER_BASELINE_PAIRS,
+)
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
 CALCULATOR = Path(
     "feedback-phase-3/equivalent_english_domain_calculator/equivalent_english_domains.py"
 )
-MERGED_BASELINE = Path("feedback-phase-3/merged260802-2")
+MERGED_BASELINE = CURRENT_BASELINE_DIR
 
 # The engines started against the store at 20:09 UTC on 3 August, the first moment
 # anything in this round could have been written.
 SINCE = "2026-08-03 18:09:00+00"
 
-# His merged 1996-2001 files after the last round was folded in. His own message
-# quotes the PRE-merge pair, 10,263,632 and 5,531,053.6089, so do not copy those.
+# His merged 1996-2001 files after the last round was folded in, from `ark.baseline`
+# so this script, `ark stats` and the ingest defaults cannot drift apart. His own
+# message quotes the PRE-merge pair, 10,263,632 and 5,531,053.6089, so do not use
+# those.
 #
 # BASELINE_PAIRS is the RAW record count, not the validator-passing subset, and the
 # difference matters: his calculator reports 10,415,768 unique nonempty records of
@@ -58,19 +66,9 @@ SINCE = "2026-08-03 18:09:00+00"
 # 151,949 he credited is 10,415,581, which is 187 from the raw figure and 11,381
 # from the valid one, so quoting the valid count reads to him as 11,568 records
 # lost since his last message. The 187 is inside his own merge.
-BASELINE_PAIRS = 10_415_768
-BASELINE_EE = Decimal("5622984.6434")
-
-# Per-year equivalent-English of the same merged files, needed because the
-# completion standard is stated against each year's own baseline.
-BASELINE_EE_BY_YEAR = {
-    1996: Decimal("436608.5583"),
-    1997: Decimal("785802.0843"),
-    1998: Decimal("698408.2027"),
-    1999: Decimal("1081431.7776"),
-    2000: Decimal("932153.5050"),
-    2001: Decimal("1688580.5155"),
-}
+BASELINE_PAIRS = REVIEWER_BASELINE_PAIRS
+BASELINE_EE = REVIEWER_BASELINE_EE
+BASELINE_EE_BY_YEAR = REVIEWER_BASELINE_EE_BY_YEAR
 
 # What he credited for the previous round, used only for the comparison line.
 LAST_PAIRS = 151_949
@@ -148,11 +146,12 @@ def already_in_his_files(per_year: dict[int, list[str]]) -> int:
     """Records we are about to report that his merged files already hold.
 
     The increment is defined by `verified_at` plus the absence of a `prior_reused`
-    marker, and neither of those knows what he actually holds: our store carries the
-    baseline releases up to `merged260730`, while he has since merged a round on top.
-    So the two could drift apart without anything looking wrong here. Reporting a
-    pair he already has is the one error he would catch and we would not, which is
-    worth a pass over his annual files to rule out.
+    marker, and neither of those knows what he actually holds. Since `merged260802`
+    was ingested this should now read zero, but the check stays: the moment he issues
+    a release and it is not loaded, the store's idea of the baseline goes stale and
+    net-new silently starts including work he already has. That is exactly what
+    happened between 2 and 7 August, and it is the one error he would catch and we
+    would not.
     """
     overlap = 0
     for year, ours in sorted(per_year.items()):
