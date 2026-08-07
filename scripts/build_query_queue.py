@@ -18,17 +18,17 @@ So there is now one queue. Both populations are scored on the same scale, the
 only scale that matters for the allocation decision: **expected net-new
 equivalent-English per archive query.**
 
-    gap target   realisation x English share x bracketed years it could fill
+    gap target   fill rate x English share x bracketed years it could fill
     pool target  P(hit) x English share x years a hit returns
 
 The two factors that make these comparable are measured, not assumed, and both
 are printed with the queue so a wrong one is visible rather than silent:
 
-**Realisation, 0.95.** A gap query returns every in-window year at once, but most
-of them are years the store already holds. Measured from the ingest ledger over
-137 journals, a gap query writes 31.6% of the years it finds as net-new pairs,
-which is 0.974 net-new pairs per query against 1.023 bracketed slots per queued
-domain. So the queue's own key slightly overstates, by 5%.
+**Fill rate, 0.886 for a one-slot domain and 0.667 for a two-slot one.** A gap
+query returns every in-window year at once, but most of them are years already
+held, and it need not return the missing one at all. Measured over 6,168 answered
+domains. It is not flat, and the first version of this queue assumed it was: see
+`GAP_FILL_RATE` for what that cost and why the damage was contained.
 
 **Years per hit, 1.55.** A candidate-pool hit is a domain with no year at all, so
 every year it returns is net-new; measured at 1.55 years per hit over the last
@@ -84,10 +84,36 @@ JOURNAL_DIR = ROOT / "data/raw/cdx"
 MANIFEST = JOURNAL_DIR / "queue_manifest.tsv.gz"
 SHARD = "queue_shard{}.txt"
 
-# Net-new pairs a gap query writes per bracketed slot it consumes. Below one
-# because the years a capture returns are mostly years already held; above the
-# naive hit rate because it also fills unbracketed years in the same request.
-GAP_REALISATION = Decimal("0.95")
+# Net-new pairs a gap query writes per bracketed slot it consumes, BY how many
+# slots that domain offers. Below one because the years a capture returns are
+# mostly years already held.
+#
+# The rate is not flat, and assuming it was cost this queue its first estimate.
+# Measured on 7 August over 6,168 answered domains: a domain with one bracketed
+# slot fills it 88.6% of the time, while a domain with two fills each of them only
+# 66.7% of the time. Filling one specific missing year is a far easier thing to
+# ask than filling two, and the failure is correlated at the domain rather than
+# the slot: of 600 two-slot domains, 104 filled neither and 269 filled both, where
+# independent slots would have predicted 34% filling both against the 45% seen. A
+# domain is either well archived or it is not.
+#
+# The first version used a flat 0.95 taken from net-new pairs per query divided by
+# the mean slots per queued domain. That denominator was the mean of the queue as
+# it stood AFTER the high-slot domains had been consumed, so it was never the
+# per-slot rate, and it overvalued the two-slot head by half. What saved the
+# estimate is that the queue is 458,707 one-slot domains against 11,170 two-slot,
+# so the error touched about 4% of it.
+#
+# Three or more slots is not measured; the queue holds none right now, and the
+# value continues the observed decline rather than claiming to know.
+GAP_FILL_RATE = {1: Decimal("0.886"), 2: Decimal("0.667")}
+GAP_FILL_RATE_DEEP = Decimal("0.60")
+
+
+def gap_fill_rate(slots: int) -> Decimal:
+    """Share of a domain's bracketed slots a single capture query actually fills."""
+    return GAP_FILL_RATE.get(slots, GAP_FILL_RATE_DEEP)
+
 
 # In-window years a candidate-pool hit returns. Every one is net-new, the domain
 # having held no year at all before the query.
@@ -190,7 +216,7 @@ def build(weights: list[int]) -> dict:
         if domain in already:
             continue
         tld = domain.rsplit(".", 1)[-1]
-        score = GAP_REALISATION * tld_weight.get(tld, Decimal(0)) * gap_count
+        score = gap_fill_rate(gap_count) * tld_weight.get(tld, Decimal(0)) * gap_count
         rows.append(
             (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "gap")
         )
@@ -225,7 +251,8 @@ def report(built: dict, need: Decimal, rates: list[float]) -> None:
     )
     print(f"  measured years per pool hit : {built['years_per_hit']:.3f}")
     print(f"  measured pool-wide hit rate : {built['pool_rate']:.1%}")
-    print(f"  gap realisation applied     : {GAP_REALISATION}")
+    fill_rates = ", ".join(f"{k} slot {v}" for k, v in sorted(GAP_FILL_RATE.items()))
+    print(f"  gap fill rate applied       : {fill_rates}, deeper {GAP_FILL_RATE_DEEP}")
 
     counts = Counter(r[4] for r in live)
     print(f"  gap targets {counts['gap']:,}, pool targets {counts['pool']:,}")

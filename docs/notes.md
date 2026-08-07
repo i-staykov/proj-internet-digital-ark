@@ -2712,3 +2712,34 @@ reviewer. It does not survive.
   at 0.829. That is a large reordering to make on one batch of one slot-count. The
   engines are currently working the two-slot head, which ranks first under either model,
   so waiting costs nothing and the next few thousand queries supply the missing number
+
+## 2026-08-07 (the open realisation question, answered: the bulk is fine)
+
+- **Measured over 6,168 answered domains, split by how many bracketed slots the
+  domain offers**, which is what the previous entry said was the missing number:
+
+      slots  domains  offered  filled  per slot  act/pred
+          1      475      475     421     88.6%     93.3%
+          2    5,693   11,386   7,594     66.7%     70.0%
+
+- **The 66.8% scare was specific to two-slot domains and does not generalise.**
+  One-slot domains realise 93.3% of their predicted equivalent-English, so the 0.95
+  the queue assumed was very nearly right for them. Since the remaining queue is
+  458,707 one-slot against 11,170 two-slot, the whole gap population is worth about
+  223,000 EE rather than the 166,600 the pessimistic reading implied
+- **Projection holds: 232,513 queries, 8.0 days at gap speed, 8.9 blended**, against
+  the 8.8 estimated before any of this was measured. Throughput re-measured over the
+  day: local 930 q/h, VPS 278 q/h
+- **`GAP_REALISATION` is replaced by a per-slot `GAP_FILL_RATE`**, 0.886 for one slot
+  and 0.667 for two, with 0.60 for the deeper counts the queue does not currently hold.
+  A flat rate was the wrong shape, not just the wrong number
+- **Not rebuilding the live queue for it.** The correction only reorders high-weight
+  one-slot domains above low-weight two-slot ones, and with roughly 5,500 two-slot
+  domains left unanswered that is a rounding error against a 232,000-query journey.
+  The corrected constant applies at the next rebuild, which is due after the next
+  large ingest anyway
+- **The VPS ran straight through the evening's outage**, as designed: `setsid`,
+  own deadline, seven journals waiting on its disk. All fetched and ingested,
+  2,254 net-new pairs from 2,100 queries. Stopping and restarting the laptop cost
+  the round nothing
+- **Round: 408,750.7 EE = 7.2693%**, short of the 10% goal by 153,548 EE
