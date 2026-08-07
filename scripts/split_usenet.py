@@ -70,10 +70,25 @@ def parse_one(path: Path) -> tuple[str, bool, list[tuple[str, int, str]], dict]:
 
     Returns the records in the order the archive yielded them, which is what lets
     the parent merge results in path order and reproduce the serial result exactly.
+
+    **One archive may not take the batch down with it.** A batch is split in a
+    single call and its archives are only marked processed if that call succeeds,
+    so an exception here unmarks every archive in the batch and the maintain loop
+    then re-offers exactly the same batch on its next pass. On 6 August one message
+    with an RFC 2047 encoded Date header did that 145 times between 23:47 and 05:50
+    and the night's second half produced nothing. The parser bug was one line; the
+    all-or-nothing shape was the expensive part, so failure is now per archive and
+    is counted rather than raised.
     """
     stats: Counter = Counter()
-    records = [(r.raw, r.year, r.evidence_value) for r in parse_usenet(path, stats)]
-    return group_of(path), is_moderated_announce(group_of(path)), records, dict(stats)
+    group = group_of(path)
+    try:
+        records = [(r.raw, r.year, r.evidence_value) for r in parse_usenet(path, stats)]
+    except Exception as exc:  # noqa: BLE001 - one bad archive must not end the batch
+        stats["archives_failed"] += 1
+        print(f"  skip {path.name}: {type(exc).__name__}: {exc}", flush=True)
+        return group, is_moderated_announce(group), [], dict(stats)
+    return group, is_moderated_announce(group), records, dict(stats)
 
 
 def main() -> None:
