@@ -2675,3 +2675,40 @@ reviewer. It does not survive.
   when the question was raised, so there was no cost to answering it with measurements
   instead of quickly. Worth checking that distance before treating a queue question as
   urgent
+
+## 2026-08-07 (the queue's realisation multiplier was measured and is wrong)
+
+- **First merged-queue batch, scored against the store: 600 queries, 769 net-new
+  pairs, 659.9 equivalent-English against 987.7 predicted. 66.8%.** Not the mean-weight
+  approximation, the exact pairs those domains gained, weighted individually
+- **The cause is that the queue values a bracketed slot as if a capture always fills
+  it.** It does not. Per slot the fill rate is **64.1%**, and the shape says why: of 600
+  two-slot domains, 104 filled neither, 225 filled one, 269 filled both. Independent
+  slots at that rate would predict 34% filling both against 45% observed, so a domain
+  is either well archived or it is not, and the correlation is at the domain rather
+  than the slot
+- **The 0.95 multiplier was an artifact of dividing by the wrong denominator.** It came
+  from 0.974 net-new pairs per query against 1.023 bracketed slots per queued domain,
+  but that 1.023 is the mean of the queue as it stands NOW, after the high-slot domains
+  have been consumed. The queries that produced 0.974 were working a queue whose mean
+  was higher, so the true per-slot rate was always nearer 0.64. Same error shape as
+  line 1 and the stale baseline: a correct division by a reference set that had moved
+- **What saves the estimate is that the remaining queue is almost all single-slot.**
+  458,707 domains with one bracketed slot against 11,170 with two, so the overvaluation
+  touches 9,936 EE of 247,366, about 4% of the gap queue. The 66.8% measured on a
+  two-slot head does not automatically transfer to a one-slot bulk, and whether it does
+  is now the single biggest open number in the projection
+- **Both readings are live and the band is wide.** If one-slot domains fill at 64% like
+  two-slot ones, the whole remaining gap queue is worth about 166,600 EE against 159,468
+  needed, and the merged queue reaches 10% in roughly 13 days. If they fill nearer the
+  historical rate, it is about 9. Nothing else in the projection is this uncertain
+- **It also retroactively settles the gap-only question.** At 64% per slot the entire
+  gap stock is 2.96 points against the 2.84 needed, so filling the round from bracketed
+  gap fill alone would have required about 96% of the queue and left no margin at all.
+  The decision to keep the pool was right for a reason not known when it was taken
+- **Not rebuilding the queue yet, deliberately.** If gap realisation is 0.67 while pool
+  realisation is 1.00 by construction, the fair comparison multiplies every gap score by
+  0.705, which would rank the entire one-slot gap population BELOW the `.uk` pool head
+  at 0.829. That is a large reordering to make on one batch of one slot-count. The
+  engines are currently working the two-slot head, which ranks first under either model,
+  so waiting costs nothing and the next few thousand queries supply the missing number
