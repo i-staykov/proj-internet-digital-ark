@@ -2412,3 +2412,56 @@ reviewer. It does not survive.
   anchor rests on 12 groups, and stratum D's total came mostly from 4 of its 12; and
   all of the above is corroborated EE, the half that enters annual files at once.
   The uncorroborated half is roughly 1.45x more, and it lands in the candidate pool
+
+## 2026-08-06/07 (the bulk Usenet night: what worked, and the six hours that did not)
+
+- **Round moved from 1.8794% to 3.3384%**, 152,773 pairs / 105,676.0 EE to
+  **285,192 pairs / 187,719.4 EE**. Gained overnight: **132,419 pairs and
+  82,043.4 equivalent-English, +1.4591 points**. 11,732 of 19,233 catalogue
+  archives now processed, against 4,175 at the start of the night
+- **Disk: 78 GB reclaimed before starting, all of it redownloadable or
+  regenerable.** Arquivo `IA.cdxj` at 47 GB (documented `curl` at
+  `docs/sources.md:185`; `Roteiro.cdxj` kept, it is 13 MB), seven superseded
+  `ark.duckdb.pre-*` rollback copies at 31 GB, and the delivery tarball. This is
+  what the architecture is for: the store rebuilds from journals, and the delivery
+  rebuilds from the provenance export
+- **The date-gated selector does not work and the negative result is the output.**
+  A `.mbox.zip` inflates from its first byte, so a 256 KB range request should have
+  dated each group's start for nothing, skipping most of a 382 GB download.
+  Validated against the 48 sampled groups whose true yield was already measured, it
+  **discarded 21 of them holding 88% of the sample's equivalent-English**. The
+  archives are stored **newest-first**: `comp.cad.autocad` opens on 2011 and does
+  not reach 2001 until 77.8% in. A prefix can only prove a group died before the
+  window, which rejects 1 in 48. The tail that would answer the real question needs
+  the whole file, because deflate does not decompress from the middle. Kept as
+  `scripts/gate_usenet_groups.py` so nobody rebuilds it
+- **Two throughput fixes, both measured.** `probe_usenet_groups.py` was serial at
+  **0.6 groups/s**, which is six hours of pure latency for 77 GB the link carries in
+  under one; `--workers 16` gives 9/s and 26.5 MB/s sustained. `split_usenet.py` was
+  serial regex on a 14-core box; `--workers` puts the per-archive parse in a process
+  pool and merges results in archive order, so output is **byte-identical** to
+  serial, verified on 14 archives by sha1 on both journals, 21s to 9s. Then the
+  maintain loop's 900s cadence became the limit, since 800 archives split in 30, so
+  it was dropped to 150s
+- **Stratum A is worthless and stratum C is the whole prize.** A's first 800
+  archives yielded **11 admitted pairs**, with 90% of messages out of window. One
+  2,483-archive C batch yielded **72,314 admitted pairs** and enqueued 106,184
+  candidates. The download had been ordered smallest-first, which put the worthless
+  band ahead of the valuable one; reordering to C, B, A was the single largest
+  scheduling gain of the night
+- **Six hours produced nothing, and the parser bug was the smaller half of why.**
+  `Message.get` returns a `Header` rather than a `str` when the value is RFC 2047
+  encoded, and `Header` has no `.strip()`, so `message_year` raised
+  `AttributeError`. Latent and pre-existing: the serial path calls the same function
+  and would have died identically, and 8,258 archives passed before one carried such
+  a date. **The cost came from the batch shape.** `ingest_new_usenet.sh` splits every
+  pending archive in ONE call, so one bad file aborted all 2,500, left them unmarked
+  by design, and the maintain loop retried the identical batch every 150 seconds
+  from 23:47 to 05:50. Roughly 145 retries, no progress, and no alarm anywhere: the
+  27-minute checkpoints watched processes that were all healthily alive, and the
+  progress log recorded an unchanging `processed=8258` that nothing was reading
+- **So the guard that is missing is per-archive isolation, not a better parser.**
+  One bad file should skip itself and be recorded, not void a batch. The maintain
+  loop also needs a no-progress alarm: liveness is not progress, and every check
+  that night confirmed liveness. After the one-line fix the same batch went straight
+  through for 35,626 admitted pairs
