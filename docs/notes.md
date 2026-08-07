@@ -2639,3 +2639,39 @@ reviewer. It does not survive.
   hit rate applied to 1.15M Usenet mentions that no query has touched: it is inherited
   from cells measured on the pre-bulk pool. The manifest records the predicted score of
   every target so the next few hours of answers can be checked against it
+
+## 2026-08-07 (should the Usenet candidate pool be dropped for provenance?)
+
+- **The question was whether to split the populations again and fill the round from
+  bracketed gap fill alone**, on the grounds that the candidate pool is Usenet header
+  munging and gap fill is not. Measured rather than argued, because the composition
+  claim and the risk claim turn out to have different answers
+- **The composition claim is right.** Names carrying a munging marker (`nospam`,
+  `removethis`, `delthis` and relatives) are 3.98% of the candidate pool and 5.61% of
+  the pool targets inside the first 250,000 queries, against **0.01%** of the gap
+  targets in the same stretch. `iamspamboy.co.uk`, `delthis.co.uk` and
+  `spamnicotine.co.uk` all sit in the pool head
+- **The risk claim is not.** A pool domain enters nothing until the archive returns an
+  in-window capture for it, so the pool is a work list and not evidence. End to end:
+  **3.98% marker-matching in the pool, 0.0068% in the 5,503,423 domains shipped**, a
+  585x reduction. And that residue is almost all false positives of the marker regex
+  itself: `abacospamotel.com` is Abaco Spa Motel, `alwayspamperedpet.com` is always
+  pampered pet, `americanspamag.com` is American Spa Mag. Real businesses with real
+  captures. `dumicsamvfs.mil` costs one query and returns nothing
+- **The cost of the contamination is queries, not correctness, and it is already
+  priced.** It is why a pool target scores 0.83 against a gap target's 1.15 to 1.88,
+  and why the first pool target sits at **queue position 24,799** with every slot above
+  it held by gap fill
+- **Going gap-only would have cost the reserve.** The whole gap stock is 247,366 EE,
+  4.40 points, against 2.84 needed, so gap fill alone reaches 10% only by consuming
+  52% of the queue on the scored estimate and 65% if head realisation is the 81%
+  currently being measured: 8.6 to 10.8 days against the merged queue's 8.8, and
+  nothing behind it afterwards
+- **Decision: keep the merged queue unfiltered.** A marker exclusion on the pool half
+  was offered at a cost of 4.3% of pool value and declined, the capture requirement
+  being filter enough. Nothing was rebuilt or restarted, so the decision cost no
+  collection time
+- **Timing note worth keeping.** Both engines were 21 hours from touching a pool target
+  when the question was raised, so there was no cost to answering it with measurements
+  instead of quickly. Worth checking that distance before treating a queue question as
+  urgent
