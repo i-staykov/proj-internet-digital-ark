@@ -239,6 +239,33 @@ Check both machines at once, including whether the remote journals have been bro
 just engines
 ```
 
+### Pausing and resuming
+
+```bash
+just engines-stop                  # this machine, without losing the batch in flight
+just engines-start 1787139003      # deadline epoch, from `date -u -v+12d +%s`
+```
+
+`engines-stop` sends TERM to the supervisor, which runs its trap, asks the batch to stop, and lets
+it publish what it already has. A stopped batch still writes its journal, so the only thing lost is
+the queries it had not made yet: two interruptions on 7 August published 140 and 172 of 300 lines
+and nothing had to be re-queried. **Never `kill -9` a collector.** That strands the `.part`, and the
+ingest ledger keys on the finished name, so the work inside it becomes unreachable.
+
+Stopping the ingest loop leaves whatever the collectors wrote sitting on disk. That is safe, because
+journals are ledgered by content hash and re-offering an ingested one is skipped in milliseconds,
+but it does mean `ark stats` understates the round until the loop runs again. To fold everything in
+before shutting down for a while:
+
+```bash
+for j in data/raw/cdx/cdx_*.jsonl.gz;            do uv run ark ingest cdx_snapshot "$j"; done
+for j in data/raw/usenet/usenet_dated_*.jsonl.gz; do uv run ark ingest usenet_dated "$j"; done
+```
+
+The remote machine is unaffected by any of this. It runs under `setsid` with its own deadline, so it
+keeps collecting through a VPN drop or a laptop shutdown, and its journals wait on its own disk
+until the next `rsync`.
+
 That last part is the one worth automating. A second machine's output is invisible to every
 measurement taken on the first, and the VPS once ran for a day and a half with 5,793 year-records
 sitting on its disk and absent from the store, because nothing here ever looked. `just engines`

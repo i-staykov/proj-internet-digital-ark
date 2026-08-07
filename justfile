@@ -154,12 +154,11 @@ gap-shards n="2":
         uv run ark gaps --shards {{n}} --shard "$i" --out "data/raw/cdx/gap_shard${i}.txt"
     done
 
-# ONE queue from both populations, best expected equivalent-English first, split
-# into shares sized by how fast each machine is. Supersedes running `gap-shards`
-# and `build_pool_candidates.py` as two separate lists: the allocation between
-# them was the expensive decision and it was being made by hand.
-# Rebuild it after a large ingest, since new evidence creates gaps as well as
-# filling them, and a stale queue cannot reach what it does not list.
+# Supersedes running `gap-shards` and `build_pool_candidates.py` as two separate
+# lists: the allocation between them was the expensive decision and it was being
+# made by hand. Rebuild after a large ingest, since new evidence creates gaps as
+# well as filling them, and a stale queue cannot reach what it does not list.
+# one queue from both populations, best expected equivalent-English first
 query-queue weights="78,22" rates="916,262":
     uv run python scripts/build_query_queue.py --weights {{weights}} --rates {{rates}}
 
@@ -177,6 +176,37 @@ cdx-pool until batch="1200" workers="8":
 # what both CDX engines are doing right now, and whether the VPS journals are home
 engines:
     bash scripts/engine_status.sh
+
+# Takes a deadline epoch, e.g. `just engines-start $(date -u -v+12d +%s)`.
+# start this machine's collector and the ingest loop, both detached
+engines-start until batch="600" workers="8":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
+        nohup caffeinate -i bash scripts/supervise_cdx_pool.sh \
+        {{until}} {{batch}} {{workers}} 900 > /dev/null 2>&1 < /dev/null &
+    nohup bash scripts/maintain_phase3.sh 900 150 > /dev/null 2>&1 < /dev/null &
+    sleep 5
+    ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]" || true
+
+# TERM to the supervisor runs its trap, which asks the batch to stop and lets it
+# publish what it has: a stopped batch still writes its journal, so the only thing
+# lost is the queries it had not made yet. Never `kill -9` here, that strands the
+# `.part` and the work in it is unreachable.
+# stop this machine's collector and ingest loop, keeping the batch in flight
+engines-stop:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    pkill -TERM -f "supervise_cdx_pool[.]sh" 2>/dev/null || true
+    pkill -TERM -f "maintain_phase3[.]sh" 2>/dev/null || true
+    echo "waiting for the batch in flight to publish its journal"
+    until ! pgrep -f "[a]rk cdx " >/dev/null && ! pgrep -f "[a]rk ingest" >/dev/null; do
+        sleep 5
+    done
+    pkill -f "caffeinate -i bash scripts/supervise" 2>/dev/null || true
+    echo "stopped; nothing left running:"
+    ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]|ar[k] cdx" || echo "  confirmed idle"
+    ls data/raw/cdx/*.part 2>/dev/null && echo "WARNING: a .part was stranded" || echo "  no stranded .part files"
 
 # one registry-date batch: creation year for domains adjacent to a held year
 rdap-batch n="2500":
