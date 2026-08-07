@@ -161,41 +161,68 @@ number of bracketed years a capture could fill. `--legacy-year-order` restores t
 order (thinnest gap year first) for reproducing earlier rounds.
 
 The other population is the candidate pool: domains the store holds with no year at all, so a
-capture makes a name net-new rather than adding a year to one already shipped. Separate list,
-separate journal name, same ingest command.
+capture makes a name net-new rather than adding a year to one already shipped.
 
 ```bash
 uv run python scripts/build_pool_candidates.py   # -> data/raw/cdx/pool_candidates.txt
-bash scripts/supervise_cdx_pool.sh $(date -v+5d +%s) 1200 8 900
 uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_*.jsonl.gz
 ```
 
-One supervisor drives either population, chosen by environment variable:
+### One queue, not two
+
+Keeping the two populations in two lists forced a choice about which to work, and on 7 August that
+choice was being made by hand and made wrong: the MacBook spent a morning on candidate-pool targets
+worth 0.476 equivalent-English per query while gap targets worth twice that waited in the other
+file. So both are now scored on the one scale that decides the allocation, **expected net-new
+equivalent-English per archive query**, and merged into a single queue.
 
 ```bash
-ARK_TARGETS=data/raw/cdx/gap_candidates.txt ARK_PREFIX=cdx_gap \
-    bash scripts/supervise_cdx_pool.sh $(date -v+5d +%s) 1200 8 900
+just query-queue-preview            # what it would return, writes nothing
+just query-queue                    # -> queue_shard0.txt, queue_shard1.txt, queue_manifest.tsv.gz
 ```
+
+A gap target scores `realisation x English share x bracketed years it could fill`; a pool target
+scores `P(hit) x English share x years a hit returns`. Both multipliers are measured at build time
+and printed with the queue, so a wrong one is visible rather than silent. Rebuild after any large
+ingest: new evidence creates bracketed gaps as well as filling them, and a stale queue cannot reach
+what it does not list. Ignoring that cost the 5 August lists 102,628 targets worth 63,333
+equivalent-English, enough to put the round's ceiling below the goal it was aiming at.
+
+The manifest records the population and predicted score of every target, which is what lets the
+next build re-estimate hit rates from a queue that mixes both, and what lets a prediction be checked
+against the outcome instead of being taken on trust.
 
 ### Collecting from more than one machine
 
-Split the list into disjoint slices and run one per machine. Assignment is by content hash, so the
-slices are disjoint and jointly complete with no coordination, and each machine still gets its fair
-share of the valuable head.
+Split the queue into disjoint shares and run one per machine. Assignment is by content hash, so the
+shares are disjoint and jointly complete with no coordination, and because the hash is independent
+of the ordering each share is a representative sample of the whole value curve rather than a
+contiguous block of it.
+
+**Size each share by how fast its machine is.** Equal halves were right while the two collectors ran
+at similar speeds; measured on 7 August the MacBook sustains 916 queries an hour against the VPS's
+262, and an even split leaves the fast machine grinding its own cheap tail while the expensive head
+of the other half goes untouched. `--weights 78,22` costs nothing and saves about 20 hours.
 
 ```bash
-# on this machine, build both slices (only this one has the store)
-uv run ark gaps --shards 2 --shard 0 --out data/raw/cdx/gap_shard0.txt
-uv run ark gaps --shards 2 --shard 1 --out data/raw/cdx/gap_shard1.txt
+# on this machine, build both shares (only this one has the store)
+just query-queue 78,22
 
-# ship slice 1 and the repo to the other machine, then there:
-ARK_TARGETS=data/raw/cdx/gap_shard1.txt ARK_PREFIX=cdx_gap_vps \
-    bash scripts/supervise_cdx_pool.sh <deadline_epoch> 1200 4 900
+# ship share 1 and the repo to the other machine, then there:
+ARK_TARGETS=data/raw/cdx/queue_shard1.txt ARK_PREFIX=cdx_q1 \
+    bash scripts/supervise_cdx_pool.sh <deadline_epoch> 300 8 900
 
 # bring its journals back and replay them here
-rsync -av vps:~/proj-internet-digital-ark/data/raw/cdx/cdx_gap_vps_*.jsonl.gz data/raw/cdx/
-uv run ark ingest cdx_snapshot data/raw/cdx/cdx_gap_vps_*.jsonl.gz
+rsync -av vps:~/proj-internet-digital-ark/data/raw/cdx/cdx_q1_*.jsonl.gz data/raw/cdx/
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_q1_*.jsonl.gz
 ```
+
+The shares are written with every already-answered domain removed, so re-sharding never makes a
+machine re-ask a name the other has settled, and the weights can be retuned whenever the measured
+speeds change.
+
+The older `just gap-shards` still writes gap-only slices in equal parts, for reproducing rounds
+collected that way.
 
 The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
 never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal

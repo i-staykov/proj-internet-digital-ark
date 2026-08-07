@@ -154,6 +154,19 @@ gap-shards n="2":
         uv run ark gaps --shards {{n}} --shard "$i" --out "data/raw/cdx/gap_shard${i}.txt"
     done
 
+# ONE queue from both populations, best expected equivalent-English first, split
+# into shares sized by how fast each machine is. Supersedes running `gap-shards`
+# and `build_pool_candidates.py` as two separate lists: the allocation between
+# them was the expensive decision and it was being made by hand.
+# Rebuild it after a large ingest, since new evidence creates gaps as well as
+# filling them, and a stale queue cannot reach what it does not list.
+query-queue weights="78,22" rates="916,262":
+    uv run python scripts/build_query_queue.py --weights {{weights}} --rates {{rates}}
+
+# what the queue is expected to return, without writing anything
+query-queue-preview:
+    uv run python scripts/build_query_queue.py --dry-run
+
 # the candidate pool instead of the gap pool: domains held with no year at all,
 # so a capture adds a name rather than a year. Best English yield first, and the
 # supervisor runs batches until the deadline epoch you give it.

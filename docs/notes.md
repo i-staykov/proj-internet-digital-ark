@@ -2541,3 +2541,101 @@ reviewer. It does not survive.
   and it fails in our favour, which is worse than the bug it patched
 - **Round after all of it: 648,249 pairs, 399,409.7010 equivalent-English, 7.1032%.**
   `ark stats` and `round_figures.py` agree to the digit from independent code paths
+
+## 2026-08-07 (what the existing pools can still deliver, and by when)
+
+- **Question: leaving both CDX engines running on the pools that already exist, when
+  do we reach the reviewer's 10%?** Answered by integrating the remaining queue in
+  its own order rather than extrapolating a trailing rate, because both queues are
+  sorted best-first and a trailing rate measures where the engines have been
+- **Three inputs, all measured, none assumed.** Realisation, from the ingest ledger:
+  a gap query writes **31.6% of the in-window years it finds** as net-new pairs
+  (27.1% on the last ten batches, the queue having descended), while a candidate-pool
+  query writes **100%**, because those domains hold no year at all. Throughput, from
+  journal timestamps over long windows rather than fast ones: local **916 q/h**
+  sustained over 27.9h on gaps and **562 q/h** on the pool, VPS **262 q/h** over
+  42.4h. Stock, from `sandwich_gap_domains` against the live store
+- **The queue's own sort key predicts realised yield almost exactly.** Recent gap
+  batches return 0.974 net-new pairs per query against 1.023 bracketed slots per
+  queued domain, so realised equivalent-English is **0.95x the key**, slightly
+  conservative. That is what makes an exact integration possible: every remaining
+  domain's value is known, and the engines consume them in that order
+- **Ceilings. The gap queue in full is 247,540 EE, 4.40 points. The curated
+  candidate pool in full is 42,710 EE, 0.76 points.** With today's 7.1555% that caps
+  the existing pools at about **12.3%**, so 10% is reachable but needs roughly half
+  the gap queue, 250,000 more queries
+- **Time. As configured this morning, 21.1 days. With the local engine moved back to
+  gaps, 9.5 days.** The gap between those two numbers is the whole finding: the local
+  engine has been on the candidate pool since 07:06 CEST, where it earns 0.476 EE per
+  query at 562 q/h, against 0.95 EE per query at 916 q/h on gaps. Same machine, same
+  archive, **3.3x the equivalent-English per hour**
+- **The 50/50 shard split predates the speed gap between the machines** and now costs
+  about 20 hours: the MacBook is four times the VPS, so half the queue each leaves it
+  deep in its own cheap tail while the expensive head of the other half is untouched.
+  A 78/22 split matched to measured throughput reaches 10% in 8.7 days
+- **The shard files are stale in a way that lowers the ceiling below the goal.**
+  They were written on 5 August, before 579,712 Usenet pairs landed, and Usenet
+  created gaps as well as filling them. **102,628 gap targets worth 63,333 EE exist in
+  the store and in neither shard file.** Working only the 5 August lists caps the gap
+  queue at 187,374 EE, which puts the ceiling at **10.49%** and leaves no margin.
+  Regenerating with `just gap-shards` raises it to 11.56% and is worth +5,703 EE over
+  the first 50,000 queries on its own, the new arrivals being better than average
+  (mean key 0.617 against 0.537)
+- **Round at the time of measuring: 648,813 pairs, 402,354.7 EE, 7.1555%**, after the
+  eleven VPS journals stranded by the VPN outage were rsynced home and ingested
+
+## 2026-08-07 (one queue instead of two, and shares sized by engine speed)
+
+- **The two populations were two lists, and the choice between them was being made
+  by hand.** Ordering *within* `gap_candidates.txt` and *within* `pool_candidates.txt`
+  had both been thought about carefully; the allocation *between* them had not, and
+  that was the more expensive of the two. The MacBook spent this morning on
+  candidate-pool targets worth 0.476 equivalent-English per query while gap targets
+  worth twice that sat in the other file
+- **There is now one queue, scored on the only scale that decides the allocation:
+  expected net-new equivalent-English per archive query.** A gap target scores
+  `realisation x English share x bracketed years it could fill`; a pool target scores
+  `P(hit) x English share x years a hit returns`. `scripts/build_query_queue.py`
+- **Both multipliers are measured, not assumed, and printed with the queue.**
+  Realisation 0.95, from the ingest ledger over 137 journals: a gap query writes 31.6%
+  of the in-window years it finds as net-new pairs, which is 0.974 net-new pairs per
+  query against 1.023 bracketed slots per queued domain. Years per pool hit 1.580,
+  from the journals. A pool hit realises 100% because the domain held no year at all
+- **The hit rate that scores the pool must be measured over the pool alone.** A gap
+  domain answers 85-99% and a pool domain 41%, so mixing them would roughly double the
+  pool's apparent value and lift its whole tail to the head of the queue. The old code
+  got this for free by globbing `cdx_pool_*`; the merged queue's journals carry both
+  populations, so the manifest now records which population each target came from and
+  the estimator restricts to it. Same trap as the line-1 and stale-baseline errors: a
+  correct calculation over the wrong reference set
+- **Era eligibility stays a hard gate ahead of the score.** The English-share model is
+  built from 2024 crawl data and scores today's brand gTLDs near 100%, so Usenet header
+  noise would otherwise sort to the very top of a list meant to hold the best targets
+- **Shares are now sized by measured throughput, 78/22, not split evenly.** The MacBook
+  sustains 916 queries an hour over 27.9h against the VPS's 262 over 42.4h. An even
+  split leaves the fast machine grinding its own cheap tail while the expensive head of
+  the other half is untouched, worth about 20 hours. `take_weighted_shard` keeps the
+  content-hash assignment for the reason `take_shard` gives, and takes two bytes rather
+  than one so 78/22 lands within a tenth of a percent. Because the hash is independent
+  of the ordering, each share is a representative sample of the value curve: measured
+  78.1/21.9 by count and 78.0/22.0 by value
+- **Sustained rates, not fast windows.** The local engine's 1,188 q/h over a 1.8h night
+  window became 916 over 27.9h. Quoting the fast one would have shortened every
+  projection by a fifth
+- **Switchover cost nothing.** Killing the supervisors leaves the in-flight `ark cdx`
+  child to finish and publish; both partial batches (140 and 172 lines) landed. The
+  shares are written with every already-answered domain removed, so re-sharding cannot
+  make a machine re-ask a name the other settled, which is what made changing the split
+  safe at all
+- **Queue: 1,712,271 targets, 1,618,286 of them worth something.** 469,872 gap and
+  1,148,414 pool, the pool having grown from 97,219 to 1,148,414 because the bulk Usenet
+  run added 1.15M mentions and the list predated it. Whole-queue expected value 741,355
+  EE against 159,468 needed, so the target arrives at **14% of the queue** rather than
+  by scraping the bottom of it
+- **Projection: 222,731 queries, 7.9 days at gap speed, 8.8 blended.** 27% of those
+  queries are pool targets and a pool query runs at 0.61x the speed of a gap query, so
+  quoting the gap rate over a mixed queue would understate the time by about a fifth
+- **The one number here that is still a projection rather than a measurement** is the
+  hit rate applied to 1.15M Usenet mentions that no query has touched: it is inherited
+  from cells measured on the pre-bulk pool. The manifest records the predicted score of
+  every target so the next few hours of answers can be checked against it

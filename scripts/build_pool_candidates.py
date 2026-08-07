@@ -129,7 +129,7 @@ MIN_SAMPLE = 25
 # Domains the store holds with no in-window year, and where each came from.
 # `domain_year` is the master table, so absence from it is exactly what "still
 # only a candidate" means. The source is what predicts a hit.
-_POOL_SQL = """
+POOL_SQL = """
 SELECT d.domain, s.name
 FROM domain d
 JOIN source s ON s.source_id = d.discovered_source
@@ -152,7 +152,7 @@ WHERE d.domain IN ({placeholders})
 # Dated domains per right-most label, which is the unit the reviewer's model and
 # this ranking both key on. `domain.tld` holds the public suffix (`co.uk`), so it
 # is the wrong column here and would report .uk as 28 rather than 187,063.
-_ATTESTED_SQL = """
+ATTESTED_SQL = """
 SELECT split_part(domain, '.', -1) AS tld, count(DISTINCT domain) AS dated
 FROM domain_year
 GROUP BY tld
@@ -191,14 +191,21 @@ def spread(domain: str) -> bytes:
     return hashlib.blake2b(domain.encode(), digest_size=8).digest()
 
 
-def journal_outcomes(directory: Path) -> dict[str, bool]:
+def journal_outcomes(directory: Path, pattern: str = "cdx_pool_*.jsonl*") -> dict[str, bool]:
     """Every pool domain the archive actually answered, and whether it held a capture.
 
     Only status 200 counts. A transport failure says nothing about whether a
     capture exists, so counting it as a miss would slander a whole source.
+
+    The default pattern is the journals whose whole population was the pool, which
+    is what this script needs. `build_query_queue.py` passes a wider one and does
+    the restricting itself, because its journals mix both populations and it holds
+    a manifest saying which is which. Widening the pattern without restricting
+    afterwards would fold in the gap pool, which answers at 85-99% against the
+    pool's 41%, and roughly double every hit rate this returns.
     """
     outcomes: dict[str, bool] = {}
-    for path in sorted(directory.glob("cdx_pool_*.jsonl*")):
+    for path in sorted(directory.glob(pattern)):
         try:
             with open_journal(path) as fh:
                 for line in fh:
@@ -268,8 +275,8 @@ def main() -> None:
     outcomes = journal_outcomes(JOURNAL_DIR)
     conn = read_only_store(STORE)
     try:
-        pool_source = dict(conn.execute(_POOL_SQL).fetchall())
-        attested = dict(conn.execute(_ATTESTED_SQL).fetchall())
+        pool_source = dict(conn.execute(POOL_SQL).fetchall())
+        attested = dict(conn.execute(ATTESTED_SQL).fetchall())
         answered_source = sources_for(conn, list(outcomes))
     finally:
         conn.close()
