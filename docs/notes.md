@@ -2465,3 +2465,42 @@ reviewer. It does not survive.
   loop also needs a no-progress alarm: liveness is not progress, and every check
   that night confirmed liveness. After the one-line fix the same batch went straight
   through for 35,626 admitted pairs
+
+## 2026-08-07 (the candidate pool is a million names, and most of them are not real)
+
+- **`ark stats` reports a candidate pool of 1,022,127 and 1,021,297 of them are
+  `usenet_mention`**, the uncorroborated half of the Usenet split: a domain that
+  appears in a dated post but that no other source attests. The design routes them
+  here rather than into annual files precisely because Usenet URLs are human-typed,
+  and the bulk ingest multiplied the pool fourfold overnight
+- **A large share of them never existed.** Sampling the pool turns up
+  `mqegamrfaj.mil`, `rrkdpchn.mil`, `ixpaolw.mil`, `fkvgjq.com`,
+  `gafbeehidbv.com`, `idiotsandliars.gov`, `get-that-spam-away-from-me.com`. These
+  are **addresses munged against harvesters**, which was routine Usenet practice, and
+  the domain part of a munged address parses as a perfectly well-formed name.
+  **16.6% (169,893) are machine-generated on a deliberately conservative test**
+  (no vowel in the second-level label, or a run of five or more consonants), and that
+  is a floor: it does not catch pronounceable munges, of which `spam` alone appears
+  in 36,212 names and `nospam` in 14,980. `.mil` at 29,631 and `.gov` at 29,760
+  candidate domains is by itself proof of the problem, since neither TLD has
+  anywhere near that many registrable names
+- **Nothing has leaked into the deliverable.** `link_target` is candidate-only, so
+  none of this can back an annual assignment, and `ark check` passes all twelve
+  invariants including `no_candidate_leakage`. The cost is not contamination, it is
+  that the capture engine is being pointed at a queue where a large fraction of the
+  targets cannot possibly answer
+- **`ark stats` now reports equivalent-English**, which it did not, so the scoreboard
+  could not be read against the metric the round is actually scored on
+- **And it exposed a trap worth naming, the same shape as the line-1 error.**
+  "Net-new" means "carries no `prior_reused` evidence", and our store's baseline
+  releases stop at `merged260730` while the reviewer has merged a round on top. So
+  net-new is **614,413 pairs / 384,193.6292 EE**, of which **151,949 / 91,814.6880 is
+  the round he already credited on 2 August**. Dividing the whole of it by his
+  baseline gives 6.8326% and counts that round twice. The uncredited increment is
+  **462,464 pairs / 292,378.9412 EE / 5.1997%**, and that is the only figure that may
+  be quoted to him. The output now labels it `quote THIS as the increment` and states
+  what was subtracted. It reproduces `scripts/round_figures.py` exactly, which is two
+  independent code paths agreeing
+- **The candidate pool's equivalent-English is reported as an explicit UPPER BOUND**,
+  648,508, assuming every held name is real and earns exactly one year. Given the
+  munging above, the realised figure will be a fraction of it, and the line says so

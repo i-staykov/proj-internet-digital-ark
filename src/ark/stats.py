@@ -23,11 +23,32 @@ is much smaller than the cross-source one.
 Candidate-only evidence proves nothing and is excluded from both.
 """
 
+from decimal import Decimal
+
 import duckdb
 
+from ark.english_share import english_weights
 from ark.evidence_types import MASTER_TYPES
 
 BASELINE_TYPE = "prior_reused"
+
+# The reviewer's merged 1996-2001 files after the last round was folded in, measured
+# with his own calculator. Growth is increment divided by THIS, his pre-increment
+# total, which is his convention and not the same as dividing by the post-increment
+# one. Keep in step with `scripts/round_figures.py`, which reports the same metric
+# in the five fields he asks for.
+REVIEWER_BASELINE_EE = Decimal("5622984.6434")
+
+# What he has ALREADY credited and merged, so it is inside REVIEWER_BASELINE_EE.
+#
+# This matters because "net-new" here means "carries no prior_reused evidence", and
+# our store's baseline releases stop at `merged260730` while he has merged a round on
+# top. So our net-new total still contains the 151,949 records he credited on 2
+# August, and dividing the whole of it by his baseline counts that round twice. The
+# uncredited increment is the difference, and it is the only figure that should ever
+# be quoted to him as growth.
+ALREADY_CREDITED_EE = Decimal("91814.6880")
+ALREADY_CREDITED_PAIRS = 151_949
 
 # Which body of observation each source ultimately derives from. Sources sharing a
 # lineage cannot independently confirm one another, however many rows they carry:
@@ -115,6 +136,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
         ).fetchall()
     )
     return {
+        **_equivalent_english(conn),
         "baseline_domains": baseline_domains,
         "total_domains": total_domains,
         "total_pairs": total_pairs,
@@ -203,11 +225,74 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
+    """The reviewer's metric, which is the one the round is actually scored on.
+
+    Every figure here is a count somewhere else in this scoreboard re-weighted by
+    the English page-language share of each domain's right-most TLD, so 10,000 `.de`
+    pairs are worth less than 1,500 `.uk` ones and a pair count no longer says what
+    a tranche is worth. Growth is quoted against the reviewer's merged baseline the
+    way he computes it: increment divided by the PRE-increment total.
+
+    The candidate figure is deliberately labelled an upper bound. It assumes every
+    held name is real and earns exactly one year, and a large share of the pool is
+    neither: Usenet posters munged their addresses against harvesters, so it carries
+    names like `mqegamrfaj.mil` and `nospam@...` that no capture will ever confirm.
+    """
+    weights = english_weights()
+
+    def weigh(rows: list[tuple[str, int]]) -> Decimal:
+        return sum((weights.get(tld, Decimal(0)) * n for tld, n in rows), Decimal(0))
+
+    netnew = conn.execute(
+        f"""
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
+        WHERE NOT EXISTS (
+            SELECT 1 FROM evidence e WHERE e.domain = dy.domain
+              AND e.evidence_year = dy.assigned_year AND e.evidence_type = '{BASELINE_TYPE}')
+        GROUP BY 1
+        """
+    ).fetchall()
+    assigned = conn.execute(
+        "SELECT split_part(domain, '.', -1) AS tld, count(*) FROM domain_year GROUP BY 1"
+    ).fetchall()
+    candidates = conn.execute(
+        """
+        SELECT split_part(d.domain, '.', -1) AS tld, count(*) FROM domain d
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+        GROUP BY 1
+        """
+    ).fetchall()
+
+    netnew_ee, netnew_n = weigh(netnew), sum(n for _, n in netnew)
+    uncredited_ee = netnew_ee - ALREADY_CREDITED_EE
+    return {
+        "ee_netnew": netnew_ee,
+        "ee_netnew_mean_weight": netnew_ee / netnew_n if netnew_n else Decimal(0),
+        "ee_uncredited": uncredited_ee,
+        "ee_uncredited_pairs": netnew_n - ALREADY_CREDITED_PAIRS,
+        "ee_uncredited_growth_pct": uncredited_ee / REVIEWER_BASELINE_EE * 100,
+        "ee_assigned": weigh(assigned),
+        "ee_candidate_upper_bound": weigh(candidates),
+    }
+
+
 def format_stats(stats: dict) -> str:
     lines = [
         "== scoreboard ==",
         f"net-new domains (not in baseline):  {stats['netnew_domains']:>12,}",
         f"net-new (domain, year) pairs:       {stats['netnew_pairs_total']:>12,}",
+        f"net-new equivalent-English:         {stats['ee_netnew']:>16,.4f}",
+        f"    mean weight per pair:           {stats['ee_netnew_mean_weight']:>16.4f}",
+        "== not yet credited by the reviewer (quote THIS as the increment) ==",
+        f"    pairs:                          {stats['ee_uncredited_pairs']:>12,}",
+        f"    equivalent-English:             {stats['ee_uncredited']:>16,.4f}",
+        f"    growth on his {REVIEWER_BASELINE_EE:,.4f} baseline: "
+        f"{stats['ee_uncredited_growth_pct']:.4f}%",
+        f"    (net-new above still contains the {ALREADY_CREDITED_PAIRS:,} records / "
+        f"{ALREADY_CREDITED_EE:,.4f} EE",
+        "     he credited on 2 August and has already merged, so dividing the whole",
+        "     of it by his baseline would count that round twice)",
     ]
     for year, count in stats["netnew_pairs_by_year"].items():
         lines.append(f"    {year}: {count:,}")
@@ -231,6 +316,11 @@ def format_stats(stats: dict) -> str:
         f"baseline domains:                   {stats['baseline_domains']:>12,}",
         f"domains in store:                   {stats['total_domains']:>12,}",
         f"(domain, year) pairs in store:      {stats['total_pairs']:>12,}",
+        f"equivalent-English, all assigned:   {stats['ee_assigned']:>16,.4f}",
         f"candidate pool (unverified):        {stats['candidate_pool']:>12,}",
+        f"    equivalent-English if every one earned a year, an UPPER BOUND: "
+        f"{stats['ee_candidate_upper_bound']:,.0f}",
+        "    (the pool is mostly Usenet names no other source attests, including",
+        "     addresses munged against harvesters, so the realised figure is far lower)",
     ]
     return "\n".join(lines)

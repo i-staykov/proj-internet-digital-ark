@@ -48,7 +48,9 @@ verify-repo:
 check-data:
     uv run ark check
 
-# the scoreboard: net-new domains and pairs on top of the baseline
+# the scoreboard: net-new domains, pairs and equivalent-English on top of the
+# baseline. Quote the "not yet credited" block, not the net-new one: net-new still
+# contains the round the reviewer has already merged.
 stats:
     uv run ark stats
 
