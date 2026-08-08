@@ -2890,3 +2890,34 @@ reviewer. It does not survive.
   archive budget, and it competes directly with the collection that is still producing.
   Worth raising with the reviewer as a scope question rather than silently absorbing:
   the metric he scores on does not need it, and the standard he wrote does
+
+## 2026-08-08 (the rebuilt queue measured: no better, and the projection was inflated)
+
+- **Measured realised equivalent-English per query across the cutover, same machine,
+  same archive, 600-query batches:**
+
+      OLD queue  07:58  0.8337 EE/query   514 net-new pairs
+      OLD queue  08:33  0.9460 EE/query   586
+      OLD queue  09:02  0.9876 EE/query   612
+      NEW queue  09:31  0.8010 EE/query   592
+
+- **The rebuild is not an improvement. On one batch it is slightly worse**, 0.801 against
+  an old-queue mean of 0.922. Net-new pairs are comparable (592 against 514-612); what
+  falls is the mean English weight of what it finds, 0.812 against 0.968, because the new
+  head is pool targets drawn from Usenet addresses rather than the `.uk`-heavy gap
+  population
+- **So the queue's own projection of 2% of the queue and 2.9 days was inflated, exactly
+  as suspected when it was written.** It rested on applying the pool-wide 51.7% hit rate
+  to 2.4M address-derived candidates that no query had touched. Not quoting it was right;
+  the discipline that mattered was refusing to report a number the moment it was
+  attractive
+- **One batch against three is a thin sample and the difference is small, so this is not
+  a reason to revert.** It is a reason to re-score. `build_pool_candidates.hit_rates`
+  needs `MIN_SAMPLE = 25` answers in a `(source, TLD)` cell before it trusts a measured
+  rate over the fallback, and the address candidates now have their first few hundred
+  answers. **Rebuild the queue again once those cells are populated**, and the ordering
+  will rest on a measured rate rather than an inherited one
+- **The experiment cost nothing because it was set up before the result was wanted.** The
+  VPS was deliberately left on the 7 August shard, and the local machine's own three
+  preceding batches turned out to be the better control anyway: same host, same throttle
+  regime, same hour
