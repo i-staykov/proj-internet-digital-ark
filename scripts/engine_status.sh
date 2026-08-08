@@ -16,6 +16,14 @@
 # is worse than no monitor, because it answers the question confidently and wrongly.
 # Match the whole family; the prefix is the collector's business, not the watcher's.
 #
+# **The two machines do not agree about what time it is, and their logs do not say
+# so.** The MacBook writes CEST and the VPS writes UTC, so a log line reading
+# "06:36" on one and "08:36" on the other is the same instant. On 8 August that cost
+# a false stall report: the VPS looked three hours idle when its batch was 55 minutes
+# old, and what caught it was the process `etime` disagreeing with the log timestamp.
+# Both clocks are printed below so the comparison is possible at all, and elapsed
+# time is preferred over wall-clock wherever one will do.
+#
 # Reads the in-flight `.part` journal, which has no gzip trailer, so `gzip -dc`
 # refuses it outright while Python's reader returns every record up to the last
 # flush and then raises EOFError. That EOFError is the normal case here.
@@ -68,6 +76,12 @@ print(f"   tiers: host={h:,} root={r:,} scan={sc:,}   failures={f:,} ({100*f/max
 PY
 
 section() { printf '\n== %s ==\n' "$1"; }
+
+section "clocks (both machines, so log timestamps can be compared at all)"
+printf '   local %s   |   %s\n' "$(date '+%F %H:%M:%S %Z')" "$(date -u '+%H:%M:%SZ')"
+ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
+    "printf '   VPS   %s   |   %s\\n' \"\$(date '+%F %H:%M:%S %Z')\" \"\$(date -u '+%H:%M:%SZ')\""\
+    2>/dev/null || echo "   VPS   unreachable"
 
 section "local"
 if pgrep -f "supervise_cdx_pool.sh" > /dev/null; then
