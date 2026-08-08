@@ -465,6 +465,53 @@ retained so earlier seeding runs stay attributable.
 
 ---
 
+## `usenet_address` and `usenet_address_mention`: the addresses the extractor never read
+
+**What it is.** The same 19,083 Usenet archives already ingested, re-read for three
+address forms `domains_in_message` has never looked at: `ftp://` hosts, `mailto:` links, and
+addresses typed in the message body. In 1996 an `ftp://` address was often the only address a
+software vendor published.
+
+**Get it.** Nothing to fetch. The archives are already at `data/raw/usenet/*.mbox.zip`.
+
+```bash
+uv run python scripts/collect_usenet_addresses.py --workers 10
+uv run python scripts/split_usenet_addresses.py --write
+uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated.jsonl.gz
+uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates.jsonl.gz
+```
+
+**Why it is not the token scan that was already rejected.** A generic dot-rule scan of the same
+text was measured on `alt.bbs.lists` and found 1,972 tokens the production extractor misses, of
+which 354 net-new, worth at most 193 equivalent-English and visibly contaminated (`ads.my`,
+`article.pl`, `lol.ie`). Every pattern here is anchored to a scheme, an `@`, or both, and the host
+must end in a TLD the metric rewards. Each match goes through the pinned public suffix list.
+
+**Date semantics.** The posting date of the message the address appears in, identical to
+`usenet_announce`. Nothing new is claimed about dating.
+
+**Evidence type.** `dated_directory` after the corroboration split, `link_target` otherwise, and
+the split matters more here than anywhere else in the project. Lineage is `usenet`: an
+announcement post and an address inside that same post are one observation, not two.
+
+**Measured yield, 8 August.** Whole corpus, 404.8 GB, **507,255,617 messages of which 216,052,984
+in window**, zero archive failures. **2,440,926 distinct (domain, year) pairs the current extractor
+misses.** After the split: 861,988 corroborated, of which **102,577 net-new, worth 62,820.7
+equivalent-English**; 1,578,938 uncorroborated rows carrying **1,474,528 names new to the candidate
+pool**. Round moved 7.8676% to 9.0768%.
+
+**The number that would have been wrong.** Quoting the raw 2,440,926 as yield would have
+overstated this source **24-fold**. A 120-archive pilot (2.17 GB, 0.58% of the corpus) measured
+14,581 net-new pairs worth 10,188.6 EE and its linear extrapolation came to 1.9M EE; the true
+figure is 62,820.7. Both errors point the same way, and both are avoided by walking the corpus and
+applying the split before quoting anything.
+
+**Transferable finding.** Before rejecting a source that has already been ingested, check what the
+parser actually reads. Two of this sprint's three wins came from files already on disk and already
+marked processed.
+
+---
+
 ## `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`: the UUCP maps
 
 **What it is.** `comp.mail.maps` carried the UUCP maps, and from 1993 the `.CA` portion was
