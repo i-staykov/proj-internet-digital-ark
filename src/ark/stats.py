@@ -103,6 +103,10 @@ PROVENANCE_LINEAGE = {
     # in that post confirming one pair is one observation, not two.
     "usenet_address": "usenet",
     "usenet_address_mention": "usenet",
+    # Corporate email is its own body of observation, independent of every crawl,
+    # of Usenet and of the registries.
+    "enron_email": "corporate_email",
+    "enron_email_mention": "corporate_email",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

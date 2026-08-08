@@ -856,6 +856,24 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="usenet_post_address_mention",
         parse=_parse_usenet_journal,
     ),
+    # The FERC-released Enron corpus: ~517,000 dated 1999-2002 business emails.
+    # A dated message naming a domain attests it, exactly as a dated Usenet post
+    # does. Its own lineage, because corporate email is independent of every
+    # crawl, of Usenet and of the registries.
+    "enron_dated": SourceSpec(
+        key="enron_dated",
+        source_name="enron_email",
+        evidence_type="dated_directory",
+        acquisition_method="enron_message_date",
+        parse=_parse_usenet_journal,
+    ),
+    "enron_candidates": SourceSpec(
+        key="enron_candidates",
+        source_name="enron_email_mention",
+        evidence_type="link_target",
+        acquisition_method="enron_message_mention",
+        parse=_parse_usenet_journal,
+    ),
     "usenet_dated": SourceSpec(
         key="usenet_dated",
         source_name="usenet_announce",
