@@ -465,6 +465,91 @@ retained so earlier seeding runs stay attributable.
 
 ---
 
+## `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`: the UUCP maps
+
+**What it is.** `comp.mail.maps` carried the UUCP maps, and from 1993 the `.CA` portion was
+machine-generated from the Canadian domain registry. Each posting declares its own provenance
+(`#R Automatically generated from a .CA domain registration form`) and lists one entry per
+registered name keyed by `#N`, with the registrar's `received:` / `approved:` dates inside.
+
+**Get it.** Already on disk at `data/raw/usenet/comp.mail.maps.mbox.zip` (205,143,394 bytes), and
+identical to `https://archive.org/download/usenet-comp/comp.mail.maps.mbox.zip`.
+
+```bash
+uv run python scripts/split_uucp_maps.py --write
+uv run ark ingest uucp_listing  data/raw/uucp/uucp_listing.jsonl.gz
+uv run ark ingest uucp_creation data/raw/uucp/uucp_creation.jsonl.gz
+uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
+```
+
+**How it was found, which is the useful part.** The file had been marked done in `.processed`
+since 7 August and the project took nothing from it. `domains_in_message` reads http(s) URLs, bare
+`www.` hosts and the `From:` address, and a UUCP map entry contains none of those, so **1,480,910
+`#N` registry lines across 23,768 postings were parsed as the sender's domain and discarded.**
+Before rejecting a bulk text source, check whether its payload is in a record format rather than in
+sentences.
+
+**Date semantics and the provenance gate.** Only registry-generated files are regenerated from the
+live registration database at posting time, so only they may take the posting date. Verified rather
+than assumed: all 8,309 in-window registry postings carry an internal generation stamp in the same
+year as their `Date:` header, 569,157 of 569,157 entries at gap zero, and all 118,766
+`approved:`/`received:` lines occur inside registry-generated files and none anywhere else. Classic
+hand-maintained maps are reposted containers whose entries refresh only when a site admin
+resubmits: of 12,486 in-window entries carrying a `#W` stamp, only 1,031 are within a year of the
+posting date. Those are candidate-only. The gate costs 578.6 equivalent-English and is the
+difference between a registry claim and an inference.
+
+**Evidence types.** `artifact_listing` for the posting date, the same type the ISC DNS survey
+carries. `whois_creation` for the registrar's approval date, the same type AFNIC `.fr` carries.
+`link_target` for the hand-maintained half. Lineage is `registry`, not `usenet`: the maps are
+registry data that happened to travel over a newsgroup.
+
+**Measured yield, 8 August.** 53,852 listing pairs of which **23,678 net-new (19,806.2 EE)**;
+19,827 creation pairs of which **4,793 further net-new (4,009.3 EE)**; 5,733 hand-maintained pairs
+to the candidate pool. **Total +23,815 equivalent-English, +0.42 percentage points**, with nothing
+downloaded and nothing re-crawled.
+
+**Caveat to carry to the reviewer.** The net-new set is essentially pure `.ca` at a mean weight of
+0.8365, so the whole total rides on one row of the English-share table.
+
+---
+
+## `rtfm_faq` and `rtfm_faq_mention`: the Usenet FAQ mirror
+
+**What it is.** The `rtfm.mit.edu` FTP mirror, 19,478 FAQ documents under `pub/usenet-by-group`.
+A FAQ carries its own revision date and lists dozens of sites.
+
+**Get it.** `https://archive.org/download/ftp_rtfm.mit.edu_2014.07/2014.07.rtfm.mit.edu.tar`
+(1,691,248,640 bytes). The live `rtfm.mit.edu` refuses connections and `faqs.org` serves a
+Cloudflare challenge on every path, so the archive.org mirror is the only route.
+
+```bash
+tar -xf 2014.07.rtfm.mit.edu.tar -C data/raw/rtfm rtfm.mit.edu/pub/usenet-by-group
+uv run python scripts/split_rtfm_faqs.py --write
+uv run ark ingest rtfm_dated      data/raw/rtfm/rtfm_dated.jsonl.gz
+uv run ark ingest rtfm_candidates data/raw/rtfm/rtfm_candidates.jsonl.gz
+```
+
+**Date semantics, and the obvious choice is wrong.** rtfm keeps exactly one copy of each FAQ, the
+last one the auto-reposter sent, so `Date:` is the date of a repost and not of the content. Of
+12,318 documents carrying both a `Date:` and a revision header, **6,610 disagree**, and the
+disagreement is one-directional: 3,296 cases where the repost is later against 4 where it is
+earlier. Using `Date:` would have stamped 1998 content as 2004. The year therefore comes from
+`Last-modified:` / `X-Last-Updated:` / `Version:`, with `Date:` only as a fallback for documents
+carrying no revision header. That fallback errs late rather than early, which is the safe direction
+for an existence claim.
+
+**Evidence type: `dated_directory`, after the corroboration split.** Unlike the UUCP maps these
+URLs are prose typed by a human, so the ordinary Usenet rule applies. Lineage is `usenet`: a FAQ
+and an announcement post confirming the same pair are one body of observation, not two.
+
+**Measured yield, 8 August.** 8,408 in-window documents, 34,216 (domain, year) rows, of which
+30,808 corroborated and **3,596 net-new**; 3,408 uncorroborated rows to the candidate pool. The raw
+set difference before the split was 12,337 pairs, and quoting that would have overstated the source
+by 3.4x.
+
+---
+
 ## Evaluated and rejected
 
 Recorded so that negative results are visible rather than silently omitted.
