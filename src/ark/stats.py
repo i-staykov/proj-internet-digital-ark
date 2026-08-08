@@ -103,10 +103,20 @@ PROVENANCE_LINEAGE = {
     # in that post confirming one pair is one observation, not two.
     "usenet_address": "usenet",
     "usenet_address_mention": "usenet",
+    # Bare hosts in the body of the same posts. Same messages again, so the same
+    # lineage: three readings of one artifact are one observation, not three.
+    "usenet_bare": "usenet",
+    "usenet_bare_mention": "usenet",
     # Corporate email is its own body of observation, independent of every crawl,
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
+    # Public pipermail list archives. Its own family, and the claim is only safe
+    # because the collector skips the newsgroup-gatewayed lists: a gatewayed list
+    # carries the same messages the Usenet corpus already holds, so counting it
+    # here would make one body of observation look like two lineages.
+    "maillist_archive": "mailing_list",
+    "maillist_archive_mention": "mailing_list",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

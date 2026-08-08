@@ -24,8 +24,36 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 
 [EE_SOURCE_TABLE]
 
-Five source families are new this round. Each is described by the **artifact that carries the date**,
-because that is what decides whether a (domain, year) pair is worth anything.
+Each source below is described by the **artifact that carries the date**, because that is what decides
+whether a (domain, year) pair is worth anything.
+
+### `rdap_snapshot`: registry creation dates, asked of the candidate pool
+
+The registry's own `registration` event, read from the authoritative RDAP server for each TLD. This is
+the strongest evidence class in the collection and the only one that needs no corroboration, because a
+registry record is not free text: the registry is the authority on when a name was created.
+
+What is new is not the source but the **population**. Until now creation dates were only ever asked
+about domains that already held a year, looking for a missing year beside a held one. The candidate
+pool, names held with no year at all, had never been asked. A creation date landing in window gives
+such a name its **first** year, which makes it a net-new domain and not merely a net-new pair.
+
+Two limits, both deliberate. A creation date supports the annual file for the year it falls in and
+**nothing later**: it does not establish that the domain remained registered afterwards. And a domain
+whose creation date falls outside 1996-2001 attests nothing and stays in the candidate pool.
+
+### `usenet_bare`: the addresses written without `www.`
+
+Same corpus again, no new downloads. The extractor read `http://` URLs and hosts beginning `www.`,
+and refused a bare `foo.com` on the grounds that in running prose such a string is more often a
+company name, a file name or half an email address than a website. In 1996-1999 people wrote bare
+addresses constantly, so that refusal was expensive.
+
+What makes reading them safe is the corroboration rule below: a string that is really a file name is
+not a domain any independent source has attested, so it cannot reach an annual file. Of 601,738 gross
+pairs found, **269,773 were already asserted by the two Usenet sources above** and **36.3% were
+uncorroborated and went to the candidate pool**. The figure reported here is the marginal remainder,
+not the gross, which would have overstated the source fifteenfold.
 
 ### `usenet_address`: the addresses the extractor never read
 
@@ -80,6 +108,13 @@ and the store enforces that rather than counting distinct source names. The line
 `trade_press`, `editorial_directory`, `software_catalogue` and `arquivo_pt`.
 
 [CORROBORATION_TABLE]
+
+**One flaw in that table, stated rather than buried.** 1,200 pairs, 2.8% of `usenet_bare`, are first
+seen in `comp.mail.maps` and `can.uucp.maps`, the newsgroups the UUCP registry parser also reads. A
+pair carrying evidence from both can appear to hold two independent lineages when it is in truth one
+posting read two ways. It affects neither the equivalent-English figure nor the validity of any pair,
+only the independent-corroboration count above, by roughly 0.04%. It is filterable by group name
+without re-ingesting, and is recorded in `sources.md`.
 
 **One limitation, stated plainly.** All [TOTAL] pairs added this round are **language-unchecked**.
 The equivalent-English figure above is unaffected, since it is derived from the TLD distribution and

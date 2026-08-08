@@ -19,7 +19,15 @@ So the year comes from `Last-modified:`, `X-Last-Updated:` or `Version:`, and
 `Date:` is used only where no revision header exists. That fallback errs late
 rather than early, which is the safe direction for an existence claim.
 
+**Re-run it after `probe_texts_corpus.domains_in` changes.** The extractor is
+imported, not copied, so this corpus inherits its bugs and its fixes without a
+line changing here. The pattern used to require two labels before the TLD, which
+read `www.foo.com` and dropped `foo.com`; a FAQ drops the `www.` constantly. Pass
+a `--tag` on any re-run, because the ingest ledger keys on content and rewriting
+an already-ingested journal is refused as a hash mismatch.
+
     uv run python scripts/split_rtfm_faqs.py --write
+    uv run python scripts/split_rtfm_faqs.py --write --tag reextract
 """
 
 import argparse
@@ -27,6 +35,7 @@ import re
 import sys
 import time
 from collections import Counter
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +45,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import duckdb  # noqa: E402
 from probe_texts_corpus import domains_in  # noqa: E402
 
+from ark.english_share import english_weights  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
@@ -85,6 +95,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     ap.add_argument("--write", action="store_true")
+    ap.add_argument(
+        "--tag",
+        default="",
+        help="suffix for the journal names, required on a re-run: the file ledger keys on "
+        "content, so rewriting a journal already ingested is refused as a hash mismatch",
+    )
     args = ap.parse_args()
 
     if not args.root.is_dir():
@@ -123,8 +139,10 @@ def main() -> None:
     finally:
         conn.close()
 
+    weights = english_weights()
     dated, candidates = [], []
     fresh = 0
+    fresh_ee = Decimal(0)
     for (domain, year), origin in sorted(seen.items()):
         record = {
             "domain": domain,
@@ -135,22 +153,25 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(record)
-            fresh += (domain, year) not in held
+            if (domain, year) not in held:
+                fresh += 1
+                fresh_ee += weights.get(domain.rsplit(".", 1)[-1], Decimal(0))
         else:
             candidates.append(record)
 
     print("documents:", dict(stats))
     print(f"in-window (domain, year) rows: {len(seen):,}")
     print(f"  corroborated elsewhere -> dated_directory : {len(dated):,}")
-    print(f"    of those, not yet held                  : {fresh:,}")
+    print(f"    of those, not yet held                  : {fresh:,}  worth {fresh_ee:,.1f} EE")
     print(f"  seen only here -> candidate pool          : {len(candidates):,}")
     if not args.write:
         print("\ndry run; pass --write to create both journals")
         return
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{args.tag}" if args.tag else ""
     for name, batch in (("rtfm_dated", dated), ("rtfm_candidates", candidates)):
-        path = OUT_DIR / f"{name}.jsonl.gz"
+        path = OUT_DIR / f"{name}{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)

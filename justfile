@@ -113,10 +113,22 @@ journals:
     uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
     uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated.jsonl.gz
     uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
+    uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated_reextract.jsonl.gz
+    uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
+    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
     uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
     uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
+    uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+    uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
     uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
     uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american_bare.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american_bare.jsonl.gz
     uv run ark ingest-lang                data/raw/lang/lang_*.jsonl.gz
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
@@ -224,6 +236,16 @@ rdap-batch n="2500":
     uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt
     uv run ark rdap data/raw/rdap/creation_candidates.txt -n {{n}}
 
+# sweep the candidate pool at the registries, which competes with no CDX engine.
+# Direct endpoints from the IANA bootstrap file: measured 75 q/s with no refusals,
+# against 0.83 q/s and 18.8% refused through the rdap.org redirector.
+rdap-pool tlds="com,net" batches="6" limit="100000" workers="32":
+    uv run python scripts/build_rdap_pool_list.py --tlds {{tlds}} \
+        --out data/raw/rdap/pool_targets_{{tlds}}.txt
+    LIST=data/raw/rdap/pool_targets_{{tlds}}.txt \
+        bash scripts/rdap_pool_sweep.sh {{batches}} {{limit}} {{workers}}
+    uv run ark ingest rdap_snapshot data/raw/rdap/rdap_pool_*.jsonl.gz
+
 # one page-expansion round (brief section VII). Pass a seed list and a round
 # number, e.g. `just expand-round seeds/expansion/seeds_round4.txt 5`. The split
 # step is not optional: it keeps a curated page's transcription typos out of
@@ -291,11 +313,25 @@ usenet-addresses mode="addresses" workers="10":
     uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated.jsonl.gz
     uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates.jsonl.gz
 
+# Sends no request and takes about three hours of CPU at 8 workers. Run
+# `--sample 400` first if you want the projection before committing to it.
+# bare `foo.com` in the Usenet bodies, the form no extractor has ever read
+usenet-bare workers="8":
+    uv run python scripts/collect_usenet_bare.py --workers {{workers}}
+    uv run python scripts/split_usenet_addresses.py --in-dir data/raw/usenet_bare --out-prefix usenet_bare --write
+    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+
+# Pass a tag on any re-run: it imports `probe_texts_corpus.domains_in`, so it
+# inherits that extractor's fixes, and the ledger refuses a rewritten journal.
 # the rtfm.mit.edu FAQ mirror, dated by revision header rather than repost date
-rtfm-faqs:
-    uv run python scripts/split_rtfm_faqs.py --write
-    uv run ark ingest rtfm_dated      data/raw/rtfm/rtfm_dated.jsonl.gz
-    uv run ark ingest rtfm_candidates data/raw/rtfm/rtfm_candidates.jsonl.gz
+rtfm-faqs tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    suffix=""; [ -n "{{tag}}" ] && suffix="_{{tag}}"
+    uv run python scripts/split_rtfm_faqs.py --write --tag "{{tag}}"
+    uv run ark ingest rtfm_dated      "data/raw/rtfm/rtfm_dated${suffix}.jsonl.gz"
+    uv run ark ingest rtfm_candidates "data/raw/rtfm/rtfm_candidates${suffix}.jsonl.gz"
 
 # Run --discover first: several plausible collection names do not exist and
 # silently return zero when queried with a collection: prefix.
@@ -307,6 +343,24 @@ trade-press limit="5000":
     uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
     uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
 
+# Both corpora are already worked and ingested; this is here to reproduce, not to
+# re-run. The collector writes a fresh timestamped journal, so pass its name to
+# the split. --tag keeps the ledger happy: tradepress_dated.jsonl.gz is taken.
+# the American trade weeklies, the second corpus and now the collector default
+trade-press-american journal="data/raw/tradepress/tradepress_20260808T172417Z.jsonl.gz":
+    uv run python scripts/collect_trade_press.py --limit 1400 --delay 0.6
+    uv run python scripts/split_trade_press.py --journal {{journal}} --tag american --write
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+
+# Sends no request: it re-reads the OCR under data/raw/texts/cache. Worth running
+# after any trade-press or rtfm collection, since both share the extractor that
+# used to drop bare two-label domains.
+# re-read cached trade-press OCR with the corrected domain extractor
+trade-press-reextract:
+    uv run python scripts/reextract_trade_press.py --write
+    @echo "now split the journal it names, with --tag reextract, then ingest both halves"
+
 # Pause `maintain` first: the extraction runs for minutes before it writes, and
 # it has no store-lock retry, so a maintain pass landing mid-run loses the work.
 # the FERC-released Enron mail corpus, dated by each message's Date header
@@ -314,6 +368,14 @@ enron:
     uv run python scripts/collect_enron.py --write
     uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
     uv run ark ingest enron_candidates data/raw/enron/enron_candidates.jsonl.gz
+
+# Harvest first, then parse: `--harvest` fetches about 2,600 month files from
+# two pipermail hosts, which takes six minutes and no archive.org budget.
+# public pipermail list archives, dated by each message's Date header
+maillists:
+    uv run python scripts/collect_mailing_lists.py --harvest --write
+    uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+    uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
 
 # the Tucows software catalogue: release date plus vendor home page
 tucows:

@@ -49,6 +49,16 @@ DATE_BASIS = {
     "afnic_fr": "registry creation date",
     "isc_survey": "survey run date",
     "early_web_cdx": "Wayback capture timestamp",
+    "rdap_snapshot": "the registry's own `registration` event date",
+    "rdap": "the registry's own `registration` event date",
+    "maillist_archive": "the message `Date:` header",
+    "page_directory": "capture timestamp of the archived catalogue page",
+    "page_expansion": "capture timestamp of the archived page",
+    "ukwa_link_source": "UK Web Archive crawl date",
+    "ncsa_whats_new": "the announcement page's own date",
+    "internet_scout": "the Scout Report issue date",
+    "arquivo_ia": "capture timestamp",
+    "arquivo_roteiro": "capture timestamp",
 }
 
 DB = Path("data/ark.duckdb")

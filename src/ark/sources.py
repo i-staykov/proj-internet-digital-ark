@@ -491,12 +491,15 @@ def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 if not years:
                     stats["outside_window"] += 1
                     continue
+                # journals written before direct routing carry no `url`, so the
+                # redirector stays the fallback: it is where those queries went
+                url = record.get("url") or f"{RDAP_REDIRECTOR}{domain}"
                 for target_year in years:
                     yield BulkRecord(
                         raw=domain,
                         year=target_year,
                         evidence_value=f"rdap creation {year}",
-                        evidence_url=f"{RDAP_REDIRECTOR}{domain}",
+                        evidence_url=url,
                     )
     except (EOFError, OSError):
         # journal from an interrupted run; everything before the last flush was
@@ -856,6 +859,25 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="usenet_post_address_mention",
         parse=_parse_usenet_journal,
     ),
+    # Addresses written bare in the body of the same Usenet messages, `foo.com`
+    # with no scheme and no `www.`. See `ark.usenet.bare_domains_in_body` for the
+    # guards and for why the corroboration split, not the pattern, is what makes
+    # the recall safe. Its own source name so the addition can be measured and
+    # dropped without disturbing what `usenet_announce` already claimed.
+    "usenet_bare_dated": SourceSpec(
+        key="usenet_bare_dated",
+        source_name="usenet_bare",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_bare_host",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_bare_candidates": SourceSpec(
+        key="usenet_bare_candidates",
+        source_name="usenet_bare_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_bare_host_mention",
+        parse=_parse_usenet_journal,
+    ),
     # The FERC-released Enron corpus: ~517,000 dated 1999-2002 business emails.
     # A dated message naming a domain attests it, exactly as a dated Usenet post
     # does. Its own lineage, because corporate email is independent of every
@@ -872,6 +894,24 @@ SOURCES: dict[str, SourceSpec] = {
         source_name="enron_email_mention",
         evidence_type="link_target",
         acquisition_method="enron_message_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # Public pipermail mailing-list archives, one month file per list per month,
+    # each message dated by its own `Date:` header. Same shape as a dated Usenet
+    # post and the same corroboration split. Newsgroup-gatewayed lists are left
+    # out at collection time, see `scripts/collect_mailing_lists.py`.
+    "maillist_dated": SourceSpec(
+        key="maillist_dated",
+        source_name="maillist_archive",
+        evidence_type="dated_directory",
+        acquisition_method="maillist_message_date",
+        parse=_parse_usenet_journal,
+    ),
+    "maillist_candidates": SourceSpec(
+        key="maillist_candidates",
+        source_name="maillist_archive_mention",
+        evidence_type="link_target",
+        acquisition_method="maillist_message_mention",
         parse=_parse_usenet_journal,
     ),
     "usenet_dated": SourceSpec(

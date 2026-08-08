@@ -11,39 +11,72 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **835,498** |
-| Over unique domains | 598,589 |
-| Domains absent from the baseline in every year | **17,891** |
-| Equivalent-English added | **529,039.3** |
-| Growth on the 5,622,984.6 baseline | **9.4085%** |
-| Mean equivalent-English weight per pair | 0.6332 |
+| Net-new (domain, year) pairs | **933,675** |
+| Over unique domains | 675,480 |
+| Domains absent from the baseline in every year | **67,495** |
+| Equivalent-English added | **591,455.8** |
+| Growth on the 5,622,984.6 baseline | **10.5185%** |
+| Mean equivalent-English weight per pair | 0.6335 |
 
 | Year | merged260802, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 623,012 | 21,146 | 72 (0.3%) |
-| 1997 | 1,281,371 | 51,891 | 1,497 (2.9%) |
-| 1998 | 970,963 | 157,450 | 17,897 (11.4%) |
-| 1999 | 1,537,182 | 234,060 | 26,254 (11.2%) |
-| 2000 | 1,555,211 | 222,112 | 47,381 (21.3%) |
-| 2001 | 2,817,881 | 148,839 | 30,412 (20.4%) |
-| **Total** | **8,785,620** | **835,498** | **123,513 (14.8%)** |
+| 1996 | 623,012 | 25,291 | 72 (0.3%) |
+| 1997 | 1,281,371 | 59,084 | 1,497 (2.5%) |
+| 1998 | 970,963 | 176,669 | 17,903 (10.1%) |
+| 1999 | 1,537,182 | 259,670 | 26,307 (10.1%) |
+| 2000 | 1,555,211 | 247,972 | 47,811 (19.3%) |
+| 2001 | 2,817,881 | 164,989 | 31,438 (19.1%) |
+| **Total** | **8,785,620** | **933,675** | **125,028 (13.4%)** |
 
 ## 2. Where the additions come from
 
 | Source | What carries the date | Net-new pairs | Domains | Equivalent-English |
 |---|---|--:|--:|--:|
 | `usenet_announce` | post date of the announcement | 585,175 | 453,014 | 348,669.9 |
-| `ia_cdx_bulk` | Wayback capture timestamp | 104,484 | 75,700 | 84,546.6 |
+| `ia_cdx_bulk` | Wayback capture timestamp | 105,999 | 76,754 | 86,033.2 |
 | `usenet_address` | post date of the message carrying the address | 107,304 | 94,528 | 64,960.8 |
+| `usenet_bare` | see `sources.md` | 42,139 | 38,416 | 28,460.3 |
+| `rdap_snapshot` | the registry's own `registration` event date | 47,221 | 47,221 | 28,281.9 |
 | `uucp_map_registry` | posting date of the registry's generated dump | 23,678 | 16,985 | 19,806.2 |
+| `rtfm_faq` | the FAQ's revision header | 5,166 | 5,080 | 4,084.2 |
 | `uucp_map_creation` | the registrar's own `approved:` date | 4,793 | 4,793 | 4,009.3 |
 | `enron_email` | the message `Date:` header | 5,134 | 4,610 | 3,241.9 |
-| `rtfm_faq` | the FAQ's revision header | 3,596 | 3,525 | 2,916.8 |
-| `trade_press` | the issue cover date | 1,334 | 1,269 | 887.7 |
-| **Total** | | **835,498** | **598,589** | **529,039.3** |
+| `trade_press` | the issue cover date | 3,740 | 3,484 | 2,401.9 |
+| `maillist_archive` | the message `Date:` header | 1,458 | 1,363 | 833.2 |
+| `isc_survey` | survey run date | 1,857 | 1,857 | 665.2 |
+| `page_directory` | capture timestamp of the archived catalogue page | 11 | 11 | 7.7 |
+| **Total** | | **933,675** | **675,480** | **591,455.8** |
 
-Five source families are new this round. Each is described by the **artifact that carries the date**,
-because that is what decides whether a (domain, year) pair is worth anything.
+Each source below is described by the **artifact that carries the date**, because that is what decides
+whether a (domain, year) pair is worth anything.
+
+### `rdap_snapshot`: registry creation dates, asked of the candidate pool
+
+The registry's own `registration` event, read from the authoritative RDAP server for each TLD. This is
+the strongest evidence class in the collection and the only one that needs no corroboration, because a
+registry record is not free text: the registry is the authority on when a name was created.
+
+What is new is not the source but the **population**. Until now creation dates were only ever asked
+about domains that already held a year, looking for a missing year beside a held one. The candidate
+pool, names held with no year at all, had never been asked. A creation date landing in window gives
+such a name its **first** year, which makes it a net-new domain and not merely a net-new pair.
+
+Two limits, both deliberate. A creation date supports the annual file for the year it falls in and
+**nothing later**: it does not establish that the domain remained registered afterwards. And a domain
+whose creation date falls outside 1996-2001 attests nothing and stays in the candidate pool.
+
+### `usenet_bare`: the addresses written without `www.`
+
+Same corpus again, no new downloads. The extractor read `http://` URLs and hosts beginning `www.`,
+and refused a bare `foo.com` on the grounds that in running prose such a string is more often a
+company name, a file name or half an email address than a website. In 1996-1999 people wrote bare
+addresses constantly, so that refusal was expensive.
+
+What makes reading them safe is the corroboration rule below: a string that is really a file name is
+not a domain any independent source has attested, so it cannot reach an annual file. Of 601,738 gross
+pairs found, **269,773 were already asserted by the two Usenet sources above** and **36.3% were
+uncorroborated and went to the candidate pool**. The figure reported here is the marginal remainder,
+not the gross, which would have overstated the source fifteenfold.
 
 ### `usenet_address`: the addresses the extractor never read
 
@@ -99,11 +132,18 @@ and the store enforces that rather than counting distinct source names. The line
 
 | | |
 |---|--:|
-| Pairs confirmed by two or more independent lineages | **3,054,108** |
-| of those, net-new this round | 50,840 |
-| Mean distinct sources per asserted pair | 1.7114 |
+| Pairs confirmed by two or more independent lineages | **3,109,126** |
+| of those, net-new this round | 78,308 |
+| Mean distinct sources per asserted pair | 1.7444 |
 
-**One limitation, stated plainly.** All 835,498 pairs added this round are **language-unchecked**.
+**One flaw in that table, stated rather than buried.** 1,200 pairs, 2.8% of `usenet_bare`, are first
+seen in `comp.mail.maps` and `can.uucp.maps`, the newsgroups the UUCP registry parser also reads. A
+pair carrying evidence from both can appear to hold two independent lineages when it is in truth one
+posting read two ways. It affects neither the equivalent-English figure nor the validity of any pair,
+only the independent-corroboration count above, by roughly 0.04%. It is filterable by group name
+without re-ingesting, and is recorded in `sources.md`.
+
+**One limitation, stated plainly.** All 933,675 pairs added this round are **language-unchecked**.
 The equivalent-English figure above is unaffected, since it is derived from the TLD distribution and
 not from page text. But the page-level English verification of feedback section 6 has not been run
 over these additions, so `additions_english/` is empty for this round and everything ships in

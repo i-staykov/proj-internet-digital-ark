@@ -1,4 +1,4 @@
-"""RDAP creation-year extraction, the attested-year rule, and retry logic.
+"""RDAP creation-year extraction, the attested-year rule, retries, and routing.
 
 Network is never touched: `fetch` and `sleep` are injected.
 """
@@ -6,12 +6,17 @@ Network is never touched: `fetch` and `sleep` are injected.
 import json
 
 from ark.rdap import (
+    RDAP_REDIRECTOR,
+    Router,
     attested_years,
     creation_year,
     journal_path,
+    load_registries,
     lookup,
     open_journal_for_write,
+    parse_bootstrap,
     queried_domains,
+    rdap_url,
     registration_year,
     write_journal_line,
 )
@@ -115,3 +120,124 @@ def test_journal_round_trip_and_resume_set(tmp_path) -> None:
 
 def test_resume_set_is_empty_for_a_missing_folder(tmp_path) -> None:
     assert queried_domains(tmp_path / "nope") == set()
+
+
+_BOOTSTRAP = json.dumps(
+    {
+        "version": "1.0",
+        "services": [
+            [["com", "net"], ["https://rdap.verisign.com/com/v1/"]],
+            [["org"], ["http://legacy.example/", "https://rdap.pir.org/rdap/"]],
+        ],
+    }
+)
+
+
+def test_parse_bootstrap_maps_every_tld_and_prefers_https() -> None:
+    registries = parse_bootstrap(_BOOTSTRAP)
+    assert registries["com"] == "https://rdap.verisign.com/com/v1/"
+    # a service entry naming several TLDs maps all of them
+    assert registries["net"] == "https://rdap.verisign.com/com/v1/"
+    # https wins over the http alternative the same service publishes
+    assert registries["org"] == "https://rdap.pir.org/rdap/"
+
+
+def test_parse_bootstrap_survives_garbage() -> None:
+    assert parse_bootstrap("not json") == {}
+    assert parse_bootstrap(json.dumps({"services": [["only-tlds"]]})) == {}
+
+
+def test_rdap_url_goes_direct_when_the_registry_is_known() -> None:
+    registries = parse_bootstrap(_BOOTSTRAP)
+    assert rdap_url("x.com", registries) == "https://rdap.verisign.com/com/v1/domain/x.com"
+
+
+def test_rdap_url_falls_back_to_the_redirector() -> None:
+    # a TLD with no bootstrap entry, and a name with no dot at all
+    assert rdap_url("x.example", parse_bootstrap(_BOOTSTRAP)) == f"{RDAP_REDIRECTOR}x.example"
+    assert rdap_url("localhost", {}) == f"{RDAP_REDIRECTOR}localhost"
+
+
+def test_load_registries_caches_the_bootstrap_and_reuses_it(tmp_path) -> None:
+    cache = tmp_path / "dns.json"
+    calls = {"n": 0}
+
+    def fetch(_url: str) -> tuple[int, str]:
+        calls["n"] += 1
+        return 200, _BOOTSTRAP
+
+    assert load_registries(cache, fetch)["com"].startswith("https://rdap.verisign.com")
+    assert cache.exists()
+    # a fresh cache is read from disk rather than re-fetched
+    assert load_registries(cache, fetch)["net"]
+    assert calls["n"] == 1
+
+
+def test_load_registries_keeps_the_cache_when_the_refresh_fails(tmp_path) -> None:
+    cache = tmp_path / "dns.json"
+    cache.write_text(_BOOTSTRAP, encoding="utf-8")
+    # stale by a year, and IANA refuses: the cached map is still better than none
+    registries = load_registries(cache, lambda _u: (503, ""), max_age=0.0)
+    assert registries["com"] == "https://rdap.verisign.com/com/v1/"
+
+
+def test_load_registries_is_empty_with_no_cache_and_no_answer(tmp_path) -> None:
+    # an empty map is a valid answer: every query then goes via the redirector
+    assert load_registries(tmp_path / "missing.json", lambda _u: (0, "")) == {}
+
+
+def test_router_paces_each_registry_separately() -> None:
+    router = Router(parse_bootstrap(_BOOTSTRAP))
+    com = router.governor(router.url("x.com"))
+    net = router.governor(router.url("y.net"))
+    org = router.governor(router.url("z.org"))
+    # .com and .net share a registry host, so they share one pace
+    assert com is net
+    # a different registry gets its own, so one refusing never slows the others
+    assert org is not com
+
+
+def test_lookup_records_the_endpoint_it_used() -> None:
+    router = Router(parse_bootstrap(_BOOTSTRAP))
+    seen: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str]:
+        seen.append(url)
+        return 200, _BODY
+
+    record = lookup("x.com", fetch, sleep=_no_sleep, router=router)
+    assert seen == ["https://rdap.verisign.com/com/v1/domain/x.com"]
+    # the journal keeps the endpoint, so the evidence URL is the one asked
+    assert record["url"] == "https://rdap.verisign.com/com/v1/domain/x.com"
+    assert record["creation_year"] == 1998
+
+
+def test_lookup_without_a_router_still_uses_the_redirector() -> None:
+    record = lookup("x.com", fetch=lambda _u: (200, _BODY), sleep=_no_sleep)
+    assert record["url"] == f"{RDAP_REDIRECTOR}x.com"
+
+
+def test_a_403_block_slows_the_registry_down_and_never_settles_the_domain() -> None:
+    # PIR answered ~850 .org queries then returned 403 for 9,253 in a row on
+    # 2026-08-08. A block has to reach the governor, or the run keeps asking.
+    from ark.rdap import answered
+
+    router = Router(parse_bootstrap(_BOOTSTRAP))
+    governor = router.governor(router.url("x.org"))
+    before = governor.delay
+    record = lookup("x.org", fetch=lambda _u: (403, ""), retries=1, sleep=_no_sleep, router=router)
+    assert record["status"] == 403
+    assert governor.delay > before
+    assert governor.throttles == 1
+    # and a blocked query is not an answer, so the name stays queryable
+    assert not answered(record)
+
+
+def test_a_refusal_never_settles_a_domain_however_it_was_routed() -> None:
+    router = Router(parse_bootstrap(_BOOTSTRAP))
+    record = lookup("x.com", fetch=lambda _u: (429, ""), retries=1, sleep=_no_sleep, router=router)
+    assert record["status"] == 429
+    # the hard rule: a 429 is not an answer, so the domain stays queryable
+    from ark.rdap import answered
+
+    assert not answered(record)

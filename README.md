@@ -182,6 +182,23 @@ uv run python scripts/build_pool_candidates.py   # -> data/raw/cdx/pool_candidat
 uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_*.jsonl.gz
 ```
 
+The same pool can be asked of the registries instead of the archive, and that route competes with
+nothing `ark cdx` uses. `ark rdap` goes straight to the authoritative RDAP server for each TLD,
+resolved from the IANA bootstrap file, with `rdap.org` kept only as a fallback: measured 2026-08-08,
+that is **75 queries a second with no refusals** against 0.83 q/s and 18.8% refused through the
+redirector.
+
+```bash
+uv run python scripts/build_rdap_pool_list.py --tlds com,net --limit 1400000 \
+    --out data/raw/rdap/pool_targets_verisign.txt
+bash scripts/rdap_pool_sweep.sh 6 100000 32      # batches x queries x workers
+uv run ark ingest rdap_snapshot data/raw/rdap/rdap_pool_*.jsonl.gz
+```
+
+Probe a registry before spending a night on it (`--tlds` accepts one TLD, and 150 queries is
+enough). `.au` sorted first in the queue on expected equivalent-English and returned no in-window
+date at all, because auDA re-registered the namespace in 2002.
+
 ### One queue, not two
 
 Keeping the two populations in two lists forced a choice about which to work, and on 7 August that
@@ -263,6 +280,8 @@ just uucp-maps            # +23,815 EE  a .CA registry dump the Usenet parser re
 just usenet-addresses     # +64,961 EE  ftp://, mailto: and body addresses it never read
 just rtfm-faqs            #  +2,917 EE  the Usenet FAQ mirror, dated by revision header
 just trade-press          #    +888 EE  scanned computer magazines, dated by issue
+just trade-press-american #    +453 EE  the American trade weeklies, the second corpus
+just trade-press-reextract#    +552 EE  the same issues re-read for bare `foo.com` names
 ```
 
 **Two of the four came from files the project had already downloaded and marked processed.**
@@ -340,6 +359,25 @@ uv run ark ingest expansion_links \
 Or `just expand-round seeds/expansion/seeds_round4.txt 5`. The split sends links from domains the
 store already attests to dated evidence, and never-before-seen names to the candidate pool.
 
+`scripts/collect_yahoo_directory.py` is the same route pointed at the 1996-1997 Yahoo catalogue
+under `www.yahoo.com/<Category>/`, which is the one slice of it CDX will not enumerate. It is kept
+for replay and is deliberately **not** in `just`, because it was measured and rejected: 55 archive
+requests bought 11 pairs and 7.7295 EE, 0.1405 per request against the gap engine's 0.959.
+
+```bash
+uv run python scripts/collect_yahoo_directory.py --budget 30 --workers 3 \
+    --target 19961101000000 --write --out data/raw/yahoo96/yahoo96_pilot1996.jsonl.gz
+uv run python scripts/split_expansion_journal.py \
+    data/raw/yahoo96/yahoo96_pilot1996.jsonl.gz --write
+uv run ark ingest expansion_directory \
+    data/raw/yahoo96/yahoo96_pilot1996_corroborated.jsonl.gz --round 5
+```
+
+It walks the archived tree rather than listing it first, because a dated snapshot request redirects
+to the nearest capture: one request returns the capture date, the page and the next level's links,
+where enumerating would cost a second request per page. `--target` picks the year, and it matters
+more than anything else about the run. See `docs/sources.md` for why the answer was no.
+
 ### English verification
 
 ```bash
@@ -382,6 +420,61 @@ bash scripts/ingest_new_usenet.sh auto
 uv run python scripts/split_tucows.py --write
 
 bash scripts/maintain_phase3.sh 26 900   # fold finished collector output in, every 15 minutes
+```
+
+Re-read the trade-press OCR already on disk with the corrected extractor. Sends no request: the
+old pattern needed two labels before the TLD, so it read `www.foo.com` and dropped `foo.com`, and
+the pages were already downloaded. Writes a fresh journal name, because the ingest ledger keys on
+content hash and would refuse a changed file under an ingested name.
+
+```bash
+uv run python scripts/reextract_trade_press.py --write
+uv run python scripts/split_trade_press.py \
+    --journal data/raw/tradepress/tradepress_reextract_<stamp>.jsonl.gz --tag reextract --write
+uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
+uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
+```
+
+**Re-run it after every trade-press collection, not once.** The fix landed while the American
+collector was already running with the old pattern in memory, so its 1,007 issues were read
+narrowly and the second re-read was worth more than the collection: 881 net-new pairs and 551.83
+equivalent-English, against 452.50 for the ninety minutes of fetching. Use a fresh `--tag` each
+time, since `_reextract` is already in the ledger.
+
+Public pipermail mailing-list archives, added 8 August. Harvests 2,558 in-window month files from
+`mail.python.org` and `mail.gnome.org`, about six minutes and 740 MB, and sends **no**
+`web.archive.org` request, so it competes with nothing the engines are doing. Measured at
+**+833.17 EE** over 1,458 net-new pairs.
+
+```bash
+just maillists          # harvest, split by corroboration, ingest both halves
+```
+
+Do not extend it to more hosts on hope: per in-window message it yields 0.0013 equivalent-English
+against the Enron corpus's 0.0067, so the whole family cannot cover a shortfall of thousands. The
+numbers and the reachability of the other hosts are in `docs/sources.md`.
+
+Bare hosts in the Usenet bodies, added 8 August and the largest single addition of the day at
+**+28,460.3 EE** over 42,139 net-new pairs. A plain `foo.com` written in prose was read by no
+extractor here: `usenet_announce` needs a scheme or a `www.` label, `usenet_address` needs an `@`.
+Reads the archives already on disk, sends **no** request, and takes about three hours of CPU at 8
+workers. The recall is safe because the corroboration split, not the pattern, is the evidence wall:
+36.3% of what it extracts is uncorroborated and goes to the candidate pool.
+
+```bash
+uv run python scripts/collect_usenet_bare.py --sample 400 --workers 8     # project first
+uv run python scripts/project_usenet_bare.py \
+    --journal data/raw/usenet_bare/usenet_bare_<stamp>.jsonl.gz --archives 400
+just usenet-bare                                                          # then the whole corpus
+```
+
+Re-read the rtfm FAQ mirror whenever `probe_texts_corpus.domains_in` changes. `split_rtfm_faqs.py`
+imports that extractor rather than copying it, so it inherits its fixes silently and is stale until
+re-run. Doing that on 8 August was worth **+1,167.4 EE** over 1,570 pairs, in four minutes with no
+request sent. Pass a tag, because the ingest ledger keys on content hash.
+
+```bash
+just rtfm-faqs reextract
 ```
 
 ### Reporting a round

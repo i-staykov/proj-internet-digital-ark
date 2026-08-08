@@ -72,6 +72,17 @@ for i in $(seq 1 "$ITERATIONS"); do
         uv run ark ingest cdx_snapshot "$journal" >> "$LOG" 2>&1
     done
 
+    # Registry journals, which this loop did not know about until 8 August. The
+    # RDAP sweep of the candidate pool wrote 19,705 in-window creation dates,
+    # roughly 12,000 equivalent-English, and every one of them sat unread on disk
+    # because nothing here looked. A collector whose journals no loop ingests is
+    # a collector whose work is invisible to every measurement taken afterwards,
+    # which is the same failure the VPS journals caused twice.
+    for journal in data/raw/rdap/rdap_*.jsonl.gz; do
+        [ -e "$journal" ] || continue
+        uv run ark ingest rdap_snapshot "$journal" >> "$LOG" 2>&1
+    done
+
     sleep "$PAUSE"
 done
 echo "$(date '+%F %T') maintenance loop finished" >> "$LOG"

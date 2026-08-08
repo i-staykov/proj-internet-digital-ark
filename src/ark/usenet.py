@@ -98,19 +98,59 @@ _URL = re.compile(r"https?://[^\s<>\"'\)\],;]+", re.IGNORECASE)
 # linked URL: a human writing down a website address in a message that carries its
 # own date.
 #
-# Anchored on the `www.` label rather than accepting any bare host. A bare
+# Anchored on the `www.` label rather than accepting any bare host, because a bare
 # `foo.com` in running prose is more often a company name, a file name or half an
-# email address than an address, and the evidence wall is worth more than the
-# extra recall. The lookbehind keeps it off hosts already inside a URL or an email
-# address, where the preceding character is `/` or `@`.
+# email address than an address. The lookbehind keeps it off hosts already inside
+# a URL or an email address, where the preceding character is `/` or `@`.
+#
+# `bare_domains_in_body` below reads the bare form instead, on its own source name
+# and behind the same corroboration split. This pattern stays as it is so the two
+# can be compared and so nothing already ingested changes meaning.
 _BARE_WWW = re.compile(
     r"(?<![\w.@/-])www\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+",
+    re.IGNORECASE,
+)
+# The bare form, `foo.com` with no scheme and no `www.`. Nothing above reads it,
+# and in 1996-1999 people wrote addresses this way constantly.
+#
+# The original argument for refusing it was that a bare name in prose is often not
+# an address at all. That is true and it is not the deciding fact, because **every
+# row from this corpus passes `split_by_corroboration` before it can date
+# anything**. A company name, a file name or half an email address is not a
+# registered domain any independent lineage has placed in `domain_year`, so it
+# cannot reach an annual file: it becomes a candidate and asserts nothing. The
+# evidence wall is the split, not the pattern, so the pattern can afford recall.
+#
+# Four guards remain, and each answers a real failure seen in this corpus:
+#
+#   * a **TLD allowlist**, the same one the trade-press extractor uses. The TLD is
+#     the only anchor a bare name has, so a generic dot rule fabricates domains out
+#     of sentence punctuation and file names. This is also what refuses the
+#     contamination that sank the generic token scan on `alt.bbs.lists`
+#     (`ads.my`, `article.pl`).
+#   * the **lookbehind** `(?<![\w.@/-])`, which stops a match starting inside a
+#     longer dotted token, and so keeps this off hosts already inside a URL or an
+#     email address. `_URL` and the `usenet_address` patterns own those.
+#   * the **lookahead** `(?![a-z0-9@-])`, which refuses `end.Company` (the `p`
+#     after `Com` is not a boundary) and refuses a domain-shaped email local part
+#     such as `john.com@example.org`.
+#   * **greedy labels before the TLD**, so `foo.com.au` matches whole and is not
+#     read as `foo.com`.
+#
+# Body text only, never headers. `Path:`, `Xref:` and `Newsgroups:` are dotted
+# tokens by construction, and a bare rule over them reads news servers and vanity
+# newsgroup names (`alt.isd.net`) as announced websites.
+_BARE_TLDS = "com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg"
+_BARE_DOMAIN = re.compile(
+    rf"(?<![\w.@/-])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*\.(?:{_BARE_TLDS})(?![a-z0-9@-])",
     re.IGNORECASE,
 )
 # the Giganews rewrite: a bare `YYYY/MM/DD` or `YYYY-MM-DD` where RFC 822 expects
 # "Tue, 18 Jun 1996 12:00:00 GMT"
 _ISO_DATE = re.compile(r"^(\d{4})[/-](\d{1,2})[/-](\d{1,2})")
 _MESSAGE_SEP = re.compile(rb"^From ", re.MULTILINE)
+# the RFC 822 header/body boundary, tolerating both line endings
+_BODY_SEP = re.compile(rb"\r?\n\r?\n")
 
 # Hosts that carry no registrable information of their own: free-hosting and
 # archive infrastructure collapse to one registered domain under III.8, and the
@@ -189,6 +229,45 @@ def domains_in_message(body: str, from_header: str) -> list[str]:
         if domain and domain not in INFRASTRUCTURE:
             found[domain] = None
     return list(found)
+
+
+def bare_domains_in_body(body: str) -> list[str]:
+    """Registrable domains written bare in a message body, deduplicated in order.
+
+    Deliberately separate from `domains_in_message` rather than folded into it.
+    Keeping the two apart lets the bare form carry its own source name, so a
+    reviewer can measure what it added and drop it on its own without touching
+    anything `usenet_announce` has already claimed.
+
+    Pass the body, not the whole message. See `_BARE_DOMAIN` for why.
+
+    The last guard lives here rather than in the pattern because it reads better
+    as a sentence than as a lookahead: a name whose every label before the TLD is
+    digits is a version string, not a site. `upgraded to 4.0.2.au` otherwise
+    canonicalises to `2.au`, which is a fabricated name of exactly the kind the
+    candidate pool should not be filled with. It costs the handful of genuinely
+    all-numeric domains (`123.com`), which is a price worth paying.
+    """
+    found: dict[str, None] = {}
+    for host in _BARE_DOMAIN.findall(body or ""):
+        if all(label.isdigit() for label in host.split(".")[:-1]):
+            continue
+        domain = to_registrable(host)
+        if domain and domain not in INFRASTRUCTURE:
+            found[domain] = None
+    return list(found)
+
+
+def body_of(raw: bytes) -> str:
+    """The body of a raw message, split on the first blank line.
+
+    A cheap split rather than a full `email` parse, because this runs over 507
+    million messages and the header block is exactly what must not be scanned.
+    A message with no blank line has no body and yields nothing, which is the
+    safe direction.
+    """
+    match = _BODY_SEP.search(raw)
+    return raw[match.end() :].decode("latin-1", "replace") if match else ""
 
 
 def iter_messages(path: Path) -> Iterator[bytes]:

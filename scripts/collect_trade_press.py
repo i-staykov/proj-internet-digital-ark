@@ -25,6 +25,16 @@ sampled in-window items publish no downloadable text at all. So this collector i
 pointed at computing and internet titles and nothing else, and widening it is not
 an improvement.
 
+**"Computing title" was still too coarse, which is the 8 August correction.**
+Worked in full, `collection:computermagazines` turned out to be mostly European
+hobbyist titles, so its printed addresses are mostly `.de` and `.it` and it
+returned 887.7 equivalent-English against a projected 3,200-7,600. The American
+trade weeklies are a different population inside the same evidence class: a
+sampled Computerworld issue prints 116 domains of which 106 are `.com`, and a
+sampled InfoWorld issue 91 of which 86 are `.com`. **Language and TLD mix of a
+sample are therefore checked before a corpus is committed to, not after**, which
+is the step that cost the 5x. See `AMERICAN_QUERY` below.
+
 Two traps, both already paid for once:
 
 **Redirects.** `archive.org/download` answers 302 to a data node, so a fetch that
@@ -67,7 +77,8 @@ OUT_DIR = ROOT / "data/raw/tradepress"
 CACHE = ROOT / "data/raw/texts/cache"
 YEARS = range(1996, 2002)
 
-# Computing and internet titles only, for the 26-fold reason in the docstring.
+# The first corpus, worked in full on 8 August. Kept because a rerun has to be
+# able to reproduce it, not because it is worth running again.
 #
 # Measured with `--discover` on 8 August rather than assumed, which corrected the
 # first version of this list: `boardwatch`, `pcmag`, `wired-magazine` and
@@ -80,7 +91,46 @@ YEARS = range(1996, 2002)
 # each) and `folkscanomy_computer` (518 items, measured 36 of 40 unreachable and 2
 # net-new pairs from 40). Both are already in the rejected table of docs/sources.md
 # and adding item count is not the same as adding yield.
-DEFAULT_QUERY = "collection:computermagazines OR collection:byte-magazine OR boardwatch"
+HOBBYIST_QUERY = "collection:computermagazines OR collection:byte-magazine OR boardwatch"
+
+# The second corpus, added 8 August: the American computer trade press.
+#
+# `collection:computermagazines` turned out to be dominated by European hobbyist
+# titles, `EnigmaAmiga` and `Elettronica2000` and `Electronique_et_Loisirs`, whose
+# pages are largely not English and whose printed addresses are largely `.de` and
+# `.it`. The American weeklies are the opposite: a sampled issue of Computerworld
+# prints 116 domains of which 106 are `.com`, and a sampled issue of InfoWorld 91
+# of which 86 are `.com`. That is the TLD mix the metric rewards, and checking it
+# before committing is the step the first corpus skipped.
+#
+# Each term verified against `advancedsearch.php` on 8 August, not assumed. The
+# four terms are disjoint and total 1,288 in-window items:
+#
+#   collection:computerworld       632   the IDG weekly, scanned, English
+#   collection:pub_computerworld   309   the same weekly off microfilm, `sim_*`
+#   collection:applemagazines      290   Macworld and MacAddict, US editions
+#   Google Books trade scans        57   InfoWorld, Network World, PC Mag
+#
+# Names from the brief that do NOT resolve, checked one by one: there is no
+# `pub_infoworld`, `pub_network-world`, `pub_pc-week`, `pub_internet-world`,
+# `pub_cio`, `pub_web-techniques` or `sim_eweek`, in or out of window, and no
+# `sim_*` microfilm run of any computing title except Computerworld. InfoWorld and
+# Network World survive only as Google Books scans under `bub_gb_*` identifiers,
+# which is why that term is written by identifier and title rather than by
+# collection.
+#
+# `collection:sim_microfilm` at large is rejected for the `magazine_rack` reason:
+# 57,245 in-window items, but a 1,500-item sample is scientific journals and
+# government gazettes, and a large share of it is single-page "Table of Contents"
+# and "Index" stubs that print no addresses at all.
+AMERICAN_QUERY = (
+    "collection:computerworld OR collection:pub_computerworld "
+    "OR collection:applemagazines "
+    'OR (identifier:bub_gb* AND (title:infoworld OR title:"network world" '
+    'OR title:computerworld OR title:"pc mag"))'
+)
+
+DEFAULT_QUERY = AMERICAN_QUERY
 
 
 def enumerate_items(query: str, page_size: int = 500, max_pages: int = 40) -> list[dict]:
@@ -132,6 +182,22 @@ def discover() -> None:
         "linuxjournal",
         "drdobbs",
         "folkscanomy_computer",
+        # American trade press, checked 8 August. The four that answer are in
+        # AMERICAN_QUERY; the rest are here so the next person sees the negative
+        # result rather than re-deriving it.
+        "computerworld",
+        "internationaldatagroup",
+        "pub_computerworld",
+        "pub_infoworld",
+        "pub_network-world",
+        "pub_pc-week",
+        "pub_internet-world",
+        "pub_cio",
+        "pub_web-techniques",
+        "applemagazines",
+        "macworld-magazine",
+        "pccomputermagazines",
+        "computermagazinesmisc",
     ):
         params = urllib.parse.urlencode(
             {
