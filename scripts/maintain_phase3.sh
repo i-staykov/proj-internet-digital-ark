@@ -19,8 +19,26 @@ PAUSE="${2:-900}"
 LOG="data/logs/maintain_phase3.log"
 mkdir -p data/logs
 
+VPS="${ARK_VPS:-digga@10.1.0.6}"
+VPS_REPO="${ARK_VPS_REPO:-/projects/proj-internet-digital-ark}"
+
 for i in $(seq 1 "$ITERATIONS"); do
     echo "$(date '+%F %T') pass ${i}" >> "$LOG"
+
+    # Fetch the other machine's journals before ingesting anything, because work
+    # that is still on the VPS appears in no number measured here. Leaving this to
+    # a human has failed twice: 5,793 year-records sat remote for a day and a half
+    # in July, and 1,500 queries sat remote overnight on 7 August while a monitor
+    # with a stale filename glob reported everything home.
+    #
+    # `--ignore-existing` never rewrites a journal already here, and a failure is
+    # not fatal: the VPN is often down, and a pass that cannot reach the VPS should
+    # still fold in everything local. `-o BatchMode=yes` so a missing key fails fast
+    # rather than blocking the loop on a password prompt.
+    rsync -a --ignore-existing --timeout=120 \
+        -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        "${VPS}:${VPS_REPO}/data/raw/cdx/cdx_*.jsonl.gz" data/raw/cdx/ \
+        >> "$LOG" 2>&1 || echo "  vps unreachable this pass, continuing" >> "$LOG"
 
     bash scripts/ingest_new_usenet.sh auto >> "$LOG" 2>&1
 
