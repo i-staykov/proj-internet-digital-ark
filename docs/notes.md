@@ -2867,3 +2867,26 @@ reviewer. It does not survive.
   ordering is kept or the hit rate is re-estimated and the queue rebuilt
 - **The downside is bounded and worth naming.** If the new candidates hit poorly, the cost
   is an hour or two of one engine's time and the fix is a rebuild with a measured rate
+
+## 2026-08-08 (two invariants still skip, and the reason is a real coverage gap)
+
+- **`english_files_hold_only_verified_english` and `the_two_shipped_sets_are_disjoint`
+  have skipped all day, and running `ark export` did not change that.** The exported
+  English annual files are empty, so the checks correctly have nothing to read. They are
+  skipping rather than failing, which is the honest behaviour, but "ALL PASS" over ten of
+  twelve should not be read as twelve
+- **The cause is coverage, not a defect.** The store holds 9,234 `english` verdicts, all
+  at the current `ENGINE_VERSION = 3`, so none are stale. They sit on baseline domains
+  classified in early August. **All 824,381 of this round's additions are
+  language-unchecked**, and today's 147,502 new pairs are the largest part of that
+- **It does not affect the reported increment.** Equivalent-English is computed from the
+  right-most TLD's English share, which needs no per-domain classification, so the
+  9.2626% figure is unaffected. What is missing is the separate page-level verification
+  the feedback asks for alongside it, and the shipped English/unverified partition
+  therefore currently puts everything in `unverified`
+- **The cost of closing it is why it is open.** `ark lang` yields one classified pair per
+  three archive requests and adds no year, against the gap engine's 0.5 net-new domains
+  and 0.8 net-new pairs per request. With 824,381 pairs to classify it is months of
+  archive budget, and it competes directly with the collection that is still producing.
+  Worth raising with the reviewer as a scope question rather than silently absorbing:
+  the metric he scores on does not need it, and the standard he wrote does
