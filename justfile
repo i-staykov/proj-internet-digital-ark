@@ -263,6 +263,39 @@ usenet-measure *archives:
 usenet-ingest tag="auto":
     bash scripts/ingest_new_usenet.sh {{tag}}
 
+# Sources added 8 August, all from data already on disk or free to fetch.
+
+# UUCP maps from comp.mail.maps: a .CA registry dump the Usenet parser read as prose
+uucp-maps:
+    uv run python scripts/split_uucp_maps.py --write
+    uv run ark ingest uucp_listing  data/raw/uucp/uucp_listing.jsonl.gz
+    uv run ark ingest uucp_creation data/raw/uucp/uucp_creation.jsonl.gz
+    uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
+
+# mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host.
+# ftp://, mailto: and body addresses the Usenet extractor never read
+usenet-addresses mode="addresses" workers="10":
+    uv run python scripts/collect_usenet_addresses.py --mode {{mode}} --workers {{workers}}
+    uv run python scripts/split_usenet_addresses.py --write
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates.jsonl.gz
+
+# the rtfm.mit.edu FAQ mirror, dated by revision header rather than repost date
+rtfm-faqs:
+    uv run python scripts/split_rtfm_faqs.py --write
+    uv run ark ingest rtfm_dated      data/raw/rtfm/rtfm_dated.jsonl.gz
+    uv run ark ingest rtfm_candidates data/raw/rtfm/rtfm_candidates.jsonl.gz
+
+# Run --discover first: several plausible collection names do not exist and
+# silently return zero when queried with a collection: prefix.
+# scanned computer magazines on archive.org, dated by issue
+trade-press limit="5000":
+    uv run python scripts/collect_trade_press.py --discover
+    uv run python scripts/collect_trade_press.py --limit {{limit}}
+    uv run python scripts/split_trade_press.py --write
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+
 # the Tucows software catalogue: release date plus vendor home page
 tucows:
     uv run python scripts/split_tucows.py --write

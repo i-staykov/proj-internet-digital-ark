@@ -239,6 +239,35 @@ Check both machines at once, including whether the remote journals have been bro
 just engines
 ```
 
+### Sources added 8 August
+
+Four collectors, all reading data already on disk or free to fetch, none competing for
+`web.archive.org` capacity. Measured yields are in `docs/sources.md`.
+
+```bash
+just uucp-maps            # +23,815 EE  a .CA registry dump the Usenet parser read as prose
+just usenet-addresses     # +64,961 EE  ftp://, mailto: and body addresses it never read
+just rtfm-faqs            #  +2,917 EE  the Usenet FAQ mirror, dated by revision header
+just trade-press          #    +888 EE  scanned computer magazines, dated by issue
+```
+
+**Two of the four came from files the project had already downloaded and marked processed.**
+`comp.mail.maps.mbox.zip` had been in `.processed` since 7 August with 1,480,910 registry entries
+read as nothing, because `domains_in_message` looks for http(s) URLs, bare `www.` hosts and the
+`From:` address, and a UUCP map entry contains none of those. Before writing off a source, check
+what the parser actually reads: a payload in a record format is invisible to a URL regex.
+
+**Each takes the corroboration split, and for `usenet_address` that is what makes it safe.** A pair
+is admitted only when another source already places the domain in an annual file, so a name
+invented by a bad regex cannot reach the annual files. Verified after ingest: **0 of the 92,965
+domains carrying a `usenet_address` assignment lack evidence from another source.** Fabrication
+risk on the dated half is zero by construction rather than by inspection.
+
+**Quote the post-split number, never the raw one.** The raw recovered set was 2,440,926 pairs and
+the admitted net-new figure is 107,304: quoting the former would have overstated the source
+24-fold. A 120-archive pilot's linear extrapolation said 1.9M equivalent-English against a true
+62,821, so a sample of 0.58% of a corpus that repeats itself proves the shape and not the total.
+
 ### Pausing and resuming
 
 ```bash
