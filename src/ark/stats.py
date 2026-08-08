@@ -98,6 +98,11 @@ PROVENANCE_LINEAGE = {
     # pair is one source of evidence, not two.
     "rtfm_faq": "usenet",
     "rtfm_faq_mention": "usenet",
+    # Addresses recovered from the same Usenet messages. Same body of
+    # observation, so the same lineage: an announcement post and a body address
+    # in that post confirming one pair is one observation, not two.
+    "usenet_address": "usenet",
+    "usenet_address_mention": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

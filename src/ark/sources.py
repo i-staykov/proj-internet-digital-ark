@@ -839,6 +839,23 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="rtfm_faq_mention",
         parse=_parse_usenet_journal,
     ),
+    # Addresses in the same Usenet messages that `domains_in_message` never looked
+    # at: `ftp://` hosts, `mailto:` links and typed addresses in the body. Same
+    # corpus, same risk, so the same corroboration split.
+    "usenet_addr_dated": SourceSpec(
+        key="usenet_addr_dated",
+        source_name="usenet_address",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_address",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_addr_candidates": SourceSpec(
+        key="usenet_addr_candidates",
+        source_name="usenet_address_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_address_mention",
+        parse=_parse_usenet_journal,
+    ),
     "usenet_dated": SourceSpec(
         key="usenet_dated",
         source_name="usenet_announce",
