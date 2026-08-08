@@ -123,27 +123,25 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # a flat glob: a ledgered CDX journal once sat one directory down and was matched
 # by neither the packaging glob nor the ingest glob, so the evidence behind a
 # headline result was the evidence that did not ship.
-find data/raw/cdx -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
-find data/raw/rdap -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
-# every expansion journal, whatever round subdirectory it landed in. Enumerating
-# rounds by hand shipped rounds 1 to 3 and silently dropped round 4, while the
-# archive readme still told the reader to restore it.
-find data/raw/expand -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
-
-# Usenet, Tucows and the language verdicts. These were missing, and the omission
-# was not small: Usenet and Tucows together carry most of this round's additions,
-# and without their journals the documented tier-3 replay simply cannot reach
-# them. The language journals matter for a different reason: they hold the
-# per-capture readings behind every English verdict, so shipping them is what
-# lets a reviewer re-derive the verdicts rather than only re-read the conclusion.
-# 18 MB for all three, against 144 journals already shipped.
+# **One rule, used by both the copy and the check below.** This was a list of
+# `find` calls naming one source directory each, so every new source needed a
+# line here that nobody remembered to add. It failed exactly that way three
+# times: a ledgered CDX journal one directory down matched neither the packaging
+# glob nor the ingest glob; expansion rounds 1 to 3 shipped while round 4 was
+# silently dropped; and Usenet, Tucows and the language verdicts were simply
+# never listed, which removed the evidence behind most of a round's additions
+# from the tier-3 replay the README documents.
 #
-# This is the second time a source's journals have failed to ship while the
-# README told the reader to replay them. Hence `find` per source directory, and
-# hence the count printed at the end.
-find data/raw/usenet -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
-find data/raw/tucows -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
-find data/raw/lang -maxdepth 1 -name '*.jsonl.gz' -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+# On 8 August it would have failed a fourth time, for five sources at once, and
+# the count guard at the bottom is what caught it. So the copy now takes the
+# whole tree under exactly the same expression the guard uses. If the two ever
+# disagree again, they disagree in one place instead of a dozen.
+#
+# `superseded/` is the one exclusion, and it is handled separately below: those
+# are verdicts from earlier engine versions and they must not sit beside the
+# current ones.
+find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' \
+    -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 
 # Superseded language journals go in their own folder, clearly named. They are
 # the verdicts produced by earlier versions of the classifier, kept so that a
