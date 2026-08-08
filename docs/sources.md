@@ -465,6 +465,53 @@ retained so earlier seeding runs stay attributable.
 
 ---
 
+## `trade_press` and `trade_press_mention`: scanned computer magazines
+
+**What it is.** archive.org's scanned, OCR'd computer press with hard publication dates in item
+metadata. A 1997 issue printing `foo.com` dates `foo.com` for 1997, the same shape as a dated
+directory page.
+
+**Get it.** `archive.org/advancedsearch.php` over
+`collection:computermagazines OR collection:byte-magazine OR boardwatch`, then
+`archive.org/download/<id>/<id>_djvu.txt`. Not `web.archive.org`, so it competes with nothing.
+
+```bash
+uv run python scripts/collect_trade_press.py --discover     # collection sizes, run this first
+uv run python scripts/collect_trade_press.py --limit 5000
+uv run python scripts/split_trade_press.py --write
+uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+```
+
+**Date semantics.** The item's `year` field, the publication date of the issue. No inference.
+
+**Evidence type: `dated_directory` after the corroboration split.** OCR fabricates hostnames, so
+the pattern is anchored to the TLDs the metric rewards and every match goes through the pinned
+public suffix list. Names seen only here go to the candidate pool. Lineage `trade_press`, which is
+independent of every crawl, of Usenet and of the software catalogue.
+
+**Measured yield, 8 August: 4,030 in-window items, 1,384 with retrievable text (34.3%), 79,287
+(domain, year) rows, of which 25,603 corroborated and 1,334 net-new, worth 887.7
+equivalent-English.**
+
+**Verdict: real but small, and the projection was 5x optimistic. The reason is worth keeping.**
+The 5 August pilot measured 10.5 net-new pairs per reachable item on a 40-item sample of
+`collection:computermagazines` and projected 5,000-12,000 pairs and 3,200-7,600 equivalent-English.
+Worked in full the collection turns out to be far more European and hobbyist than its name
+suggests: `EnigmaAmiga`, `Elettronica2000`, `Electronique_et_Loisirs`. That is the same
+composition that made the general `magazine_rack` yield 0.4 pairs an item, and a 40-item sample of
+a 4,030-item collection could not see it. Reachability went the other way, 34.3% measured against
+27.5% projected, so the pilot was pessimistic on access and optimistic on content, and content is
+what decided it.
+
+**Do not re-run it wider.** The remaining in-window computing collections are already rejected:
+`magazine_rack` (34,287 items, 0.4 net-new pairs each) and `folkscanomy_computer` (518 items, 36 of
+40 unreachable). `--discover` also showed `boardwatch`, `pcmag`, `wired-magazine` and
+`internet-magazines` are not collection names at all and return zero when queried as such; the
+Boardwatch items reachable by free-text search are already inside this run.
+
+---
+
 ## `usenet_address` and `usenet_address_mention`: the addresses the extractor never read
 
 **What it is.** The same 19,083 Usenet archives already ingested, re-read for three
