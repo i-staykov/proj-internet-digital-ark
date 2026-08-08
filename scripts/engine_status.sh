@@ -7,6 +7,15 @@
 # and a half with 5,793 year-records sitting on its disk and absent from the store,
 # because nothing here ever looked. So this asks both.
 #
+# **Everything here globs `cdx_*` rather than a named prefix, and that is not
+# laziness.** The first version hardcoded `cdx_gap_vps_*` and `cdx_gap_*`. When the
+# merged queue renamed the journals to `cdx_q0_*` and `cdx_q1_*` on 7 August, this
+# script kept reporting "none, everything is home" while five VPS journals holding
+# 1,500 queries sat unfetched, and kept printing a "last finished batch" line from a
+# run that had ended hours earlier. A monitor that silently narrows to a stale name
+# is worse than no monitor, because it answers the question confidently and wrongly.
+# Match the whole family; the prefix is the collector's business, not the watcher's.
+#
 # Reads the in-flight `.part` journal, which has no gzip trailer, so `gzip -dc`
 # refuses it outright while Python's reader returns every record up to the last
 # flush and then raises EOFError. That EOFError is the normal case here.
@@ -66,11 +75,12 @@ if pgrep -f "supervise_cdx_pool.sh" > /dev/null; then
 else
     echo "   NOT RUNNING"
 fi
-part=$(ls -t data/raw/cdx/cdx_gap_*.jsonl.gz.part 2>/dev/null | head -1)
+part=$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part 2>/dev/null | head -1)
 [ -n "$part" ] && echo "   journal $(basename "$part")"
 ARK_PART="$part" python3 -c "$TALLY"
 echo "   last finished batch:"
-grep -hoE "cdx: \{[^}]*\}" data/logs/cdx_gap.log 2>/dev/null | tail -1 | sed 's/^/     /'
+grep -hoE "cdx: \{[^}]*\}" $(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2>/dev/null \
+    | tail -1 | sed 's/^/     /'
 
 section "VPS ($VPS)"
 ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" "
@@ -80,16 +90,17 @@ if pgrep -f supervise_cdx_pool.sh > /dev/null; then
 else
     echo '   NOT RUNNING'
 fi
-part=\$(ls -t data/raw/cdx/cdx_gap_vps_*.jsonl.gz.part 2>/dev/null | head -1)
+part=\$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part 2>/dev/null | head -1)
 [ -n \"\$part\" ] && echo \"   journal \$(basename \"\$part\")\"
 ARK_PART=\"\$part\" python3 -c '$TALLY'
 echo '   last finished batch:'
-grep -hoE 'cdx: \{[^}]*\}' data/logs/cdx_gap_vps.log 2>/dev/null | tail -1 | sed 's/^/     /'
+grep -hoE 'cdx: \{[^}]*\}' \$(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2>/dev/null \
+    | tail -1 | sed 's/^/     /'
 " 2>&1 | grep -v "^Warning: Permanently added" || echo "   unreachable (VPN down?)"
 
 section "journals on the VPS not yet copied here"
 remote=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
-    "ls '$VPS_REPO'/data/raw/cdx/cdx_gap_vps_*.jsonl.gz 2>/dev/null | xargs -n1 basename 2>/dev/null" 2>/dev/null)
+    "ls '$VPS_REPO'/data/raw/cdx/cdx_*.jsonl.gz 2>/dev/null | xargs -n1 basename 2>/dev/null" 2>/dev/null)
 missing=0
 for f in $remote; do
     [ -e "data/raw/cdx/$f" ] || { echo "   $f"; missing=$((missing + 1)); }
@@ -98,7 +109,7 @@ if [ "$missing" -eq 0 ]; then
     echo "   none, everything is home"
 else
     echo "   $missing missing. Bring them home with:"
-    echo "     rsync -av --ignore-existing '$VPS:$VPS_REPO/data/raw/cdx/cdx_gap_vps_*.jsonl.gz' data/raw/cdx/"
+    echo "     rsync -av --ignore-existing '$VPS:$VPS_REPO/data/raw/cdx/cdx_*.jsonl.gz' data/raw/cdx/"
 fi
 
 section "power"
