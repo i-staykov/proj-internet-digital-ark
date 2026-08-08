@@ -51,7 +51,7 @@ from ark.journal import journal_writer, write_journal_line  # noqa: E402
 from ark.usenet import INFRASTRUCTURE, domains_in_message, iter_messages, message_year  # noqa: E402
 
 USENET = ROOT / "data/raw/usenet"
-OUT_DIR = ROOT / "data/raw/usenet_addr"
+OUT_DIRS = {"addresses": ROOT / "data/raw/usenet_addr", "headers": ROOT / "data/raw/usenet_hdr"}
 YEARS = range(1996, 2002)
 
 _FTP = re.compile(r"ftp://([A-Za-z0-9.-]+)")
@@ -67,29 +67,57 @@ _ADDR = re.compile(
 _FROM = re.compile(rb"(?mi)^From:[ \t]*(.+)")
 _DATE = re.compile(rb"(?mi)^Date:[ \t]*(.+)")
 
+# Machine-composed headers, the second mode. A Message-ID is built by the posting
+# software from the posting host's own domain and NNTP-Posting-Host is recorded by
+# the server, so neither can carry a typo: these are the highest-quality strings in
+# the corpus. `Organization:` is deliberately absent. It is free text, it needs a
+# loose pattern to read at all, and it contributed 417 of 11,073 net-new pairs in
+# the pilot, so it is the one field here carrying real fabrication risk and the
+# least value to show for it.
+_HEADER_PATTERNS = (
+    re.compile(rb"(?mi)^Message-ID:[ \t]*<[^@>]*@([A-Za-z0-9.-]+)>"),
+    re.compile(rb"(?mi)^Reply-To:.*?@([A-Za-z0-9.-]+)"),
+    re.compile(rb"(?mi)^Sender:.*?@([A-Za-z0-9.-]+)"),
+    re.compile(rb"(?mi)^NNTP-Posting-Host:[ \t]*([A-Za-z0-9.-]+)"),
+)
 
-def pairs_in_archive(path: Path) -> tuple[str, set[tuple[str, int]], dict]:
-    """(group, pairs the current extractor misses, stats). Picklable, runs in a worker."""
+
+def pairs_in_archive(job: tuple[Path, str]) -> tuple[str, set[tuple[str, int]], dict]:
+    """(group, pairs the current extractor misses, stats). Picklable, runs in a worker.
+
+    Takes the mode per item rather than reading a global, because macOS spawns
+    workers rather than forking them and a global set in `main` never reaches the
+    child.
+    """
+    path, mode = job
     stats: Counter = Counter()
     extra: set[tuple[str, int]] = set()
     try:
         for raw in iter_messages(path):
             stats["messages"] += 1
-            match = _DATE.search(raw[:4000])
+            head = raw[:4000]
+            match = _DATE.search(head)
             year = message_year(match.group(1).decode("latin-1", "replace")) if match else None
             if year not in YEARS:
                 continue
             stats["in_window"] += 1
             text = raw.decode("latin-1", "replace")
-            sender = _FROM.search(raw[:4000])
+            sender = _FROM.search(head)
             from_header = sender.group(1).decode("latin-1", "replace") if sender else ""
             current = set(domains_in_message(text, from_header))
             wider: set[str] = set()
-            for pattern in (_FTP, _MAILTO, _ADDR):
-                for host in pattern.findall(text):
-                    domain = to_registrable(host)
-                    if domain and domain not in INFRASTRUCTURE:
-                        wider.add(domain)
+            if mode == "headers":
+                for pattern in _HEADER_PATTERNS:
+                    for host in pattern.findall(head):
+                        domain = to_registrable(host.decode("latin-1", "replace"))
+                        if domain and domain not in INFRASTRUCTURE:
+                            wider.add(domain)
+            else:
+                for pattern in (_FTP, _MAILTO, _ADDR):
+                    for host in pattern.findall(text):
+                        domain = to_registrable(host)
+                        if domain and domain not in INFRASTRUCTURE:
+                            wider.add(domain)
             for domain in wider - current:
                 extra.add((domain, year))
     except Exception as exc:  # noqa: BLE001
@@ -103,6 +131,7 @@ def pairs_in_archive(path: Path) -> tuple[str, set[tuple[str, int]], dict]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--mode", choices=("addresses", "headers"), default="addresses")
     ap.add_argument("--limit", type=int, default=0, help="stop after N archives, 0 for all")
     args = ap.parse_args()
 
@@ -110,11 +139,16 @@ def main() -> None:
     if args.limit:
         archives = archives[: args.limit]
     total_bytes = sum(p.stat().st_size for p in archives)
-    print(f"{len(archives):,} archives, {total_bytes / 1e9:.1f} GB, {args.workers} workers")
+    print(
+        f"{len(archives):,} archives, {total_bytes / 1e9:.1f} GB, "
+        f"{args.workers} workers, mode={args.mode}"
+    )
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = OUT_DIRS[args.mode]
+    out_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    out = OUT_DIR / f"usenet_addr_{stamp}.jsonl.gz"
+    prefix = "usenet_addr" if args.mode == "addresses" else "usenet_hdr"
+    out = out_dir / f"{prefix}_{stamp}.jsonl.gz"
 
     totals: Counter = Counter()
     written = 0
@@ -122,7 +156,7 @@ def main() -> None:
     started = time.time()
     with journal_writer(out) as fh, ProcessPoolExecutor(max_workers=args.workers) as pool:
         for n, (group, extra, stats) in enumerate(
-            pool.map(pairs_in_archive, archives, chunksize=1), 1
+            pool.map(pairs_in_archive, [(p, args.mode) for p in archives], chunksize=1), 1
         ):
             totals.update(stats)
             for domain, year in sorted(extra):
@@ -153,7 +187,7 @@ def main() -> None:
     print(f"  distinct (domain, year) the current extractor misses: {written:,}")
     failures = {k: v for k, v in totals.items() if k.startswith("failed_")}
     print(f"  archive failures: {failures or 'none'}")
-    print("\nnext: uv run python scripts/split_usenet_addresses.py --write")
+    print(f"\nnext: uv run python scripts/split_usenet_addresses.py --in-dir {out_dir} --write")
 
 
 if __name__ == "__main__":

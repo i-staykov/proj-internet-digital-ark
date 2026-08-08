@@ -34,7 +34,6 @@ from ark.english_share import english_weights  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
-IN_DIR = ROOT / "data/raw/usenet_addr"
 YEARS = range(1996, 2002)
 
 
@@ -52,10 +51,16 @@ def open_store(attempts: int = 80, pause: float = 15.0) -> duckdb.DuckDBPyConnec
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--in-dir", type=Path, default=ROOT / "data/raw/usenet_addr")
+    ap.add_argument(
+        "--out-prefix",
+        default="usenet_addr",
+        help="journal basename, so a second mode cannot overwrite the first",
+    )
     args = ap.parse_args()
 
     seen: dict[tuple[str, int], dict] = {}
-    for path in sorted(IN_DIR.glob("usenet_addr_*.jsonl.gz")):
+    for path in sorted(args.in_dir.glob("usenet_*.jsonl.gz")):
         try:
             with gzip.open(path, "rt", encoding="utf-8", errors="replace") as fh:
                 for line in fh:
@@ -69,7 +74,7 @@ def main() -> None:
         except (OSError, EOFError):
             continue
     if not seen:
-        raise SystemExit(f"no journals in {IN_DIR}")
+        raise SystemExit(f"no journals in {args.in_dir}")
 
     conn = open_store()
     try:
@@ -110,8 +115,8 @@ def main() -> None:
         print("\ndry run; pass --write to create both journals")
         return
 
-    for name, batch in (("usenet_addr_dated", dated), ("usenet_addr_candidates", candidates)):
-        path = IN_DIR / f"{name}.jsonl.gz"
+    for suffix, batch in (("dated", dated), ("candidates", candidates)):
+        path = args.in_dir / f"{args.out_prefix}_{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)
