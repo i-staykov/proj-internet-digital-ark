@@ -33,6 +33,12 @@ output/
 *.warc
 *.warc.gz
 
+# One folder per submitted round, so a new round stops overwriting the last. The
+# tarball is gigabytes and stays out; the small records of what was sent stay in,
+# because losing the claim is worse than losing the bytes, and the bytes are
+# regenerable from the commit named in MANIFEST.txt.
+submissions/**/*.tar.gz
+
 
 # Email drafts and personal correspondence: never ship inside the delivery
 # archive, which packages every tracked file via `git archive HEAD`.

@@ -106,6 +106,17 @@ journals:
     uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
     uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
     uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_r2.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_r2.jsonl.gz
+    uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
+    uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
+    uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
+    uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated.jsonl.gz
+    uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
+    uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
+    uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
     uv run ark ingest-lang                data/raw/lang/lang_*.jsonl.gz
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
@@ -296,6 +307,14 @@ trade-press limit="5000":
     uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
     uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
 
+# Pause `maintain` first: the extraction runs for minutes before it writes, and
+# it has no store-lock retry, so a maintain pass landing mid-run loses the work.
+# the FERC-released Enron mail corpus, dated by each message's Date header
+enron:
+    uv run python scripts/collect_enron.py --write
+    uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
+    uv run ark ingest enron_candidates data/raw/enron/enron_candidates.jsonl.gz
+
 # the Tucows software catalogue: release date plus vendor home page
 tucows:
     uv run python scripts/split_tucows.py --write
@@ -309,9 +328,11 @@ maintain iterations="26" pause="900":
 
 # --- shipping ----------------------------------------------------------------
 
+# Lands in submissions/<round>/, defaulting the round to the git branch, so a new
+# round no longer overwrites the last one.
 # build the delivery archive (refuses a dirty tree or a stale output/)
-package:
-    bash scripts/package_delivery.sh
+package round="":
+    bash scripts/package_delivery.sh {{round}}
 
 # check a built delivery the way a reviewer would: checksums, pair counts, and
 # that every shipped pair traces to an observation

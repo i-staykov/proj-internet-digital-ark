@@ -10,18 +10,21 @@ seconds.
 
 Two things to know before opening anything:
 
-- **The reference baseline is `merged260730`.** Additions are counted against it, so a figure quoted
-  against any earlier baseline is not comparable.
+- **The reference baseline is the one in `baseline/`, named for the reviewer release it came from,
+  and `baseline/README.txt` says which.** Additions are counted against it, so a figure quoted
+  against any earlier release is not comparable.
 - **`additions_english/` and `additions_unverified/` partition `additions/`.** They are disjoint and
   sum to the whole, so they can be added together without double counting. `verify.sh` checks that.
+  A round whose additions have not been language-verified has an empty `additions_english/`, and that
+  is a statement about coverage, not a missing file: `report.md` says which case applies.
 
 ## What is in here
 
 | Path | Contents |
 |---|---|
 | `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
-| `masters/<year>.txt` | **Final annual lists**: merged260730 normalized to registered domains, plus the additions. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains; `audit/year_growth.csv` reconciles it exactly |
-| `additions/<year>.txt` | **Additions only**, against merged260730 |
+| `masters/<year>.txt` | **Final annual lists**: the reference baseline normalized to registered domains, plus the additions. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains; `audit/year_growth.csv` reconciles it exactly |
+| `additions/<year>.txt` | **Additions only**, against the reference baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `additions_english/<year>.txt` and `.csv` | **English-verified additions.** The CSV columns are `domain,year,english_share,samples,snapshot_urls`, the last being space-separated Wayback `id_` URLs that refetch directly |
 | `additions_english/language_summary.csv` | Per year and total: English, other-language, undetermined and not-yet-reached, for pairs and for unique domains |
@@ -29,7 +32,7 @@ Two things to know before opening anything:
 | `additions_unverified/disqualified.csv` | The register: every pair judged and rejected, one row each, with the reason and the pages read |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
-| `baseline/merged260730/` | **The reference the additions are counted against.** See `baseline/README.txt` |
+| `baseline/<release>/` | **The reference the additions are counted against**, the reviewer's own reissued corpus shipped back so the archive is checkable on its own. See `baseline/README.txt` |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, `year_growth.csv`, and `engine_review.md`: the adversarial review of the verification engine |

@@ -5,10 +5,16 @@ A reproducible pipeline collecting historical **domain names for 1996-2001**, ea
 verifiable set; the baseline is never modified. From this round, additions are split into
 **English-verified** and **non-verified** sets, disjoint.
 
-This file is the operating guide: what to run, and what each command should print. **Why the pipeline
-is built this way is [docs/documentation.md](docs/documentation.md)**; the results are
-[docs/report_260802.md](docs/report_260802.md); the counting and evidence rules are
-[docs/SPEC.md](docs/SPEC.md).
+This file is the operating guide: what to run, and what each command should print.
+
+| Document | |
+|---|---|
+| [docs/SPEC.md](docs/SPEC.md) | the counting and evidence rules, as briefed |
+| [docs/sources.md](docs/sources.md) | every source: what it is, what dates it, how to fetch it, and every family rejected with the measurement that killed it |
+| [docs/report.md](docs/report.md) | the current round's results. **Generated** from `docs/report.template.md`; edit the template |
+| [docs/documentation.md](docs/documentation.md) | why the pipeline is shaped the way it is |
+| [docs/notes.md](docs/notes.md) | the dated decision log |
+| [submissions/](submissions/) | what was sent, round by round |
 
 ## Requirements
 
@@ -28,7 +34,7 @@ Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this
 
 **Tier-3 cost figures date from the phase-1 archive and have not been re-measured.** One 47 GB capture
 index is most of the download; skipping the Arquivo indexes left about 3 GB and reproduced 98.7% of
-that archive. Those indexes now contribute zero net-new pairs against merged260730, so skipping them
+that archive. Those indexes now contribute zero net-new pairs against the current baseline, so skipping them
 costs less than the figure suggests. Measured then, a full run took about 20 minutes and returned
 99.77% of the pairs with all invariants passing; the gap is two sources with no journal to replay.
 
@@ -133,12 +139,20 @@ runs both.
 ### Package the delivery archive
 
 ```bash
-uv run python scripts/fill_report.py    # substitutes every figure into the report and email
-bash scripts/package_delivery.sh        # tar.gz plus its SHA256
+uv run ark export                       # refresh output/ from the store first
+uv run python scripts/fill_report.py    # substitutes every figure into docs/report.md
+just package                            # tar.gz plus its SHA256, into submissions/<branch>/
 bash scripts/verify_delivery.sh output/internet-digital-ark-1996-2001
 ```
 
-Packaging refuses to build from a modified working tree, or from an `output/` older than the store.
+Packaging refuses to build from a modified working tree, or from an `output/` older than the store,
+or when the baseline release the figures are measured against is not on disk to ship alongside them.
+
+The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
+explicitly with `just package phase-4`. The tarball is git-ignored; the report, the source
+documentation, the checksum and `MANIFEST.txt` stay in git, which is enough to say later exactly what
+was claimed and to prove a rebuilt archive matches. Add a row to `submissions/README.md` after each
+send.
 
 ## Collecting more evidence (needs the network)
 
@@ -405,5 +419,12 @@ data/          git-ignored: DuckDB store, work queue, downloaded sources, audit 
 legacy-data/   git-ignored: the provided baseline, dropped in
 src/ark/       the pipeline package and the `ark` CLI
 tests/         pytest, network mocked
-docs/          SPEC, documentation, sources, notes, the round report
+docs/          SPEC, sources, documentation, notes, and the generated round report
+submissions/   one folder per round: the report as sent, its checksum and manifest
+               (the tarball itself is git-ignored and rebuildable from the commit)
 ```
+
+Two files under `docs/` are **generated, not written**: `docs/report.md` comes from
+`docs/report.template.md` via `scripts/fill_report.py`, which fills every figure from the store and
+refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
+next refresh.
