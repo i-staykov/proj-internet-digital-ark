@@ -78,6 +78,13 @@ PROVENANCE_LINEAGE = {
     # Tucows is a software catalogue, independent of both web crawls and Usenet
     "tucows_catalogue": "software_catalogue",
     "tucows_mention": "software_catalogue",
+    # Scanned trade press. Its own lineage: the observation is a printed page in a
+    # magazine, which is independent of every crawl, of Usenet and of the software
+    # catalogue. Filing it anywhere else would understate genuine cross-lineage
+    # corroboration, and giving it no entry at all would silently make it its own
+    # family anyway, which is the failure this table exists to prevent.
+    "trade_press": "trade_press",
+    "trade_press_mention": "trade_press",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

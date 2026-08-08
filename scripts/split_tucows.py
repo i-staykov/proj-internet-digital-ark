@@ -76,6 +76,11 @@ def main() -> None:
             "year": year,
             "message_id": identifier,
             "group": "tucows",
+            # Without this the shared journal parser composes an archive.org
+            # Usenet item name from the group and every Tucows row ends up
+            # pointing at `https://archive.org/details/usenet-tucows`, which
+            # 404s. The item identifier is what makes a year auditable.
+            "url": f"https://archive.org/details/{identifier}" if identifier else "",
         }
         (dated if domain in attested else candidates).append(record)
 

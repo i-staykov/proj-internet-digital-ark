@@ -125,13 +125,21 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 stats["malformed"] += 1
                 continue
             group = record.get("group", "usenet")
+            # A journal may carry its own evidence URL, and one that does is
+            # believed. The fallback below composes an archive.org Usenet item
+            # name out of the hierarchy, which is right for Usenet and wrong for
+            # everything else that reuses this parser: it gave all 5,258 Tucows
+            # rows `https://archive.org/details/usenet-tucows`, which 404s.
+            # The feedback asks for item-level traceability, so a dead link is a
+            # defect rather than cosmetic.
+            url = record.get("url") or (f"https://archive.org/details/usenet-{group.split('.')[0]}")
             yield BulkRecord(
                 raw=domain,
                 year=year,
                 # the Message-ID is the auditable identifier: globally unique by
                 # design, so a reviewer can name the exact post behind a year
                 evidence_value=f"{group} {record.get('message_id', '')}".strip(),
-                evidence_url=f"https://archive.org/details/usenet-{group.split('.')[0]}",
+                evidence_url=url,
             )
 
 
@@ -749,6 +757,32 @@ SOURCES: dict[str, SourceSpec] = {
         source_name="tucows_catalogue",
         evidence_type="dated_directory",
         acquisition_method="tucows_release_date",
+        parse=_parse_usenet_journal,
+    ),
+    # Scanned computer and internet trade press on archive.org. A 1997 issue that
+    # prints `foo.com` dates `foo.com` for 1997 in the same way a dated directory
+    # page does: the publication year is a property of the item.
+    #
+    # Scoped to computing titles on measurement, not on instinct. The same script
+    # and extractor gave 10.5 net-new pairs an item on `computermagazines` and 0.4
+    # on the general `magazine_rack`, so the subject matter is the variable and
+    # the corpus is not.
+    #
+    # Split like Usenet because the domains arrive through OCR, which fabricates
+    # hostnames. Corroborated names carry the issue date; names seen only here go
+    # to the candidate pool and must earn a year from a capture.
+    "tradepress_dated": SourceSpec(
+        key="tradepress_dated",
+        source_name="trade_press",
+        evidence_type="dated_directory",
+        acquisition_method="trade_press_issue_date",
+        parse=_parse_usenet_journal,
+    ),
+    "tradepress_candidates": SourceSpec(
+        key="tradepress_candidates",
+        source_name="trade_press_mention",
+        evidence_type="link_target",
+        acquisition_method="trade_press_ocr_mention",
         parse=_parse_usenet_journal,
     ),
     "usenet_dated": SourceSpec(
