@@ -85,6 +85,19 @@ PROVENANCE_LINEAGE = {
     # family anyway, which is the failure this table exists to prevent.
     "trade_press": "trade_press",
     "trade_press_mention": "trade_press",
+    # UUCP maps are a registry dump that happened to travel over Usenet. The
+    # lineage is the registry, not the newsgroup: filing them under `usenet` would
+    # let a Usenet announcement and a registry record for the same pair look like
+    # one body of observation, and filing them as their own family would let them
+    # corroborate AFNIC as if independently collected. They are registry data.
+    "uucp_map_registry": "registry",
+    "uucp_map_creation": "registry",
+    "uucp_map_mention": "registry",
+    # rtfm FAQs travelled over Usenet and are the same body of observation, so
+    # they share its lineage: a FAQ and an announcement post confirming the same
+    # pair is one source of evidence, not two.
+    "rtfm_faq": "usenet",
+    "rtfm_faq_mention": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

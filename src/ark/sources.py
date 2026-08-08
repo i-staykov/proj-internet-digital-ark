@@ -785,6 +785,60 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="trade_press_ocr_mention",
         parse=_parse_usenet_journal,
     ),
+    # UUCP map postings from comp.mail.maps. See `ark.uucp` for why these are
+    # registry evidence rather than a posted URL, and for the provenance gate that
+    # separates the two kinds of map file.
+    #
+    # `artifact_listing` for the posting date, the same type the ISC DNS survey
+    # carries: a dated index file regenerated from the live registration database
+    # is direct evidence that the names in it existed on that date.
+    "uucp_listing": SourceSpec(
+        key="uucp_listing",
+        source_name="uucp_map_registry",
+        evidence_type="artifact_listing",
+        acquisition_method="uucp_map_registry_posting",
+        parse=_parse_usenet_journal,
+    ),
+    # `whois_creation` for the registrar's own approved/received line, which is
+    # the same claim AFNIC's `.fr` open data makes and carries the same type.
+    "uucp_creation": SourceSpec(
+        key="uucp_creation",
+        source_name="uucp_map_creation",
+        evidence_type="whois_creation",
+        acquisition_method="uucp_map_registrar_approval",
+        parse=_parse_usenet_journal,
+    ),
+    # Hand-maintained maps: the container is fresh, the entries are not, so the
+    # posting date evidences nothing and these stay candidate-only.
+    "uucp_mentions": SourceSpec(
+        key="uucp_mentions",
+        source_name="uucp_map_mention",
+        evidence_type="link_target",
+        acquisition_method="uucp_map_hand_maintained",
+        parse=_parse_usenet_journal,
+    ),
+    # The rtfm.mit.edu Usenet FAQ mirror. A FAQ carries its own revision date and
+    # lists dozens of sites, so the date is intrinsic to the artifact. Unlike the
+    # UUCP maps above, the URLs are prose typed by a human, so this takes the
+    # ordinary corroboration split rather than registry treatment.
+    #
+    # The year is the revision header, NOT `Date:`. rtfm keeps one copy of each
+    # FAQ, the last auto-repost, and of 12,318 documents carrying both, 6,610
+    # disagree, essentially always with the repost later.
+    "rtfm_dated": SourceSpec(
+        key="rtfm_dated",
+        source_name="rtfm_faq",
+        evidence_type="dated_directory",
+        acquisition_method="rtfm_faq_revision_date",
+        parse=_parse_usenet_journal,
+    ),
+    "rtfm_candidates": SourceSpec(
+        key="rtfm_candidates",
+        source_name="rtfm_faq_mention",
+        evidence_type="link_target",
+        acquisition_method="rtfm_faq_mention",
+        parse=_parse_usenet_journal,
+    ),
     "usenet_dated": SourceSpec(
         key="usenet_dated",
         source_name="usenet_announce",
