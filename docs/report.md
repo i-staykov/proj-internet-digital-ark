@@ -11,22 +11,22 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **933,675** |
-| Over unique domains | 675,480 |
-| Domains absent from the baseline in every year | **67,495** |
-| Equivalent-English added | **591,455.8** |
-| Growth on the 5,622,984.6 baseline | **10.5185%** |
+| Net-new (domain, year) pairs | **934,848** |
+| Over unique domains | 676,653 |
+| Domains absent from the baseline in every year | **68,668** |
+| Equivalent-English added | **592,197.3** |
+| Growth on the 5,622,984.6 baseline | **10.5317%** |
 | Mean equivalent-English weight per pair | 0.6335 |
 
 | Year | merged260802, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 623,012 | 25,291 | 72 (0.3%) |
-| 1997 | 1,281,371 | 59,084 | 1,497 (2.5%) |
-| 1998 | 970,963 | 176,669 | 17,903 (10.1%) |
-| 1999 | 1,537,182 | 259,670 | 26,307 (10.1%) |
-| 2000 | 1,555,211 | 247,972 | 47,811 (19.3%) |
-| 2001 | 2,817,881 | 164,989 | 31,438 (19.1%) |
-| **Total** | **8,785,620** | **933,675** | **125,028 (13.4%)** |
+| 1996 | 623,012 | 25,301 | 72 (0.3%) |
+| 1997 | 1,281,371 | 59,154 | 1,497 (2.5%) |
+| 1998 | 970,963 | 176,874 | 17,903 (10.1%) |
+| 1999 | 1,537,182 | 260,016 | 26,307 (10.1%) |
+| 2000 | 1,555,211 | 248,310 | 47,811 (19.3%) |
+| 2001 | 2,817,881 | 165,193 | 31,438 (19.0%) |
+| **Total** | **8,785,620** | **934,848** | **125,028 (13.4%)** |
 
 ## 2. Where the additions come from
 
@@ -35,8 +35,8 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 | `usenet_announce` | post date of the announcement | 585,175 | 453,014 | 348,669.9 |
 | `ia_cdx_bulk` | Wayback capture timestamp | 105,999 | 76,754 | 86,033.2 |
 | `usenet_address` | post date of the message carrying the address | 107,304 | 94,528 | 64,960.8 |
+| `rdap_snapshot` | the registry's own `registration` event date | 48,394 | 48,394 | 29,023.4 |
 | `usenet_bare` | see `sources.md` | 42,139 | 38,416 | 28,460.3 |
-| `rdap_snapshot` | the registry's own `registration` event date | 47,221 | 47,221 | 28,281.9 |
 | `uucp_map_registry` | posting date of the registry's generated dump | 23,678 | 16,985 | 19,806.2 |
 | `rtfm_faq` | the FAQ's revision header | 5,166 | 5,080 | 4,084.2 |
 | `uucp_map_creation` | the registrar's own `approved:` date | 4,793 | 4,793 | 4,009.3 |
@@ -45,7 +45,7 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 | `maillist_archive` | the message `Date:` header | 1,458 | 1,363 | 833.2 |
 | `isc_survey` | survey run date | 1,857 | 1,857 | 665.2 |
 | `page_directory` | capture timestamp of the archived catalogue page | 11 | 11 | 7.7 |
-| **Total** | | **933,675** | **675,480** | **591,455.8** |
+| **Total** | | **934,848** | **676,653** | **592,197.3** |
 
 Each source below is described by the **artifact that carries the date**, because that is what decides
 whether a (domain, year) pair is worth anything.
@@ -134,7 +134,7 @@ and the store enforces that rather than counting distinct source names. The line
 |---|--:|
 | Pairs confirmed by two or more independent lineages | **3,109,126** |
 | of those, net-new this round | 78,308 |
-| Mean distinct sources per asserted pair | 1.7444 |
+| Mean distinct sources per asserted pair | 1.7443 |
 
 **One flaw in that table, stated rather than buried.** 1,200 pairs, 2.8% of `usenet_bare`, are first
 seen in `comp.mail.maps` and `can.uucp.maps`, the newsgroups the UUCP registry parser also reads. A
@@ -143,7 +143,7 @@ posting read two ways. It affects neither the equivalent-English figure nor the 
 only the independent-corroboration count above, by roughly 0.04%. It is filterable by group name
 without re-ingesting, and is recorded in `sources.md`.
 
-**One limitation, stated plainly.** All 933,675 pairs added this round are **language-unchecked**.
+**One limitation, stated plainly.** All 934,848 pairs added this round are **language-unchecked**.
 The equivalent-English figure above is unaffected, since it is derived from the TLD distribution and
 not from page text. But the page-level English verification of feedback section 6 has not been run
 over these additions, so `additions_english/` is empty for this round and everything ships in
