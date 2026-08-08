@@ -9,6 +9,7 @@ from ark.expand import (
     read_seeds,
     snapshot_url,
     split_by_corroboration,
+    unwrap_redirect,
 )
 
 
@@ -177,3 +178,46 @@ def test_a_page_with_no_corroborated_names_yields_no_curated_record() -> None:
     curated, unverified = split_by_corroboration(records, known=set())
     assert curated == []
     assert len(unverified) == 1
+
+
+# Portal click-trackers of the period. Yahoo's is the one that mattered: left
+# unhandled it does not degrade the extraction, it zeroes it, because the
+# wrapper's domain is also the page's own domain and every entry is discarded as
+# a self-link.
+YAHOO_PAGE = """
+<a href="http://srd.yahoo.com/goo/Business/*http://www.example.com/">Example</a>
+<a href="http://srd.yahoo.com/goo/Arts/*http://shop.other.co.uk/x">Other</a>
+<a href="/dir/More">more</a>
+"""
+
+
+def test_a_yahoo_style_wrapper_yields_the_target_not_the_redirector() -> None:
+    found = outbound_domains(YAHOO_PAGE, "http://dir.yahoo.com/Business/index.html")
+
+    assert "example.com" in found
+    assert "other.co.uk" in found
+    assert "yahoo.com" not in found
+
+
+def test_unwrap_takes_the_last_scheme_because_the_wrapper_starts_with_one() -> None:
+    assert (
+        unwrap_redirect("http://srd.yahoo.com/goo/x/*http://www.example.com/")
+        == "http://www.example.com/"
+    )
+
+
+def test_unwrap_handles_a_percent_encoded_target() -> None:
+    assert (
+        unwrap_redirect("http://count.example.net/r?url=http%3A%2F%2Fwww.target.org%2Fa")
+        == "http://www.target.org/a"
+    )
+
+
+def test_unwrap_leaves_an_ordinary_url_alone() -> None:
+    plain = "http://www.example.com/path?q=1"
+    assert unwrap_redirect(plain) == plain
+
+
+def test_unwrap_does_not_fire_on_a_scheme_at_position_zero_only() -> None:
+    """A bare URL must not be truncated to itself by an off-by-one."""
+    assert unwrap_redirect("https://a.example/x") == "https://a.example/x"

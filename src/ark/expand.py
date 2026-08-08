@@ -58,6 +58,35 @@ class _HrefCollector(HTMLParser):
         return None
 
 
+def unwrap_redirect(url: str) -> str:
+    """The real target inside a click-tracking wrapper, or the url unchanged.
+
+    Portals of the period routed every outbound link through a counter, and the
+    target is carried inside the wrapper rather than linked directly. Yahoo's
+    shape is the one that matters most:
+
+        http://srd.yahoo.com/goo/Business/*http://www.example.com/
+
+    Left unhandled this is not a partial loss, it is a total one. The wrapper's
+    registrable domain is `yahoo.com`, which is also the page's own domain, so
+    every entry is discarded as a self-link and an archived Yahoo category page
+    reports **zero** outbound domains. Measured on 7 August: every 2000-2001
+    `dir.yahoo.com` capture returned nothing, which reads as a barren source
+    rather than as a parser that cannot see it.
+
+    The rule is to take the LAST embedded scheme rather than the first, because
+    the wrapper itself begins with one. Percent-encoded targets (`?url=http%3A//`)
+    are unquoted first, and only once: a target may legitimately carry an encoded
+    query of its own, and unquoting repeatedly would corrupt it.
+    """
+    candidate = url
+    if "%3a%2f%2f" in url.lower() or "%3A//" in url:
+        candidate = urllib.parse.unquote(url)
+    lowered = candidate.lower()
+    cut = max(lowered.rfind("http://", 1), lowered.rfind("https://", 1))
+    return candidate[cut:] if cut > 0 else candidate
+
+
 def outbound_domains(html: str, page_url: str) -> list[str]:
     """Registrable domains linked from a page, excluding the page's own domain.
 
@@ -75,7 +104,7 @@ def outbound_domains(html: str, page_url: str) -> list[str]:
         absolute = urllib.parse.urljoin(page_url, href.strip())
         if not absolute.lower().startswith(("http://", "https://")):
             continue
-        domain = to_registrable(absolute)
+        domain = to_registrable(unwrap_redirect(absolute))
         if domain is None or domain == own:
             continue
         found[domain] = None
