@@ -3364,3 +3364,30 @@ log, because a report distilled from logs inherits their shape.
   in `docs/sources.md`; the two pointers into it were replaced with the substance they pointed at.
 
 Signed off by Ivo: pending.
+
+## 2026-08-08 (the RDAP sweep finished: 391,461 queries, and a 403 that nobody was counting)
+
+- **The sweep as run.** 391,461 queries to the registries, **3 refusals in total (0.001%)**,
+  48,695 in-window creation dates, worth **29,214 equivalent-English** and every one of them a
+  candidate-pool name earning its first year. Verisign carried it: 244,223 of 244,279 `.com`
+  queries answered, no decay in the answer rate, sustained ~70 q/s for two and a half hours
+- **PIR does not throttle, it blocks, and the run could not see it.** `.org` answered its first
+  ~850 queries and then returned **403 for 9,253 consecutive requests**. 403 was not in the
+  throttle set, so the governor treated each one as a plain error, never backed off, and the run
+  spent nine thousand requests being told no. That is the tight loop of refusals the collection
+  rules forbid, and it happened because the monitoring counted only 429 and transport failures as
+  refusals. **On queries `.org` looked like a yield collapse from 29.3% to 1.6%; on answers it was
+  24.9%, the best rate of any TLD measured.** The rate that means anything is per answer
+- **Fixed:** 403 is now a throttle status and the harsh kind, so a run of them trips the breaker and
+  holds every thread off that registry. It is deliberately still not retryable and still not an
+  answer, so a blocked domain is not re-asked inside the run and does not settle either
+- **Verisign's ceiling is per-IP, not per-process.** Two processes at 32 workers against
+  `rdap.verisign.com` settled at 31 q/s each, exactly halving the 70 q/s one process gets, because
+  `.com` and `.net` share a host. Splitting the work across TLDs bought nothing; the right move was
+  to put the whole budget on whichever list had the higher expected EE per query at that moment
+- **Yield decays down the list and that is what ends a sweep, not the registry.** `.com` returned
+  19.2% over its first 100,000 queries, 11.4% over the next 100,000, then 8.4%. `.net` went 20.3% to
+  4.1% over 114,000. The list is ordered by how many distinct sources saw a name, so this is the
+  ordering working: the pool runs out of names real enough to have been registered. Roughly 359,000
+  of the 1,345,949-name Verisign list is consumed, and the rest is worth less per query than the
+  first hour was
