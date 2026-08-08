@@ -2743,3 +2743,55 @@ reviewer. It does not survive.
   2,254 net-new pairs from 2,100 queries. Stopping and restarting the laptop cost
   the round nothing
 - **Round: 408,750.7 EE = 7.2693%**, short of the 10% goal by 153,548 EE
+
+## 2026-08-08 (source sprint: ten families probed, one worth building)
+
+- **Ten untried source families were probed in parallel and the positives adversarially
+  verified.** Every probe differenced against a frozen snapshot of the store (5,503,423 held
+  domains, 9,455,478 pairs) rather than the live database, so none of them could collide with
+  the ingest loop or each other. Verdicts are in `docs/sources.md`
+- **Nine are dead or deferred and together are worth about six hours of the engines already
+  running.** The full rows are in the rejected table; the pattern is that a curated directory,
+  an award list and an institutional link page all select for authority, and authoritative sites
+  are exactly what a CDX-derived baseline holds first. Novelty ran 0.5% to 2.4%
+- **One is worth 32,647 equivalent-English and it was already on disk.**
+  `data/raw/usenet/comp.mail.maps.mbox.zip`, 205,143,394 bytes, has been marked done in
+  `.processed` since 7 August. `domains_in_message` reads http(s) URLs, bare `www.` hosts and the
+  `From:` address, and a UUCP map entry contains none of those, so **1,480,910 `#N` registry lines
+  across 23,768 postings were parsed as the sender's domain and discarded.** Nothing needed
+  downloading and nothing needed re-crawling
+- **Three of the four verifications overturned their probe, all in the same direction and for the
+  same reason: a raw set difference quoted as yield.** Research crawl datasets 6,137 EE claimed
+  against +374 net once archive-query displacement was priced; regional portals 5,500 against
+  ~1,200 once the corroboration split was applied; search-engine directories 21,000 against 9,503
+  once the sample was drawn uniformly instead of hand-picked. **The family that survived is the
+  one whose value is not denominated in archive requests.** That is the rule worth keeping: a
+  source costing one `web.archive.org` request per unit must be scored marginally against
+  `queue_manifest.tsv.gz` and benchmarked against the 0.6005 marginal displaced query, not quoted
+  gross
+- **DECISION REQUIRED, and it is a policy call rather than a measurement.** Applied literally, the
+  Usenet corroboration gate would send every never-before-seen map name to `link_target`, which is
+  candidate-only, leaving ~14,700 EE. Classifying the registry-generated entries as master evidence
+  gives 32,647. **I have implemented the second reading** and the argument is that a URL typed into
+  a Usenet post and a `.CA` registry dump are not the same artifact: the map file declares
+  `#R Automatically generated from a .CA domain registration form`, is regenerated from the live
+  registration database at posting time, and carries the registrar's own `approved:` date. That is
+  the AFNIC `.fr` creation-date file's shape, not a posted URL's, so `artifact_listing` for the
+  posting date and `whois_creation` for the approval date. **Ivo to confirm or overrule.** It
+  clears 10,000 EE either way, which is why it was built before the call was made
+- **The provenance gate inside it is not optional and is worth minus 578.6 EE.** Only
+  `.CA`-registry-generated files are regenerated at posting time; classic hand-maintained maps are
+  reposted containers whose entries refresh only when a site admin resubmits, and of 12,486
+  in-window entries carrying a `#W` stamp only 1,031 are within a year of the posting date. Those
+  are candidate-only. Verified rather than assumed: all 8,309 in-window registry postings carry an
+  internal generation stamp in the same year as their `Date:` header, 569,157 of 569,157 entries at
+  gap zero, and all 118,766 `approved:`/`received:` lines occur inside registry-generated files and
+  none anywhere else
+- **The finding does not generalise, which was checked rather than hoped.** The `#N` format is
+  confined to one group: `alt.bbs.lists` 36 lines, `comp.mail.uucp` 64, `news.lists` 0, against
+  `comp.mail.maps`' 1,480,910. A generic record-format extractor over the rest of the corpus is
+  worth at most 193 EE and its sample is visibly contaminated. Fix the `#N` case and stop
+- **Trap worth naming: the edit-distance-1 typo test is meaningless without a control.** It reports
+  26-40% of net-new names within one edit of a held name, which reads as catastrophic. The baseline
+  for names the project already believes is **41.7%**, because the held set has 5.5M entries. Only
+  the excess counts, and here there was none
