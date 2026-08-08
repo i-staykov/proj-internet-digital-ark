@@ -1,6 +1,6 @@
 # Internet Digital Ark: round report
 
-Additions to the 1996-2001 annual domain lists, measured against `merged260802`.
+Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
 
 Every figure here is generated from the store by `scripts/report_figures.py` and substituted by
 `scripts/fill_report.py`. None is typed by hand, so none can drift from the shipped files.
@@ -11,36 +11,18 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **835,498** |
-| Over unique domains | 598,589 |
-| Domains absent from the baseline in every year | **17,891** |
-| Equivalent-English added | **529,039.3** |
-| Growth on the 5,622,984.6 baseline | **9.4085%** |
-| Mean equivalent-English weight per pair | 0.6332 |
+| Net-new (domain, year) pairs | **[TOTAL]** |
+| Over unique domains | [UNIQUE] |
+| Domains absent from the baseline in every year | **[NEWDOMAINS]** |
+| Equivalent-English added | **[EE]** |
+| Growth on the [EEBASELINE] baseline | **[EEGROWTH]** |
+| Mean equivalent-English weight per pair | [EEMEAN] |
 
-| Year | merged260802, this counting unit | Additions | Capture-backed |
-|---|--:|--:|--:|
-| 1996 | 623,012 | 21,146 | 72 (0.3%) |
-| 1997 | 1,281,371 | 51,891 | 1,497 (2.9%) |
-| 1998 | 970,963 | 157,450 | 17,897 (11.4%) |
-| 1999 | 1,537,182 | 234,060 | 26,254 (11.2%) |
-| 2000 | 1,555,211 | 222,112 | 47,381 (21.3%) |
-| 2001 | 2,817,881 | 148,839 | 30,412 (20.4%) |
-| **Total** | **8,785,620** | **835,498** | **123,513 (14.8%)** |
+[PER_YEAR_TABLE]
 
 ## 2. Where the additions come from
 
-| Source | What carries the date | Net-new pairs | Domains | Equivalent-English |
-|---|---|--:|--:|--:|
-| `usenet_announce` | post date of the announcement | 585,175 | 453,014 | 348,669.9 |
-| `ia_cdx_bulk` | Wayback capture timestamp | 104,484 | 75,700 | 84,546.6 |
-| `usenet_address` | post date of the message carrying the address | 107,304 | 94,528 | 64,960.8 |
-| `uucp_map_registry` | posting date of the registry's generated dump | 23,678 | 16,985 | 19,806.2 |
-| `uucp_map_creation` | the registrar's own `approved:` date | 4,793 | 4,793 | 4,009.3 |
-| `enron_email` | the message `Date:` header | 5,134 | 4,610 | 3,241.9 |
-| `rtfm_faq` | the FAQ's revision header | 3,596 | 3,525 | 2,916.8 |
-| `trade_press` | the issue cover date | 1,334 | 1,269 | 887.7 |
-| **Total** | | **835,498** | **598,589** | **529,039.3** |
+[EE_SOURCE_TABLE]
 
 Five source families are new this round. Each is described by the **artifact that carries the date**,
 because that is what decides whether a (domain, year) pair is worth anything.
@@ -97,13 +79,9 @@ and the store enforces that rather than counting distinct source names. The line
 `internet_archive`, `usenet`, `dns_survey`, `registry`, `uk_web_archive`, `corporate_email`,
 `trade_press`, `editorial_directory`, `software_catalogue` and `arquivo_pt`.
 
-| | |
-|---|--:|
-| Pairs confirmed by two or more independent lineages | **3,054,108** |
-| of those, net-new this round | 50,840 |
-| Mean distinct sources per asserted pair | 1.7114 |
+[CORROBORATION_TABLE]
 
-**One limitation, stated plainly.** All 835,498 pairs added this round are **language-unchecked**.
+**One limitation, stated plainly.** All [TOTAL] pairs added this round are **language-unchecked**.
 The equivalent-English figure above is unaffected, since it is derived from the TLD distribution and
 not from page text. But the page-level English verification of feedback section 6 has not been run
 over these additions, so `additions_english/` is empty for this round and everything ships in

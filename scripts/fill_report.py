@@ -1,4 +1,4 @@
-"""Substitute the report's and the email's placeholders from the live store.
+"""Substitute the round report's placeholders from the live store.
 
 The report must not contain a figure that disagrees with the shipped files, and
 the way that happens is a human retyping a number after the data moved. So the
@@ -26,22 +26,47 @@ from pathlib import Path
 
 import duckdb
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from report_figures import figures, markdown  # noqa: E402
+from report_figures import BASELINE, figures, markdown  # noqa: E402
+
+from ark.stats import collect_stats  # noqa: E402
+
+# The one column a reviewer actually interrogates: not where a name was found,
+# but what establishes the year. Kept here rather than in prose so the per-source
+# table cannot describe a source the store no longer contains, or omit one it
+# gained. An unlisted source falls back to a pointer at `sources.md`.
+DATE_BASIS = {
+    "usenet_announce": "post date of the announcement",
+    "usenet_address": "post date of the message carrying the address",
+    "ia_cdx_bulk": "Wayback capture timestamp",
+    "uucp_map_registry": "posting date of the registry's generated dump",
+    "uucp_map_creation": "the registrar's own `approved:` date",
+    "enron_email": "the message `Date:` header",
+    "rtfm_faq": "the FAQ's revision header",
+    "trade_press": "the issue cover date",
+    "tucows_catalogue": "software release date",
+    "afnic_fr": "registry creation date",
+    "isc_survey": "survey run date",
+    "early_web_cdx": "Wayback capture timestamp",
+}
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
 # and the numbers have to be refilled every time the archive is re-cut, so the
 # template is the thing that lives in git and the filled copy is a build product.
-# The email draft lives OUTSIDE the tracked tree, in `private/`, and that is not
-# tidiness. `package_delivery.sh` ships `git archive HEAD`, so every tracked file
-# reaches the reviewer: the 2 August archive carried the draft's "notes for Ivo"
-# section, which is private reasoning about how to present the work to him.
-# Anything addressed to a person belongs in `private/`, which is git-ignored.
-DOCUMENTS = (
-    (Path("docs/report_260802.template.md"), Path("docs/report_260802.md")),
-    (Path("private/email_draft_260802.template.md"), Path("private/email_draft_260802.md")),
-)
+#
+# One report, not one per round. Dated filenames meant the packaging script had
+# to be repointed every round and once shipped the previous round's report beside
+# this round's data. The round is identified by its content and its git tag, not
+# by its filename.
+#
+# Nothing addressed to a person is filled here. `package_delivery.sh` ships
+# `git archive HEAD`, so every tracked file reaches the reviewer, and the
+# 2 August archive carried an email draft's "notes for Ivo" section, which was
+# private reasoning about how to present the work to him. Email drafts live in
+# `private/`, which is git-ignored, and are written by hand.
+DOCUMENTS = ((Path("docs/report.template.md"), Path("docs/report.md")),)
 
 SUPERVISOR_LOG = Path("data/logs/lang_supervisor.log")
 JOURNAL_DIR = Path("data/raw/lang")
@@ -169,7 +194,7 @@ def per_year_table(f: dict) -> str:
     section 8's, so neither is repeated here.
     """
     lines = [
-        "| Year | merged260730, this counting unit | Additions | Capture-backed |",
+        f"| Year | {BASELINE}, this counting unit | Additions | Capture-backed |",
         "|---|--:|--:|--:|",
     ]
     for year in sorted(f["netnew_by_year"]):
@@ -232,6 +257,45 @@ def source_table(f: dict) -> str:
     return "\n".join(lines)
 
 
+def ee_source_table(f: dict) -> str:
+    """Per source, ordered by the metric the round is scored on.
+
+    Ordered by equivalent-English rather than by pair count, because those two
+    orders disagree: 23,678 `.ca` pairs outrank 107,304 pairs of mixed Usenet
+    origin, and a table sorted by volume would put the weaker source first.
+    """
+    lines = [
+        "| Source | What carries the date | Net-new pairs | Domains | Equivalent-English |",
+        "|---|---|--:|--:|--:|",
+    ]
+    for row in f["by_source"]:
+        lines.append(
+            f"| `{row['source']}` | {DATE_BASIS.get(row['source'], 'see `sources.md`')} | "
+            f"{row['pairs']:,} | {row['domains']:,} | {row['ee']:,.1f} |"
+        )
+    lines.append(
+        f"| **Total** | | **{f['netnew_pairs']:,}** | **{f['netnew_unique_domains']:,}** | "
+        f"**{f['ee_netnew']:,.1f}** |"
+    )
+    return "\n".join(lines)
+
+
+def corroboration_table(f: dict) -> str:
+    """Evidence rows per lineage, and how much of this round two lineages confirm."""
+    conn = duckdb.connect(str(DB), read_only=True)
+    stats = collect_stats(conn)
+    conn.close()
+    lines = [
+        "| | |",
+        "|---|--:|",
+        f"| Pairs confirmed by two or more independent lineages | "
+        f"**{stats['independently_corroborated_pairs']:,}** |",
+        f"| of those, net-new this round | {stats['independently_corroborated_netnew']:,} |",
+        f"| Mean distinct sources per asserted pair | {stats['avg_sources_per_pair']} |",
+    ]
+    return "\n".join(lines)
+
+
 def substitutions(f: dict) -> dict[str, str]:
     t = f["verdict_totals"]
     unverified = t["other"] + t["undetermined"] + t["unchecked"]
@@ -247,6 +311,13 @@ def substitutions(f: dict) -> dict[str, str]:
         "CANDIDATES": f"{f['candidate_pool']:,}",
         "HARVESTED": f"{f['harvested_this_round']:,}",
         "CAPTUREBACKED": f"{f['capture_backed_total']:,}",
+        "BASELINE": BASELINE,
+        "EE": f"{f['ee_netnew']:,.1f}",
+        "EEBASELINE": f"{f['ee_baseline']:,.1f}",
+        "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
+        "EEMEAN": f"{f['ee_mean_weight']:.4f}",
+        "EE_SOURCE_TABLE": ee_source_table(f),
+        "CORROBORATION_TABLE": corroboration_table(f),
         "PER_YEAR_TABLE": per_year_table(f),
         "LANG_PAIRS_TABLE": language_pairs_table(f),
         "LANG_DOMAINS_TABLE": language_domains_table(f),
