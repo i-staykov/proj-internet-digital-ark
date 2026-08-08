@@ -2795,3 +2795,25 @@ reviewer. It does not survive.
   26-40% of net-new names within one edit of a held name, which reads as catastrophic. The baseline
   for names the project already believes is **41.7%**, because the held set has 5.5M entries. Only
   the excess counts, and here there was none
+
+## 2026-08-08 (prioritising multi-source candidates: measured, and there are none)
+
+- **The feedback asks to prioritise "candidates found in more than one independent
+  directory", so with the candidate pool freshly grown to 2.47M names it was worth
+  measuring how many qualify. Almost none do.** Counted by distinct provenance
+  lineage: **2,474,139 candidates rest on one lineage, 451 on two, and exactly one
+  on three**
+- **The reason is structural rather than disappointing, and it validates a call made
+  earlier the same day.** The pool is overwhelmingly Usenet-derived, and the recovered
+  addresses were deliberately filed under the `usenet` lineage because a body address
+  and an announcement post in the same message are one observation, not two. Having
+  made that call correctly, the two cannot then corroborate each other. Filing them as
+  their own family would have manufactured 1.4M fake corroborations and made this idea
+  look brilliant
+- **So no queue reweighting is worth building.** 451 domains cannot move a metric that
+  needs 51,909 equivalent-English. The rule stays: a candidate earns its year from a
+  capture, and the queue is ordered by expected equivalent-English per query
+- **Also checked and closed: whether the click-tracker fix could recover value from
+  captures already downloaded.** It cannot. The expansion journals store the extracted
+  `domains` list and not the page body, and the whole `data/raw/expand` tree is 132 KB,
+  so there is nothing to re-parse. The fix helps future expansion runs only
