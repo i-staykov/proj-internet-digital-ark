@@ -2817,3 +2817,29 @@ reviewer. It does not survive.
   captures already downloaded.** It cannot. The expansion journals store the extracted
   `domains` list and not the page body, and the whole `data/raw/expand` tree is 132 KB,
   so there is nothing to re-parse. The fix helps future expansion runs only
+
+## 2026-08-08 (the header projection was wrong by 10x, and the reason is worth more than the source)
+
+- **Projected ~10,889 equivalent-English, delivered 1,038.4.** Machine-composed headers
+  (`Message-ID`, `Reply-To`, `Sender`, `NNTP-Posting-Host`) across the whole 404.8 GB
+  corpus gave 1,025,582 pairs, of which 207,980 corroborated and **2,869 net-new**
+- **The projection was not wrong because the sample was small. It was wrong because the
+  reference set moved underneath it.** The header sample was measured against the
+  snapshot exported at 04:12, and the recovered-address ingest at 07:17 wrote 102,577
+  new pairs into the store. The two seams draw from the same messages and overlap
+  almost entirely, so nearly everything the header sample counted as net-new had
+  already been ingested by the time the header run finished
+- **The ingest itself printed the proof: 207,980 journal lines produced 19,224 evidence
+  rows.** 91% deduplicated against evidence the address run had already written
+- **This is the same error the project has now made four times, in four costumes.** The
+  line-1 count, the stale baseline, the flat gap-realisation denominator, and now a
+  frozen snapshot used after the store moved past it. Every one was a correct
+  calculation against a reference set that had changed. **Rule: a snapshot is only
+  valid until the next ingest. Re-export it after any ingest, or measure against the
+  store.**
+- **Keep the source anyway.** 1,038.4 EE for a run that cost nothing but idle CPU is
+  still positive, `ark check` passes all twelve, and the header seam is now exhausted
+  and will not be re-proposed
+- **What it does not change: the address finding stands.** That one was measured against
+  the store at split time, not against the stale snapshot, which is why its 62,820.7 EE
+  was accurate to the digit
