@@ -2843,3 +2843,27 @@ reviewer. It does not survive.
 - **What it does not change: the address finding stands.** That one was measured against
   the store at split time, not against the stale snapshot, which is why its 62,820.7 EE
   was accurate to the digit
+
+## 2026-08-08 (the queue rebuilt, and why its headline projection is not quoted)
+
+- **Rebuilt against today's store because the live queue was written on 7 August and is
+  structurally blind to the 145,644 pairs added since.** New pairs create bracketed gaps
+  as well as filling them, and this exact staleness cost the 5 August queue 102,628
+  targets worth 63,333 key equivalent-English
+- **New queue: 464,625 gap targets and 2,402,792 pool targets, whole-queue expected value
+  1,465,811 EE.** The pool grew tenfold because the recovered addresses put 1.47M names
+  into the candidate pool and the header run added more
+- **It claims the round's shortfall is 2% of the queue away, 2.9 days. That number is not
+  quoted anywhere and should not be.** The head is sound: the first entries are the same
+  `.uk` names as before, scored at the **measured** `(usenet_mention, uk)` cell rate of
+  0.534. But by 250,000 queries the queue is 97% pool targets, and the address-derived
+  candidates are a brand-new source with no measured hit rate, so they fall back to the
+  **pool-wide 51.7%** measured on a different population. An unmeasured rate applied to
+  2.4M targets is exactly the shape of the estimate that produced 27,276-against-53
+- **So it is being settled empirically rather than argued.** The local engine picks the
+  new queue up at its next batch; the VPS is deliberately **left on its 7 August shard**
+  rather than shipped the new one. That makes the next hour a natural A/B test between
+  the two queues on two machines, at no cost, and the comparison decides whether the new
+  ordering is kept or the hit rate is re-estimated and the queue rebuilt
+- **The downside is bounded and worth naming.** If the new candidates hit poorly, the cost
+  is an hour or two of one engine's time and the fix is a rebuild with a measured rate
