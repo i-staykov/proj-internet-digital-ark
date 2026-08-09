@@ -24,6 +24,7 @@ import duckdb
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
+from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
 
 DB = Path("data/ark.duckdb")
@@ -149,24 +150,36 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         GROUP BY 1, 2
     """).fetchall():
         ee_by_source[name] = ee_by_source.get(name, Decimal(0)) + weights.get(tld, Decimal(0)) * n
+    # The evidence type each source's assignments actually carry, read from the
+    # rows rather than from a table of intentions. This is the column the reviewer
+    # interrogates: it is what says whether a source may back an annual-file entry
+    # at all, since only MASTER_TYPES may, and `master` below is computed from the
+    # same frozenset the database CHECK constraint is generated from.
     out["by_source"] = [
         {
             "source": s,
             "kind": k,
+            "evidence_type": etype,
+            "master": etype in MASTER_TYPES,
             "pairs": int(p),
             "domains": int(d),
             "ee": ee_by_source.get(s, Decimal(0)),
         }
-        for s, k, p, d in conn.execute(f"""
-            SELECT s.name, s.kind, count(*), count(DISTINCT dy.domain)
+        for s, k, etype, p, d in conn.execute(f"""
+            SELECT s.name, s.kind, e.evidence_type, count(*), count(DISTINCT dy.domain)
             FROM domain_year dy
             JOIN evidence e ON e.evidence_id = dy.evidence_id
             JOIN source s ON s.source_id = e.source_id
             WHERE {NOT_BASELINE}
-            GROUP BY 1, 2 ORDER BY 3 DESC
+            GROUP BY 1, 2, 3 ORDER BY 4 DESC
         """).fetchall()
     ]
     out["by_source"].sort(key=lambda r: r["ee"], reverse=True)
+    # An assignment backed by a candidate-only type would be a contradiction the
+    # schema forbids, so this is a belt-and-braces read of the shipped rows: if it
+    # were ever false, the report would say so rather than claim otherwise.
+    out["all_sources_master"] = all(r["master"] for r in out["by_source"])
+    out["non_master_sources"] = [r["source"] for r in out["by_source"] if not r["master"]]
 
     # The headline. Growth is quoted the way the reviewer computes it: the
     # increment divided by the pre-increment total, never the post-increment one.

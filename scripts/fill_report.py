@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from report_figures import BASELINE, figures, markdown  # noqa: E402
 
+from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import collect_stats  # noqa: E402
 
 # The one column a reviewer actually interrogates: not where a name was found,
@@ -39,6 +40,7 @@ from ark.stats import collect_stats  # noqa: E402
 DATE_BASIS = {
     "usenet_announce": "post date of the announcement",
     "usenet_address": "post date of the message carrying the address",
+    "usenet_bare": "post date of the message carrying the address",
     "ia_cdx_bulk": "Wayback capture timestamp",
     "uucp_map_registry": "posting date of the registry's generated dump",
     "uucp_map_creation": "the registrar's own `approved:` date",
@@ -275,35 +277,59 @@ def ee_source_table(f: dict) -> str:
     origin, and a table sorted by volume would put the weaker source first.
     """
     lines = [
-        "| Source | What carries the date | Net-new pairs | Domains | Equivalent-English |",
-        "|---|---|--:|--:|--:|",
+        "| Source | What carries the date | Evidence type | Admissible | Net-new pairs | "
+        "Equivalent-English |",
+        "|---|---|---|---|--:|--:|",
     ]
     for row in f["by_source"]:
+        admissible = "master" if row["master"] else "**candidate only**"
         lines.append(
             f"| `{row['source']}` | {DATE_BASIS.get(row['source'], 'see `sources.md`')} | "
-            f"{row['pairs']:,} | {row['domains']:,} | {row['ee']:,.1f} |"
+            f"`{row['evidence_type']}` | {admissible} | {row['pairs']:,} | {row['ee']:,.1f} |"
         )
-    lines.append(
-        f"| **Total** | | **{f['netnew_pairs']:,}** | **{f['netnew_unique_domains']:,}** | "
-        f"**{f['ee_netnew']:,.1f}** |"
-    )
+    lines.append(f"| **Total** | | | | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.1f}** |")
     return "\n".join(lines)
 
 
-def corroboration_table(f: dict) -> str:
-    """Evidence rows per lineage, and how much of this round two lineages confirm."""
+def corroboration_sentence(f: dict) -> str:
+    """Cross-source agreement in one line, because it is not the deliverable.
+
+    This was a table. The reviewer's interest is the annual files, and a
+    corroboration statistic is a nice-to-have beside them, so it earns a sentence
+    rather than a section.
+    """
     conn = duckdb.connect(str(DB), read_only=True)
     stats = collect_stats(conn)
     conn.close()
-    lines = [
-        "| | |",
-        "|---|--:|",
-        f"| Pairs confirmed by two or more independent lineages | "
-        f"**{stats['independently_corroborated_pairs']:,}** |",
-        f"| of those, net-new this round | {stats['independently_corroborated_netnew']:,} |",
-        f"| Mean distinct sources per asserted pair | {stats['avg_sources_per_pair']} |",
-    ]
-    return "\n".join(lines)
+    return (
+        f"Beyond that, {stats['independently_corroborated_netnew']:,} of this round's pairs are "
+        f"confirmed by two or more independent collection lineages rather than one, and every "
+        f"asserted pair in the collection carries {stats['avg_sources_per_pair']} distinct sources "
+        f"on average."
+    )
+
+
+def admissibility_sentence(f: dict) -> str:
+    """Whether every source in the table may back an annual-file entry.
+
+    Generated rather than asserted. The reviewer asked precisely this question of
+    the previous draft, and the honest answer has to come from the shipped rows:
+    if a candidate-only type ever backed an assignment, this says so by name
+    instead of repeating a claim that had stopped being true.
+    """
+    n_sources = len(f["by_source"])
+    if f["all_sources_master"]:
+        return (
+            f"**All {n_sources} are master sources, so all {f['netnew_pairs']:,} pairs are "
+            f"admitted to the annual files.** None of them is candidate-only. Names may pass "
+            f"through the candidate pool on the way in, and this round many did, but a pair is "
+            f"only counted once a master source dates it."
+        )
+    named = ", ".join(f"`{s}`" for s in f["non_master_sources"])
+    return (
+        f"**{n_sources - len(f['non_master_sources'])} of {n_sources} are master sources.** "
+        f"These are not, and their rows do not enter the annual files: {named}."
+    )
 
 
 def substitutions(f: dict) -> dict[str, str]:
@@ -327,7 +353,9 @@ def substitutions(f: dict) -> dict[str, str]:
         "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
         "EEMEAN": f"{f['ee_mean_weight']:.4f}",
         "EE_SOURCE_TABLE": ee_source_table(f),
-        "CORROBORATION_TABLE": corroboration_table(f),
+        "CORROBORATION": corroboration_sentence(f),
+        "ADMISSIBLE": admissibility_sentence(f),
+        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "LANG_PAIRS_TABLE": language_pairs_table(f),
         "LANG_DOMAINS_TABLE": language_domains_table(f),

@@ -51,6 +51,29 @@ if [ "$SHIPPED" != "$STORED" ]; then
     exit 1
 fi
 
+# The same argument once more, applied to the REPORT. The two guards above keep
+# the code and the data in step with each other, and neither of them looks at the
+# document that describes both. So the report drifted: it was regenerated against
+# a store that the collectors had grown by 10,000 pairs since the archive was
+# cut, and the two shipped side by side quoting different totals. A reviewer
+# checking the headline against `additions/` would have found it wrong, which is
+# the single most likely thing for them to check first.
+#
+# Regenerating is cheap and idempotent, so this rebuilds the report and refuses
+# if that changed anything. A report that is already current is a no-op here.
+REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
+uv run python scripts/fill_report.py > /dev/null 2>&1 || {
+    echo "refusing to package: scripts/fill_report.py failed, so the report cannot be trusted" >&2
+    exit 1
+}
+REPORT_AFTER=$(shasum -a 256 docs/report.md | cut -d' ' -f1)
+if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
+    echo "refusing to package: docs/report.md was stale against the store and has been" >&2
+    echo "regenerated. Review the change, commit it, then re-run." >&2
+    git --no-pager diff --stat docs/report.md >&2
+    exit 1
+fi
+
 # The unpacked folder is named for what it holds, so a reviewer who extracts it
 # among other downloads can still tell what it is.
 RELEASE="internet-digital-ark-1996-2001"

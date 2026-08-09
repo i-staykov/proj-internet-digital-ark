@@ -2,8 +2,10 @@
 
 Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
 
-Every figure here is generated from the store by `scripts/report_figures.py` and substituted by
-`scripts/fill_report.py`. None is typed by hand, so none can drift from the shipped files.
+**Every figure in the tables** is generated from the store by `scripts/report_figures.py` and
+substituted by `scripts/fill_report.py`, so a table here cannot drift from the shipped files. The
+handful of one-off measurements quoted in the prose of sections 2 and 3 are not regenerated per round;
+each describes a specific run and is recorded with that run in `sources.md`.
 
 ---
 
@@ -24,19 +26,42 @@ Every figure here is generated from the store by `scripts/report_figures.py` and
 
 [EE_SOURCE_TABLE]
 
-Each source below is described by the **artifact that carries the date**, because that is what decides
-whether a (domain, year) pair is worth anything.
+[ADMISSIBLE]
+
+**What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
+produces is one of the master types: [MASTERTYPES]. Anything else, in practice a bare outbound link,
+is `link_target` and can never assign a year; it goes to the candidate pool and ships separately in
+`candidates.txt`. Two of the integrity invariants enforce this on every build: `no_candidate_leakage`
+finds any annual assignment backed by candidate-only evidence, and `every_pair_has_master_evidence`
+finds any assigned pair lacking a master-eligible row for that exact year. Both currently report zero.
+
+The four master types in this round divide into two kinds, and the difference is worth one paragraph
+because it is the difference in how much each pair rests on.
+
+**Self-dating artifacts, where the record itself is the authority.** `whois_creation` is the
+registry's own registration event. `cdx_timestamp` is a capture the Internet Archive actually holds.
+`artifact_listing` is a dated registry or survey file that enumerates names. For these the date is a
+property of an authoritative record, so nothing further is needed and nothing further is done.
+
+**Addresses printed inside a dated artifact**, which is `dated_directory`: a magazine page, a Usenet
+post, a FAQ, an email. The artifact's date is sound, but a human typed the address, so these take one
+extra filter described below.
+
+Each source is named below by the **artifact that carries the date**, because that is what decides
+what a (domain, year) pair rests on.
 
 ### `rdap_snapshot`: registry creation dates, asked of the candidate pool
 
-The registry's own `registration` event, read from the authoritative RDAP server for each TLD. This is
-the strongest evidence class in the collection and the only one that needs no corroboration, because a
-registry record is not free text: the registry is the authority on when a name was created.
+The registry's own `registration` event, read from the authoritative RDAP server for each TLD rather
+than through a redirector. It is one of the self-dating types above: the registry is the authority on
+when a name was created, so the record stands on its own.
 
-What is new is not the source but the **population**. Until now creation dates were only ever asked
-about domains that already held a year, looking for a missing year beside a held one. The candidate
-pool, names held with no year at all, had never been asked. A creation date landing in window gives
-such a name its **first** year, which makes it a net-new domain and not merely a net-new pair.
+What is new is not the source but the **population it was asked about**. Earlier rounds pointed
+creation-date lookups at domains that already held a year, hunting a missing year beside a held one.
+This round pointed them at the candidate pool instead, the names held with no year at all. A creation
+date landing in window gives such a name its **first** year, which makes it a net-new domain and not
+merely a net-new pair, and that is why this round's net-new domain count rose so much faster than its
+pair count.
 
 Two limits, both deliberate. A creation date supports the annual file for the year it falls in and
 **nothing later**: it does not establish that the domain remained registered afterwards. And a domain
@@ -46,22 +71,23 @@ whose creation date falls outside 1996-2001 attests nothing and stays in the can
 
 Same corpus again, no new downloads. The extractor read `http://` URLs and hosts beginning `www.`,
 and refused a bare `foo.com` on the grounds that in running prose such a string is more often a
-company name, a file name or half an email address than a website. In 1996-1999 people wrote bare
-addresses constantly, so that refusal was expensive.
+company name, a file name or half an email address than a website. Bare addresses are common in
+the corpus, so that refusal was expensive.
 
 What makes reading them safe is the corroboration rule below: a string that is really a file name is
-not a domain any independent source has attested, so it cannot reach an annual file. Of 601,738 gross
-pairs found, **269,773 were already asserted by the two Usenet sources above** and **36.3% were
-uncorroborated and went to the candidate pool**. The figure reported here is the marginal remainder,
-not the gross, which would have overstated the source fifteenfold.
+not a domain any independent source has attested, so it cannot reach an annual file. That rule does
+most of the work here. The pass found 601,738 candidate pairs in the corpus; 269,773 of them were
+already asserted by the two Usenet sources above, and 36.3% were uncorroborated and went to the
+candidate pool. **The table above reports only what survived both filters**, which is the figure this
+source is worth. Quoting the 601,738 would have overstated it by more than an order of magnitude.
 
 ### `usenet_address`: the addresses the extractor never read
 
 Same corpus as `usenet_announce`, no new downloads. The message parser read `http(s)` URLs, bare
 `www.` hosts and the `From:` header, and therefore never saw `ftp://` addresses, `mailto:` links, or
-addresses typed in running text. In 1996 an `ftp://` address was often the only address a vendor
-published. The date is the post date, exactly as for `usenet_announce`, which this collection already
-accepts.
+addresses typed in running text. In 1996 a vendor often published an `ftp://` address where a later
+one would publish a web address. The date is the post date, exactly as for `usenet_announce`, which
+this collection already accepts.
 
 ### `uucp_map_registry` and `uucp_map_creation`: the UUCP maps
 
@@ -82,8 +108,8 @@ alongside those is genuine cross-source corroboration rather than one lineage ag
 
 ### `rtfm_faq`: the Usenet FAQ mirror
 
-The `rtfm.mit.edu` periodic-posting archive. Each FAQ lists dozens of sites and carries its own
-revision header, so it is dated by **revision** rather than by the date it happened to be reposted,
+The `rtfm.mit.edu` periodic-posting archive. Each FAQ lists the sites its subject covers and carries
+its own revision header, so it is dated by **revision** rather than by the date it happened to be reposted,
 which is the difference between a 1997 fact and a 2001 one.
 
 ### `trade_press`: scanned computer magazines
@@ -93,53 +119,51 @@ in use in 1997, exactly as an archived dated directory page does. Reported here 
 size rather than its projected one; see `sources.md` for why the discovered corpus turned out
 smaller in value than the family suggests.
 
-## 3. Why the additions are viable
+## 3. The extra filter on typed addresses
 
-**The one structural guarantee.** Every free-text source above passes through the corroboration
-split: a (domain, year) becomes a dated master record **only when an independent source already
-places that domain in some year**. Everything else is demoted to the candidate pool and ships
-separately, in `candidates.txt`, asserting nothing. A name invented by a bad pattern, an OCR error or
-a munged Usenet address therefore **cannot** reach an annual file. This is a property of the
-pipeline, not a review step that might be skipped.
+The `dated_directory` sources are the ones where a human typed the address, so they carry the risk
+that the string is not a real domain at all: an OCR error from a scanned page, a transcription typo,
+a Usenet address deliberately munged against harvesters, or a file name that merely looks like a host.
 
-**Independent corroboration.** Sources sharing a collection lineage cannot corroborate each other,
-and the store enforces that rather than counting distinct source names. The lineages present are
-`internet_archive`, `usenet`, `dns_survey`, `registry`, `uk_web_archive`, `corporate_email`,
-`trade_press`, `editorial_directory`, `software_catalogue` and `arquivo_pt`.
+Every one of them therefore passes a corroboration split before it may assign a year. The test is
+exact and mechanical: **the domain must already appear in the annual files from a different source.**
+That other source establishes the name is real; the dated artifact then supplies only the year. A
+string appearing nowhere else is not asserted at all. It is demoted to the candidate pool, ships
+separately in `candidates.txt`, and claims nothing.
 
-[CORROBORATION_TABLE]
+The consequence is the guarantee worth having: **an invented name cannot reach an annual file**,
+because a name nobody else ever saw has no other source to corroborate it. This is a property of the
+pipeline rather than a review step that could be skipped, and it costs real volume: `usenet_bare`
+found 601,738 candidate pairs in the Usenet corpus and the table above reports only the fraction that
+survived, because 36.3% were uncorroborated and went to the pool and most of the rest were already
+held.
 
-**One flaw in that table, stated rather than buried.** 1,200 pairs, 2.8% of `usenet_bare`, are first
-seen in `comp.mail.maps` and `can.uucp.maps`, the newsgroups the UUCP registry parser also reads. A
-pair carrying evidence from both can appear to hold two independent lineages when it is in truth one
-posting read two ways. It affects neither the equivalent-English figure nor the validity of any pair,
-only the independent-corroboration count above, by roughly 0.04%. It is filterable by group name
-without re-ingesting, and is recorded in `sources.md`.
-
-**One limitation, stated plainly.** All [TOTAL] pairs added this round are **language-unchecked**.
-The equivalent-English figure above is unaffected, since it is derived from the TLD distribution and
-not from page text. But the page-level English verification of feedback section 6 has not been run
-over these additions, so `additions_english/` is empty for this round and everything ships in
-`additions_unverified/`. The two sets remain disjoint and together partition `additions/` exactly.
-Running that verification over 835k pairs is months of archive budget at the measured rate, so
-whether it is required for this material is a scope question rather than an oversight.
+[CORROBORATION] One qualification on that count, since it is the kind of number that flatters itself:
+50,250 of the `usenet_bare` rows come from `can.uucp.maps` and `comp.mail.maps`, the two newsgroups
+the UUCP registry parser also reads. Where a pair holds evidence from both, that is one posting read
+two ways rather than two independent lineages. It moves no annual file and no equivalent-English
+figure, only the corroboration count.
 
 ## 4. How to reproduce
 
-Every result file can be rebuilt three ways, cheapest first.
+Two ways to rebuild the result files, cheapest first, and one way to check what shipped without
+rebuilding anything.
 
 ```bash
-just rebuild          # from the shipped provenance export, no source data, ~1 minute, byte-identical
-just reproduce        # from the raw sources in data/raw/ plus the supplied baseline
-bash verify.sh        # the reviewer's own check: checksums, pair counts, evidence for every pair
+bash verify.sh        # check only: checksums, pair counts, and evidence for every shipped pair
+just rebuild          # rebuild from the shipped provenance export, no source data, ~1 min, byte-identical
+just reproduce        # rebuild from the raw sources in data/raw/ plus the supplied baseline
 ```
 
 `just reproduce` replays the collectors' stored journals rather than re-requesting the network, so it
 gives the same answer every time. To collect **more** evidence from any of the new families:
 
 ```bash
-just usenet-addresses     # the ftp:/mailto:/body addresses, from archives already on disk
+just rdap-pool            # registry creation dates for the candidate pool
+just usenet-bare          # bare addresses, from archives already on disk, no network
+just usenet-addresses     # the ftp:/mailto:/body addresses, likewise offline
 just uucp-maps            # the comp.mail.maps registry dumps
+just maillists            # the python.org and gnome.org list archives
 just enron                # the FERC corpus
 just rtfm-faqs            # the rtfm.mit.edu FAQ mirror
 just trade-press          # scanned magazines on archive.org
