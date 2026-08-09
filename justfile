@@ -48,7 +48,9 @@ verify-repo:
 check-data:
     uv run ark check
 
-# the scoreboard: net-new domains and pairs on top of the baseline
+# the scoreboard: net-new domains, pairs and equivalent-English on top of the
+# baseline. Quote the "not yet credited" block, not the net-new one: net-new still
+# contains the round the reviewer has already merged.
 stats:
     uv run ark stats
 
@@ -104,6 +106,29 @@ journals:
     uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
     uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
     uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_r2.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_r2.jsonl.gz
+    uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
+    uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
+    uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
+    uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated.jsonl.gz
+    uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
+    uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated_reextract.jsonl.gz
+    uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
+    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+    uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
+    uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
+    uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+    uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american_bare.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american_bare.jsonl.gz
     uv run ark ingest-lang                data/raw/lang/lang_*.jsonl.gz
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
@@ -152,6 +177,18 @@ gap-shards n="2":
         uv run ark gaps --shards {{n}} --shard "$i" --out "data/raw/cdx/gap_shard${i}.txt"
     done
 
+# Supersedes running `gap-shards` and `build_pool_candidates.py` as two separate
+# lists: the allocation between them was the expensive decision and it was being
+# made by hand. Rebuild after a large ingest, since new evidence creates gaps as
+# well as filling them, and a stale queue cannot reach what it does not list.
+# one queue from both populations, best expected equivalent-English first
+query-queue weights="78,22" rates="916,262":
+    uv run python scripts/build_query_queue.py --weights {{weights}} --rates {{rates}}
+
+# what the queue is expected to return, without writing anything
+query-queue-preview:
+    uv run python scripts/build_query_queue.py --dry-run
+
 # the candidate pool instead of the gap pool: domains held with no year at all,
 # so a capture adds a name rather than a year. Best English yield first, and the
 # supervisor runs batches until the deadline epoch you give it.
@@ -159,10 +196,55 @@ cdx-pool until batch="1200" workers="8":
     uv run python scripts/build_pool_candidates.py
     bash scripts/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
 
+# what both CDX engines are doing right now, and whether the VPS journals are home
+engines:
+    bash scripts/engine_status.sh
+
+# Takes a deadline epoch, e.g. `just engines-start $(date -u -v+12d +%s)`.
+# start this machine's collector and the ingest loop, both detached
+engines-start until batch="600" workers="8":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
+        nohup caffeinate -i bash scripts/supervise_cdx_pool.sh \
+        {{until}} {{batch}} {{workers}} 900 > /dev/null 2>&1 < /dev/null &
+    nohup bash scripts/maintain_phase3.sh 900 150 > /dev/null 2>&1 < /dev/null &
+    sleep 5
+    ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]" || true
+
+# TERM to the supervisor runs its trap, which asks the batch to stop and lets it
+# publish what it has: a stopped batch still writes its journal, so the only thing
+# lost is the queries it had not made yet. Never `kill -9` here, that strands the
+# `.part` and the work in it is unreachable.
+# stop this machine's collector and ingest loop, keeping the batch in flight
+engines-stop:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    pkill -TERM -f "supervise_cdx_pool[.]sh" 2>/dev/null || true
+    pkill -TERM -f "maintain_phase3[.]sh" 2>/dev/null || true
+    echo "waiting for the batch in flight to publish its journal"
+    until ! pgrep -f "[a]rk cdx " >/dev/null && ! pgrep -f "[a]rk ingest" >/dev/null; do
+        sleep 5
+    done
+    pkill -f "caffeinate -i bash scripts/supervise" 2>/dev/null || true
+    echo "stopped; nothing left running:"
+    ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]|ar[k] cdx" || echo "  confirmed idle"
+    ls data/raw/cdx/*.part 2>/dev/null && echo "WARNING: a .part was stranded" || echo "  no stranded .part files"
+
 # one registry-date batch: creation year for domains adjacent to a held year
 rdap-batch n="2500":
     uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt
     uv run ark rdap data/raw/rdap/creation_candidates.txt -n {{n}}
+
+# sweep the candidate pool at the registries, which competes with no CDX engine.
+# Direct endpoints from the IANA bootstrap file: measured 75 q/s with no refusals,
+# against 0.83 q/s and 18.8% refused through the rdap.org redirector.
+rdap-pool tlds="com,net" batches="6" limit="100000" workers="32":
+    uv run python scripts/build_rdap_pool_list.py --tlds {{tlds}} \
+        --out data/raw/rdap/pool_targets_{{tlds}}.txt
+    LIST=data/raw/rdap/pool_targets_{{tlds}}.txt \
+        bash scripts/rdap_pool_sweep.sh {{batches}} {{limit}} {{workers}}
+    uv run ark ingest rdap_snapshot data/raw/rdap/rdap_pool_*.jsonl.gz
 
 # one page-expansion round (brief section VII). Pass a seed list and a round
 # number, e.g. `just expand-round seeds/expansion/seeds_round4.txt 5`. The split
@@ -214,6 +296,87 @@ usenet-measure *archives:
 usenet-ingest tag="auto":
     bash scripts/ingest_new_usenet.sh {{tag}}
 
+# Sources added 8 August, all from data already on disk or free to fetch.
+
+# UUCP maps from comp.mail.maps: a .CA registry dump the Usenet parser read as prose
+uucp-maps:
+    uv run python scripts/split_uucp_maps.py --write
+    uv run ark ingest uucp_listing  data/raw/uucp/uucp_listing.jsonl.gz
+    uv run ark ingest uucp_creation data/raw/uucp/uucp_creation.jsonl.gz
+    uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
+
+# mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host.
+# ftp://, mailto: and body addresses the Usenet extractor never read
+usenet-addresses mode="addresses" workers="10":
+    uv run python scripts/collect_usenet_addresses.py --mode {{mode}} --workers {{workers}}
+    uv run python scripts/split_usenet_addresses.py --write
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates.jsonl.gz
+
+# Sends no request and takes about three hours of CPU at 8 workers. Run
+# `--sample 400` first if you want the projection before committing to it.
+# bare `foo.com` in the Usenet bodies, the form no extractor has ever read
+usenet-bare workers="8":
+    uv run python scripts/collect_usenet_bare.py --workers {{workers}}
+    uv run python scripts/split_usenet_addresses.py --in-dir data/raw/usenet_bare --out-prefix usenet_bare --write
+    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+
+# Pass a tag on any re-run: it imports `probe_texts_corpus.domains_in`, so it
+# inherits that extractor's fixes, and the ledger refuses a rewritten journal.
+# the rtfm.mit.edu FAQ mirror, dated by revision header rather than repost date
+rtfm-faqs tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    suffix=""; [ -n "{{tag}}" ] && suffix="_{{tag}}"
+    uv run python scripts/split_rtfm_faqs.py --write --tag "{{tag}}"
+    uv run ark ingest rtfm_dated      "data/raw/rtfm/rtfm_dated${suffix}.jsonl.gz"
+    uv run ark ingest rtfm_candidates "data/raw/rtfm/rtfm_candidates${suffix}.jsonl.gz"
+
+# Run --discover first: several plausible collection names do not exist and
+# silently return zero when queried with a collection: prefix.
+# scanned computer magazines on archive.org, dated by issue
+trade-press limit="5000":
+    uv run python scripts/collect_trade_press.py --discover
+    uv run python scripts/collect_trade_press.py --limit {{limit}}
+    uv run python scripts/split_trade_press.py --write
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+
+# Both corpora are already worked and ingested; this is here to reproduce, not to
+# re-run. The collector writes a fresh timestamped journal, so pass its name to
+# the split. --tag keeps the ledger happy: tradepress_dated.jsonl.gz is taken.
+# the American trade weeklies, the second corpus and now the collector default
+trade-press-american journal="data/raw/tradepress/tradepress_20260808T172417Z.jsonl.gz":
+    uv run python scripts/collect_trade_press.py --limit 1400 --delay 0.6
+    uv run python scripts/split_trade_press.py --journal {{journal}} --tag american --write
+    uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+    uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+
+# Sends no request: it re-reads the OCR under data/raw/texts/cache. Worth running
+# after any trade-press or rtfm collection, since both share the extractor that
+# used to drop bare two-label domains.
+# re-read cached trade-press OCR with the corrected domain extractor
+trade-press-reextract:
+    uv run python scripts/reextract_trade_press.py --write
+    @echo "now split the journal it names, with --tag reextract, then ingest both halves"
+
+# Pause `maintain` first: the extraction runs for minutes before it writes, and
+# it has no store-lock retry, so a maintain pass landing mid-run loses the work.
+# the FERC-released Enron mail corpus, dated by each message's Date header
+enron:
+    uv run python scripts/collect_enron.py --write
+    uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
+    uv run ark ingest enron_candidates data/raw/enron/enron_candidates.jsonl.gz
+
+# Harvest first, then parse: `--harvest` fetches about 2,600 month files from
+# two pipermail hosts, which takes six minutes and no archive.org budget.
+# public pipermail list archives, dated by each message's Date header
+maillists:
+    uv run python scripts/collect_mailing_lists.py --harvest --write
+    uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+    uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
+
 # the Tucows software catalogue: release date plus vendor home page
 tucows:
     uv run python scripts/split_tucows.py --write
@@ -227,9 +390,11 @@ maintain iterations="26" pause="900":
 
 # --- shipping ----------------------------------------------------------------
 
+# Lands in submissions/<round>/, defaulting the round to the git branch, so a new
+# round no longer overwrites the last one.
 # build the delivery archive (refuses a dirty tree or a stale output/)
-package:
-    bash scripts/package_delivery.sh
+package round="":
+    bash scripts/package_delivery.sh {{round}}
 
 # check a built delivery the way a reviewer would: checksums, pair counts, and
 # that every shipped pair traces to an observation

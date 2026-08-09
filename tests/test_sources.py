@@ -618,6 +618,21 @@ def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
     assert message_year("") is None
 
 
+def test_usenet_reads_a_date_header_that_is_not_a_string():
+    """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047
+    encoded, and `Header` has no `.strip()`. 8,258 archives went through before one
+    carried such a date, and it then aborted a whole 2,500-archive batch: the
+    splitter parses a batch in one call, so one bad archive unmarked all of them and
+    the maintain loop retried the same batch every 150s for six hours."""
+    from email.header import Header
+
+    from ark.usenet import message_year
+
+    assert message_year(Header("Tue, 18 Jun 1996 12:00:00 GMT")) == 1996
+    assert message_year(Header("1997/06/18")) == 1997
+    assert message_year(Header("not a date")) is None
+
+
 def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
     """One counter for both hides which problem a barren source has. An archive
     that is entirely out of window should be dropped; one whose dates cannot be
@@ -650,6 +665,39 @@ def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
         "Someone <person@vendor.net>",
     )
     assert set(found) == {"example.com", "other.co.uk", "vendor.net"}
+
+
+def test_usenet_reads_an_address_written_without_a_scheme():
+    """The hole this closes: the URL regex requires `https?://`, so a human writing
+    `www.foo.com`, which was the ordinary way to write an address in 1996-1999, was
+    invisible to the shipped signal. Same artifact, same date header, same kind of
+    claim as a linked URL."""
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("Try www.warehouse.co.uk for prices, or WWW.UPPER.COM", "")
+    assert set(found) == {"warehouse.co.uk", "upper.com"}
+
+
+def test_a_bare_host_is_only_read_when_it_says_www():
+    """A bare `foo.com` in running prose is more often a company name, a file name
+    or half an email address than an address, and the evidence wall is worth more
+    than the extra recall."""
+    from ark.usenet import domains_in_message
+
+    assert domains_in_message("I work at bigcorp.com these days", "") == []
+
+
+def test_a_scheme_less_host_is_not_read_out_of_an_email_address():
+    from ark.usenet import domains_in_message
+
+    assert domains_in_message("mail me at bob@www.baz.net", "") == []
+
+
+def test_the_same_domain_is_not_counted_twice_for_both_spellings():
+    from ark.usenet import domains_in_message
+
+    found = domains_in_message("http://www.foo.com/x and later just www.foo.com", "")
+    assert found == ["foo.com"]
 
 
 def test_usenet_drops_infrastructure_hosts():
@@ -709,3 +757,134 @@ def test_moderated_announce_follows_usenet_naming_convention():
     assert is_moderated_announce("news.announce.newgroups")
     assert not is_moderated_announce("alt.internet.commerce")
     assert not is_moderated_announce("biz.marketplace")
+
+
+def _printed_domains_in(text: str) -> set[str]:
+    """The extractor `collect_trade_press.py` and `split_rtfm_faqs.py` share.
+
+    It lives in `scripts/`, which is not an installed package, so the import
+    follows the same sys.path convention those scripts use.
+    """
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    for part in (root / "src", root / "scripts"):
+        if str(part) not in sys.path:
+            sys.path.insert(0, str(part))
+    from probe_texts_corpus import domains_in
+
+    return domains_in(text)
+
+
+def test_printed_text_reads_a_bare_two_label_domain():
+    """The hole this closes, and it is the same shape as the `www.` hole in the
+    Usenet extractor. The pattern required two labels before the TLD, so it read
+    `www.foo.com` and dropped `foo.com`, `http://foo.com/` and `bob@foo.com`.
+    Printed copy drops the `www.` constantly, and re-reading the cached issues
+    found 12,788 (domain, year) rows the old pattern never saw."""
+    assert _printed_domains_in("visit foo.com today") == {"foo.com"}
+    assert _printed_domains_in("http://foo.com/pricing") == {"foo.com"}
+    assert _printed_domains_in("mail bob@foo.com") == {"foo.com"}
+    assert _printed_domains_in("see www.foo.com") == {"foo.com"}
+
+
+def test_printed_text_still_refuses_sentence_punctuation_and_file_names():
+    """The reason the pattern was narrow in the first place. OCR runs a full stop
+    into the next word, and a permissive dot rule turns that into a hostname."""
+    assert _printed_domains_in("the sentence end.Company said so") == set()
+    assert _printed_domains_in("open the readme.txt file") == set()
+    assert _printed_domains_in("index.html") == set()
+    assert _printed_domains_in("U.S. Government offices") == set()
+
+
+def test_printed_text_collapses_a_host_to_its_registrable_domain():
+    """One OCR smear must not become several fabricated names, which is what the
+    lookbehind is for: the match cannot start inside a longer dotted token."""
+    assert _printed_domains_in("a.b.c.foo.com") == {"foo.com"}
+    assert _printed_domains_in("www.bbc.co.uk and bbc.co.uk") == {"bbc.co.uk"}
+
+
+def test_printed_text_and_usenet_differ_on_bare_hosts_deliberately():
+    """These two extractors disagree and should. A bare name printed in a
+    directory or a magazine is an address; the same characters in conversational
+    Usenet prose are more often a company name or half an email address."""
+    from ark.usenet import domains_in_message
+
+    assert _printed_domains_in("I work at bigcorp.com these days") == {"bigcorp.com"}
+    assert domains_in_message("I work at bigcorp.com these days", "") == []
+
+
+def _bare(text: str) -> set[str]:
+    from ark.usenet import bare_domains_in_body
+
+    return set(bare_domains_in_body(text))
+
+
+def test_a_bare_usenet_host_is_read_on_its_own_extraction_path():
+    """The recall `domains_in_message` refuses. It is safe here because every row
+    from this corpus passes the corroboration split before it can date anything,
+    so a name no independent lineage attests becomes a candidate, not a fact."""
+    assert _bare("we launched bigcorp.com last week") == {"bigcorp.com"}
+    assert _bare("prices at WAREHOUSE.CO.UK") == {"warehouse.co.uk"}
+    assert _bare("mirror at ftp.example.org/pub") == {"example.org"}
+
+
+def test_the_bare_path_leaves_the_shipped_extractor_alone():
+    """Two extraction paths, two source names, so the addition can be measured and
+    dropped without disturbing anything `usenet_announce` already claimed."""
+    from ark.usenet import domains_in_message
+
+    assert domains_in_message("we launched bigcorp.com last week", "") == []
+
+
+def test_a_bare_host_is_not_read_out_of_a_url_or_an_email_address():
+    """`_URL` and the `usenet_address` patterns own those forms. Reading them here
+    too would double-count them under a second source name."""
+    assert _bare("see http://foo.com/x") == set()
+    assert _bare("mail bob@foo.com") == set()
+    assert _bare("http://host.net/path/other.com/") == set()
+
+
+def test_a_bare_host_refuses_sentence_punctuation_file_names_and_versions():
+    """The reason the pattern was refused in the first place, and each of these is
+    in the corpus. A permissive dot rule turns all four into hostnames."""
+    assert _bare("the sentence end.Company said so") == set()
+    assert _bare("open the readme.txt file") == set()
+    assert _bare("index.html") == set()
+    # without the all-digits guard this canonicalises to the invented name `2.au`
+    assert _bare("upgraded to 4.0.2.au") == set()
+
+
+def test_a_bare_host_keeps_a_multi_label_suffix_whole():
+    """`foo.com.au` must not be read as `foo.com`, which would invent a name and
+    date it. Greedy labels before the TLD are what stop that."""
+    assert _bare("order from shop.com.au today") == {"shop.com.au"}
+    assert _bare("a.b.c.foo.com") == {"foo.com"}
+
+
+def test_a_bare_host_survives_a_full_stop_but_not_a_trailing_label():
+    """ "Visit foo.com." is the ordinary way to end a sentence and must still read;
+    a domain-shaped email local part must not."""
+    assert _bare("Visit foo.com. The site is new.") == {"foo.com"}
+    assert _bare("john.com@example.org wrote") == set()
+
+
+def test_a_bare_host_is_taken_only_from_the_body(tmp_path):
+    """`Path:`, `Xref:` and `Newsgroups:` are dotted tokens by construction, and a
+    bare rule over them reads news servers and vanity newsgroup names as announced
+    websites. `body_of` is the guard."""
+    from ark.usenet import body_of
+
+    raw = (
+        b"From: a@b.com\r\n"
+        b"Newsgroups: alt.isd.net\r\n"
+        b"Path: news.relay.org!feeder!not-for-mail\r\n"
+        b"\r\n"
+        b"the site is realsite.com\r\n"
+    )
+    assert _bare(body_of(raw)) == {"realsite.com"}
+
+
+def test_a_bare_host_drops_infrastructure_like_every_other_usenet_path():
+    assert _bare("archived at groups.google.com and archive.org") == set()

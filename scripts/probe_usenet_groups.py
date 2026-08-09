@@ -18,7 +18,10 @@ Usage:
 import argparse
 import json
 import sys
+import threading
+import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CATALOG = Path("data/raw/usenet_catalog.json")
@@ -65,6 +68,11 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("data/raw/usenet_probe"))
     parser.add_argument("--catalog", type=Path, default=CATALOG)
     parser.add_argument("--max-mb", type=float, default=200.0, help="skip anything larger")
+    # A probe of a dozen groups is latency-bound and serial is fine. A bulk run of
+    # twelve thousand is latency-bound too, which is exactly why it must not be
+    # serial: measured at 0.6 groups/s, A+B+C would have taken six hours to fetch
+    # 77 GB that the link itself can carry in well under one.
+    parser.add_argument("--workers", type=int, default=1, help="parallel downloads")
     args = parser.parse_args()
 
     groups = list(args.groups)
@@ -76,7 +84,7 @@ def main() -> None:
     known = sizes(json.loads(args.catalog.read_text()))
     args.out.mkdir(parents=True, exist_ok=True)
 
-    taken = 0
+    wanted: list[tuple[str, int]] = []
     for group in groups:
         size = known.get(group)
         if size is None:
@@ -85,13 +93,34 @@ def main() -> None:
         if size > args.max_mb * 1e6:
             print(f"skip {group}: {size / 1e6:.1f} MB over cap", flush=True)
             continue
-        dest = args.out / f"{group}.mbox.zip"
-        if dest.exists():
+        if (args.out / f"{group}.mbox.zip").exists():
             print(f"have {group}", flush=True)
             continue
-        if download(group, dest):
-            taken += 1
-            print(f"got  {group} {size / 1e6:.1f} MB", flush=True)
+        wanted.append((group, size))
+
+    started = time.monotonic()
+    taken = 0
+    bytes_done = 0
+    lock = threading.Lock()
+
+    def fetch(item: tuple[str, int]) -> tuple[str, int, bool]:
+        group, size = item
+        return group, size, download(group, args.out / f"{group}.mbox.zip")
+
+    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+        for _group, size, ok in pool.map(fetch, wanted):
+            if not ok:
+                continue
+            with lock:
+                taken += 1
+                bytes_done += size
+                elapsed = max(time.monotonic() - started, 1e-6)
+                if taken % 25 == 0 or taken == len(wanted):
+                    print(
+                        f"got {taken:,}/{len(wanted):,}  {bytes_done / 1e9:.2f} GB  "
+                        f"{taken / elapsed:.1f} groups/s  {bytes_done / 1e6 / elapsed:.1f} MB/s",
+                        flush=True,
+                    )
     print(f"downloaded {taken} of {len(groups)}", file=sys.stderr)
 
 

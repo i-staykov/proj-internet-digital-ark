@@ -1,6 +1,6 @@
 # Internet Digital Ark: round report
 
-Additions to the 1996-2001 annual domain lists, measured against `merged260802-2`.
+Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
 
 **Every figure in the tables** is generated from the store by `scripts/report_figures.py` and
 substituted by `scripts/fill_report.py`, so a table here cannot drift from the shipped files. The
@@ -13,46 +13,23 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **946,266** |
-| Over unique domains | 684,523 |
-| Domains absent from the baseline in every year | **76,538** |
-| Equivalent-English added | **603,401.8** |
-| Growth on the 5,622,984.6 baseline | **10.7310%** |
-| Mean equivalent-English weight per pair | 0.6377 |
+| Net-new (domain, year) pairs | **[TOTAL]** |
+| Over unique domains | [UNIQUE] |
+| Domains absent from the baseline in every year | **[NEWDOMAINS]** |
+| Equivalent-English added | **[EE]** |
+| Growth on the [EEBASELINE] baseline | **[EEGROWTH]** |
+| Mean equivalent-English weight per pair | [EEMEAN] |
 
-| Year | merged260802-2, this counting unit | Additions | Capture-backed |
-|---|--:|--:|--:|
-| 1996 | 623,012 | 25,301 | 72 (0.3%) |
-| 1997 | 1,281,371 | 59,156 | 1,499 (2.5%) |
-| 1998 | 970,963 | 176,961 | 17,990 (10.2%) |
-| 1999 | 1,537,182 | 260,473 | 26,764 (10.3%) |
-| 2000 | 1,555,211 | 251,602 | 51,104 (20.3%) |
-| 2001 | 2,817,881 | 172,773 | 39,018 (22.6%) |
-| **Total** | **8,785,620** | **946,266** | **136,447 (14.4%)** |
+[PER_YEAR_TABLE]
 
 ## 2. Where the additions come from
 
-| Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
-|---|---|---|---|--:|--:|
-| `usenet_announce` | post date of the announcement | `dated_directory` | master | 585,175 | 348,669.9 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 117,417 | 97,237.7 |
-| `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 107,304 | 64,960.8 |
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 48,394 | 29,023.4 |
-| `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 42,139 | 28,460.3 |
-| `uucp_map_registry` | posting date of the registry's generated dump | `artifact_listing` | master | 23,678 | 19,806.2 |
-| `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 5,166 | 4,084.2 |
-| `uucp_map_creation` | the registrar's own `approved:` date | `whois_creation` | master | 4,793 | 4,009.3 |
-| `enron_email` | the message `Date:` header | `dated_directory` | master | 5,134 | 3,241.9 |
-| `trade_press` | the issue cover date | `dated_directory` | master | 3,740 | 2,401.9 |
-| `maillist_archive` | the message `Date:` header | `dated_directory` | master | 1,458 | 833.2 |
-| `isc_survey` | survey run date | `artifact_listing` | master | 1,857 | 665.2 |
-| `page_directory` | capture timestamp of the archived catalogue page | `dated_directory` | master | 11 | 7.7 |
-| **Total** | | | | **946,266** | **603,401.8** |
+[EE_SOURCE_TABLE]
 
-**All 13 are master sources, so all 946,266 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+[ADMISSIBLE]
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
-produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
+produces is one of the master types: [MASTERTYPES]. Anything else, in practice a bare outbound link,
 is `link_target` and can never assign a year; it goes to the candidate pool and ships separately in
 `candidates.txt`. Two of the integrity invariants enforce this on every build: `no_candidate_leakage`
 finds any annual assignment backed by candidate-only evidence, and `every_pair_has_master_evidence`
@@ -161,7 +138,7 @@ found 601,738 candidate pairs in the Usenet corpus and the table above reports o
 survived, because 36.3% were uncorroborated and went to the pool and most of the rest were already
 held.
 
-Beyond that, 78,308 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.7434 distinct sources on average. One qualification on that count, since it is the kind of number that flatters itself:
+[CORROBORATION] One qualification on that count, since it is the kind of number that flatters itself:
 50,250 of the `usenet_bare` rows come from `can.uucp.maps` and `comp.mail.maps`, the two newsgroups
 the UUCP registry parser also reads. Where a pair holds evidence from both, that is one posting read
 two ways rather than two independent lineages. It moves no annual file and no equivalent-English

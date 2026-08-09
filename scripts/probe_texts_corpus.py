@@ -57,9 +57,24 @@ USER_AGENT = "internet-digital-ark research crawler (contact: ivaylo.staykov@tak
 # punctuation ("...end.Company") and file names ("readme.txt"), and every false
 # match becomes a fabricated domain. Restricting to the TLDs the metric actually
 # rewards costs recall on obscure ccTLDs that are worth 0.09 each anyway.
+#
+# The first version of this pattern required two labels *before* the TLD, so it
+# read `www.foo.com` and silently dropped `foo.com`, `http://foo.com/` and
+# `bob@foo.com`. In a scanned magazine or a FAQ a bare two-label name is an
+# address like any other, and printed copy drops the `www.` constantly, so that
+# cost a third of the corpus: re-reading the 855 cached issues found 12,788
+# (domain, year) rows the old pattern never saw, of which 791 survived the
+# corroboration split, worth 493.9 equivalent-English.
+#
+# Two labels is therefore the minimum, and the sentence-punctuation defence moves
+# into the lookbehind, which stops a match starting inside a longer dotted token
+# and so stops one OCR smear becoming several fabricated names. "...end.Company"
+# still cannot match, because `\b` after the TLD needs a non-word character and
+# finds `p`. Note `ark.usenet.domains_in_message` deliberately does NOT do this:
+# a bare name in conversational prose is a weaker claim than one in print.
+_TEXT_TLDS = "com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg"
 DOMAIN_RE = re.compile(
-    r"\b([a-z0-9][a-z0-9-]{0,62}(?:\.[a-z0-9][a-z0-9-]{0,62})+)"
-    r"\.(com|net|org|edu|gov|us|uk|co\.uk|ac\.uk|au|ca|nz|ie|za|sg)\b",
+    rf"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{{0,62}}\.)+(?:{_TEXT_TLDS}))\b",
     re.IGNORECASE,
 )
 

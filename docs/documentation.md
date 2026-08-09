@@ -1,6 +1,6 @@
 # Design documentation
 
-**Why the code is shaped the way it is.** `README.md` says what to run and `docs/report_260802.md`
+**Why the code is shaped the way it is.** `README.md` says what to run and [report.md](report.md)
 says what came out; this file holds the reasoning that neither of those should carry. It is
 deliberately meta-level: anything a docstring or a comment already says belongs there, not here.
 

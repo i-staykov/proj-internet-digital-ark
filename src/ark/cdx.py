@@ -31,11 +31,32 @@ from threading import Lock
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
 USER_AGENT = "internet-digital-ark/1.0"
 
-# (status_code, body); status 0 means a transport error, which is retryable
+# (status_code, body); a status below 200 is a transport outcome, not a reply
 Fetch = Callable[[str], tuple[int, str]]
 
-_THROTTLE_STATUSES = frozenset({429, 503, 504})
-_RETRYABLE = frozenset({0, 429, 500, 502, 503, 504})
+# A refused connection and a client-side timeout used to arrive here as the same
+# status 0, and they want opposite responses.
+#
+# Measured 2026-08-06 01:00 CEST, with eight workers running: google.com,
+# one.one.one.one and archive.org each answered 8 of 8 requests while
+# web.archive.org answered 2 of 8, the failures all giving up at a flat ~3.4 s
+# with the TCP connect never completing. So the refusals were that one host
+# rate-limiting this IP, not the local link. Stopping the engine restored it
+# within 90 s. A refusal that does not slow the governor down is retried at full
+# pace, and those retries are themselves connection attempts, so the run holds
+# itself in the penalty box. Hence REFUSED backs the pace off like any throttle.
+#
+# A timeout says the opposite. The server accepted the question and could not
+# finish it, which is no evidence about the pace, and asking again is close to
+# pure waste because the server kills a heavily archived domain at a consistent
+# ~60 s. Those domains are what `lookup_years_per_year` exists to sweep.
+REFUSED = 0
+TIMED_OUT = -1
+
+_THROTTLE_STATUSES = frozenset({REFUSED, 429, 503, 504})
+_RETRYABLE = frozenset({REFUSED, 429, 500, 502, 503, 504})
+# one extra attempt only, so a doomed query costs one timeout instead of four
+_TIMEOUT_ATTEMPTS = 1
 _TIMESTAMP = re.compile(r"^(\d{4})\d{10}")
 
 # a row per year per URL key, so bound the payload; truncation is detected and
@@ -52,6 +73,14 @@ DEFAULT_LIMIT = 3000
 # domains reply between 30 s and 60 s. Domains the server does give up on are
 # swept later by the per-year probe strategy, which succeeds on exactly those.
 DEFAULT_TIMEOUT = 70.0
+
+# The cheap tier gets a short leash, because a cheap query that is not cheap is
+# by definition the wrong tier for that domain. Measured 2026-08-06 the host match
+# answers at a median 2.07 s and a p90 of 6.24 s, so 15 s keeps essentially every
+# real answer while cutting the cost of discovering a heavy domain from the
+# server's own ~60 s timeout to a quarter of that. The saving is not small: it is
+# paid on every domain the tier cannot answer.
+HOST_TIMEOUT = 15.0
 
 
 def cdx_url(domain: str, first: int, last: int, limit: int = DEFAULT_LIMIT) -> str:
@@ -83,6 +112,14 @@ def years_in(body: str, first: int, last: int) -> set[int]:
     return years
 
 
+def _is_timeout(exc: BaseException) -> bool:
+    """Whether a transport exception is the clock running out rather than a refusal."""
+    if isinstance(exc, TimeoutError):
+        return True
+    reason = getattr(exc, "reason", None)
+    return isinstance(reason, TimeoutError)
+
+
 def _http_get(url: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[int, str]:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
@@ -91,8 +128,10 @@ def _http_get(url: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[int, str]:
     except urllib.error.HTTPError as exc:
         retry_after = exc.headers.get("Retry-After", "") if exc.headers else ""
         return exc.code, retry_after
-    except (urllib.error.URLError, TimeoutError, OSError):
-        return 0, ""
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        # socket.timeout is an alias of TimeoutError, and URLError wraps it in
+        # .reason, so both spellings of "the clock ran out" land on TIMED_OUT
+        return (TIMED_OUT if _is_timeout(exc) else REFUSED), ""
 
 
 def http_fetch(timeout: float = DEFAULT_TIMEOUT) -> Fetch:
@@ -102,6 +141,91 @@ def http_fetch(timeout: float = DEFAULT_TIMEOUT) -> Fetch:
         return _http_get(url, timeout)
 
     return fetch
+
+
+# The two outcomes that mean the server could not finish the range scan, as
+# opposed to answering it or refusing to talk. Retrying the same scan is close to
+# pure waste: measured on the queue head, these domains had already failed four
+# and five times over as many batches, each attempt costing a full ~60 s before
+# the server gave up. The cheap host shape is tried instead.
+_SCAN_TOO_BIG = frozenset({504, TIMED_OUT})
+
+# Enough rows to see all six years several times over, and few enough that a
+# heavily archived host cannot bury the answer in payload.
+HOST_LIMIT = 50
+
+# Apex and www, as EXACT urls rather than a host match. The distinction is the
+# whole point of this tier and it cost a wrong turn to learn: `matchType=host`
+# covers every path on the host, which for a heavily archived name is millions of
+# rows, and measured 2026-08-06 it returned 504 on `warehouse.co.uk`,
+# `gigabyte.com` and `bbc.co.uk` exactly as the wildcard does. An exact url is a
+# single CDX key, and the same three domains answered in about 10 s each that way.
+ROOT_HOSTS = ("", "www.")
+
+
+def host_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
+    """Ask one host, every path on it, instead of every subdomain of the domain.
+
+    Where the saving comes from: CDX is keyed by a SURT of the URL, so
+    `url=*.domain` has to walk the key range covering every subdomain, while
+    `matchType=host` walks one host's range. Narrowing the range is the win;
+    `collapse` and `limit` only bound the payload, and for a very heavily archived
+    host the scan can still be slow.
+
+    `www.` comes free. IA's canonicalisation folds `http://www.abc.net.au/` and
+    `http://abc.net.au/` onto the same key prefix `au,net,abc)/`, so asking about
+    the apex already covers www. Verified rather than assumed: asking for `www.<d>`
+    explicitly returned the same year set every time it answered.
+
+    Measured 2026-08-06 against the wildcard scan on domains the scan had already
+    answered, which is ground truth we already held: median 2.07 s against roughly
+    33 s, and the same years every time.
+
+    It is NOT the answer for a heavily archived domain. One host can still hold
+    millions of rows, and this shape returned 504 on `warehouse.co.uk`,
+    `gigabyte.com` and `bbc.co.uk` just as the wildcard does. `root_url` is the
+    tier for those.
+    """
+    query = urllib.parse.urlencode(
+        {
+            "url": host,
+            "matchType": "host",
+            "from": str(first),
+            "to": str(last),
+            "filter": "statuscode:200",
+            "fl": "timestamp",
+            "collapse": "timestamp:4",
+            "limit": str(limit),
+        }
+    )
+    return f"{CDX_ENDPOINT}?{query}"
+
+
+def root_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
+    """Ask one exact url, the host's root page, which is a single CDX key.
+
+    The cheapest question that can still date a domain, and the only one a
+    heavily archived name reliably answers. One key means the server reads a
+    contiguous run of rows in time order, so `collapse` plus a small limit lets it
+    stop as soon as it has the years, rather than bounding a payload it has
+    already had to scan.
+
+    Measured 2026-08-06 on `warehouse.co.uk`, which five batches of the wildcard
+    scan had failed on and which `matchType=host` also 504s: apex plus www
+    answered in 20.5 s with four years.
+    """
+    query = urllib.parse.urlencode(
+        {
+            "url": host,
+            "from": str(first),
+            "to": str(last),
+            "filter": "statuscode:200",
+            "fl": "timestamp",
+            "collapse": "timestamp:4",
+            "limit": str(limit),
+        }
+    )
+    return f"{CDX_ENDPOINT}?{query}"
 
 
 def year_probe_url(domain: str, year: int) -> str:
@@ -148,13 +272,22 @@ class RateGovernor:
     ramp_after: int = 5
     ramp_factor: float = 0.8
     backoff_factor: float = 1.5
+    # Consecutive refusals that mean the host has stopped taking connections from
+    # this IP at all. Slowing down does not help once that has happened, because
+    # every queue position spent is a certain failure; the useful move is to stop
+    # asking for a while. Measured recovery after stopping an eight-worker run
+    # was under 90 s, so a minute of quiet is the right order.
+    breaker_after: int = 25
+    breaker_pause: float = 60.0
     sleep: Callable[[float], None] = time.sleep
 
     def __post_init__(self) -> None:
         self._lock = Lock()
         self._next_at = 0.0
         self._successes = 0
+        self._refusals = 0
         self.throttles = 0
+        self.breaker_trips = 0
 
     def wait(self) -> None:
         """Block until this thread's turn, keeping the global pace."""
@@ -169,18 +302,32 @@ class RateGovernor:
     def on_success(self) -> None:
         with self._lock:
             self._successes += 1
+            self._refusals = 0
             if self._successes >= self.ramp_after and self.delay > self.min_delay:
                 self._successes = 0
                 self.delay = max(self.min_delay, self.delay * self.ramp_factor)
 
-    def on_throttle(self, retry_after: float = 0.0) -> None:
-        """Back off immediately, and honour Retry-After when the server sends one."""
+    def on_throttle(self, retry_after: float = 0.0, *, refused: bool = False) -> None:
+        """Back off immediately, and honour Retry-After when the server sends one.
+
+        `refused` marks the harsher case where the connection never got made.
+        A run of those trips the breaker, which pushes the shared next-start time
+        forward and so holds every thread off, not just this one.
+        """
         with self._lock:
             self.throttles += 1
             self._successes = 0
             self.delay = min(self.max_delay, self.delay * self.backoff_factor)
             if retry_after > 0:
                 self._next_at = max(self._next_at, time.monotonic() + retry_after)
+            if not refused:
+                self._refusals = 0
+                return
+            self._refusals += 1
+            if self._refusals >= self.breaker_after:
+                self._refusals = 0
+                self.breaker_trips += 1
+                self._next_at = max(self._next_at, time.monotonic() + self.breaker_pause)
 
 
 def _retry_after_seconds(body: str) -> float:
@@ -190,9 +337,20 @@ def _retry_after_seconds(body: str) -> float:
         return 0.0
 
 
-def _fetch_retrying(url: str, fetch: Fetch, gov: RateGovernor, retries: int) -> tuple[int, str]:
-    """One request through the governor, retrying only what is worth retrying."""
-    status, body = 0, ""
+def _fetch_retrying(
+    url: str,
+    fetch: Fetch,
+    gov: RateGovernor,
+    retries: int,
+    stop_on: frozenset[int] = frozenset(),
+) -> tuple[int, str]:
+    """One request through the governor, retrying only what is worth retrying.
+
+    `stop_on` names statuses the caller has a better answer to than retrying. The
+    pace is still adjusted for them, because a 504 does say the server is
+    struggling; only the pointless repetition is skipped.
+    """
+    status, body = REFUSED, ""
     for attempt in range(retries):
         gov.wait()
         status, body = fetch(url)
@@ -200,11 +358,87 @@ def _fetch_retrying(url: str, fetch: Fetch, gov: RateGovernor, retries: int) -> 
             gov.on_success()
             break
         if status in _THROTTLE_STATUSES:
-            gov.on_throttle(_retry_after_seconds(body))
-        if status in _RETRYABLE and attempt < retries - 1:
-            continue
-        break
+            gov.on_throttle(_retry_after_seconds(body), refused=status == REFUSED)
+        # a timeout is the server giving up on a heavy domain, so one attempt is
+        # the whole budget: three more would cost three more minutes of a worker
+        # and end the same way. The cheaper shapes are what rescue those.
+        if status in stop_on or status == TIMED_OUT or status not in _RETRYABLE:
+            break
+        if attempt >= retries - 1:
+            break
     return status, body
+
+
+def lookup_years_by_host(
+    domain: str,
+    first: int,
+    last: int,
+    fetch: Fetch = _http_get,
+    governor: RateGovernor | None = None,
+    *,
+    retries: int = 4,
+    limit: int = HOST_LIMIT,
+) -> dict:
+    """Date a domain from every path on its own host, in one request.
+
+    Narrower than the wildcard scan by construction: a year evidenced only by
+    some OTHER subdomain is not seen. Measured cost of that narrowing, against
+    the wildcard answers already in our journals, was zero years lost on the
+    domains where both shapes answered.
+    """
+    gov = governor or RateGovernor()
+    status, body = _fetch_retrying(
+        host_url(domain, first, last, limit), fetch, gov, retries, stop_on=_SCAN_TOO_BIG
+    )
+    return {
+        "domain": domain,
+        "status": status,
+        "years": sorted(years_in(body, first, last)) if status == 200 else [],
+        "truncated": False,
+        "strategy": "by_host",
+    }
+
+
+def lookup_years_by_root(
+    domain: str,
+    first: int,
+    last: int,
+    fetch: Fetch = _http_get,
+    governor: RateGovernor | None = None,
+    *,
+    retries: int = 4,
+    hosts: tuple[str, ...] = ROOT_HOSTS,
+) -> dict:
+    """Date a domain from the root pages of its apex and www hosts.
+
+    The last tier, for domains so heavily archived that neither the wildcard scan
+    nor a whole-host match can be finished by the server. Narrow by construction,
+    since a year evidenced only by some deeper page or other subdomain is not seen,
+    but the comparison here is against no answer at all: these are the domains that
+    had already failed four and five times over as many batches.
+
+    A host that answers with no rows is still an answer, so the domain counts as
+    settled if either host returned 200.
+    """
+    gov = governor or RateGovernor()
+    years: set[int] = set()
+    answers = 0
+    last_status = REFUSED
+    for prefix in hosts:
+        status, body = _fetch_retrying(
+            root_url(f"{prefix}{domain}", first, last), fetch, gov, retries, stop_on=_SCAN_TOO_BIG
+        )
+        last_status = status
+        if status == 200:
+            answers += 1
+            years |= years_in(body, first, last)
+    return {
+        "domain": domain,
+        "status": 200 if answers else last_status,
+        "years": sorted(years),
+        "truncated": False,
+        "strategy": "by_root",
+    }
 
 
 def lookup_years_per_year(
@@ -258,16 +492,84 @@ def lookup_years(
     retries: int = 4,
     limit: int = DEFAULT_LIMIT,
     probe_missing: bool = True,
+    host_first: bool = True,
+    host_fetch: Fetch | None = None,
 ) -> dict:
     """Query one domain and return its journal record.
 
     The record always states what happened, including failure, so a later run
     knows not to repeat it and the run's coverage is auditable.
+
+    The cheap shape is asked first and the wildcard scan is the fallback, which is
+    the reverse of how this started. Two measurements moved it:
+
+    The scan is what the server gives up on. Measured 2026-08-06, the first 200
+    domains of the unanswered queue were 100% ones earlier batches had already
+    failed on, most four or five times over, and the head was heavily archived
+    names like `warehouse.co.uk` and `vccs.edu` returning 504 every time. Since
+    only an HTTP 200 settles a domain, they returned to the head of every later
+    batch, so about a third of each batch went on re-failing the same names.
+
+    And the cheap shape loses nothing measurable. Against the wildcard answers
+    already in our journals, which is ground truth already paid for, the host query
+    returned the same year set every time both answered, at a median 2.07 s against
+    roughly 33 s.
+
+    Three tiers, and each one exists for a failure the others measurably have:
+
+    1. `matchType=host`, one request, answers the ordinary domain in about 2 s.
+    2. If the server cannot finish even that, the apex and www ROOT pages, which
+       are single keys. This is the tier for the heavily archived names, and it is
+       not interchangeable with tier 1: `matchType=host` returned 504 on
+       `warehouse.co.uk`, `gigabyte.com` and `bbc.co.uk`, while their root pages
+       answered in about 10 s each.
+    3. If tier 1 answered but found nothing, the wildcard scan, which is the only
+       shape that can see a capture under some other subdomain. Safe to spend
+       there precisely because a domain with nothing on its own host is lightly
+       archived, so the scan is cheap.
     """
     gov = governor or RateGovernor()
-    status, body = _fetch_retrying(cdx_url(domain, first, last, limit), fetch, gov, retries)
+
+    if host_first:
+        record = lookup_years_by_host(
+            domain, first, last, host_fetch or fetch, governor=gov, retries=retries
+        )
+        host_status = record["status"]
+        if host_status == 200 and record["years"]:
+            return record
+        if host_status in _SCAN_TOO_BIG:
+            # too big for one host, so it is far too big for every subdomain: the
+            # wildcard scan is strictly more work and would only 504 again
+            rescued = lookup_years_by_root(
+                domain, first, last, fetch, governor=gov, retries=retries
+            )
+            if rescued["status"] == 200:
+                rescued["host_status"] = host_status
+                return rescued
+            return {"domain": domain, "status": host_status, "years": [], "truncated": False}
+        if host_status != 200:
+            # refused, so nothing was learned about the domain; a later batch asks again
+            return {"domain": domain, "status": host_status, "years": [], "truncated": False}
+
+    status, body = _fetch_retrying(
+        cdx_url(domain, first, last, limit), fetch, gov, retries, stop_on=_SCAN_TOO_BIG
+    )
 
     if status != 200:
+        if not host_first:
+            # scan-first ordering keeps the cheap shapes as the rescue they were
+            rescued = lookup_years_by_root(
+                domain, first, last, fetch, governor=gov, retries=retries
+            )
+            if rescued["status"] == 200:
+                rescued["scan_status"] = status
+                return rescued
+        else:
+            # tier 1 said "nothing on this host" and the scan could not improve on
+            # it. Recording tier 1's answer settles the domain, which is right:
+            # leaving these unsettled is what built the clog in the first place
+            record["scan_status"] = status
+            return record
         return {"domain": domain, "status": status, "years": [], "truncated": False}
 
     rows = [line for line in body.splitlines() if line.strip()]
@@ -286,7 +588,7 @@ def lookup_years(
                 gov.on_success()
                 years |= years_in(probe_body, year, year)
             elif probe_status in _THROTTLE_STATUSES:
-                gov.on_throttle(_retry_after_seconds(probe_body))
+                gov.on_throttle(_retry_after_seconds(probe_body), refused=probe_status == REFUSED)
 
     return {
         "domain": domain,

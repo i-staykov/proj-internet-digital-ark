@@ -21,6 +21,7 @@ Usage:
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -31,6 +32,11 @@ from ark.expand import split_by_corroboration  # noqa: E402
 from ark.journal import journal_writer, open_journal, write_journal_line  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
+# DuckDB takes one writer at a time and the maintain loop takes it every few
+# seconds, so an unretried read here fails whenever a round is actually running,
+# which is exactly when this script gets used. Cost of waiting is seconds.
+LOCK_ATTEMPTS = 120
+LOCK_PAUSE = 5.0
 
 
 def read_records(path: Path) -> list[dict]:
@@ -43,8 +49,20 @@ def read_records(path: Path) -> list[dict]:
     return records
 
 
+def open_store() -> duckdb.DuckDBPyConnection:
+    """Read-only connection, waiting out whoever currently holds the write lock."""
+    for attempt in range(LOCK_ATTEMPTS):
+        try:
+            return duckdb.connect(str(STORE), read_only=True)
+        except duckdb.IOException:
+            if attempt == LOCK_ATTEMPTS - 1:
+                raise
+            time.sleep(LOCK_PAUSE)
+    raise AssertionError("unreachable")
+
+
 def known_domains() -> set[str]:
-    conn = duckdb.connect(str(STORE), read_only=True)
+    conn = open_store()
     try:
         return {row[0] for row in conn.execute("SELECT domain FROM domain").fetchall()}
     finally:

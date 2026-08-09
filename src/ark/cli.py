@@ -1,11 +1,11 @@
 """Command-line entry point for the ark pipeline."""
 
 import sys
-import time
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Annotated
 
@@ -14,9 +14,10 @@ from loguru import logger
 from tqdm import tqdm
 
 from ark.audit import write_audit
+from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
-from ark.cdx import RateGovernor, http_fetch, lookup_years, lookup_years_per_year
+from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import collect_checks, format_checks
 from ark.db import DEFAULT_DB_PATH, connect, init_db
@@ -59,10 +60,15 @@ from ark.rdap import (
     JOURNAL_PREFIX as RDAP_JOURNAL_PREFIX,
 )
 from ark.rdap import (
+    Router,
+    load_registries,
+    lookup,
+)
+from ark.rdap import (
     answered as rdap_answered,
 )
 from ark.rdap import (
-    lookup,
+    http_fetch as rdap_http_fetch,
 )
 from ark.seed import seed_from_file
 from ark.seeds import combine_parts, write_source_part
@@ -131,16 +137,17 @@ def init() -> None:
 def ingest_legacy_cmd(
     legacy_dir: Annotated[
         Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = Path("legacy-data"),
+    ] = CURRENT_BASELINE_DIR,
     marker_prefix: Annotated[
         str,
         typer.Option(
             "--marker-prefix",
             help="Namespace for this baseline's evidence markers, e.g. 'merged260727'. Required "
             "when loading a later release: the marker is the file name alone, so a second "
-            "1996.txt would otherwise be skipped as already ingested.",
+            "1996.txt would otherwise be skipped as already ingested. Defaults to the current "
+            "release; pass the pair explicitly to load an older one.",
         ),
-    ] = "",
+    ] = CURRENT_BASELINE_MARKER,
 ) -> None:
     """Load the baseline year files and merge stats into the store."""
     conn = connect()
@@ -159,7 +166,7 @@ def ingest_legacy_cmd(
 def legacy_review_cmd(
     legacy_dir: Annotated[
         Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = Path("legacy-data"),
+    ] = CURRENT_BASELINE_DIR,
 ) -> None:
     """Write the grouped droplist of baseline lines the pipeline excludes."""
     counts = review_legacy(legacy_dir)
@@ -403,9 +410,39 @@ def rdap(
     limit: Annotated[
         int, typer.Option("--limit", "-n", help="Query at most this many not-yet-queried domains.")
     ] = 1000,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            help="Concurrent requests, paced per registry. Measured 2026-08-08 against "
+            "Verisign: 8 workers held 25.6 q/s with no refusals at all, so the ceiling "
+            "is well above this default.",
+        ),
+    ] = 8,
     delay: Annotated[
-        float, typer.Option("--delay", help="Seconds to pause between RDAP queries (politeness).")
+        float,
+        typer.Option("--delay", help="Starting seconds between queries to one registry (adapts)."),
     ] = 0.15,
+    min_delay: Annotated[
+        float,
+        typer.Option("--min-delay", help="Floor the per-registry pace may not ease below."),
+    ] = 0.01,
+    max_delay: Annotated[
+        float,
+        typer.Option("--max-delay", help="Ceiling on the adaptive per-registry pace."),
+    ] = 5.0,
+    timeout: Annotated[
+        float, typer.Option("--timeout", help="Seconds to wait per request before giving up.")
+    ] = 20.0,
+    direct: Annotated[
+        bool,
+        typer.Option(
+            "--direct/--redirector",
+            help="Query the authoritative registry from the IANA bootstrap file, falling back "
+            "to rdap.org per TLD. --redirector forces every query through rdap.org, which is "
+            "how journals before 2026-08-08 were collected and is rate-limited far harder.",
+        ),
+    ] = True,
     out: Annotated[
         Path | None,
         typer.Option("--out", help="Journal to write (default data/raw/rdap/rdap_<UTC>.jsonl.gz)."),
@@ -419,8 +456,11 @@ def rdap(
     like any other source. Keeping whole responses means a later change of
     evidence standard is a re-parse, not a migration.
 
-    Resumable: any domain already recorded in a journal in the same folder is
-    skipped, so an interrupted run is finished by running the command again.
+    Queries go straight to the registry that is authoritative for each TLD, and
+    each registry is paced by its own adaptive governor, so a refusal from one
+    never slows the others. Resumable: any domain already ANSWERED in a journal
+    in the same folder is skipped, so an interrupted run is finished by running
+    the command again.
     """
     path = out or journal_path(RDAP_JOURNAL_DIR, RDAP_JOURNAL_PREFIX)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -429,36 +469,59 @@ def rdap(
     already = queried_domains(path.parent, RDAP_JOURNAL_PREFIX, answered=rdap_answered)
     logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
     stats: Counter = Counter()
+
+    targets: list[str] = []
+    with candidates.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            raw = line.strip()
+            if not raw:
+                continue
+            domain = to_registrable(raw)
+            if domain is None:
+                stats["rejected"] += 1
+                continue
+            if domain in already:
+                stats["skipped_journalled"] += 1
+                continue
+            already.add(domain)
+            targets.append(domain)
+            if len(targets) >= limit:
+                break
+
+    registries = load_registries() if direct else {}
+    router = Router(registries, delay=delay, min_delay=min_delay, max_delay=max_delay)
+    stats["registries_known"] = len(registries)
+    fetch = rdap_http_fetch(timeout)
     queried = 0
-    with journal_writer(path) as journal:
-        with candidates.open(encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                raw = line.strip()
-                if not raw:
+    if targets:
+        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
+            futures = {
+                pool.submit(lookup, domain, fetch, router=router): domain for domain in targets
+            }
+            for future in tqdm(as_completed(futures), total=len(futures), unit="domain"):
+                try:
+                    record = future.result()
+                except Exception as exc:  # noqa: BLE001 (one bad domain must not end the run)
+                    logger.warning(f"{futures[future]}: {exc}")
+                    stats["errored"] += 1
                     continue
-                domain = to_registrable(raw)
-                if domain is None:
-                    stats["rejected"] += 1
-                    continue
-                if domain in already:
-                    stats["skipped_journalled"] += 1
-                    continue
-                if queried >= limit:
-                    break
-                already.add(domain)
-                queried += 1
-                record = lookup(domain)
                 write_journal_line(journal, record)
-                stats["dated" if record["creation_year"] is not None else "not_dated"] += 1
+                queried += 1
+                if record["creation_year"] is not None:
+                    stats["dated"] += 1
+                elif rdap_answered(record):
+                    stats["not_dated"] += 1
+                else:
+                    stats[f"failed_{record['status']}"] += 1
                 # flush periodically so an interrupted run keeps its work
                 if queried % _JOURNAL_FLUSH_EVERY == 0:
                     journal.flush()
-                if delay:
-                    time.sleep(delay)
     if queried == 0:
         path.unlink(missing_ok=True)
         logger.info("rdap: nothing new to query; no journal written")
     stats["queried"] = queried
+    for host, throttles in router.throttles().items():
+        stats[f"throttled_{host}"] = throttles
     summary = dict(stats)
     logger.info(f"rdap: {summary} -> {path if queried else 'no journal'}")
     typer.echo(f"rdap: {summary}")
@@ -573,6 +636,26 @@ def cdx(
         float,
         typer.Option("--timeout", help="Seconds to wait per request before giving up."),
     ] = 70.0,
+    host_timeout: Annotated[
+        float,
+        typer.Option(
+            "--host-timeout",
+            help="Seconds to allow the cheap per-host query before giving up on it "
+            "and asking the root pages instead. Short on purpose: that tier answers "
+            "at a p90 of 6.2s, so anything slower is a domain it cannot serve, and "
+            "waiting the full timeout for that verdict is paid on every such domain.",
+        ),
+    ] = HOST_TIMEOUT,
+    wildcard_first: Annotated[
+        bool,
+        typer.Option(
+            "--wildcard-first",
+            help="Ask the `*.domain` scan before the cheap per-host query, which is "
+            "the old order. The default asks the host first because it measured a "
+            "median 2.07s against roughly 33s for the scan, with the same years "
+            "returned every time both answered. Use this to reproduce older runs.",
+        ),
+    ] = False,
     per_year: Annotated[
         bool,
         typer.Option(
@@ -626,7 +709,15 @@ def cdx(
     written = 0
     if targets:
         with journal_writer(path) as journal, _abortable_pool(workers) as pool:
-            strategy = lookup_years_per_year if per_year else lookup_years
+            strategy: Callable[..., dict] = (
+                lookup_years_per_year
+                if per_year
+                else partial(
+                    lookup_years,
+                    host_first=not wildcard_first,
+                    host_fetch=http_fetch(host_timeout),
+                )
+            )
             fetch = http_fetch(timeout)
             futures = {
                 pool.submit(strategy, d, first, last, fetch, governor=governor): d for d in targets

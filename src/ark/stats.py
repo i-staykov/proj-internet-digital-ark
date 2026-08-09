@@ -23,11 +23,26 @@ is much smaller than the cross-source one.
 Candidate-only evidence proves nothing and is excluded from both.
 """
 
+from decimal import Decimal
+
 import duckdb
 
+from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE
+from ark.english_share import english_weights
 from ark.evidence_types import MASTER_TYPES
 
 BASELINE_TYPE = "prior_reused"
+
+# Growth is the increment divided by the reviewer's PRE-increment total, which is his
+# convention and not the same as dividing by the post-increment one. Which release
+# that is lives in `ark.baseline`, so this figure and the ingest defaults cannot drift
+# apart.
+#
+# A hardcoded ALREADY_CREDITED_EE stood here briefly, subtracting the round he had
+# already merged, because `merged260802` was sitting unread on disk and net-new
+# therefore overstated by exactly that round. Ingesting it makes net-new right by
+# construction. A constant needing a hand edit every time he merges is the worse bug
+# of the two: it fails silently, and it fails in our favour.
 
 # Which body of observation each source ultimately derives from. Sources sharing a
 # lineage cannot independently confirm one another, however many rows they carry:
@@ -63,6 +78,45 @@ PROVENANCE_LINEAGE = {
     # Tucows is a software catalogue, independent of both web crawls and Usenet
     "tucows_catalogue": "software_catalogue",
     "tucows_mention": "software_catalogue",
+    # Scanned trade press. Its own lineage: the observation is a printed page in a
+    # magazine, which is independent of every crawl, of Usenet and of the software
+    # catalogue. Filing it anywhere else would understate genuine cross-lineage
+    # corroboration, and giving it no entry at all would silently make it its own
+    # family anyway, which is the failure this table exists to prevent.
+    "trade_press": "trade_press",
+    "trade_press_mention": "trade_press",
+    # UUCP maps are a registry dump that happened to travel over Usenet. The
+    # lineage is the registry, not the newsgroup: filing them under `usenet` would
+    # let a Usenet announcement and a registry record for the same pair look like
+    # one body of observation, and filing them as their own family would let them
+    # corroborate AFNIC as if independently collected. They are registry data.
+    "uucp_map_registry": "registry",
+    "uucp_map_creation": "registry",
+    "uucp_map_mention": "registry",
+    # rtfm FAQs travelled over Usenet and are the same body of observation, so
+    # they share its lineage: a FAQ and an announcement post confirming the same
+    # pair is one source of evidence, not two.
+    "rtfm_faq": "usenet",
+    "rtfm_faq_mention": "usenet",
+    # Addresses recovered from the same Usenet messages. Same body of
+    # observation, so the same lineage: an announcement post and a body address
+    # in that post confirming one pair is one observation, not two.
+    "usenet_address": "usenet",
+    "usenet_address_mention": "usenet",
+    # Bare hosts in the body of the same posts. Same messages again, so the same
+    # lineage: three readings of one artifact are one observation, not three.
+    "usenet_bare": "usenet",
+    "usenet_bare_mention": "usenet",
+    # Corporate email is its own body of observation, independent of every crawl,
+    # of Usenet and of the registries.
+    "enron_email": "corporate_email",
+    "enron_email_mention": "corporate_email",
+    # Public pipermail list archives. Its own family, and the claim is only safe
+    # because the collector skips the newsgroup-gatewayed lists: a gatewayed list
+    # carries the same messages the Usenet corpus already holds, so counting it
+    # here would make one body of observation look like two lineages.
+    "maillist_archive": "mailing_list",
+    "maillist_archive_mention": "mailing_list",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
@@ -115,6 +169,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
         ).fetchall()
     )
     return {
+        **_equivalent_english(conn),
         "baseline_domains": baseline_domains,
         "total_domains": total_domains,
         "total_pairs": total_pairs,
@@ -203,11 +258,67 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
+    """The reviewer's metric, which is the one the round is actually scored on.
+
+    Every figure here is a count somewhere else in this scoreboard re-weighted by
+    the English page-language share of each domain's right-most TLD, so 10,000 `.de`
+    pairs are worth less than 1,500 `.uk` ones and a pair count no longer says what
+    a tranche is worth. Growth is quoted against the reviewer's merged baseline the
+    way he computes it: increment divided by the PRE-increment total.
+
+    The candidate figure is deliberately labelled an upper bound. It assumes every
+    held name is real and earns exactly one year, and a large share of the pool is
+    neither: Usenet posters munged their addresses against harvesters, so it carries
+    names like `mqegamrfaj.mil` and `nospam@...` that no capture will ever confirm.
+    """
+    weights = english_weights()
+
+    def weigh(rows: list[tuple[str, int]]) -> Decimal:
+        return sum((weights.get(tld, Decimal(0)) * n for tld, n in rows), Decimal(0))
+
+    netnew = conn.execute(
+        f"""
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
+        WHERE NOT EXISTS (
+            SELECT 1 FROM evidence e WHERE e.domain = dy.domain
+              AND e.evidence_year = dy.assigned_year AND e.evidence_type = '{BASELINE_TYPE}')
+        GROUP BY 1
+        """
+    ).fetchall()
+    assigned = conn.execute(
+        "SELECT split_part(domain, '.', -1) AS tld, count(*) FROM domain_year GROUP BY 1"
+    ).fetchall()
+    candidates = conn.execute(
+        """
+        SELECT split_part(d.domain, '.', -1) AS tld, count(*) FROM domain d
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+        GROUP BY 1
+        """
+    ).fetchall()
+
+    netnew_ee, netnew_n = weigh(netnew), sum(n for _, n in netnew)
+    return {
+        "ee_netnew": netnew_ee,
+        "ee_netnew_pairs": netnew_n,
+        "ee_netnew_mean_weight": netnew_ee / netnew_n if netnew_n else Decimal(0),
+        "ee_netnew_growth_pct": netnew_ee / REVIEWER_BASELINE_EE * 100,
+        "ee_assigned": weigh(assigned),
+        "ee_candidate_upper_bound": weigh(candidates),
+    }
+
+
 def format_stats(stats: dict) -> str:
     lines = [
         "== scoreboard ==",
         f"net-new domains (not in baseline):  {stats['netnew_domains']:>12,}",
         f"net-new (domain, year) pairs:       {stats['netnew_pairs_total']:>12,}",
+        f"net-new equivalent-English:         {stats['ee_netnew']:>16,.4f}",
+        f"    mean weight per pair:           {stats['ee_netnew_mean_weight']:>16.4f}",
+        f"    growth on the {REVIEWER_BASELINE_EE:,.4f} baseline: "
+        f"{stats['ee_netnew_growth_pct']:.4f}%",
+        f"    (measured against {CURRENT_BASELINE_MARKER}, so this is the uncredited",
+        "     increment: everything the reviewer has already merged is excluded)",
     ]
     for year, count in stats["netnew_pairs_by_year"].items():
         lines.append(f"    {year}: {count:,}")
@@ -231,6 +342,11 @@ def format_stats(stats: dict) -> str:
         f"baseline domains:                   {stats['baseline_domains']:>12,}",
         f"domains in store:                   {stats['total_domains']:>12,}",
         f"(domain, year) pairs in store:      {stats['total_pairs']:>12,}",
+        f"equivalent-English, all assigned:   {stats['ee_assigned']:>16,.4f}",
         f"candidate pool (unverified):        {stats['candidate_pool']:>12,}",
+        f"    equivalent-English if every one earned a year, an UPPER BOUND: "
+        f"{stats['ee_candidate_upper_bound']:,.0f}",
+        "    (the pool is mostly Usenet names no other source attests, including",
+        "     addresses munged against harvesters, so the realised figure is far lower)",
     ]
     return "\n".join(lines)

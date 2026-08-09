@@ -8,6 +8,7 @@ from ark.gaps import (
     equivalent_english_order,
     sandwich_gap_domains,
     take_shard,
+    take_weighted_shard,
     write_creation_candidates,
     write_gap_candidates,
     year_priority_order,
@@ -152,6 +153,60 @@ def test_sharding_is_stable_across_processes() -> None:
 def test_take_shard_rejects_an_impossible_slice() -> None:
     with pytest.raises(ValueError):
         take_shard([("a.com", 0, 1)], 3, 3)
+
+
+def test_weighted_shards_are_disjoint_and_jointly_complete() -> None:
+    rows = [(f"d{i}.com", 0, 1) for i in range(4000)]
+
+    slices = [take_weighted_shard(rows, [78, 22], i) for i in range(2)]
+    names = [{row[0] for row in s} for s in slices]
+
+    assert names[0].isdisjoint(names[1])
+    assert names[0] | names[1] == {row[0] for row in rows}
+
+
+def test_weighted_shards_are_sized_by_their_weight() -> None:
+    """A machine four times as fast must be handed four times the queue."""
+    rows = [(f"d{i}.com", 0, 1) for i in range(20000)]
+
+    fast = take_weighted_shard(rows, [78, 22], 0)
+
+    assert 0.76 < len(fast) / len(rows) < 0.80
+
+
+def test_a_weighted_shard_is_a_sample_of_the_curve_not_a_block_of_it() -> None:
+    """The slow machine must not be handed only the cheap tail.
+
+    Hashing is independent of the ordering, so each share should carry close to
+    its own fraction of the total value. Splitting by position instead would give
+    one machine the entire high-value head, which is the failure this guards.
+    """
+    rows = [(f"d{i}.com", 0, 1 + i % 4) for i in range(20000)]
+    ordered = equivalent_english_order(rows)
+    total = sum(row[2] for row in ordered)
+
+    slow = take_weighted_shard(ordered, [78, 22], 1)
+
+    share_of_value = sum(row[2] for row in slow) / total
+    assert 0.20 < share_of_value < 0.24
+
+
+def test_weighted_sharding_keeps_the_order_it_was_given() -> None:
+    rows = [(f"d{i}.com", 0, 1 + i % 3) for i in range(500)]
+    ordered = equivalent_english_order(rows)
+
+    mine = take_weighted_shard(ordered, [3, 1], 0)
+
+    assert mine == [row for row in ordered if row in mine]
+
+
+def test_weighted_shard_rejects_impossible_weights() -> None:
+    with pytest.raises(ValueError):
+        take_weighted_shard([("a.com", 0, 1)], [1, 1], 2)
+    with pytest.raises(ValueError):
+        take_weighted_shard([("a.com", 0, 1)], [0, 0], 0)
+    with pytest.raises(ValueError):
+        take_weighted_shard([("a.com", 0, 1)], [-1, 2], 0)
 
 
 def test_write_gap_candidates_reports_what_it_wrote(tmp_path) -> None:

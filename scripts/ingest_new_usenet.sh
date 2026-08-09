@@ -42,7 +42,12 @@ tag="${TAG_PREFIX}$(date '+%H%M%S')"
 echo "$(date '+%F %T') ingesting ${#pending[@]} archive(s) as tag ${tag}" >> "$LOG"
 printf '  %s\n' "${pending[@]}" >> "$LOG"
 
-uv run python scripts/split_usenet.py "${pending[@]}" --tag "$tag" --write >> "$LOG" 2>&1 || {
+# Parsing is CPU-bound regex over message bodies and this box has 14 cores. Ten
+# workers leaves headroom for the two CDX engines, which must not be starved: they
+# are latency-bound and losing them costs more than the split gains. Output is
+# merged in archive order, so it is identical to a serial run.
+uv run python scripts/split_usenet.py "${pending[@]}" --tag "$tag" --write --workers 10 \
+    >> "$LOG" 2>&1 || {
     echo "$(date '+%F %T') split failed, leaving archives unmarked" >> "$LOG"
     exit 1
 }

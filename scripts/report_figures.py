@@ -15,11 +15,25 @@ Everything is read-only, so it is safe to run while the collectors are working.
 
 import argparse
 import json
+import sys
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
+from ark.english_share import english_weights  # noqa: E402
+from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
+
 DB = Path("data/ark.duckdb")
+
+# Read the marker rather than typing it. This file said `merged260730` for two
+# rounds after the store moved to `merged260802`, so the report told the reviewer
+# his additions were measured against a baseline he had already superseded. The
+# figures were right and the label was wrong, which is the harder kind to catch.
+BASELINE = CURRENT_BASELINE_MARKER
 
 # The marginal contribution: pairs this project added that the shared baseline
 # does not already hold. `prior_reused` is the evidence type recording that a
@@ -120,18 +134,60 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     }
     out["capture_backed_total"] = sum(out["capture_backed_by_year"].values())
 
-    # Per source, which feedback section 7 asks for by name.
+    # Per source, which feedback section 7 asks for by name, carrying the metric
+    # the round is scored on rather than a raw pair count. A pair count says
+    # nothing about worth once the score is equivalent-English: 23,678 `.ca` pairs
+    # beat 1,334 mixed-European ones by more than the ratio suggests, and a source
+    # reported only in pairs looks stronger or weaker than it is.
+    weights = english_weights()
+    ee_by_source: dict[str, Decimal] = {}
+    for name, tld, n in conn.execute(f"""
+        SELECT s.name, split_part(dy.domain, '.', -1), count(*)
+        FROM domain_year dy
+        JOIN evidence e ON e.evidence_id = dy.evidence_id
+        JOIN source s ON s.source_id = e.source_id
+        WHERE {NOT_BASELINE}
+        GROUP BY 1, 2
+    """).fetchall():
+        ee_by_source[name] = ee_by_source.get(name, Decimal(0)) + weights.get(tld, Decimal(0)) * n
+    # The evidence type each source's assignments actually carry, read from the
+    # rows rather than from a table of intentions. This is the column the reviewer
+    # interrogates: it is what says whether a source may back an annual-file entry
+    # at all, since only MASTER_TYPES may, and `master` below is computed from the
+    # same frozenset the database CHECK constraint is generated from.
     out["by_source"] = [
-        {"source": s, "kind": k, "pairs": int(p), "domains": int(d)}
-        for s, k, p, d in conn.execute(f"""
-            SELECT s.name, s.kind, count(*), count(DISTINCT dy.domain)
+        {
+            "source": s,
+            "kind": k,
+            "evidence_type": etype,
+            "master": etype in MASTER_TYPES,
+            "pairs": int(p),
+            "domains": int(d),
+            "ee": ee_by_source.get(s, Decimal(0)),
+        }
+        for s, k, etype, p, d in conn.execute(f"""
+            SELECT s.name, s.kind, e.evidence_type, count(*), count(DISTINCT dy.domain)
             FROM domain_year dy
             JOIN evidence e ON e.evidence_id = dy.evidence_id
             JOIN source s ON s.source_id = e.source_id
             WHERE {NOT_BASELINE}
-            GROUP BY 1, 2 ORDER BY 3 DESC
+            GROUP BY 1, 2, 3 ORDER BY 4 DESC
         """).fetchall()
     ]
+    out["by_source"].sort(key=lambda r: r["ee"], reverse=True)
+    # An assignment backed by a candidate-only type would be a contradiction the
+    # schema forbids, so this is a belt-and-braces read of the shipped rows: if it
+    # were ever false, the report would say so rather than claim otherwise.
+    out["all_sources_master"] = all(r["master"] for r in out["by_source"])
+    out["non_master_sources"] = [r["source"] for r in out["by_source"] if not r["master"]]
+
+    # The headline. Growth is quoted the way the reviewer computes it: the
+    # increment divided by the pre-increment total, never the post-increment one.
+    netnew_ee = sum(ee_by_source.values(), Decimal(0))
+    out["ee_netnew"] = netnew_ee
+    out["ee_netnew_growth_pct"] = netnew_ee / REVIEWER_BASELINE_EE * 100
+    out["ee_baseline"] = REVIEWER_BASELINE_EE
+    out["ee_mean_weight"] = netnew_ee / out["netnew_pairs"] if out["netnew_pairs"] else Decimal(0)
 
     # Baseline pairs per year, by THIS counting unit, so the growth percentages in
     # the completeness table are derived rather than copied. merged260730 ships
@@ -152,13 +208,14 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     }
     out["baseline_pairs"] = sum(out["baseline_by_year"].values())
 
-    # Feedback section 3 and section 7 both ask for this split, in those words:
-    # "records newly harvested since the previous submission" against "older
-    # pipeline records newly entering the shared merged baseline". The previous
-    # submission's position against merged260730 was 32,698 pairs, so everything
-    # above that is this round's harvest.
-    out["prior_round_pairs"] = 32698
-    out["harvested_this_round"] = out["netnew_pairs"] - out["prior_round_pairs"]
+    # Feedback section 3 and section 7 ask to separate "records newly harvested
+    # since the previous submission" from "older pipeline records newly entering
+    # the shared merged baseline". Once the reviewer reissues the baseline that
+    # split answers itself: everything net-new against the CURRENT release was
+    # harvested after he last merged, because anything older is already in it.
+    # This used to subtract a hardcoded 32,698, which stopped meaning anything the
+    # moment the baseline moved and would have silently understated the round.
+    out["harvested_this_round"] = out["netnew_pairs"]
 
     # Per year, the four language categories section 6.1 names, for unique
     # domains as well as pairs. `syntax_anomalous` is structurally zero for these
@@ -198,9 +255,14 @@ def render(f: dict) -> str:
     lines: list[str] = []
     add = lines.append
 
-    add("=== net-new against merged260730 ===")
+    add(f"=== net-new against {BASELINE} ===")
     add(f"pairs {f['netnew_pairs']:,} over {f['netnew_unique_domains']:,} unique domains")
     add(f"domains absent from the baseline entirely: {f['netnew_domains_absent_from_baseline']:,}")
+    add(
+        f"equivalent-English {f['ee_netnew']:,.4f} "
+        f"({f['ee_netnew_growth_pct']:.4f}% of {f['ee_baseline']:,.4f}, "
+        f"mean weight {f['ee_mean_weight']:.4f})"
+    )
     add("")
 
     add("=== language verdicts, by year (pairs) ===")
@@ -238,9 +300,12 @@ def render(f: dict) -> str:
     add(f"  TOTAL {f['capture_backed_total']:>8,}")
     add("")
 
-    add("=== net-new pairs by source ===")
+    add("=== net-new by source, ordered by equivalent-English ===")
     for row in f["by_source"][:20]:
-        add(f"  {row['source']:<26}{row['kind']:<16}{row['pairs']:>10,}{row['domains']:>10,}")
+        add(
+            f"  {row['source']:<26}{row['kind']:<16}{row['pairs']:>10,}"
+            f"{row['domains']:>10,}{row['ee']:>14,.1f}"
+        )
     add("")
 
     add("=== store ===")
@@ -267,12 +332,17 @@ def markdown(f: dict) -> str:
     add("")
     add("| | figure |")
     add("|---|--:|")
-    add(f"| net-new (domain, year) pairs vs merged260730 | **{f['netnew_pairs']:,}** |")
+    add(f"| net-new (domain, year) pairs vs {BASELINE} | **{f['netnew_pairs']:,}** |")
     add(f"| over unique domains | {f['netnew_unique_domains']:,} |")
     add(
         "| domains absent from the baseline in every year | "
         f"**{f['netnew_domains_absent_from_baseline']:,}** |"
     )
+    add(f"| equivalent-English added | **{f['ee_netnew']:,.1f}** |")
+    add(
+        f"| growth on the {f['ee_baseline']:,.1f} baseline | **{f['ee_netnew_growth_pct']:.4f}%** |"
+    )
+    add(f"| mean equivalent-English weight per pair | {f['ee_mean_weight']:.4f} |")
     add(f"| English-verified pairs | **{t['english']:,}** |")
     add(f"| non-verified pairs (disjoint) | {unverified:,} |")
     add(f"| of those, judged and disqualified | {t['other'] + t['undetermined']:,} |")
@@ -300,11 +370,14 @@ def markdown(f: dict) -> str:
 
     add("### Per source")
     add("")
-    add("| Source | Kind | Net-new pairs | Domains |")
-    add("|---|---|--:|--:|")
+    add("| Source | Kind | Net-new pairs | Domains | Equivalent-English |")
+    add("|---|---|--:|--:|--:|")
     for row in f["by_source"]:
-        add(f"| `{row['source']}` | {row['kind']} | {row['pairs']:,} | {row['domains']:,} |")
-    add(f"| **Total** | | **{f['netnew_pairs']:,}** | |")
+        add(
+            f"| `{row['source']}` | {row['kind']} | {row['pairs']:,} | "
+            f"{row['domains']:,} | {row['ee']:,.1f} |"
+        )
+    add(f"| **Total** | | **{f['netnew_pairs']:,}** | | **{f['ee_netnew']:,.1f}** |")
     add("")
 
     add("### Completeness")
@@ -341,7 +414,11 @@ def main() -> None:
     conn = duckdb.connect(str(DB), read_only=True)
     f = figures(conn)
     if args.json:
-        print(json.dumps(f, indent=2))
+        # Equivalent-English is carried as Decimal all the way through, because
+        # the reviewer's own calculator is exact and a float round-trip would put
+        # our fourth decimal place a hair off his. Serialise it as a string so
+        # that stays true on the way out too.
+        print(json.dumps(f, indent=2, default=str))
     elif args.markdown:
         print(markdown(f))
     else:

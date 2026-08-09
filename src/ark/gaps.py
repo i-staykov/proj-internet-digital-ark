@@ -129,6 +129,34 @@ def take_shard(rows: list[tuple[str, int, int]], shards: int, shard: int) -> lis
     return [row for row in rows if spread(row[0])[0] % shards == shard]
 
 
+def take_weighted_shard(rows: list, weights: list[int], shard: int, key=lambda row: row[0]) -> list:
+    """A slice sized in proportion to how fast the machine working it is.
+
+    Equal shares were right while both collectors ran at similar speeds. Measured
+    on 7 August they do not: the MacBook sustains 916 queries an hour against the
+    VPS's 262, so an even split leaves the fast machine grinding the cheap tail of
+    its own half while the expensive head of the other half is untouched. Sizing
+    each share by throughput means both finish at the same time, which is the only
+    arrangement where no high-value target is left waiting behind a low-value one.
+
+    Assignment stays a content hash for the reason `take_shard` gives, and takes
+    two bytes rather than one so a 78/22 split lands within a tenth of a percent
+    instead of being rounded to the nearest 1/256th. Because the hash is
+    independent of the ordering, each share is a representative sample of the
+    whole value curve rather than a contiguous block of it.
+    """
+    if any(weight < 0 for weight in weights) or not any(weights):
+        raise ValueError(f"weights must be non-negative and not all zero: {weights}")
+    if not 0 <= shard < len(weights):
+        raise ValueError(f"shard {shard} is not in range for {len(weights)} weights")
+    total = sum(weights)
+    lower = sum(weights[:shard])
+    scale = 1 << 16
+    start = lower * scale // total
+    stop = (lower + weights[shard]) * scale // total
+    return [row for row in rows if start <= int.from_bytes(spread(key(row))[:2], "big") < stop]
+
+
 # Domains a registry creation date could still add a year to. A creation date
 # attests exactly one year, and crucially that year is NOT bounded by the years
 # already held: because the date resets when a name is dropped and re-registered,

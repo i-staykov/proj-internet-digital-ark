@@ -125,13 +125,21 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 stats["malformed"] += 1
                 continue
             group = record.get("group", "usenet")
+            # A journal may carry its own evidence URL, and one that does is
+            # believed. The fallback below composes an archive.org Usenet item
+            # name out of the hierarchy, which is right for Usenet and wrong for
+            # everything else that reuses this parser: it gave all 5,258 Tucows
+            # rows `https://archive.org/details/usenet-tucows`, which 404s.
+            # The feedback asks for item-level traceability, so a dead link is a
+            # defect rather than cosmetic.
+            url = record.get("url") or (f"https://archive.org/details/usenet-{group.split('.')[0]}")
             yield BulkRecord(
                 raw=domain,
                 year=year,
                 # the Message-ID is the auditable identifier: globally unique by
                 # design, so a reviewer can name the exact post behind a year
                 evidence_value=f"{group} {record.get('message_id', '')}".strip(),
-                evidence_url=f"https://archive.org/details/usenet-{group.split('.')[0]}",
+                evidence_url=url,
             )
 
 
@@ -483,12 +491,15 @@ def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 if not years:
                     stats["outside_window"] += 1
                     continue
+                # journals written before direct routing carry no `url`, so the
+                # redirector stays the fallback: it is where those queries went
+                url = record.get("url") or f"{RDAP_REDIRECTOR}{domain}"
                 for target_year in years:
                     yield BulkRecord(
                         raw=domain,
                         year=target_year,
                         evidence_value=f"rdap creation {year}",
-                        evidence_url=f"{RDAP_REDIRECTOR}{domain}",
+                        evidence_url=url,
                     )
     except (EOFError, OSError):
         # journal from an interrupted run; everything before the last flush was
@@ -749,6 +760,158 @@ SOURCES: dict[str, SourceSpec] = {
         source_name="tucows_catalogue",
         evidence_type="dated_directory",
         acquisition_method="tucows_release_date",
+        parse=_parse_usenet_journal,
+    ),
+    # Scanned computer and internet trade press on archive.org. A 1997 issue that
+    # prints `foo.com` dates `foo.com` for 1997 in the same way a dated directory
+    # page does: the publication year is a property of the item.
+    #
+    # Scoped to computing titles on measurement, not on instinct. The same script
+    # and extractor gave 10.5 net-new pairs an item on `computermagazines` and 0.4
+    # on the general `magazine_rack`, so the subject matter is the variable and
+    # the corpus is not.
+    #
+    # Split like Usenet because the domains arrive through OCR, which fabricates
+    # hostnames. Corroborated names carry the issue date; names seen only here go
+    # to the candidate pool and must earn a year from a capture.
+    "tradepress_dated": SourceSpec(
+        key="tradepress_dated",
+        source_name="trade_press",
+        evidence_type="dated_directory",
+        acquisition_method="trade_press_issue_date",
+        parse=_parse_usenet_journal,
+    ),
+    "tradepress_candidates": SourceSpec(
+        key="tradepress_candidates",
+        source_name="trade_press_mention",
+        evidence_type="link_target",
+        acquisition_method="trade_press_ocr_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # UUCP map postings from comp.mail.maps. See `ark.uucp` for why these are
+    # registry evidence rather than a posted URL, and for the provenance gate that
+    # separates the two kinds of map file.
+    #
+    # `artifact_listing` for the posting date, the same type the ISC DNS survey
+    # carries: a dated index file regenerated from the live registration database
+    # is direct evidence that the names in it existed on that date.
+    "uucp_listing": SourceSpec(
+        key="uucp_listing",
+        source_name="uucp_map_registry",
+        evidence_type="artifact_listing",
+        acquisition_method="uucp_map_registry_posting",
+        parse=_parse_usenet_journal,
+    ),
+    # `whois_creation` for the registrar's own approved/received line, which is
+    # the same claim AFNIC's `.fr` open data makes and carries the same type.
+    "uucp_creation": SourceSpec(
+        key="uucp_creation",
+        source_name="uucp_map_creation",
+        evidence_type="whois_creation",
+        acquisition_method="uucp_map_registrar_approval",
+        parse=_parse_usenet_journal,
+    ),
+    # Hand-maintained maps: the container is fresh, the entries are not, so the
+    # posting date evidences nothing and these stay candidate-only.
+    "uucp_mentions": SourceSpec(
+        key="uucp_mentions",
+        source_name="uucp_map_mention",
+        evidence_type="link_target",
+        acquisition_method="uucp_map_hand_maintained",
+        parse=_parse_usenet_journal,
+    ),
+    # The rtfm.mit.edu Usenet FAQ mirror. A FAQ carries its own revision date and
+    # lists dozens of sites, so the date is intrinsic to the artifact. Unlike the
+    # UUCP maps above, the URLs are prose typed by a human, so this takes the
+    # ordinary corroboration split rather than registry treatment.
+    #
+    # The year is the revision header, NOT `Date:`. rtfm keeps one copy of each
+    # FAQ, the last auto-repost, and of 12,318 documents carrying both, 6,610
+    # disagree, essentially always with the repost later.
+    "rtfm_dated": SourceSpec(
+        key="rtfm_dated",
+        source_name="rtfm_faq",
+        evidence_type="dated_directory",
+        acquisition_method="rtfm_faq_revision_date",
+        parse=_parse_usenet_journal,
+    ),
+    "rtfm_candidates": SourceSpec(
+        key="rtfm_candidates",
+        source_name="rtfm_faq_mention",
+        evidence_type="link_target",
+        acquisition_method="rtfm_faq_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # Addresses in the same Usenet messages that `domains_in_message` never looked
+    # at: `ftp://` hosts, `mailto:` links and typed addresses in the body. Same
+    # corpus, same risk, so the same corroboration split.
+    "usenet_addr_dated": SourceSpec(
+        key="usenet_addr_dated",
+        source_name="usenet_address",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_address",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_addr_candidates": SourceSpec(
+        key="usenet_addr_candidates",
+        source_name="usenet_address_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_address_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # Addresses written bare in the body of the same Usenet messages, `foo.com`
+    # with no scheme and no `www.`. See `ark.usenet.bare_domains_in_body` for the
+    # guards and for why the corroboration split, not the pattern, is what makes
+    # the recall safe. Its own source name so the addition can be measured and
+    # dropped without disturbing what `usenet_announce` already claimed.
+    "usenet_bare_dated": SourceSpec(
+        key="usenet_bare_dated",
+        source_name="usenet_bare",
+        evidence_type="dated_directory",
+        acquisition_method="usenet_post_bare_host",
+        parse=_parse_usenet_journal,
+    ),
+    "usenet_bare_candidates": SourceSpec(
+        key="usenet_bare_candidates",
+        source_name="usenet_bare_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_bare_host_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # The FERC-released Enron corpus: ~517,000 dated 1999-2002 business emails.
+    # A dated message naming a domain attests it, exactly as a dated Usenet post
+    # does. Its own lineage, because corporate email is independent of every
+    # crawl, of Usenet and of the registries.
+    "enron_dated": SourceSpec(
+        key="enron_dated",
+        source_name="enron_email",
+        evidence_type="dated_directory",
+        acquisition_method="enron_message_date",
+        parse=_parse_usenet_journal,
+    ),
+    "enron_candidates": SourceSpec(
+        key="enron_candidates",
+        source_name="enron_email_mention",
+        evidence_type="link_target",
+        acquisition_method="enron_message_mention",
+        parse=_parse_usenet_journal,
+    ),
+    # Public pipermail mailing-list archives, one month file per list per month,
+    # each message dated by its own `Date:` header. Same shape as a dated Usenet
+    # post and the same corroboration split. Newsgroup-gatewayed lists are left
+    # out at collection time, see `scripts/collect_mailing_lists.py`.
+    "maillist_dated": SourceSpec(
+        key="maillist_dated",
+        source_name="maillist_archive",
+        evidence_type="dated_directory",
+        acquisition_method="maillist_message_date",
+        parse=_parse_usenet_journal,
+    ),
+    "maillist_candidates": SourceSpec(
+        key="maillist_candidates",
+        source_name="maillist_archive_mention",
+        evidence_type="link_target",
+        acquisition_method="maillist_message_mention",
         parse=_parse_usenet_journal,
     ),
     "usenet_dated": SourceSpec(

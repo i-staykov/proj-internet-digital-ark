@@ -1509,7 +1509,8 @@ was the interesting part.
 
 ## 2026-08-05 (source research: ordinary Usenet groups pay, and archive.org's books do not)
 
-Full write-up in `docs/source_research_260805.md`. The decisions, and the numbers behind them:
+The session write-up this once pointed at was retired on 8 August; its durable conclusions live in
+the relevant `docs/sources.md` sections. The decisions, and the numbers behind them:
 
 - **The Usenet name filter is exhausted, and it was never the thing that mattered.** All 697
   archives under `data/raw/usenet/` are in `.processed` and the whole `biz.*` hierarchy is drained,
@@ -1662,3 +1663,1789 @@ was replaced with a measurement.
   the Internet Archive (`web.archive.bibalex.org`) no longer resolves, which was the most promising
   non-IA route to early captures. `data.webarchive.org.uk` does not resolve either, a third distinct
   host tried for the UKWA bulk CDX. Zenodo's DMOZ holdings are 2018-2020 research derivatives
+
+## 2026-08-06 (web.archive.org refuses connections, and the client could not see it)
+
+Phase 4, overnight. The task was to improve CDX throughput by experiment. The
+first experiment was void and the reason it was void is the finding.
+
+- **Baseline, measured over 13 gap journals and 22.5 hours: 647 queries/hour and
+  1,729 year-records/hour** on the local eight-worker engine. The number that
+  matters is not the mean but the spread: per-batch yield ran from 202 to 3,871
+  year-records/hour, a factor of 19. A mean over a distribution that wide is not
+  a throughput figure, it is two different regimes averaged together, so the
+  question became what puts a batch in the bad regime
+- **A first probe looked fast and was actually failing.** Six extra workers
+  alongside the running engine returned 93% transport failures at a flat ~3.5 s
+  each. Fast because refused, not fast because efficient. Killed it inside two
+  minutes. The lesson is narrow and worth keeping: **a latency figure means
+  nothing until the success rate is next to it**
+- **The refusals are web.archive.org's, not the local link's.** Eight requests
+  each to four hosts, sequential: google.com 8/8, one.one.one.one 8/8,
+  **archive.org 8/8, web.archive.org 2/8**. The failures gave up at a flat 3.3
+  to 3.5 s with `time_connect=0.000`, so the TCP connect never completed, and the
+  error was `OSError(50, 'Network is down')`. That error name is a red herring on
+  macOS: the link was demonstrably up, since three other hosts including
+  archive.org itself answered every time. Ruled out an IPv6 blackhole too, which
+  was the first guess and would have been tidy: `web.archive.org` publishes no
+  AAAA record at all, and forcing `curl -4` changed nothing
+- **The client's response to a refusal made the refusal last longer.** In
+  `_fetch_retrying`, `_THROTTLE_STATUSES` held only 429, 503 and 504, so a
+  refused connection arrived as status 0, skipped the backoff entirely, and was
+  retried up to four times at full pace. Those retries are themselves connection
+  attempts. So the failure mode is self-reinforcing: concurrency slightly over
+  the line produces refusals, refusals produce four times as many connection
+  attempts, and the run holds itself in the penalty box until the batch ends.
+  That is the mechanism behind the 19x spread, and it explains the worst batch
+  observed, 978 transport failures out of 1,199 queries
+- **Stopping the engine cleared it in under 90 seconds.** The host went from 2/8
+  to answering every request. So the penalty is short-lived and forgiving, which
+  is what makes pausing the right move rather than a costly one
+- **A refused connection and a client timeout were the same status and want
+  opposite handling.** Both arrived as 0. A refusal is evidence the pace is too
+  high. A timeout is the server having accepted the question and failed to
+  finish it, which is no evidence about pace at all, and asking again is close to
+  pure waste because the server kills a heavily archived domain at a consistent
+  ~60 s. They are now separated: `REFUSED = 0` backs the pace off and counts
+  toward a breaker, `TIMED_OUT = -1` does neither and is asked exactly once
+  instead of four times, saving up to three minutes of a worker per doomed domain
+- **A breaker was added rather than only a slower pace.** Once the host has
+  stopped taking connections, pacing does not help, because every queue position
+  spent is a certain failure. Twenty-five consecutive refusals now push the
+  governor's shared next-start time forward by 60 s, which holds the whole pool
+  off rather than only the thread that saw the last refusal. Reusing `_next_at`
+  meant no new machinery and no new lock
+- **Seven tests added, 305 in the suite.** The one worth naming is
+  `test_a_timeout_is_asked_once_and_does_not_slow_the_pace`, because the old code
+  passed every existing test while doing the wrong thing four times in a row
+- **Nothing was lost stopping the engine mid-batch.** The SIGTERM trap renamed
+  the journal cleanly and its 1,118 answers are on disk and will not be
+  re-queried, which is the `.part` design working as intended
+- **Open, and being measured next: the 504s are a separate problem from the
+  refusals.** At concurrency 1, on a quiet link, wildcard queries still returned
+  504. `url=*.domain` forces a range scan over every subdomain, and the server
+  gives up on the heavy ones. That is not a rate limit and backing off cannot fix
+  it. The candidate answer is a cheaper query shape
+
+## 2026-08-06 (the queue head was a clog of scans the server cannot finish)
+
+- **The head of the unanswered queue was 100% domains earlier batches had already
+  failed on.** Measured: of the first 200 unanswered domains in shard 0, 200 had
+  a prior failure; of the first 1,200, 384 did, their last status either 504 (35)
+  or a transport failure (349). The head was names like `warehouse.co.uk`,
+  `vccs.edu` and `autotrader.co.za` on their fourth or fifth attempt. Since only
+  an HTTP 200 marks a domain settled, and the engine always takes the first N
+  unanswered in file order, these came back to the head of every batch forever.
+  So roughly a third of every batch was being spent re-failing on the same names
+- **This also invalidated my own first two experiments, which is the more useful
+  lesson.** Both sampled "the first unanswered domains", believing that was the
+  queue head the engine sees. It is, but it is also the hardest possible sample:
+  a domain that answers leaves the population, so what accumulates at the front
+  is exactly what cannot be answered. A frontier measurement over that sample
+  read 0% served at every concurrency level and told me nothing about
+  concurrency. **Sampling the survivors of a filter measures the filter, not the
+  population**
+- **`url=*.domain` matches every subdomain, so the server cannot stop early.**
+  CDX returns rows ordered by URL key, so a wildcard has to walk the whole range
+  before it can answer, and `collapse=timestamp:4` saves payload only. An exact
+  host is ONE key, so its rows arrive in time order and collapse plus a small
+  limit lets the server stop as soon as it has the years. That is a structural
+  reason to expect the cheap shape to win, not a hope
+- **Measured on `warehouse.co.uk`, five batches' worth of failure:** the wildcard
+  gave 504 after 60.6 s and no years; apex plus www gave 200 in 20.5 s and four
+  years; the six-probe per-year sweep gave 200 in 249.4 s and **the same four
+  years**. So the cheap shape matched the expensive rescue at a twelfth of the
+  cost, and `lookup_years_per_year` is not the right fallback after all
+- **`lookup_years` now falls back to the hosts when the server gives up, and
+  never otherwise.** A scan that answers is never second-guessed, so no recall is
+  traded away on the healthy path. The doomed scan is also asked once instead of
+  four times, since 504 now stops the retry loop instead of buying three more
+  minutes of the same answer
+- **Validated live rather than argued.** Restarted on the identical 8-worker,
+  1,200-domain config so the code was the only variable. On the clogged head,
+  which had been returning nothing: **121 records, 119 answered, 29 rescued by the
+  fallback, 445 year-records, 2 failures.** Yield 1,670 year-records/hour against
+  a 1,729 baseline, while still inside the clog and paying a failed 60 s scan for
+  every rescue. The segment went from producing approximately zero to producing
+  at the whole-run average
+- **The recall cost of the fallback measured zero.** The ground truth was already
+  on disk: 46,370 domains have a wildcard answer in the journals, so asking the
+  hosts about a sample and diffing costs no second wildcard query. On 20 domains
+  that both shapes answered, the year sets were identical 20 times out of 20,
+  **0 of 64 year-records lost**. Small sample, but it bounds the risk of a change
+  that only ever runs where the alternative was no answer at all
+- **The 18.9% of answers that report no in-window capture are genuinely empty.**
+  10,793 domains sit in that state and are settled forever, so it was worth
+  checking. Of 14 sampled, the host query found years for 0, and dropping
+  `filter=statuscode:200` found a year for 1. So the negative verdicts are close
+  to right and there is no large recovery hiding there
+- **A data-quality worry that turned out to be bounded.** That sample contained
+  `nospamucdavis.edu`, `removenwu.edu` and `wwwultratech.net`, which are
+  anti-spam-munged addresses rather than domains, and would explain empty answers
+  neatly. Counted across the store: 2,093 dated domains match any such pattern,
+  0.038%, and most of those matches are real names (`wwwshop.com`, `spamfree.org`,
+  `removeme.org`). So the munged ones live in the candidate pool, not among dated
+  records, and this is not worth building a filter for
+
+## 2026-08-06 (two source agents, and what survived checking their work)
+
+Two research agents ran on disjoint spaces, one on directories and periodicals,
+one on non-IA web archives. Both reported honestly and both had a headline that
+needed correcting.
+
+- **The `matchType=host` finding is the night's biggest, and it verified.** The
+  archives agent measured the host form at a 15.6x speed-up over the wildcard
+  scan. Checked independently and by a different method, against the wildcard
+  answers already sitting in our own journals rather than by re-querying: median
+  **2.07 s against roughly 33 s**, and on every domain where both shapes answered
+  the year sets were **identical**, 0 of 34 year-records lost. The agent's own
+  independent count was 1 year lost in 49
+- **`www.` comes free, which halves the cheap query.** IA canonicalises
+  `http://www.abc.net.au/` and `http://abc.net.au/` onto the same SURT key prefix
+  `au,net,abc)/`, so a host query on the apex already covers www. Verified by
+  asking for `www.<domain>` explicitly and diffing: same year set every time.
+  So the fallback built earlier tonight was doing two requests where one does,
+  and `lookup_years_by_host` is now a single request
+- **The ordering is therefore inverted: cheap query first, wildcard scan as the
+  fallback.** Only an empty host answer falls through to the scan, because empty
+  is the one case where a subdomain-only capture could be hiding. Kept switchable
+  with `--wildcard-first` so an older run can be reproduced
+- **The Australian Web Archive is a mirror of IA, not a second source, and the
+  agent's "build this collector" ranking overstated it.** Its API is real and
+  excellent: `web.archive.org.au/awa/cdx`, no key, median **0.98 s**, no throttling
+  observed. But its in-window records live in files named
+  `NLA-EXTRACTION-1996-2004-ARCS`, and `.arc.gz` is the Internet Archive's own
+  container format, so the honest prior is that this is IA data the library
+  obtained rather than a crawl of its own. Tested that prior two ways: on 30 `.au`
+  domains where **our IA journal already says "no capture in window", AWA found
+  years for 0**, and on 30 where IA did return years, AWA was **identical for 26,
+  a subset for 3, a superset for 1, and held exactly 1 year IA did not**. So
+  the verdict is: worth building as a **load-shedding route for `.au`**, which is
+  1.7% of the queue but 87% of its first thousand under the equivalent-English
+  ordering, and **never usable as independent corroboration**, because it is the
+  same underlying crawl
+- **`fl` and `collapse` are silently ignored by the AWA endpoint**, so the urlkey
+  still leads every row and the timestamp is the SECOND field. Parsing it as the
+  first returns a clean, confident zero, which is how this nearly got written off
+  as an empty archive. Same shape of error as the `matchType` mistake recorded on
+  2 August: **a wrong parameter and an absent source look identical**
+- **Closed for good, with proof rather than a shrug:** the Memento aggregator was
+  decommissioned by LANL in September 2025 and every service subdomain is NXDOMAIN;
+  the UK Web Archive service is simply offline and says so on its front page, which
+  means the 159-byte stub three earlier attempts read as an access problem *was*
+  the outage page; Common Crawl's earliest crawl is 2008; `arquivo.pt` works but is
+  `.pt`-only, 0 of 20 on `.com` and `.co.uk`, a ceiling of about 380 domains
+- **The other agent's headline number is the extracted figure, not the admitted
+  one, and the difference is 2.6x.** It found five signals in the 28 GB of Usenet
+  already on disk that the parser never reads, and measured 25,710 net-new pairs
+  and 16,555 equivalent-English over a 320-archive sample. But "net-new" there
+  means "not already an admitted record", and a Usenet-only mention does not become
+  a record: it waits in the candidate pool for corroboration. Of those 25,710 pairs
+  only **9,991 are on domains the store already knows** and can enter at once,
+  worth **6,343 equivalent-English**, with the other 15,719 going to the candidate
+  pool. The store confirms the mechanism: 5,717,439 domains are known and only
+  5,501,772 hold an admitted year, so 215,667 are already waiting that way
+- **Even corrected it is the best-value lead open.** Scaling 6,343 by the agent's
+  own measured saturation exponent of 0.911 over the remaining archives gives
+  roughly **63,000 equivalent-English admitted, at zero network cost**, against the
+  capture engine's projected 31,613 by 9 August. Two independent fits agreeing on
+  that exponent, 0.911 from the new signals and 0.909 from the project's own
+  earlier body-URL work, is the part that makes the projection worth trusting
+- **The single cleanest piece of it is a hole in a regex.** `ark.usenet` requires
+  `https?://`, so a bare `www.foo.com` written by a human is invisible, and in
+  1996-1999 people wrote addresses that way constantly. That is the same kind of
+  evidence as a linked URL, from the same dated artifact, and it measured 11,817
+  net-new pairs on its own. The machine-written headers, `Message-ID` hosts,
+  `NNTP-Posting-Host` and `Path:` hops, are a different kind of claim and are left
+  for Ivo to rule on rather than switched on quietly
+- **A useful negative that generalises.** HathiTrust's Extracted Features is open
+  and domain tokens do survive OCR, but the net-new half of what it yields **is**
+  the OCR-damaged half: `0fficemed.com`, `0rth04me.com`, `3enniferf8sffny.edu`.
+  Real domains that appeared in print are already in the store, so what passes a
+  "is this net-new?" test is disproportionately the corrupted. Worth applying to
+  any print source before believing its projection
+
+## 2026-08-06 (the cheap query is not one shape but three, and a wrong turn found it)
+
+- **`matchType=host` is not the answer for a heavily archived domain, and
+  believing it was cost a wrong turn.** Both the research agent's 1.29 s median
+  and my own 2.07 s were measured on ORDINARY domains, because both samples were
+  drawn from names the wildcard scan had already answered. Run against the actual
+  clog it fails exactly as the wildcard does: `warehouse.co.uk`, `gigabyte.com`
+  and `bbc.co.uk` each returned 504 after about 60 s. One host can still hold
+  millions of rows. **A shape measured only on the easy cases is measured on the
+  wrong population**, which is the same sampling error I made earlier tonight in
+  the other direction
+- **So there are three tiers, and each one exists for a failure the others
+  measurably have.** `matchType=host` for the ordinary domain, about 2 s. The
+  apex and www ROOT pages, single CDX keys, for the heavily archived one: same
+  three domains answered in roughly 10 s each that way. The wildcard scan last,
+  and only when tier 1 answered with NOTHING, because that is the one case where
+  a subdomain-only capture could be hiding, and a domain with nothing on its own
+  host is lightly archived enough for the scan to be cheap
+- **A domain too big for one host is never sent to the wildcard.** The scan
+  covers every subdomain, so it is strictly more work than the host match that
+  just failed, and trying it would only buy another 60 s and another 504
+- **Tier 1 gets a 15 s leash rather than the full 70 s.** A cheap query that is
+  not cheap is by definition the wrong tier for that domain, and the tier answers
+  at a p90 of 6.24 s, so the leash keeps essentially every real answer. Without
+  it the ladder pays the server's own ~60 s timeout to learn a domain is heavy,
+  on every heavy domain: measured 122 s end to end for `warehouse.co.uk` against
+  an expected ~77 s with the leash
+- **Measured live, same 8 workers and same 1,200-domain batch as the baseline, so
+  the code is the only variable: 2,054 year-records/hour against the 1,729
+  baseline, up 19%,** and that is while still inside the clog, where 25 of the
+  first 55 answers came from the root-page tier and each one had paid a failed
+  tier-1 query first. Queries/hour is lower, 509 against 647, which is the right
+  trade: the clog domains cost two tiers but they are heavily archived, so they
+  return captures in most years
+- **The VPS journals were never brought home.** 1,569 records, 1,481 answered,
+  **5,793 year-records worth 5,137.6 equivalent-English**, sitting on the VPS
+  disk and absent from the store since it started. Rsynced; the maintain loop
+  ingests them on its next pass. Worth a standing habit rather than a one-off,
+  because a second machine's output is invisible to every measurement taken here
+- **The bare-www Usenet signal is real but roughly a quarter of the size the
+  agent's table suggests, and the difference is in what "net-new" was differenced
+  against.** Their per-signal rows difference against admitted records only, so
+  H4's 11,817 still contains pairs the shipped signal already sees; only their
+  "union minus B0" row subtracts the existing signal. Measured here the other way,
+  extracting with both regexes over the same 60 archives and 129,596 in-window
+  messages: **1,533 pairs only the bare-www regex sees, 526 of them not already
+  admitted, 337.0 equivalent-English, and only 296 of those on domains the store
+  already knows** and therefore admissible at once under the corroboration rule,
+  worth 186.7 equivalent-English. Scaling by the agent's own saturation exponent
+  of 0.911 gives roughly **8,550 equivalent-English admitted across the whole
+  corpus**, not the ~63,000 the five signals together promise
+- **Still worth doing, and the regex is now in.** `www.foo.com` written without a
+  scheme was invisible because `_URL` requires `https?://`, and that was the
+  ordinary way to write an address in 1996-1999. Anchored on the `www.` label
+  rather than accepting any bare host: a bare `foo.com` in prose is more often a
+  company name or half an email address, and the evidence wall is worth more than
+  the recall. **It changes nothing already shipped until the archives are
+  re-ingested**, which the content-hash ledger will refuse without a force, so
+  that is Ivo's call and not a decision to slip in overnight
+
+## 2026-08-06 (the `.au` load-shedding route is designed and deliberately not built)
+
+The Australian Web Archive would move `.au` queries off the Internet Archive
+entirely. That is worth having: `.au` is 1.7% of the gap queue but 87% of its
+first thousand under the equivalent-English ordering, because `.au` carries the
+highest English share of any major TLD at 0.9904, and the endpoint answered every
+one of 250-plus requests with no throttling at a 0.98 s median. IA is the
+bottleneck, so moving that share off it is a real gain.
+
+It is not built, and the reason is an integrity risk rather than the work:
+
+- **It cannot be allowed to corroborate.** A candidate is promoted when two
+  INDEPENDENT sources agree. AWA's in-window records live in files named
+  `NLA-EXTRACTION-1996-2004-ARCS`, `.arc.gz` being the Internet Archive's own
+  container format, and measurement agrees with that reading: identical year sets
+  on 26 of 30 domains, and 0 finds on 30 where our IA journal already says
+  "nothing in window". So it is the same underlying crawl. Wiring it in as an
+  ordinary source would let it corroborate an IA capture, or a Usenet mention that
+  IA had already been asked about, and **quietly inflate the shipped figure with
+  agreement between two copies of one source**
+- Doing it properly means a source family shared with `cdx_snapshot`, so the
+  corroboration split treats the pair as one source, plus its own evidence type
+  and URL form, plus a check in `ark check` that no promotion rests on the pair
+  alone. That is an hour of careful work on the part of the pipeline whose whole
+  purpose is that the shipped number cannot be inflated, and it is not work to do
+  unsupervised at three in the morning against a deliverable already sent
+- The throughput it would buy is also the thing tonight's query ladder already
+  bought several times over, so the urgency is gone
+
+Recorded rather than attempted. The measurements needed to build it are in
+`handback-sources-B.md` and the corrections are in the 06 August source note above.
+
+## 2026-08-06 (the ceiling is IA's per-IP concurrency, so the ladder's win is years per query)
+
+Spent the second half of the night trying to raise queries per hour and found the
+wall instead. Recording it because it redirects where the next effort should go.
+
+- **8 workers and 12 workers give the same throughput: 506 against 510
+  queries/hour.** Doubling concurrency earlier in the night looked promising
+  because the VPS went from 28.1 to 4.0 s/domain when it went from 4 to 8, but
+  that gain was the query ladder arriving at the same moment, not the workers
+- **The reason is that IA refuses the excess connection rather than queueing it.**
+  Measured while the local engine ran 12 workers: ten sequential host queries from
+  a separate process, so a 13th concurrent connection, and **6 of the 10 were
+  refused** at the same flat ~3.3 s signature seen earlier in the night, while the
+  engine's own failure count over the same window was 0 of 25. So the limit is on
+  concurrent connections per IP, the engine's twelve were inside it, and the
+  marginal one was not
+- **So 12 workers was strictly worse than 8: the same throughput with less margin
+  before the penalty box.** Settled both machines at 8
+- **Which means the honest reading of tonight's gain is different from the one I
+  first wrote.** Queries per hour did not move and cannot be moved from one IP.
+  What moved is **year-records per query**: the ladder converts a scan the server
+  gives up on, previously 60 seconds spent for nothing, into an answer. That is
+  why year-records/hour rose 19% while queries/hour fell slightly. The metric Ding
+  scores is equivalent-English, which follows year-records, so the improvement is
+  real, but it is a yield improvement and not a rate improvement, and calling it
+  the latter would have been wrong
+- **Corollary, and the useful part for planning: more capacity means more IPs, not
+  more workers.** The VPS is not a nice-to-have, it is the only lever that raises
+  the ceiling, and a third address would raise it again. That reframes "free
+  compute" as "a second rate-limit allowance"
+- **A hypothesis I formed and the data killed, worth recording so it is not tried
+  again.** Every batch's `final_delay_ms` looked pinned at the 3,000 ms ceiling,
+  which would have capped starts at 1,200/hour, and 504 sits in the throttle set
+  even though a 504 means *this query* was too big rather than that the service is
+  overloaded. Removing it looked like an easy multiplier. But reading every batch
+  summary rather than the worst two, `final_delay_ms` is **150, 224, 227, 466,
+  1994, 2880, 3000** ms: usually near the floor, not the ceiling. Pacing is
+  therefore not the binding constraint, and the change would have bought nothing
+  while removing a real safety valve
+- **Batches are now 300 domains rather than 1,200.** The governor's throttle count
+  and final delay are only printed when a batch ends, so at 1,200 an unattended run
+  reports its own health roughly every two hours. At 300 it reports every 35
+  minutes. The cost is reloading the skip set more often, a few percent, and it is
+  worth it for a run meant to go unwatched until Sunday
+
+## 2026-08-06 (1996 cannot be bought from the Internet Archive, and that is the answer to give Ding)
+
+The bracketed-gap queue can only target 1997-2000, because both flanking years
+must be in window, so 1996 is only ever gained incidentally: 31 of its 1,358 new
+records this round came from capture verification. 1996 is also the year furthest
+from the completeness standard. So the obvious move was a queue of domains held in
+1997 with no 1996 record, of which there are 812,177 never yet asked, a ceiling of
+452,192 equivalent-English if every one filled.
+
+Measured on 60 of them, 58 answered:
+
+- **0 of 58 had a 1996 capture. None.** With no successes in 58 trials the rate is
+  under about 5% at 95% confidence, and the true figure is probably far lower
+- **The reason is the Internet Archive's own 1996 coverage, not our method.** Its
+  earliest crawls were small. If a domain we hold for 1997 has no 1996 record from
+  us, the archive does not have a 1996 capture of it either. **So no amount of
+  capture verification will move 1996**, and the 812,177-domain queue with its
+  452,192 ceiling is worth approximately nothing for the year it was built for
+- **This is the honest answer to the completeness question rather than a hedge.**
+  The interim report says 1996 grew 0.1993% and is sparse "for reasons of method
+  rather than saturation". That is now measured rather than asserted, and sharper:
+  the method that produced 96% of this round's records is structurally incapable of
+  adding to 1996. Moving 1996 needs a different KIND of artifact, one dated by
+  something other than a crawl: a dated Usenet posting, a dated directory snapshot,
+  a periodical with a cover date
+- **The same query population is nonetheless a good queue, for the other years.**
+  Those 58 queries returned **78 marginal years, 1.34 per query, worth 0.642
+  equivalent-English per query against the bracketed-gap queue's measured 0.536**.
+  All of it in 1998-2001: 1998 5, 1999 27, 2000 24, 2001 22. So a domain held in
+  1997 and missing later years is slightly BETTER value than a bracketed gap, just
+  not for the reason it was tried. Worth queueing when the current 237,000-domain
+  shard runs dry, which at the measured rate is weeks away
+- Median 12.5 s per query, notably slower than the 2 s the ordinary domain costs,
+  because a domain that survived from 1997 is an old and heavily archived one
+
+## 2026-08-06 (the bare-www estimate, corrected upward on a bigger sample)
+
+The 60-archive figure earlier tonight scaled to roughly 8,550 equivalent-English
+admitted. Re-run over 400 archives, 1,454 MB and 1,459,120 in-window messages, it
+is close to twice that, and the reason is a sampling artifact worth naming.
+
+- **Measured on 400 archives: 13,825 pairs only the bare-www regex sees, 6,617 of
+  them not already admitted, 4,481.1 equivalent-English. Of those, 2,933 are on
+  domains the store already knows and can enter at once, worth 1,979.8.** The
+  `.uk` share is good, 1,446 of 6,617 pairs
+- **Scaled to the whole 12,999 MB of archives at or under 40 MB, an 8.94x step,
+  and damped by the measured saturation exponent of 0.911, that is 7.36x:
+  about 21,600 pairs admissible at once worth ~14,600 equivalent-English**, plus
+  ~27,100 more going to the candidate pool
+- **Why the first estimate was low.** Growth looked super-linear, 6.67x more
+  archives giving 12.6x more pairs, which should not happen to a saturating
+  process. It is not saturation reversing, it is that the shuffle put small
+  archives first: 60 archives were 159 MB and 400 were 1,454 MB, so 6.67x more
+  archives is 9.1x more bytes. Per byte the yield is nearly flat. **Scale by the
+  quantity the yield actually depends on, not by the one that is easy to count**
+- **The measurement ignores 55% of the corpus, but the corpus is not out of
+  reach, and I nearly recorded the opposite.** The 178 archives over 40 MB hold
+  15,713 MB of the 28,712 MB total, and both the research agent and I capped our
+  samples there because `iter_messages` expands an mbox into memory. It is easy to
+  read that cap as a loader limit and conclude that streaming would unlock new
+  material. It would not: **all 178 are in `.processed`**, so the ingest already
+  reads them and has done. The cap was sampling convenience, nothing more
+- **Which means the estimate is a floor, not a ceiling.** ~14,600 equivalent-English
+  covers the 45% of bytes that was sampled. If the yield per byte holds on the
+  larger archives, and there is no reason it should not, the full-corpus figure is
+  closer to **~30,000 equivalent-English admissible**, which makes the re-ingest
+  more attractive rather than less. Worth measuring properly before acting, by
+  sampling the large archives rather than assuming they behave like the small ones
+- Still not re-ingested. The content-hash ledger will refuse the archives as
+  already seen, and forcing it risks duplicate evidence rows in exactly the table
+  whose integrity the delivery rests on. Ivo's call, with a real number now.
+
+## 2026-08-06 (the bare-www signal, finally measured over both halves of the corpus)
+
+Sampled the 178 large archives directly rather than assuming they behave like the
+small ones, which closes the estimate.
+
+- **10 large archives, 1,026 MB, 846,927 in-window messages: 5,966 pairs only the
+  bare-www regex sees, 1,231 admissible at once worth 786.9 equivalent-English**
+- **They yield 0.767 equivalent-English per MB against the small archives' 1.362,
+  so 56%.** Extrapolating the whole corpus from the small sample would have
+  overstated it by a third, which is what the earlier "likely nearer 30,000" guess
+  did. Damping each half by the measured saturation exponent of 0.911 and adding
+  them gives **14,565 from the 12,999 MB of small archives and 9,453 from the
+  15,713 MB of large ones, so about 24,000 equivalent-English admissible at once**
+  across the whole 28.7 GB, plus roughly 45,900 further pairs going to the
+  candidate pool
+- That is ~76% of what the capture engine is projected to add by 9 August, for no
+  network at all, and it is the strongest remaining lead. It needs a forced
+  re-ingest, which the content-hash ledger exists to prevent, so it stays Ivo's
+  call, but the number behind the call is now measured on both halves rather than
+  scaled from one
+- **The 56% gap is the same effect the project already knew about**, recorded on
+  5 August as smaller archives giving more domains per byte, and cut from the
+  interim report as too fine a detail for Ding. Worth keeping internally: it means
+  any per-byte projection from a sample of small archives is optimistic
+
+The end-to-end check on tonight's engine change, done at the same time, is clean.
+`warehouse.co.uk`, the domain five batches had failed on, now holds admitted
+`cdx_timestamp` evidence for 1998, 1999, 2000 and 2001; `gigabyte.com` for 1997
+through 2001; `vccs.edu` gained 2001. Twelve of twelve sampled rescues are admitted
+records with an evidence row, so the ladder is producing real evidence and not just
+faster journal lines.
+
+## 2026-08-06 (the first completed batch on the ladder, before and after)
+
+The 300-domain batch size exists so a summary arrives every half hour instead of
+every two, and the first one is the cleanest before-and-after of the night.
+
+```
+before, 1,200 domains, wildcard-first, 8 workers
+  with_capture 1056  years_found 4218  queried 1198
+  failed_504 41  failed_503 22  failed_0 63  errored 2      throttles 507  final_delay 3000ms
+
+after, 300 domains, three-tier ladder, same 8 workers
+  with_capture  296  years_found 1144  queried  300
+  failed_-1 2                                          throttles 103  final_delay 2880ms
+```
+
+- **Hit rate 88.1% to 98.7%.** The domains that used to fail were not undatable,
+  they were being asked the wrong question
+- **Failures 10.5% to 0.7%, fifteen times fewer**, and the two that remain are
+  both `failed_-1`, the new TIMED_OUT status, so they are heavy domains rather
+  than refusals. **Zero refusals, zero 504s, zero 503s** in the whole batch, where
+  the old shape produced 126 failures in 1,198
+- **Years per query 3.52 to 3.81**, up 8%, on top of answering 10 points more of
+  the batch
+- **22 minutes for 300 domains: 818 queries/hour and 3,120 year-records/hour**
+  against the 647 and 1,729 baseline. So 1.26x the query rate and **1.80x the
+  year-records rate**, which is the one the metric follows
+- `throttles` fell from 507 to 103 even though the query rate rose, which is the
+  self-reinforcing loop unwinding: fewer doomed requests means fewer throttles
+  means fewer retries. `final_delay_ms` is still high at 2,880, so the governor is
+  still cautious, and that is the remaining headroom if anything is
+
+## 2026-08-06 (the bare-www re-ingest, done on disk and measured against the store)
+
+Ingested. 22,400 new admitted pairs, **15,164.8 equivalent-English**, all twelve
+integrity checks passing. Predicted 15,169.7 before running it, so the estimate
+was 4.9 EE out. What made that possible was doing the whole comparison on disk.
+
+- **The ingest never reads the archives, it reads journals**, 102 of them holding
+  979,189 distinct (domain, year). So a re-split could be staged, diffed and
+  filtered before the store saw any of it. No forcing past the content-hash
+  ledger, no duplicates to clean up afterwards, and no need to touch the one
+  table whose integrity the delivery rests on
+- **Two safety gaps had to be closed first, and the first was nearly a mistake.**
+  `split_usenet.py` wrote only to `data/raw/usenet`, which `maintain_phase3.sh`
+  globs every cycle and ingests unconditionally. Writing a re-split there would
+  have put 1,069,193 unreviewed pairs in the store within minutes. It also opened
+  the store at the very end with no retry, after an hour of parsing
+- **Full re-split: 4,175 archives, 48.6M messages, 1,069,193 pairs, 54 minutes.**
+  Against the existing journals, 90,004 pairs were new
+- **Verified those were the regex and not gaps in the old journals**, which is the
+  claim the whole exercise rests on. Re-extracted the four highest-yield groups
+  with `_BARE_WWW` disabled: **3,750 of 3,750 sampled new pairs disappear without
+  it, 0 survive**. So the signal is real
+- **The headline of the diff was wrong by 2.6x and the reason is worth keeping.**
+  The diff compares against JOURNALS; equivalent-English is only earned against
+  the STORE. Of 55,193 pairs absent from the journals, **34,390 were already
+  admitted through another source**, mostly capture verification, so they buy an
+  evidence row and no pair and no metric. Checking journals answers "is this new
+  to this source", not "is this new to the collection"
+- **My 24,000 projection was too high, and the error was adding two overlapping
+  samples.** I projected small archives and large archives separately and summed
+  them. But the same domains appear in both, so saturation is corpus-wide rather
+  than per-subset. The small-archive projection ALONE was 21,577 pairs and 14,565
+  equivalent-English against an actual 20,803 and 13,795.7, within 5%. **Adding
+  the second projection was the whole mistake**
+- Final ingest was the wider option: 59,347 dated, of which 4,154 promotions, plus
+  34,811 candidates. 94,158 evidence rows for 22,400 admitted pairs. The 36,942
+  that only deepen provenance on already-admitted pairs cost nothing next to
+  23.7M `prior_reused` rows and strengthen the record
+- **31,073 of the new candidates were enqueued** for the capture engine, which is
+  where the remaining 23,882 equivalent-English of candidate-half value would come
+  from if it corroborates them
+- A pre-ingest copy of the store sits at `data/ark.duckdb.pre-barewww`, 5.2 GB.
+  It is the only real rollback, because `ark ingest` commits and undoing it
+  afterwards means deleting evidence rows that `domain_year` foreign keys point
+  at. Delete it once the result has been looked at
+
+Also answered, since it looked alarming: **23.7M `prior_reused` rows against 8.9M
+pairs is three baseline releases, not duplication.** The originals,
+`merged260727/` and `merged260730/`, each ingested under its own marker namespace,
+which is exactly what `--marker-prefix` exists for. 6,866,913 pairs appear in all
+three, 1,322,365 in two, 444,227 in one, which is 23,689,696 to the row. It cannot
+distort anything: `domain_year` is keyed on (domain, year) so one admitted row per
+pair, and all three carry the same `source_id`, so they cannot corroborate each
+other.
+
+## 2026-08-06 (the reviewer's reporting format, and whether our counting unit fits it)
+
+- **He asked for five fields and they decode cleanly, but the growth rate is not
+  the obvious one.** His example reads 10,263,632 records, 5,531,053.6089
+  equivalent-English, an increment of 151,949 and 91,814.6880, and a rate of
+  1.659986%. That rate is 91,814.688 / 5,531,053.6089, so **lines 1 and 2 are the
+  database BEFORE the increment and line 5 divides by the pre-increment total**.
+  Dividing by the post-increment total instead gives 1.688%, which is wrong by 2%
+  of itself and looks perfectly reasonable, so the convention is now in code
+  (`scripts/round_figures.py`) rather than in anyone's head
+- **Our unit is not an approximation of his, it is the same unit, and that is
+  measured rather than assumed.** This round's 148,444 records were written out
+  per year and scored with his own `equivalent_english_domains.py`: 102,009.2509,
+  agreeing with our implementation to **0.0000**, with **zero records rejected by
+  his validator**. That matters more this round than last, because the bare-www
+  regex widened what Usenet matches and a malformed hostname scores zero for him
+  and full weight for us. `--verify` now refuses to print numbers that disagree
+- **So lines 1 and 2 are quoted as his database, not ours.** 10,404,200 and
+  5,622,984.6434, our measurement of his merged files, already given to him on
+  4 August without objection. Our store holds 8,933,898 admitted pairs, which is
+  smaller and always will be; reporting our own total would invite a question
+  about why, when the answer changes nothing about the increment he credits
+- **Checked whether the hostnames the registered-domain unit discards are worth
+  claiming under his rule. They are not, and the number was tempting enough to be
+  worth writing down.** 624,224 fall inside the window and pass his validator,
+  carrying **434,951.97 equivalent-English**, which is 7.7% of his whole baseline.
+  But 553,199 of them come from the ISC reverse-DNS survey and are machines rather
+  than websites: the commonest leading labels are `pclan`, `dialup`, `hip`, `mail`,
+  `ftp`, `s96`. Submitting them would pad the count with things that were never web
+  pages and would contradict the English-website standard he set himself. Only the
+  71,031 from the UK Web Archive link graph are defensible. Offered in the email as
+  available on request rather than pushed, the same way the 11,568 malformed
+  baseline records were offered on 4 August
+- **The unit difference is stated once in the email even though it costs us
+  nothing to omit.** We count `www.example.com` and `example.com` as one record and
+  his validator would take both, so our increments are a floor. Worth one sentence
+  purely as insurance: if hostname-level counts ever appear from elsewhere, ours
+  must not read as weaker work at equal effort
+- **Round so far, local engine only, VPS journals still held back by the VPN:**
+  148,444 records and 102,009.2509 equivalent-English, 1.814148% growth, 119,674
+  distinct domains, 150,858 more dated but held back uncorroborated. Mean weight
+  0.6872 against last round's 0.6042, so **fewer records than last round's 151,949
+  but 11.1% more equivalent-English**, which is the pool ordering by TLD English
+  share doing what it was built to do
+
+## 2026-08-06 (line 1 of the reviewer's format was the wrong count, caught by Ivo)
+
+- **His line 1 counts RAW records; I had reported the validator-passing subset.**
+  His calculator reads his merged 1996-2001 files as **10,415,768 unique nonempty
+  records, of which 10,404,200 are valid**, the remaining 11,568 being the embedded
+  ports and underscore labels found on 4 August. I put 10,404,200 in line 1. Ivo
+  spotted that it does not line up with anything the reviewer has said, and he was
+  right: **10,263,632 + 151,949 = 10,415,581**, which sits 187 from the raw count
+  and 11,381 from the valid one. So line 1 tracks the raw count, and quoting the
+  valid one reads as 11,568 records disappearing since his own last message. The
+  187 is inside his merge, the same place the 116.35 equivalent-English gap lives
+- **The lesson is narrower than "check the numbers" and worth keeping.** Both
+  10,404,200 and 5,622,984.6434 came from the same measurement on 4 August and both
+  were correct as measured. The error was pairing a validator-filtered record count
+  with an unfiltered lineage, which no amount of re-running the calculator would
+  have surfaced. **Reconciling against what the other side last said is a different
+  check from verifying your own arithmetic**, and only the first one catches this
+- **The increment was then checked against his actual annual files, which had never
+  been done.** All 152,773 records compared line by line against his six files:
+  **zero already present**. Our net-new definition rests on `verified_at` and the
+  absence of a `prior_reused` marker, and neither knows what he holds: our store
+  carries baseline releases only up to `merged260730`, while he has merged a round
+  on top. The two could drift apart with nothing here looking wrong
+- **Both checks now live in `scripts/round_figures.py --verify` and it exits
+  non-zero on either**, alongside the existing check that his calculator agrees to
+  0.0000 and rejects none of our records
+- **Round after folding in the VPS journals:** 152,773 records, 105,676.0387
+  equivalent-English, **1.879358%** growth, 122,381 distinct domains, 150,858 more
+  dated but held back. Mean weight **0.6917** against last round's 0.6042, so this
+  round beats 151,949 records on count and is **15.1% larger on equivalent-English**
+
+## 2026-08-06 (projecting the round to Sunday, and two errors that cancelled)
+
+- **Projection to Sun 9 Aug 12:00 UTC, the supervisor's own deadline (epoch
+  1786276800), 72.5h out: +100,007 admitted pairs and +74,573 equivalent-English**,
+  taking the round to 252,780 records and 180,249, a **3.206%** growth rate against
+  the 5,622,984.6434 baseline. Range: 77,738 with no further stalls, 19,668 if the
+  laptop stops now and only the VPS runs
+- **Projected from the queue itself rather than from a trailing rate.** The target
+  file is equivalent-English-ordered and `ark cdx` walks it in file order
+  (`cli.py:629-643`), skipping domains already ANSWERED, so the next N lines are
+  literally the next N queries. That makes the future readable instead of
+  extrapolated. **The high-weight head is nearly spent on the local shard:** mean
+  weight runs 0.973 for about 7 more hours, then decays to the .com floor of 0.632
+  by roughly hour 22 and stays there. Quoting today's ~1,000 EE/h forward would
+  have been wrong by a third
+- **First error, mine: the VPS rate was 9% too high.** I computed it as
+  `completed_batches * 300 / span`, but `cdx_gap_vps_20260806T004012Z.jsonl.gz`
+  holds 5 lines, not 300. Weighting each interval by the closing journal's actual
+  line count gives **288 domains/h, not 317**. Rule: never assume `-n` was reached
+- **Second error, mine: the local rate blended two regimes.** There is a structural
+  break at the batch dispatched 05:16 UTC (47 min against a ~14 min norm, 585
+  throttles, 129/300 failures). Before it, 1,097 domains/h; after it, **954/h**,
+  stable across 18 batches with no further escalation. Averaging across the break
+  gave 974/h and quietly assumed a regime that has not recurred
+- **Third correction, against both of the above: the .com body yields MORE than the
+  .uk head, so the pair count was conservative.** Years found per answered domain
+  is 3.849 for `.com` against 3.577 for `.uk/.au/.nz/.ie/.za`, a ratio of 1.076.
+  The forward slice is .com-heavy where the measuring window was .uk-heavy, so
+  pairs per domain rises from 1.118 to about 1.186 locally. **The two rate errors
+  cost 8% and this recovers 4%**, which is why the first figure of 77,293 was only
+  about 4% high rather than the 8.7% an audit that missed this effect concluded
+- **What the projection does NOT rest on, all checked:** the queue does not run dry
+  (225,642 and 236,952 still queued against ~86,000 consumption); the two shards
+  are disjoint, `comm -12` returns 0; and **nothing else is feeding**, since all
+  4,175 Usenet archives are processed with no download running. CDX is the only
+  engine, so a stopped engine costs its full rate
+- **The binding risk is power, not throughput.** `caffeinate -i` holds off idle
+  sleep only: `pmset -g assertions` shows `PreventSystemSleep 0`, so a closed lid
+  still sleeps, and the machine has been on battery for 42% of the last two days
+  across 8 transitions. Local is 76% of the projection. Also worth an operational
+  step rather than a number: the VPS journals must be rsynced and one maintain pass
+  allowed to finish **before** the Sunday measurement, or roughly 700 EE of
+  collected work sits outside the figure, rising to ~2,900 EE if the last pull is
+  10 hours stale
+
+## 2026-08-06 (the Usenet 330,000 EE projection is refuted, and why the error repeated)
+
+Ivo asked for the projection to be re-measured before it was promised to the
+reviewer. It does not survive.
+
+- **The 5 August fit predicted ~466,000 net-new pairs / ~330,000 equivalent-English
+  from the 761 groups of `uk.*`, `aus.*`, `can.*`. 740 of those 761 have since been
+  processed, so the prediction has already been tested by reality.** Actual:
+  **65,846 net-new admitted pairs, 46,565 equivalent-English**. The fit overstated
+  by **7.1x on admitted pairs**. On the looser "found and not already held" basis it
+  is 150,009 against 466,000, still **3.1x** over
+- **Root cause, and it is not the exponent.** The fit came from 28 hand-picked
+  probe groups (`uk.misc`, `uk.finance`, `aus.computers` and similar) which yielded
+  720 net-new pairs per group. Measured over 3,594 real groups in deterministic
+  random order, the corpus average is **122 found pairs and 76 equivalent-English
+  per group**. The sample was **3 to 6x richer than the population it was
+  extrapolated to**. The `g^0.909` exponent was roughly right; the constant was
+  wrong, because the sample was chosen for being promising
+- **A proper multi-point curve, built from the journals already on disk rather than
+  by re-downloading, gives cumulative EE = `179.3 * n^0.896` over 1,200 to 3,594
+  groups.** Marginal yield per 200-group batch runs 129, 93, 84, 77, 77, 52, 62, 80,
+  64, 148, 62, 66, 120, 44, 63, 45, 53, 50 EE/group: noisy but plateauing near 50 to
+  65, not collapsing. Saturation is mild. **`measure_usenet_decay.py` cannot produce
+  this any more**, because it differences against the store and all 4,175 archives
+  are now ingested, so every batch reads zero. The journals hold `group` per record,
+  which makes the same measurement possible without touching the network
+- **Why the earlier two-point tranche fit said `n^0.375` and was also wrong.** It
+  used ADMITTED EE at 697 and 4,175 archives, and tranche 1 was the name-filtered
+  announce/business selection whose dated fraction is far higher. So it conflated
+  genuine saturation with a drop in the corroborated share. Measuring on the found
+  basis separates the two
+- **Half of what Usenet finds is not admitted.** 437,460 found pairs / 274,186 EE
+  against 219,100 pairs / 137,867 EE admitted: **50.1%**. The other ~136,000 EE sits
+  in the candidate pool awaiting corroboration. That is real inventory but it
+  converts at roughly **0.358 EE per Internet Archive query** against the gap pool's
+  **0.707**, so it is a slow reservoir, not a quick win, and the engines are
+  correctly pointed at the gap pool for now
+- **The decisive unknown has moved.** It is no longer the saturation exponent, it is
+  **the quality of the 15,639 unprocessed groups**, which is a worse population than
+  the processed one: the English, in-window hierarchies are largely done, and the
+  5 August probe found 4,023,027 of 5,283,482 messages out of window with four of 28
+  groups yielding exactly zero. The measured 76 EE/group cannot be carried over.
+  Settling this needs a random sample of the UNPROCESSED remainder, which is a small
+  download, and no projection should be given to the reviewer before it exists
+- **Consequence for the reviewer's 10% request.** 10% is 562,298 EE; the round holds
+  105,676 and projects 180,249 by Sunday. Known sources do not close a 382,049 EE
+  gap on a short timeline, so the honest reply is a trajectory with a schedule rather
+  than agreement to "ASAP"
+- **Consequence for the harness decision, which this inverts.** The earlier
+  recommendation put the deterministic bulk pipeline first because Usenet looked
+  worth 330,000 EE. At 46,565 measured, the known reservoir is insufficient by
+  itself, so the higher-value build is the **agent-driven discovery harness**: the
+  10% now requires new source classes, not more of a source already worked
+
+## 2026-08-06 (the stratified sample: what the 382 GB of unworked Usenet is worth)
+
+- **Sampling design, chosen because the last projection died of a bad sample.**
+  The 15,058 unprocessed groups have a median size of 1.0 MB and a mean of 25.4 MB,
+  so a uniform draw is size-light against a heavy tail. Sampled 12 groups from each
+  of four size strata instead, drawn by `blake2b` order so the pick is deterministic
+  and not chosen for looking promising. 48 groups, 2.3 GB
+- **`probe_usenet_groups.py` has a default 200 MB cap and it silently skipped the
+  five largest groups in the sample**, all in stratum D: `alt.religion.scientology`,
+  `alt.revisionism`, `alt.politics.democrat`, `soc.culture.yugoslavia`,
+  `rec.motorcycles`. Stratum D holds 305 of the 382 GB, so measuring it with its top
+  members dropped would have understated the one band that decides the answer.
+  Re-fetched with `--max-mb 4000`. **The same cap was in force for the 5 August
+  probe**, which skipped `aus.general`, `can.general`, `rec.arts.books`,
+  `misc.consumers` and `soc.culture.british`. So that probe was biased in both
+  directions at once: hand-picked rich groups, minus its biggest archives
+- **Measured, per group, against the current store:** A `<0.5MB` 5.2 corroborated
+  EE, B `0.5-5MB` 28.0, C `5-50MB` 145.2, D `>50MB` 414.2. 54.8% of messages are out
+  of window, close to the 76% the 5 August probe saw
+- **Scaling those linearly gives 1,520,908 EE (27 points) and is wrong**, because
+  2,081 groups overlap each other; the sample only measures one group's yield against
+  the store. Fitting saturation within each stratum failed too: 12 points each, with
+  runs of identical values, and stratum A came out **superlinear at b=1.246**. The
+  exponent dominates the answer and a 12-group sample cannot pin it
+- **So the exponent was measured where the data already is.** The remainder is 82.8%
+  `alt.*` and there are 2,365 processed `alt.*` groups on disk with pairs. Their
+  cumulative corroborated-EE curve over 24 points fits **b = 0.746**. That is the
+  population that actually matters and it cost no bandwidth
+- **Central estimate: 385,683 EE, 6.9 points, from the 15,058 unprocessed groups.**
+  With Sunday's projected 3.2% that is **10.1%**, which is the reviewer's target.
+  Band on the exponent: b=0.65 gives 4.1 points, b=0.85 gives 12.0, so the honest
+  range for the round total is **7.3% to 15.2%**
+- **Where the value sits, and the download order that follows.** Stratum D is 60.3%
+  of the value but only 762 EE per GB; C is 33.5% at 1,814 EE/GB; A and B together
+  are 6% of the value but 5.9 GB and the best ratio on the board at 7,083 and 3,388
+  EE/GB. So take **A, B, C first: 77 GB for 153,025 EE**, then decide on D's 305 GB
+  for 232,658 EE
+- **Feasibility: this is one night, not a project.** 382 GB at 20 MB/s is about
+  5.3 hours, and splitting 4,175 archives took 54 minutes so 15,058 is roughly
+  3.3 hours of CPU. Disk is 571 GB free, and archives can be deleted after splitting
+  because the journals carry the evidence and `.processed` carries the ledger
+- **Caveats that belong next to the number.** b=0.746 comes from PROCESSED `alt.*`
+  groups, which were selected and may be richer than what is left; each stratum's
+  anchor rests on 12 groups, and stratum D's total came mostly from 4 of its 12; and
+  all of the above is corroborated EE, the half that enters annual files at once.
+  The uncorroborated half is roughly 1.45x more, and it lands in the candidate pool
+
+## 2026-08-06/07 (the bulk Usenet night: what worked, and the six hours that did not)
+
+- **Round moved from 1.8794% to 3.3384%**, 152,773 pairs / 105,676.0 EE to
+  **285,192 pairs / 187,719.4 EE**. Gained overnight: **132,419 pairs and
+  82,043.4 equivalent-English, +1.4591 points**. 11,732 of 19,233 catalogue
+  archives now processed, against 4,175 at the start of the night
+- **Disk: 78 GB reclaimed before starting, all of it redownloadable or
+  regenerable.** Arquivo `IA.cdxj` at 47 GB (documented `curl` at
+  `docs/sources.md:185`; `Roteiro.cdxj` kept, it is 13 MB), seven superseded
+  `ark.duckdb.pre-*` rollback copies at 31 GB, and the delivery tarball. This is
+  what the architecture is for: the store rebuilds from journals, and the delivery
+  rebuilds from the provenance export
+- **The date-gated selector does not work and the negative result is the output.**
+  A `.mbox.zip` inflates from its first byte, so a 256 KB range request should have
+  dated each group's start for nothing, skipping most of a 382 GB download.
+  Validated against the 48 sampled groups whose true yield was already measured, it
+  **discarded 21 of them holding 88% of the sample's equivalent-English**. The
+  archives are stored **newest-first**: `comp.cad.autocad` opens on 2011 and does
+  not reach 2001 until 77.8% in. A prefix can only prove a group died before the
+  window, which rejects 1 in 48. The tail that would answer the real question needs
+  the whole file, because deflate does not decompress from the middle. Kept as
+  `scripts/gate_usenet_groups.py` so nobody rebuilds it
+- **Two throughput fixes, both measured.** `probe_usenet_groups.py` was serial at
+  **0.6 groups/s**, which is six hours of pure latency for 77 GB the link carries in
+  under one; `--workers 16` gives 9/s and 26.5 MB/s sustained. `split_usenet.py` was
+  serial regex on a 14-core box; `--workers` puts the per-archive parse in a process
+  pool and merges results in archive order, so output is **byte-identical** to
+  serial, verified on 14 archives by sha1 on both journals, 21s to 9s. Then the
+  maintain loop's 900s cadence became the limit, since 800 archives split in 30, so
+  it was dropped to 150s
+- **Stratum A is worthless and stratum C is the whole prize.** A's first 800
+  archives yielded **11 admitted pairs**, with 90% of messages out of window. One
+  2,483-archive C batch yielded **72,314 admitted pairs** and enqueued 106,184
+  candidates. The download had been ordered smallest-first, which put the worthless
+  band ahead of the valuable one; reordering to C, B, A was the single largest
+  scheduling gain of the night
+- **Six hours produced nothing, and the parser bug was the smaller half of why.**
+  `Message.get` returns a `Header` rather than a `str` when the value is RFC 2047
+  encoded, and `Header` has no `.strip()`, so `message_year` raised
+  `AttributeError`. Latent and pre-existing: the serial path calls the same function
+  and would have died identically, and 8,258 archives passed before one carried such
+  a date. **The cost came from the batch shape.** `ingest_new_usenet.sh` splits every
+  pending archive in ONE call, so one bad file aborted all 2,500, left them unmarked
+  by design, and the maintain loop retried the identical batch every 150 seconds
+  from 23:47 to 05:50. Roughly 145 retries, no progress, and no alarm anywhere: the
+  27-minute checkpoints watched processes that were all healthily alive, and the
+  progress log recorded an unchanging `processed=8258` that nothing was reading
+- **So the guard that is missing is per-archive isolation, not a better parser.**
+  One bad file should skip itself and be recorded, not void a batch. The maintain
+  loop also needs a no-progress alarm: liveness is not progress, and every check
+  that night confirmed liveness. After the one-line fix the same batch went straight
+  through for 35,626 admitted pairs
+
+## 2026-08-07 (the candidate pool is a million names, and most of them are not real)
+
+- **`ark stats` reports a candidate pool of 1,022,127 and 1,021,297 of them are
+  `usenet_mention`**, the uncorroborated half of the Usenet split: a domain that
+  appears in a dated post but that no other source attests. The design routes them
+  here rather than into annual files precisely because Usenet URLs are human-typed,
+  and the bulk ingest multiplied the pool fourfold overnight
+- **A large share of them never existed.** Sampling the pool turns up
+  `mqegamrfaj.mil`, `rrkdpchn.mil`, `ixpaolw.mil`, `fkvgjq.com`,
+  `gafbeehidbv.com`, `idiotsandliars.gov`, `get-that-spam-away-from-me.com`. These
+  are **addresses munged against harvesters**, which was routine Usenet practice, and
+  the domain part of a munged address parses as a perfectly well-formed name.
+  **16.6% (169,893) are machine-generated on a deliberately conservative test**
+  (no vowel in the second-level label, or a run of five or more consonants), and that
+  is a floor: it does not catch pronounceable munges, of which `spam` alone appears
+  in 36,212 names and `nospam` in 14,980. `.mil` at 29,631 and `.gov` at 29,760
+  candidate domains is by itself proof of the problem, since neither TLD has
+  anywhere near that many registrable names
+- **Nothing has leaked into the deliverable.** `link_target` is candidate-only, so
+  none of this can back an annual assignment, and `ark check` passes all twelve
+  invariants including `no_candidate_leakage`. The cost is not contamination, it is
+  that the capture engine is being pointed at a queue where a large fraction of the
+  targets cannot possibly answer
+- **`ark stats` now reports equivalent-English**, which it did not, so the scoreboard
+  could not be read against the metric the round is actually scored on
+- **And it exposed a trap worth naming, the same shape as the line-1 error.**
+  "Net-new" means "carries no `prior_reused` evidence", and our store's baseline
+  releases stop at `merged260730` while the reviewer has merged a round on top. So
+  net-new is **614,413 pairs / 384,193.6292 EE**, of which **151,949 / 91,814.6880 is
+  the round he already credited on 2 August**. Dividing the whole of it by his
+  baseline gives 6.8326% and counts that round twice. The uncredited increment is
+  **462,464 pairs / 292,378.9412 EE / 5.1997%**, and that is the only figure that may
+  be quoted to him. The output now labels it `quote THIS as the increment` and states
+  what was subtracted. It reproduces `scripts/round_figures.py` exactly, which is two
+  independent code paths agreeing
+- **The candidate pool's equivalent-English is reported as an explicit UPPER BOUND**,
+  648,508, assuming every held name is real and earns exactly one year. Given the
+  munging above, the realised figure will be a fraction of it, and the line says so
+
+## 2026-08-07 (the 2 August baseline was never ingested, and what that cost)
+
+- **`merged260802-2` sat on disk for five days without being loaded.** No decision
+  was recorded anywhere; it was an omission. The mechanism already existed and had
+  been used twice, `--marker-prefix` having loaded `merged260727` and `merged260730`
+  under their own namespaces, and `round_figures.py` was already READING the 2 August
+  files for its disjointness check while the store's baseline stopped two releases
+  earlier
+- **The cost was that net-new silently included work the reviewer already holds.**
+  `ark stats` reported 614,413 net-new pairs of which 151,949 were the round he
+  credited on 2 August, so its growth figure read 6.8326% where the honest number was
+  5.1997%. This is the same failure shape as the line-1 error: not a wrong
+  calculation, a right calculation against a stale reference
+- **Measured before ingesting, because the risk was suppressing real claims.** His
+  files hold hostnames and ours hold registrable domains, so `www.foo.com` on his
+  side could mark our `foo.com` as baseline. Normalising his 10,415,768 host records
+  the way we normalise ours gives 8,785,620 distinct (domain, year), and the overlap
+  with our 794,097 net-new pairs was **exactly 151,949**, the credited round and not
+  one pair more. So the hostname-folding risk was zero in practice
+- **Ingested under marker `merged260802`: exactly 151,949 pairs reclassified**,
+  matching the prediction to the row, plus 166 pairs he holds that we did not.
+  12,572 of his lines were rejected by our validator, consistent with the 11,568
+  found on 4 August
+- **`ark check` then failed `additions_not_double_counted` with exactly 151,949
+  offending**, which is the invariant doing its job: the exported annual files
+  predated the ingest and still listed pairs that had just become baseline. The store
+  was right and the export was stale. `ark export` plus `ark lang-report` fixed it and
+  all twelve now pass
+- **The fix is structural rather than a constant.** `src/ark/baseline.py` now holds
+  which release is current, and `ingest-legacy`, `legacy-review`, `ark stats` and
+  `round_figures.py` all read it, so the ingest default and the reported growth rate
+  cannot drift apart. The hardcoded `ALREADY_CREDITED_EE` that patched this an hour
+  earlier is gone: a constant needing a hand edit every time he merges fails silently,
+  and it fails in our favour, which is worse than the bug it patched
+- **Round after all of it: 648,249 pairs, 399,409.7010 equivalent-English, 7.1032%.**
+  `ark stats` and `round_figures.py` agree to the digit from independent code paths
+
+## 2026-08-07 (what the existing pools can still deliver, and by when)
+
+- **Question: leaving both CDX engines running on the pools that already exist, when
+  do we reach the reviewer's 10%?** Answered by integrating the remaining queue in
+  its own order rather than extrapolating a trailing rate, because both queues are
+  sorted best-first and a trailing rate measures where the engines have been
+- **Three inputs, all measured, none assumed.** Realisation, from the ingest ledger:
+  a gap query writes **31.6% of the in-window years it finds** as net-new pairs
+  (27.1% on the last ten batches, the queue having descended), while a candidate-pool
+  query writes **100%**, because those domains hold no year at all. Throughput, from
+  journal timestamps over long windows rather than fast ones: local **916 q/h**
+  sustained over 27.9h on gaps and **562 q/h** on the pool, VPS **262 q/h** over
+  42.4h. Stock, from `sandwich_gap_domains` against the live store
+- **The queue's own sort key predicts realised yield almost exactly.** Recent gap
+  batches return 0.974 net-new pairs per query against 1.023 bracketed slots per
+  queued domain, so realised equivalent-English is **0.95x the key**, slightly
+  conservative. That is what makes an exact integration possible: every remaining
+  domain's value is known, and the engines consume them in that order
+- **Ceilings. The gap queue in full is 247,540 EE, 4.40 points. The curated
+  candidate pool in full is 42,710 EE, 0.76 points.** With today's 7.1555% that caps
+  the existing pools at about **12.3%**, so 10% is reachable but needs roughly half
+  the gap queue, 250,000 more queries
+- **Time. As configured this morning, 21.1 days. With the local engine moved back to
+  gaps, 9.5 days.** The gap between those two numbers is the whole finding: the local
+  engine has been on the candidate pool since 07:06 CEST, where it earns 0.476 EE per
+  query at 562 q/h, against 0.95 EE per query at 916 q/h on gaps. Same machine, same
+  archive, **3.3x the equivalent-English per hour**
+- **The 50/50 shard split predates the speed gap between the machines** and now costs
+  about 20 hours: the MacBook is four times the VPS, so half the queue each leaves it
+  deep in its own cheap tail while the expensive head of the other half is untouched.
+  A 78/22 split matched to measured throughput reaches 10% in 8.7 days
+- **The shard files are stale in a way that lowers the ceiling below the goal.**
+  They were written on 5 August, before 579,712 Usenet pairs landed, and Usenet
+  created gaps as well as filling them. **102,628 gap targets worth 63,333 EE exist in
+  the store and in neither shard file.** Working only the 5 August lists caps the gap
+  queue at 187,374 EE, which puts the ceiling at **10.49%** and leaves no margin.
+  Regenerating with `just gap-shards` raises it to 11.56% and is worth +5,703 EE over
+  the first 50,000 queries on its own, the new arrivals being better than average
+  (mean key 0.617 against 0.537)
+- **Round at the time of measuring: 648,813 pairs, 402,354.7 EE, 7.1555%**, after the
+  eleven VPS journals stranded by the VPN outage were rsynced home and ingested
+
+## 2026-08-07 (one queue instead of two, and shares sized by engine speed)
+
+- **The two populations were two lists, and the choice between them was being made
+  by hand.** Ordering *within* `gap_candidates.txt` and *within* `pool_candidates.txt`
+  had both been thought about carefully; the allocation *between* them had not, and
+  that was the more expensive of the two. The MacBook spent this morning on
+  candidate-pool targets worth 0.476 equivalent-English per query while gap targets
+  worth twice that sat in the other file
+- **There is now one queue, scored on the only scale that decides the allocation:
+  expected net-new equivalent-English per archive query.** A gap target scores
+  `realisation x English share x bracketed years it could fill`; a pool target scores
+  `P(hit) x English share x years a hit returns`. `scripts/build_query_queue.py`
+- **Both multipliers are measured, not assumed, and printed with the queue.**
+  Realisation 0.95, from the ingest ledger over 137 journals: a gap query writes 31.6%
+  of the in-window years it finds as net-new pairs, which is 0.974 net-new pairs per
+  query against 1.023 bracketed slots per queued domain. Years per pool hit 1.580,
+  from the journals. A pool hit realises 100% because the domain held no year at all
+- **The hit rate that scores the pool must be measured over the pool alone.** A gap
+  domain answers 85-99% and a pool domain 41%, so mixing them would roughly double the
+  pool's apparent value and lift its whole tail to the head of the queue. The old code
+  got this for free by globbing `cdx_pool_*`; the merged queue's journals carry both
+  populations, so the manifest now records which population each target came from and
+  the estimator restricts to it. Same trap as the line-1 and stale-baseline errors: a
+  correct calculation over the wrong reference set
+- **Era eligibility stays a hard gate ahead of the score.** The English-share model is
+  built from 2024 crawl data and scores today's brand gTLDs near 100%, so Usenet header
+  noise would otherwise sort to the very top of a list meant to hold the best targets
+- **Shares are now sized by measured throughput, 78/22, not split evenly.** The MacBook
+  sustains 916 queries an hour over 27.9h against the VPS's 262 over 42.4h. An even
+  split leaves the fast machine grinding its own cheap tail while the expensive head of
+  the other half is untouched, worth about 20 hours. `take_weighted_shard` keeps the
+  content-hash assignment for the reason `take_shard` gives, and takes two bytes rather
+  than one so 78/22 lands within a tenth of a percent. Because the hash is independent
+  of the ordering, each share is a representative sample of the value curve: measured
+  78.1/21.9 by count and 78.0/22.0 by value
+- **Sustained rates, not fast windows.** The local engine's 1,188 q/h over a 1.8h night
+  window became 916 over 27.9h. Quoting the fast one would have shortened every
+  projection by a fifth
+- **Switchover cost nothing.** Killing the supervisors leaves the in-flight `ark cdx`
+  child to finish and publish; both partial batches (140 and 172 lines) landed. The
+  shares are written with every already-answered domain removed, so re-sharding cannot
+  make a machine re-ask a name the other settled, which is what made changing the split
+  safe at all
+- **Queue: 1,712,271 targets, 1,618,286 of them worth something.** 469,872 gap and
+  1,148,414 pool, the pool having grown from 97,219 to 1,148,414 because the bulk Usenet
+  run added 1.15M mentions and the list predated it. Whole-queue expected value 741,355
+  EE against 159,468 needed, so the target arrives at **14% of the queue** rather than
+  by scraping the bottom of it
+- **Projection: 222,731 queries, 7.9 days at gap speed, 8.8 blended.** 27% of those
+  queries are pool targets and a pool query runs at 0.61x the speed of a gap query, so
+  quoting the gap rate over a mixed queue would understate the time by about a fifth
+- **The one number here that is still a projection rather than a measurement** is the
+  hit rate applied to 1.15M Usenet mentions that no query has touched: it is inherited
+  from cells measured on the pre-bulk pool. The manifest records the predicted score of
+  every target so the next few hours of answers can be checked against it
+
+## 2026-08-07 (should the Usenet candidate pool be dropped for provenance?)
+
+- **The question was whether to split the populations again and fill the round from
+  bracketed gap fill alone**, on the grounds that the candidate pool is Usenet header
+  munging and gap fill is not. Measured rather than argued, because the composition
+  claim and the risk claim turn out to have different answers
+- **The composition claim is right.** Names carrying a munging marker (`nospam`,
+  `removethis`, `delthis` and relatives) are 3.98% of the candidate pool and 5.61% of
+  the pool targets inside the first 250,000 queries, against **0.01%** of the gap
+  targets in the same stretch. `iamspamboy.co.uk`, `delthis.co.uk` and
+  `spamnicotine.co.uk` all sit in the pool head
+- **The risk claim is not.** A pool domain enters nothing until the archive returns an
+  in-window capture for it, so the pool is a work list and not evidence. End to end:
+  **3.98% marker-matching in the pool, 0.0068% in the 5,503,423 domains shipped**, a
+  585x reduction. And that residue is almost all false positives of the marker regex
+  itself: `abacospamotel.com` is Abaco Spa Motel, `alwayspamperedpet.com` is always
+  pampered pet, `americanspamag.com` is American Spa Mag. Real businesses with real
+  captures. `dumicsamvfs.mil` costs one query and returns nothing
+- **The cost of the contamination is queries, not correctness, and it is already
+  priced.** It is why a pool target scores 0.83 against a gap target's 1.15 to 1.88,
+  and why the first pool target sits at **queue position 24,799** with every slot above
+  it held by gap fill
+- **Going gap-only would have cost the reserve.** The whole gap stock is 247,366 EE,
+  4.40 points, against 2.84 needed, so gap fill alone reaches 10% only by consuming
+  52% of the queue on the scored estimate and 65% if head realisation is the 81%
+  currently being measured: 8.6 to 10.8 days against the merged queue's 8.8, and
+  nothing behind it afterwards
+- **Decision: keep the merged queue unfiltered.** A marker exclusion on the pool half
+  was offered at a cost of 4.3% of pool value and declined, the capture requirement
+  being filter enough. Nothing was rebuilt or restarted, so the decision cost no
+  collection time
+- **Timing note worth keeping.** Both engines were 21 hours from touching a pool target
+  when the question was raised, so there was no cost to answering it with measurements
+  instead of quickly. Worth checking that distance before treating a queue question as
+  urgent
+
+## 2026-08-07 (the queue's realisation multiplier was measured and is wrong)
+
+- **First merged-queue batch, scored against the store: 600 queries, 769 net-new
+  pairs, 659.9 equivalent-English against 987.7 predicted. 66.8%.** Not the mean-weight
+  approximation, the exact pairs those domains gained, weighted individually
+- **The cause is that the queue values a bracketed slot as if a capture always fills
+  it.** It does not. Per slot the fill rate is **64.1%**, and the shape says why: of 600
+  two-slot domains, 104 filled neither, 225 filled one, 269 filled both. Independent
+  slots at that rate would predict 34% filling both against 45% observed, so a domain
+  is either well archived or it is not, and the correlation is at the domain rather
+  than the slot
+- **The 0.95 multiplier was an artifact of dividing by the wrong denominator.** It came
+  from 0.974 net-new pairs per query against 1.023 bracketed slots per queued domain,
+  but that 1.023 is the mean of the queue as it stands NOW, after the high-slot domains
+  have been consumed. The queries that produced 0.974 were working a queue whose mean
+  was higher, so the true per-slot rate was always nearer 0.64. Same error shape as
+  line 1 and the stale baseline: a correct division by a reference set that had moved
+- **What saves the estimate is that the remaining queue is almost all single-slot.**
+  458,707 domains with one bracketed slot against 11,170 with two, so the overvaluation
+  touches 9,936 EE of 247,366, about 4% of the gap queue. The 66.8% measured on a
+  two-slot head does not automatically transfer to a one-slot bulk, and whether it does
+  is now the single biggest open number in the projection
+- **Both readings are live and the band is wide.** If one-slot domains fill at 64% like
+  two-slot ones, the whole remaining gap queue is worth about 166,600 EE against 159,468
+  needed, and the merged queue reaches 10% in roughly 13 days. If they fill nearer the
+  historical rate, it is about 9. Nothing else in the projection is this uncertain
+- **It also retroactively settles the gap-only question.** At 64% per slot the entire
+  gap stock is 2.96 points against the 2.84 needed, so filling the round from bracketed
+  gap fill alone would have required about 96% of the queue and left no margin at all.
+  The decision to keep the pool was right for a reason not known when it was taken
+- **Not rebuilding the queue yet, deliberately.** If gap realisation is 0.67 while pool
+  realisation is 1.00 by construction, the fair comparison multiplies every gap score by
+  0.705, which would rank the entire one-slot gap population BELOW the `.uk` pool head
+  at 0.829. That is a large reordering to make on one batch of one slot-count. The
+  engines are currently working the two-slot head, which ranks first under either model,
+  so waiting costs nothing and the next few thousand queries supply the missing number
+
+## 2026-08-07 (the open realisation question, answered: the bulk is fine)
+
+- **Measured over 6,168 answered domains, split by how many bracketed slots the
+  domain offers**, which is what the previous entry said was the missing number:
+
+      slots  domains  offered  filled  per slot  act/pred
+          1      475      475     421     88.6%     93.3%
+          2    5,693   11,386   7,594     66.7%     70.0%
+
+- **The 66.8% scare was specific to two-slot domains and does not generalise.**
+  One-slot domains realise 93.3% of their predicted equivalent-English, so the 0.95
+  the queue assumed was very nearly right for them. Since the remaining queue is
+  458,707 one-slot against 11,170 two-slot, the whole gap population is worth about
+  223,000 EE rather than the 166,600 the pessimistic reading implied
+- **Projection holds: 232,513 queries, 8.0 days at gap speed, 8.9 blended**, against
+  the 8.8 estimated before any of this was measured. Throughput re-measured over the
+  day: local 930 q/h, VPS 278 q/h
+- **`GAP_REALISATION` is replaced by a per-slot `GAP_FILL_RATE`**, 0.886 for one slot
+  and 0.667 for two, with 0.60 for the deeper counts the queue does not currently hold.
+  A flat rate was the wrong shape, not just the wrong number
+- **Not rebuilding the live queue for it.** The correction only reorders high-weight
+  one-slot domains above low-weight two-slot ones, and with roughly 5,500 two-slot
+  domains left unanswered that is a rounding error against a 232,000-query journey.
+  The corrected constant applies at the next rebuild, which is due after the next
+  large ingest anyway
+- **The VPS ran straight through the evening's outage**, as designed: `setsid`,
+  own deadline, seven journals waiting on its disk. All fetched and ingested,
+  2,254 net-new pairs from 2,100 queries. Stopping and restarting the laptop cost
+  the round nothing
+- **Round: 408,750.7 EE = 7.2693%**, short of the 10% goal by 153,548 EE
+
+## 2026-08-08 (source sprint: ten families probed, one worth building)
+
+- **Ten untried source families were probed in parallel and the positives adversarially
+  verified.** Every probe differenced against a frozen snapshot of the store (5,503,423 held
+  domains, 9,455,478 pairs) rather than the live database, so none of them could collide with
+  the ingest loop or each other. Verdicts are in `docs/sources.md`
+- **Nine are dead or deferred and together are worth about six hours of the engines already
+  running.** The full rows are in the rejected table; the pattern is that a curated directory,
+  an award list and an institutional link page all select for authority, and authoritative sites
+  are exactly what a CDX-derived baseline holds first. Novelty ran 0.5% to 2.4%
+- **One is worth 32,647 equivalent-English and it was already on disk.**
+  `data/raw/usenet/comp.mail.maps.mbox.zip`, 205,143,394 bytes, has been marked done in
+  `.processed` since 7 August. `domains_in_message` reads http(s) URLs, bare `www.` hosts and the
+  `From:` address, and a UUCP map entry contains none of those, so **1,480,910 `#N` registry lines
+  across 23,768 postings were parsed as the sender's domain and discarded.** Nothing needed
+  downloading and nothing needed re-crawling
+- **Three of the four verifications overturned their probe, all in the same direction and for the
+  same reason: a raw set difference quoted as yield.** Research crawl datasets 6,137 EE claimed
+  against +374 net once archive-query displacement was priced; regional portals 5,500 against
+  ~1,200 once the corroboration split was applied; search-engine directories 21,000 against 9,503
+  once the sample was drawn uniformly instead of hand-picked. **The family that survived is the
+  one whose value is not denominated in archive requests.** That is the rule worth keeping: a
+  source costing one `web.archive.org` request per unit must be scored marginally against
+  `queue_manifest.tsv.gz` and benchmarked against the 0.6005 marginal displaced query, not quoted
+  gross
+- **DECISION REQUIRED, and it is a policy call rather than a measurement.** Applied literally, the
+  Usenet corroboration gate would send every never-before-seen map name to `link_target`, which is
+  candidate-only, leaving ~14,700 EE. Classifying the registry-generated entries as master evidence
+  gives 32,647. **I have implemented the second reading** and the argument is that a URL typed into
+  a Usenet post and a `.CA` registry dump are not the same artifact: the map file declares
+  `#R Automatically generated from a .CA domain registration form`, is regenerated from the live
+  registration database at posting time, and carries the registrar's own `approved:` date. That is
+  the AFNIC `.fr` creation-date file's shape, not a posted URL's, so `artifact_listing` for the
+  posting date and `whois_creation` for the approval date. **Ivo to confirm or overrule.** It
+  clears 10,000 EE either way, which is why it was built before the call was made
+- **The provenance gate inside it is not optional and is worth minus 578.6 EE.** Only
+  `.CA`-registry-generated files are regenerated at posting time; classic hand-maintained maps are
+  reposted containers whose entries refresh only when a site admin resubmits, and of 12,486
+  in-window entries carrying a `#W` stamp only 1,031 are within a year of the posting date. Those
+  are candidate-only. Verified rather than assumed: all 8,309 in-window registry postings carry an
+  internal generation stamp in the same year as their `Date:` header, 569,157 of 569,157 entries at
+  gap zero, and all 118,766 `approved:`/`received:` lines occur inside registry-generated files and
+  none anywhere else
+- **The finding does not generalise, which was checked rather than hoped.** The `#N` format is
+  confined to one group: `alt.bbs.lists` 36 lines, `comp.mail.uucp` 64, `news.lists` 0, against
+  `comp.mail.maps`' 1,480,910. A generic record-format extractor over the rest of the corpus is
+  worth at most 193 EE and its sample is visibly contaminated. Fix the `#N` case and stop
+- **Trap worth naming: the edit-distance-1 typo test is meaningless without a control.** It reports
+  26-40% of net-new names within one edit of a held name, which reads as catastrophic. The baseline
+  for names the project already believes is **41.7%**, because the held set has 5.5M entries. Only
+  the excess counts, and here there was none
+
+## 2026-08-08 (prioritising multi-source candidates: measured, and there are none)
+
+- **The feedback asks to prioritise "candidates found in more than one independent
+  directory", so with the candidate pool freshly grown to 2.47M names it was worth
+  measuring how many qualify. Almost none do.** Counted by distinct provenance
+  lineage: **2,474,139 candidates rest on one lineage, 451 on two, and exactly one
+  on three**
+- **The reason is structural rather than disappointing, and it validates a call made
+  earlier the same day.** The pool is overwhelmingly Usenet-derived, and the recovered
+  addresses were deliberately filed under the `usenet` lineage because a body address
+  and an announcement post in the same message are one observation, not two. Having
+  made that call correctly, the two cannot then corroborate each other. Filing them as
+  their own family would have manufactured 1.4M fake corroborations and made this idea
+  look brilliant
+- **So no queue reweighting is worth building.** 451 domains cannot move a metric that
+  needs 51,909 equivalent-English. The rule stays: a candidate earns its year from a
+  capture, and the queue is ordered by expected equivalent-English per query
+- **Also checked and closed: whether the click-tracker fix could recover value from
+  captures already downloaded.** It cannot. The expansion journals store the extracted
+  `domains` list and not the page body, and the whole `data/raw/expand` tree is 132 KB,
+  so there is nothing to re-parse. The fix helps future expansion runs only
+
+## 2026-08-08 (the header projection was wrong by 10x, and the reason is worth more than the source)
+
+- **Projected ~10,889 equivalent-English, delivered 1,038.4.** Machine-composed headers
+  (`Message-ID`, `Reply-To`, `Sender`, `NNTP-Posting-Host`) across the whole 404.8 GB
+  corpus gave 1,025,582 pairs, of which 207,980 corroborated and **2,869 net-new**
+- **The projection was not wrong because the sample was small. It was wrong because the
+  reference set moved underneath it.** The header sample was measured against the
+  snapshot exported at 04:12, and the recovered-address ingest at 07:17 wrote 102,577
+  new pairs into the store. The two seams draw from the same messages and overlap
+  almost entirely, so nearly everything the header sample counted as net-new had
+  already been ingested by the time the header run finished
+- **The ingest itself printed the proof: 207,980 journal lines produced 19,224 evidence
+  rows.** 91% deduplicated against evidence the address run had already written
+- **This is the same error the project has now made four times, in four costumes.** The
+  line-1 count, the stale baseline, the flat gap-realisation denominator, and now a
+  frozen snapshot used after the store moved past it. Every one was a correct
+  calculation against a reference set that had changed. **Rule: a snapshot is only
+  valid until the next ingest. Re-export it after any ingest, or measure against the
+  store.**
+- **Keep the source anyway.** 1,038.4 EE for a run that cost nothing but idle CPU is
+  still positive, `ark check` passes all twelve, and the header seam is now exhausted
+  and will not be re-proposed
+- **What it does not change: the address finding stands.** That one was measured against
+  the store at split time, not against the stale snapshot, which is why its 62,820.7 EE
+  was accurate to the digit
+
+## 2026-08-08 (the queue rebuilt, and why its headline projection is not quoted)
+
+- **Rebuilt against today's store because the live queue was written on 7 August and is
+  structurally blind to the 145,644 pairs added since.** New pairs create bracketed gaps
+  as well as filling them, and this exact staleness cost the 5 August queue 102,628
+  targets worth 63,333 key equivalent-English
+- **New queue: 464,625 gap targets and 2,402,792 pool targets, whole-queue expected value
+  1,465,811 EE.** The pool grew tenfold because the recovered addresses put 1.47M names
+  into the candidate pool and the header run added more
+- **It claims the round's shortfall is 2% of the queue away, 2.9 days. That number is not
+  quoted anywhere and should not be.** The head is sound: the first entries are the same
+  `.uk` names as before, scored at the **measured** `(usenet_mention, uk)` cell rate of
+  0.534. But by 250,000 queries the queue is 97% pool targets, and the address-derived
+  candidates are a brand-new source with no measured hit rate, so they fall back to the
+  **pool-wide 51.7%** measured on a different population. An unmeasured rate applied to
+  2.4M targets is exactly the shape of the estimate that produced 27,276-against-53
+- **So it is being settled empirically rather than argued.** The local engine picks the
+  new queue up at its next batch; the VPS is deliberately **left on its 7 August shard**
+  rather than shipped the new one. That makes the next hour a natural A/B test between
+  the two queues on two machines, at no cost, and the comparison decides whether the new
+  ordering is kept or the hit rate is re-estimated and the queue rebuilt
+- **The downside is bounded and worth naming.** If the new candidates hit poorly, the cost
+  is an hour or two of one engine's time and the fix is a rebuild with a measured rate
+
+## 2026-08-08 (two invariants still skip, and the reason is a real coverage gap)
+
+- **`english_files_hold_only_verified_english` and `the_two_shipped_sets_are_disjoint`
+  have skipped all day, and running `ark export` did not change that.** The exported
+  English annual files are empty, so the checks correctly have nothing to read. They are
+  skipping rather than failing, which is the honest behaviour, but "ALL PASS" over ten of
+  twelve should not be read as twelve
+- **The cause is coverage, not a defect.** The store holds 9,234 `english` verdicts, all
+  at the current `ENGINE_VERSION = 3`, so none are stale. They sit on baseline domains
+  classified in early August. **All 824,381 of this round's additions are
+  language-unchecked**, and today's 147,502 new pairs are the largest part of that
+- **It does not affect the reported increment.** Equivalent-English is computed from the
+  right-most TLD's English share, which needs no per-domain classification, so the
+  9.2626% figure is unaffected. What is missing is the separate page-level verification
+  the feedback asks for alongside it, and the shipped English/unverified partition
+  therefore currently puts everything in `unverified`
+- **The cost of closing it is why it is open.** `ark lang` yields one classified pair per
+  three archive requests and adds no year, against the gap engine's 0.5 net-new domains
+  and 0.8 net-new pairs per request. With 824,381 pairs to classify it is months of
+  archive budget, and it competes directly with the collection that is still producing.
+  Worth raising with the reviewer as a scope question rather than silently absorbing:
+  the metric he scores on does not need it, and the standard he wrote does
+
+## 2026-08-08 (the rebuilt queue measured: no better, and the projection was inflated)
+
+- **Measured realised equivalent-English per query across the cutover, same machine,
+  same archive, 600-query batches:**
+
+      OLD queue  07:58  0.8337 EE/query   514 net-new pairs
+      OLD queue  08:33  0.9460 EE/query   586
+      OLD queue  09:02  0.9876 EE/query   612
+      NEW queue  09:31  0.8010 EE/query   592
+
+- **The rebuild is not an improvement. On one batch it is slightly worse**, 0.801 against
+  an old-queue mean of 0.922. Net-new pairs are comparable (592 against 514-612); what
+  falls is the mean English weight of what it finds, 0.812 against 0.968, because the new
+  head is pool targets drawn from Usenet addresses rather than the `.uk`-heavy gap
+  population
+- **So the queue's own projection of 2% of the queue and 2.9 days was inflated, exactly
+  as suspected when it was written.** It rested on applying the pool-wide 51.7% hit rate
+  to 2.4M address-derived candidates that no query had touched. Not quoting it was right;
+  the discipline that mattered was refusing to report a number the moment it was
+  attractive
+- **One batch against three is a thin sample and the difference is small, so this is not
+  a reason to revert.** It is a reason to re-score. `build_pool_candidates.hit_rates`
+  needs `MIN_SAMPLE = 25` answers in a `(source, TLD)` cell before it trusts a measured
+  rate over the fallback, and the address candidates now have their first few hundred
+  answers. **Rebuild the queue again once those cells are populated**, and the ordering
+  will rest on a measured rate rather than an inherited one
+- **The experiment cost nothing because it was set up before the result was wanted.** The
+  VPS was deliberately left on the 7 August shard, and the local machine's own three
+  preceding batches turned out to be the better control anyway: same host, same throttle
+  regime, same hour
+
+## 2026-08-08 (the Usenet `Path:` header: 7.1 million parsed hops, 13.89 equivalent-English)
+
+- **Assessed and rejected.** `Path:` records the relay chain that carried an article, and
+  the article's own `Date:` dates it, so on paper it is the same shape as every Usenet
+  seam that has worked: machine-written, item-level, already paid for on disk. It was
+  measured on a 400-archive random sample, **6.60 GB, 9,136,539 messages of which
+  4,156,456 in window, 7,201 (domain, year) pairs, 6,398 corroborated, 49 not yet held,
+  worth 13.89 equivalent-English**
+- **The parser is not the reason, and that was checked first so the verdict could not be
+  a bug in disguise.** Of 9,719,750 hop tokens, 7,112,259 (73.2%) canonicalise cleanly;
+  the rest are 1,516,019 dotless UUCP node names, 793,245 pseudo-hops (`not-for-mail`,
+  `uucp`) and 298,227 public-suffix rejects that are overwhelmingly bare IP addresses.
+  Stripping INN's `.POSTED` and `.MISMATCH` markers before canonicalising matters: leave
+  them on and the suffix list reads `POSTED` as the TLD and drops `news.bt.com.POSTED`
+  entirely
+- **Reason one: 7.1 million accepted hops are only 4,736 distinct domains.** A relay is a
+  large ISP or a university. That population repeats endlessly across the corpus and is
+  exactly what a CDX-derived baseline holds first, in every year, so **99.32% of sampled
+  pairs are already held or uncorroborated**. Saturation is visible in the run itself:
+  41 archives give 2,432 pairs and 400 give 7,201. This is the same finding as the award
+  galleries and the institutional link directories, in a third costume: **a source that
+  selects for authority cannot be net-new, however large it is**
+- **Reason two, and the one worth keeping: the Giganews donation carries no `Path:` before
+  2000.** In-window `Path:` lines by year are **1996=197, 1997=278, 1998=202, 1999=210,
+  2000=134,923, 2001=750,686**. So 887 lines across the four years the project is
+  weakest in, against 750,686 for the year it is already fattest in. The net-new pairs
+  land where the header does: **1996 zero, 1997 zero, 1998 two, 1999 zero, 2000
+  twenty-eight, 2001 nineteen**. Verified as absence rather than truncation: only 138
+  messages of 3,269,960 carried the header past the 4 KB head window the collector reads
+- **Both projections were computed, and it fails under the generous one too.** Log fit on
+  the saturation curve gives ~15,300 raw pairs and **~30 EE** for the whole 383 GB corpus.
+  The linear extrapolation, which is the method that overstated the recovered-address
+  seam 24-fold and is therefore known to run high, gives **668 EE**. The bar was 3,000.
+  Quoting the raw 7,201 as yield would have overstated it 147-fold
+- **A third quiet reason, worth naming because it is not obvious: the survivors are cheap.**
+  Mean English weight of a net-new pair here is **0.2834**, against the 0.812 and 0.968
+  measured on the two queues in this morning's A/B, because the relay domains the baseline
+  has NOT already got are Japanese, German, Danish and Swiss ISPs. So even the 49 pairs it
+  does find are worth about a third of what the same count is worth on the queue
+- **Measured against the live store, not a snapshot**, per the rule the header run cost us
+  this morning. The `usenet_address` and `usenet_announce` ingests are already in
+  `domain_year`, so the overlap that sank the header projection is subtracted by
+  construction here rather than assumed away
+- **One quality note, for the record rather than for the verdict.** `Path:` is trivially
+  forgeable and the sample contains random-string forgeries (`2dafkyapz7.net`,
+  `9hehgkrs.net`, `3o4rihgoih.no`), the same family as the `dumicsamvfs.mil` headers
+  already noted. The corroboration split routes them to candidates, so they would have
+  cost nothing, but it confirms a relay hop is free text and had to take the split
+- **Nothing was landed.** No collector, no source name, no `PROVENANCE_LINEAGE` entry. The
+  seam is closed and should not be re-proposed
+
+## 2026-08-08, evening: the printed directory books, and a third of the trade press we had already paid for
+
+Assigned to chase scanned Internet Yellow Pages and directory books on archive.org as the densest
+untried dated artifact of the era. That route is closed. The session's actual yield came from the
+extractor bug found while reusing the trade-press machinery the brief pointed at.
+
+- **The books exist and are unreadable, and the earlier entry was right for a weaker reason.**
+  The 5 August rejection rested on a 60-item `subject:(internet)` sample. This time the family was
+  enumerated rather than sampled: 34 titles, Hahn, New Riders, Que, Mecklermedia, Luckman, Krol,
+  the AOL member's edition. **All 34 are `inlibrary`/`printdisabled`.** `_djvu.txt` and
+  `_hocr_searchtext.txt.gz` both return HTTP 401; `fulltext/inside.php` returns 403 on the correct
+  `path`. The open-access complement of the same title query is 144 items containing **no directory
+  book at all**, so the restricted set is not a sample of a larger readable population, it is the
+  whole population
+- **The decisive argument is not access, it is that OCR print cannot be net-new.** HathiTrust
+  Extracted Features already measured the legitimate non-consumptive route into in-copyright print
+  at 15.7 net-new pairs a volume, and the net-new names are `0fficemed.com` and `0steopath0mline.com`.
+  **The names that survive the "is it net-new?" test are disproportionately the names OCR damaged**,
+  because the real domains in these books are already held. Any future print proposal has to answer
+  that before it is worth an afternoon. That finding was sitting in `handback-sources-A.md` and not
+  in `docs/sources.md`, which is why I re-derived it; it is now in the rejected table
+- **Two other families measured and rejected, so nobody repeats them.** SEC EDGAR is born-digital
+  with hard filing dates and is the right *shape*: 150 filings, 150 reachable, 61.1 MB, **1.9 EE**.
+  And the "no surviving zone files" entry had never checked Wayback, which is how the ISC files were
+  recovered; checked now, still nothing
+- **A CDX trap that produced a false negative inside this session.** `url=host/path/*` together with
+  `matchType=prefix` returns zero even for captures known to exist. My control query said the ISC
+  survey files were not in Wayback, and they demonstrably are. Drop the `*`. Any CDX zero from a
+  prefix query is worthless without a known-good control beside it
+- **The yield: the trade-press extractor never read a bare two-label domain.**
+  `probe_texts_corpus.DOMAIN_RE` required two labels before the TLD, so `www.foo.com` matched and
+  `foo.com`, `http://foo.com/` and `bob@foo.com` did not. Printed copy drops the `www.` constantly.
+  Re-reading the OCR already cached on disk, **sending no request**, took the corpus from 30,513
+  rows to 43,816 and yielded **816 net-new pairs worth 509.84 EE** after the same corroboration
+  split, against 887.7 EE for the entire original collection run. Gained TLDs are 654 `.com`,
+  72 `.net`, 57 `.org`
+- **The narrowness was deliberate and its reason was sound**, so it was not simply widened: a
+  permissive dot rule over OCR turns `end.Company` into a hostname. The defence moved into a
+  lookbehind that stops a match starting inside a longer dotted token, `end.Company` and
+  `readme.txt` are still refused, and four tests pin the behaviour including the deliberate
+  disagreement with `ark.usenet.domains_in_message`, which still refuses bare hosts because a name
+  in conversational prose is a weaker claim than one in print
+- **Third time the win was in bytes already on disk**, after the UUCP maps and the Usenet address
+  forms. All three were found by asking what the parser actually reads, not by finding a new corpus.
+  `split_rtfm_faqs.py` imports the same function and has the same hole, so the rtfm corpus is worth
+  re-reading on the same argument. Not done this session
+
+## 2026-08-08 (the archived Yahoo directory re-opened: the fix is real, the 1996 premise is not)
+
+- **The deferral rested on two facts. The first is now false, and that was checked before
+  anything was built.** `dir.yahoo.com/Business_and_Economy/` at 20000817191821, 8,111 stored
+  bytes, returns **0 outbound domains on the pre-fix extractor and 3 on the current one**
+  (`networksolutions.com`, `broadcast.com`, `zdnet.com`). `unwrap_redirect` does exactly what it
+  was written for, so the family really had been measured barren on broken code and re-opening
+  it was the right call
+- **The second fact is true and worth nothing, which is the finding.** The 1996-1997 material
+  does live under `www.yahoo.com/<Category>/` and nobody had enumerated it. Enumerated and
+  measured now, it is empty of value
+- **CDX cannot enumerate this population, and that is a finding rather than an obstacle.**
+  `www.yahoo.com/*` returns 504 at a flat 60.5 s every time, and so does
+  `www.yahoo.com/Business_and_Economy/*`: the prefix is one of the largest key ranges in the
+  index. A full 14-category sweep was left running for 45 minutes and produced nothing before it
+  was stopped. **The replacement costs strictly less than the plan did.** A dated snapshot
+  request redirects to the nearest capture, so `web/<stamp>id_/<url>` returns the real capture
+  timestamp in the redirect target, the stored bytes, and the next level's category links, all
+  for one archive request. Enumerating first would have been a second request per page buying
+  only the list
+- **Measured, both years and the family's best case, after `split_by_corroboration` and a real
+  ingest each time:**
+
+      1997 walk    20 requests   17 usable   295 domains   year_rows 9   6.1161 EE   0.3058/req
+      1996 walk    30 requests   30 usable   182 domains   year_rows 0   0.0000 EE   0.0000/req
+      1996 fat      5 requests    3 usable   193 domains   year_rows 2   1.6134 EE   0.3227/req
+      total        55 requests   50 usable   670 domains   year_rows 11  7.7295 EE   0.1405/req
+
+  **Against the gap engine's 0.959 that is roughly seven times worse**, and the third row is
+  the one that closes the argument. It was run deliberately as the family's best case, the
+  fattest 1996 industry index in the catalogue: `Business_and_Economy/Companies/Construction/`
+  at 35,953 stored bytes listing **173 sites in one page**. It produced **2 net-new pairs**.
+  The thin end and the fat end of the same tree land within 0.02 EE per request of each other,
+  so this is not a sampling accident
+- **Page yield is not the problem and never was.** Median 7 domains a page in 1997, 4 in 1996,
+  17 on the fat run, and **zero pages at zero** across all 50 usable pages, against 8 of 18 in
+  the August measurement of `dir.yahoo.com`. The pages are full. The store already holds what
+  is on them
+- **The number that explains it, and it inverts the premise.** Of the 284 domains listed on the
+  1997 pages, **284 are already held**, and their per-year coverage is 85.6% for 1996 and 96.8%
+  for 1997. Of the 121 listed on the 1996 pages, **121 are already held and all 121 carry an
+  assignment in every one of the six window years**. Store-wide only 8.0% of held domains carry
+  a 1996 pair, so the argument that 1996 is thin and therefore a 1996 listing is likely net-new
+  runs **10.7x backwards**: 1996 is thin because the store's 8.0M names are mostly
+  Usenet- and registry-derived hosts with one year each, not because famous 1996 websites lack
+  1996 captures. Yahoo's 1996 catalogue IS the set of sites the 1996 crawls covered
+- **The corroboration split never fired in any of the three runs: 0 uncorroborated names out of
+  594 claims.** Provenance-wise that is the cleanest possible result, every listed name
+  independently attested by some other source, and economically it is the death certificate. A
+  source that lists nothing new can only pay in years, and the years are already there
+- **The cost is worse than one request per page, which is the part a request count hides.** The
+  walk ran at 25-40 s a page against two CDX engines on the same address and tripped
+  archive.org's per-IP connection refusal repeatedly, the flat ~3.4 s TCP failure `ark.cdx`
+  already documents. A third consumer here does not spend its own budget, it spends the engines'
+- **Verdict: reject the search-engine directory family, do not defer it again.** The deferred row
+  in `docs/sources.md` now carries the measured number rather than the projected one. The 7.7295
+  EE the three walks produced is kept, because the requests were already spent, and the 535
+  evidence rows they added are real cross-source corroboration on names the store already holds
+- **Two things worth keeping regardless.** `scripts/split_expansion_journal.py` had no store-lock
+  retry and failed the moment a maintain pass held the writer, which is exactly when it gets
+  used; it now waits. And the redirect trick generalises: any archived page whose date is not
+  known in advance can be dated from the URL the snapshot request lands on, for free
+
+## 2026-08-08, night: historical zone files (closed), and public mailing lists (small, landed)
+
+Assigned the highest-ceiling untried family in the project, historical DNS zone files and bulk
+registry snapshots, with public mailing-list archives as the fallback. The zone-file family is now
+closed for 1998-2001. The fallback landed **1,458 net-new pairs worth 833.17 equivalent-English**,
+and a side-finding inside the zone-file work is still paying while this is written.
+
+- **The zone-file answer is "nothing datable survives for 1998-2001", and it is now checked from
+  six directions rather than three.** archive.org holds no in-window zone file under any of the
+  obvious queries; `"com.zone"` returns literally zero items and the 303 `title:(zone file)` items
+  are all 2009 or later. The CD-ROM route (Walnut Creek, InfoMagic, Internet in a Box) is FreeBSD
+  and shareware discs, not registry snapshots. Four classic academic FTP mirrors have **zero**
+  Wayback captures matching `zone`, `domain-info` or `internic`. DNS-OARC starts at June 1999 and
+  holds the **root** zone, which lists TLDs rather than domains. The sibling agent's Wayback check
+  of `internic.net` is not re-run here; it is taken as done
+- **The survey name lists genuinely stop at July 1997, and that is now established from the
+  artifacts rather than inferred.** Two independent live directory listings agree:
+  `ftp.isc.org/www/survey/archive-data/` and the survey author's own `3waylabs.com/zone/`. The
+  author's site does carry `WWW-9801/` and `WWW-9807/` directories, which look like the missing
+  1998 editions and are **aggregate report HTML with no name list in them**
+- **ISC's own copies are corrupt in a way that will fool a partial-recovery attempt, so record how.**
+  `9607.domains.gz` from ISC recovers 6,562,719 of 6,755,227 bytes and looks like a 97% success. It
+  is not: it holds **3,835 newlines against the good copy's 488,069**, because the deflate stream
+  desynchronises a few thousand lines in and everything after decodes as plausible-looking garbage
+  (`vanoqoykoorrlykddoldnabykeec.gc`). The same is true of `9701.domains.gz`, which is why the
+  January 1997 edition stays a permanent gap. **A partial gzip recovery is not a partial file.**
+- **The one thing the zone-file brief did turn up is on the shelf we already own.** The 1996 Wayback
+  crawl of `nw.com/zone/` captured not only the `.domains` lists but **583 per-TLD host files across
+  three survey editions**, `9607.hosts/`, `9701.hosts/` and `9707.hosts/`, 116 MB in total. Only one
+  of them, `9607.hosts/org.gz`, had ever been fetched. Four of the big English-weighted ones
+  measured before ingest give **268 domains the store does not hold for 1996, worth 237.42
+  equivalent-English**, and they take the master path as `artifact_listing` because the survey date
+  is the file's own provenance. `parse_isc_survey` already reads the `IP hostname` form, so this
+  needed no code beyond a resumable fetcher, `scripts/fetch_nw_host_files.py`. **Left running and
+  unfinished**: the download is about two hours at three connections, so whoever picks this up runs
+  the fetcher again to completion, then `uv run ark ingest isc_survey data/raw/isc_survey/*.gz`.
+  Re-offering an already-ingested file is skipped on its hash, so running both twice costs nothing
+- **Mailing lists: the structure is right, the rate is five times worse than Enron, and that decides
+  the family.** Measured, not projected: `mail.python.org` gives **0.00145** equivalent-English per
+  in-window message and `mail.gnome.org` **0.00121**, against **0.0067** for the Enron corpus. At
+  that rate the 32,000 equivalent-English this round needs would take roughly **25 million in-window
+  messages**. The two hosts together publish 579,808. So the family is worth having and cannot be
+  the answer to a shortfall
+- **Why a technical list is weaker than corporate mail, which is the finding that generalises.**
+  83.6% of the pairs it finds are already held. A public list selects for an authoritative,
+  heavily-crawled population, which is the same reason the Usenet `Path:` header, the award
+  galleries and the institutional directories all failed. Corporate mail was different because its
+  counterparties are long-tail commercial names nobody crawled
+- **The lineage claim is honest only because the collector drops the gatewayed lists.**
+  `python-list` and `python-announce-list` are bidirectionally gatewayed with `comp.lang.python`, so
+  their messages are the Usenet corpus's messages. They are excluded at collection time, 64 month
+  files, and a test pins it. Without that, `mailing_list` would corroborate `usenet` with its own
+  data
+- **Reachability is most of what is left of this family, and it is bad.** `lists.debian.org` has no
+  per-month bulk file at all, only one HTML page per message; `lists.samba.org` answers 426,
+  `sourceware.org` 403, `lore.kernel.org` sits behind an Anubis proof-of-work challenge. Pipermail
+  hosts are the exception and are what made the measurement possible: one gzipped mbox per list per
+  month, 740 MB for two hosts in six minutes, and **not one `web.archive.org` request**, so this
+  competes with nothing the engines are doing
+
+## 2026-08-08 (RDAP direct to the registries: 90x the rate, and the candidate pool asked for the first time)
+
+- **The premise was that RDAP was slow. It was not: `rdap.org` was.** Every RDAP query this project
+  has ever made went through the `rdap.org` redirector, and tonight's pilot measured what that
+  costs: **0.83 queries a second with 18.8% of them refused with HTTP 429**. The redirector is a
+  free service that meters the client; the registries behind it were never the constraint. Resolving
+  each TLD to its authoritative endpoint from the IANA bootstrap file
+  (<https://data.iana.org/rdap/dns.json>, 1,200 TLDs, cached and refreshed weekly) and asking
+  Verisign, PIR and Nominet directly measured **75 q/s with zero refusals**, a 90x improvement on a
+  route that had been treated as a hard ceiling for two weeks
+- **Concurrency was settled by measurement, not by guessing.** 400 to 600 queries at each level,
+  direct to Verisign: 4 workers 19.1 q/s, 8 workers 30.8, 16 workers 44.4, 32 workers 75.0, 64
+  workers 46.2. **Not one 429 at any level**, and the turn above 32 workers is therefore local
+  contention rather than the registry pushing back. 32 is the settled setting. Two processes at 32
+  workers reach 94 q/s combined, so the ceiling really is in one Python process and not in the link
+- **Registries are paced separately, one `RateGovernor` per endpoint host, and that earned its
+  keep within the hour.** `.au` answered **11 queries in 10 minutes** while Verisign was running at
+  full speed on the same machine. Under the old shared pace that one registry would have set the
+  pace for all of them
+- **The candidate pool had never been asked, and that was the real find.** `ark gaps --creation`
+  addresses only domains that ALREADY hold a year. The pool is the other population: **2,537,091
+  names the store carries with no year at all**, of which **2,008,557 sit in a TLD that both has an
+  RDAP service and existed in the window**. A creation date landing in window gives such a name its
+  FIRST year, so a hit is a net-new domain and not merely a net-new pair
+- **Ranking a queue on expected value alone is a trap when the probability half is a guess, and
+  `.au` is the proof.** Expected equivalent-English is P(creation in window) x English share. With
+  no measured P for `.au`, the pool-wide 40.4% prior times its 0.9904 share sorted it **first in the
+  whole queue**, ahead of 1.34M `.com` and `.net` names. Probed: **0 in-window dates from 3 datings,
+  at 11 answers in 10 minutes.** auDA re-registered the namespace in 2002 and the creation dates
+  come back stamped with the migration, not the original registration. The same prior put 184,692
+  `.gov` and a head of `.you`, `.dot`, `.sucks`, `.box`, `.hot`, `.free` and `.aol` above `.com`,
+  the last group because the reviewer's English-share model is built from 2024 crawl data and scores
+  modern brand gTLDs near 100% English. A TLD delegated in 2014 cannot carry a 1996-2001 creation
+  date, so era eligibility is now a **deletion** in the RDAP list builder rather than the demotion
+  the CDX list builder makes: there the name might still hold a capture, here the query is a
+  certain miss
+- **Probe before sweeping, and probe the registry as well as the TLD.** 150 queries each settled
+  where the night went. `.org` at PIR looked excellent on its head, 29.3% in window at a 0.7101
+  share, and collapsed to **1.6% by the ten-thousandth name**, so it was stopped after contributing
+  114 EE from 9,938 queries. `.uk` at Nominet returned three refusals in its first fourteen queries
+  at 0.5 q/s and was stopped immediately, on the rule that a source blocked tonight is a source lost
+  for the rest of the round. Verisign held **19.2% across 73,000 queries with no decay and no
+  refusal**, which is what made the sweep worth running at all
+- **A 429 still settles nothing, and the pilot journal was renamed before it was ingested.**
+  `rdap_answered` counts only a 200 or a 404; the 78 refusals in the pilot leave those domains
+  queryable. The pilot had been written as `pool_pilot_20260808.jsonl.gz`, which the `rdap_` prefix
+  scan cannot see, so every one of its 418 domains would have been asked again. It is now
+  `rdap_pool_pilot_20260808.jsonl.gz`
+- **The journal record gained a `url` key and nothing else changed.** It records the endpoint that
+  actually answered, so `whois_creation` evidence now cites the registry rather than a redirector
+  the query no longer uses. Journals written before tonight have no such key and the parser falls
+  back to the redirector URL for them, which is where those queries really did go
+
+## 2026-08-08 (the American trade weeklies: the composition theory was wrong, and the win was in the cache again)
+
+- **The brief was to widen `trade_press` to the American computer trade weeklies**, on the recorded
+  theory that yesterday's 1,334 pairs / 887.7 EE came in 5x under projection because
+  `collection:computermagazines` is European hobbyist titles printing `.de` and `.it` addresses.
+  The corpus was found, worked in full, and measured. **The theory is refuted and the numbers say
+  so twice**
+- **The corpus that actually exists is 1,288 in-window items**, verified one term at a time rather
+  than assumed from the brief: `collection:computerworld` 632, `collection:pub_computerworld` 309
+  (the same weekly off microfilm), `collection:applemagazines` 290, and 57 Google Books scans of
+  InfoWorld, Network World and PC Mag under `bub_gb_*`. **Most of the names in the brief do not
+  exist as archive.org collections**: no `pub_infoworld`, `pub_network-world`, `pub_pc-week`,
+  `pub_internet-world`, `pub_cio`, `pub_web-techniques`, and no `sim_*` microfilm run of any
+  computing title except Computerworld. InfoWorld and Network World survive only as Google Books
+  scans, which is why that query term is written by identifier and title rather than by collection
+- **The sample check that was skipped last time was done first this time, and it looked excellent.**
+  A Computerworld issue prints 116 domains of which 106 are `.com`; an InfoWorld issue 91 of which
+  86 are `.com`. Reachability came in at 79.2% against the hobbyist corpus's 34.3%, and 80.0% of
+  extracted rows were corroborated against 32.3%. **Every quality signal was 2-3x better and the
+  yield was still worse**: 0.449 EE per reachable item against 0.641
+- **Because the constraint is saturation, not composition.** Mean weight of a net-new pair is 0.638
+  here and 0.665 there, so the pairs cost the same; there are just fewer of them, because a store
+  holding 9.6 million pairs already holds nearly everything Computerworld printed. A cleaner, more
+  American, more `.com` corpus buys accuracy, not increment. **A source that selects for authority
+  cannot be net-new**, which is the same finding as the award galleries, the institutional link
+  directories and the Usenet `Path:` header, now in a fourth costume
+- **The `.de`/`.it` explanation could never have been the mechanism, and one grep would have shown
+  it.** `DOMAIN_RE` only ever matched `com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg`, so a German or
+  Italian address is not extracted at all and cannot dilute anything. Measured over the journals the
+  hobbyist corpus's domains carry a **higher** mean English weight than the American corpus's,
+  **0.6825 against 0.6494**, because 6.7% of them are `.uk` at 0.9813 and 6.0% `.au` at 0.9904
+  against 86.6% `.com` at 0.6321. A stated cause that the code makes impossible should not survive
+  one reading of the regex, and it survived a whole day
+- **The larger half of tonight's yield was in the cache, not in archive.org.** The bare-name fix to
+  `DOMAIN_RE` landed at 19:33 while the American collector was already running with the old pattern
+  loaded, so its 1,007 issues were read narrowly. Re-reading the whole cache afterwards, 1,703 items
+  rather than 855, gives **881 further net-new pairs worth 551.83 EE against 452.50 for the ninety
+  minutes of collection**. Fourth time on this project the win was in bytes already on disk
+- **247 of those pairs are hobbyist-corpus names that only became corroborated because the American
+  ingest had just put their domains into `domain_year`.** The corroboration split runs in both
+  directions: a new source rescues candidates the old one could not admit, which is an argument for
+  re-splitting older free-text journals whenever a new lineage lands
+- **Landed: 1,590 net-new pairs, 1,004.33 equivalent-English.** Computerworld scanned 678 (430.56),
+  Computerworld microfilm 521 (330.42), hobbyist newly corroborated 247 (152.38), InfoWorld/Network
+  World/PC Mag 130 (82.05), Macworld/MacAddict 14 (8.93). By year 1996:94, 1997:164, 1998:315,
+  1999:416, 2000:387, 2001:214. **Attributed store-side** by joining `domain_year.evidence_id` to
+  the `trade_press` evidence rows, because the scoreboard moved 20,636 EE over the same two hours
+  and almost all of that is the two CDX engines, not this
+- **Against the 33,259 EE the night needed, this is 3.0%.** Worth landing and worth reproducing, but
+  the honest read is that the trade press seam is now closed: 5,318 in-window items across both
+  corpora is the whole of the reachable American and hobbyist computing press on archive.org, and
+  `sim_microfilm` at large is the `magazine_rack` trap at 45x the size (57,245 in-window items, but
+  a 1,500-item sample is scientific journals, government gazettes and "Table of Contents" stubs)
+- **Ingest hygiene, for the next person.** The ledger keys on `(source_name, path.name)`, so a
+  second corpus cannot reuse `tradepress_dated.jsonl.gz`. `split_trade_press.py` grew `--journal`
+  and `--tag` for exactly this, and both of tonight's ingests went in under their own names
+  (`_american`, `_american_bare`) and stay separately attributable
+
+## 2026-08-08 (the bare host in the Usenet bodies: +28,460.3 EE, and the wall was never the pattern)
+
+- **`_BARE_WWW` was anchored on the literal `www.` label and the comment said why: a bare
+  `foo.com` in running prose is more often a company name, a file name or half an email
+  address than an address, "and the evidence wall is worth more than the extra recall".
+  That is right about prose and wrong about where the wall is.** Every row from this corpus
+  passes `split_by_corroboration`, so a (domain, year) becomes a dated master record only
+  when an independent lineage already places that domain in `domain_year`. A company name is
+  not a registered domain any independent lineage attests, so it cannot reach an annual
+  file: it goes to the candidate pool and asserts nothing. **The split is the wall, not the
+  pattern**, and once that is seen the recall costs nothing the wall does not catch
+- **Measured: 36.3% of the extracted rows were uncorroborated and went to the pool.** That is
+  the wall doing its work in public rather than in an argument
+- **+28,460.3 equivalent-English over 42,139 net-new pairs, measured as the scoreboard delta
+  across the ingest.** Whole corpus, 411.0 GB, 515,079,416 messages of which 219,447,104 in
+  window, zero archive failures, about three hours at 8 workers and not one network request.
+  Round moved 9.9464% to **10.4525%**, so this is the addition that crossed 10%
+- **`domains_in_message` was left exactly as it was, and that was the right call.** The bare
+  form is a separate function with its own source name, `usenet_bare`. The two can be
+  compared, the addition can be measured on its own, and a reviewer can drop it without
+  disturbing a single row `usenet_announce` already claimed
+- **Overlap was most of the gross, which is why only the marginal figure is quoted.** 601,738
+  pairs extracted; **269,773 of them already asserted by `usenet_announce` or
+  `usenet_address`**, 340,963 already assigned by some source. The gross is worth 416,446.4
+  EE, so quoting it would have overstated the source 15-fold
+- **The projection held this time, and the two fixes are the reason.** A 400-archive sample
+  measured 837.08 EE and projected 40,245 linear, 31,724 saturating, 18,873 on a power law
+  fitted to its own curve; the truth was 28,460.3, inside that spread. The header-mode
+  failure of the same morning projected 10,889 and delivered 1,038 because it was measured
+  against a snapshot taken before an intervening ingest. This one was measured against the
+  **live** store and deduped explicitly against both existing Usenet sources
+- **A saturation fit with a linear K scan reports its own ceiling and it reads like a
+  measurement.** The first version pegged K at the top of its range and printed "half-yield
+  at 20,000 archives", which was the scan boundary and not the data. K is now scanned on a
+  log grid running far past the corpus, so a fit that finds no saturation says so
+- **Six guards, each answering something actually in the corpus.** A TLD allowlist, because
+  the TLD is the only anchor a bare name has. A lookbehind that stops a match starting inside
+  a longer dotted token, which keeps this off hosts already inside a URL or an email address.
+  A lookahead that refuses `end.Company` and refuses `john.com@example.org`. Greedy labels so
+  `foo.com.au` is not read as `foo.com`. An all-digits rule, because `4.0.2.au` canonicalises
+  to the invented name `2.au`. And **body text only**: `Path:`, `Xref:` and `Newsgroups:` are
+  dotted tokens by construction, and a bare rule over them turns news servers and vanity
+  newsgroup names like `alt.isd.net` into announced websites
+- **The largest single contributor is `can.domain`, the CA registry newsgroup, at 7,137
+  net-new pairs.** Then `alt.domain-names.forsale` at 1,858 and `alt.sources` at 844. By TLD
+  the yield is 25,898 `.com`, 7,640 `.ca`, 4,145 `.net`, 1,977 `.org`, 1,689 `.uk`
+- **One limitation, named rather than hidden.** 1,200 of the 42,139 pairs are first seen in
+  `comp.mail.maps` or `can.uucp.maps`, which `ark.uucp` already parses as registry data under
+  the `registry` lineage. Reading them again as prose files those rows under `usenet`, so a
+  pair carrying both could look independently corroborated when it is one posting read twice.
+  2.8% of the yield, the same treatment `usenet_announce` already gives those groups, and
+  every evidence row names its group, so filtering them out is a query and not a reingest
+- **Secondary, and it cost four minutes: the rtfm FAQ mirror re-read, +1,570 pairs and
+  +1,167.4 EE.** `split_rtfm_faqs.py` imports `probe_texts_corpus.domains_in` rather than
+  copying it, so it inherited that extractor's bare-domain fix for free. The same 8,408
+  in-window documents went from 34,216 rows to 46,583. **An imported extractor spreads its
+  fixes silently: when `domains_in` changes, every corpus reading through it is stale and
+  nothing in the pipeline says so.** `--tag` was added to the script because the ingest
+  ledger keys on content hash and refuses a rewritten journal under an ingested name
+- **Fourth time this project has found the win in bytes already on disk**, after the UUCP
+  maps, the Usenet address forms and the trade-press re-read. All four were found by asking
+  what the parser actually reads rather than what corpus to fetch next
+
+---
+
+## 2026-08-08 (documentation becomes a source of truth, and the submission stops overwriting itself)
+
+Ivo's brief: the phase-4 report is for Ding, who knows the framework and wants the **quality** of the
+new domains, not the machinery. Where they come from, why they are viable, how to reproduce them.
+Everything else subtracts. And the documentation should read as a timeless reference rather than a
+log, because a report distilled from logs inherits their shape.
+
+- **One generated report, not one per round.** `docs/report.md` is now generated from
+  `docs/report.template.md` by `scripts/fill_report.py`, replacing `report_260802`,
+  `interim_report_260805`, their templates, and a 26 July `report.md` still tracked. 136 lines against
+  341. Dated filenames meant `package_delivery.sh` had to be repointed every round, and the round it
+  was not repointed shipped the previous round's figures beside this round's data.
+- **The report and the archive both named the wrong baseline.** `report_figures.py` and
+  `fill_report.py` hardcoded `merged260730` in their labels, and worse, `package_delivery.sh`
+  **shipped** `merged260730` in `baseline/` while asserting in `baseline/README.txt` that it was the
+  reference the figures mean. The store has counted against `merged260802` since 2 August. A reviewer
+  scoring our additions against the shipped baseline would have got a different answer than the report
+  claims, with nothing in the archive to reveal why. All three now read `ark.baseline`, the shipped
+  line count is measured rather than quoted, and a missing baseline is a refusal instead of a warning.
+- **Equivalent-English was absent from the report generator**, though it is the metric the round is
+  scored on. Added per source and in total; the per-source table is ordered by it, because ordering by
+  pair count puts the weaker source first.
+- **`prior_round_pairs = 32698` dropped rather than updated.** Once the reviewer reissues the
+  baseline, the harvested/absorbed split answers itself: everything net-new against the current
+  release was harvested since he last merged. A hardcoded subtrahend silently understates the round
+  the moment it goes stale.
+- **One folder per submitted round**, Ivo's suggestion, mirroring `feedback-phase-*/`. Archives land
+  in `submissions/<round>/`, defaulting the round to the git branch. The staging directory is rebuilt
+  from scratch every run, so for three rounds the only copy of a submission was whatever had been
+  emailed. The tarball is git-ignored; `report.md`, `sources.md`, the checksum and a `MANIFEST.txt`
+  naming the commit and baseline stay in git, which is enough to say later exactly what was claimed
+  and to prove a rebuilt archive matches, without keeping gigabytes.
+- **`just journals` never learned this round's sources**, so `just reproduce` rebuilt a store missing
+  every one of them, and `collect_enron.py` had no recipe at all. Both fixed.
+- **The maintain loop never learned to ingest RDAP.** It folds in Usenet, language and CDX journals
+  and nothing else, so 24,422 in-window creation dates, roughly 15,400 equivalent-English, sat unread
+  on disk while `ark stats` reported a round that did not include them. Added. Note the trap: editing
+  a running bash script does **not** change the running loop, because bash parses a `while` body as
+  one compound command, so the fix only takes effect on restart and the banked journals had to be
+  ingested by hand.
+- **`docs/source_research_260805.md` retired.** A session log whose durable conclusions were already
+  in `docs/sources.md`; the two pointers into it were replaced with the substance they pointed at.
+
+Signed off by Ivo: pending.
+
+## 2026-08-08 (the RDAP sweep finished: 391,461 queries, and a 403 that nobody was counting)
+
+- **The sweep as run.** 391,461 queries to the registries, **3 refusals in total (0.001%)**,
+  48,695 in-window creation dates, worth **29,214 equivalent-English** and every one of them a
+  candidate-pool name earning its first year. Verisign carried it: 244,223 of 244,279 `.com`
+  queries answered, no decay in the answer rate, sustained ~70 q/s for two and a half hours
+- **PIR does not throttle, it blocks, and the run could not see it.** `.org` answered its first
+  ~850 queries and then returned **403 for 9,253 consecutive requests**. 403 was not in the
+  throttle set, so the governor treated each one as a plain error, never backed off, and the run
+  spent nine thousand requests being told no. That is the tight loop of refusals the collection
+  rules forbid, and it happened because the monitoring counted only 429 and transport failures as
+  refusals. **On queries `.org` looked like a yield collapse from 29.3% to 1.6%; on answers it was
+  24.9%, the best rate of any TLD measured.** The rate that means anything is per answer
+- **Fixed:** 403 is now a throttle status and the harsh kind, so a run of them trips the breaker and
+  holds every thread off that registry. It is deliberately still not retryable and still not an
+  answer, so a blocked domain is not re-asked inside the run and does not settle either
+- **Verisign's ceiling is per-IP, not per-process.** Two processes at 32 workers against
+  `rdap.verisign.com` settled at 31 q/s each, exactly halving the 70 q/s one process gets, because
+  `.com` and `.net` share a host. Splitting the work across TLDs bought nothing; the right move was
+  to put the whole budget on whichever list had the higher expected EE per query at that moment
+- **Yield decays down the list and that is what ends a sweep, not the registry.** `.com` returned
+  19.2% over its first 100,000 queries, 11.4% over the next 100,000, then 8.4%. `.net` went 20.3% to
+  4.1% over 114,000. The list is ordered by how many distinct sources saw a name, so this is the
+  ordering working: the pool runs out of names real enough to have been registered. Roughly 359,000
+  of the 1,345,949-name Verisign list is consumed, and the rest is worth less per query than the
+  first hour was
+
+---
+
+## 2026-08-09 (the report answers the admissibility question, and the English standard leaves the delivery)
+
+Ivo relayed the reviewer's feedback on the phase-4 draft. Three things, and a fourth that fell out of
+checking the first three.
+
+- **The English verification standard is retired.** The metric is equivalent-English now, so the
+  report should not discuss page-level language verification at all. Removed from the report, and then
+  from the delivery: `additions_english/`, `additions_unverified/`, the rejection register and the
+  English engine review no longer ship. They were not merely redundant, they were misleading. The
+  English folder came out empty, the unverified one was `additions/` under another name, and
+  `verify.sh` printed three vacuous WARN lines about a partition of nothing. An archive documenting a
+  rule nobody applies reads as a rule still in force. `ark lang-report` still writes the files under
+  `output/` and the language journals still ship, so this is a change to what the delivery asserts.
+- **"Only when an independent source already places that domain in some year" was unclear**, and the
+  reviewer could not tell from it whether every addition is admissible as a master pair. Fixed by
+  making it per source and derived: the table gained an evidence-type column and an admissible column
+  read from the shipped rows, and the sentence under it is generated, so a candidate-only source would
+  be named rather than the claim repeated. The real ambiguity was that two different things were being
+  conflated: `whois_creation`, `cdx_timestamp` and `artifact_listing` are **self-dating** and involve
+  no corroboration whatsoever, while `dated_directory` is a human-typed address inside a dated artifact
+  and is the only kind taking the extra filter. The report now says so, and gives the corroboration
+  test its exact mechanical definition.
+- **Corroboration is a nice-to-have.** Reduced from a table to one sentence.
+
+**An adversarial pass over the finished report found four claims wrong**, run as a workflow of 164
+agents that extracted 99 checkable claims and re-derived each against the store and the code, with a
+second reader over every flag. Worth recording because three of the four were in prose I had written
+confidently.
+
+- *"Every figure here is generated, none is typed by hand"* was **false**, and refuted two screens
+  later by the report's own hand-typed 601,738. Now scoped to the tables.
+- *"The database enforces this with a CHECK constraint generated from the same list"* was **false**.
+  The CHECK is generated from `ALL_TYPES`, the legal vocabulary; it does not know master from
+  candidate. Admissibility is enforced by `no_candidate_leakage` and `every_pair_has_master_evidence`,
+  which are now named in the report instead.
+- RDAP was called *"the only evidence class that needs no corroboration"*, contradicting the paragraph
+  two screens above naming three such classes.
+- The `comp.mail.maps` caveat said **"about 1,200 pairs"**. Measured from the journal it is **50,250**
+  `usenet_bare` rows drawn from `can.uucp.maps` and `comp.mail.maps`, the two groups the UUCP parser
+  also reads. The caveat understated itself roughly fortyfold. A caveat that flatters itself is worse
+  than no caveat.
+
+**A third staleness guard in packaging**, because the same pass caught the report and the archive
+quoting different totals. Two guards kept the code and the data in step and neither looked at the
+document describing both, so the report drifted: regenerated against a store the collectors had grown
+by 10,000 pairs since the archive was cut. Packaging now regenerates the report and refuses if that
+changes anything.
+
+**The baseline question.** Ivo placed `merged260802-2/` in the repo root believing it a new release.
+It is byte-identical to `feedback-phase-3/merged260802-2/`: same 20 files, all six year files matching
+on SHA-256. So the round was already measured against it and nothing moved. The reviewer's 9 August
+mail links a fresh download described as the current list of existing domain files; if that turns out
+to be a newer merge than what is on disk, every net-new figure has to be re-derived against it.
+
+Signed off by Ivo: pending.
