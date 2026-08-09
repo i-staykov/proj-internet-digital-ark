@@ -3391,3 +3391,61 @@ Signed off by Ivo: pending.
   ordering working: the pool runs out of names real enough to have been registered. Roughly 359,000
   of the 1,345,949-name Verisign list is consumed, and the rest is worth less per query than the
   first hour was
+
+---
+
+## 2026-08-09 (the report answers the admissibility question, and the English standard leaves the delivery)
+
+Ivo relayed the reviewer's feedback on the phase-4 draft. Three things, and a fourth that fell out of
+checking the first three.
+
+- **The English verification standard is retired.** The metric is equivalent-English now, so the
+  report should not discuss page-level language verification at all. Removed from the report, and then
+  from the delivery: `additions_english/`, `additions_unverified/`, the rejection register and the
+  English engine review no longer ship. They were not merely redundant, they were misleading. The
+  English folder came out empty, the unverified one was `additions/` under another name, and
+  `verify.sh` printed three vacuous WARN lines about a partition of nothing. An archive documenting a
+  rule nobody applies reads as a rule still in force. `ark lang-report` still writes the files under
+  `output/` and the language journals still ship, so this is a change to what the delivery asserts.
+- **"Only when an independent source already places that domain in some year" was unclear**, and the
+  reviewer could not tell from it whether every addition is admissible as a master pair. Fixed by
+  making it per source and derived: the table gained an evidence-type column and an admissible column
+  read from the shipped rows, and the sentence under it is generated, so a candidate-only source would
+  be named rather than the claim repeated. The real ambiguity was that two different things were being
+  conflated: `whois_creation`, `cdx_timestamp` and `artifact_listing` are **self-dating** and involve
+  no corroboration whatsoever, while `dated_directory` is a human-typed address inside a dated artifact
+  and is the only kind taking the extra filter. The report now says so, and gives the corroboration
+  test its exact mechanical definition.
+- **Corroboration is a nice-to-have.** Reduced from a table to one sentence.
+
+**An adversarial pass over the finished report found four claims wrong**, run as a workflow of 164
+agents that extracted 99 checkable claims and re-derived each against the store and the code, with a
+second reader over every flag. Worth recording because three of the four were in prose I had written
+confidently.
+
+- *"Every figure here is generated, none is typed by hand"* was **false**, and refuted two screens
+  later by the report's own hand-typed 601,738. Now scoped to the tables.
+- *"The database enforces this with a CHECK constraint generated from the same list"* was **false**.
+  The CHECK is generated from `ALL_TYPES`, the legal vocabulary; it does not know master from
+  candidate. Admissibility is enforced by `no_candidate_leakage` and `every_pair_has_master_evidence`,
+  which are now named in the report instead.
+- RDAP was called *"the only evidence class that needs no corroboration"*, contradicting the paragraph
+  two screens above naming three such classes.
+- The `comp.mail.maps` caveat said **"about 1,200 pairs"**. Measured from the journal it is **50,250**
+  `usenet_bare` rows drawn from `can.uucp.maps` and `comp.mail.maps`, the two groups the UUCP parser
+  also reads. The caveat understated itself roughly fortyfold. A caveat that flatters itself is worse
+  than no caveat.
+
+**A third staleness guard in packaging**, because the same pass caught the report and the archive
+quoting different totals. Two guards kept the code and the data in step and neither looked at the
+document describing both, so the report drifted: regenerated against a store the collectors had grown
+by 10,000 pairs since the archive was cut. Packaging now regenerates the report and refuses if that
+changes anything.
+
+**The baseline question.** Ivo placed `merged260802-2/` in the repo root believing it a new release.
+It is byte-identical to `feedback-phase-3/merged260802-2/`: same 20 files, all six year files matching
+on SHA-256. So the round was already measured against it and nothing moved. The reviewer's 9 August
+mail links a fresh download described as the current list of existing domain files; if that turns out
+to be a newer merge than what is on disk, every net-new figure has to be re-derived against it.
+
+Signed off by Ivo: pending.

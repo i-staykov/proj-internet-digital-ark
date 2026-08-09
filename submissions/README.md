@@ -25,13 +25,13 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 | phase-1 | 2026-07-26 | `original` | | | | first delivery: baseline normalization, capture-backed additions |
 | phase-2 | 2026-07-29 | `merged260727` | | | | expansion rounds, candidate pool split out |
 | phase-3 | 2026-08-02 | `merged260730` | | | | English verification engine, two disjoint shipped sets |
-| phase-4 | 2026-08-08 | `merged260802` | 934,848 | 592,197.30 | **10.5317%** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
+| phase-4 | 2026-08-09 | `merged260802` | 945,312 | 602,465.62 | **10.7143%** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
 
 **phase-4 in one line:** the round crossed 10% on the equivalent-English metric, re-scored with the
-reviewer's own `equivalent_english_domains.py`, which rejected none of the 934,848 records, found none
-already in his merged files, and agreed with our total to 0.0000. All twelve integrity invariants
-pass. None of the additions is language-verified, so `additions_english/` is empty and everything
-ships in `additions_unverified/`.
+reviewer's own `equivalent_english_domains.py`, which rejected none of the 945,312 records, found none
+already in his merged files, and agreed with our total to 0.0000. All integrity invariants pass. This
+is the first round shipped without the retired English partition: the deliverable is `additions/`,
+with `candidates.txt` beside it.
 
 Rows for rounds packaged before this folder existed are filled in from their reports where the
 archive survives, and left blank where it does not. Blank means unrecorded, not zero.
