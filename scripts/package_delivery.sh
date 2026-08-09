@@ -46,11 +46,28 @@ fi
 # the store. Shipping a stale one understates the result and contradicts the
 # report, which quotes the store. Caught this way once, 1,513 pairs behind.
 SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
-STORED=$(uv run python -c "
+# Retried, and not silenced. `2>/dev/null` here turned a busy store into an empty
+# STORED, which then failed the comparison below and told the operator the export
+# was stale when it was current. A guard that misreports why it fired is worse
+# than no guard: it sends you to fix the wrong thing.
+STORED=""
+for _ in $(seq 1 60); do
+    STORED=$(uv run python -c "
 import duckdb
 from ark.stats import collect_stats
 print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
-" 2>/dev/null | tail -1)
+" 2>&1 | tail -1)
+    case "$STORED" in
+        ''|*[!0-9]*) sleep 5 ;;
+        *) break ;;
+    esac
+done
+case "$STORED" in
+    ''|*[!0-9]*)
+        echo "refusing to package: could not read the store's net-new count" >&2
+        echo "$STORED" >&2
+        exit 1 ;;
+esac
 if [ "$SHIPPED" != "$STORED" ]; then
     echo "refusing to package: output/ holds $SHIPPED net-new pairs, the store holds $STORED" >&2
     echo "run 'uv run ark export' first, then re-run." >&2
