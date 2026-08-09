@@ -61,11 +61,29 @@ fi
 #
 # Regenerating is cheap and idempotent, so this rebuilds the report and refuses
 # if that changed anything. A report that is already current is a no-op here.
+# The retry loop is not optional. DuckDB allows many readers or one writer, so a
+# read-only connection still fails while the maintain loop holds the write lock,
+# and this guard went in without one and refused to package for that reason
+# alone. Swallowing the error made it look like the report was broken when the
+# store was merely busy, so the failure is printed now rather than hidden.
 REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
-uv run python scripts/fill_report.py > /dev/null 2>&1 || {
-    echo "refusing to package: scripts/fill_report.py failed, so the report cannot be trusted" >&2
+FILL_OUT=""
+for _ in $(seq 1 60); do
+    if FILL_OUT=$(uv run python scripts/fill_report.py 2>&1); then
+        break
+    fi
+    case "$FILL_OUT" in
+        *"Conflicting lock"*) sleep 5 ;;
+        *) echo "refusing to package: scripts/fill_report.py failed" >&2
+           echo "$FILL_OUT" >&2
+           exit 1 ;;
+    esac
+done
+if ! printf '%s' "$FILL_OUT" | grep -q "filled cleanly"; then
+    echo "refusing to package: the report could not be regenerated" >&2
+    echo "$FILL_OUT" >&2
     exit 1
-}
+fi
 REPORT_AFTER=$(shasum -a 256 docs/report.md | cut -d' ' -f1)
 if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
     echo "refusing to package: docs/report.md was stale against the store and has been" >&2
