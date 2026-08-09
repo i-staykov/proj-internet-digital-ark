@@ -13,29 +13,29 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **945,312** |
-| Over unique domains | 683,868 |
-| Domains absent from the baseline in every year | **75,883** |
-| Equivalent-English added | **602,465.6** |
-| Growth on the 5,622,984.6 baseline | **10.7143%** |
-| Mean equivalent-English weight per pair | 0.6373 |
+| Net-new (domain, year) pairs | **946,266** |
+| Over unique domains | 684,523 |
+| Domains absent from the baseline in every year | **76,538** |
+| Equivalent-English added | **603,401.8** |
+| Growth on the 5,622,984.6 baseline | **10.7310%** |
+| Mean equivalent-English weight per pair | 0.6377 |
 
 | Year | merged260802-2, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
 | 1996 | 623,012 | 25,301 | 72 (0.3%) |
 | 1997 | 1,281,371 | 59,156 | 1,499 (2.5%) |
-| 1998 | 970,963 | 176,953 | 17,982 (10.2%) |
-| 1999 | 1,537,182 | 260,439 | 26,730 (10.3%) |
-| 2000 | 1,555,211 | 251,325 | 50,827 (20.2%) |
-| 2001 | 2,817,881 | 172,138 | 38,383 (22.3%) |
-| **Total** | **8,785,620** | **945,312** | **135,493 (14.3%)** |
+| 1998 | 970,963 | 176,961 | 17,990 (10.2%) |
+| 1999 | 1,537,182 | 260,473 | 26,764 (10.3%) |
+| 2000 | 1,555,211 | 251,602 | 51,104 (20.3%) |
+| 2001 | 2,817,881 | 172,773 | 39,018 (22.6%) |
+| **Total** | **8,785,620** | **946,266** | **136,447 (14.4%)** |
 
 ## 2. Where the additions come from
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
 | `usenet_announce` | post date of the announcement | `dated_directory` | master | 585,175 | 348,669.9 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 116,463 | 96,301.6 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 117,417 | 97,237.7 |
 | `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 107,304 | 64,960.8 |
 | `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 48,394 | 29,023.4 |
 | `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 42,139 | 28,460.3 |
@@ -47,9 +47,9 @@ each describes a specific run and is recorded with that run in `sources.md`.
 | `maillist_archive` | the message `Date:` header | `dated_directory` | master | 1,458 | 833.2 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 1,857 | 665.2 |
 | `page_directory` | capture timestamp of the archived catalogue page | `dated_directory` | master | 11 | 7.7 |
-| **Total** | | | | **945,312** | **602,465.6** |
+| **Total** | | | | **946,266** | **603,401.8** |
 
-**All 13 are master sources, so all 945,312 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 13 are master sources, so all 946,266 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -161,7 +161,7 @@ found 601,738 candidate pairs in the Usenet corpus and the table above reports o
 survived, because 36.3% were uncorroborated and went to the pool and most of the rest were already
 held.
 
-Beyond that, 78,308 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.7435 distinct sources on average. One qualification on that count, since it is the kind of number that flatters itself:
+Beyond that, 78,308 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.7434 distinct sources on average. One qualification on that count, since it is the kind of number that flatters itself:
 50,250 of the `usenet_bare` rows come from `can.uucp.maps` and `comp.mail.maps`, the two newsgroups
 the UUCP registry parser also reads. Where a pair holds evidence from both, that is one posting read
 two ways rather than two independent lineages. It moves no annual file and no equivalent-English
