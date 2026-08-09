@@ -28,10 +28,16 @@ ROUND_DIR="submissions/$ROUND"
 # stale tree ships code that does not match the shipped data and report. This
 # has happened: an archive once paired post-narrowing data with pre-narrowing
 # code, and a reviewer running it would have regenerated the withdrawn rows.
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+#
+# `submissions/` is excluded because it is this script's own OUTPUT, not an input
+# to the source snapshot. Every run rewrites the round's MANIFEST, checksum and
+# report copy, so including it made the second packaging run refuse on the first
+# run's results, which is a guard tripping over its own footprints.
+DIRTY=$(git status --porcelain --untracked-files=no -- . ':(exclude)submissions')
+if [ -n "$DIRTY" ]; then
     echo "refusing to package: tracked files are modified, so source/ would not match the results" >&2
     echo "commit (or stash) first, then re-run." >&2
-    git status --short --untracked-files=no >&2
+    printf '%s\n' "$DIRTY" >&2
     exit 1
 fi
 
