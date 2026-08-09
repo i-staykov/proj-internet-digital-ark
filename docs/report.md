@@ -1,6 +1,6 @@
 # Internet Digital Ark: round report
 
-Additions to the 1996-2001 annual domain lists, measured against `merged260802`.
+Additions to the 1996-2001 annual domain lists, measured against `merged260802-2`.
 
 **Every figure in the tables** is generated from the store by `scripts/report_figures.py` and
 substituted by `scripts/fill_report.py`, so a table here cannot drift from the shipped files. The
@@ -20,7 +20,7 @@ each describes a specific run and is recorded with that run in `sources.md`.
 | Growth on the 5,622,984.6 baseline | **10.7143%** |
 | Mean equivalent-English weight per pair | 0.6373 |
 
-| Year | merged260802, this counting unit | Additions | Capture-backed |
+| Year | merged260802-2, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
 | 1996 | 623,012 | 25,301 | 72 (0.3%) |
 | 1997 | 1,281,371 | 59,156 | 1,499 (2.5%) |
@@ -169,28 +169,50 @@ figure, only the corroboration count.
 
 ## 4. How to reproduce
 
-Two ways to rebuild the result files, cheapest first, and one way to check what shipped without
-rebuilding anything.
+All commands below are run from the **root of the unpacked archive**. `README.md` beside this file
+gives the same three steps in more detail; if the two ever disagree, `README.md` is the one kept in
+step with the packaging script.
+
+**1. Check what shipped, about ten seconds, no rebuild.** Needs only `shasum` and `python3`.
 
 ```bash
-bash verify.sh        # check only: checksums, pair counts, and evidence for every shipped pair
-just rebuild          # rebuild from the shipped provenance export, no source data, ~1 min, byte-identical
-just reproduce        # rebuild from the raw sources in data/raw/ plus the supplied baseline
+bash verify.sh
 ```
 
-`just reproduce` replays the collectors' stored journals rather than re-requesting the network, so it
-gives the same answer every time. To collect **more** evidence from any of the new families:
+**2. Rebuild the result from the shipped evidence, about a minute, no source data and no network.**
+The code ships inside the archive and has to be unpacked first, which is why there is no `justfile`
+at this level.
 
 ```bash
-just rdap-pool            # registry creation dates for the candidate pool
-just usenet-bare          # bare addresses, from archives already on disk, no network
-just usenet-addresses     # the ftp:/mailto:/body addresses, likewise offline
-just uucp-maps            # the comp.mail.maps registry dumps
-just maillists            # the python.org and gnome.org list archives
-just enron                # the FERC corpus
-just rtfm-faqs            # the rtfm.mit.edu FAQ mirror
-just trade-press          # scanned magazines on archive.org
+tar -xzf source/source.tar.gz -C source/ && cd source
+uv sync
+uv run ark rebuild ../provenance     # annual files, masters, candidates, manifest
+uv run ark check                     # the integrity invariants
 ```
 
-Per-source detail, including every family evaluated and **rejected** with the measurement that killed
-it, is in `sources.md`. The archive layout and what each folder proves is in `README.md`.
+Then, still inside `source/`, confirm the rebuild matches what was shipped:
+
+```bash
+for y in 1996 1997 1998 1999 2000 2001; do
+    cmp output/netnew/$y.txt ../additions/$y.txt
+    cmp data/exports/$y.txt  ../masters/$y.txt
+done
+cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
+cmp output/candidate_unverified.txt     ../candidates.txt
+```
+
+**3. Rebuild from the original sources**, a download and about twenty minutes. From inside `source/`:
+
+```bash
+cp -R ../baseline/original/. legacy-data/
+just reproduce
+```
+
+That replays the collectors' stored journals in `data/raw/` rather than re-requesting the network, so
+it gives the same answer every time. `source/README.md` documents each stage, and `sources.md` has the
+download address for every source plus every family evaluated and **rejected** with the measurement
+that killed it.
+
+To collect **new** evidence rather than replay it, `just --list` inside `source/` shows one recipe per
+source: `rdap-pool`, `usenet-bare`, `usenet-addresses`, `uucp-maps`, `maillists`, `enron`,
+`rtfm-faqs`, `trade-press`. Those need the network.

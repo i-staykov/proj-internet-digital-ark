@@ -25,7 +25,7 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 | phase-1 | 2026-07-26 | `original` | | | | first delivery: baseline normalization, capture-backed additions |
 | phase-2 | 2026-07-29 | `merged260727` | | | | expansion rounds, candidate pool split out |
 | phase-3 | 2026-08-02 | `merged260730` | | | | English verification engine, two disjoint shipped sets |
-| phase-4 | 2026-08-09 | `merged260802` | 945,312 | 602,465.62 | **10.7143%** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
+| phase-4 | 2026-08-09 | `merged260802-2` | 945,312 | 602,465.62 | **10.7143%** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
 
 **phase-4 in one line:** the round crossed 10% on the equivalent-English metric, re-scored with the
 reviewer's own `equivalent_english_domains.py`, which rejected none of the 945,312 records, found none

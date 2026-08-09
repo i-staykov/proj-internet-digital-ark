@@ -21,7 +21,7 @@ from pathlib import Path
 
 # The release the store's baseline is defined against.
 CURRENT_BASELINE_DIR = Path("feedback-phase-3/merged260802-2")
-CURRENT_BASELINE_MARKER = "merged260802"
+CURRENT_BASELINE_MARKER = "merged260802-2"
 
 # The same files measured with the reviewer's own `equivalent_english_domains.py`,
 # reported to him on 4 August without objection. PAIRS is the RAW record count, not

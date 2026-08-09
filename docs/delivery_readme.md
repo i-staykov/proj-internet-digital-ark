@@ -125,7 +125,9 @@ from the original sources, which is tier 3.
 in `sources.md`.
 
 ```
-cp -R ../baseline/original/. legacy-data/       # from inside the unpacked source/
+tar -xzf source/source.tar.gz -C source/ && cd source   # if not already done in step 2
+uv sync
+cp -R ../baseline/original/. legacy-data/
 just reproduce
 ```
 
