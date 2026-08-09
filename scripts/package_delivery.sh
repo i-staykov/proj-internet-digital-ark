@@ -81,7 +81,7 @@ STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.tar.gz"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,additions_english,additions_unverified,audit,logs,source,seeds,journals,provenance,baseline}
+mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
@@ -107,34 +107,23 @@ cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/n
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 
-# The disqualification register: every pair the engine judged and rejected, one
-# row each with its reason. Not `|| true`: from this round it is a named
-# deliverable, because a rejection nobody can inspect is an assertion.
-cp output/disqualified.csv "$STAGE/additions_unverified/disqualified.csv"
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 
-# The two disjoint sets. `additions_english/` is what feedback v3 section 6
-# admits; `additions_unverified/` is everything else, and the two partition
-# `additions/` exactly rather than one being a subset of the other. Both ship as
-# .txt and .csv: the text file is the list, the CSV carries the evidence behind
-# each row (English share, snapshot URLs read) or the reason for its exclusion.
+# `additions_english/` and `additions_unverified/` are NOT shipped any more, and
+# neither is the language rejection register. They implemented the page-level
+# English verification standard of the phase-3 feedback, which the reviewer has
+# since retired in favour of the equivalent-English metric. The pipeline can still
+# produce them, and `ark lang-report` still writes them under `output/`, so this
+# is a change to what the delivery asserts rather than a loss of capability.
 #
-# `additions/` stays beside them because section 7 still asks for true additions
-# against the reference baseline, which is the union and a different question.
-cp output/netnew_english/199[6-9].txt output/netnew_english/200[01].txt \
-    "$STAGE/additions_english/" 2>/dev/null || true
-cp output/netnew_english/199[6-9].csv output/netnew_english/200[01].csv \
-    "$STAGE/additions_english/" 2>/dev/null || true
-cp output/netnew_unverified/199[6-9].txt output/netnew_unverified/200[01].txt \
-    "$STAGE/additions_unverified/" 2>/dev/null || true
-cp output/netnew_unverified/199[6-9].csv output/netnew_unverified/200[01].csv \
-    "$STAGE/additions_unverified/" 2>/dev/null || true
-# `language_summary.csv` is the per-year and total mix section 6.1 requires
-# every future submission to carry.
-cp output/language_summary.csv "$STAGE/additions_english/" 2>/dev/null || true
+# Shipping them was worse than useless once the standard went: the folders came
+# out empty, `verify.sh` printed three vacuous WARN lines about a partition of
+# nothing, and the archive loudly documented a rule nobody is applying. The
+# deliverable is `additions/`, and `candidates.txt` beside it holds the names that
+# have not earned a year.
 cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
@@ -283,7 +272,9 @@ cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The engine review, so the process behind the report's audit section can be
 # inspected rather than credited. A report that says "two adversarial reviews
 # were run" and ships no record of them is asking to be believed.
-cp docs/engine_review_260801.md "$STAGE/audit/engine_review.md" 2>/dev/null || true
+# The English-engine review is no longer shipped: it documents the page-level
+# verification standard the reviewer has retired, and an audit of a rule nobody
+# applies reads as a rule still in force. It stays in the repo under docs/.
 cp data/logs/* "$STAGE/logs/" 2>/dev/null || true
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
