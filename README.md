@@ -1,53 +1,72 @@
 # Internet Digital Ark
 
 A reproducible pipeline collecting historical **domain names for 1996-2001**, each backed by
-**item-level, per-year evidence**. It grows a provided baseline and ships its additions as a separate,
-verifiable set; the baseline is never modified. From this round, additions are split into
-**English-verified** and **non-verified** sets, disjoint.
+**item-level, per-year evidence**. It grows a baseline the reviewer supplies and ships its additions
+as a separate, verifiable set; the baseline is never modified.
 
-This file is the operating guide: what to run, and what each command should print.
+Additions are scored on **equivalent-English domains**: each `(domain, year)` record counts not 1 but
+the English page-language share of its right-most TLD, so `foo.uk` is worth 0.9813 of a record and
+`foo.de` 0.1324. The current release being measured against, and its totals, live in one place:
+[`src/ark/baseline.py`](src/ark/baseline.py).
+
+**This file is the operating guide: what to run, and what each command should print.**
 
 | Document | |
 |---|---|
-| [docs/SPEC.md](docs/SPEC.md) | the counting and evidence rules, as briefed |
-| [docs/sources.md](docs/sources.md) | every source: what it is, what dates it, how to fetch it, and every family rejected with the measurement that killed it |
-| [docs/report.md](docs/report.md) | the current round's results. **Generated** from `docs/report.template.md`; edit the template |
+| [docs/SPEC.md](docs/SPEC.md) | the reviewer's original brief, verbatim and never edited. Cited by clause number from the code |
+| [docs/brief_amendments.md](docs/brief_amendments.md) | what he has changed since: the metric, the retired standard, the current priorities |
+| [docs/sources.md](docs/sources.md) | every source: what it is, what dates it, how to fetch it, **what remains unexhausted in it**, and every family rejected with the measurement that killed it |
+| [docs/discovery.md](docs/discovery.md) | how to price a candidate source before building a collector |
 | [docs/documentation.md](docs/documentation.md) | why the pipeline is shaped the way it is |
+| [docs/delivery_readme.md](docs/delivery_readme.md) | the README that ships at the root of the delivery archive |
+| [docs/report.md](docs/report.md) | the round report. **Generated** from `docs/report.template.md`; edit the template, never the output |
 | [docs/notes.md](docs/notes.md) | the dated decision log |
+| [docs/phase5-plan.md](docs/phase5-plan.md) | this round's plan, in plain terms |
+| [docs/phase5-handoff.md](docs/phase5-handoff.md) | the full state, objective and traps, for an agent joining the round |
 | [submissions/](submissions/) | what was sent, round by round |
+| [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
 
 ## Requirements
 
 [`uv`](https://docs.astral.sh/uv/) only. Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`,
 then `uv sync`. Everything below runs under `uv run`. The optional
-[`just`](https://github.com/casey/just) wraps the same commands.
+[`just`](https://github.com/casey/just) wraps the same commands, and `just --list` is the index.
 
 ## Three ways to check this work
 
 | Tier | What it proves | Cost | How |
 |---|---|---|---|
 | **1. Verify the shipped result** | Nothing has changed and every pair traces to a recorded observation | ~10 s | `bash verify.sh` at the delivery archive's root |
-| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild ../provenance`, then `ark lang-report` and `ark check` |
-| **3. Rebuild from the original sources** | The evidence follows from the source data | ~50 GB download, then ~20 min | Parts 1 and 2 below |
+| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild ../provenance` |
+| **3. Rebuild from the original sources** | The evidence follows from the source data | a large download, then ~20 min | Parts 1 and 2 below |
 
 Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this repository at all.
 
-**Tier-3 cost figures date from the phase-1 archive and have not been re-measured.** One 47 GB capture
-index is most of the download; skipping the Arquivo indexes left about 3 GB and reproduced 98.7% of
-that archive. Those indexes now contribute zero net-new pairs against the current baseline, so skipping them
-costs less than the figure suggests. Measured then, a full run took about 20 minutes and returned
-99.77% of the pairs with all invariants passing; the gap is two sources with no journal to replay.
+**Tier-3 cost figures date from the phase-1 archive and have not been re-measured since.** Measured
+then, a full run took about 20 minutes and returned 99.77% of the pairs with all invariants passing;
+the gap was two sources with no journal to replay.
 
 ## Reproduce the results
 
 Every step is re-runnable: work already done is skipped, so an interrupted run finishes by running the
 same command again. Each run appends to a log in `data/logs/`.
 
+```bash
+just setup       # uv sync
+just reproduce   # all six stages below, offline
+just check       # lint + format-check + tests, then the nine data invariants
+```
+
+`just check-data` runs the data invariants and `just verify-repo` runs the code checks; `just check`
+runs both. They fail differently, which is why neither gets the bare name.
+
 ### Part 1: get the inputs (tier 3 only)
 
-**The baseline** goes in `./legacy-data/`: the six year files, `merge_stats_new0714.csv`, and
-`deduplicated_urls_2001-2002.txt`. The delivery archive ships these in `baseline/original/`, so
-`cp -R ../baseline/original/. legacy-data/` is enough.
+**Two baselines, and they are not the same thing.** `legacy-data/` holds the *original* six annual
+files supplied with the task, which the normalization audit is computed against. The release additions
+are *scored* against is the reviewer's latest merge, and it lives in a `feedback-*/` folder named for
+it. Loading a round against a stale release is a silent error that reports already-credited work as
+net-new, so the current one is named in `src/ark/baseline.py` and every command follows it.
 
 ```bash
 wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
@@ -57,155 +76,106 @@ wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
 **[docs/sources.md](docs/sources.md) has the download command for each**, since the routes differ:
 several survive only as web-archive captures, and one address answers HTTP 200 with a stub.
 
-| Source | Folder | Size |
-|---|---|--:|
-| Arquivo.pt CDXJ (IA donation) | `data/raw/arquivo/` | 47 GB |
-| UKWA host link graph | `data/raw/ukwa/` | 2.0 GB |
-| AFNIC `.fr` open data | `data/raw/afnic/` | 782 MB |
-| IA Early Web CDX | `data/raw/early_web/` | 177 MB |
-| ISC surveys, ODP dumps, Scout Report | `data/raw/{isc_survey,odp,scout}/` | 70 MB |
-| WebBase host list (seed only) | `data/raw/webbase/hosts.txt` | 14 MB |
-
 ```bash
-uvx --from internetarchive ia download early-web_cdx-lang-cdxa \
-    --glob='*.cdx.gz' --destdir=data/raw/early_web --no-directories
-
-cd data/raw && shasum -a 256 -c checksums.sha256   # expect 235 OK lines
+cd data/raw && shasum -a 256 -c checksums.sha256   # expect 234 OK, plus one known miss
 ```
 
-The manifest lists paths relative to `data/raw/`, which is why the check runs from there. Two sources
-cannot be pinned: the `.fr` file is republished monthly (this used the June 2026 edition) and the
-Internet Scout feed keeps growing.
+The manifest pins 235 files and one of them, `arquivo/IA.cdxj`, was **deliberately deleted** at 47 GB
+once its evidence was in the store. So the expected result is 234 OK lines and one missing-file error
+for that path. `just sources` skips it for the same reason and says so.
 
-**The network journals ship with the delivery** (`data/raw/cdx/`, `data/raw/rdap/`, `data/raw/expand/`,
-`data/raw/usenet/`, `data/raw/tucows/`, `data/raw/lang/`). They hold the raw responses of every query
-made, so Part 2 replays every network stage offline.
+**The network journals ship with the delivery**, under `journals/`. They hold the raw responses of
+every query ever made, so Part 2 replays every network stage offline.
 
 ### Part 2: rebuild the result
 
-| # | Command | Expected output |
-|---|---|---|
-| 1 | `uv sync` | creates `.venv` from `uv.lock`; no version resolution |
-| 2 | `uv run ark init` | `provenance store ready`, then `work queue ready` |
-| 3 | `uv run ark ingest-legacy` | `6 files ingested, 6866913 year rows added, 12220 lines rejected` (~2 min) |
-| 4 | `uv run ark legacy-review` | `output/legacy_review/dropped_domains.txt (9329 distinct entries)` |
-| 5 | `uv run ark audit` | writes `data/reports/normalization_audit.csv`, ~131 MB |
-| 6 | `uv run ark ingest early_web data/raw/early_web/*.cdx.gz` | `files_ingested: 224`, `evidence_rows: 2278722` |
-| 7 | `uv run ark ingest isc_survey data/raw/isc_survey/*.gz` | `files_ingested: 5`, `evidence_rows: 1662395` |
-| 8 | `uv run ark ingest arquivo_roteiro data/raw/arquivo/Roteiro.cdxj` | `evidence_rows: 3442` |
-| 9 | `uv run ark ingest arquivo_ia data/raw/arquivo/IA.cdxj` | `evidence_rows: 28247` |
-| 10 | `uv run ark ingest afnic_fr data/raw/afnic/*NomsDeDomaineEnPointFr.csv` | `evidence_rows: 142248` |
-| 11 | `uv run ark ingest internet_scout data/raw/scout/scout_oai.xml` | `evidence_rows: 975` |
-| 12 | `uv run ark ingest odp data/raw/odp/*.gz` | `files_ingested: 3`, `evidence_rows: 19629` |
-| 13 | `uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 39454` |
-| 14 | `uv run ark ingest ukwa_link_target data/raw/ukwa/host-linkage.tsv.gz` | `evidence_rows: 88263`, `enqueued: 5436` |
-| 15 | `uv run ark ingest ncsa_whats_new data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv` | `evidence_rows: 4916` |
-| 16 | `uv run ark seed data/raw/webbase/hosts.txt` | `lines: 738625`, `new_candidates: 39` |
-| 17 | `uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt` | `lines: 1097867`, `new_candidates: 0` |
-| 18 | `uv run ark seed seeds/100hot_hosts.txt` | `lines: 3453`, `new_candidates: 258` |
-| 19 | `uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz` | replays every archive query |
-| 20 | `uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz` | replays every registry query |
-| 21 | the six `ark ingest expansion_*` commands in `just journals` | replays the archived-page fetches; `year_rows: 1577` across four rounds |
-| 22 | `uv run ark ingest usenet_dated data/raw/usenet/usenet_dated*.jsonl.gz` | dated Usenet announcements, the largest source this round |
-| 23 | `uv run ark ingest usenet_candidates data/raw/usenet/usenet_candidates*.jsonl.gz` | its uncorroborated half, to the candidate pool |
-| 24 | `uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz` | software release dates with the vendor's home page |
-| 25 | `uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz` | and its uncorroborated half |
-| 26 | `just seeds` | `seeds: 3595769` hostnames and URLs over `domains: 2195955` |
-| 27 | `uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz` | replays the English verification, one verdict per pair |
-| 28 | `uv run ark export` | one `netnew_<year>` count per year, plus the Parquet evidence graph |
-| 29 | `uv run ark lang-report` | the two disjoint sets, `disqualified.csv`, and the language summary |
-| 30 | `uv run ark stats` | the scoreboard |
-| 31 | `uv run ark check` | twelve `[PASS]` lines then `ALL PASS`; non-zero exit on any failure |
+Six stages, all offline. `just reproduce` runs them in order; the recipes are the authoritative list
+of what gets ingested, and `just --list` names them.
 
-Steps 6 to 15 are order-independent. Steps 19 onward must follow them, because a replayed query is
-evidence about a domain the bulk sources introduced, and the corroboration split in steps 22 to 25 is
-judged against what the store holds by then.
+| Stage | Recipe | What it does, and what to look for |
+|---|---|---|
+| 1 | `just baseline` | `ark init`, then loads the current release, writes the exclusion droplist, writes the normalization audit. Expect **6 files ingested, 0 skipped**. `6 skipped` means the marker namespace already exists, which is the silent no-op described below |
+| 2 | `just sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph both ways, NCSA What's New |
+| 3 | `just candidates` | Grows the candidate pool from the year-unlabelled host lists |
+| 4 | `just journals` | Replays every stored network response: CDX, RDAP, page expansion, Usenet and its three re-read seams, UUCP, rtfm, Enron, mailing lists, trade press |
+| 5 | `just seeds` | Rebuilds the auxiliary hostname and URL pool, the granularity the registered-domain unit drops |
+| 6 | `just deliver` | `ark export`, then `ark stats`, then `ark check`. **Export must precede check**, see below |
+
+Stages 2 and 3 are order-independent. Stage 4 must follow them, because a replayed query is evidence
+about a domain the bulk sources introduced, and the corroboration split in stage 4 is judged against
+what the store holds by then.
 
 ```bash
 wc -l output/netnew/*.txt   # equals the net-new pair count from `ark stats`
 ```
 
-**With `just`:**
+**`ark check` must run after `ark export`, not before.** One invariant,
+`additions_not_double_counted`, reads the exported annual files and asserts that no domain in them
+carries baseline evidence for that year. Run it against a store whose baseline has moved since the
+last export and it correctly reports every already-credited pair as a violation. `just deliver` has
+the order right.
+
+### Loading a new reviewer release
+
+He reissues the merged corpus after each round he accepts. Point `src/ark/baseline.py` at it **first**,
+then load:
 
 ```bash
-just setup       # step 1
-just reproduce   # steps 2 to 31
-just check       # lint + format-check + tests, then the twelve data invariants
+cp data/ark.duckdb data/ark.duckdb.pre-<release>.bak   # there is no unload command
+# edit src/ark/baseline.py: CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER,
+# CURRENT_ROUND_SINCE, REVIEWER_BASELINE_PAIRS, REVIEWER_BASELINE_EE, ..._BY_YEAR
+uv run ark ingest-legacy    # expect: 6 files ingested, 0 skipped
+just deliver                # export, stats, check, in that order
+uv run python scripts/round_figures.py --verify
 ```
 
-`just check-data` runs the data invariants and `just verify-repo` runs the code checks; `just check`
-runs both.
+Two traps, both of which fail quietly:
+
+- **Loading with only `--legacy-dir` is a total no-op.** `--marker-prefix` defaults to the marker in
+  `baseline.py`, so the composed marker already exists in the ledger and all six files are skipped
+  behind six reassuring "already ingested" lines. Edit the constants first, or pass both flags.
+- **`ark stats` prints the release it measured against.** If that is not the newest one he has sent,
+  every figure above it is overstated. That check is the whole reason the constant is centralised.
+
+`round_figures.py --verify` re-scores the increment with **his own** `equivalent_english_domains.py`
+and refuses the numbers if his total differs from ours or if his validator rejects a record we counted.
+Its overlap guard reading zero is also the proof that the new release actually loaded.
 
 ### Package the delivery archive
 
 ```bash
 uv run ark export                       # refresh output/ from the store first
 uv run python scripts/fill_report.py    # substitutes every figure into docs/report.md
-just package                            # tar.gz plus its SHA256, into submissions/<branch>/
-bash scripts/verify_delivery.sh output/internet-digital-ark-1996-2001
+just package                            # tar.gz plus its SHA256, into submissions/<round>/
+just verify-delivery                    # run the archive's own checks from outside
 ```
 
-Packaging refuses to build from a modified working tree, or from an `output/` older than the store,
-or when the baseline release the figures are measured against is not on disk to ship alongside them.
+Packaging refuses to build from a modified working tree, from an `output/` older than the store, from
+a `docs/report.md` that disagrees with what `fill_report.py` would emit, or when the baseline release
+the figures are measured against is not on disk to ship alongside them. Each of those guards exists
+because the failure it catches has happened.
 
 The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
-explicitly with `just package phase-4`. The tarball is git-ignored; the report, the source
+explicitly with `just package phase-5`. The tarball is git-ignored; the report, the source
 documentation, the checksum and `MANIFEST.txt` stay in git, which is enough to say later exactly what
-was claimed and to prove a rebuilt archive matches. Add a row to `submissions/README.md` after each
-send.
+was claimed and to prove a rebuilt archive matches. **Add a row to `submissions/README.md` after each
+send.**
 
 ## Collecting more evidence (needs the network)
 
 Collectors write journals and never touch the store, so they run for hours alongside everything else.
+That one property is why collection can be split across machines, why a parsing bug costs no requests,
+and why every network stage replays offline.
 
-```bash
-uv run ark gaps                                      # -> data/raw/cdx/gap_candidates.txt
-uv run ark cdx data/raw/cdx/gap_candidates.txt -n 1200 --workers 8 --timeout 70
-uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz
+### One queue, both populations
 
-uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt
-uv run ark rdap data/raw/rdap/creation_candidates.txt -n 2500
-uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
-```
+Two populations can be queried, and they are worth different things. A **gap target** is a domain that
+already holds a year and is missing one it is bracketed by; a hit adds a pair. A **pool target** is a
+domain held with no year at all; a hit makes the name net-new. Keeping them in two lists forced a
+choice about which to work, and that choice was once made by hand and made wrong.
 
-`scripts/supervise_engines.sh` keeps both fed unattended.
-
-`ark gaps` orders by expected equivalent-English: the English share of the domain's TLD times the
-number of bracketed years a capture could fill. `--legacy-year-order` restores the pre-August-2026
-order (thinnest gap year first) for reproducing earlier rounds.
-
-The other population is the candidate pool: domains the store holds with no year at all, so a
-capture makes a name net-new rather than adding a year to one already shipped.
-
-```bash
-uv run python scripts/build_pool_candidates.py   # -> data/raw/cdx/pool_candidates.txt
-uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_*.jsonl.gz
-```
-
-The same pool can be asked of the registries instead of the archive, and that route competes with
-nothing `ark cdx` uses. `ark rdap` goes straight to the authoritative RDAP server for each TLD,
-resolved from the IANA bootstrap file, with `rdap.org` kept only as a fallback: measured 2026-08-08,
-that is **75 queries a second with no refusals** against 0.83 q/s and 18.8% refused through the
-redirector.
-
-```bash
-uv run python scripts/build_rdap_pool_list.py --tlds com,net --limit 1400000 \
-    --out data/raw/rdap/pool_targets_verisign.txt
-bash scripts/rdap_pool_sweep.sh 6 100000 32      # batches x queries x workers
-uv run ark ingest rdap_snapshot data/raw/rdap/rdap_pool_*.jsonl.gz
-```
-
-Probe a registry before spending a night on it (`--tlds` accepts one TLD, and 150 queries is
-enough). `.au` sorted first in the queue on expected equivalent-English and returned no in-window
-date at all, because auDA re-registered the namespace in 2002.
-
-### One queue, not two
-
-Keeping the two populations in two lists forced a choice about which to work, and on 7 August that
-choice was being made by hand and made wrong: the MacBook spent a morning on candidate-pool targets
-worth 0.476 equivalent-English per query while gap targets worth twice that waited in the other
-file. So both are now scored on the one scale that decides the allocation, **expected net-new
-equivalent-English per archive query**, and merged into a single queue.
+Both are now scored on the one scale that decides the allocation, **expected net-new
+equivalent-English per query**, and merged into a single queue.
 
 ```bash
 just query-queue-preview            # what it would return, writes nothing
@@ -213,285 +183,131 @@ just query-queue                    # -> queue_shard0.txt, queue_shard1.txt, que
 ```
 
 A gap target scores `realisation x English share x bracketed years it could fill`; a pool target
-scores `P(hit) x English share x years a hit returns`. Both multipliers are measured at build time
-and printed with the queue, so a wrong one is visible rather than silent. Rebuild after any large
-ingest: new evidence creates bracketed gaps as well as filling them, and a stale queue cannot reach
-what it does not list. Ignoring that cost the 5 August lists 102,628 targets worth 63,333
-equivalent-English, enough to put the round's ceiling below the goal it was aiming at.
+scores `P(hit) x English share x years a hit returns`. Both multipliers are measured at build time and
+printed with the queue, so a wrong one is visible rather than silent.
 
-The manifest records the population and predicted score of every target, which is what lets the
-next build re-estimate hit rates from a queue that mixes both, and what lets a prediction be checked
-against the outcome instead of being taken on trust.
+**Rebuild after any large ingest.** New evidence creates bracketed gaps as well as filling them, and a
+stale queue cannot reach what it does not list. A larger merged baseline grows the gap pool faster
+than the crawl closes it, so a queue written before a release lands is structurally blind to it.
 
-### Collecting from more than one machine
-
-Split the queue into disjoint shares and run one per machine. Assignment is by content hash, so the
-shares are disjoint and jointly complete with no coordination, and because the hash is independent
-of the ordering each share is a representative sample of the whole value curve rather than a
-contiguous block of it.
-
-**Size each share by how fast its machine is.** Equal halves were right while the two collectors ran
-at similar speeds; measured on 7 August the MacBook sustains 916 queries an hour against the VPS's
-262, and an even split leaves the fast machine grinding its own cheap tail while the expensive head
-of the other half goes untouched. `--weights 78,22` costs nothing and saves about 20 hours.
+### Running the engines
 
 ```bash
-# on this machine, build both shares (only this one has the store)
-just query-queue 78,22
-
-# ship share 1 and the repo to the other machine, then there:
-ARK_TARGETS=data/raw/cdx/queue_shard1.txt ARK_PREFIX=cdx_q1 \
-    bash scripts/supervise_cdx_pool.sh <deadline_epoch> 300 8 900
-
-# bring its journals back and replay them here
-rsync -av vps:~/proj-internet-digital-ark/data/raw/cdx/cdx_q1_*.jsonl.gz data/raw/cdx/
-uv run ark ingest cdx_snapshot data/raw/cdx/cdx_q1_*.jsonl.gz
+just engines-start $(date -u -v+12d +%s)   # collector and ingest loop, both detached
+just engines                                # what both machines are doing
+just engines-stop                           # without losing the batch in flight
+just maintain                                # fold finished collector output in, on a loop
 ```
 
-The shares are written with every already-answered domain removed, so re-sharding never makes a
-machine re-ask a name the other has settled, and the weights can be retuned whenever the measured
-speeds change.
-
-The older `just gap-shards` still writes gap-only slices in equal parts, for reproducing rounds
-collected that way.
-
-The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
-never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal
-name, and keep the prefix starting `cdx_` so the ingest globs and the resume scan still see it.
-
-The list is ordered best-first: TLDs that existed in 1996-2001, then by the English share of the
-TLD from the reviewer's own model, so a run that never finishes the pool has still spent its
-requests where the equivalent-English metric pays most. The supervisor takes a deadline epoch and
-polls journal growth to catch a batch that has hung while still looking alive.
-
-Check both machines at once, including whether the remote journals have been brought home:
-
-```bash
-just engines
-```
-
-### Sources added 8 August
-
-Four collectors, all reading data already on disk or free to fetch, none competing for
-`web.archive.org` capacity. Measured yields are in `docs/sources.md`.
-
-```bash
-just uucp-maps            # +23,815 EE  a .CA registry dump the Usenet parser read as prose
-just usenet-addresses     # +64,961 EE  ftp://, mailto: and body addresses it never read
-just rtfm-faqs            #  +2,917 EE  the Usenet FAQ mirror, dated by revision header
-just trade-press          #    +888 EE  scanned computer magazines, dated by issue
-just trade-press-american #    +453 EE  the American trade weeklies, the second corpus
-just trade-press-reextract#    +552 EE  the same issues re-read for bare `foo.com` names
-```
-
-**Two of the four came from files the project had already downloaded and marked processed.**
-`comp.mail.maps.mbox.zip` had been in `.processed` since 7 August with 1,480,910 registry entries
-read as nothing, because `domains_in_message` looks for http(s) URLs, bare `www.` hosts and the
-`From:` address, and a UUCP map entry contains none of those. Before writing off a source, check
-what the parser actually reads: a payload in a record format is invisible to a URL regex.
-
-**Each takes the corroboration split, and for `usenet_address` that is what makes it safe.** A pair
-is admitted only when another source already places the domain in an annual file, so a name
-invented by a bad regex cannot reach the annual files. Verified after ingest: **0 of the 92,965
-domains carrying a `usenet_address` assignment lack evidence from another source.** Fabrication
-risk on the dated half is zero by construction rather than by inspection.
-
-**Quote the post-split number, never the raw one.** The raw recovered set was 2,440,926 pairs and
-the admitted net-new figure is 107,304: quoting the former would have overstated the source
-24-fold. A 120-archive pilot's linear extrapolation said 1.9M equivalent-English against a true
-62,821, so a sample of 0.58% of a corpus that repeats itself proves the shape and not the total.
-
-### Pausing and resuming
-
-```bash
-just engines-stop                  # this machine, without losing the batch in flight
-just engines-start 1787139003      # deadline epoch, from `date -u -v+12d +%s`
-```
-
-`engines-stop` sends TERM to the supervisor, which runs its trap, asks the batch to stop, and lets
-it publish what it already has. A stopped batch still writes its journal, so the only thing lost is
-the queries it had not made yet: two interruptions on 7 August published 140 and 172 of 300 lines
-and nothing had to be re-queried. **Never `kill -9` a collector.** That strands the `.part`, and the
-ingest ledger keys on the finished name, so the work inside it becomes unreachable.
+`engines-stop` sends TERM to the supervisor, which runs its trap, asks the batch to stop, and lets it
+publish what it already has. A stopped batch still writes its journal, so the only thing lost is the
+queries it had not made yet. **Never `kill -9` a collector**: that strands the `.part`, and since the
+ingest ledger keys on the finished name, the work inside it becomes unreachable.
 
 Stopping the ingest loop leaves whatever the collectors wrote sitting on disk. That is safe, because
-journals are ledgered by content hash and re-offering an ingested one is skipped in milliseconds,
-but it does mean `ark stats` understates the round until the loop runs again. To fold everything in
-before shutting down for a while:
+journals are ledgered by content hash and re-offering an ingested one is skipped in milliseconds, but
+`ark stats` understates the round until the loop runs again.
 
-```bash
-for j in data/raw/cdx/cdx_*.jsonl.gz;            do uv run ark ingest cdx_snapshot "$j"; done
-for j in data/raw/usenet/usenet_dated_*.jsonl.gz; do uv run ark ingest usenet_dated "$j"; done
-```
-
-The remote machine is unaffected by any of this. It runs under `setsid` with its own deadline, so it
-keeps collecting through a VPN drop or a laptop shutdown, and its journals wait on its own disk
-until the next `rsync`.
-
-That last part is the one worth automating. A second machine's output is invisible to every
-measurement taken on the first, and the VPS once ran for a day and a half with 5,793 year-records
-sitting on its disk and absent from the store, because nothing here ever looked. `just engines`
-lists any remote journal missing locally and prints the `rsync` that fetches it.
-
-It also prints the tier mix, which is how a run's health reads at a glance. `host` is the cheap
+`just engines` prints the tier mix, which is how a run's health reads at a glance: `host` is the cheap
 per-host query answering on its own, `root` is a domain so heavily archived that the archive gave up
-and the apex and www root pages rescued it, `scan` is the wildcard fallback. Drifting toward `root`
-means a clogged stretch of queue that will clear; drifting toward failures means the archive is
-refusing connections, and the fix is fewer workers, not more.
+and the apex rescued it, `scan` is the wildcard fallback. Drifting toward `root` means a clogged
+stretch of queue that will clear; drifting toward failures means the archive is refusing connections,
+and the fix is **fewer** workers, not more.
 
-**More workers do not buy more throughput.** The archive limits concurrent connections per IP, and
-8 and 12 workers measure the same, 506 against 510 queries/hour. What raises the ceiling is another
-address, which is the real argument for the second machine.
+**More workers do not buy more throughput.** The archive limits concurrent connections per IP, and 8
+and 12 workers measure the same, 506 against 510 queries an hour. What raises the ceiling is another
+address, which is the real argument for a second machine.
 
-### Page expansion
+### The registries, which compete with nothing
 
-```bash
-uv run ark download seeds/expansion/seeds_round4.txt -n 250 --workers 3 --captures 2 \
-    --out data/raw/expand/round5/expand_round5.jsonl.gz
-uv run python scripts/split_expansion_journal.py \
-    data/raw/expand/round5/expand_round5.jsonl.gz --write
-uv run ark ingest expansion_directory \
-    data/raw/expand/round5/expand_round5_corroborated.jsonl.gz --round 5
-uv run ark ingest expansion_links \
-    data/raw/expand/round5/expand_round5_unverified.jsonl.gz --round 5
-```
-
-Or `just expand-round seeds/expansion/seeds_round4.txt 5`. The split sends links from domains the
-store already attests to dated evidence, and never-before-seen names to the candidate pool.
-
-`scripts/collect_yahoo_directory.py` is the same route pointed at the 1996-1997 Yahoo catalogue
-under `www.yahoo.com/<Category>/`, which is the one slice of it CDX will not enumerate. It is kept
-for replay and is deliberately **not** in `just`, because it was measured and rejected: 55 archive
-requests bought 11 pairs and 7.7295 EE, 0.1405 per request against the gap engine's 0.959.
+`ark rdap` goes straight to the authoritative RDAP server for each TLD, resolved from the IANA
+bootstrap file, with `rdap.org` kept only as a fallback. Measured: **75 queries a second with no
+refusals**, against 0.83 q/s and 18.8% refused through the redirector. It talks to registries rather
+than to `web.archive.org`, so it is free capacity while the CDX engines are saturated.
 
 ```bash
-uv run python scripts/collect_yahoo_directory.py --budget 30 --workers 3 \
-    --target 19961101000000 --write --out data/raw/yahoo96/yahoo96_pilot1996.jsonl.gz
-uv run python scripts/split_expansion_journal.py \
-    data/raw/yahoo96/yahoo96_pilot1996.jsonl.gz --write
-uv run ark ingest expansion_directory \
-    data/raw/yahoo96/yahoo96_pilot1996_corroborated.jsonl.gz --round 5
+just rdap-pool com,net          # build the list, sweep it, ingest the journals
+just rdap-batch                 # or: creation years for domains adjacent to a held year
 ```
 
-It walks the archived tree rather than listing it first, because a dated snapshot request redirects
-to the nearest capture: one request returns the capture date, the page and the next level's links,
-where enumerating would cost a second request per page. `--target` picks the year, and it matters
-more than anything else about the run. See `docs/sources.md` for why the answer was no.
+Probe a registry before spending a night on it: 150 queries is enough. Each of the ones tried failed
+differently and each failure is recorded in `docs/sources.md`, including one that blocks with 403
+rather than throttling and one whose namespace was re-registered in 2002 so its creation dates date
+nothing.
 
-### English verification
+### A second machine
+
+Split the queue into disjoint shares and run one per machine. Assignment is by content hash of the
+domain, so the shares are disjoint and jointly complete with no coordination, and because the hash is
+independent of the ordering each share is a representative sample of the whole value curve rather
+than a contiguous block of it.
+
+**Size each share by how fast its machine is.** Measured, the MacBook sustains 916 queries an hour
+against the VPS's 262, and an even split leaves the fast machine grinding its own cheap tail while the
+expensive head of the other half goes untouched.
 
 ```bash
-uv run ark lang-targets                                    # -> data/raw/lang/lang_targets.txt
-uv run ark lang data/raw/lang/lang_targets.txt -n 400 \
-    --workers 2 --samples 2 --delay 2.0 --min-delay 1.5
-uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz
-uv run ark lang-report
+just query-queue 78,22                       # weights, measured speeds
+bash scripts/make_vps_bundle.sh              # ship share 1 and the repo
+bash scripts/vps_bootstrap.sh                # then, on that machine
 ```
 
-Unattended, for a long stretch:
+The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
+never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal name,
+and keep the prefix starting `cdx_` so the ingest globs and the resume scan still see it.
+
+**Bringing the remote journals home is the step that gets forgotten**, and a second machine's output
+is invisible to every measurement taken on the first. The VPS once ran for a day and a half with 5,793
+year-records on its disk and absent from the store, because nothing here ever looked. `just engines`
+lists any remote journal missing locally and prints the `rsync` that fetches it, and it now reports
+**UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
+
+### The per-source collectors
+
+Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
+sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
+and residual headroom for every one are in [docs/sources.md](docs/sources.md).
 
 ```bash
-bash scripts/supervise_lang.sh 27000 400 2 1.5           # seconds, batch, workers, min-delay
-bash scripts/watchdog_lang.sh 600 <deadline_epoch> 400 2 1.5
+just usenet-ingest        # split and ingest whatever has finished downloading
+just usenet-bare          # bare `foo.com` in the message bodies, no request sent
+just usenet-addresses     # ftp://, mailto: and typed addresses the parser never read
+just uucp-maps            # a .CA registry dump that travelled over Usenet
+just rtfm-faqs <tag>      # the Usenet FAQ mirror, dated by revision header
+just trade-press          # scanned computer magazines, dated by issue
+just trade-press-reextract
+just attrition            # the defacement mirror index, no request sent
+just enron                # the FERC corpus, dated per message
+just maillists            # public pipermail archives, dated per message
+just tucows               # software release dates plus the vendor's home page
+just expand-round <seeds> <n>   # archived page expansion, the outbound-link route
 ```
 
-`--min-delay` is the floor the adaptive governor may not ease below, and for this engine the floor
-rather than the worker count is what bounds load on `web.archive.org`. 2 workers and a 1.5 s floor is
-the measured setting; more workers is slower.
+Three rules that came out of these, all of them expensive to learn:
 
-`ark lang-report` writes a **partition** of the additions:
-
-| path | contents |
-|---|---|
-| `output/netnew_english/<year>.txt` and `.csv` | pairs whose archived body text for that year was read and was more than half English |
-| `output/netnew_unverified/<year>.txt` and `.csv` | every other addition, with a `status` and a `reason` per row |
-| `output/disqualified.csv` | the per-item register: pairs judged and rejected |
-| `output/language_summary.csv` | the per-year and total mix, for pairs and for unique domains |
-
-The two annual sets are disjoint and sum to the total. Two integrity checks assert that.
-
-### New sources of this round
-
-```bash
-uv run python scripts/split_usenet.py data/raw/usenet/*.mbox.zip --tag b1 --write
-uv run python scripts/measure_usenet_yield.py data/raw/usenet/*.zip   # yield before committing
-bash scripts/ingest_new_usenet.sh auto
-
-uv run python scripts/split_tucows.py --write
-
-bash scripts/maintain_phase3.sh 26 900   # fold finished collector output in, every 15 minutes
-```
-
-Re-read the trade-press OCR already on disk with the corrected extractor. Sends no request: the
-old pattern needed two labels before the TLD, so it read `www.foo.com` and dropped `foo.com`, and
-the pages were already downloaded. Writes a fresh journal name, because the ingest ledger keys on
-content hash and would refuse a changed file under an ingested name.
-
-```bash
-uv run python scripts/reextract_trade_press.py --write
-uv run python scripts/split_trade_press.py \
-    --journal data/raw/tradepress/tradepress_reextract_<stamp>.jsonl.gz --tag reextract --write
-uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
-uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
-```
-
-**Re-run it after every trade-press collection, not once.** The fix landed while the American
-collector was already running with the old pattern in memory, so its 1,007 issues were read
-narrowly and the second re-read was worth more than the collection: 881 net-new pairs and 551.83
-equivalent-English, against 452.50 for the ninety minutes of fetching. Use a fresh `--tag` each
-time, since `_reextract` is already in the ledger.
-
-Public pipermail mailing-list archives, added 8 August. Harvests 2,558 in-window month files from
-`mail.python.org` and `mail.gnome.org`, about six minutes and 740 MB, and sends **no**
-`web.archive.org` request, so it competes with nothing the engines are doing. Measured at
-**+833.17 EE** over 1,458 net-new pairs.
-
-```bash
-just maillists          # harvest, split by corroboration, ingest both halves
-```
-
-Do not extend it to more hosts on hope: per in-window message it yields 0.0013 equivalent-English
-against the Enron corpus's 0.0067, so the whole family cannot cover a shortfall of thousands. The
-numbers and the reachability of the other hosts are in `docs/sources.md`.
-
-Bare hosts in the Usenet bodies, added 8 August and the largest single addition of the day at
-**+28,460.3 EE** over 42,139 net-new pairs. A plain `foo.com` written in prose was read by no
-extractor here: `usenet_announce` needs a scheme or a `www.` label, `usenet_address` needs an `@`.
-Reads the archives already on disk, sends **no** request, and takes about three hours of CPU at 8
-workers. The recall is safe because the corroboration split, not the pattern, is the evidence wall:
-36.3% of what it extracts is uncorroborated and goes to the candidate pool.
-
-```bash
-uv run python scripts/collect_usenet_bare.py --sample 400 --workers 8     # project first
-uv run python scripts/project_usenet_bare.py \
-    --journal data/raw/usenet_bare/usenet_bare_<stamp>.jsonl.gz --archives 400
-just usenet-bare                                                          # then the whole corpus
-```
-
-Re-read the rtfm FAQ mirror whenever `probe_texts_corpus.domains_in` changes. `split_rtfm_faqs.py`
-imports that extractor rather than copying it, so it inherits its fixes silently and is stale until
-re-run. Doing that on 8 August was worth **+1,167.4 EE** over 1,570 pairs, in four minutes with no
-request sent. Pass a tag, because the ingest ledger keys on content hash.
-
-```bash
-just rtfm-faqs reextract
-```
+- **Before writing a source off, check what the parser actually reads.**
+  `comp.mail.maps.mbox.zip` sat marked processed for a day with 1,480,910 registry entries read as
+  nothing, because a URL regex cannot see a payload in a record format.
+- **Quote the post-split number, never the raw one.** A raw recovered set of 2,440,926 pairs admitted
+  107,304. Quoting the former would have overstated the source 24-fold.
+- **Re-run a re-extraction after every collection, not once.** A fixed extractor landed while a
+  collector was already running with the old pattern in memory, and the second re-read was worth more
+  than the collection itself. Pass a fresh `--tag` each time: the ledger keys on content hash and
+  refuses a changed file under an ingested name.
 
 ### Reporting a round
 
-The reviewer set the reporting format on 6 August: five fields, where lines 1 and 2 are his merged
-database before our increment and line 5 is line 4 divided by line 2. `round_figures.py` prints them
-in his order, so the growth rate cannot drift between rounds by being divided by the wrong total.
+The reviewer set the format: five fields, where lines 1 and 2 are his merged database **before** our
+increment and line 5 is line 4 divided by line 2.
 
 ```bash
 uv run python scripts/round_figures.py            # the five fields, plus per-year and per-source
-uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on any disagreement
+uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on disagreement
 ```
 
-Always send with `--verify`. It writes the increment out per year, runs his own
-`equivalent_english_domains.py` over each file, and refuses the numbers if his total differs from
-ours or if his validator rejects a record we counted. A rejected record scores zero for him and full
-weight for us, which is a live risk every time a source widens its matching.
+**Always send with `--verify`.** A record his validator rejects scores zero for him and full weight
+for us, which is a live risk every time a source widens its matching. The figures are only correct
+once `src/ark/baseline.py` names the release he has actually merged.
 
 ## Structure
 
@@ -501,23 +317,23 @@ via `ark export`, and ships in the delivery archive.
 ```
 output/                        git-ignored, regenerable; shipped in the archive
 ├── netnew/                    the additions: one file per year, plus evidence_manifest.csv
-├── netnew_english/            the English-verified partition, .txt and .csv
-├── netnew_unverified/         the rest, disjoint, with status and reason
-├── disqualified.csv           every pair judged and rejected, one row each
 ├── candidate_unverified.txt   domains awaiting per-year evidence
 ├── provenance/                the evidence graph as Parquet + LOAD.sql
+├── seeds/                     the auxiliary hostname and URL pool
 └── legacy_review/             every excluded baseline line, grouped by reason
 
 data/          git-ignored: DuckDB store, work queue, downloaded sources, audit CSVs, logs
-legacy-data/   git-ignored: the provided baseline, dropped in
+legacy-data/   git-ignored: the original supplied baseline, dropped in
+feedback-*/    git-ignored: what the reviewer sent back, including the current merged release
 src/ark/       the pipeline package and the `ark` CLI
+scripts/       collectors, splitters, supervisors, packaging, measurement
 tests/         pytest, network mocked
-docs/          SPEC, sources, documentation, notes, and the generated round report
+docs/          the brief and its amendments, sources, discovery method, design notes, decision log
 submissions/   one folder per round: the report as sent, its checksum and manifest
-               (the tarball itself is git-ignored and rebuildable from the commit)
+legacy/        retired engines and spent probes, kept for their negative results; not linted, not shipped
 ```
 
 Two files under `docs/` are **generated, not written**: `docs/report.md` comes from
 `docs/report.template.md` via `scripts/fill_report.py`, which fills every figure from the store and
 refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
-next refresh.
+next refresh, and packaging refuses outright if the two disagree.

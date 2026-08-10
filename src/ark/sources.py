@@ -811,6 +811,20 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="uucp_map_registrar_approval",
         parse=_parse_usenet_journal,
     ),
+    # A defacement mirror index. `artifact_listing` and NO corroboration split,
+    # deliberately, and the reason is the mirror itself: the operators saved a copy
+    # of the page at that host on that date, so a name that did not resolve could
+    # not be in the index. The hostname is verified by the act of mirroring rather
+    # than typed from memory, which is the property the split exists to supply for
+    # a hostname written into a Usenet post. Same class of claim as `isc_survey`
+    # and `uucp_map_registry`: a dated artifact enumerating hosts that were live.
+    "attrition_dated": SourceSpec(
+        key="attrition_dated",
+        source_name="attrition_defacement",
+        evidence_type="artifact_listing",
+        acquisition_method="attrition_defacement_mirror_index",
+        parse=_parse_usenet_journal,
+    ),
     # Hand-maintained maps: the container is fresh, the entries are not, so the
     # posting date evidences nothing and these stay candidate-only.
     "uucp_mentions": SourceSpec(

@@ -1,6 +1,15 @@
 # Decision log - lightweight ADR
 
-Short notes on why I made certain architectural design choices. Details belong in the report.
+Short notes on why I made certain architectural design choices.
+
+**How to read this.** Entries are dated and **never edited after the fact**, so every figure inside one
+is historical by construction: it was true when written, against the baseline and the store of that
+day. Nothing here is a statement about the current state. For that, read `README.md` for what to run,
+`docs/sources.md` for what each source is worth and what remains in it, and `src/ark/baseline.py` for
+which reviewer release the totals are measured against.
+
+Rough index: phase-1 from 2026-07-21, phase-2 from 07-28, phase-3 from 08-01, phase-4 from 08-01
+(overlapping, since the rounds ran close together), phase-5 from 08-10.
 
 ## 2026-07-21
 
@@ -283,7 +292,7 @@ Terms: CDX is the standard plain-text index format of web archives, one line per
   - the III.6 test, sentence by sentence: "valid evidence of when a domain was created" = the `registration` event (fine); "may support inclusion in the annual file for the target year in which the creation date falls" = the creation year is explicitly blessed (fine); "a WHOIS Creation Date alone does not automatically establish that the domain remained registered ... in every subsequent year", and later years "still require ... evidence tied to that specific year" = the interval claim fails. For 1999 the store held a record showing registration in 2026 plus a creation date in 1998; reaching 1999 needs a third premise (registry creation dates reset on re-registration) that is an external assumption about registry policy, and one never verified per registry here - the ~1,100 ccTLD rows (.uk 503, .nl 66, .ca 32, .br 31, .cz 28, .no 17, .fi 8) were the known hole. Ding's ruling uses the same qualifier, sources that "directly attest"; a bridging deduction across 28 years is not direct attestation
   - **decision: RDAP evidence supports the creation year and nothing else, and only when that year falls in 1996-2001.** A domain RDAP dates outside the window attests no year and stays a candidate (still worth keeping: RDAP confirms it existed by then and exists now, which is exactly the candidate-pool case under III.4)
   - implementation: `attested_years()` in [`src/ark/rdap.py`](../src/ark/rdap.py) is the single place the rule lives (unit-tested, 2 new tests); `ark rdap` assigns only that year and counts `created_before_window` separately from `created_after_window`
-  - rebuild: [`scripts/restrict_whois_creation_to_creation_year.py`](../scripts/restrict_whois_creation_to_creation_year.py), dry run unless `--apply`, parameterized by source. It aborts rather than guess if any creation year is unparseable, or if a doomed assignment could be re-pointed at other master evidence instead of deleted. Verified before applying: **0 of the 9,664 doomed assignments had alternative master evidence**, so the prune was a pure delete
+  - rebuild: [`legacy/scripts/restrict_whois_creation_to_creation_year.py`](../legacy/scripts/restrict_whois_creation_to_creation_year.py), dry run unless `--apply`, parameterized by source. It aborts rather than guess if any creation year is unparseable, or if a doomed assignment could be re-pointed at other master evidence instead of deleted. Verified before applying: **0 of the 9,664 doomed assignments had alternative master evidence**, so the prune was a pure delete
   - lesson (DuckDB): deleting `domain_year` and `evidence` in ONE transaction trips the evidence-wall foreign key, because the FK is validated against the pre-commit index. The script commits the assignment delete first, then the evidence delete. The wall behaved exactly as designed, and the failed attempt rolled back with nothing lost (verified: all counts unchanged before retrying)
   - numbers: rdap evidence rows **28,837 -> 5,973**; rdap-backed pairs **12,770 -> 3,106**; scoreboard 463,365 / 1,313,172 -> **463,364 / 1,303,508**. Pairs removed by year: 1996 8, 1997 283, 1998 1,530, 1999 2,435, 2000 3,185, 2001 2,223. Surviving rdap pairs by year: 1996 559, 1997 806, 1998 889, 1999 345, 2000 355, 2001 152. `ark check` ALL PASS, 116 tests green
   - **correction to my own prediction:** I told Ivo the 537 RDAP domains created before 1996 would lose all their years. Wrong. 536 of them are baseline (`prior_task`) domains reached through gap-fill, so they keep their existing assignments and lose only the RDAP-inferred gap years. Exactly **1** domain (a UKWA link-target) is emptied and returns to the candidate pool, which is why net-new domains fell by 1 and not by 537
@@ -3449,3 +3458,302 @@ mail links a fresh download described as the current list of existing domain fil
 to be a newer merge than what is on disk, every net-new figure has to be re-derived against it.
 
 Signed off by Ivo: pending.
+
+---
+
+## 2026-08-10 (phase 4 accepted in full, and the baseline moves to merged260810)
+
+The reviewer's feedback arrived with a reissued corpus. **946,266 records over 684,523 distinct
+domains accepted, 76,538 of them domains that had never appeared in any of the six baseline years,
+worth +603,401.7811 equivalent-English, a 10.730988% increase.** New totals: 11,362,034 pairs and
+6,226,386.4245 equivalent-English.
+
+- **His arithmetic was re-derived rather than trusted, in `Decimal`, and it is exact.** The six
+  per-year increases sum to 603,401.7811 with zero residual; the six new per-year totals sum to
+  6,226,386.4245; 603,401.7811 / 5,622,984.6434 is 10.730988% to six places; and each per-year growth
+  rate he quotes reproduces from his own numbers to six places. Nothing needed adjusting.
+- **"Accepted in full" is now proved from the files, which it never was before.** `wc -l` gives
+  merged260810 minus merged260802-2 as exactly 946,266 lines. `comm` on LC_ALL=C-sorted copies gives
+  **zero** lines dropped in either direction, and the lines he added are **byte-identical** to
+  `sort output/netnew/<year>.txt`. He merged precisely what was exported and added nothing of his own.
+  That closes the open question from 9 August: no phase-4 figure needs re-deriving, and the transfernow
+  link he sent was this corpus.
+- **The switch is one file, and it took.** `src/ark/baseline.py` now names `merged260810`, its pair and
+  equivalent-English totals, and its per-year totals. Nine consumers follow automatically. `ark stats`
+  prints the marker it measured against, which is the check that the switch landed at all; per that
+  file's own docstring the failure mode is silent and flatters us.
+- **Net-new dropped to 1,959 pairs on the load, and that is the correct answer.** 1996 and 1997 to
+  zero, then 14 / 70 / 559 / 1,316. The 1,959 is exactly the increment collected after the phase-4
+  archive was cut at 2026-08-09T13:51:03Z, which is why the round window is now `CURRENT_ROUND_SINCE`
+  in `baseline.py` beside the marker: a release and its window are the same fact, and kept apart they
+  drift.
+- **Two traps found while doing it, both silent.**
+  1. `ark ingest-legacy --legacy-dir <new release>` without `--marker-prefix` ingests **nothing**. The
+     prefix defaults to the marker in `baseline.py`, so the composed marker already exists and all six
+     files are skipped behind six reassuring "already ingested" lines. Edit the constants first.
+  2. **`ark export` must precede `ark check`.** The `additions_not_double_counted` invariant reads the
+     exported annual files, so running the gate first compares this round's files against a store whose
+     baseline has moved and reports all 946,266 already-credited pairs as violations. `just deliver`
+     had the order right; a hand-written sequence did not.
+- **The 10% target is not carried forward.** It was met at 10.7310% and no new target has been set.
+  `build_query_queue.py` used to size the queue against a tenth of the baseline, which after the switch
+  would have silently retargeted a tenth of a *larger* baseline, so that default is gone and `--need`
+  is now explicit.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the repository becomes a source of truth, and `legacy/` is where the rest goes)
+
+A full audit ahead of handing the project to a fresh agent: every markdown file, all 53 scripts, all 31
+modules, 26 test files, the justfile and the working directories, each classified with the evidence for
+the verdict, then re-checked by three adversarial passes that overturned nine of them.
+
+- **The English verification standard leaves the tree.** Retired by the reviewer in August 2026 and
+  replaced by equivalent-English, it still had residue in eleven places, including `ark ingest-lang`
+  inside the **live** `just maintain` loop and inside `just journals`, which `just reproduce` depends
+  on. `language.py` and `verify.py` are in `legacy/src/`, the three partition invariants are out of the
+  gate (twelve becomes **nine**), and `verify_delivery.sh` loses three checks that had been printing
+  SKIP about folders the archive stopped shipping. **A check that examines nothing reads like a check
+  that found nothing wrong**, which is worse than not having it.
+- **One atomic commit, because the alternative is a dead CLI.** The five `from ark.language import`
+  blocks in `cli.py` are module-level above the Typer app, and `ark = "ark:main"` is the only console
+  script, so moving that file alone breaks `ark export`, `ark stats` and `ark check`, not just the four
+  lang commands. The same held for `verify.py`, which is how it was caught: the suite failed on import
+  four collection errors deep.
+- **`legacy/` is tracked but not shipped and not linted.** Tracked, because `package_delivery.sh` ships
+  `git archive HEAD` and git-ignoring the retired engine would silently drop the audit trail behind
+  `domain_language` rows the reviewer already holds in every provenance export. Not shipped, via a new
+  `export-ignore` in `.gitattributes`. Not linted, via `legacy` in ruff's `extend-exclude`, since
+  several archived files import modules that also moved and are preserved rather than runnable.
+  `legacy/notes/` stays **git-ignored**: those eight session logs have never been in git, and archiving
+  them must not be the act that commits them.
+- **Nine facts were promoted out of git-ignored files before anything moved.** The most important is
+  the reviewer's own framing for this round, which existed in no tracked file anywhere: the task "should
+  not be considered simply as a conventional data collection or download problem". That is now
+  `docs/brief_amendments.md`, alongside a transcription of the 2026-08-10 feedback, which existed only
+  as a `.docx`. The acceptance bar for a new source and the four ways this project has got a projection
+  wrong are now `docs/discovery.md`. **`docs/SPEC.md` was left byte-for-byte untouched**: 21 files cite
+  its clauses by roman numeral, and appending our reading of the metric inside his document would send
+  him a brief that appears to have him saying things he did not.
+- **A measurement in an archived handback was wrong and the synthesis nearly carried it forward.** A
+  320-archive sample table put the unexploited Usenet header seams at about 16,500 equivalent-English.
+  The full-corpus runs are in this log and say otherwise: the machine-written headers delivered
+  **1,038.4 EE** and are exhausted, and `Path:` projects to about **30 EE** because 7.1 million relay
+  hops are only 4,736 distinct domains. **A sample measured against a store that has since grown is not
+  a measurement.** What is real there is a reproduction gap, not headroom: `data/raw/usenet_hdr/` had no
+  ingest line, so a rebuild was 19,224 evidence rows short. Fixed.
+- **`just reproduce` did not run at all, and had not for days.** `just sources` aborted on
+  `data/raw/arquivo/IA.cdxj`, deliberately deleted at 47 GB once its evidence was in the store. That is
+  the reviewer-facing path. The line is commented with the re-download route beside it, and
+  `README.md` now says to expect 234 checksum lines rather than 235. Also added: the missing
+  `usenet_hdr` and yahoo96 journal replays, and a fix to `just usenet-addresses`, whose `mode`
+  parameter reached the collector but not the split or the ingest, so `mode=headers` collected into one
+  directory and then ingested the other.
+- **`just engines` was reporting a false all-clear.** With the VPN down, ssh failed, the remote listing
+  came back empty, the loop body never ran and it printed "none, everything is home" about a machine it
+  had not been able to ask. That is precisely the failure the section exists to catch: this project once
+  ran a second machine for a day and a half with 5,793 year-records sitting on its disk. Unreachable now
+  reads **UNKNOWN**.
+- **`just --list` was showing sentence fragments** for ten recipes, because `just` prints only the last
+  comment line before a recipe and the reasoning had been written last. The one-line description now
+  sits immediately above the name.
+- **14 GB reclaimed, no raw data touched.** Two store backups protecting ingests that have since
+  shipped and been accepted, the delivery staging tree that `package_delivery.sh` deletes and rebuilds
+  anyway, and the retired partition's empty output. Everything under `data/raw/` stays, because the
+  reviewer's first priority for this round is unprocessed files and low-recall extraction over corpora
+  already paid for. `legacy/docs/retired-data.md` labels the directories nobody reads any more, which is
+  a different state from unmined, and confusing the two costs either a wasted pass or a missed lead.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (`docs/sources.md` gains a Residual field, which is what the round was actually asked for)
+
+The reviewer's first priority is what remains unexhausted **inside** each source already used, and that
+document ships to him. Audited against it, six sections answered the question properly, three partly,
+and twelve not at all, with the worst gap being `ia_cdx_bulk`, the main engine, at 26 lines with no pool
+size, no hit rate and no query count.
+
+- **A fixed `**Residual.**` field per section**, shaped like the `rdap` section, which already had it:
+  addressable pool, what was processed, what failed to parse, and what a next pass costs per unit of
+  equivalent-English. Where the number is a guess it now says so in the same sentence.
+- **`enron_email` had no section at all**, despite standing behind 5,134 net-new pairs in an annual
+  file, which brief IX and XI both require documented. Written.
+- **Two measured sources that are not rejected are now documented as such**: attrition.org (6,458
+  net-new pairs, 3,174.08 EE, 33 index files already on disk, blocked on a `CC-BY-NC-SA` licence
+  question rather than on work) and the UK Government Web Archive (real coverage from 1996-11-11,
+  government-only, 250 addressable domains, where the collector costs more than the answers). Both had
+  lived only in an untracked handback. Filed outside the rejected register on purpose, so nobody closes
+  them by mistake.
+- **Seven more dead leads recorded**, each with the measurement that killed it: IRCache and NLANR proxy
+  traces, the Internet Traffic Archive, shareware CD-ROM catalogues, DMOZ on archive.org, InterNIC
+  snapshots, other released email corpora, faqs.org. An automated discovery agent will walk straight
+  back into all of them otherwise, which is the whole point of writing them down.
+- **`data/raw/ukwa/host-linkage.tsv.gz` is exactly 2^31 bytes and fails `gzip -t`.** That looked like a
+  finding and is not: the file is year-sorted and runs 1995 to mid-2004, so the truncation cuts well
+  past our window and the 1996-2001 head is complete. The existing note asserted this without a figure;
+  it now has one. **Recorded because a closed question is worth as much as an open one.**
+- **Four directories under `data/raw/` have downloaded bytes and no parser**, which is the literal answer
+  to the priority: `pandora-titles/` (a National Library of Australia title index, `.au` at 0.9904 the
+  highest weight in the table, mentioned nowhere in the tree), the HathiTrust extracted-features
+  residue, attrition.org, and the `usenet_hdr` reproduction gap. Listed with sizes.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (fixing the broken reproduction path found 496 unprocessed files, worth 14,956 EE)
+
+Unplanned, and the most valuable thing that happened today. `just sources` had been aborting at stage 2
+on `data/raw/arquivo/IA.cdxj`, a file deliberately deleted at 47 GB once its evidence was in the store.
+Commenting that line out and documenting the gap made the stage run to completion **for the first time
+since the file was removed**, and its glob `data/raw/isc_survey/*.gz` then swept up **496 per-TLD
+Network Wizards survey shards that had been on disk since 5 August and never ingested**.
+
+- **+42,299 net-new pairs, +14,956.3877 equivalent-English**, at mean weight 0.3536. The store now
+  holds 581 shards over three editions: 179 for 1996-07, 192 for 1997-01, 209 for 1997-07.
+- **It lands where the collection is thinnest.** 1996 gained 4,899 records and 1997 gained 37,400,
+  which is **+0.7001%** and **+1.4313%** against those years' own baselines, against 0.0042% to 0.1700%
+  for the other four. Those are the two years the archive cannot supply in bulk: measured, only 5.4% of
+  1996 pairs and 12.6% of 1997 pairs have an in-year capture at all.
+- **Admissible without qualification.** `isc_survey` carries `artifact_listing`, a self-dating master
+  type: a dated survey edition enumerating hostnames. No corroboration split applies, and the nine
+  invariants pass.
+- **Re-scored with his own calculator: 19,522.3766 against our 19,522.3766, difference 0.0000, zero
+  records rejected, zero already in his merged files.** The round now stands at 46,952 records and
+  0.313543%.
+- **The mean weight is honest and low**, 0.4158 across the round against 0.6377 last round, because
+  per-TLD shards are dominated by small non-English ccTLDs. Quoting the record count without the weight
+  would overstate this by roughly a third.
+
+**Two lessons, and the second is the one worth keeping.**
+
+The narrow one: a broken step in a six-stage reproduction path hides everything downstream of it.
+Stage 2 aborting meant stages 2 to 6 had not run end to end for days, and nobody noticed because the
+individual ingests were being run by hand.
+
+The general one: **this is the reviewer's first priority, and it was answered by running the pipeline
+rather than by looking for it.** He asked us to "identify unprocessed files, failed parses, truncated
+runs, unqueried candidates". 496 downloaded files that no ingest had ever read is the purest possible
+instance, and it was invisible to every measurement taken this round because those measurements all
+started from the store. **A residual-opportunity audit should begin by diffing what is on disk against
+what the ledger has read.** That diff is cheap, it needs no network, and it should be the discovery
+harness's first check rather than an accident.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (attrition.org ingested, and gzip made journals reproducible)
+
+Ivo's ruling on the licence question: if there are validated, evidenced domains sitting around, ingest
+them and document it.
+
+- **Built in the tree rather than trusting the probe's TSV.** `scripts/collect_attrition.py` reads the
+  33 index pages already on disk and sends no request. **5,816 net-new pairs worth 2,791.4410
+  equivalent-English** at mean weight 0.4800, re-scored with the reviewer's own calculator: zero
+  rejected, zero already his, agreement to 0.0000.
+- **`artifact_listing`, and deliberately no corroboration split.** The mirror operators saved a copy of
+  the page at that host on that date, so a name that did not resolve could not be in the index: the
+  hostname is verified by the act of mirroring rather than typed from memory, which is the property the
+  split exists to supply for a hostname written into a Usenet post. Same class of claim as `isc_survey`
+  and `uucp_map_registry`. Filed under its own provenance lineage, `defacement_mirror`, since a break-in
+  is independent of every crawl, of Usenet and of the registries.
+- **The date is carried twice and the cross-check is scoped to the year.** 13,647 of 13,793 rows carry
+  both the `[99.11.30]` prefix and a `1999/11/30/host/` mirror path and agree. Fourteen disagree: twelve
+  by a single day, which cannot move a record between annual files and are kept, and **two by a whole
+  year, which is exactly the error that would file a domain wrongly, so those are dropped**. Dropping all
+  fourteen would have been tidier and would have thrown away twelve real observations to guard a risk
+  they do not carry.
+- **The 6 August estimate was 11% high**, 6,458 pairs and 3,174.08 EE against 5,816 and 2,791.44. Same
+  mechanism as every other overshoot in this log: the store grew between the measurement and the ingest,
+  so pairs counted as net-new then were already held by the time it ran.
+- **On the licence, recorded so the position is auditable rather than assumed.** What is taken is facts,
+  `(hostname, year)` pairs, not the mirror's pages, prose, selection or arrangement. Attribution is given
+  in `sources.md` and in the report, and every row carries an evidence URL pointing at the individual
+  mirror entry, which is stronger attribution than `CC-BY-NC-SA` asks for. It contributes 5,816 of 11.4M
+  records. **The decisive property is reversibility**: the rows carry their own `source_id`, so the source
+  can be deleted and the export regenerated in minutes if the view ever changes.
+
+**A wrong turn worth recording, because it names a real distinction.** The out-of-window hosts were first
+written as a journal for a `link_target` source. Both records came back `malformed`, because the shared
+journal parser requires `year in YEARS` by design: a journal of out-of-window rows is rejected wholesale.
+**The candidate pool is entered by seed file, not by journal.** The two hosts turned out to be in the
+baseline already, so the pool gained nothing, but the spec that could never work is gone and the seed
+file is what a wider pass would use.
+
+**Then a defect the ingest surfaced, and it was ours rather than the source's.** Re-writing the journal
+with unchanged records was refused as "ledgered with different content (sha256 mismatch)", because
+`gzip.open` stamps the current time into the header. So **every collector journal in this project was
+byte-nondeterministic**, and tier 2's byte-identical rebuild claim was quietly false for all of them.
+Fixed: `gzip.GzipFile(..., mtime=0)`, verified by writing the same 500 records twice and comparing
+hashes. Re-offering an ingested journal is now a no-op by construction rather than usually.
+
+The audit below found the same defect had already fired once, undetected: the 148-archive batch of
+8 August was split twice, under tags `sprint083312` and `auto084548`, and **both journals were ingested**
+because content-identical gzip files hash differently. It cost nothing, and the reason is worth knowing:
+`bulk.ingest_files` inserts evidence under `WHERE NOT EXISTS (domain, year, source_id)`, so the loader is
+idempotent per source whatever it is offered. Measured: 0 exact duplicate rows in `usenet_announce`.
+
+**Store and disk were reconciled rather than papered over.** The first ingest had already loaded the
+records under a hash no file now matched. Options were to edit the ledger's hash by hand, or to remove
+the source's rows and re-ingest. The second is the honest one, so: 12,653 evidence rows and 5,816
+assignments deleted (verified first that **none** of those 5,816 pairs had other master evidence, so the
+delete restored the exact pre-ingest state), the ledger rows cleared, and one clean ingest. It reproduced
+12,653 / 5,816 / 12,309 exactly, which is itself the proof the content never changed. Two things learned:
+DuckDB's foreign-key check does not see a delete made earlier in the same transaction, so the statements
+must be separate; and **the ledger keys on `source_name`, not on the spec key**, so a delete written
+against `attrition_dated` silently matches nothing.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the three empty Usenet directories: drained, not broken, and the corpus audited in full)
+
+Ivo asked for the empty probe directories to be explained and the whole Usenet story documented. Two
+investigators and one adversarial verifier, all read-only, every figure re-derived independently.
+
+- **They are empty because they were successfully drained.** `ingest_usenet_batched.sh` globs across all
+  `usenet_probe*/` directories into one queue and `mv`s archives into `data/raw/usenet/` in batches of
+  400. **A `mv` out of a directory updates the source directory's mtime**, so 23:08:07, 23:20:14 and
+  23:42:29 are removal times, not creation times, and they match three of the nine "moving N archives"
+  lines in `data/logs/usenet_batched.log` to the second. That log ends "4175 archives in
+  data/raw/usenet, 4175 marked processed".
+- **Nothing was lost, checked four ways.** All 3,479 archives the probe logs recorded are on disk and in
+  `.processed`, which is written only after both journal halves ingest cleanly. Every one of the 19,231
+  archives on disk **matches its catalogue size to the byte**, with no partial or `.tmp` file anywhere,
+  which is the check that would catch a move-then-truncate and which neither investigator ran until the
+  verifier did. The union of every `fail` line in every log gives 722 names, all on disk bar two. And the
+  12 and 22 minute mtime gaps are ingest work, not backoff: six further batches ran inside the 22.
+- **Both of the hypotheses I put to the investigators were wrong**, and were excluded rather than merely
+  not chosen. A zero-group run cannot have made these directories, because `probe_usenet_groups.py`
+  guards `if not groups: raise SystemExit` **before** its `mkdir`; and the one-shot
+  `mv data/raw/usenet_probe*/*.mbox.zip` the handback suggested would have stamped all four with a single
+  second, where the observed mtimes span three.
+- **The corpus is complete and fully processed.** Catalogue 19,233 groups over 12 hierarchies,
+  411,214,378,850 bytes. On disk 19,231, 411,023,158,296 bytes. `.processed` 19,231, set-identical to
+  disk in both directions: **zero unread archives, zero orphans**. The two absent groups are `alt.irc`
+  and `alt.music.oasis`, refused with HTTP 500 and 502 across two separate retry runs, together 0.05% of
+  the corpus. Declare the download done.
+- **Two documented claims were stale, in opposite directions.** "1,773 archives on disk have never been
+  opened" is now zero under the ingestion reading; under the document's own reading, which is
+  *unmeasured*, it is far worse than 1,773: the newest whole-corpus yield run covered 1,706 archives, so
+  **17,525 have never been priced**. And `alt.*`'s "14,910 groups, 229 GB, the only untested population
+  at scale" was the **remainder unprocessed at the end of 1 August**, which reproduces from the ingest
+  log to the byte (378 groups processed, 4,502,811,697 bytes, remainder 229,554,674,237). `alt.*` is
+  15,288 groups and 218.0 GiB, of which 15,286 are downloaded and all 15,286 processed. It is 79% of the
+  groups and 57% of the bytes and its yield is entirely unknown, which makes it the largest open question
+  about the project's largest source, answerable by a screening pass over local files.
+- **Two precise coverage gaps found.** The header pass and the first address pass each read 19,083
+  archives rather than 19,231, because the 148-archive `auto084548` batch landed between them; so those
+  148 were never header-scanned. And the bare-host pass enumerated all 19,231 but **only 9,759 produced a
+  single row**, which is the fact to know before extrapolating from a sample of it.
+- **A 22-batch failure loop on 6 and 7 August was lossless**, and the guard is why. Every batch died in
+  about nine seconds on `AttributeError: 'Header' object has no attribute 'strip'`, and because
+  `ingest_new_usenet.sh` appends to `.processed` only after a clean ingest, each retry re-offered the same
+  2,500 archives until the fix landed. None of the 22 tags' journals reached disk or the ledger.
+- **Three measurement traps worth carrying forward.** `ls data/raw/usenet/*.mbox.zip | wc -l` returns
+  **0**, because 19k arguments overflow the exec limit and `2>/dev/null` swallows the error: use `find`.
+  `command grep -c "A|B|C"` is BRE, so the pipes are literal and it returns 0 by construction. And
+  `split_usenet_addresses.py` globs `usenet_*.jsonl.gz` in its own `--in-dir` and writes its output back
+  into that same directory, so a second run there would re-consume its own output.
+- **The verifier overturned four claims and caught two citation errors**, including a search scoped to
+  `data/raw/usenet*` that missed two journals one directory over in `data/staging/`. That is the same
+  scoping trap the audit was warned about, so it is worth naming again: **a search that finds nothing has
+  either proved something or been pointed at the wrong place, and those look identical.**
+
+**Signed off by Ivo: pending.**

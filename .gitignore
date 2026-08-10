@@ -22,8 +22,8 @@ __pycache__/
 # repo root and `git add -A` swept it into a commit: 1.3 GB, five files over
 # GitHub's 100 MB hard limit, and an unpushable branch. Match the name itself
 # rather than one path, since the next copy will land somewhere new again.
-merged2608*/
-**/merged2608*/
+merged*/
+**/merged*/
 
 # Data policy: big data stays out of git; the repo commits code + docs only.
 # The net-new deliverable (output/) grew large once real sources landed, so it
@@ -32,6 +32,7 @@ merged2608*/
 feedback-phase-1/
 feedback-external-phase-2/
 feedback-phase-3/
+feedback-phase-4/
 legacy-data/
 /data/
 output/
@@ -52,7 +53,12 @@ submissions/**/*.tar.gz
 # archive, which packages every tracked file via `git archive HEAD`.
 private/
 
-# Research handoff and agent prompt: working notes, not deliverables
+# Research handoff and agent prompt: working notes, not deliverables. They now live
+# under legacy/notes/, and that subtree stays ignored: these eight files have never
+# been in git, one of them breaks house style, and docs/notes.md records what
+# happened the last time private working prose travelled inside a delivery archive.
+# Archiving them must not be the act that commits them.
+legacy/notes/
 handoff-research.md
 handback-research.md
 prompt-research-agent.md

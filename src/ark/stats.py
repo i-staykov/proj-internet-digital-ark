@@ -90,6 +90,12 @@ PROVENANCE_LINEAGE = {
     # let a Usenet announcement and a registry record for the same pair look like
     # one body of observation, and filing them as their own family would let them
     # corroborate AFNIC as if independently collected. They are registry data.
+    # A defacement mirror is its own body of observation: neither a web crawl, nor
+    # Usenet, nor a registry. Its operators saw the host serving because they broke
+    # into it or watched someone else do so, which is independent of every other
+    # source here, so a pair it confirms alongside a capture is genuine
+    # cross-lineage corroboration.
+    "attrition_defacement": "defacement_mirror",
     "uucp_map_registry": "registry",
     "uucp_map_creation": "registry",
     "uucp_map_mention": "registry",

@@ -24,6 +24,7 @@ killed run's answers are not re-queried.
 """
 
 import gzip
+import io
 import json
 import os
 import signal
@@ -61,9 +62,23 @@ def open_journal(path: Path) -> IO[str]:
 
 
 def open_journal_for_write(path: Path) -> IO[str]:
-    """Open a journal for writing, gzipped unless the path says otherwise."""
+    """Open a journal for writing, gzipped unless the path says otherwise.
+
+    `mtime=0` rather than the default, and it is load-bearing rather than tidy.
+    gzip stamps the current time into its header, so writing the same records
+    twice produces different bytes, and the ingest ledger keys on the content
+    hash. The consequences were both real: a collector re-run that changed
+    nothing was refused as "ledgered with different content", and tier-2's
+    byte-identical rebuild claim was quietly false for every journal in the
+    delivery. With the timestamp pinned, identical records give an identical
+    file, which is what makes "re-offering an ingested journal is a no-op"
+    true rather than usually true.
+    """
     if _is_compressed(path):
-        return gzip.open(path, "wt", encoding="utf-8")
+        # GzipFile opens the file itself, so closing the wrapper closes both.
+        return io.TextIOWrapper(
+            gzip.GzipFile(filename=str(path), mode="wb", mtime=0), encoding="utf-8"
+        )
     return path.open("w", encoding="utf-8")
 
 
@@ -114,7 +129,7 @@ def journal_writer(path: Path) -> Iterator[IO[str]]:
 def write_journal_line(fh: IO[str], record: dict) -> None:
     """Append one record and push it to disk.
 
-    The flush is not belt-and-braces, it is load-bearing. `scripts/watchdog_lang.sh`
+    The flush is not belt-and-braces, it is load-bearing. `scripts/supervise_cdx_pool.sh`
     decides whether a run has stalled by watching the journal's size on disk, and
     gzip emits nothing until zlib fills a block. At normal speed the first block
     lands inside the watchdog's window; on 3 August, with the archive answering in

@@ -156,9 +156,8 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
 # English verification standard of the phase-3 feedback, which the reviewer has
-# since retired in favour of the equivalent-English metric. The pipeline can still
-# produce them, and `ark lang-report` still writes them under `output/`, so this
-# is a change to what the delivery asserts rather than a loss of capability.
+# since retired in favour of the equivalent-English metric. The engine now lives in
+# `legacy/src/language.py` and nothing in the tree writes those folders any more.
 #
 # Shipping them was worse than useless once the standard went: the folders came
 # out empty, `verify.sh` printed three vacuous WARN lines about a partition of
@@ -196,43 +195,12 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' \
     -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 
-# Superseded language journals go in their own folder, clearly named. They are
-# the verdicts produced by earlier versions of the classifier, kept so that a
-# discarded verdict is auditable rather than merely deleted. They must not sit
-# beside the current ones: the README tells the reader to ingest
-# `lang_*.jsonl.gz`, and although the engine-version gate would keep these out
-# of any annual file, a folder named `superseded` says so without relying on it.
-if compgen -G "data/raw/lang/superseded/*.jsonl.gz" > /dev/null; then
-    mkdir -p "$STAGE/journals/lang_superseded"
-    cp data/raw/lang/superseded/*.jsonl.gz "$STAGE/journals/lang_superseded/"
-    cat > "$STAGE/journals/lang_superseded/README.txt" <<'SUPERSEDED'
-Language verdicts produced by superseded versions of the classifier.
-
-They are here for audit, not for use. Each was discarded after a defect was
-found in the engine that produced it, and they are kept so that a discarded
-verdict remains reproducible rather than simply deleted.
-
-Every record carries no `engine_version` field, or one below the current
-ENGINE_VERSION in src/ark/language.py. The exporter admits a verdict to an
-annual file only at the current version, so ingesting these cannot put a
-superseded verdict into a result file. They will, correctly, be re-judged.
-
-What was wrong with them, in order of discovery:
-
-  v1  The CDX index limit was passed the page-fetch count, so the engine asked
-      the index for two rows and reported that as the whole archive. 75.4% of
-      pairs with any capture were censored this way. Captures were also taken in
-      URL-key order, so framesets and redirect stubs dominated the sample, and
-      registrar parking pages scored English at confidence 1.000.
-
-  v2  A replay request could be answered with a capture from a different year
-      and reported as success, so a verdict could be dated wrongly while its
-      recorded URL made the error invisible. Selection preferred robots.txt and
-      vendor webmail pages over site content. The placeholder test skipped any
-      page over 1,000 characters, admitting keyword link farms. A verdict could
-      be settled on a truncated sample after a fetch failure.
-SUPERSEDED
-fi
+# The retired English engine's superseded verdict journals are no longer shipped.
+# They were kept beside the current ones under `journals/lang_superseded/` so a
+# discarded verdict stayed auditable, which mattered while the standard was live.
+# The standard is retired and the engine is in `legacy/src/language.py`, so an
+# archive carrying them would document a rule nobody applies. The journals stay on
+# disk under `data/raw/lang/`; `legacy/docs/retired-data.md` says what they are.
 
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"

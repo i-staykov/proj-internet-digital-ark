@@ -1,6 +1,6 @@
 # Internet Digital Ark: round report
 
-Additions to the 1996-2001 annual domain lists, measured against `merged260802-2`.
+Additions to the 1996-2001 annual domain lists, measured against `merged260810`.
 
 **Every figure in the tables** is generated from the store by `scripts/report_figures.py` and
 substituted by `scripts/fill_report.py`, so a table here cannot drift from the shipped files. The
@@ -13,43 +13,33 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **946,266** |
-| Over unique domains | 684,523 |
-| Domains absent from the baseline in every year | **76,538** |
-| Equivalent-English added | **603,401.8** |
-| Growth on the 5,622,984.6 baseline | **10.7310%** |
-| Mean equivalent-English weight per pair | 0.6377 |
+| Net-new (domain, year) pairs | **52,768** |
+| Over unique domains | 48,095 |
+| Domains absent from the baseline in every year | **24,790** |
+| Equivalent-English added | **22,313.8** |
+| Growth on the 6,226,386.4 baseline | **0.3584%** |
+| Mean equivalent-English weight per pair | 0.4229 |
 
-| Year | merged260802-2, this counting unit | Additions | Capture-backed |
+| Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 623,012 | 25,301 | 72 (0.3%) |
-| 1997 | 1,281,371 | 59,156 | 1,499 (2.5%) |
-| 1998 | 970,963 | 176,961 | 17,990 (10.2%) |
-| 1999 | 1,537,182 | 260,473 | 26,764 (10.3%) |
-| 2000 | 1,555,211 | 251,602 | 51,104 (20.3%) |
-| 2001 | 2,817,881 | 172,773 | 39,018 (22.6%) |
-| **Total** | **8,785,620** | **946,266** | **136,447 (14.4%)** |
+| 1996 | 648,313 | 4,902 | 0 (0.0%) |
+| 1997 | 1,340,527 | 37,401 | 0 (0.0%) |
+| 1998 | 1,147,924 | 81 | 35 (43.2%) |
+| 1999 | 1,797,655 | 1,425 | 172 (12.1%) |
+| 2000 | 1,806,813 | 3,592 | 1,324 (36.9%) |
+| 2001 | 2,990,654 | 5,367 | 3,122 (58.2%) |
+| **Total** | **9,731,886** | **52,768** | **4,653 (8.8%)** |
 
 ## 2. Where the additions come from
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `usenet_announce` | post date of the announcement | `dated_directory` | master | 585,175 | 348,669.9 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 117,417 | 97,237.7 |
-| `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 107,304 | 64,960.8 |
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 48,394 | 29,023.4 |
-| `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 42,139 | 28,460.3 |
-| `uucp_map_registry` | posting date of the registry's generated dump | `artifact_listing` | master | 23,678 | 19,806.2 |
-| `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 5,166 | 4,084.2 |
-| `uucp_map_creation` | the registrar's own `approved:` date | `whois_creation` | master | 4,793 | 4,009.3 |
-| `enron_email` | the message `Date:` header | `dated_directory` | master | 5,134 | 3,241.9 |
-| `trade_press` | the issue cover date | `dated_directory` | master | 3,740 | 2,401.9 |
-| `maillist_archive` | the message `Date:` header | `dated_directory` | master | 1,458 | 833.2 |
-| `isc_survey` | survey run date | `artifact_listing` | master | 1,857 | 665.2 |
-| `page_directory` | capture timestamp of the archived catalogue page | `dated_directory` | master | 11 | 7.7 |
-| **Total** | | | | **946,266** | **603,401.8** |
+| `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 4,653 | 4,566.0 |
+| `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
+| **Total** | | | | **52,768** | **22,313.8** |
 
-**All 13 are master sources, so all 946,266 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 3 are master sources, so all 52,768 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -58,8 +48,8 @@ is `link_target` and can never assign a year; it goes to the candidate pool and 
 finds any annual assignment backed by candidate-only evidence, and `every_pair_has_master_evidence`
 finds any assigned pair lacking a master-eligible row for that exact year. Both currently report zero.
 
-The four master types in this round divide into two kinds, and the difference is worth one paragraph
-because it is the difference in how much each pair rests on.
+Those master types divide into two kinds, and the difference is worth one paragraph because it is
+the difference in how much each pair rests on.
 
 **Self-dating artifacts, where the record itself is the authority.** `whois_creation` is the
 registry's own registration event. `cdx_timestamp` is a capture the Internet Archive actually holds.
@@ -73,74 +63,18 @@ extra filter described below.
 Each source is named below by the **artifact that carries the date**, because that is what decides
 what a (domain, year) pair rests on.
 
-### `rdap_snapshot`: registry creation dates, asked of the candidate pool
+<!-- One subsection per source that is NEW OR CHANGED THIS ROUND, and no others.
+     The table above already reports every source's volume and admissibility, so a
+     subsection earns its place only by saying something the table cannot: what
+     artifact carries the date, what population was asked, and what limit the
+     source has. Name each one by the artifact that carries the date.
 
-The registry's own `registration` event, read from the authoritative RDAP server for each TLD rather
-than through a redirector. It is one of the self-dating types above: the registry is the authority on
-when a name was created, so the record stands on its own.
+     Write the volume figures nowhere but the table. Every hand-typed number in
+     this document has to be re-derived by a reader who cannot see the store, and
+     the last round shipped one that contradicted its own generated table.
 
-What is new is not the source but the **population it was asked about**. Earlier rounds pointed
-creation-date lookups at domains that already held a year, hunting a missing year beside a held one.
-This round pointed them at the candidate pool instead, the names held with no year at all. A creation
-date landing in window gives such a name its **first** year, which makes it a net-new domain and not
-merely a net-new pair, and that is why this round's net-new domain count rose so much faster than its
-pair count.
-
-Two limits, both deliberate. A creation date supports the annual file for the year it falls in and
-**nothing later**: it does not establish that the domain remained registered afterwards. And a domain
-whose creation date falls outside 1996-2001 attests nothing and stays in the candidate pool.
-
-### `usenet_bare`: the addresses written without `www.`
-
-Same corpus again, no new downloads. The extractor read `http://` URLs and hosts beginning `www.`,
-and refused a bare `foo.com` on the grounds that in running prose such a string is more often a
-company name, a file name or half an email address than a website. Bare addresses are common in
-the corpus, so that refusal was expensive.
-
-What makes reading them safe is the corroboration rule below: a string that is really a file name is
-not a domain any independent source has attested, so it cannot reach an annual file. That rule does
-most of the work here. The pass found 601,738 candidate pairs in the corpus; 269,773 of them were
-already asserted by the two Usenet sources above, and 36.3% were uncorroborated and went to the
-candidate pool. **The table above reports only what survived both filters**, which is the figure this
-source is worth. Quoting the 601,738 would have overstated it by more than an order of magnitude.
-
-### `usenet_address`: the addresses the extractor never read
-
-Same corpus as `usenet_announce`, no new downloads. The message parser read `http(s)` URLs, bare
-`www.` hosts and the `From:` header, and therefore never saw `ftp://` addresses, `mailto:` links, or
-addresses typed in running text. In 1996 a vendor often published an `ftp://` address where a later
-one would publish a web address. The date is the post date, exactly as for `usenet_announce`, which
-this collection already accepts.
-
-### `uucp_map_registry` and `uucp_map_creation`: the UUCP maps
-
-The strongest provenance added this round. `comp.mail.maps` carried the Canadian registry's own
-machine-generated dumps, each declaring itself *"Automatically generated from a .CA domain
-registration form"* and regenerated from the live registration database at posting time. Entries
-carry the registrar's own `approved:` date. This is a registry record of the same class as the AFNIC
-`.fr` file already in the collection, not a typed URL, which is why it is split into a listing date
-and a creation date rather than treated as free text. Hand-maintained map files in the same group are
-**not** treated this way: they are demoted to candidate-only.
-
-### `enron_email`: the FERC-released corporate mail corpus
-
-517,401 business messages released by the Federal Energy Regulatory Commission, 480,891 of them in
-window, each carrying a `Date:` header. Its value is less its size than its **independence**:
-corporate email owes nothing to any web crawl, to Usenet, or to any registry, so a pair it confirms
-alongside those is genuine cross-source corroboration rather than one lineage agreeing with itself.
-
-### `rtfm_faq`: the Usenet FAQ mirror
-
-The `rtfm.mit.edu` periodic-posting archive. Each FAQ lists the sites its subject covers and carries
-its own revision header, so it is dated by **revision** rather than by the date it happened to be reposted,
-which is the difference between a 1997 fact and a 2001 one.
-
-### `trade_press`: scanned computer magazines
-
-A magazine issue is a dated artifact: a 1997 issue printing a domain establishes that the domain was
-in use in 1997, exactly as an archived dated directory page does. Reported here at its measured
-size rather than its projected one; see `sources.md` for why the discovered corpus turned out
-smaller in value than the family suggests.
+     Phase-4's six subsections are kept verbatim in
+     `submissions/phase-4/report.md`; copy the shape from there, not the content. -->
 
 ## 3. The extra filter on typed addresses
 
@@ -156,16 +90,11 @@ separately in `candidates.txt`, and claims nothing.
 
 The consequence is the guarantee worth having: **an invented name cannot reach an annual file**,
 because a name nobody else ever saw has no other source to corroborate it. This is a property of the
-pipeline rather than a review step that could be skipped, and it costs real volume: `usenet_bare`
-found 601,738 candidate pairs in the Usenet corpus and the table above reports only the fraction that
-survived, because 36.3% were uncorroborated and went to the pool and most of the rest were already
-held.
+pipeline rather than a review step that could be skipped, and it costs real volume. The table above
+reports only what survived the split, which is why a figure quoted from it is always smaller, and
+always the one this work is worth.
 
-Beyond that, 78,308 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.7434 distinct sources on average. One qualification on that count, since it is the kind of number that flatters itself:
-50,250 of the `usenet_bare` rows come from `can.uucp.maps` and `comp.mail.maps`, the two newsgroups
-the UUCP registry parser also reads. Where a pair holds evidence from both, that is one posting read
-two ways rather than two independent lineages. It moves no annual file and no equivalent-English
-figure, only the corroboration count.
+Beyond that, 1 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.838 distinct sources on average.
 
 ## 4. How to reproduce
 
@@ -214,5 +143,4 @@ download address for every source plus every family evaluated and **rejected** w
 that killed it.
 
 To collect **new** evidence rather than replay it, `just --list` inside `source/` shows one recipe per
-source: `rdap-pool`, `usenet-bare`, `usenet-addresses`, `uucp-maps`, `maillists`, `enron`,
-`rtfm-faqs`, `trade-press`. Those need the network.
+source. Those need the network.

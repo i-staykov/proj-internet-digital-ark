@@ -242,7 +242,7 @@ def build(weights: list[int]) -> dict:
     }
 
 
-def report(built: dict, need: Decimal, rates: list[float]) -> None:
+def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
     rows = built["rows"]
     live = [r for r in rows if r[0] and r[1] > 0]
     print(
@@ -269,6 +269,12 @@ def report(built: dict, need: Decimal, rates: list[float]) -> None:
         )
 
     total = sum((r[1] for r in live), Decimal(0))
+    if need is None:
+        # No target, so there is no "how long to reach it" to report. Saying nothing
+        # is right here: the alternative, substituting some default target, prints a
+        # deadline for a goal nobody set.
+        print(f"\n  whole queue expected value {total:,.0f} EE, no target set")
+        return
     print(f"\n  whole queue expected value {total:,.0f} EE against {need:,.0f} needed")
     cum = Decimal(0)
     reached = None
@@ -351,28 +357,38 @@ def main() -> None:
 
     need = args.need
     if need is None:
-        from ark.baseline import REVIEWER_BASELINE_EE
+        from ark.baseline import CURRENT_ROUND_SINCE, REVIEWER_BASELINE_EE
 
         conn = read_only_store(STORE)
         try:
-            rows = conn.execute("""
+            # The round window comes from `ark.baseline` for the same reason the
+            # baseline total does: retyped here it drifts, and a window still open
+            # on the last round counts work the reviewer has already credited.
+            rows = conn.execute(
+                """
                 SELECT split_part(y.domain, '.', -1) AS tld, count(*)
                 FROM domain_year y
-                WHERE y.verified_at >= TIMESTAMPTZ '2026-08-03 18:09:00+00'
+                WHERE y.verified_at >= TIMESTAMPTZ ?
                   AND NOT EXISTS (
                     SELECT 1 FROM evidence p
                     WHERE p.domain = y.domain AND p.evidence_year = y.assigned_year
                       AND p.evidence_type = 'prior_reused')
                 GROUP BY 1
-            """).fetchall()
+            """,
+                [CURRENT_ROUND_SINCE],
+            ).fetchall()
         finally:
             conn.close()
         weight = english_weights()
         now = sum((weight.get(t, Decimal(0)) * n for t, n in rows), Decimal(0))
-        need = REVIEWER_BASELINE_EE / 10 - now
+        # No target is set for this round, and `need` stays None. The 10% goal was
+        # phase-4's and was met at 10.7310%; carrying it forward would silently
+        # retarget a tenth of a baseline that has itself grown, which is a number
+        # nobody asked for. Pass `--need` to size the queue against a chosen goal.
         print(
             f"round stands at {now:,.1f} EE, "
-            f"{now / REVIEWER_BASELINE_EE * 100:.4f}%, short by {need:,.1f}\n"
+            f"{now / REVIEWER_BASELINE_EE * 100:.4f}% of the "
+            f"{REVIEWER_BASELINE_EE:,.4f} baseline. No target set; pass --need to set one\n"
         )
 
     built = build(weights)

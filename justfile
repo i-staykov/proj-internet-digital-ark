@@ -5,7 +5,7 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (twelve integrity invariants over
+# On naming: `ark check` validates the DATA (nine integrity invariants over
 # the store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
@@ -44,13 +44,17 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: twelve invariants over the store, non-zero exit on any failure
+# the integrity gate: nine invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 
 # the scoreboard: net-new domains, pairs and equivalent-English on top of the
-# baseline. Quote the "not yet credited" block, not the net-new one: net-new still
-# contains the round the reviewer has already merged.
+# baseline named in `src/ark/baseline.py`. Net-new here means uncredited: the
+# reviewer's merged release is loaded, so everything he has already taken is
+# excluded by construction rather than subtracted by hand. Check the release it
+# prints; if it is not the newest one he has sent, every figure is overstated.
+#
+# the scoreboard: uncredited net-new domains, pairs and equivalent-English
 stats:
     uv run ark stats
 
@@ -71,11 +75,21 @@ baseline:
     uv run ark audit
 
 # stage 2: ingest every bulk source already downloaded into data/raw/
+#
+# `arquivo_ia` is deliberately absent. `data/raw/arquivo/IA.cdxj` is 47 GB and was
+# deleted to reclaim disk once its 28,247 evidence rows were in the store, so its
+# evidence is present and its input file is not. Leaving the line in aborted this
+# whole stage on a missing file, which broke the reviewer-facing reproduction path.
+# To re-derive it rather than trust the store, download it first (the command is in
+# docs/sources.md) and run the commented line by hand. Same reason
+# `data/raw/checksums.sha256` verifies 234 files rather than 235.
+#
+# stage 2: ingest every bulk source already downloaded into data/raw/
 sources:
     uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
-    uv run ark ingest arquivo_ia        data/raw/arquivo/IA.cdxj
+    # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
     uv run ark ingest internet_scout    data/raw/scout/scout_oai.xml
     uv run ark ingest odp               data/raw/odp/*.gz
@@ -106,8 +120,18 @@ journals:
     uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
     uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
     uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
+    # `_r2` is the second split of the recovered-address journals, run after the
+    # extractor was widened. The first split is in the ledger but no longer on
+    # disk; the second is a superset, so replaying it alone reconstructs the same
+    # evidence. Regenerate with `just usenet-addresses`, which writes the
+    # untagged names, then rename.
     uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_r2.jsonl.gz
     uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_r2.jsonl.gz
+    # The machine-written header seam. Same two source keys, because the headers
+    # carry the same kind of claim as a typed address and no `usenet_hdr` spec
+    # exists. Without these two lines a rebuild is 19,224 evidence rows short.
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_hdr/usenet_hdr_dated.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_hdr/usenet_hdr_candidates.jsonl.gz
     uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
     uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
     uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
@@ -117,6 +141,7 @@ journals:
     uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
     uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
     uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+    uv run ark ingest attrition_dated     data/raw/attrition/attrition_dated.jsonl.gz
     uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
     uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
     uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
@@ -129,10 +154,17 @@ journals:
     uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
     uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american_bare.jsonl.gz
     uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american_bare.jsonl.gz
-    uv run ark ingest-lang                data/raw/lang/lang_*.jsonl.gz
+    # The archived 1996-1997 Yahoo directory walk. Measured and rejected as a
+    # route (55 requests bought 11 pairs), but its three journals were ingested,
+    # so a rebuild without them is 670 records short of the store.
+    uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_pilot1996_corroborated.jsonl.gz --round 5
+    uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_fatpages1996_corroborated.jsonl.gz --round 5
+    uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_expand_corroborated.jsonl.gz --round 5
 
 # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
 # registered-domain counting unit drops. Reads the same source files again.
+#
+# stage 5: rebuild the auxiliary hostname and URL seed pool
 seeds:
     uv run ark seed-pool isc_survey       data/raw/isc_survey/*.gz
     uv run ark seed-pool odp              data/raw/odp/*.gz
@@ -140,21 +172,29 @@ seeds:
     uv run ark seed-pool ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
     uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
 
-# stage 6: write the deliverable, then prove it. `lang-report` comes after
-# `export` because it partitions what the export wrote.
+# stage 6: write the deliverable, then prove it. The order is not cosmetic:
+# `check`'s `additions_not_double_counted` invariant reads the exported annual
+# files, so running it before `export` compares this round's files against last
+# round's store and reports every already-credited pair as a violation. Export
+# first, always.
+#
+# stage 6: write the deliverable, then prove it
 deliver:
     uv run ark export
-    uv run ark lang-report
     uv run ark stats
     uv run ark check
 
 # tier 3: the whole result from an empty store. Needs the bulk sources in
 # data/raw/ AND the supplied baseline in legacy-data/, since the annual masters
 # are baseline plus additions and net-new is defined against it.
+#
+# tier 3: rebuild the whole result from the source data, offline
 reproduce: baseline sources candidates journals seeds deliver
 
 # tier 2: regenerate every result file from a provenance export instead, which
 # needs no source data at all. About a minute, and byte-identical.
+#
+# tier 2: regenerate every result file from a provenance export
 rebuild dir="output/provenance":
     uv run ark rebuild {{dir}}
     uv run ark check
@@ -170,6 +210,8 @@ cdx-batch n="1200" workers="8":
 
 # split the gap list across machines: disjoint by content hash, so no domain is
 # ever queried twice and each slice keeps its share of the high-value head.
+#
+# split the gap list N ways for N machines (superseded by query-queue)
 gap-shards n="2":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -192,6 +234,8 @@ query-queue-preview:
 # the candidate pool instead of the gap pool: domains held with no year at all,
 # so a capture adds a name rather than a year. Best English yield first, and the
 # supervisor runs batches until the deadline epoch you give it.
+#
+# sweep the candidate pool at the archive, unattended until a deadline epoch
 cdx-pool until batch="1200" workers="8":
     uv run python scripts/build_pool_candidates.py
     bash scripts/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
@@ -208,7 +252,7 @@ engines-start until batch="600" workers="8":
     ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
         nohup caffeinate -i bash scripts/supervise_cdx_pool.sh \
         {{until}} {{batch}} {{workers}} 900 > /dev/null 2>&1 < /dev/null &
-    nohup bash scripts/maintain_phase3.sh 900 150 > /dev/null 2>&1 < /dev/null &
+    nohup bash scripts/maintain.sh 900 150 > /dev/null 2>&1 < /dev/null &
     sleep 5
     ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]" || true
 
@@ -221,7 +265,7 @@ engines-stop:
     #!/usr/bin/env bash
     set -uo pipefail
     pkill -TERM -f "supervise_cdx_pool[.]sh" 2>/dev/null || true
-    pkill -TERM -f "maintain_phase3[.]sh" 2>/dev/null || true
+    pkill -TERM -f "maintain[.]sh" 2>/dev/null || true
     echo "waiting for the batch in flight to publish its journal"
     until ! pgrep -f "[a]rk cdx " >/dev/null && ! pgrep -f "[a]rk ingest" >/dev/null; do
         sleep 5
@@ -239,6 +283,8 @@ rdap-batch n="2500":
 # sweep the candidate pool at the registries, which competes with no CDX engine.
 # Direct endpoints from the IANA bootstrap file: measured 75 q/s with no refusals,
 # against 0.83 q/s and 18.8% refused through the rdap.org redirector.
+#
+# sweep the candidate pool at the registries direct, competing with no CDX engine
 rdap-pool tlds="com,net" batches="6" limit="100000" workers="32":
     uv run python scripts/build_rdap_pool_list.py --tlds {{tlds}} \
         --out data/raw/rdap/pool_targets_{{tlds}}.txt
@@ -250,6 +296,8 @@ rdap-pool tlds="com,net" batches="6" limit="100000" workers="32":
 # number, e.g. `just expand-round seeds/expansion/seeds_round4.txt 5`. The split
 # step is not optional: it keeps a curated page's transcription typos out of
 # master evidence by demoting names no other source attests.
+#
+# one page-expansion round: fetch archived pages, split, ingest both halves
 expand-round seeds round:
     uv run ark download {{seeds}} -n 250 --workers 3 --captures 2 \
         --out data/raw/expand/round{{round}}/expand_round{{round}}.jsonl.gz
@@ -260,30 +308,11 @@ expand-round seeds round:
     uv run ark ingest expansion_links \
         data/raw/expand/round{{round}}/expand_round{{round}}_unverified.jsonl.gz --round {{round}}
 
-# --- the English-website standard (brief feedback v3 section 6) ---------------
-# Admission now needs more than existence: the site must have been English in
-# that year, judged from archived body text. These write journals like the other
-# collectors and never open the store.
-
-# write the (domain, year) work list, capture-backed pairs first, years interleaved
-lang-targets:
-    uv run ark lang-targets
-
-# one classification batch
-lang-batch n="400" workers="2" min_delay="1.5":
-    uv run ark lang data/raw/lang/lang_targets.txt -n {{n}} --workers {{workers}} \
-        --samples 2 --delay 2.0 --min-delay {{min_delay}}
-
-# fold journals into domain_language, then write the admitted subset and table
-lang-ingest:
-    uv run ark ingest-lang data/raw/lang/lang_*.jsonl.gz
-    uv run ark lang-report
-
-# run it in batches for a long stretch (seconds, batch, workers, floor)
-lang-supervise seconds="27000" batch="400" workers="2" min_delay="1.5":
-    bash scripts/supervise_lang.sh {{seconds}} {{batch}} {{workers}} {{min_delay}}
-
-# --- this round's new sources -------------------------------------------------
+# --- the per-source collectors ------------------------------------------------
+# Each pair is collect-then-split: the collector writes a journal and touches no
+# database, the split sorts the journal into a dated half and a candidate half,
+# and only then does anything reach the store. The split is the evidence wall for
+# every free-text source, so it is not optional.
 
 # measure a Usenet archive's yield against the store BEFORE ingesting it.
 # The one source assessed without doing this was estimated at 27,276 net-new
@@ -306,12 +335,24 @@ uucp-maps:
     uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
 
 # mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host.
+# The mode has to be threaded all the way through, because it changes the output
+# DIRECTORY as well as the extractor: `addresses` writes data/raw/usenet_addr and
+# `headers` writes data/raw/usenet_hdr. Passing it only to the collector, as this
+# recipe once did, collected into one directory and then split and ingested the
+# other, so `mode=headers` silently re-ingested the address journals.
 # ftp://, mailto: and body addresses the Usenet extractor never read
 usenet-addresses mode="addresses" workers="10":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{mode}}" in
+        addresses) dir=data/raw/usenet_addr; prefix=usenet_addr ;;
+        headers)   dir=data/raw/usenet_hdr;  prefix=usenet_hdr  ;;
+        *) echo "mode must be 'addresses' or 'headers'" >&2; exit 1 ;;
+    esac
     uv run python scripts/collect_usenet_addresses.py --mode {{mode}} --workers {{workers}}
-    uv run python scripts/split_usenet_addresses.py --write
-    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated.jsonl.gz
-    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates.jsonl.gz
+    uv run python scripts/split_usenet_addresses.py --in-dir "$dir" --out-prefix "$prefix" --write
+    uv run ark ingest usenet_addr_dated      "$dir/${prefix}_dated.jsonl.gz"
+    uv run ark ingest usenet_addr_candidates "$dir/${prefix}_candidates.jsonl.gz"
 
 # Sends no request and takes about three hours of CPU at 8 workers. Run
 # `--sample 400` first if you want the projection before committing to it.
@@ -377,6 +418,15 @@ maillists:
     uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
     uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
 
+# Reads 33 index pages already on disk and sends no request. `artifact_listing`
+# and no corroboration split: the mirror saved a copy of the page at that host on
+# that date, so a name that did not resolve could not be in the index.
+# the attrition.org defacement mirror, dated by the mirror's own index
+attrition:
+    uv run python scripts/collect_attrition.py --write
+    uv run ark ingest attrition_dated data/raw/attrition/attrition_dated.jsonl.gz
+    uv run ark seed data/raw/attrition/attrition_out_of_window_hosts.txt
+
 # the Tucows software catalogue: release date plus vendor home page
 tucows:
     uv run python scripts/split_tucows.py --write
@@ -386,7 +436,7 @@ tucows:
 # One loop rather than several, because DuckDB takes a single writer.
 # fold everything the collectors have finished into the store, on a loop
 maintain iterations="26" pause="900":
-    bash scripts/maintain_phase3.sh {{iterations}} {{pause}}
+    bash scripts/maintain.sh {{iterations}} {{pause}}
 
 # --- shipping ----------------------------------------------------------------
 

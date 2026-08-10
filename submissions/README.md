@@ -20,18 +20,27 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 
 ## Rounds
 
-| Round | Sent | Baseline | Net-new pairs | Equivalent-English | Growth | What was new |
-|---|---|---|--:|--:|--:|---|
-| phase-1 | 2026-07-26 | `original` | | | | first delivery: baseline normalization, capture-backed additions |
-| phase-2 | 2026-07-29 | `merged260727` | | | | expansion rounds, candidate pool split out |
-| phase-3 | 2026-08-02 | `merged260730` | | | | English verification engine, two disjoint shipped sets |
-| phase-4 | 2026-08-09 | `merged260802-2` | 946,266 | 603,401.78 | **10.7310%** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
+| Round | Sent | Baseline | Net-new pairs | Equivalent-English | Growth | Outcome | What was new |
+|---|---|---|--:|--:|--:|---|---|
+| phase-1 | 2026-07-26 | `original` | | | | merged as `merged260727` | first delivery: baseline normalization, capture-backed additions |
+| phase-2 | 2026-07-29 | `merged260727` | | | | merged as `merged260730` | expansion rounds, candidate pool split out |
+| phase-3 | 2026-08-02 | `merged260730` | 151,949 | 91,814.69 | | merged as `merged260802-2` | English verification engine, two disjoint shipped sets |
+| phase-4 | 2026-08-09 | `merged260802-2` | 946,266 | 603,401.78 | **10.7310%** | **accepted in full 2026-08-10, reissued as `merged260810`** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
 
-**phase-4 in one line:** the round crossed 10% on the equivalent-English metric, re-scored with the
-reviewer's own `equivalent_english_domains.py`, which rejected none of the 946,266 records, found none
-already in his merged files, and agreed with our total to 0.0000. All integrity invariants pass. This
-is the first round shipped without the retired English partition: the deliverable is `additions/`,
-with `candidates.txt` beside it.
+Growth is always quoted against the baseline in the same row, which is the reviewer's convention. The
+same 603,401.78 equivalent-English is 9.69% against `merged260810`, so a percentage lifted out of this
+table without its baseline means nothing.
+
+**phase-4 in one line:** the round crossed 10% against `merged260802-2`, re-scored with the reviewer's
+own `equivalent_english_domains.py`, which rejected none of the 946,266 records, found none already in
+his merged files, and agreed with our total to 0.0000. All integrity invariants pass. It was the first
+round shipped without the retired English partition: the deliverable is `additions/`, with
+`candidates.txt` beside it.
+
+**phase-4's acceptance is verified from the files, not taken on trust.** `merged260810` minus
+`merged260802-2` is exactly 946,266 lines, and on the sorted annual files `comm` shows **zero** lines
+dropped in either direction, with the lines he added byte-identical to `sort output/netnew/<year>.txt`.
+He merged precisely what was sent and added nothing of his own.
 
 Rows for rounds packaged before this folder existed are filled in from their reports where the
 archive survives, and left blank where it does not. Blank means unrecorded, not zero.

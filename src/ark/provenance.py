@@ -33,11 +33,13 @@ from loguru import logger
 PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
-# Language verdicts are exported alongside the evidence graph so the
-# English-verified annual files rebuild from the export like everything else.
-# They are optional on load, because an export written before the English
-# standard existed has no such file and must still load: a reviewer holding the
-# earlier delivery archive should not meet a FileNotFoundError.
+# Page-language verdicts, from the standard the reviewer retired in August 2026
+# (see `legacy/README.md`). Still exported and still loaded, because a reviewer
+# holding an archive from a round that shipped them must be able to rebuild it,
+# and because a verdict that was acted on once should stay auditable. Optional on
+# load in both directions: an export from before the standard existed has no such
+# file, and one from after it was retired need not either, so neither may raise
+# FileNotFoundError.
 OPTIONAL_TABLES = ("domain_language",)
 
 TABLES = CORE_TABLES + OPTIONAL_TABLES
@@ -57,8 +59,9 @@ CREATE TABLE evidence      AS SELECT * FROM read_parquet('evidence.parquet');
 CREATE TABLE domain_year   AS SELECT * FROM read_parquet('domain_year.parquet');
 CREATE TABLE ingested_file AS SELECT * FROM read_parquet('ingested_file.parquet');
 
--- English-website verdicts per (domain, year), with the snapshot URLs that were
--- read. Absent from exports written before the English standard was imposed.
+-- Page-language verdicts per (domain, year), with the snapshot URLs that were read.
+-- From a standard retired in August 2026, kept so a round that shipped them stays
+-- rebuildable. Absent from exports written before it existed.
 CREATE TABLE domain_language AS SELECT * FROM read_parquet('domain_language.parquet');
 
 -- Why is a domain in a given annual file? One row per supporting observation.

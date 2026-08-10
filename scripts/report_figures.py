@@ -74,51 +74,9 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         )
     """).fetchone()[0]
 
-    verdicts = conn.execute(f"""
-        SELECT dy.assigned_year,
-               coalesce(dl.verdict, 'unchecked') AS verdict,
-               count(*) AS pairs
-        FROM domain_year dy
-        LEFT JOIN domain_language dl
-          ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
-        WHERE {NOT_BASELINE}
-        GROUP BY 1, 2 ORDER BY 1, 2
-    """).fetchall()
-    by_year: dict[int, dict[str, int]] = {}
-    for year, verdict, pairs in verdicts:
-        by_year.setdefault(int(year), {})[verdict] = int(pairs)
-    out["verdicts_by_year"] = by_year
-    out["verdict_totals"] = {
-        v: sum(y.get(v, 0) for y in by_year.values())
-        for v in ("english", "other", "undetermined", "unchecked")
-    }
-
-    # Unique domains, which section 6.1 requires alongside the pair counts. A
-    # domain english in one year and other in another counts in both columns,
-    # which is correct: the claim is per year.
-    out["unique_domains_by_verdict"] = {
-        v: int(n)
-        for v, n in conn.execute(f"""
-            SELECT coalesce(dl.verdict, 'unchecked'), count(DISTINCT dy.domain)
-            FROM domain_year dy
-            LEFT JOIN domain_language dl
-              ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
-            WHERE {NOT_BASELINE} GROUP BY 1
-        """).fetchall()
-    }
-
-    out["disqualified_by_reason"] = {
-        r: int(n)
-        for r, n in conn.execute("""
-            SELECT coalesce(reason, 'not_recorded'), count(*)
-            FROM domain_language WHERE verdict <> 'english'
-            GROUP BY 1 ORDER BY 2 DESC
-        """).fetchall()
-    }
-
-    # How many additions could in principle earn a verdict: the archive is known
-    # to hold an in-year capture because the evidence already names one. NOT a claim
-    # that the rest have none, only that these are known to be classifiable.
+    # Additions whose year is backed by an archive capture specifically, as opposed
+    # to a registry date or a dated artifact. NOT a claim that the rest have no
+    # capture, only that these are the ones the store already names one for.
     out["capture_backed_by_year"] = {
         int(y): int(n)
         for y, n in conn.execute(f"""
@@ -217,21 +175,6 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     # moment the baseline moved and would have silently understated the round.
     out["harvested_this_round"] = out["netnew_pairs"]
 
-    # Per year, the four language categories section 6.1 names, for unique
-    # domains as well as pairs. `syntax_anomalous` is structurally zero for these
-    # additions: every domain passed `to_registrable` before it could be stored
-    # at all, so an anomalous name cannot reach an annual file. Reported rather
-    # than omitted, because section 6.1 asks for the count.
-    out["unique_domains_by_verdict_year"] = {}
-    for year, verdict, n in conn.execute(f"""
-        SELECT dy.assigned_year, coalesce(dl.verdict, 'unchecked'), count(DISTINCT dy.domain)
-        FROM domain_year dy
-        LEFT JOIN domain_language dl
-          ON dl.domain = dy.domain AND dl.assigned_year = dy.assigned_year
-         AND dl.engine_version >= 3
-        WHERE {NOT_BASELINE} GROUP BY 1, 2
-    """).fetchall():
-        out["unique_domains_by_verdict_year"].setdefault(int(year), {})[verdict] = int(n)
     out["syntax_anomalous"] = 0
 
     out["candidate_pool"] = conn.execute("""
@@ -246,7 +189,6 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         "domains_total": conn.execute("SELECT count(*) FROM domain").fetchone()[0],
         "evidence_rows": conn.execute("SELECT count(*) FROM evidence").fetchone()[0],
         "ingested_files": conn.execute("SELECT count(*) FROM ingested_file").fetchone()[0],
-        "verdicts": conn.execute("SELECT count(*) FROM domain_language").fetchone()[0],
     }
     return out
 
@@ -265,35 +207,9 @@ def render(f: dict) -> str:
     )
     add("")
 
-    add("=== language verdicts, by year (pairs) ===")
-    add(f"{'year':<8}{'added':>10}{'english':>10}{'other':>8}{'undet':>8}{'unchecked':>11}")
-    for year in sorted(f["verdicts_by_year"]):
-        row = f["verdicts_by_year"][year]
-        added = sum(row.values())
-        add(
-            f"{year:<8}{added:>10,}{row.get('english', 0):>10,}{row.get('other', 0):>8,}"
-            f"{row.get('undetermined', 0):>8,}{row.get('unchecked', 0):>11,}"
-        )
-    t = f["verdict_totals"]
-    add(
-        f"{'TOTAL':<8}{f['netnew_pairs']:>10,}{t['english']:>10,}{t['other']:>8,}"
-        f"{t['undetermined']:>8,}{t['unchecked']:>11,}"
-    )
-    add("")
-
-    add("=== unique domains by verdict ===")
-    for verdict, n in sorted(f["unique_domains_by_verdict"].items()):
-        add(f"  {verdict:<14}{n:>10,}")
-    add("")
-
-    add("=== every judged rejection, by reason ===")
-    for reason, n in f["disqualified_by_reason"].items():
-        add(f"  {reason:<26}{n:>8,}")
-    add("")
-
     add("=== additions with a known in-year capture ===")
     for year in sorted(f["capture_backed_by_year"]):
-        added = sum(f["verdicts_by_year"].get(year, {}).values())
+        added = f["netnew_by_year"].get(year, 0)
         n = f["capture_backed_by_year"][year]
         share = 100.0 * n / added if added else 0.0
         add(f"  {year}  {n:>8,} of {added:>8,}  ({share:5.1f}%)")
@@ -325,8 +241,6 @@ def markdown(f: dict) -> str:
     """
     lines: list[str] = []
     add = lines.append
-    t = f["verdict_totals"]
-    unverified = t["other"] + t["undetermined"] + t["unchecked"]
 
     add("### Headline")
     add("")
@@ -343,29 +257,19 @@ def markdown(f: dict) -> str:
         f"| growth on the {f['ee_baseline']:,.1f} baseline | **{f['ee_netnew_growth_pct']:.4f}%** |"
     )
     add(f"| mean equivalent-English weight per pair | {f['ee_mean_weight']:.4f} |")
-    add(f"| English-verified pairs | **{t['english']:,}** |")
-    add(f"| non-verified pairs (disjoint) | {unverified:,} |")
-    add(f"| of those, judged and disqualified | {t['other'] + t['undetermined']:,} |")
-    add(f"| of those, not yet reached | {t['unchecked']:,} |")
     add(f"| candidate pool | {f['candidate_pool']:,} |")
     add("")
 
     add("### Per year")
     add("")
-    add("| Year | Net-new pairs | English-verified | Disqualified | Not yet reached |")
-    add("|---|--:|--:|--:|--:|")
-    for year in sorted(f["verdicts_by_year"]):
-        row = f["verdicts_by_year"][year]
-        added = sum(row.values())
-        disq = row.get("other", 0) + row.get("undetermined", 0)
+    add("| Year | Net-new pairs | With a known in-year capture |")
+    add("|---|--:|--:|")
+    for year in sorted(f["netnew_by_year"]):
         add(
-            f"| {year} | {added:,} | {row.get('english', 0):,} | {disq:,} | "
-            f"{row.get('unchecked', 0):,} |"
+            f"| {year} | {f['netnew_by_year'][year]:,} | "
+            f"{f['capture_backed_by_year'].get(year, 0):,} |"
         )
-    add(
-        f"| **Total** | **{f['netnew_pairs']:,}** | **{t['english']:,}** | "
-        f"**{t['other'] + t['undetermined']:,}** | **{t['unchecked']:,}** |"
-    )
+    add(f"| **Total** | **{f['netnew_pairs']:,}** | **{f['capture_backed_total']:,}** |")
     add("")
 
     add("### Per source")
@@ -394,15 +298,6 @@ def markdown(f: dict) -> str:
         )
     add("")
 
-    add("### Every judged rejection, by reason")
-    add("")
-    if f["disqualified_by_reason"]:
-        add("| Reason | Pairs |")
-        add("|---|--:|")
-        for reason, n in f["disqualified_by_reason"].items():
-            add(f"| `{reason}` | {n:,} |")
-    else:
-        add("None yet: the engine has produced no rejections at this snapshot.")
     return "\n".join(lines)
 
 
