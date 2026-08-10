@@ -67,20 +67,50 @@ That is worth internalising rather than just noting: **the largest single gain a
 far came from diffing disk against the ingest ledger, not from searching for anything.** See section 4.2
 and the 2026-08-10 entry in `notes.md`. Do that diff first.
 
-### The VPS needs a VPN and it comes and goes
+### The VPS: you cannot reach it on your own, and its clock is running
 
-`10.1.0.6` is a private address. When the link is down, `just engines` reports **UNKNOWN** for the
-remote journals, which is deliberate: it used to print "everything is home" about a machine it had not
-been able to reach, and this project once ran a second machine for a day and a half with 5,793
-year-records sitting on its disk. When the link is up:
+The second collector runs on `digga@10.1.0.6`, in `/projects/proj-internet-digital-ark`. Three things
+about it that you need from the start.
+
+**1. `10.1.0.6` is a private address, so you have to ask Ivaylo to bring the VPN up.** An `ssh` to it
+will simply time out otherwise, and that is not a broken machine or a broken key: it is a closed tunnel.
+**Ask, rather than debugging your own SSH configuration.** Access has been granted in short windows, so
+when you get one, use it immediately and completely: fetch first, ask questions afterwards.
+
+**2. Its journals are invisible to every measurement taken here until you fetch them.** This project once
+ran the second machine for a day and a half with 5,793 year-records sitting on its disk, because nothing
+here ever looked. `just engines` reports **UNKNOWN** rather than "everything is home" when it could not
+reach the machine to ask, which is deliberate and is the fix for exactly that failure. When the link is
+up:
 
 ```bash
+bash scripts/engine_status.sh          # what it is doing, and which journals are not home
 rsync -av --ignore-existing \
   'digga@10.1.0.6:/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz' data/raw/cdx/
 uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz
 ```
 
-Re-offering an ingested journal is skipped in milliseconds, so the glob is safe to run wide.
+Re-offering an ingested journal is skipped in milliseconds, so the glob is safe to run wide. Fetch on
+every window you get: a journal left on the remote disk is work that has been paid for and not banked.
+
+**3. It stops collecting at 2026-08-19T11:30Z and will not tell you.** Its supervisor was started with
+the deadline epoch `1787139003`, and when that passes the process exits cleanly, leaving no error and no
+notice. It runs under `setsid` with its own deadline, so it survives a VPN drop or a laptop shutdown, but
+it does not survive its own clock. **Before that date, decide whether to extend it**, and note that
+restarting it needs a VPN window plus a fresh queue shard, since a shard written before the
+`merged260810` load is blind to what that release added:
+
+```bash
+# on this machine, rebuild and re-shard first
+just query-queue 78,22
+# then, in a VPN window, on the VPS
+ARK_TARGETS=data/raw/cdx/queue_shard1.txt ARK_PREFIX=cdx_q1 \
+    setsid bash scripts/supervise_cdx_pool.sh <new_deadline_epoch> 300 8 900
+```
+
+Do not start a collector here at the same time without asking. The archive rate-limits per IP address,
+which is the only reason a second machine helps at all, and two clients from one address is worse than
+one.
 
 ## 3. The objective
 
@@ -270,7 +300,94 @@ increment", and the one-domain discrepancy between that and `ark stats`'s net-ne
 it is a domain that gained a year while already being in the baseline, which is exactly the distinction
 he wants tracked.
 
-## 5. Eleven ways this project has fooled itself with a number
+## 5. What the round has to produce, and what he actually reads
+
+**None of the discovery work counts until it ships in this shape.** Get familiar with it before you start,
+not at the end: two of the packaging guards exist because a round was cut wrong once.
+
+### The deliverable
+
+One `tar.gz` in `submissions/<round>/`, built by `just package` and nothing else. The staged tree is:
+
+| in the archive | what it is |
+|---|---|
+| `additions/1996.txt` .. `2001.txt` | **the deliverable.** One domain per line, deduplicated within a year, C-locale sorted |
+| `candidates.txt` | names held with no year yet. He asked for this to be as large as practicable |
+| `masters/` | baseline plus additions merged, ready to use directly |
+| `report.md` and `report.docx` | the round report. He asked for Word, so `pandoc` must be installed or packaging warns and ships markdown only |
+| `sources.md` | every source: what dates it, how to fetch it, what remains in it |
+| `provenance/` | the evidence graph as Parquet plus `LOAD.sql` and `trace.py`, so any single pair can be traced |
+| `journals/` | the raw responses of every query ever made, which is what makes the rebuild offline |
+| `audit/`, `logs/`, `dropped_domains.txt`, `seeds/` | per-source contribution counts, run logs, excluded baseline lines, the hostname pool |
+| `baseline/` | the release the figures are measured against, plus the original, plus a README naming both |
+| `source/source.tar.gz`, `COMMIT.txt` | the code as `git archive HEAD`, pinned to a commit |
+| `verify.sh`, `SHA256SUMS`, `MANIFEST.txt` | the archive's own checks, needing only coreutils and python3 |
+
+```bash
+uv run ark export                       # refresh output/ from the store
+uv run python scripts/fill_report.py    # substitute every figure into docs/report.md
+just package                            # tar.gz plus SHA256, into submissions/<round>/
+just verify-delivery                    # run the archive's own checks from outside
+```
+
+Then **add a row to `submissions/README.md`**, and unpack the archive somewhere unrelated to this
+repository and follow its own README literally. That clean-room test has found two defects nothing else
+did, including a crash on step three of the documented rebuild path.
+
+### The report, and what he cares about
+
+**Generated, never hand-written.** `docs/report.template.md` holds the prose and `[TOKENS]`;
+`scripts/fill_report.py` fills every figure from the store and refuses to write if a token is left
+unfilled. Packaging exits 1 if `docs/report.md` disagrees with what the filler would emit, so a hand edit
+halts the build rather than shipping a stale number.
+
+Its four sections are what he asked for and the order matters: **1.** what this round adds, **2.** where
+the additions come from and why each is admissible, **3.** the extra filter on typed addresses,
+**4.** how to reproduce.
+
+**Keep it short.** Ivaylo's standing instruction, in his words: the reviewer is already familiar with the
+framework and is not interested in technical details, but in **the quality of the newly-ingested
+domains**. Focus on where the additions come from, why they are viable, and how they can be reproduced.
+Anything else decreases value rather than adding it. Write one subsection per source that is **new or
+changed this round** and none for the others; the generated table already carries every source's volume.
+
+Per `SPEC.md` section IX the document must cover the methods used, newly identified methods, yield per
+source, limitations, whether further expansion is worthwhile, and the evidentiary standard applied. Note
+the last two: **a source you closed on measurement is a reportable result**, and saying so is worth as
+much as an addition.
+
+### The five fields he grades on
+
+He set the format himself, and lines 1 and 2 are **his** database before our increment, with line 5 being
+line 4 divided by line 2:
+
+```
+1. Total number of original domains 1996-2001
+2. Equivalent-English total
+3. Increment (records)
+4. Equivalent-English increment
+5. Equivalent-English growth rate  =  4 / 2
+```
+
+```bash
+uv run python scripts/round_figures.py --verify
+```
+
+**Always send with `--verify`.** It re-scores the increment with **his own** `equivalent_english_domains.py`
+and refuses the numbers if his total differs from ours or if his validator rejects a record we counted. A
+record he rejects scores zero for him and full weight for us, which is a live risk every time an extractor
+widens. Its overlap guard reading zero is also the proof the current release is actually loaded.
+
+### Two things that must never be in the archive
+
+Nothing addressed to a person, and no internal planning. `package_delivery.sh` ships
+`git archive HEAD`, so **every tracked file reaches him** unless `.gitattributes` marks it
+`export-ignore`. That is how one archive shipped an email draft's private "notes for Ivo" section.
+`docs/notes.md`, `legacy/`, this handoff and the round plan are all export-ignored; email drafts live in
+`private/`, which is git-ignored entirely. If you add a document about how to approach him rather than
+about the data, export-ignore it in the same commit.
+
+## 6. Eleven ways this project has fooled itself with a number
 
 Every one of these cost real hours and each is a distinct mechanism. If a figure you produce could be
 any of these, say so in the same sentence as the number.
@@ -301,7 +418,7 @@ any of these, say so in the same sentence as the number.
 11. **Counting distinct domains over net-new pairs.** Reported 1,161,961 domains against a true 463,566,
     because a baseline domain gaining a year is a new pair on an old domain.
 
-## 6. Operational traps in this specific repository
+## 7. Operational traps in this specific repository
 
 ### grep here is not grep
 
@@ -316,6 +433,26 @@ nonexistent filename and returns zero hits for everything:
 git ls-files > /tmp/files.txt
 tr '\n' '\0' < /tmp/files.txt | xargs -0 command grep -n 'pattern'
 ```
+
+### Two counting traps that return a confident wrong answer
+
+`ls data/raw/usenet/*.mbox.zip | wc -l` returns **0**, not 19,231: 19k arguments overflow the exec limit
+and a `2>/dev/null` swallows the error. Use `find data/raw/usenet -maxdepth 1 -name '*.mbox.zip' | wc -l`.
+
+`command grep -c "A|B|C"` is a basic regular expression, so the pipes are **literal** and it returns 0 by
+construction. That was used once as evidence a log held no failures. Use `grep -cE`.
+
+Both belong to the same family as the ripgrep trap above: **a search that finds nothing has either proved
+something or been pointed at the wrong place, and the two look identical.** Prove the negative by running
+the same command against a case you know is positive.
+
+### One live footgun in the Usenet tooling
+
+`scripts/split_usenet_addresses.py` globs `usenet_*.jsonl.gz` inside its own `--in-dir` and writes its
+two output journals **back into that same directory**. A second run in `data/raw/usenet_hdr/` would
+therefore re-consume its own previous output as input. It has not bitten, because the first run's outputs
+are no longer on disk, but it will if the header seam is re-read. Fix it before re-running that seam, not
+after.
 
 ### DuckDB takes one writer
 
@@ -355,7 +492,7 @@ a store backup first: there is no unload command.
   investigated: the file is year-sorted 1995 to mid-2004, so the truncation cuts past our window and the
   1996-2001 head is complete. Not a defect. Do not re-investigate.
 
-## 7. House rules, non-negotiable
+## 8. House rules, non-negotiable
 
 - **Never `git push`, and never `git commit` unless asked.** Ivaylo commits and pushes. Work on
   `phase-5`.
@@ -377,7 +514,7 @@ a store backup first: there is no unload command.
   move it out and bring it up to standard rather than editing in place.
 - **All raw data under `data/raw/` stays.** This round is about what is unexhausted in it.
 
-## 8. If you build a discovery harness
+## 9. If you build a discovery harness
 
 This is the round's ask, so here is the shape that follows from sections 3 to 5. Nothing below is
 decided; it is the constraint set.
@@ -386,7 +523,7 @@ decided; it is the constraint set.
   unit section 3 can reject cheaply, and "what dates one item" is the fastest filter available. If you
   cannot answer it in one sentence, the source is seed-only.
 - **Pricing is a sample measured against the live store**, reported as net-new pairs, net-new domains and
-  the **mean weight of the net-new part**, with projections labelled. Section 5 is the checklist for not
+  the **mean weight of the net-new part**, with projections labelled. Section 6 is the checklist for not
   fooling yourself, and every entry on it is a mistake already made once here.
 - **The acceptance bar** is in `discovery.md`: per-item year evidence, roughly 5,000 net-new pairs
   plausibly available, mean weight at or above 0.6 good and below 0.4 needing a volume argument.
