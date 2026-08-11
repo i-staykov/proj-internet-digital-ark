@@ -5455,3 +5455,37 @@ expected equivalent-English per query, where `.com`'s better 0.874 rate against 
 
 **No prediction is registered for the next batch.** The one dispatched at 22:20 predates this rebuild and so
 still reads the `.com` queue; the `.uk` head is first tested on the batch after it.
+
+## 2026-08-11 (the round crossed 1.3%, and the interim report was refreshed to verified figures)
+
+The interim draft had carried its 16:52 figures all afternoon and its own status line told Ivo to re-run the
+verifier before sending. With the round having moved 1,694 equivalent-English since, that instruction was
+worth honouring for him rather than leaving as a chore.
+
+Re-measured and re-verified at 23:07 with `round_figures.py --verify`:
+
+    3. Increment                    147,584 records      was 145,305
+    4. Equivalent-English increment  81,107.3232         was 79,413.4525
+    5. Growth rate                    1.302639%         was 1.275434%
+
+    his validator: 147,584 scored, 0 rejected, 0 already his, difference 0.0000
+
+**The round crossed 1.3% during the evening.** Per-year growth is now 1996 +0.8242%, 1997 +1.8398%,
+1998 +1.0285%, 1999 +1.1763%, 2000 +2.0234%, 2001 +0.9511%.
+
+**One improvement over the afternoon version rather than just fresher numbers.** That draft had to quote the
+discovery split as a percentage, because the split came from a `docs/ROUND.md` run half an hour off the
+figures and quoting both as absolutes would have shown a 547-record drift. This time both halves came out of
+the same measurement and sum exactly to fields 3 and 4: **121,361 + 26,223 = 147,584** and
+**71,336.4416 + 9,770.8816 = 81,107.3232**, so the email states them as absolutes. 88.0% of the increment's
+equivalent-English is on 116,253 domains absent from all six annual files.
+
+**Two claims in the body are now independently confirmed** rather than resting on the measurement that
+produced them. The email says 38% of `.org` RDAP answers carry an in-window creation date; tonight's yield
+check, which reads the journals rather than the store, put the newest finished RDAP batch at **38.0%** and
+the three-batch window at 35.1%. And `rdap_snapshot` is still the round's largest contributor at 82,943
+records and 50,238.9 equivalent-English, which is what the `.org` paragraph claims.
+
+The one sentence I still cannot verify is unchanged and still flagged in the notes block: "both machines are
+collecting continuously" is true of this machine and inferred for the VPS, which has been unreachable all
+evening.
