@@ -5376,3 +5376,40 @@ changes, precisely because `phase5-handoff.md` was accurate for one day and had 
 the next morning. Today I disproved three of `CLAUDE.md`'s own claims in eight hours. The file was not
 wrong to contain them, they were true when written; the failure mode is leaving them there, and the only
 defence is that a wake with nothing broken spends itself checking.
+
+## 2026-08-11 (a pre-registered prediction, and the ranking learning inside two batches)
+
+**One batch is a noisy estimate, and the data says so.** The two batches that worked C-17's `.za`/`.nz`
+head returned **8.2% and 32.2%** of ~600 answered each: same population, same queue file, same ordering,
+a 4x spread. That qualifies the instrument I added an hour ago. The `newest finished batch` line is a
+**leading indicator, not a measurement**, and the three-batch window remains the thing to judge on. It also
+means C-18 cannot be called either way on the single batch that lands next, which is worth writing down
+before that batch lands rather than after.
+
+**So the prediction is pre-registered.** The batch dispatched at 21:08 is the first to read the queue the
+TLD-grain rebuild produced. Its 600 targets, taken by replaying the engine's own skip set over the queue
+file, are 100% `.com` from four sources, and the ranking's own expected hit rate for exactly those names is
+**28.4%**. Recorded here before the answer exists, so the next wake is a test of the ranking's calibration
+rather than a reading of it. Against: the pool's 49.8% history, and the 8.2%/32.2% pair above.
+
+**The ranking learned inside two batches, exactly as designed.** Two wakes ago every source at the head had
+an unmeasured `(source, .com)` cell and I flagged that the optimism had merely moved axis. With
+`MIN_SAMPLE` at 25, the batches since have measured three of the four:
+
+    trade_press_mention   cell(.com) 0.086     was unmeasured, inheriting .com's 0.874
+    pandora_hosts         cell(.com) 0.111     was unmeasured
+    H008-pool-names       cell(.com) 0.536     was unmeasured
+    enron_email_mention   still unmeasured, so it inherits 0.874
+
+That is the self-correcting property the design was betting on, and it took about two hours rather than the
+"one batch per cell" I estimated. The exact cell now binds for three of the four, so `trade_press_mention`
+and `pandora_hosts` will sink on the next rebuild. **The current queue file still carries them at its head
+because it was built before those cells existed**, which the cycle's own `rebuild_derived` will correct
+once the file passes 1.5 hours old, at about 21:38. No action needed, which is the point of having built it.
+
+**The finding worth keeping: `H008-pool-names` measures 0.536.** The 13,078 Netcraft names banked at 19:52
+are hitting at **53.6%**, the best of the four head sources and above the pool's own 47.1%. So that source
+is productive through the CDX engine **whatever Ivo decides about its classification**: `candidate-only`
+would still leave 4,782 new candidates converting at better than the pool average. The approval decision
+governs whether its own records can date a year, not whether the names were worth having, and the names
+were worth having.
