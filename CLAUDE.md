@@ -21,6 +21,18 @@ proof*.
   places that domain in an annual file. Self-dating records (a capture timestamp, a registry creation
   date, a dated listing) take no split. **So widening extraction over a human-authored corpus is
   safe, and widening it over a self-dating one is not.**
+- **What the split does not protect against: a hostname that was never real.** It asks only whether
+  the domain is dated in *some* annual file, never whether the mention was genuine, so an invented
+  name that was later really registered passes. Measured on the RFC corpus, 2026-08-11: a large
+  minority of surviving mentions are protocol placeholders (`acmecorp.com`, `bigco.com`,
+  `widgetco.com`, `john-doe.com`), which is why RFC 2606 reserved `example.com` in 1999. **Technical
+  prose that invents plausible examples is the one typed shape where the split is not the wall**, and
+  the risk is a year claim for a year the domain did not exist.
+- **Which class a source belongs to is a decision, not an attribute**, and asserting it batch-wide is
+  how a good source gets filed as rejected. The Netcraft survey pages were measured as `typed` on an
+  unexamined assumption and are worth 8,741 pairs as `artifact_listing` against 2,204 under the split.
+  If a corpus has no author, no prose and no per-item date, it is probably self-dating: check before
+  quoting a number that depends on it.
 - **Quote the post-split number, never the raw one.**
 - **A source class may not date a year until a human has classified it.**
   `docs/approved-sources-list.md` holds one `Decision:` line per (source, evidence type), and

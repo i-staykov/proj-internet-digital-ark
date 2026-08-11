@@ -98,6 +98,27 @@ def test_newest_is_first_within_the_open_block(tmp_path) -> None:
     ]
 
 
+def test_the_marker_is_a_heading_and_not_a_substring(tmp_path) -> None:
+    """The header explains the rule in prose and writes "an `## OPEN` entry".
+
+    A substring split found that sentence rather than the heading and inserted the first
+    real entry into the middle of it, cutting the paragraph in half in the live file.
+    Matching a structural marker as a substring is the same defect as a glob that matches
+    too much: it works until the prose mentions itself.
+    """
+    body = SKELETON.replace(
+        "## OPEN\n",
+        "Anything waiting becomes an `## OPEN` entry, mentioned here in prose.\n\n## OPEN\n",
+        1,
+    )
+    path = _doc(tmp_path, body)
+    assert raise_open("Approve, refuse or downgrade x / cdx_timestamp", "Body.", path)
+    written = path.read_text(encoding="utf-8")
+    assert "mentioned here in prose." in written
+    assert written.index("mentioned here in prose.") < written.index("Approve, refuse or downgrade")
+    assert open_titles(path) == ["Approve, refuse or downgrade x / cdx_timestamp"]
+
+
 def test_a_file_with_no_open_section_is_an_error_rather_than_a_silent_no_op(tmp_path) -> None:
     path = tmp_path / "key-decisions.md"
     path.write_text("# Nothing structured here\n", encoding="utf-8")

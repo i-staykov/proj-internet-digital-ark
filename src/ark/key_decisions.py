@@ -26,6 +26,13 @@ from pathlib import Path
 DEFAULT_PATH = Path("docs/key-decisions.md")
 OPEN_MARK = "## OPEN"
 CLOSED_MARK = "## CLOSED"
+# Anchored to the start of a line, because the file's own header explains the rule in
+# prose and writes "becomes an `## OPEN` entry". A plain substring split found that
+# sentence instead of the heading and inserted the first real entry into the middle of
+# it, cutting the paragraph in half. Matching a structural marker as a substring is the
+# same defect as a glob that matches too much: it works until the prose mentions itself.
+_OPEN_HEADING = re.compile(r"^## OPEN[ \t]*$", re.M)
+_CLOSED_HEADING = re.compile(r"^## CLOSED[ \t]*$", re.M)
 # The placeholder that stands in for an empty OPEN block. It has to go when a real
 # entry arrives, or the file says "nothing needs your input" directly above something
 # that does, which is worse than either alone.
@@ -34,14 +41,15 @@ _HEADING_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.M)
 
 
 def _split(text: str) -> tuple[str, str, str]:
-    """(before OPEN block, OPEN block, from CLOSED onwards)."""
-    if OPEN_MARK not in text:
-        raise ValueError(f"key-decisions.md has no `{OPEN_MARK}` section")
-    head, rest = text.split(OPEN_MARK, 1)
-    if CLOSED_MARK in rest:
-        body, tail = rest.split(CLOSED_MARK, 1)
-        return head, body, CLOSED_MARK + tail
-    return head, rest, ""
+    """(before the OPEN heading, the OPEN block, from the CLOSED heading onwards)."""
+    opened = _OPEN_HEADING.search(text)
+    if opened is None:
+        raise ValueError(f"key-decisions.md has no `{OPEN_MARK}` section heading")
+    head, rest = text[: opened.start()], text[opened.end() :]
+    closed = _CLOSED_HEADING.search(rest)
+    if closed is None:
+        return head, rest, ""
+    return head, rest[: closed.start()], rest[closed.start() :]
 
 
 def open_titles(path: Path | str | None = None) -> list[str]:

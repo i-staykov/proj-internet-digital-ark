@@ -4850,3 +4850,66 @@ merely the polite one: ADR-001 says banking a collector's finished journal outra
 reporting side is the side that yields.
 
 After waiting out the ingest, all nine invariants pass, which is what the rename needed to confirm.
+
+## 2026-08-11 (five hypotheses settled, four rejected on measurement, and the fifth is now the only thing waiting on Ivo)
+
+Ivo's instruction the same afternoon: "Hypothesis should be tested and confirmed by yourself until a
+relevant key decision that I would have to sign off can be formulated. Otherwise, you make your own
+judgment on them and continue." So all five screened leads were measured, each verdict then checked by a
+separate agent whose only job was to refute it. Ten agents, 844,541 subagent tokens, 374 tool calls.
+
+**Four rejected on measurement, all confirmed by their skeptic**, and every one of them is the same failure
+the register already records five times: the population is notable or institutional domains, which is what
+a CDX-derived baseline holds first.
+
+| lead | net-new pairs after the split | EE | against the ~5,000 bar |
+|---|--:|--:|---|
+| H003 RFCs and Internet-Drafts | 140 | 88.2 | whole-source estimate ~770 pairs, 6x short |
+| H004 W3C technical reports | 56 | 36.1 | a census, so that is the ceiling, 87x short |
+| H005 Debian changelogs | 21 | 14.4 | ~2 EE for the whole potato release |
+| H007 INET proceedings | 19 | 12.7 | estimate 116 EE for ~750 papers, 40x short |
+
+**Three findings that outlive their verdicts.**
+
+1. **The corroboration split does not protect against a hostname that was never real.** It asks whether
+   the domain is dated in some annual file, never whether the mention was genuine, so an invented name
+   later really registered passes. The RFC corpus is full of them by editorial habit: `acmecorp.com`,
+   `bigco.com`, `widgetco.com`, `john-doe.com`. RFC 2606 reserved `example.com` in June 1999 precisely
+   because authors kept inventing plausible ones. Now in `CLAUDE.md` beside the split itself, because it
+   qualifies a guarantee the whole design leans on.
+2. **The Debian hypothesis named a mechanism that did not exist in window.** A `Homepage:` field appears in
+   0 of all 36 in-window index files; it entered Debian policy around 2007. Any future proposal resting on
+   it can be killed without a fetch.
+3. **W3C retrofits post-window status banners into archived recommendations**, so the page served today is
+   not the artifact that was published, and the first extraction dated `github.com` to 1999 from a 2021
+   banner on a 1999 recommendation.
+
+**H008 Netcraft is the one that matters, and its skeptic overturned it.** The measuring agent filed it
+`reject-on-measurement`. The skeptic confirmed every number and rejected the disposition, on the grounds
+that the arithmetic was correct under a **classification nobody had tested**, and that classifying a source
+class is explicitly not the agent's call. It was right, and the mistake was **mine**: the workflow prompt
+asserted batch-wide that "every one of these leads is dating class typed". An archived Netcraft
+`/domains/cache/` page is a machine dump from a survey database with no author, no prose and no per-item
+date, dated only by its Wayback capture timestamp, which is the self-dating shape `isc_survey` already
+holds as `artifact_listing` with 1,719,409 records.
+
+Both agents were also partly wrong, and the fix was cheap: the reject rested on a **2-page projection**
+where the two pages differ 4x in yield. 18 further polite requests settled it. Measured over 19 of the 20
+in-window captures, 11,309 distinct pairs over 11,299 domains, 2,568 already held, **77.3% absent**, mean
+weight 0.6616:
+
+- as self-dating `artifact_listing`: **8,741 net-new pairs, 5,708.4 EE**, which clears the bar;
+- taking the corroboration split: **2,204 pairs, 1,458.2 EE**, which fails it 2.3x short.
+
+So the answer is a measurement and the decision is a judgement, which is exactly the boundary ADR-003
+draws. Raised as a `pending` request in `approved-sources-list.md` with a seeded sample of the net-new rows
+and a live Wayback link each, and as the single `## OPEN` entry in `key-decisions.md`. **Independent of the
+decision, 6,314 names are new to the candidate pool and need no approval**, since the CDX and RDAP engines
+can date them on their own evidence.
+
+**A bug in today's own mechanism, found by using it.** The first mirror wrote its entry into the middle of
+`key-decisions.md`'s header, because `_split` matched the literal `## OPEN` as a substring and the header
+explains the rule in prose with the words "an `## OPEN` entry". It cut that sentence in half. The markers
+are now line-anchored headings, the file is repaired, and a test builds a document that mentions the marker
+in prose. **Matching a structural marker as a substring is the same defect as a glob that matches too much:
+it works until the prose mentions itself.**

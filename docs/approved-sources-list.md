@@ -278,4 +278,82 @@ Decision: master
 
 ## Pending requests
 
-Nothing pending.
+### netcraft_survey_cache / artifact_listing
+
+- source: archived Netcraft Web Server Survey `/domains/cache/<word>.html` listing pages, via the
+  Wayback Machine. Live index: <https://web.archive.org/cdx/search/cdx?url=netcraft.com/domains/cache/*>
+- journal: `data/raw/probes/H008-decide.jsonl` (19 of the 20 in-window captures; `silly.html` failed on a
+  transient network error and `nature.html` returned no rows)
+- agent's dating claim: a hostname printed on a survey dump captured in 1999 was in Netcraft's survey
+  database by 1999, and the page's capture timestamp is the only date involved. **This is the claim being
+  asked about**, and it is the agent's, not a measurement.
+- closest closed family: none by name. The nearest by *shape* is `isc_survey`, which is **approved
+  `master`** here: a machine host census published in dated editions, taking no split.
+
+**The whole decision is one question: did a human type these hostnames?** If yes, the corroboration split
+applies. If no, this is self-dating like `isc_survey` and it does not.
+
+The case for no split, which is why this is being asked rather than filed: the page is a machine dump from
+Netcraft's survey database. There is no prose, no author, and no per-item date; only the *search word*
+(`key`, `mesi`, `princeton`) is human-chosen, and the split is about who typed the **hostname**. The store
+already carries two machine host censuses this way, `isc_survey` at 1,719,409 records and
+`uucp_map_registry`.
+
+The case against: unlike an ISC zone snapshot, this is a **search result over a database**, and if that
+database retained hostnames it had stopped observing, a 1999 page could print a name that was gone by 1999.
+That was not tested. The monthly-census character of the survey and the page's own "Copyright Netcraft
+1999" footer weigh against it, but a reviewer should weigh it too.
+
+**Check these before reading anything else.** Seeded-random sample of the **net-new** rows, seed
+`20260811`, so it is reproducible and was not chosen by the agent. Open a link and search the page for the
+domain:
+
+| page | domain | year claimed | open this |
+|---|---|--:|---|
+| `key.html` | `applevalleyhockey.com` | 1999 | https://web.archive.org/web/19991013102618/http://www.netcraft.com/domains/cache/key.html |
+| `mesi.html` | `ciemmesistemi.it` | 1999 | https://web.archive.org/web/19991129023605/http://www.netcraft.com/domains/cache/mesi.html |
+| `mace.html` | `macedonia-a-to-z.com` | 1999 | https://web.archive.org/web/19991013110743/http://www.netcraft.com/domains/cache/mace.html |
+| `mesi.html` | `darlenesellshomesinpa.com` | 1999 | https://web.archive.org/web/19991129023605/http://www.netcraft.com/domains/cache/mesi.html |
+| `pcl.html` | `jpcltd.co.jp` | 1999 | https://web.archive.org/web/19991127163507/http://www.netcraft.com/domains/cache/pcl.html |
+| `mesi.html` | `homesissaquah.com` | 1999 | https://web.archive.org/web/19991129023605/http://www.netcraft.com/domains/cache/mesi.html |
+| `key.html` | `buckeyeortho.com` | 1999 | https://web.archive.org/web/19991013102618/http://www.netcraft.com/domains/cache/key.html |
+| `princeton.html` | `princetondevelopment.net` | 1999 | https://web.archive.org/web/19991012054114/http://www.netcraft.com/domains/cache/princeton.html |
+
+**Measured against the live store**, by program, over 19 pages actually fetched. **These are measurements,
+not projections**: the first version of this lead projected from 2 pages and the projection was wrong in
+both directions.
+
+| | |
+|---|--:|
+| rows extracted | 13,092 |
+| distinct (domain, year) | 11,309 |
+| over distinct domains | 11,299 |
+| already held by the store | 2,568 |
+| absent from the store | 77.3% |
+| per-page spread, distinct domains | 0 to 1,821 |
+| typo upper bound | 24.3% of 1,500 sampled, and they are hyphen and TLD sibling families rather than OCR junk |
+
+**The counterfactual, and the reason this cannot be filed either way without you:**
+
+| decision | net-new pairs | equivalent-English | against the ~5,000 bar |
+|---|--:|--:|---|
+| `master` as `artifact_listing`, self-dating | **8,741** | **5,708.4** | clears it |
+| `master` taking the corroboration split | 2,204 | 1,458.2 | fails it, 2.3x short |
+| `candidate-only` | 0 | 0.0, and 6,314 names still grow the pool | n/a |
+
+Mean equivalent-English weight of the net-new part: 0.6616, which is good. By year: 1999 dominates because
+that is when the archive captured these pages, not a property of the survey. By TLD the net-new part is
+`.com` 1800, `.org` 135, `.uk` 111, `.net` 70, `.au` 40, `.ca` 16.
+
+**Reasons a reader should refuse**, listed by the agent against its own request:
+
+- the sample links do not show that domain on that page;
+- you judge that a search result over a mutable database is not contemporaneous evidence, unlike a zone
+  snapshot, in which case the split reading is right and this fails the bar;
+- the survey is a census of *web servers*, so a hostname could be a virtual host rather than a registered
+  domain the reviewer would accept, and the extraction reduces to the registrable name without checking;
+- `candidate-only` is the safe answer that loses nothing: the 6,314 pool names can still be dated by the
+  CDX and RDAP engines on their own evidence, which needs no approval at all.
+
+Decision: pending
+

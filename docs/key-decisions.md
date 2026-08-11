@@ -13,7 +13,7 @@ I have to sign-off should be in one place, so I know about it." So:
   an entry. That file stays the thing `ark ingest` enforces and the thing he edits; this is how he
   learns it wants him. A test against both live files fails if a pending class is not named here.
 - **Unfinished hypotheses are not raised here.** They are the agent's queue: screened, priced and
-  decided without asking, and only an outcome worth overruling becomes an `## OPEN` entry.
+  decided without asking, and only an outcome worth overruling becomes an entry under `OPEN`.
 
 **How it differs from the other two logs.** `notes.md` is the full dated reasoning and is append-only
 history, 4,600 lines of it. `ROUND.md` is the generated current state. **This file is neither: it is
@@ -27,9 +27,41 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-Nothing needs your input. ADR-001 is left `Open` as a *question* rather than a decision waiting on you:
-the cause of the seed's lock hold is unidentified, the path is instrumented, and an interim allocation
-rule is in force.
+### Approve, refuse or downgrade netcraft_survey_cache / artifact_listing
+
+**One question, and the answer is worth 4x.** Did a human type these hostnames?
+
+Archived Netcraft Web Server Survey listing pages (`/domains/cache/<word>.html`, captured 1999-2000) are
+machine dumps from Netcraft's survey database. The page has no prose, no author and no per-item date; only
+the *search word* is human-chosen, and the corroboration split is about who typed the **hostname**. If that
+reading is right this is self-dating `artifact_listing`, exactly like `isc_survey`, which is already
+approved `master` here as a machine host census published in dated editions.
+
+**Measured over 19 of the 20 in-window captures, not projected.** 11,309 distinct pairs over 11,299
+domains, 77.3% absent from the store, mean weight 0.6616:
+
+| decision | net-new pairs | equivalent-English | against the ~5,000 bar |
+|---|--:|--:|---|
+| `master` as `artifact_listing`, no split | **8,741** | **5,708.4** | clears it |
+| `master` taking the corroboration split | 2,204 | 1,458.2 | fails it, 2.3x short |
+| `candidate-only` | 0 | 0.0, but 6,314 names still grow the pool | n/a |
+
+**Why this is yours and not mine.** The agent that measured it filed it as rejected; its adversarial
+checker overturned that, on the grounds that the reject was correct arithmetic applied under a
+classification nobody had tested, and that the classification is explicitly not the agent's call (ADR-003).
+Both were partly wrong and the record says so: the reject was filed on a 2-page projection, and the
+18 further requests that settle it have now been made.
+
+**The reason to refuse is real too.** Unlike an ISC zone snapshot this is a *search result over a mutable
+database*, so if Netcraft retained hostnames it had stopped observing, a 1999 page could print a name that
+was already gone. That was not tested, and it argues for the split on accuracy grounds regardless of who
+typed what.
+
+The request in `approved-sources-list.md` carries a seeded-random sample of the net-new rows, seed
+`20260811`, with a live Wayback link each. **Open two and search the page for the domain**; that settles it
+faster than reading any of the above. Then set the `Decision:` line to `master`, `candidate-only` or
+`rejected`. `candidate-only` loses very little: the pool names can still be dated by the CDX and RDAP
+engines on their own evidence.
 
 ---
 
