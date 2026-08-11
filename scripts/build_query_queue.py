@@ -186,6 +186,30 @@ def measured_years_per_hit(pool: set[str]) -> Decimal:
     return Decimal(years) / Decimal(hits) if hits else DEFAULT_YEARS_PER_HIT
 
 
+def round_netnew_by_tld(conn: duckdb.DuckDBPyConnection, since: str) -> list[tuple[str, int]]:
+    """Net-new pairs per TLD assigned since the round opened.
+
+    The cast is written `CAST(? AS TIMESTAMPTZ)` rather than `TIMESTAMPTZ ?`,
+    which DuckDB's parser rejects: a type name may prefix a literal but not a
+    placeholder. Named and tested because the placeholder arrived when the round
+    window moved into `ark.baseline`, and it silently took the whole queue
+    builder with it.
+    """
+    return conn.execute(
+        """
+        SELECT split_part(y.domain, '.', -1) AS tld, count(*)
+        FROM domain_year y
+        WHERE y.verified_at >= CAST(? AS TIMESTAMPTZ)
+          AND NOT EXISTS (
+            SELECT 1 FROM evidence p
+            WHERE p.domain = y.domain AND p.evidence_year = y.assigned_year
+              AND p.evidence_type = 'prior_reused')
+        GROUP BY 1
+        """,
+        [since],
+    ).fetchall()
+
+
 def build(weights: list[int]) -> dict:
     tld_weight = english_weights()
     # Every answer on disk, not just the pool-prefixed journals, because the queue
@@ -364,19 +388,7 @@ def main() -> None:
             # The round window comes from `ark.baseline` for the same reason the
             # baseline total does: retyped here it drifts, and a window still open
             # on the last round counts work the reviewer has already credited.
-            rows = conn.execute(
-                """
-                SELECT split_part(y.domain, '.', -1) AS tld, count(*)
-                FROM domain_year y
-                WHERE y.verified_at >= TIMESTAMPTZ ?
-                  AND NOT EXISTS (
-                    SELECT 1 FROM evidence p
-                    WHERE p.domain = y.domain AND p.evidence_year = y.assigned_year
-                      AND p.evidence_type = 'prior_reused')
-                GROUP BY 1
-            """,
-                [CURRENT_ROUND_SINCE],
-            ).fetchall()
+            rows = round_netnew_by_tld(conn, CURRENT_ROUND_SINCE)
         finally:
             conn.close()
         weight = english_weights()
