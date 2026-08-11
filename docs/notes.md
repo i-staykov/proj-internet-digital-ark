@@ -5554,3 +5554,43 @@ own 47.2% history, with the windowed rate climbing 2.7% to 13.5% to 21.5% to 25.
 `.mil` batches age out. The discovery engine is roughly twice as productive per query as it was four hours
 ago, and the sequence that got there was: measured a zero, found a missing ranking factor, found a missing
 grain, found a missing staleness mark, and let the cycle rebuild unattended each time.
+
+## 2026-08-12 (depletion refuted too, and the over-prediction is left unexplained on purpose)
+
+Two hours ago the control batch refuted my fallback explanation for the ranking's ~20% optimism, and I
+offered a replacement: **depletion**. A cell's rate is measured over its already-answered domains, the queue
+works down in expected-value order, so the consumed part is the better part and what remains is the tail.
+I labelled it a hypothesis and said it was testable and untested. It is now tested, from the journals alone.
+
+Reading all 27,527 answered pool domains in chronological order and splitting each cell into its first and
+last third:
+
+    cell                        n     first third   last third   change
+    usenet_mention .uk      7,201        52.2%        51.0%       -1.2%
+    usenet_mention .org     4,029        44.5%        44.2%       -0.3%
+    ukwa_link_target .uk    2,568        91.6%        91.5%       -0.1%
+    usenet_mention .au      2,111        33.9%        28.3%       -5.5%
+    ukwa_link_target .com   1,874        90.7%        92.3%       +1.6%
+    usenet_mention .za        688        45.9%        36.7%       -9.2%
+    tucows_mention .com       537        84.4%        83.8%       -0.6%
+
+    mean change across 13 cells with 300+ answers: -0.9 points, and 3 of the 13 ROSE
+
+**Depletion is real and far too small.** A mean drift of about one point cannot explain a ten-point gap
+between the 53.3% predicted for the `.uk` head and the 43.0% it returned, and a third of the cells move the
+wrong way entirely. Two of my explanations for this bias have now been refuted by measurement inside two
+hours, the fallback and depletion.
+
+**The gap is a discontinuity rather than a trend, which is the actual finding.** `usenet_mention .uk` has
+answered 7,201 domains at a stable 51-52% across its whole history, and the very next 600 of the same cell
+returned 43.0%. Nothing in the cell's own trajectory predicts that step. Something distinguishes the names
+this batch drew from the names the same cell drew before, and the ordering within a cell is a content hash,
+so it is not an obvious candidate.
+
+**I am not proposing a third mechanism.** ADR-001 took three wrong guesses on one function before
+measurement settled it, and the rule that came out of that is not to restructure on a guess. So the state
+of knowledge is recorded as it stands: the ranking runs about 20% optimistic, consistently, across two
+populations and three batches; the fallback is exonerated; depletion is refuted; the cause is unknown; and
+because the ratio is consistent, **the ordering remains trustworthy even though the absolutes are not.**
+That is enough to keep building the queue exactly as it is and to read any expectation quoted from it about
+20% high, which is what the previous entry already concluded and what this entry does not change.
