@@ -4913,3 +4913,68 @@ explains the rule in prose with the words "an `## OPEN` entry". It cut that sent
 are now line-anchored headings, the file is repaired, and a test builds a document that mentions the marker
 in prose. **Matching a structural marker as a substring is the same defect as a glob that matches too much:
 it works until the prose mentions itself.**
+
+## 2026-08-11 (the discovery engine was querying a queue with a measured zero hit rate, and I built it)
+
+A cron wake found all four collectors up and every mechanical check clean, so this would have been an
+"everything is fine" wake. It was not, and the thing that gave it away is in the collector's own log rather
+than in any check: since the 16:33 restart the local pool engine had run two batches, **600 queried each,
+`no_capture: 600` both times.** No `years_found` key at all, no `failed_403` or `failed_0`, and throttles
+pinned at the 3000ms ceiling. The healthy 11:10 run on the pre-rebuild queue had `years_found: 392` per 600.
+
+**The queue I rebuilt at 15:53 is the cause.** Its head:
+
+    decwrl.arpa / 212.in-addr.arpa / fdgvhe.nr / 128.in-addr.arpa / jaring.mh / asencrn.mh ...
+
+and **2,675 of its first 3,000 rows are `.mil`**. Across the whole 2.54M-row queue, 371,465 `.gov` and
+`.mil` names stood in front of the first real domain: at the measured rate, about **25 days of the
+prioritised discovery half producing nothing**. So the two batches at zero were not bad luck, they were the
+queue working as ranked.
+
+**The cause is a factor that was missing, and this project has already named it once.** The pool score is
+`P(hit) x English share x years per hit`, and `P(hit)` comes from `cell_rate.get((source, tld), ...)` with
+fallbacks to a source rate and then a pool-wide rate. For a TLD nothing has ever measured, the fallback
+hands it an optimistic rate and English share does the rest. `build_rdap_pool_list.py` documents exactly
+this and calls it "the `.au` mistake in a new place": ordering by expected equivalent-English does it
+"whenever the probability half of the estimate is a guess, and 0.9825 times a fabricated name is still
+zero". C-2 acted on it for RDAP by excluding `.gov` and `.mil` by hand. **The CDX queue never got that
+judgement**, and its own comment beside `ATTESTED_MIN` says the attestation tiebreak is "kept as a tiebreak
+only: measured hit rate now does this job directly and better", which was true except where nothing had
+been measured.
+
+**Fixed with the measurement instead of a list.** A hand-maintained exclusion would have covered those two
+TLDs and rotted. `pool_plausibility` computes `dated / (dated + pool)` per TLD from data already in memory,
+so it costs no extra query, and the same discriminator the RDAP builder reports now multiplies the pool
+score. Measured against the live store today:
+
+| tld | dated | pool | pool/dated | plausibility |
+|---|--:|--:|--:|--:|
+| com | 3,239,150 | 913,012 | 0.3 | 0.78 |
+| uk | 207,964 | 65,268 | 0.3 | 0.76 |
+| org | 288,254 | 306,606 | 1.1 | 0.48 |
+| net | 297,312 | 412,664 | 1.4 | 0.42 |
+| edu | 6,438 | 216,185 | 33.6 | 0.029 |
+| gov | 1,021 | 185,803 | 182.0 | 0.0055 |
+| mil | 71 | 186,278 | 2,623.6 | 0.00038 |
+
+The `.mil` and `.gov` ratios reproduce the RDAP builder's recorded 2,624 and 182 exactly, which is a useful
+cross-check that both are measuring the same thing. `.mil` drops about 2,000x and `.com` is barely touched,
+**with no TLD named anywhere in the code**. The tiny ccTLDs that also littered the head land in between
+(`.nr` 0.18, `.mh` 0.08), which is the right answer: unproven is not impossible, and the only way a
+namespace earns its first dated domain is by being queried.
+
+Reverse-DNS zones are excluded outright rather than down-weighted. `212.in-addr.arpa` is not a website and
+never was, so a capture query against one is wasted by construction; 57 were in the queue and 41 in its
+first 3,000, because `arpa` is an in-window gTLD with a high English share. That is a fact about the
+namespace rather than a judgement about the corpus, which is why it is enforced where the ranking factor is
+not.
+
+**After the rebuild** the head is `.za`, `.nz` and `.uk`, and the first 50,000 targets hold zero `.gov`,
+`.mil` or reverse-DNS names. Four tests pin the separation using the live ratios rather than an arbitrary
+threshold, and the factor is printed with every build, because a ranking factor nobody can see is one
+nobody checks. Nothing was restarted: a supervisor re-reads its target list at every dispatch.
+
+**What this says about the checks.** `just cycle` reported everything clean while the engine was at a zero
+hit rate, because no check reads collector *yield*. Presence is checked, progress is checked by journal
+growth, and a journal full of `no_capture` rows grows normally. That is a real gap and it is the obvious
+next piece of harness work.

@@ -67,6 +67,32 @@ engines on their own evidence.
 
 ## CLOSED
 
+### C-17. The pool queue is ranked by a measured plausibility factor, not by English share alone (2026-08-11)
+
+Mine to decide under your rule that hypotheses and judgements like this are the agent's; recorded so you
+can object. **It corrects damage I caused this afternoon.**
+
+The rebuild I ran at 15:53 put **2,675 `.mil` names in the queue's first 3,000**, and the local engine then
+spent two batches and **1,200 archive queries finding exactly zero in-window captures**. 371,465 `.gov` and
+`.mil` names stood in front of the first real domain, which at the measured rate is about **25 days of the
+discovery engine producing nothing**.
+
+The cause is the one this project keeps paying for, and the RDAP builder's own docstring names it: ranking
+by expected equivalent-English needs a probability, and where none is measured the score fell back to a
+pool-wide rate, so `0.9825 x a fabricated name` still sorted to the top. C-2 fixed it for RDAP by excluding
+`.gov` and `.mil` by hand; the CDX queue never got that judgement.
+
+Fixed with the measurement rather than a list, because a hand-maintained exclusion list would have covered
+those two and rotted. `dated / (dated + pool)` per TLD separates them cleanly and updates itself:
+`.com` 0.78 and `.uk` 0.76 against `.edu` 0.029, `.gov` 0.0055 and `.mil` 0.00038. It multiplies the pool
+score, so `.mil` drops about 2,000x with no TLD named anywhere, and the tiny ccTLDs that also littered the
+head land in between, which is right: unproven is not impossible. Reverse-DNS zones are excluded outright,
+since that is a fact about the namespace rather than a judgement about the corpus.
+
+After the rebuild the head is `.za`, `.nz` and `.uk`, and the first 50,000 targets contain zero `.gov`,
+`.mil` or reverse-DNS names. The engine picks the file up at its next dispatch, so nothing was restarted.
+
+
 ### C-16. One surface asks you for things, and it is this file -> [ADR-005](ADRs.md) (2026-08-11)
 
 Your instruction: "Everything I have to sign-off should be in one place, so I know about it. That was

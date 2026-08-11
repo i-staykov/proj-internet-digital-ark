@@ -35,6 +35,15 @@ every year it returns is net-new; measured at 1.55 years per hit over the last
 eight batches. This is why realisation for the pool is 100% and the two
 populations cannot be compared on hit rate alone.
 
+**Pool plausibility, `dated / (dated + pool)` per TLD.** The third factor, and the
+one whose absence cost the most. Where no hit rate has been measured for a
+(source, TLD) cell the score fell back to the pool-wide rate, so a namespace whose
+pool is fabricated ranked on English share alone. On 11 August that put 2,675
+`.mil` names in the queue's first 3,000 and **two batches, 1,200 queries, returned
+zero in-window captures**. `pool_plausibility` measures the same discriminator the
+RDAP builder already reports and multiplies the pool score by it, so `.mil` drops
+about 2,000x and `.com` is barely touched, with no TLD named anywhere.
+
 Era eligibility stays a hard gate ahead of the score, for the reason
 `build_pool_candidates.py` records at length: the English-share model is built
 from 2024 crawl data and scores today's brand gTLDs near 100%, so parse noise out
@@ -210,6 +219,53 @@ def round_netnew_by_tld(conn: duckdb.DuckDBPyConnection, since: str) -> list[tup
     ).fetchall()
 
 
+# Reverse-DNS zones are not websites and never were, so a capture query against one
+# is a wasted request by construction. 57 of them reached the queue and 41 sorted into
+# its first 3,000 rows, because `arpa` is an in-window gTLD and carries a high English
+# share. This is a fact about the namespace rather than a judgement about the corpus,
+# which is why it is enforced here and the ranking factor below is not.
+_REVERSE_DNS = (".in-addr.arpa", ".ip6.arpa")
+
+
+def is_reverse_dns(domain: str) -> bool:
+    return domain.endswith(_REVERSE_DNS)
+
+
+def pool_plausibility(pool_source: dict[str, str], attested: dict[str, int]) -> dict[str, Decimal]:
+    """Per TLD, the share of its known names that carry a year: `dated / (dated + pool)`.
+
+    **The factor that was missing, and it cost a fortnight of collector time.** Ranking
+    the pool by expected equivalent-English needs a probability, and where none has been
+    measured the score fell back to the pool-wide rate. That is the guess this project
+    keeps paying for: `0.9825 x a fabricated name is still zero`, in the words of the
+    RDAP builder, which already excluded `.gov` and `.mil` by hand for exactly this
+    reason (C-2). The CDX queue never got that judgement, so on 2026-08-11 its rebuilt
+    head was 2,675 `.mil` names in the first 3,000 and **two batches, 1,200 queries,
+    returned zero in-window captures.** 371,465 `.gov` and `.mil` names stood in front of
+    the first real domain, roughly 25 days of the engine finding nothing.
+
+    A hand-maintained exclusion list would have fixed those two and rotted. This is the
+    same discriminator measured instead: a real namespace has far fewer undated
+    candidates than dated ones, so the ratio separates them cleanly and updates itself as
+    the store grows. Measured 2026-08-11, `dated / (dated + pool)`:
+
+        com 0.78   uk 0.76   org 0.48   net 0.42      real namespaces
+        edu 0.029  gov 0.0055  mil 0.00038           fabricated or unreachable
+
+    So `.mil` is pushed down roughly 2,000x and `.com` is barely touched, without naming
+    either. The tiny ccTLDs that also litter the head (`.nr` at 0.18, `.mh` at 0.08) land
+    in between, which is right: they are unproven rather than impossible.
+
+    A TLD with no pool names at all returns 1, since there is nothing to rank.
+    """
+    pool_count: Counter[str] = Counter(domain.rsplit(".", 1)[-1] for domain in pool_source)
+    out: dict[str, Decimal] = {}
+    for tld, pool_n in pool_count.items():
+        dated = attested.get(tld, 0)
+        out[tld] = Decimal(dated) / Decimal(dated + pool_n) if dated + pool_n else Decimal(1)
+    return out
+
+
 def build(weights: list[int]) -> dict:
     tld_weight = english_weights()
     # Every answer on disk, not just the pool-prefixed journals, because the queue
@@ -245,12 +301,13 @@ def build(weights: list[int]) -> dict:
             (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "gap")
         )
     held = {domain for domain, _r, _g in gap_rows}
+    plausible = pool_plausibility(pool_source, attested)
     for domain, source in pool_source.items():
-        if domain in already or domain in held:
+        if domain in already or domain in held or is_reverse_dns(domain):
             continue
         tld = domain.rsplit(".", 1)[-1]
         rate = cell_rate.get((source, tld), source_rate.get(source, pool_rate))
-        score = rate * tld_weight.get(tld, Decimal(0)) * years_per_hit
+        score = rate * tld_weight.get(tld, Decimal(0)) * years_per_hit * plausible[tld]
         rows.append(
             (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "pool")
         )
@@ -259,6 +316,7 @@ def build(weights: list[int]) -> dict:
     return {
         "rows": rows,
         "years_per_hit": years_per_hit,
+        "plausibility": plausible,
         "pool_rate": pool_rate,
         "source_rate": source_rate,
         "weights": weights,
@@ -280,6 +338,19 @@ def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
 
     counts = Counter(r[4] for r in live)
     print(f"  gap targets {counts['gap']:,}, pool targets {counts['pool']:,}")
+
+    # Printed because it is the factor whose absence cost 1,200 queries at zero yield,
+    # and a ranking factor nobody can see is one nobody checks.
+    plausible = built.get("plausibility") or {}
+    if plausible:
+        worst = sorted(plausible.items(), key=lambda kv: kv[1])[:5]
+        best = sorted(plausible.items(), key=lambda kv: -kv[1])[:5]
+        show = ", ".join(f"{t} {v:.3f}" for t, v in best)
+        print(f"  pool plausibility, highest   : {show}")
+        show = ", ".join(f"{t} {v:.4f}" for t, v in worst)
+        print(f"  pool plausibility, lowest    : {show}")
+        print("    (dated / (dated + pool) per TLD; it multiplies the pool score, so a")
+        print("     namespace whose pool is fabricated cannot rank on English share alone)")
     for cut in (10_000, 50_000, 100_000, 250_000):
         head = live[:cut]
         if len(head) < cut:
