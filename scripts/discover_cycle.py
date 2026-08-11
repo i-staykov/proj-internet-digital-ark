@@ -121,9 +121,14 @@ def check_residual() -> tuple[list[str], list[str]]:
                             "496 such files were worth 14,956 equivalent-English"
                         )
                     if key == "stale_derived" and count not in ("0", ""):
+                        # The comparison is against the store mark that invalidates each
+                        # list, newest pairs for a gap queue and newest candidates for a
+                        # pool queue, not against the baseline release. Saying "baseline"
+                        # here described the check as it was before 11 August and would
+                        # send a reader looking for a release that had not moved.
                         attention.append(
-                            f"{count} derived target list(s) predate the current baseline, so "
-                            "they are blind to what it added"
+                            f"{count} derived target list(s) are older than the rows they "
+                            "should carry, so a collector reading them cannot see those rows"
                         )
     return findings, attention
 
