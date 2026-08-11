@@ -5,6 +5,7 @@ import pytest
 
 from ark.db import (
     add_candidate,
+    add_candidates,
     assign_year,
     connect,
     ensure_source,
@@ -102,3 +103,26 @@ def test_ensure_source_refuses_kind_change() -> None:
     ensure_source(conn, "some_source", "timestamped")
     with pytest.raises(ValueError, match="registered as timestamped"):
         ensure_source(conn, "some_source", "candidate_only")
+
+
+def test_add_candidates_batches_and_stays_idempotent() -> None:
+    """One statement for many names, and re-offering them changes nothing.
+
+    Batched because a row-at-a-time loop over 29,432 names held the store's only
+    write lock for more than twenty minutes, which blocks every reader too.
+    """
+    conn, sid = _db_with_source()
+    written = add_candidates(conn, ["a.com", "b.co.uk", "c.org"], sid)
+    assert written == 3
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 3
+    # the tld column is the registrable suffix, as add_candidate writes it
+    assert conn.execute("SELECT tld FROM domain WHERE domain = 'b.co.uk'").fetchone()[0] == "co.uk"
+    # INSERT OR IGNORE, so a second offer is a no-op rather than an error
+    add_candidates(conn, ["a.com", "d.net"], sid)
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 4
+
+
+def test_add_candidates_on_an_empty_list_touches_nothing() -> None:
+    conn, sid = _db_with_source()
+    assert add_candidates(conn, [], sid) == 0
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 0

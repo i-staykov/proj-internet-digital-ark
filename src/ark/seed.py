@@ -19,7 +19,7 @@ import duckdb
 from loguru import logger
 
 from ark.canonical import to_registrable
-from ark.db import add_candidate, ensure_source
+from ark.db import add_candidates, ensure_source
 from ark.metrics import record_metrics
 from ark.work_queue import enqueue
 
@@ -86,10 +86,11 @@ def seed_from_file(
     }
 
     unproven: set[str] = set()
+    fresh: list[str] = []
     for domain in sorted(seen):
         state = known.get(domain)
         if state is None:
-            add_candidate(conn, domain, source_id)
+            fresh.append(domain)
             stats["new_candidates"] += 1
             unproven.add(domain)
             continue
@@ -102,6 +103,10 @@ def seed_from_file(
         stats["already_candidate"] += 1
         unproven.add(domain)
 
+    # One statement rather than one per name. A row-at-a-time loop over 29,432
+    # PANDORA names held the store's only write lock for more than twenty minutes,
+    # which blocks every reader as well as every other writer.
+    add_candidates(conn, fresh, source_id)
     stats["enqueued"] = enqueue(queue_conn, CDX_TASK, sorted(unproven))
     logger.info(f"{path.name}: {stats}")
     record_metrics(conn, "seed", path.stem, stats)

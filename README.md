@@ -87,6 +87,35 @@ about the round rather than a broken invariant, and a check that failed the buil
 turned off. It exists because the same diff, run by hand on 2026-08-10, found 496 ISC survey shards
 worth 14,956 equivalent-English that had been sitting on disk for five days.
 
+## The discovery harness
+
+The reviewer asks for "automated analysis, association inference, multi-source clue mining, automated
+knowledge discovery, automated search engines, and automated DeepResearch engines", and says plainly
+that this "is not simply a data-searching or data-downloading effort". The harness is the answer, and
+it is built around one admission: **the work splits into what a program can do correctly unattended
+and what needs judgement, and pretending otherwise is how autonomy becomes theatre.**
+
+| | command | what it does |
+|---|---|---|
+| memory | `just state` | regenerates [docs/ROUND.md](docs/ROUND.md), the current state, from the programs that own each figure |
+| memory | `just hypo list` | the ledger: what has been proposed, priced, adopted or killed, with status |
+| screen | `just screen --dating typed "..."` | kills a proposal that duplicates one of ~60 closed families, and says whether it was closed on **measurement** or on **availability** |
+| re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
+| price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
+| loop | `uv run python scripts/discover_cycle.py --until <epoch>` | runs the mechanical checks on a schedule and **ends each cycle by naming what needs judgement** |
+
+**The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
+unbanked on a remote disk, that a file on disk was never read, that a target list predates the current
+baseline, that a hypothesis has been half-priced for a day, and that the state document is stale. It
+cannot invent a hypothesis worth testing, write the fetcher that turns a source into dated items, or
+decide whether a yield justifies a collector. So it does all of the first and hands over the second.
+
+**Why this is safe to run unattended**, which is the part that makes it more than a scheduler:
+`domain_year.evidence_id` is `NOT NULL` and foreign-keyed, `assign_year` refuses candidate-only
+evidence, the corroboration split gates anything a human typed, and nine invariants run on every pass.
+**An unattended agent physically cannot write an unevidenced year here.** It has latitude about what
+to try and none at all about what counts as proof.
+
 ### Screening a source before it costs a request
 
 ```bash

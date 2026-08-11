@@ -171,6 +171,36 @@ def add_candidate(
     return domain
 
 
+def add_candidates(
+    conn: duckdb.DuckDBPyConnection,
+    domains: list[str],
+    source_id: int,
+    discovered_round: int = 0,
+) -> int:
+    """Register many already-canonical domains in one statement.
+
+    DuckDB is columnar and a single-row `INSERT` carries most of the cost of a
+    thousand-row one. Seeding 35,391 PANDORA names through `add_candidate` in a
+    Python loop took **over twenty minutes at 106% CPU**, and because a writer
+    holds the store exclusively that was also twenty minutes during which no
+    measurement, audit or ingest could run. `executemany` hands DuckDB the whole
+    batch.
+
+    Takes canonical names rather than raw ones, because the caller has already
+    parsed them: `add_candidate` calls `to_registrable` a second time on a value
+    its caller just produced.
+    """
+    if not domains:
+        return 0
+    rows = [(d, d.split(".", 1)[1], source_id, discovered_round) for d in domains]
+    conn.executemany(
+        "INSERT OR IGNORE INTO domain (domain, tld, discovered_source, discovered_round) "
+        "VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    return len(rows)
+
+
 def record_evidence(
     conn: duckdb.DuckDBPyConnection,
     domain: str,
