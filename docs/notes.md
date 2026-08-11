@@ -5342,3 +5342,37 @@ the same mistake being available.
 
 Six new tests, 408 passing. The `.com` head from C-18 is still untested: no batch has been dispatched since
 that rebuild, batches run about 70 minutes, and I have not restarted the collector to hurry it.
+
+## 2026-08-11 (bringing the constitution back into line with the day, which falsified three of its claims)
+
+Nothing was broken this wake: four collectors up, tree clean, RDAP healthy at 35.1%, and the one pending
+verification is waiting on a batch I must not hurry. So this is the third step of a cron wake rather than
+the fourth, and it found the worst place in the repository to leave a false claim: **`CLAUDE.md`, which is
+loaded at the start of every session.**
+
+Three statements in it were true this morning and are not now.
+
+1. **"That is safe: inserts autocommit and a re-run is additive."** The reason a seed is safe to interrupt.
+   `add_candidates` became a single set-based statement this evening, so a stopped seed now **rolls back**
+   rather than keeping what it wrote. The conclusion survives and the reason does not: a re-run is still
+   additive, and the window is now a fraction of a second instead of twenty minutes, so interrupting still
+   costs nothing. Rewritten to say that, and to record that the ordering is now **enforced in code** by
+   asymmetric lock patience rather than stated in prose, with the note that a long patience does not make a
+   low-priority job polite, it makes it queue and then hold.
+2. **"A 20-minute ingest is a 20-minute outage for the auditors."** Both causes of that are fixed and
+   measured: the ingest loop's 636 invocations a pass (89% lock occupancy, now 0%) and the row-at-a-time
+   insert (1,207 of a 1,208-second seed, now 267x faster). The DuckDB single-writer rule still matters, but
+   for correctness rather than for waiting, so the trap now says that instead of quoting a number that no
+   longer happens.
+3. **"It checks both collectors"**, in the cron section, which has been three since the RDAP yield check
+   went in an hour ago.
+
+The measured before-and-after figures are now in the standing rules themselves, because the surrounding
+advice was written while the store was effectively unusable and a reader needs to know that the constraint
+it was written under is gone.
+
+**Why this is worth a whole wake.** `CLAUDE.md`'s own first paragraph says it holds only what never
+changes, precisely because `phase5-handoff.md` was accurate for one day and had three claims disproved by
+the next morning. Today I disproved three of `CLAUDE.md`'s own claims in eight hours. The file was not
+wrong to contain them, they were true when written; the failure mode is leaving them there, and the only
+defence is that a wake with nothing broken spends itself checking.

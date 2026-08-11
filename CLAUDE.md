@@ -106,8 +106,19 @@ the store of that day and is not a statement about now.
   ever a shard built after the current baseline landed.
 - **When jobs contend for the write lock, priority follows expected net-new equivalent-English**
   (ADR-001): banking a finished journal wins, pricing and measurement beat seeding, and a seed blocking
-  something valuable is interrupted rather than waited out. That is safe: inserts autocommit and a
-  re-run is additive.
+  something valuable is interrupted rather than waited out. **A re-run is always additive**, so
+  interrupting costs nothing that a repeat does not recover.
+  **The ordering is enforced in code, not remembered**: `ark ingest` waits 2400s for the lock because a
+  banking pass that gives up leaves collected work on disk, and `ark seed` waits 20s and then says it
+  yielded. A long patience does not make a low-priority job polite, it makes it queue and then hold.
+- **Contention itself was fixed on 2026-08-11 and the numbers are worth knowing**, because everything
+  above was written while the store was unusable. The ingest loop ran one `ark ingest` per journal
+  **file**, 636 of them a pass every 150 seconds, and held the write lock **89% of the time**; it is one
+  invocation per source now, and 0%. Separately `add_candidates` inserted row at a time, which was
+  **1,207 of a 1,208-second seed**, and is now a set-based insert from an Arrow table at 267x.
+  So a seed no longer holds the lock for twenty minutes, and the old reason it was safe to interrupt,
+  that inserts autocommit per row, **is no longer true**: a single statement rolls back. The window is
+  simply negligible instead.
 - **`10.1.0.6` is private.** Ask Ivo to bring the VPN up; do not debug SSH. Use a window immediately
   and completely: fetch first, ask questions afterwards. `just engines` reports **UNKNOWN** rather
   than "everything is home" when it cannot reach the machine, and that distinction is the fix for
@@ -135,7 +146,8 @@ duty is to avoid making things worse. Work this in order and stop at the first s
 
        just cycle
 
-   It checks both collectors, **whether they are finding anything as opposed to merely running**,
+   It checks both collectors, **whether all three of them are finding anything as opposed to merely
+   running** (the two CDX populations and the RDAP sweep),
    journals on disk that nothing has ingested, derived lists older than the store, the hypothesis
    ledger, pending approvals and `docs/ROUND.md`, rebuilds what it can, and ends with the items
    **no program can decide**. Act on those. If a collector is down, restart it; if a journal is
@@ -188,7 +200,10 @@ justify the wake, and never start a second copy of a collector to look busy.
   caller, which has happened twice here, once destroying a watcher mid-run. Bracket one letter:
   `pgrep -f 'supervise_cdx_poo[l]'` cannot match itself.
 - **DuckDB takes one writer.** Open `read_only=True` with a retry loop for anything that measures.
-  A long write blocks every reader, so a 20-minute ingest is a 20-minute outage for the auditors.
+  A long write blocks every reader. That used to mean a 20-minute outage for the auditors on every
+  seed; both causes were found and fixed on 2026-08-11 (ADR-001), so the rule now matters for
+  correctness rather than for waiting: a reporting command that needs the lock must still be patient,
+  because the ingest loop legitimately takes it.
 - **`ark export` before `ark check`, always**: one invariant reads the exported annual files.
 - **Never present a projection as a measurement.** Label an estimate in the same sentence as the
   number. `docs/notes.md` records eleven distinct ways this project has fooled itself with a figure.
