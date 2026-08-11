@@ -5216,3 +5216,44 @@ MIN_SAMPLE at 25 a single 600-domain batch measures every source it touches, aft
 binds. The head is therefore an *exploration* head, not a proven-good one, and the yield check is the
 instrument that will say within one batch whether it was worth it. The Netcraft names banked an hour ago
 are among them, which is the right place for 1999-attested live web servers to be.
+
+## 2026-08-11 (23% of the candidate pool is forged, and one figure that turned out NOT to need fixing)
+
+Two measurements this wake, one of which produced a deliberate no-change.
+
+**The `.edu` pool is forged, at a hundred times the volume of the `.mil` case already on record.**
+`.edu` is the largest measured-dead block in the pool: 216,185 names at a measured **0.003 hit rate over
+1,709 answers**. A seeded sample says why:
+
+    mxmutpnxw.edu   uvttiyud.edu   kjmpstbnqc.edu   bqcgoppodjp.edu   texmnehxp.edu
+
+**213,703 of the 216,185, or 98.8%, come from `usenet_address_mention` and `usenet_mention`**: anti-harvester
+munged addresses, where a poster randomises their own address and a bare-host rule reads the result as a
+hostname. `.edu` takes the worst of it because academic posters dominated Usenet. The check that settles it
+is the other direction: the store's *dated* `.edu` names come from the supplied baseline (6,418) with
+**five** from `usenet_mention`, so Usenet has contributed essentially no real `.edu` name at all.
+
+A second mechanism appeared in the same sample: `erkeley.edu`, from `enron_email_mention`, is
+`berkeley.edu` missing its first letter. A truncation artefact rather than a forgery, and it wants the same
+treatment. Both are now recorded in `sources.md` under the extractor that produces them, so a future
+session reading 216,185 unqueried `.edu` names as headroom finds the measurement first.
+
+**Pool composition, measured.** With `.gov` (185,803 at 0.000) and `.mil` (186,278 at 0.000), that is
+**589,739 names, 23% of the candidate pool, in TLDs measured under a 1% hit rate.** The pool's effective
+size is nearer 1.98M than its headline 2.57M. Nothing is deleted and nothing needs to be: the corroboration
+split means a candidate claims nothing, and C-17's plausibility factor and C-18's TLD grain now rank all of
+it last by its own measured numbers.
+
+**The no-change, which is the part worth recording.** I expected `ark stats`'s pool line to be badly
+misleading, since it prints "equivalent-English if every one earned a year, an UPPER BOUND: 1,773,823".
+Computing a measured expectation instead, `names x measured TLD rate x years-per-hit x English share`, gives
+**1,384,175 EE**, so the upper bound overstates by **1.3x and not the order of magnitude I assumed.** The
+sub-1 hit rates are largely offset by the 1.564 years a pool hit returns. A figure explicitly labelled an
+upper bound and landing within 1.3x of a measured expectation is not a reporting defect, so the line stays
+as it is. **Measuring first turned a planned change into a decision not to make one**, which is the cheaper
+outcome and the reason the measurement came before the edit.
+
+**Still pending, and not hurried.** The batch dispatched at 20:06 predates the C-18 rebuild, so it is
+working the old `.za`/`.nz` head at 14.0% (17 captures in 121 answered), which sits neatly between their
+measured 0.210 and 0.309. C-18's `.com` head gets its first real test on the next dispatch. I did not
+restart the collector to bring that forward, per the standing rule.

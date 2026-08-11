@@ -849,6 +849,32 @@ in-window items, but a 1,500-item sample is scientific journals, government gaze
 
 ## `usenet_address` and `usenet_address_mention`: the addresses the extractor never read
 
+**What its candidate pool is mostly made of, measured 2026-08-11, and this is the entry to read
+before anyone proposes mining `.edu`.** These two extractors between them supply **213,703 of the
+216,185 `.edu` names in the candidate pool, 98.8%**, and a seeded sample of them is not domains:
+
+    mxmutpnxw.edu   uvttiyud.edu   kjmpstbnqc.edu   bqcgoppodjp.edu
+    texmnehxp.edu   xkucdpsk.edu   tboflirahp.edu   rfdmhhogamx.edu
+
+They are anti-harvester munged addresses: a Usenet poster randomises the local part or the host of
+their own address, and a bare-host rule reads the result as a hostname. `.edu` takes the worst of it
+because academic posters were the dominant Usenet population. The measured CDX hit rate for `.edu`
+is **0.003 over 1,709 answers**, and the store's *dated* `.edu` names come almost entirely from the
+supplied baseline (6,418) with **five** from `usenet_mention`, so Usenet has contributed essentially
+no real `.edu` name at all. This is the same family as the `dumicsamvfs.mil` forgeries already on
+record, at a hundred times the volume.
+
+A second mechanism is visible in the same sample: `erkeley.edu`, from `enron_email_mention`, is
+`berkeley.edu` with its leading letter lost. That is a truncation artefact rather than a forgery and
+it argues for the same treatment.
+
+**None of this is a reason to delete anything**, and the corroboration split already means they cost
+nothing: they sit in the pool, claim no year, and are now ranked last by their own measured rate
+(C-18) and by the plausibility factor (C-17). Together with `.gov` and `.mil` they are **589,739
+names, 23% of the candidate pool, in TLDs measured under a 1% hit rate**, so the pool's effective
+size is nearer 1.98M than its headline 2.57M. Worth knowing before reading the headline as headroom.
+
+
 **What it is.** The same 19,083 Usenet archives already ingested, re-read for three
 address forms `domains_in_message` has never looked at: `ftp://` hosts, `mailto:` links, and
 addresses typed in the message body. In 1996 an `ftp://` address was often the only address a
