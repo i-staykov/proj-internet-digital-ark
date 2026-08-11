@@ -3757,3 +3757,475 @@ investigators and one adversarial verifier, all read-only, every figure re-deriv
   either proved something or been pointed at the wrong place, and those look identical.**
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-10 (the query queue could not be built at all, and what merged260810 did to it)
+
+- **Five VPS journals were stranded and are now banked.** The VPN came up, `engine_status.sh` listed
+  five of 221 journals missing locally, and the documented rsync plus `ark ingest cdx_snapshot` folded
+  them in: 1,500 journal lines, 2,141 evidence rows, 879 year-rows, 796 distinct domains. Scoreboard
+  moved 52,768 to **53,647 net-new pairs**, 22,313.8176 to **23,123.9945 EE**, 0.3584% to **0.3714%**,
+  at a mean weight of 0.9217 because shard 1 is `.uk`-heavy. The VPS itself was healthy, up 3 days
+  5 hours, its last batch 300 queried for 244 captures and 905 year-records.
+- **`just query-queue` and `just query-queue-preview` had both been failing outright since this
+  morning.** `10ec347` moved the round window into `ark.baseline`, which was the right fix for a stale
+  window, and rewrote `WHERE y.verified_at >= TIMESTAMPTZ '2026-08-03 18:09:00+00'` as
+  `WHERE y.verified_at >= TIMESTAMPTZ ?`. DuckDB's parser accepts a type name before a *literal* and
+  not before a placeholder, so `build_query_queue.py` raised `ParserException` before reaching any of
+  its work. Both recipes share that code path, so the preview could not report the problem either.
+- **So the shards on disk were not stale through neglect: they were the newest anybody could have.**
+  `queue_shard0.txt`, `queue_shard1.txt` and `queue_manifest.tsv.gz` are all stamped 2026-08-08T07:05Z,
+  which is the last moment the builder ran. Worth recording as a pattern rather than a typo: the fix for
+  one trap in section 6 of the handoff created another one in the same list, and the only visible symptom
+  was a file date that looked like a discipline problem.
+- **Fixed by naming the query.** The cast is now `CAST(? AS TIMESTAMPTZ)`, and the SQL moved out of
+  `main()` into `round_netnew_by_tld(conn, since)` so it can be tested at all. Two tests in
+  `tests/test_build_query_queue.py` pin the parse, the window filter and the exclusion of
+  already-credited baseline pairs. Verified against the live store: it returns 53,647 pairs and
+  23,124.0 EE, which agrees with `ark stats` through an independent code path.
+- **What the release did to the queue, measured rather than assumed.** Built in memory against the
+  current store and diffed against the preserved 2026-08-08 shards, so the unit is a target and not a
+  pair: 2,965,226 targets then, 2,974,560 now, but **197,977 created and 188,643 gone**. The net size
+  barely moved and the membership churned by about 6.7%.
+- **The churn is concentrated where it costs most.** Of the 197,977 new targets, **2,826 sit inside the
+  current best 10,000** and only 3,766 inside the best 100,000, with a median rank of 1,894,458 of
+  2,974,560. So 28% of the head of the queue was invisible to the shard the VPS was working, while most
+  of the churn is tail that no run this round will reach. New targets are `com` 103,837, `ca` 30,681,
+  `net` 21,922, `org` 11,850, `uk` 9,992. Their summed score is **98,916.7 EE, which is an expectation
+  built from measured hit rates and not a measured yield**; the realised figure will be lower.
+- **Decision: rebuild before restarting, and extend the VPS deadline.** Ivo asked for the collector to
+  keep running through the round as the backup while attention goes to discovery, so the supervisor is
+  restarted on a freshly built shard 1 rather than left to expire at 2026-08-19T11:30Z.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (`alt.*` is priced from the store, and it is proportionate rather than exceptional)
+
+- **The largest open question about the largest source was answerable in SQL, not by a screening pass
+  over 383 GB.** Every Usenet evidence row carries its newsgroup as the first token of
+  `evidence_value`, and `domain_year.evidence_id` names the one row that won each assignment, so the
+  yield partitions by group with no double counting. That is the same store-side attribution the trade
+  press used instead of trusting a collector's own count.
+- **Measured, read-only:** `alt.*` holds **439,717 assigned pairs over 352,489 domains, worth 237,158
+  equivalent-English, from 8,262 of its 15,288 groups**. It is 57% of the bytes and **54% of the
+  assigned equivalent-English**, at 1,013 EE per GB against a corpus mean of 1,065. The parse is
+  validated by two figures reproducing `sources.md` exactly: 15,288 `alt.*` groups over 234.1 GB, and
+  19,233 groups over 411.2 GB for the catalogue.
+- **The standing `[GUESS]` is half right and its conclusion was wrong.** 7,026 of 15,288 `alt.*` groups
+  won nothing at all, so the vanity-archive intuition holds at group level. It does not hold at
+  hierarchy level, which is the level the decision is taken at, so screening `alt.*` will not find a
+  hidden tranche.
+- **Density ranks the small worked hierarchies first, not the big unworked one:** `biz` 3,105 EE/GB,
+  `can` 2,478, `comp` 2,441, `misc` 1,158, `aus` 1,030, `news` 1,025, `alt` 1,013, `rec` 1,008, `uk`
+  1,001, `sci` 671, `soc` 297, `talk` 60.
+- **"17,525 archives have never been through `measure_usenet_yield.py`" is the wrong frame, and running
+  it would have proved nothing.** That script measures what an archive *would* add, and every archive is
+  already ingested, so it reads near zero by construction. It is trap 9 inverted: a population that
+  structurally excludes the outcome being counted.
+- **Confirmed independently from the same query:** net-new equivalent-English is **0.0 for every
+  hierarchy**, because `merged260810` absorbed all of phase 4. The store's 53,647 net-new pairs are
+  isc_survey 42,299, attrition 5,816 and ia_cdx_bulk 5,532, and nothing else.
+- **Consequence for the round.** The only Usenet lever left is a fourth extraction seam, the three
+  worked seams already cover the whole corpus, and the machine-written header seams are closed on
+  measurement. No candidate fourth seam is currently known, so `alt.*` leaves the priority list.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (priority (d) implemented: discovery and completeness, scored separately)
+
+- **The reviewer asked for two outcomes to stay visible and only one was being scored.** `ark stats`
+  counted `netnew_domains` but attached equivalent-English to **pairs** alone, so "genuinely unknown
+  domain" and "year filled on a domain he already has" could not be quoted side by side, which is
+  exactly what priority (d) asks for.
+- **Implemented as a partition rather than two independent counts**, because the near miss here is
+  trap 11. `_equivalent_english` now classifies each net-new pair by whether its **domain** carries any
+  `prior_reused` evidence at all: no baseline evidence anywhere is `discovery`, baseline evidence for
+  some other year is `completeness`. The two are disjoint and exhaustive over the net-new pairs by
+  construction, and a test asserts both the pair totals and the equivalent-English totals add back to
+  the headline.
+- **Breadth is scored once per domain, not once per pair.** `ee_netnew_domains` sums the weight over
+  distinct discovered domains, so a domain found in four years is one discovery worth one domain's
+  score. A second test pins that with a two-year domain, which is the shape that produced the
+  1,161,961-against-463,566 error.
+- **Measured on the live store the same evening:** 53,647 net-new pairs worth 23,123.9945 EE split
+  **29,375 discovery pairs worth 14,729.1125** and **24,272 completeness pairs worth 8,394.8820**, over
+  **25,152 discovered domains worth 11,349.3654 as breadth**. Both partitions add back exactly.
+- **Worth reporting to him plainly: 63.7% of this round's equivalent-English is discovery**, which is
+  the half he asked to be prioritised. That figure did not exist before this change.
+- The five fields in `round_figures.py` are his own format and are untouched. Carrying the split into
+  `docs/report.template.md` is a report decision and belongs with the round's write-up, not here.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (`just residual`: the reviewer's first priority, mechanised)
+
+- **Built because the highest-yield check the project has ever run was run by hand, once.** The 496 ISC
+  survey shards worth 14,956 equivalent-English were found by diffing disk against the ingest ledger,
+  and they had been on disk for five days while every measurement taken here was blind to them. Every
+  measurement starts from the store, so nothing that starts from the store can see a file the store has
+  never read. `scripts/audit_residual.py` is that diff, generalised into five checks, wired as
+  `just residual`.
+- **The two directions are both needed, and finding only one reads as clean.** `unread` is a documented
+  glob matching files the ledger has never read, which is lost yield. `glob_too_narrow` is the opposite,
+  a file the ledger holds that the documented glob cannot reach, which loses nothing today and makes
+  `just reproduce` rebuild a store missing it. Both have happened, the second twice on 2026-07-26.
+- **It found five reproduction gaps on its first run**, each a file that is in the store and unreachable
+  from the documented path: `cdx_gap_frontier_20260805T225930Z.jsonl.gz` under `ia_cdx_bulk`,
+  `usenet_addr_dated.jsonl.gz` and `usenet_addr_candidates.jsonl.gz` (the recipe names the `_r2`
+  journals only), and `usenet_dated_resplit260806new.jsonl.gz` with its candidates pair. That is the same
+  class as the `usenet_hdr` gap already documented in `sources.md`, found automatically rather than by
+  reading.
+- **And two genuinely unread journals, both now ingested.** `cdx_q1_20260810T164516Z.jsonl.gz`, the batch
+  the VPS published when it was stopped for the restart, worth **101 further year-rows over 120
+  domains**; and `expand_20260726T004331Z.jsonl.gz`, which is three failed fetches and no evidence, now
+  ledgered so it stops being reported and the replay path is complete.
+- **`stale_derived` is anchored on evidence, not on the file ledger.** The legacy loader writes no
+  `ingested_file` row a glob can find, so the check dates the release from the newest `prior_reused`
+  evidence row instead, which is the thing that actually changed. `merged260810` landed 2026-08-10
+  10:35:55Z. It reads the timestamp as epoch seconds inside SQL, because DuckDB needs `pytz` to hand a
+  TIMESTAMPTZ to Python and that is not a dependency here.
+- **Verified against today's own failure:** run before the rebuild it flags all three queue artifacts as
+  STALE, and after it flags none. It currently reports `gap_candidates.txt` (2026-08-05) and
+  `creation_candidates.txt` (2026-07-31) as stale, both of which predate the release.
+- **Deliberately not a gate, and the reason is worth keeping.** Unread material on disk is a fact about
+  the round, not a broken invariant, and a check that failed the build for it would be turned off within
+  a week. It reports and exits 0. The distinction is the same one `ark check` already makes between a
+  check that found nothing wrong and one that examined nothing.
+- **The `ACCOUNTED` table is the part that will rot**, and it is named here so the next person knows. It
+  lists the directories under `data/raw/` that are collector inputs or measured rejects, with the reason
+  per entry, so `unreferenced` reports only genuinely unaccounted material instead of every OCR cache
+  file. A new download with no ingest line will appear there correctly; a new download that is
+  deliberately input-only needs a line adding.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (`just screen`: the dead-lead register becomes a check rather than a reading assignment)
+
+- **`docs/discovery.md` already says an automated discovery agent will walk straight back into fifty
+  closed families unless it reads the register first, and that reading it is the cheapest step in the
+  process.** It is also the step most likely to be skipped, because it means reading a 1,549-line
+  document before every idea. `scripts/screen_hypothesis.py` does it mechanically, wired as
+  `just screen`.
+- **The register is parsed out of `docs/sources.md` at run time and never copied.** That is the whole
+  design constraint: a hand-kept second copy of those verdicts is exactly how they come to disagree, and
+  that file already carries the scar, a snapshot table claiming to be generated that had omitted the
+  round's largest contributor by the time anyone checked. Three shapes in the document carry a verdict
+  and all three are read: rows of the `Evaluated and rejected` table, `## ` headings that say rejected,
+  and inline `**Verdict: REJECT ...**` lines. It currently parses **59 closed leads**.
+- **Gate 2 is what dates one item, and it refuses rather than warns.** `self`, `typed` or `undated`, and
+  with no claim stated it exits 2. That is not ceremony: the answer decides what the source can ever be,
+  and it also decides whether widening extraction is safe. A `self`-dating source has no wall behind its
+  pattern, so a bad match becomes a master claim and the advice is to tighten; a `typed` source takes the
+  corroboration split, which is why `usenet_bare` could afford recall.
+- **Two calibration decisions worth recording, because both are the difference between a useful tool and
+  an ignored one.** A stop list removes the words that do not discriminate in this domain: without it
+  `archive` alone collides with most of the register, every proposal is flagged, and the reader learns to
+  skip the output. And a collision needs two shared terms, except that a single term occurring in exactly
+  one register entry counts, since `ircache` or `geocities` is decisive on its own.
+- **Tested against the real document on purpose.** Three tests read `docs/sources.md` itself and assert
+  the parse finds at least 40 leads including `ircache`, `geocities`, `edgar`, `common crawl` and
+  `webbase`. A parser that quietly stopped matching the file would report "no collision" for everything,
+  which is the worst available failure here because it reads as permission.
+- **Verified on three real cases:** a reproposed shareware CD-ROM catalogue collides with both closed
+  entries at 4 and 3 shared terms; `NLANR IRCache proxy trace logs` collides with the entry recording the
+  squatted domain and dead FTP; `municipal library card catalogue microfiche` does not collide.
+- **What it deliberately does not do is price anything.** Pricing is a sample measured against the live
+  store and needs a parser per source, so a generic pricer would have to guess at one and would produce
+  exactly the confident wrong number section 6 of the handoff lists eleven ways to produce. The honest
+  automation boundary is: propose, screen, state the dating claim, then measure by hand with the existing
+  discipline.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (PANDORA title index read and seeded, seed-only, with the expectation stated as near zero)
+
+- **One of the four "bytes nothing reads" directories is now read.** `data/raw/pandora-titles/` held the
+  National Library of Australia's PANDORA Title Entry Page index with its schema and crawl documentation
+  beside it, and no file in the tree mentioned it. It is the reviewer's first priority in its most literal
+  form, so it was measured before anything was written.
+- **Measured 2026-08-10, read-only and offline:** 87,732 rows, 87,658 carrying a `gathered_url`, 2,285
+  URLs from which no registrable name could be read, **35,391 distinct registrable domains of which 29,432
+  the store did not know at all**. By TLD: `au` 16,658, `com` 8,271, `org` 3,002, `net` 757. That
+  reproduces the figure already in `sources.md` (29,594 unknown) to within the store's own growth since it
+  was taken, which is the check that the reading is right.
+- **It is seed-only and permanently so.** The index has no date column of any kind, so nothing in it can
+  evidence a year. Writing these names into annual files would be the DMOZ error `SPEC.md` III.3 names
+  explicitly. They enter the candidate pool carrying no evidence row and claiming nothing.
+- **Seeded anyway, and the reason is not optimism.** He asked for the pool to be as large as practicable
+  (III.2, IX) and `.au` carries the highest English share in the table at 0.9904. The **UPPER BOUND** if
+  every new name earned exactly one year is **24,571 EE**, and that is a bound rather than a projection.
+  The measured expectation is close to zero for two reasons already on record: a 60-domain sample of this
+  same list against the working AWA endpoint returned **zero** in-window captures, and the index spans
+  PANDORA's whole run rather than the window, so a large share of its titles postdate 2001 outright. The
+  cost is one local pass and no requests, and the pool scorer ranks by measured hit rate, so worthless
+  names sit in the queue's tail rather than displacing anything.
+- **A canonicalisation fact worth knowing before anyone reads the `.au` count as government sites.**
+  `lawlink.nsw.gov.au` collapses to `nsw.gov.au`, because the pinned Public Suffix List snapshot carries
+  `gov.au` and not the per-state `nsw.gov.au`. That is left alone rather than corrected: the whole corpus
+  was canonicalised through this list, III.8 asks for registered domains, and changing the pin would move
+  every figure the project has ever quoted. The 35,391 count is already post-collapse, so it is not
+  inflated by it.
+- Reproducible as `just pandora-seed`, documented as its own section in `sources.md` per XI, and the four
+  unread directories are down to three.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the residual auditor failed its first real test, which is why it now waits 15 minutes)
+
+- **Found by running `just residual` while `ark seed` held the write lock**, which was an accident of
+  timing rather than a designed test and is the only reason it surfaced tonight. Two defects, both in the
+  new tool:
+- **The retry budget was sized against the wrong writer.** 40 attempts at 3 s is 117 s, justified in the
+  docstring against `just maintain`, which holds the lock for seconds every 15 minutes. The writers that
+  actually exist are longer: `ark seed` over 29,432 names held it for **more than twenty minutes**, and a
+  multi-journal ingest holds it for minutes. So a read-only audit gave up at exactly the moment the audit
+  was worth running. Patience is now 900 s, and it prints one line when it starts waiting so it does not
+  look hung.
+- **And it ended in a raw DuckDB traceback.** For a read-only reporting tool that reads as a defect in the
+  tool rather than as a busy store, which is the same distinction `documentation.md` already draws between
+  a verdict and a question that did not land. It now exits with one line naming the writer's PID and
+  saying plainly that waiting is the correct behaviour.
+- **A non-lock error is still raised untouched**, and there is a test for it: waiting is right for a lock
+  and wrong for a missing or corrupt file, and swallowing the difference would turn a corrupt store into
+  "busy, try later".
+- **The general point, which is why this is worth an entry at all:** the tool was written and tested
+  against a quiet store, and the first thing it met was a loud one. Both tests added here assert
+  behaviour under a writer, so the next change cannot quietly reintroduce either failure.
+- **Separately, `ark seed` is far slower than it needs to be, measured but not changed.**
+  `seed_from_file` calls `add_candidate` in a Python loop, so seeding 35,391 names is **29,432 single-row
+  `INSERT`s into a columnar store**, and `to_registrable` runs twice per line (once in the loop, once
+  inside `add_candidate`). Measured at 106% CPU for over twenty minutes for work a batched insert would do
+  in seconds. Not touched tonight because it is a core write path and the round's priority is discovery,
+  but it is a small, well-scoped fix and it blocks every other store write while it runs.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the RDAP candidate-pool sweep, and the crossover question answered the other way round)
+
+- **The handoff's open question was "where does the RDAP tail's marginal EE per query fall below the
+  archive queue's head?" Asked that way it has a misleading answer.** Measured tonight, RDAP returns
+  **0.0552 equivalent-English per query** against the rebuilt archive queue's **0.7869** at its head, so
+  per query the archive is 14x better and the RDAP tail looks finished. Per **hour** it is the reverse:
+  the archive is capped by per-IP concurrency at about 506 queries an hour, while RDAP direct to Verisign
+  sustained **118 queries a second** tonight, so the same wall-clock hour buys roughly 400 EE from the
+  archive and roughly 23,000 from the registries. **The two do not compete for the same resource, so
+  marginal value per query is the wrong denominator; the right one is per hour of the constraint each
+  route actually binds on.** That is why this ran underneath the round rather than instead of anything.
+- **Measured rate, 32 workers, direct to the registry:** 300,000 queries in 55 minutes, **118 q/s**,
+  against the 75 q/s recorded on 8 August. 17 throttles from `rdap.verisign.com` in a 100,000-query batch
+  and no refusals, so the ceiling is not yet found. `ark rdap` paces each registry with its own governor.
+- **Yield decay is real and now quantified.** `build_rdap_pool_list.py` expected a 12.7% in-window rate
+  and 0.077 EE per query from the pool-wide prior. Realised over the first 300,000 queries of this sweep:
+  30.2% returned any creation date, **8.73% returned one in window**, and **0.0552 EE per query, which is
+  72% of the expectation**. The list is ordered by how many distinct sources saw a name, and about 311,000
+  had already been asked before tonight, so this is the tail of the head rather than the head.
+- **Ingested: 26,193 records over 26,193 distinct domains**, one year each. Every one is a candidate that
+  held no year at all, so **every one is a net-new DOMAIN and not merely a net-new pair**, which is the
+  half of priority (d) he asked to be prioritised. Journal-side and store-side counts agree exactly, which
+  is the check that the ingest read what the collector wrote.
+- **Round after this ingest: 79,941 pairs, 51,345 net-new domains, 39,765.0763 EE, 0.638654%.** Up from
+  53,647 / 25,152 / 23,123.9945 / 0.3714% before it. By source the round is now `isc_survey` 42,299 pairs
+  and 14,956.3877 EE, **`rdap_snapshot` 26,193 and 16,556.5953 at mean weight 0.6321**,
+  `attrition_defacement` 5,816 and 2,791.4410, `ia_cdx_bulk` 5,633 and 5,460.6523 at mean weight 0.9694.
+  RDAP is the round's largest single contributor by equivalent-English.
+- **Verified with his own `equivalent_english_domains.py`: 79,941 records scored, 0 rejected, 0 already in
+  his merged files, agreement to 0.0000.** That matters more than usual here, because 26,193 records
+  arrived tonight from a route whose output his validator had only seen 48,394 of before.
+- **Where it lands is the useful part.** 1998 net-new pairs went from 84 to 4,362 and 1999 from 1,582 to
+  8,767, because a creation date does not need the site to have been crawled. Per-year growth on each
+  year's own baseline is now 1996 0.7416%, 1997 1.5629%, 1998 0.3406%, 1999 0.4454%, 2000 0.7089%,
+  2001 0.4154%.
+- **Two figures that look like a contradiction and are not.** `round_figures.py` reports 75,045 distinct
+  domains in the increment and `ark stats` reports 51,345 net-new domains. The difference, 23,700, is
+  domains the baseline already holds that gained a year, which is exactly the distinction priority (d)
+  exists to keep visible. The new discovery/completeness split reports both halves and they add back to
+  the headline exactly: 31,285.7078 plus 8,479.3685 is 39,765.0763.
+- **Discovery is 78.7% of the round's equivalent-English**, up from 63.7% before this ingest.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (a fabricated namespace ranks high on expected value: the pool/held ratio catches it for one query)
+
+- **Looking for RDAP headroom beyond com and net turned up `.gov` fourth in the queue, and it is junk.**
+  Measured: 81 askable TLDs hold 2,069,480 candidate-pool names, 786,349 already asked, so **1,357,792
+  never asked**. By unasked volume: `com` 357,948, `net` 323,352, `org` 308,231, **`gov` 185,803**,
+  `uk` 66,590, `ca` 28,191, `au` 22,596. At a 0.9825 English share `.gov` carries an upper bound of
+  182,551 EE, which ranks it above `.uk` and `.ca` together.
+- **It is fabricated, and the discriminator costs one query.** Names holding a year against names in the
+  pool: `.com` 0.3, `.uk` 0.3, **`.gov` 182.0, `.mil` 2,623.6**. Against a baseline 11.4M records deep a
+  real namespace cannot have 182 undated candidates for every dated one. The sample settles it:
+  `wavohsdojde.gov`, `xkgnmoaeg.gov`, `whpcsygq.gov`, `xquhue.gov` are invented, and `empty.gov`,
+  `unit.gov`, `higher.gov`, `dessert.gov` are prose words a bare-host rule read as hostnames. `.mil` is
+  already excluded because no RDAP service answers for it, which is luck rather than design.
+- **This is the `.au` mistake in a new place**, and worth naming as a class rather than an instance:
+  ordering by `P(hit) x English share` will do this whenever the probability half is a prior rather than a
+  measurement, and **a 0.9825 share times an invented name is still zero**. `.au` cost 1,709 queries for
+  five hits by the same mechanism.
+- **Implemented as a printed warning in `build_rdap_pool_list.py`, not as an exclusion.** `pool_plausibility`
+  reports dated, pooled and the ratio per askable TLD and warns above 10x. Which TLDs to exclude is a
+  judgement about the corpus rather than a fact about the pool, and `--tlds` already exists to act on it.
+  Run tonight it flags 8: `gov` 182.0, then seven tiny ones (`name` 62.0, `sd` 30.0, `ht` 24.0, `re` 21.0,
+  `pm` 19.0, `pro` 16.5, `cm` 15.9) whose absolute volumes are in the tens.
+- **The threshold is not tuned.** Real namespaces measure 0.3 and fabricated ones 182 and 2,624, so
+  anything between 1 and 100 separates them; a test asserts the constant stays in that range rather than
+  asserting the value.
+- **Consequence for the sweep still running:** it is `com,net` only, so it is unaffected. The next sweep
+  should be `com,net` again plus a decision on `.org`, which is the best in-window rate measured anywhere
+  (24.9% on answers) and whose registry returns 403 for thousands of consecutive requests after about 850.
+  That is a rate-limit negotiation rather than an engineering problem.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the screener run on ten fresh hypotheses, which found a defect in the screener)
+
+- **Ran `just screen` over ten hypotheses to see whether the harness does anything**, which is the round's
+  ask in miniature: generate, screen, keep survivors. Result: **seven survive gate 1, three collide**, and
+  two of the three collisions were **false positives caused by the screener itself**.
+- **"INET conference proceedings 1996-2001" was reported as colliding with "SEC EDGAR filings
+  1996-2001".** Their only shared term was the window. Every source in this project is about 1996-2001, so
+  the range appears throughout the register, and it happens to occur in exactly one entry *name*, which is
+  what made the single-rare-token rule fire on it. **A date says when, never what.** Tokens that are
+  purely numeric or a numeric range are now dropped.
+- **"Apache Software Foundation project release announcements" collided with "OCLC Web Characterization
+  Project" on the word `project`.** Added to the stop list with `programme`, `record`, `entry`, `metadata`
+  and `content`, all of which name a shape rather than a source.
+- **The remaining collision was correct and useful:** university course syllabi hit "Institutional link
+  directories: university, library, government, museum", which measured 2 net-new domains over 388 and
+  ~0.02 EE per page fetch. That is the tool doing its job, and it would have cost an afternoon.
+- **Verified with negative controls, per the handoff's rule that a search finding nothing has either
+  proved something or been pointed at the wrong place.** Two known-closed leads were re-screened after the
+  fix and both still fire: shareware CD-ROM ISO catalogues, and IRCache/NLANR proxy traces. So the fix
+  narrowed the matcher without disabling it, and two tests pin exactly that: the year-range case must not
+  collide while "SEC EDGAR quarterly filings" still must.
+- **The seven survivors, all `typed` (a hostname a human wrote inside a dated artifact, so all would take
+  the corroboration split), unpriced and in no order:** RFC and Internet-Draft documents; CPAN/PAUSE module
+  release metadata with author homepage fields; Linux Software Map entries with `Entered-date` and `Site`;
+  Debian changelogs and upstream homepage metadata; INET conference proceedings 1996-2001; the W3C
+  technical reports index; the hobbes OS/2 archive index; Apache release announcements; Netcraft monthly
+  survey hostname lists.
+- **Surviving the screener is not a recommendation and none of these is priced.** Several look like the
+  authority-selecting shape that has killed four families already: RFCs, W3C and Apache are exactly the
+  heavily-crawled institutional population a CDX-derived baseline holds first, and Netcraft published
+  aggregate counts rather than hostname lists as far as anyone here knows. The two worth pricing first on
+  the project's own pattern are the ones whose items are **dated records naming a third-party site**:
+  **the Linux Software Map** and **CPAN/PAUSE**, both of which are the Tucows shape, which worked.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the loop run end to end on one hypothesis, and it closed on measurement in an hour)
+
+- **This is the round's ask done once, small, with a real verdict at the end.** `just screen` generated the
+  Linux Software Map as a survivor, the structure checked out, pricing killed it, and it is now a row in
+  the rejected register that the screener itself will match next time. Total cost: **two HTTP requests to
+  a non-IA host and about an hour**, no Internet Archive budget.
+- **Why it looked right, and it genuinely did.** `https://www.ibiblio.org/pub/Linux/docs/LSM/` serves
+  dated snapshots inside the window, and each record is a `Begin3 ... End` block carrying its own
+  `Entered-date` next to `Primary-site`, `Alternate-site`, `Author` and `Maintained-by`. So the date is
+  intrinsic to the record and the hostname sits beside it, which is the shape of every large win this
+  project has had, and specifically the Tucows shape.
+- **Measured against the live store: 4,560 records, 3,946 in window, 3,951 distinct in-window pairs over
+  2,066 domains, of which 3,743 (94.7%) are already held.** Of the 208 remaining, the corroboration split
+  admits **86 pairs worth 37.3 equivalent-English at mean weight 0.4338**; 122 pairs and 56 names go to the
+  candidate pool. Against an acceptance bar of ~5,000 net-new pairs that is a reject by two orders of
+  magnitude.
+- **The reason is the standing structural one, now on its fifth family.** A Linux author's own homepage is
+  the heavily-crawled population a CDX-derived baseline holds first, after Usenet relay hops, institutional
+  link directories, award galleries and mailing lists. **A source that selects for authority cannot be
+  net-new, however well dated it is.** Worth noting that the dating was never the problem: it was the best
+  dating of anything assessed this round.
+- **The pre-split figure was 208 pairs and 96.1 EE, so quoting it would have overstated the source 2.6x.**
+  Small in absolute terms and the same error class as the 24-fold Usenet case.
+- **Two parser facts recorded so a future pass does not lose the corpus.** The snapshots are **not** purely
+  cumulative: 1999-08-29 carries 897 in-window pairs that 2001-12-01 does not, so reading only the latest
+  loses a fifth of the source. And `Entered-date` appears in at least four formats (`27OCT97`,
+  `1999-08-29`, `12/03/98`, `Oct 1997`), so a single-format parser silently drops most records and the
+  source would read as barren rather than as unparsed. That is the same failure mode as the Giganews
+  `YYYY/MM/DD` headers, which cost 21,346 of 23,282 messages before it was found.
+- **What the round should take from this is the loop, not the source.** Nine other hypotheses survived the
+  screener tonight and none is priced. On this evidence the ones to price are those whose records name a
+  **third party's** site rather than the author's own, because that is the only variant of this shape that
+  has ever been net-new.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the defacement-mirror family closed, and the class that actually pays named)
+
+- **Worth stating the pattern the round has actually demonstrated, because it is the useful output of the
+  night's exploration.** The three sources that produced this round's equivalent-English are
+  `rdap_snapshot` (registry creation dates), `isc_survey` (dated DNS survey shards) and
+  `attrition_defacement` (a dated defacement index). What they share is not their format: they are
+  **machine-generated records about every domain in scope, not human curation of notable ones.** The five
+  families that have failed on measurement all share the opposite property, and the Linux Software Map
+  priced tonight is the fifth. **A source that selects for authority cannot be net-new; a source that
+  selects for nothing can.**
+- **So the best remaining idea in that class was another defacement mirror**, since attrition's own index
+  states it copied its pre-1999 entries from earlier mirrors, meaning siblings existed. It is
+  self-dating `artifact_listing`, takes no corroboration split, and the population is whoever was hacked
+  rather than whoever was famous.
+- **Closed on availability, not on value.** archive.org returns **0** items for `alldas` and **0** for
+  `safemode defaced`, and its 212 hits for `defacement` are a 2011 news clip, a malware source dump and
+  Indian parliamentary library scans. GitHub is the only reason attrition's own mirror still exists, after
+  a 2021 republication, and it holds no sibling: `alldas` gives 14 unrelated modern dashboards, and the
+  one defacement archive there is `Mirror-H.org`, a 2010s collection out of window. Recorded with the
+  condition that would reopen it: a named surviving mirror.
+- **Both of tonight's closures are reportable results in their own right**, per `SPEC.md` IX, which asks
+  for limitations and whether further expansion is worthwhile. The honest answer for the curated-directory
+  and software-index shape is no, on five independent measurements.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (the RDAP decay curve flattened, which changes whether to keep sweeping)
+
+- **Measured per batch, in-window records per 100,000 queries:** batch 1 **10,238 (10.24%)**, then 7,841,
+  8,114, 8,193, 7,989, 8,128, so **7.84% to 8.19% and flat** after the first batch. The collector's
+  any-year date rate is flat too, 27,603 / 28,304 / 28,042 / 27,836 / 28,022 per batch, about 28%.
+- **That is not what the 8 August sweep saw and the difference is the reason.** Then, `.com` went 19.2%
+  to 11.4% to 8.4% over three 100,000-query blocks. This sweep starts where that one stopped, roughly
+  311,000 names deep in a list ordered by how many distinct sources saw each name, so **the steep part of
+  the curve was already spent and what is left is the flat tail.** Batch 1 catching 10.24% is the last of
+  the shoulder.
+- **The decision it changes.** A decaying tail argues for stopping; a flat one argues for continuing until
+  something else is worth the hour more. On 8.1% and a `.com` weight of 0.6321, the **~587,000 com/net
+  names still unasked project to roughly 47,500 records and 30,000 equivalent-English**, and that is a
+  **PROJECTION off a flat six-batch measurement, not a measurement**. At 118 q/s it is about 80 minutes of
+  unattended machine time that competes with nothing.
+- **The honest caution against over-reading it.** The flatness is measured over 600,000 queries of one
+  ordered list, and the ordering is by source count, which is a proxy for realness rather than for
+  in-window age. Nothing here says the next 587,000 behave like the last 600,000; it says they are not
+  currently decaying. Re-measure per batch and stop when a batch drops materially below 8%.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-10 (where the round stands at the end of the evening)
+
+Recorded as the historical position, measured after the last ingest and verified with the reviewer's own
+calculator. Every figure below is against `merged260810`.
+
+| | at 18:31Z | at 19:22Z |
+|---|--:|--:|
+| net-new pairs | 52,768 | **120,222** |
+| net-new domains | 24,790 | **91,154** |
+| equivalent-English | 22,313.8176 | **64,971.6888** |
+| growth on his 6,226,386.4245 | 0.3584% | **1.043490%** |
+| mean weight | 0.4229 | 0.5404 |
+
+By source: `rdap_snapshot` 66,002 pairs and 41,327.9934 EE at mean weight 0.6262, `isc_survey` 42,299 and
+14,956.3877, `ia_cdx_bulk` 6,105 and 5,895.8667 at mean weight 0.9657, `attrition_defacement` 5,816 and
+2,791.4410. Per-year growth on each year's own baseline: 1996 0.8011%, 1997 1.7680%, 1998 0.8508%,
+1999 0.9903%, 2000 1.4272%, 2001 0.6641%, so every year is now above 0.66% where four of the six were
+below 0.17% this morning.
+
+The two outcomes: **95,377 discovery pairs worth 56,057.1059** over **91,154 newly discovered domains
+worth 52,677.3588 as breadth**, and 24,845 completeness pairs worth 8,914.5829. The two add back to the
+headline exactly. **Discovery is 86.3% of the round's equivalent-English**, which is the half he asked to
+be prioritised.
+
+Verified with his `equivalent_english_domains.py`: 120,222 records scored, **0 rejected, 0 already in his
+merged files, agreement to 0.0000**. Nine invariants ALL PASS after `ark export`. 320 tests pass.
+
+**Left running deliberately:** the VPS collector, on a freshly built shard 1 with deadline `1788177600`
+= 2026-08-31T12:00Z. **Left incomplete deliberately:** the PANDORA seed, 7,843 of 29,432 candidates
+landed before it was interrupted to free the write lock for the RDAP ingest; `just pandora-seed` resumes
+it idempotently and should follow the batched-insert fix. **Left unasked:** roughly 587,000 com/net pool
+names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
+
+**Signed off by Ivo: pending.**

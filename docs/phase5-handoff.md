@@ -10,6 +10,41 @@ operational version.
 
 ---
 
+## Corrections, appended 2026-08-10 evening
+
+**Read this before section 4.** Four things below were measured after the rest of this document was
+written and three of them change what is worth doing. The originals are left in place because they are
+what was believed at the time; each correction names the entry in `notes.md` that carries the
+measurement.
+
+1. **`alt.*` is priced, and it is proportionate. It leaves the priority list.** Section 4.2 calls its
+   yield "entirely unpriced" and "the largest open question about the project's largest source",
+   answerable by a screening pass. Measured from the store instead: `alt.*` is 57% of the bytes and
+   **54% of the assigned equivalent-English**, 1,013 EE per GB against a corpus mean of 1,065. Every
+   Usenet evidence row names its newsgroup in `evidence_value`, so per-hierarchy yield is a SQL
+   partition, not a 383 GB walk. The table is now in `sources.md` under the Usenet Residual block.
+2. **"17,525 archives have never been through `measure_usenet_yield.py`" is the wrong instrument, and
+   running it would have proved nothing.** That script measures what an archive *would* add; every
+   archive is already ingested, so it reads near zero by construction. It is trap 9 inverted. The
+   answerable question is what each hierarchy *did* contribute, which is the point above.
+3. **`just query-queue` and `just query-queue-preview` could not run at all.** Section 4.4 tells you to
+   run them before ordering any queue. `10ec347` rewrote the round-window cast as `TIMESTAMPTZ ?`, which
+   DuckDB's parser rejects, so both exited 1 and the shards on disk were the newest anybody could have.
+   Fixed, tested, and the queue rebuilt: `merged260810` created 197,977 targets and retired 188,643, and
+   **28% of the current best-10,000 head did not exist in the shard the VPS was working.**
+4. **Two new commands exist and answer priorities (a) and (b) mechanically.** `just residual` is the
+   disk-against-ledger diff that found the ISC shards, generalised to five checks. `just screen` refuses
+   a proposal that collides with the ~50 closed families, parsing the register out of `sources.md` at run
+   time. Both are read-only and offline. `ark stats` now also reports discovery and completeness
+   separately, which is priority (d).
+
+**Also changed:** the VPS deadline is now `1788177600` = 2026-08-31T12:00Z, running a freshly built
+shard 1, so section 2's 2026-08-19 warning no longer applies. `just engines` will show a leftover
+wrapper's command line rather than the supervisor's until that orphan exits; the supervisor is the
+`bash scripts/supervise_cdx_pool.sh 1788177600 300 8 900` process in its own session.
+
+---
+
 ## 0. Read these, in this order, before doing anything
 
 | # | file | why |

@@ -468,6 +468,51 @@ of the addressable pool. The others each failed differently and each failure is 
 names. Ordering by expected value will do this whenever the probability half of the estimate is a
 guess, so probe a registry before spending a night on it: 150 queries is enough.
 
+**The same mistake found again on 2026-08-10, in `.gov`, and now caught for one query.** Looking for
+headroom beyond Verisign, `.gov` came fourth by unasked volume with **185,803 pool names at a 0.9825
+share**, an upper bound of 182,551 EE, ahead of `.uk` and `.ca` together. It is fabricated. The
+discriminator is **names holding a year against names in the pool**: `.com` 0.3, `.uk` 0.3, **`.gov`
+182.0, `.mil` 2,623.6**. Against a baseline 11.4M records deep a real namespace cannot carry 182 undated
+candidates for every dated one, and the sample confirms it: `wavohsdojde.gov` and `xkgnmoaeg.gov` are
+invented, while `empty.gov`, `unit.gov`, `higher.gov` and `dessert.gov` are prose words a bare-host rule
+read as hostnames. `.mil` is excluded already, but only because no RDAP service answers for it.
+`build_rdap_pool_list.py` now prints this ratio per askable TLD and warns above 10x. It **warns rather
+than excludes**, since which TLDs to drop is a judgement about the corpus and `--tlds` already acts on
+it. **A high English share times an invented name is still zero.**
+
+**Headroom, measured 2026-08-10:** 81 askable TLDs hold 2,069,480 pool names, 786,349 already asked,
+so **1,357,792 have never been asked**: `com` 357,948, `net` 323,352, `org` 308,231, `gov` 185,803
+(fabricated, above), `uk` 66,590, `ca` 28,191, `au` 22,596.
+
+**`.org` is the largest plausible thing left, and it is blocked on a registry rather than on work.**
+308,231 unasked names at a 0.7101 share, and unlike `.gov` its pool is a real namespace: the pool-to-dated
+ratio is **1.09**, in the same band as `.net` at 1.51 and `.ca` at 1.03. Its in-window rate is also the
+best measured anywhere, **24.9%**, which would put an upper bound near 54,000 EE on the unasked set.
+Three reasons that bound is soft and should not be quoted as a projection: the 24.9% rests on **848
+answers** before PIR returned 403 for 9,253 consecutive requests; yield decays down the list as it does
+everywhere; and the pool visibly mixes real names (`royalminky.org`, `psi-corps.org`) with
+harvester-munged ones (`tvgjxjxlov.org`, `wyulceufb.org`), which return 404 rather than a date. **The
+next step is a small slow probe, not a sweep**, and it is a decision rather than a task: it means going
+back to a registry that has already refused us, so pace it well under whatever tripped the 403, honour
+every `Retry-After`, and stop on the first refusal. `SPEC.md` VI is the licence for adapting to a rate
+limit rather than stopping outright; it is not a licence for ignoring one.
+
+**Rate and decay re-measured 2026-08-10 over a fresh 300,000-query sweep of `com,net`.** Direct to
+Verisign at 32 workers sustained **118 queries a second**, above the 75 q/s of 8 August, with 17
+throttles in a 100,000-query batch and no refusals, so the ceiling is still not found. Of 300,000
+queries, **30.2% returned a creation date of any year and 8.73% returned one in window**, giving
+**0.0552 equivalent-English per query against the 0.077 the builder expected, or 72% of it**. About
+311,000 names had already been asked before this sweep, so this is the tail of the head. It contributed
+**26,193 records over 26,193 distinct domains worth 16,556.5953 EE** at mean weight 0.6321, every one a
+net-new domain because every one was a candidate holding no year.
+
+**The crossover question, answered with the right denominator.** The standing question was where the
+RDAP tail's marginal EE per query falls below the archive queue's head. Per query the archive wins
+easily, 0.7869 against 0.0552. Per **hour** it is the reverse: the archive is capped by per-IP
+concurrency at about 506 queries an hour, so it buys roughly 400 EE an hour, while RDAP at 118 q/s buys
+roughly 23,000. **The two bind on different constraints, so per query is the wrong denominator.** Run
+both.
+
 **Yield decays down the list, and that is what ends a sweep.** The list is ordered by how many
 distinct sources saw each name, and `.com` returned 19.2% in-window over its first 100,000 queries,
 11.4% over the next 100,000, then 8.4%; `.net` went 20.3% to 4.1% over 114,000. Nothing is wrong when
@@ -1035,6 +1080,8 @@ Recorded so that negative results are visible rather than silently omitted.
 
 | Source | Verdict |
 |---|---|
+| Web defacement mirrors other than attrition.org (2026-08-10) | **Closed on availability, and it was the best remaining idea in the class that pays.** The three sources that worked this round are machine-generated records about *all* domains rather than human curation of notable ones, which is why they are net-new where curated directories are not, and a defacement mirror is exactly that: self-dating `artifact_listing`, no corroboration split, and the population is whoever got hacked rather than whoever was famous. attrition's own index copies its pre-1999 entries from **earlier mirrors**, so siblings demonstrably existed. None survives as retrievable data. archive.org holds **0** items for `alldas` and **0** for `safemode defaced`, and its 212 hits for `defacement` are unrelated (a 2011 news clip, a malware source dump, Indian parliamentary library scans). GitHub, which is the only reason attrition's own mirror survives at all after its 2021 republication, holds no sibling: `alldas` returns 14 repos and every one is an unrelated modern dashboard, and the sole defacement archive there is `Mirror-H.org`, a 2010s collection well out of window. **Reopen only on a named surviving mirror**, since the family is right and the artifacts are gone |
+| Linux Software Map, ibiblio LSM snapshots (2026-08-10) | **Generated by `just screen`, priced the same hour, rejected: 86 net-new pairs and 37.3 equivalent-English after the split.** The structure is ideal and is why it was worth an hour: `https://www.ibiblio.org/pub/Linux/docs/LSM/` serves dated snapshots in window (`LSM.1999-08-29`, `LSM.1999-08-30`, then monthly `LSM.2001-06-01` to `LSM.2001-12-01`), each record is a `Begin3 ... End` block carrying its own `Entered-date` beside `Primary-site`, `Alternate-site`, `Author` and `Maintained-by`, so the date is intrinsic to the record and the hostname sits next to it. That is the Tucows shape, which worked. **The population is wrong.** 4,560 records, 3,946 in window, 3,951 distinct in-window pairs over 2,066 domains, and **3,743 of the pairs, 94.7%, are already held**. Of the 208 that are not, the corroboration split admits **86, worth 37.3 EE at mean weight 0.4338**, with `.de` the second TLD; 122 pairs and 56 names go to the pool. A Linux author's own homepage is exactly the heavily-crawled population a CDX-derived baseline holds first, which is the fifth family to fail this way after relay hops, institutional directories, award galleries and mailing lists. **Two facts worth keeping.** The snapshots are **not** purely cumulative: the 1999-08-29 file carries 897 in-window pairs the 2001-12-01 file does not, so a single latest snapshot is not the whole source. And `Entered-date` is written at least four ways (`27OCT97`, `1999-08-29`, `12/03/98`, `Oct 1997`), so a single-format parser silently drops most of the corpus. Two requests to a non-IA host, no IA budget spent |
 | Printed Internet directory books, the whole named family (2026-08-08) | **Closed from three directions, and the 5 August entry below understated why.** The canonical titles do exist and were enumerated rather than guessed: a title query over `mediatype:texts AND year:[1994 TO 2002]` returns 34 of them, including `internetyellowpa00hahn` (Hahn 1994), `newridersofficia0000unse` and `newridersofficia00lorn` (New Riders 1996 and 1998), `quesofficialinte0000turn` (Que 2001 edition), `harleyhahnsinter00hahnrich` (2000), `mecklermediasoff0000unse` (1996), `luckmansworldwid0000unse_1997ed`, `wholeinternetuse00edkr` (Krol 1994) and `1998aolmembersed0000newr`. **Every one of the 34 is `inlibrary`/`printdisabled`.** (1) The text files are listed in item metadata but `_djvu.txt` and `_hocr_searchtext.txt.gz` both return **HTTP 401**, verified on four volumes. (2) Search-inside is not a way round it: `fulltext/inside.php` returns **403 Item not available** on the correct `path`, and returns `{"matches":[],"error":"No hOCR or Abbyy file present"}` on a wrong one, so a bad parameter is indistinguishable from an empty book unless both are tried. `api.archivelab.org` no longer resolves. (3) The open-access complement is not the same population: the same title query with `-collection:inlibrary -collection:printdisabled` leaves **144 items and not one directory book**, being ERIC education papers, microfiche and museum-website evaluations. **And the payload would not have paid anyway**, which is the finding to keep: HathiTrust Extracted Features is the legitimate non-consumptive route into in-copyright print, it was measured on 69 in-window volumes at 15.7 net-new pairs each, and the net-new names are `0fficemed.com`, `0steopath0mline.com`, `26o0.com`. **For an OCR source the net-new half and the OCR-damaged half are the same population**, because the real domains in these books are already held; usable yield was ~330 EE for 6+ hours. Do not reopen on a new identifier list |
 | SEC EDGAR filings 1996-2001 (2026-08-08) | Genuinely untried, born-digital rather than OCR, hard filing dates, US commercial filers, and **measured at a reject**. 150 filings stratified across the six years from `full-index/<year>/QTR<n>/form.idx`, biased towards the forms most likely to print an address (10-K, 10-K405, S-1, SB-2, 424B): **150 of 150 reachable, 61.1 MB, and 46 (domain, year) pairs in total.** Against the store that is **4 net-new pairs, 3 of them corroborated, 1.9 equivalent-English, or 0.01 EE per filing.** Filings are legal and financial prose that barely print URLs, and the filers that do are large public companies the baseline holds first, which is the same failure mode as award galleries and institutional directories. Whole-window projection over ~530,000 filings is ~5,000 EE for roughly 200 GB of download. The born-digital argument is real and is why this was worth testing, but density beat it |
 | InterNIC public zone files, via Wayback (2026-08-08) | The existing "no 1998-2001 zone files survive" entry lists DNS-OARC, resellers and academic torrents as checked and **not Wayback**, which is precisely how the ISC survey files were recovered from `nw.com`. Now checked and still absent: `internic.net` under `matchType=domain` holds 8,001 captures of which **16 have a path resembling data at all**, and those are `cgi-bin/whois?...` single-domain lookups, not bulk files. `ftp.internic.net/domain` and `rs.internic.net/domain` captures are 2017-2018 directory stubs of 435 bytes. **A trap that cost a false negative first:** passing `url=host/path/*` together with `matchType=prefix` returns **zero** even for captures known to exist, so the control query `nw.com/zone/*` reported the ISC files absent; drop the `*` and it returns 41 rows. Any CDX zero from a prefix query must be re-run against a known-good control before it is believed |
@@ -1199,9 +1246,11 @@ measured was `uk.misc`, which returned a single record from 172.9 MB because the
 postdates the window almost entirely.
 
 **Measured union over 1,706 archives: 147,271 net-new pairs, 85,721 net-new domains, 98,066
-equivalent-English at mean weight 0.6659.** That was 1,706 of the 3,479 archives held at the time, and
-it is **the newest whole-corpus yield measurement there is**: the corpus has since grown to 19,231, all
-ingested, so this figure now describes 8.9% of it and is a floor rather than a total. What the store
+equivalent-English at mean weight 0.6659.** That was 1,706 of the 3,479 archives held at the time, so it
+describes 8.9% of today's corpus and is a floor rather than a total. It is **superseded as the way to ask
+this question**: it was measured before those archives were ingested, and once a corpus is in the store
+the same script cannot be re-run for an answer. Use the per-hierarchy attribution in the Residual block
+below instead, which covers all 19,231 archives and needs no parsing at all. What the store
 holds from the whole corpus is the figure to quote instead: `usenet_announce` carries 2,017,182 evidence
 rows over 1,022,707 distinct domains. Measured in one pass rather than summed across tranches,
 because each tranche was differenced against the store separately and adding them would double count
@@ -1231,11 +1280,39 @@ complete**, and every figure elsewhere in this section about groups remaining as
 What remains is **recall over 383 GB already paid for**, which is a different and much cheaper kind of
 work:
 
-- **Yield attribution, not ingestion, is what is unmeasured.** Every archive is split and ingested, but
-  the newest whole-corpus yield measurement covered **1,706 archives**, so **17,525 have never been
-  through `measure_usenet_yield.py`**. That is why no per-hierarchy or per-group value is known, and it
-  is the gap to close before deciding where to widen an extractor. `legacy/scripts/screen_usenet_archives.py`
-  lists any archive with 0.0% in-window coverage, which is how a silently barren group shows up.
+- **Per-hierarchy yield is now measured, and `measure_usenet_yield.py` was the wrong instrument for it.**
+  An earlier version of this block said 17,525 archives "have never been through
+  `measure_usenet_yield.py`" and treated that as the gap to close. Running it would have proved nothing:
+  that script measures what an archive **would** add, every archive is already ingested, so it reads
+  near zero by construction. That is trap 9 inverted, a population that structurally excludes the
+  outcome being counted.
+  The answerable question is what each hierarchy **did** contribute, and it is a store-side join rather
+  than a corpus walk. Every Usenet evidence row carries its newsgroup as the first token of
+  `evidence_value`, and `domain_year.evidence_id` names the one row that won each assignment, so the
+  yield partitions by group with no double counting. Measured 2026-08-10, read-only:
+
+  | hierarchy | GB | groups | groups that won a pair | pairs assigned | domains | EE assigned | EE per GB |
+  |---|--:|--:|--:|--:|--:|--:|--:|
+  | `alt` | 234.1 | 15,288 | 8,262 | 439,717 | 352,489 | 237,158 | 1,013 |
+  | `comp` | 33.1 | 1,205 | 1,013 | 165,636 | 140,565 | 80,686 | 2,441 |
+  | `rec` | 55.5 | 919 | 736 | 101,192 | 89,557 | 55,886 | 1,008 |
+  | `uk` | 14.5 | 495 | 393 | 40,898 | 36,281 | 14,495 | 1,001 |
+  | `misc` | 9.7 | 242 | 187 | 19,701 | 18,587 | 11,277 | 1,158 |
+  | `soc` | 32.3 | 341 | 261 | 20,798 | 19,517 | 9,617 | 297 |
+  | `sci` | 11.6 | 237 | 201 | 14,980 | 13,852 | 7,754 | 671 |
+  | `news` | 5.9 | 60 | 36 | 10,986 | 9,991 | 6,049 | 1,025 |
+  | `aus` | 5.3 | 195 | 155 | 15,570 | 13,999 | 5,504 | 1,030 |
+  | `can` | 2.2 | 109 | 90 | 13,453 | 12,889 | 5,359 | 2,478 |
+  | `biz` | 1.2 | 95 | 67 | 7,043 | 6,727 | 3,583 | 3,105 |
+  | `talk` | 6.0 | 47 | 27 | 630 | 628 | 359 | 60 |
+
+  **`EE assigned` is what the seam won historically and is all credited in `merged260810`**, so it is a
+  density prior for choosing where to widen an extractor, not available headroom. Net-new
+  equivalent-English is 0.0 for every hierarchy, which the same query confirms. The figure attributes a
+  pair to the evidence row that **won** it, so it understates what a hierarchy merely asserts: many
+  Usenet-asserted pairs were assigned from a CDX row instead.
+  `legacy/scripts/screen_usenet_archives.py` still lists any archive with 0.0% in-window coverage, which
+  is how a silently barren group shows up.
 - **Two seams have measurable coverage gaps, both small and both precise.** The header run and the
   first address run each covered **19,083 archives**, not 19,231: the 148-archive batch ingested on
   2026-08-08 as tag `auto084548` landed between them, so those 148 were never header-scanned. And the
@@ -1253,16 +1330,19 @@ work:
   across 4,736 distinct domains and **13.89 EE on a 400-archive sample, projecting to about 30 EE for
   the corpus**; the Giganews donation carries no `Path:` header before 2000 at all (197, 278, 202 and
   210 in-window lines for 1996 to 1999 against 750,686 for 2001). Neither should be re-proposed.
-- **`alt.*` is fully downloaded and fully processed, and its yield is entirely unmeasured.** Measured
-  2026-08-10: the catalogue holds **15,288 `alt.*` groups, 234,057,485,934 bytes**, of which 15,286 are
+- **`alt.*` is priced, and it is proportionate rather than exceptional. It is no longer an open
+  question.** The catalogue holds **15,288 `alt.*` groups, 234,057,485,934 bytes**, of which 15,286 are
   on disk and all 15,286 are in `.processed` (the two absent are the unfetchable pair above). An
   earlier version of this section said "14,910 groups, 229 GB", which was the **remainder still
   unprocessed at the end of 2026-08-01** and reproduces exactly from the ingest log; it was never a
-  statement about what had been downloaded. So there is nothing to fetch here and nothing to crawl.
-  **[GUESS]** a large share of small `alt.*` groups are vanity archives that announce nothing, which is
-  the trap `fetch_usenet_groups.py` documented for the `net` name token. `alt.*` is 79% of the groups
-  and 57% of the bytes, so whether it carries a proportionate share of the yield is the single largest
-  open question about this corpus, and it is answered by a screening pass over local files.
+  statement about what had been downloaded. A later version called its yield "entirely unmeasured" and
+  the single largest open question about this corpus, answerable by a screening pass over local files.
+  Measured instead from the store on 2026-08-10, per the table above: `alt.*` is **57% of the bytes and
+  54% of the assigned equivalent-English**, at **1,013 EE per GB against a corpus mean of 1,065**. The
+  standing **[GUESS]** that many small `alt.*` groups are vanity archives announcing nothing is half
+  right and its conclusion was wrong: **7,026 of its 15,288 groups won nothing at all**, so it holds at
+  group level, and it does not hold at hierarchy level, which is the level the decision is taken at.
+  Screening `alt.*` will not find a hidden tranche, and it needs no screening pass.
 - **Diminishing returns are measured, not feared:** the cumulative curve fits `a * g^0.909`, so
   saturation had barely started at 28 groups, and 4,023,027 of 5,283,482 probed messages were out of
   window, which is where three quarters of the bytes went.
@@ -1496,16 +1576,54 @@ changes.
 plus the copied-in pre-1999 entries, and the 265 per-TLD and per-defacer breakout pages re-slice the
 same rows rather than adding any. There is no more of this source to take.
 
+### `pandora_titles`: the National Library of Australia title index, as candidate seeds
+
+**What it is.** PANDORA's Title Entry Page index, 87,732 rows of `tep_id, name, gathered_url, surt`,
+published CC0 by the GLAM Workbench. Already on disk at `data/raw/pandora-titles/`, with its schema
+and the crawl documentation beside it.
+
+**Get it.** <https://github.com/GLAM-Workbench/trove-web-archives-titles>
+
+```bash
+uv run python scripts/seed_pandora_titles.py    # -> pandora_hosts.txt
+uv run ark seed data/raw/pandora-titles/pandora_hosts.txt
+```
+
+Or `just pandora-seed`.
+
+**Date semantics: none, and that is the whole verdict.** The index has **no date column of any kind**,
+so nothing in it can evidence a year and it is **seed-only** permanently. Writing its names into annual
+files would be the DMOZ error `SPEC.md` III.3 names explicitly.
+
+**Evidence type: none.** The names enter the candidate pool with no evidence row and claim nothing.
+
+**Measured 2026-08-10, read-only, no network.** 87,732 rows, 87,658 carrying a URL, 2,285 URLs from
+which no registrable name could be read, **35,391 distinct registrable domains, of which 29,432 the
+store did not know at all.** By TLD the new names are `au` 16,658, `com` 8,271, `org` 3,002, `net` 757.
+
+**Why it was seeded, and why nothing is expected from it.** The reviewer asked for the pool to be as
+large as practicable (III.2, IX) and `.au` carries the highest English share in the table at 0.9904, so
+an upper bound of **24,571 EE** applies if every new name earned exactly one year. That is an
+**UPPER BOUND and not a projection**, and the measured expectation is close to zero for two recorded
+reasons: a 60-domain sample of this list against the working AWA endpoint returned **zero** in-window
+captures, and the index spans PANDORA's whole run rather than the window, so a large share of its titles
+postdate 2001 outright. Seeding costs one local pass and no requests, and the pool scorer ranks these
+names by measured hit rate, so if they are worthless they sit in the queue's tail and cost nothing.
+
+**Residual: closed for this file.** The index is complete as published. The `surt` column is a reordered
+form of the same URL and adds no names. `data/raw/pandora/` is a byte-identical copy.
+
 ### Bytes already on disk that nothing reads
 
-Four directories under `data/raw/` hold downloaded material with **no parser, no `SourceSpec` and no
+Four directories under `data/raw/` held downloaded material with **no parser, no `SourceSpec` and no
 ingest line**. They are listed here because the reviewer's first priority is unprocessed files, and
 these are the literal answer to it. None is a promise of yield; each is a measurement that costs no
-network.
+network. **`just residual` now finds this class mechanically**, so the table below is the state of the
+four as of 2026-08-10 rather than the way to discover the next one.
 
 | on disk | size | state |
 |---|---|---|
-| `data/raw/pandora-titles/` | 13 MB | The National Library of Australia's PANDORA title index, with `pandora-titles-schema.json` beside it and `auscrawls.pdf` describing the crawls. Nothing in the tree mentions it: no collector, no recipe, no section of its own until this one. `.au` weight is 0.9904, the highest of any TLD in the table, which is why an unmined Australian title index is worth opening before anything is downloaded. `data/raw/pandora/` holds a byte-identical second copy of the CSV |
+| `data/raw/pandora-titles/` | 13 MB | **Read on 2026-08-10 and seeded, seed-only. See the section below.** The National Library of Australia's PANDORA title index, with `pandora-titles-schema.json` beside it and `auscrawls.pdf` describing the crawls. `data/raw/pandora/` holds a byte-identical second copy of the CSV, which nothing reads |
 | `data/raw/source_probe_260806/hathitrust_ef/` | 12 MB | 73 HathiTrust extracted-features files plus `hathi_candidates.tsv`. The HathiTrust route as a whole is rejected in the register above, but this residue was pulled before that verdict and never measured, so the rejection does not actually cover it |
 | `data/raw/source_probe_260806/attrition/` | 2.7 MB | The 33 index pages for the defacement mirror, measured and documented in its own section above. Blocked on the licence question, not on work |
 | `data/raw/usenet_hdr/` | 40 MB | The machine-written-header journals, including a 5.2 MB dated half. The **evidence is already in the store**, ingested by hand under the `usenet_addr_*` source keys, so this is not unmined yield. It is a **reproduction gap**: no `usenet_hdr` `SourceSpec` exists and no `just journals` line replays it, so a rebuild from journals reconstructs the store without those 19,224 evidence rows. The seam itself is closed on measurement, above |

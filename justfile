@@ -48,6 +48,39 @@ verify-repo:
 check-data:
     uv run ark check
 
+# The reviewer's first priority in one command: unprocessed files, globs that
+# match too little, downloaded bytes with no parser, and derived lists a newer
+# baseline has invalidated. Read-only, no network, and NOT a gate: it reports and
+# exits 0, because unread material is a fact about the round rather than a broken
+# invariant. Run it before deciding what to collect. It exists because the same
+# diff, run by hand on 2026-08-10, found 496 ISC survey shards worth 14,956
+# equivalent-English that had been on disk for five days.
+#
+# what is on disk that nothing has read, and what the documented path would miss
+residual *args:
+    uv run python scripts/audit_residual.py {{args}}
+
+# Does the proposal collide with one of the ~50 families already closed with a
+# measurement, and what dates ONE of its items. The register is parsed out of
+# docs/sources.md at run time rather than copied, so it cannot drift from the
+# verdicts. Exits 2 if no dating claim is made, because a source whose items carry
+# no date is seed-only and that decides what it can ever be. Example:
+#   just screen --dating typed "1997 conference proceedings with affiliations"
+#
+# screen a source proposal against the closed register before it costs a request
+screen *args:
+    uv run python scripts/screen_hypothesis.py {{args}}
+
+# Seed-only and permanently so: the index carries no date column, so nothing in it
+# can evidence a year. 35,391 registrable domains, 29,432 of them unknown to the
+# store when measured on 2026-08-10. Expect pool growth and no annual-file growth:
+# a 60-domain sample on the AWA endpoint returned zero in-window captures.
+#
+# the National Library of Australia's PANDORA title index into the candidate pool
+pandora-seed:
+    uv run python scripts/seed_pandora_titles.py
+    uv run ark seed data/raw/pandora-titles/pandora_hosts.txt
+
 # the scoreboard: net-new domains, pairs and equivalent-English on top of the
 # baseline named in `src/ark/baseline.py`. Net-new here means uncredited: the
 # reviewer's merged release is loaded, so everything he has already taken is

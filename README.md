@@ -60,6 +60,50 @@ just check       # lint + format-check + tests, then the nine data invariants
 `just check-data` runs the data invariants and `just verify-repo` runs the code checks; `just check`
 runs both. They fail differently, which is why neither gets the bare name.
 
+### What is unexhausted, in one command
+
+```bash
+just residual                       # all five checks
+just residual --check unread --verbose
+```
+
+`just residual` answers the reviewer's first priority mechanically: **unprocessed files, globs that
+match too little, downloaded bytes with no parser, and derived target lists a newer baseline has
+invalidated.** Read-only, no network, no write lock, so it is safe to run at any time and it is the
+right thing to run *before* deciding what to collect.
+
+| check | what a finding means |
+|---|---|
+| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [docs/discovery.md](docs/discovery.md) |
+| `glob_too_narrow` | the ledger holds a file the documented glob cannot reach. Loses nothing now, but `just reproduce` rebuilds a store without it |
+| `unreferenced` | a directory under `data/raw/` that no ingest glob points into at all |
+| `usenet` | the corpus against its own `.processed` ledger and the catalogue: unread, size mismatches, partial files |
+| `stale_derived` | a target list or queue built before the current baseline landed, so it is blind to what that release added |
+
+**It is deliberately not a gate.** It reports and exits 0, because unread material on disk is a fact
+about the round rather than a broken invariant, and a check that failed the build for it would be
+turned off. It exists because the same diff, run by hand on 2026-08-10, found 496 ISC survey shards
+worth 14,956 equivalent-English that had been sitting on disk for five days.
+
+### Screening a source before it costs a request
+
+```bash
+just screen --dating typed "1997 conference proceedings with author affiliations"
+just screen --list-closed          # the whole closed register, with line numbers
+```
+
+Two gates, cheapest first. **Does it collide with a family already closed?** Roughly fifty are, each
+with the measurement that killed it, and the register is parsed out of
+[docs/sources.md](docs/sources.md) at run time rather than copied, so it cannot drift from the
+verdicts. A collision prints the verdict, so you argue with the measurement instead of rediscovering
+it. **And what dates one item?** `self` needs no corroboration split and must not have its extraction
+widened; `typed` takes the split, which is what makes wide extraction safe; `undated` is seed-only.
+It **exits 2 if no dating claim is made**, because that answer decides what the source can ever be.
+
+It prices nothing, on purpose: pricing is a sample measured against the live store with a parser per
+source, and [docs/discovery.md](docs/discovery.md) is the method. What this removes is the step
+before pricing, which is the one that wastes days.
+
 ### Part 1: get the inputs (tier 3 only)
 
 **Two baselines, and they are not the same thing.** `legacy-data/` holds the *original* six annual
@@ -235,6 +279,14 @@ differently and each failure is recorded in `docs/sources.md`, including one tha
 rather than throttling and one whose namespace was re-registered in 2002 so its creation dates date
 nothing.
 
+**Read the plausibility warning the list builder prints.** It reports, per TLD, how many pool names
+there are for every name already holding a year. A real namespace measures about 0.3; `.gov` measures
+**182** and `.mil` **2,624**, and their pool names are invented strings and prose words rather than
+domains. Because the list is ranked by `P(hit) x English share`, a fabricated namespace with a high
+share ranks near the top: `.gov` came fourth by volume at a 0.9825 share. **A high English share times
+an invented name is still zero.** The builder warns rather than excluding, since which TLDs to drop is a
+judgement; act on it with `--tlds`.
+
 ### A second machine
 
 Split the queue into disjoint shares and run one per machine. Assignment is by content hash of the
@@ -308,6 +360,12 @@ uv run python scripts/round_figures.py --verify   # re-score with HIS calculator
 **Always send with `--verify`.** A record his validator rejects scores zero for him and full weight
 for us, which is a live risk every time a source widens its matching. The figures are only correct
 once `src/ark/baseline.py` names the release he has actually merged.
+
+`ark stats` also prints **the two outcomes separately**, which he asked for: `discovery` is domains the
+baseline holds in no year, scored once per domain for breadth and again over the pairs they carry, and
+`completeness` is years filled on domains he already has. The two partition the net-new total exactly,
+so they can be quoted side by side without double counting. Reading breadth off the pair count instead
+once reported 1,161,961 domains against a true 463,566.
 
 ## Structure
 
