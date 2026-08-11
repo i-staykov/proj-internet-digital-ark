@@ -50,13 +50,18 @@ SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null |
 # STORED, which then failed the comparison below and told the operator the export
 # was stale when it was current. A guard that misreports why it fired is worse
 # than no guard: it sends you to fix the wrong thing.
+# `|| true` is load-bearing. `set -e` is on, so a bare `STORED=$(cmd)` whose
+# command fails aborts the script instantly: the retry below never ran, the
+# diagnostic below never printed, and packaging exited 1 in silence. That went
+# unnoticed while nothing else held the store, and surfaced the moment the ingest
+# loop began running continuously beside two collectors.
 STORED=""
 for _ in $(seq 1 60); do
     STORED=$(uv run python -c "
 import duckdb
 from ark.stats import collect_stats
 print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
-" 2>&1 | tail -1)
+" 2>&1 | tail -1) || true
     case "$STORED" in
         ''|*[!0-9]*) sleep 5 ;;
         *) break ;;
