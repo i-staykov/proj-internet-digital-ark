@@ -303,6 +303,44 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
         """
     ).fetchall()
 
+    # The reviewer's priority (d): a genuinely unknown domain and a filled year on
+    # a domain he already has are different results, and he asked for both to stay
+    # visible. `has_baseline` is per DOMAIN, not per pair, so the two branches
+    # partition the net-new pairs exactly and neither can be read off the other.
+    # Counting distinct domains over net-new pairs instead once reported 1,161,961
+    # domains against a true 463,566.
+    split = conn.execute(
+        f"""
+        WITH nn AS (
+            SELECT dy.domain, dy.assigned_year,
+                   EXISTS (SELECT 1 FROM evidence b
+                           WHERE b.domain = dy.domain
+                             AND b.evidence_type = '{BASELINE_TYPE}') AS known
+            FROM domain_year dy
+            WHERE NOT EXISTS (
+                SELECT 1 FROM evidence e WHERE e.domain = dy.domain
+                  AND e.evidence_year = dy.assigned_year
+                  AND e.evidence_type = '{BASELINE_TYPE}')
+        )
+        SELECT split_part(domain, '.', -1) AS tld, known, count(*)
+        FROM nn GROUP BY 1, 2
+        """
+    ).fetchall()
+    discovery = [(tld, n) for tld, known, n in split if not known]
+    completeness = [(tld, n) for tld, known, n in split if known]
+    # Breadth in the scored unit: one count per newly discovered domain rather
+    # than one per pair, so a domain found in four years is one discovery.
+    netnew_domain_tlds = conn.execute(
+        f"""
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(DISTINCT dy.domain)
+        FROM domain_year dy
+        WHERE NOT EXISTS (
+            SELECT 1 FROM evidence e WHERE e.domain = dy.domain
+              AND e.evidence_type = '{BASELINE_TYPE}')
+        GROUP BY 1
+        """
+    ).fetchall()
+
     netnew_ee, netnew_n = weigh(netnew), sum(n for _, n in netnew)
     return {
         "ee_netnew": netnew_ee,
@@ -311,6 +349,11 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
         "ee_netnew_growth_pct": netnew_ee / REVIEWER_BASELINE_EE * 100,
         "ee_assigned": weigh(assigned),
         "ee_candidate_upper_bound": weigh(candidates),
+        "ee_discovery_pairs": weigh(discovery),
+        "discovery_pairs": sum(n for _, n in discovery),
+        "ee_completeness_pairs": weigh(completeness),
+        "completeness_pairs": sum(n for _, n in completeness),
+        "ee_netnew_domains": weigh(netnew_domain_tlds),
     }
 
 
@@ -329,6 +372,15 @@ def format_stats(stats: dict) -> str:
     for year, count in stats["netnew_pairs_by_year"].items():
         lines.append(f"    {year}: {count:,}")
     lines += [
+        "== the two outcomes, counted separately ==",
+        "  discovery: domains the baseline holds in no year",
+        f"    domains:                          {stats['netnew_domains']:>12,}",
+        f"    equivalent-English, one per domain:{stats['ee_netnew_domains']:>15,.4f}",
+        f"    pairs they carry:                 {stats['discovery_pairs']:>12,}",
+        f"    equivalent-English of those pairs: {stats['ee_discovery_pairs']:>15,.4f}",
+        "  completeness: years filled on domains the baseline already holds",
+        f"    pairs:                            {stats['completeness_pairs']:>12,}",
+        f"    equivalent-English:               {stats['ee_completeness_pairs']:>15,.4f}",
         "== cross-source corroboration ==",
         f"evidence rows in store:             {stats['evidence_rows']:>12,}",
         f"avg sources per assigned pair:      {stats['avg_sources_per_pair']:>12.4f}",
