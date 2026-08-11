@@ -4376,3 +4376,28 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   the visible half.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (PIR's tolerance measured properly, and the cycle's first real bug was a silent skip)
+
+- **The pace PIR tolerates is now bracketed rather than guessed.** Two workers at a 1 s floor ran 550
+  queries with **only 200s and 404s**. Four workers at the same floor produced **140 × 403 in 2,887
+  queries, 4.8%**, and the governor's backoff then dragged throughput down to about 1 q/s, which is worse
+  than the slower setting in both respects. So the sweep runs at two workers: the register's original
+  "blocks rather than throttles" was wrong, and "any pace will do" would have been wrong too.
+- **A yield figure that looks like a pace effect and is not.** In-window rate fell from 34.7% and 38.0%
+  in the probes to **23.0%** in the first sweep batch. That is decay down a list ordered by how many
+  sources saw each name, exactly as `.com` went 19.2% to 8.1%, and the probes consumed the head. Worth
+  stating because the obvious reading, that going faster costs yield, is not what happened.
+- **The discovery cycle's first run had a real bug and it was the dangerous kind.** Its residual audit
+  timed out behind the 33-minute seed and the section simply **vanished from the report**, so the cycle
+  looked clean while the check that finds unread files had not run at all. That is the failure `ark check`
+  already guards against by printing SKIP rather than PASS, and `documentation.md` states as a principle:
+  a check that examined nothing must not read like one that found nothing wrong.
+- **Fixed by making every step return whether it ran.** A step that could not complete now prints
+  `COULD NOT CHECK` and adds itself to the needs-judgement list, and the per-step ceiling is an hour so a
+  long writer no longer causes it. The cycle's value is entirely in being trustworthy when it says
+  nothing is wrong, so a silent omission is worse than a crash.
+- **Everything else in cycle 1 was correct**: it flagged the VPS as unreachable with the right reasoning,
+  listed the eight unfinished hypotheses as needing judgement, and regenerated a stale `ROUND.md`.
+
+**Signed off by Ivo: pending.**

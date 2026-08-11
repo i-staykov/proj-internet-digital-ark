@@ -39,20 +39,38 @@ LEDGER = ROOT / "docs/hypotheses.tsv"
 UNFINISHED = ("screened", "fetching", "priced")
 
 
-def run(cmd: list[str], timeout: int) -> str:
+# Long enough to outlast a writer. The store takes one writer, and a 33-minute
+# `ark seed` is a 33-minute outage for every reader, so a 20-minute ceiling made
+# the residual check time out and vanish from the report.
+STEP_TIMEOUT = 3600
+
+
+def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
+    """(output, ran). `ran` is False when the step could not complete.
+
+    Returned rather than swallowed, because a step that did not run must not read
+    like a step that found nothing. The first version of this script omitted the
+    residual section entirely when it timed out behind a writer, which is the exact
+    failure `ark check` already guards against by reporting SKIP rather than PASS.
+    """
     try:
         done = subprocess.run(
             cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=False
         )
     except subprocess.TimeoutExpired:
-        return f"TIMEOUT after {timeout}s"
-    return ((done.stdout or "") + (done.stderr or "")).strip()
+        return f"TIMEOUT after {timeout}s: {' '.join(cmd)}", False
+    out = ((done.stdout or "") + (done.stderr or "")).strip()
+    return out, bool(out)
 
 
 def check_collectors() -> tuple[list[str], list[str]]:
     """Alive, and is anything they produced still not banked?"""
     findings, attention = [], []
-    out = run(["bash", "scripts/engine_status.sh"], timeout=120)
+    out, ran = run(["bash", "scripts/engine_status.sh"], timeout=180)
+    if not ran:
+        return ["collectors: COULD NOT CHECK"], [
+            "the collector check did not complete, so their state is UNKNOWN rather than fine"
+        ]
     local_running = "NOT RUNNING" not in out.split("== VPS")[0]
     findings.append(f"local collector: {'running' if local_running else 'NOT RUNNING'}")
     if not local_running:
@@ -76,7 +94,12 @@ def check_collectors() -> tuple[list[str], list[str]]:
 
 def check_residual() -> tuple[list[str], list[str]]:
     findings, attention = [], []
-    out = run(["uv", "run", "python", "scripts/audit_residual.py"], timeout=1200)
+    out, ran = run(["uv", "run", "python", "scripts/audit_residual.py"])
+    if not ran:
+        return ["residual: COULD NOT CHECK"], [
+            "the residual audit did not complete, most likely behind a long writer. "
+            "It examined nothing, which is not the same as finding nothing"
+        ]
     for line in out.splitlines():
         stripped = line.strip()
         for key in ("unread", "glob_too_narrow", "unreferenced", "usenet", "stale_derived"):
@@ -121,11 +144,15 @@ def check_ledger() -> tuple[list[str], list[str]]:
 
 
 def check_state() -> tuple[list[str], list[str]]:
-    out = run(["uv", "run", "python", "scripts/build_round_state.py", "--check"], timeout=1200)
+    out, ran = run(["uv", "run", "python", "scripts/build_round_state.py", "--check"])
+    if not ran:
+        return ["ROUND.md: COULD NOT CHECK"], [
+            "the state check did not complete, so ROUND.md may be stale"
+        ]
     if "is current" in out:
         return ["ROUND.md: current"], []
-    run(["uv", "run", "python", "scripts/build_round_state.py"], timeout=1200)
-    return ["ROUND.md: was stale, regenerated"], []
+    _, wrote = run(["uv", "run", "python", "scripts/build_round_state.py"])
+    return [f"ROUND.md: was stale, {'regenerated' if wrote else 'REGENERATION FAILED'}"], []
 
 
 def cycle(number: int, with_network: bool) -> list[str]:
@@ -146,7 +173,9 @@ def cycle(number: int, with_network: bool) -> list[str]:
             print(f"  [{name}] {line}")
 
     if with_network:
-        out = run(["uv", "run", "python", "scripts/reprobe_closed.py"], timeout=1200)
+        out, ran = run(["uv", "run", "python", "scripts/reprobe_closed.py"])
+        if not ran:
+            attention.append("the re-probe did not complete, so nothing was re-asked")
         revived = [ln.strip() for ln in out.splitlines() if "NOW ANSWERS, UNEXPECTED" in ln]
         print(f"  [reprobe] {len(revived)} availability-closed lead(s) answering unexpectedly")
         findings.append(f"reprobe: {len(revived)} unexpected revivals")
