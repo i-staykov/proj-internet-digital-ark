@@ -148,3 +148,52 @@ def test_no_finished_batch_says_so_rather_than_reading_as_zero(tmp_path) -> None
     reading = measure(tmp_path, "cdx_pool")
     assert reading.newest_rate is None
     assert reading.latest == "no finished batch yet"
+
+
+def _rdap_journal(directory: Path, name: str, rows) -> None:
+    """rows: (status, creation_year) pairs."""
+    directory.mkdir(parents=True, exist_ok=True)
+    with gzip.open(directory / name, "wt", encoding="utf-8") as fh:
+        for i, (status, year) in enumerate(rows):
+            fh.write(
+                json.dumps({"domain": f"d{i}-{name}.org", "status": status, "creation_year": year})
+                + "\n"
+            )
+
+
+def test_rdap_counts_a_404_as_an_answer_but_not_a_throttle() -> None:
+    """A registry saying "no such domain" is information, and 1,107,164 of 1,656,921
+    queries on this project have said it. A 429 is not an answer, and counting it would
+    make a rate-limiting registry read as a population that stopped existing."""
+    from ark.yield_check import rdap_verdict
+
+    assert rdap_verdict({"status": 404, "creation_year": None}) == (True, False)
+    assert rdap_verdict({"status": 200, "creation_year": 1999}) == (True, True)
+    assert rdap_verdict({"status": 429, "creation_year": None}) == (False, False)
+    assert rdap_verdict({"status": 403, "creation_year": None}) == (False, False)
+    assert rdap_verdict({"status": 0, "creation_year": None}) == (False, False)
+
+
+def test_rdap_requires_the_year_to_be_in_window() -> None:
+    """A creation year of 2015 is a good answer that pays nothing. Counting it reports a
+    sweep of modern registrations as productive: 28.4% of queries return some year
+    against 10.1% returning one that counts."""
+    from ark.yield_check import rdap_verdict
+
+    assert rdap_verdict({"status": 200, "creation_year": 2015}) == (True, False)
+    assert rdap_verdict({"status": 200, "creation_year": 1995}) == (True, False)
+    assert rdap_verdict({"status": 200, "creation_year": 1996}) == (True, True)
+    assert rdap_verdict({"status": 200, "creation_year": 2001}) == (True, True)
+
+
+def test_rdap_yield_is_measured_with_its_own_verdict(tmp_path) -> None:
+    """End to end: throttles stay out of the denominator, so a healthy sweep behind a
+    rate limit is not reported as a collapse."""
+    from ark.yield_check import rdap_verdict
+
+    rows = [(200, 1999)] * 120 + [(404, None)] * 180 + [(429, None)] * 500
+    _rdap_journal(tmp_path, "rdap_pool_20260811T000000Z.jsonl.gz", rows)
+    reading = measure(tmp_path, "rdap", verdict=rdap_verdict)
+    assert reading.newest_answered == 300  # the 500 throttles are excluded
+    assert reading.newest_rate == 0.4
+    assert not reading.collapsed

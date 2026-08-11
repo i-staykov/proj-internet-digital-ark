@@ -30,8 +30,9 @@ own recent past needs no such number, and the absolute-zero case is caught separ
 because zero over a real sample is never healthy for either population.
 """
 
+import gzip
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -61,6 +62,8 @@ class Yield:
     newest: str
     newest_answered: int = 0
     newest_hits: int = 0
+    # True when a journal was still being written, so the reading is a prefix of it.
+    newest_partial: bool = False
 
     @property
     def recent_rate(self) -> float | None:
@@ -109,7 +112,8 @@ class Yield:
         """
         if not self.newest or self.newest_rate is None:
             return "no finished batch yet"
-        return f"newest finished batch {self.newest_rate:.1%} of {self.newest_answered:,} answered"
+        which = "newest batch SO FAR" if self.newest_partial else "newest finished batch"
+        return f"{which} {self.newest_rate:.1%} of {self.newest_answered:,} answered"
 
     def describe(self) -> str:
         if not self.measurable:
@@ -129,9 +133,68 @@ class Yield:
         )
 
 
-def _count(path: Path) -> tuple[int, int]:
-    """(answered, hits) in one journal. A file mid-write is simply short."""
+YEARS = range(1996, 2002)
+
+
+def cdx_verdict(record: dict) -> tuple[bool, bool]:
+    """(answered, held a capture) for a CDX journal record.
+
+    Only status 200 counts as answered, the rule `journal_outcomes` already uses: a
+    transport failure says nothing about whether a capture exists, so counting it as a
+    miss would slander the whole population.
+    """
+    if record.get("status") != 200:
+        return False, False
+    return True, bool(record.get("years"))
+
+
+def rdap_verdict(record: dict) -> tuple[bool, bool]:
+    """(answered, in-window creation year) for an RDAP journal record.
+
+    **A 404 counts as answered here, where its CDX equivalent would not.** The registry
+    replying "no such domain" is information, and a real one: 1,107,164 of 1,656,921
+    RDAP queries on this project have returned 404, which is the forged half of the
+    candidate pool seen from the registry side. A throttle (429), a refusal (403, 426)
+    or a transport failure (0) is not an answer and must not enter the denominator, or a
+    registry that starts rate-limiting would read as a population that stopped existing.
+
+    The year must be **in window**. A creation year of 2015 is a perfectly good answer
+    that pays nothing, and counting it would report a sweep of modern registrations as
+    productive: 28.4% of queries return some year against 10.1% returning one that
+    counts.
+    """
+    if record.get("status") not in (200, 404):
+        return False, False
+    year = record.get("creation_year")
+    return True, isinstance(year, int) and year in YEARS
+
+
+@dataclass(frozen=True)
+class Collector:
+    """One collector's journals and how to read a record of them."""
+
+    prefix: str
+    directory: Path
+    verdict: Callable[[dict], tuple[bool, bool]]
+
+
+def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[int, int, bool]:
+    """(answered, hits, truncated) in one journal.
+
+    **A journal still being written raises rather than ending politely**, and the error
+    is `EOFError`, not an `OSError`, so an `except OSError` around this crashed the whole
+    cycle the first time it met a live RDAP journal. The two collectors differ in a way
+    that matters here: the CDX supervisor writes `<name>.part` and renames on exit, so a
+    finished file is identifiable and mid-write ones are simply excluded, while the RDAP
+    sweep writes its final name from the start and flushes as it goes. For RDAP,
+    excluding mid-write files would exclude the newest one always.
+
+    So a truncated read keeps what it could parse and **says that it was truncated**,
+    because the alternative is either crashing or quietly trusting a prefix, and quietly
+    trusting a prefix is how one batch got reported at four different rates.
+    """
     answered = hits = 0
+    truncated = False
     try:
         with open_journal(path) as fh:
             for line in fh:
@@ -142,21 +205,28 @@ def _count(path: Path) -> tuple[int, int]:
                     record = json.loads(line)
                 except ValueError:
                     continue
-                if record.get("status") != 200:
+                was_answered, was_hit = verdict(record)
+                if not was_answered:
                     continue
                 answered += 1
-                if record.get("years"):
-                    hits += 1
-    except OSError:
-        return 0, 0
-    return answered, hits
+                hits += was_hit
+    except (OSError, EOFError, gzip.BadGzipFile):
+        truncated = True
+    return answered, hits, truncated
 
 
-def measure(directory: Path, prefix: str, recent_files: int = RECENT_FILES) -> Yield:
+def measure(
+    directory: Path,
+    prefix: str,
+    recent_files: int = RECENT_FILES,
+    verdict: Callable[[dict], tuple[bool, bool]] = cdx_verdict,
+) -> Yield:
     """Recent yield against earlier yield, for one collector prefix.
 
     In-flight `.part` files are skipped: a batch two records in is not evidence, and
-    including it would make the reading jump around between cycles for no reason.
+    including it would make the reading jump around between cycles for no reason. That
+    exclusion is load-bearing rather than tidy, and reading one anyway produced 19%,
+    9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
     """
     journals = sorted(
         (p for p in directory.glob(f"{prefix}_*.jsonl*") if not p.name.endswith(".part")),
@@ -164,21 +234,25 @@ def measure(directory: Path, prefix: str, recent_files: int = RECENT_FILES) -> Y
     )
     recent_answered = recent_hits = 0
     used = 0
+    truncated = False
     for path in journals:
         if used >= recent_files and recent_answered >= MIN_SAMPLE:
             break
-        answered, hits = _count(path)
+        answered, hits, was_truncated = _count(path, verdict)
         recent_answered += answered
         recent_hits += hits
+        truncated = truncated or was_truncated
         used += 1
 
     history_answered = history_hits = 0
     for path in journals[used:]:
-        answered, hits = _count(path)
+        answered, hits, _t = _count(path, verdict)
         history_answered += answered
         history_hits += hits
 
-    newest_answered, newest_hits = _count(journals[0]) if journals else (0, 0)
+    newest_answered, newest_hits, newest_partial = (
+        _count(journals[0], verdict) if journals else (0, 0, False)
+    )
     return Yield(
         prefix=prefix,
         recent_answered=recent_answered,
@@ -188,8 +262,20 @@ def measure(directory: Path, prefix: str, recent_files: int = RECENT_FILES) -> Y
         newest=journals[0].name if journals else "",
         newest_answered=newest_answered,
         newest_hits=newest_hits,
+        newest_partial=newest_partial or truncated,
     )
 
 
 def measure_all(directory: Path, prefixes: Iterable[str]) -> list[Yield]:
+    """Backwards-compatible sweep over CDX prefixes under one directory."""
     return [measure(directory, prefix) for prefix in prefixes]
+
+
+def measure_collectors(collectors: Iterable[Collector]) -> list[Yield]:
+    """Every collector, each read by the verdict its own journal format needs.
+
+    The RDAP sweep is this round's largest single contributor, 81,216 records and 49,012
+    equivalent-English, and until now nothing measured whether it was still finding
+    anything. Same gap as the CDX one, one collector over.
+    """
+    return [measure(c.directory, c.prefix, verdict=c.verdict) for c in collectors]

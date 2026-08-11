@@ -47,7 +47,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ark import key_decisions  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
-from ark.yield_check import measure_all  # noqa: E402
+from ark.yield_check import (  # noqa: E402
+    Collector,
+    cdx_verdict,
+    measure_collectors,
+    rdap_verdict,
+)
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
 LEDGER = ROOT / "docs/hypotheses.tsv"
@@ -55,9 +60,18 @@ APPROVALS = ROOT / "docs/approved-sources-list.md"
 DECISIONS_DOC = ROOT / "docs/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
 JOURNAL_DIR = ROOT / "data/raw/cdx"
-# The script's own header documents exactly these two, and an invented third one
-# hid a live collector from every reader on 11 August.
-COLLECTOR_PREFIXES = ("cdx_pool", "cdx_gap")
+RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
+# `cdx_pool` and `cdx_gap` are the only prefixes that population may use, per the
+# supervisor's own header; an invented third one hid a live collector from every reader
+# on 11 August. RDAP is here because it is this round's largest single contributor,
+# 81,216 records and 49,012 equivalent-English, and nothing measured its yield at all.
+# Its journals need their own verdict: a 404 is a real answer and a 429 is not, and a
+# creation year outside 1996-2001 is an answer that pays nothing.
+COLLECTORS = (
+    Collector("cdx_pool", JOURNAL_DIR, cdx_verdict),
+    Collector("cdx_gap", JOURNAL_DIR, cdx_verdict),
+    Collector("rdap", RDAP_JOURNAL_DIR, rdap_verdict),
+)
 
 
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
@@ -124,7 +138,7 @@ def check_yield() -> tuple[list[str], list[str]]:
     read. Reasoning and thresholds in `ark.yield_check`.
     """
     findings, attention = [], []
-    for reading in measure_all(JOURNAL_DIR, COLLECTOR_PREFIXES):
+    for reading in measure_collectors(COLLECTORS):
         findings.append(f"yield: {reading.describe()}")
         if reading.collapsed:
             attention.append(

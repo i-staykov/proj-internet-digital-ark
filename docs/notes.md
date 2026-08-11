@@ -5296,3 +5296,49 @@ worse one. That follows C-10, which is Ivo's design and deliberately prioritises
 reviewer asked for net-new domains, and he has said the VPN is coming back shortly. **So this is recorded
 rather than raised**: if the VPS stays down through tomorrow it becomes a real allocation decision for him,
 and the numbers to decide it with are here.
+
+## 2026-08-11 (the round's biggest collector had no yield check at all, and now does)
+
+The CDX yield check closed a real gap this evening and left the same gap open one collector over. The RDAP
+sweep is **this round's largest single contributor, 81,216 records and 49,012 equivalent-English**, and
+nothing measured whether it was still finding anything. Presence is not progress, progress is not yield, and
+that argument is not specific to CDX.
+
+**Measured, and it is healthy: 35.1% of its newest 784 answers carry an in-window creation year, against
+10.6% over 1,577,271 before that.** That is H001 doing exactly what its ledger entry predicted for `.org`
+at a paced rate (34.7% in window, the best rate measured on this project), and 3.3x its own lifetime
+average because the lifetime mixes in the `.com` sweeps at 8.7%.
+
+**One number worth keeping for its own sake.** Of 1,656,921 RDAP queries, **1,107,164 returned 404**: the
+registry saying the name was never registered. That is 67% of every registry query this project has made,
+and it is the forged half of the candidate pool seen from the other side, independently of this evening's
+`.edu` and `.mil` findings.
+
+**RDAP needed its own verdict rather than the CDX one**, and the differences are the interesting part.
+
+- **A 404 counts as answered.** For CDX a non-200 says nothing and must stay out of the denominator; for
+  RDAP "no such domain" is information and the largest category there is. But a throttle (429, 54,097 of
+  them historically), a refusal (403, 426) or a transport failure (0) is still not an answer, or a registry
+  that starts rate-limiting would read as a population that stopped existing.
+- **The year must be in window.** 28.4% of queries return *some* creation year and only 10.1% return one
+  that counts. Scoring the first would report a sweep of 2015 registrations as productive.
+
+**A bug my own change introduced, caught by running the cycle rather than the tests.** RDAP journals are
+written under their final name and flushed as they go, where the CDX supervisor writes `<name>.part` and
+renames on exit. So the newest RDAP journal is *always* a truncated gzip stream, reading one raises
+**`EOFError`, which is not an `OSError`**, and my `except OSError` let it escape and kill the whole cycle.
+Fixed by catching truncation and keeping what parsed.
+
+That reopens the question this evening's correction was about, and it is answered differently for the two
+collectors because they differ. CDX can wait for a renamed file, so it does, and mid-write ones are
+excluded. RDAP cannot, because excluding mid-write files would exclude the newest one always, so it reads
+the prefix and **says so**: the line reads `newest batch SO FAR` instead of `newest finished batch`.
+Quietly trusting a prefix is what produced four different rates off one batch, so the flag exists to stop
+the same mistake being available.
+
+    cdx_pool: 2.7% of 1,797, against 51.0% of 23,336;    newest finished batch 8.2% of 598
+    cdx_gap:  99.6% of 669, against 98.5% of 45,803;     newest finished batch 98.7% of 150
+    rdap:     35.1% of 784, against 10.6% of 1,577,271;  newest finished batch 38.0% of 550
+
+Six new tests, 408 passing. The `.com` head from C-18 is still untested: no batch has been dispatched since
+that rebuild, batches run about 70 minutes, and I have not restarted the collector to hurry it.
