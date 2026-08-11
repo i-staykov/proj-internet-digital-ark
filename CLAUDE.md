@@ -23,7 +23,7 @@ proof*.
   safe, and widening it over a self-dating one is not.**
 - **Quote the post-split number, never the raw one.**
 - **A source class may not date a year until a human has classified it.**
-  `docs/open-approvals.md` holds one `Decision:` line per (source, evidence type), and
+  `docs/approved-sources-list.md` holds one `Decision:` line per (source, evidence type), and
   `ark ingest` refuses a master-eligible class that is `pending`, `rejected` or absent.
   **This is not advisory and it is not the agent's call**: an agent arguing that its own
   find is master evidence is the least trustworthy artifact here. Write the request with
@@ -45,8 +45,8 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 | | what it is | how to use it |
 |---|---|---|
 | `docs/ROUND.md` | **generated** current state: scoreboard, engines, residual, clock | read first, never edit |
-| `docs/key-decisions.md` | short list of open and closed decisions, for Ivo to overrule | append as you decide |
-| `docs/open-approvals.md` | which source classes may date a year, one `Decision:` line each. **Enforced by `ark ingest`, not by convention** |
+| `docs/key-decisions.md` | **the only place that asks Ivo for anything.** Open and closed decisions, pointing to an ADR where one exists | append as you decide; anything waiting on him appears here or nowhere |
+| `docs/approved-sources-list.md` | which source classes may date a year, one `Decision:` line each. **Enforced by `ark ingest`, not by convention** | a `pending` entry here must also be named under `## OPEN` in `key-decisions.md` |
 | `docs/ADRs.md` | the few decisions with **structural** impact: taxonomy, store shape, machine allocation, shared write paths |
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |
@@ -63,7 +63,15 @@ the store of that day and is not a statement about now.
 - **Never `git push`.** Committing in coherent units on a non-`main` branch is authorised; `main` is not.
 - **Never add a `Co-Authored-By` trailer or any AI attribution**, anywhere. Commits are Ivo's.
 - **No em-dashes and no en-dashes** anywhere: code, comments, docs, prose, commit messages.
-- **Log every decision** in `docs/notes.md`, dated, ending `**Signed off by Ivo: pending.**`
+- **Log every decision** in `docs/notes.md`, dated. **It needs no sign-off**: it is the agent's own
+  working, Ivo does not review it, and asking him to would bury the things that do need him.
+- **`docs/key-decisions.md` is the single place anything asks Ivo for a decision.** If it is not
+  there, he will not see it, so putting it anywhere else is the same as not raising it. One entry
+  under `## OPEN`, one screen at most, pointing at the ADR or notes entry that carries the working.
+- **Hypotheses are yours to settle.** Screen, price and decide them without asking. A lead is
+  adopted, closed on a measurement, or left with its verdict recorded; only when the outcome
+  amounts to a decision worth overruling does it become a `## OPEN` entry. A ledger of unfinished
+  leads is a work queue, not a question for Ivo.
 - **Explain and outline before non-trivial file edits**, and wait for a go-ahead. Propose, then act.
 - **Run the gate before proposing a commit**, and never through a red one:
   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
@@ -137,8 +145,9 @@ duty is to avoid making things worse. Work this in order and stop at the first s
    been disproved gets corrected where it was made, not only in the newest file.
 
 4. **Only then, do the next piece of real work**, sized to fit: prefer finishing one thing over
-   starting three. Anything needing a human goes to `docs/key-decisions.md` or
-   `docs/open-approvals.md` rather than waiting in a session nobody is reading.
+   starting three. Unfinished hypotheses are the first place to look, and they are yours to settle.
+   Anything that genuinely needs Ivo goes to `docs/key-decisions.md` under `## OPEN`, which is the
+   only surface he reads, rather than waiting in a session nobody is looking at.
 
 **"Everything is fine" is a valid outcome.** Record it in one line and stop. Do not invent work to
 justify the wake, and never start a second copy of a collector to look busy.

@@ -16,7 +16,7 @@ from ark.approvals import NotApproved, check, load, pending
 
 
 def _file(tmp_path, body: str):
-    path = tmp_path / "open-approvals.md"
+    path = tmp_path / "approved-sources-list.md"
     path.write_text(body, encoding="utf-8")
     return path
 
@@ -83,7 +83,7 @@ def test_pending_is_listed_for_the_state_document(tmp_path) -> None:
 def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None:
     """A spec with no entry cannot be ingested, so an unlisted one is a latent stop.
 
-    This runs against the live `docs/open-approvals.md` on purpose: adding a source
+    This runs against the live `docs/approved-sources-list.md` on purpose: adding a source
     without classifying it should fail here rather than at 3am in an unattended run.
     """
     from pathlib import Path
@@ -93,7 +93,7 @@ def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None
 
     # The real file, named explicitly: conftest repoints the module attribute at a
     # temp file for every other test, and reading that here would pass vacuously.
-    real = Path(__file__).resolve().parents[1] / "docs" / "open-approvals.md"
+    real = Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md"
     recorded = load(real)
     missing = sorted(
         {

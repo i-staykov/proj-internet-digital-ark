@@ -8,7 +8,7 @@ ADR written by the agent arguing that its find is master evidence is the least
 trustworthy artifact in the repository.
 
 So the classification is a human decision, taken from external evidence, recorded
-in `docs/open-approvals.md`, and **enforced here rather than remembered**.
+in `docs/approved-sources-list.md`, and **enforced here rather than remembered**.
 
 **Where the quarantine lives, and why it is outside the store.** Collectors already
 write journals and never open the database, so "collected but not yet classified"
@@ -25,7 +25,7 @@ every future query to respect a marker. It is also less code.
   nothing, the reviewer asked for the pool to be as large as practicable, and
   waiting on a human to grow a pool would stall collection for no gain.
 
-**The decision vocabulary**, one line per request in `docs/open-approvals.md`:
+**The decision vocabulary**, one line per request in `docs/approved-sources-list.md`:
 
     Decision: pending          nobody has looked yet; ingest refuses
     Decision: master           approved for the annual files
@@ -44,7 +44,7 @@ from ark.evidence_types import MASTER_TYPES
 
 # Module-level rather than a default argument bound at import, so a test can point
 # the gate at a fixture file. Production code never reassigns it.
-DEFAULT_APPROVALS_PATH = Path("docs/open-approvals.md")
+DEFAULT_APPROVALS_PATH = Path("docs/approved-sources-list.md")
 
 DECISIONS = ("pending", "master", "candidate-only", "rejected")
 _REQUEST_RE = re.compile(r"^###\s+(?P<source>\S+)\s+/\s+(?P<etype>\S+)\s*$")
@@ -72,7 +72,7 @@ class Approval:
 
 
 def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
-    """Parse `docs/open-approvals.md`, keyed by (source name, evidence type).
+    """Parse `docs/approved-sources-list.md`, keyed by (source name, evidence type).
 
     The file is the single source of truth and is edited by a human: a reviewer
     changes one `Decision:` line. Parsing it rather than keeping a second machine

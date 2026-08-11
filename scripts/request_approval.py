@@ -47,9 +47,11 @@ import duckdb  # noqa: E402
 from ark.approvals import load  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
-APPROVALS = ROOT / "docs/open-approvals.md"
+APPROVALS = ROOT / "docs/approved-sources-list.md"
+DECISIONS_DOC = ROOT / "docs/key-decisions.md"
 SAMPLE_SIZE = 6
 
 
@@ -259,10 +261,32 @@ def main() -> None:
     else:
         APPROVALS.write_text(text.rstrip("\n") + "\n\n" + marker + "\n\n" + block, encoding="utf-8")
 
+    # Mirrored into the one surface Ivo reads, at the moment the request is written
+    # rather than whenever a cycle next runs. A request he never learns about is a
+    # journal that sits on disk indefinitely while the harness reports it as "the queue
+    # working", which is how this file's own pending block went unnoticed for a day.
+    raised = raise_open(
+        f"Approve, refuse or downgrade {spec.source_name} / {spec.evidence_type}",
+        f"`{APPROVALS.name}` has this class as `pending`, so `ark ingest` refuses it and its "
+        f"journal waits on disk. At stake: **{len(netnew):,} net-new pairs and "
+        f"{ee(netnew):,.1f} equivalent-English** under `master`, against {len(corroborated):,} "
+        f"and {ee(corroborated):,.1f} if it takes the corroboration split, and zero if it stays "
+        f"`candidate-only` (the names still grow the pool).\n\n"
+        f"The request block in `{APPROVALS.name}` carries a seeded-random sample with a live link "
+        f"per record, the figures measured by program, and the reasons to refuse. **Decide from "
+        f"those, not from the agent's argument.** Set the `Decision:` line to `master`, "
+        f"`candidate-only` or `rejected`.",
+        DECISIONS_DOC,
+    )
+
     print(f"appended a pending request to {APPROVALS.relative_to(ROOT)}")
     print(f"  {spec.source_name} / {spec.evidence_type}")
     print(f"  {len(netnew):,} net-new pairs at stake, {ee(netnew):,.1f} equivalent-English")
     print("  ingest refuses until its Decision line says master, candidate-only or rejected")
+    print(
+        f"  {'raised' if raised else 'already open'} in {DECISIONS_DOC.relative_to(ROOT)}, "
+        f"which is the only surface Ivo reads"
+    )
 
 
 if __name__ == "__main__":

@@ -175,7 +175,7 @@ repository, **an agent arguing that its own find is master evidence**, on the cr
 
 ### What was decided
 
-**A gate, not a convention.** `docs/open-approvals.md` holds one `Decision:` line per
+**A gate, not a convention.** `docs/approved-sources-list.md` holds one `Decision:` line per
 (source name, evidence type). `ark ingest` refuses any master-eligible class whose decision is `pending`,
 `rejected` or absent, and it refuses **before opening the database** so an unapproved ingest does not
 even take the write lock. `src/ark/approvals.py` is the enforcement and `ingest_files` is the choke point
@@ -337,3 +337,72 @@ If probing gets cheap, more sources get probed, and the approvals queue becomes 
 the parser. That is the correct place for a bottleneck, since it is the step that needs a human, but it is
 worth watching: an approvals file with fifteen pending classes is a queue nobody reads, which would put us
 back where a rejection is a stall rather than a decision.
+
+---
+
+## ADR-005. One surface asks the human for something, and it is enforced rather than agreed
+
+**Date** 2026-08-11. **Status** Accepted, on Ivo's instruction.
+
+### The question
+
+By this afternoon the project asked Ivo for things in three places, and he had been told about one of
+them. `notes.md` ended each of 37 entries with `Signed off by Ivo: pending`. `open-approvals.md`
+accumulated `pending` classes. And the hypothesis ledger's unfinished leads were being surfaced by
+`discover_cycle` as "needs judgement, not a program", so a cron wake reported five of them at him.
+
+His response is the whole ADR: "I had no idea there are hypothesis for me to sign-off. Everything I have
+to sign-off should be in one place, so I know about it."
+
+**The failure is not that the questions were unanswered. It is that the asker believed they had been
+asked.** A harness that raises an item into a file nobody opens has done the reporting and none of the
+communicating, and it then reports the silence as "the queue working". That is a worse state than not
+raising it, because it looks handled from the inside.
+
+### What was decided
+
+**`docs/key-decisions.md` is the only surface that asks for a decision**, and the other files keep their
+jobs unchanged.
+
+1. **The notes sign-off is gone.** That log is the agent's own working. Asking for a countersignature on
+   all of it is how the two or three real questions got buried. Past entries keep their trailer, because
+   the log is append-only and rewriting history to look tidy is a different failure.
+2. **`open-approvals.md` becomes `approved-sources-list.md`**, on Ivo's wording, and a `pending` class in
+   it is **mirrored** into `key-decisions.md`. Twice, deliberately: `request_approval.py` raises the
+   entry at the moment it writes the request, and `check_approvals` raises it on any cycle that finds one
+   unsurfaced. Belt and braces, because the failure being prevented is silent by nature.
+3. **Hypotheses are the agent's to settle.** Screened, priced, decided. A lead is adopted, closed on a
+   measurement, or left with its verdict recorded, and only an outcome worth overruling becomes an entry
+   here. Ivo: "you make your own judgment on them and continue."
+
+### Why a module and a test, rather than a rule in CLAUDE.md
+
+CLAUDE.md already said to log decisions where a human would see them, and it did not prevent any of
+this, because a convention cannot notice that it has been broken. So `src/ark/key_decisions.py` owns the
+`## OPEN` block and **a test over the two live documents fails when a `pending` class is not named
+there**. This is the same reasoning as ADR-003, one level up: that gate stopped the agent promoting a
+source on its own authority, and this one stops the agent believing it has asked a question it has not.
+
+The mirror writes a **stub**, not an argument. It states what is waiting, what is at stake under each
+possible decision, and where the checkable evidence is. Generating the reasoning would produce exactly
+the confident filler the approvals design exists to distrust.
+
+### What was rejected
+
+- **Generating `key-decisions.md`.** It is prose about judgement and a human overrules things by reading
+  it. A generated file would be regenerated over his edits, and `ROUND.md` already occupies the
+  "generated current state" slot.
+- **Leaving the approvals file as the surface for approvals.** Defensible, and it is what had been true.
+  It also produced this ADR: two surfaces means the reader has to remember the second one exists.
+- **Deleting the trailer from the 37 existing entries.** They are dated history. `notes.md` is
+  append-only and a past entry is never edited, which is a rule with its own scar behind it.
+- **Having the cycle raise unfinished hypotheses as a question with a lower priority.** A quieter
+  version of the same defect. Either it needs a human or it does not, and these do not.
+
+### Consequence to watch
+
+The agent now decides hypotheses alone, which is more latitude than it had this morning. That is the
+right trade only because the approvals gate is downstream of it: a hypothesis can be adopted, collected
+and priced on the agent's judgement, and **its records still cannot date a year until a human classifies
+the source**. If a future change ever lets a hypothesis reach the annual files without passing ADR-003's
+gate, this ADR stops being safe and needs revisiting rather than reapplying.

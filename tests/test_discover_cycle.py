@@ -88,6 +88,89 @@ def test_a_lock_older_than_the_stale_window_does_not_block(tmp_path, monkeypatch
     assert cycle.rebuild_lock_holder() is None
 
 
+APPROVALS_FIXTURE = """## Decided
+
+### good_source / cdx_timestamp
+
+Decision: master
+
+## Pending requests
+
+### new_source / artifact_listing
+
+Decision: pending
+"""
+
+DECISIONS_FIXTURE = """# Key decisions
+
+---
+
+## OPEN
+
+Nothing needs your input.
+
+---
+
+## CLOSED
+"""
+
+
+def test_a_pending_approval_is_mirrored_into_the_one_surface(tmp_path, monkeypatch) -> None:
+    """The wiring, not the convention. A `pending` line in a file Ivo does not open is
+    a journal waiting on a human who was never told, and the harness would report that
+    as "the queue working" (ADR-005).
+    """
+    approvals = tmp_path / "approved-sources-list.md"
+    approvals.write_text(APPROVALS_FIXTURE, encoding="utf-8")
+    decisions = tmp_path / "key-decisions.md"
+    decisions.write_text(DECISIONS_FIXTURE, encoding="utf-8")
+    monkeypatch.setattr(cycle, "APPROVALS", approvals)
+    monkeypatch.setattr(cycle, "DECISIONS_DOC", decisions)
+
+    findings, attention = cycle.check_approvals()
+    assert cycle.key_decisions.is_open("new_source / artifact_listing", decisions)
+    assert any("mirrored into" in f for f in findings)
+    assert any("new_source/artifact_listing" in a for a in attention)
+
+    # Idempotent: the cycle runs every fifteen minutes.
+    findings2, _ = cycle.check_approvals()
+    assert any("already open in key-decisions" in f for f in findings2)
+    assert len(cycle.key_decisions.open_titles(decisions)) == 1
+
+
+def test_an_open_entry_left_behind_after_a_decision_is_flagged(tmp_path, monkeypatch) -> None:
+    """The other direction. An OPEN entry for a class that has since been decided makes
+    the surface lie about what is waiting, which costs it the trust that makes it work.
+    """
+    approvals = tmp_path / "approved-sources-list.md"
+    approvals.write_text("### settled / artifact_listing\n\nDecision: master\n", encoding="utf-8")
+    decisions = tmp_path / "key-decisions.md"
+    decisions.write_text(DECISIONS_FIXTURE, encoding="utf-8")
+    monkeypatch.setattr(cycle, "APPROVALS", approvals)
+    monkeypatch.setattr(cycle, "DECISIONS_DOC", decisions)
+    cycle.key_decisions.raise_open(
+        "Approve, refuse or downgrade settled / artifact_listing", "Stale.", decisions
+    )
+
+    _findings, attention = cycle.check_approvals()
+    assert any("no longer pending" in a for a in attention)
+
+
+def test_unfinished_hypotheses_are_not_raised_at_the_human(tmp_path, monkeypatch) -> None:
+    """Ivo, 2026-08-11: "I had no idea there are hypothesis for me to sign-off." They
+    are the agent's queue, so they belong in findings and never in attention.
+    """
+    ledger = tmp_path / "hypotheses.tsv"
+    ledger.write_text(
+        "id\tstatus\ttitle\nH003\tscreened\tRFC index\nH009\trejected\tSomething dead\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cycle, "LEDGER", ledger)
+    findings, attention = cycle.check_ledger()
+    assert attention == []
+    assert any("yours to settle" in f for f in findings)
+
+
 def test_the_cycle_no_longer_knows_how_to_restart_a_collector() -> None:
     """Deliberate absence, not an oversight. An unattended loop does not get to kill
     collectors: the previous version did, with a self-matching `pkill -f`, and it took

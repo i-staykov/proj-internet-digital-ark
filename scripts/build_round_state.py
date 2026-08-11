@@ -51,6 +51,7 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
+from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
@@ -103,11 +104,13 @@ def headline(conn: duckdb.DuckDBPyConnection) -> dict:
 
 
 def open_decisions() -> list[str]:
-    if not DECISIONS.exists():
-        return []
-    body = DECISIONS.read_text(encoding="utf-8")
-    block = body.split("## OPEN", 1)[-1].split("## CLOSED", 1)[0]
-    return [line[4:].strip() for line in block.splitlines() if line.startswith("### ")]
+    """The OPEN headings, via the module that owns that block.
+
+    Parsed in one place rather than two: this file and the cycle both need it, and a
+    second copy of the parser would eventually disagree with the first about what
+    counts as open, which is the failure `sources.md` already carries a scar from.
+    """
+    return open_titles(DECISIONS)
 
 
 def build() -> tuple[str, dict]:
@@ -173,17 +176,19 @@ def build() -> tuple[str, dict]:
         "## Waiting on a human",
         "",
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
-        "on disk untouched until a `Decision:` line in `docs/open-approvals.md` says otherwise.",
-        "Nothing is lost by leaving them; nothing enters an annual file while they wait.",
+        "on disk untouched until a `Decision:` line in `docs/approved-sources-list.md` says",
+        "otherwise. Each one is also raised under `## OPEN` in `docs/key-decisions.md`, which is",
+        "the only surface Ivo reads. Nothing is lost by leaving them; nothing enters an annual",
+        "file while they wait.",
         "",
     ]
     if waiting:
         parts += [
-            f"- **{a.source_name} / {a.evidence_type}** (open-approvals.md:{a.line})"
+            f"- **{a.source_name} / {a.evidence_type}** (approved-sources-list.md:{a.line})"
             for a in waiting
         ]
     else:
-        parts += ["Nothing pending in `docs/open-approvals.md`."]
+        parts += ["Nothing pending in `docs/approved-sources-list.md`."]
     parts += ["", "**Open decisions.**", ""]
     if decisions:
         parts += [f"- {d}" for d in decisions]

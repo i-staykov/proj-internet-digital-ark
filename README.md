@@ -24,7 +24,8 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [docs/phase5-plan.md](docs/phase5-plan.md) | this round's plan, in plain terms |
 | [CLAUDE.md](CLAUDE.md) | the standing brief an agent is loaded with: the evidence rules, the house rules, the traps. **Only what never changes** |
 | [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
-| [docs/key-decisions.md](docs/key-decisions.md) | the short list of open and closed decisions, for review at a glance |
+| [docs/key-decisions.md](docs/key-decisions.md) | **the only file that asks a human for a decision.** Open and closed, newest first, pointing to an ADR where the reasoning is structural. A `pending` source class is mirrored here automatically and a test enforces it ([ADR-005](docs/ADRs.md)) |
+| [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database |
 | [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
@@ -104,7 +105,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](docs/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
-| approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/open-approvals.md](docs/open-approvals.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
+| approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](docs/approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
@@ -117,7 +118,7 @@ the second, and the line has moved by exactly one step: **from "cannot try a sou
 one"**, which is the step that was worth moving.
 
 **The one thing the harness may never decide for itself.** A source class may not date a year until a
-human has classified it in [docs/open-approvals.md](docs/open-approvals.md), and `ark ingest` enforces
+human has classified it in [docs/approved-sources-list.md](docs/approved-sources-list.md), and `ark ingest` enforces
 that before it opens the database. The agent can collect, measure and argue; it cannot promote. The
 journal simply waits on disk, so nothing is lost and collection never blocks: candidate-only evidence
 passes freely, because a candidate claims nothing. **An unapproved source is not quarantined inside the

@@ -4782,3 +4782,52 @@ VPS is unreachable until the VPN is up, and five screened hypotheses need a deci
 restarted so it is no longer running a frozen copy from 12:10. All four collectors up.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (one surface asks Ivo for things, and it is enforced)
+
+Ivo, reading the last report: "You don't need my sign-off for notes... I had no idea there are
+hypothesis for me to sign-off. Everything I have to sign-off should be in one place, so I know about it.
+That was key-decisions, it pointed to ADRs if necessary." Plus: rename `open-approvals.md`, and anything
+open and waiting on him must also appear in key-decisions.
+
+**Why the third item is the one that matters.** The failure was not unanswered questions. It was that the
+harness believed it had asked them. Unfinished hypotheses were surfaced by `discover_cycle` as "needs
+judgement, not a program", 37 notes entries each asked for a countersignature, and `pending` approval
+classes sat in a file he had no reason to open. **A question raised where nobody reads it has done the
+reporting and none of the communicating**, and the harness then reports the silence as "the queue
+working", which looks handled from the inside. Reasoning in ADR-005, C-16 in key-decisions.
+
+**What changed.**
+
+- `docs/open-approvals.md` -> `docs/approved-sources-list.md`, his wording. Twelve files referenced it;
+  the eleven live ones were updated and `notes.md` was left alone, because a past entry is history and
+  referred to the file as it was then named.
+- `src/ark/key_decisions.py` owns the `## OPEN` block: `open_titles`, `is_open`, `raise_open`. Idempotent,
+  removes the "nothing needs your input" placeholder when something does, newest first, and it raises
+  `ValueError` rather than silently doing nothing if the section is missing.
+- A `pending` class is mirrored **twice**, deliberately, because the failure being prevented is silent by
+  nature: `request_approval.py` raises the entry when it writes the request, and `check_approvals` raises
+  it on any cycle that finds one unsurfaced. The reverse direction is checked too: an OPEN entry naming a
+  class that is no longer pending is reported, since a surface that lies about what is waiting loses the
+  trust that makes it work.
+- **The mirror writes a stub, not an argument.** What is waiting, what is at stake under each decision,
+  and where the checkable evidence is. Generating the reasoning would produce the confident filler the
+  approvals design exists to distrust.
+- `build_round_state.py` had its own copy of the OPEN-block parser; it now calls the module, so the two
+  cannot come to disagree about what counts as open.
+- Notes entries no longer ask for a sign-off, and `CLAUDE.md` no longer requires the trailer. The 37
+  existing ones keep it: the log is append-only and tidying history is a different failure.
+- `check_ledger` reports unfinished hypotheses as **findings**, never attention, with the wording "yours
+  to settle without asking".
+
+**Enforced rather than agreed, which is the part worth keeping.** CLAUDE.md already said to raise things
+where a human would see them, and that did not prevent any of this, because a convention cannot notice it
+has been broken. A test over the two **live** documents fails if a pending class is not named in
+key-decisions, and three more test the wiring in the cycle rather than the convention. 382 tests pass.
+
+**The latitude this grants, and what makes it safe.** The agent now settles hypotheses alone, which is
+more than it had this morning. It is safe only because the approvals gate is downstream: a lead can be
+adopted, collected and priced on the agent's judgement and **its records still cannot date a year until a
+human classifies the source**. If anything ever lets a hypothesis reach the annual files without passing
+that gate, ADR-005 stops being safe and needs revisiting rather than reapplying. Noted there as the
+consequence to watch.

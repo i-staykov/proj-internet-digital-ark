@@ -3,10 +3,22 @@
 **What this is.** A two-minute review surface for Ivo. The agent appends here as it works, so a
 decision can be reversed while it still matters rather than after the round ships.
 
+**This is the only file that asks Ivo for anything**, on his instruction of 2026-08-11: "Everything
+I have to sign-off should be in one place, so I know about it." So:
+
+- `notes.md` entries **no longer ask for a sign-off**. That log is the agent's own working, and
+  asking him to countersign 37 entries of it buried the few things that genuinely needed him.
+- A `pending` class in `approved-sources-list.md` is **mirrored here automatically**, by
+  `request_approval.py` when it writes the request and by `just cycle` if one ever appears without
+  an entry. That file stays the thing `ark ingest` enforces and the thing he edits; this is how he
+  learns it wants him. A test against both live files fails if a pending class is not named here.
+- **Unfinished hypotheses are not raised here.** They are the agent's queue: screened, priced and
+  decided without asking, and only an outcome worth overruling becomes an `## OPEN` entry.
+
 **How it differs from the other two logs.** `notes.md` is the full dated reasoning and is append-only
-history, 4,200 lines of it. `ROUND.md` is the generated current state. **This file is neither: it is
+history, 4,600 lines of it. `ROUND.md` is the generated current state. **This file is neither: it is
 the short list of things a human might want to overrule.** One entry, one screen at most, and a
-pointer to the notes entry that carries the working.
+pointer to the ADR or notes entry that carries the working.
 
 **Reading it.** `OPEN` needs you. `CLOSED` was decided by the agent under a standing rule or a
 measurement, and is recorded so you can still object. Newest first within each block.
@@ -22,6 +34,28 @@ rule is in force.
 ---
 
 ## CLOSED
+
+### C-16. One surface asks you for things, and it is this file -> [ADR-005](ADRs.md) (2026-08-11)
+
+Your instruction: "Everything I have to sign-off should be in one place, so I know about it. That was
+key-decisions, it pointed to ADRs if necessary." Three things had drifted out of it, and the third is
+the one that proves the point, because **you did not know it existed**.
+
+1. **Notes sign-off, removed.** 37 entries each ended `Signed off by Ivo: pending`, asking for a
+   countersignature on the agent's own working. Past entries are append-only history and stay as
+   written; no new entry carries it, and `CLAUDE.md` no longer asks for it.
+2. **`open-approvals.md` renamed to `approved-sources-list.md`**, and a `pending` class in it is now
+   mirrored here automatically, at the moment the request is written and again on any cycle that
+   finds one unsurfaced. A test over both live files fails if a pending class is not named here, so
+   the guarantee is enforced rather than remembered.
+3. **Hypotheses are mine to settle.** The ledger's unfinished leads were being reported as needing
+   your judgement, which is how you came to be asked about five things you had never heard of. They
+   are now reported as the agent's own work queue: screened, priced, and decided, with only an
+   outcome worth overruling arriving here.
+
+The shape you described is preserved exactly: this file is the surface, and it points at an ADR when
+the reasoning is structural.
+
 
 ### C-15. A declarative *probe*, and bespoke *collectors* -> [ADR-004](ADRs.md) (2026-08-11)
 
@@ -64,7 +98,7 @@ file**, and `cdx_pool` and `cdx_gap` are the only prefixes that population may u
 
 ### C-13. A source class may not date a year until a human classifies it -> [ADR-003](ADRs.md) (2026-08-11)
 
-Ivo's proposal, adopted with one refinement. `docs/open-approvals.md` holds one `Decision:` line per
+Ivo's proposal, adopted with one refinement. `docs/approved-sources-list.md` holds one `Decision:` line per
 (source, evidence type) and **`ark ingest` enforces it** before opening the database. The refinement: the
 quarantine is **outside** the store rather than a state inside it, because collectors already write
 journals and never open the database, so an unapproved source cannot contaminate anything, having never

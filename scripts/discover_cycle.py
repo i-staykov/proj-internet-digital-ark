@@ -45,11 +45,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from ark import key_decisions  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
 LEDGER = ROOT / "docs/hypotheses.tsv"
-APPROVALS = ROOT / "docs/open-approvals.md"
+APPROVALS = ROOT / "docs/approved-sources-list.md"
+DECISIONS_DOC = ROOT / "docs/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
 
 
@@ -298,8 +300,14 @@ def check_ledger() -> tuple[list[str], list[str]]:
     stuck = [r for r in rows if r.get("status") in UNFINISHED]
     findings.append(f"hypotheses: {len(rows)} total, {len(stuck)} unfinished")
     if stuck:
-        attention.append(
-            "unfinished hypotheses need judgement, not a program: "
+        # Reported as the agent's own work queue, NOT as attention. Ivo's instruction,
+        # 2026-08-11: "Hypothesis should be tested and confirmed by yourself until a
+        # relevant key decision that I would have to sign off can be formulated.
+        # Otherwise, you make your own judgment on them and continue." He had not
+        # known these existed, which is the point: raising them at him buried the
+        # things that genuinely need him.
+        findings.append(
+            "the next work, yours to settle without asking: "
             + ", ".join(
                 f"{r['id']} ({r.get('status')}) {r.get('title', '')[:40]}" for r in stuck[:6]
             )
@@ -310,21 +318,56 @@ def check_ledger() -> tuple[list[str], list[str]]:
 def check_approvals() -> tuple[list[str], list[str]]:
     """Source classes whose journals are collected and cannot be ingested yet.
 
-    This is the harness's handover point by design: collection never waits on a
-    human, and promotion to the annual files always does. A pending class is not a
-    fault, it is the queue working, so it is reported every cycle until decided.
+    This is the harness's handover point by design: collection never waits on a human,
+    and promotion to the annual files always does. A pending class is not a fault, it
+    is the queue working.
+
+    **And it is mirrored into `key-decisions.md`, which is the only surface Ivo reads.**
+    A `pending` line sitting in the approvals file is invisible to him, so the check
+    repairs that itself rather than reporting it: the mirror entry is deterministic, and
+    the alternative is a question that believes it has been asked.
     """
+    findings, attention = [], []
     waiting = pending_approvals(APPROVALS)
     if not waiting:
-        return ["approvals: nothing pending"], []
-    return (
-        [f"approvals: {len(waiting)} class(es) awaiting classification"],
-        [
-            "a human must classify these source classes before their records can date a "
-            "year; the journals are on disk and nothing is lost: "
+        findings.append("approvals: nothing pending")
+    else:
+        findings.append(f"approvals: {len(waiting)} class(es) awaiting classification")
+        attention.append(
+            "classify these source classes before their records can date a year; the "
+            "journals are on disk and nothing is lost: "
             + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in waiting)
-        ],
-    )
+        )
+    for approval in waiting:
+        needle = f"{approval.source_name} / {approval.evidence_type}"
+        if key_decisions.is_open(needle, DECISIONS_DOC):
+            findings.append(f"approvals: {needle} already open in key-decisions")
+            continue
+        key_decisions.raise_open(
+            f"Approve, refuse or downgrade {needle}",
+            f"`{APPROVALS.name}` has this class as `pending`, so `ark ingest` refuses it and its "
+            f"journal is sitting on disk. The request block in that file carries the seeded-random "
+            f"sample with live links, the measured figures and the counterfactual; decide from "
+            f"those rather than from anything the agent argues. Set its `Decision:` line to "
+            f"`master`, `candidate-only` or `rejected`.\n\n"
+            f"Raised automatically, because a `pending` line in a file you do not open is not a "
+            f"question anyone asked.",
+            DECISIONS_DOC,
+        )
+        findings.append(f"approvals: {needle} mirrored into key-decisions OPEN")
+
+    # The other direction: a decision was taken and its OPEN entry was left behind.
+    still_pending = {f"{a.source_name} / {a.evidence_type}" for a in waiting}
+    for title in key_decisions.open_titles(DECISIONS_DOC):
+        if not title.startswith("Approve, refuse or downgrade "):
+            continue
+        named = title.removeprefix("Approve, refuse or downgrade ").strip()
+        if named not in still_pending:
+            attention.append(
+                f"key-decisions still has '{title}' under OPEN, but that class is no longer "
+                f"pending. Move it to CLOSED with what was decided and why"
+            )
+    return findings, attention
 
 
 def check_state() -> tuple[list[str], list[str]]:

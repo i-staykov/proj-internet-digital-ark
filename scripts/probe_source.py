@@ -15,7 +15,7 @@ so `ark ingest` has no spec to run and there is no path by which a probe can dat
 year. That is not a policy, it is an absence, which is the same safety ADR-003 chose:
 an unwired thing cannot contaminate. A source that prices well still earns a
 hand-written collector whose refusals are specific to its document, and a human still
-classifies the class in `docs/open-approvals.md`. Reasoning in ADR-004.
+classifies the class in `docs/approved-sources-list.md`. Reasoning in ADR-004.
 
 **It refuses to guess.** No column sniffing, no "find the date somewhere on the page".
 The spec names the column or field, and a spec that names the wrong one fails on the
