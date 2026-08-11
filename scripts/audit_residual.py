@@ -27,12 +27,15 @@ Five checks, each of which has caught something real:
                  `ingested_file`, so it needs its own three-way comparison
                  against the catalogue and the disk.
 `stale_derived`  derived artifacts older than the rows they should carry, each
-                 compared against the mark that actually invalidates it: newest
-                 pairs for a gap queue, newest candidates for a pool queue. It
-                 used to compare against the baseline release, which changes
-                 monthly, and on its first run the corrected form found three
-                 stale lists the old one called fine. A blind queue once hid
-                 102,628 targets.
+                 compared against every mark that can invalidate it: newest pairs
+                 for a gap queue, newest candidates for a pool queue, and for the
+                 pool queue also the newest **journal**, because its ordering is a
+                 measured hit rate and that is measured out of the journals rather
+                 than out of the store. It used to compare against the baseline
+                 release alone, which changes monthly. Each correction found
+                 staleness the previous form called fine: three lists the first
+                 time, and the pool queue's own ranking the second. A blind queue
+                 once hid 102,628 targets.
 
 Nothing here is a gate. It reports and exits 0, because "there is unread material
 on disk" is a fact about the round rather than a broken invariant, and a check
@@ -85,7 +88,19 @@ DERIVED = (
     # The operative lists since the two-machine split of 2026-08-11: the VPS works
     # bracketed gaps, the local engine works the candidate pool.
     ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap", "pairs"),
-    ("data/raw/cdx/queue_pool_local.txt", "build_query_queue.py --population pool", "candidates"),
+    # Two marks, and the second one is not in the store at all. A pool queue goes stale
+    # when new candidates arrive, and ALSO when new journals arrive, because its
+    # ordering is `measured hit rate x English share` and the rate is measured out of
+    # the journals. On 11 August at 22:20 the queue was two hours old and correctly
+    # reported fresh against candidates, while three of the four sources at its head had
+    # had their (source, TLD) cells measured in the meantime: 0.086, 0.111 and 0.536
+    # against the 0.874 they had been inheriting. The population had not changed and the
+    # ranking was out of date, which no store mark can see.
+    (
+        "data/raw/cdx/queue_pool_local.txt",
+        "build_query_queue.py --population pool",
+        ("candidates", "journals"),
+    ),
     ("data/raw/rdap/pool_targets_org.txt", "build_rdap_pool_list.py --tlds org", "candidates"),
     # The mixed queue, kept because a shard of it may still be in flight on a
     # machine that has not been re-pointed yet.
@@ -330,6 +345,15 @@ def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
     marks["candidates"] = float(row[0]) if row and row[0] is not None else None
     row = conn.execute("SELECT max(epoch(verified_at)) FROM domain_year").fetchone()
     marks["pairs"] = float(row[0]) if row and row[0] is not None else None
+    # Not a store mark at all. A queue ordered by measured hit rate is invalidated by a
+    # new journal, because that is where the rate is measured, and nothing in the store
+    # moves when a journal lands: the misses never become rows.
+    journals = [
+        p.stat().st_mtime
+        for p in (ROOT / "data/raw/cdx").glob("cdx_*.jsonl.gz")
+        if not p.name.endswith(".part")
+    ]
+    marks["journals"] = max(journals) if journals else None
     return marks
 
 
@@ -356,13 +380,14 @@ def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
     if marks["baseline"] is None:
         print("  skipped: no baseline evidence in the store, so nothing to be stale against")
         return 0
-    for kind in ("baseline", "candidates", "pairs"):
+    for kind in ("baseline", "candidates", "pairs", "journals"):
         when = marks[kind]
         shown = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(when)) if when else "none"
         label = {
             "baseline": f"newest {CURRENT_BASELINE_MARKER} evidence",
             "candidates": "newest candidate with no year",
             "pairs": "newest assigned pair",
+            "journals": "newest finished cdx journal",
         }[kind]
         print(f"  {label:34} {shown}")
     stale = 0
@@ -370,9 +395,13 @@ def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
         path = ROOT / rel
         if not path.exists():
             continue
-        newest = marks.get(against)
-        if newest is None:
+        kinds = (against,) if isinstance(against, str) else against
+        candidates = [(k, marks[k]) for k in kinds if marks.get(k) is not None]
+        if not candidates:
             continue
+        # The binding mark is the most recent one: a list is stale if ANYTHING it
+        # depends on is newer than it.
+        kind, newest = max(candidates, key=lambda kv: kv[1])
         mtime = path.stat().st_mtime
         when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(mtime))
         if mtime < newest:
@@ -380,10 +409,10 @@ def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
             behind = (newest - mtime) / 3600
             print(
                 f"  [STALE] {rel}  {when}  {behind:.1f}h behind the newest "
-                f"{against}  rebuild: {rebuild}"
+                f"{kind}  rebuild: {rebuild}"
             )
         else:
-            print(f"  [ok]    {rel}  {when}  (vs {against})")
+            print(f"  [ok]    {rel}  {when}  (vs {'/'.join(kinds)})")
     if not stale:
         print("  nothing: every derived artifact postdates the rows it should carry")
     return stale

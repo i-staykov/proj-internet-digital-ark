@@ -5413,3 +5413,45 @@ is productive through the CDX engine **whatever Ivo decides about its classifica
 would still leave 4,782 new candidates converting at better than the pool average. The approval decision
 governs whether its own records can date a year, not whether the names were worth having, and the names
 were worth having.
+
+## 2026-08-11 (the pre-registered test: predicted 28.4%, measured 24.2%, and a third staleness mark)
+
+**The prediction held.** The batch dispatched at 21:08, the first to read the TLD-grain queue, finished at
+**24.2% of 599 answered** against the **28.4%** written down before it landed. That is 4.2 points low, about
+15% relative, from a model built entirely out of measured `(source, TLD)`, TLD and source rates. So the
+scoring is roughly calibrated and the queue ordering can be trusted going forward, which is the useful
+result rather than the rate itself.
+
+What one batch still cannot do is separate C-17 from C-18: the `.za`/`.nz` head gave 8.2% and 32.2%, the
+`.com` head 24.2%, and the batch-to-batch spread inside one population is larger than the gap between the
+two heads. That was said in advance and it stays said. The windowed rate is meanwhile recovering on its own:
+2.7%, then 13.5%, now **21.5%** against a 48.5% history, and it no longer trips the collapse alarm.
+
+**Then the wake found a staleness the check could not see, and the reason is instructive.** The pool queue
+was two hours old and `stale_derived` correctly reported it **fresh**, because a pool queue is compared
+against the newest *candidate* and no candidate had arrived since the Netcraft seed. But the queue's
+**ordering** was out of date, because in those two hours three of the four sources at its head had had their
+`(source, .com)` cells measured for the first time: 0.086, 0.111 and 0.536, against the 0.874 they had all
+been inheriting from the TLD.
+
+**A pool queue is invalidated by a new journal, not only by a new candidate**, because its ordering is
+`measured hit rate x English share` and the rate is measured out of the journals. Nothing in the store moves
+when a journal lands, since the misses never become rows, so no store mark could ever have seen it. There is
+now a `journals` mark, the pool queue is checked against the later of it and `candidates`, and a derived file
+may declare several marks with the most recent one binding. It immediately reported the queue **2.2h behind
+the newest journals**, which is the thing I had just found by hand.
+
+This is the second correction to the same check and they rhyme. The first compared everything to the
+baseline release, which changes monthly, and missed three stale lists. This one compared against store rows
+only, and missed a stale *ranking*. Both times the check was internally consistent and asking the wrong
+question.
+
+**The cycle then acted on it unattended, which is the part worth having.** `rebuild_derived` rebuilt the
+queue, reported that the running collector picks it up at its next dispatch, and restarted nothing. The
+re-rank moved the head from `.com` to **`.uk` from `usenet_mention`**, 1,899 of the top 2,000, and that is
+correct rather than surprising: `.uk` measures a 0.640 hit rate against a 0.9813 English share for 0.628
+expected equivalent-English per query, where `.com`'s better 0.874 rate against a 0.6321 share gives only
+0.552. The metric rewards `.uk`, so the queue does.
+
+**No prediction is registered for the next batch.** The one dispatched at 22:20 predates this rebuild and so
+still reads the `.com` queue; the `.uk` head is first tested on the batch after it.
