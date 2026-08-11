@@ -22,6 +22,16 @@ proof*.
   date, a dated listing) take no split. **So widening extraction over a human-authored corpus is
   safe, and widening it over a self-dating one is not.**
 - **Quote the post-split number, never the raw one.**
+- **A source class may not date a year until a human has classified it.**
+  `docs/open-approvals.md` holds one `Decision:` line per (source, evidence type), and
+  `ark ingest` refuses a master-eligible class that is `pending`, `rejected` or absent.
+  **This is not advisory and it is not the agent's call**: an agent arguing that its own
+  find is master evidence is the least trustworthy artifact here. Write the request with
+  `uv run python scripts/request_approval.py <spec> --journal <journal>`, which builds it
+  out of a seeded-random sample with live links, the measured figures and the
+  counterfactual, so a reviewer checks external evidence rather than reading an argument.
+  **Candidate-only evidence needs no approval**: it can never date a year, so collection
+  never waits on a human. A `rejected` decision binds.
 
 ## The metric
 
@@ -36,6 +46,7 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 |---|---|---|
 | `docs/ROUND.md` | **generated** current state: scoreboard, engines, residual, clock | read first, never edit |
 | `docs/key-decisions.md` | short list of open and closed decisions, for Ivo to overrule | append as you decide |
+| `docs/open-approvals.md` | which source classes may date a year, one `Decision:` line each. **Enforced by `ark ingest`, not by convention** |
 | `docs/ADRs.md` | the few decisions with **structural** impact: taxonomy, store shape, machine allocation, shared write paths |
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |

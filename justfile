@@ -117,6 +117,17 @@ reprobe *args:
 price *args:
     uv run python scripts/price_items.py {{args}}
 
+# A source class may not date a year until a human classifies it, and `ark ingest`
+# enforces that rather than trusting anyone to remember. This writes the request:
+# a seeded-random sample of real records with live links, the measured figures, and
+# what the source is worth under each possible decision. The reviewer checks the
+# links; the agent's argument is there to be checked, not believed. Candidate-only
+# evidence needs no approval, since it can never date a year.
+#
+# ask a human to classify a source class before its records can date a year
+approve *args:
+    uv run python scripts/request_approval.py {{args}}
+
 # Seed-only and permanently so: the index carries no date column, so nothing in it
 # can evidence a year. 35,391 registrable domains, 29,432 of them unknown to the
 # store when measured on 2026-08-10. Expect pool growth and no annual-file growth:

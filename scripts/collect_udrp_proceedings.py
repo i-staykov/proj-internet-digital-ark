@@ -62,6 +62,30 @@ YEARS = range(1996, 2002)
 ROW_RE = re.compile(r"(?is)<tr[^>]*>(.*?)</tr>")
 CELL_RE = re.compile(r"(?is)<t[dh][^>]*>(.*?)</t[dh]>")
 DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+# WIPO publishes each decision at a composable address, which makes an individual
+# row checkable by a human rather than only the table it came from. That matters for
+# the approvals request: a reviewer is asked to open two or three sample records and
+# see the domain on a real page, and a link to the index proves nothing.
+#
+# The path year is the CASE NUMBER's year, not the commencement year: D2000-1762 is
+# published under /2000/ even though it commenced in 2001.
+WIPO_CASE_RE = re.compile(r"^WIPO\s+(D(\d{4})-\d{4})$", re.I)
+WIPO_DECISION = "https://www.wipo.int/amc/en/domains/decisions/html/{year}/{case}.html"
+
+
+def decision_url(proceeding: str) -> str:
+    """A per-record address where one exists, else the consolidated list.
+
+    Only WIPO publishes a composable one. NAF's decisions sit behind opaque numeric
+    ids and its index is a client-side application, so those rows can only cite the
+    table, and a reviewer checking a NAF row has to search for the case number.
+    """
+    found = WIPO_CASE_RE.match(proceeding.strip())
+    if not found:
+        return LIST_URL
+    return WIPO_DECISION.format(year=found.group(2), case=found.group(1).lower())
+
+
 # Hostnames inside the domain column only. The column holds one or more disputed
 # names and nothing else, so this does not need the defensive anchoring a prose
 # extractor does.
@@ -115,7 +139,7 @@ def records_in(page: str, stats: Counter):
                 "year": year,
                 "proceeding": proceeding,
                 "commenced": cells[0],
-                "url": LIST_URL,
+                "url": decision_url(proceeding),
             }
         if not seen:
             stats["no_domain_in_column"] += 1

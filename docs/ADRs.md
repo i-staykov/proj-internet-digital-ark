@@ -155,3 +155,89 @@ ICANN's own page calls itself "an incomplete list of UDRP proceedings", so the f
 a census: the providers' own search tools hold cases this table omits. The lineage is `dispute_docket`,
 its own family, so a pair it confirms alongside an RDAP creation date is genuine cross-lineage
 corroboration rather than one organisation agreeing with itself.
+
+---
+
+## ADR-003. A source class may not date a year until a human classifies it
+
+**Date** 2026-08-11. **Status** Accepted, on Ivo's proposal.
+
+### The question
+
+The harness can propose a source, screen it against the closed register, fetch it and price it against
+the live store without help. It cannot decide whether that source's records belong in the annual files,
+because that is a judgement about **what counts as proof** rather than a measurement.
+
+Until today that judgement happened by email. UDRP went from "priced" to "ingested as master evidence"
+on one exchange, and the reasoning for it lived in an ADR that only the agent had read. That does not
+scale to an unattended run, and more importantly it puts the least trustworthy artifact in the
+repository, **an agent arguing that its own find is master evidence**, on the critical path.
+
+### What was decided
+
+**A gate, not a convention.** `docs/open-approvals.md` holds one `Decision:` line per
+(source name, evidence type). `ark ingest` refuses any master-eligible class whose decision is `pending`,
+`rejected` or absent, and it refuses **before opening the database** so an unapproved ingest does not
+even take the write lock. `src/ark/approvals.py` is the enforcement and `ingest_files` is the choke point
+every caller passes through.
+
+**Four decisions, and `rejected` binds.** `pending` refuses, `master` admits, `candidate-only` admits the
+source while forbidding it from dating a year, and `rejected` refuses and stops the request generator
+re-opening it. An agent that forgets a rejection re-proposes it a week later, which is the same failure
+the closed register exists to prevent for sources.
+
+**Candidate-only evidence is deliberately ungated.** It can never date a year, the reviewer asked for the
+pool to be as large as practicable, and gating it would stall collection for no gain. So **collection
+never waits on a human and promotion always does**, which is the property that makes the queue safe to
+leave unattended.
+
+### One refinement on the proposal, and it matters
+
+Ivo's sketch had the harness collecting `master_candidates` into a quarantined state. **The quarantine is
+outside the store instead.** Collectors already write journals and never open the database, so
+"collected but unclassified" needs no new state at all: the journal sits on disk and the gate refuses the
+ingest. That is strictly stronger, because an unapproved source **cannot contaminate anything, having
+never been written**, rather than depending on every future query to respect a marker. It is also less
+code and adds no schema.
+
+### What makes a request decidable in two minutes
+
+The reader does not trust the agent's prose, and should not. So `scripts/request_approval.py` builds a
+request almost entirely from checkable things:
+
+- **a seeded-random sample of real records, each with a live link.** Seeded, and the seed printed, so the
+  sample is reproducible and **was not chosen by the agent**. Given the choice the agent would pick
+  flattering examples. WIPO decisions get a per-case URL composed from the case number, since a link to
+  an index proves nothing; NAF rows honestly fall back to the index because its ids are opaque.
+- **the measured figures**, produced by a program against the live store, including the share absent.
+- **the counterfactual**: what the source is worth under `master`, under the split, and under
+  `candidate-only`, so the stake is visible before the decision rather than after.
+- **the nearest already-closed family** from the register, since the strongest reason to refuse is usually
+  that something of this shape has already failed on measurement.
+- **reasons to refuse, written by the agent against its own request.**
+
+The single judgement it does ask the agent for is the **dating claim**, one sentence on what dates one
+item, and it is labelled as the agent's claim rather than presented as fact.
+
+### What was rejected, and why
+
+- **Quarantine inside the store**, as above: weaker and more code.
+- **Per-record approval.** Approving 8,972 rows individually is not a review, it is a rubber stamp. The
+  class is the right granularity, and a **material change to the extraction should re-open it**, since
+  that is what went wrong with the Microsoft Bookshelf ISO: self-dating plus a loose extraction would
+  have turned binary noise into master claims.
+- **Trusting the ADR as the record.** An ADR is the agent's reasoning. The gate reads a decision line a
+  human wrote, and the two are deliberately separate artifacts.
+- **Gating candidate-only evidence too.** Consistent, and it would stall collection to protect nothing.
+
+### Consequences, including the awkward one
+
+Everything already in the store was grandfathered, and the authority is cited per entry: the reviewer
+merging and crediting the round that contained it, or Ivo classifying it by name and date. That is real
+approval rather than the agent approving its own past work, but it is worth naming plainly that 24 of the
+25 classes were approved retrospectively in one sitting.
+
+A test asserts that **every master-eligible spec has an entry**, so adding a source without classifying
+it fails in the suite rather than at three in the morning in an unattended run. The unit-test fixture
+relaxes the gate, because unit tests build specs with invented source names, so `tests/test_approvals.py`
+is the only place the gate is genuinely exercised and it tests the gate rather than the convention.

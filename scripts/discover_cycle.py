@@ -29,13 +29,19 @@ the write lock, and a second writer would simply block it. This reports.
 
 import argparse
 import subprocess
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from ark.approvals import pending as pending_approvals  # noqa: E402
+
 LOG = ROOT / "data/logs/discovery_cycle.log"
 LEDGER = ROOT / "docs/hypotheses.tsv"
+APPROVALS = ROOT / "docs/open-approvals.md"
 UNFINISHED = ("screened", "fetching", "priced")
 
 
@@ -143,6 +149,26 @@ def check_ledger() -> tuple[list[str], list[str]]:
     return findings, attention
 
 
+def check_approvals() -> tuple[list[str], list[str]]:
+    """Source classes whose journals are collected and cannot be ingested yet.
+
+    This is the harness's handover point by design: collection never waits on a
+    human, and promotion to the annual files always does. A pending class is not a
+    fault, it is the queue working, so it is reported every cycle until decided.
+    """
+    waiting = pending_approvals(APPROVALS)
+    if not waiting:
+        return ["approvals: nothing pending"], []
+    return (
+        [f"approvals: {len(waiting)} class(es) awaiting classification"],
+        [
+            "a human must classify these source classes before their records can date a "
+            "year; the journals are on disk and nothing is lost: "
+            + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in waiting)
+        ],
+    )
+
+
 def check_state() -> tuple[list[str], list[str]]:
     out, ran = run(["uv", "run", "python", "scripts/build_round_state.py", "--check"])
     if not ran:
@@ -164,6 +190,7 @@ def cycle(number: int, with_network: bool) -> list[str]:
         ("collectors", check_collectors),
         ("residual", check_residual),
         ("ledger", check_ledger),
+        ("approvals", check_approvals),
         ("state", check_state),
     ):
         got, needs = fn()

@@ -4500,3 +4500,50 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   colliding with the real `phase-5` submission at the weekend, and the tarball is git-ignored anyway.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (approvals: a source class may not date a year until a human classifies it)
+
+- **Ivo's proposal, and it closes the gap I had named as the harness's boundary.** The agent can propose,
+  screen, fetch and price a source unaided; it cannot decide whether that source's records belong in the
+  annual files, because that is a judgement about what counts as proof. Until today that happened by
+  email, with the reasoning in an ADR only the agent had read, which puts **the least trustworthy artifact
+  in the repository on the critical path**.
+- **Implemented as a gate rather than a convention.** `docs/open-approvals.md` holds one `Decision:` line
+  per (source name, evidence type). `ark ingest` refuses any master-eligible class that is `pending`,
+  `rejected` or absent, **before it opens the database**, so an unapproved ingest does not even take the
+  write lock. `src/ark/approvals.py` enforces it and `ingest_files` is the choke point every caller passes.
+- **One refinement to the proposal, and it is strictly stronger.** The sketch had the harness collecting
+  `master_candidates` into a quarantined state. The quarantine is **outside** the store instead:
+  collectors already write journals and never open the database, so "collected but unclassified" needs no
+  new state at all. **An unapproved source cannot contaminate anything, having never been written**, which
+  beats any flag that every future query has to respect. It is also less code and no schema change.
+- **What makes a request decidable without trusting the agent**, which is the whole point. Each request
+  carries a **seeded-random** sample of real records with a **live link each**, the seed printed so it is
+  reproducible and demonstrably not agent-chosen; the measured figures by program; the **counterfactual**,
+  what the source is worth under each possible decision, so the stake is visible before deciding; the
+  nearest already-closed family from the register; and reasons to refuse written by the agent against its
+  own request. The one judgement it contributes is the dating claim, labelled as a claim.
+- **The links had to be per-record or the mechanism was theatre.** The first version pointed every sample
+  row at the index page, which proves nothing. WIPO publishes each decision at a composable address, so
+  5,945 of the 8,923 rows now cite the exact page a reviewer can open and see the domain on; NAF's ids are
+  opaque and its index is client-side, so those rows honestly cite the table instead. **The path year
+  comes from the case number, not the commencement date**: `D2000-1762` is published under `/2000/`
+  although it commenced in 2001.
+- **Consistency kept in both directions.** Improving the journal's URLs made the store disagree with it,
+  so 8,923 stored `evidence_url` values were updated to match and the ledger's sha256 was set to the
+  regenerated journal. Store and replay agree, which is the same discipline the value-order fix needed.
+- **The gate immediately broke fourteen tests, which is the gate working.** Unit tests build specs with
+  invented source names, so they were all refused. `tests/conftest.py` now relaxes the gate for unit tests
+  and `tests/test_approvals.py` is the only place it is genuinely exercised, testing the gate rather than
+  the convention: nine cases including that an unparseable decision word **fails closed**, and that
+  approving a source `candidate-only` does not let a master spec through.
+- **A test asserts every master-eligible spec has an entry**, so adding a source without classifying it
+  fails in the suite rather than at three in the morning in an unattended run.
+- **The awkward part, named rather than buried:** 24 of the 25 existing classes were grandfathered in one
+  sitting. The authority is cited per entry, the reviewer merging and crediting the round or Ivo deciding
+  by name and date, so it is not the agent approving its own past work. It is still a retrospective batch.
+- **Collection never waits on a human and promotion always does.** Candidate-only evidence is deliberately
+  ungated: it can never date a year, the reviewer asked for the pool to be as large as practicable, and
+  gating it would stall collection to protect nothing. Full reasoning in ADR-003.
+
+**Signed off by Ivo: pending.**

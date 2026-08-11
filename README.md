@@ -103,6 +103,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | screen | `just screen --dating typed "..."` | kills a proposal that duplicates one of ~60 closed families, and says whether it was closed on **measurement** or on **availability** |
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
+| approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/open-approvals.md](docs/open-approvals.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | loop | `uv run python scripts/discover_cycle.py --until <epoch>` | runs the mechanical checks on a schedule and **ends each cycle by naming what needs judgement** |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
@@ -110,6 +111,13 @@ unbanked on a remote disk, that a file on disk was never read, that a target lis
 baseline, that a hypothesis has been half-priced for a day, and that the state document is stale. It
 cannot invent a hypothesis worth testing, write the fetcher that turns a source into dated items, or
 decide whether a yield justifies a collector. So it does all of the first and hands over the second.
+
+**The one thing the harness may never decide for itself.** A source class may not date a year until a
+human has classified it in [docs/open-approvals.md](docs/open-approvals.md), and `ark ingest` enforces
+that before it opens the database. The agent can collect, measure and argue; it cannot promote. The
+journal simply waits on disk, so nothing is lost and collection never blocks: candidate-only evidence
+passes freely, because a candidate claims nothing. **An unapproved source is not quarantined inside the
+store, it was never written to it**, which is stronger than any flag.
 
 **Why this is safe to run unattended**, which is the part that makes it more than a scheduler:
 `domain_year.evidence_id` is `NOT NULL` and foreign-keyed, `assign_year` refuses candidate-only

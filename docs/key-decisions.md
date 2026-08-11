@@ -23,6 +23,17 @@ rule is in force.
 
 ## CLOSED
 
+### C-13. A source class may not date a year until a human classifies it -> [ADR-003](ADRs.md) (2026-08-11)
+
+Ivo's proposal, adopted with one refinement. `docs/open-approvals.md` holds one `Decision:` line per
+(source, evidence type) and **`ark ingest` enforces it** before opening the database. The refinement: the
+quarantine is **outside** the store rather than a state inside it, because collectors already write
+journals and never open the database, so an unapproved source cannot contaminate anything, having never
+been written. Requests are built from a seeded-random sample with live links, the measured figures and
+the counterfactual, so the reviewer checks external evidence instead of reading the agent's argument.
+Candidate-only evidence is ungated: collection never waits on a human, promotion always does.
+
+
 ### C-12. UDRP proceedings are master `artifact_listing` -> [ADR-002](ADRs.md) (2026-08-11)
 
 Was O-6. Ivo: "Treated as master artifact-listing sounds fine to me, just make sure to document and

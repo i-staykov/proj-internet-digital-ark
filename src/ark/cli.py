@@ -13,6 +13,7 @@ import typer
 from loguru import logger
 from tqdm import tqdm
 
+from ark import approvals
 from ark.audit import write_audit
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 from ark.bulk import ingest_files
@@ -174,6 +175,14 @@ def ingest_cmd(
     spec = SOURCES.get(source)
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
+    # Checked before the store is opened, so an unapproved ingest does not even take
+    # the write lock. `ingest_files` checks again, because it is the gate every
+    # caller passes through and this one is only the fast, polite failure.
+    try:
+        approvals.check(spec.source_name, spec.evidence_type)
+    except approvals.NotApproved as exc:
+        typer.echo(f"refusing to ingest: {exc}", err=True)
+        raise typer.Exit(code=2) from None
     conn = connect()
     init_db(conn)
     queue_conn = connect_queue()

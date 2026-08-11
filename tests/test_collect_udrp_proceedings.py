@@ -45,7 +45,8 @@ def test_reads_the_commencement_year_and_the_domain_column() -> None:
             "year": 2000,
             "proceeding": "WIPO D2000-0001",
             "commenced": "2000-01-03",
-            "url": udrp.LIST_URL,
+            # a WIPO row now cites its own decision page, not the index
+            "url": "https://www.wipo.int/amc/en/domains/decisions/html/2000/d2000-0001.html",
         }
     ]
 
@@ -123,3 +124,31 @@ def test_the_journal_carries_the_date_and_number_the_parser_needs() -> None:
     assert record["commenced"] == "2001-05-15"
     assert record["proceeding"] == "WIPO D2000-1762"
     assert record["year"] == 2001
+
+
+def test_a_wipo_row_gets_a_per_case_url_a_reviewer_can_open() -> None:
+    """The approvals request asks a human to open a sample record, so a link to the
+    index proves nothing. Only WIPO publishes a composable address."""
+    stats: Counter = Counter()
+    page = _page(_row("2000-05-26", "-", "WIPO D2000-0599", "teliasystems.com"))
+    (record,) = list(udrp.records_in(page, stats))
+    assert record["url"] == (
+        "https://www.wipo.int/amc/en/domains/decisions/html/2000/d2000-0599.html"
+    )
+
+
+def test_the_url_path_year_comes_from_the_case_number_not_the_commencement() -> None:
+    """D2000-1762 is published under /2000/ although it commenced in 2001."""
+    stats: Counter = Counter()
+    page = _page(_row("2001-05-15", "-", "WIPO D2000-1762", "late.com"))
+    (record,) = list(udrp.records_in(page, stats))
+    assert "/2000/d2000-1762.html" in record["url"]
+    assert record["year"] == 2001
+
+
+def test_a_non_wipo_row_falls_back_to_the_consolidated_list() -> None:
+    """NAF ids are opaque and its index is client-side, so those cite the table."""
+    stats: Counter = Counter()
+    page = _page(_row("2000-01-11", "-", "NAF FA0092016", "example.com"))
+    (record,) = list(udrp.records_in(page, stats))
+    assert record["url"] == udrp.LIST_URL

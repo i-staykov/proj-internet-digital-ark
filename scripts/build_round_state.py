@@ -44,6 +44,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
     CURRENT_ROUND_SINCE,
@@ -123,6 +124,7 @@ def build() -> tuple[str, dict]:
     residual = run(["uv", "run", "python", "scripts/audit_residual.py"], timeout=900)
 
     decisions = open_decisions()
+    waiting = pending_approvals()
     parts = [
         "# Where the round stands",
         "",
@@ -170,7 +172,19 @@ def build() -> tuple[str, dict]:
         "",
         "## Waiting on a human",
         "",
+        "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
+        "on disk untouched until a `Decision:` line in `docs/open-approvals.md` says otherwise.",
+        "Nothing is lost by leaving them; nothing enters an annual file while they wait.",
+        "",
     ]
+    if waiting:
+        parts += [
+            f"- **{a.source_name} / {a.evidence_type}** (open-approvals.md:{a.line})"
+            for a in waiting
+        ]
+    else:
+        parts += ["Nothing pending in `docs/open-approvals.md`."]
+    parts += ["", "**Open decisions.**", ""]
     if decisions:
         parts += [f"- {d}" for d in decisions]
         parts += ["", "Full context in `docs/key-decisions.md`."]
