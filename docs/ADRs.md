@@ -241,3 +241,99 @@ A test asserts that **every master-eligible spec has an entry**, so adding a sou
 it fails in the suite rather than at three in the morning in an unattended run. The unit-test fixture
 relaxes the gate, because unit tests build specs with invented source names, so `tests/test_approvals.py`
 is the only place the gate is genuinely exercised and it tests the gate rather than the convention.
+
+---
+
+## ADR-004. A declarative *probe*, and bespoke *collectors*: the line is master evidence
+
+**Date** 2026-08-11. **Status** Accepted, narrowing Ivo's proposal.
+
+### The question
+
+Ivo named this as one of three fixes for the harness sitting idle: make the fetcher **declarative**, so a
+new source can be tried by describing it rather than by writing a program. The idle behaviour is real. The
+loop's own output says it cannot "write the fetcher that turns a source into dated items", and that step
+is where an hour of hand-written Python stands between a hypothesis and a number.
+
+The question is what exactly should become declarative, because "declarative fetcher" spans two very
+different ambitions: *try a source cheaply*, and *ingest a source without writing code*.
+
+### What the sixteen existing parsers actually cost, measured
+
+Adding UDRP, the most recent source, cost **186 lines of collector, 71 lines of parser and spec, and eight
+tests**. That is the honest unit price. But the sequence around it is the thing to look at: the fetch and
+the first price took under an hour, and the Linux Software Map and the Microsoft Bookshelf ISO were each
+**found, fetched, priced and closed inside an hour**, at a cost of two or three requests. Both were
+rejected on the number. Neither needed a parser, and if a declarative ingest path had existed, neither
+would have been any cheaper, because **the cost that mattered was the measurement, not the code**.
+
+That reframes the bottleneck. The expensive idleness is not "I must write 186 lines before I can ingest".
+It is "I must write 186 lines before I can find out whether this is worth 186 lines."
+
+### What was decided
+
+**Two paths, split on whether the output can date a year.**
+
+1. **A declarative probe**, `scripts/probe_source.py`, driven by a TOML file: a URL, an extraction kind,
+   which field or column carries the hostname, which carries the date, and what a row must have to be
+   kept. It writes a journal of `{item, domain, year, text, url}` that `price_items.py` already reads, so
+   a source goes from a URL to a measured net-new figure with **no Python written at all**. It uses
+   `tomllib` and the same regex table extraction the UDRP collector already proved, so it adds no
+   dependency.
+2. **Bespoke collectors stay bespoke**, and remain the only route into an annual file.
+
+**The probe's output is candidate-only by construction, and not by policy.** It has no entry in `SOURCES`,
+so `ark ingest` has no spec to run and literally cannot admit it as master evidence. That is stronger than
+a flag, and it is the same trick ADR-003 used: the safety comes from the thing never having been wired up,
+not from every future caller remembering a rule.
+
+### What was rejected, and why it is the important half
+
+**A declarative path to master evidence was rejected.** Three reasons, in order of weight.
+
+- **The value of a parser is in its refusals, and refusals do not generalise.** UDRP refuses a row with no
+  proceeding number, because the number is what makes the row auditable; it refuses a value whose date
+  does not name the year it is filed under, which is what the integrity gate checks; and its first version
+  swept `www3.wipo.int` out of the page furniture until it was made to read one table cell. Every one of
+  those is specific to that document. A configuration language expressive enough to state them is a
+  programming language with worse tooling.
+- **Cheap plus self-dating is exactly the combination that contaminates.** ADR-003 exists because an agent
+  arguing for its own find is the least trustworthy artifact here. Lowering the cost of *adding* a source
+  is safe; lowering the cost of *promoting* one is not, and a declarative ingest would lower both at once.
+  The Bookshelf ISO is the concrete case: a loose extraction over a binary image, self-dating, would have
+  turned decompression noise into master claims.
+- **It would not have saved any of the time actually spent.** Of the last four sources considered, two
+  were rejected on measurement before any parser existed, one needed judgement about evidence class that
+  no configuration can express, and one is `.org`, which was not a parsing problem at all.
+
+**A generic "sniff the page and guess the columns" mode was also rejected.** It is the feature that makes
+a demonstration impressive and a corpus unreliable. The probe requires the column or field to be named,
+and **refuses to run rather than guess**, so a spec that is wrong fails loudly at the first row instead of
+quietly producing plausible rubbish.
+
+### It was validated against a known answer, not against a plausible one
+
+The obvious risk in a declarative extractor is that it looks like it works. So the first spec written was
+not a new source but a **self-test against a source already ingested by hand**: `probes/udrp_selftest.toml`,
+seven lines, pointed at the ICANN dockets. The bespoke collector is 186 lines and produced 8,923 pairs. The
+probe produced **8,923 pairs over 8,892 domains, agreeing on all 8,923, with nothing in either set that the
+other missed.** That is the claim worth making about this tool, and it is checkable by re-running both.
+
+It also demonstrated the multi-name cell in the process: the dockets list every disputed name of a case in
+one cell, a cell taken whole would have refused those rows, and the yield would have read low for a reason
+that has nothing to do with the source. That is exactly the lie this tool has to be built not to tell, so
+`domain_pattern` mines within a cell and the refusal counters show when it finds nothing.
+
+### The property that makes a probe trustworthy
+
+**It reports what it threw away, by reason.** A fetcher that silently drops rows is the single failure mode
+that turns a probe's price into a lie, and it is invisible: a low yield reads as a bad source rather than a
+bad extraction. So the probe prints accepted and refused counts per reason, and a refusal rate above half
+is called out, because at that point the likely explanation is the spec and not the source.
+
+### Consequence to watch
+
+If probing gets cheap, more sources get probed, and the approvals queue becomes the bottleneck instead of
+the parser. That is the correct place for a bottleneck, since it is the step that needs a human, but it is
+worth watching: an approvals file with fifteen pending classes is a queue nobody reads, which would put us
+back where a rejection is a stall rather than a decision.

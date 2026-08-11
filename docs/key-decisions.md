@@ -23,6 +23,25 @@ rule is in force.
 
 ## CLOSED
 
+### C-15. A declarative *probe*, and bespoke *collectors* -> [ADR-004](ADRs.md) (2026-08-11)
+
+Ivo asked for a declarative fetcher, as one of three fixes for the harness sitting idle. Adopted for
+**measuring** a source and refused for **ingesting** one, which is the half worth arguing about.
+`just probe probes/x.toml` turns a URL into a priceable journal from a TOML description with no Python
+written, and `just price` then reports the net-new figure. Its output has no ingest spec, so there is no
+path by which a probe can date a year: the safety is an absence rather than a rule, the same trick C-13
+used.
+
+The reason for the split is that of the last four sources considered, **two were rejected on the number
+and never needed a parser at all**, so the expensive step was the measurement and not the code. A
+declarative path to master evidence was refused because a parser's value is in refusals specific to its
+document, and because cheap plus self-dating is precisely the combination that contaminates.
+
+Validated against a known answer rather than a plausible one: the first spec written was a self-test
+against the already-ingested UDRP dockets, and **seven lines of TOML reproduced the 186-line collector's
+8,923 records exactly**, with nothing in either set the other missed.
+
+
 ### C-14. The harness wakes every 15 minutes, and "the collectors are running" is not the agent being busy (2026-08-11)
 
 Ivo's instruction, after watching the harness sit idle: cron every 15 minutes, plus a `CLAUDE.md` section

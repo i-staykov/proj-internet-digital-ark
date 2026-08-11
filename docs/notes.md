@@ -4648,3 +4648,50 @@ following the documentation, so the two documented prefixes are the only ones al
 started at 15:59 which was running about 23% slower for no measured reason.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (the declarative fetcher, narrowed to a probe, and validated against a known answer)
+
+Ivo's second fix for the idleness: make the fetcher declarative, so a source can be tried by describing it
+rather than by writing a program. Adopted for **measuring** a source and refused for **ingesting** one.
+Full reasoning in ADR-004; the short version is that the bottleneck was mis-identified, including by me.
+
+**What the measurement said about the bottleneck.** Adding UDRP cost 186 lines of collector, 71 of parser
+and spec, and eight tests. But the Linux Software Map and the Microsoft Bookshelf ISO were each found,
+fetched, priced and **closed inside an hour**, on two or three requests, and neither ever needed a parser.
+So of the last four sources considered, two were settled before any code existed. The expensive step is
+finding out whether a source is worth 186 lines, not writing them.
+
+**What was built.** `scripts/probe_source.py`, driven by a TOML file: a URL, one of three shapes
+(`html_table`, `lines`, `jsonl`), which column or field carries the hostname, which carries the date. It
+writes the `{item, year, text}` journal `price_items.py` already reads, so a URL becomes a measured net-new
+figure with no Python written. `tomllib` is stdlib and the table extraction is the same regex pair the UDRP
+collector already proved, so this adds no dependency. `just probe`, and the README table says what it is.
+
+**Validated against a known answer, which is the only validation worth having here.** The first spec
+written was not a new source but a self-test against one already ingested by hand: seven lines pointed at
+the ICANN dockets. The bespoke collector produced 8,923 pairs. The probe produced **8,923 pairs over 8,892
+domains, agreeing on all 8,923, with nothing in either set the other missed.** A declarative extractor that
+merely looks like it works is the obvious trap, so it was pointed at the case where a wrong answer would be
+visible.
+
+**One real shape found while doing it.** The dockets list every disputed name of a case in one cell. A cell
+taken whole refuses those rows, and the yield then reads low for a reason that has nothing to do with the
+source, which is exactly the lie a pricing tool must not tell. So `domain_pattern` mines within a cell, and
+every drop is counted under a named reason with a warning printed when less than half the rows survive.
+
+**What was deliberately refused.**
+
+- **A declarative path to master evidence.** A parser's value is in its refusals and refusals do not
+  generalise: UDRP refuses a row with no proceeding number, refuses a value whose date does not name the
+  year it is filed under, and had to be taught to read one cell instead of the text between two case
+  numbers. A configuration language able to state those is a programming language with worse tooling.
+- **Column sniffing.** It is the feature that makes a demonstration impressive and a corpus unreliable. The
+  spec names the column or the tool refuses to run.
+- Both refusals rest on the same point as ADR-003: making it cheap to **add** a source is safe, making it
+  cheap to **promote** one is not, and a declarative ingest would have done both at once.
+
+**The boundary moved by exactly one step**, from "cannot try a source" to "cannot promote one", and the
+README's honest statement of the split was corrected to say so rather than still claiming a fetcher always
+needs a person.
+
+**Signed off by Ivo: pending.**

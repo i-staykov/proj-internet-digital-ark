@@ -102,15 +102,19 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | memory | `just hypo list` | the ledger: what has been proposed, priced, adopted or killed, with status |
 | screen | `just screen --dating typed "..."` | kills a proposal that duplicates one of ~60 closed families, and says whether it was closed on **measurement** or on **availability** |
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
+| probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](docs/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/open-approvals.md](docs/open-approvals.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
 unbanked on a remote disk, that a file on disk was never read, that a target list predates the current
-baseline, that a hypothesis has been half-priced for a day, and that the state document is stale. It
-cannot invent a hypothesis worth testing, write the fetcher that turns a source into dated items, or
-decide whether a yield justifies a collector. So it does all of the first and hands over the second.
+baseline, that a hypothesis has been half-priced for a day, and that the state document is stale. Since
+`just probe` it can also **measure** a source that fits one of three described shapes, without anyone
+writing code. It cannot invent a hypothesis worth testing, write the collector for a document that needs
+refusals of its own, or decide whether a yield justifies one. So it does all of the first and hands over
+the second, and the line has moved by exactly one step: **from "cannot try a source" to "cannot promote
+one"**, which is the step that was worth moving.
 
 **The one thing the harness may never decide for itself.** A source class may not date a year until a
 human has classified it in [docs/open-approvals.md](docs/open-approvals.md), and `ark ingest` enforces

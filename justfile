@@ -83,6 +83,18 @@ residual *args:
 cycle *args:
     uv run python scripts/discover_cycle.py {{args}}
 
+# Turn a URL into a priceable journal from a TOML description, so a source can be
+# measured before anyone decides whether it is worth a hand-written collector. Two
+# of the last four sources considered were rejected on the number and never needed
+# a parser at all, which is what this exists for. It refuses to guess a column, it
+# reports what it threw away by reason, and its output has no ingest spec, so there
+# is no path by which a probe can date a year (ADR-004). Then:
+#   just price --items data/raw/probes/<name>.jsonl --label <name>
+#
+# price a source from a TOML description, writing no Python
+probe spec *args:
+    uv run python scripts/probe_source.py {{spec}} {{args}}
+
 # Does the proposal collide with one of the ~50 families already closed with a
 # measurement, and what dates ONE of its items. The register is parsed out of
 # docs/sources.md at run time rather than copied, so it cannot drift from the
