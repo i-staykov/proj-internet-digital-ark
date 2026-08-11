@@ -219,6 +219,16 @@ class Closed:
     def tokens(self) -> set[str]:
         return _tokens(self.name)
 
+    def body_tokens(self) -> set[str]:
+        """Discriminating words in the verdict, which the name often omits.
+
+        Found by using the tool: a proposal for the 1996 Microsoft Bookshelf
+        Internet Directory did not collide, although the register closes the
+        `cdbbsarchive` CD-ROM family that contains it. Those terms are in the
+        verdict body and not in the entry name, so name-only matching missed it.
+        """
+        return _tokens(self.verdict)
+
     @property
     def closed_on(self) -> str:
         """`availability` if the verdict is about reach, else `measurement`.
@@ -282,6 +292,19 @@ def closed_leads(path: Path = SOURCES_MD) -> list[Closed]:
     return out
 
 
+# Two, measured on the real register rather than guessed. At three or more the
+# Microsoft Bookshelf proposal stops colliding with the `cdbbsarchive` family that
+# contains it, because their only shared body terms are `cdbbsarchive` and `iso`.
+#
+# At two, three further proposals fire against the Linux Software Map, and **those
+# are not false positives**: CPAN author homepages, the hobbes OS/2 author-URL index
+# and an LSM-shaped package index are the same population LSM was closed on, namely
+# a software author's own site, which is what a CDX-derived baseline holds first. The
+# body match is doing association inference across the register, which is more than
+# the name match can do.
+BODY_FLOOR = 2
+
+
 def collisions(proposal: str, register: list[Closed], floor: int = 2) -> list[tuple[int, Closed]]:
     """Closed leads sharing at least `floor` discriminating words with the proposal.
 
@@ -298,6 +321,13 @@ def collisions(proposal: str, register: list[Closed], floor: int = 2) -> list[tu
         # occurring in exactly one register entry carries the same weight as two
         if len(shared) >= floor or (len(shared) == 1 and _rare(next(iter(shared)), register)):
             scored.append((len(shared), entry))
+            continue
+        # The verdict body names the collection, host or format that the entry title
+        # leaves out. It is long prose, so the floor is higher: BODY_FLOOR terms
+        # rather than two, or the check would fire on every proposal.
+        in_body = want & entry.body_tokens()
+        if len(in_body) >= BODY_FLOOR:
+            scored.append((len(in_body), entry))
     return sorted(scored, key=lambda pair: -pair[0])
 
 

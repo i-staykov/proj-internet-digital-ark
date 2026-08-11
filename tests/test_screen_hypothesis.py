@@ -146,3 +146,40 @@ def test_every_dating_class_carries_its_corroboration_rule() -> None:
     assert "NOT safe" in " ".join(screen.DATING["self"][1])
     assert "corroboration split" in " ".join(screen.DATING["typed"][1])
     assert "Seed-only" in " ".join(screen.DATING["undated"][1])
+
+
+def test_the_verdict_body_catches_a_collision_the_name_misses(tmp_path: Path) -> None:
+    """Found by using the tool.
+
+    A proposal for the 1996 Microsoft Bookshelf Internet Directory did not collide
+    with the entry that closes the CD-ROM family containing it, because
+    `cdbbsarchive` and `ISO` appear in the verdict and not in the entry name.
+    """
+    doc = tmp_path / "sources.md"
+    doc.write_text(
+        "## Evaluated and rejected\n\n"
+        "| Source | Verdict |\n"
+        "|---|---|\n"
+        "| Shareware discs beyond Tucows (2026-08-06) | archive.org cannot list inside "
+        "an ISO, and cdbbsarchive holds 3,578 items with no date metadata |\n"
+    )
+    register = screen.closed_leads(doc)
+    # the entry name shares nothing discriminating with the proposal
+    assert not (screen._tokens("Microsoft Bookshelf Internet Directory") & register[0].tokens())
+    # the body does, and that is enough
+    hits = screen.collisions("Microsoft Bookshelf Internet Directory ISO in cdbbsarchive", register)
+    assert hits, "a body-only collision must still fire"
+
+
+def test_the_body_match_does_not_fire_on_unrelated_prose(tmp_path: Path) -> None:
+    """A verdict is a paragraph, so a low floor could match anything."""
+    doc = tmp_path / "sources.md"
+    doc.write_text(
+        "## Evaluated and rejected\n\n"
+        "| Source | Verdict |\n"
+        "|---|---|\n"
+        "| Some corpus (2026-08-06) | measured at 0.4 net-new pairs per reachable item, "
+        "which is the same failure mode as the award galleries |\n"
+    )
+    register = screen.closed_leads(doc)
+    assert screen.collisions("municipal library card catalogue microfiche", register) == []

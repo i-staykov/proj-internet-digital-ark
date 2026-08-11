@@ -4345,3 +4345,34 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
 - Running from 09:10Z under `caffeinate` with the ingest loop beside it, deadline 2026-08-12T12:00Z.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (correction: the slow seed is a classification query, not the inserts)
+
+- **Yesterday's diagnosis was wrong and the fix was aimed at the wrong line.** `ark seed` was recorded
+  as slow because `seed_from_file` called `add_candidate` in a Python loop, issuing 29,432 single-row
+  inserts into a columnar store. That is true and worth fixing, and it was **not the bottleneck**:
+  batched through one `executemany`, the same seed still held the write lock for **33 minutes** before it
+  was stopped.
+- **The actual cost is `_CLASSIFY_SQL`.** For each of 35,391 candidate names it evaluates a correlated
+  `EXISTS` against `evidence`, which is **53.9 million rows**, to decide whether the name carries
+  baseline evidence. The comment above that query says it exists to avoid per-row round trips at
+  600k-domain seed files, which is the right instinct; what it costs at 54M evidence rows was never
+  measured.
+- **Why it mattered today rather than in July.** The ingest loop now runs continuously beside two
+  collectors, so the store has real contention for the first time. A 33-minute writer is a 33-minute
+  outage for every reader: the pricer, `just state` and `audit_residual` all sat behind it, and the two
+  new tools only survived it because their lock patience is 15 minutes rather than the 2 they shipped
+  with yesterday.
+- **Stopped rather than finished, because it is the least valuable thing running.** PANDORA is seed-only
+  and measured at an expectation near zero, so it was starving a pricing run and the state generator for
+  nothing. Interrupting is safe and idempotent: inserts autocommit, so 7,843 of 29,432 names landed
+  yesterday and a re-run adds the rest through `INSERT OR IGNORE`.
+- **Left as an open decision rather than hacked now.** Rewriting the classification wants a measurement
+  of the alternatives against the real store, and it is a core write path used by every seeding route.
+  The batched insert stays: it is correct, it is tested, and it removes a second `to_registrable` call
+  per name. It simply was not the thing that was slow.
+- **The general lesson, which is the same one this project keeps relearning:** a plausible cause measured
+  once at the wrong scale is not a cause. 29,432 inserts sounded like the expensive half because it was
+  the visible half.
+
+**Signed off by Ivo: pending.**

@@ -141,22 +141,15 @@ def main() -> None:
     args = ap.parse_args()
 
     weights = english_weights()
-    conn = read_only_store()
-    try:
-        held_pairs = {
-            (d, y)
-            for d, y in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
-        known = {r[0] for r in conn.execute("SELECT domain FROM domain").fetchall()}
-    finally:
-        conn.close()
-    attested = {d for d, _ in held_pairs}
 
+    # Extract first, then ask the store only about the names actually found. Loading
+    # all 9.8M assigned pairs and 8.2M domains into Python sets costs minutes and a
+    # few GB, which is affordable once and not affordable in a loop, and pricing is
+    # the loop's hot path.
     stats = Counter()
-    pairs: set[tuple[str, int]] = set()
-    # cumulative net-new equivalent-English against item count, for the fits
-    curve: list[tuple[int, float]] = []
-    running = Decimal(0)
+    order: list[tuple[str, int]] = []
+    seen_pair: set[tuple[str, int]] = set()
+    item_marks: list[int] = []
     with opener(args.items) as handle:
         for line in handle:
             line = line.strip()
@@ -167,17 +160,61 @@ def main() -> None:
             year = year_of(record)
             if year is None:
                 stats["undated_or_out_of_window"] += 1
-                continue
-            stats["in_window"] += 1
-            for name in domains_in(record.get("text") or ""):
-                key = (name, year)
-                if key in pairs:
-                    continue
-                pairs.add(key)
-                if key not in held_pairs:
-                    running += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
-            if stats["items"] % 25 == 0:
-                curve.append((stats["items"], float(running)))
+            else:
+                stats["in_window"] += 1
+                for name in domains_in(record.get("text") or ""):
+                    key = (name, year)
+                    if key not in seen_pair:
+                        seen_pair.add(key)
+                        order.append(key)
+            item_marks.append(len(order))
+    pairs = seen_pair
+    names = sorted({d for d, _ in pairs})
+
+    conn = read_only_store()
+    try:
+        held_pairs: set[tuple[str, int]] = set()
+        known: set[str] = set()
+        attested: set[str] = set()
+        for start in range(0, len(names), 4000):
+            batch = names[start : start + 4000]
+            marks = ", ".join("?" * len(batch))
+            held_pairs |= {
+                (d, y)
+                for d, y in conn.execute(
+                    f"SELECT domain, assigned_year FROM domain_year WHERE domain IN ({marks})",
+                    batch,
+                ).fetchall()
+            }
+            known |= {
+                r[0]
+                for r in conn.execute(
+                    f"SELECT domain FROM domain WHERE domain IN ({marks})", batch
+                ).fetchall()
+            }
+        attested = {d for d, _ in held_pairs}
+        # The typo bound asks whether a never-seen name is one edit from a held one,
+        # which needs the whole name set rather than a lookup, so it is loaded only
+        # when there is something to check.
+        candidate_new = [d for d in names if d not in known]
+        all_known: set[str] = set()
+        if candidate_new:
+            all_known = {r[0] for r in conn.execute("SELECT domain FROM domain").fetchall()}
+    finally:
+        conn.close()
+
+    # cumulative net-new equivalent-English against item count, for the fits
+    curve: list[tuple[int, float]] = []
+    running = Decimal(0)
+    consumed = 0
+    for index, upto in enumerate(item_marks, start=1):
+        while consumed < upto:
+            name, year = order[consumed]
+            if (name, year) not in held_pairs:
+                running += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
+            consumed += 1
+        if index % 25 == 0:
+            curve.append((index, float(running)))
     curve.append((stats["items"], float(running)))
 
     def ee(rows) -> Decimal:
@@ -221,8 +258,8 @@ def main() -> None:
         print(f"  by tld                   : {dict(by_tld.most_common(6))}")
 
     sample_names = sorted({d for d, _ in netnew})[:1500]
-    if sample_names:
-        near = sum(1 for d in sample_names if within_one_edit(d, known))
+    if sample_names and all_known:
+        near = sum(1 for d in sample_names if within_one_edit(d, all_known))
         print(
             f"  typo upper bound         : {near:,} of {len(sample_names):,} sampled net-new names "
             f"({near / len(sample_names) * 100:.1f}%) are one edit from a name already held"

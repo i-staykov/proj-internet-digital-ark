@@ -15,7 +15,17 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-Nothing open. Ivo answered O-1 to O-4 on 2026-08-11 and they are recorded below.
+### O-5. `ark seed` is slow for a reason I misdiagnosed, and the real fix is a core write path (2026-08-11)
+
+Batching the insert was right and was not the bottleneck: the same seed still held the write lock for
+**33 minutes**. The cost is `_CLASSIFY_SQL`, which runs a correlated `EXISTS` per candidate name against
+the **53.9M-row** `evidence` table. That never mattered before because nothing else wanted the store; now
+the ingest loop and two collectors do, and a 33-minute writer is a 33-minute outage for every reader.
+
+**Not fixed today, deliberately.** It is the write path every seeding route uses, and choosing between a
+semi-join, a pre-materialised baseline-domain set and a temp table wants measuring against the real store
+rather than guessing. Meanwhile PANDORA seeding is stopped at 7,843 of 29,432 names, which is safe and
+resumable, and costs nothing since it is seed-only with an expectation near zero.
 
 ---
 
