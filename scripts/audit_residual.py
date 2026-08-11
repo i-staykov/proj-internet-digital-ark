@@ -66,11 +66,16 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 # Derived artifacts that a new reviewer release invalidates. Each is regenerable,
 # so the finding is "rebuild this", never "you have lost something".
 DERIVED = (
+    # The operative lists since the two-machine split of 2026-08-11: the VPS works
+    # bracketed gaps, the local engine works the candidate pool.
+    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap"),
+    ("data/raw/cdx/queue_pool_local.txt", "build_query_queue.py --population pool"),
+    ("data/raw/rdap/pool_targets_org.txt", "build_rdap_pool_list.py --tlds org"),
+    # The mixed queue, kept because a shard of it may still be in flight on a
+    # machine that has not been re-pointed yet.
     ("data/raw/cdx/queue_shard0.txt", "just query-queue"),
     ("data/raw/cdx/queue_shard1.txt", "just query-queue"),
     ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue"),
-    ("data/raw/cdx/gap_candidates.txt", "uv run ark gaps"),
-    ("data/raw/rdap/creation_candidates.txt", "uv run ark gaps --creation"),
 )
 
 # Directories whose contents are inputs to a collector rather than to an ingest,
