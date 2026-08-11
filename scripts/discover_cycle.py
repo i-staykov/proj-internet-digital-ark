@@ -6,10 +6,16 @@ theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
 a collector has died, that a journal is sitting on a remote disk unbanked, that a
-file on disk was never read, that a derived target list predates the current
-baseline, that a hypothesis has been sitting half-priced for a day, and that the
+file on disk was never read, that a derived target list is older than the rows it
+should carry, that a hypothesis has been sitting half-priced for a day, and that the
 state document has gone stale. **That is this script**, and it is genuinely
 autonomous: every check has a right answer that needs no judgement.
+
+**It rebuilds, and it does not restart anything.** Regenerating a stale derived list
+is deterministic, so the cycle owns it. Stopping and starting collectors is not: an
+earlier version did, with a `pkill -f` pattern that matches the shell running it, and
+on 11 August it killed a healthy collector mid-batch. A supervisor re-reads its target
+list at every dispatch, so rewriting the file is the whole job.
 
 *Judgement work*, which needs an LLM or a human: inventing a hypothesis worth
 testing, writing the fetcher that turns a source into dated items, and deciding
@@ -28,6 +34,8 @@ the write lock, and a second writer would simply block it. This reports.
 """
 
 import argparse
+import os
+import re
 import subprocess
 import sys
 import time
@@ -120,16 +128,13 @@ def check_residual() -> tuple[list[str], list[str]]:
                             "ingest has read. This is the cheapest yield in the project: "
                             "496 such files were worth 14,956 equivalent-English"
                         )
-                    if key == "stale_derived" and count not in ("0", ""):
-                        # The comparison is against the store mark that invalidates each
-                        # list, newest pairs for a gap queue and newest candidates for a
-                        # pool queue, not against the baseline release. Saying "baseline"
-                        # here described the check as it was before 11 August and would
-                        # send a reader looking for a release that had not moved.
-                        attention.append(
-                            f"{count} derived target list(s) are older than the rows they "
-                            "should carry, so a collector reading them cannot see those rows"
-                        )
+                    # `stale_derived` is deliberately NOT raised for attention here.
+                    # Candidates arrive continuously, so a pool queue is a few minutes
+                    # stale almost always, and an alarm on that condition fires every
+                    # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
+                    # the threshold and asks for a human only when it cannot act, which
+                    # is the VPS list or a failed rebuild. An alarm nobody can clear is
+                    # the same defect as the 982 MB the unreferenced check used to report.
     return findings, attention
 
 
@@ -138,18 +143,50 @@ def check_residual() -> tuple[list[str], list[str]]:
 # handful of new targets.
 REBUILD_AFTER_HOURS = 1.5
 
+# Two cycles can now run at once, an hourly loop and a 15-minute cron wake, and both
+# would rebuild the same list into the same path. Two writers to one target file is a
+# truncated queue, which a collector then reads as a short list rather than as an error.
+# A stale lock is ignored after this long, since a rebuild is minutes and a crashed
+# holder must not block rebuilds forever.
+REBUILD_LOCK = ROOT / "data/logs/derived_rebuild.lock"
+REBUILD_LOCK_STALE_S = 3600
+
+
+def rebuild_lock_holder() -> str | None:
+    """The live holder's pid, or None if the lock is absent, stale or abandoned."""
+    if not REBUILD_LOCK.exists():
+        return None
+    age = time.time() - REBUILD_LOCK.stat().st_mtime
+    pid = REBUILD_LOCK.read_text(encoding="utf-8").strip()
+    if age > REBUILD_LOCK_STALE_S:
+        return None
+    if pid.isdigit():
+        try:
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            return None
+        except PermissionError:
+            pass  # it exists and is not ours, which still counts as alive
+    return pid or "unknown"
+
 
 def rebuild_derived() -> tuple[list[str], list[str]]:
     """Rebuild stale derived target lists, and re-point the local engine at them.
 
     **This is the cycle's one action rather than a report**, and the distinction is
     deliberate. Writing evidence is a judgement and belongs to a human; regenerating a
-    derived list is neither, and leaving it undone has already cost something real:
-    4,333 freshly seeded UDRP names, 88% of them absent from the store, sat in the pool
-    for two hours while the running engine worked a queue built before they existed.
+    derived list is neither, and a collector reading a list built before the rows it
+    should carry cannot see them at all.
 
-    The VPS is deliberately untouched. Its list has to be shipped over a VPN window, so
-    it is reported and left.
+    **It rebuilds the file and stops there, deliberately.** An earlier version also
+    restarted the local collector to "re-point" it, which was both unnecessary and the
+    mechanism of a real failure: a supervisor re-reads its target list at every
+    dispatch, so rewriting the file is enough, and the restart used `pkill -f` with a
+    pattern that matches the shell running it. On 11 August that took down a healthy
+    collector mid-batch. **An unattended loop does not get to kill collectors.**
+
+    The VPS is deliberately untouched too. Its list has to be shipped over a VPN
+    window, so it is reported and left.
     """
     findings, attention = [], []
     out, ran = run(["uv", "run", "python", "scripts/audit_residual.py", "--check", "stale_derived"])
@@ -163,11 +200,36 @@ def rebuild_derived() -> tuple[list[str], list[str]]:
             continue
         parts = line.split()
         path = parts[1]
-        hours = next((float(p) for p in parts if p.endswith("h")), 0.0) or 0.0
+        # The field is "0.9h", so the unit has to come off before the float. Getting
+        # this wrong crashed the whole cycle on 11 August, and it went unnoticed for
+        # an hour because the long-running loop had loaded this module before the
+        # function existed: the crash only appeared on the next fresh invocation.
+        hours = next((float(p[:-1]) for p in parts if re.fullmatch(r"[\d.]+h", p)), 0.0)
         stale[path] = hours
     if not stale:
         return ["derived: every list postdates the rows it should carry"], []
 
+    # Only take the lock once something is actually going to be rebuilt, so a cycle
+    # that finds everything under the threshold never blocks another one.
+    if any(h >= REBUILD_AFTER_HOURS for h in stale.values()):
+        holder = rebuild_lock_holder()
+        if holder:
+            return [f"derived: another cycle (pid {holder}) is rebuilding, leaving it alone"], []
+        REBUILD_LOCK.parent.mkdir(parents=True, exist_ok=True)
+        REBUILD_LOCK.write_text(str(os.getpid()), encoding="utf-8")
+
+    try:
+        findings, attention = _rebuild_each(stale)
+    finally:
+        if REBUILD_LOCK.exists() and REBUILD_LOCK.read_text(encoding="utf-8").strip() == str(
+            os.getpid()
+        ):
+            REBUILD_LOCK.unlink()
+    return findings, attention
+
+
+def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
+    findings, attention = [], []
     for path, hours in sorted(stale.items()):
         if hours < REBUILD_AFTER_HOURS:
             findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
@@ -194,7 +256,15 @@ def rebuild_derived() -> tuple[list[str], list[str]]:
             )
             findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
             if ok:
-                findings += repoint_pool_engine()
+                findings.append(
+                    "derived: the running collector picks it up at its next dispatch, "
+                    "so nothing is restarted"
+                )
+            else:
+                attention.append(
+                    "the pool queue rebuild FAILED, so the local collector is working a "
+                    "list that cannot see the newest candidates"
+                )
         elif "pool_targets_org" in path:
             _o, ok = run(
                 [
@@ -214,38 +284,6 @@ def rebuild_derived() -> tuple[list[str], list[str]]:
         else:
             findings.append(f"derived: {Path(path).name} stale, no rebuild rule")
     return findings, attention
-
-
-def repoint_pool_engine() -> list[str]:
-    """Restart the local pool collector so it reads the rebuilt list.
-
-    **Guarded against the one failure that matters.** The archive rate-limits per
-    address and has refused this project outright three times, so two supervisors
-    against one address is worse than none. This refuses to start a second one, and it
-    stops the old one with TERM so the batch publishes its journal rather than
-    stranding a `.part`.
-    """
-    out, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
-    if out.strip():
-        run(["pkill", "-TERM", "-f", "supervise_cdx_pool.sh"], timeout=30)
-        time.sleep(15)
-    still, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
-    if still.strip():
-        return ["derived: old collector would not stop, so NOT starting another"]
-    _started, _ok = run(
-        [
-            "bash",
-            "-c",
-            "ARK_TARGETS=data/raw/cdx/queue_pool_local.txt ARK_PREFIX=cdx_disc "
-            "nohup caffeinate -i bash scripts/supervise_cdx_pool.sh 1786536000 600 8 900 "
-            "> /dev/null 2>&1 < /dev/null & echo started",
-        ],
-        timeout=60,
-    )
-    time.sleep(10)
-    alive, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
-    state = "up" if alive.strip() else "DID NOT START"
-    return [f"derived: pool collector re-pointed at the rebuilt list ({state})"]
 
 
 def check_ledger() -> tuple[list[str], list[str]]:

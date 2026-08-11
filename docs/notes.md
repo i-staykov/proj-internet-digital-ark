@@ -4737,3 +4737,48 @@ what consumes each, so `unreferenced` reports material that is genuinely unaccou
 cries 982 MB every cycle is a check that gets ignored, which is worse than not having it.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (the first cron wake found the cycle crashing, and the cycle killing collectors)
+
+The 15-minute wake did on its first run exactly what it was added for: it ran `just cycle` and the cycle
+**crashed**, on code I had written three hours earlier.
+
+**Why nobody had seen it.** `rebuild_derived` parses the audit's staleness line and read the hours field
+`0.9h` with a bare `float(p)`, which raises. It had never fired: the hourly loop was started at 12:10 and
+Python had loaded that module before the function existed, so the loop kept running the older code, kept
+printing the older wording, and kept looking healthy. **A long-running loop is a frozen copy of the code**,
+and that is now the second time today a healthy-looking log hid the real state. Only a fresh invocation
+touched the new path, and the wake was the first fresh invocation.
+
+**The more serious find in the same function.** `repoint_pool_engine` restarted the local collector after a
+rebuild, and it was the mechanism of this afternoon's incident encoded to run unattended, hourly, forever:
+it shelled `pgrep -f supervise_cdx_pool.sh` and `pkill -TERM -f supervise_cdx_pool.sh` from a subprocess
+whose own command line contains that pattern, so the presence check could never be false and the kill could
+match its caller; it hardcoded `ARK_PREFIX=cdx_disc`, which is **where the invented third prefix came
+from**; and it hardcoded a deadline epoch that silently becomes the past.
+
+**Deleted rather than guarded, because it was never necessary.** A supervisor re-reads its target list at
+every dispatch, so rewriting the file is the whole job. The rule is now stated where it belongs, in the
+module docstring and in a test: **an unattended loop does not get to kill collectors.** The test asserts
+the function is absent and that no `"pkill"` argument appears in the source, matching the quoted form so
+that the docstring may still explain why the rule exists. A test that forbids describing a mistake deletes
+the reason for the rule.
+
+**Two more fixes, both about a report staying worth reading.**
+
+- The `stale_derived` ATTENTION line was raised on any staleness at all. Candidates arrive continuously, so
+  a pool queue is minutes stale almost always, and the alarm would have fired every cycle forever while
+  `rebuild_derived` deliberately declined to act below its 1.5h threshold. Removed: the rebuild owns the
+  condition and asks for a human only when it cannot act, which is the VPS list or a failed rebuild. **An
+  alarm nobody can clear is the same defect as the 982 MB** the unreferenced check used to report.
+- A rebuild lock, because an hourly loop and a 15-minute wake can now both rebuild the same list into the
+  same path, and two writers to one target file give a truncated queue that a collector reads as a short
+  list rather than as an error. The lock is taken only when something will actually be rebuilt, it records
+  the pid, and it is ignored if the holder is gone or the lock is over an hour old, so a crashed cycle
+  cannot become the outage the lock was meant to prevent. Five tests.
+
+**State after the wake.** The cycle completes, and its judgement list is down to two items, both real: the
+VPS is unreachable until the VPN is up, and five screened hypotheses need a decision. The hourly loop was
+restarted so it is no longer running a frozen copy from 12:10. All four collectors up.
+
+**Signed off by Ivo: pending.**
