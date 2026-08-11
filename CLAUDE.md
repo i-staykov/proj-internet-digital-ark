@@ -135,10 +135,16 @@ duty is to avoid making things worse. Work this in order and stop at the first s
 
        just cycle
 
-   It checks both collectors, journals on disk that nothing has ingested, derived lists older than the
-   store, the hypothesis ledger, pending approvals and `docs/ROUND.md`, rebuilds what it can, and ends
-   with the items **no program can decide**. Act on those. If a collector is down, restart it; if a
-   journal is unbanked, ingest it.
+   It checks both collectors, **whether they are finding anything as opposed to merely running**,
+   journals on disk that nothing has ingested, derived lists older than the store, the hypothesis
+   ledger, pending approvals and `docs/ROUND.md`, rebuilds what it can, and ends with the items
+   **no program can decide**. Act on those. If a collector is down, restart it; if a journal is
+   unbanked, ingest it.
+
+   **Presence is not progress, and progress is not yield.** A journal full of misses grows exactly as
+   fast as a journal full of hits, so a collector can be alive, writing, and worth nothing. That is
+   what the yield line reports, and on 11 August it was the only check that would have caught 1,200
+   queries returning zero while every other one read clean.
 
    **Ask the process table, never a log file, whether something is running.** `supervise_cdx_pool.sh`
    writes `data/logs/${ARK_PREFIX}.log`, so a quiet `cdx_pool.log` proves only that nothing has run

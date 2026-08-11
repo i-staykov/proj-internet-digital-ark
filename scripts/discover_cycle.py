@@ -47,12 +47,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ark import key_decisions  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
+from ark.yield_check import measure_all  # noqa: E402
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
 LEDGER = ROOT / "docs/hypotheses.tsv"
 APPROVALS = ROOT / "docs/approved-sources-list.md"
 DECISIONS_DOC = ROOT / "docs/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
+JOURNAL_DIR = ROOT / "data/raw/cdx"
+# The script's own header documents exactly these two, and an invented third one
+# hid a live collector from every reader on 11 August.
+COLLECTOR_PREFIXES = ("cdx_pool", "cdx_gap")
 
 
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
@@ -105,6 +110,29 @@ def check_collectors() -> tuple[list[str], list[str]]:
         if missing:
             findings.append(f"VPS: {len(missing)} journals not copied here yet")
             attention.append(f"rsync {len(missing)} VPS journals home, then ingest them")
+    return findings, attention
+
+
+def check_yield() -> tuple[list[str], list[str]]:
+    """Are the collectors finding anything, not just running and writing?
+
+    The gap none of the other checks covered. `check_collectors` asks whether a
+    process is alive, the supervisor itself watches journal growth, and **a journal
+    full of misses grows exactly as fast as a journal full of hits.** On 11 August a
+    rebuilt queue sent the local engine 1,200 queries for zero captures while every
+    check here reported clean; the truth was in a `no_capture: 600` counter nothing
+    read. Reasoning and thresholds in `ark.yield_check`.
+    """
+    findings, attention = [], []
+    for reading in measure_all(JOURNAL_DIR, COLLECTOR_PREFIXES):
+        findings.append(f"yield: {reading.describe()}")
+        if reading.collapsed:
+            attention.append(
+                f"{reading.prefix} is answering but finding almost nothing: "
+                f"{reading.describe()}. Either its queue head is a population with no "
+                f"captures, in which case rebuild and re-rank it, or the archive is "
+                f"refusing us. Check before assuming the population is spent"
+            )
     return findings, attention
 
 
@@ -389,6 +417,7 @@ def cycle(number: int, with_network: bool) -> list[str]:
     attention: list[str] = []
     for name, fn in (
         ("collectors", check_collectors),
+        ("yield", check_yield),
         ("residual", check_residual),
         ("derived", rebuild_derived),
         ("ledger", check_ledger),

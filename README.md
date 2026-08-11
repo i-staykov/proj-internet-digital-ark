@@ -108,9 +108,10 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](docs/approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 
-**The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
-unbanked on a remote disk, that a file on disk was never read, that a target list predates the current
-baseline, that a hypothesis has been half-priced for a day, and that the state document is stale. Since
+**The boundary, stated plainly.** A cycle can notice that a collector died, **that a collector is alive
+and finding nothing**, that a journal is sitting unbanked on a remote disk, that a file on disk was never
+read, that a target list is older than the rows it should carry, that a hypothesis has been half-priced
+for a day, and that the state document is stale. Since
 `just probe` it can also **measure** a source that fits one of three described shapes, without anyone
 writing code. It cannot invent a hypothesis worth testing, write the collector for a document that needs
 refusals of its own, or decide whether a yield justifies one. So it does all of the first and hands over

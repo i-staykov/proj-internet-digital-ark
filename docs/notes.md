@@ -4978,3 +4978,51 @@ nobody checks. Nothing was restarted: a supervisor re-reads its target list at e
 hit rate, because no check reads collector *yield*. Presence is checked, progress is checked by journal
 growth, and a journal full of `no_capture` rows grows normally. That is a real gap and it is the obvious
 next piece of harness work.
+
+## 2026-08-11 (progress is not yield: the check that would have caught this afternoon by itself)
+
+Logged at the end of the previous wake as the obvious next piece of harness work, and built in this one.
+`supervise_cdx_pool.sh` argues at length that **presence is not progress**: a batch stuck on a socket leaves
+the process alive and the journal frozen, so it watches journal growth rather than the PID. That closed the
+gap it was aimed at and left a wider one, because **a journal full of misses grows exactly as fast as a
+journal full of hits.** Every record is written either way.
+
+That gap is what let this afternoon happen. 1,200 archive queries returned zero in-window captures while
+the process was alive, the journal was growing, and `just cycle` reported every mechanical check clean. The
+only place the truth appeared was a `no_capture: 600` counter in a log line nothing reads, and I found it by
+eye.
+
+`src/ark/yield_check.py` asks the question none of the other checks did: **of the domains the archive
+actually answered, what share held a capture?** Wired into the cycle as its own step. Pointed at the live
+journals the first time it ran, it reported:
+
+    cdx_pool: 6.8% of 1,008 answered held a capture, against 51.6% of 22,928 before that  -> COLLAPSED
+    cdx_gap:  99.6% of 669 answered held a capture, against 98.5% of 45,803 before that
+    cdx_disc: 45.8% of 1,418 answered held a capture, against 43.7% of 1,774 before that
+
+**Three decisions worth recording, because each one is a way this check could have been useless.**
+
+- **Judged against the collector's own history, not a constant.** The gap pool answers 96-97.5% and the
+  candidate pool 36.9-90.6% depending on where a name came from, so one hardcoded floor either misses a pool
+  collapse or condemns a healthy pool every cycle. And the real reading was **6.8%, not a clean zero**,
+  because the recent window straddled the rebuild: an absolute floor low enough to be safe for the candidate
+  pool would have let it through. The fraction test caught it, which is the case the design exists for.
+- **Zero is caught separately, with no history needed.** A population that answers and never holds a capture
+  is not worth querying whatever it did last week.
+- **Only status 200 counts in the denominator**, the same rule `journal_outcomes` already uses. Counting a
+  transport failure as a miss would report a refusing archive as a dead population, which is the opposite
+  diagnosis and the opposite action.
+
+Also: the two populations are measured separately, since folding them together would hide a pool collapse
+behind the gap pool's 96%; in-flight `.part` files are skipped, because a batch two records in is not
+evidence; and a collector with no journals at all is not a failure, so a fresh checkout does not look broken.
+Nine tests, 396 passing.
+
+**It is currently lit, correctly.** The reading is now 0.1% of 1,477, because the batch that finished after
+the rebuild was still working the old list, and the alarm will stay up until the re-ranked queue's batches
+land. That is the honest behaviour and suppressing it would defeat the point.
+
+**The rule now sits where a reader would look for it**, which is the part that makes it stick: the
+supervisor's own header carries the converse of its "presence is not progress" argument and points at the
+yield check, saying plainly that this is a thing the script cannot see. `CLAUDE.md` and the README say it
+too.
