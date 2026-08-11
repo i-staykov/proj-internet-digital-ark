@@ -4401,3 +4401,43 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   listed the eight unfinished hypotheses as needing judgement, and regenerated a stale `ROUND.md`.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (a new source found by asking what the sources that worked have in common)
+
+- **The method, because it is more reusable than the source.** Instead of listing places to look, I asked
+  what this round's three paying sources share. `rdap_snapshot` (registry creation dates), `isc_survey`
+  (dated DNS survey shards) and `attrition_defacement` (a dated defacement index) are all
+  **machine-generated records about whoever happened to be there**, not human curation of who was
+  notable. Every family that has failed on measurement here, five of them now, selects for authority:
+  relay hops, institutional directories, award galleries, mailing lists, the Linux Software Map. So the
+  generative question is not "where else is there a list" but **"what else recorded everyone, with a
+  date, for its own reasons"**.
+- **A domain-dispute docket is that shape, and nothing in the register covered it.** WIPO publishes every
+  UDRP case with a number whose year is the filing year and the disputed domain in its own table column.
+  A case exists only because the domain was registered and in dispute, so it attests existence **without
+  depending on a crawler having visited the site**, which is the property that makes 1996-1997 hard.
+- **Measured against the live store: 3,325 cases, 6,069 distinct (domain, year) pairs over 6,041 domains,
+  of which only 680 are already held.** **88.8% absent is the highest share of anything measured on this
+  project**, and it is structural rather than lucky: a disputed name is often a typosquat taken down
+  within weeks, exactly the population a crawl never visits.
+- **Read as `artifact_listing` it is 5,389 net-new pairs and 3,281.0 equivalent-English at mean weight
+  0.6208; read with the corroboration split it is 956 and 593.5.** A 5.5x difference, so the
+  classification is recorded as an open decision rather than assumed. The case for self-dating is that
+  `attrition_defacement` already sits in that class on identical logic, and that the domain is in a
+  structured column rather than in prose, which is the property that made Tucows' `creator` field
+  trustworthy. The case against is that self-dating leaves no wall behind the extraction.
+- **The typo bound inverts here, and it is worth naming as a general caution.** It reports 36.3% of
+  net-new names within one edit of a held name, and for this corpus **that is the signal rather than the
+  noise**: a typosquat is one edit from a famous name by construction. A metric built to bound OCR
+  damage measures the opposite thing on a corpus of deliberate near-misses.
+- **The extraction was narrowed before the figure was believed.** The first pass read every hostname
+  between one case number and the next and picked up `www3.wipo.int` from the page furniture. Taking the
+  second table cell alone fixed it, and for a self-dating source that narrowing is not optional: my own
+  screener says widening extraction is safe on a split source and unsafe on a self-dating one.
+- **Cost: 133 requests to a non-IA host**, so no archive budget, and about four minutes. The 6,079 names
+  are seeded as candidates regardless of the classification, since a candidate claims nothing.
+- **Residual named as a projection, not a measurement.** WIPO is one of several UDRP providers and the
+  National Arbitration Forum handled a comparable caseload over the same years, so the family plausibly
+  holds two to three times this. That is a **[PROJECTION]** and the only measured part is WIPO.
+
+**Signed off by Ivo: pending.**

@@ -1614,6 +1614,69 @@ names by measured hit rate, so if they are worthless they sit in the queue's tai
 **Residual: closed for this file.** The index is complete as published. The `surt` column is a reordered
 form of the same URL and adds no names. `data/raw/pandora/` is a byte-identical copy.
 
+### `udrp_wipo`: WIPO domain-name dispute decisions, 1999-2001
+
+**Measured and blocked on a classification decision rather than on work**, which is the same position
+attrition.org was in when it was blocked on a licence. Recorded here in full because it is the highest
+absent-share source measured on this project.
+
+**What it is.** Every UDRP case WIPO has decided, published with a case number whose year is the filing
+year, and with the disputed domain in **its own column** of the case table. A case exists only because
+the domain was registered and in dispute, so the record attests existence in that year **without
+depending on a crawler having visited the site**.
+
+**How it was found**, which is the transferable part. Not by recall and not by browsing: by asking what
+the three sources that actually paid this round have in common. Registry creation dates, dated DNS
+survey shards and a defacement mirror are all **machine-generated records about whoever happened to be
+there**, rather than human curation of who was notable. Every family that has failed on measurement here
+selects for authority; this class does not. A dispute docket is that shape, and nothing in the register
+covered it.
+
+**Get it.** Non-IA host, so it spends no archive budget. 133 requests for the whole window at 1.5 s
+apart.
+
+```bash
+uv run python scripts/collect_udrp_cases.py     # -> items.jsonl, one row per case
+uv run python scripts/price_items.py --items <items.jsonl>
+```
+
+**Date semantics.** The filing year from the case number, deliberately rather than the decision date: a
+case filed late in 2000 may be decided in 2001, and the domain certainly existed at filing, so the case
+year is the earlier and safer claim.
+
+**Measured 2026-08-11 against the live store.** 3,325 cases, **6,069 distinct (domain, year) pairs over
+6,041 domains, of which only 680 are already held**. 88.8% absent, and the reason is structural: a
+disputed name is often a typosquat taken down within weeks, which is exactly what a crawl never sees.
+By TLD the net-new part is `com` 847, `net` 75, `org` 34; by year 2000 576 and 2001 380 after the split.
+
+| reading | net-new pairs | equivalent-English | mean weight |
+|---|--:|--:|--:|
+| `artifact_listing`, self-dating | **5,389** | **3,281.0** | 0.6208 |
+| `dated_directory`, with the corroboration split | 956 | 593.5 | 0.6208 |
+
+**The open question is which of those applies**, and it is a 5.5x difference. The case for
+`artifact_listing` is that `attrition_defacement` already occupies that class on identical logic, that
+the domain sits in a structured column rather than in prose exactly as Tucows' `creator` field does, and
+that an arbitration panel naming a registrar is a stronger authority than a directory page. The case
+against is that self-dating leaves no wall behind the extraction, so an error becomes a master claim.
+
+**One figure that must not be misread.** The typo bound reports 36.3% of net-new names within one edit
+of a held name. Here **that measures the signal rather than the noise**, because a typosquat is one edit
+from a famous name by construction. It is the only source measured on this project where a high
+edit-distance score is evidence that the extraction is finding the right thing.
+
+**Two extraction facts worth keeping.** The first version read every hostname between one case number
+and the next and swept in `www3.wipo.int` from the page furniture; taking the second table cell only
+fixed it, and for a self-dating source that narrowing is not optional. And past a year's last case the
+endpoint returns the same page rather than an empty one, so a fetcher must stop on repeats rather than
+on emptiness.
+
+**Residual: two siblings unmeasured.** WIPO is one of several UDRP providers, and the National
+Arbitration Forum handled a comparable or larger caseload over the same years, with eResolution and CPR
+smaller. If WIPO alone is 6,041 domains at 88.8% absent, the family plausibly holds two to three times
+that. **[PROJECTION, not a measurement.]** The 6,079 names WIPO gives are already seeded as candidates,
+which claims nothing and needs no classification decision.
+
 ### Bytes already on disk that nothing reads
 
 Four directories under `data/raw/` held downloaded material with **no parser, no `SourceSpec` and no

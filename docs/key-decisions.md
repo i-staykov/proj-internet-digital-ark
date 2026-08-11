@@ -15,6 +15,41 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### O-6. WIPO UDRP decisions: which dating class, worth 3,281 EE or 593? (2026-08-11)
+
+**The find.** WIPO publishes every UDRP domain-dispute case with a case number whose year is the filing
+year, and the disputed domain sits in **its own column** of the case table. A case exists only because
+the domain was registered and in dispute, so the record attests existence in that year without any
+crawler having visited the site. 3,325 cases for 1999-2001, 6,069 distinct (domain, year) pairs over
+6,041 domains, and **only 680 are already held: 88.8% of what it names is absent from the store.** That
+is the highest absent share of anything measured on this project, and the reason is structural: a
+disputed name is often a typosquat taken down fast, which is exactly the population a crawl never saw.
+
+**The decision, and it is worth 5.5x.** Treated as `artifact_listing`, self-dating, it contributes
+**5,389 net-new pairs and 3,281.0 equivalent-English** at mean weight 0.6208, clearing the ~5,000-pair
+bar. Treated as `dated_directory` with the corroboration split it contributes **956 pairs and 593.5**.
+
+**Agent's recommendation: `artifact_listing`, self-dating.** Three reasons. The precedent is exact:
+`attrition_defacement` is `artifact_listing` on the same logic, that a defaced host was serving that
+day. The domain is in a **structured column** rather than in prose, which is the property that made
+Tucows' `creator` field trustworthy where a Usenet post's URL is not, so there is no transcription risk
+for the split to guard against. And the record is a legal document produced by an arbitration panel
+naming the registrar, which is a stronger authority than a dated directory page.
+
+**The honest argument against**, which is why this is yours and not mine: self-dating means no wall
+behind the extraction, so an error becomes a master claim. I have narrowed the extraction to the one
+column to answer that, and the first version, which read every host between two case numbers, would
+have swept in page furniture.
+
+**One figure not to misread.** The typo bound says 36.3% of the net-new names are within one edit of a
+name already held. For this corpus **that measures the signal, not the noise**: a typosquat is one edit
+from a famous name by definition. It is the only source measured here where a high edit-distance score
+is evidence the source is working.
+
+**Either way the 6,079 names are seeded as candidates**, which claims nothing and needs no decision, and
+the local discovery engine will date what it can.
+
+
 ### O-5. `ark seed` is slow for a reason I misdiagnosed, and the real fix is a core write path (2026-08-11)
 
 Batching the insert was right and was not the bottleneck: the same seed still held the write lock for
