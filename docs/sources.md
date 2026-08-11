@@ -1461,7 +1461,10 @@ ever listed.
 **Get it.** A single tarball, about 423 MB compressed, then parse. No `web.archive.org` request.
 
 ```bash
-curl -L -o data/raw/enron/enron_mail.tar.gz \
+# The path matters: collect_enron.py reads this exact file, and this line used to name
+# data/raw/enron/enron_mail.tar.gz, which nothing writes and nothing reads. A
+# reproduction following it downloaded 423 MB to a path the collector then ignored.
+curl -L -o data/raw/source_probe_260806/enron.tar.gz \
   https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz
 uv run python scripts/collect_enron.py --write
 uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
