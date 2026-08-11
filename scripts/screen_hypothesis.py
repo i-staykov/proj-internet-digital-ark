@@ -207,6 +207,27 @@ AVAILABILITY_SIGNS = (
     "no sibling survives",
 )
 
+# Phrases that only appear when someone actually counted. A verdict can carry these
+# **and** an availability sign, because one entry can close two different routes into
+# the same family: the printed-directory entry closes archive.org's text files on
+# HTTP 401 and, in the same paragraph, closes the HathiTrust route on a measurement of
+# 69 volumes. `closed_on` returns one value and stays biased toward `availability`,
+# which is right, but reporting only that told a reader to re-probe an entry whose
+# measurement was already done, and on 11 August it cost a re-measurement that
+# reproduced a verdict from three days earlier. So both are now reported.
+MEASUREMENT_SIGNS = (
+    "net-new",
+    "already held",
+    "on measurement",
+    "equivalent-english",
+    "would not have paid",
+    "was measured",
+    "measured at",
+    "measured anyway",
+    "fails on overlap",
+    "do not reopen",
+)
+
 
 @dataclass(frozen=True)
 class Closed:
@@ -238,6 +259,16 @@ class Closed:
         """
         blob = f"{self.name} {self.verdict}".lower()
         return "availability" if any(s in blob for s in AVAILABILITY_SIGNS) else "measurement"
+
+    @property
+    def also_measured(self) -> bool:
+        """Whether the verdict counted something, whatever `closed_on` says.
+
+        An entry can close one route on reach and another on yield, and a reader told
+        only "re-probe this" will re-measure the half that was already settled.
+        """
+        blob = f"{self.name} {self.verdict}".lower()
+        return any(s in blob for s in MEASUREMENT_SIGNS)
 
 
 # A year or a year range says when, never what, so it must not discriminate. Found
@@ -364,9 +395,14 @@ def main() -> None:
         reprobe = []
         for shared, entry in hits[:5]:
             kind = entry.closed_on
+            both = kind == "availability" and entry.also_measured
             print(f"\n  COLLIDES ({shared} shared terms) with docs/sources.md:{entry.line}")
             print(f"    {entry.name}")
-            print(f"    closed on: {kind.upper()}")
+            label = "AVAILABILITY, AND IT ALSO CARRIES A MEASUREMENT" if both else kind.upper()
+            print(f"    closed on: {label}")
+            if both:
+                print("    so it closes two routes: re-probe only the part that could not be")
+                print("    REACHED, and read the counted part before re-measuring it.")
             verdict = re.sub(r"\s+", " ", entry.verdict)
             print(f"    verdict: {verdict[:400]}{'...' if len(verdict) > 400 else ''}")
             if kind == "availability":

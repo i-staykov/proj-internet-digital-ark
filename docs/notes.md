@@ -4695,3 +4695,45 @@ README's honest statement of the split was corrected to say so rather than still
 needs a person.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (the largest unread pile on disk was not one, and the screener had sent me there)
+
+The residual audit had been reporting **982 MB under `data/raw/source_probe_260806` as "downloaded bytes
+with no parser and no ingest line"** since 6 August, which is the check whose one previous hit was worth
+14,956 equivalent-English. Traced all four parts. None of it is opportunity.
+
+- `enron.tar.gz`, 423 MB, is the **only** copy of the corpus and is the path
+  `scripts/collect_enron.py` names directly. `sources.md` documents a download to
+  `data/raw/enron/enron_mail.tar.gz`, which does not exist, so the reproduce line is wrong in a way that
+  would cost a future session a 423 MB re-download.
+- `mlists` 500 MB and `attrition` 2.7 MB fed sources already ingested: 21,882 and 5,816 evidence rows.
+- `hathitrust_ef` 12 MB is the HathiTrust Extracted Features route, and it was **already closed on a
+  measurement on 8 August**, inside the printed-directory verdict.
+
+**The part worth keeping is why I re-measured it anyway.** `just screen` collided the proposal with that
+verdict, classified it `closed on: AVAILABILITY`, and printed "RE-PROBE THESE". That classification is
+correct as far as it goes, the archive.org text files really do return 401 and 403, and the bias toward
+availability is deliberate and right. But **that one entry closes two different routes**: archive.org on
+reach, and HathiTrust on yield, and `closed_on` returns a single value, so the measurement was invisible.
+The tool told me to do something the register had already done.
+
+Fixed rather than noted: `Closed.also_measured` tests the verdict for phrases that only appear when
+someone counted, and the screener prints `AVAILABILITY, AND IT ALSO CARRIES A MEASUREMENT` with the
+instruction to re-probe only the part that could not be reached. Two tests, one on a synthetic entry and
+one against the **live** register, so a rewrite of that verdict that drops its numbers fails in the suite
+instead of quietly sending the next session down the same path.
+
+**The re-measurement itself, since it exists and confirms the verdict.** 69 in-window volumes, 2,551
+hostname-shaped tokens, 1,425 distinct in-window pairs, 1,124 of 1,284 matched pairs already held,
+**74 net-new pairs and 49.4 equivalent-English after the corroboration split** against a ~5,000-pair bar.
+Recorded beside the original verdict. One detail is worth having: EF tokenisation **does** preserve
+hostnames, `www.adobe.com` and `bubl.bath.ac.uk` survive as single tokens, so the family did not fail on
+extraction. It fails on population, like the five before it. The 64.4% typo bound is the opposite of the
+UDRP case: there a high edit-distance score measured signal, here it measures OCR damage, and
+`onftp.lib.berkeley.edu` in the sample shows the line-wrap mechanism doing it.
+
+**And the audit now says so.** `source_probe_260806`, `probes` and `udrp` are named in `ACCOUNTED` with
+what consumes each, so `unreferenced` reports material that is genuinely unaccounted for. A check that
+cries 982 MB every cycle is a check that gets ignored, which is worse than not having it.
+
+**Signed off by Ivo: pending.**

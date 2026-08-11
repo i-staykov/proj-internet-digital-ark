@@ -113,6 +113,18 @@ ACCOUNTED = {
     # clear it on its own: seeds candidates, evidences nothing, has no date column
     "pandora-titles": "seed-only, read by scripts/seed_pandora_titles.py",
     "pandora": "byte-identical duplicate of pandora-titles/pandora-titles.csv",
+    # 982 MB that read as the largest opportunity on disk for five days and is not
+    # one. Traced on 2026-08-11: `enron.tar.gz` is the input scripts/collect_enron.py
+    # names directly, `mlists` and `attrition` fed ingested sources, and
+    # `hathitrust_ef` is the HathiTrust route already closed on measurement inside the
+    # printed-directory verdict. Re-measured to be sure: 74 net-new pairs and 49.4 EE
+    # after the split, against a ~5,000-pair bar.
+    "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
+    "hathitrust_ef route closed on measurement, see docs/sources.md",
+    "probes": "cached pages and journals from scripts/probe_source.py, read by "
+    "scripts/price_items.py; a probe has no ingest spec by design (ADR-004)",
+    "udrp": "the dockets collector's own input and journal, ingested as "
+    "udrp_proceedings; udrp_hosts.txt is the seed list built beside it",
     "gapfill_candidates.txt": "target list",
     "gapfill_sample.txt": "target list",
     "usenet_catalog.json": "the group catalogue, read by the Usenet collectors",

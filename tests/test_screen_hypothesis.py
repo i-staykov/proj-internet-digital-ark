@@ -140,6 +140,33 @@ def test_the_real_register_has_both_classes_and_availability_is_the_minority() -
     assert 5 <= len(availability) < len(register) / 2
 
 
+def test_an_entry_can_close_one_route_on_reach_and_another_on_yield() -> None:
+    """`closed_on` returns one value and stays biased toward `availability`, which is
+    right. But an entry can close two routes, and reporting only the bias told a reader
+    to re-probe a family whose second route had already been measured. On 2026-08-11
+    that cost a re-measurement reproducing a verdict from three days earlier.
+    """
+    both = screen.Closed(
+        "Printed directories",
+        "the text files return HTTP 401, and the HathiTrust route would not have paid: "
+        "measured at 15.7 net-new pairs per volume",
+        1,
+    )
+    reach_only = screen.Closed("Some archive", "the host does not resolve; no route in", 2)
+    assert both.closed_on == "availability" and both.also_measured
+    assert reach_only.closed_on == "availability" and not reach_only.also_measured
+
+
+def test_the_real_register_flags_the_entry_that_caused_this() -> None:
+    """Against the live register, so a rewrite of that verdict that drops its numbers
+    fails here rather than silently sending the next session to re-measure it."""
+    register = screen.closed_leads()
+    printed = [e for e in register if "Printed Internet directory books" in e.name]
+    assert printed, "the printed-directory entry has been renamed or removed"
+    assert printed[0].closed_on == "availability"
+    assert printed[0].also_measured
+
+
 def test_every_dating_class_carries_its_corroboration_rule() -> None:
     """The classes are the whole point of gate 2: `self` must warn that widening
     is unsafe, `typed` must name the split, `undated` must say seed-only."""
