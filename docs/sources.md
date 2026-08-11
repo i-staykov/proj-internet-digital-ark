@@ -1671,11 +1671,21 @@ fixed it, and for a self-dating source that narrowing is not optional. And past 
 endpoint returns the same page rather than an empty one, so a fetcher must stop on repeats rather than
 on emptiness.
 
-**Residual: two siblings unmeasured.** WIPO is one of several UDRP providers, and the National
-Arbitration Forum handled a comparable or larger caseload over the same years, with eResolution and CPR
-smaller. If WIPO alone is 6,041 domains at 88.8% absent, the family plausibly holds two to three times
-that. **[PROJECTION, not a measurement.]** The 6,079 names WIPO gives are already seeded as candidates,
-which claims nothing and needs no classification decision.
+**Residual: the list is a floor, and the gap is behind a JavaScript app.** ICANN's page calls itself
+"an incomplete list of UDRP proceedings", and the shortfall is measurable in one direction: WIPO's own
+case index returns 3,325 cases for 1999-2001 against the 3,246 ICANN lists, so about 79 WIPO cases are
+missing from the consolidated table. The larger gap is NAF, which ICANN lists 1,743 of while its actual
+caseload over those years was larger. **Checked 2026-08-11 and closed on availability rather than value:**
+`adrforum.com/domain-dispute/search-decisions` answers 200 but is a client-side application with no
+server-rendered form, links or year index, so enumerating it needs browser automation. Individual
+decisions do resolve at `/DomainDecisions/<numeric id>.htm`, but the ids are opaque and finding the
+in-window range would mean thousands of speculative requests at someone else's expense, which fails the
+good-citizen rule for a marginal gain over what ICANN already publishes.
+
+**Two providers therefore remain unmeasured**, and the honest statement of the headroom is: if the
+missing NAF share resembles the measured one, the family plausibly holds one and a half to two times what
+is ingested. **[PROJECTION, not a measurement.]** Reopen on a server-rendered NAF index, a bulk export,
+or an academic mirror of the decisions.
 
 ### Bytes already on disk that nothing reads
 
