@@ -161,6 +161,53 @@ STOP = {
 }
 
 
+# Why a lead was closed decides whether it stays closed. A source rejected because
+# a measurement killed it is finished: the numbers do not improve by waiting. A
+# source rejected because a host was down, a DOI 403'd or a payload needed an
+# account is **not** finished, and re-probing that class is explicitly part of the
+# task: feedback section 4 asks for previously unavailable sources to be revisited.
+# The register's own best case is the Australian Web Archive, where one endpoint
+# served an anti-bot challenge and a second host answered normally once anyone
+# checked, and a session nearly closed the whole family on the first result.
+AVAILABILITY_SIGNS = (
+    "does not resolve",
+    "dead host",
+    "is dead",
+    "no route in",
+    "unreachable",
+    "fails to resolve",
+    "times out",
+    "refuses connections",
+    "http 401",
+    "http 403",
+    "http 404",
+    "http 426",
+    "http 429",
+    "returns 401",
+    "returns 403",
+    "403s",
+    "429 on two attempts",
+    "anubis",
+    "cloudflare",
+    "imperva",
+    "bot interstitial",
+    "not publicly retrievable",
+    "agreement-gated",
+    "reading-room",
+    "no longer resolve",
+    "squatted",
+    "159-byte stub",
+    "soft-404",
+    "access negotiation",
+    "no public",
+    "never published",
+    "was ever published",
+    "do not exist",
+    "none survive",
+    "no sibling survives",
+)
+
+
 @dataclass(frozen=True)
 class Closed:
     """One closed lead: what it was called and the verdict that killed it."""
@@ -171,6 +218,16 @@ class Closed:
 
     def tokens(self) -> set[str]:
         return _tokens(self.name)
+
+    @property
+    def closed_on(self) -> str:
+        """`availability` if the verdict is about reach, else `measurement`.
+
+        Deliberately biased toward `availability`: a false `availability` costs one
+        probe, and a false `measurement` costs a source that may now be reachable.
+        """
+        blob = f"{self.name} {self.verdict}".lower()
+        return "availability" if any(s in blob for s in AVAILABILITY_SIGNS) else "measurement"
 
 
 # A year or a year range says when, never what, so it must not discriminate. Found
@@ -274,13 +331,26 @@ def main() -> None:
     print(f"== gate 1: the closed register ({len(register)} leads) ==")
     hits = collisions(proposal, register)
     if hits:
+        reprobe = []
         for shared, entry in hits[:5]:
+            kind = entry.closed_on
             print(f"\n  COLLIDES ({shared} shared terms) with docs/sources.md:{entry.line}")
             print(f"    {entry.name}")
+            print(f"    closed on: {kind.upper()}")
             verdict = re.sub(r"\s+", " ", entry.verdict)
             print(f"    verdict: {verdict[:400]}{'...' if len(verdict) > 400 else ''}")
+            if kind == "availability":
+                reprobe.append(entry)
         if len(hits) > 5:
             print(f"\n  ... and {len(hits) - 5} weaker collisions")
+        if reprobe:
+            print("\n  RE-PROBE THESE. They were closed because something could not be reached,")
+            print("  not because a measurement killed them, and revisiting unavailable sources is")
+            print("  part of the task: feedback section 4 asks for it, and the Australian Web")
+            print("  Archive was nearly closed as empty when a second host answered normally.")
+            print("  A dead host in 2026-08 may be a live host today, and one request settles it.")
+        else:
+            print("\n  All of the above were closed on MEASUREMENT, so waiting does not help.")
         print("\n  Read the verdict before proceeding. If it is genuinely a different")
         print("  population, say how in one sentence and record that beside the proposal.")
     else:

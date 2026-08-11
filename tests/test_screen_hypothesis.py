@@ -117,6 +117,29 @@ def test_a_generic_noun_is_not_a_collision(tmp_path: Path) -> None:
     assert screen.collisions("Apache Software Foundation project releases", register) == []
 
 
+def test_closure_reason_separates_reprobeable_leads_from_finished_ones() -> None:
+    """A measurement does not improve by waiting; a dead host might be alive.
+
+    Revisiting unavailable sources is part of the task, and the register's own
+    Australian Web Archive entry is the case: one endpoint served an anti-bot
+    challenge, a second host answered normally, and the family was nearly closed
+    as empty on the first result.
+    """
+    dead = screen.Closed("Some archive", "the host does not resolve; no route in", 1)
+    priced = screen.Closed("Some corpus", "0.4 net-new pairs per reachable item", 2)
+    assert dead.closed_on == "availability"
+    assert priced.closed_on == "measurement"
+
+
+def test_the_real_register_has_both_classes_and_availability_is_the_minority() -> None:
+    """If everything classified one way the distinction would be decorative."""
+    register = screen.closed_leads()
+    kinds = {entry.closed_on for entry in register}
+    assert kinds == {"availability", "measurement"}
+    availability = [e for e in register if e.closed_on == "availability"]
+    assert 5 <= len(availability) < len(register) / 2
+
+
 def test_every_dating_class_carries_its_corroboration_rule() -> None:
     """The classes are the whole point of gate 2: `self` must warn that widening
     is unsafe, `typed` must name the split, `undated` must say seed-only."""

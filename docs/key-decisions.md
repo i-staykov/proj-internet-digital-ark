@@ -15,38 +15,42 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### O-4. Report the harness as the result, or the numbers as the result? (2026-08-11)
-
-Ding's last two emails moved from "as exhaustive as possible" to "not about downloading per se, it is
-more about Automated Deep Research and Automated Scientific Discovery". So this round's report can
-lead with the method and treat equivalent-English as the evidence it works, or lead with the numbers
-as before. **Agent's recommendation: lead with the method**, because two of last night's results were
-sources *closed* on measurement, which is worth nothing under a volume framing and is exactly what
-SPEC IX section 5 asks for. Needs your call before the weekend submission is written.
-
-### O-3. `.org`: go back to a registry that refused us? (2026-08-11)
-
-308,231 unasked pool names at a 0.7101 share, the best in-window rate measured anywhere at 24.9%, and
-a real namespace (pool-to-dated ratio 1.09). But that rate rests on **848 answers** before PIR
-returned 403 for 9,253 consecutive requests. You said yes to a probe. Agent will run **150 queries at
-well under 1 q/s, stopping on the first refusal**, and will not sweep on a green result without
-telling you. Flagging it because it is the one action today that touches a service that has already
-said no.
-
-### O-2. Is the 1996-2001 corpus intended for publication? (2026-08-11)
-
-Not a technical decision, but it changes what the harness should optimise for. If the corpus becomes
-a paper, the discovery log is a methods contribution and worth writing for that audience. Your own
-plan says to ask early and to own a citable component. The agent cannot ask; you can.
-
-### O-1. Local CDX engine stays off. Confirmed, kept here as a visible standing choice (2026-08-11)
-
-Ivo: "I would not restart the CDX engine locally again, as we are now doing other more important
-things." Recorded as a rule the agent will not quietly reverse when the queue looks tempting.
+Nothing open. Ivo answered O-1 to O-4 on 2026-08-11 and they are recorded below.
 
 ---
 
 ## CLOSED
+
+### C-9. The report leads with the method; the numbers stay at the top as the result (2026-08-11)
+
+Ivo: "the numbers can still go at the top as the 'result', but the focus should be on the method, the
+harness, yes." So the five fields open the report, and the body is about how they were found. Two
+sources *closed* on measurement become results rather than omissions, which is what SPEC IX asks for
+and what a volume framing cannot express.
+
+### C-8. Go back to `.org`, and to previously unavailable sources generally (2026-08-11)
+
+Ivo: "going back to previously unavailable sources is part of the task and what has repeatedly proved
+worth it." Correct, and it is already the documented pattern rather than a new idea: feedback section 4
+asks for blocked sources to be revisited, and the register's own best example is the Australian Web
+Archive, where one endpoint was dead and the other answered normally once someone checked the second
+host. **Standing rule from now on: a source closed on *availability* is a source to re-probe, and only
+a source closed on *measurement* stays closed.** The two verdict classes are already distinguishable in
+`sources.md`, so the screener can say which kind it hit.
+
+### C-7. Ding's research vision logged, and it is background rather than specification (2026-08-11)
+
+His AI4EconFinance / Internet Digital Ark and Digital Archaeology email to Giesecke is now in
+`private/personal-context.md` under its own heading, marked FYI. Ivo: "our task specification comes
+from elsewhere", meaning `SPEC.md` as amended. Two things in it do bear on method: temporal fidelity
+is the point rather than record count, which is why the per-year rule is the deliverable's core
+property; and "AI agents that independently discover hypotheses, collect and synthesize evidence"
+describes this round's harness, so the harness is on-vision.
+
+### C-6. Local CDX engine stays off (2026-08-11)
+
+Was O-1. Ivo's call: discovery work matters more than another crawl client on this machine. Recorded so
+the agent does not quietly reverse it when the queue looks tempting.
 
 ### C-5. VPS is the unattended safety baseline, with its queue refreshed periodically (2026-08-11)
 
