@@ -82,7 +82,7 @@ right thing to run *before* deciding what to collect.
 | `glob_too_narrow` | the ledger holds a file the documented glob cannot reach. Loses nothing now, but `just reproduce` rebuilds a store without it |
 | `unreferenced` | a directory under `data/raw/` that no ingest glob points into at all |
 | `usenet` | the corpus against its own `.processed` ledger and the catalogue: unread, size mismatches, partial files |
-| `stale_derived` | a target list or queue built before the current baseline landed, so it is blind to what that release added |
+| `stale_derived` | a target list or queue older than the rows it should carry, so a collector reading it cannot see them. Compared against the mark that actually invalidates each list, **newest pairs** for a gap queue and **newest candidates** for a pool queue, rather than against the baseline release, which changes monthly and once called three stale lists fine |
 
 **It is deliberately not a gate.** It reports and exits 0, because unread material on disk is a fact
 about the round rather than a broken invariant, and a check that failed the build for it would be

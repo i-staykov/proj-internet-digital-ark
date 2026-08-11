@@ -26,9 +26,13 @@ Five checks, each of which has caught something real:
 `usenet`         the corpus has its own `.processed` ledger rather than rows in
                  `ingested_file`, so it needs its own three-way comparison
                  against the catalogue and the disk.
-`stale_derived`  derived artifacts older than the baseline release they are
-                 supposed to reflect. A queue built before a release is
-                 structurally blind to it, which once hid 102,628 targets.
+`stale_derived`  derived artifacts older than the rows they should carry, each
+                 compared against the mark that actually invalidates it: newest
+                 pairs for a gap queue, newest candidates for a pool queue. It
+                 used to compare against the baseline release, which changes
+                 monthly, and on its first run the corrected form found three
+                 stale lists the old one called fine. A blind queue once hid
+                 102,628 targets.
 
 Nothing here is a gate. It reports and exits 0, because "there is unread material
 on disk" is a fact about the round rather than a broken invariant, and a check
