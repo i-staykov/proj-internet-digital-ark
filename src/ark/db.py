@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 
 from ark.canonical import to_registrable
 from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
@@ -204,28 +205,63 @@ def add_candidates(
     source_id: int,
     discovered_round: int = 0,
 ) -> int:
-    """Register many already-canonical domains in one statement.
+    """Register many already-canonical domains in ONE set-based statement.
 
-    DuckDB is columnar and a single-row `INSERT` carries most of the cost of a
-    thousand-row one. Seeding 35,391 PANDORA names through `add_candidate` in a
-    Python loop took **over twenty minutes at 106% CPU**, and because a writer
-    holds the store exclusively that was also twenty minutes during which no
-    measurement, audit or ingest could run. `executemany` hands DuckDB the whole
-    batch.
+    **This is the answer to ADR-001, and it took three wrong guesses to find.** The
+    seed held the store's only write lock for 26 minutes on 6,079 names and 33 on
+    35,391, blocking every reader. Blamed first on `add_candidate` in a Python loop,
+    which was real and was replaced by `executemany`; the seed stayed slow. Blamed next
+    on the classification query, which measures 0.33 s for 3,000 names. Blamed third,
+    by me, on per-row autocommit inside `executemany`: wrapping the whole batch in an
+    explicit transaction measured **12.03 s against 11.88 s, no difference at all.**
 
-    Takes canonical names rather than raw ones, because the caller has already
-    parsed them: `add_candidate` calls `to_registrable` a second time on a value
-    its caller just produced.
+    Measured against a 4,000,000-row table, inserting 13,078:
+
+        executemany, row at a time      13.47 s        971 rows/s
+        set-based from an Arrow table    0.05 s    259,242 rows/s      267x
+
+    `executemany` is not a batch. It is N prepared-statement executions, and DuckDB is
+    columnar, so each one pays a whole statement's overhead against an 8 GB store. The
+    fix is the idiom `bulk.py` has used all along: register the batch as an Arrow table
+    and let one statement do an anti-join insert. `INSERT OR IGNORE` becomes
+    `WHERE NOT EXISTS`, which is the same thing said set-wise.
+
+    **The batch is deduplicated first**, which `INSERT OR IGNORE` used to do implicitly:
+    the anti-join tests each row against the *table*, so two identical names inside one
+    batch would both pass it and collide on the primary key.
+
+    Takes canonical names rather than raw ones, because the caller has already parsed
+    them: `add_candidate` calls `to_registrable` a second time on a value its caller
+    just produced.
+
+    One consequence, since ADR-001's interim rule leaned on the opposite. An
+    interrupted seed no longer keeps a partial insert, because this is now a single
+    statement. That is a better trade than it sounds: the window shrinks from twenty
+    minutes to a fraction of a second, and a re-run stays additive because the
+    anti-join skips whatever is already there.
     """
     if not domains:
         return 0
-    rows = [(d, d.split(".", 1)[1], source_id, discovered_round) for d in domains]
-    conn.executemany(
-        "INSERT OR IGNORE INTO domain (domain, tld, discovered_source, discovered_round) "
-        "VALUES (?, ?, ?, ?)",
-        rows,
+    unique = list(dict.fromkeys(domains))
+    batch = pa.table(
+        {
+            "domain": unique,
+            "tld": [d.split(".", 1)[1] for d in unique],
+            "discovered_source": [source_id] * len(unique),
+            "discovered_round": [discovered_round] * len(unique),
+        }
     )
-    return len(rows)
+    conn.register("_candidate_batch", batch)
+    try:
+        conn.execute(
+            "INSERT INTO domain (domain, tld, discovered_source, discovered_round) "
+            "SELECT b.domain, b.tld, b.discovered_source, b.discovered_round "
+            "FROM _candidate_batch b "
+            "WHERE NOT EXISTS (SELECT 1 FROM domain d WHERE d.domain = b.domain)"
+        )
+    finally:
+        conn.unregister("_candidate_batch")
+    return len(unique)
 
 
 def record_evidence(

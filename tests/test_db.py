@@ -126,3 +126,34 @@ def test_add_candidates_on_an_empty_list_touches_nothing() -> None:
     conn, sid = _db_with_source()
     assert add_candidates(conn, [], sid) == 0
     assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 0
+
+
+def test_add_candidates_dedupes_within_one_batch() -> None:
+    """`INSERT OR IGNORE` used to absorb an intra-batch duplicate implicitly. The
+    set-based form tests each row against the TABLE, so two identical names inside one
+    batch would both pass the anti-join and collide on the primary key."""
+    conn = connect(":memory:")
+    init_db(conn)
+    sid = ensure_source(conn, "s", "candidate_only")
+    written = add_candidates(conn, ["dup.com", "dup.com", "other.net", "dup.com"], sid)
+    assert written == 2
+    held = {row[0] for row in conn.execute("SELECT domain FROM domain").fetchall()}
+    assert held == {"dup.com", "other.net"}
+
+
+def test_add_candidates_leaves_an_existing_row_untouched() -> None:
+    """The anti-join must reproduce OR IGNORE exactly: an existing domain keeps its
+    original source and round rather than being overwritten by a later batch."""
+    conn = connect(":memory:")
+    init_db(conn)
+    first = ensure_source(conn, "first", "candidate_only")
+    second = ensure_source(conn, "second", "candidate_only")
+    add_candidates(conn, ["keep.com"], first, discovered_round=1)
+    add_candidates(conn, ["keep.com", "new.org"], second, discovered_round=7)
+    rows = dict(
+        conn.execute("SELECT domain, discovered_source FROM domain ORDER BY domain").fetchall()
+    )
+    assert rows["keep.com"] == first
+    assert rows["new.org"] == second
+    round_of = dict(conn.execute("SELECT domain, discovered_round FROM domain").fetchall())
+    assert round_of["keep.com"] == 1

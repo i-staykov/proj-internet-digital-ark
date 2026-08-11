@@ -65,6 +65,12 @@ def seed_from_file(
     # store. A seed of 6,079 names has nonetheless held the write lock for 26
     # minutes while the ingest loop was running. The cause is still unidentified, so
     # the next occurrence should produce a measurement rather than a third guess.
+    # **Each mark is logged the moment it is taken**, not only in the summary at the
+    # end. The first version collected them all and printed them last, which meant a
+    # seed that ran 18 minutes emitted nothing at all, so an operator could not tell a
+    # slow phase from a hung process and the instrumentation added for ADR-001 was
+    # unreadable exactly when it was needed. A timing you cannot see until the run
+    # finishes does not measure a run that has not finished.
     marks: dict[str, float] = {}
     clock = time.monotonic()
 
@@ -73,6 +79,7 @@ def seed_from_file(
         now = time.monotonic()
         marks[phase] = now - clock
         clock = now
+        logger.info(f"{path.name} phase {phase}: {marks[phase]:.1f}s")
 
     seen: set[str] = set()
     with path.open(encoding="utf-8", errors="replace") as fh:

@@ -5119,3 +5119,53 @@ and `.za` and `.nz` are entirely real namespaces that the Internet Archive simpl
 has been measured, and for these it still falls back. The next piece of work is to make that fallback
 conservative rather than optimistic, so an unmeasured cell ranks behind a measured good one instead of
 ahead of it on English share. Named rather than started, and not claimed as fixed.
+
+## 2026-08-11 (ADR-001 closed: one phase was 99.9% of the seed, and it was the hypothesis eliminated first)
+
+The instrumentation this ADR added in the morning finally ran on a real seed, and the answer is not close:
+
+    read_and_canonicalize = 0.1 s
+    classify              = 0.7 s
+    insert_candidates     = 1207.1 s
+    enqueue               = 0.7 s
+
+**One phase is 1,207 of 1,208.6 seconds.** `classify` at 0.7 s confirms the second hypothesis was rightly
+eliminated. `enqueue` at 0.7 s clears the SQLite queue that ADR-001 listed as the leading untested
+suspect, and which I had assumed all afternoon. The row-at-a-time insert, blamed **first** and declared
+fixed by switching to `executemany`, was the cause the whole time.
+
+**Why the first fix did not fix it: `executemany` is not a batch.** It is N prepared-statement executions,
+and DuckDB is columnar, so each row pays a whole statement's overhead against an 8 GB store. Measured
+directly at ~971 rows/s against a 4M-row table, and about 11 rows/s against the live 8.25M-row store,
+which is where the 20 minutes went.
+
+**A third hypothesis of mine, tested and refuted, which is why I tested it.** I was confident the cost was
+per-row autocommit inside `executemany`. Wrapping the whole batch in one explicit transaction measured
+**12.03 s against 11.88 s: no difference at all.** Three guesses have now been wrong on this one function,
+which is exactly why ADR-001 forbade changing the write path on any of them.
+
+**The fix was already in the repository.** `bulk.py` has always registered an Arrow table and inserted
+set-wise; `add_candidates` was the one write path still going row at a time. `INSERT OR IGNORE` becomes
+`WHERE NOT EXISTS`, which is the same thing said set-wise. Against a 4,000,000-row table, inserting 13,078:
+
+    executemany, row at a time      13.47 s        971 rows/s
+    set-based from an Arrow table    0.05 s    259,242 rows/s      267x, identical row counts
+
+Two tests pin what the anti-join has to keep doing that `OR IGNORE` did implicitly: **deduplicate within
+the batch**, since the anti-join tests each row against the table and two identical names in one batch
+would both pass it and collide on the primary key, and **leave an existing row untouched** rather than
+overwriting its source and round.
+
+**And the seed did its actual job**, which was the point of the wake: 13,078 Netcraft names in, 5,608
+already confirmed in the baseline, 54 on our own evidence, 2,634 already candidates, and **4,782 new
+candidates with 7,186 enqueued** for the CDX engine. That is the H008 pool half banked while its
+classification is still pending, which is the property ADR-003 was designed for: collection never waits on
+a human, promotion always does.
+
+**Two consequences recorded in ADR-001 rather than left implicit.** The interim allocation rule justified
+interrupting a seed by "inserts autocommit, so a stopped seed keeps what it wrote"; a single statement
+rolls back instead. That is a better trade at 0.05 s than at 20 minutes, and a re-run stays additive, but
+the reason is now "the window is negligible" and not "partial work survives". And the phase marks only
+printed at the end, so an eighteen-minute seed emitted nothing and could not be told from a hung process:
+each mark now logs as it is taken, because a timing you cannot see until the run finishes does not measure
+a run that has not finished.

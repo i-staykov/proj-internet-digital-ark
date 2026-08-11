@@ -16,7 +16,10 @@ ADR for anything structural. `notes.md` carries the day-to-day working. An ADR i
 
 ## ADR-001. The store's single write lock, and the seed that holds it for half an hour
 
-**Date** 2026-08-11. **Status** Open, with an interim rule in force.
+**Date** 2026-08-11. **Status** Accepted. Opened as a question, closed the same evening on two
+measurements: the cause is `add_candidates` inserting row at a time, and the ingest loop's contention was
+636 invocations a pass. Both fixed and measured. The sections below are kept in the order they were
+written, so the two eliminated hypotheses and the third wrong one stay visible.
 
 ### The question
 
@@ -125,6 +128,42 @@ ended, and then held it for its own long run, so the ingest loop began crashing 
 of the other way round. **Moving a traceback onto the job that outranks you is not an improvement.** The
 seed was interrupted under this ADR's own rule, which is safe because inserts autocommit and the insert
 ignores duplicates, and the patience was cut to 20s.
+
+### Closed: the seed's cost measured to one line
+
+The per-phase instrumentation this ADR added finally ran on a 13,078-name seed, and the phases are not
+close:
+
+    read_and_canonicalize = 0.1 s
+    classify              = 0.7 s
+    insert_candidates     = 1207.1 s
+    enqueue               = 0.7 s
+
+**One phase is 99.9% of the run.** `classify` at 0.7 s confirms the second hypothesis was correctly
+eliminated, and `enqueue` at 0.7 s clears the SQLite queue this ADR listed as untested. The row-at-a-time
+insert, which the first hypothesis blamed and which was supposedly fixed by moving to `executemany`, was
+the cause all along. Batching it into `executemany` was not the fix, because **`executemany` is not a
+batch**: it is N prepared-statement executions, and DuckDB is columnar, so each pays a whole statement's
+overhead against an 8 GB store.
+
+A third hypothesis was tested and refuted on the way: per-row autocommit inside `executemany`. Wrapping
+the whole batch in one explicit transaction measured **12.03 s against 11.88 s**, no difference at all.
+
+The fix is the idiom `bulk.py` had been using all along, an Arrow table registered and inserted set-wise
+with the `OR IGNORE` written as an anti-join. Measured against a 4,000,000-row table, inserting 13,078:
+
+    executemany, row at a time      13.47 s        971 rows/s
+    set-based from an Arrow table    0.05 s    259,242 rows/s      267x, identical results
+
+So the 20-minute write-lock hold becomes a few seconds, which retires the reason this ADR existed.
+
+**Two consequences to carry forward.** The interim allocation rule's justification changes: it said an
+interrupted seed is safe "because inserts autocommit", and a single statement rolls back instead. That is
+a better trade at this speed, since the window shrinks from twenty minutes to a fraction of a second and a
+re-run is still additive, but the reason is now "the window is negligible" rather than "partial work
+survives". And the instrumentation only printed at the end, so a seed that ran eighteen minutes emitted
+nothing and could not be distinguished from a hung one; each mark is now logged as it is taken, because a
+timing you cannot see until the run finishes does not measure a run that has not finished.
 
 ### Consequence to watch
 
