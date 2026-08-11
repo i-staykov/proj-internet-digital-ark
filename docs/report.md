@@ -13,33 +13,91 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **52,768** |
-| Over unique domains | 48,095 |
-| Domains absent from the baseline in every year | **24,790** |
-| Equivalent-English added | **22,313.8** |
-| Growth on the 6,226,386.4 baseline | **0.3584%** |
-| Mean equivalent-English weight per pair | 0.4229 |
+| Net-new (domain, year) pairs | **141,828** |
+| Over unique domains | 136,448 |
+| Domains absent from the baseline in every year | **111,054** |
+| Equivalent-English added | **76,587.0** |
+| Growth on the 6,226,386.4 baseline | **1.2300%** |
+| Mean equivalent-English weight per pair | 0.5400 |
 
 | Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 648,313 | 4,902 | 0 (0.0%) |
-| 1997 | 1,340,527 | 37,401 | 0 (0.0%) |
-| 1998 | 1,147,924 | 81 | 35 (43.2%) |
-| 1999 | 1,797,655 | 1,425 | 172 (12.1%) |
-| 2000 | 1,806,813 | 3,592 | 1,324 (36.9%) |
-| 2001 | 2,990,654 | 5,367 | 3,122 (58.2%) |
-| **Total** | **9,731,886** | **52,768** | **4,653 (8.8%)** |
+| 1996 | 648,313 | 5,752 | 0 (0.0%) |
+| 1997 | 1,340,527 | 42,689 | 7 (0.0%) |
+| 1998 | 1,147,924 | 13,042 | 121 (0.9%) |
+| 1999 | 1,797,655 | 22,791 | 483 (2.1%) |
+| 2000 | 1,806,813 | 33,758 | 2,054 (6.1%) |
+| 2001 | 2,990,654 | 23,796 | 4,163 (17.5%) |
+| **Total** | **9,731,886** | **141,828** | **6,828 (4.8%)** |
 
-## 2. Where the additions come from
+## 2. How these were found
+
+This round the method was the work, so it is reported before the sources are.
+
+**The generative question, which produced the round's one new source.** Rather than listing more places
+to look, we asked what the sources that actually paid have in common. Registry creation dates, dated DNS
+survey shards and a defacement mirror are all **machine-generated records about whoever happened to be
+there**, not human curation of who was notable. Every family this project has rejected on measurement
+selects for authority: Usenet relay hops collapsed 7.1 million entries into 4,736 domains a
+capture-derived baseline already held in every year, and institutional link directories, award galleries,
+mailing lists and a dated software index all failed the same way. So the question is not "where is
+another list" but **"what else recorded everyone, with a date, for its own reasons"**.
+
+A domain-dispute docket is that shape. A proceeding exists only because the domain was registered and
+someone filed a complaint about it, so the record attests existence in that year **without depending on a
+crawler having visited the site**, which is the property that makes the earliest years hard to reach any
+other way. Measured against the live database: **87.7% of the domains it names were absent**, the highest
+share of any source assessed on this project, because a disputed name is often a typosquat withdrawn
+within weeks and a crawler never sees it.
+
+**Five programs now carry the parts of that process that can be made mechanical.** Each encodes a
+mistake already paid for once:
+
+| | what it does | the mistake it prevents |
+|---|---|---|
+| screen | checks a proposal against the closed families, and reports whether each was closed by a **measurement** or by something being **unreachable** | re-testing a lead already killed; and, worse, leaving a source closed because a host was down three years ago |
+| re-probe | re-asks every unreachable-class lead automatically, since the record already names the hosts that failed | a permanent closure recorded from a transient failure |
+| price | measures any dated corpus against the live database: net-new records, net-new domains, mean weight, a contamination bound, and a saturating projection beside the linear one | quoting a raw extraction (one such figure overstated a source 24-fold) or a linear projection (one overstated by thirty times) |
+| ledger | records what was proposed, priced, adopted or killed, with status | an unattended process re-proposing its own ideas |
+| state | regenerates the statement of where the round stands from the programs that own each figure | a hand-written summary going stale, which is how three claims in the previous one were wrong within a day |
+
+**What the method produced, including the negative results.** One source adopted. **Two closed on
+measurement**: a dated software index returned 86 records because 94.7% of what it names was already
+held, and a 1996 CD-ROM directory returned 7 at a 92.2% overlap. Both closed inside an hour at a cost of
+two or three requests. **One reopened after being wrongly closed**: a registry had been recorded as
+blocking us after returning HTTP 403 for over nine thousand consecutive requests, and re-probing it
+slowly showed that was a rate limit rather than a block. It answers every query at a gentle pace, **38%
+of those answers carry a date inside the window against 8.7% for the largest registry**, and it is now
+the round's single largest contributor. We had closed the best route available by misreading a throttle.
+
+**The boundary, stated plainly, because overclaiming it would be the easiest thing to do here.** The
+mechanical half runs unattended and correctly: noticing that a collector has died, that a journal is
+sitting unbanked on another machine, that a file on disk was never read, that a target list predates the
+current baseline, that a measurement was started and never finished. The other half is judgement:
+inventing a hypothesis worth testing, writing the reader that turns a source into dated items, and
+deciding whether a measured yield justifies building a collector. A program cannot do those, and one
+claiming to would confidently price the wrong thing. So each cycle does all of the first and ends by
+naming exactly what of the second is waiting.
+
+**Why this is safe to run unattended at all**, which is the part that makes it more than a scheduler.
+Every year assignment is a foreign key to the specific observation that supports it, the schema refuses
+an assignment without one, and nine invariants run on every build. An unattended process therefore has
+latitude about what to try and none whatever about what counts as proof. One of those invariants refused
+this round's new source on its first ingest, over eleven records whose stored identifier could be read as
+naming the wrong year, and the source entered only after that was corrected.
+
+## 3. Where the additions come from
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 79,057 | 47,479.5 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 4,653 | 4,566.0 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 6,819 | 6,596.5 |
+| `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 7,837 | 4,763.2 |
 | `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
-| **Total** | | | | **52,768** | **22,313.8** |
+| **Total** | | | | **141,828** | **76,587.0** |
 
-**All 3 are master sources, so all 52,768 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 5 are master sources, so all 141,828 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -76,7 +134,7 @@ what a (domain, year) pair rests on.
      Phase-4's six subsections are kept verbatim in
      `submissions/phase-4/report.md`; copy the shape from there, not the content. -->
 
-## 3. The extra filter on typed addresses
+## 4. The extra filter on typed addresses
 
 The `dated_directory` sources are the ones where a human typed the address, so they carry the risk
 that the string is not a real domain at all: an OCR error from a scanned page, a transcription typo,
@@ -94,9 +152,9 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-Beyond that, 1 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.838 distinct sources on average.
+Beyond that, 50 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8309 distinct sources on average.
 
-## 4. How to reproduce
+## 5. How to reproduce
 
 All commands below are run from the **root of the unpacked archive**. `README.md` beside this file
 gives the same three steps in more detail; if the two ever disagree, `README.md` is the one kept in
