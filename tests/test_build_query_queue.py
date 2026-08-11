@@ -122,3 +122,69 @@ def test_plausibility_survives_a_tld_nothing_has_dated_yet() -> None:
     only way a namespace ever gets its first dated domain is by being queried."""
     factor = build_query_queue.pool_plausibility({"x.zz": "src", "y.zz": "src"}, {})
     assert factor["zz"] == Decimal(0)
+
+
+def _outcomes(spec):
+    """{domain: hit} plus {domain: source} from (source, tld, n, hits) tuples."""
+    outcomes, source_of = {}, {}
+    for source, tld, n, hits in spec:
+        for i in range(n):
+            d = f"{source}{tld}{i}.{tld}"
+            outcomes[d] = i < hits
+            source_of[d] = source
+    return outcomes, source_of
+
+
+def test_an_unmeasured_cell_inherits_the_tld_and_not_the_source_average() -> None:
+    """The fix. `.mil` was measured at 0.000 over 1,372 answers and the chain skipped
+    straight from the exact cell to the source average, so an unmeasured
+    (other_source, mil) cell inherited a pool-average optimism the journals had already
+    refuted, and English share put 2,675 of them at the head of the queue.
+    """
+    outcomes, source_of = _outcomes(
+        [
+            ("known", "mil", 400, 0),  # this TLD never hits, whoever asked
+            ("other", "com", 400, 360),  # a source that does well elsewhere
+        ]
+    )
+    cell, tld, source, pool = build_query_queue.hit_rates(outcomes, source_of)
+    assert tld["mil"] == 0
+    assert source["other"] > Decimal("0.8")
+    # The pair (other, mil) was never measured. It must not inherit other's 0.9.
+    rate = build_query_queue.expected_hit_rate("other", "mil", cell, tld, source, pool)
+    assert rate == 0
+
+
+def test_an_exact_measurement_still_wins_over_both_parents() -> None:
+    """Coarsening only as far as it must: a measured pair is the best evidence there is,
+    even when it disagrees with both of its parents."""
+    outcomes, source_of = _outcomes([("s", "com", 400, 40), ("t", "com", 400, 380)])
+    cell, tld, source, pool = build_query_queue.hit_rates(outcomes, source_of)
+    exact = build_query_queue.expected_hit_rate("s", "com", cell, tld, source, pool)
+    assert exact == Decimal("0.1")
+    assert tld["com"] > Decimal("0.4")  # the TLD average is far higher
+
+
+def test_the_lower_of_the_two_partial_views_is_taken() -> None:
+    """With two partial views and no measurement of the pair, the conservative reading
+    is the lower one: an unmeasured cell must not outrank a well-measured cell."""
+    outcomes, source_of = _outcomes([("good", "uk", 400, 380), ("bad", "de", 400, 20)])
+    cell, tld, source, pool = build_query_queue.hit_rates(outcomes, source_of)
+    # (good, de): source good is 0.95, TLD de is 0.05 -> must take 0.05.
+    assert build_query_queue.expected_hit_rate("good", "de", cell, tld, source, pool) == Decimal(
+        "0.05"
+    )
+    # and symmetrically for (bad, uk)
+    assert build_query_queue.expected_hit_rate("bad", "uk", cell, tld, source, pool) == Decimal(
+        "0.05"
+    )
+
+
+def test_a_wholly_unmeasured_namespace_falls_through_to_the_pool_rate() -> None:
+    """Unproven is not impossible. A TLD nothing has answered ranks in the middle, not
+    at zero, because the only way it earns a first measurement is by being queried."""
+    outcomes, source_of = _outcomes([("s", "com", 400, 200)])
+    cell, tld, source, pool = build_query_queue.hit_rates(outcomes, source_of)
+    rate = build_query_queue.expected_hit_rate("brand_new", "zz", cell, tld, source, pool)
+    assert rate == pool
+    assert rate > 0

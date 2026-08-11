@@ -67,6 +67,33 @@ engines on their own evidence.
 
 ## CLOSED
 
+### C-18. The hit-rate fallback gains the grain it was missing, the TLD (2026-08-11)
+
+Mine to decide, recorded so you can object. It completes C-17, which was only half a fix.
+
+The pool score is `P(hit) x English share`, and `P(hit)` coarsened from the exact (source, TLD) cell
+straight to the source average. **It skipped the TLD, which is the grain that already knew.** `.mil` was on
+record at **0.000 over 1,372 answers** and `.gov` at 0.000 over 394, while `.com` sits at 0.898 and `.net`
+at 0.915: a 900x spread, far wider than across sources. So an unmeasured `.mil` cell inherited a source
+average and English share put 2,675 of them at the head. **That was not a missing measurement, it was a
+measurement never read.**
+
+The chain is now (source, TLD), then the **lower** of the TLD and source rates, then pool-wide. Lower is
+the conservative reading: an unmeasured cell must not outrank a well-measured one. A TLD nothing has
+answered still gets the pool rate rather than zero, since querying is the only way it earns a first
+measurement.
+
+Measured after the rebuild: the first 3,000 went from 2,675 `.mil` to 100% `.com`; expected value per query
+rose from 0.6515 to 0.6877 over the best 50,000; pool targets in that head went from 8,798 to 24,726, so
+discovery now competes with gap-filling at the top. The whole-queue estimate **fell** from 578,632 to
+545,879 EE, which is the point: the old number was inflated by optimism.
+
+**Stated plainly because it matters:** the head's sources all have unmeasured `.com` cells, so they inherit
+`.com`'s good average. The optimism moved axis rather than disappearing. The difference from `.mil` is that
+these have *no* evidence rather than contradicting evidence, one 600-domain batch measures each of them, and
+the yield check now reports within a batch whether the bet paid.
+
+
 ### C-17. The pool queue is ranked by a measured plausibility factor, not by English share alone (2026-08-11)
 
 Mine to decide under your rule that hypotheses and judgements like this are the agent's; recorded so you

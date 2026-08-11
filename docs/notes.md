@@ -5169,3 +5169,50 @@ the reason is now "the window is negligible" and not "partial work survives". An
 printed at the end, so an eighteen-minute seed emitted nothing and could not be told from a hung process:
 each mark now logs as it is taken, because a timing you cannot see until the run finishes does not measure
 a run that has not finished.
+
+## 2026-08-11 (the missing grain: a TLD measured at zero over 1,372 answers that nothing consulted)
+
+The named next work was to make the pool score's rate fallback conservative. Measuring first changed what
+the fix should be.
+
+**The chain was (source, TLD) -> source -> pool-wide. It skipped the TLD.** And the TLD level already held
+the answer, from journals on disk the whole time:
+
+    .mil  0.000 over 1,372 answers        .com  0.898 over 2,492
+    .gov  0.000 over   394               .net  0.915 over   330
+    .edu  0.003 over 1,709               .uk   0.640 over 9,310
+    .bb   0.004 over   262               .org  0.468 over 4,298
+    .arpa 0.000 over    36               .za   0.309 over   392 / .nz 0.210 over 676
+
+The spread across TLDs is roughly 900x, far wider than across sources, so it is the grain that matters most
+when a cell is thin. **The `.mil` catastrophe was not a missing measurement, it was a measurement never
+read**: `usenet_mention .mil` was on record at 0.000, and a *different* source's unmeasured `.mil` cell
+inherited a source average, with English share doing the rest.
+
+`expected_hit_rate` now coarsens (source, TLD) -> the **lower** of the TLD and source rates -> pool-wide.
+The lower of the two is the conservative reading: with two partial views and no measurement of the pair, an
+unmeasured cell must not outrank one that has been measured well. A TLD nothing has answered still falls
+through to the pool rate rather than to zero, because the only way a namespace earns a first measurement is
+by being queried. Four tests, including that an exact cell still beats both parents even when it disagrees
+with them.
+
+**What the rebuild did, measured.** The first 3,000 targets went from 2,675 `.mil` names to 100% `.com`,
+and expected value per query rose: 0.6515 to 0.6877 over the best 50,000, 0.6110 to 0.6424 over the best
+100,000. Pool targets in the best 50,000 went from 8,798 to 24,726, so the discovery half is now
+competitive with gap targets at the head rather than sitting behind them. The whole-queue estimate **fell**
+from 578,632 to 545,879 EE, which is the fix working: the old figure was inflated by optimism on
+unmeasured cells.
+
+**And the part that is not fixed, checked rather than assumed.** Every source at the new head has an
+**unmeasured** `(source, .com)` cell and no source-level rate at all: `trade_press_mention` 869 names,
+`pandora_hosts` 456, `H008-pool-names` 391, `enron_email_mention` 232. They all inherit `.com`'s 0.898,
+which was measured over *good* sources (`candidate_hosts` 0.975, `ukwa_link_target` 0.915). **So the
+optimism moved from the source axis to the TLD axis rather than going away.**
+
+That is defensible where the `.mil` case was not, and the difference is worth stating precisely. `.mil` had
+1,372 answers saying zero and the ranking ignored them. These sources have **no** answers, so a high rate
+is a guess rather than a contradiction of evidence, and querying them is the only way to learn: with
+MIN_SAMPLE at 25 a single 600-domain batch measures every source it touches, after which the exact cell
+binds. The head is therefore an *exploration* head, not a proven-good one, and the yield check is the
+instrument that will say within one batch whether it was worth it. The Netcraft names banked an hour ago
+are among them, which is the right place for 1999-attested live web servers to be.

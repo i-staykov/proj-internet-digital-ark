@@ -77,6 +77,7 @@ from build_pool_candidates import (  # noqa: E402
     ATTESTED_MIN,
     ATTESTED_SQL,
     POOL_SQL,
+    expected_hit_rate,
     hit_rates,
     in_window_era,
     journal_outcomes,
@@ -284,9 +285,11 @@ def build(weights: list[int]) -> dict:
     finally:
         conn.close()
 
-    # Hit rates are estimated over pool answers only, at the finest grain the
-    # sample supports: per (source, TLD), then per source, then pool-wide.
-    cell_rate, source_rate, pool_rate = hit_rates(
+    # Hit rates are estimated over pool answers only, at the finest grain the sample
+    # supports: per (source, TLD), then per TLD, then per source, then pool-wide. The
+    # per-TLD grain is the one whose absence led the queue with 2,675 `.mil` names for
+    # zero captures while 1,372 answered `.mil` domains sat in the journals saying 0.000.
+    cell_rate, tld_rate, source_rate, pool_rate = hit_rates(
         {d: hit for d, hit in outcomes.items() if d in pool_answered}, answered_source
     )
     already = queried_domains(JOURNAL_DIR, "cdx", answered=cdx_answered)
@@ -306,7 +309,7 @@ def build(weights: list[int]) -> dict:
         if domain in already or domain in held or is_reverse_dns(domain):
             continue
         tld = domain.rsplit(".", 1)[-1]
-        rate = cell_rate.get((source, tld), source_rate.get(source, pool_rate))
+        rate = expected_hit_rate(source, tld, cell_rate, tld_rate, source_rate, pool_rate)
         score = rate * tld_weight.get(tld, Decimal(0)) * years_per_hit * plausible[tld]
         rows.append(
             (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "pool")
