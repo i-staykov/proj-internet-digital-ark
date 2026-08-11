@@ -21,7 +21,7 @@ from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, init_db
+from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -363,7 +363,9 @@ def audit(
 @app.command()
 def stats() -> None:
     """Print the scoreboard: net-new counts on top of the baseline."""
-    conn = connect()
+    # Waits out the ingest loop rather than raising a lock traceback: this records a
+    # metrics row, so it needs the write lock even though it only reports.
+    conn = connect_patiently()
     scoreboard = collect_stats(conn)
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
@@ -790,7 +792,9 @@ def rebuild(
 @app.command()
 def check() -> None:
     """Run integrity checks over the store; exit non-zero if any fails."""
-    conn = connect()
+    # Same reason as `stats`, and it matters more here: a lock traceback out of the
+    # integrity gate reads as a broken invariant when the database is merely busy.
+    conn = connect_patiently()
     results = collect_checks(conn)
     typer.echo(format_checks(results))
     record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})

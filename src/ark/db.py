@@ -6,6 +6,7 @@ to_registrable(), and a year assignment is derived from its evidence row,
 so a mismatched assignment cannot be expressed.
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -112,6 +113,32 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(path))
+
+
+def connect_patiently(
+    db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
+) -> duckdb.DuckDBPyConnection:
+    """Wait out a writer instead of crashing against one, for a reporting command.
+
+    The read-only tools already do this. `ark check` and `ark stats` could not, because
+    both record a metrics row and so need the write lock themselves, and the ingest loop
+    holds it every fifteen minutes. Against a live loop they raised a DuckDB traceback,
+    which for a scheduled unattended run reads as a broken invariant rather than as a
+    busy database: exactly the confusion `ark check` exists to prevent by reporting SKIP
+    rather than PASS.
+
+    Waiting is the correct behaviour here and not merely the polite one. Per ADR-001,
+    banking a collector's finished journal outranks measuring, so the reporting side is
+    the side that yields.
+    """
+    deadline = time.monotonic() + patience_s
+    while True:
+        try:
+            return connect(db_path)
+        except duckdb.Error as exc:
+            if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(5)
 
 
 def _statements(schema: str) -> list[str]:

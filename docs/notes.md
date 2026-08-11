@@ -4831,3 +4831,22 @@ adopted, collected and priced on the agent's judgement and **its records still c
 human classifies the source**. If anything ever lets a hypothesis reach the annual files without passing
 that gate, ADR-005 stops being safe and needs revisiting rather than reapplying. Noted there as the
 consequence to watch.
+
+## 2026-08-11 (`ark check` and `ark stats` wait for the writer instead of raising a traceback)
+
+Found by running the gate after the rename: `uv run ark check` died with a DuckDB `Conflicting lock`
+traceback because `scripts/maintain.sh` was mid-ingest. Both commands record a metrics row, so unlike the
+read-only tools they genuinely need the write lock, and neither had any patience.
+
+**Why this is worse than an inconvenience.** The ingest loop takes the lock every fifteen minutes and a
+long ingest holds it for tens of minutes, so an unattended run hits this routinely, and **a lock traceback
+out of the integrity gate reads as a broken invariant when the database is merely busy.** That is the exact
+confusion `ark check` was built to avoid on the other axis, where it reports SKIP rather than PASS for a
+check it could not run. A cron wake every fifteen minutes would have produced this regularly.
+
+`db.connect_patiently` waits up to 900s for the lock and re-raises anything that is not contention; `stats`
+and `check` use it, every other caller is untouched. Waiting is also the correct priority rather than
+merely the polite one: ADR-001 says banking a collector's finished journal outranks measuring, so the
+reporting side is the side that yields.
+
+After waiting out the ingest, all nine invariants pass, which is what the rename needed to confirm.
