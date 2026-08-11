@@ -9,6 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import Annotated
 
+import duckdb
 import typer
 from loguru import logger
 from tqdm import tqdm
@@ -148,6 +149,14 @@ def legacy_review_cmd(
     logger.info(f"see {DEFAULT_DROPLIST_PATH} ({sum(counts.values())} distinct entries)")
 
 
+# Banking a finished journal is top of ADR-001's ordering, so this is the job that
+# waits rather than the one that yields. Generous: an `ark seed` has been measured
+# holding the lock for 33 minutes, and a banking pass that gives up because a seed
+# was running leaves collected work sitting on disk, which is the one outcome the
+# whole journals-not-evidence design exists to avoid.
+INGEST_LOCK_PATIENCE_S = 2400
+
+
 @app.command(name="ingest")
 def ingest_cmd(
     source: Annotated[
@@ -183,7 +192,12 @@ def ingest_cmd(
     except approvals.NotApproved as exc:
         typer.echo(f"refusing to ingest: {exc}", err=True)
         raise typer.Exit(code=2) from None
-    conn = connect()
+    # This is the job ADR-001 puts at the top: banking a collector's finished journal is
+    # work already paid for. So it is the one that waits, and everything below it in that
+    # ordering yields to it. It used to be the reverse by accident: `ingest` had no
+    # patience at all, so a long seed made the ingest loop crash every pass while the
+    # seed ran to completion, which is the priority upside down.
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
@@ -220,6 +234,19 @@ def seed_pool(
     typer.echo(f"seed-pool {source}: {dict(stats)}\nseed pool: {combined}")
 
 
+# Deliberately short, and the first attempt at this got the direction wrong. Waiting
+# 600s made the seed *queue* for the lock instead of yielding it: it duly won the lock
+# and then held it for its whole run, and the ingest loop started crashing against the
+# seed rather than the other way round. Removing a traceback by moving it to the
+# priority job is not an improvement.
+#
+# So this is only long enough to ride out the gap between two files inside one ingest
+# pass. ADR-001 is explicit that seeding yields, because a candidate claims nothing
+# until something dates it, and that a seed blocking anything valuable is interrupted
+# rather than waited out.
+SEED_LOCK_PATIENCE_S = 20
+
+
 @app.command()
 def seed(
     seed_file: Annotated[
@@ -234,8 +261,33 @@ def seed(
     """Load seed domains into the candidate pool and queue unknown ones.
 
     Example: ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
+
+    **It yields to a writer rather than crashing against one.** ADR-001 puts banking
+    a collector's finished journal above seeding, because a candidate claims nothing
+    until something dates it. That rule was in force and this command still died with
+    a DuckDB traceback whenever the ingest loop held the lock, which is not yielding,
+    it is failing: unattended, a stack trace out of a routine collision reads as a
+    broken invariant. It now waits only long enough to ride out a gap inside one ingest
+    pass and then says plainly that it yielded, which is safe to re-run because inserts
+    autocommit and the insert is `INSERT OR IGNORE`.
+
+    **The patience is short on purpose.** A long one does not make the seed polite, it
+    makes it queue: it wins the lock the moment the ingest finishes and then holds it for
+    its own long run, so the traceback simply moves to the job that outranks it.
     """
-    conn = connect()
+    try:
+        conn = connect_patiently(patience_s=SEED_LOCK_PATIENCE_S)
+    except duckdb.IOException as exc:
+        if "Conflicting lock" not in str(exc):
+            raise
+        raise SystemExit(
+            f"the store was still being written after {SEED_LOCK_PATIENCE_S}s, so this seed "
+            f"yielded and wrote nothing.\n"
+            f"Per ADR-001 banking a finished journal outranks seeding, so waiting is correct "
+            f"and this is not an error.\n"
+            f"Re-run when the ingest loop is idle: a re-run is additive, since inserts "
+            f"autocommit and the insert ignores duplicates."
+        ) from None
     queue_conn = connect_queue()
     seed_from_file(conn, queue_conn, seed_file, limit)
 

@@ -81,6 +81,41 @@ WAL checkpoint behaviour on an 8 GB store, and interaction with the ingest loop 
 - **Longer patience everywhere.** Already done where it belongs (the read-only tools wait 15 minutes),
   but patience is not a fix: it makes a reader wait quietly instead of failing loudly.
 
+### Addendum, 2026-08-11 evening: the cause is identified, and the rule was never enforced
+
+Two findings, and the first supersedes the "cause is unidentified" section above.
+
+**Measured: the write lock is held 89% of the time, and almost all of it is the ingest loop skipping
+files it has already banked.** Sampled 18 times over 90 seconds: held 16, free 2. `scripts/maintain.sh`
+runs one `uv run ark ingest` **per journal file**, over 400-plus files, every 900 seconds. Each
+invocation opens the store read-write, reads the ledger, finds the file already ingested, and closes:
+7,646 `already ingested, skipping` lines across 6,156 invocations. So the contention this ADR set out to
+explain is not the seed being slow. **It is the banking loop holding a write lock near-continuously to
+do almost nothing**, and every reader and every seed queues behind that.
+
+The obvious fix is one invocation per source rather than one per file, since `ingest_cmd` already accepts
+a list of paths and `ingest_files` already skips per file from the ledger. That would turn 400-plus lock
+acquisitions per pass into one. **Not done here**, because this ADR's own first decision was "no
+structural change to a write path every seeding route depends on, without knowing which line is slow",
+and the remaining unknown is what `ingest_files` does when one file in a batch fails: per-file
+invocation contains a bad file to itself, and a single batch might not. That is a cheap thing to check
+and it should be checked before the change, not after.
+
+**The allocation rule in decision 4 above was prose and nothing implemented it.** Neither command had any
+lock patience, so whichever process reached the store first won and the other died with a DuckDB
+traceback. The stated priority had no effect on which one that was.
+
+It is now enforced by asymmetric patience, which is the smallest mechanism that expresses an ordering:
+`ark ingest` waits up to 2400s, because banking is top of the ordering and a pass that gives up leaves
+collected work on disk; `ark seed` waits 20s and then yields with a message saying so.
+
+**The first attempt at that inverted it, which is worth recording.** Giving the seed 600s of patience
+looked like politeness and was the opposite: the seed queued, won the lock the moment the ingest pass
+ended, and then held it for its own long run, so the ingest loop began crashing against the seed instead
+of the other way round. **Moving a traceback onto the job that outranks you is not an improvement.** The
+seed was interrupted under this ADR's own rule, which is safe because inserts autocommit and the insert
+ignores duplicates, and the patience was cut to 20s.
+
 ### Consequence to watch
 
 The interim rule makes seeding the thing that always yields, which is right while seeds are worth

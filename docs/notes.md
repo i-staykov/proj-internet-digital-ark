@@ -5026,3 +5026,47 @@ land. That is the honest behaviour and suppressing it would defeat the point.
 supervisor's own header carries the converse of its "presence is not progress" argument and points at the
 yield check, saying plainly that this is a thing the script cannot see. `CLAUDE.md` and the README say it
 too.
+
+## 2026-08-11 (the write-lock cause found by measurement, and I inverted the priority before fixing it)
+
+The wake's intended work was to bank the 13,078 Netcraft names into the candidate pool. That needs no
+approval, since candidate-only evidence never waits on a human, and it would also produce the seed phase
+timings ADR-001 has been Open waiting for. It did not get done, and what happened instead is worth more.
+
+**`ark seed` died on the write lock with a DuckDB traceback**, because the ingest loop was banking. That is
+the same defect class fixed for `check` and `stats` this afternoon, so I gave `seed` 600s of patience.
+
+**That inverted ADR-001's priority, and I caught it by watching the consequence.** Four minutes later the
+seed held the lock and **`ark ingest` was the thing crashing against it**. Patience did not make the seed
+polite, it made it *queue*: it won the lock the moment the ingest pass finished and then held it for its own
+long run. **Moving a traceback onto the job that outranks you is not an improvement.** The seed was
+interrupted under ADR-001's own rule, which is safe because inserts autocommit and the insert ignores
+duplicates, and its log was empty so it had not reached the insert phase.
+
+**Corrected, and the rule is now in the code rather than in prose.** ADR-001 decision 4 says priority
+follows expected net-new equivalent-English, banking first and seeding last. **Nothing implemented that.**
+Neither command had any patience, so whichever process reached the store first won and the other died; the
+stated ordering had no effect on which. It is now expressed as asymmetric patience, the smallest mechanism
+that encodes an ordering: `ark ingest` waits 2400s because a pass that gives up leaves collected work on
+disk, and `ark seed` waits 20s and then yields with a message saying it yielded and that a re-run is
+additive. Verified: the seed now prints that message and the ingest keeps the lock.
+
+**And then the actual cause, which supersedes ADR-001's "cause is unidentified".** Sampling the lock 18
+times over 90 seconds: **held 16, free 2, so 89% occupancy.** `maintain.sh` runs one `uv run ark ingest`
+**per journal file** across 400-plus files every 900 seconds, and each invocation opens the store
+read-write, reads the ledger, finds the file already banked and closes. The log carries **7,646
+`already ingested, skipping` lines across 6,156 invocations.** So the contention that has blocked the
+pricer, the state generator and the residual auditor all day is not a slow seed. It is the banking loop
+holding a write lock near-continuously **to do almost nothing.**
+
+The fix is one invocation per source instead of one per file: `ingest_cmd` already takes a list of paths and
+`ingest_files` already skips per file from the ledger, so 400-plus acquisitions per pass become one.
+**Deliberately not done in this wake.** ADR-001's own first decision is not to restructure a write path
+every seeding route depends on without knowing which line is slow, and one unknown remains: what
+`ingest_files` does when a single file in a batch fails. Per-file invocation contains a bad file to itself
+and a batch might not. That is cheap to check and belongs before the change, not after. Recorded as an
+addendum to ADR-001 with the measurement, so the next session starts from a number.
+
+**Still outstanding from this wake:** the 13,078 Netcraft names are prepared at
+`data/raw/probes/H008-pool-names.txt` and not yet seeded, because seeding correctly yields to a loop that
+currently holds the lock 89% of the time. Fixing the loop is what unblocks it.
