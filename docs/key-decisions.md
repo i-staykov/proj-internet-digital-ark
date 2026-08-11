@@ -21,6 +21,32 @@ Nothing open. Ivo answered O-1 to O-4 on 2026-08-11 and they are recorded below.
 
 ## CLOSED
 
+### C-10. The two populations go to two machines, and it supersedes C-6 (2026-08-11)
+
+**Ivo's design, and he is right about the part I had corrected.** The VPS works a pool of **pure
+bracketed gaps**: a missing year Y where Y-1 and Y+1 are already held. The local engine works the
+**candidate pool**, domains held with no year at all, beside the discovery loop that keeps feeding it.
+
+**Why sorting by TLD English share is correct here and wrong for the other pool**, which is the
+sharpening my C-5 note missed. A gap query answers 96.0% to 97.5% of the time and that rate is
+effectively flat across TLDs, so with the probability factor near 1 and uniform, expected value
+collapses to share times the years one query can fill. The candidate pool is the opposite: its hit rate
+runs from 36.9% for a name merely mentioned in Usenet text to 90.6% for a link harvested off an
+archived page, so there the share must be multiplied by a *measured* rate or `.au` sorts to the top
+again. Same formula, and only one of the two populations lets you drop a factor.
+
+**It also maps onto the two outcomes the reviewer asked to keep separate**, which is a good sign:
+a gap hit adds a **pair** and never a domain, so the VPS is the completeness baseline; a pool hit makes
+a name **net-new**, so the local engine is the discovery half that he asked to be prioritised. The
+machine allocation and the reporting split are now the same distinction.
+
+**Two consequences.** Gap targets change slowly, so the VPS needs a refresh rarely rather than
+periodically, which was the weakest part of C-5. And **this supersedes C-6**: the local CDX engine goes
+back on, but pointed at the discovery pool rather than at a mixed queue, and driven by the loop.
+
+Implemented as `build_query_queue.py --population gap|pool --out PATH`, so the ranking, the era gate
+and the measured multipliers are the ones already in use rather than a second implementation.
+
 ### C-9. The report leads with the method; the numbers stay at the top as the result (2026-08-11)
 
 Ivo: "the numbers can still go at the top as the 'result', but the focus should be on the method, the
@@ -47,7 +73,7 @@ is the point rather than record count, which is why the per-year rule is the del
 property; and "AI agents that independently discover hypotheses, collect and synthesize evidence"
 describes this round's harness, so the harness is on-vision.
 
-### C-6. Local CDX engine stays off (2026-08-11)
+### C-6. Local CDX engine stays off (2026-08-11) [SUPERSEDED BY C-10 THE SAME DAY]
 
 Was O-1. Ivo's call: discovery work matters more than another crawl client on this machine. Recorded so
 the agent does not quietly reverse it when the queue looks tempting.

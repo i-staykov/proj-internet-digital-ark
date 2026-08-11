@@ -1,0 +1,9 @@
+id	opened	updated	status	dating	pairs	domains	ee	mean	cost	title	verdict
+H001	2026-08-11	2026-08-11	adopted	self	52		0.2462/query	0.7101	150 q at 0.5 q/s	PIR .org registry creation dates at a paced rate	PIR rate-limits rather than blocks: 1,200+ cumulative queries with zero refusals. 34.7% of queries in window, the best rate measured on this project
+H002	2026-08-11	2026-08-11	screened	typed						CPAN and PAUSE module release metadata with author homepage fields	no collision at screening
+H003	2026-08-11	2026-08-11	screened	typed						RFC and Internet-Draft documents with publication dates	no collision at screening
+H004	2026-08-11	2026-08-11	screened	typed						W3C technical reports index dated per specification	no collision at screening
+H005	2026-08-11	2026-08-11	screened	typed						Debian package changelogs and upstream homepage fields	no collision at screening
+H006	2026-08-11	2026-08-11	screened	typed						hobbes OS/2 archive dated file index with author URLs	no collision at screening
+H007	2026-08-11	2026-08-11	screened	typed						INET conference proceedings 1996 to 2001	no collision at screening
+H008	2026-08-11	2026-08-11	screened	typed						Netcraft monthly web server survey hostname lists	no collision at screening

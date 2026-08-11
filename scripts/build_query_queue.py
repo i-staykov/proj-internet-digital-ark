@@ -332,6 +332,41 @@ def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
         )
 
 
+def write_single(built: dict, population: str, out: Path) -> None:
+    """One ranked list for one population, for one machine.
+
+    The two populations answer different questions and belong on different
+    machines, which is Ivo's design of 2026-08-11.
+
+    **`gap`** is a held domain missing a year that is bracketed by two years it
+    already holds. A hit adds a *pair* and never a domain, so this is the
+    completeness half. Its measured hit rate is 96.0% to 97.5% and is effectively
+    flat across TLDs, which is exactly why ranking it by English share is right
+    here and wrong for the pool: when the probability factor is near 1 and
+    uniform, expected value collapses to share times the years one query can fill.
+    It also changes slowly, so a machine can work it for days without a refresh.
+
+    **`pool`** is a domain held with no year at all. A hit makes the name net-new,
+    so this is the discovery half that the reviewer asked to be prioritised, and
+    its hit rate varies from 36.9% for a name merely mentioned in Usenet text to
+    90.6% for a link harvested off an archived page. That spread is why it needs
+    the measured per-source rate as a multiplier, and why it belongs on the faster
+    machine next to the discovery loop that keeps feeding it.
+    """
+    rows = [row for row in built["rows"] if row[4] == population]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(f"{row[3]}\n")
+    live = [r for r in rows if r[0] and r[1] > 0]
+    value = sum((r[1] for r in live), Decimal(0))
+    print(f"  wrote {out} : {len(rows):,} {population} targets, {value:,.0f} EE expected")
+    if population == "gap":
+        print("    completeness: every hit is a new pair on a domain already held")
+    else:
+        print("    discovery: every hit makes a name net-new, which is the prioritised half")
+
+
 def write(built: dict) -> None:
     rows = built["rows"]
     weights = built["weights"]
@@ -372,6 +407,21 @@ def main() -> None:
         help="equivalent-English still needed, for the projection only",
     )
     ap.add_argument("--dry-run", action="store_true", help="report without writing")
+    ap.add_argument(
+        "--population",
+        choices=("both", "gap", "pool"),
+        default="both",
+        help="both writes the hash-sharded mixed queue. `gap` or `pool` writes ONE ranked "
+        "list for that population alone, which is how the two machines are split: the VPS "
+        "works gaps as a steady completeness baseline, the local engine works the pool "
+        "beside the discovery loop that feeds it.",
+    )
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="destination for a single-population list; required with --population gap|pool",
+    )
     args = ap.parse_args()
 
     weights = [int(w) for w in args.weights.split(",")]
@@ -409,6 +459,11 @@ def main() -> None:
         print("\ndry run, nothing written")
         return
     print()
+    if args.population != "both":
+        if args.out is None:
+            raise SystemExit("--population gap|pool needs --out")
+        write_single(built, args.population, args.out)
+        return
     write(built)
 
 

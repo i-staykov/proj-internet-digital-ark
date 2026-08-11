@@ -4262,3 +4262,86 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   and points at the generated file for anything that moves.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (`.org` was never blocked, only paced, and it is the best rate measured anywhere)
+
+- **The register said PIR "blocks rather than throttles": 403 for 9,253 consecutive requests after about
+  850 queries. That reading was wrong, and it cost a source for three days.** Probed today at 0.5 q/s
+  with one worker and the pace floored so the governor could not ease up: **150 queries, 104 dated,
+  zero refusals and zero errors.** A second step at ~2 q/s took the cumulative count past 1,200 with
+  still no refusal, which settles the question the original verdict could not: the wall was a **rate
+  limit**, not a daily quota and not a block. `SPEC.md` VI is explicit that a rate limit is a signal to
+  adjust batch size and concurrency rather than stop, and that is what had not been tried.
+- **And it is the best-value registry measured on this project.** Of 150 queries, **52 carried an
+  in-window creation date, 34.7% of queries and 50.0% of answers**, against 8.7% of queries for `.com`.
+  At a 0.7101 share that is **0.2462 equivalent-English per query, 4.5x `.com`'s realised rate**. By
+  year: 1996 3, 1997 7, 1998 11, 1999 11, 2000 14, 2001 6.
+- **Per hour it beats the archive queue even at a deliberately crawl-slow pace.** The archive is capped
+  by per-IP concurrency at about 506 queries an hour and its queue head is worth 0.7869 per query, so
+  roughly 400 EE an hour. `.org` at 0.5 q/s is 1,800 queries an hour at 0.2462, so about 443. At 2 q/s
+  it is four times that. **This is the crossover argument again: per query the archive wins, per hour of
+  the constraint each route actually binds on it does not.**
+- **Two honest cautions.** 34.7% is the head of a list ordered by how many sources saw each name, so it
+  will decay as `.com` did from 19.2% to 8.1%. And 308,231 unasked `.org` names times the head rate is
+  an **upper bound near 76,000 EE, not a projection**: the realised figure depends on both the decay and
+  the pace PIR tolerates, and only the first of those is measured.
+- **Ivo's standing rule, adopted: a source closed on availability is a source to re-probe.** He is right
+  and it is the documented pattern rather than a new idea, since feedback section 4 asks for previously
+  unavailable sources to be revisited and the register's own best case is the Australian Web Archive.
+  The screener now classifies every closed lead as closed on MEASUREMENT or AVAILABILITY and says which
+  it hit: 42 and 19 of the 61.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-11 (the availability-closed register re-probed mechanically, and nothing has come back)
+
+- **`scripts/reprobe_closed.py` is the one genuinely autonomous discovery step in the harness**, because
+  it needs judgement neither to generate a candidate nor to decide whether an answer is interesting: the
+  register already names the hosts and URLs that failed, so the tool extracts them from the verdict prose
+  and re-asks them. A dead host that answers 200 is interesting by construction.
+- **Result: 19 leads closed on availability, 7 of which name a re-askable URL, 11 URLs asked, and no
+  genuine revival.** `webarchive.loc.gov` still 403, `www.faqs.org` still 429, `data.webarchive.org.uk`
+  still does not resolve, `web-caching.com` still does not resolve, `api.archivelab.org` still gone. That
+  is a reportable negative result under SPEC IX rather than an absence of one.
+- **The first version cried wolf, and fixing that is the interesting part.** It flagged `ircache.net` and
+  `vefsafn.is` as revivals. Both answer, and **both verdicts already said they would**: the register
+  records that `ircache.net` "now serves a squatted blog", and Iceland was closed on a measurement of
+  867 projected equivalent-English rather than on reach. So a 200 is only news when the verdict did not
+  predict one, and the tool now quotes the sentence from the verdict that mentions the host and separates
+  "answers, as the verdict said" from "answers, unexpected". **A re-probe that cries wolf gets switched
+  off, which would cost more than the false positives.**
+- **One transient worth recording as a caution about single probes.** `Mirror-H.org` failed DNS on the
+  first run and resolved on the second, minutes apart. It is out of window by a decade so nothing turns
+  on it, but it is the same lesson the register already carries: one negative probe is not a proof.
+- **A coverage limit, named rather than hidden.** Only 7 of 19 availability-closed leads name a URL the
+  tool can extract; the rest describe a route in prose ("reading-room terminal only", "agreement-gated")
+  with no address to ask. Requiring three labels in a host pattern found 4 of them and allowing two found
+  7, which is the whole difference between a real re-probe and a token one.
+
+**Signed off by Ivo: pending.**
+
+## 2026-08-11 (the two populations go to two machines, which is Ivo's design)
+
+- **The split.** The VPS works **pure bracketed gaps**, a missing year Y with Y-1 and Y+1 already held,
+  as an unattended completeness baseline: 467,619 targets worth 219,760 EE expected. The local engine
+  works the **candidate pool**, 2,534,284 targets worth 1,269,380 EE expected, beside the discovery loop
+  that keeps feeding it.
+- **Ivo is right about the part my earlier note had corrected, and the correction was aimed at the wrong
+  pool.** A gap query answers 96.0% to 97.5% of the time and that rate is flat across TLDs, so with the
+  probability factor near 1 and uniform, expected value really does collapse to English share times the
+  years one query can fill. The candidate pool is the opposite: 36.9% for a name merely mentioned in
+  Usenet text against 90.6% for a link harvested off an archived page, so there the share must be
+  multiplied by a measured rate or `.au` sorts to the top again. **One of the two populations lets you
+  drop a factor and the other does not.**
+- **It maps onto the two outcomes the reviewer asked to keep separate, which is the sign it is the right
+  cut.** A gap hit adds a pair and never a domain, so the VPS is completeness. A pool hit makes a name
+  net-new, so the local engine is the discovery half he asked to be prioritised. The machine allocation
+  and the reporting split are now the same distinction.
+- **Consequences.** Gap targets change slowly, so the VPS needs a rare refresh rather than a periodic
+  one, which was the weakest part of yesterday's rule. And the local CDX engine goes back on, pointed at
+  the discovery pool, superseding this morning's decision to leave it off. Implemented as
+  `build_query_queue.py --population gap|pool --out PATH`, reusing the existing ranking, era gate and
+  measured multipliers rather than a second implementation.
+- Running from 09:10Z under `caffeinate` with the ingest loop beside it, deadline 2026-08-12T12:00Z.
+
+**Signed off by Ivo: pending.**

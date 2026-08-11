@@ -82,6 +82,41 @@ residual *args:
 screen *args:
     uv run python scripts/screen_hypothesis.py {{args}}
 
+# The harness's working memory across sessions. `docs/sources.md` is the
+# authoritative narrative and holds the ~60 verdicts the screener parses, but prose
+# cannot carry STATUS, so it cannot answer what an unattended run asks every time it
+# wakes up: what did I propose that I never finished pricing? `add` screens first and
+# refuses a hypothesis with no dating claim; `close` prints the sources.md row to
+# paste, so the two records cannot drift.
+#
+# NOTE: `just` splits recipe arguments, so a multi-word --verdict or --cost must go
+# to the script directly: uv run python scripts/hypothesis_ledger.py update ...
+#
+# the hypothesis ledger: proposed, priced, adopted or killed
+hypo *args:
+    uv run python scripts/hypothesis_ledger.py {{args}}
+
+# Re-ask every source closed because something could not be REACHED, as opposed to
+# closed because a measurement killed it. The register already names the hosts that
+# failed, so this needs no new knowledge and no judgement: it extracts them from the
+# verdict prose and asks again. A 200 is only reported as news when the verdict did
+# not already predict one, because `ircache.net` answers today and the register says
+# it "now serves a squatted blog".
+#
+# re-probe every availability-closed lead, and report only what changed
+reprobe *args:
+    uv run python scripts/reprobe_closed.py {{args}}
+
+# Price a normalised {item, year, text} JSONL against the live store: net-new pairs
+# and domains after the corroboration split, mean weight, a typo bound, and both a
+# linear and a saturating projection with instructions to quote the lowest. Writes
+# nothing. Only turning a source into dated items is source-specific; everything
+# after that is this.
+#
+# price any dated corpus against the live store, writing nothing
+price *args:
+    uv run python scripts/price_items.py {{args}}
+
 # Seed-only and permanently so: the index carries no date column, so nothing in it
 # can evidence a year. 35,391 registrable domains, 29,432 of them unknown to the
 # store when measured on 2026-08-10. Expect pool growth and no annual-file growth:

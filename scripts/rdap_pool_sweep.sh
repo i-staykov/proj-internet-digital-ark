@@ -24,13 +24,20 @@
 # as the journals grow, so batches are large. A killed batch loses nothing: the
 # journal is renamed on the way out and its answers are skipped next time.
 #
-# Usage: bash scripts/rdap_pool_sweep.sh [batches] [per-batch] [workers]
+# Usage: bash scripts/rdap_pool_sweep.sh [batches] [per-batch] [workers] [delay] [min-delay]
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 BATCHES="${1:-6}"
 LIMIT="${2:-100000}"
 WORKERS="${3:-32}"
+# Pacing, because one registry per pace does not fit all of them. Verisign
+# sustained 118 q/s with no refusals, so the defaults are its settings. PIR is the
+# opposite and the register got it wrong: it was read as "blocks rather than
+# throttles" after 403 for 9,253 consecutive requests, when in fact 1,334 paced
+# queries drew zero refusals. Pass a slower pace for a registry that meters.
+DELAY="${4:-0.02}"
+MIN_DELAY="${5:-0.002}"
 LIST="${LIST:-data/raw/rdap/pool_targets_verisign.txt}"
 
 if [ ! -s "$LIST" ]; then
@@ -46,7 +53,7 @@ for i in $(seq 1 "$BATCHES"); do
     out="data/raw/rdap/rdap_pool_${stamp}.jsonl.gz"
     echo "[$(date -u '+%H:%M:%S')] batch $i/$BATCHES -> $out"
     uv run ark rdap "$LIST" -n "$LIMIT" --workers "$WORKERS" \
-        --delay 0.02 --min-delay 0.002 --timeout 20 --out "$out" \
+        --delay "$DELAY" --min-delay "$MIN_DELAY" --timeout 20 --out "$out" \
         >> "data/logs/rdap_pool_sweep.log" 2>&1
     # nothing left to query, or the run could not start: stop rather than spin
     [ -s "$out" ] || { echo "no journal written, stopping"; break; }
