@@ -5520,3 +5520,37 @@ batch that mixes the two, which this one does not.
 For scale: 53.3% is close to the pool's own 47.6% history and more than double the `.com` head's ~22.8%
 mean, so if the ranking is right the re-rank roughly doubles the engine's yield. The windowed rate has
 meanwhile climbed to 25.9% of 1,797 and the collapse alarm stays clear.
+
+## 2026-08-12 (the control batch refutes my fallback hypothesis: the bias is in the measured cells)
+
+The pre-registered discriminating test resolved, and it went against the explanation I favoured.
+
+    head    cells exact    predicted    measured              ratio
+    .com    532/600        28.4%        24.2%, 21.4%          0.85, 0.75
+    .uk     600/600        53.3%        43.0%                 0.81
+
+**The `.uk` batch had no fallback at all and is just as optimistic as the `.com` one.** I had reasoned that
+the `.com` over-prediction came from its 68 falling-back targets inheriting `.com`'s 0.874, and said so in
+advance precisely so it could be wrong. It is wrong. **The bias is in the exactly measured `(source, TLD)`
+cells**, and the fallback C-18 changed is not the culprit.
+
+**A hypothesis for the mechanism, labelled as one because it is not measured.** A cell's rate is computed
+over the domains of that cell **already answered**, and the queue works down in expected-value order, so
+the part of a cell that has been consumed is systematically the part that was ranked best. What remains is
+the tail. If that is right, every cell rate is an estimate taken on the better half of its own population,
+the ranking is optimistic by construction as a population depletes, and the size of the bias should grow as
+a cell is worked through. That last part is testable and has not been tested.
+
+**What follows practically, which is the useful half.** The consistent ratio near 0.80 across three batches
+and two populations means **the ordering is still trustworthy even though the absolutes are not**: if every
+cell is inflated by roughly the same factor, the ranking between cells survives. So the queue should keep
+being built the way it is, and any figure quoted from it as an expectation should be read about 20% high
+until this is understood. Written here rather than corrected in code, because applying a 0.8 fudge factor
+to a model whose error I have one hypothesis and no measurement for is exactly the kind of guess ADR-001
+took three wrong tries to stop making.
+
+**And the re-rank plainly worked.** 43.0% against the `.com` head's 24.2% and 21.4%, approaching the pool's
+own 47.2% history, with the windowed rate climbing 2.7% to 13.5% to 21.5% to 25.9% to **29.5%** as the
+`.mil` batches age out. The discovery engine is roughly twice as productive per query as it was four hours
+ago, and the sequence that got there was: measured a zero, found a missing ranking factor, found a missing
+grain, found a missing staleness mark, and let the cycle rebuild unattended each time.
