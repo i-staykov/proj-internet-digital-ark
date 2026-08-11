@@ -4475,3 +4475,28 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   and it failed until this one was assigned, which is the second guard that earned its place today.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (the packaging path tested end to end, and it was failing silently)
+
+- **Tested now rather than at submission time**, because packaging is where this project's rounds have
+  broken before. Result: it works. **1.4 GB, 928 files, sha256, 6m06s**, and the archive's own checks pass
+  all three: 927 files match `SHA256SUMS`, 141,828 pairs in the annual files, and **all 141,828 trace to
+  an observation**.
+- **But it first exited 1 with no output whatsoever**, which is the worst failure mode a guard can have.
+  The guard compares `output/` against the store so a stale export cannot ship, and its own comment says
+  the store read is "Retried, and not silenced". **Neither was true.** `set -e` is on, so a bare
+  `STORED=$(cmd)` whose command fails aborts the script immediately: the 60-attempt retry loop was dead
+  code and the diagnostic below it was unreachable.
+- **It went unnoticed for four rounds because nothing else ever held the store.** It surfaced today only
+  because the ingest loop now runs continuously beside two collectors, which is new. Fixed with `|| true`
+  on the assignment so the retry can retry; it now names the reason it refused, which it demonstrated by
+  correctly reporting my own uncommitted edit.
+- **The general shape is worth recording**, since it is the third instance today. A retry that cannot
+  retry, a residual check that vanished when it timed out, and a lock patience sized against the wrong
+  writer: all three were latent, all three were exposed by the store finally having contention, and all
+  three failed **quietly**. Continuous operation is not just more throughput, it is a different test
+  regime.
+- **The interim archive was deleted after verification.** It was built as `phase-5-interim` to avoid
+  colliding with the real `phase-5` submission at the weekend, and the tarball is git-ignored anyway.
+
+**Signed off by Ivo: pending.**
