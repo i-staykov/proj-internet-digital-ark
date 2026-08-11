@@ -109,8 +109,7 @@ duty is to avoid making things worse. Work this in order and stop at the first s
 
    **"The collectors are running" is not you being busy.** A supervisor looping over a queue wants no
    attention at all, so a wake that finds healthy collectors and an idle agent is the **normal** case
-   rather than an exception. Confusing the two is what left the local engine stopped from 7 to 11
-   August while every status line read healthy.
+   rather than an exception.
 
 2. **Is anything stopped, unread or stale?** One command answers all three:
 
@@ -119,10 +118,16 @@ duty is to avoid making things worse. Work this in order and stop at the first s
    It checks both collectors, journals on disk that nothing has ingested, derived lists older than the
    store, the hypothesis ledger, pending approvals and `docs/ROUND.md`, rebuilds what it can, and ends
    with the items **no program can decide**. Act on those. If a collector is down, restart it; if a
-   journal is unbanked, ingest it. Before starting any long-running process, check whether one is
-   already up, and check it with a pattern that cannot match your own command line:
-   `pgrep -f 'supervise_cdx_poo[l]'`. A bare `pkill -f supervise_cdx_pool.sh` matches the shell running
-   it and has twice reported the opposite of the truth.
+   journal is unbanked, ingest it.
+
+   **Ask the process table, never a log file, whether something is running.** `supervise_cdx_pool.sh`
+   writes `data/logs/${ARK_PREFIX}.log`, so a quiet `cdx_pool.log` proves only that nothing has run
+   *under that prefix*. On 11 August that inference killed a healthy collector: it had been working the
+   pool since 11:10 under an invented third prefix, its own log was current, and the documented one was
+   four days old and read as a dead engine. **`cdx_pool` and `cdx_gap` are the only two prefixes**, per
+   the script's own header. Do not invent a third. Check with a pattern that cannot match your own
+   command line, `pgrep -f 'supervise_cdx_poo[l]'`, since a bare `pkill -f supervise_cdx_pool.sh`
+   matches the shell running it and has twice reported the opposite of the truth.
 
 3. **Then bring the documentation back into one story**, which is the part only you can do. The
    sources of truth are the table in **Where state lives** above, and they have to agree with each

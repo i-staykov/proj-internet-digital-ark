@@ -28,14 +28,19 @@ rule is in force.
 Ivo's instruction, after watching the harness sit idle: cron every 15 minutes, plus a `CLAUDE.md` section
 governing what a cron-started session does. Adopted with the ordering he sketched and one definition added,
 which is the load-bearing part: **a wake that finds healthy collectors and an idle agent is the normal
-case, not an exception.** Confusing those two is what let the local CDX engine stay stopped from 7 to 11
-August while every status line read healthy, because no check ever asked whether it was there. The wake
-now asks "is anything stopped" first, `just cycle` is the one-shot that answers it, and "everything is
-fine" is an explicitly valid outcome so a wake has no reason to invent work. Two supporting fixes went in
-with it: the loop now rebuilds a derived list it finds stale instead of only reporting it, and the
-staleness test compares each list against the mark that actually invalidates it (pairs for the gap queue,
-candidates for the pool queue) rather than against the baseline release, which found three stale lists the
-old check called fine.
+case, not an exception**, so the wake asks "is anything stopped" first, `just cycle` is the one-shot that
+answers it, and "everything is fine" is an explicitly valid outcome so a wake has no reason to invent work.
+
+Two supporting fixes went in with it. The loop now rebuilds a derived list it finds stale instead of only
+reporting it. And the staleness test compares each list against the mark that actually invalidates it,
+newest pairs for the gap queue and newest candidates for the pool queue, rather than against the baseline
+release; on its first run that found three stale lists the old check called fine, which is the idleness
+Ivo saw from the outside.
+
+**One rule came out of getting this wrong in the same sitting.** I read `cdx_pool.log`, found it four days
+old, concluded the local engine was dead, and killed a collector that had been working the pool healthily
+since 11:10 that morning under an invented third log prefix. So: **ask the process table, never a log
+file**, and `cdx_pool` and `cdx_gap` are the only prefixes that population may use.
 
 
 ### C-13. A source class may not date a year until a human classifies it -> [ADR-003](ADRs.md) (2026-08-11)

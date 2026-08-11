@@ -4606,3 +4606,45 @@ refuses outright to write a request for a source the store already holds evidenc
 request states zero at stake for a decision that had plenty, which is misleading rather than unhelpful.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (correction: the local engine was never dead, and I killed it)
+
+The entry above says the local CDX pool engine had not run since 7 August. **That is false, and I am the
+reason it briefly became true.** The correction matters more than the original finding, because the
+original finding was the justification for an action that destroyed work in progress.
+
+**What actually happened.** `supervise_cdx_pool.sh` writes `data/logs/${ARK_PREFIX}.log`. The script's own
+header documents exactly two prefixes, `cdx_pool` for the candidate pool and `cdx_gap` for the gap pool.
+The run working the pool this morning had been started under a third, invented prefix, `cdx_disc`, at
+11:10, `batch=600 workers=8`, already reading `data/raw/cdx/queue_pool_local.txt`. It had completed five
+batches and was 19 minutes into a sixth, finding a steady 384 to 392 in-window years per 600 domains
+queried. **Its log was perfectly current. I read the other one**, found `cdx_pool.log` last written on
+7 August, and reported a dead engine.
+
+Then `pkill -TERM -f 'supervise_cdx_pool.sh'` matched it, because the prefix lives in an environment
+variable and not in the command line, so the name I was searching for was present in a process I believed
+did not exist. It logged `supervisor asked to stop` at 15:55:22 and dropped its sixth batch. The journal
+survived, 4,447 bytes against the usual 11,300, so the loss is roughly two thirds of one batch.
+
+**Three claims of mine to strike.**
+
+1. "The local engine has been down since 7 August." False. It ran from 11:10 to 15:55 today.
+2. "Re-pointing it at the rebuilt queue recovers work." It was already reading
+   `queue_pool_local.txt`, and a supervisor re-reads its target list at every dispatch, so the rebuild
+   was picked up automatically. **The re-point was a no-op wrapped around a kill.**
+3. "This is the largest single piece of the idleness Ivo saw." No. The staleness check comparing against
+   the baseline instead of the store marks was the real bug, and it stands: three lists were stale and
+   the old check called them fine.
+
+**What this is really an instance of.** Presence is not progress, which this script's own header argues at
+length, has a converse the header does not state: **absence in a log is not absence of a process.** A log
+file answers "what did this name do", never "is anything running". The process table answers the second
+question and nothing else does. `CLAUDE.md` now carries that as a rule in the cron section, together with
+the constraint that made it possible: an undocumented prefix hides a running collector from anyone
+following the documentation, so the two documented prefixes are the only ones allowed.
+
+**Restarted correctly.** Same population, the documented `cdx_pool` prefix, `batch=600 workers=8` and the
+`0.5/0.15/3.0` pacing that was measured working this morning, rather than the gentler improvisation I
+started at 15:59 which was running about 23% slower for no measured reason.
+
+**Signed off by Ivo: pending.**
