@@ -5070,3 +5070,52 @@ addendum to ADR-001 with the measurement, so the next session starts from a numb
 **Still outstanding from this wake:** the 13,078 Netcraft names are prepared at
 `data/raw/probes/H008-pool-names.txt` and not yet seeded, because seeding correctly yields to a loop that
 currently holds the lock 89% of the time. Fixing the loop is what unblocks it.
+
+## 2026-08-11 (the write lock: 89% occupancy to 0%, and the queue fix is only half a fix)
+
+The previous wake identified the cause and deliberately stopped short of the change, naming one unknown:
+what `ingest_files` does when a single file in a batch fails. **Settled by reading it.** Each file is
+already wrapped in its own `try/except Exception` which counts `files_failed`, logs it and continues, so a
+bad file is contained exactly as it was under per-file invocation, and now shows up in the summary instead
+of scrolling past in a shell loop. Batching was therefore never the risk it looked like.
+
+**The measurement, on both sides of the change.**
+
+    409 CDX journals, one invocation : 2 seconds, one lock acquisition, 408 skipped, 1 banked
+    occupancy before                 : held 16 of 18 samples over 90s, 89%
+    occupancy after                  : held  0 of 18 samples over 90s,  0%
+
+`maintain.sh` now calls `ark ingest` once per **source** rather than once per **file**. At current file
+counts the four per-file loops were spawning **636 invocations per pass**, each a Python interpreter start
+that took the write lock to read one ledger row, **every 150 seconds** (the loop runs `900 150`, so the
+pause is 150s and not the 900 I first read). That is the entirety of ADR-001's contention. It also
+collapses 636 `record_metrics` rows and 636 `_enqueue_unverified` passes into one each.
+
+**Editing a running bash script is its own hazard**, since bash can re-read from a byte offset, so the
+order was: stop the loop by PID, wait for its in-flight `ark ingest` child to finish, edit, syntax-check,
+verify one batched pass by hand, restart. The ingest loop is not a collector under the no-restart rule:
+it holds no in-flight network state and every file is ledger-checked, so a restart between passes loses
+nothing. Recorded here so that reading is on the record rather than assumed.
+
+**The seed then ran immediately**, which is the proof the contention was real: `ark seed` had yielded
+twice today against a lock it could never get, and with occupancy at zero it took the lock at once.
+13,078 Netcraft names, in flight as this was written. It is holding the lock with the ingest loop waiting
+patiently behind it, which is the correct ordering now that nothing is pending to bank, and it should
+finally produce the per-phase seed timings ADR-001 has been Open for. Its silence so far is itself
+suggestive: read-and-canonicalise and classify are both measured fast, so the time is going somewhere
+ADR-001 listed as untested, most likely the SQLite enqueue into a 358 MB queue file.
+
+**And the honest half of the queue fix.** The plausibility factor cured the pathological case and did not
+restore the collector. Measured on the first batch to read the re-ranked queue, in flight:
+
+    old head, all .mil        : 600 records, 599 answered, 0 captures, 0.0%
+    re-ranked head, .nz + .za : 422 answered, 40 captures, 9.5%
+    the pool's own history    : 51.7% over 23,058 answered
+
+So 0% to 9.5%, and still a collapse by the yield check's own standard, which is why it correctly keeps
+flagging. **Plausibility is not capture rate**: `dated / (dated + pool)` answers "is this namespace real",
+and `.za` and `.nz` are entirely real namespaces that the Internet Archive simply holds thinly for
+1996-2001. The score multiplies English share by a *measured* hit rate only where a `(source, TLD)` cell
+has been measured, and for these it still falls back. The next piece of work is to make that fallback
+conservative rather than optimistic, so an unmeasured cell ranks behind a measured good one instead of
+ahead of it on English share. Named rather than started, and not claimed as fixed.

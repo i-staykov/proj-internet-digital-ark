@@ -93,13 +93,23 @@ invocation opens the store read-write, reads the ledger, finds the file already 
 explain is not the seed being slow. **It is the banking loop holding a write lock near-continuously to
 do almost nothing**, and every reader and every seed queues behind that.
 
-The obvious fix is one invocation per source rather than one per file, since `ingest_cmd` already accepts
-a list of paths and `ingest_files` already skips per file from the ledger. That would turn 400-plus lock
-acquisitions per pass into one. **Not done here**, because this ADR's own first decision was "no
-structural change to a write path every seeding route depends on, without knowing which line is slow",
-and the remaining unknown is what `ingest_files` does when one file in a batch fails: per-file
-invocation contains a bad file to itself, and a single batch might not. That is a cheap thing to check
-and it should be checked before the change, not after.
+**Fixed, and measured on both sides.** The unknown that held it back was cheap to settle by reading the
+code: `ingest_files` already wraps each file in its own `try/except Exception`, counts `files_failed` and
+continues, so a bad file is contained exactly as it was under per-file invocation and now lands in the
+summary rather than scrolling past in a shell loop. With that answered, `maintain.sh` calls `ark ingest`
+once per **source** instead of once per **file**.
+
+    409 CDX journals, one invocation : 2 seconds, one lock acquisition, 408 skipped, 1 banked
+    write-lock occupancy before      : held 16 of 18 samples over 90s, 89%
+    write-lock occupancy after       : held  0 of 18 samples over 90s,  0%
+
+The 636 invocations a pass had been making were 636 Python interpreter starts, each taking the write lock
+to read one ledger row, every 150 seconds. That is the whole of the contention, and the seed it had been
+blocking all day ran immediately afterwards.
+
+The one limit now worth watching is the argument list: 636 paths is about 30 KB against an ARG_MAX near
+1 MB, but a glob grown into the thousands would need `xargs`, and an `ls` over 19,231 usenet archives has
+already overflowed exec once in this project.
 
 **The allocation rule in decision 4 above was prose and nothing implemented it.** Neither command had any
 lock patience, so whichever process reached the store first won and the other died with a DuckDB
