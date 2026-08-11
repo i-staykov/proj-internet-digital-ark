@@ -15,4 +15,6 @@ legacy/** export-ignore
 # would otherwise put both in front of him: that is exactly how an email draft's
 # private section reached the 2 August archive.
 docs/phase5-plan.md export-ignore
-docs/phase5-handoff.md export-ignore
+# The agent's short review surface for open and closed decisions. Working
+# document about how to approach the round, same class as notes.md.
+docs/key-decisions.md export-ignore

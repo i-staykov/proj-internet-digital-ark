@@ -1,7 +1,8 @@
 # Phase 5: the plan, in your terms
 
 Written 2026-08-10, for you rather than for an agent. The agent's version is
-[phase5-handoff.md](phase5-handoff.md) and it is long on purpose; this one is meant to be read once and
+[../legacy/docs/phase5-handoff.md](../legacy/docs/phase5-handoff.md), retired on 2026-08-11 once
+state became generated; this one is meant to be read once and
 kept in your head. If the two disagree, this one is the intent and that one is the detail.
 
 ---
@@ -211,7 +212,7 @@ uv run ark stats                    # confirm it says merged260810
 just engines                        # what the VPS is doing, and whether its journals are home
 ```
 
-Then read [phase5-handoff.md](phase5-handoff.md) if you are pointing an agent at this, or section 3
+Then read [ROUND.md](ROUND.md), which is generated, if you are pointing an agent at this, or section 3
 above if you are doing it yourself. The handoff opens with the same three priorities, in more detail,
 plus the eleven ways this project has previously fooled itself with a number.
 

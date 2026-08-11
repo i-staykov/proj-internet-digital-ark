@@ -1,3 +1,18 @@
+> **RETIRED 2026-08-11. Do not read this as the state of anything.**
+>
+> This document was a hand-written snapshot of the current state, which is the one category of
+> memory that cannot be hand-maintained. It was accurate for a day: within one morning `alt.*`
+> had been measured as proportionate rather than the corpus's largest open question, a command
+> it tells you to run before ordering a queue turned out to be unable to run at all, and its
+> state table was two ingests out of date. It is kept for its traps, its rejected-source
+> reasoning and its account of the round's objective, all of which are still true.
+>
+> **For current state read the generated `docs/ROUND.md`.** For the standing rules read
+> `CLAUDE.md`. The corrections block below was appended on the evening of 2026-08-10 and is
+> the last thing that was true about this file.
+
+---
+
 # Phase 5 handoff
 
 **You are joining the Internet Digital Ark on branch `phase-5`.** This document is the complete state

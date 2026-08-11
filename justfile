@@ -48,6 +48,17 @@ verify-repo:
 check-data:
     uv run ark check
 
+# Assembled from the programs that own each figure rather than restating any of
+# them: ark stats, round_figures.py, engine_status.sh, audit_residual.py and the
+# open decisions. Nothing here is a second copy of a number, so it cannot drift.
+# Pass --check to find out whether the file has gone stale: it compares the counts
+# in its own footer against the store and exits 1 if the store has moved. The
+# hand-written predecessor it replaces was accurate for exactly one day.
+#
+# regenerate docs/ROUND.md, the generated statement of where the round stands
+state *args:
+    uv run python scripts/build_round_state.py {{args}}
+
 # The reviewer's first priority in one command: unprocessed files, globs that
 # match too little, downloaded bytes with no parser, and derived lists a newer
 # baseline has invalidated. Read-only, no network, and NOT a gate: it reports and

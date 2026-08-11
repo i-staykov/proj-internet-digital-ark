@@ -4229,3 +4229,36 @@ it idempotently and should follow the batched-insert fix. **Left unasked:** roug
 names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (current state becomes generated, and the handoff retires to legacy)
+
+- **The diagnosis, which is a category error rather than a maintenance failure.** `phase5-handoff.md`
+  was a hand-written statement of the **current state** of the project. It was accurate on the day it
+  was written and wrong the next morning: `alt.*` had been called the largest open question about the
+  corpus and turned out to be proportionate, `just query-queue` which it tells you to run before
+  ordering a queue could not run at all, and its state table was two ingests old. **Current state is
+  the one category of memory that cannot be hand-maintained**, because it moves faster than anyone
+  updates prose, and a stale statement of it is worse than none: it reads as authoritative.
+- **Three categories of memory, handled differently from now on.** *Constitution*, which never changes,
+  in `CLAUDE.md`, loaded automatically at every session start. *Current state*, generated, in
+  `docs/ROUND.md`. *History*, append-only, in `notes.md`. Plus `docs/key-decisions.md` as the short
+  review surface for what a human might want to overrule, which is Ivo's idea and fills a real gap:
+  `notes.md` at 4,200 lines is not something anyone skims for pivot points.
+- **`docs/ROUND.md` restates nothing.** It assembles the output of the programs that already own each
+  figure: `ark stats` for the scoreboard and the two outcomes, `round_figures.py` for the five fields
+  and the per-source split, `engine_status.sh` for both collectors including its UNKNOWN case, and
+  `audit_residual.py` for what is unread. So a producer changing changes the document, and no number
+  exists in two places. Written by `just state` in about 39 seconds.
+- **Staleness is made detectable rather than prevented, which is the honest guarantee.** The file ends
+  in a machine-readable state line, and `just state --check` recomputes those counts against the store
+  and exits 1 if they have moved. It cannot promise the file is current; it can tell you in one command
+  whether it is, which is what the handoff could not do.
+- **The handoff moves to `legacy/docs/` with a banner** saying it is retired and naming the three
+  claims that went stale, because its traps and its rejected-source reasoning are still worth having
+  and `legacy/` is exactly where things go that are kept for their negative results. `legacy/**` was
+  already export-ignored, so its individual `.gitattributes` rule was dropped as redundant.
+- **`CLAUDE.md` did not exist**, which is why every session so far had to be told the evidence rules,
+  the house rules and the four search traps by hand in a prompt. It now holds only what never changes,
+  and points at the generated file for anything that moves.
+
+**Signed off by Ivo: pending.**

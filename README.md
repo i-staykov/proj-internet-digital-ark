@@ -22,7 +22,9 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [docs/report.md](docs/report.md) | the round report. **Generated** from `docs/report.template.md`; edit the template, never the output |
 | [docs/notes.md](docs/notes.md) | the dated decision log |
 | [docs/phase5-plan.md](docs/phase5-plan.md) | this round's plan, in plain terms |
-| [docs/phase5-handoff.md](docs/phase5-handoff.md) | the full state, objective and traps, for an agent joining the round |
+| [CLAUDE.md](CLAUDE.md) | the standing brief an agent is loaded with: the evidence rules, the house rules, the traps. **Only what never changes** |
+| [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
+| [docs/key-decisions.md](docs/key-decisions.md) | the short list of open and closed decisions, for review at a glance |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
 
