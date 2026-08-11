@@ -117,3 +117,34 @@ def test_no_journals_at_all_is_not_a_collapse(tmp_path) -> None:
     assert reading.recent_answered == 0
     assert not reading.collapsed
     assert reading.newest == ""
+
+
+def test_the_newest_finished_batch_is_reported_separately(tmp_path) -> None:
+    """The windowed rate is right to alarm on and wrong to read after a re-rank: it
+    averages three batches, so it stays low for hours after a fix and cannot say whether
+    the fix worked. The newest finished batch can."""
+    _journal(tmp_path, "cdx_pool_20260810T000000Z.jsonl.gz", 600, 0)
+    _journal(tmp_path, "cdx_pool_20260811T000000Z.jsonl.gz", 600, 0)
+    _journal(tmp_path, "cdx_pool_20260812T000000Z.jsonl.gz", 600, 300)
+    reading = measure(tmp_path, "cdx_pool")
+    assert reading.newest_rate == 0.5
+    assert reading.recent_rate is not None and reading.recent_rate < 0.2
+    assert "newest finished batch 50.0% of 600" in reading.describe()
+
+
+def test_the_newest_reading_never_comes_from_an_in_flight_part(tmp_path) -> None:
+    """Reading a gzip stream still being appended truncates at its last complete block,
+    and the prefix is not a sample: one batch gave 9.5%, then 14.0%, then 27.9% in a
+    single afternoon of hand-inspection."""
+    _journal(tmp_path, "cdx_pool_20260811T000000Z.jsonl.gz", 600, 300)
+    _journal(tmp_path, "cdx_pool_20260812T000000Z.jsonl.gz.part", 20, 0)
+    reading = measure(tmp_path, "cdx_pool")
+    assert reading.newest.endswith(".jsonl.gz")
+    assert reading.newest_answered == 600
+    assert reading.newest_rate == 0.5
+
+
+def test_no_finished_batch_says_so_rather_than_reading_as_zero(tmp_path) -> None:
+    reading = measure(tmp_path, "cdx_pool")
+    assert reading.newest_rate is None
+    assert reading.latest == "no finished batch yet"

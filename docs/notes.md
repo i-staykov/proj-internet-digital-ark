@@ -5257,3 +5257,42 @@ outcome and the reason the measurement came before the edit.
 working the old `.za`/`.nz` head at 14.0% (17 captures in 121 answered), which sits neatly between their
 measured 0.210 and 0.309. C-18's `.com` head gets its first real test on the next dispatch. I did not
 restart the collector to bring that forward, per the standing rule.
+
+## 2026-08-11 (I quoted four different yields off one batch, and the finished number is none of them)
+
+The yield check reports a three-batch window, which is the right thing to alarm on and the wrong thing to
+read after a queue is re-ranked: it averages over hours, so it stays low long after a fix and cannot say
+whether the fix worked. So across four wakes I answered that question by hand, reading the in-flight
+`.part` journal. The numbers I got, all from the same two batches: **19%, then 9.5%, then 14.0%, then
+27.9%.**
+
+**The finished batch is 8.2% of 598 answered.** None of my four readings was right.
+
+The mechanism is one I had already designed around and then ignored. A `.part` is a gzip stream still being
+appended, so a reader truncates at the last complete block, and the prefix of a batch is not a sample of
+it. `ark.yield_check` skips `.part` files deliberately and says so in a comment I wrote this afternoon; I
+then hand-inspected them three more times, and quoted the results to Ivo each time. **Building the
+instrument and then not using it is worse than not having it**, because the instrument was right and I was
+confident.
+
+Fixed by making the check answer the question instead: it now reports the newest **finished** batch beside
+the window, so a recovery shows up in one line and nobody has to open a journal. Three tests, including one
+that asserts the newest reading never comes from a `.part`.
+
+    cdx_pool: 2.7% of 1,797 answered, against 51.0% of 23,336 before; newest finished batch 8.2% of 598
+    cdx_gap: 99.6% of 669 answered, against 98.5% of 45,803 before;  newest finished batch 98.7% of 150
+
+**So the honest state of the queue work, restated.** C-17's plausibility factor took the head from a
+measured 0.0% to a finished **8.2%**. That is a real gain over querying `.mil`, and it is nowhere near the
+51.0% the pool used to return. C-18's `.com` head, which the TLD-grain rebuild produced, is **still
+untested**: the batch dispatched at 20:06 predates the rebuild. I have not restarted the collector to bring
+that forward.
+
+**One allocation fact worth having on record while the VPS is down.** The combined queue's own report says
+gap targets dominate the head: of the best 10,000 targets, **8,826 are gap and 1,174 pool**, because a gap
+query answers at 96-97.5% against a pool query's 47.1%. 467,759 gap targets are ranked and waiting, and the
+machine that works them is unreachable, so the better population is idle while the local engine works the
+worse one. That follows C-10, which is Ivo's design and deliberately prioritises discovery because the
+reviewer asked for net-new domains, and he has said the VPN is coming back shortly. **So this is recorded
+rather than raised**: if the VPS stays down through tomorrow it becomes a real allocation decision for him,
+and the numbers to decide it with are here.

@@ -59,6 +59,8 @@ class Yield:
     history_answered: int
     history_hits: int
     newest: str
+    newest_answered: int = 0
+    newest_hits: int = 0
 
     @property
     def recent_rate(self) -> float | None:
@@ -88,6 +90,27 @@ class Yield:
             return False
         return self.recent_rate < self.history_rate * COLLAPSE_FRACTION
 
+    @property
+    def newest_rate(self) -> float | None:
+        return self.newest_hits / self.newest_answered if self.newest_answered else None
+
+    @property
+    def latest(self) -> str:
+        """The newest FINISHED batch on its own, which is the recovery signal.
+
+        The windowed rate is the right thing to alarm on and the wrong thing to read
+        after a queue is re-ranked: it averages over three batches, so it stays low for
+        hours after a fix and cannot say whether the fix worked. This can.
+
+        It reads only a published journal, never a `.part`. Reading an in-flight one is
+        how three different rates got quoted off a single batch in one afternoon, 9.5%
+        then 14.0% then 27.9%, because a gzip stream still being appended truncates at
+        its last complete block and the prefix is not a sample.
+        """
+        if not self.newest or self.newest_rate is None:
+            return "no finished batch yet"
+        return f"newest finished batch {self.newest_rate:.1%} of {self.newest_answered:,} answered"
+
     def describe(self) -> str:
         if not self.measurable:
             return (
@@ -96,10 +119,13 @@ class Yield:
             )
         recent = f"{self.recent_rate:.1%} of {self.recent_answered:,}"
         if self.history_rate is None or self.history_answered < MIN_SAMPLE:
-            return f"{self.prefix}: {recent} answered held a capture, no history to compare"
+            return (
+                f"{self.prefix}: {recent} answered held a capture, no history to "
+                f"compare; {self.latest}"
+            )
         return (
             f"{self.prefix}: {recent} answered held a capture, against "
-            f"{self.history_rate:.1%} of {self.history_answered:,} before that"
+            f"{self.history_rate:.1%} of {self.history_answered:,} before that; {self.latest}"
         )
 
 
@@ -152,6 +178,7 @@ def measure(directory: Path, prefix: str, recent_files: int = RECENT_FILES) -> Y
         history_answered += answered
         history_hits += hits
 
+    newest_answered, newest_hits = _count(journals[0]) if journals else (0, 0)
     return Yield(
         prefix=prefix,
         recent_answered=recent_answered,
@@ -159,6 +186,8 @@ def measure(directory: Path, prefix: str, recent_files: int = RECENT_FILES) -> Y
         history_answered=history_answered,
         history_hits=history_hits,
         newest=journals[0].name if journals else "",
+        newest_answered=newest_answered,
+        newest_hits=newest_hits,
     )
 
 
