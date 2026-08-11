@@ -178,13 +178,24 @@ Was O-5. Ivo: "if a solution with no technical debt exists, adopt it, if not, tr
 structure and allocate the time between locks, based on who is most likely to contribute most net-new EE
 domains."
 
-**There is no debt-free fix available, because the cause is not known.** Two plausible causes were
-measured and both eliminated: the row-at-a-time insert (batched, and the seed was still slow) and the
-classification query (0.33 s for 3,000 names, and my proposed replacement was four times slower). So the
-structure is preserved, the seed path is instrumented so the next occurrence yields a measurement rather
-than a third guess, and **the allocation rule you asked for is in force**: ingesting banked work wins,
-pricing and measurement beat seeding, and a seed blocking anything valuable is interrupted rather than
-waited out, which is safe because inserts autocommit and a re-run is additive. Full reasoning and the
+**As written that evening: no debt-free fix was available, because the cause was not known.** Two plausible
+causes were measured and both eliminated, the structure was preserved, the seed path was instrumented, and
+the allocation rule you asked for was put in force.
+
+**Resolved the same evening, and the first sentence above no longer holds.** The instrumentation ran on a
+13,078-name seed and one phase was 1,207 of 1,208.6 seconds: `insert_candidates`. So the debt-free fix did
+exist, it was the idiom `bulk.py` already used, and `add_candidates` now inserts set-wise from an Arrow
+table: **13.47 s becomes 0.05 s, 267x, with identical results.** The row-at-a-time insert was the
+hypothesis eliminated *first*, wrongly, because switching it to `executemany` looked like batching and
+`executemany` is N statements rather than a batch. A third guess of mine, per-row autocommit, was tested
+and refuted at 12.03 s against 11.88 s.
+
+Separately, the contention itself was 636 `ark ingest` invocations per pass in the ingest loop, one per
+file, which measured **89% write-lock occupancy and is now 0%**. Both fixes and all the measurements are in
+**ADR-001**, whose status is now Accepted rather than Open. The allocation rule stays in force and is now
+enforced in code by asymmetric lock patience rather than stated in prose, but note its justification
+changed: interrupting a seed is safe because the window is negligible, not because partial inserts
+survive. Full reasoning and the
 four rejected alternatives are in **ADR-001**.
 
 ### C-10. The two populations go to two machines, and it supersedes C-6 (2026-08-11)
