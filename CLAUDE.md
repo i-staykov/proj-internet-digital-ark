@@ -99,6 +99,45 @@ the store of that day and is not a statement about now.
 - **Ding wants long-running programs kept running.** If something can run unattended without getting
   in the way, keep it running.
 
+## If you were started by a cron job
+
+A cron wake is not a new brief. It is a 15-minute check that the round is still moving, and its first
+duty is to avoid making things worse. Work this in order and stop at the first step that applies.
+
+1. **Are *you* mid-task?** If this session has unfinished work in flight, continue it and stop reading
+   here. Do not re-plan, do not start something adjacent, do not restate the situation.
+
+   **"The collectors are running" is not you being busy.** A supervisor looping over a queue wants no
+   attention at all, so a wake that finds healthy collectors and an idle agent is the **normal** case
+   rather than an exception. Confusing the two is what left the local engine stopped from 7 to 11
+   August while every status line read healthy.
+
+2. **Is anything stopped, unread or stale?** One command answers all three:
+
+       just cycle
+
+   It checks both collectors, journals on disk that nothing has ingested, derived lists older than the
+   store, the hypothesis ledger, pending approvals and `docs/ROUND.md`, rebuilds what it can, and ends
+   with the items **no program can decide**. Act on those. If a collector is down, restart it; if a
+   journal is unbanked, ingest it. Before starting any long-running process, check whether one is
+   already up, and check it with a pattern that cannot match your own command line:
+   `pgrep -f 'supervise_cdx_poo[l]'`. A bare `pkill -f supervise_cdx_pool.sh` matches the shell running
+   it and has twice reported the opposite of the truth.
+
+3. **Then bring the documentation back into one story**, which is the part only you can do. The
+   sources of truth are the table in **Where state lives** above, and they have to agree with each
+   other: `docs/ROUND.md` current against the store, every decision of today's in `docs/notes.md`, any
+   structural one in `docs/ADRs.md` and named from `docs/key-decisions.md`, every new source class
+   carrying a `Decision:` line, `README.md` naming every command that now exists. A claim that has
+   been disproved gets corrected where it was made, not only in the newest file.
+
+4. **Only then, do the next piece of real work**, sized to fit: prefer finishing one thing over
+   starting three. Anything needing a human goes to `docs/key-decisions.md` or
+   `docs/open-approvals.md` rather than waiting in a session nobody is reading.
+
+**"Everything is fine" is a valid outcome.** Record it in one line and stop. Do not invent work to
+justify the wake, and never start a second copy of a collector to look busy.
+
 ## Traps that have each produced a confident wrong answer
 
 - **`grep` here is ripgrep and honours `.gitignore`**, hiding `data/`, `output/`, `private/`,
@@ -112,6 +151,10 @@ the store of that day and is not a statement about now.
   Use `grep -cE`.
 - **A search that finds nothing has either proved something or been pointed at the wrong place, and
   the two look identical.** Prove a negative against a case you know is positive.
+- **`pgrep -f X` and `pkill -f X` match the shell that is running them**, because the pattern is in
+  its own command line. So the check reports a process that is not there and the kill takes down the
+  caller, which has happened twice here, once destroying a watcher mid-run. Bracket one letter:
+  `pgrep -f 'supervise_cdx_poo[l]'` cannot match itself.
 - **DuckDB takes one writer.** Open `read_only=True` with a retry loop for anything that measures.
   A long write blocks every reader, so a 20-minute ingest is a 20-minute outage for the auditors.
 - **`ark export` before `ark check`, always**: one invariant reads the exported annual files.

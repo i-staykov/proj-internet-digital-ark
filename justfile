@@ -71,6 +71,18 @@ state *args:
 residual *args:
     uv run python scripts/audit_residual.py {{args}}
 
+# One pass of the harness: both collectors, unbanked journals, derived lists the
+# store has outgrown, the hypothesis ledger, pending approvals, docs/ROUND.md. It
+# rebuilds what it can and ends with the items no program can decide, which is the
+# only part worth reading closely. This is the first command a cron-started
+# session runs; see the cron section of CLAUDE.md. Add --until EPOCH --every SECS
+# to loop instead of running once, and --no-network to skip the re-probe, which is
+# the only step that leaves the machine.
+#
+# check the round once and report what needs judgement
+cycle *args:
+    uv run python scripts/discover_cycle.py {{args}}
+
 # Does the proposal collide with one of the ~50 families already closed with a
 # measurement, and what dates ONE of its items. The register is parsed out of
 # docs/sources.md at run time rather than copied, so it cannot drift from the

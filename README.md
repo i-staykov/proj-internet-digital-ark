@@ -104,7 +104,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/open-approvals.md](docs/open-approvals.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
-| loop | `uv run python scripts/discover_cycle.py --until <epoch>` | runs the mechanical checks on a schedule and **ends each cycle by naming what needs judgement** |
+| loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, that a journal is sitting
 unbanked on a remote disk, that a file on disk was never read, that a target list predates the current

@@ -128,6 +128,121 @@ def check_residual() -> tuple[list[str], list[str]]:
     return findings, attention
 
 
+# Only act on a list this far behind, so the cycle cannot thrash: candidates arrive
+# continuously, and rebuilding on every one would restart the collector hourly for a
+# handful of new targets.
+REBUILD_AFTER_HOURS = 1.5
+
+
+def rebuild_derived() -> tuple[list[str], list[str]]:
+    """Rebuild stale derived target lists, and re-point the local engine at them.
+
+    **This is the cycle's one action rather than a report**, and the distinction is
+    deliberate. Writing evidence is a judgement and belongs to a human; regenerating a
+    derived list is neither, and leaving it undone has already cost something real:
+    4,333 freshly seeded UDRP names, 88% of them absent from the store, sat in the pool
+    for two hours while the running engine worked a queue built before they existed.
+
+    The VPS is deliberately untouched. Its list has to be shipped over a VPN window, so
+    it is reported and left.
+    """
+    findings, attention = [], []
+    out, ran = run(["uv", "run", "python", "scripts/audit_residual.py", "--check", "stale_derived"])
+    if not ran:
+        return ["derived: COULD NOT CHECK"], [
+            "the staleness check did not complete, so a collector may be working a stale list"
+        ]
+    stale = {}
+    for line in out.splitlines():
+        if "[STALE]" not in line:
+            continue
+        parts = line.split()
+        path = parts[1]
+        hours = next((float(p) for p in parts if p.endswith("h")), 0.0) or 0.0
+        stale[path] = hours
+    if not stale:
+        return ["derived: every list postdates the rows it should carry"], []
+
+    for path, hours in sorted(stale.items()):
+        if hours < REBUILD_AFTER_HOURS:
+            findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
+            continue
+        if "queue_gap_vps" in path:
+            findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, VPS list left alone")
+            attention.append(
+                "the VPS gap list is stale and has to be shipped over a VPN window, so it "
+                "needs a human: rebuild it, scp it, and restart the supervisor there"
+            )
+            continue
+        if "queue_pool_local" in path:
+            _o, ok = run(
+                [
+                    "uv",
+                    "run",
+                    "python",
+                    "scripts/build_query_queue.py",
+                    "--population",
+                    "pool",
+                    "--out",
+                    path,
+                ]
+            )
+            findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
+            if ok:
+                findings += repoint_pool_engine()
+        elif "pool_targets_org" in path:
+            _o, ok = run(
+                [
+                    "uv",
+                    "run",
+                    "python",
+                    "scripts/build_rdap_pool_list.py",
+                    "--tlds",
+                    "org",
+                    "--limit",
+                    "400000",
+                    "--out",
+                    path,
+                ]
+            )
+            findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
+        else:
+            findings.append(f"derived: {Path(path).name} stale, no rebuild rule")
+    return findings, attention
+
+
+def repoint_pool_engine() -> list[str]:
+    """Restart the local pool collector so it reads the rebuilt list.
+
+    **Guarded against the one failure that matters.** The archive rate-limits per
+    address and has refused this project outright three times, so two supervisors
+    against one address is worse than none. This refuses to start a second one, and it
+    stops the old one with TERM so the batch publishes its journal rather than
+    stranding a `.part`.
+    """
+    out, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
+    if out.strip():
+        run(["pkill", "-TERM", "-f", "supervise_cdx_pool.sh"], timeout=30)
+        time.sleep(15)
+    still, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
+    if still.strip():
+        return ["derived: old collector would not stop, so NOT starting another"]
+    _started, _ok = run(
+        [
+            "bash",
+            "-c",
+            "ARK_TARGETS=data/raw/cdx/queue_pool_local.txt ARK_PREFIX=cdx_disc "
+            "nohup caffeinate -i bash scripts/supervise_cdx_pool.sh 1786536000 600 8 900 "
+            "> /dev/null 2>&1 < /dev/null & echo started",
+        ],
+        timeout=60,
+    )
+    time.sleep(10)
+    alive, _ = run(["pgrep", "-f", "supervise_cdx_pool.sh"], timeout=30)
+    state = "up" if alive.strip() else "DID NOT START"
+    return [f"derived: pool collector re-pointed at the rebuilt list ({state})"]
+
+
 def check_ledger() -> tuple[list[str], list[str]]:
     findings, attention = [], []
     if not LEDGER.exists():
@@ -189,6 +304,7 @@ def cycle(number: int, with_network: bool) -> list[str]:
     for name, fn in (
         ("collectors", check_collectors),
         ("residual", check_residual),
+        ("derived", rebuild_derived),
         ("ledger", check_ledger),
         ("approvals", check_approvals),
         ("state", check_state),

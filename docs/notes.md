@@ -4547,3 +4547,62 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   gating it would stall collection to protect nothing. Full reasoning in ADR-003.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (the idleness was real, and one collector had been dead for four days)
+
+Ivo, watching the harness work: "You seem pretty idle to me. Don't just start doing something, let's
+talk about a technical fix." He was right, and the diagnosis found three separate causes plus one
+failure nobody had noticed.
+
+- **Cause one: the loop could see problems it could not fix.** `discover_cycle` reported a stale derived
+  list and then moved on, so the same finding reappeared every hour and nothing acted on it. It now owns
+  `rebuild_derived()` and regenerates a list the store has outgrown, with `REBUILD_AFTER_HOURS = 1.5` so
+  it does not thrash.
+- **Cause two: the staleness check was comparing against the wrong thing.** It asked whether a target
+  list predated the current **baseline**, which is a question about releases and changes about once a
+  month. What actually invalidates a list is the store moving underneath it, and the two lists are
+  invalidated by different marks: a gap queue goes stale when new **pairs** land, a pool queue when new
+  **candidates** land. `DERIVED` gained an `against` column and `freshness_marks()` returns all three
+  epochs. On the first run the new check reported **three stale lists the old one called fine**:
+  `queue_gap_vps.txt` 4.2 h behind the newest pairs, `queue_pool_local.txt` 1.9 h behind the newest
+  candidates, `pool_targets_org.txt` 1.7 h behind. That is the bug Ivo saw from the outside.
+- **Cause three: the wake schedule was wrong.** The cron fired four times a night. It now fires every
+  15 minutes, on Ivo's instruction, with a `CLAUDE.md` section governing what a cron-started session
+  does.
+
+**The finding that matters more than any of the three.** A bracket-safe process check showed the local
+CDX pool engine had not run since **7 August 13:15**. It was stopped deliberately that day under the
+rule "do not restart the local engine", C-10 re-authorised it four days later, and nothing ever started
+it again, because no check asked. Restarted on the rebuilt pool queue at 15:59 with 4 workers and a 1.0 s
+floor, the VPS being unreachable so nothing else is on `web.archive.org` right now. **A status line that
+reads healthy while a collector is absent is worse than no status line**, so the cron section makes the
+first question "is anything stopped" rather than "is anything failing".
+
+**The cron section, and the one sentence it exists for.** `## If you were started by a cron job` in
+`CLAUDE.md`: continue if mid-task; otherwise `just cycle`, act on what needs judgement, bring the
+documentation into one story, then one piece of real work sized to fit. The definition that carries it is
+**"the collectors are running" is not you being busy**, which is precisely the confusion that let an
+engine stay dead for four days while every report looked fine. "Everything is fine" is recorded as a
+valid outcome, so a wake has no incentive to invent work. `just cycle` is the new one-shot entry point,
+in the justfile and the README table.
+
+**Two of my own claims corrected, both found by checking rather than by argument.**
+
+- I said re-pointing the engine would recover 4,333 stranded UDRP candidates. **False**: of the 6,079
+  UDRP names, 5,953 already carry a year because the ingest dated them, 114 sit in the pool and 12 are
+  unknown to the store. The rebuild was still right, for the staleness reason above, but the reason I
+  gave for it was wrong.
+- `pkill -f 'supervise_cdx_pool.sh'` **killed my own watcher**, because the pattern sits in the watcher's
+  command line, and the `pgrep` that followed matched the same self-reference and reported the supervisor
+  still running when it had stopped. Second occurrence today. Now a trap entry in `CLAUDE.md`: bracket one
+  letter, `pgrep -f 'supervise_cdx_poo[l]'`, which cannot match itself.
+
+**Also fixed, from Ivo's correction on the UDRP block.** "The UDRP decision is not a pending request at
+all, it is a made decision, which would also fix the problem with the measured 0s." Moved out of
+`## Pending requests` into `## Decided, with the request that was reviewed`, carrying the figures as they
+stood **at the decision** (7,714 net-new pairs, 4,708.9 equivalent-English) and stating why the request
+block now reads zero: every pair it names is held, because it was ingested. `request_approval.py` now
+refuses outright to write a request for a source the store already holds evidence for, since such a
+request states zero at stake for a decision that had plenty, which is misleading rather than unhelpful.
+
+**Signed off by Ivo: pending.**

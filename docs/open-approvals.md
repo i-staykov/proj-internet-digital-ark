@@ -210,7 +210,7 @@ Decision: master
 
 ---
 
-## Pending requests
+## Decided, with the request that was reviewed
 
 ### udrp_proceedings / artifact_listing
 
@@ -241,15 +241,21 @@ Decision: master
 | already held by the store | 8,923 |
 | absent from the store | 0.0% |
 
-**The counterfactual, so the stake is visible before you decide:**
+**What was at stake when the decision was taken**, measured 2026-08-11 before the ingest:
 
 | decision | net-new pairs | equivalent-English |
 |---|--:|--:|
-| `master` (self-dating, no split) | **0** | **0.0** |
-| `master` (taking the corroboration split) | 0 | 0.0 |
+| `master` (self-dating, no split) | **7,714** | **4,708.9** |
+| `master` (taking the corroboration split) | 1,471 | 914.1 |
 | `candidate-only` | 0 | 0.0, and the names still grow the pool |
 
-Mean equivalent-English weight of the net-new part: 0.0000. By year: {}.
+Mean equivalent-English weight of the net-new part: 0.6214. Contributed **7,837 pairs and 4,763.1808
+equivalent-English** on ingest, the difference being pairs the store acquired between the measurement and
+the ingest.
+
+The request block above was generated **after** the ingest, so its own counterfactual read zero: nothing
+was net-new any more. That is why `request_approval.py` now refuses to build a request for a class the
+store already holds evidence for.
 
 **Reasons a reader should refuse**, listed by the agent against its own request:
 
@@ -267,3 +273,9 @@ pairs and 4,708.9 equivalent-English** under the `master` reading against 1,471 
 split.
 
 Decision: master
+
+---
+
+## Pending requests
+
+Nothing pending.

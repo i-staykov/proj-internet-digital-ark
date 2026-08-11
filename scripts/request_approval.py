@@ -132,6 +132,26 @@ def main() -> None:
             f"'{existing.decision}' at {APPROVALS}:{existing.line}."
         )
 
+    # A request generated after the ingest is worse than useless: every pair is
+    # already held, so its counterfactual reads zero at stake for a decision that had
+    # plenty. That is misleading rather than merely unhelpful, so refuse it.
+    conn = read_only_store()
+    try:
+        already = conn.execute(
+            "SELECT count(*) FROM evidence e JOIN source s USING (source_id) WHERE s.name = ?",
+            [spec.source_name],
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    if already:
+        raise SystemExit(
+            f"refusing to write a request: the store already holds {already:,} evidence rows "
+            f"for {spec.source_name}, so nothing would be at stake and the counterfactual "
+            f"would read zero.\n"
+            f"A request is written BEFORE the ingest. If this class needs re-deciding, edit "
+            f"its existing entry in {APPROVALS.name} and record why."
+        )
+
     records = records_of(args.journal)
     pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
     weights = english_weights()

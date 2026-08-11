@@ -63,19 +63,31 @@ JUSTFILE = ROOT / "justfile"
 # its evidence was in the store, and the ingest line is commented out to say so.
 INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 
-# Derived artifacts that a new reviewer release invalidates. Each is regenerable,
-# so the finding is "rebuild this", never "you have lost something".
+# Derived artifacts, each with the thing that makes it stale. Every one is
+# regenerable, so a finding is "rebuild this", never "you have lost something".
+#
+# **The `against` column is the fix for a real miss.** This check first compared every
+# artifact to the baseline load and nothing else, and reported the candidate-pool queue
+# as fine while 4,333 freshly seeded UDRP names, 88% of them absent from the store and
+# all of them parties to real legal proceedings, sat in the pool where the running
+# engine could never see them. A queue is stale relative to **the newest row that
+# should be in it**, which for a pool queue is the newest candidate and for a gap queue
+# is the newest assigned pair, because a new pair both creates and closes brackets.
+#
+#   baseline    the reviewer's release: a bigger merged corpus creates new gaps
+#   candidates  the newest domain with no year, which a pool queue should carry
+#   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
     # The operative lists since the two-machine split of 2026-08-11: the VPS works
     # bracketed gaps, the local engine works the candidate pool.
-    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap"),
-    ("data/raw/cdx/queue_pool_local.txt", "build_query_queue.py --population pool"),
-    ("data/raw/rdap/pool_targets_org.txt", "build_rdap_pool_list.py --tlds org"),
+    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap", "pairs"),
+    ("data/raw/cdx/queue_pool_local.txt", "build_query_queue.py --population pool", "candidates"),
+    ("data/raw/rdap/pool_targets_org.txt", "build_rdap_pool_list.py --tlds org", "candidates"),
     # The mixed queue, kept because a shard of it may still be in flight on a
     # machine that has not been re-pointed yet.
-    ("data/raw/cdx/queue_shard0.txt", "just query-queue"),
-    ("data/raw/cdx/queue_shard1.txt", "just query-queue"),
-    ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue"),
+    ("data/raw/cdx/queue_shard0.txt", "just query-queue", "baseline"),
+    ("data/raw/cdx/queue_shard1.txt", "just query-queue", "baseline"),
+    ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue", "baseline"),
 )
 
 # Directories whose contents are inputs to a collector rather than to an ingest,
@@ -285,6 +297,26 @@ def check_usenet() -> int:
     return len(unread) + len(wrong_size) + len(partial)
 
 
+def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
+    """Unix time of the newest row of each kind that can make a derived list stale.
+
+    Read as epoch seconds inside SQL, since DuckDB needs `pytz` to hand a TIMESTAMPTZ
+    to Python and it is not a dependency here.
+    """
+    marks: dict[str, float | None] = {}
+    marks["baseline"] = baseline_loaded_at(conn)
+    row = conn.execute(
+        """
+        SELECT max(epoch(d.first_seen_at)) FROM domain d
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = d.domain)
+        """
+    ).fetchone()
+    marks["candidates"] = float(row[0]) if row and row[0] is not None else None
+    row = conn.execute("SELECT max(epoch(verified_at)) FROM domain_year").fetchone()
+    marks["pairs"] = float(row[0]) if row and row[0] is not None else None
+    return marks
+
+
 def baseline_loaded_at(conn: duckdb.DuckDBPyConnection) -> float | None:
     """Unix time at which the newest `prior_reused` evidence landed.
 
@@ -302,28 +334,42 @@ def baseline_loaded_at(conn: duckdb.DuckDBPyConnection) -> float | None:
 
 
 def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
-    """Derived artifacts older than the release they should reflect."""
-    print("\n== stale_derived: built before the current baseline landed ==")
-    loaded = baseline_loaded_at(conn)
-    if loaded is None:
+    """Derived artifacts older than the newest row that ought to be in them."""
+    print("\n== stale_derived: built before the rows they should carry ==")
+    marks = freshness_marks(conn)
+    if marks["baseline"] is None:
         print("  skipped: no baseline evidence in the store, so nothing to be stale against")
         return 0
-    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(loaded))
-    print(f"  newest {CURRENT_BASELINE_MARKER} evidence landed {stamp}")
+    for kind in ("baseline", "candidates", "pairs"):
+        when = marks[kind]
+        shown = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(when)) if when else "none"
+        label = {
+            "baseline": f"newest {CURRENT_BASELINE_MARKER} evidence",
+            "candidates": "newest candidate with no year",
+            "pairs": "newest assigned pair",
+        }[kind]
+        print(f"  {label:34} {shown}")
     stale = 0
-    for rel, rebuild in DERIVED:
+    for rel, rebuild, against in DERIVED:
         path = ROOT / rel
         if not path.exists():
             continue
+        newest = marks.get(against)
+        if newest is None:
+            continue
         mtime = path.stat().st_mtime
         when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(mtime))
-        if mtime < loaded:
+        if mtime < newest:
             stale += 1
-            print(f"  [STALE] {rel}  {when}  rebuild: {rebuild}")
+            behind = (newest - mtime) / 3600
+            print(
+                f"  [STALE] {rel}  {when}  {behind:.1f}h behind the newest "
+                f"{against}  rebuild: {rebuild}"
+            )
         else:
-            print(f"  [ok]    {rel}  {when}")
+            print(f"  [ok]    {rel}  {when}  (vs {against})")
     if not stale:
-        print("  nothing: every derived artifact postdates the baseline load")
+        print("  nothing: every derived artifact postdates the rows it should carry")
     return stale
 
 
