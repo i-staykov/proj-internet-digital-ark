@@ -5594,3 +5594,36 @@ populations and three batches; the fallback is exonerated; depletion is refuted;
 because the ratio is consistent, **the ordering remains trustworthy even though the absolutes are not.**
 That is enough to keep building the queue exactly as it is and to read any expectation quoted from it about
 20% high, which is what the previous entry already concluded and what this entry does not change.
+
+## 2026-08-12 (four explanations tested, none sufficient, and stopping the hunt deliberately)
+
+Two more candidates measured and neither holds.
+
+**Recency of the names, refuted.** If the `.uk` batch drew newly seeded candidates while the cell's 7,201
+historical answers were older names, that would distinguish them. It does not: the batch's median
+`first_seen_at` is 2026-08-07 04:12 against 2026-08-06 08:31 for the whole 60,652-domain
+`usenet_mention .uk` population, and inside the batch the hits and the misses are the same age to within
+forty minutes (04:12 against 04:56). Age separates nothing.
+
+**Archive conditions, not supported.** The supervisor logs throttles per batch, so this is checkable
+against 39 batches with 100+ answers. The correlation between throttles-per-query and hit rate is **-0.34**,
+which is weak, and it is confounded by the two `.mil` batches whose 0.0% has a known population cause.
+Against it directly: on 7 August batches throttled 0.62 to 1.03 times per query and returned 40.8% to 50.5%,
+while on 11 August they throttled **less** per query, 0.56 to 0.72, and returned 0%, 0%, 32.2% and 21.4%.
+Less throttling, worse yield. The direction is wrong for the story.
+
+**So four explanations have now been tested and refuted: the fallback, depletion, recency, and archive
+throttling.** The ranking runs about 20% optimistic, consistently, across two populations and four batches,
+and I cannot say why.
+
+**Stopping here on purpose.** The practical conclusion has not moved since the first measurement and does
+not depend on the mechanism: the ratio is consistent, so **the ordering is trustworthy while the absolutes
+are not**, the queue should keep being built exactly as it is, and any expectation quoted from it reads
+about 20% high. Four cron wakes of hypothesis-and-test have added confidence in that conclusion and no
+mechanism, which is the point at which continuing becomes the thing ADR-001 warns about: guessing at a
+system that is working, in small increments, because the guessing is available. If the mechanism matters
+later it deserves a deliberate piece of work with a design, not another twenty minutes between collector
+batches.
+
+What is worth carrying forward is the negative result itself. A future session that notices this gap will
+otherwise spend its own evening on the same four ideas, and all four are now closed with numbers.
