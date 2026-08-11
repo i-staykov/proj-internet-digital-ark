@@ -5489,3 +5489,34 @@ records and 50,238.9 equivalent-English, which is what the `.org` paragraph clai
 The one sentence I still cannot verify is unchanged and still flagged in the notes block: "both machines are
 collecting continuously" is true of this machine and inferred for the VPS, which has been unreachable all
 evening.
+
+## 2026-08-11 (two .com batches say the ranking runs optimistic, and the .uk batch will say where the bias lives)
+
+**The `.com` head, both batches, against a prediction registered before either landed:**
+
+    predicted   28.4%
+    measured    24.2%  (599 answered)
+    measured    21.4%  (599 answered)
+
+Consistently below, and tightly so. That is a firmer result than the single batch I refused to draw a
+conclusion from earlier: the ranking is not noisy around the truth here, it is **biased optimistic by
+roughly 20% relative**. Worth contrasting with the `.za`/`.nz` head, whose two batches were 8.2% and 32.2%:
+the `.com` pair differs by 2.8 points where that pair differed by 24, so the variance is a property of the
+population rather than of the measurement.
+
+**Where the bias comes from is now testable, because the next batch is a natural control.** The queue was
+re-ranked at 22:22 and the batch dispatched at 23:22 is the first to read it. Its 600 targets are 100%
+`.uk` from `usenet_mention`, and **600 of 600 have an exactly measured `(source, TLD)` cell: nothing falls
+back at all.** The `.com` batch had 68 of 600 falling back to `.com`'s TLD rate of 0.874, which is the most
+likely source of its optimism, since `enron_email_mention` has never been queried and was inheriting a rate
+measured over `candidate_hosts` and `ukwa_link_target`.
+
+**So the prediction is 53.3%, and it discriminates.** If it lands near 53.3%, the exact cells are well
+calibrated and the bias lives in the fallback, which is the part C-18 changed and the part I already
+flagged as having only moved axis. If it lands 20% low like the `.com` pair, the bias is in the cells
+themselves and the fallback is exonerated. Either answer is worth having and neither is available from a
+batch that mixes the two, which this one does not.
+
+For scale: 53.3% is close to the pool's own 47.6% history and more than double the `.com` head's ~22.8%
+mean, so if the ranking is right the re-rank roughly doubles the engine's yield. The windowed rate has
+meanwhile climbed to 25.9% of 1,797 and the collapse alarm stays clear.
