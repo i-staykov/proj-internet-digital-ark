@@ -20,6 +20,10 @@ from ark.ingest import YEARS
 from ark.journal import open_journal
 from ark.rdap import RDAP_REDIRECTOR, attested_years
 
+# The evidence URL every UDRP row falls back to: the consolidated list itself, so a
+# reviewer can find any proceeding by its number.
+UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
+
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
 
@@ -140,6 +144,64 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 # design, so a reviewer can name the exact post behind a year
                 evidence_value=f"{group} {record.get('message_id', '')}".strip(),
                 evidence_url=url,
+            )
+
+
+# The consolidated ICANN list of UDRP proceedings. Every row is one dispute over a
+# registered domain, carrying an explicit commencement date and the disputed name in
+# its own column, across all five providers that heard cases in the window.
+#
+# **Why this is `artifact_listing` and takes no corroboration split**, which is the
+# only decision that matters about it and is recorded as ADR-002:
+#
+# - A proceeding exists only because the domain was registered and in dispute, so the
+#   record attests existence in that year **without depending on a crawler having
+#   visited the site**. That is the same claim `attrition_defacement` makes from a
+#   defacement date and `isc_survey` makes from a survey edition.
+# - The domain sits in a **structured column** of a published docket rather than in
+#   prose, which is the property that makes Tucows' `creator` field trustworthy where
+#   a hostname typed into a Usenet post is not. There is no transcription risk for the
+#   split to guard against.
+# - The author is an arbitration provider naming a registrar, not an anonymous poster.
+#
+# The year is the **commencement** date, deliberately, not the decision date: a case
+# commenced in late 2000 may be decided in 2001, and the domain certainly existed when
+# the complaint was filed, so the earlier date is the safer claim.
+def parse_udrp_proceedings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """A `collect_udrp_proceedings.py` journal: one JSON object per (domain, year)."""
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            domain, year = record.get("domain"), record.get("year")
+            if not domain or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            proceeding = record.get("proceeding", "").strip()
+            commenced = record.get("commenced", "").strip()
+            if not proceeding or not commenced.startswith(str(year)):
+                # The value must name the year it is filed under, which the integrity
+                # gate checks, and the proceeding number is what makes a row auditable.
+                stats["missing_identifier"] += 1
+                continue
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                # The commencement date leads, so the FIRST four-digit run in the
+                # value is the year the row is filed under, which is what
+                # `evidence_year_matches_its_value` reads. Putting the proceeding
+                # number first fails that check twice over: a NAF number like
+                # `FA0092016` offers `0092`, and a `D2000-` case commenced in
+                # January 2001 offers 2000 against an assigned 2001.
+                evidence_value=f"commenced {commenced} UDRP {proceeding}",
+                evidence_url=record.get("url") or UDRP_LIST_URL,
             )
 
 
@@ -818,6 +880,15 @@ SOURCES: dict[str, SourceSpec] = {
     # than typed from memory, which is the property the split exists to supply for
     # a hostname written into a Usenet post. Same class of claim as `isc_survey`
     # and `uucp_map_registry`: a dated artifact enumerating hosts that were live.
+    # Domain-dispute proceedings: a dated docket naming a registered domain in its
+    # own column. Master, self-dating, no corroboration split. See ADR-002.
+    "udrp_proceedings": SourceSpec(
+        key="udrp_proceedings",
+        source_name="udrp_proceedings",
+        evidence_type="artifact_listing",
+        acquisition_method="icann_udrp_proceedings_list",
+        parse=parse_udrp_proceedings,
+    ),
     "attrition_dated": SourceSpec(
         key="attrition_dated",
         source_name="attrition_defacement",

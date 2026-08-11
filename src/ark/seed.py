@@ -13,6 +13,7 @@ classification below distinguishes three states rather than one.
 """
 
 import sqlite3
+import time
 from pathlib import Path
 
 import duckdb
@@ -58,6 +59,21 @@ def seed_from_file(
         "new_candidates": 0,
     }
 
+    # Phase timings, because this has been misdiagnosed twice. It was blamed on the
+    # row-at-a-time insert, which was real and was batched, and then on the
+    # classification query, which measures 0.33 s for 3,000 names against an idle
+    # store. A seed of 6,079 names has nonetheless held the write lock for 26
+    # minutes while the ingest loop was running. The cause is still unidentified, so
+    # the next occurrence should produce a measurement rather than a third guess.
+    marks: dict[str, float] = {}
+    clock = time.monotonic()
+
+    def mark(phase: str) -> None:
+        nonlocal clock
+        now = time.monotonic()
+        marks[phase] = now - clock
+        clock = now
+
     seen: set[str] = set()
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -73,6 +89,7 @@ def seed_from_file(
                 continue
             seen.add(domain)
 
+    mark("read_and_canonicalize")
     if not seen:
         logger.info(f"{path.name}: {stats}")
         record_metrics(conn, "seed", path.stem, stats)
@@ -85,6 +102,7 @@ def seed_from_file(
         ).fetchall()
     }
 
+    mark("classify")
     unproven: set[str] = set()
     fresh: list[str] = []
     for domain in sorted(seen):
@@ -107,7 +125,12 @@ def seed_from_file(
     # PANDORA names held the store's only write lock for more than twenty minutes,
     # which blocks every reader as well as every other writer.
     add_candidates(conn, fresh, source_id)
+    mark("insert_candidates")
     stats["enqueued"] = enqueue(queue_conn, CDX_TASK, sorted(unproven))
+    mark("enqueue")
     logger.info(f"{path.name}: {stats}")
+    logger.info(
+        f"{path.name} phase seconds: " + ", ".join(f"{k}={v:.1f}" for k, v in marks.items())
+    )
     record_metrics(conn, "seed", path.stem, stats)
     return stats

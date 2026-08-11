@@ -4441,3 +4441,37 @@ names, projecting to about 30,000 EE on tonight's flat 8.1% rate.
   holds two to three times this. That is a **[PROJECTION]** and the only measured part is WIPO.
 
 **Signed off by Ivo: pending.**
+
+## 2026-08-11 (UDRP ingested as master artifact_listing, and the integrity gate caught a real defect)
+
+- **Ingested on Ivo's decision, recorded as ADR-002.** ICANN's consolidated list of domain-dispute
+  proceedings across all five providers that heard cases in the window: **7,837 net-new pairs worth
+  4,763.1808 equivalent-English at mean weight 0.6078**, from 8,923 evidence rows over 8,892 domains.
+  Round moved 133,991 to **141,828 pairs**, 71,823.8124 to **76,586.9932 EE**, 1.1483% to **1.230039%**.
+  Verified with his own calculator: zero rejected, zero already in his merged files, agreement to 0.0000.
+- **The nine invariants failed on the first ingest, which is the wall doing exactly what it is for.**
+  `evidence_year_matches_its_value` reads the **first** four-digit run in an evidence value and compares
+  it to the year the row is filed under. The value was written `UDRP <number> commenced <date>`, and that
+  fails twice over: a NAF number like `FA0092016` offers `0092`, and a `D2000-` series case that actually
+  commenced in January 2001 offers 2000 against an assigned 2001. Eleven rows, and the gate refused the
+  whole ingest rather than letting eleven bad values through.
+- **Fixed by leading with the date**, `commenced <date> UDRP <number>`, so the first four-digit run is
+  the assigned year by construction. Both halves were fixed rather than one: the parser, so a journal
+  replay produces the right form, and the 8,923 stored values, reformatted in place, so the store and the
+  replay cannot disagree. Reformatting rather than deleting and re-ingesting because it changes no facts
+  and touches no assignment, where a delete would have had to reason about pairs whose only master
+  evidence was this source. A test now pins the ordering with the exact `D2000-1762 commenced 2001-05-15`
+  case that broke it.
+- **Worth naming as a general point about the taxonomy.** This is the second time a self-dating source
+  has needed its extraction or its value format tightened before it could be trusted, after the
+  Microsoft Bookshelf ISO. Master evidence has no wall behind it, and the invariants are that wall's
+  replacement: they caught this in seconds where a reviewer reading 8,923 rows would not have.
+- **Per-source standing after the ingest:** `rdap_snapshot` 79,057 pairs and 47,479.4688 EE,
+  `isc_survey` 42,299 and 14,956.3877, **`udrp_proceedings` 7,837 and 4,763.1808**, `ia_cdx_bulk` 6,819
+  and 6,596.5149, `attrition_defacement` 5,816 and 2,791.4410. Per-year growth is now above 0.81% in
+  every year, with 2000 at 1.8948% and 1997 at 1.8177%.
+- **Lineage `dispute_docket`**, its own family, so a pair UDRP confirms alongside an RDAP creation date
+  is genuine cross-lineage corroboration. A test already enforced that every source declares a lineage,
+  and it failed until this one was assigned, which is the second guard that earned its place today.
+
+**Signed off by Ivo: pending.**

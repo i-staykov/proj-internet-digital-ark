@@ -36,6 +36,7 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 |---|---|---|
 | `docs/ROUND.md` | **generated** current state: scoreboard, engines, residual, clock | read first, never edit |
 | `docs/key-decisions.md` | short list of open and closed decisions, for Ivo to overrule | append as you decide |
+| `docs/ADRs.md` | the few decisions with **structural** impact: taxonomy, store shape, machine allocation, shared write paths |
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |
 | `docs/discovery.md` | how to price a source before building a collector | the acceptance bar |
@@ -62,13 +63,20 @@ the store of that day and is not a statement about now.
 
 ## Standing operational rules
 
-- **The local CDX engine stays off.** Ivo's call, 2026-08-11: discovery work matters more than another
-  crawl client here.
-- **The VPS is the unattended safety baseline.** It gap-fills continuously; its queue is refreshed
-  **periodically, whenever the VPN is up**, so it never works a shard that predates the current
-  baseline. Order by **expected equivalent-English per query**, which is the TLD share times a
-  *measured* hit rate. Never order by English share alone: that put `.au` first in the whole queue for
-  zero in-window dates.
+- **Two populations, two machines** (Ivo's design, 2026-08-11). The **VPS** works pure bracketed gaps,
+  a missing year Y with Y-1 and Y+1 already held, as an unattended **completeness** baseline: its hit
+  rate is 96-97.5% and flat across TLDs, so ranking it by English share is correct there. The **local**
+  engine works the **candidate pool** beside the discovery loop that feeds it, which is the
+  **discovery** half the reviewer asked to be prioritised; its hit rate runs 36.9% to 90.6% depending on
+  where a name came from, so there the share must be multiplied by a *measured* rate or `.au` sorts to
+  the top for zero in-window dates. Build them with
+  `build_query_queue.py --population gap|pool --out PATH`.
+- **Gap targets change slowly**, so the VPS needs a rare refresh rather than a periodic one, and only
+  ever a shard built after the current baseline landed.
+- **When jobs contend for the write lock, priority follows expected net-new equivalent-English**
+  (ADR-001): banking a finished journal wins, pricing and measurement beat seeding, and a seed blocking
+  something valuable is interrupted rather than waited out. That is safe: inserts autocommit and a
+  re-run is additive.
 - **`10.1.0.6` is private.** Ask Ivo to bring the VPN up; do not debug SSH. Use a window immediately
   and completely: fetch first, ask questions afterwards. `just engines` reports **UNKNOWN** rather
   than "everything is home" when it cannot reach the machine, and that distinction is the fix for

@@ -25,6 +25,7 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [CLAUDE.md](CLAUDE.md) | the standing brief an agent is loaded with: the evidence rules, the house rules, the traps. **Only what never changes** |
 | [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
 | [docs/key-decisions.md](docs/key-decisions.md) | the short list of open and closed decisions, for review at a glance |
+| [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
 

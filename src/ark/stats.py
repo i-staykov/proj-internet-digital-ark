@@ -99,6 +99,13 @@ PROVENANCE_LINEAGE = {
     "uucp_map_registry": "registry",
     "uucp_map_creation": "registry",
     "uucp_map_mention": "registry",
+    # A domain-dispute docket is its own body of observation too: the arbitration
+    # provider knows the name was registered because a complaint was filed against
+    # it and the registrar confirmed the registration. That is neither a crawl, nor
+    # Usenet, nor the registry's own published data, so a pair UDRP confirms
+    # alongside an RDAP creation date is genuine cross-lineage corroboration rather
+    # than one organisation agreeing with itself.
+    "udrp_proceedings": "dispute_docket",
     # rtfm FAQs travelled over Usenet and are the same body of observation, so
     # they share its lineage: a FAQ and an announcement post confirming the same
     # pair is one source of evidence, not two.
