@@ -69,5 +69,23 @@ def test_the_live_queue_is_in_order():
     doc = Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md"
     _head, body, _tail = rank_triage.split_section(doc.read_text())
     _preamble, entries = rank_triage.parse_entries(body)
-    scores = [score for score, _title, _block in entries]
-    assert scores == sorted(scores, reverse=True), f"triage queue is out of order: {scores}"
+    keys = [(row[3], -row[0]) for row in entries]
+    assert keys == sorted(keys), f"triage queue is out of order: {keys}"
+
+
+def test_a_decided_entry_sinks_below_everything_still_open(tmp_path):
+    """The instruction is to sort the OPEN sources, so a decided one must not hold rank 3.
+
+    educause_edu_whois_activation scored 78 and was rejected on the server's own terms. Sorting
+    on score alone put it third in a queue whose entire purpose is to show what still needs a
+    decision.
+    """
+    import sys
+
+    doc = tmp_path / "a.md"
+    decided = "### done / whois_creation\n\n- potential: 99 (top)\n\nDecision: rejected\n\n"
+    doc.write_text(HEADER + decided + _entry("open_low", 5) + AFTER)
+    sys.argv = ["rank_triage", "--path", str(doc)]
+    assert rank_triage.main() == 0
+    order = [line for line in doc.read_text().splitlines() if line.startswith("### ")]
+    assert order[:2] == ["### open_low / whois_creation", "### done / whois_creation"]

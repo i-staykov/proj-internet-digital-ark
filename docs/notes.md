@@ -6048,3 +6048,40 @@ strict and machine-read, and every entry must carry its own `- potential:` score
 five lenses are deliberately disjoint from pass 1: abuse and security listings, education and membership
 registries, commerce and ISP directories, the highest English-weight national sources, and non-web protocol
 registries.
+
+## 2026-08-13: hunt pass 2, and two defects in the harness that produced it
+
+Eleven more survivors from five lenses disjoint from pass 1. The queue now holds **19 entries, 18 open**,
+sorted by declared potential.
+
+**The heading fix worked**: 8 of 8 entries parsed strictly first time, against 9 of 11 last pass. Stating the
+grammar in the prompt was enough.
+
+**Defect 1: the synthesiser silently dropped three survivors.** The script counted 11 and the markdown
+carried 8. Two of the apparent losses were only slug renames; the rest are real. Seen in the transcripts and
+never written: `bugtraq_security_list_archive`, `fidonet_nodelist_weekly_archive`,
+`freebsd_ports_master_sites`, `irr_changed_attribute_non_ripe`, `ncua_5300_call_report_webaddr`,
+`scout_report_dated_back_issues`, `untroubled_spam_archive`. Two of those look genuinely good and should be
+re-proposed deliberately: **weekly FidoNet nodelists** and **a dated spam corpus**, both being exhaustive
+machine-generated listings of ordinary hosts, which is the shape that has worked here. The fix for pass 3 is
+to make the synthesiser account for every survivor by name, and to diff its output against the input count
+rather than trusting it.
+
+**Defect 2: the ranker sorted a rejected entry to rank 3.** `educause_edu_whois_activation` scored 78 and
+had already been refused, and it sat above eight open sources in a queue whose whole purpose is showing what
+still needs a decision. Anything decided now sinks below everything open, whatever it scored, with a test.
+
+**One source was refused by me rather than queued, on terms rather than yield.** The EDUCAUSE .edu WHOIS
+banner reads *"The use of electronic processes to harvest information from this server is generally
+prohibited except as reasonably necessary to register or modify .edu domain names"*, and a 6,438-name sweep
+is unambiguously that shape. That is the standing good-citizen rule applying, not a judgement about evidence
+quality, so it did not need Ivo. It is recorded in the queue with the quote and marked overrulable. Its
+measured yield was 1 net-new pair per 20 queries in any case, and the sceptic found the reason: a .edu site
+registered in year Y was crawled in year Y, so the baseline already holds the activation year, while the
+registry has deleted precisely the defunct institutions where a capture was the only surviving record.
+
+**Top of the queue now**: `uk_historic_hansard` 84 and `oireachtas_debates_xml` 77, both parliamentary
+transcripts with a per-item date in the URL, the title and the printed citation, on the highest English
+weight namespaces; `eric_fulltext_1996_2001` 83 on a measured 52,354 in-window documents each carrying its
+own publication year. The Hansard entry carries its own warning, that hostname density measured **zero in a
+199-word sample**, so density must be priced before anyone writes a crawler.

@@ -28,6 +28,7 @@ TRIAGE_HEADING = "## Found, awaiting triage"
 _NEXT_SECTION = re.compile(r"^## ", re.M)
 _ENTRY = re.compile(r"^### (?P<slug>\S+) / (?P<etype>\S+)\s*$", re.M)
 _POTENTIAL = re.compile(r"^- potential:\s*(?P<score>\d{1,3})\b", re.M)
+_DECIDED = re.compile(r"^Decision:\s*(?!pending\b)[a-z-]+\s*$", re.M | re.I)
 
 
 class Unscored(RuntimeError):
@@ -43,8 +44,8 @@ def split_section(text: str) -> tuple[str, str, str]:
     return text[:body_start], text[body_start:end], text[end:]
 
 
-def parse_entries(body: str) -> tuple[str, list[tuple[int, str, str]]]:
-    """(preamble, [(score, title, block)]). Blocks keep their own trailing blank line.
+def parse_entries(body: str) -> tuple[str, list[tuple[int, str, str, bool]]]:
+    """(preamble, [(score, title, block, decided)]). Blocks keep their trailing blank line.
 
     The preamble is everything before the first `###`, which is the section's explanatory
     header and must stay at the top rather than being sorted with the entries.
@@ -53,7 +54,7 @@ def parse_entries(body: str) -> tuple[str, list[tuple[int, str, str]]]:
     if not marks:
         return body, []
     preamble = body[: marks[0].start()]
-    entries: list[tuple[int, str, str]] = []
+    entries: list[tuple[int, str, str, bool]] = []
     for index, mark in enumerate(marks):
         stop = marks[index + 1].start() if index + 1 < len(marks) else len(body)
         block = body[mark.start() : stop]
@@ -67,7 +68,7 @@ def parse_entries(body: str) -> tuple[str, list[tuple[int, str, str]]]:
                 f"Every triage entry must declare its own score, because an unscored entry "
                 f"sorts to the bottom and is then the one nobody ever looks at."
             )
-        entries.append((int(found.group("score")), title, block))
+        entries.append((int(found.group("score")), title, block, bool(_DECIDED.search(block))))
     return preamble, entries
 
 
@@ -94,13 +95,16 @@ def main() -> int:
         print("triage queue is empty, nothing to sort")
         return 0
 
-    # Descending by score, then by title so equal scores have a stable order rather than
-    # shuffling on every run and producing a diff that says nothing.
-    ordered = sorted(entries, key=lambda row: (-row[0], row[1]))
+    # Anything already decided sinks below everything still open, whatever it scored. The
+    # instruction is to sort the OPEN sources so the most promising is signed off first, and a
+    # high-scoring entry that has already been rejected sitting at rank 3 wastes the only
+    # attention this file gets. Then descending by score, then by title so equal scores hold a
+    # stable order rather than shuffling and producing a diff that says nothing.
+    ordered = sorted(entries, key=lambda row: (row[3], -row[0], row[1]))
     was_sorted = [e[1] for e in entries] == [e[1] for e in ordered]
 
-    for rank, (score, title, _block) in enumerate(ordered, start=1):
-        print(f"{rank:>3}. {score:>3}  {title}")
+    for rank, (score, title, _block, decided) in enumerate(ordered, start=1):
+        print(f"{rank:>3}. {score:>3}  {title}{'   (decided)' if decided else ''}")
 
     if args.check:
         if was_sorted:
@@ -113,7 +117,7 @@ def main() -> int:
         print(f"\n{len(ordered)} entries, already in order")
         return 0
 
-    rebuilt = head + preamble + "".join(block for _s, _t, block in ordered) + tail
+    rebuilt = head + preamble + "".join(row[2] for row in ordered) + tail
     args.path.write_text(rebuilt, encoding="utf-8")
     print(f"\nrewrote {args.path}: {len(ordered)} entries, highest potential first")
     return 0

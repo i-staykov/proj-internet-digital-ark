@@ -427,6 +427,38 @@ a screen.
 
 **Pass 1, 2026-08-12.** Five independent lenses proposed sources, a sceptic per lens collided each against the closed register and probed whether the data is retrievable in 2026, and 11 of 21 survived. **The figures inside these entries are the hunt's own, not measurements I have reproduced**, except where an entry says otherwise; that is what pricing is for, and the `next step` line names it. One claim was checked here and holds exactly: 60,468 undated `.uk` names in the pool.
 
+### uk_historic_hansard / dated_directory
+
+- potential: 84 (+40 per-item date proved four ways on the leaf page, +10 usable volume, ESTIMATE 1,000-3,000 distinct domains against a MEASURED ceiling of 3,811 .gov.uk and 4,292 .ac.uk pairs, +19 .uk at 0.9813, the highest-weight namespace held in volume, +15 real prose retrieved. Not scored down for prominence: the corpus is exhaustive. The unscored risks are the two that decide it, density MEASURED at zero hostnames in 199 words and a crawl of 300,000 to 700,000 leaf pages on one host)
+
+- class note: typed inside a dated artifact, so it takes the corroboration split. Not `link_source` and never `link_target`: what is extracted is an address printed in transcript prose.
+
+- what it is: the digitised Official Report of both Houses, 1996-2001, static HTML on a live non-IA host, one page per contribution rather than per sitting day.
+- where: https://api.parliament.uk/historic-hansard/written-answers/1999/mar/10/tourism-strategy
+- what dates one item: the date is in the URL path, the HTML title ("Tourism Strategy (Hansard, 10 March 1999)"), the breadcrumb and the printed citation "HC Deb 10 March 1999 vol 327 cc212-3W". No volume-level dating, no inference.
+- why it may be net-new: real headroom is .co.uk and .org.uk businesses named in debate, the half a prominence-biased crawl baseline is weakest on.
+- reachability, checked 2026-08-12: 2 requests. The day index for 1999-03-10 returned 301 and was not chased; the leaf item returned 200, text/html, 8,133 bytes, 0 redirects, full prose (199 visible words). Third-party hostnames in the answer text: ZERO. Chrome only (parliament.uk, two speaker permalinks, az416426.vo.msecnd.net).
+- screener: dating is the strongest in the batch. The proposal's cost is wrong by three orders of magnitude, it is one page per contribution, not roughly 1,200 sitting-day documents, so ESTIMATE 300,000 to 700,000 files. Density is UNMEASURED and one 199-word page proves nothing either way; the .gov.uk and .ac.uk half is capped by measurement at 8,103 pairs even in the impossible case where every held name is mentioned in all six years.
+- next step: price it, density first on a sample of a few hundred leaf pages, before anyone writes a crawler. Oireachtas answers the same family question more cheaply, so run that first.
+
+Decision: pending
+
+### eric_fulltext_1996_2001 / dated_directory
+
+- potential: 83 (+40 publicationdateyear verified per record on two live IDs, +12 usable volume, ESTIMATE 1,300 to 4,700 net-new pairs by density transfer from the two rejected dated corpora, +16 .edu 0.9717 with .org, .gov and .com behind it, +15 a real 3.3 MB PDF retrieved, not a landing page. Administrative prose whose purpose is to print school URLs, so no prominence penalty)
+
+- class note: typed inside a dated record, so it takes the corroboration split. This is the one entry in the batch where OCR garbage cannot become a master year claim: a mangled name simply fails to corroborate and lands in the pool.
+
+- what it is: ERIC restricted to 1996-2001 with ERIC-hosted full text, in-window documents being state and district technology plans, campus computing and library reports and district case studies. Open JSON API, no key, plus bulk XML.
+- where: https://api.ies.ed.gov/eric/ (full text at https://files.eric.ed.gov/fulltext/ED######.pdf, bulk XML at https://eric.ed.gov/?download=)
+- what dates one item: one publicationdateyear stamped on each document, verified live ({"id":"ED661491",...,2001} and {"id":"ED445105","title":"Mini-Digest of Education Statistics, 1999.",...,2000}). The date is per item; the hostname lives inside the PDF, so the join is an extraction step, not a lookup.
+- why it may be net-new: school, district and campus hosts are the obscure administrative tail a crawl baseline covers thinly, and 52,354 documents is 70x to 84x the size of the two dated corpora whose density it borrows.
+- reachability, checked 2026-08-12: 2 requests, the full budget, no archive.org. The API search for publicationdateyear:[1996 TO 2001] AND e_fulltextauth:1 returned 200 with numFound 52,354, reproducing the proposal's population independently. ED445105.pdf returned 200, a genuine 3.3 MB PDF.
+- screener: population MEASURED, not claimed. The kill risk is n=1 and labelled as such: ED445105 is a JBIG2 scanned-image PDF with NO text layer (Photoshop CS5 metadata, 2010 scan pipeline), and 1996-2001 ED documents are largely digitised microfiche. On its own density transfer it straddles and mostly misses the roughly 5,000-pair bar. Cheaper route the proposal missed: bulk XML abstracts are born-digital clean text, 52,354 dated records with zero PDF fetches and zero OCR, at lower host density. Caveat for pricing: k12.xx.us school hosts are third-and-deeper labels and the store dates two-label registrable domains only.
+- next step: price it, on the bulk XML abstracts first and a sampled text-layer rate over the PDFs, since the OCR question decides whether the PDF route exists at all.
+
+Decision: pending
+
 ### ucsf_industry_documents / dated_directory
 
 - potential: 78 (per-item documentdate on 28.3M litigation documents, endpoint open and real JSON retrieved, internal corporate correspondence is the least prominence-selected population available; capped because the in-window count is unverified and the date filter was shown not to filter)
@@ -440,6 +472,38 @@ a screen.
 - reachability, checked 2026-08-12: 200 twice on the Solr endpoint, 1,262,993 and 1,294,239 bytes of real JSON, no auth. facet.range over documentdate returned an EMPTY facet_counts object, so per-year counts cannot be had that way. A range query 1996-01-01 to 2001-12-31 returned numFound 3,843,392 but its top three hits read "1995 March 20", "1995 April 20", "1999 May 07", so the handler is not filtering on the date (lenient parsing matching year tokens in text) and 3,843,392 is NOT an in-window count. The OCR host was not probed: budget spent on metadata, so the prospector's 200 on gpyh0003.ocr is unverified.
 - screener: dating verified as genuinely per item, endpoint open and live, and the largest upside here. Unverified: in-window volume, whether OCR text exists for in-window ids, and hostname density per document. Pricing must re-verify the OCR host first and find a date filter that actually filters.
 - next step: price it, on a strict-syntax date query plus a sample of in-window OCR fetches for hostname density.
+
+Decision: pending
+
+### oireachtas_debates_xml / dated_directory
+
+- potential: 77 (+40 FRBRdate verified per record, +3 usable volume, ESTIMATE tens to low hundreds of pairs, +19 .ie at 0.9744 into a namespace holding only 8,430 distinct domains, +15 clean full-text XML retrieved. It scores on weight and cheapness, not on yield, and its real job is to price the parliamentary family before anyone touches Hansard)
+
+- class note: typed inside a dated artifact, so it takes the corroboration split and widening extraction is safe.
+
+- what it is: the Irish parliamentary record as Akoma Ntoso XML, Dail, Seanad and committees, listed by a documented open API, one XML file per debate record. ESTIMATE roughly 1,470 in-window files at about 172 KB each, collectable politely in an afternoon.
+- where: https://api.oireachtas.ie/v1/debates?date_start=1996-01-01&date_end=1996-12-31&limit=2
+- what dates one item: FRBRdate date="1996-12-20" name="#generation" plus a second at name="#reported", the date in the URI path, and the same date repeated in the API record. The publication date in the same header reads 2020-06-25 and is the digitisation stamp; it must never be read as the year.
+- why it may be net-new: a genuine .ie tail would be net-new against 8,430 held .ie domains; the split, not the weight, is the constraint.
+- reachability, checked 2026-08-12: 2 requests, both real data. The 1996 debates query returned 200, application/json, 10,538 bytes with live records for 1996-12-20 and 1996-12-19; the 1996-12-20 Seanad main.xml returned 200, application/xml, 172,181 bytes of clean full text, 23,016 visible words, not OCR and not a stub.
+- screener: two proposal claims corrected. The API does return committee records, and written answers are a separate writtens_pdf key whose URIs came back NULL, so the PQ replies called the dense part are NOT in the artifact verified here. Density: hostnames in those 23,016 words, ZERO, which bounds the rate at under 1 per 20,000 words on the only sample anyone has taken. At roughly 30M in-window words that is 50x under the bar and in the territory where W3C technical reports were rejected at 56 pairs.
+- next step: price it, as the cheap density probe that decides Hansard and the whole parliamentary family, not as a source expected to clear the bar alone.
+
+Decision: pending
+
+### junkfilter_dated_blocklist / dated_directory
+
+- potential: 74 (+40 the snapshot directory dates the file, which is the dated_directory shape already approved for internet_scout and ncsa_whats_new, +14 usable volume, ESTIMATE 3,000 to 8,000 distinct entries across 13 snapshots with no split to pay, +12 .com 0.6321 and .net 0.4530 ESTIMATE, +8 half credit, autoindex bytes retrieved but jf-domains itself never opened. Spam-origin hosts are the opposite of prominence-selected, so no penalty, and the whole census is affordable so the ceiling can be measured exactly)
+
+- class note: CONTAINER-dated, not per-record: the hostname sits in a file, the date is the directory name. Self-dating, so no corroboration split, so there is no wall behind the parser and a bad match becomes a master claim directly. A diff of consecutive snapshots is required to turn a listing into a first-seen year.
+
+- what it is: junkfilter, the procmail anti-spam package (Sutter/Hunt, 1997), whose live mirror keeps the whole release tree as ISO-dated directories. jf-domains is the source at 48,745 bytes in the 19980508 release; jf-addresses (311 B) and jf-ip (121 B) are negligible.
+- where: https://junkfilter.zer0.org/pkg/
+- what dates one item: the ISO-dated release directory the file sits in, so an entry present in 19980508/jf-domains evidences 1998 and nothing else; first-seen year comes from diffing consecutive snapshots.
+- why it may be net-new: domains observed originating spam in 1998 are short-lived and obscure, exactly what a crawl-derived baseline lacks, and being self-dating the pairs are not cut back to the already-held set.
+- reachability, checked 2026-08-12: 2 requests, no IA. /pkg/ returned 200, 2,418 bytes of nginx autoindex, listing exactly the 13 in-window dated directories claimed (19980508, 19980831, 19980901, 19981015, 19981016, 19990312, 19990331, 20000304, 20000313, 20001025, 20001130, 20010528, 20010529) plus 20020519 and 20030115 out of window and unenumerated old/, dev/, current/ and a duplicate 980508/. /pkg/19980508/ returned 200, 2,788 bytes, showing jf-domains at 48,745 bytes stamped 08-May-1998 00:22 beside jf-addresses 311, jf-ip 121, jf-bodychk 2,816, junkfilter.readme 6,249 and junkfilter-980508.tar.gz 28,118.
+- screener: container and dates verified exactly as claimed. NOT verified and load-bearing: the file contents. "Plain text list of literal hostnames" is the proposal's claim, not a measured fact; this is procmail input, so entries are plausibly escaped-regexp fragments (foo\.com) and may carry wildcards, which are not names and must be dropped rather than reconstructed. The line-count and pair figures are ESTIMATE from byte size alone.
+- next step: price it, opening jf-domains first to establish what an entry actually looks like, then the 13-file census and diff, which is a complete measurement rather than a projection.
 
 Decision: pending
 
@@ -457,6 +521,22 @@ Decision: pending
 
 Decision: pending
 
+### ipgod_au_marktext / dated_directory
+
+- potential: 71 (+40 registry-issued per-item filing date, +10 usable volume, ESTIMATE 2,000 to 6,000 domain-shaped marks in window before dedupe and before the split, +13 .com.au 0.9904 diluted by an unknown share of plain .com 0.6321, +8 half credit, HEAD on the real CSV with content-length and accept-ranges but not one row read. Trade mark register is administrative and exhaustive, so no prominence penalty)
+
+- class note: screened deliberately as typed so the corroboration split stays as the wall. Reading it as artifact_listing would remove that wall in front of an unmitigated invented-hostname failure mode, and that reading is a human decision, not the agent's.
+
+- what it is: IP Australia's IPGOD bulk CSV on data.gov.au, target population being 1996-2001 applications whose mark text is itself a domain name.
+- where: https://data.gov.au/data/dataset/49017fd0-e7be-4fc0-88c8-046fc366d980/resource/474471f2-8325-491f-af82-feb3ed91acec/download/trade-mark-application-description.csv
+- what dates one item: the application filing date on that one mark record. This is the WEAKEST dating claim of the batch: a mark reading FOO.COM.AU filed in 2000 proves someone applied in 2000, not that the domain resolved.
+- why it may be net-new: speculative domain-name marks peaked in 1999-2000, precisely the window, and .com.au carries the highest weight in the table.
+- reachability, checked 2026-08-12: 2 requests. CKAN package_search?q=ipgod returned 200, application/json, 228,003 bytes, 16 packages with direct resource URLs and sizes. HEAD on the live 2022 description CSV returned HTTP/2 200, text/csv, content-length 249,236,662, last-modified 17 Jun 2022, accept-ranges bytes, via CloudFront, so the in-window slice can be range-pulled without moving 250 MB. Six trade mark tables enumerated with byte sizes (application 285,766,239, classification 213,728,540, description 249,236,662, events 2,337,427,679, links 84,644,274, party activity 820,290,648).
+- screener: two proposal errors. It cites ipgod2021, which the catalogue titles "IPGOD2021 [SUPERSEDED]"; the live release is IPGOD2022. And the catalogue describes trade-mark-application-description.csv only as "Application Description Table for Trade Mark", so the claim that this is the file holding the mark text is UNVERIFIED; the words may sit in trade-mark-application.csv. No field name in this entry is observed, all are inferred from table titles. The safeguard the two pending USPTO entries rely on, restricting to Section 1(a) use-based filings where the applicant swears use in commerce, DOES NOT EXIST in Australian law (knowledge, not checked against the IPGOD schema). The premise is also weaker than proposed: .au is MEASURED as well held, 69,783 distinct .com.au and .net.au domains over 141,956 in-window pairs.
+- next step: price it, one range request to find the mark-text and filing-date columns, then the in-window domain-shaped count, before any 250 MB pull.
+
+Decision: pending
+
 ### courtlistener_caselaw / dated_directory
 
 - potential: 60 (date_filed per opinion, bulk CSV off a non-IA host with no key, litigant hostnames are not prominence-selected; overlaps caselaw_access_project, price only one first)
@@ -470,6 +550,22 @@ Decision: pending
 - reachability, checked 2026-08-12: 200 on both S3 REST listings (application/xml, 62,481 and 25,033 bytes). Real sizes: 72 keys under bulk-data/opinion*, opinions-2026-06-30.csv.bz2 at 54.562 GB, opinion-clusters-2026-06-30.csv.bz2 at 2.457 GB, 36 quarterly generations back to 2022-08, no auth, IsTruncated false.
 - screener: dating holds, retrieval proved. The artifact_listing reading the proposal floats is NOT available: the refusal criteria in the udrp_proceedings approval block say a hostname out of prose rather than a structured field means candidate-only or a split-taking spec, so the 5.5x upside quoted from the udrp fork does not transfer and nobody should price this expecting it. 54.562 GB against a population CAP reaches in static per-reporter files.
 - next step: price it after CAP, or instead of CAP if CAP's per-reporter slicing proves worse than one quarterly pair.
+
+Decision: pending
+
+### ffiec_call_report_webaddr / artifact_listing
+
+- potential: 60 (+40 the quarter-end report date of the filing that carries the URL, sound in principle, but conditional on an unverified premise, +8 usable volume, ESTIMATE well below bar on the only verified route, +12 US filers, .com-dominant, mean weight ESTIMATE 0.62, +0 no data retrieved, both 200s were a landing page and an instructions PDF. Exhaustive regulatory panel, so no prominence penalty)
+
+- class note: this is a snapshot filed on a date, not a current-state field with a historical date beside it, which is what makes it per-item. That holds only for the filing itself.
+
+- what it is: MDRM item TEXT4087, "Primary Internet Web Address of Bank", on the FFIEC/FDIC Call Report cover page, requested of every FDIC-insured commercial bank and savings institution from the June 1999 quarter, so 11 in-window quarter-ends collected it.
+- where: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx
+- what dates one item: the quarter-end report date of the filing, so a web address in the 2000-06-30 file evidences that domain in 2000 alone and one bank across 11 quarters yields at most three year claims. CRITICAL: the FDIC BankFind/SDI route nominated for 1999-2000 serves WEBADDR as a CURRENT-state attribute, and joining that onto a historical report date converts a valid per-item claim into the dated-dataset fallacy.
+- why it may be net-new: small US community bank domains in 1999-2000, a population with little crawl prominence.
+- reachability, checked 2026-08-12: 2 requests plus one to a host not otherwise touched. HEAD on the primary URL returned HTTP/1.1 200, text/html, 27,777 bytes, which is the terms-acceptance landing page and explicitly NOT the data; the product sits behind terms acceptance and a POST. The proposal's central citation verified live: the FDIC June 1999 supplemental instructions returned HTTP/2 301 then 200, application/pdf, 22,030 bytes, so the item's existence and its June 1999 start date are real and not asserted.
+- screener: the field exists; its PUBLICATION is unproved, and that is the whole source. Established by search and corroborated on the Chicago Fed page that CDR public bulk holds historical data starting 2001-03-31, so the verified route cannot serve 1999 or 2000 at all and 11 in-window quarters become 4, all in 2001, the best-covered year. call.report's bulk-files documentation describes the ZIP only as per-institution XBRL plus one delimited all-schedules text file and never mentions TEXT4087. The Chicago Fed historical files (SAS XPORT, 1976-2021) are "financial variables plus selected structure data" and returned 403. MEASURED ceiling: the store already dates 4,007 bank-like domains in 1999, 4,730 in 2000 and 6,907 in 2001, with 17,077 missing in-window slots across 9,751 domains in total.
+- next step: access request, but a narrow one: ask FFIEC or the Chicago Fed whether any public per-quarter product for 1999-06-30 through 2000-12-31 carries TEXT4087. If the answer is no, close it; nothing else about this source matters.
 
 Decision: pending
 
@@ -585,6 +681,20 @@ Decision: pending
 
 Decision: pending
 
+### openpgp_keyserver_dumps / link_target
+
+- potential: 20 (+0 no approved master-eligible type covers a PGP self-signature, so it cannot date a year at all and is pool-only, +15 ESTIMATE 50,000 to 150,000 distinct in-window email domains out of roughly 6 million keys, +5 heavy .de tail at 0.1324 drags the mean well below the 0.6 line, +0 not retrieved, the dumps are password-gated. Every figure here is a projection about a corpus nobody on this project has seen)
+
+- class note: typed as `link_target` because the taxonomy has no home for it. The key creation timestamp is the OWNER's machine clock, self-asserted and trivially backdatable, which is the worst possible fit for a self-dating class that takes no corroboration split. Dating it would need a NEW evidence class plus a human Decision line, so the full path is email, password, 14 GB, new class, request_approval.py, Ivo. Third-party signatures carry independent timestamps and would have to become the dating attribute instead.
+- what it is: bulk key dumps from the SKS / Hockeypuck keyserver network as numbered .pgp packet files, each key carrying a self-signature timestamp and user IDs holding email addresses.
+- where: rsync://rsync.cyberbits.eu/hockeypuck/dump and rsync://rsync.cyberbits.asia/hockeypuck/dump
+- what dates one item: the key's self-signature creation timestamp, in the same packet as the user ID, so hostname and date are in one record. Owner-asserted, not registry-stamped.
+- why it may be net-new: email-only domains that never ran a web server are invisible to a crawl baseline; it is the only proposal in the batch whose raw ceiling is clearly above the roughly 5,000-pair bar.
+- reachability, checked 2026-08-12: NOT retrievable. 1 request, to raw.githubusercontent.com/hockeypuck/hockeypuck/master/contrib/data-sources.md, 200 with the real file, which is upstream's own current source list and therefore the authority. It names exactly two surviving sources and both are gated, verbatim: "Please email hockeypuck@cyberbits.dev to get the rsync password" and "To prevent abuse, these data sources are password-protected." No request was issued to the dump hosts: the proposal had already recorded all six SKS-wiki mirrors dead (keys.niif.hu refused, pgp.uni-mainz.de and keywin.trifence.ch NXDOMAIN, mirror.cyberbits.eu/sks/dump/ 404, rsync module "sks" unknown, pgp.key-server.io obsolete since Jan 2021) and upstream corroborates rather than contradicts that.
+- screener: the SKS wiki page the proposal cites is a historical document listing hosts that no longer exist. The public mirror network is gone and the successor distributes only under an access request whose stated purpose is abuse prevention, which a request for the whole 14 GB corpus is exactly the shape of. Two blockers, either fatal on its own: no access, and no evidence class.
+- next step: pool only, and not before the rsync password. Even granted, its names can only enter the candidate pool, which already holds 1.54M names never asked, so the honest reading is that this is worth an email and nothing more.
+
+Decision: pending
 ### ripe_db_lastmodified / link_target
 
 - potential: 12 (its artifact_listing reading was DISPROVED, so candidate-only only; last-modified is a current field and says nothing about 1996-2001)
@@ -613,3 +723,22 @@ Decision: pending
 - untroubled_spam_trap: honestly dated and measured over a complete year. 1998.7z extracted to 1,097 messages, 1,096 carrying a Received: header all reading 1998; 518 carry a body http:// URL giving 306 distinct names, 214 already held for 1998, 25 corroborated elsewhere and therefore the only net-new master pairs, worth roughly 16 EE (ESTIMATE). Whole span order 200 to 400 pairs (ESTIMATE), 12x to 25x below bar, and unrescuable: the corroborated half is famous free hosting, the interesting throwaway names are attested nowhere else and so can never date a year.
 - fidonet_nodelist: self-dating verified (nodelist.348, 1,214,176 bytes, "A FidoNet Nodelist for Friday, December 14, 2001"), and the densest edition kills it. 13,818 records give 699 hostname tokens collapsing to under 200 registrable names, several of the 209 second-level strings being public suffixes, and what remains is dynamic DNS and infrastructure (fidonet.net 281 third-levels, dyndns.org 62, darktech.org 24). Whole-window union is low thousands of names at best (ESTIMATE) with a bad TLD mix, and it would spend reviewer attention on the smallest win in the batch.
 - hnet_discussion_logs: the only proposal whose data could not be reached. The month index returned HTTP 403 from nginx with the honest User-Agent while the bare CGI returned 200 and 11,155 bytes of HTML, so the reachability evidence is a landing page. Retrieval is one message per request, order 10^5 to 10^6 CGI hits on one small academic host, which is not being a good citizen, and the measured analogue, public pipermail archives at 83.6% already held and 0.0025 net-new pairs per message, needs about 2 million in-window messages to clear the bar. Re-probe only if a bulk or month-level export appears on that host.
+
+### educause_edu_whois_activation / whois_creation
+
+- REJECTED BY THE AGENT ON TERMS, NOT ON YIELD, under the standing good-citizen rule: the server's own banner reads "The use of electronic processes to harvest information from this server is generally prohibited except as reasonably necessary to register or modify .edu domain names", and a 6,438-name sweep is unambiguously that prohibited shape. Measured yield was 1 net-new pair per 20 queries in any case. Overrule it if you disagree.
+
+- potential: 78 (+40 hostname and its own date in adjacent fields, the strongest record shape here, +3 usable volume, MEASURED at 1 net-new pair per 20 queries and ESTIMATE roughly 280 pairs under the project default rule, +20 .edu at 0.9717, the highest mean weight of anything screened, +15 real WHOIS records retrieved. The score is the weight and the semantics fork; the yield measurement is what caps it)
+
+- class note: self-dating, no corroboration split. It can never seed: WHOIS answers only names already held, so it is a dating instrument with zero discovery value.
+
+- what it is: EDUCAUSE port-43 WHOIS, the authoritative .edu registry, one record per currently registered domain carrying a "Domain record activated" line.
+- where: whois.educause.edu port 43 (programme page https://www.educause.edu/edu-domain-administration)
+- what dates one item: the registry's activation date for that one domain (mit.edu reads "Domain record activated: 23-May-1985"). Value swings entirely on a decision that is not the agent's: under the project default (docs/sources.md:526, creation year only) one record dates one year; under the AFNIC interval reading (docs/sources.md:201) a still-registered domain activated in or before 2001 dates every in-window year from max(1996, activation). AFNIC earned the interval reading by documenting that crDate resets on re-creation; EDUCAUSE publishes no such semantics, so the default stands until a human rules.
+- why it may be net-new: 13,788 empty in-window year-slots across 6,438 dated .edu domains, at the highest English weight the project holds.
+- reachability, checked 2026-08-12: 0 HTTP requests, port 43 is not HTTP. 20 WHOIS queries at human pace: 9 full records, 11 no-match, service healthy and unthrottled at that rate.
+- screener: the headline claim FAILS on direct test. Of 12 random names from the 1,730-domain 1999 bucket, 7 returned NO MATCH and of the 5 that answered, 4 activated in 1999, the year already held; exactly ONE back-dated (thegateway.edu, 1999 to 1998). A further 8-name probe agrees. Across all 20 queries: 1 net-new pair. The mechanism is the reusable finding: a .edu site registered in year Y is crawled in year Y, so the baseline already holds the activation year, while the registry has deleted precisely the defunct institutions where a capture was the only surviving record. Also disproved: the "222,623 known .edu names" framing, since 216,176 of those are Usenet and FAQ mention-extraction noise. Read verbatim from the banner: "The use of electronic processes to harvest information from this server is generally prohibited except as reasonably necessary to register or modify .edu domain names." A 6,438-name sweep is unambiguously the prohibited shape, and the Internet Archive has already refused this project three times.
+- next step: access request, and it is one question to Ivo, not two: rule on creation-year-only versus the AFNIC interval reading for a registry that documents nothing (roughly 280 pairs against an ESTIMATE of 6,000 pairs and 5,800 EE), and decide whether to write to EDUCAUSE at all given the banner. No sweep before both.
+
+Decision: rejected
+
