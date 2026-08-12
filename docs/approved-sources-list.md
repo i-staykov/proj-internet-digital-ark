@@ -427,6 +427,20 @@ a screen.
 
 **Pass 1, 2026-08-12.** Five independent lenses proposed sources, a sceptic per lens collided each against the closed register and probed whether the data is retrievable in 2026, and 11 of 21 survived. **The figures inside these entries are the hunt's own, not measurements I have reproduced**, except where an entry says otherwise; that is what pricing is for, and the `next step` line names it. One claim was checked here and holds exactly: 60,468 undated `.uk` names in the pool.
 
+### ncua_5300_call_report_webaddr / artifact_listing
+
+- potential: 88 (per-row CYCLE_DATE, real data retrieved and parsed, 1,913 net-new pairs and 1,293.3 EE measured off one quarter, mean TLD weight 0.6845; capped by thousands-not-millions volume)
+- what it is: NCUA 5300 Call Report quarterly bulk ZIPs, every federally insured natural-person credit union, carrying Acct_891 "World Wide Website Address" and Acct_890 "Internet E-Mail Address" in table FS220D.
+- where: https://ncua.gov/files/publications/data-apps/QCR199906.zip
+- what dates one item: every FS220D row carries its own CYCLE_DATE, measured as "6/30/1999 0:00:00" on all 10,964 rows of the 1999-06 file, so a single record holds both the hostname and the date with no inference.
+- why it may be net-new: credit unions are small US .org/.com institutions with no reason to have been linked; 1,495 of 2,128 website domains are not held for 1999, and 431 of those are pure bracketed gaps with 1998 and 2000 already held.
+- reachability, checked 2026-08-13: HTTP/2 200, application/octet-stream, 6,625,659 bytes, last-modified 2018-12-18, nginx, no auth, no redirect; unzips to 10 files, 38.8 MB, and was parsed end to end. QCR199612.zip also 200 at 7,047,436 bytes.
+- terms: no prohibition served; headers carried only nginx, x-content-type-options, x-frame-options and HSTS, no banner or auth. NCUA's Website Policies name no restriction on automated access and the dataset is on catalog.data.gov described as "suitable for importing into a database or spreadsheet". Honest gap: robots.txt was not fetched. Work is 8 to 20 static file GETs, not a crawl.
+- screener: self-dating, so no corroboration split and 1,913 is already the post-split number; extraction must be tightened not widened, since 406 of 2,484 raw values (16.3%) are malformed (WWW.NDCU.ORGFPSFCU, HTTP:/WWW.LATFCU.COM) and nothing catches a fabricated host. Two proposal claims disproved: the field is in FS220D not FOICU (FOICUDES.txt enumerates 25 fields, none a URL), and whole-window coverage is false, QCR199612 has both columns present but 0 of 11,573 rows populated against a positive control of 11,479 non-empty Phone. 1996 is dead; start quarter is somewhere in 1997-03 to 1999-06 and unpinned.
+- next step: price it, binary-searching the start quarter; master-eligible so it cannot bank until this Decision line is decided.
+
+Decision: pending
+
 ### uk_historic_hansard / dated_directory
 
 - potential: 84 (+40 per-item date proved four ways on the leaf page, +10 usable volume, ESTIMATE 1,000-3,000 distinct domains against a MEASURED ceiling of 3,811 .gov.uk and 4,292 .ac.uk pairs, +19 .uk at 0.9813, the highest-weight namespace held in volume, +15 real prose retrieved. Not scored down for prominence: the corpus is exhaustive. The unscored risks are the two that decide it, density MEASURED at zero hostnames in 199 words and a crawl of 300,000 to 700,000 leaf pages on one host)
@@ -521,6 +535,20 @@ Decision: pending
 
 Decision: pending
 
+### govinfo_cbd_bulk / typed
+
+- potential: 71 (per-issue filename date, real zip bytes retrieved, order 10^6 notices in window, .com-dominant vendor half; net-new density unmeasured and the EDGAR precedent is a live risk)
+- what it is: Commerce Business Daily, the statutory daily federal procurement gazette through 1 January 2002, published by GPO as bulk-only per-year zips of born-digital HTML; the usable half is vendor contact e-mail and solicitation URLs from small contractors.
+- where: https://www.govinfo.gov/bulkdata/CBD/1998/CBD-1998.zip
+- what dates one item: the zip's first local file header names the entry CBD-1998-30no98.html, so each record is one issue carrying its own date in its own filename; a hostname in the 30 November 1998 issue evidences 1998 and nothing else.
+- why it may be net-new: thousands of small federal contractors printing a contact block, a population with no reason to have been crawled, unlike the large public filers that sank EDGAR.
+- reachability, checked 2026-08-13: 206 Partial Content, application/zip, content-range bytes 0-2047/60093265, last-modified 2010-04-13, cloudflare, first bytes 504b 0304 real PK magic. Only the 1998 zip was fetched; the 1996, 1997, 1999, 2000 and 2001 folders are search context, not observed.
+- terms: no banner, terms text, auth challenge or robots gate served on either route. govinfo runs the Bulk Data Repository for programmatic access and these are US Government works. Honest gap: no request was spent on a terms page, so this is "nothing prohibitive encountered", not "terms read and permit it".
+- screener: typed, takes the corroboration split, so widening recall is safe because the split and not the pattern is the wall; not master-eligible, needs no Decision line and never waits on a human. Disproved: the proposal's cited machine listing https://www.govinfo.gov/bulkdata/json/CBD is DEAD, returning 200 text/html, 67,225 bytes, "Govinfo Bulkdata Service Error", byte-identical to the page that closed govinfo_fedreg at approved-sources-list.md:721, so its "measured, not recalled" directory listing was measured on an error page. The 60,093,265-byte size figure was nevertheless genuine.
+- next step: price it by unzipping the 1998 and 2001 zips and counting distinct hostnames per 1,000 notices in both years, because density almost certainly rises across the window.
+
+Decision: pending
+
 ### ipgod_au_marktext / dated_directory
 
 - potential: 71 (+40 registry-issued per-item filing date, +10 usable volume, ESTIMATE 2,000 to 6,000 domain-shaped marks in window before dedupe and before the split, +13 .com.au 0.9904 diluted by an unknown share of plain .com 0.6321, +8 half credit, HEAD on the real CSV with content-length and accept-ranges but not one row read. Trade mark register is administrative and exhaustive, so no prominence penalty)
@@ -534,6 +562,20 @@ Decision: pending
 - reachability, checked 2026-08-12: 2 requests. CKAN package_search?q=ipgod returned 200, application/json, 228,003 bytes, 16 packages with direct resource URLs and sizes. HEAD on the live 2022 description CSV returned HTTP/2 200, text/csv, content-length 249,236,662, last-modified 17 Jun 2022, accept-ranges bytes, via CloudFront, so the in-window slice can be range-pulled without moving 250 MB. Six trade mark tables enumerated with byte sizes (application 285,766,239, classification 213,728,540, description 249,236,662, events 2,337,427,679, links 84,644,274, party activity 820,290,648).
 - screener: two proposal errors. It cites ipgod2021, which the catalogue titles "IPGOD2021 [SUPERSEDED]"; the live release is IPGOD2022. And the catalogue describes trade-mark-application-description.csv only as "Application Description Table for Trade Mark", so the claim that this is the file holding the mark text is UNVERIFIED; the words may sit in trade-mark-application.csv. No field name in this entry is observed, all are inferred from table titles. The safeguard the two pending USPTO entries rely on, restricting to Section 1(a) use-based filings where the applicant swears use in commerce, DOES NOT EXIST in Australian law (knowledge, not checked against the IPGOD schema). The premise is also weaker than proposed: .au is MEASURED as well held, 69,783 distinct .com.au and .net.au domains over 141,956 in-window pairs.
 - next step: price it, one range request to find the mark-text and filing-date columns, then the in-window domain-shaped count, before any 250 MB pull.
+
+Decision: pending
+
+### usco_bulk_registrations / typed
+
+- potential: 63 (schema proof retrieved, two independent per-record dates, 2.8M in-window registrations ESTIMATE, .com lean; the hostname-titled share is entirely unmeasured)
+- what it is: US Copyright Office Registration and Recordations bulk dataset, ~22M registrations 1978 to 2025 as MARC, parsed CSV and tabular CSV; the slice is in-window registrations titled in the era's cataloguing shape "www.example.com : [web site]".
+- where: https://data.copyright.gov/Registrations/Tabular/ (index at https://www.copyright.gov/economic-research/usco-datasets/)
+- what dates one item: the CSV header carries reg_date and publication_date beside title in the same row, so one record holds the hostname and two independent statutory dates.
+- why it may be net-new: a registrant who filed a website title in 1999 need not have had a crawled site, and the corpus is a record office rather than a link graph.
+- reachability, checked 2026-08-13: 206 Partial Content, text/csv, content-range bytes 0-1500/2155230698, last-modified 2026-05-18, no auth, non-IA host. Header row read verbatim: record_id,reg_num,reg_date,title,work_type,alternate_title,creation_date,publication_status,publication_date,...
+- terms: reliance disclaimer only, quoted verbatim: "This data set does not replace or supersede the online public catalog or existing search practices established by the U.S. Copyright Office, and the data set should not be relied on for legal matters." No restriction on automated or bulk download; bulk download is the stated purpose.
+- screener: typed, takes the corroboration split, not master-eligible, no Decision line needed. The split is load-bearing and must not be relaxed: a title reading "Amazon.com" is a company name and no proof a host resolved. Gap stated plainly: the sampled category was musical works, which is the wrong category for websites, so no pair figure exists for this source and none should be quoted.
+- next step: price it against the computer-file and text categories, counting hostname-regex titles with reg_date or publication_date in window, streaming or range-GET rather than pulling 2 GB per category.
 
 Decision: pending
 
@@ -681,6 +723,20 @@ Decision: pending
 
 Decision: pending
 
+### state_sos_entity_registers / typed
+
+- potential: 22 (per-row formation date and a public-domain API, but a measured 1,384-match ceiling for a whole state across the whole window, 11x below bar before four attritions)
+- what it is: State Secretary of State corporate registers as free bulk open data, Colorado confirmed: business entities registered with CDOS since 1864, 35 columns, over a million records; the slice is entities whose registered name is itself hostname-shaped.
+- where: https://data.colorado.gov/resource/4ykn-tg5h.json
+- what dates one item: entityformdate as a native calendar_date beside entityname as text, so "FOO.COM, INC." formed 1999-04-12 is a typed hostname in a dated statutory record.
+- why it may be net-new: it is not, and that is the finding; a company that incorporated as FOO.COM in 1999 existed in order to run foo.com and was therefore crawled.
+- reachability, checked 2026-08-13: 200 on both requests, application/json, real data. /api/views returned 18,969 bytes with 35 column definitions; a SoQL GROUP BY returned 148 bytes of counts. No auth, no key, no rate gate.
+- terms: permissive and not the reason to close it. Dataset licence field reads {"name": "Public Domain"}, licenseId PUBLIC_DOMAIN, attribution CDOS, rights ["read"]. The Socrata portal ToU was not read, but the per-dataset licence is explicit and governs.
+- screener: typed, takes the split, not master-eligible. MEASURED and fatal: 1,384 raw matches on upper(entityname) LIKE '%.COM%' OR '%.NET%' OR '%.ORG%' with entityformdate in window, by year 1996 n=25, 1997 n=30, 1998 n=81, 1999 n=469, 2000 n=614, 2001 n=165, against a ~5,000 net-new pair bar at docs/discovery.md:46. Even at an implausible 50% net-new that is about 437 EE (ESTIMATE). Also disproved: there is no e-mail, web-address or URL column anywhere in the 35, so the entity name is the only route. National scaling needs one collector per 50 portals and most states publish no free bulk register; the pool half is worthless against 1.54M names never asked.
+- next step: pool only, and close.
+
+Decision: pending
+
 ### openpgp_keyserver_dumps / link_target
 
 - potential: 20 (+0 no approved master-eligible type covers a PGP self-signature, so it cannot date a year at all and is pool-only, +15 ESTIMATE 50,000 to 150,000 distinct in-window email domains out of roughly 6 million keys, +5 heavy .de tail at 0.1324 drags the mean well below the 0.6 line, +0 not retrieved, the dumps are password-gated. Every figure here is a projection about a corpus nobody on this project has seen)
@@ -724,6 +780,47 @@ Decision: pending
 - fidonet_nodelist: self-dating verified (nodelist.348, 1,214,176 bytes, "A FidoNet Nodelist for Friday, December 14, 2001"), and the densest edition kills it. 13,818 records give 699 hostname tokens collapsing to under 200 registrable names, several of the 209 second-level strings being public suffixes, and what remains is dynamic DNS and infrastructure (fidonet.net 281 third-levels, dyndns.org 62, darktech.org 24). Whole-window union is low thousands of names at best (ESTIMATE) with a bad TLD mix, and it would spend reviewer attention on the smallest win in the batch.
 - hnet_discussion_logs: the only proposal whose data could not be reached. The month index returned HTTP 403 from nginx with the honest User-Agent while the bare CGI returned 200 and 11,155 bytes of HTML, so the reachability evidence is a landing page. Retrieval is one message per request, order 10^5 to 10^6 CGI hits on one small academic host, which is not being a good citizen, and the measured analogue, public pipermail archives at 83.6% already held and 0.0025 net-new pairs per message, needs about 2 million in-window messages to clear the bar. Re-probe only if a bulk or month-level export appears on that host.
 
+### bsd_ports_master_sites_dated_trees / typed
+
+- potential: 8 (dating is sound and the tarball was fully retrieved, but the designated kill test measured 0 net-new domains, 0 pairs, 0.0 EE)
+- what it is: the ports tree inside dated BSD release trees, every port a Makefile carrying MASTER_SITES download hosts and a MAINTAINER email.
+- where: https://archive.freebsd.org/old-releases/i386/2.1.5-RELEASE/ports.tgz
+- what dates one item: the release tree is the dated artifact and dates only itself; FreeBSD 2.1.5 shipped July 1996, and the internal tar mtimes top out at "Jul 14 1996" with nothing later, so the outer 1999-Sep-20 tgz mtime is a repack date and the payload is authentically the 1996 tree.
+- why it may be net-new: it is not; a MASTER_SITE is by definition a high-traffic public mirror, which is the best-crawled category of 1996 host.
+- reachability, checked 2026-08-13: 200 on the release listing (4,479 bytes) and 200 on ports.tgz with 1,778,764 bytes fully downloaded and parsed; 6,306 entries, 538 port Makefiles, 474 with MASTER_SITES.
+- terms: clean and not the reason it fails. archive.freebsd.org served both requests with no banner, robots directive or terms text, and served a 1.7 MB tarball to an honest UA without rate limiting. Recorded so nobody reopens this hoping the block was procedural.
+- screener: typed inside a dated artifact, so it takes the split and can only ever add a NEW YEAR to an ALREADY-HELD domain. Measured against the live store read_only: 636 MASTER_SITES lines give 326 hostnames collapsing to 242 registrable domains, 222 (91.7%) already held and all 222 already held FOR 1996, so year headroom is zero too. The 20 apparent net-new names are parse artifacts verified individually (alt.sources, comp.speech, pub.gnu, usr.bin are Usenet and directory paths; ad.jp, gc.ca, oz.au are public suffixes my collapser truncated to). Top names dec.com, mit.edu, x.org, unc.edu, freebsd.org, uu.net. The early-years thesis is disproved at the proposal's own stated kill point. TLD spread is also weaker than sold: edu 49, com 37, jp 24, de 22. MAINTAINER fallback checked while the tarball was open: 40 domains, led by freebsd.org, de 7 com 7 jp 5 edu 4. Residual: 1 tree of ~40 measured; NetBSD and OpenBSD unprobed but same record shape on the same mirror network.
+- next step: close it. No approval request should be written.
+
+Decision: pending
+
+### winsite_cica_dated_shareware_index / typed
+
+- potential: 5 (per-file mtimes are genuinely preserved, so dating would have worked, but the hostname-bearing payload does not exist and the aggregate index is an existing measured zero)
+- what it is: WinSite, the Windows shareware archive formerly CICA, on the ftp.icm.edu.pl mirror; proposed as Info-Mac's sibling on the theory that every uploaded archive has a .txt description carrying the author's URL.
+- where: https://ftp.icm.edu.pl/packages/winsite/win95/winsock/
+- what dates one item: per-file mtime, and this is the one thing that passed: dicer039.zip carries a preserved 1998-07-08 mtime, so ICM does not rewrite mtimes on sync. A date with no domain beside it cannot produce a domain_year row.
+- why it may be net-new: it is not; the descriptions live in a per-category INDEX already measured at zero vendor domains.
+- reachability, checked 2026-08-13: 200 on /packages/winsite/win95/ (8,461 bytes, Apache/2.4.68 Debian) and 200 on /packages/winsite/win95/winsock/ (1,249 bytes). The winsock category holds exactly two entries, a 1.3K INDEX and a single dicer039.zip, with no sibling .txt.
+- terms: no prohibition found and none served; Apache autoindex, no banner, no terms text, no robots directive. Not the reason to close it.
+- screener: moot and never reached; would have been typed under the split. The proposal's central mechanism does not exist on this mirror, and its net-new argument rests on a false claim: docs/sources.md:1415 already records WinSite INDEX.TXT as a named measured negative, "7,057 entries, two email addresses and zero vendor domains in the whole file", concluding that this "settles the whole CD-ROM catalogue family at once". Screening must read the row body, not only its four headline names. Second problem: the top level shows no INDEX.TXT and no plain LS-LTR, and the mirror's INDEX is stamped 2009-04-23, so this is a 2009 snapshot of a pruned archive rather than the 1996-2001 archive.
+- next step: close it.
+
+Decision: pending
+
+### aminet_index_uploader_readme / typed
+
+- potential: 3 (no per-item date exists at all, which is the rubric's zero condition; German-dominated TLD lean would have sunk it anyway)
+- what it is: Aminet, the Amiga archive, on the ftp.fau.de mirror, proposed on the strength of a master INDEX carrying a date per file so one cheap fetch would enumerate the in-window population.
+- where: https://ftp.fau.de/aminet/INDEX
+- what dates one item: nothing. The INDEX header reads verbatim "Aminet index, created on 12-Aug-2026" and its third numeric column is an AGE IN WEEKS relative to that build which SATURATES AT 999, so every in-window entry reads identically: A2KDeck.lha 999, AB.lha 999, AmigaBase26.lha 999.
+- why it may be net-new: unreachable question; the file cannot separate 1996 from 2001.
+- reachability, checked 2026-08-13: 206 Partial Content on a Range GET of the INDEX (first 6,001 bytes, honoured cleanly) and 200 on /aminet/info/ (687 bytes, Apache/2.4.58 Ubuntu).
+- terms: no prohibition found and none served; university mirror, Apache autoindex, no banner, honoured a Range request politely.
+- screener: undated as it stands, so seed-only at best and it cannot date a year by any route found. Sub-values below the cap prove the reading (BeeBase-1.2.lha 48, AlphaBase_keyfile.lha 958, Audithec.lha 985) and 999 weeks before August 2026 is roughly mid-2007. The rescue route was checked rather than assumed: /aminet/info/ holds one adt/ subdirectory and no dated index family. Two further weaknesses recorded: the hostname was never in the INDEX at all (it lives in ~40,000 sibling .readme files) and is typically an "Author:" mail domain rather than a web one. The proposal itself disclosed the .de weight risk at 0.1324.
+- next step: pool only, and close.
+
+Decision: pending
 ### educause_edu_whois_activation / whois_creation
 
 - REJECTED BY THE AGENT ON TERMS, NOT ON YIELD, under the standing good-citizen rule: the server's own banner reads "The use of electronic processes to harvest information from this server is generally prohibited except as reasonably necessary to register or modify .edu domain names", and a 6,438-name sweep is unambiguously that prohibited shape. Measured yield was 1 net-new pair per 20 queries in any case. Overrule it if you disagree.

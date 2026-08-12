@@ -6112,3 +6112,39 @@ the guarantee is refreshed only when the lists are rebuilt. The cycle rebuilds t
 the gap list changes slowly by design, so it self-corrects; but a gap list rebuilt by hand while a stale
 pool list is still in flight would overlap, and the overlap would be silent. If either list is ever rebuilt
 alone, re-measure the intersection.
+
+## 2026-08-13: hunt pass 3, and the first triage entry that is measured rather than estimated
+
+Seven survivors, ten dropped, and **7 of 7 written**: the synthesis-loss defect from pass 2 is fixed, by
+requiring an entry for every survivor and returning the survivor names so the count can be diffed rather
+than trusted. Queue now holds **26 entries, 25 open**.
+
+**The top of the queue changed, and on a measurement.** `ncua_5300_call_report_webaddr` scores 88, above
+everything found in two previous passes, and unlike the rest it is not an estimate: the agent downloaded
+`QCR199906.zip`, 6,625,659 bytes, unzipped 38.8 MB, parsed table FS220D end to end and measured **1,913
+net-new pairs worth 1,293.3 equivalent-English from one quarter**, mean TLD weight 0.6845, with 431 of them
+pure bracketed gaps where 1998 and 2000 are already held. Every row carries its own `CYCLE_DATE`, so the
+hostname and its date sit in the same record with no inference. It is `artifact_listing` and therefore
+master-eligible, so it cannot bank until Ivo decides it, which is the gate working rather than a delay.
+
+**Why credit unions are the right shape**, and it is the same argument that made UDRP dockets pay: small US
+institutions with no reason to have been linked, printing a contact block into a statutory quarterly return.
+That is administrative and exhaustive, not prominence-selected.
+
+**The sceptic disproved three of its own prospector's claims**, which is why the entry is trustworthy: the
+field is in `FS220D` and not `FOICU`; whole-window coverage is false, since `QCR199612` carries both columns
+with **0 of 11,573 rows populated** against a positive control of 11,479 non-empty phone numbers, so 1996 is
+dead and the start quarter is unpinned between 1997-03 and 1999-06; and 16.3% of raw values are malformed
+(`WWW.NDCU.ORGFPSFCU`, `HTTP:/WWW.LATFCU.COM`), so the extraction must be **tightened, not widened**, since
+nothing downstream catches a fabricated host on a self-dating source that takes no corroboration split.
+
+**A second disproof worth keeping generally.** `govinfo_cbd_bulk`'s prospector cited a machine-readable
+listing at `govinfo.gov/bulkdata/json/CBD` as "measured, not recalled". It returns 200 with an HTML body
+reading "Govinfo Bulkdata Service Error", byte-identical to the page that already closed `govinfo_fedreg`.
+**A 200 carrying an error page is the failure mode this project keeps meeting**, and the rule that catches it
+is the one already on record: a search that finds nothing has either proved something or been pointed at the
+wrong place, and the two look identical.
+
+**Still outstanding, and unchanged since yesterday:** the RDAP sweep's `.org` target list holds 221,887 names
+against a run that will consume 200,000, so it runs dry before Sunday and the sweep stops early. Widening it
+to other TLDs is the next engine job.
