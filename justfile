@@ -579,3 +579,12 @@ package round="":
 # that every shipped pair traces to an observation
 verify-delivery dir="output/internet-digital-ark-1996-2001":
     bash scripts/verify_delivery.sh {{dir}}
+
+# The email carries the five fields and nothing else; the method goes in an
+# attached report, and Ding wants that attachment as .docx. Drafts under
+# `private/` carry a status block and a notes-to-self section, and this strips
+# both, because trimming them by eye is the operation that eventually sends one.
+#
+# turn a reviewer-facing markdown report into the .docx he asks for
+report-docx source:
+    uv run python scripts/build_report_docx.py {{source}} --keep-markdown

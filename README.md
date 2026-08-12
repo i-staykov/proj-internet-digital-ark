@@ -448,6 +448,19 @@ uv run python scripts/round_figures.py --verify   # re-score with HIS calculator
 for us, which is a live risk every time a source widens its matching. The figures are only correct
 once `src/ark/baseline.py` names the release he has actually merged.
 
+**The email and the report are different documents** (Ivo, 2026-08-12). The email is the five fields and
+nothing else, short enough to read on a phone; the method goes in an attached report, and he wants that
+attachment as `.docx`:
+
+```bash
+just report-docx private/interim-report-20260812.md
+```
+
+The drafts under `private/` carry a status block at the top and a `## Notes for Ivo` section at the
+bottom, holding what is deliberately not being said: what could not be verified, which paragraph is
+optional, what he may query. **The converter strips both**, because trimming them by eye is the operation
+that eventually sends one. Pass `--keep-markdown` to read exactly what will go out.
+
 `ark stats` also prints **the two outcomes separately**, which he asked for: `discovery` is domains the
 baseline holds in no year, scored once per domain for breadth and again over the pairs they carry, and
 `completeness` is years filled on domains he already has. The two partition the net-new total exactly,
