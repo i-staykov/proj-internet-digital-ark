@@ -5703,3 +5703,81 @@ Replace it with measured net-new-per-page once the loop has produced enough jour
 Seeds are emitted in both `www.` and bare form, because the engine queries by host and never learns which
 form the archive holds. The wrong form costs one CDX query returning no captures and is then skipped
 forever; the page fetch, which is the expensive part, only happens where captures exist.
+
+## 2026-08-12: the VPS ran 31 hours at zero yield, and the check built to catch that was blind to it
+
+A VPN window opened unprompted, so per the standing rule I fetched first and asked questions
+afterwards. `just engines` reported the VPS up for 1 day 7 hours, its journal growing, its supervisor
+healthy, every journal already copied home. **And its last finished batch was 300 queried, 274
+no_capture, no `with_capture` key at all.**
+
+Measured over its twelve most recent journals rather than inferred from one: **3,219 answered queries,
+0 hits, 0.0%, across roughly 15 hours.** Its own history is 49.5% over 25,767. It was grinding the tail
+of `queue_shard1.txt`, built 10 August and long exhausted, skipping 6,000 to 8,600 already-journalled
+names per batch and asking only the leftovers, which are the names that never had a capture.
+
+**Why nothing caught it, which is the part worth keeping.** `yield_check` exists precisely for this and
+had `COLLECTORS` hardcoded to `cdx_pool`, `cdx_gap` and `rdap`, on the authority of the supervisor
+header's statement that those are the prefixes the population may use. **The header states intent; the
+directory holds the facts.** `data/raw/cdx` holds six: `cdx_gap` 104 journals, `cdx_q1` 101, `cdx` 72,
+`cdx_q0` 67, `cdx_pool` 65, `cdx_gap_vps` 44, `cdx_disc` 6. The VPS has always run `cdx_q1`. So the one
+check designed to notice a collector finding nothing could not see the collector that was finding
+nothing, and `CLAUDE.md` asserted the false pair as a rule with "do not invent a third" attached.
+
+Fixed by asking rather than listing: `active_cdx_collectors` enumerates every prefix that has written a
+journal in the last 24 hours, so a collector started under any name is measured. Activity is judged
+including a `.part`, since a live collector's newest file is usually the one it is still writing, while
+the measurement still excludes `.part` files. Three tests pin it. First run after the change:
+`cdx_q1: 0.0% of 796 answered held a capture, against 49.5% of 25,767 before that`, raised as attention.
+The false claim is corrected in `CLAUDE.md` where it was made, not only here.
+
+**The repair, done inside the window.** A fresh gap queue built against the current baseline:
+466,239 targets, 218,611 equivalent-English expected, `completeness: every hit is a new pair on a domain
+already held`. Shipped, and then **not** installed by restarting anything. A supervisor passes `$TARGETS`
+to `ark cdx` at every dispatch and `ark cdx` reads the file at batch start, so overwriting the file it
+already points at is the whole job: the old list was copied aside as `queue_shard1.txt.exhausted-20260812`
+and the gap queue written in its place. No process was touched, nothing was killed, and the batch in
+flight was not thrown away. Its dispatch stamp is 39 minutes before the file's mtime, so the batch after
+it is the first one reading the new list.
+
+**A clock note, because this project has already been bitten by timestamps.** Both machines' clocks were
+about 10 hours behind and were corrected by NTP mid-session, which is why `engine_status.sh` printed a VPS
+time of 00:31 UTC and, fourteen minutes later, the same machine reported 10:47 UTC. Nothing was decided on
+a wall clock, and the one ordering that mattered was settled from file mtimes on the VPS's own filesystem
+rather than from either clock.
+
+## 2026-08-12: the closed loop, measured as a matched A/B, and why it will not run this week
+
+Ivo's instruction was to grow the pool by scanning captured sites for mentions of other domains and
+scanning those in turn. The loop is built and is standing policy. It is also, measured, not worth archive
+requests at our present coverage, and both halves of that belong on the record.
+
+**The population is the best we have.** Hit rate by where a candidate came from, over 27,955 answered pool
+queries in the same days: `ukwa_link_target` 90.4% of 5,123, `tucows_mention` 85.8%, `enron_email_mention`
+58.2%, `H008-pool-names` 49.0%, `usenet_mention` 38.9% of 18,767, `usenet_bare_mention` 7.2%,
+`trade_press_mention` 8.6%, `pandora_hosts` 2.9%, `usenet_address_mention` 0.1%, pool-wide 46.0%. Names
+taken from a link graph are twice as datable as the pool average and 900x the worst seam we hold.
+
+**The retail version does not reach.** 240 archived pages, two arms of 120, same budget:
+
+| | home pages | discovered link pages |
+|---|--:|--:|
+| pages settled | 120 | 120 |
+| had an in-window capture | 98 | 104 |
+| of those, zero outbound domains | 60 | 66 |
+| distinct domains harvested | 53 | **391** |
+| already held, and already dated | 50 | **386** |
+| net-new pool names | 3 | 5 |
+
+Seeding a site's home page harvests almost nothing, because a small site of the period links inward: 60 of
+98 captured home pages carried no outbound domain at all. Asking the archive which pages a site has and
+choosing the link-looking ones fixed that and harvested **7.4x more domains**, 391 against 53. **It moved
+net-new from 3 to 5.** The binding constraint is not page selection, it is that a 1996-2001 page links to
+sites the store already holds: 386 of 391, every one of them already dated. `ark ingest` confirmed it
+independently at `enqueued: 7` over both journals.
+
+So the conclusion is about scale, not about the idea. The bulk form of exactly this idea is our single best
+population; the retail form would need roughly 600,000 page fetches at 20 seconds each to reach a million
+mentions. **Expansion earns archive requests when a bulk link graph can be found, and the queue is never
+the constraint while 2.5M candidates sit unqueried against an engine clearing 600 an hour.** Recorded in
+`CLAUDE.md` beside the standing rule so the next session does not spend a week on page fetching.

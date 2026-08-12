@@ -197,3 +197,41 @@ def test_rdap_yield_is_measured_with_its_own_verdict(tmp_path) -> None:
     assert reading.newest_answered == 300  # the 500 throttles are excluded
     assert reading.newest_rate == 0.4
     assert not reading.collapsed
+
+
+def test_an_unplanned_prefix_is_still_measured(tmp_path) -> None:
+    """Discovery rather than a list, because the list is how a dead engine hid.
+
+    The prefixes were hardcoded to `cdx_pool` and `cdx_gap` on the authority of the
+    supervisor's header. The VPS ran `cdx_q1` for 31 hours against an exhausted shard,
+    3,219 answered queries for zero captures, and no yield line covered it.
+    """
+    from ark.yield_check import active_cdx_collectors
+
+    _journal(tmp_path, "cdx_pool_20260812T000000Z.jsonl.gz", 10, 5)
+    _journal(tmp_path, "cdx_q1_20260812T000000Z.jsonl.gz", 10, 0)
+    found = {c.prefix for c in active_cdx_collectors(tmp_path)}
+    assert found == {"cdx_pool", "cdx_q1"}
+
+
+def test_a_prefix_that_stopped_last_week_is_not_reported(tmp_path) -> None:
+    """The question is which collectors are running now, so a retired prefix is noise."""
+    import os
+
+    from ark.yield_check import active_cdx_collectors
+
+    _journal(tmp_path, "cdx_live_20260812T000000Z.jsonl.gz", 10, 5)
+    _journal(tmp_path, "cdx_retired_20260801T000000Z.jsonl.gz", 10, 5)
+    stale = 1_000_000.0
+    os.utime(tmp_path / "cdx_retired_20260801T000000Z.jsonl.gz", (stale, stale))
+    found = {c.prefix for c in active_cdx_collectors(tmp_path)}
+    assert found == {"cdx_live"}
+
+
+def test_an_in_flight_part_file_still_marks_a_prefix_live(tmp_path) -> None:
+    """A live collector's newest file is usually the one it is still writing, so
+    activity is judged including `.part` even though the measurement excludes it."""
+    from ark.yield_check import active_cdx_collectors
+
+    _journal(tmp_path, "cdx_fresh_20260812T000000Z.jsonl.gz.part", 10, 5)
+    assert {c.prefix for c in active_cdx_collectors(tmp_path)} == {"cdx_fresh"}

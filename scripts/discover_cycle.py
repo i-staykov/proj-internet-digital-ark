@@ -49,7 +49,7 @@ from ark import key_decisions  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.yield_check import (  # noqa: E402
     Collector,
-    cdx_verdict,
+    active_cdx_collectors,
     measure_collectors,
     rdap_verdict,
 )
@@ -61,17 +61,22 @@ DECISIONS_DOC = ROOT / "docs/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
 JOURNAL_DIR = ROOT / "data/raw/cdx"
 RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
-# `cdx_pool` and `cdx_gap` are the only prefixes that population may use, per the
-# supervisor's own header; an invented third one hid a live collector from every reader
-# on 11 August. RDAP is here because it is this round's largest single contributor,
-# 81,216 records and 49,012 equivalent-English, and nothing measured its yield at all.
-# Its journals need their own verdict: a 404 is a real answer and a 429 is not, and a
-# creation year outside 1996-2001 is an answer that pays nothing.
-COLLECTORS = (
-    Collector("cdx_pool", JOURNAL_DIR, cdx_verdict),
-    Collector("cdx_gap", JOURNAL_DIR, cdx_verdict),
-    Collector("rdap", RDAP_JOURNAL_DIR, rdap_verdict),
-)
+
+
+# **The CDX prefixes are discovered, not listed.** They used to be listed, as `cdx_pool`
+# and `cdx_gap`, on the authority of the supervisor's own header. The header states
+# intent and the directory holds the facts: on 2026-08-12 it held six prefixes, and the
+# VPS had spent 31 hours writing `cdx_q1` against an exhausted shard for zero captures
+# while every yield line here read clean, because none of them was looking for it.
+#
+# RDAP stays named because it is a different journal format needing its own verdict: a
+# 404 is a real answer and a 429 is not, and a creation year outside 1996-2001 is an
+# answer that pays nothing. It is also this round's largest single contributor.
+def collectors() -> tuple[Collector, ...]:
+    return (
+        *active_cdx_collectors(JOURNAL_DIR),
+        Collector("rdap", RDAP_JOURNAL_DIR, rdap_verdict),
+    )
 
 
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
@@ -138,7 +143,7 @@ def check_yield() -> tuple[list[str], list[str]]:
     read. Reasoning and thresholds in `ark.yield_check`.
     """
     findings, attention = [], []
-    for reading in measure_collectors(COLLECTORS):
+    for reading in measure_collectors(collectors()):
         findings.append(f"yield: {reading.describe()}")
         if reading.collapsed:
             attention.append(

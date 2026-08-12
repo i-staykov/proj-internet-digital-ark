@@ -32,6 +32,8 @@ because zero over a real sample is never healthy for either population.
 
 import gzip
 import json
+import re
+import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -269,6 +271,50 @@ def measure(
 def measure_all(directory: Path, prefixes: Iterable[str]) -> list[Yield]:
     """Backwards-compatible sweep over CDX prefixes under one directory."""
     return [measure(directory, prefix) for prefix in prefixes]
+
+
+# A collector counts as live if it has written within this long. Journals arrive every
+# 50 to 80 minutes per engine, and the VPS ones arrive in an rsync burst, so a day is
+# comfortably clear of both while still excluding a prefix that stopped last week.
+ACTIVE_WITHIN_S = 24 * 3600
+
+_STAMPED = re.compile(r"^(?P<prefix>.+?)_\d{8}T\d{6}Z\.jsonl")
+
+
+def active_cdx_collectors(
+    directory: Path, within_s: int = ACTIVE_WITHIN_S, now: float | None = None
+) -> list[Collector]:
+    """Every CDX prefix that has written here recently, discovered rather than listed.
+
+    **The list used to be hardcoded to two, and that is how 31 hours of a collector
+    finding nothing stayed invisible.** The comment justifying the pair cited the
+    supervisor's own header, which says `cdx_pool` and `cdx_gap` are the prefixes that
+    population may use. The header describes intent; the directory holds the facts, and
+    on 2026-08-12 it held six prefixes. The VPS had been running `cdx_q1` for over a day
+    against an exhausted shard, 3,219 answered queries for **zero** captures across
+    twelve consecutive batches, and no yield reading covered it because no yield reading
+    was looking for it.
+
+    So this asks the directory. A prefix nobody planned still gets measured, which is the
+    only version of this check that cannot be defeated by starting a collector under a
+    new name. Activity is judged on the newest file including a `.part`, because a live
+    collector's newest file is usually the one it is still writing; the measurement
+    itself still ignores `.part` files, since a prefix of a gzip stream is not a sample.
+    """
+    moment = time.time() if now is None else now
+    newest: dict[str, float] = {}
+    for path in directory.glob("cdx*_*.jsonl*"):
+        match = _STAMPED.match(path.name)
+        if not match:
+            continue
+        try:
+            stamp = path.stat().st_mtime
+        except OSError:
+            continue
+        prefix = match.group("prefix")
+        newest[prefix] = max(newest.get(prefix, 0.0), stamp)
+    live = [p for p, stamp in newest.items() if moment - stamp <= within_s]
+    return [Collector(prefix, directory, cdx_verdict) for prefix in sorted(live)]
 
 
 def measure_collectors(collectors: Iterable[Collector]) -> list[Yield]:

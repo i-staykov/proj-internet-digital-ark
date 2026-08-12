@@ -112,6 +112,16 @@ the store of that day and is not a statement about now.
   sources, and never let the absence of one stop collection.** Extracted hostnames are `link_target`,
   candidate-only by construction, so this route can never date a year by itself and needs no approval;
   the year comes from the capture the engine then finds, on that domain's own evidence.
+- **Run that loop in bulk, not page by page, and the measurement says so plainly.** The *population* is
+  the best we have: hit rate by where a candidate came from is **90.4%** for `ukwa_link_target`, names
+  taken from a whole national link graph, against 46.0% pool-wide and 38.9% for Usenet mentions. The
+  *retail* version does not pay at our present coverage. Measured 2026-08-12 as a matched A/B over 240
+  archived pages: seeding each dated site's home page harvested 53 domains and **3** net-new, and
+  selecting link-looking pages instead harvested 391, a 7.4x improvement that yielded **5**. The reason
+  is not the seeding, it is us: **386 of those 391 were already held and every one was already dated.**
+  A period page links to sites the store already has. So expansion earns archive requests only when a
+  bulk link graph can be found, and **the queue is never the constraint while 2.5M candidates sit
+  unqueried against an engine clearing 600 an hour.** Do not spend a week fetching pages one at a time.
 - **Gap targets change slowly**, so the VPS needs a rare refresh rather than a periodic one, and only
   ever a shard built after the current baseline landed.
 - **When jobs contend for the write lock, priority follows expected net-new equivalent-English**
@@ -172,10 +182,16 @@ duty is to avoid making things worse. Work this in order and stop at the first s
    writes `data/logs/${ARK_PREFIX}.log`, so a quiet `cdx_pool.log` proves only that nothing has run
    *under that prefix*. On 11 August that inference killed a healthy collector: it had been working the
    pool since 11:10 under an invented third prefix, its own log was current, and the documented one was
-   four days old and read as a dead engine. **`cdx_pool` and `cdx_gap` are the only two prefixes**, per
-   the script's own header. Do not invent a third. Check with a pattern that cannot match your own
+   four days old and read as a dead engine. Check with a pattern that cannot match your own
    command line, `pgrep -f 'supervise_cdx_poo[l]'`, since a bare `pkill -f supervise_cdx_pool.sh`
    matches the shell running it and has twice reported the opposite of the truth.
+
+   **This file used to say `cdx_pool` and `cdx_gap` were the only two prefixes, and that was wrong.**
+   Six exist, and one of them is the VPS's own `cdx_q1`, which it has always used. Believing the pair
+   cost 31 hours: the yield check was hardcoded to those two names, so the VPS wrote `cdx_q1` against
+   an exhausted shard for 3,219 answered queries and **zero** captures while every yield line read
+   clean. **Never enumerate the prefixes anywhere**; ask the journal directory, which is what
+   `active_cdx_collectors` now does, so a collector started under any name is still measured.
 
 3. **Then bring the documentation back into one story**, which is the part only you can do. The
    sources of truth are the table in **Where state lives** above, and they have to agree with each
