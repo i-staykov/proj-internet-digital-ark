@@ -5781,3 +5781,38 @@ population; the retail form would need roughly 600,000 page fetches at 20 second
 mentions. **Expansion earns archive requests when a bulk link graph can be found, and the queue is never
 the constraint while 2.5M candidates sit unqueried against an engine clearing 600 an hour.** Recorded in
 `CLAUDE.md` beside the standing rule so the next session does not spend a week on page fetching.
+
+## 2026-08-12: the gap engine's repair, verified rather than asserted
+
+The first batch drawn from the rebuilt gap queue finished at 14:26 local and is the number the earlier
+entry could not give. `cdx_q1_20260812T112626Z`, dispatched 11:26:26 UTC, which is 41 minutes after the
+file was replaced, so it is unambiguously the first batch reading the new list:
+
+    {'with_capture': 238, 'years_found': 765, 'no_capture': 27,
+     'failed_-1': 32, 'failed_0': 2, 'failed_403': 1, 'queried': 300, 'throttles': 63}
+
+Measured from the journal rather than the log line: 265 answered, **238 held a capture, 89.8%**, 765
+year-records, spread 1996: 42, 1997: 53, 1998: 88, 1999: 186, 2000: 181, 2001: 215. Banked the same hour as
+765 evidence rows, 261 new pairs, 238 unique domains. **Zero of 3,219 before the swap, 238 of 265 after**,
+against that machine's own healthy batch of 7 August at 247 of 300.
+
+**2.55 dated records per request** is the figure worth carrying, against roughly 0.46 for the discovery
+half. The two halves are not competing for the same metric: the gap engine buys pairs on domains already
+held and the pool engine buys domains, which is why the round quotes them separately.
+
+**A `.part` was read for an early signal and deliberately not quoted.** Thirty minutes before the batch
+finished, a truncated read of the in-flight file showed 172 captures in 186 answered. That is 92.5% and it
+is not the number, because a gzip stream still being appended ends at its last complete block and the
+prefix is not a sample; this project has quoted 19%, 9.5%, 14.0% and 27.9% off one batch that finished at
+8.2%. It was used only for the question a partial read can answer, which is whether the count is zero.
+
+**The round after the repair and one pool batch:** 157,682 pairs, 122,624 net-new domains,
+90,024.2699 equivalent-English, **1.445888%**, his calculator agreeing to 0.0000 with nothing rejected and
+nothing already his. Up from 150,355 and 1.338051% five hours earlier.
+
+**The handover worked, which is the other thing that needed observing rather than trusting.** The three
+local engines expired at 12:00:35 UTC; `extend_engines.sh` started their replacements on the
+2026-08-15 00:00 UTC deadline in the same second, and a supervisor on the new deadline was confirmed
+running a minute later. `maintain.sh` was excluded by design and the reason is now in the script: it takes
+an iteration count rather than a deadline, and at pass 124 of 900 after 18h33m it has about 4.8 days of
+headroom.
