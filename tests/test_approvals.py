@@ -10,6 +10,8 @@ master-eligible source cannot be ingested". The agent's reasoning is exactly wha
 being distrusted, so the enforcement has to live in code.
 """
 
+from pathlib import Path
+
 import pytest
 
 from ark.approvals import NotApproved, check, load, pending
@@ -104,3 +106,66 @@ def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None
         - set(recorded)
     )
     assert not missing, f"master-eligible specs with no approval entry: {missing}"
+
+
+def test_a_triage_entry_is_pending_but_marked_as_triage(tmp_path) -> None:
+    """The gate treats it like any other pending class; only the reporting differs.
+
+    A source found and not yet priced carries no sample and no measured figure, so it
+    cannot be decided in two minutes the way a priced request can. The distinction has
+    to be machine-readable, because the alternative is one entry per source on the one
+    surface Ivo reads, and that surface stops being read the moment it stops fitting on
+    a screen.
+    """
+    from ark.approvals import load
+
+    doc = tmp_path / "approved-sources-list.md"
+    doc.write_text(
+        "# x\n\n"
+        "## Pending requests\n\n"
+        "### priced_thing / artifact_listing\n\n"
+        "Decision: pending\n\n"
+        "## Found, awaiting triage\n\n"
+        "### found_thing / whois_creation\n\n"
+        "Decision: pending\n",
+        encoding="utf-8",
+    )
+    found = load(doc)
+    assert found[("priced_thing", "artifact_listing")].is_triage is False
+    assert found[("found_thing", "whois_creation")].is_triage is True
+    assert all(a.decision == "pending" for a in found.values())
+
+
+def test_a_section_heading_ends_an_unfinished_request_block(tmp_path) -> None:
+    """A malformed entry must not swallow the next section's Decision line.
+
+    Without this, an entry whose `Decision:` line was forgotten would silently adopt the
+    decision of whatever came next, which is the one failure mode a gate must not have:
+    it would read as approved.
+    """
+    from ark.approvals import load
+
+    doc = tmp_path / "approved-sources-list.md"
+    doc.write_text(
+        "# x\n\n"
+        "## Pending requests\n\n"
+        "### forgot_its_decision / artifact_listing\n\n"
+        "some prose and no Decision line\n\n"
+        "## Approved before this mechanism existed\n\n"
+        "### legitimately_approved / artifact_listing\n\n"
+        "Decision: master\n",
+        encoding="utf-8",
+    )
+    found = load(doc)
+    assert ("forgot_its_decision", "artifact_listing") not in found
+    assert found[("legitimately_approved", "artifact_listing")].decision == "master"
+
+
+def test_the_live_file_parses_and_its_triage_section_is_recognised() -> None:
+    """Against the real document, so a rename of the heading cannot pass silently."""
+    from ark.approvals import TRIAGE_SECTION, load
+
+    found = load(Path("docs/approved-sources-list.md"))
+    assert found, "the live approvals file parsed to nothing"
+    assert TRIAGE_SECTION == "Found, awaiting triage"
+    assert any(a.decision == "master" for a in found.values())

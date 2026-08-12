@@ -394,4 +394,35 @@ Decision: candidate-only
 
 ## Pending requests
 
-None. A class appearing here must also be named under `## OPEN` in `key-decisions.md`.
+Priced, measured and waiting on a decision. A class appearing here carries a seeded-random sample with
+live links and the counterfactual, is decidable in about two minutes, and gets its own entry under
+`## OPEN` in `key-decisions.md`.
+
+None at present.
+
+---
+
+## Found, awaiting triage
+
+**This section grows indefinitely and that is its purpose** (Ivo, 2026-08-12): *"Grow the list of sources
+for sign-off in approved-sources-list.md. Keep growing it indefinitely. Every time when I have a moment to
+look at that list, I will tell you whether to add those sources to the candidate pool or to fold them in
+directly."*
+
+**How it differs from the section above.** These are sources that have been found, screened against the
+closed register and checked for reachability, but **not yet priced against the store**, so they carry no
+measured net-new figure and no sample to check. They are here so that hunting sources never waits on a
+decision, and so that a wake with healthy engines still produces something.
+
+**What is being asked of a reader.** For each entry, one of two words. *Candidate pool* means
+`Decision: candidate-only`: its names may be searched and can never date a year, which is the safe answer
+and loses very little, because the archive can still date them from its own captures. *Fold in directly*
+means `Decision: master`: its records may date a year on their own authority. `rejected` also binds and is
+the right answer for anything not worth keeping.
+
+**Nothing is blocked while these sit here.** A `pending` class cannot date a year, so `ark ingest` refuses
+it and collection continues regardless. This queue reaches `key-decisions.md` as **one line naming the
+count**, never one entry per source, because that surface stops being read the moment it stops fitting on
+a screen.
+
+None yet. The first pass of the standing source hunt is running.

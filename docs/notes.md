@@ -5895,3 +5895,54 @@ Word-like settings is the honest proxy: 2 pages with page 2 a third full, so abo
 Figures refreshed in both documents at 16:05: **159,787 pairs, 123,893 net-new domains, 91,908.4230
 equivalent-English, 1.476112%**, 87.5% discovery by value, his calculator agreeing to 0.0000 with nothing
 rejected.
+
+## 2026-08-12: the cron was not broken, the schedule now gets checked anyway, and idle stops being acceptable
+
+Ivo: he had seen no 15-minute wake in hours and assumed the schedule was dead. It was not. The job was
+still registered, and the contract explains what he saw: **a cron job fires only while the session is idle,
+never mid-query.** I had been in continuous multi-hour turns, so every wake that fell inside one had nowhere
+to land. The cure is bounded turns, not a new job, and the diagnosis matters because deleting and recreating
+a healthy schedule is a way to break the thing you were worried about.
+
+Two properties worth having on the record, both of which look like a broken schedule and are not:
+
+- **Idle-only firing.** A long turn swallows wakes. A missing wake is more often the agent working than the
+  cron failing, so the check is "is a job registered", not "did one fire recently".
+- **Session-only, seven-day expiry.** The `durable` flag has no effect: nothing is written to disk and the
+  schedule dies with the session. **The collectors do not depend on it**, holding absolute deadlines of
+  their own, which is the property that makes an unattended stretch safe. If the session dies, collection
+  continues and only the agent stops.
+
+Both are now step 0 of the cron checklist in `CLAUDE.md`, on his instruction that the schedule be checked on
+every call.
+
+**And "everything is fine" is no longer a complete outcome**, which `CLAUDE.md` had said it was. His words:
+*"don't forget to continue to look for new sources every time you are called. Never stop looking. Idle time
+is the enemy, you have been way too idle."* So step 5 makes hunting a source the standing default for a wake
+that finds healthy engines, which is exactly the case the old rule told the agent to write one line about
+and stop.
+
+**The mechanism, because an instruction without one decays.** `docs/approved-sources-list.md` gains
+`## Found, awaiting triage`, an append-only queue of sources found, screened and reachability-checked but
+**not yet priced**. His two answers map onto the existing gate with no new vocabulary: *add to the candidate
+pool* is `candidate-only`, *fold in directly* is `master`.
+
+**The part that needed code rather than prose.** The cycle mirrors every `pending` class into
+`key-decisions.md` as its own OPEN entry, which is right for a priced request carrying a sample and a
+counterfactual, and catastrophic for a queue designed to grow without bound: forty found sources would have
+become forty entries on the one surface he reads, and that surface stops being read the moment it stops
+fitting on a screen. So `approvals.load` now records which `##` section an entry sits under, `Approval.is_triage`
+distinguishes the two populations, and the triage queue is mirrored as **one entry naming the count**. The
+gate itself is unchanged: a pending class cannot date a year either way, so nothing is blocked while the
+queue sits there.
+
+**A second bug fixed on the way.** The parser did not reset on a `##` heading, so an entry whose `Decision:`
+line had been forgotten would silently adopt the decision of the next section's first entry. Against a file
+where the next section is "Approved before this mechanism existed", that reads as **approved**. Now a section
+heading ends any unfinished block, with a test.
+
+**Schedule.** Full report on **Sunday evening**, so the engines were re-armed to 2026-08-17 00:00 UTC, and
+`extend_engines.sh` gained an atomic `mkdir` lock: the deadline has moved twice in one round, so re-arming is
+routine, and two waiters blocked on the same pattern would both see an empty slot in the same instant. Ivo
+expects internet gaps Thursday night, Friday morning and Friday afternoon; collection is unaffected, since
+the deadlines are absolute and the collectors need no agent.

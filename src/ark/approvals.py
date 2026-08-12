@@ -49,6 +49,14 @@ DEFAULT_APPROVALS_PATH = Path("docs/approved-sources-list.md")
 DECISIONS = ("pending", "master", "candidate-only", "rejected")
 _REQUEST_RE = re.compile(r"^###\s+(?P<source>\S+)\s+/\s+(?P<etype>\S+)\s*$")
 _DECISION_RE = re.compile(r"^\s*Decision:\s*(?P<value>[a-z-]+)\s*$", re.IGNORECASE)
+_SECTION_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
+
+# The heading under which a source found but not yet priced waits. Entries here are a
+# work queue that grows without bound by design (Ivo, 2026-08-12), which is exactly why
+# the section has to be identifiable: a priced request earns its own line on his review
+# surface, and forty unpriced ones must collapse to a single count or that surface stops
+# being readable and therefore stops being read.
+TRIAGE_SECTION = "Found, awaiting triage"
 
 
 class NotApproved(RuntimeError):
@@ -61,6 +69,16 @@ class Approval:
     evidence_type: str
     decision: str
     line: int
+    section: str = ""
+
+    @property
+    def is_triage(self) -> bool:
+        """Found but not yet priced, so it carries no sample and no measured figure.
+
+        The gate treats it exactly like any other pending class, which is correct: it
+        cannot date a year either way. Only the reporting differs.
+        """
+        return self.section == TRIAGE_SECTION
 
     @property
     def may_ingest(self) -> bool:
@@ -85,7 +103,15 @@ def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
     out: dict[tuple[str, str], Approval] = {}
     key: tuple[str, str] | None = None
     heading_line = 0
+    section = ""
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        heading = _SECTION_RE.match(raw)
+        if heading:
+            section = heading.group("title")
+            # A `##` heading also ends any request block still waiting for a decision,
+            # so a malformed entry cannot swallow the next section's `Decision:` line.
+            key = None
+            continue
         found = _REQUEST_RE.match(raw)
         if found:
             key = (found.group("source"), found.group("etype"))
@@ -95,7 +121,7 @@ def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
         if decided and key is not None:
             value = decided.group("value").lower()
             if value in DECISIONS:
-                out[key] = Approval(key[0], key[1], value, heading_line)
+                out[key] = Approval(key[0], key[1], value, heading_line, section)
             key = None
     return out
 

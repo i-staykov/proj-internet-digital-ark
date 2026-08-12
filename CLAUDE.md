@@ -34,6 +34,16 @@ proof*.
   If a corpus has no author, no prose and no per-item date, it is probably self-dating: check before
   quoting a number that depends on it.
 - **Quote the post-split number, never the raw one.**
+- **The source list grows indefinitely, and it is a queue rather than a report** (Ivo, 2026-08-12):
+  *"Grow the list of sources for sign-off in approved-sources-list.md. Keep growing it indefinitely.
+  Every time when I have a moment to look at that list, I will tell you whether to add those sources to
+  the candidate pool or to fold them in directly."* So `## Found, awaiting triage` in that file is
+  append-only work-in-progress, and a found source goes there **before** it is priced, carrying what it
+  is, what would date one of its items, and a measured figure if one exists yet. His two answers map onto
+  the existing gate exactly: *add to the candidate pool* is `candidate-only`, *fold in directly* is
+  `master`. **A long triage queue is not a long list of questions**: it reaches
+  `docs/key-decisions.md` as one line naming the count, never one entry per source, because the moment
+  that surface takes more than a screen he stops reading it.
 - **A source class may not date a year until a human has classified it.**
   `docs/approved-sources-list.md` holds one `Decision:` line per (source, evidence type), and
   `ark ingest` refuses a master-eligible class that is `pending`, `rejected` or absent.
@@ -155,12 +165,25 @@ the store of that day and is not a statement about now.
 A cron wake is not a new brief. It is a 15-minute check that the round is still moving, and its first
 duty is to avoid making things worse. Work this in order and stop at the first step that applies.
 
+0. **First, check that the wake mechanism itself is alive**, because every other step here depends on it
+   and a dead schedule is silent by nature. `CronList`; if no job is registered, create one with
+   `CronCreate` carrying the standard wake prompt. Ivo asked for this check on **every** call
+   (2026-08-12), after several hours passed with no wake he could see.
+
+   **Two facts about it, both of which look like a broken schedule and are not.** A job fires **only
+   while the session is idle, never mid-query**, so one long turn swallows every wake that falls inside
+   it: the cure is bounded turns, not a new job, and a missing wake is more often the agent working than
+   the cron failing. And a job is **session-only whatever flags suggest otherwise**, expiring after
+   seven days, so it dies with the session and no schedule survives a restart. **The collectors do not
+   depend on it**: they hold their own absolute deadlines and keep running with no agent at all, which
+   is the property that makes an unattended stretch safe.
+
 1. **Are *you* mid-task?** If this session has unfinished work in flight, continue it and stop reading
    here. Do not re-plan, do not start something adjacent, do not restate the situation.
 
    **"The collectors are running" is not you being busy.** A supervisor looping over a queue wants no
-   attention at all, so a wake that finds healthy collectors and an idle agent is the **normal** case
-   rather than an exception.
+   attention at all, so a wake that finds healthy collectors and an idle agent is the **normal** case,
+   and step 5 is what such a wake is for.
 
 2. **Is anything stopped, unread or stale?** One command answers all three:
 
@@ -205,8 +228,18 @@ duty is to avoid making things worse. Work this in order and stop at the first s
    Anything that genuinely needs Ivo goes to `docs/key-decisions.md` under `## OPEN`, which is the
    only surface he reads, rather than waiting in a session nobody is looking at.
 
-**"Everything is fine" is a valid outcome.** Record it in one line and stop. Do not invent work to
-justify the wake, and never start a second copy of a collector to look busy.
+5. **And if nothing above needed doing, hunt for a new source. Every wake, without exception.**
+   Ivo's instruction of 2026-08-12: *"don't forget to continue to look for new sources every time you
+   are called. Never stop looking."* This is the standing default, not a filler task, and it is the
+   thing to do precisely *because* the engines are healthy and unattended. **"Everything is fine" is
+   therefore no longer a complete outcome**, which this file used to say it was: healthy collectors plus
+   an idle agent is the case that wastes the wake. Screen the candidate against
+   `docs/sources.md` first, price it if it survives, and add it to the triage queue in
+   `docs/approved-sources-list.md` whatever the answer, since a closed lead is worth recording too.
+
+**Do not invent busywork, and never start a second copy of a collector to look busy.** Hunting a source
+is not busywork: it costs a few requests, it is the one activity with no ceiling, and the register of
+sixty-odd closed families is what stops the same ground being broken twice.
 
 ## Traps that have each produced a confident wrong answer
 

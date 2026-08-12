@@ -362,6 +362,36 @@ def check_ledger() -> tuple[list[str], list[str]]:
     return findings, attention
 
 
+TRIAGE_HEADING = "Triage the newly found sources"
+
+
+def _mirror_triage_count(count: int, findings: list[str]) -> None:
+    """One entry naming the count, refreshed in place as the queue grows.
+
+    Deliberately not one entry per source. The queue is append-only work in progress and
+    is meant to grow indefinitely, so the only sustainable mirror is a single line that
+    says how many are waiting and where they are.
+    """
+    if key_decisions.is_open(TRIAGE_HEADING, DECISIONS_DOC):
+        findings.append(f"approvals: triage queue already open in key-decisions ({count})")
+        return
+    key_decisions.raise_open(
+        TRIAGE_HEADING,
+        f"**{count} source(s) found and not yet priced** are listed in "
+        f"`{APPROVALS.name}` under `## Found, awaiting triage`, each with what it is, what would "
+        f"date one of its items, and whether it is reachable today.\n\n"
+        f"For each one you need only say **candidate pool** or **fold in directly**, which set "
+        f"its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is "
+        f"not worth keeping.\n\n"
+        f"**Nothing is blocked while you leave this.** A pending class cannot date a year, so "
+        f"collection continues either way, and the queue exists so that finding sources never "
+        f"waits on a decision. Raised as one entry rather than one per source, on your "
+        f"instruction that this list grows indefinitely.",
+        DECISIONS_DOC,
+    )
+    findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
+
+
 def check_approvals() -> tuple[list[str], list[str]]:
     """Source classes whose journals are collected and cannot be ingested yet.
 
@@ -376,16 +406,32 @@ def check_approvals() -> tuple[list[str], list[str]]:
     """
     findings, attention = [], []
     waiting = pending_approvals(APPROVALS)
+    # Two populations with the same gate and different reporting. A priced request carries
+    # a seeded sample with live links and a measured counterfactual, so it earns its own
+    # line on the review surface and can be decided in two minutes. A triage entry is a
+    # source found and not yet priced, and by design that queue grows without bound, so
+    # forty of them collapse to one count. Reporting them individually would push the one
+    # surface Ivo reads past a screen, and a surface past a screen stops being read.
+    triage = [a for a in waiting if a.is_triage]
+    priced = [a for a in waiting if not a.is_triage]
     if not waiting:
         findings.append("approvals: nothing pending")
-    else:
-        findings.append(f"approvals: {len(waiting)} class(es) awaiting classification")
+    if priced:
+        findings.append(f"approvals: {len(priced)} priced class(es) awaiting classification")
         attention.append(
             "classify these source classes before their records can date a year; the "
             "journals are on disk and nothing is lost: "
-            + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in waiting)
+            + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in priced)
         )
-    for approval in waiting:
+    if triage:
+        findings.append(f"approvals: {len(triage)} source(s) in the triage queue")
+        attention.append(
+            f"{len(triage)} newly found source(s) await your triage in {APPROVALS.name} under "
+            f"'Found, awaiting triage': for each, candidate pool or fold in directly. Nothing is "
+            f"blocked on it, since none can date a year while pending"
+        )
+        _mirror_triage_count(len(triage), findings)
+    for approval in priced:
         needle = f"{approval.source_name} / {approval.evidence_type}"
         if key_decisions.is_open(needle, DECISIONS_DOC):
             findings.append(f"approvals: {needle} already open in key-decisions")
@@ -404,8 +450,15 @@ def check_approvals() -> tuple[list[str], list[str]]:
         findings.append(f"approvals: {needle} mirrored into key-decisions OPEN")
 
     # The other direction: a decision was taken and its OPEN entry was left behind.
-    still_pending = {f"{a.source_name} / {a.evidence_type}" for a in waiting}
+    still_pending = {f"{a.source_name} / {a.evidence_type}" for a in priced}
     for title in key_decisions.open_titles(DECISIONS_DOC):
+        if title == TRIAGE_HEADING:
+            if not triage:
+                attention.append(
+                    f"key-decisions still has '{TRIAGE_HEADING}' under OPEN, but the triage queue "
+                    f"is empty. Move it to CLOSED"
+                )
+            continue
         if not title.startswith("Approve, refuse or downgrade "):
             continue
         named = title.removeprefix("Approve, refuse or downgrade ").strip()

@@ -49,6 +49,25 @@ LOG="data/logs/extend_engines.log"
 mkdir -p data/logs
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
+# One armed set at a time. The per-engine guard re-checks the process table just
+# before launching, which is enough against a hand-started collector but not against
+# a second copy of THIS script: two waiters blocked on the same pattern would both
+# see an empty slot in the same instant and both launch. The deadline has already
+# been moved twice in one round, so re-arming is a routine operation rather than a
+# rare one, and `mkdir` is atomic where a test-then-write is not.
+LOCK="data/logs/extend_engines.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+    holder=$(cat "$LOCK/pid" 2>/dev/null || echo "unknown")
+    if [ "$holder" != "unknown" ] && kill -0 "$holder" 2>/dev/null; then
+        echo "already armed by pid ${holder}; stop it first (pkill -f 'extend_engine[s]')" >&2
+        exit 1
+    fi
+    note "clearing a lock whose holder ${holder} is gone"
+    rm -rf "$LOCK" && mkdir "$LOCK" || exit 1
+fi
+printf '%s\n' "$$" > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+
 human() { date -u -d "@$1" '+%F %T UTC' 2>/dev/null || date -u -r "$1" '+%F %T UTC'; }
 
 # Block until nothing matches the pattern, then run the command once, if and only if
