@@ -5863,3 +5863,35 @@ the engine by excluding its own transport failures.
 Round after banking both: **158,488 pairs, 123,118 net-new domains, 90,752.0780 equivalent-English,
 1.457540%**, his calculator agreeing to 0.0000 with nothing rejected and nothing already his. Discovery is
 87.6% of the increment by value. Both documents refreshed to that set at 15:40.
+
+## 2026-08-12: the interim report cut a third time, and where the candidate pool comes from
+
+Ivo again: still too verbose, too specific where it need not be, each idea sayable in fewer words, and one
+thing missing, namely why we have 2.5M spare candidates and where they come from. 906 words to 809 to **717**,
+with the structure untouched.
+
+**The addition is measured, not characterised.** The undated pool is 2,566,149 names and it is overwhelmingly
+one source: `usenet_address_mention` 47.8%, `usenet_mention` 45.0%, `usenet_bare_mention` 5.3%, so **98.1% is
+Usenet**, then `pandora_hosts` 0.7%, `trade_press_mention` 0.5%, the Netcraft names 0.3%, and a long tail
+including `ukwa_link_target`.
+
+**The concept it illustrates is the one worth keeping**: a name and its date need not come from the same
+place. Every source mentions far more domains than it can date, and a human-typed mention names a domain
+without establishing that it existed, so the mention yields a candidate and no year. The archive then dates
+that name from its own capture, which needs no trust in the mention at all. That is the same asymmetry the
+corroboration split rests on, seen from the collection side rather than the evidence side, and it is also why
+the loop can feed itself.
+
+**The report says explicitly that 2.5M names are not 2.5M future records**, because yield by origin runs from
+0.1% for munged Usenet addresses to 90.4% for link-graph names. Without that sentence, "the queue is not the
+constraint, its quality is" reads as an excuse for not finding more sources; with it, it is the argument for
+ranking.
+
+**A note on measuring length here.** There is no Word or LibreOffice on this machine, so a `.docx` cannot be
+paginated directly, and the `<Pages>` value pandoc writes into `docProps/app.xml` is a placeholder that always
+reads 1. Believing it would have been a confident wrong answer. Rendering the same markdown to PDF at
+Word-like settings is the honest proxy: 2 pages with page 2 a third full, so about 1.4 pages of content.
+
+Figures refreshed in both documents at 16:05: **159,787 pairs, 123,893 net-new domains, 91,908.4230
+equivalent-English, 1.476112%**, 87.5% discovery by value, his calculator agreeing to 0.0000 with nothing
+rejected.
