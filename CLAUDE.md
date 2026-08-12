@@ -163,7 +163,9 @@ the store of that day and is not a statement about now.
 ## If you were started by a cron job
 
 A cron wake is not a new brief. It is a 15-minute check that the round is still moving, and its first
-duty is to avoid making things worse. Work this in order and stop at the first step that applies.
+duty is to avoid making things worse. Work steps 0 to 4 in order and stop at the first that applies.
+**Step 5 is not one of the alternatives**: it is what a wake is for when none of the others fired, which
+is the common case and used to be the case that produced nothing.
 
 0. **First, check that the wake mechanism itself is alive**, because every other step here depends on it
    and a dead schedule is silent by nature. `CronList`; if no job is registered, create one with

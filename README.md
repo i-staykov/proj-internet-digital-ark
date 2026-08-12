@@ -25,7 +25,7 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [CLAUDE.md](CLAUDE.md) | the standing brief an agent is loaded with: the evidence rules, the house rules, the traps. **Only what never changes** |
 | [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
 | [docs/key-decisions.md](docs/key-decisions.md) | **the only file that asks a human for a decision.** Open and closed, newest first, pointing to an ADR where the reasoning is structural. A `pending` source class is mirrored here automatically and a test enforces it ([ADR-005](docs/ADRs.md)) |
-| [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database |
+| [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database. Its `## Found, awaiting triage` section is an append-only queue of sources found but not yet priced, and **grows indefinitely by design**: it reaches `key-decisions.md` as one line naming the count, never one entry per source |
 | [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
@@ -107,6 +107,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | approve | `uv run python scripts/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](docs/approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
+| hunt | `Workflow` with `hunt-new-sources` | the standing work of every wake that finds the engines healthy: five independent lenses propose named sources, a sceptic per lens collides each against the closed register and probes whether the data is actually retrievable in 2026, and the survivors are written into the triage queue. **Never stop looking** is a rule in `CLAUDE.md`, not a preference |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, **that a collector is alive
 and finding nothing**, that a journal is sitting unbanked on a remote disk, that a file on disk was never
