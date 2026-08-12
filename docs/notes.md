@@ -5946,3 +5946,44 @@ heading ends any unfinished block, with a test.
 routine, and two waiters blocked on the same pattern would both see an empty slot in the same instant. Ivo
 expects internet gaps Thursday night, Friday morning and Friday afternoon; collection is unaffected, since
 the deadlines are absolute and the collectors need no agent.
+
+## 2026-08-12: the standing source hunt, pass 1
+
+First run of the new standing work: five independent lenses proposing sources, a sceptic per lens colliding
+each against the closed register and probing whether the data is retrievable in 2026, then one synthesis.
+Eleven agents, 21 proposals, **11 survivors and 10 closed**, written into
+`docs/approved-sources-list.md` under `## Found, awaiting triage`.
+
+**The sceptics earned their place, which is the part worth recording.** They did not rubber-stamp; they
+falsified the prospectors' own claims:
+
+- **Nominet .uk WHOIS returns the CURRENT registration, not the original.** Proved 2 of 2: `0345.co.uk`,
+  which the store dates to 1997, reads 28-Dec-2022. So the route loses every dropped and re-registered
+  name silently. The failure direction is loss rather than a fabricated in-window year, which is why it is
+  still worth banking, and it is the same lapse-and-re-register effect that made registry dates useless for
+  the Netcraft question. The service is also end-of-life on 9 February 2027.
+- **The UCSF Solr date filter does not filter.** A range query for 1996-2001 returned numFound 3,843,392
+  and its top hits read "1995 March 20", so the handler is matching year tokens in text. That number is not
+  an in-window count and must not be quoted as one.
+- **`ripe_db_lastmodified` had its `artifact_listing` reading disproved outright**, so it can only ever be
+  candidate-only.
+- **The Domains Project vendor host returns 401** and its landing page now sells the same volume for EUR 100
+  to EUR 1,200, so the free GitHub mirror at 1.8 GB is the only route and the 3.235 billion figure is a
+  vendor claim, not a measurement.
+
+**The headings had to be normalised before the file would parse, which is worth knowing for pass 2.** The
+synthesiser wrote nuance into the heading itself, for example `### ucsf_industry_documents /
+dated_directory (corroborated half), link_target (rest)`. `ark.approvals` requires exactly
+`### slug / evidence_type`, so nine of eleven parsed and two did not; left alone the queue would have read as
+empty and the mirror would have raised nothing. Fixed by moving the nuance to a `- class note:` bullet.
+**The synthesis prompt should specify the heading grammar next time.**
+
+**One claim was verified here rather than taken on trust:** 60,468 undated `.uk` names in the pool, which
+measures exactly. Everything else in those entries is the hunt's own figure, and each entry says what its
+next step is, because none of them is priced yet.
+
+**Next wake should look at RDAP headroom.** `pool_targets_org.txt` holds 221,887 names and the running sweep
+is 40 batches of 5,000, so it will consume 200,000 of them and the replacement handover asks for 120
+batches. The .org list therefore runs dry well before Sunday, and the sweep stops early when its list is
+exhausted. Widening that list to other TLDs is the concrete next piece of engine work, and two of the
+triage entries exist precisely to feed it.

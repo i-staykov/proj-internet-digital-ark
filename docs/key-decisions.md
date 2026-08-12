@@ -27,7 +27,13 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-Nothing is waiting on you.
+### Triage the newly found sources
+
+**11 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
+
+For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
+
+**Nothing is blocked while you leave this.** A pending class cannot date a year, so collection continues either way, and the queue exists so that finding sources never waits on a decision. Raised as one entry rather than one per source, on your instruction that this list grows indefinitely.
 
 ---
 
