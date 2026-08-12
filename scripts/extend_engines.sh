@@ -24,6 +24,13 @@
 # restart it with settings that have since been retuned, which is the reason the
 # supervisor/watchdog pair was collapsed into one process in the first place.
 #
+# **`maintain.sh` is deliberately not here, and that was checked rather than assumed.**
+# It is the fourth long-running process and the one that banks everything, so leaving it
+# out would be the expensive omission. It takes an iteration count rather than a
+# deadline: `maintain.sh 900 150` is 900 passes, and measured on 2026-08-12 it was on
+# pass 124 after 18h33m, about 9 minutes a pass, which is roughly 4.8 days of headroom.
+# If it is ever started with a smaller count than the window, it needs a handover too.
+#
 # Usage: bash scripts/extend_engines.sh <deadline_epoch> [rdap_batches]
 
 set -uo pipefail
