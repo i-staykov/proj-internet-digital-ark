@@ -5846,3 +5846,20 @@ the completeness engine, and 466,239 addresses still unasked.
 
 The 11 August draft is deleted. Superseded documents are not history worth keeping in `private/`, and
 `docs/notes.md` already holds every figure they carried.
+
+## 2026-08-12: the second gap batch, and why the report quotes 2.29 rather than 2.55
+
+A second batch off the rebuilt queue finished and was banked: 300 queried, 254 answered, **205 held a
+capture, 80.7%**, 607 year-records, 207 new pairs. So the first batch's 89.8% was not a one-off and it was
+the better of the two.
+
+**Over both batches: 600 requests, 519 answered, 443 holding a capture, 85.4%, and 1,372 records, which is
+2.29 records per request.** The report quoted 2.55 off the first batch alone for about half an hour, and
+that figure is now replaced everywhere it appeared. Nothing was sent with it, but the pattern is the one
+this project keeps rediscovering: a single batch is a sample of one, and the honest denominator is every
+request issued rather than every request answered. Quoting per-answered would have given 2.64 and flattered
+the engine by excluding its own transport failures.
+
+Round after banking both: **158,488 pairs, 123,118 net-new domains, 90,752.0780 equivalent-English,
+1.457540%**, his calculator agreeing to 0.0000 with nothing rejected and nothing already his. Discovery is
+87.6% of the increment by value. Both documents refreshed to that set at 15:40.
