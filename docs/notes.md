@@ -5816,3 +5816,33 @@ local engines expired at 12:00:35 UTC; `extend_engines.sh` started their replace
 running a minute later. `maintain.sh` was excluded by design and the reason is now in the script: it takes
 an iteration count rather than a deadline, and at pass 124 of 900 after 18h33m it has about 4.8 days of
 headroom.
+
+## 2026-08-12: what Ding wants a report to be, and the rewrite that followed
+
+Ivo, on reading the interim report: too long, wrong focus. **"Ding doesn't care about technical details or
+problems we encountered, but more about our meta-level approach and the results it yielded and how we
+continue."** Worth recording as a durable fact about the reviewer rather than as a note about one document,
+because it governs the weekend submission too.
+
+Rewritten from roughly 1,600 words to 904, and restructured from a narrative of the week into four ideas:
+the evidence wall as auditability rather than as bookkeeping; the separation of measuring a source from
+admitting it, as the thing that makes delegation safe; selecting sources by the property that somebody had a
+reason to write a name down on a date, rather than by subject; and the corpus regenerating its own inputs.
+Then the two populations as a floor and an upside, then how it continues.
+
+**Everything self-critical came out.** The lost day, the monitoring blind spot, the partial-read trap, the
+7.4x pilot that yielded nothing, the `.org` throttle misdiagnosis and the Netcraft control tables are all
+gone. Two survive in abstracted form, because they are method rather than incident: "curated collections of
+notable sites add almost nothing, because prominence is what a crawl-derived baseline already contains", and
+"a process that cannot reject its own best find is not measuring anything". The Netcraft rejection is
+referred to without being named.
+
+**The limitations belong in the round report, not in an interim note.** That is where the lost day, the
+contention fixes and the refuted hypotheses should appear, and the material is already in this file.
+
+**Numbers appear exactly once**, in section 1, so the document has nothing to keep in sync with itself. The
+two figures quoted later are properties of the method rather than of the round: 2.55 records per request for
+the completeness engine, and 466,239 addresses still unasked.
+
+The 11 August draft is deleted. Superseded documents are not history worth keeping in `private/`, and
+`docs/notes.md` already holds every figure they carried.
