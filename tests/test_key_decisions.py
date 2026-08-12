@@ -126,23 +126,41 @@ def test_a_file_with_no_open_section_is_an_error_rather_than_a_silent_no_op(tmp_
         raise_open("Approve, refuse or downgrade x / cdx_timestamp", "Body.", path)
 
 
-def test_every_pending_approval_is_named_under_open_in_the_live_files() -> None:
-    """The invariant, against the real documents.
+def test_every_pending_approval_is_surfaced_in_the_live_files() -> None:
+    """The invariant, against the real documents, in the two shapes it now has.
 
     A `pending` class that appears nowhere in `key-decisions.md` is a journal waiting
     indefinitely on a human who was never told, which the harness would report as "the
     queue working". Deliberately runs on the live files: this must fail in the suite,
     not in a week.
+
+    **The invariant is "surfaced", not "named individually", and that distinction is
+    load-bearing since 2026-08-12.** A priced request carries a sample and a
+    counterfactual, is decidable in two minutes, and earns its own entry. A triage entry
+    is a source found and not yet priced, and that queue is meant to grow without bound
+    on Ivo's instruction, so naming forty of them individually would push the one surface
+    he reads past a screen. Those are represented by a single entry naming the count. Both
+    are surfaced; only the granularity differs, and a triage queue with no collective
+    entry is exactly as invisible as an unnamed priced request.
     """
     root = Path(__file__).resolve().parents[1]
     approvals = root / "docs" / "approved-sources-list.md"
     decisions = root / "docs" / "key-decisions.md"
+    waiting = pending(approvals)
+
     unsurfaced = [
         f"{a.source_name} / {a.evidence_type}"
-        for a in pending(approvals)
-        if not is_open(f"{a.source_name} / {a.evidence_type}", decisions)
+        for a in waiting
+        if not a.is_triage and not is_open(f"{a.source_name} / {a.evidence_type}", decisions)
     ]
     assert not unsurfaced, (
-        "pending approvals that Ivo would never see, because key-decisions.md is the "
-        f"only surface he reads: {unsurfaced}"
+        "priced pending approvals that Ivo would never see, because key-decisions.md is "
+        f"the only surface he reads: {unsurfaced}"
     )
+
+    triage = [a for a in waiting if a.is_triage]
+    if triage:
+        assert is_open("Triage the newly found sources", decisions), (
+            f"{len(triage)} source(s) sit in the triage queue with no collective entry "
+            "under OPEN, so nobody has been told they are there"
+        )

@@ -5987,3 +5987,29 @@ is 40 batches of 5,000, so it will consume 200,000 of them and the replacement h
 batches. The .org list therefore runs dry well before Sunday, and the sweep stops early when its list is
 exhausted. Widening that list to other TLDs is the concrete next piece of engine work, and two of the
 triage entries exist precisely to feed it.
+
+## 2026-08-12: I committed through a red gate, and the shell reason it happened
+
+Worth recording as a trap rather than an apology, because it will recur otherwise. The gate was run as:
+
+    uv run ruff check . >/dev/null && uv run pytest -q 2>&1 | tail -2 && git add -A && git commit ...
+
+**A pipeline's exit status is its LAST command's**, so `pytest | tail` exits 0 whether pytest passed or
+failed, and `&&` proceeded into the commit. One test was failing at the time and the commit landed anyway.
+This is the same shape as the `grep -c "A|B|C"` trap already on record: a construct that reports success by
+construction.
+
+The rule that follows: **never put the gate through a pipe.** Either check the exit code explicitly, or run
+`set -e` and redirect to `/dev/null` rather than piping to `tail`.
+
+**What was failing, and why it was a real failure rather than a flaky one.**
+`test_every_pending_approval_is_named_under_open_in_the_live_files` enforces ADR-005: every `pending` class
+must be named under `## OPEN`. My own change had deliberately broken that invariant for triage entries,
+which are represented by one collective entry rather than eleven individual ones, so the test was correct to
+fail and the fix belonged in the invariant rather than in the code.
+
+It is now `test_every_pending_approval_is_surfaced_in_the_live_files` and asserts the invariant in the two
+shapes it has: a priced request must be named individually, and a non-empty triage queue must have its
+collective entry. **"Surfaced" rather than "named", because a triage queue with no collective entry is
+exactly as invisible as an unnamed priced request**, and the weaker reading would have let the queue go dark
+silently.
