@@ -147,6 +147,21 @@ EXPECTED_ALIVE = (
     "answers today",
 )
 
+# The deliberate override, checked against the WHOLE verdict rather than against the
+# one sentence that names the host.
+#
+# `EXPECTED_ALIVE` is matched against `prediction_for`, which returns the *first*
+# sentence mentioning the host, and that precision is right: a verdict saying some
+# other host answers must not silence this one. But it means a register entry cannot
+# correct itself by appending, because the appended sentence is never the first one.
+# `Mirror-H.org` is the case that found this. It answers, it always did, its dates were
+# checked and every one postdates the window, and saying so at the end of the entry
+# changed nothing: the re-prober kept reporting it as an unexpected revival every wake.
+#
+# So this phrase is an instruction to the tool rather than a description of a host, and
+# it is deliberately verbose enough that nobody writes it by accident.
+DO_NOT_REOPEN = "do not reopen it on availability"
+
 
 def prediction_for(verdict: str, host: str) -> str:
     """The sentence in the verdict that mentions this host, if any.
@@ -245,7 +260,10 @@ def main() -> None:
             answers = status.startswith("2") or status in {"301", "302", "303", "307", "308"}
             host = urllib.parse.urlsplit(url).hostname or ""
             predicted = prediction_for(lead.verdict, host)
-            foretold = any(sign in (predicted or lead.verdict).lower() for sign in EXPECTED_ALIVE)
+            foretold = (
+                any(sign in (predicted or lead.verdict).lower() for sign in EXPECTED_ALIVE)
+                or DO_NOT_REOPEN in lead.verdict.lower()
+            )
             probe = Probe(
                 lead.name,
                 lead.line,
