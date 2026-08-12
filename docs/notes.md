@@ -6085,3 +6085,30 @@ transcripts with a per-item date in the URL, the title and the printed citation,
 weight namespaces; `eric_fulltext_1996_2001` 83 on a measured 52,354 in-window documents each carrying its
 own publication year. The Hansard entry carries its own warning, that hostname density measured **zero in a
 199-word sample**, so density must be priced before anyone writes a crawler.
+
+## 2026-08-13: the two engines are disjoint, verified rather than assumed
+
+Ivo asked whether the local engine is on the net-new candidate pool and the VPS on the gap-fill pool, and
+whether the two are disjoint. Measured rather than asserted, because the VPS list was replaced by hand on
+12 August and a hand-shipped file is exactly where this would go wrong.
+
+| | local | VPS |
+|---|---|---|
+| list | `queue_pool_local.txt` | `queue_shard1.txt`, the gap queue shipped 12 Aug |
+| names | 2,513,474 | 466,239 |
+| of 20,000 sampled, already holding a year | 5 | 20,000 |
+
+**Set intersection of the two lists: 0.** So the split holds exactly, and each list is the population it
+claims: 99.975% of the local sample holds no year, 100% of the VPS sample holds one.
+
+**The 5 exceptions are drift, not leakage.** A queue is a snapshot, and those names were dated by the engine
+after the file was written. It costs nothing: a re-query is additive and `ark cdx` skips anything already
+journalled.
+
+**The nuance worth writing down: disjointness is a build-time property, not an invariant.** The two files
+are disjoint because `build_query_queue.py --population gap|pool` partitions on whether a domain holds any
+year, at the moment of the build. As the pool engine dates names they migrate into the gap population, so
+the guarantee is refreshed only when the lists are rebuilt. The cycle rebuilds the pool list regularly and
+the gap list changes slowly by design, so it self-corrects; but a gap list rebuilt by hand while a stale
+pool list is still in flight would overlap, and the overlap would be silent. If either list is ever rebuilt
+alone, re-measure the intersection.
