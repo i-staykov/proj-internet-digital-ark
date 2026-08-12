@@ -27,6 +27,72 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Approve, refuse or downgrade ripe_db_lastmodified / link_target
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade dnsrf_dap_udrp_multiprovider / artifact_listing
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade uspto_trademark_case_files / artifact_listing
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade uspto_tm_marktext / dated_directory
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade nz_dnc_zone_data / whois_creation
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade dotgov_real_names / link_target
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade courtlistener_caselaw / dated_directory
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade caselaw_access_project_opinions / dated_directory
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade domainsproject_bulk_list / link_target
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade ucsf_industry_documents / dated_directory
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade nominet_whois_port43 / whois_creation
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
 ### Triage the newly found sources
 
 **11 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.

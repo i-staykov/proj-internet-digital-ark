@@ -588,3 +588,13 @@ verify-delivery dir="output/internet-digital-ark-1996-2001":
 # turn a reviewer-facing markdown report into the .docx he asks for
 report-docx source:
     uv run python scripts/build_report_docx.py {{source}} --keep-markdown
+
+# Ivo signs off the most promising source first, so the triage queue is kept in
+# score order by a program rather than by anyone remembering. The judgement is in
+# the `- potential:` line each entry declares; this only applies it. An entry with
+# no score is a hard error, since a source that sorts to the bottom for want of a
+# number is the one nobody ever looks at.
+#
+# sort the triage queue by declared potential, highest first
+triage-rank *args:
+    uv run python scripts/rank_triage.py {{args}}

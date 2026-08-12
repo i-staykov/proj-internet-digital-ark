@@ -6013,3 +6013,38 @@ shapes it has: a priced request must be named individually, and a non-empty tria
 collective entry. **"Surfaced" rather than "named", because a triage queue with no collective entry is
 exactly as invisible as an unnamed priced request**, and the weaker reading would have let the queue go dark
 silently.
+
+## 2026-08-12: the queue sorts itself, and the cron was recreated to be provably fresh
+
+Ivo: keep hunting without stopping, sort the queue by potential so he signs off the best first, and make
+the cron actually fire every 15 minutes until Sunday night.
+
+**The cron.** The old job was healthy but I recreated it anyway so its state is provable rather than
+inferred: created `dd2a6f56` first, verified it, then deleted `a9f57670`, so the schedule was never empty.
+Moved off the `*/15` marks to `3,18,33,48` because every job asking for "every 15 minutes" lands on :00 and
+:15 and :30 and :45 together. **The real fix is not the job, it is turn length**: a cron cannot fire while a
+turn is running, so a three-hour turn silently cancels twelve wakes. The new prompt says so in its own text,
+and short turns are now the rule.
+
+**Sorting is a program because the queue grows forever.** `scripts/rank_triage.py`, wired as
+`just triage-rank`, rewrites the section in descending `- potential:` order. The judgement stays human: each
+entry declares its own score with the drivers written out so it can be argued with, and the tool only
+applies it. **An entry with no score is a hard error rather than a silent zero**, because an unscored entry
+sorts to the bottom and is then precisely the one nobody ever looks at. `--check` exits 1 on drift, and a
+test asserts the live file is in order so a hand edit that breaks it fails the suite.
+
+Two things the tool must not do, both tested: it must not swallow a later `##` section into the sort, since
+the same file is the gate `ark ingest` enforces and moving an approved entry would be a correctness bug
+rather than a cosmetic one; and equal scores sort by title so a re-run produces no diff.
+
+**Pass 1 scored and ordered.** UCSF industry documents 78 leads, on a per-item date over 28.3M litigation
+records that are the least prominence-selected population available. Nominet .uk 72, on the highest English
+weight TLD at 0.9813 with 60,468 undated .uk names verified in the pool, capped because it returns the
+current registration and closes in February 2027. The three legal corpora sit at 52 to 60. The undated seeds
+land at 12 to 30, since without a per-item date they can never date a year whatever their volume.
+
+**Pass 2 is running** with the two defects from pass 1 fixed in its prompt: the heading grammar is stated as
+strict and machine-read, and every entry must carry its own `- potential:` score on the same rubric. Its
+five lenses are deliberately disjoint from pass 1: abuse and security listings, education and membership
+registries, commerce and ISP directories, the highest English-weight national sources, and non-web protocol
+registries.

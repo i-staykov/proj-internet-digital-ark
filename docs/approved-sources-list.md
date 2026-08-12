@@ -427,19 +427,9 @@ a screen.
 
 **Pass 1, 2026-08-12.** Five independent lenses proposed sources, a sceptic per lens collided each against the closed register and probed whether the data is retrievable in 2026, and 11 of 21 survived. **The figures inside these entries are the hunt's own, not measurements I have reproduced**, except where an entry says otherwise; that is what pricing is for, and the `next step` line names it. One claim was checked here and holds exactly: 60,468 undated `.uk` names in the pool.
 
-### nominet_whois_port43 / whois_creation
-
-- what it is: Nominet's public .uk WHOIS on port 43, one "Relevant dates: Registered on:" line per queried domain.
-- where: whois.nic.uk port 43, documented at https://registrars.nominet.uk/uk-namespace/registration-and-domain-management/query-tools/whois/
-- what dates one item: the registry's own "Registered on:" date for that one domain, self-dating, no split. Cap the proposal understates: it is the CURRENT registration, not the original, proved 2 of 2 (0345.co.uk, stored as 1997, reads 28-Dec-2022; kestrel-cleaning.co.uk reads 23-May-2025), so every dropped and re-registered .uk name is lost silently. Failure direction is loss, not a fabricated in-window year, so it is safe to bank. Nothing before Aug-1996 (Nominet prints "before Aug-1996"), so 1996 is partial.
-- why it may be net-new: 0 of the 60,468 undated .uk names in the pool appear in the 11,362,034-pair merged baseline, and all 202,878 registered .uk names the baseline holds are already dated in the store. Upper bound 60,468 x 15.7% x 0.9813 is roughly 9,300 EE (ESTIMATE, and it assumes a 100% answer rate that 1 of 2 probes already contradicts).
-- reachability, checked 2026-08-12: port 43 answered twice at human pace, full record both times, no refusal, no HTTP in the path; the cited docs page fetched 200. The response carries the banner "WHOIS service for .UK will cease on 9th of February 2027", and Nominet's page calls .uk WHOIS end of life and redirects to RDAP, the service that refused this project three times in fourteen queries at 0.5 q/s.
-- screener: strongest of the batch, live and measured, but two proposal claims fail. The quoted limits, 5 q/s and 1,000 per rolling 24 hours, are NOT on the page cited, so the 61-day feasibility case rests on an unverified number; and a seeded sample of 20 undated .uk names holds anti-spam munging, typos and junk beside plausible names, so a material share of the 60,468 returns No match and under a daily quota that waste is the whole cost.
-- next step: price it, measuring the real rate limit and the answer rate on a plausibility-ranked queue, inside the window that closes February 2027.
-
-Decision: pending
-
 ### ucsf_industry_documents / dated_directory
+
+- potential: 78 (per-item documentdate on 28.3M litigation documents, endpoint open and real JSON retrieved, internal corporate correspondence is the least prominence-selected population available; capped because the in-window count is unverified and the date filter was shown not to filter)
 
 - class note: typed inside a dated artifact, so it takes the corroboration split; the uncorroborated half lands as `link_target`
 
@@ -453,35 +443,23 @@ Decision: pending
 
 Decision: pending
 
-### domainsproject_bulk_list / link_target
+### nominet_whois_port43 / whois_creation
 
-- class note: an undated bulk list, so it can never date a year; names are dated afterwards by the approved rdap_snapshot route
+- potential: 72 (self-dating registry date on the highest English-weight TLD at 0.9813, answered live twice, 60,468 undated .uk names verified in the pool; capped because it returns the CURRENT registration so lapsed names are lost, and the service closes February 2027)
 
-- what it is: the Domains Project bulk domain list, taken from the free GitHub mirror rather than the vendor host.
-- where: https://github.com/tb0hdan/domains (the proposal's raw-data host, https://dataset.domainsproject.org/, returns 401)
-- what dates one item: nothing. Undated seed, scores zero until the already-approved rdap_snapshot / whois_creation engine dates a name, so no approval gates collection.
-- why it may be net-new: the local engine has 1,357,792 unasked names left, which is 3.2 hours at the measured 118 q/s and not the 11 days claimed, so the pool empties this afternoon and seed volume is the binding constraint.
-- reachability, checked 2026-08-12: dataset.domainsproject.org 401 on HEAD; domainsproject.org 200, 36,022 bytes; github.com HTML 502 to curl but the API returns 200 for repos/tb0hdan/domains, BSD-3-Clause, not archived, 1,803,558 KB, pushed 2026-05-03, 1,154 stars.
-- screener: the one item that can start unattended tonight, and the free route is real and redistributable. Two caps. Whether the free repo carries 3.235 billion names or a subset is UNVERIFIED, and the landing page's own schema.org data now sells that exact volume from EUR 100 to EUR 1,200, so treat 3.235B as a vendor claim; 1.8 GB implies 35x compression, which is equally consistent with a subset. Second, it is crawl-derived and RDAP can only date a name alive today, so the route reaches only the surviving 1996-2001 population, the same 15% to 17% the .uk figure measures.
-- next step: pool only, gated: 5,000 names sampled at random, RDAP'd, reporting any-date rate, in-window rate and mean English weight of the net-new part before any bulk pull.
-
-Decision: pending
-
-### caselaw_access_project_opinions / dated_directory
-
-- class note: typed inside a dated record, so it takes the corroboration split
-
-- what it is: Harvard Caselaw Access Project bulk static files, full text of published US case law, one record per opinion, unauthenticated static files on a non-IA host.
-- where: https://static.case.law/
-- what dates one item: one opinion is one record with a structured decision date, and a hostname in that opinion evidences that year only, not the dataset publication date. Reporter metadata carries explicit start_year and end_year, so in-window filtering is a metadata operation and not a guess.
-- why it may be net-new: hostnames typed by litigants and judges 1996-2001 include small commercial parties that never had a famous crawl footprint, and the repo has never touched this family.
-- reachability, checked 2026-08-12: static.case.law/ HTTP/2 200, text/html, last-modified 2024-03-05, Cloudflare, no auth. ReportersMetadata.json returned 206 with real records, id 210, "West's Atlantic Reporter, Second Series", A.2d, start_year 1942, end_year 2010, nested jurisdictions. Data retrieved, not a shell.
-- screener: dating sound, retrieval proved, and grep of all 183 tracked files for caselaw|courtlistener|case\.law returned nothing, so genuinely untouched. Split-protected typed evidence, so widening the URL regex is safe and no approval is needed to start on the candidate half. Overlaps courtlistener_caselaw below: price only one of the two first.
-- next step: price it, on one in-window reporter, measuring hostnames per opinion and the post-split net-new share.
+- what it is: Nominet's public .uk WHOIS on port 43, one "Relevant dates: Registered on:" line per queried domain.
+- where: whois.nic.uk port 43, documented at https://registrars.nominet.uk/uk-namespace/registration-and-domain-management/query-tools/whois/
+- what dates one item: the registry's own "Registered on:" date for that one domain, self-dating, no split. Cap the proposal understates: it is the CURRENT registration, not the original, proved 2 of 2 (0345.co.uk, stored as 1997, reads 28-Dec-2022; kestrel-cleaning.co.uk reads 23-May-2025), so every dropped and re-registered .uk name is lost silently. Failure direction is loss, not a fabricated in-window year, so it is safe to bank. Nothing before Aug-1996 (Nominet prints "before Aug-1996"), so 1996 is partial.
+- why it may be net-new: 0 of the 60,468 undated .uk names in the pool appear in the 11,362,034-pair merged baseline, and all 202,878 registered .uk names the baseline holds are already dated in the store. Upper bound 60,468 x 15.7% x 0.9813 is roughly 9,300 EE (ESTIMATE, and it assumes a 100% answer rate that 1 of 2 probes already contradicts).
+- reachability, checked 2026-08-12: port 43 answered twice at human pace, full record both times, no refusal, no HTTP in the path; the cited docs page fetched 200. The response carries the banner "WHOIS service for .UK will cease on 9th of February 2027", and Nominet's page calls .uk WHOIS end of life and redirects to RDAP, the service that refused this project three times in fourteen queries at 0.5 q/s.
+- screener: strongest of the batch, live and measured, but two proposal claims fail. The quoted limits, 5 q/s and 1,000 per rolling 24 hours, are NOT on the page cited, so the 61-day feasibility case rests on an unverified number; and a seeded sample of 20 undated .uk names holds anti-spam munging, typos and junk beside plausible names, so a material share of the 60,468 returns No match and under a daily quota that waste is the whole cost.
+- next step: price it, measuring the real rate limit and the answer rate on a plausibility-ranked queue, inside the window that closes February 2027.
 
 Decision: pending
 
 ### courtlistener_caselaw / dated_directory
+
+- potential: 60 (date_filed per opinion, bulk CSV off a non-IA host with no key, litigant hostnames are not prominence-selected; overlaps caselaw_access_project, price only one first)
 
 - class note: typed inside a dated record, so it takes the corroboration split
 
@@ -495,49 +473,25 @@ Decision: pending
 
 Decision: pending
 
-### dotgov_real_names / link_target
+### caselaw_access_project_opinions / dated_directory
 
-- class note: an undated list, dated afterwards by the approved rdap_snapshot / whois_creation route
+- potential: 58 (decision date per opinion, static files retrieved with real reporter metadata and explicit start_year, US-heavy so English weight is high; same population as courtlistener)
 
-- what it is: CISA's dotgov-data current-full.csv, the authoritative census of every registered .gov domain, 16,483 data rows, 1,406,077 bytes, no date column of any kind.
-- where: https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-full.csv (dating route: https://rdap.nic.gov/rdap/)
-- what dates one item: not the CSV, which can never date anything. rdap.nic.gov returns registration 1997-10-02T01:29:25Z for loc.gov alongside a separate reregistration 2026-05-19, so this registry preserves the ORIGINAL creation date across a lapse, the property .uk lacks and the failure that makes .au date nothing. Cleanest dating route in the batch. On one reading it needs no new Decision line, because gov resolves to https://rdap.nic.gov/rdap/ in the cached IANA bootstrap and would be swept by the approved rdap_snapshot spec, but that reading is a human's call.
-- why it may be net-new: the baseline's 21,271 .gov rows are host-level and collapse to 1,050 distinct registered names, 551 of them in the census, so 15,932 of 16,483 real .gov names are absent from the shipped baseline, slightly more than the 15,816 claimed. Store figures exact: 667 held, 551 dated, all in window.
-- reachability, checked 2026-08-12: raw.githubusercontent.com 200, 1,406,077 bytes, text/plain; rdap.nic.gov 200, 6,983 bytes of valid RDAP JSON.
-- screener: honest ceiling 15,932 pairs at 0.9825, realistic yield a few hundred to low thousands because the baseline already holds 1,050 in-window .gov names and the in-window .gov namespace was small, so below the 5,000-pair bar. It survives on cost alone: 15,932 queries at 118 q/s is about 2.3 minutes, the cheapest decisive experiment here, and the names are county and city governments rather than famous sites. One correction to the proposed second use as a fabrication filter: 499 registered .gov names in the baseline are absent from the current census and they are real retired federal sites (4woman.gov, 2dol.gov, 21stcentury.gov, 1903to2003.gov), so the filter is one-directional, it can whitelist 16,483 names as real and cannot condemn the rest.
-- next step: price it, 2.3 minutes of RDAP, and settle whether the existing rdap_snapshot Decision already covers the gov route.
+- class note: typed inside a dated record, so it takes the corroboration split
 
-Decision: pending
-
-### nz_dnc_zone_data / whois_creation
-
-- class note: the creation date comes from whois.srs.net.nz per domain; the zone file itself is an undated seed
-
-- what it is: two halves that must be separated. The dating half is the .nz registry WHOIS at whois.srs.net.nz, live and excellent. The seed half is the DNC zone data file on written ZTP1 application, and that half failed contact.
-- where: whois.srs.net.nz port 43 (verified); https://dnc.org.nz/tools-and-services/how-do-i-2/request-the-zone-data-file/ returns 403 to us
-- what dates one item: stronger than claimed. The field named in the proposal, domain_dateregistered, is the retired DNC format; the live response is ICANN-style and returns BOTH Creation Date: 1997-03-05T11:00:00Z and Original Created: 1997-03-05T11:00:00Z for xtra.co.nz, which the store independently dates 1996 to 2001. Original Created is exactly the field that survives a lapse, so .nz suffers neither the .uk loss nor the .au migration stamp.
-- why it may be net-new: nz is confirmed ABSENT from all 590 entries and 1,200 TLDs of the cached IANA RDAP bootstrap published 2026-07-23, so no existing engine can reach a 0.9895-weight namespace by any other route. 0 of the 3,865 undated .nz pool names appear in the merged baseline, and all 24,486 baseline .nz names are already dated in the store.
-- reachability, checked 2026-08-12: whois.srs.net.nz answered normally on port 43 with a full record; dnc.org.nz ZTP1 page 403, 5,785 bytes of block page, so the named artifact and its application procedure are NOT retrievable by us and the 764,987-name figure is unverified. Rate limit UNMEASURED, one query answered.
-- screener: the seed the proposal rests on is unreachable, so what survives is a smaller source that needs no application at all, the 3,865 undated .nz pool names, figures verified as claimed. At a 15% survivor rate that free population is roughly 570 EE (ESTIMATE), below the 5,000-pair bar but above every source rejected in sources.md this round (12 to 88 EE). It ranks because pricing the free names costs nothing, needs no approval, and produces the one number any ZTP1 application would have to justify itself with.
-- next step: price the free 3,865 and measure the WHOIS rate limit; treat the 735,000 unseen names as a separate access request only if that number justifies it.
-
-Decision: pending
-
-### uspto_tm_marktext / dated_directory
-
-- class note: `artifact_listing` is arguable and `dated_directory` is the safe reading, so it is filed under the safe one
-
-- what it is: USPTO trademark full-text XML from the Open Data Portal, the subpopulation being applications filed 1996-2001 whose word mark IS a domain name, each with serial number, mark text and a machine-recorded filing date.
-- where: https://api.uspto.gov/api/v1/datasets/products/TRTDXFAP (portal page https://data.uspto.gov/bulkdata/datasets/TRTDXFAP)
-- what dates one item: one row is one application with its own filing date, and the domain sits in a STRUCTURED field rather than in prose, so unlike CourtListener it is not pre-capped by the prose criterion and a paid filing has no protocol-placeholder failure mode. Caveat the proposal omits, and it is the generalising lesson of the Netcraft entry: an intent-to-use filing for FOO.COM in 1999 proves the mark was applied for in 1999, not that foo.com resolved in 1999.
-- why it may be net-new: dot-com-rush filers were overwhelmingly small businesses buying a name, which is the opposite end of the distribution from the famous hosts a crawl-derived baseline holds first.
-- reachability, checked 2026-08-12: 401 Unauthorized, application/json, 26 bytes, {"message":"Unauthorized"}, so the bulk route is key-gated by free self-service registration and not a licence. The annual product page no longer exists: developer.uspto.gov redirected to https://data.uspto.gov/ and served a 20,666-byte JS shell with no title, zero occurrences of bulkdata.uspto.gov and zero of the annual file naming, so no file URL was seen. dig: bulkdata.uspto.gov has NO address while data.uspto.gov, api.uspto.gov and developer.uspto.gov all resolve.
-- screener: best shape of the three gated items because the domain is a structured field. Second correction the proposal needs: TRTDXFAP is the DAILY applications product and does not reach 1996-2001; the window lives in the annual backfile whose product page is the one that now redirects, so the in-window file is unconfirmed and no volume figure here is measured.
-- next step: access request, free API key, then locate the annual backfile product and measure in-window domain-shaped marks before anything else.
+- what it is: Harvard Caselaw Access Project bulk static files, full text of published US case law, one record per opinion, unauthenticated static files on a non-IA host.
+- where: https://static.case.law/
+- what dates one item: one opinion is one record with a structured decision date, and a hostname in that opinion evidences that year only, not the dataset publication date. Reporter metadata carries explicit start_year and end_year, so in-window filtering is a metadata operation and not a guess.
+- why it may be net-new: hostnames typed by litigants and judges 1996-2001 include small commercial parties that never had a famous crawl footprint, and the repo has never touched this family.
+- reachability, checked 2026-08-12: static.case.law/ HTTP/2 200, text/html, last-modified 2024-03-05, Cloudflare, no auth. ReportersMetadata.json returned 206 with real records, id 210, "West's Atlantic Reporter, Second Series", A.2d, start_year 1942, end_year 2010, nested jurisdictions. Data retrieved, not a shell.
+- screener: dating sound, retrieval proved, and grep of all 183 tracked files for caselaw|courtlistener|case\.law returned nothing, so genuinely untouched. Split-protected typed evidence, so widening the URL regex is safe and no approval is needed to start on the candidate half. Overlaps courtlistener_caselaw below: price only one of the two first.
+- next step: price it, on one in-window reporter, measuring hostnames per opinion and the post-split net-new share.
 
 Decision: pending
 
 ### uspto_trademark_case_files / artifact_listing
+
+- potential: 55 (filing date per case file on a large administrative corpus, US so English weight is high; capped because a mark text is not a hostname and the extraction is unproven)
 
 - class note: read as self-dating; under the corroboration split it would be `dated_directory` instead, which is the cautious reading
 
@@ -553,6 +507,8 @@ Decision: pending
 
 ### dnsrf_dap_udrp_multiprovider / artifact_listing
 
+- potential: 52 (same shape as udrp_proceedings which is already approved master and paid 7,837 records, wider provider set; capped because the incremental population over what we hold is unknown)
+
 - class note: self-dating, and the class is already settled `master` for udrp_proceedings by ADR-002; this is a wider provider set
 
 - what it is: DNS Research Federation's normalised UDRP decisions on DAP.LIVE, claimed as roughly 83,000 cases over 156,000 domains across all four dispute providers, intended as the sanctioned reopen of the NAF, eResolution and CPR gap at docs/sources.md:1721.
@@ -565,7 +521,73 @@ Decision: pending
 
 Decision: pending
 
+### nz_dnc_zone_data / whois_creation
+
+- potential: 45 (per-domain creation date from whois.srs.net.nz, .nz is high English weight; capped because the zone file itself is undated and the query volume needed is large)
+
+- class note: the creation date comes from whois.srs.net.nz per domain; the zone file itself is an undated seed
+
+- what it is: two halves that must be separated. The dating half is the .nz registry WHOIS at whois.srs.net.nz, live and excellent. The seed half is the DNC zone data file on written ZTP1 application, and that half failed contact.
+- where: whois.srs.net.nz port 43 (verified); https://dnc.org.nz/tools-and-services/how-do-i-2/request-the-zone-data-file/ returns 403 to us
+- what dates one item: stronger than claimed. The field named in the proposal, domain_dateregistered, is the retired DNC format; the live response is ICANN-style and returns BOTH Creation Date: 1997-03-05T11:00:00Z and Original Created: 1997-03-05T11:00:00Z for xtra.co.nz, which the store independently dates 1996 to 2001. Original Created is exactly the field that survives a lapse, so .nz suffers neither the .uk loss nor the .au migration stamp.
+- why it may be net-new: nz is confirmed ABSENT from all 590 entries and 1,200 TLDs of the cached IANA RDAP bootstrap published 2026-07-23, so no existing engine can reach a 0.9895-weight namespace by any other route. 0 of the 3,865 undated .nz pool names appear in the merged baseline, and all 24,486 baseline .nz names are already dated in the store.
+- reachability, checked 2026-08-12: whois.srs.net.nz answered normally on port 43 with a full record; dnc.org.nz ZTP1 page 403, 5,785 bytes of block page, so the named artifact and its application procedure are NOT retrievable by us and the 764,987-name figure is unverified. Rate limit UNMEASURED, one query answered.
+- screener: the seed the proposal rests on is unreachable, so what survives is a smaller source that needs no application at all, the 3,865 undated .nz pool names, figures verified as claimed. At a 15% survivor rate that free population is roughly 570 EE (ESTIMATE), below the 5,000-pair bar but above every source rejected in sources.md this round (12 to 88 EE). It ranks because pricing the free names costs nothing, needs no approval, and produces the one number any ZTP1 application would have to justify itself with.
+- next step: price the free 3,865 and measure the WHOIS rate limit; treat the 735,000 unseen names as a separate access request only if that number justifies it.
+
+Decision: pending
+
+### uspto_tm_marktext / dated_directory
+
+- potential: 40 (dated filings, but a trademark text is only sometimes a domain and the safe class reading takes the corroboration split, which historically removes most of the net-new part)
+
+- class note: `artifact_listing` is arguable and `dated_directory` is the safe reading, so it is filed under the safe one
+
+- what it is: USPTO trademark full-text XML from the Open Data Portal, the subpopulation being applications filed 1996-2001 whose word mark IS a domain name, each with serial number, mark text and a machine-recorded filing date.
+- where: https://api.uspto.gov/api/v1/datasets/products/TRTDXFAP (portal page https://data.uspto.gov/bulkdata/datasets/TRTDXFAP)
+- what dates one item: one row is one application with its own filing date, and the domain sits in a STRUCTURED field rather than in prose, so unlike CourtListener it is not pre-capped by the prose criterion and a paid filing has no protocol-placeholder failure mode. Caveat the proposal omits, and it is the generalising lesson of the Netcraft entry: an intent-to-use filing for FOO.COM in 1999 proves the mark was applied for in 1999, not that foo.com resolved in 1999.
+- why it may be net-new: dot-com-rush filers were overwhelmingly small businesses buying a name, which is the opposite end of the distribution from the famous hosts a crawl-derived baseline holds first.
+- reachability, checked 2026-08-12: 401 Unauthorized, application/json, 26 bytes, {"message":"Unauthorized"}, so the bulk route is key-gated by free self-service registration and not a licence. The annual product page no longer exists: developer.uspto.gov redirected to https://data.uspto.gov/ and served a 20,666-byte JS shell with no title, zero occurrences of bulkdata.uspto.gov and zero of the annual file naming, so no file URL was seen. dig: bulkdata.uspto.gov has NO address while data.uspto.gov, api.uspto.gov and developer.uspto.gov all resolve.
+- screener: best shape of the three gated items because the domain is a structured field. Second correction the proposal needs: TRTDXFAP is the DAILY applications product and does not reach 1996-2001; the window lives in the annual backfile whose product page is the one that now redirects, so the in-window file is unconfirmed and no volume figure here is measured.
+- next step: access request, free API key, then locate the annual backfile product and measure in-window domain-shaped marks before anything else.
+
+Decision: pending
+
+### domainsproject_bulk_list / link_target
+
+- potential: 30 (no date at all so it can never date a year, but it is the one item that could feed the RDAP engine tonight, and that engine's .org list runs dry before Sunday; volume unverified and the vendor now sells it, so the free mirror may be a subset)
+
+- class note: an undated bulk list, so it can never date a year; names are dated afterwards by the approved rdap_snapshot route
+
+- what it is: the Domains Project bulk domain list, taken from the free GitHub mirror rather than the vendor host.
+- where: https://github.com/tb0hdan/domains (the proposal's raw-data host, https://dataset.domainsproject.org/, returns 401)
+- what dates one item: nothing. Undated seed, scores zero until the already-approved rdap_snapshot / whois_creation engine dates a name, so no approval gates collection.
+- why it may be net-new: the local engine has 1,357,792 unasked names left, which is 3.2 hours at the measured 118 q/s and not the 11 days claimed, so the pool empties this afternoon and seed volume is the binding constraint.
+- reachability, checked 2026-08-12: dataset.domainsproject.org 401 on HEAD; domainsproject.org 200, 36,022 bytes; github.com HTML 502 to curl but the API returns 200 for repos/tb0hdan/domains, BSD-3-Clause, not archived, 1,803,558 KB, pushed 2026-05-03, 1,154 stars.
+- screener: the one item that can start unattended tonight, and the free route is real and redistributable. Two caps. Whether the free repo carries 3.235 billion names or a subset is UNVERIFIED, and the landing page's own schema.org data now sells that exact volume from EUR 100 to EUR 1,200, so treat 3.235B as a vendor claim; 1.8 GB implies 35x compression, which is equally consistent with a subset. Second, it is crawl-derived and RDAP can only date a name alive today, so the route reaches only the surviving 1996-2001 population, the same 15% to 17% the .uk figure measures.
+- next step: pool only, gated: 5,000 names sampled at random, RDAP'd, reporting any-date rate, in-window rate and mean English weight of the net-new part before any bulk pull.
+
+Decision: pending
+
+### dotgov_real_names / link_target
+
+- potential: 22 (undated list dated afterwards by the approved RDAP route, .gov is high English weight but small and the baseline holds government sites first, which is the prominence penalty)
+
+- class note: an undated list, dated afterwards by the approved rdap_snapshot / whois_creation route
+
+- what it is: CISA's dotgov-data current-full.csv, the authoritative census of every registered .gov domain, 16,483 data rows, 1,406,077 bytes, no date column of any kind.
+- where: https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-full.csv (dating route: https://rdap.nic.gov/rdap/)
+- what dates one item: not the CSV, which can never date anything. rdap.nic.gov returns registration 1997-10-02T01:29:25Z for loc.gov alongside a separate reregistration 2026-05-19, so this registry preserves the ORIGINAL creation date across a lapse, the property .uk lacks and the failure that makes .au date nothing. Cleanest dating route in the batch. On one reading it needs no new Decision line, because gov resolves to https://rdap.nic.gov/rdap/ in the cached IANA bootstrap and would be swept by the approved rdap_snapshot spec, but that reading is a human's call.
+- why it may be net-new: the baseline's 21,271 .gov rows are host-level and collapse to 1,050 distinct registered names, 551 of them in the census, so 15,932 of 16,483 real .gov names are absent from the shipped baseline, slightly more than the 15,816 claimed. Store figures exact: 667 held, 551 dated, all in window.
+- reachability, checked 2026-08-12: raw.githubusercontent.com 200, 1,406,077 bytes, text/plain; rdap.nic.gov 200, 6,983 bytes of valid RDAP JSON.
+- screener: honest ceiling 15,932 pairs at 0.9825, realistic yield a few hundred to low thousands because the baseline already holds 1,050 in-window .gov names and the in-window .gov namespace was small, so below the 5,000-pair bar. It survives on cost alone: 15,932 queries at 118 q/s is about 2.3 minutes, the cheapest decisive experiment here, and the names are county and city governments rather than famous sites. One correction to the proposed second use as a fabrication filter: 499 registered .gov names in the baseline are absent from the current census and they are real retired federal sites (4woman.gov, 2dol.gov, 21stcentury.gov, 1903to2003.gov), so the filter is one-directional, it can whitelist 16,483 names as real and cannot condemn the rest.
+- next step: price it, 2.3 minutes of RDAP, and settle whether the existing rdap_snapshot Decision already covers the gov route.
+
+Decision: pending
+
 ### ripe_db_lastmodified / link_target
+
+- potential: 12 (its artifact_listing reading was DISPROVED, so candidate-only only; last-modified is a current field and says nothing about 1996-2001)
 
 - class note: `artifact_listing` was DISPROVED by the sceptic, so candidate-only is the only honest reading
 
