@@ -308,6 +308,47 @@ and the fix is **fewer** workers, not more.
 and 12 workers measure the same, 506 against 510 queries an hour. What raises the ceiling is another
 address, which is the real argument for a second machine.
 
+**Widening the window without stopping anything.** Every unattended loop takes an absolute epoch and
+exits at it, so extending a run means restarting, and restarting kills the batch in flight. Instead:
+
+```bash
+bash scripts/extend_engines.sh $(date -u -v+3d +%s)   # hand each engine over as it expires
+```
+
+It waits for each of the three loops to reach its own deadline and exit, then starts exactly one
+replacement on the new one, re-checking the process table immediately before launching so a second
+invocation cannot produce a second collector. It performs one handover per engine and exits; it is not
+a watchdog and must not become one, which is why a crashed collector is still a human's problem.
+
+### Growing the pool from the engine's own hits
+
+Page expansion has existed since round 1, but every round of it was fed by a seed list a human chose,
+which makes it a source, and sources run out. Feeding it from the engine's own journals closes the loop:
+
+```bash
+uv run python scripts/build_expand_seeds.py --recent 40 --domains 600   # hits -> seed pages
+uv run ark download data/raw/expand/loop/seeds.txt -n 400 --workers 2 --captures 1 \
+    --out data/raw/expand/loop/expand_$(date -u +%Y%m%dT%H%M%SZ).jsonl.gz
+uv run ark ingest expansion_links data/raw/expand/loop/expand_*.jsonl.gz --round 6
+```
+
+A domain the engine dates was, by construction, live in the window, and the sites its page links to are
+overwhelmingly period sites. Extracted names are `link_target`, candidate-only by construction, so this
+route can never date a year by itself and needs no approval.
+
+**It is worth running for quality, not quantity.** The pool already holds 2.5M names nobody has queried
+against an engine that clears about 600 an hour, so more candidates buy nothing on their own. What this
+route buys is *better* candidates: hit rate by where a name came from, over 27,955 answered queries, is
+**90.4%** for names harvested from a link graph against 46.0% for the pool as a whole and 38.9% for
+Usenet mentions.
+
+**Seed the page, not the site.** The first pilot seeded each domain's home page and returned 0.1 net-new
+names per page, because 11 of 27 captured home pages of the period carried no outbound link at all. The
+builder therefore spends one CDX query per domain asking which pages the archive holds and seeds the
+ones whose path looks like a list of links. That query replaces the two the first version wasted per
+domain: IA folds `http://www.x.com/` and `http://x.com/` onto the same key, so seeding both fetched the
+same page twice for the same harvest. `--roots-only` reproduces the old behaviour for comparison.
+
 ### The registries, which compete with nothing
 
 `ark rdap` goes straight to the authoritative RDAP server for each TLD, resolved from the IANA

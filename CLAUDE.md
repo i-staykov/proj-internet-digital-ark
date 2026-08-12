@@ -102,6 +102,16 @@ the store of that day and is not a statement about now.
   where a name came from, so there the share must be multiplied by a *measured* rate or `.au` sorts to
   the top for zero in-window dates. Build them with
   `build_query_queue.py --population gap|pool --out PATH`.
+- **The discovery loop closes, and closing it is the standing answer to running out** (Ivo's
+  instruction, 2026-08-12). Master sources get scarcer every round; the loop does not. A pool
+  candidate the CDX engine dates is by construction a site that was live in the window, its archived
+  page names other sites of the same period, and those names go back into the pool to be queried in
+  their turn: `build_expand_seeds.py` -> `ark download` -> `ark ingest expansion_links` ->
+  `build_query_queue.py` -> the engine -> `build_expand_seeds.py` again. It is deliberately less
+  efficient per request than a dated corpus, and it does not run out. **So keep hunting master
+  sources, and never let the absence of one stop collection.** Extracted hostnames are `link_target`,
+  candidate-only by construction, so this route can never date a year by itself and needs no approval;
+  the year comes from the capture the engine then finds, on that domain's own evidence.
 - **Gap targets change slowly**, so the VPS needs a rare refresh rather than a periodic one, and only
   ever a shard built after the current baseline landed.
 - **When jobs contend for the write lock, priority follows expected net-new equivalent-English**

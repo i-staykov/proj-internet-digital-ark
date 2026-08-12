@@ -5627,3 +5627,79 @@ batches.
 
 What is worth carrying forward is the negative result itself. A future session that notices this gap will
 otherwise spend its own evening on the same four ideas, and all four are now closed with numbers.
+
+---
+
+## 2026-08-12 (early hours): Ivo's Netcraft condition, tested three ways and failed
+
+He answered the one open approval conditionally: the domains do not look human typed to him, and *if you
+are sure of how these lists came about and that they hold domains which were actually active during the
+year they were surveyed, then they can be master evidence*. Both halves had to hold. The first does and
+the second does not, so the class is filed `candidate-only` (C-19).
+
+**Provenance, settled by reading the pages rather than reasoning about them.** `/domains/cache/<word>.html`
+is an alphabetical dump of every hostname in Netcraft's database containing the search word, one `<H3>`
+every tenth entry and `<LI>` for the rest, titled "<word> hosts". No prose, no author, no per-item date.
+So nobody typed these hostnames, the corroboration split was never the right question, and the original
+rejection of this lead as `typed` was wrong on its facts. That much of the earlier argument survives.
+
+**Contemporaneity, which nobody had tested.** Three instruments, two controls. The positive control is 230
+domains the store dates to 1999 from an archive capture, so known live that year; the negative control is
+the undated candidate pool, names carrying no claim to any year.
+
+| instrument | netcraft | live in 1999 | undated pool |
+|---|--:|--:|--:|
+| earliest archive capture 1999 or earlier | 9.4% (127) | 100% by construction | 10.9% (12,836) |
+| still registered today | 52.2% (230) | 94.3% (230) | n/a |
+| registered continuously since 1999 or earlier | 25.0% (120) | 74.7% (217) | 16.6% (413,942) |
+
+**The first row is the one that decides it**, because it is the only one with no survivorship bias in it:
+both populations were queried by the same engine, against the same archive, on the same days, so the
+archive's own thin 1999 coverage applies equally to both. Netcraft's names are no likelier to have been
+captured by 1999 than names with no claim to 1999 at all. The other two rows agree in direction and are
+weaker: the live-in-1999 control is drawn from archive-captured domains, which skews to prominent sites
+that were likelier to keep a registration for 27 years.
+
+**A test that cannot settle this, recorded so it is not run again.** Registry creation dates were the first
+instrument I reached for and they are the wrong one: a 1999 domain that lapsed and was re-registered
+reports the later date, so "created 2004" is equally consistent with a real 1999 site and an invented name.
+Twelve sampled names with creation dates from 2003 to 2026 were each verified as genuinely printed on the
+archived 1999 page, which confirms the extraction is faithful and leaves the inference untested. The 25.0%
+against a 16.6% base rate is a real but weak enrichment, and on its own it would not have decided anything.
+
+**The cost of refusing is close to nothing, which is what makes this an easy call rather than a brave one.**
+The forgone reading was 8,741 pairs and 5,708.4 equivalent-English. All 13,078 names were banked as
+candidates on 11 August, the engine has been querying them since, and 127 are already dated on their own
+capture evidence, which needs no approval and asks nobody to trust Netcraft's list. **The names still pay;
+they just pay through evidence that does not depend on the source being what it looked like.**
+
+## 2026-08-12: the discovery loop closes, on Ivo's instruction
+
+His words: as it gets harder to find new domains, grow the candidate pool by querying IA CDX over the pool,
+scanning the captured sites for mentions of other domains, scanning those in turn, and so on. Keep hunting
+master sources, but do not let their absence stop collection. This is now a standing rule in `CLAUDE.md`.
+
+**The pieces all existed and the edge between them did not.** `ark download` has fetched archived pages and
+extracted their outbound domains since round 1, but every one of the five rounds run so far was fed by a
+seed list a human chose: Yahoo categories, the WWW Virtual Library, a curated directory. That makes page
+expansion a *source*, and sources run out. `scripts/build_expand_seeds.py` feeds it from the engine's own
+journals instead, which turns it into a cycle that regenerates its own input:
+
+    pool candidate -> CDX dates it -> fetch that capture -> read the domains its page names
+      -> those become pool candidates -> the engine queries them -> they become seeds in their turn
+
+**Why the population is good.** A domain the engine has just dated is by construction a site that was live
+in the window, and the sites a period page links to are overwhelmingly period sites. That is a far better
+targeted population than any list of guessed names, and unlike a corpus it cannot be exhausted while the
+engine is still finding anything.
+
+**Ranking is a proxy and is labelled as one in the script.** What a seed is worth is the count of domains on
+its page we do not already hold times their English share, and none of that is knowable before fetching.
+Two knowable things correlate with it: links are local, so an English-region page mostly names
+English-region domains, which makes the seed's own TLD weight a stand-in for its harvest's; and a site
+captured in several in-window years was maintained rather than parked, so its page carries more links.
+Replace it with measured net-new-per-page once the loop has produced enough journals to measure.
+
+Seeds are emitted in both `www.` and bare form, because the engine queries by host and never learns which
+form the archive holds. The wrong form costs one CDX query returning no captures and is then skipped
+forever; the page fetch, which is the expensive part, only happens where captures exist.

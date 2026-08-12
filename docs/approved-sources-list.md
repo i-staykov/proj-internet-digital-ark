@@ -1,4 +1,4 @@
-# Open approvals: which source classes may date a year
+# Approved sources: which source classes may date a year
 
 **What this file is.** The pipeline can measure a source without help. It cannot decide whether that
 source's records belong in the annual files, because that is a judgement about what counts as proof.
@@ -276,8 +276,6 @@ Decision: master
 
 ---
 
-## Pending requests
-
 ### netcraft_survey_cache / artifact_listing
 
 - source: archived Netcraft Web Server Survey `/domains/cache/<word>.html` listing pages, via the
@@ -355,5 +353,45 @@ that is when the archive captured these pages, not a property of the survey. By 
 - `candidate-only` is the safe answer that loses nothing: the 6,314 pool names can still be dated by the
   CDX and RDAP engines on their own evidence, which needs no approval at all.
 
-Decision: pending
+**The reviewer answered on 2026-08-12, conditionally, and the condition failed.** Ivo's words: the
+domains do not look human typed to him, and *if you are sure of how these lists came about and that they
+hold domains which were actually active during the year they were surveyed, then they can be master
+evidence*. The first half is settled: reading the archived pages shows a machine-generated alphabetical
+dump of every hostname in the database matching the search word, no prose, no author, no per-item date, so
+nobody typed these hostnames and the corroboration split was never the right question. The second half was
+measured and did not hold.
 
+**Three instruments, none of which found the population these pages claim.** A name printed on a page
+captured in 1999 should behave like a site that was live in 1999. Measured against two controls, it does
+not. The positive control is 230 domains the store dates to 1999 from an Internet Archive capture, so
+known live that year; the negative control is the undated candidate pool, names with no claim to any year.
+
+| instrument | netcraft names | live-in-1999 control | undated pool control |
+|---|--:|--:|--:|
+| earliest archive capture is 1999 or earlier | 9.4% (127 hits) | 100% by construction | 10.9% (12,836 hits) |
+| still registered today | 52.2% (230) | 94.3% (230) | n/a |
+| registered continuously since 1999 or earlier | 25.0% (120) | 74.7% (217) | 16.6% (413,942) |
+
+The first row is the one that decides it, because it is the only one free of survivorship bias: both
+populations were queried by the same engine, against the same archive, in the same days. **Netcraft's
+names are no likelier to have been captured by 1999 than names with no claim to 1999 at all.** The other
+two rows agree in direction and are weaker evidence: the live-in-1999 control is drawn from
+archive-captured domains, which skews to prominent sites that were likelier to keep their registration.
+
+Registry dates cannot settle it either way, which is worth recording so the test is not repeated: a 1999
+domain that lapsed and was re-registered reports the later date, and twelve sampled names created in 2003
+to 2026 were all verified as genuinely printed on the archived 1999 page. The extraction is faithful; it
+is the inference from listing to liveness that fails.
+
+**So this cannot date a year, and loses almost nothing by not doing so.** All 13,078 names were banked as
+candidates on 2026-08-11 and the engine has been querying them since; 127 have already been dated on their
+own capture evidence, which needs no approval and does not depend on trusting the listing.
+
+Decision: candidate-only
+
+
+---
+
+## Pending requests
+
+None. A class appearing here must also be named under `## OPEN` in `key-decisions.md`.

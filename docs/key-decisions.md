@@ -27,45 +27,45 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### Approve, refuse or downgrade netcraft_survey_cache / artifact_listing
-
-**One question, and the answer is worth 4x.** Did a human type these hostnames?
-
-Archived Netcraft Web Server Survey listing pages (`/domains/cache/<word>.html`, captured 1999-2000) are
-machine dumps from Netcraft's survey database. The page has no prose, no author and no per-item date; only
-the *search word* is human-chosen, and the corroboration split is about who typed the **hostname**. If that
-reading is right this is self-dating `artifact_listing`, exactly like `isc_survey`, which is already
-approved `master` here as a machine host census published in dated editions.
-
-**Measured over 19 of the 20 in-window captures, not projected.** 11,309 distinct pairs over 11,299
-domains, 77.3% absent from the store, mean weight 0.6616:
-
-| decision | net-new pairs | equivalent-English | against the ~5,000 bar |
-|---|--:|--:|---|
-| `master` as `artifact_listing`, no split | **8,741** | **5,708.4** | clears it |
-| `master` taking the corroboration split | 2,204 | 1,458.2 | fails it, 2.3x short |
-| `candidate-only` | 0 | 0.0, but 6,314 names still grow the pool | n/a |
-
-**Why this is yours and not mine.** The agent that measured it filed it as rejected; its adversarial
-checker overturned that, on the grounds that the reject was correct arithmetic applied under a
-classification nobody had tested, and that the classification is explicitly not the agent's call (ADR-003).
-Both were partly wrong and the record says so: the reject was filed on a 2-page projection, and the
-18 further requests that settle it have now been made.
-
-**The reason to refuse is real too.** Unlike an ISC zone snapshot this is a *search result over a mutable
-database*, so if Netcraft retained hostnames it had stopped observing, a 1999 page could print a name that
-was already gone. That was not tested, and it argues for the split on accuracy grounds regardless of who
-typed what.
-
-The request in `approved-sources-list.md` carries a seeded-random sample of the net-new rows, seed
-`20260811`, with a live Wayback link each. **Open two and search the page for the domain**; that settles it
-faster than reading any of the above. Then set the `Decision:` line to `master`, `candidate-only` or
-`rejected`. `candidate-only` loses very little: the pool names can still be dated by the CDX and RDAP
-engines on their own evidence.
+Nothing is waiting on you.
 
 ---
 
 ## CLOSED
+
+### C-19. Netcraft survey listings stay candidate-only: your condition was tested and failed (2026-08-12)
+
+You answered the one open request conditionally: the domains do not look human typed to you, and *if you
+are sure of how these lists came about and that they hold domains which were actually active during the
+year they were surveyed, then they can be master evidence*. **You were right about the first half and it
+was the second that killed it.**
+
+Reading the archived pages settles provenance: a machine-generated alphabetical dump of every hostname in
+Netcraft's database matching the search word, no prose, no author, no per-item date. Nobody typed these
+hostnames, so the corroboration split was never the right question and the `typed` classification that
+this lead was originally rejected under was simply wrong.
+
+Contemporaneity is the part that failed. A name printed on a page captured in 1999 should behave like a
+site that was live in 1999, and against two controls it does not:
+
+| instrument | netcraft | live in 1999 by an archive capture | undated pool, no claim to any year |
+|---|--:|--:|--:|
+| earliest archive capture 1999 or earlier | 9.4% (127) | 100% by construction | 10.9% (12,836) |
+| still registered today | 52.2% (230) | 94.3% (230) | n/a |
+| registered continuously since 1999 or earlier | 25.0% (120) | 74.7% (217) | 16.6% (413,942) |
+
+The first row decides it and is the only one free of survivorship bias: both populations were queried by
+the same engine against the same archive in the same days, and **Netcraft's names are no likelier to have
+been captured by 1999 than names with no claim to 1999 at all.** Registry dates cannot settle it either
+way, because a 1999 domain that lapsed and was re-registered reports the later date; twelve sampled names
+created between 2003 and 2026 were each verified as genuinely printed on the archived 1999 page, so the
+extraction is faithful and it is the inference from listing to liveness that fails.
+
+**Cost of refusing: close to nothing.** The forgone reading was 8,741 pairs and 5,708.4
+equivalent-English. All 13,078 names were banked as candidates on 11 August and the engine has been
+querying them since; 127 are already dated on their own capture evidence, which needs no approval and
+does not ask anyone to trust the listing. Working in `approved-sources-list.md` and `notes.md`
+2026-08-12.
 
 ### C-18. The hit-rate fallback gains the grain it was missing, the TLD (2026-08-11)
 

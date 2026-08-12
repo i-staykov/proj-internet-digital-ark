@@ -422,6 +422,21 @@ expand-round seeds round:
     uv run ark ingest expansion_links \
         data/raw/expand/round{{round}}/expand_round{{round}}_unverified.jsonl.gz --round {{round}}
 
+# one turn of the closed discovery loop: the engine's own hits become the next
+# seed pages, their outbound domains become candidates, and the engine queries
+# those in its turn. Unlike `expand-round` no human picks the seeds, which is
+# what stops this being a source that can run out.
+#
+# one turn of the discovery loop: engine hits -> seed pages -> new candidates
+expand-loop domains="600" pages="400":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run python scripts/build_expand_seeds.py --recent 40 --domains {{domains}}
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    uv run ark download data/raw/expand/loop/seeds.txt -n {{pages}} --workers 2 \
+        --delay 0.6 --captures 1 --out data/raw/expand/loop/expand_${stamp}.jsonl.gz
+    uv run ark ingest expansion_links data/raw/expand/loop/expand_*.jsonl.gz --round 6
+
 # --- the per-source collectors ------------------------------------------------
 # Each pair is collect-then-split: the collector writes a journal and touches no
 # database, the split sorts the journal into a dated half and a candidate half,
