@@ -6337,3 +6337,22 @@ whole-list figure of 0.073 per query sits between them because the list is mixed
 **The swap cost nothing.** The file was overwritten in place, the batch in flight at the time finished on
 the old list undisturbed, and the sweep picked the new one up at its next dispatch, exactly as the CDX
 queues behave. No process was restarted at any point.
+
+## 2026-08-13 06:10: the round crosses 1.6%, and the gate is green after a night of ingestion
+
+Nine invariants **ALL PASS** after `ark export`, run in that order because one invariant reads the exported
+annual files. The gate had not run since 02:08 and the store has taken a night of collector output since.
+
+| | at 16:05 on 12 Aug, when the interim figures were sent | now |
+|---|--:|--:|
+| pairs | 159,787 | **170,186** |
+| net-new domains | 123,893 | **129,851** |
+| equivalent-English | 91,908.4230 | **101,139.3788** |
+| growth | 1.476112% | **1.6244%** |
+
+**Plus 9,231 equivalent-English in about fourteen hours**, and the interim report Ivo sent is understated by
+that much, which is the safe direction and was stated as such in its own notes.
+
+Mean weight per pair has risen from 0.5541 to 0.5943, which is the `.uk` work showing up: the VPS gap engine
+running at 92.7% on the rebuilt queue, and the RDAP sweep now leading with `.uk` at 0.9813 rather than
+`.org` at 0.6. The discovery half remains dominant at 87,475.5875 of the 101,139.3788, or 86.5%.
