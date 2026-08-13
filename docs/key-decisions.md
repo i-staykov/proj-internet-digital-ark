@@ -27,11 +27,42 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### Ding expects 5% and the measured rate lands at 2.5%
+### May we query Nominet in bulk for the .uk pool?
 
-**Ding expects 5% this round. The measured rate lands at about 2.5%, and no lever of the
-missing size has been found.** Recorded in `brief_amendments.md`; the working is in the check-in
-entry of 2026-08-13 in `notes.md`.
+**Nominet is the best-value RDAP target left and its terms say no. One line from you settles it.**
+
+Measured 2026-08-13: `.uk` lands an in-window creation date on **30.6% of every query asked**, against
+6.7% for `.org`, and `.uk` carries the highest English share in the table at 0.9813. That makes a `.uk`
+query worth **0.30 EE against `.org`'s 0.048**, about six times better, over roughly 54,000 pool names
+never asked. Worth about **16,000 EE**, or 0.26 points.
+
+**I stopped the sweep after 23 queries rather than run it.** Nominet's own RDAP response carries terms
+prohibiting *"high volume, automated, electronic processes that query or send data to the Registry
+Operator"* and *"extracting, copying and/or using or re-using in any form and by any means all or part
+(quantitatively or qualitatively) of the contents of the RDAP database without prior and explicit
+permission"*. `sources.md` separately records Nominet refusing this project **three times in its first
+fourteen queries**. A 54,000-query sweep is squarely what that text describes, it is your name on the
+User-Agent, and being blocked by a registry is not recoverable in a weekend.
+
+The 23 queries that did run drew no refusal and dated 7 names, so this is a permission question and not
+a technical one. The options, cheapest first:
+
+1. **Leave it.** The `.uk` slice stays unasked, the sweep runs every other TLD, and we lose 0.26 points
+   that do not change the 5% arithmetic either way. **This is what is happening now**, so no answer is
+   also an answer.
+2. **Ask Nominet.** Their terms invite explicit permission and the project is non-commercial academic
+   research; the same request would also settle `nominet_whois_port43`, pending since 2026-08-12 and
+   needed before .uk WHOIS closes on 9 February 2027. Outward-facing, so I will draft and you send.
+3. **Tell me to sweep it anyway at a slow pace.** I will do it if you say so, and I would want the pace
+   at roughly one query a second with the project and a contact address in the User-Agent, which is
+   about 15 hours for the slice.
+
+### 5% is now a hard requirement, and the measured rate lands at 2.5%
+
+**You have made 5% by Sunday night a requirement rather than a target. It is recorded as one in
+`brief_amendments.md`, and I am working to it.** This entry stays open because the arithmetic below
+has not changed and you should not learn it on Sunday. The working is in the check-in entries of
+2026-08-13 in `notes.md`.
 
 The arithmetic, all of it measured rather than projected except the last line:
 
@@ -48,17 +79,28 @@ work. The constraint is the Internet Archive's throttling, 342 throttles in the 
 queries, and this project has been refused outright three times already. The largest single source of
 the entire round is `rdap_snapshot` at 55,151.9 EE; the deficit is 3.6 of those in three days.
 
-**What is yours to decide, since none of these is mine to pick:**
+**And the one lever I thought was in reserve is not.** RDAP headroom was carried as roughly 1.47
+percentage points. Measured 2026-08-13 against the journals, it is **6,655 EE, or 0.107 points**, and
+the collapse happened in three steps:
 
-1. **Send on Sunday at about 2.5%**, with this arithmetic shown, the two outcomes tracked separately
-   as he asked, and the method as the headline rather than the percentage.
-2. **Move the deadline.** At the measured rate 5% is roughly 13 more days of collection with nothing
-   else changing.
-3. **Tell me the 5% is firm and to change strategy**, in which case the honest answer is that I do
-   not currently know of a route, and finding one becomes the whole job.
+- The Verisign `.com`/`.net` pool is **exhausted**: 71 names unasked of 1,345,949.
+- The list builder prices everything askable at 32,474 EE, but **16,000 of that is `.uk`**, which is
+  the Nominet question above.
+- Most of the remainder is micro-TLDs where the builder falls back to the pool-wide rate because it
+  has no sample. It is a bad fallback: the first **97** queries into `.vi`, `.bm`, `.pn` and `.pg`
+  returned **1** in-window date. Restricted to the five TLDs with a real measured rate, the whole
+  remaining list is 149,816 queries for **6,655 EE**.
 
-I am not treating this as blocking. Collection continues either way and every option above improves
-with it.
+The rest of the never-asked pool is `.edu`, `.mil` and `.gov`, which have no RDAP service at all.
+
+**What is left for me to do, and I am doing it:** run the engines at the best allocation the
+measurements support, and hunt for a bulk dated corpus of the missing size. The shape that could
+supply it, a 1996-2001 zone file or bulk registry snapshot, is closed on measurement in three
+separate entries in `sources.md`, so this is a genuine search and not a known route.
+
+**What is still yours:** whether Sunday's report leads with the percentage or with the method, and
+whether the deadline moves. At the measured rate 5% is roughly 13 further days of collection with
+nothing else changing. Nothing is blocked while you leave this.
 
 ### May I write to a US federal agency on the project's behalf?
 

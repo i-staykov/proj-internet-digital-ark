@@ -115,9 +115,16 @@ note "extend: three engines to $(human "$DEADLINE"), rdap ${RDAP_BATCHES} batche
     # indistinguishable from an exhausted pool, so the failure is silent. The CDX branch
     # above has always passed its targets through `env` for exactly this reason and this
     # branch did not.
+    #
+    # **And the list must be the ranked one, not a single TLD.** Pinning this to
+    # `pool_targets_org.txt` held the sweep at 0.048 expected EE per query while
+    # `build_rdap_pool_list.py` ranks every askable TLD by expected EE and offers 0.070.
+    # `.uk` is filtered out of it deliberately: Nominet's RDAP terms prohibit high-volume
+    # automated querying and it has refused this project before, so that slice waits on a
+    # decision rather than on a faster pace.
     handover rdap_sweep 'rdap_pool_swee[p]' \
-        env LIST=data/raw/rdap/pool_targets_org.txt \
-        caffeinate -i bash scripts/rdap_pool_sweep.sh "$RDAP_BATCHES" 5000 2 1.0 1.0
+        env LIST=data/raw/rdap/pool_targets_all_nouk.txt \
+        caffeinate -i bash scripts/rdap_pool_sweep.sh "$RDAP_BATCHES" 5000 12 0.1 0.02
 ) &
 
 wait

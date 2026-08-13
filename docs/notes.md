@@ -7119,3 +7119,52 @@ test asserts the file's newline count is unchanged across four refreshes.
 The loop was restarted twice for this, waiters down first each time, because the first restart
 happened between the two fixes and would have carried the gap-growing copy for the rest of the round.
 That is the trap this file records: **a long-running loop keeps the code it started with.**
+
+## 2026-08-14: 5% made hard, the RDAP reserve measured away, and two orphaned collectors
+
+Ivo, 2026-08-13: 5% by Sunday night is a requirement, not a target. Recorded as one in
+`brief_amendments.md` and in the OPEN entry. He also asked whether the local RDAP sweep was still
+running and on what pool, which turned out to be the more productive question.
+
+**It was running, on `.org` alone, and that was the bug.** `pool_targets_org.txt` was pinned into the
+handover on 2026-08-13 to give PIR a slow pace, and pinning the pace pinned the population with it.
+`build_rdap_pool_list.py` already ranks every askable TLD by expected equivalent-English per query, so
+the sweep was working a 0.048 EE/query list while a 0.070 one could be built in two minutes.
+
+**Then the reserve was measured and it is not a reserve.** `RDAP candidate-pool headroom` has been
+carried since 2026-08-11 as about 1.54M names never asked and 1.47 percentage points. Against the
+journals it is **0.107 points**, and the collapse is worth recording step by step because each step is
+a different mistake:
+
+| | names | expected EE |
+|---|---|---|
+| carried in memory since 2026-08-11 | 1.54M | ~82,700 (1.47 pts) |
+| Verisign `.com`/`.net`, now exhausted | 71 unasked of 1,345,949 | ~0 |
+| every askable TLD, builder's own estimate | 461,466 | 32,474 |
+| minus `.uk`, which Nominet's terms block | 407,505 | ~16,500 |
+| restricted to TLDs with a **measured** rate | **149,816** | **6,655 (0.107 pts)** |
+
+**The fallback rate is the interesting failure.** The builder estimates P(in-window) per TLD and falls
+back to the pool-wide 8.3% where it has no sample. Multiplied by a high English share that puts `.vi`,
+`.bm`, `.pn` and `.pg` above `.com` in the ranking. Their first **97 queries returned 1 in-window
+date**, against 8.3% expected. A namespace with no sample is not an average namespace, it is usually a
+namespace nobody registered in, and the builder's own "fabricated namespace" warning already says so
+for eight other TLDs. The list is now restricted to `com,net,org,ca,nl`, the five with a real sample.
+
+**Nominet was started and stopped after 140 queries.** `.uk` lands an in-window date on 30.6% of
+queries at share 0.9813, six times better than `.org`, so the ranked list puts 20,000 `.uk` names at
+its head. The RDAP response itself carries terms prohibiting *"high volume, automated, electronic
+processes"* and re-use of *"all or part (quantitatively or qualitatively) of the contents"*, and
+`sources.md` records Nominet refusing this project three times in fourteen queries. Raised in
+`key-decisions.md` rather than decided here: it is Ivo's name on the User-Agent, it is worth 0.26
+points, and a registry block is not recoverable in a weekend.
+
+**And a trap that cost two unintended collectors, which is the real lesson of the evening.**
+`pkill -f 'rdap_pool_swee[p]'` kills the supervisor shell and **leaves the `ark rdap` child running,
+reparented to init**. So the `.org` sweep I believed I had stopped an hour earlier was still querying,
+and the Nominet sweep I believed I had stopped after 23 queries was at 140 and climbing. Three RDAP
+clients were live at once and the process table was the only place that said so. The script's own
+`stop_batch()` has always killed children before the parent; a hand kill has to do the same, and
+`pgrep -f` on the supervisor pattern **cannot see the child** because the child's command line is
+`ark rdap ...` and matches nothing. **Check `ps -eo pid,ppid,command | grep 'ark rda[p]'` after any
+kill**, not the supervisor pattern.

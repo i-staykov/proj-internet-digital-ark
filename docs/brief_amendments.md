@@ -150,9 +150,15 @@ generating and the pricing both automated. That is the argument for building the
 Asked in August 2026 what a meaningful percentage increase would be, he answered "perhaps 10%".
 Phase 4 returned 10.730988%.
 
-**Phase 5 has a target: he expects 5%** (relayed by Ivo, 2026-08-13). Against `merged260810` that is
-**311,319.32 equivalent-English**, and it is the figure the round is now judged on. It supersedes the
+**Phase 5 has a hard target: 5% by Sunday night, 2026-08-16.** Ding expects it, and Ivo confirmed on
+2026-08-13 that it is a requirement rather than an aspiration. Against `merged260810` that is
+**311,319.32 equivalent-English**, and it is the figure the round is judged on. It supersedes the
 sentence this paragraph used to carry, that no target had been set.
+
+**The measured shortfall is on the record and is not small.** At the rate the three engines actually
+bank, the round lands near 2.5%, so the target needs roughly 4.7x the measured throughput or a bulk
+dated corpus worth about 190,000 EE that has not been found. That is stated here so no later document
+can quietly reinterpret the target as met.
 
 Two things follow, and the second is the uncomfortable one.
 

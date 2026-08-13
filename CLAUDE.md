@@ -288,6 +288,13 @@ sixty-odd closed families is what stops the same ground being broken twice.
   its own command line. So the check reports a process that is not there and the kill takes down the
   caller, which has happened twice here, once destroying a watcher mid-run. Bracket one letter:
   `pgrep -f 'supervise_cdx_poo[l]'` cannot match itself.
+- **Killing a supervisor by pattern orphans its worker, and the worker keeps querying.**
+  `pkill -f 'rdap_pool_swee[p]'` takes down the shell and reparents `ark rdap` to init, whose command
+  line matches no supervisor pattern, so `pgrep` then reports the collector stopped while it is still
+  hitting a registry. On 2026-08-13 this left **two** unintended clients live, one of them the Nominet
+  sweep that had been stopped for a terms-of-service reason and was still running. Kill the child
+  first, then the parent, and verify with a pattern that matches the **worker**:
+  `ps -eo pid,ppid,command | command grep 'ark rda[p]'`.
 - **DuckDB takes one writer.** Open `read_only=True` with a retry loop for anything that measures.
   A long write blocks every reader. That used to mean a 20-minute outage for the auditors on every
   seed; both causes were found and fixed on 2026-08-11 (ADR-001), so the rule now matters for
