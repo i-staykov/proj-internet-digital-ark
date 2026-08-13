@@ -6211,3 +6211,30 @@ domains, so nothing was restarted and the batch in flight was not disturbed. Old
 every registry now inherits that 1 q/s floor. That is polite rather than optimal, and it is the right
 default while nobody is watching. The file name is now wrong for its contents and is left alone
 deliberately: renaming it would need the running sweep restarted, which costs more than the confusion.
+
+## 2026-08-13: the fix was committed, the running loop never saw it, and it flooded the review surface
+
+The exact failure the triage collapse was built to prevent happened anyway: `docs/key-decisions.md` held
+**25 individual OPEN entries**, one per queued source, beside the collective one. Ivo's two-minute review
+surface was a wall of text.
+
+**The code was right and the test was green.** `check_approvals` splits triage entries from priced ones and
+mirrors the queue as a single line, `approvals.load` records the section, and the suite passes. What was
+wrong was the *running process*: `discover_cycle.py --every 3600` imports its modules once at start, and
+the copy doing the mirroring had been started at 14:00 on 12 August by the deadline handover, **before the
+change existed**. It carried on executing yesterday's logic every hour, re-adding an entry per source.
+
+**The general trap, which is new to this register and will recur:** a committed fix does not reach a
+long-running loop. Green tests and a clean diff prove the code, not the behaviour of a process that started
+before it. `CLAUDE.md` now says to restart any background loop after changing what it imports.
+
+**The restart order matters and is why it was done by hand.** The handover waiters block on a bracketed
+pattern and start exactly one replacement when the slot empties, so killing the loop while they were armed
+risked a waiter launching a second copy into the gap. Waiters were stopped first, then the loop, then the
+loop was restarted on the current deadline 1786924800, then the waiters were re-armed. Verified: one
+logical cycle process, and a full cycle on the current code leaves **1** OPEN entry where the old one left
+26.
+
+**Also this wake:** the VPS gap engine now measures **92.7% of 772 answered** against its own history of
+51.6%, which is the 12 August queue repair paying off; and the RDAP swap has not taken effect yet because
+the batch in flight started before it, exactly as predicted.

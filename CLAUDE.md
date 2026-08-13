@@ -149,6 +149,13 @@ the store of that day and is not a statement about now.
   So a seed no longer holds the lock for twenty minutes, and the old reason it was safe to interrupt,
   that inserts autocommit per row, **is no longer true**: a single statement rolls back. The window is
   simply negligible instead.
+- **A long-running loop keeps the code it started with, so fixing a bug does not fix the running copy.**
+  `discover_cycle.py --every 3600` imports its modules once. On 2026-08-13 the mirroring logic was changed
+  so a triage queue reaches `key-decisions.md` as one line, and the loop running since 14:00 the previous
+  day carried on writing **one OPEN entry per source every hour**, flooding the one surface Ivo reads with
+  25 of them. The code was right, the test was green, and the behaviour was wrong. **After changing
+  anything a background loop imports, restart the loop**, stopping its handover waiters first so the
+  restart cannot race them into a second copy.
 - **`10.1.0.6` is private.** Ask Ivo to bring the VPN up; do not debug SSH. Use a window immediately
   and completely: fetch first, ask questions afterwards. `just engines` reports **UNKNOWN** rather
   than "everything is home" when it cannot reach the machine, and that distinction is the fix for
