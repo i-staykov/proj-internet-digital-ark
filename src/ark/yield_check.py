@@ -187,9 +187,12 @@ def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[in
     is `EOFError`, not an `OSError`, so an `except OSError` around this crashed the whole
     cycle the first time it met a live RDAP journal. The two collectors differ in a way
     that matters here: the CDX supervisor writes `<name>.part` and renames on exit, so a
-    finished file is identifiable and mid-write ones are simply excluded, while the RDAP
-    sweep writes its final name from the start and flushes as it goes. For RDAP,
-    excluding mid-write files would exclude the newest one always.
+    finished file is identifiable and mid-write ones are simply excluded. **The RDAP
+    sweep does the same, contrary to what this docstring claimed until 2026-08-13**: it
+    writes `<name>.part` and renames on exit, which was found by watching a stalled batch
+    publish its partial journal under the final name on being killed. The reading is
+    still tolerant of truncation rather than excluding `.part`, because a live RDAP batch
+    runs for over an hour and excluding it would leave the newest hour unmeasured.
 
     So a truncated read keeps what it could parse and **says that it was truncated**,
     because the alternative is either crashing or quietly trusting a prefix, and quietly

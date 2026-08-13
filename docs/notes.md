@@ -6910,3 +6910,26 @@ watchdog: `pkill -f '[a]rk rdap'` killed only one of the two processes in the `u
 child carried on, so the second kill had to be by PID; and the sweep writes its journal as `.part` and
 renames on exit, contrary to a claim in `yield_check`'s docstring that it writes its final name from the
 start.
+
+## 2026-08-13: the RDAP sweep gets the watchdog the CDX engine has had all along
+
+Fixed the gap found an hour ago. `rdap_pool_sweep.sh` now backgrounds each batch, polls liveness every 60
+seconds, judges journal growth every 900, and kills a frozen batch so the sweep moves to the next one. That
+is the same two-clock design `supervise_cdx_pool.sh` argues for in its own header, and the reason it took a
+stall to notice the asymmetry is that the RDAP sweep was written later and nobody ported the lesson.
+
+**Bytes are a sound growth test here and would not be everywhere.** At 1 q/s a 15-minute window writes
+roughly 190 KB, far above any gzip block boundary. Against a fast registry, Verisign sustained 118 q/s, the
+window would need raising rather than the test changing, and the comment says so.
+
+**Two things learned the hard way this morning are encoded rather than described.** `journal_bytes` checks
+both `$out` and `$out.part`, because the run writes the partial name and renames on exit. And `stop_batch`
+kills children before the parent, because `uv run` spawns a python child and a `pkill -f` on the wrapper
+this morning left that child querying: the stall survived its own remedy, and the second kill had to be by
+PID.
+
+**A wrong claim is corrected where it was made.** `yield_check`'s docstring said the RDAP sweep "writes its
+final name from the start and flushes as it goes", which is how the `.part` handling came to differ between
+the two collectors. It writes `.part` and renames, exactly like the CDX engine. The reading stays
+truncation-tolerant rather than excluding `.part`, because an RDAP batch runs over an hour and excluding it
+would leave the newest hour unmeasured, which is a different mistake from the one being fixed.
