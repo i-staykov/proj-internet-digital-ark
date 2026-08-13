@@ -27,6 +27,39 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Ding expects 5% and the measured rate lands at 2.5%
+
+**Ding expects 5% this round. The measured rate lands at about 2.5%, and no lever of the
+missing size has been found.** Recorded in `brief_amendments.md`; the working is in the check-in
+entry of 2026-08-13 in `notes.md`.
+
+The arithmetic, all of it measured rather than projected except the last line:
+
+- 5% of `merged260810` is **311,319.32 equivalent-English**. The round holds **111,704.48**, so the
+  deficit is **199,614.84**.
+- The three engines together bank **624 EE/h**, steady between 560 and 690 in every 12-hour bucket
+  since the 11th. Sunday evening is 68 hours away.
+- Closing the gap needs **2,921 EE/h**, which is **4.7x** the measured rate.
+- **Projection: about 154,000 EE, or 2.48%.**
+
+**Why more effort does not fix it.** The queues are not the constraint: 2,500,009 of the local pool's
+2,500,701 targets and 661,206 of the VPS shard's 672,864 have never been asked, which is months of
+work. The constraint is the Internet Archive's throttling, 342 throttles in the last 600 local
+queries, and this project has been refused outright three times already. The largest single source of
+the entire round is `rdap_snapshot` at 55,151.9 EE; the deficit is 3.6 of those in three days.
+
+**What is yours to decide, since none of these is mine to pick:**
+
+1. **Send on Sunday at about 2.5%**, with this arithmetic shown, the two outcomes tracked separately
+   as he asked, and the method as the headline rather than the percentage.
+2. **Move the deadline.** At the measured rate 5% is roughly 13 more days of collection with nothing
+   else changing.
+3. **Tell me the 5% is firm and to change strategy**, in which case the honest answer is that I do
+   not currently know of a route, and finding one becomes the whole job.
+
+I am not treating this as blocking. Collection continues either way and every option above improves
+with it.
+
 ### May I write to a US federal agency on the project's behalf?
 
 **One line of authorisation, and it unlocks the joint-highest source in the queue.**
@@ -51,7 +84,7 @@ data arriving whether it pays: phone populated 739,972 of 739,972, against bille
 
 ### Triage the newly found sources
 
-**11 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
+**44 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
 
 For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
 

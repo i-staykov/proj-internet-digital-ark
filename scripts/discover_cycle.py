@@ -390,12 +390,14 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     Deliberately not one entry per source. The queue is append-only work in progress and
     is meant to grow indefinitely, so the only sustainable mirror is a single line that
     says how many are waiting and where they are.
+
+    **Refreshed, which this said it did and did not.** The first version returned early
+    when the entry already existed, so the count froze at whatever it was when the entry
+    was first written: it read 11 for a day while 44 sources waited. A number on Ivo's
+    review surface that stops moving is worse than no number, because nothing about it
+    looks stale.
     """
-    if key_decisions.is_open(TRIAGE_HEADING, DECISIONS_DOC):
-        findings.append(f"approvals: triage queue already open in key-decisions ({count})")
-        return
-    key_decisions.raise_open(
-        TRIAGE_HEADING,
+    body = (
         f"**{count} source(s) found and not yet priced** are listed in "
         f"`{APPROVALS.name}` under `## Found, awaiting triage`, each with what it is, what would "
         f"date one of its items, and whether it is reachable today.\n\n"
@@ -405,9 +407,12 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
         f"**Nothing is blocked while you leave this.** A pending class cannot date a year, so "
         f"collection continues either way, and the queue exists so that finding sources never "
         f"waits on a decision. Raised as one entry rather than one per source, on your "
-        f"instruction that this list grows indefinitely.",
-        DECISIONS_DOC,
+        f"instruction that this list grows indefinitely."
     )
+    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC):
+        findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
+        return
+    key_decisions.raise_open(TRIAGE_HEADING, body, DECISIONS_DOC)
     findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
 
 

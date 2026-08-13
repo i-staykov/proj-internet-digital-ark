@@ -7017,3 +7017,105 @@ They carry absolute deadlines and need no agent, which is the property that make
 collection, banking and the yield checks continue at full rate while nobody is awake.
 
 Nothing is mid-flight. Working tree clean at `45f6011`; last gate green through the pre-commit hook.
+
+## 2026-08-13, late: the full check-in, and the 5% target measured against the actual rate
+
+Ivo asked for a full check-in rather than more collection, and relayed the number that reframes the
+round: **Ding expects 5% this round.** Recorded in `brief_amendments.md`, which until now said no
+phase-5 target had been set. Everything below is measured, not projected, except where it says so.
+
+**Everything is running and nothing is stuck.** `just cycle` is clean: local collector running, VPS
+reachable with all 289 journals home, 0 unread residual, derived lists fresh apart from the gap list
+whose staleness is expected by design, 10 hypotheses with 0 unfinished, `ROUND.md` regenerated. The
+one item needing judgement is the 44-source triage queue, which is Ivo's and blocks nothing.
+
+**The scoreboard, up from 170,787 pairs at the ship rehearsal this morning:**
+
+| | now | at 06:10 today |
+|---|---|---|
+| net-new pairs | **184,086** | 170,787 |
+| net-new domains | **137,194** | - |
+| equivalent-English | **111,704.4818** | 101,139.3788 |
+| growth on 6,226,386.4245 | **1.7940%** | 1.6244% |
+
+Discovery remains dominant: 148,762 pairs worth 94,699.1780 EE over 137,194 domains, against 35,324
+completeness pairs worth 17,005.3038. That is 84.8% discovery, the half the reviewer asked to be
+prioritised.
+
+**The three engines and their populations, since the question was asked directly.** Two of the three
+work the candidate pool and one works gaps, which is the split Ivo designed on 2026-08-11:
+
+| engine | population | targets | never asked | last 24h | hit rate |
+|---|---|---|---|---|---|
+| local `cdx_pool` | candidate pool | 2,500,701 | **2,500,009** | 16,211 requests, 675/h | 42.2% |
+| VPS `cdx_q1` | bracketed gaps, shard1 | 672,864 | **661,206** | 7,200 requests, 300/h | 82.6% |
+| local `rdap_pool_sweep` | candidate pool, `.org` | 2,080,998 bytes of list | - | ~85,700 requests, 3,570/h | 38.0% in-window of 550 answered per batch |
+
+**No engine is anywhere near exhausting its targets**, which kills the assumption that the queue is
+the constraint. 98.3% of the VPS shard and 100.0% of the local pool queue have never been asked. At
+675 requests an hour the local pool alone is 154 days of work. **The constraint is request
+throughput, and specifically the Internet Archive's throttling**: the last local batch took 342
+throttles across 600 queries and ended on a 2,880 ms delay, against 66 throttles and 1,228 ms on the
+VPS. Adding a third heavy client is exactly what this project has been refused for three times.
+
+**A per-request comparison I had backwards, and the reason it is worth writing down.** Reading the
+per-batch counters, gap work looks about **12x** better than pool work: the VPS finished 300 queries
+for 864 `years_found` while the local engine finished 600 for 138. That comparison is wrong, because
+`years_found` counts **every in-window year with a capture, including years already held**, and on a
+bracketed-gap domain most of them are held by construction. Against banked net-new EE over the last
+24 hours the true ratio is **1.24x**: 0.499 EE per request on the discovery half against 0.618 on the
+completeness half. Same trap as the dated-dataset fallacy, one layer down: a counter that exists is
+not the counter you want.
+
+So **the allocation question is nearly EE-neutral.** Moving the VPS onto the candidate pool would cost
+about 20% of that machine's yield, roughly 900 EE a day out of about 15,000, and would give up a 96.5%
+hit rate for a 37.3% one. Nothing was changed; the split stands until Ivo says otherwise.
+
+**What 5% costs, and this is the part that matters.** The round banks **624.1 EE/h** measured over the
+last 24 hours and 649.1 over the last 72, steady at 560 to 690 across every 12-hour bucket since the
+11th. Sunday evening is 68.3 hours away.
+
+- 5% of 6,226,386.4245 is **311,319.32 EE**. We hold 111,704.48, so the deficit is **199,614.84**.
+- That needs **2,921.3 EE/h**, which is **4.68x the measured rate**.
+- At the measured rate Sunday lands at **154,349 EE, or 2.4790%**. On the 72-hour rate, 2.5064%.
+
+**No lever of that size has been measured anywhere in this round.** The largest single source of the
+whole round is `rdap_snapshot` at 55,151.9 EE, and closing the gap needs 3.6 of those in three days.
+The CDX engines cannot be run 4.7x harder without the ban. RDAP is the one engine not competing for
+the archive's budget, and it is already sweeping at 3,570 requests an hour for 2,438 EE a day. The
+candidate pool's upper bound is 1,759,758 EE, so the material exists; the verification throughput to
+convert it does not exist by Sunday.
+
+Recording this now rather than on Sunday, because a target missed by 2x is a planning fact and a
+target missed by 2x reported on the day is a surprise. It goes to `key-decisions.md` as one OPEN
+entry, since what to do about it is Ivo's call and not mine: the honest options are to send at about
+2.5% with the arithmetic shown, or to move the deadline.
+
+## 2026-08-13, late: the review surface was under-reporting its own queue by 4x
+
+Found during the check-in, not by a test. `key-decisions.md` told Ivo **11 sources** were awaiting
+triage while the file it points at held **44**. The mirror's docstring said "one entry naming the
+count, refreshed in place as the queue grows" and the code did not: `raise_open` is append-once and
+returns False when the entry exists, so `_mirror_triage_count` returned early and the number froze at
+whatever it was the first time it was written, on 2026-08-12.
+
+**Worse than an absent number, because nothing about it looks stale.** He is being asked to work a
+queue and told it is a quarter of its real size, on the one surface he reads, which is the exact
+failure this file already records in another form: a question raised where nobody looks is not a
+question asked, and here it was asked with the wrong number.
+
+Fixed with `key_decisions.refresh_open(needle, body)`, which rewrites an existing entry's body and
+leaves its heading alone so a heading improved by hand survives. Three properties are now tested:
+that a refresh replaces the figure, that refreshing the **last** entry does not swallow the `---`
+above `## CLOSED` and merge the two blocks, and that a refresh of an absent entry returns False
+rather than quietly creating one.
+
+**And a second bug inside the first, caught by looking at the output rather than the test.** The
+heading pattern ends `\s*$`, `\s` matches newlines, so `match.group(0)` greedily swallows the blank
+lines under the heading; re-emitting it added a blank line **per refresh**, which at one cycle an
+hour is a visibly broken entry by morning. The entry is now rebuilt from `group('title')`, and the
+test asserts the file's newline count is unchanged across four refreshes.
+
+The loop was restarted twice for this, waiters down first each time, because the first restart
+happened between the two fixes and would have carried the gap-growing copy for the rest of the round.
+That is the trap this file records: **a long-running loop keeps the code it started with.**

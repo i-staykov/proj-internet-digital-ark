@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from ark.approvals import pending
-from ark.key_decisions import is_open, open_titles, raise_open
+from ark.key_decisions import is_open, open_titles, raise_open, refresh_open
 
 SKELETON = """# Key decisions
 
@@ -86,6 +86,55 @@ def test_the_closed_block_is_untouched(tmp_path) -> None:
     assert "### C-1. Something already decided (2026-08-01)" in body
     assert body.index("## OPEN") < body.index("## CLOSED")
     assert body.index("Approve, refuse or downgrade") < body.index("## CLOSED")
+
+
+def test_refreshing_replaces_a_live_figure_rather_than_freezing_it(tmp_path) -> None:
+    """The bug this exists for: the triage mirror said 11 while 44 were waiting.
+
+    `raise_open` is append-once, so an entry carrying a count froze at whatever it was
+    when first written, and the one surface Ivo reads under-reported its own queue by 4x
+    with nothing about it looking stale.
+    """
+    path = _doc(tmp_path)
+    raise_open("Triage the newly found sources", "**11 source(s)** are waiting.", path)
+    assert refresh_open("Triage the newly found sources", "**44 source(s)** are waiting.", path)
+    body = path.read_text(encoding="utf-8")
+    assert "**44 source(s)** are waiting." in body
+    assert "11 source(s)" not in body
+    assert open_titles(path) == ["Triage the newly found sources"]
+
+
+def test_refreshing_the_last_entry_keeps_the_two_blocks_apart(tmp_path) -> None:
+    """The rule above `## CLOSED` belongs to the OPEN block, so a naive end-of-entry
+    boundary swallows it and merges the sections."""
+    path = _doc(tmp_path)
+    raise_open("Triage the newly found sources", "Eleven.", path)
+    refresh_open("Triage the newly found sources", "Forty four.", path)
+    body = path.read_text(encoding="utf-8")
+    assert "\n---\n\n## CLOSED" in body
+    assert "### C-1. Something already decided (2026-08-01)" not in open_titles(path)
+
+
+def test_refreshing_repeatedly_does_not_grow_the_gap_under_the_heading(tmp_path) -> None:
+    """The heading pattern ends in `\\s*$` and `\\s` matches newlines, so re-emitting the
+    raw match adds a blank line every cycle. At one refresh an hour that is visible by
+    morning."""
+    path = _doc(tmp_path)
+    raise_open("Triage the newly found sources", "One.", path)
+    first = path.read_text(encoding="utf-8")
+    for n in range(2, 6):
+        refresh_open("Triage the newly found sources", f"Count {n}.", path)
+    grown = path.read_text(encoding="utf-8")
+    assert grown.count("\n") == first.count("\n")
+    assert "### Triage the newly found sources\n\nCount 5." in grown
+
+
+def test_refreshing_an_absent_entry_reports_it_rather_than_creating_one(tmp_path) -> None:
+    """A refresh is not a raise. Silently creating the entry would hide a caller that
+    got its identifying phrase wrong."""
+    path = _doc(tmp_path)
+    assert not refresh_open("Triage the newly found sources", "Body.", path)
+    assert open_titles(path) == []
 
 
 def test_newest_is_first_within_the_open_block(tmp_path) -> None:

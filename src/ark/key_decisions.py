@@ -38,6 +38,10 @@ _CLOSED_HEADING = re.compile(r"^## CLOSED[ \t]*$", re.M)
 # that does, which is worse than either alone.
 PLACEHOLDER_RE = re.compile(r"^Nothing needs your input\.[^\n]*(\n(?!##|###|---)[^\n]*)*\n?", re.M)
 _HEADING_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.M)
+# An entry ends at the next entry, or at the rule that closes the block. Without the
+# second boundary, refreshing the last OPEN entry eats the `---` above `## CLOSED` and
+# the two sections merge.
+_RULE_RE = re.compile(r"^---[ \t]*$", re.M)
 
 
 def _split(text: str) -> tuple[str, str, str]:
@@ -86,3 +90,41 @@ def raise_open(heading: str, body: str, path: Path | str | None = None) -> bool:
     block = f"\n\n{entry}\n{block}\n\n" if block else f"\n\n{entry}\n"
     path.write_text(head + OPEN_MARK + block + tail, encoding="utf-8")
     return True
+
+
+def refresh_open(needle: str, body: str, path: Path | str | None = None) -> bool:
+    """Rewrite the body of the OPEN entry whose heading contains `needle`.
+
+    **For an entry that carries a live figure rather than a question.** `raise_open` is
+    append-once and returns False when the entry already exists, which is right for a
+    judgement and wrong for a count: the triage mirror told Ivo 11 sources were waiting
+    while 44 were, because the entry existed and nothing refreshed it. A stale number on
+    the one surface he reads is worse than no number, since it reads as current.
+
+    The heading is left exactly as found, so a heading the agent improved by hand
+    survives the refresh. Returns False if no OPEN entry matches.
+    """
+    path = Path(path) if path is not None else DEFAULT_PATH
+    text = path.read_text(encoding="utf-8")
+    head, block, tail = _split(text)
+    headings = list(_HEADING_RE.finditer(block))
+    for i, match in enumerate(headings):
+        if needle not in match.group("title"):
+            continue
+        ends = [len(block)]
+        if i + 1 < len(headings):
+            ends.append(headings[i + 1].start())
+        rule = _RULE_RE.search(block, match.end())
+        if rule is not None:
+            ends.append(rule.start())
+        end = min(ends)
+        # Rebuilt from the title rather than reused from `group(0)`: the heading pattern
+        # ends in `\s*$`, and `\s` matches newlines, so the match greedily swallows the
+        # blank lines below the heading and re-emitting it grows a gap on every refresh.
+        entry = f"### {match.group('title')}\n\n{body.strip()}\n\n"
+        path.write_text(
+            head + OPEN_MARK + block[: match.start()] + entry + block[end:] + tail,
+            encoding="utf-8",
+        )
+        return True
+    return False

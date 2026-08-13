@@ -148,7 +148,22 @@ generating and the pricing both automated. That is the argument for building the
 ### On targets
 
 Asked in August 2026 what a meaningful percentage increase would be, he answered "perhaps 10%".
-Phase 4 returned 10.730988%. **No target has been set for phase 5**, and none is assumed anywhere in
-the code: `scripts/build_query_queue.py` used to size the queue against a tenth of the baseline and
-no longer does, because carrying a met goal forward silently retargets a tenth of a baseline that has
-itself grown.
+Phase 4 returned 10.730988%.
+
+**Phase 5 has a target: he expects 5%** (relayed by Ivo, 2026-08-13). Against `merged260810` that is
+**311,319.32 equivalent-English**, and it is the figure the round is now judged on. It supersedes the
+sentence this paragraph used to carry, that no target had been set.
+
+Two things follow, and the second is the uncomfortable one.
+
+- **5% of a grown baseline is not half of phase 4's 10.7%, it is more work in absolute terms.** Phase 4
+  earned 603,401.78 EE against a smaller corpus; 5% of `merged260810` is 311,319.32 EE against a corpus
+  that phase 4 itself enlarged, after phase 4 consumed the cheap sources.
+- **The target is not assumed anywhere in the code, and must not be.**
+  `scripts/build_query_queue.py` used to size the queue against a tenth of the baseline and no longer
+  does, because carrying a met goal forward silently retargets a fraction of a baseline that has itself
+  grown. A target belongs in the report and in the allocation argument, never in a queue length.
+
+What the target costs in throughput is measured, not guessed, in the check-in of 2026-08-13 late in
+`notes.md`: the round banks about 624 EE/h across all three engines, and 5% by Sunday evening needs
+about 2,920 EE/h.
