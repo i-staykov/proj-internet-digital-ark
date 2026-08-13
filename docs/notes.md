@@ -6804,3 +6804,40 @@ count, and the re-probe no longer re-raises a lead its own verdict already answe
 The `.uk` RDAP batch is still in flight after four hours, which is Nominet pacing rather than a stall: the
 partial read showed every query answered. It publishes when it publishes, and the honest per-batch number
 comes then rather than from another partial read.
+
+## 2026-08-13: FAC pays, FFIEC is dead, and the agent was right to withhold something
+
+Second harvest, two opposite outcomes, both useful.
+
+**FAC Single Audit: 8,598 domains, 1,665 new, seeded.** All four year-zips fetched and **verified against
+their published SHA1s**, which nobody asked for and is exactly right. Its positive control is the cleanest
+yet: `AUDITEEPHONE` populated on **139,978 of 139,978 rows, 100.00%**, against `AUDITEEEMAIL` at 15.64%, so
+the sparsity is a property of 1998-2001 filings and not a parse failure. The rate climbs 11.64%, 13.94%,
+16.34%, 19.86% across the four years, which is e-mail adoption in school districts and counties showing up
+in a statutory return.
+
+**The TLD mix is the point**: `.org` 3,168, **`.us` 1,845**, `.com` 1,497, `.net` 1,077, `.edu` 930, and
+within `.us` the shapes are `k12.ca.us` 73, `k12.ga.us` 69, `k12.pa.us` 57. **298 of the new names are
+`.us`**, about 1.6% on top of the 18,278 in-window `.us` domains the store holds. It also re-disproved the
+website claim independently: no column in any of the four years contains WEB, URL, SITE, HTTP, WWW or
+HOMEPAGE.
+
+**And it withheld something rather than widening its own brief.** The same table carries `CPAEMAIL`, the
+audit firm's address, 4,848 domains of which 2,071 were new, **a larger novelty pool than the column it was
+asked for**. It reported it, saved it, and did not put it in the deliverable, on the grounds that widening
+the definition of an output file without being asked was not its call. That is the right instinct and it
+should be said out loud. I took the decision it left open and seeded them: **2,068 more candidates**, an
+audit firm printing its address on a 1998-2001 filing is exactly the same kind of evidence as the auditee
+doing so.
+
+**FFIEC is closed on measurement, and the shape of the negative is worth keeping.** The field exists: the
+Federal Reserve MDRM dictionary confirms TEXT4087 runs from 1999-03-31, so banks did report a website for
+three of the six window years. **The values were never published.** The CDR bulk distribution offers no
+period before 2001-03-31, and across all four 2001 quarters actually downloaded and parsed, 35,094 filing
+rows, TEXT4087 is populated on **0 rows**, as are name, city, state, zip, e-mail, contact, phone and fax.
+What remains is a 2005 quarter and an FDIC current-state table, and a bank website recorded in 2005 was
+very likely never a 1996-2001 domain. Its 8,588 harvested domains were deliberately **not** seeded.
+
+**"The reporting item is real; the publication is not"** is a distinction this register did not have, and it
+is a cheaper kill than fetching: check whether the bulk file carries the column's values before believing
+that a documented field means available data.

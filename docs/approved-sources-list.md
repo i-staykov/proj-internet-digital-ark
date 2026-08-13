@@ -701,22 +701,6 @@ Decision: pending
 
 Decision: pending
 
-### ffiec_call_report_webaddr / artifact_listing
-
-- potential: 60 (+40 the quarter-end report date of the filing that carries the URL, sound in principle, but conditional on an unverified premise, +8 usable volume, ESTIMATE well below bar on the only verified route, +12 US filers, .com-dominant, mean weight ESTIMATE 0.62, +0 no data retrieved, both 200s were a landing page and an instructions PDF. Exhaustive regulatory panel, so no prominence penalty)
-
-- class note: this is a snapshot filed on a date, not a current-state field with a historical date beside it, which is what makes it per-item. That holds only for the filing itself.
-
-- what it is: MDRM item TEXT4087, "Primary Internet Web Address of Bank", on the FFIEC/FDIC Call Report cover page, requested of every FDIC-insured commercial bank and savings institution from the June 1999 quarter, so 11 in-window quarter-ends collected it.
-- where: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx
-- what dates one item: the quarter-end report date of the filing, so a web address in the 2000-06-30 file evidences that domain in 2000 alone and one bank across 11 quarters yields at most three year claims. CRITICAL: the FDIC BankFind/SDI route nominated for 1999-2000 serves WEBADDR as a CURRENT-state attribute, and joining that onto a historical report date converts a valid per-item claim into the dated-dataset fallacy.
-- why it may be net-new: small US community bank domains in 1999-2000, a population with little crawl prominence.
-- reachability, checked 2026-08-12: 2 requests plus one to a host not otherwise touched. HEAD on the primary URL returned HTTP/1.1 200, text/html, 27,777 bytes, which is the terms-acceptance landing page and explicitly NOT the data; the product sits behind terms acceptance and a POST. The proposal's central citation verified live: the FDIC June 1999 supplemental instructions returned HTTP/2 301 then 200, application/pdf, 22,030 bytes, so the item's existence and its June 1999 start date are real and not asserted.
-- screener: the field exists; its PUBLICATION is unproved, and that is the whole source. Established by search and corroborated on the Chicago Fed page that CDR public bulk holds historical data starting 2001-03-31, so the verified route cannot serve 1999 or 2000 at all and 11 in-window quarters become 4, all in 2001, the best-covered year. call.report's bulk-files documentation describes the ZIP only as per-institution XBRL plus one delimited all-schedules text file and never mentions TEXT4087. The Chicago Fed historical files (SAS XPORT, 1976-2021) are "financial variables plus selected structure data" and returned 403. MEASURED ceiling: the store already dates 4,007 bank-like domains in 1999, 4,730 in 2000 and 6,907 in 2001, with 17,077 missing in-window slots across 9,751 domains in total.
-- next step: access request, but a narrow one: ask FFIEC or the Chicago Fed whether any public per-quarter product for 1999-06-30 through 2000-12-31 carries TEXT4087. If the answer is no, close it; nothing else about this source matters.
-
-Decision: pending
-
 ### pmc_oa_subset_fulltext_1998_2001 / link_source
 
 - potential: 60 (+40 sound per-item JATS pub-date, +0 volume, the distinguishing body-URL claim measured to nothing, +10 weight not separately measured and expected to track 0.5569, +10 store-side measurement real but the positive control was never established)
@@ -1083,6 +1067,24 @@ Decision: rejected
 - kill condition: already fired. Net-new pairs surviving the split at or near zero on a live sample. Positive control passed first, so the zero is the corpus and not the parser: `<Affiliation>` populated on 369 of 475 in-window citations (77.7%) with named live records PMID 9300001 (1997, greenla@umich.edu), PMID 9300048 (1997, A.Leigh-Brown@ed.ac.uk), PMID 9300039 (1997, daikokut@tsuru.med.nagoya-u.ac.jp).
 - screener: MEASURED against the store, 108 emails in 475 in-window citations (22.74%, well ABOVE the proposal's own "low" forecast), 90 distinct domains, 100 pairs, 97 ALREADY HELD, 3 net-new, all 3 on domains held in no year, so all 3 fail the split. NET-NEW POST-SPLIT: 0 of 100. Email presence rises steeply across the window (1996: 0 of 32 affiliations, 1997: 18%, 1999: 34%, 2001: 38%), so 1996, the smallest and most valuable baseline year, is the year it cannot serve at all. HONEST RESIDUAL: 0 of 100 bounds the rate at roughly 3% at 95% confidence, not at 0%; the store-side ceiling closes it, only 37,245 missing pairs exist across every academic suffix combined, of which ac.jp, edu.cn, ac.kr, edu.tw, ac.at and ac.il contribute 14,198 worth about 1,500 EE. Sample gap disclosed: 1998 absent from the draw.
 - next step: close it, and write the measured zero into docs/sources.md. If certainty is wanted over inference, ONE baseline file settles it exactly for one request. No approval request; no reviewer attention.
+
+Decision: rejected
+
+### ffiec_call_report_webaddr / artifact_listing
+
+- CLOSED ON MEASUREMENT BY THE AGENT, 2026-08-13, not awaiting your decision. **The field exists and its values were never published.** The Federal Reserve MDRM dictionary confirms TEXT4087 ENTITY'S WORLD WIDE WEB ADDRESS runs from 1999-03-31, so banks did report a website for three of the six window years. But the FFIEC CDR bulk distribution offers no period earlier than 2001-03-31, and in all four 2001 quarters actually downloaded and parsed, 35,094 filing rows, **TEXT4087 is populated on 0 rows**, as are legal name, city, state, zip, e-mail, contact, phone and fax. The reporting item is real; the publication is not. What remains is a 2005 quarter and an FDIC current-state table, and a bank website recorded in 2005 or today was very likely never a 1996-2001 domain, which is the dated-dataset fallacy this queue exists to catch. Its 8,588 harvested domains were deliberately NOT seeded. Overrule it if you disagree.
+
+- potential: 2 (+40 the quarter-end report date of the filing that carries the URL, sound in principle, but conditional on an unverified premise, +8 usable volume, ESTIMATE well below bar on the only verified route, +12 US filers, .com-dominant, mean weight ESTIMATE 0.62, +0 no data retrieved, both 200s were a landing page and an instructions PDF. Exhaustive regulatory panel, so no prominence penalty)
+
+- class note: this is a snapshot filed on a date, not a current-state field with a historical date beside it, which is what makes it per-item. That holds only for the filing itself.
+
+- what it is: MDRM item TEXT4087, "Primary Internet Web Address of Bank", on the FFIEC/FDIC Call Report cover page, requested of every FDIC-insured commercial bank and savings institution from the June 1999 quarter, so 11 in-window quarter-ends collected it.
+- where: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx
+- what dates one item: the quarter-end report date of the filing, so a web address in the 2000-06-30 file evidences that domain in 2000 alone and one bank across 11 quarters yields at most three year claims. CRITICAL: the FDIC BankFind/SDI route nominated for 1999-2000 serves WEBADDR as a CURRENT-state attribute, and joining that onto a historical report date converts a valid per-item claim into the dated-dataset fallacy.
+- why it may be net-new: small US community bank domains in 1999-2000, a population with little crawl prominence.
+- reachability, checked 2026-08-12: 2 requests plus one to a host not otherwise touched. HEAD on the primary URL returned HTTP/1.1 200, text/html, 27,777 bytes, which is the terms-acceptance landing page and explicitly NOT the data; the product sits behind terms acceptance and a POST. The proposal's central citation verified live: the FDIC June 1999 supplemental instructions returned HTTP/2 301 then 200, application/pdf, 22,030 bytes, so the item's existence and its June 1999 start date are real and not asserted.
+- screener: the field exists; its PUBLICATION is unproved, and that is the whole source. Established by search and corroborated on the Chicago Fed page that CDR public bulk holds historical data starting 2001-03-31, so the verified route cannot serve 1999 or 2000 at all and 11 in-window quarters become 4, all in 2001, the best-covered year. call.report's bulk-files documentation describes the ZIP only as per-institution XBRL plus one delimited all-schedules text file and never mentions TEXT4087. The Chicago Fed historical files (SAS XPORT, 1976-2021) are "financial variables plus selected structure data" and returned 403. MEASURED ceiling: the store already dates 4,007 bank-like domains in 1999, 4,730 in 2000 and 6,907 in 2001, with 17,077 missing in-window slots across 9,751 domains in total.
+- next step: access request, but a narrow one: ask FFIEC or the Chicago Fed whether any public per-quarter product for 1999-06-30 through 2000-12-31 carries TEXT4087. If the answer is no, close it; nothing else about this source matters.
 
 Decision: rejected
 
