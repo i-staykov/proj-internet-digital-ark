@@ -6382,3 +6382,35 @@ patience applied to a corrupt file turns a real fault into a fifteen-minute sile
 `report.template.md` are all fixed historical measurements about named sources, 4,736 Usenet relay domains,
 94.7% and 92.2% overlaps, 8.7% for the largest registry, and not round totals that would drift. The 13
 placeholder tokens cover everything that moves, and `--check` now confirms it would fill cleanly.
+
+## 2026-08-13: hunt pass 5, and the sceptic that downgraded its own find
+
+Four survivors, five dropped, 4 of 4 written. Queue: **34 entries, 33 open**. The pass was aimed at the
+measured `.us` locality gap and it hit it.
+
+**`nces_imls_pls_web_addr_1998_2001` enters at 82, and it is the best-evidenced entry in the queue**, because
+the agent did not estimate: it downloaded `pupldf99_csv.zip`, parsed 17,057 outlet rows, canonicalised every
+address through this project's own `ark.canonical.to_registrable`, and differenced against the live store.
+**Post-split: 348 net-new pairs, 280.1 equivalent-English, mean weight 0.805**, composed of 135 `lib.XX.us`,
+127 `.org`, 42 `.com`, 28 city and county `.us`, 11 `k12.XX.us`. That is the locality namespace the store is
+thinnest on, arriving by name.
+
+**The finding that matters most is that the sceptic downgraded its own source.** The prospector filed it as
+`artifact_listing`, self-dating and taking no corroboration split, which is the reading worth four times
+more. The sceptic measured why that is wrong: of the 122 domains never held at any year, **48, or 39.3%, sit
+at edit distance 1 from a domain the store already holds** (`crytstallakelibrary.org`,
+`nrewburghlibrary.org`, `punamco.lib.oh.us`, `soffolk.lib.ny.us`). `WEB_ADDR` is keyed by state library
+staff, so it is typed, and admitting it unsplit would mint year claims for domains that never existed.
+**Typos are by construction the never-held names, so the split removes exactly that population and almost
+nothing else.** This is the Netcraft lesson applied by an agent to its own find, which is what the class
+decision being a human's is supposed to protect against and here did not need to.
+
+**Two schema fields added yesterday did real work.** `positive_control`: `PHONE` on the same row is
+populated 16,912 of 17,057, or 99.15%, against `WEB_ADDR` at 26.5%, which proves the sparsity is genuine
+1999 web adoption and not an unpopulated column, the exact test that killed `QCR199612`. `row_shape`: the
+26.5% rate is itself the argument against the dated-dataset fallacy, since a backfilled current-state
+address in a 2013 repackaging would be near-universally filled.
+
+It also carries the one thing not yet observed as its stated kill condition: if `WEB_ADDR` does not change
+between FY1998 and FY1999 for the same `FSCSKEY`, every year claim is void. That diff is free once the
+second file is on disk and is the first test to run.
