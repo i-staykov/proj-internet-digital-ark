@@ -6676,3 +6676,36 @@ less, since a bad candidate name simply never earns a capture, but the count is 
 **Why this is the right shape of work while waiting.** It needs no decision from Ivo, it costs a handful of
 static government downloads, and it feeds the engine that is already running rather than proposing a new
 one. The queue keeps growing for him; the pool grows meanwhile.
+
+## 2026-08-13: 2,350 candidate names banked from two queued sources, with no decision needed
+
+The harvest ran and the names are in the pool. **Neither source can date a year yet, and neither had to.**
+
+| | rows read | raw values | domains | already held | **new candidates** |
+|---|--:|--:|--:|--:|--:|
+| NCUA call reports, 1999/2000/2001 | 31,839 | 26,165 | 7,091 | 4,957 | **2,134** |
+| IMLS library survey, FY1997-FY2001 | 85,284 | 17,346 | 1,901 | 1,685 | **216** |
+
+**2,350 new candidates**, seeded in under four seconds each, and every one now queued for the CDX engine
+which will date whatever it can on its own capture evidence. The library names are the locality namespace
+this project is thinnest on: `aacpl.lib.md.us`, `acadia.lib.la.us`, `ada.lib.id.us`.
+
+**The agent disproved a figure from its own briefing, which is the habit worth having.** I passed it "16.3%
+of raw values are malformed" from the pass-3 entry. Measured across three years the reject rate is **6.7%**,
+and 11.4% for 1999 alone; the 17.4% figure belongs to one column in one year. The triage entry will be
+corrected. Reject reasons were reported rather than repaired: 849 invalid hostname syntax, 733 no known
+public suffix, 151 bare public suffix, and the dominant cause is **a hard 25-character truncation in the
+source data**, which takes the TLD with it and is unrecoverable rather than fixable.
+
+**Two facts worth keeping about the sources themselves.** The NCUA e-mail column is dirtier in the useful
+sense and cleaner in the parsing sense: 4.3% rejected against 10.4% for the website column, and
+`to_registrable` already strips userinfo at the last `@`, so `XCU@IX.NETCOM.COM` reduces natively. And its
+head is free-mail, `aol.com` 2,355 times, so the value is entirely in the 2,291 names that occur exactly
+once. For IMLS, `to_registrable` was verified **not** to collapse four-label `.us`: `detroit.lib.mi.us` and
+`pen.k12.va.us` survive intact, which is the whole reason that source is interesting.
+
+The IMLS agent also reports that roughly half its 461 drops are recoverable scheme typos
+(`http//:metronet.lib.mi.us`, `www/flint.lib.mi.us`) and estimates 150 to 250 further names from a
+normaliser. It correctly did not write one, since that is a change to shared code rather than a harvest.
+Worth doing deliberately later; on a candidate-only route the risk is low, because a name that was never
+real simply never earns a capture.
