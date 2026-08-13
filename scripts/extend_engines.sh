@@ -108,7 +108,15 @@ note "extend: three engines to $(human "$DEADLINE"), rdap ${RDAP_BATCHES} batche
 # The registry sweep. It takes a batch count rather than a deadline and stops early
 # when the target list runs out, so the count is sized to overshoot the window.
 (
+    # **LIST must be passed explicitly.** `rdap_pool_sweep.sh` defaults to
+    # `pool_targets_verisign.txt`, which is almost entirely journalled already, and on
+    # 2026-08-13 a hand restart that omitted the variable swept it and reported 147
+    # domains to query out of a 5,000 limit. A batch with nothing to do is
+    # indistinguishable from an exhausted pool, so the failure is silent. The CDX branch
+    # above has always passed its targets through `env` for exactly this reason and this
+    # branch did not.
     handover rdap_sweep 'rdap_pool_swee[p]' \
+        env LIST=data/raw/rdap/pool_targets_org.txt \
         caffeinate -i bash scripts/rdap_pool_sweep.sh "$RDAP_BATCHES" 5000 2 1.0 1.0
 ) &
 

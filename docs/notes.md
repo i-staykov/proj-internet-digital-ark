@@ -6966,3 +6966,38 @@ log, and it is running at 1.03 domains a second on the right file. **The lesson 
 `extend_engines.sh` passes the CDX prefix and targets explicitly through `env` for exactly this reason, and
 its RDAP branch does not. That asymmetry is now a known bug** and the next wake should fix it, because the
 Saturday handover will otherwise restart the sweep on the Verisign default and quietly do nothing.
+
+## 2026-08-13: pass 7, and the measured-yield rubric changed what the entries say
+
+Seven survivors, nine dropped, 7 of 7 written. Queue: **47 entries, 44 open**. The rubric change landed:
+entries now lead with MEASURED figures rather than estimates, because the instruction was that a
+measurement is the score and the rubric does not apply.
+
+**`gias_england_school_website_domains` enters at 82 on a measurement**: the DfE all-establishment extract
+for England, 64.5 MB downloaded and parsed, `SchoolWebsite` populated on 24,886 of 52,485 rows, giving
+**20,905 net-new registrable domains at mean weight 0.9095**. Its `sch.uk` slice of 6,349 names prices at
+about 5,568 in-window domains on a **measured 87.7% registry answer rate, 65 of 65 names answered**, so that
+slice alone clears the bar. It is `link_target`, candidate-only, so **collecting it waits on nobody** and the
+year would come later from the CDX engine or from the pending Nominet decision.
+
+**Three disproofs from this pass are worth more than the entries.**
+
+- **The ".uk is our .us gap" analogy is false and I had been leaning on it.** The store holds **217,619
+  in-window `.uk` domains against 18,278 `.us`**. `.uk` is not thin at all; only `sch.uk` is, at 2,646
+  in-window names of which this snapshot covers 32.1%. Any future argument that a `.uk` source is valuable
+  *because* the namespace is underrepresented is wrong, and the reason to want `sch.uk` is that nobody links
+  to a primary school, not that `.uk` is missing.
+- **A HEAD request would have wrongly closed the best find.** `HEAD` on the DfE bulk endpoint returns
+  **HTTP/2 500** with a 146-byte JSON body while `GET` returns 200 and 64.5 MB. The standing instruction to
+  prefer HEAD is a politeness rule that can produce a false negative, and this is the case that proves it.
+- **The charity register has no historical contact at all**, measured by the right control: `contact_web`
+  and `contact_email` on rows carrying a `date_of_removal` are populated on **exactly 0 of 211,694**. So a
+  register with 265,086 pre-2002 charities still cannot say what any of their domains were in 1999.
+
+Also recorded from the winner: Nominet returns the **current** registration, so a dropped and re-registered
+name reads late, and the direction of error is loss rather than fabrication; and 7 of 57 in-window hits read
+exactly `01-Aug-1996`, a registry floor artefact, so 1996 there means "existed by August 1996".
+
+**And the handover bug flagged last wake is fixed**: `extend_engines.sh` now passes
+`LIST=data/raw/rdap/pool_targets_org.txt` through `env` on its RDAP branch, so Saturday's handover cannot
+restart the sweep on the Verisign default and silently do nothing. Re-armed on the corrected script.
