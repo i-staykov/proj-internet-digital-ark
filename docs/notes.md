@@ -6485,3 +6485,24 @@ that this morning's `connect_read_only_patiently` fix was load-bearing here too:
 `fill_report.py` and refuses unless it prints "filled cleanly", so before that fix the packaging run would
 have crashed on the write lock as well. Two independent Sunday-evening failures, found on a Thursday
 morning, for the cost of one background command.
+
+## 2026-08-13: the .uk RDAP batch is answering everything, and the widening looks like roughly 3.7x
+
+Partial read of the in-flight batch at 40% through, labelled as one and not quoted as a rate: 2,000
+records, **2,000 answered**, 284 in-window. Two things stand out and neither needs the batch to finish.
+
+**Nominet answers every query.** A 100% answer rate against `.org`, where a share of queries return nothing
+usable, which matters because an unanswered query costs the same as an answered one. The triage entry for
+`nominet_whois_port43` carries a warning that Nominet's RDAP refused this project three times in fourteen
+queries at 0.5 q/s; at the sweep's 1 q/s it is not refusing at all, which is worth knowing before that
+entry is decided.
+
+**The in-window share is tracking the historical figure.** 14.2% so far against the 15.3% measured across
+all previous `.uk` answers, so the ranking was not fitting noise.
+
+Rough per-batch value, ESTIMATE and only that: 5,000 queries at 14.2% times the 0.9813 weight is about 697
+equivalent-English, against `.org` at 6.2% times roughly 0.6, about 186. Call it **3.7x for the same number
+of requests**, which is what the list rebuild bought. The honest number arrives when the batch publishes.
+
+The batch is slower than `.org` was, 40% in about an hour against 5,000 in 83 minutes, so Nominet is pacing
+harder. That is the adaptive governor doing its job and costs nothing worth chasing.
