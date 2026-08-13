@@ -82,6 +82,11 @@ def collectors() -> tuple[Collector, ...]:
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
 # `ark seed` is a 33-minute outage for every reader, so a 20-minute ceiling made
 # the residual check time out and vanish from the report.
+# How old the VPS gap list may get before a refresh is worth a VPN window. Gap targets
+# change slowly by design, so this is days rather than hours; the real staleness signal
+# is the yield check, not the clock.
+GAP_LIST_REFRESH_HOURS = 7 * 24
+
 STEP_TIMEOUT = 3600
 
 
@@ -284,11 +289,25 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
             findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
             continue
         if "queue_gap_vps" in path:
-            findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, VPS list left alone")
-            attention.append(
-                "the VPS gap list is stale and has to be shipped over a VPN window, so it "
-                "needs a human: rebuild it, scp it, and restart the supervisor there"
+            # **Age alone is the wrong alarm for this list, and raising it hourly trained a
+            # reader to skip the whole judgement section.** `CLAUDE.md` is explicit that gap
+            # targets change slowly and the VPS wants a rare refresh rather than a periodic
+            # one, so "26.9h behind" is the list working as designed. The signal that a gap
+            # queue has actually gone stale is that the engine stops finding anything, which
+            # `check_yield` already measures per collector against its own history: on
+            # 2026-08-12 the VPS sat at 0.0% for 31 hours and after the refresh it measures
+            # 92.7%. So this reports the age and defers the alarm to yield.
+            findings.append(
+                f"derived: {Path(path).name} {hours:.1f}h behind, which is expected: gap "
+                f"targets change slowly and the yield check is what would call it stale"
             )
+            if hours > GAP_LIST_REFRESH_HOURS:
+                attention.append(
+                    f"the VPS gap list is {hours / 24:.1f} days old, past the "
+                    f"{GAP_LIST_REFRESH_HOURS / 24:.0f}-day mark where a rebuild is worth a VPN "
+                    f"window: rebuild it, scp it over the file the supervisor already reads, and "
+                    f"do NOT restart anything, since it re-reads its target list at every batch"
+                )
             continue
         if "queue_pool_local" in path:
             _o, ok = run(

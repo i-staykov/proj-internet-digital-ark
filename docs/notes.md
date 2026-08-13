@@ -6238,3 +6238,26 @@ logical cycle process, and a full cycle on the current code leaves **1** OPEN en
 **Also this wake:** the VPS gap engine now measures **92.7% of 772 answered** against its own history of
 51.6%, which is the 12 August queue repair paying off; and the RDAP swap has not taken effect yet because
 the batch in flight started before it, exactly as predicted.
+
+## 2026-08-13: the VPS gap-list alarm was a false positive by design, and it was training the reader to skip
+
+`just cycle` raised "the VPS gap list is stale, rebuild it, scp it and restart the supervisor" on every
+pass, at 26.9 hours behind. **That is the list working exactly as designed**: `CLAUDE.md` says gap targets
+change slowly and the VPS wants a rare refresh rather than a periodic one. An alarm that fires hourly for a
+condition that is correct teaches a reader to skim the judgement section, which is the only part of the
+cycle output worth reading closely, so the cost is not the noise itself.
+
+**The fix ties the alarm to the outcome instead of the clock.** Age is now reported as a finding and the
+attention item fires only past seven days. The real staleness signal already exists and is better: the
+yield check measures each collector against its own history, and it is what caught the VPS at 0.0% for 31
+hours on 12 August and now reports 92.7% after the refresh. A gap queue that has genuinely gone stale stops
+finding things, and that is observable; a timestamp is not.
+
+The wording also corrects an instruction that was wrong. It said "restart the supervisor there", and the
+refresh on 12 August specifically did **not** restart anything: a supervisor re-reads its target list at
+every dispatch, so overwriting the file it already reads is the whole job, and restarting would have thrown
+away the batch in flight.
+
+**Judgement list after the change: two items**, both real, where it had been four. The remaining ones are
+the triage queue, which is Ivo's, and one unread journal, which is the batch the local engine published
+minutes ago and the ingest loop has not reached yet.
