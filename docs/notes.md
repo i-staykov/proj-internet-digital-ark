@@ -6783,3 +6783,24 @@ not, they are correctly buried, and either outcome is information the queue did 
 looks good, is precisely the reasoning that put 2,675 `.mil` names at the head of the queue on 11 August and
 cost 1,200 archive queries for zero captures. A prior dressed as a measurement is the failure this project
 has paid for most often.
+
+## 2026-08-13 08:10: the judgement list is down to one item, and it is Ivo's
+
+Cleanest cycle of the round. Every mechanical check clean, and the section that names what no program can
+decide holds **exactly one line**: the 38 sources awaiting triage. Nothing else needs a human.
+
+    cdx_pool  43.4% of 1,797 answered, against 45.1% of 47,024 before that
+    cdx_q1    91.6% of 790 answered, against 52.3% of 30,512 before that
+    rdap      35.1% of 784 answered, against 10.2% of 1,692,022 before that
+
+**The VPS number is the one to look at.** It has held above 91% for hours against a lifetime history of
+52.3%, which is the 12 August queue repair still paying. Its history figure will keep climbing toward the
+new rate as the old zero-yield stretch is diluted, and when the two converge the repair is fully absorbed.
+
+Three items that used to appear here are gone for good reasons rather than by being ignored: the VPS gap
+list alarm now fires on yield rather than the clock, the individual approval entries collapsed into one
+count, and the re-probe no longer re-raises a lead its own verdict already answered.
+
+The `.uk` RDAP batch is still in flight after four hours, which is Nominet pacing rather than a stall: the
+partial read showed every query answered. It publishes when it publishes, and the honest per-batch number
+comes then rather than from another partial read.
