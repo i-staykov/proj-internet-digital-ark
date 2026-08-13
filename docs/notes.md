@@ -6317,3 +6317,23 @@ Two lessons from earlier passes are now schema fields rather than prose, so a sc
 `row_shape`, per-filing or per-entity current state, which is the dated-dataset fallacy that would make a
 source worthless; and `positive_control`, the column to test population against, which is how the 1996
 credit union file died with both columns present and zero rows filled.
+
+## 2026-08-13: the wider RDAP list is live, and the first bytes agree with the prediction
+
+The batch that started 03:57 UTC is the first drawn from the widened list, and its first 200 answers are
+**all `.uk`**, which is what the ranking intended: `.uk` carries both the highest measured in-window rate,
+15.3%, and the highest English weight, 0.9813.
+
+**In-window rate on those first 200: 11.0%.** That is a partial read of a `.part` and is quoted as one, so
+it is a sanity check rather than a measurement; the batch is 5,000 queries and the honest number arrives
+when it publishes. What it does establish is direction: the previous `.org` batch was running at 4.3%
+in-window over 4,086 answers.
+
+Rough value per query, and labelled ESTIMATE: `.uk` at its historical 15.3% times 0.9813 is about 0.150
+equivalent-English per answer, against `.org` at 6.2% times roughly 0.6, about 0.037. The builder's
+whole-list figure of 0.073 per query sits between them because the list is mixed, and the head being all
+`.uk` is what front-loads the value.
+
+**The swap cost nothing.** The file was overwritten in place, the batch in flight at the time finished on
+the old list undisturbed, and the sweep picked the new one up at its next dispatch, exactly as the CDX
+queues behave. No process was restarted at any point.
