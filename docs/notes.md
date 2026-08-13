@@ -6709,3 +6709,26 @@ The IMLS agent also reports that roughly half its 461 drops are recoverable sche
 normaliser. It correctly did not write one, since that is a change to shared code rather than a harvest.
 Worth doing deliberately later; on a candidate-only route the risk is low, because a name that was never
 real simply never earns a capture.
+
+## 2026-08-13: the entry was right and my briefing was wrong
+
+Correcting my own correction. I said the NCUA triage entry's 16.3% malformed figure was disproved by the
+harvest. It was not. The entry says **406 of 2,484**, which is explicitly the website column in 1999, and
+the harvester measured 433 of 2,484 for exactly that slice, a difference of canonicaliser strictness rather
+than of fact. **The generalisation to a corpus-wide rate was mine, in the brief I wrote for the harvester**,
+and the harvester was right to flag that its measurement did not reproduce it.
+
+So the entry is extended rather than corrected, with the wider measurement beside the narrower one: 6.7%
+corpus-wide across three years, e-mail 4.3% against website 10.4%, 7,091 distinct domains, 2,134 now in the
+pool.
+
+Worth stating as a habit rather than an incident: **when a measurement contradicts a recorded figure, check
+the scope of the recorded figure before rewriting it.** A per-column, per-year number and a corpus-wide
+number are different claims, and the register is more often precise than wrong. Rewriting a correct entry
+to match a broader measurement would have destroyed the more useful of the two figures, since the website
+column in 1999 is precisely what an extractor would be pointed at first.
+
+The seeded names carry their own source labels, `ncua_call_report_candidates` and
+`imls_library_survey_candidates`, so the queue builder treats each as its own population with no measured
+hit rate yet and falls back accordingly. One batch of each measures them, and the yield check reports it
+against their own history from then on.
