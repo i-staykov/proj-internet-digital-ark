@@ -188,6 +188,10 @@ is the common case and used to be the case that produced nothing.
 
        Bash(run_in_background=true): sleep 540; echo "HEARTBEAT: continue the round"
 
+   **Exactly one heartbeat at a time.** Two in flight means two wakes, two agents doing the same bounded
+   work and two sets of commits racing each other, which happened within an hour of adopting this. Check
+   with `pgrep -f 'slee[p] 540' | wc -l` before starting one, or stop them all and start one.
+
    That makes the work self-sustaining and leaves cron as the backup rather than the mechanism. A workflow
    left running counts as a heartbeat, since its completion wakes you the same way.
 

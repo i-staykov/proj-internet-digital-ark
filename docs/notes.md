@@ -6292,3 +6292,28 @@ control, then the share of addresses on an own domain rather than `aol.com`.
 `sec_form_adv_part1_2000_2001` enters at 58 with the in-window slice corrected from fifteen months to
 **2001 alone**, on the Federal Register release text, and with the honest warning that if the zip holds one
 current-state row per adviser rather than one per filing, the source is worth nothing.
+
+## 2026-08-13: exactly one heartbeat, and pass 5 aimed at a measured gap
+
+**The heartbeat needed a rule within an hour of being adopted.** Relaunching one at the top of a turn and
+again at the bottom left two in flight, which means two wakes, two agents doing the same bounded work and
+two sets of commits racing. Fixed by stopping all and starting one, and `CLAUDE.md` now says to check
+`pgrep -f 'slee[p] 540' | wc -l` first. The failure is the same family as starting a second collector, and
+the same discipline applies: count before you launch.
+
+**Pass 5 is pointed at a measurement rather than a theme.** Four passes have produced a usable model of
+what pays here, and it is now written into the hunt's own prompt: the winning shape is a statutory return
+where a regulator collects a contact address from thousands of ordinary entities on a dated cycle, and the
+losing shape is any curated list of notable sites. Two of the four highest-scoring entries in the queue are
+that shape.
+
+The sharpest input is the `.us` measurement from pass 4: **18,278 in-window `.us` domains against 3,239,423
+`.com`**, so the RFC 1480 locality namespace where every US school district, county, library and
+municipality lived is **0.3% of in-window domains**. That is a hole rather than a hypothesis, so one whole
+lens is aimed at it: NCES school directories, the IMLS public libraries survey, Census of Governments,
+E-rate applications filed annually from 1998.
+
+Two lessons from earlier passes are now schema fields rather than prose, so a sceptic cannot skip them:
+`row_shape`, per-filing or per-entity current state, which is the dated-dataset fallacy that would make a
+source worthless; and `positive_control`, the column to test population against, which is how the 1996
+credit union file died with both columns present and zero rows filled.
