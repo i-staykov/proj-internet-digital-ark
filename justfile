@@ -644,4 +644,9 @@ ship round="":
     echo "== packaging =="
     bash scripts/package_delivery.sh {{round}}
     echo "== verifying the built delivery the way a reviewer would =="
-    bash scripts/verify_delivery.sh
+    # The directory is passed explicitly. `verify_delivery.sh` defaults to its own
+    # location, which is correct when it ships INSIDE a delivery and wrong when it is
+    # run from this repository: the fourth rehearsal built a valid 1.4 GB archive and
+    # then reported "additions/1996.txt is missing", because it had verified the
+    # scripts/ directory rather than the delivery.
+    bash scripts/verify_delivery.sh output/internet-digital-ark-1996-2001
