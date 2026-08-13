@@ -6171,3 +6171,43 @@ the wake.
 **The general lesson, which is the one worth keeping:** prefer a mechanism whose success you can observe
 over one whose failure is silent. This is the same rule that produced the yield check, `just engines`
 reporting UNKNOWN rather than "everything is home", and the refusal to quote a rate off a `.part` file.
+
+## 2026-08-13: the RDAP list was about to run dry, and widening it was worth 2.5x
+
+The heartbeat woke this. `pool_targets_org.txt` held 221,887 names against a sweep that consumes 200,000,
+so the registry engine would have stopped early well before Sunday and then sat idle.
+
+**Measured headroom by TLD before deciding anything**, since "widen it" is not a plan:
+
+| tld | undated pool | ever asked |
+|---|--:|--:|
+| com | 917,549 | 1,068,844 |
+| net | 413,225 | 440,817 |
+| org | 302,128 | 159,460 |
+| edu | 216,185 | 70 |
+| mil | 186,278 | 1 |
+| gov | 185,803 | 11 |
+| co.uk | 41,198 | **0** |
+| ca | 20,681 | 23,341 |
+
+`.com` and `.net` are effectively exhausted, asked more times than the pool holds. **`.edu` is the largest
+untouched pool and is off limits**: EDUCAUSE's banner prohibits exactly this harvesting, which is why that
+source was refused yesterday, and the pool figure does not change that. `.mil` and `.gov` are the
+fabricated namespaces already on record at 0.000 over 1,372 and 394 answers.
+
+**The find is `.co.uk`: 41,198 names never asked, and `.uk` measures the highest in-window rate of any
+namespace at 15.3%**, against `.com` 9.8%, `.ca` 9.4%, `.org` 6.2% and `.net` 5.8%. It also carries the
+highest English weight at 0.9813. Rebuilding for `org,uk,co.uk,ca` gives 247,546 targets worth an expected
+**17,967 equivalent-English at 0.073 per query**, against 162,438 targets worth 7,193 at 0.044 for `.org`
+alone. **2.5x the value and 66% better per query**, and the list head is all `.uk`.
+
+Installed by overwriting the file the sweep already reads, the same in-place pattern used for the CDX
+queues: `rdap_pool_sweep.sh` re-reads `LIST` at every batch and `ark rdap` rescans journals to skip settled
+domains, so nothing was restarted and the batch in flight was not disturbed. Old list kept as
+`pool_targets_org.txt.superseded-20260813`.
+
+**One thing to watch.** The sweep runs `--delay 1.0 --min-delay 1.0`, a floor tuned for PIR, which meters.
+`ark rdap` paces each registry with its own governor from the IANA bootstrap, so mixing TLDs is safe, but
+every registry now inherits that 1 q/s floor. That is polite rather than optimal, and it is the right
+default while nobody is watching. The file name is now wrong for its contents and is left alone
+deliberately: renaming it would need the running sweep restarted, which costs more than the confusion.
