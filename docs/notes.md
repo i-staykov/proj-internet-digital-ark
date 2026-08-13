@@ -6882,3 +6882,31 @@ leaves a visible choice in the shell history rather than a silent failure.
 the reader already is: never put the gate through a pipe, because a pipeline exits with its last command's
 status; and never `git add -A` after a subagent has run in the repository, because staging everything is a
 bet that everything belongs, and it is the same habit that once swept a 1.3 GB file into history.
+
+## 2026-08-13: the RDAP sweep had been stalled for over two hours, and it has no stall detection
+
+Caught by asking the one question the project keeps having to ask: **is it finding anything, or merely
+running?** The `.uk` batch had been in flight since 03:57 UTC and the process was alive at 2h40m. The
+journal had not grown in seven minutes, which could be gzip block buffering, so I counted **records**
+rather than bytes, twice, forty-five seconds apart: **2,000 both times.** At 1 q/s that should have added
+about forty-five. Its own progress line confirms it: `2000/5000 [2:42:29<4:03:43, 4.87s/domain]`, frozen at
+exactly 2,000 with the average degraded from 1.00 to 4.87 seconds per domain.
+
+**The gap this exposes is structural.** `supervise_cdx_pool.sh` backgrounds its batch, polls journal growth
+and kills a frozen one, and its header argues the case at length. `rdap_pool_sweep.sh` runs `ark rdap`
+**synchronously and waits forever**: no growth check, no watchdog, no ceiling. So a hung batch hangs the
+whole sweep silently, and the only reason it was noticed is that the yield check reports per collector and
+somebody read it. That is exactly the failure the CDX supervisor was built to prevent, on the one collector
+that never got the same treatment.
+
+**Killing it lost nothing and gained the measurement I had been waiting for.** `ark rdap` finalised its
+partial journal on the way out rather than discarding it, so the 2,000 answers are banked and published:
+**2,000 answered, 284 in-window, 14.2%.** That is the honest per-batch figure for `.uk`, no longer a partial
+read, against `.org` at 6.2% and with an English weight of 0.9813 rather than about 0.6. The list rebuild is
+worth roughly 3.7x per request, as estimated, now on a published number.
+
+A fresh batch is running at 1.03 domains per second on a new stamp. Two details for whoever fixes the
+watchdog: `pkill -f '[a]rk rdap'` killed only one of the two processes in the `uv run` chain and the python
+child carried on, so the second kill had to be by PID; and the sweep writes its journal as `.part` and
+renames on exit, contrary to a claim in `yield_check`'s docstring that it writes its final name from the
+start.
