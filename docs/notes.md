@@ -6458,3 +6458,30 @@ git-ignored paths.
 **What the rehearsal is actually testing** is the part no reading can settle: whether the export, the
 provenance bundle, the checksums and `verify_delivery.sh` still agree with each other after a week in which
 the store grew by 170,186 pairs and four engines were repaired. Result at the next wake.
+
+## 2026-08-13: the delivery rehearsal refused, which is exactly what it was for
+
+`package_delivery.sh` stopped at its own guard:
+
+    refusing to package: output/ holds 170186 net-new pairs, the store holds 170787
+
+**The guard is right and must not be weakened.** It exists so a delivery cannot ship annual files that
+disagree with the store. What the rehearsal exposed is a procedure problem hiding behind it: the comparison
+is `[ "$SHIPPED" != "$STORED" ]`, exact equality, and **the store moves every time the ingest loop banks a
+journal**, which is every few minutes. `ark export` itself takes minutes. So a hand-run
+`ark export && just package` races the loop and refuses, and it would have refused repeatedly on Sunday
+evening in front of the deadline, looking like a broken packager rather than a race.
+
+**The fix is a sequence, not a looser guard**, and the insight that makes it cheap is that only *ingestion*
+moves the store. Collectors writing journals do not, so they need not stop:
+
+    just ship    # pause maintain.sh, wait out any ark ingest in flight, export, ark check, package, verify
+
+It prints the command to restart the ingest loop when it is done. Nothing is lost by pausing it, because
+journals are ledgered by content hash and re-offering an ingested one is skipped in milliseconds.
+
+**Two findings from one rehearsal, both invisible from reading the code.** This one, and the confirmation
+that this morning's `connect_read_only_patiently` fix was load-bearing here too: packaging calls
+`fill_report.py` and refuses unless it prints "filled cleanly", so before that fix the packaging run would
+have crashed on the write lock as well. Two independent Sunday-evening failures, found on a Thursday
+morning, for the cost of one background command.

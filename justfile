@@ -598,3 +598,32 @@ report-docx source:
 # sort the triage queue by declared potential, highest first
 triage-rank *args:
     uv run python scripts/rank_triage.py {{args}}
+
+# The round-end sequence, in the one order that works. `package` refuses unless
+# output/ matches the store EXACTLY, and the store moves every time the ingest
+# loop banks a journal, which is every few minutes. So a hand-run
+# `ark export && just package` races and refuses, and discovering that at 22:00
+# on the evening a round ships is the wrong time.
+#
+# Only the INGEST loop has to pause: collectors writing journals do not move the
+# store, so they keep running and their work banks afterwards. Nothing is lost by
+# stopping maintain.sh, since journals are ledgered by content hash and re-offering
+# an ingested one is skipped in milliseconds.
+#
+# ship the round: quiesce ingestion, export, gate, package, verify
+ship round="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "== pausing the ingest loop so the store stops moving =="
+    pkill -f 'maintain[.]sh' 2>/dev/null || true
+    until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
+    echo "== exporting =="
+    uv run ark export
+    echo "== nine invariants =="
+    uv run ark check
+    echo "== packaging =="
+    bash scripts/package_delivery.sh {{round}}
+    echo "== verifying the built delivery the way a reviewer would =="
+    bash scripts/verify_delivery.sh
+    echo
+    echo "RESTART THE INGEST LOOP:  nohup bash scripts/maintain.sh 900 150 >/dev/null 2>&1 &"

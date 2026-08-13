@@ -235,6 +235,20 @@ Its overlap guard reading zero is also the proof that the new release actually l
 
 ### Package the delivery archive
 
+**Use `just ship` rather than packaging by hand.** `package` refuses unless `output/` matches the store
+**exactly**, and the store moves every time the ingest loop banks a journal, which is every few minutes. So
+a hand-run `ark export` followed by `just package` races the loop and refuses, and the evening a round
+ships is the wrong time to find that out. Measured on 2026-08-13: export wrote 170,186 pairs and packaging
+read 170,787 from the store minutes later.
+
+```bash
+just ship            # quiesce ingestion, export, run the nine invariants, package, verify
+```
+
+Only the **ingest** loop pauses. Collectors writing journals do not move the store, so they keep running
+and their work banks afterwards; journals are ledgered by content hash, so re-offering an ingested one is
+skipped in milliseconds. The recipe prints the command to restart the loop when it finishes.
+
 ```bash
 uv run ark export                       # refresh output/ from the store first
 uv run python scripts/fill_report.py    # substitutes every figure into docs/report.md
