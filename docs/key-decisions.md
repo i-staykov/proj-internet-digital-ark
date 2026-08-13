@@ -27,6 +27,28 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### May I write to a US federal agency on the project's behalf?
+
+**One line of authorisation, and it unlocks the joint-highest source in the queue.**
+
+`usac_erate_form471_contact_email_1998_2001` scores 84 and is aimed at the single measured gap in this
+corpus: the store holds about 18,300 in-window `.us` domains against 3,239,423 `.com`, and E-Rate Form 471
+is every US school district and public library applying for discounts, annually from 1998.
+
+**It cannot be fetched.** USAC's open-data portal serves only the last ten years and says so verbatim:
+*"This dataset contains data for the last 10 years. To request older records, please email
+opendata@usac.org."* Its licence is `PUBLIC_DOMAIN` and nothing prohibits the request; there is simply no
+URL for the in-window years.
+
+So the next step is an e-mail to a federal agency asking for FY1998 to FY2001 basic information, naming
+the project and what it is for. **That is an outward-facing action in your name and I will not take it
+without your word.** If you say yes, I will draft it for you to send rather than send it myself, unless
+you would rather I sent it from the project address.
+
+The positive control is already measured on the published years, so we would know within an hour of the
+data arriving whether it pays: phone populated 739,972 of 739,972, against billed-entity e-mail at 46.2%.
+
+
 ### Triage the newly found sources
 
 **11 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
