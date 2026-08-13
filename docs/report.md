@@ -13,22 +13,22 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **170,186** |
-| Over unique domains | 158,831 |
-| Domains absent from the baseline in every year | **129,851** |
-| Equivalent-English added | **101,139.4** |
-| Growth on the 6,226,386.4 baseline | **1.6244%** |
-| Mean equivalent-English weight per pair | 0.5943 |
+| Net-new (domain, year) pairs | **170,787** |
+| Over unique domains | 159,299 |
+| Domains absent from the baseline in every year | **130,127** |
+| Equivalent-English added | **101,698.0** |
+| Growth on the 6,226,386.4 baseline | **1.6333%** |
+| Mean equivalent-English weight per pair | 0.5955 |
 
 | Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
 | 1996 | 648,313 | 5,858 | 4 (0.1%) |
 | 1997 | 1,340,527 | 43,218 | 94 (0.2%) |
-| 1998 | 1,147,924 | 14,979 | 852 (5.7%) |
-| 1999 | 1,797,655 | 26,840 | 2,445 (9.1%) |
-| 2000 | 1,806,813 | 43,061 | 8,503 (19.7%) |
-| 2001 | 2,990,654 | 36,230 | 15,090 (41.7%) |
-| **Total** | **9,731,886** | **170,186** | **26,988 (15.9%)** |
+| 1998 | 1,147,924 | 14,983 | 856 (5.7%) |
+| 1999 | 1,797,655 | 26,931 | 2,536 (9.4%) |
+| 2000 | 1,806,813 | 43,246 | 8,688 (20.1%) |
+| 2001 | 2,990,654 | 36,551 | 15,411 (42.2%) |
+| **Total** | **9,731,886** | **170,787** | **27,589 (16.2%)** |
 
 ## 2. How these were found
 
@@ -91,13 +91,13 @@ naming the wrong year, and the source entered only after that was corrected.
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
 | `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,395 | 53,400.3 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 26,839 | 25,228.1 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 27,440 | 25,786.7 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 7,837 | 4,763.2 |
 | `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
-| **Total** | | | | **170,186** | **101,139.4** |
+| **Total** | | | | **170,787** | **101,698.0** |
 
-**All 5 are master sources, so all 170,186 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 5 are master sources, so all 170,787 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
