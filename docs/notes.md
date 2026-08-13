@@ -6561,3 +6561,29 @@ where crashing loudly is correct and patience would mask a real conflict.
 when nothing holds the file at all, and the cheaper answer is not to stop more processes but to make the
 reader patient, since a shipping step that waits thirty seconds costs nothing and a shipping step that
 crashes costs the evening.
+
+## 2026-08-13: failure 6, and the delivery that was valid all along
+
+The fourth rehearsal **packaged successfully**: a 1.4 GB archive, 1,062 files, sha256 recorded, alongside
+MANIFEST, report and sources in `submissions/phase-5/`. Then verification failed with
+`additions/1996.txt is missing`, on a delivery whose `additions/` holds all six years.
+
+**The delivery was fine and the check was pointed at the wrong place.** `verify_delivery.sh` does
+`cd "${1:-$(dirname "$0")}"`, so with no argument it verifies **its own directory**. That default is right
+when the script ships inside a delivery, which is its main job, and wrong when it is run from this
+repository, where it lands in `scripts/`. The justfile's `verify-delivery` recipe passes the path
+explicitly and my `ship` recipe did not. Fixed by passing it.
+
+Run by hand against the real path, the same delivery reports: **checksums PASS, 1,061 files match
+SHA256SUMS; annual additions PASS, 170,787 pairs; evidence for every addition PASS, all 170,787 traced to
+an observation.** So the artefact was correct at the first successful packaging.
+
+**This is the failure mode this project keeps meeting in new clothes**, and it is already on the register:
+a search that finds nothing has either proved something or been pointed at the wrong place, and the two
+look identical. Here it was a checker rather than a search, and it took a valid 1.4 GB delivery and called
+it broken.
+
+**On the rehearsal's own output.** `submissions/phase-5/` is left untracked on purpose: those artefacts get
+rebuilt on Sunday, and committing a rehearsal's MANIFEST would put it in history as though it were the
+submission. The tarball cannot reach git in any case, ignored at `.gitignore:49`, which was verified rather
+than assumed before anything was staged, since this project has swept a gigabyte into history once already.
