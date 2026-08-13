@@ -397,8 +397,17 @@ def download(
 
 @app.command()
 def export() -> None:
-    """Write net-new year files, candidates, manifest, and merged masters."""
-    conn = connect()
+    """Write net-new year files, candidates, manifest, and merged masters.
+
+    **Patient, because it is the first step of shipping a round.** DuckDB blocks a
+    write connection against any other process holding the file, including a mere
+    reader, and this project always has readers: the discovery cycle measures the
+    store every hour and the ingest loop banks a journal every few minutes. An
+    impatient export crashed the shipping rehearsal on 2026-08-13 with a raw
+    IOException, which under deadline reads as a broken exporter rather than a busy
+    database.
+    """
+    conn = connect_patiently()
     export_all(conn)
 
 
@@ -609,7 +618,7 @@ def gaps(
     near-uniform over this population, so what separates targets is what an answer
     is worth, not the chance of getting one.
     """
-    conn = connect()
+    conn = connect_patiently()
     if creation:
         summary = write_creation_candidates(conn, out)
         record_metrics(conn, "gaps", "creation_addressable", summary)

@@ -6534,3 +6534,30 @@ diff is by construction nothing but regenerated figures: 14 numbers, 14 replacem
 **Four Sunday-evening failures found on a Thursday morning**, for the cost of three background commands: the
 lock crash in the report generator, the export race against the ingest loop, a failure path that killed
 ingestion, and a dirty-tree refusal. None was visible from reading the code.
+
+## 2026-08-13: failure 5, and the reason quiescing the ingest loop is not enough
+
+The third rehearsal died at `ark export` with a raw DuckDB traceback:
+
+    IOException: Could not set lock on file "data/ark.duckdb": Conflicting lock is held ... (PID 98453)
+
+**And the ingest loop was paused at the time**, which is the interesting part. The assumption behind
+`ship` was that `maintain.sh` is the only thing that touches the store. It is the only thing that *writes*,
+and that is not the same condition: **DuckDB blocks a write connection against any other process holding
+the file, including a reader.** This project always has readers, since the discovery cycle measures the
+store every cycle and every reporting command opens it. So quiescing the writer removes the writer and
+leaves the block.
+
+`ark export` opened with the plain writable `connect()`, so it crashed instead of queueing. Under a
+deadline that reads as a broken exporter rather than a busy database, which is exactly the confusion
+`connect_patiently` was introduced to prevent for `ark check` and `ark stats` weeks ago. Export never got
+the same treatment because nothing had ever run it against a live loop.
+
+Fixed by making `export` patient, and `gaps` with it, since that one also runs unattended from the engines.
+The three left impatient are deliberate: `init`, the baseline load and `rebuild` are one-off human commands
+where crashing loudly is correct and patience would mask a real conflict.
+
+**The generalisation worth keeping: "stop the writer" is not "quiesce the store".** The store is quiet only
+when nothing holds the file at all, and the cheaper answer is not to stop more processes but to make the
+reader patient, since a shipping step that waits thirty seconds costs nothing and a shipping step that
+crashes costs the evening.
