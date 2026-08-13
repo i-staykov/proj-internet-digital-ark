@@ -6261,3 +6261,34 @@ away the batch in flight.
 **Judgement list after the change: two items**, both real, where it had been four. The remaining ones are
 the triage queue, which is Ivo's, and one unread journal, which is the batch the local engine published
 minutes ago and the ingest loop has not reached yet.
+
+## 2026-08-13: hunt pass 4, aimed at the shape that scores best
+
+Four survivors, six dropped, 4 of 4 written. Queue now **30 entries, 29 open**. The pass was pointed
+deliberately at the statutory-return shape that produced the current leader, a regulator collecting a web
+address from thousands of ordinary entities on a dated cycle, and it found a second one.
+
+**`fac_sfsac_historic_1998_2001` enters at 86, second overall.** Federal Audit Clearinghouse Single Audit
+returns, every entity spending above the $300,000 threshold: school districts, counties, tribes and
+nonprofits. The date and the address sit on the same row, `AUDITEEDATESIGNED` beside `AUDITEEEMAIL`.
+
+**Its sceptic disproved the proposal's central claim, which is the reason to trust the entry.** There is no
+website column anywhere in `ELECAUDITHEADER`; it is an e-mail source, so the deliverable is a mail domain,
+the same shape as the NCUA field already queued. It also corrected the dating: `AUDITYEAR` is the wrong
+column, because a return for audit year 1998 is signed months after fiscal year end, so folder-dating claims
+a year **before** the address was attested, which is the dangerous direction. Signature dates across five
+folders give 1998-2001, not the four the proposal named.
+
+**The strongest argument in the entry is a measurement of absence.** The store holds 18,278 distinct
+in-window `.us` domains against 3,239,423 `.com`, so the RFC 1480 locality namespace where every school
+district and county lived is **0.3% of in-window domains**. Nobody linked to a school district site, which
+is precisely why UDRP dockets and the NCUA returns pay.
+
+**And it carries its own kill condition, from the dictionary's own words:** "This field was not populated
+before 2001" is documented for a different column, which is exactly how `QCR199612` died with both columns
+present and 0 of 11,573 rows populated. So pricing starts with the populated rate against a positive
+control, then the share of addresses on an own domain rather than `aol.com`.
+
+`sec_form_adv_part1_2000_2001` enters at 58 with the in-window slice corrected from fifteen months to
+**2001 alone**, on the Federal Register release text, and with the honest warning that if the zip holds one
+current-state row per adviser rather than one per filing, the source is worth nothing.
