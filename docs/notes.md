@@ -6754,3 +6754,32 @@ it in.
 Also told, in as many words, that a negative result reported honestly is worth more than a padded one, and
 to write an empty file if the column is not there. The previous harvest earned that trust by disproving a
 figure I had given it.
+
+## 2026-08-13: the harvested names reached the queue, and where they landed matters more than that they did
+
+Verified the loop closes rather than assuming it. The queue was rebuilt at 07:37, six minutes after the
+seeding, and **2,451 harvested names are in it**: 2,224 NCUA and 227 IMLS, more than the 2,350 "new
+candidates" because some already-known-but-undated names were promoted too.
+
+**Membership is not the useful question in a 2.5M-line ranked queue. Position is.**
+
+| | queued | best rank | median rank | in the first 20,000 |
+|---|--:|--:|--:|--:|
+| NCUA | 2,224 | 1,972 | 575,662 | **873** |
+| IMLS | 227 | 2,014 | 576,671 | **30** |
+
+The first 20,000 is roughly a day of engine work, so **about 900 of the 2,451 will actually be asked before
+Sunday** and the rest sit in the tail. That is not a fault, and the reason is worth writing down: these
+names arrived under brand new source labels with **no measured hit rate**, so `build_query_queue.py` scores
+them on a fallback, exactly as C-18 describes. A source with no evidence is neither promoted nor punished.
+
+**The system corrects this itself and that is the design, not a hope.** The 903 names in the head get
+queried within a day, which measures a real `(source, TLD)` hit rate for `ncua_call_report_candidates` and
+`imls_library_survey_candidates`; the next queue rebuild then ranks the remaining 1,548 on that measurement
+rather than on a prior. If the shape pays as the source register suggests it should, they rise; if it does
+not, they are correctly buried, and either outcome is information the queue did not have this morning.
+
+**So nothing is done about it deliberately.** The alternative, hand-promoting the names because the shape
+looks good, is precisely the reasoning that put 2,675 `.mil` names at the head of the queue on 11 August and
+cost 1,200 archive queries for zero captures. A prior dressed as a measurement is the failure this project
+has paid for most often.
