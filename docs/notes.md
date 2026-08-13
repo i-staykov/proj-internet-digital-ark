@@ -6841,3 +6841,23 @@ very likely never a 1996-2001 domain. Its 8,588 harvested domains were deliberat
 **"The reporting item is real; the publication is not"** is a distinction this register did not have, and it
 is a cheaper kill than fetching: check whether the bulk file carries the column's values before believing
 that a documented field means available data.
+
+## 2026-08-13: I committed through a red gate again, by a different route
+
+The FFIEC harvester wrote five working scripts into `scripts/`, and `git add -A` swept them into the
+commit. Two failed line-length lint, so **the tree was committed red**, for the second time this round and
+by a different mechanism than the first: last time a pipe hid pytest's exit status, this time the failure
+was visible and the sequence continued past it anyway.
+
+Fixed by moving all five into `legacy/probes/ffiec-2026-08-13/`, which `pyproject.toml` already excludes
+from lint, and which is where this project keeps spent probes for their negative results. They belong
+there rather than in `scripts/`: `scripts/` holds tools that are documented in the README and run again,
+and these are one-off working files whose value is entirely the finding they produced, that the CDR
+publishes TEXT4087 empty through 2004 and as the redaction marker CONF through 2005-09-30.
+
+**The rule that keeps failing is `git add -A` after a subagent has been running**, and it is the same rule
+that once swept a 1.3 GB baseline copy into history. An agent working in the repository leaves files
+behind, and staging everything is a bet that all of them belong. Stage the paths you changed, or look at
+`git status` before staging, which takes one command and would have caught this.
+
+Gate is green again: ruff, format, 423 tests.
