@@ -6618,3 +6618,35 @@ one refusal at a time, each looking like a different problem.
 
 The artefact itself was sound throughout, which is worth saying plainly: the first successful packaging
 produced a delivery that verified perfectly once the checker was aimed at it.
+
+## 2026-08-13: hunt pass 6, and a rubric that rewarded a dead source
+
+Six survivors, seven dropped, 6 of 6 written. Queue: **40 entries, 38 open**.
+
+**One entry was closed by me rather than queued, on a measurement its own sceptic made.**
+`nlm_medline_affiliation_email_1996_2001` mines the email at the end of a PubMed affiliation, dated by the
+citation's own PubDate. The sceptic pulled a live sample of 581 citations and measured **0 net-new pairs
+after the corroboration split**: 108 emails, 90 distinct domains, 100 pairs, 97 already held, and all 3
+remaining held in no year, so all 3 fail the split. The positive control passed first, affiliation
+populated on 369 of 475 in-window citations, so the zero is the corpus and not the parser. Of 90 distinct
+domains sampled, 75 already hold all six years.
+
+That is a close on measurement, which is the agent's to make, and it needed making because **the rubric
+scored it 66 and put it second in Ivo's queue.** The rubric gives +40 for a per-item date existing at all,
+and MEDLINE has an excellent one; what it has no credit for is that the yield was measured at zero. A
+scoring scheme that ranks a dead source above live ones spends the reviewer's attention on nothing, and the
+attention is the scarce thing here.
+
+**Fix for pass 7: a measured yield outranks the rubric.** If an agent has actually measured net-new against
+the store, the score is that measurement's verdict and the component scores do not apply. Absence of a
+measurement stays an estimate and keeps the rubric.
+
+Also worth keeping: MEDLINE's terms are unusually green, bulk download is the documented channel and there
+is no prohibition on automated retrieval, so this was closed on yield alone. And email presence rises
+steeply across the window, 0 of 32 affiliations in 1996 against 38% in 2001, so it could not have served
+1996, which is the thinnest and most valuable year.
+
+The pass leader, `usac_erate_form471_contact_email_1998_2001` at 84, is E-rate applications from US school
+districts and libraries, exactly the 0.3% locality namespace. It is gated: the portal serves only the last
+ten years and older records need a request to `opendata@usac.org`. Its positive control is already
+measured on the published years, phone 100% against billed-entity email 46.2%.
