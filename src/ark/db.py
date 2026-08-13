@@ -142,6 +142,32 @@ def connect_patiently(
             time.sleep(5)
 
 
+def connect_read_only_patiently(
+    db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
+) -> duckdb.DuckDBPyConnection:
+    """Read-only, and waits out a writer instead of crashing against one.
+
+    **DuckDB's single writer excludes readers too**, so a reporting command that opens
+    read-only still meets the lock every time the ingest loop banks a journal, which is
+    every few minutes. `connect_patiently` covers the commands that need to write a
+    metrics row; this covers the ones that must not write at all.
+
+    It exists because the same retry loop had been hand-written twice, in
+    `round_figures.py` and `build_round_state.py`, while `fill_report.py` and
+    `report_figures.py` crashed outright. That is the worst possible split: the round
+    report generator, which is only ever run at the end of a round when the collectors
+    are busiest, was the one that would fail.
+    """
+    deadline = time.monotonic() + patience_s
+    while True:
+        try:
+            return duckdb.connect(str(Path(db_path)), read_only=True)
+        except duckdb.Error as exc:
+            if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(5)
+
+
 def _statements(schema: str) -> list[str]:
     """Split the schema into statements, ignoring `--` comment lines.
 

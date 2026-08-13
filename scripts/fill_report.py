@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-import duckdb
+from ark.db import connect_read_only_patiently
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -125,7 +125,7 @@ def source_table(f: dict) -> str:
     "zero-yield or failure reasons" is answered by the assessment table beside
     this one, which names the sources tried this round and rejected.
     """
-    conn = duckdb.connect(str(DB), read_only=True)
+    conn = connect_read_only_patiently(DB)
     rows = conn.execute("""
         SELECT source, evidence_type, files_ingested, evidence_rows,
                pairs_backed, netnew_pairs, netnew_domains, candidate_domains
@@ -189,7 +189,7 @@ def corroboration_sentence(f: dict) -> str:
     corroboration statistic is a nice-to-have beside them, so it earns a sentence
     rather than a section.
     """
-    conn = duckdb.connect(str(DB), read_only=True)
+    conn = connect_read_only_patiently(DB)
     stats = collect_stats(conn)
     conn.close()
     return (
@@ -267,7 +267,7 @@ def main() -> None:
     parser.add_argument("--check", action="store_true", help="report, do not write")
     args = parser.parse_args()
 
-    conn = duckdb.connect(str(DB), read_only=True)
+    conn = connect_read_only_patiently(DB)
     subs = substitutions(figures(conn))
     conn.close()
 

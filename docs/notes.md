@@ -6356,3 +6356,29 @@ that much, which is the safe direction and was stated as such in its own notes.
 Mean weight per pair has risen from 0.5541 to 0.5943, which is the `.uk` work showing up: the VPS gap engine
 running at 92.7% on the rebuilt queue, and the RDAP sweep now leading with `.uk` at 0.9813 rather than
 `.org` at 0.6. The discovery half remains dominant at 87,475.5875 of the 101,139.3788, or 86.5%.
+
+## 2026-08-13: the round report generator would have failed on Sunday, and it failed today instead
+
+Preparing Sunday's deliverable early, on the principle that a generator is best broken on a Thursday.
+`fill_report.py --check` crashed outright:
+
+    _duckdb.IOException: Could not set lock on file "data/ark.duckdb": Conflicting lock is held
+
+**DuckDB's single writer excludes readers too**, so anything opening the store read-only meets the lock
+every few minutes while the ingest loop banks journals. `connect_patiently` has existed for a while and
+covers the commands that also write a metrics row, `ark check` and `ark stats`. What had happened since is
+the worst possible split: `round_figures.py` and `build_round_state.py` each hand-wrote their own retry
+loop, while `fill_report.py` (three call sites) and `report_figures.py` (one) had none at all.
+
+**So the one command that had no patience was the round report generator**, which by definition is only ever
+run at the end of a round, when both collectors and the ingest loop are at their busiest. It would have
+failed on Sunday evening, in front of the deadline, for a reason nobody would have diagnosed quickly.
+
+Fixed with a shared `connect_read_only_patiently` in `ark.db` rather than a fifth hand-written loop, with
+two tests: it retries the lock, and it re-raises anything that is not the lock immediately, because
+patience applied to a corrupt file turns a real fault into a fifteen-minute silence.
+
+**The template itself came out clean**, which was the other thing worth checking. Five hardcoded figures in
+`report.template.md` are all fixed historical measurements about named sources, 4,736 Usenet relay domains,
+94.7% and 92.2% overlaps, 8.7% for the largest registry, and not round totals that would drift. The 13
+placeholder tokens cover everything that moves, and `--check` now confirms it would fill cleanly.

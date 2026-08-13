@@ -157,3 +157,49 @@ def test_add_candidates_leaves_an_existing_row_untouched() -> None:
     assert rows["new.org"] == second
     round_of = dict(conn.execute("SELECT domain, discovered_round FROM domain").fetchall())
     assert round_of["keep.com"] == 1
+
+
+def test_read_only_patient_connect_waits_out_a_writer(tmp_path, monkeypatch):
+    """A reporting command must queue behind the ingest loop, not crash into it.
+
+    DuckDB's single writer excludes readers too, so anything that opens the store
+    read-only meets the lock every few minutes while journals are being banked. The
+    round report generator was the one command that crashed on it, and it is only ever
+    run at the end of a round, when the collectors are busiest.
+    """
+    import duckdb
+
+    from ark.db import connect_read_only_patiently
+
+    calls = {"n": 0}
+    real = duckdb.connect
+
+    def flaky(path, **kwargs):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise duckdb.IOException("IO Error: Conflicting lock is held in ...")
+        return real(path, **kwargs)
+
+    store = tmp_path / "s.duckdb"
+    real(str(store)).close()
+    monkeypatch.setattr(duckdb, "connect", flaky)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    conn = connect_read_only_patiently(store, patience_s=60)
+    assert calls["n"] == 3
+    conn.close()
+
+
+def test_read_only_patient_connect_reraises_anything_that_is_not_the_lock(tmp_path, monkeypatch):
+    """Patience is for the lock alone. A corrupt file must fail immediately, or a real
+    fault turns into a fifteen-minute silence."""
+    import duckdb
+    import pytest
+
+    from ark.db import connect_read_only_patiently
+
+    def broken(path, **kwargs):
+        raise duckdb.IOException("IO Error: file is not a valid DuckDB database")
+
+    monkeypatch.setattr(duckdb, "connect", broken)
+    with pytest.raises(duckdb.IOException, match="not a valid"):
+        connect_read_only_patiently(tmp_path / "x.duckdb", patience_s=60)

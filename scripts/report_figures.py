@@ -21,6 +21,8 @@ from pathlib import Path
 
 import duckdb
 
+from ark.db import connect_read_only_patiently
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
@@ -306,7 +308,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--markdown", action="store_true", help="report tables, ready to paste")
     args = parser.parse_args()
-    conn = duckdb.connect(str(DB), read_only=True)
+    conn = connect_read_only_patiently(DB)
     f = figures(conn)
     if args.json:
         # Equivalent-English is carried as Decimal all the way through, because
