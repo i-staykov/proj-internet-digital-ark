@@ -6437,3 +6437,24 @@ library survey entry credible: it was differenced against the live database rath
 put backticks inside it. Rewritten with joined string arrays. Worth remembering: workflow scripts are plain
 JavaScript in a template context, so markdown backticks in a prompt are a syntax error rather than
 formatting.
+
+## 2026-08-13: dress-rehearsing Sunday's delivery, and a fix that turned out to protect it
+
+Sunday's deliverable is not a document, it is a packaged delivery archive, and `just package` has not been
+run this round. Started a full rehearsal in the background rather than finding its faults on Sunday
+evening.
+
+**This morning's lock fix turns out to have been directly load-bearing for it.** `package_delivery.sh` line
+100 calls `fill_report.py` and refuses to package unless the output contains "filled cleanly". Until three
+hours ago that script had no patience for the write lock, so **the packaging run would have crashed on a
+DuckDB lock message** whenever the ingest loop happened to be banking a journal, which it does every few
+minutes. The fix was made for the report generator and the packaging path inherited it.
+
+The other preconditions look sound from reading the script: it refuses a dirty tree, excludes
+`submissions/` from its own inputs since that is its output, and regenerates the report rather than
+trusting a stale copy. The tree is clean because every wake commits and the collectors write only to
+git-ignored paths.
+
+**What the rehearsal is actually testing** is the part no reading can settle: whether the export, the
+provenance bundle, the checksums and `verify_delivery.sh` still agree with each other after a week in which
+the store grew by 170,186 pairs and four engines were repaired. Result at the next wake.
