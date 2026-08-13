@@ -6414,3 +6414,26 @@ address in a 2013 repackaging would be near-universally filled.
 It also carries the one thing not yet observed as its stated kill condition: if `WEB_ADDR` does not change
 between FY1998 and FY1999 for the same `FSCSKEY`, every year claim is void. That diff is free once the
 second file is on disk and is the first test to run.
+
+## 2026-08-13: pass 6 launched, and the hunt prompt now carries what five passes learned
+
+Pass 6 is running on three lenses not yet tried: research funding award records (CORDIS covers FP4 and FP5
+across the whole window, NSF and NIH reach back before 1996), clinical and health registries
+(ClinicalTrials.gov opened in 2000 with sponsor and contact fields), and multilateral participant
+directories.
+
+**The prompt is now the accumulated model rather than a brief**, which is the part worth keeping. It states
+the winning shape and the losing shape with the measurements behind each, the `.us` gap at 0.3%, and three
+traps as hard rules: a column that exists is not a column that is populated, one current-state row per
+entity does not date an address, and a human-keyed field is the typed class however much the unsplit
+reading is worth. `who_keyed_it` joins `row_shape` and `positive_control` as a required schema field, so a
+sceptic cannot return without answering it. Each of those three came from a specific failure: the 1996
+credit union file, the FDIC current-state trap, and the library survey typos.
+
+Sceptics are also told they may measure against the store read-only, since that is precisely what made the
+library survey entry credible: it was differenced against the live database rather than estimated.
+
+**A note on the tooling.** The first launch failed to parse because the script is a template literal and I
+put backticks inside it. Rewritten with joined string arrays. Worth remembering: workflow scripts are plain
+JavaScript in a template context, so markdown backticks in a prompt are a syntax error rather than
+formatting.
