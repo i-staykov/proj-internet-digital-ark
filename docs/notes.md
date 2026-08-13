@@ -6650,3 +6650,29 @@ The pass leader, `usac_erate_form471_contact_email_1998_2001` at 84, is E-rate a
 districts and libraries, exactly the 0.3% locality namespace. It is gated: the portal serves only the last
 ten years and older records need a request to `opendata@usac.org`. Its positive control is already
 measured on the published years, phone 100% against billed-entity email 46.2%.
+
+## 2026-08-13: turning queued sources into pool growth without waiting for a decision
+
+The triage queue holds 38 open sources and none of them can date a year until Ivo classifies it. **But the
+names in them can enter the candidate pool today**, because candidate-only evidence needs no approval, and
+the engines then date those names on their own capture evidence, which needs no approval either. That is
+exactly what happened with Netcraft: refused as master, banked as 13,078 candidates, and 127 of them dated
+from their own captures within a day.
+
+So a harvest is running over the two best-evidenced queued sources, taking names only:
+
+- **NCUA call reports.** Both the website and the e-mail column, since a mail domain is as good a candidate
+  as a web one. 1996 is already known dead, both columns present and zero rows populated, so the fetch
+  starts at 1999.
+- **The IMLS library survey.** FY1999 measured 1,489 distinct registrable domains from 4,519 populated
+  rows, and its value is the locality namespace, `lib.XX.us` and `k12.XX.us` and city or county `.us`,
+  which is 0.3% of in-window domains.
+
+**The harvest is constrained to this project's own canonicaliser**, `ark.canonical.to_registrable`, rather
+than a hand-rolled regex, and told to report what it rejects rather than repair it. 16.3% of the NCUA values
+are malformed and the rule on a self-dating source is to tighten extraction, not widen it; here it matters
+less, since a bad candidate name simply never earns a capture, but the count is worth having.
+
+**Why this is the right shape of work while waiting.** It needs no decision from Ivo, it costs a handful of
+static government downloads, and it feeds the engine that is already running rather than proposing a new
+one. The queue keeps growing for him; the pool grows meanwhile.
