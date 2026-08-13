@@ -6587,3 +6587,34 @@ it broken.
 rebuilt on Sunday, and committing a rehearsal's MANIFEST would put it in history as though it were the
 submission. The tarball cannot reach git in any case, ignored at `.gitignore:49`, which was verified rather
 than assumed before anything was staged, since this project has swept a gigabyte into history once already.
+
+## 2026-08-13: `just ship` is green end to end, four days early
+
+The fifth rehearsal ran the whole sequence clean: pause the ingest loop, export, nine invariants,
+regenerate and commit the report, package, verify, restart the loop.
+
+    checksums                 PASS  1061 files match SHA256SUMS
+    annual additions          PASS  170,787 pairs (1996:5,858 1997:43,218 1998:14,983
+                                    1999:26,931 2000:43,246 2001:36,551)
+    evidence for every addition PASS  all 170,787 traced to an observation
+    All checks passed.
+    == ingest loop restarted ==
+
+**Six failures, none of them visible from reading the code**, and the reason to write them down together is
+that they are one family. Every one was a component that worked correctly in isolation and wrongly in
+composition:
+
+1. `fill_report.py` had no lock patience, and packaging calls it.
+2. `output/` goes stale against the store within minutes, and the guard demands exact equality.
+3. A failed ship left the ingest loop dead, because the recipe stopped it before a step that could fail.
+4. Packaging refuses a dirty tree, correctly, and a sequence must therefore be run from a clean one.
+5. `ark export` crashed on the lock even with the writer paused, because a reader blocks a writer too.
+6. `verify_delivery.sh` with no argument verifies its own directory, so it called a valid delivery broken.
+
+**The lesson is about rehearsal, not about any of the six.** Each component had been exercised; the
+*sequence* never had, and a round is shipped by the sequence. The cost of finding them was five background
+commands on a Thursday morning. The cost of finding them on Sunday evening would have been the deadline,
+one refusal at a time, each looking like a different problem.
+
+The artefact itself was sound throughout, which is worth saying plainly: the first successful packaging
+produced a delivery that verified perfectly once the checker was aimed at it.
