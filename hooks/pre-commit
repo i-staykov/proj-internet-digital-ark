@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Refuse a commit that fails the code gate.
+#
+# **This exists because the rule was written down and broken twice in one round.**
+# `CLAUDE.md` says to run the gate before proposing a commit and never through a red
+# one, and on 2026-08-13 two commits landed red by different routes: once because
+# `pytest -q | tail -2` returns tail's exit status rather than pytest's, so `&&`
+# walked straight past a failure, and once because a subagent left working scripts in
+# `scripts/`, `git add -A` swept them in, and the visible lint failure was simply not
+# acted on. A rule that depends on noticing is not a rule, it is a hope.
+#
+# Deliberately the CODE gate only. `ark check` validates the DATA over a store that
+# takes one writer and is busy every few minutes, so putting it here would make
+# committing wait on the ingest loop and the hook would be disabled within a day. Data
+# invariants belong in `just ship` and in the cron checklist, where they already are.
+#
+# Install with `just hooks`. Bypass with `git commit --no-verify`, which is honest: it
+# leaves a visible choice in the shell history rather than a silent failure.
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+fail() {
+    echo "" >&2
+    echo "pre-commit: REFUSED. $1" >&2
+    echo "Fix it, or commit with --no-verify if you mean to." >&2
+    exit 1
+}
+
+uv run ruff check . || fail "ruff found problems"
+uv run ruff format --check . >/dev/null || fail "formatting is not clean, run 'just fmt'"
+uv run pytest -q >/dev/null 2>&1 || fail "tests are failing"
+
+echo "pre-commit: ruff, format and tests pass"

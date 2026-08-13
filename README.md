@@ -57,6 +57,7 @@ same command again. Each run appends to a log in `data/logs/`.
 
 ```bash
 just setup       # uv sync
+just hooks       # install the pre-commit gate, which refuses a red commit
 just reproduce   # all six stages below, offline
 just check       # lint + format-check + tests, then the nine data invariants
 ```

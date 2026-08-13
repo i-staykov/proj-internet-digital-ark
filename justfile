@@ -650,3 +650,20 @@ ship round="":
     # then reported "additions/1996.txt is missing", because it had verified the
     # scripts/ directory rather than the delivery.
     bash scripts/verify_delivery.sh output/internet-digital-ark-1996-2001
+
+# Install the git hooks. The pre-commit hook runs the CODE gate and refuses a red
+# commit, because the rule "never commit through a red gate" was written in
+# CLAUDE.md and broken twice in one round: once by a pipe hiding pytest's exit
+# status, once by a visible failure nobody acted on. Hooks live in hooks/ so they
+# are versioned; .git/hooks is not.
+#
+# install the git hooks into .git/hooks
+hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .git/hooks
+    for h in hooks/*; do
+        n=$(basename "$h")
+        ln -sf "../../hooks/$n" ".git/hooks/$n"
+        echo "installed .git/hooks/$n -> hooks/$n"
+    done

@@ -6861,3 +6861,24 @@ behind, and staging everything is a bet that all of them belong. Stage the paths
 `git status` before staging, which takes one command and would have caught this.
 
 Gate is green again: ruff, format, 423 tests.
+
+## 2026-08-13: the gate is now enforced rather than remembered
+
+Two red commits in one round, by two different routes, is a rule that does not work. So there is a
+pre-commit hook: `hooks/pre-commit`, installed with `just hooks`, which runs ruff, the format check and the
+tests and refuses the commit if any fail. Proved by trying to commit a deliberately misformatted file and
+being refused.
+
+**Deliberately the CODE gate only.** `ark check` validates the data over a store that takes one writer and
+is busy every few minutes, so putting it in a hook would make every commit wait on the ingest loop, and a
+hook that makes committing slow gets disabled within a day. The data invariants already run in `just ship`
+and in the cron checklist, which is where they belong.
+
+**Hooks live in `hooks/` and are installed by a recipe**, because `.git/hooks` is not versioned, so a hook
+that only exists in one clone is not a project rule. `--no-verify` still works and that is correct: it
+leaves a visible choice in the shell history rather than a silent failure.
+
+**The two routes are both recorded in `CLAUDE.md` next to the rule they broke**, since a trap belongs where
+the reader already is: never put the gate through a pipe, because a pipeline exits with its last command's
+status; and never `git add -A` after a subagent has run in the repository, because staging everything is a
+bet that everything belongs, and it is the same habit that once swept a 1.3 GB file into history.

@@ -97,6 +97,11 @@ the store of that day and is not a statement about now.
 - **Explain and outline before non-trivial file edits**, and wait for a go-ahead. Propose, then act.
 - **Run the gate before proposing a commit**, and never through a red one:
   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
+  **This is now enforced by a pre-commit hook** (`just hooks`), because the rule was broken twice on
+  2026-08-13 by different routes: `pytest -q | tail -2` returns *tail's* exit status so `&&` walked past a
+  failure, and a visible lint failure was simply not acted on. **Never put the gate through a pipe**, and
+  never `git add -A` after a subagent has run in the repository: it left five working scripts in
+  `scripts/` and staging everything is a bet that all of them belong.
 - **Update `README.md` in the same sitting** as anything that adds a tool or a command.
 - **Comments short, human, objective, future-proof.** Say why, not what.
 - **Never edit** `docs/report.md` (generated) or the frozen files in `submissions/phase-4/`.
