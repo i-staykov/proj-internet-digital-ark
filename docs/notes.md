@@ -6732,3 +6732,25 @@ The seeded names carry their own source labels, `ncua_call_report_candidates` an
 `imls_library_survey_candidates`, so the queue builder treats each as its own population with no measured
 hit rate yet and falls back accordingly. One batch of each measures them, and the yield check reports it
 against their own history from then on.
+
+## 2026-08-13: harvesting the next two statutory returns, and warning the agent about the trap first
+
+Second harvest running, on the two queued sources of the same proven shape:
+
+- **FAC Single Audit returns**, scored 86, aimed squarely at the `.us` locality gap: school districts,
+  counties, tribes and nonprofits above the $300,000 threshold. Its column is `AUDITEEEMAIL`, and the
+  brief carries the disproof a previous agent already made, that there is **no website column at all** in
+  `ELECAUDITHEADER`, so the e-mail is the deliverable and nobody needs to rediscover that.
+- **FFIEC bank call reports**, scored 60, the same shape as the NCUA return that gave 7,091 domains.
+
+**The FFIEC brief carries a warning rather than a task**, which is the part worth recording. An FDIC
+institution table is one **current-state** row per bank with the website as it is today, and a bank site
+registered in 2015 was never a 1996-2001 domain. That is the dated-dataset fallacy, and it is the easiest
+thing in this batch to get wrong, because such a table is far easier to find than a per-filing extract. The
+agent is told to prefer a per-filing in-window quarter, to say which it used, and if only current-state
+data exists to write what it finds and **mark it as current-state in the notes** rather than quietly mixing
+it in.
+
+Also told, in as many words, that a negative result reported honestly is worth more than a padded one, and
+to write an empty file if the column is not there. The previous harvest earned that trust by disproving a
+figure I had given it.
