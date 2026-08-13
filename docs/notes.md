@@ -7001,3 +7001,19 @@ exactly `01-Aug-1996`, a registry floor artefact, so 1996 there means "existed b
 **And the handover bug flagged last wake is fixed**: `extend_engines.sh` now passes
 `LIST=data/raw/rdap/pool_targets_org.txt` through `env` on its RDAP branch, so Saturday's handover cannot
 restart the sweep on the Verisign default and silently do nothing. Re-armed on the corrected script.
+
+## 2026-08-13, late: agent stood down on request, collectors left running
+
+Ivo: *"good work, stop for a moment, until I wake you back up."* So both self-wake mechanisms are
+deliberately off: cron jobs `dd2a6f56` and `e0362d85` deleted, and no heartbeat started. **This is the
+one case where an absent schedule is correct**, and it is recorded because a wake that finds no cron and
+no heartbeat otherwise looks exactly like the mechanism failing again, which is the confusion CLAUDE.md
+step 0 exists to prevent. Re-arm with `CronCreate` plus one `sleep 540` background task, not two.
+
+The four unattended engines were left alone and are healthy: `supervise_cdx_pool` (11834),
+`discover_cycle` (82739), `rdap_pool_sweep` (50272), `maintain.sh` (16620), with `extend_engines`
+(31400) holding four armed waiters for the handover to deadline 1786924800, Mon 17 Aug 02:00 CEST.
+They carry absolute deadlines and need no agent, which is the property that makes a quiet stretch safe:
+collection, banking and the yield checks continue at full rate while nobody is awake.
+
+Nothing is mid-flight. Working tree clean at `45f6011`; last gate green through the pre-commit hook.
