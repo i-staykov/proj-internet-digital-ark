@@ -613,7 +613,15 @@ triage-rank *args:
 # ship the round: quiesce ingestion, export, gate, package, verify
 ship round="":
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -uo pipefail
+    # Restart the ingest loop whatever happens, including a failed package. The
+    # first rehearsal of this recipe failed at the report guard and left ingestion
+    # dead; it was noticed only because somebody was watching, and on the evening a
+    # round ships nobody is.
+    restore() { pgrep -f 'maintain[.]sh' >/dev/null || \
+        (nohup bash scripts/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted =="); }
+    trap restore EXIT
+    set -e
     echo "== pausing the ingest loop so the store stops moving =="
     pkill -f 'maintain[.]sh' 2>/dev/null || true
     until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
@@ -621,9 +629,19 @@ ship round="":
     uv run ark export
     echo "== nine invariants =="
     uv run ark check
+    # `package_delivery.sh` regenerates the report and refuses if it changed, so a
+    # human reviews the diff. Doing it here instead makes `ship` a single pass: the
+    # diff is by construction nothing but regenerated figures, and committing it
+    # leaves exactly the same reviewable record in git history.
+    echo "== regenerating the round report =="
+    uv run python scripts/fill_report.py
+    if ! git diff --quiet -- docs/report.md; then
+        git --no-pager diff --stat -- docs/report.md
+        git add docs/report.md
+        git commit -q -m "Regenerate docs/report.md from the store before packaging"
+        echo "== committed the regenerated report =="
+    fi
     echo "== packaging =="
     bash scripts/package_delivery.sh {{round}}
     echo "== verifying the built delivery the way a reviewer would =="
     bash scripts/verify_delivery.sh
-    echo
-    echo "RESTART THE INGEST LOOP:  nohup bash scripts/maintain.sh 900 150 >/dev/null 2>&1 &"

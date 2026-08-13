@@ -6506,3 +6506,31 @@ of requests**, which is what the list rebuild bought. The honest number arrives 
 
 The batch is slower than `.org` was, 40% in about an hour against 5,000 in 83 minutes, so Nominet is pacing
 harder. That is the adaptive governor doing its job and costs nothing worth chasing.
+
+## 2026-08-13: the shipping rehearsal, three failures deep, and the one that mattered
+
+Ran `just ship` twice. Everything up to packaging passed both times: export wrote all six annual files and
+a 693 MB provenance bundle, and **all nine invariants passed** over 9,902,673 domain-year rows.
+
+**Failure 3, and the dangerous one: a failed ship left ingestion dead.** The recipe pauses `maintain.sh`
+first, and `package_delivery.sh` then refused because `docs/report.md` was stale, so the run exited with
+the ingest loop stopped. It was noticed only because somebody was watching the output, and on the evening a
+round ships nobody is. **A step that stops a running system must restore it on every exit path, not on the
+happy one.** The recipe now sets an EXIT trap before it stops anything, and the second run proved it: the
+packaging refusal was followed by "== ingest loop restarted ==".
+
+**Failure 4, which is procedure rather than code.** The second run refused because the `justfile` itself
+was modified: the guard requires a clean tree, since `source/` in the delivery comes from `git archive HEAD`
+and a dirty tree would ship code that does not match the results. Correct, and worth stating in the README
+next to `just ship`: **commit before shipping**, because the recipe cannot commit on your behalf what it
+does not understand.
+
+**What the report guard taught.** `package_delivery.sh` regenerates the report and refuses if it changed, so
+a human reviews the diff. That is right for a hand-run package and wrong inside a sequence, where it turns
+a one-command ship into a two-command one at the worst moment. `ship` now regenerates the report itself,
+prints the diff stat and commits it, which leaves exactly the same reviewable record in git history. The
+diff is by construction nothing but regenerated figures: 14 numbers, 14 replacements.
+
+**Four Sunday-evening failures found on a Thursday morning**, for the cost of three background commands: the
+lock crash in the report generator, the export race against the ingest loop, a failure path that killed
+ingestion, and a dirty-tree refusal. None was visible from reading the code.
