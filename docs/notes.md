@@ -6933,3 +6933,36 @@ final name from the start and flushes as it goes", which is how the `.part` hand
 the two collectors. It writes `.part` and renames, exactly like the CDX engine. The reading stays
 truncation-tolerant rather than excluding `.part`, because an RDAP batch runs over an hour and excluding it
 would leave the newest hour unmeasured, which is a different mistake from the one being fixed.
+
+## 2026-08-13: the watchdog was written and the running sweep could not have it, and my restart used the wrong list
+
+Two mistakes in one wake, both worth recording because both are patterns rather than slips.
+
+**A running bash script cannot pick up an edit, and editing one is worse than useless.** The sweep was a
+process started a day and twenty hours earlier, so the watchdog committed an hour ago existed only on disk.
+This is the same failure as the `discover_cycle` loop running pre-fix code, with a sharper edge: **bash reads
+a script incrementally by file offset**, so editing a script mid-execution can corrupt the parse of the
+running instance rather than merely being ignored. The rule in `CLAUDE.md` about restarting a background loop
+after changing what it imports applies to shell scripts more strongly than to Python, and for a different
+reason.
+
+Restarted in the careful order that is now routine: stop the handover waiters so they cannot race the gap,
+kill the batch child before its parent, restart, re-arm the waiters. The interrupted batch published its
+partial journal on the way out, as designed.
+
+**Then I restarted it without `LIST`, so it silently swept the wrong file.** `rdap_pool_sweep.sh` defaults
+to `LIST="${LIST:-data/raw/rdap/pool_targets_verisign.txt}"`, and the original invocation had set the
+variable. My restart did not, so the batch began against an 18 MB Verisign list that is almost entirely
+already journalled: it reported **147 domains to query** out of a 5,000 limit. That number is what caught it.
+A batch that finds almost nothing to do looks exactly like an exhausted pool, and I nearly recorded the
+engine as spent.
+
+**Measured before believing it, which is the only reason this was caught.** The intended list holds 160,474
+unique names of which **159,193 have never been asked**, against 1,696,276 names asked across all RDAP
+journals ever. So there is plenty of headroom and the "147" was a wrong-file artefact, not exhaustion.
+
+Restarted again with `LIST` set explicitly, confirmed from the child's own command line rather than from the
+log, and it is running at 1.03 domains a second on the right file. **The lesson for the handover script:
+`extend_engines.sh` passes the CDX prefix and targets explicitly through `env` for exactly this reason, and
+its RDAP branch does not. That asymmetry is now a known bug** and the next wake should fix it, because the
+Saturday handover will otherwise restart the sweep on the Verisign default and quietly do nothing.
