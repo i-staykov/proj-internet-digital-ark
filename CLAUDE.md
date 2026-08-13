@@ -172,7 +172,19 @@ is the common case and used to be the case that produced nothing.
    `CronCreate` carrying the standard wake prompt. Ivo asked for this check on **every** call
    (2026-08-12), after several hours passed with no wake he could see.
 
-   **Two facts about it, both of which look like a broken schedule and are not.** A job fires **only
+   **Do not rely on cron alone, and this is not a preference.** Ivo reported it silently missing twice in
+   two days. A job fires only when the session is idle *at its exact minute*, and nothing inside the
+   session can observe whether one fired, so a schedule that is registered and dead looks identical to one
+   that is registered and working. **The mechanism that provably re-invokes you is a background task
+   ending**, because its completion notification is delivered regardless of idleness. So before ending any
+   turn, start the next heartbeat:
+
+       Bash(run_in_background=true): sleep 540; echo "HEARTBEAT: continue the round"
+
+   That makes the work self-sustaining and leaves cron as the backup rather than the mechanism. A workflow
+   left running counts as a heartbeat, since its completion wakes you the same way.
+
+   **Two facts about cron, both of which look like a broken schedule and are not.** A job fires **only
    while the session is idle, never mid-query**, so one long turn swallows every wake that falls inside
    it: the cure is bounded turns, not a new job, and a missing wake is more often the agent working than
    the cron failing. And a job is **session-only whatever flags suggest otherwise**, expiring after

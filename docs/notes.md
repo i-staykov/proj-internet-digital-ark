@@ -6148,3 +6148,26 @@ wrong place, and the two look identical.
 **Still outstanding, and unchanged since yesterday:** the RDAP sweep's `.org` target list holds 221,887 names
 against a run that will consume 200,000, so it runs dry before Sunday and the sweep stops early. Widening it
 to other TLDs is the next engine job.
+
+## 2026-08-13: stop relying on cron, because nothing inside the session can see whether it fired
+
+Ivo has now reported the schedule silently missing twice. The job is registered and correctly configured
+both times, and that is precisely the problem: **a cron that is registered and dead is indistinguishable
+from one that is registered and working**, because nothing inside the session can observe a firing. The one
+diagnosis available, that a long turn swallows wakes, was true on 12 August and does not explain 05:03
+today, when the session was idle.
+
+So the mechanism changes. **A background task ending provably re-invokes the agent**, since its completion
+notification is delivered whether or not the session happened to be idle at a particular minute. Every turn
+now starts the next heartbeat before ending:
+
+    Bash(run_in_background=true): sleep 540; echo "HEARTBEAT: continue the round"
+
+Cron becomes the backup rather than the mechanism, and a second schedule `e0362d85` was added at
+`11,26,41,56` so the two offsets give four chances an hour between them. A workflow left running counts as a
+heartbeat in its own right, which is why launching the next hunt before ending a turn is both the work and
+the wake.
+
+**The general lesson, which is the one worth keeping:** prefer a mechanism whose success you can observe
+over one whose failure is silent. This is the same rule that produced the yield check, `just engines`
+reporting UNKNOWN rather than "everything is home", and the refusal to quote a rate off a `.part` file.
