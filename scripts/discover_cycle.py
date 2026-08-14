@@ -333,7 +333,11 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     "the pool queue rebuild FAILED, so the local collector is working a "
                     "list that cannot see the newest candidates"
                 )
-        elif "pool_targets_org" in path:
+        elif "pool_targets_measured" in path:
+            # The TLD set is not a preference. Restricted to those with a real measured
+            # in-window rate, because the builder falls back to the pool-wide rate where
+            # it has no sample, and a high English share then floats namespaces nobody
+            # registered in to the head of the queue.
             _o, ok = run(
                 [
                     "uv",
@@ -341,7 +345,7 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     "python",
                     "scripts/build_rdap_pool_list.py",
                     "--tlds",
-                    "org",
+                    "com,net,org,ca,nl",
                     "--limit",
                     "400000",
                     "--out",

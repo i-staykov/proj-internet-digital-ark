@@ -7168,3 +7168,44 @@ clients were live at once and the process table was the only place that said so.
 `pgrep -f` on the supervisor pattern **cannot see the child** because the child's command line is
 `ark rdap ...` and matches nothing. **Check `ps -eo pid,ppid,command | grep 'ark rda[p]'` after any
 kill**, not the supervisor pattern.
+
+## 2026-08-14 14:00: check-in through the internet gap, and the derived alarm was watching a retired file
+
+Ivo reported an internet gap and offered a short VPS window. Window used first, questions after.
+
+**Nothing stopped, and the gap cost nothing.** All five long-running processes alive, and both
+collectors wrote continuously through it: local CDX journals at 08:28, 09:13, 10:28, 11:50 and 12:59,
+RDAP at 06:42, 08:36, 11:17 and 12:54. That is the property the absolute deadlines were built for, and
+this is the first time it has been tested by a real outage rather than argued for.
+
+**Four VPS journals were not home and are now banked.** `rsync` brought `cdx_q1_20260814T0726/0829/
+0928/1024Z` across; by the time an explicit `ark ingest` ran three minutes later all four reported
+"already ingested", because `maintain.sh` had taken them in the interval. Worth knowing rather than
+worrying about: the loop is doing its job, and an explicit bank after an rsync is a no-op, not a
+duplicate.
+
+**The round now:**
+
+| | 2026-08-14 14:06 | 2026-08-13 23:34 |
+|---|---|---|
+| net-new pairs | **198,120** | 184,086 |
+| net-new domains | **145,439** | 137,194 |
+| equivalent-English | **121,992.3109** | 111,704.4818 |
+| growth | **1.9593%** | 1.7940% |
+
+That is **+10,287.83 EE in 14.5 hours, or 708 EE/h**, against 665 measured over the trailing 24 and 536
+over the trailing 12. The 12-hour figure is depressed by my own restarts overnight and by the `.vi`
+detour, not by the collectors.
+
+**The RDAP reallocation is visible and modest.** `rdap_snapshot` banked 4,765.7 EE in 24 hours against
+2,438.3 the day before, so nearly double. The measured-TLD list is running at **3.2% to 3.7% in-window**
+against the builder's 5.6% prediction for `.org`, which is the same direction of error as the fallback
+rate and worth remembering: the builder is optimistic at both ends.
+
+**And the derived-file alarm was watching a file nothing reads.** `audit_residual.py` and
+`discover_cycle.py` both tracked `pool_targets_org.txt`, retired the night before, so the staleness
+check reported cheerfully on a list the sweep had stopped reading and said nothing about
+`pool_targets_measured.txt`. Identical in shape to the yield check that hardcoded three journal
+prefixes and missed the VPS for 31 hours: **an alarm pointed at the wrong artefact reads exactly like
+an alarm with nothing to report.** Both now name the live list and rebuild it with the restricted TLD
+set, and the loop was restarted so the running copy has the change.

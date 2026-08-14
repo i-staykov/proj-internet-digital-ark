@@ -101,7 +101,17 @@ DERIVED = (
         "build_query_queue.py --population pool",
         ("candidates", "journals"),
     ),
-    ("data/raw/rdap/pool_targets_org.txt", "build_rdap_pool_list.py --tlds org", "candidates"),
+    # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
+    # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
+    # journal prefix: the alarm stays quiet about the list in use. Restricted to the five
+    # TLDs with a measured in-window rate, because the builder falls back to the pool-wide
+    # rate where it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com`
+    # for a measured 1 in-window date in 97 queries.
+    (
+        "data/raw/rdap/pool_targets_measured.txt",
+        "build_rdap_pool_list.py --tlds com,net,org,ca,nl",
+        "candidates",
+    ),
     # The mixed queue, kept because a shard of it may still be in flight on a
     # machine that has not been re-pointed yet.
     ("data/raw/cdx/queue_shard0.txt", "just query-queue", "baseline"),
