@@ -8171,3 +8171,24 @@ keeps the phrase and adds the count.
 Third time this round the pre-commit hook has caught something my own reading did not: a red gate on
 2026-08-13, the triage queue sorted wrongly this morning, and this. The argument for making it a hook
 rather than a rule keeps paying.
+
+## 2026-08-15: compacting the surface by hand would have lasted an hour
+
+Caught this before the cycle did it rather than after. The triage entry I shortened last wake is **owned
+by `_mirror_triage_count`**, which rewrites it every cycle with its own text, so my compact version had
+about an hour to live. Shrinking the surface by hand and leaving the generator verbose is not a fix, it is
+a fix with an expiry.
+
+So the generator's body is now the compact one: five lines carrying the count, the reason it is not a
+request, and where to look, replacing four paragraphs. The comment above it says why the length is a
+standing choice rather than a one-off, because this entry is rewritten every hour and its size is a
+recurring tax on the one surface Ivo reads.
+
+Applied once by hand to check: the OPEN block sits at **58 lines and 583 words**, against 195 and 2,166
+yesterday. Loop restarted so the running copy carries the new text, which is the trap this file already
+records: **a long-running loop keeps the code it started with**, and on 2026-08-13 that difference flooded
+this same surface with 25 entries an hour.
+
+The general shape is worth keeping: **when a surface is generated, edit the generator.** Editing the
+output is the same mistake as hand-writing a figure into `report.md` instead of letting `fill_report.py`
+own it, and this project has a rule against that one already.

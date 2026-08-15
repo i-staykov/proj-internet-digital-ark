@@ -401,20 +401,18 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     review surface that stops moving is worse than no number, because nothing about it
     looks stale.
     """
+    # **Deliberately five lines.** This entry is rewritten every cycle, so its length is
+    # not a one-off choice but a standing tax on the one surface Ivo reads, and that
+    # surface is meant to be a screen. It reached six screens on 2026-08-15, most of it
+    # mine. A counter needs the count, the reason it is not a request, and where to look.
     body = (
-        f"**{count} source(s) found and not yet priced** are listed in "
-        f"`{APPROVALS.name}` under `## Found, awaiting triage`, each with what it is, what would "
-        f"date one of its items, and whether it is reachable today.\n\n"
-        f"For each one you need only say **candidate pool** or **fold in directly**, which set "
-        f"its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is "
-        f"not worth keeping.\n\n"
-        f"**You are not reviewing this yet, by your own instruction of 2026-08-15**: the queue "
-        f"waits until a source, or a combination of them, is found that measurably reaches the "
-        f"hard 5% target. So this line is a counter, not a request.\n\n"
-        f"**Nothing is blocked while you leave this.** A pending class cannot date a year, so "
-        f"collection continues either way, and the queue exists so that finding sources never "
-        f"waits on a decision. Raised as one entry rather than one per source, on your "
-        f"instruction that this list grows indefinitely."
+        f"A counter, not a request, by your instruction of 2026-08-15: you review this when "
+        f"something reaches 5%. **{count} source(s) found and not yet priced**, listed in "
+        f"`{APPROVALS.name}` under `## Found, awaiting triage`.\n\n"
+        f"Priced whole, the queue covers about a tenth of the deficit, so nothing here is "
+        f"urgent and reviewing it would not change this round. **Nothing is blocked either "
+        f"way**: a pending class cannot date a year, so `ark ingest` refuses it and collection "
+        f"continues. One word each when you want them, *candidate pool* or *fold in directly*."
     )
     if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC):
         findings.append(f"approvals: triage count refreshed in key-decisions ({count})")

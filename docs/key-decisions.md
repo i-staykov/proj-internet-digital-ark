@@ -77,10 +77,9 @@ yes, I draft and you send. Positive control already measured on the published ye
 
 ### Triage the newly found sources: 49 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review it when something reaches 5%.
-Measured whole, it covers **9.19% of the deficit**, so nothing here is urgent and reviewing it would not
-change Sunday. It keeps growing for the rounds after this one.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **44 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
 
+Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 
 ---
 
