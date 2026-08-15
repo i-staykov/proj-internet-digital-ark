@@ -8798,3 +8798,30 @@ both families.
 pattern across them is one thing: each read a proxy for the answer rather than the answer. A PID instead
 of progress, a status code instead of a body, a filtered list instead of a population. The fix each time
 was to make the instrument report what it could not see.
+
+## 2026-08-15: the re-prober's blind spot turned out to hold two different things
+
+Went to close the eleven leads the re-prober could not see, and found the list is not one problem.
+
+**Two kinds are mixed in it, and only one is a gap.** A lead closed because a host was **down** wants a
+host added, and re-probing it is exactly the point. A lead closed because the artefact **never existed**
+has nothing to probe, and adding a host to it would manufacture a request that cannot change the answer.
+Reading the eleven:
+
+- **Genuinely re-probeable**: the UKWA bulk CDX, whose verdict describes a dead host, a soft-404 successor
+  and a 404 DOI but named none of them in a form the tool could extract. Hosts added.
+- **Not re-probeable, and now says so**: `Yahoo! Directory`, "no machine-readable dump was ever
+  published", and the post-July-1997 ISC lists, "do not exist", confirmed from two independent live
+  directory listings. These are **absences, not outages**. Nothing answering differently would change
+  them, and both entries now say that explicitly rather than sitting silently in a list captioned "gap".
+- **Mis-tagged**: the Australian Web Archive's own verdict says the operative reason is redundancy with
+  the Internet Archive, zero AWA-only pairs, which is a measurement rather than an availability closure.
+
+Coverage went from 8 of 20 to **10 of 20**, and the tool's message now explains the distinction so the
+remaining count is read correctly rather than as ten outstanding failures.
+
+**The wider point is about the word "availability".** This register sorts closures into measurement and
+availability so that waiting can help the second kind, and "the thing was never published" has been
+filed under availability because the sentence sounds like reachability. It is not: it is the strongest
+kind of measurement, and a lead that cannot be reopened by any host answering should never enter a
+re-probe rotation at all.

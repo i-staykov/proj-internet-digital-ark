@@ -313,6 +313,9 @@ def main() -> None:
         print(f"  {len(uncovered)} CANNOT be re-probed: their verdicts name no URL or host.")
         print("  That is a gap in this check, not a clean result. Add a backticked host")
         print("  or URL to the verdict and they join the rotation.")
+        print("  Two kinds are mixed here and only one is a gap: a lead closed because a")
+        print("  host was DOWN wants a host added, and a lead closed because the artefact")
+        print("  NEVER EXISTED has nothing to probe and should say so in its verdict.")
         for lead in uncovered:
             print(f"    sources.md:{lead.line}  {lead.name[:74]}")
         print()
