@@ -27,6 +27,35 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### The local engine is generating 3 throttled requests per answer for 0.085 points
+
+**Not urgent and not blocking. It is a values call that is yours, and I have left the engine running
+while it waits.**
+
+The local CDX engine's newest batch: **600 queries, 1,830 throttles, 188 outright failures (31%)**, its
+back-off pinned at the 3-second ceiling. Throttles have doubled since this morning and quadrupled since
+yesterday. To get 412 answers it generated roughly **2,430 HTTP requests**.
+
+**The candidates are fine, which is what makes this a citizenship question rather than a tuning one.** Of
+the queries that were answered, **75.7% carried a capture**, the best this engine has recorded. A third of
+our questions simply never get an answer.
+
+**What it is buying.** Over the ~29 hours to delivery the local engine is worth about 450 requests an hour
+at 0.39 equivalent-English each, so **its entire remaining contribution is roughly 5,300 EE, or 0.085
+percentage points.** Against that: the Internet Archive has refused this project outright three times, and
+today it refused a second, entirely legitimate client from this host on all 12 of its attempts, which is
+our own collector crowding out other work from your address.
+
+**Every technical lever is already tested and closed**: fewer workers measured worse and was reverted, a
+shorter timeout is measured and rejected in `cdx.py` (51 of 100 answered at 30s against 82 at 180s), and
+the 3-second ceiling is itself a deliberate throughput-over-politeness choice from 29 July. So this is not
+"how do we fix it" but "is 0.085 points worth this load profile", and "be a good citizen" is your standing
+rule rather than my judgement to overrule.
+
+**The VPS is unaffected and does the better work anyway**, 84.5% hit from a different host, so pausing the
+local engine costs only the 0.085 points and nothing else. Say the word either way, or say nothing and it
+keeps running.
+
 ### Promote 110,409 already-held Usenet mentions? Worth 1.16 points, free
 
 **The largest lever of the round, it needs no download, no request and no new source class, and I
@@ -181,34 +210,13 @@ data arriving whether it pays: phone populated 739,972 of 739,972, against bille
 
 ### Triage the newly found sources
 
-**You said you would not review the queue until a source, or a combination, could measurably reach
-5%. I have now measured the whole queue against that bar rather than leaving it implicit. It cannot.**
+**44 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
 
-The queue holds **48 entries, none yet decided**. Nine carry a measured equivalent-English figure and
-they total **16,792.1 EE, which is 9.19% of the 182,712 EE deficit**. The largest single one is 5,463 EE
-(`gias_england_school_website_domains`). The other 39 are found and screened but not yet priced.
+For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
 
-| | |
-|---|--:|
-| deficit to 5% | 182,712.3 EE |
-| sum of every measured figure in the queue | 16,792.1 EE |
-| share of the deficit that covers | **9.19%** |
-| largest single measured entry | 5,463.0 EE |
-| average each of the 48 would need to close it alone | 3,806 EE |
+**You are not reviewing this yet, by your own instruction of 2026-08-15**: the queue waits until a source, or a combination of them, is found that measurably reaches the hard 5% target. So this line is a counter, not a request.
 
-**The projection, labelled as one.** If the 39 unpriced entries resemble the 9 priced ones, whose mean is
-1,866 EE, the whole queue is worth about **90,000 EE, roughly half the deficit**. Only if every one of
-the 48 matched the best entry ever measured here would it reach the target, and no measured distribution
-supports that.
-
-**Two things that make even the half-estimate generous.** Nine of the 48 are `typed` sources, which take
-the corroboration split, so their raw figures fall by half or more on admission. And 10 are `link_target`,
-candidate-only by construction: they add names to query rather than equivalent-English, and querying is
-the constraint we are already up against.
-
-**What this means for you: nothing in the queue is urgent, and reviewing it would not change Sunday.**
-The queue remains what you asked for, an indefinitely growing register, and it is worth having for the
-rounds after this one. I am not asking you to look at it.
+**Nothing is blocked while you leave this.** A pending class cannot date a year, so collection continues either way, and the queue exists so that finding sources never waits on a decision. Raised as one entry rather than one per source, on your instruction that this list grows indefinitely.
 
 ---
 
