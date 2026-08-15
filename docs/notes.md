@@ -7569,3 +7569,36 @@ regenerates the report, and if the file changed it stages and commits it with it
 packaging, precisely so the run is a single pass. So the path is safe, and the guard and the recipe were
 built to work together. Committing the current regeneration anyway, because a clean tree going into
 Sunday costs nothing and a dirty one invites exactly this question again.
+
+## 2026-08-15: the ship rehearsal is green, and the NAF headroom never existed
+
+**Ship rehearsed end to end after the template rewrite and four new scripts, and it passed**: nine
+invariants ALL PASS, report regenerated and committed by the recipe itself, **1,196 files matching
+SHA256SUMS**, 207,397 pairs each traced to an observation, 1.4 GB archive. The previous rehearsal found
+six failures, which is the argument for repeating it after changes rather than trusting a green from two
+days ago.
+
+**And the UDRP reopen came back a measured negative that kills a projection.** The register said NAF
+"plausibly holds one and a half to two times what is ingested", labelled a projection. Zenodo 21310923
+counts Forum decisions at 658 in 2000 and 768 in 2001, **1,426 total, against 2,573 NAF domains this
+store already holds.** There was never a shortfall. The reasoning error is worth naming: ICANN describes
+its own table as incomplete, and that was read as evidence that **our** coverage was incomplete. Those
+are different claims, and only the first was ever evidenced.
+
+**I made a worse version of the same mistake this morning and told Ivo about it.** I said the store held
+"WIPO only, all 8,923 rows `UDRP WIPO D...`". It holds **WIPO 5,963, NAF 2,575, DeC 210, eResolution 133,
+CPR 42**. I had run `LIMIT 4` and generalised from four rows, with the section heading `udrp_wipo`
+confirming what I expected to see. **A sample is not a census, and a heading is not a schema.** The whole
+hunt was aimed at a gap that a single `GROUP BY` would have shown was already filled.
+
+**One genuine trap found, and it is the dangerous kind.** Zenodo 16954717's `submitted` field is corrupt:
+`D2002-0431` carries 1999-08-26, `FORUM 94730` carries 1998. Trusting it raises net-new from 158 to 769
+by inventing **518 fabricated 1999 pairs**. On a self-dating source a bad date field is not noise, it is a
+master year claim manufactured by a parse error, and it would have passed every invariant we have because
+the evidence row would exist and be well-formed. The case number is the trustworthy field, since it
+encodes its own year.
+
+Two ICANN plain-text exports found that the repo never referenced, `domains-list.txt` (4,666,685 bytes,
+34,027 lines) and `proceedings-list.txt`: **90 net-new pairs**. The entire remaining UDRP family is worth
+about **90 equivalent-English**. Closed on measurement, and the register now says do not reopen it on
+availability.

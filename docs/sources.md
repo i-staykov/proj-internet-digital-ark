@@ -1722,10 +1722,34 @@ decisions do resolve at `/DomainDecisions/<numeric id>.htm`, but the ids are opa
 in-window range would mean thousands of speculative requests at someone else's expense, which fails the
 good-citizen rule for a marginal gain over what ICANN already publishes.
 
-**Two providers therefore remain unmeasured**, and the honest statement of the headroom is: if the
-missing NAF share resembles the measured one, the family plausibly holds one and a half to two times what
-is ingested. **[PROJECTION, not a measurement.]** Reopen on a server-rendered NAF index, a bulk export,
-or an academic mirror of the decisions.
+**That projection was struck on 2026-08-15. It was wrong, and the family is closed on measurement.**
+It used to read: if the missing NAF share resembles the measured one, the family plausibly holds one and
+a half to two times what is ingested. An independent open dataset settles it the other way. Zenodo
+21310923 (CC-BY, `population_data.csv`, 6,837,084 bytes, 95,370 cases) counts Forum decisions at 658 in
+2000 and 768 in 2001, **1,426 in total**, against **2,573 NAF domains this store already holds**. There
+was never a NAF shortfall; ICANN's table being self-described as incomplete was read as evidence that our
+coverage was, and those are different claims.
+
+**The store holds all five providers, which the section title `udrp_wipo` actively hides**: WIPO 5,963
+rows, NAF 2,575, DeC 210, eResolution 133, CPR 42. Anyone reading the heading and sampling a few rows
+concludes we have WIPO only, which is exactly what happened on 2026-08-15 before the query was run
+properly.
+
+**Two bulk artefacts were found in the process, both downloaded and both nearly worthless here**, kept so
+they are not re-found: ICANN's own plain-text exports at
+`archive.icann.org/en/udrp/proceedings/domains-list.txt` (4,666,685 bytes, 34,027 lines of domain, case
+number, commenced, decided, provider and decision URL) and `proceedings-list.txt` (2,924,147 bytes), which
+give 8,662 in-window pairs of which **90 are net-new**; and Zenodo 16954717 (MIT),
+`full-udrp-parsed-proceedings.jsonl.gz`, 90,153 proceedings across all five providers, sampled by HTTP
+range for 13,519,648 bytes out of an 843 MB zip rather than downloading it whole, giving 6,766 in-window
+pairs of which **158 are net-new, worth 90.10 equivalent-English**.
+
+**A trap inside that second dataset, and it is the dangerous kind.** Its `submitted` field is corrupt:
+`D2002-0431` carries 1999-08-26 and `FORUM 94730` carries 1998. Trusting it lifts net-new from 158 to 769
+by inventing **518 fabricated 1999 pairs**. On a self-dating source a bad date field is not noise, it is a
+master year claim manufactured by a parse error, and the case number is the field that can be trusted
+because it encodes its own year. **Do not reopen this family on availability**; the ceiling for everything
+remaining in it is about 90 equivalent-English.
 
 ### Bytes already on disk that nothing reads
 
