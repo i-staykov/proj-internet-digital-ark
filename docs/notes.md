@@ -8932,3 +8932,28 @@ first piece of work, when the bar is different and the request is worth his two 
 
 That leaves the ledger honest in both directions: it reports **1 unfinished**, which is true, and the row
 itself explains why finishing it is not currently the right move.
+
+## 2026-08-15 17:00: the documentation is in one story, verified rather than assumed
+
+Did the coherence pass properly, which the cron checklist calls step 3 and which I had not done since
+this morning's many edits.
+
+- **`docs/ROUND.md` is current**: `just state --check` reports 212,926 pairs and 132,907.9383 EE, matching
+  the store exactly.
+- **The register and the screener agree**: 80 closed leads in `sources.md`, 80 reported by
+  `screen_hypothesis.py --list-closed`.
+- **README documents every command that matters**, including the approval flow and the scoreboard.
+- **The ledger, the register and the triage queue no longer contradict each other**: H011 is priced and
+  its verdict says why the approval request is deferred.
+
+**Two of my three checks in this pass were wrong before they were right**, and the pattern is the one I
+have been finding in the harness all week, seen from the inside. I grepped for scripts not named in
+README and got twelve hits, because README documents *commands* and most scripts are invoked through a
+`just` recipe. I then grepped for recipes not named as `just X` and got fifteen, because README documents
+some commands by their canonical invocation, `uv run python scripts/request_approval.py` and `ark stats`,
+rather than by their alias. Both greps ran correctly and answered a question I had not meant to ask.
+
+That is the same defect as a yield check reading the wrong file and a re-prober reading a status instead
+of a body: **the instrument measured a proxy for the thing.** Worth writing down at the end of a day
+spent fixing four of those in the harness, because I produced two more in twenty minutes while looking
+for them.
