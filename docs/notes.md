@@ -7834,3 +7834,41 @@ Worth recording as a positive about the method rather than only as another closu
 what the source actually contains, then probe** cost zero requests and produced a durable register entry.
 Two wakes ago I probed first and spent two requests re-deriving a recorded answer. Same agent, same day,
 opposite order.
+
+## 2026-08-15: the hunt found a registry inside our own Usenet corpus, and the archive is refusing a second client
+
+Two findings, and the operational one matters more than the source.
+
+**The Internet Archive refused every one of the prospector's 12 budgeted requests**, `http=000`, zero
+bytes, failing at a flat ~10.4 seconds, while `supervise_cdx_pool` was running 8 workers and logging
+**1,155 throttles and 14 refusals**. `example.com` and `arquivo.pt` answered 200 throughout, so it was
+archive-specific rather than a network fault. **We are not blocked**, checked directly: a plain CDX query
+from this host returns **200 in 8.5 seconds** right now. But the collector's own failure share has
+roughly doubled, **57 failures in 140 records, 41%**, against 17% twelve hours ago.
+
+So the collector is saturating this host's allowance to the point where a second, entirely legitimate
+client cannot get a connection at all. **That is not a throughput question, it is a citizenship one**,
+and it is the strongest argument yet that the local engine is at its limit. I am still not tuning it
+again: 4 workers was measured worse, the timeout lever is measured and rejected in `cdx.py`, and I have
+already spent a batch proving the first of those.
+
+**And the source: the CA Domain Registry's own registration notices, sitting in our Usenet corpus.**
+`can.domain.mbox.zip`, 71,391,651 bytes uncompressed, carries one notice per approved `.ca` registration
+with `Subdomain:`, `Date-Received:` and `Date-Approved:` as structured fields. **I verified the structure
+myself rather than taking it on report**: whole-file scan gives `Subdomain:` 37,782, `Date-Approved:`
+37,578, `Date-Received:` 37,576 and 37,692 subject lines containing "register". The hunt's measurement,
+which I have not re-derived, is **12,893 net-new pairs, 11,954 net-new domains, 10,785.0 EE** at mean
+weight 0.8365, with `can.uucp.maps` adding 1,795 pairs for a union of **13,341 pairs and 11,143.0 EE**.
+
+**A near-miss worth recording.** My first check sampled 400 KB and found **zero** of those fields, which
+looked like a flat refutation. The notices simply start later in the file. 400 KB of 71 MB is 0.6%, and I
+have made the "a sample is not a census" mistake once already today, so I scanned the whole member before
+concluding. **The same instinct that produced this morning's `LIMIT 4` error nearly killed a real find
+eight hours later.**
+
+This is the same shape as `uucp_map_registry`, which CLAUDE.md already describes as "a .CA registry dump
+the Usenet parser read as prose". The group is ingested as prose already, 80,086 rows over 66,158
+domains, so this is a second and better reading of held material. Queued as
+`can_domain_registry_notices / whois_creation` at potential 90, the highest in the queue. It is
+master-eligible, so it cannot be banked without a decision, and at **0.18 points** it does not change
+this round.
