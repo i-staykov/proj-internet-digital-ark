@@ -8825,3 +8825,33 @@ availability so that waiting can help the second kind, and "the thing was never 
 filed under availability because the sentence sounds like reachability. It is not: it is the strongest
 kind of measurement, and a lead that cannot be reopened by any host answering should never enter a
 re-probe rotation at all.
+
+## 2026-08-15: the RDAP yield check had been reading a static probe file for days
+
+Noticed the RDAP yield line had not moved across many cycles: "35.1% of 784 answered, newest finished
+batch 38.0% of 550". A number that never moves is either a stable system or a broken instrument, and the
+sweep was plainly working, batches finishing at 10:06, 11:54, 13:39 and 14:50.
+
+**It was the instrument.** `measure()` picked journals with a reverse sort of the raw filename, which is
+a time ordering only if every name carries its stamp in the same place. `data/raw/rdap/` also holds
+one-off probe files, and **`rdap_probe_org_step2.jsonl.gz` sorts ahead of every
+`rdap_pool_<stamp>.jsonl.gz` because "probe" follows "pool"**. So the collector's "newest finished batch"
+has been an experiment from 11 August, frozen, while the live sweep ran at 23% to 26% of 710 to 773
+answered.
+
+**The corrected line says something true and unwelcome, which is the point of having it**: rdap is at
+**4.2% of 13,862 answered against 9.7% of 1,867,654 historically**, newest batch 4.7%. Less than half its
+lifetime rate, which is exactly the tail-of-list decline `build_rdap_pool_list.py` predicted when it
+priced the remaining targets at 0.020 equivalent-English per query against 0.044 earlier. The broken
+check was hiding a real signal, not just showing a wrong number.
+
+Fixed by requiring the timestamp and sorting on it rather than on the filename, so a hand-named file
+cannot enter the ordering at all. `_STAMPED` already existed for exactly this reason in
+`active_cdx_collectors`, where it was added after the VPS wrote for 31 hours against an exhausted shard
+while every yield line read clean. **The same lesson, in the same file, not applied to the function next
+to it.** A test now writes a probe that looks healthy beside a live batch that does not, and fails if the
+probe is read.
+
+Third time this week a check has been found reporting a proxy rather than the answer, and the sharpest
+statement of the pattern is this one: **a yield check reading the wrong file cannot fail loudly.** It
+does not error, it does not go quiet, it reports a plausible number forever.

@@ -232,11 +232,28 @@ def measure(
     including it would make the reading jump around between cycles for no reason. That
     exclusion is load-bearing rather than tidy, and reading one anyway produced 19%,
     9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
+
+    **Hand-named files are skipped too, and that exclusion was paid for.** The ordering
+    used to be a reverse sort of the raw filename, which is only a time ordering if every
+    name carries a timestamp in the same place. `data/raw/rdap/` also holds probe files
+    from one-off experiments, and `rdap_probe_org_step2.jsonl.gz` sorts ahead of every
+    `rdap_pool_<stamp>.jsonl.gz` because `probe` follows `pool`. So on 2026-08-15 this
+    function had been reporting the RDAP collector's "newest finished batch" as a static
+    probe from 11 August for days: a frozen 38.0% of 550 while the live sweep was running
+    at 23% to 26% of 710 to 773. **A yield check reading the wrong file cannot fail
+    loudly**, which is the same defect that let the VPS write for 31 hours against an
+    exhausted shard while every line read clean. Requiring the stamp and sorting on it
+    fixes both the selection and the ordering.
     """
-    journals = sorted(
-        (p for p in directory.glob(f"{prefix}_*.jsonl*") if not p.name.endswith(".part")),
-        reverse=True,
-    )
+    stamped = []
+    for path in directory.glob(f"{prefix}_*.jsonl*"):
+        if path.name.endswith(".part"):
+            continue
+        match = _STAMPED.match(path.name)
+        if match is None:
+            continue
+        stamped.append((match.group("stamp"), path))
+    journals = [path for _stamp, path in sorted(stamped, key=lambda pair: pair[0], reverse=True)]
     recent_answered = recent_hits = 0
     used = 0
     truncated = False
@@ -281,7 +298,7 @@ def measure_all(directory: Path, prefixes: Iterable[str]) -> list[Yield]:
 # comfortably clear of both while still excluding a prefix that stopped last week.
 ACTIVE_WITHIN_S = 24 * 3600
 
-_STAMPED = re.compile(r"^(?P<prefix>.+?)_\d{8}T\d{6}Z\.jsonl")
+_STAMPED = re.compile(r"^(?P<prefix>.+?)_(?P<stamp>\d{8}T\d{6}Z)\.jsonl")
 
 
 def active_cdx_collectors(

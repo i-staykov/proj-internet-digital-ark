@@ -15,7 +15,7 @@ import gzip
 import json
 from pathlib import Path
 
-from ark.yield_check import MIN_SAMPLE, measure, measure_all
+from ark.yield_check import MIN_SAMPLE, measure, measure_all, rdap_verdict
 
 
 def _journal(directory: Path, name: str, answered: int, hits: int, failures: int = 0) -> None:
@@ -235,3 +235,26 @@ def test_an_in_flight_part_file_still_marks_a_prefix_live(tmp_path) -> None:
 
     _journal(tmp_path, "cdx_fresh_20260812T000000Z.jsonl.gz.part", 10, 5)
     assert {c.prefix for c in active_cdx_collectors(tmp_path)} == {"cdx_fresh"}
+
+
+def test_a_hand_named_probe_is_not_read_as_the_newest_batch(tmp_path) -> None:
+    """The bug this exists for: `rdap_probe_org_step2.jsonl.gz` sorts ahead of every
+    `rdap_pool_<stamp>.jsonl.gz` under a plain reverse filename sort, because "probe"
+    follows "pool". The RDAP yield line reported that static file as the newest finished
+    batch for days, a frozen 38.0% while the live sweep ran at 23% to 26%.
+    """
+
+    def write(name: str, year: int) -> None:
+        with gzip.open(tmp_path / name, "wt", encoding="utf-8") as fh:
+            for i in range(40):
+                row = {"domain": f"d{i}.org", "status": 200, "creation_year": year}
+                fh.write(json.dumps(row) + "\n")
+
+    # the probe: every record in window, so reading it looks healthy
+    write("rdap_probe_org_step2.jsonl.gz", 1998)
+    # the live batch: nothing in window, which is what a real check must surface
+    write("rdap_pool_20260815T113942Z.jsonl.gz", 2011)
+
+    reading = measure(tmp_path, "rdap", verdict=rdap_verdict)
+    assert reading.newest_answered == 40
+    assert reading.newest_hits == 0, "the probe file was read instead of the live batch"
