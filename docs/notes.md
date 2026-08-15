@@ -7907,3 +7907,28 @@ returns. Even the generous reading is **0.153 points** and the strict one is 0.0
 The lesson is the cheap one and I keep relearning it: **the extractor is the measurement.** A structural
 check told me the fields were there, which is necessary and nowhere near sufficient; only parsing them
 and differencing against the store said what they are worth, and that took twenty minutes.
+
+## 2026-08-15: Sunday's covering email drafted as a template, not as prose with numbers in it
+
+The interim went out as two documents on Ivo's instruction: a short email that is only the figures, and
+the report carrying the method. Sunday needs the same pair and only the report existed, so
+`private/final-email-20260816.md` is now drafted. Git-ignored, confirmed by `git check-ignore`, so it
+cannot ship.
+
+**Written with `[TOKEN]` placeholders rather than numbers**, deliberately. Anything I typed today would be
+a remembered figure by Sunday evening, and this project's own rule is that the round's numbers come from
+the store at ship time. The tokens match what `report_figures.py` already produces, so the email and
+`docs/report.md` can be filled from the same run and cannot disagree with each other.
+
+**It also carries the verification step, because he checked it last time.** `round_figures.py --verify`
+runs his own calculator over our increment and refuses the numbers if his total differs or his validator
+rejects a record we counted. Confirmed the flag exists rather than assuming it: the tool's own help
+describes it. The email quotes the difference and the rejection count, as the interim did.
+
+**And it states the shortfall in one sentence and points at the report** rather than arguing in the
+email. The rule was that the email is only the numbers; a submission that is short of the expectation
+still has to say so, but the reasoning belongs where there is room for it.
+
+A checklist sits at the bottom: ship green, calculator verified, figures from one run, the `.docx` built
+because that is the format he asks for, and the archive's SHA256 recorded. The one judgement left in it is
+Ivo's, whether the promotion tranche is banked first, which moves the increment by about 1.1 points.
