@@ -13,33 +13,42 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **207,857** |
-| Over unique domains | 189,722 |
-| Domains absent from the baseline in every year | **149,810** |
-| Equivalent-English added | **129,242.6** |
-| Growth on the 6,226,386.4 baseline | **2.0757%** |
-| Mean equivalent-English weight per pair | 0.6218 |
+| Net-new (domain, year) pairs | **208,802** |
+| Over unique domains | 190,519 |
+| Domains absent from the baseline in every year | **150,143** |
+| Equivalent-English added | **129,913.6** |
+| Growth on the 6,226,386.4 baseline | **2.0865%** |
+| Mean equivalent-English weight per pair | 0.6222 |
 
 | Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 648,313 | 5,909 | 7 (0.1%) |
-| 1997 | 1,340,527 | 43,552 | 182 (0.4%) |
-| 1998 | 1,147,924 | 16,516 | 1,638 (9.9%) |
-| 1999 | 1,797,655 | 33,521 | 7,661 (22.9%) |
-| 2000 | 1,806,813 | 58,291 | 18,621 (31.9%) |
-| 2001 | 2,990,654 | 50,068 | 27,470 (54.9%) |
-| **Total** | **9,731,886** | **207,857** | **55,579 (26.7%)** |
+| 1996 | 648,313 | 5,910 | 7 (0.1%) |
+| 1997 | 1,340,527 | 43,565 | 187 (0.4%) |
+| 1998 | 1,147,924 | 16,572 | 1,674 (10.1%) |
+| 1999 | 1,797,655 | 33,734 | 7,828 (23.2%) |
+| 2000 | 1,806,813 | 58,696 | 18,960 (32.3%) |
+| 2001 | 2,990,654 | 50,325 | 27,680 (55.0%) |
+| **Total** | **9,731,886** | **208,802** | **56,336 (27.0%)** |
 
 **Against the 5% expected for this round, that is short, and the reason is measurable rather than
 rhetorical.** 5% of the current baseline is 311,319.32 equivalent-English. The binding constraint this
 round was not the supply of candidates and not the evidence rules: it was **request throughput against a
-single archive**. Roughly 2.5 million candidate names sit unqueried: measured on 15 August 2026, 212,394
-of them had ever been asked, because the two collectors together clear about 975 requests an hour and the
-archive was that day refusing 437 of 600 queries from the busier one, holding it at its maximum back-off
-of three seconds. Those three figures are a dated snapshot rather than a standing rate, which is why they
-are given with a date. Raising concurrency is the
-one lever that would close the gap arithmetically, and it is the one lever that risks losing the archive
-altogether, which would cost far more than a round.
+single archive**. Roughly 2.5 million candidate names sit unqueried, of which only a small fraction have
+ever been asked, because the two collectors together clear a few hundred requests an hour between them
+and the archive refuses a large and growing share of them.
+
+The trend over the round's last two days, measured from the collectors' own journals, is the clearest
+statement of the constraint: the engine querying from our main host fell from **675 to 450 requests an
+hour** while the share of its requests carrying a usable answer fell from **42.3% to 29.4%**, so its
+returned captures more than halved. The second engine, which queries from a different host, was flat over
+the same period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection
+method entirely and differ only in where they ask from, which is what identifies the archive rather than
+our queue or our tuning as the cause.
+
+Raising concurrency is the one lever that would close the gap arithmetically, and it is the one lever
+that risks losing the archive altogether, which would cost far more than a round. Reducing it was tried
+and measured worse; shortening the request timeout is measured and rejected in our own code, where 30
+seconds answered 51 of 100 domains against 82 of 100 at 180 seconds.
 
 **The families that could have supplied a step change were searched and closed on measurement, not
 assumed away**: historical zone files and bulk registry snapshots, research web crawl collections,
@@ -132,14 +141,14 @@ naming the wrong year, and the source entered only after that was corrected.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 96,534 | 60,393.4 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 55,371 | 46,338.2 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 96,724 | 60,528.3 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 56,126 | 46,874.3 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 7,837 | 4,763.2 |
 | `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
-| **Total** | | | | **207,857** | **129,242.6** |
+| **Total** | | | | **208,802** | **129,913.6** |
 
-**All 5 are master sources, so all 207,857 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 5 are master sources, so all 208,802 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -194,7 +203,7 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-Beyond that, 250 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8294 distinct sources on average.
+Beyond that, 252 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8294 distinct sources on average.
 
 ## 5. How to reproduce
 

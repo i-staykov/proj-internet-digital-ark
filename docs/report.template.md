@@ -25,13 +25,22 @@ each describes a specific run and is recorded with that run in `sources.md`.
 **Against the 5% expected for this round, that is short, and the reason is measurable rather than
 rhetorical.** 5% of the current baseline is 311,319.32 equivalent-English. The binding constraint this
 round was not the supply of candidates and not the evidence rules: it was **request throughput against a
-single archive**. Roughly 2.5 million candidate names sit unqueried: measured on 15 August 2026, 212,394
-of them had ever been asked, because the two collectors together clear about 975 requests an hour and the
-archive was that day refusing 437 of 600 queries from the busier one, holding it at its maximum back-off
-of three seconds. Those three figures are a dated snapshot rather than a standing rate, which is why they
-are given with a date. Raising concurrency is the
-one lever that would close the gap arithmetically, and it is the one lever that risks losing the archive
-altogether, which would cost far more than a round.
+single archive**. Roughly 2.5 million candidate names sit unqueried, of which only a small fraction have
+ever been asked, because the two collectors together clear a few hundred requests an hour between them
+and the archive refuses a large and growing share of them.
+
+The trend over the round's last two days, measured from the collectors' own journals, is the clearest
+statement of the constraint: the engine querying from our main host fell from **675 to 450 requests an
+hour** while the share of its requests carrying a usable answer fell from **42.3% to 29.4%**, so its
+returned captures more than halved. The second engine, which queries from a different host, was flat over
+the same period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection
+method entirely and differ only in where they ask from, which is what identifies the archive rather than
+our queue or our tuning as the cause.
+
+Raising concurrency is the one lever that would close the gap arithmetically, and it is the one lever
+that risks losing the archive altogether, which would cost far more than a round. Reducing it was tried
+and measured worse; shortening the request timeout is measured and rejected in our own code, where 30
+seconds answered 51 of 100 domains against 82 of 100 at 180 seconds.
 
 **The families that could have supplied a step change were searched and closed on measurement, not
 assumed away**: historical zone files and bulk registry snapshots, research web crawl collections,
