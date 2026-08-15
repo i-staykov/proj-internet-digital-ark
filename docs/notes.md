@@ -7367,3 +7367,42 @@ A fourth prospector is out on exactly that shape: other British Library derived 
 JISC UK Web Domain Dataset, Archives Unleashed derived data, index-rather-than-content items on
 archive.org, and the other Arquivo.pt CDXJ collections. It carries the reachability traps that have
 produced false negatives here, in particular that a 200 response can be a 159-byte error stub.
+
+## 2026-08-15: the bulk-index family exists, is locked, and the VPS throughput lever does not pay
+
+Fourth prospector home. **Nothing downloadable at scale**, but the closures are precise enough to stop
+this ground being broken again, and one of them changes what we know rather than only what we tried.
+
+**The stub is the tree, not the file.** `webarchive.org.uk/datasets/ukwa.ds.2/geo/` returns the same
+159-byte "400 Redirect" body under HTTP 200 as `linkage/host-linkage.tsv.gz`, a file we are known to
+hold. That is a **positive control**, so it answers every future probe of any path under `/datasets/`
+in advance. The full Geoindex behind it is 700,641,549 lines over 1996-2010, about 8 GB gzipped, all
+`.uk` at 0.9813. It is the largest reachable-looking prize still closed and the only route left is a
+letter to the British Library, not another URL.
+
+**The bulk index we want demonstrably exists and is access-controlled**, which is a different and more
+useful closure than "does not exist". In-window Alexa and IA donated crawl items on archive.org carry
+per-item CDX files, 104 MB and 631 MB, exactly the shape that would convert our query-rate constraint
+into a download. A ranged GET returns **HTTP 401 with a 172-byte body**, so **the restriction covers
+the index files and not merely the payload WARCs**, which this project had assumed rather than tested.
+
+Also closed: the other JISC derived files are hostless by construction (MIME-by-year counts,
+suffix-to-suffix counts, and a classification file with no year at all); Archives Unleashed builds on
+Archive-It, which starts in 2005; and every non-`AWP` Arquivo.pt CDXJ collection sampled out of window,
+including the 62 GB Internet Memory Foundation legacy, whose predecessor was founded in 2004. One file
+did download, the UKWA Geoindex E17 slice, and it is worth **123 pairs and 120.7 EE** after the split,
+two orders below the bar.
+
+**And a lever I measured and am deliberately not pulling.** The VPS is throttled far less than the
+local engine, 108 refusals per 300 queries against 437 per 600, and its adaptive delay sits at 1,179 ms
+against local's 3,000 ms ceiling, so it looked like free headroom. Timing its journals kills the
+attractive version of that idea: batches start 01:02:11 and finish 02:17:07, 23:50:10 to 01:00:50,
+22:40:09 to 23:48:46, so **each 300-query batch takes about 70 minutes and the next starts within a
+minute.** There is no idle gap, so batch size is not the lever and raising it buys nothing.
+
+Raising **workers** would buy something, and the arithmetic says not enough. The VPS banks 0.68 EE per
+request against local's 0.39, so a 50% concurrency increase is about 200 EE/h, roughly **0.116 points**
+by Sunday. Against that, the Internet Archive has refused this project outright three times and is
+already refusing 36% of the VPS's queries. **Trading a 0.1 point gain for a non-trivial chance of
+losing both engines is a bad trade**, and doing it anyway would be effort that looks like progress.
+Recorded so the next wake does not rediscover the idea and reach a different conclusion.
