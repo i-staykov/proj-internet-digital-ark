@@ -8398,3 +8398,20 @@ Decision unchanged: **not editing the queue builder 28 hours before delivery** f
 failed tuning changes already today. But the recommendation for the next round is now sharper: the signal
 is present in the ranking at roughly 5.5x and needs to be present at roughly 6.6x, as an explicit factor
 in `pool_plausibility` rather than as whatever correlation the per-source rates happen to carry.
+
+## 2026-08-15 12:00: one VPS journal home, and the round crosses 2.10%
+
+Routine wake. `just engines` reported **1 of 325 VPS journals missing**, fetched immediately rather than
+left for the next pass, which is the standing rule after 5,793 records once sat stranded on that machine
+for a day and a half. Banked directly: 300 journal lines, **892 evidence rows, 278 year rows over 254
+unique domains**, 36 queries that failed on the VPS side and will be re-asked because a transport failure
+is not treated as settled.
+
+Round now **210,156 pairs, 150,863 net-new domains, 130,875.0758 equivalent-English, 2.1019%.** All five
+processes healthy.
+
+Worth noting what the single-journal gap means and does not mean. It is not a fault: the VPS writes
+locally and the copy is pulled on a check, so at any moment the newest finished journal is usually still
+over there. **The reason to fetch it anyway is that the machine is private and the VPN is not always
+up**, so the cheap move is always to take whatever is available while the window exists rather than to
+reason about whether it matters.
