@@ -7524,3 +7524,31 @@ already read is the one that has to be right.
 **Worth noting how it was caught**: not by re-checking the arithmetic, which was correct, but by asking
 what each row would be written **as**. A figure can be measured perfectly and still count things that
 cannot legally exist in the destination.
+
+## 2026-08-15: the promotion is built, tested and deliberately unrun
+
+`scripts/build_promotion_journals.py` now turns Ivo's answer into one command. It reproduces the
+corrected figure exactly on a dry run: **106,604 deduplicated pairs, 69,337.4 equivalent-English**,
+across eight families whose concentration is extreme, `usenet_mention` 79,819 and
+`usenet_address_mention` 47,483 being 90% of it, down to `tucows_mention` at 92.
+
+**It writes journals and never ingests, and that is a design decision rather than caution.** Banking is
+a judgement about the corpus; emitting the journals is mechanical. So the script prints the exact
+`ark ingest` lines and stops, which also means the tranche can be inspected on disk before anything
+touches the store.
+
+**Five tests, and the round-trip one is the point.** A written line is parsed back through the real
+`usenet_dated` SourceSpec and must return the same domain, year and `evidence_value`. That is what makes
+the re-file provably lossless: these 106,604 rows go in under a MASTER source, so a mangled field would
+become a year assignment whose Message-ID names the wrong post, and no invariant would catch it because
+the wall only checks that an evidence row exists. The other four pin the mapping itself: every target
+must exist, must not be candidate-only, and **must share a parser with its mention source**, which is
+the whole safety argument; plus an explicit test that `ukwa_link_target`, `uucp_map_mention` and
+`page_expansion` are absent from the mapping, so the mistake I nearly made cannot be reintroduced
+silently.
+
+One small thing the build refused to do: when `evidence_value` has no space there is no group, and the
+parser's own default of `usenet` is left to apply rather than inventing a newsgroup name. A fabricated
+newsgroup in an audit trail is worse than an absent one.
+
+Gate green, 439 tests. README carries the command.
