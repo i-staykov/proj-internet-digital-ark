@@ -8730,3 +8730,24 @@ gap of three points and a script that could close a third of it in ten minutes, 
 where an unattended agent talks itself into a decision that was never given.
 
 Cron replaced: `2a1ff17f` deleted, `cda92e58` created for the same 18:03 Sunday slot.
+
+## 2026-08-15: ran the reviewer's own calculator, the last unproven step on Sunday's path
+
+`round_figures.py --verify` is named in Sunday's instructions and in the email checklist, and I had never
+run it. Ran it. **His `equivalent_english_domains.py` scores 211,962 records, rejects 0, finds 0 already
+in his merged files, and returns 132,202.6145 against our 132,202.6145: a difference of 0.0000.**
+
+That is worth more than a green tick. It says the increment is not merely internally consistent but
+passes the reviewer's own validator on his own terms, which is the check he actually performed last round
+and the one that would embarrass us if it failed on the evening.
+
+Per-year growth on each year's own baseline, from the same run: 1996 +0.8404%, 1997 +1.8976%,
+1998 +1.3045%, 1999 +1.8221%, **2000 +3.7737%**, 2001 +2.1247%. The 2000 figure is the strongest and is
+worth quoting to him, because a round that is short overall can still be the best year anyone has added
+to 2000.
+
+**Sunday's path is now proven end to end**, every step exercised at least once against the live store
+rather than assumed: `just ship` rehearsed green with 1,196 files matching their checksums, the nine
+invariants passing, the `.docx` built and checked for internal leakage, the covering email templated with
+no remembered numbers, and now his calculator agreeing to four decimal places. What remains on the night
+is arithmetic and judgement, not discovery of a broken tool.
