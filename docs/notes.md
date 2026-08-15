@@ -7209,3 +7209,40 @@ check reported cheerfully on a list the sweep had stopped reading and said nothi
 prefixes and missed the VPS for 31 hours: **an alarm pointed at the wrong artefact reads exactly like
 an alarm with nothing to report.** Both now name the live list and rebuild it with the restricted TLD
 set, and the loop was restarted so the running copy has the change.
+
+## 2026-08-15 04:45: the harness restarted, and the triage queue is now a counter rather than a request
+
+Ivo, 2026-08-15: start the harness and look for new sources, schedule the last wake for Sunday
+evening, and **"I will not review it, until you have found a source, or a combination of sources,
+which could measurably get us to 5%."**
+
+**That last clause changes what the triage queue is for.** Until now it was a growing list of things
+waiting on his judgement. It is now a work register that he has explicitly deferred, and the one thing
+that reopens it is a find at the right scale. The mirrored entry in `key-decisions.md` says so in its
+own text, so the surface cannot go on quietly implying it wants him.
+
+**The bar, stated once so every later measurement can be checked against it.** 5% of 6,226,386.4245 is
+311,319.32 EE. The round holds **125,617.03** (202,756 pairs, 148,951 domains, **2.0175%**), so the
+deficit is **185,702.29 EE**. At the round's mean weight of 0.6195 that is about **300,000 net-new
+in-window (domain, year) pairs**.
+
+**Why the raw size of a source is the wrong number, and always has been here.** The store holds
+8,264,176 domains. Any corpus of 1996-2001 names will overlap it heavily, and the measured example is
+the expansion A/B: 391 harvested domains, of which **386 were already held and every one already
+dated**. So a candidate source is priced on how many names it dates that we do not already date, never
+on how many names it has.
+
+**Three prospectors are running, on deliberately different shapes:**
+
+- **Bulk research crawl corpora**, aimed at TREC VLC2, WT2g, WT10g and Stanford WebBase. These derive
+  from 1997 Internet Archive crawls, so a crawl date is an `artifact_listing` for every host in it,
+  master-eligible. The question is whether a host or URL list can be had without the full corpus and
+  without a signed agreement.
+- **National archive bulk host lists and link graphs**, because that is the best-performing shape ever
+  measured here: UKWA link-graph names hit **90.4%** against 46.0% pool-wide. Weighted, so a large
+  German or Japanese archive is a small source.
+- **Residual inside material already on disk**, the reviewer's own first priority, which needs no
+  download and no permission.
+
+Cron re-armed: a recurring wake, plus a one-shot **final wake at 18:03 Sunday 2026-08-16** that ships
+rather than collects.
