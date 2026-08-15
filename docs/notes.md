@@ -8630,3 +8630,13 @@ cannot plausibly be identical.
 Reopen is cheap and named: the author's address is on the page, and the host is an alumni server, so the
 likeliest explanation is permissions lost in a migration rather than a deliberate withdrawal. That is a
 later round's e-mail, not this one's.
+
+**Postscript to the NTP entry.** Tried the obvious alternative path before closing: the survey's HTML
+report at `.../ntp-survey99/html/` serves fine, 52,665 bytes, and it is **the paper**. The only hostnames
+in its body are the author's own site and a newsgroup, so there is nothing to salvage from the prose. The
+register entry now says so, because "did you try the other URL" is the first question anyone would ask of
+a 403 and it should not cost them a request to answer.
+
+The wider search around it turned up nothing else new: DNS-OARC's root zone archive starts June 1999 and
+lists TLDs rather than domains, which this register already closed, and the ISC Domain Survey is the
+source we already use. Eight requests spent on this thread in total, none to `web.archive.org`.
