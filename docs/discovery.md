@@ -111,6 +111,15 @@ cost real hours:
   corroboration split. Quoting the raw figure would have overstated the source 24-fold. **Always
   quote the post-split number.**
 
+The sharpest form of that rule, and the one to ask first: **a source whose purpose is to make a site
+known cannot contain sites nobody knew.** Announcement feeds, directories, award galleries and
+promotion lists all exist to publicise, so anything they name was publicised, so a crawler found it, so
+the baseline holds it. `comp.internet.net-happenings`, the daily feed of new internet resources, is the
+cleanest measurement of this: **182,081 evidence rows over 165,365 domains, 97.8% of them dated** against
+roughly 10% for Usenet mentions generally, and only **2,760 net-new pairs worth 1,819.7 equivalent-English**.
+The extraction is excellent and the source is real. **The property that makes it clean is what makes it
+redundant**, so improving the parser would change nothing.
+
 One structural finding worth carrying into any new lead: **a source that selects for authority cannot
 be net-new, however large it is.** Usenet `Path:` relay hops, institutional link directories and
 award galleries all failed the same way. 7.1 million accepted relay hops were only 4,736 distinct
