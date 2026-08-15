@@ -7659,3 +7659,28 @@ report is exactly how a document goes stale while looking authoritative, and `fi
 refresh what it does not own. And I typed **2025** for the year of the measurement in a document about
 1996-2001 growth measured in 2026, which would have put a wrong date in front of the reviewer. Caught by
 re-reading the rendered output rather than the diff.
+
+## 2026-08-15: the whole triage queue priced against the target, because that was the standing question
+
+Ivo's condition of 2026-08-15 was that he would not review the queue until a source **or a combination**
+could measurably reach 5%. I had been answering that one source at a time, which never answers it. So the
+queue was measured whole.
+
+**48 entries, none decided. Nine carry a measured figure and they sum to 16,792.1 EE, which is 9.19% of
+the 182,712 EE deficit.** The largest single entry is 5,463.0. Closing the gap from 48 sources needs an
+average of 3,806 EE each; the measured mean is **1,866** and the measured maximum is 5,463.
+
+**Projection, labelled: if the 39 unpriced entries resemble the 9 priced ones, the queue is worth about
+90,000 EE, roughly half the deficit.** Only if all 48 matched the best entry ever measured would it
+reach the target.
+
+**And two corrections I made to my own reasoning while measuring it.** I first assumed most of the queue
+was `link_target` and therefore pool growth rather than equivalent-English. It is not: **79% is
+master-eligible** (dated_directory 11, typed 9, link_source 8, artifact_listing 6, whois_creation 3)
+against 21% `link_target`. But the correction cuts the other way too, because 9 of the master-eligible
+ones are `typed` and take the corroboration split, so their raw figures fall by half or more on
+admission. The generous reading and the strict reading both land well short.
+
+Recorded on the review surface itself, replacing a line that had been a bare count. **The queue is not
+urgent and reviewing it would not change Sunday**, which is a more useful thing to tell him than the
+number 48.

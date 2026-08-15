@@ -181,13 +181,34 @@ data arriving whether it pays: phone populated 739,972 of 739,972, against bille
 
 ### Triage the newly found sources
 
-**44 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
+**You said you would not review the queue until a source, or a combination, could measurably reach
+5%. I have now measured the whole queue against that bar rather than leaving it implicit. It cannot.**
 
-For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
+The queue holds **48 entries, none yet decided**. Nine carry a measured equivalent-English figure and
+they total **16,792.1 EE, which is 9.19% of the 182,712 EE deficit**. The largest single one is 5,463 EE
+(`gias_england_school_website_domains`). The other 39 are found and screened but not yet priced.
 
-**You are not reviewing this yet, by your own instruction of 2026-08-15**: the queue waits until a source, or a combination of them, is found that measurably reaches the hard 5% target. So this line is a counter, not a request.
+| | |
+|---|--:|
+| deficit to 5% | 182,712.3 EE |
+| sum of every measured figure in the queue | 16,792.1 EE |
+| share of the deficit that covers | **9.19%** |
+| largest single measured entry | 5,463.0 EE |
+| average each of the 48 would need to close it alone | 3,806 EE |
 
-**Nothing is blocked while you leave this.** A pending class cannot date a year, so collection continues either way, and the queue exists so that finding sources never waits on a decision. Raised as one entry rather than one per source, on your instruction that this list grows indefinitely.
+**The projection, labelled as one.** If the 39 unpriced entries resemble the 9 priced ones, whose mean is
+1,866 EE, the whole queue is worth about **90,000 EE, roughly half the deficit**. Only if every one of
+the 48 matched the best entry ever measured here would it reach the target, and no measured distribution
+supports that.
+
+**Two things that make even the half-estimate generous.** Nine of the 48 are `typed` sources, which take
+the corroboration split, so their raw figures fall by half or more on admission. And 10 are `link_target`,
+candidate-only by construction: they add names to query rather than equivalent-English, and querying is
+the constraint we are already up against.
+
+**What this means for you: nothing in the queue is urgent, and reviewing it would not change Sunday.**
+The queue remains what you asked for, an indefinitely growing register, and it is worth having for the
+rounds after this one. I am not asking you to look at it.
 
 ---
 
