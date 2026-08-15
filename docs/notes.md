@@ -7715,3 +7715,42 @@ come, and I have not banked it.
 Worth being plain in the log as well as in the report: **neither number reaches the target, and the
 difference between them is a decision rather than any further work.** Nothing else available between now
 and Sunday moves the round by more than a few hundred equivalent-English.
+
+## 2026-08-15: the local engine was being throttled into the ground, so it now pushes less
+
+Measured rather than hunted this wake, and it found the one operational problem left. **The archive has
+been throttling the local engine progressively harder and it is returning less for it.**
+
+| batch start (UTC) | minutes | requests/hour | throttles per 600 | failed outright |
+|---|--:|--:|--:|--:|
+| 08-14 17:28 | 64 | 566 | 417 | 1 |
+| 08-14 21:07 | 66 | 542 | 537 | 0 |
+| 08-15 00:01 | 79 | 456 | 631 | 3 |
+| 08-15 01:21 | 92 | 390 | 896 | 101 |
+| 08-15 02:55 | 95 | 378 | - | - |
+
+Three trends, all monotonic: throughput down from **566 to 378 requests an hour**, refusals up from 417
+to **896 per 600 queries**, and the last batch losing **101 requests outright**, 17% of everything it
+asked. The adaptive delay has been pinned at its 3.0 second ceiling throughout, which means the governor
+has no room left to give.
+
+**The project already knew this shape and wrote it down one ceiling higher.** `supervise_cdx_pool.sh`
+carries the comment that on 29 July a throttle burst pinned a run at 5 seconds and it managed 240 domains
+an hour for the rest of the batch, concluding that "pacing is a safety valve". We are in the same state
+at 3 seconds, and pacing has stopped being able to help because the pressure is concurrency rather than
+delay.
+
+**So workers go from 8 to 4** on the local engine, and `extend_engines.sh` is updated so Saturday's
+handover cannot revert it. The expectation, stated in advance so it can be checked against rather than
+rationalised afterwards: **fewer refusals, the governor recovering its delay below the ceiling, and
+completed throughput at or above the 378/h it has fallen to.** If throughput does not recover within two
+batches, the change was wrong and should go back.
+
+**The reason to do it even if throughput only breaks even** is the standing rule rather than the
+arithmetic. This project has been refused outright by the Internet Archive three times, "modest
+concurrency" is one of its five good-citizen commitments, and an engine losing 17% of its requests to
+refusals is not being a modest client. The upside is a couple of thousand equivalent-English; the
+downside it avoids is losing both engines 32 hours before a delivery.
+
+Stopped child-first, which is the orphan trap this round already paid for once, and the supervisor needed
+a `-9` after the ordinary kill left it running.

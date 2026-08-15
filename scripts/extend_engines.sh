@@ -94,9 +94,18 @@ note "extend: three engines to $(human "$DEADLINE"), rdap ${RDAP_BATCHES} batche
 # target list, because the queue file is rebuilt in place by `just cycle` and the
 # supervisor re-reads it every batch.
 (
+    # **Four workers, not eight, and the reduction was measured rather than guessed.**
+    # Over ten hours on 2026-08-15 the archive throttled this engine progressively
+    # harder, 417 then 537 then 631 then 896 refusals per 600 queries, the adaptive
+    # delay pinned at its 3.0s ceiling, and the last batch lost 101 requests outright.
+    # Completed throughput fell with it, 566 to 378 requests an hour. This script's own
+    # comment already records the same failure one ceiling higher: a burst pinned a run
+    # at 5s and it managed 240 domains an hour for the rest of the batch. Pushing harder
+    # was returning less, so concurrency comes down; the governor can then recover its
+    # delay instead of sitting at the ceiling.
     handover cdx_pool 'supervise_cdx_poo[l]' \
         env ARK_TARGETS=data/raw/cdx/queue_pool_local.txt ARK_PREFIX=cdx_pool \
-        caffeinate -i bash scripts/supervise_cdx_pool.sh "$DEADLINE" 600 8 900 0.5 0.15 3.0 70
+        caffeinate -i bash scripts/supervise_cdx_pool.sh "$DEADLINE" 600 4 900 0.5 0.15 3.0 70
 ) &
 
 # The discovery loop: ingests, rebuilds derived lists, checks yield, reports.
