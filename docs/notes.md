@@ -8440,3 +8440,35 @@ query.
 So the honest position: the sweep keeps working for roughly fifteen more hours and will return about
 **931 EE, 0.015 points**. That is worth having because registry queries cost the archive nothing, and it
 is not worth more than that. Loop restarted so the running copy carries the wider set.
+
+## 2026-08-15: a 3.5M-domain "unexploited population" that the design correctly excludes
+
+Asked a population question that looked like a large miss and turned out to be a measured design choice.
+Recording it because the parameter underneath it is one I did not know and should have.
+
+**The apparent finding.** 3,472,376 domains hold a year and have **never been asked at the archive**, of
+which 2,647,398 hold exactly one year. A single-year domain has no bracketed gap, so `ark gaps` excludes
+it by construction, and it is not in the pool because it is dated. Invisible to both engines. Weighted, the
+population is 1.37M equivalent-English if every one of them gained a year.
+
+**The parameter that dissolves it.** A CDX query does not return a domain's whole history. Measured over
+the 2,242,775 domains that have CDX evidence:
+
+- **mean 1.20 in-window years returned per domain, median 1**
+- **90.3% returned exactly one year**, only 5.7% returned three or more
+- and of 2,697,841 CDX (domain, year) observations, **just 1.5% were years no other evidence type
+  already held**
+
+So querying a single-year domain would mostly return the year we already have. The expected net-new is a
+fraction of a pair per request, well under the pool engine's 0.39 equivalent-English and far under the gap
+engine's.
+
+**Which is exactly why `ark gaps` targets brackets.** Its own docstring says the bracketed set "is the
+population an archive query addresses", and the queue builder carries measured fill rates of 0.886 for a
+one-slot domain and 0.667 for a two-slot one. A bracket gives the query a specific missing year to fill;
+an unbracketed domain gives it nothing to aim at. **I had read that sentence as a scoping convenience and
+it is a measurement.**
+
+Cost: three queries against the store, no requests, one idea tested to destruction in a wake. The general
+form is the one from section 4a: **a population question is cheap, so ask the expensive-looking idea
+early rather than saving it.**
