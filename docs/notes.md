@@ -7684,3 +7684,34 @@ admission. The generous reading and the strict reading both land well short.
 Recorded on the review surface itself, replacing a line that had been a bare count. **The queue is not
 urgent and reviewing it would not change Sunday**, which is a more useful thing to tell him than the
 number 48.
+
+## 2026-08-15 08:40: the un-banked tranche compounds, and the Sunday forecast
+
+Re-ran the promotion builder against the store rather than trusting this morning's number, and found a
+second-order effect worth recording: **the promotable tranche grows on its own.**
+
+It is now **106,703 pairs and 69,407.7 EE**, against 106,604 and 69,337.4 a few hours ago. The mechanism
+is the corroboration split itself: every domain the CDX and RDAP engines newly date can unlock that
+domain's **other** mention years, which were sitting as `link_target` waiting for exactly that. So
+collection feeds the tranche as well as the round.
+
+**Measured, not assumed: the tranche grows at 11.1% of the round's rate**, 70.3 EE against 635.5 in the
+same interval. Useful, and much smaller than the compounding story would suggest if left unquantified,
+which is why it is worth a number rather than an adjective.
+
+**The Sunday forecast, from a 640 EE/h rate measured over the last three days and 33.3 hours to run:**
+
+| | equivalent-English | growth |
+|---|--:|--:|
+| now | 129,242.6 | 2.0757% |
+| Sunday, engines only | ~150,600 | **~2.42%** |
+| Sunday, with the promotion banked | ~222,300 | **~3.57%** |
+| 5% would need | 311,319.3 | 5.00% |
+
+Both projections are labelled projections. The engines-only figure is the safe one and the one the
+report currently states its shortfall against; the promotion figure needs a word from Ivo that has not
+come, and I have not banked it.
+
+Worth being plain in the log as well as in the report: **neither number reaches the target, and the
+difference between them is a decision rather than any further work.** Nothing else available between now
+and Sunday moves the round by more than a few hundred equivalent-English.
