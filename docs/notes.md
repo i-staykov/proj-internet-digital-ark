@@ -8957,3 +8957,25 @@ That is the same defect as a yield check reading the wrong file and a re-prober 
 of a body: **the instrument measured a proxy for the thing.** Worth writing down at the end of a day
 spent fixing four of those in the harness, because I produced two more in twenty minutes while looking
 for them.
+
+## 2026-08-15: Net-happenings, already held, and a clean demonstration of the authority rule
+
+Thought of a specific period artefact rather than a category: **Net-happenings**, the moderated feed that
+announced new internet resources daily from 1993. Dated by post, and it announced everyone who submitted
+rather than only the notable, which is the shape that pays.
+
+**We have had it all along.** `data/raw/usenet/comp.internet.net-happenings.mbox.zip` is the Usenet
+gateway of that list, and it has produced **182,081 evidence rows over 165,365 domains**. Fourth lead
+today answered for nothing by asking the disk before the network, after the blocklists, the domain
+aftermarket and the CA registry.
+
+**And its numbers demonstrate the authority rule better than any argument.** 97.8% of the domains it
+names are dated, against roughly 10% for Usenet mentions generally, so these are real, capturable sites
+and the extraction is excellent. Yet only **2,760 net-new pairs, 1,819.7 equivalent-English**, trace to
+it. A site announced in a promotion feed is by definition one somebody promoted, so a crawler found it,
+so the baseline holds it. **The very property that makes the source clean makes it redundant**, and that
+is the sharpest instance of the rule I have seen: not that the source is bad, but that being good at
+naming real sites is exactly what guarantees overlap.
+
+Worth carrying into any future "announcement feed" proposal, of which there are several plausible ones
+left: the yield is not limited by extraction quality, and improving the parser would change nothing.
