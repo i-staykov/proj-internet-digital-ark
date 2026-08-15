@@ -7932,3 +7932,19 @@ still has to say so, but the reasoning belongs where there is room for it.
 A checklist sits at the bottom: ship green, calculator verified, figures from one run, the `.docx` built
 because that is the format he asks for, and the archive's SHA256 recorded. The one judgement left in it is
 Ivo's, whether the promotion tranche is banked first, which moves the increment by about 1.1 points.
+
+## 2026-08-15: pre-flight on the two Sunday steps that have never been run end to end
+
+Everything on Sunday's checklist has been rehearsed except the last two, so they were run today rather
+than discovered at 18:03 tomorrow.
+
+**The `.docx` builds and nothing internal leaks into it.** `pandoc` is present, and
+`build_report_docx.py` turned the current `docs/report.md` into an 18,673-byte `.docx` with a 15,528-byte
+sendable markdown beside it. The check that mattered was not that it built but what survived: grepped the
+sendable copy for `ivo`, `key-decisions`, `notes.md`, `approved-sources`, `triage`, `promotion`, `agent`,
+`prospector`, `heartbeat` and `cron`, and **found none of them**. Nine lines were stripped, which is the
+generated-figures status block, and all five report sections came through intact. So the document that
+would reach the reviewer contains the round and none of the machinery that produced it.
+
+That is worth having checked rather than assumed, because the report now discusses the harness at length
+in section 2 and it would have been easy for an internal reference to ride along.
