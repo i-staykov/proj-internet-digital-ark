@@ -7602,3 +7602,38 @@ Two ICANN plain-text exports found that the repo never referenced, `domains-list
 34,027 lines) and `proceedings-list.txt`: **90 net-new pairs**. The entire remaining UDRP family is worth
 about **90 equivalent-English**. Closed on measurement, and the register now says do not reopen it on
 availability.
+
+## 2026-08-15: a coverage audit that found nothing wrong, and a hunt that walked into a closed lead
+
+Generalised this morning's `LIMIT 4` mistake into a check: **for every source in the store, what years
+does it actually cover?** If a family were wrongly believed complete, a truncated year range is where it
+would show. The audit is worth keeping as an instrument even though its verdict was clean.
+
+**Every narrow source is explained, and each explanation is already in the register.** `isc_survey`
+27/73/0/0/0/0 because the survey name lists genuinely stop at July 1997. `odp` 0/0/0/0/63/37 because
+archive.org holds exactly one ODP item. `udrp_proceedings` 0/0/0/0/59/41 because UDRP began in December
+1999. `ncsa_whats_new` and `arquivo_roteiro` are 1996-only. `uucp_map_*` stop in 1998 with the maps
+themselves. No unexplained gap anywhere.
+
+**The one that looked like a find was `early_web_cdx`**, the largest source in the store at 2,278,722
+rows, covering 1996-1999 with **exactly zero** in 2000 and 2001. The item is titled "Language Annotations
+of the Early Web (**1996-1999**)", so the gap is the dataset's definition rather than our ingest.
+
+**Then I nearly recorded a shortfall that does not exist.** The file listing ends `...00235, 00236,
+00237` and we hold 224 files, so I inferred fourteen were never fetched. The item contains exactly 224
+`.cdx.gz` files; the numbering has gaps and merely runs to 00237. **A maximum index is not a count**, and
+this is the same error as reading a heading as a schema, made twice in one day and caught only because I
+listed the item's files instead of subtracting.
+
+**And the hunt that followed was a straight failure of process.** Finding `early_web_cdx` sits in
+`collection:webarchivedatasets`, I searched that collection and found a sibling,
+`early-web_parallel-language-urls`, which looked like an unscreened bulk URL dataset. It is in
+`sources.md` twice: closed because its 1,164,183 URL patterns carry **no timestamps of any kind**, so
+there is no per-year evidence, and separately measured at **+374 EE against a marginal displaced query,
+which the project's own estimator scores negative.** The enumeration I performed is also recorded
+verbatim: "`collection:webarchivedatasets` exactly 8 items with only the two already-documented
+`early-web_*` in window."
+
+Two requests spent re-deriving a recorded answer. `discovery.md` section 5 says reading the register is
+the cheapest step in the process, and I probed first. The register was right, it was current, and it was
+not consulted.
