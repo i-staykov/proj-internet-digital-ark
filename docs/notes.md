@@ -8660,3 +8660,25 @@ the NTP census, both came from queries that named a dated artefact rather than a
 
 No register entry: there is nothing to close, because nothing was proposed. Recording the method note
 only.
+
+## 2026-08-15: the same dating hazard, met for the third time, and now named
+
+Applied the corrected query shape and it worked as intended: searching for a **dated artefact** rather
+than for domains surfaced library catalogue records, where MARC field 856 carries a URL and MARC 008
+carries the date the record was entered on file. Bulk, free, and apparently dated.
+
+**It fails on a hazard I have now met three times today under three different disguises.** An 856 field
+can be added to a record years after the record was created, so the creation date dates the **record**,
+not the **URL**. The same defect appeared as a trademark filed on an intent-to-use basis, which evidences
+an intention rather than a live domain, and as the dated-dataset fallacy this project already records,
+where a per-entity current-state row is read as dating an address.
+
+The general statement is worth having in one line: **a per-entity date is not a per-field date.** A source
+passes only if the date attaches to the observation we are borrowing, not to the container it arrives in.
+That is a sharper form of `discovery.md` section 1's question, "what dates one item", because the trap is
+that the source *does* have a date and it dates the wrong thing.
+
+The only safe subset would be records whose last-transaction date (MARC 005) is also in window, meaning
+nothing has touched them since, which is a small residue of a population already skewed toward journals
+and institutional sites. Closed on that basis rather than on availability, and the entry says reopen only
+on per-field provenance, which MARC does not carry.
