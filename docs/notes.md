@@ -8251,3 +8251,32 @@ Three closures in three wakes, none costing a request: blocklists on the unit, p
 trademarks on the population and the dating basis. That is what the register is for, and the pattern
 across all three is the same question asked first: **what would date one item, and what population does
 this select?**
+
+## 2026-08-15: the aftermarket lead measured for free, and my prediction about it was wrong
+
+Went looking for other registry-like feeds inside the Usenet corpus, the way `can.domain` turned up, and
+found something better: **`alt.domain-names.forsale`, `.registries`, `.wanted` and `.disputes` are all on
+disk**, which is the domain-aftermarket lead I queued two wakes ago and deliberately did not probe because
+pricing it needed Wayback requests. The Usenet half of it needed none.
+
+**All four are already ingested**: 30,552 evidence rows over 27,055 domains from `forsale` alone, 36,425
+rows and about 32,685 domains across the four. Same conclusion as the blocklists, reached the same cheap
+way: the good half of the idea arrived with the Usenet corpus years ago.
+
+**And the population behaves the opposite of how I predicted.** When I queued the lead I wrote that a
+parked for-sale domain "has less to capture than a surveyed live server", so it should date worse than
+average. Measured: **23.0% of for-sale domains hold a year against 10.3% of all Usenet-mentioned domains**,
+2.2x more likely, not less.
+
+**Then the obvious confound, tested rather than left as a happy result.** 14.6% of for-sale names are in
+the reviewer's baseline against 4.8% of Usenet mentions, a 3x gap: those groups discuss famous domains as
+much as they trade obscure ones. Net of baseline the advantage is about 1.5x, real but modest, and far
+from the story the raw 2.2x tells.
+
+Entry updated from potential 40 to **22**, with the measurement replacing my speculation, and re-ranked.
+The lead is not dead but its remaining value is only whatever the web listings add beyond a population
+already worked.
+
+**The wake's own lesson: I nearly spent archive requests on a question the disk could answer.** The
+instinct to reach for the network before the store is the same one that cost two requests re-deriving a
+register entry yesterday, and free evidence has now beaten paid evidence three times in two days.
