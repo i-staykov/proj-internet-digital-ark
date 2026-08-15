@@ -13,42 +13,56 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **170,787** |
-| Over unique domains | 159,299 |
-| Domains absent from the baseline in every year | **130,127** |
-| Equivalent-English added | **101,698.0** |
-| Growth on the 6,226,386.4 baseline | **1.6333%** |
-| Mean equivalent-English weight per pair | 0.5955 |
+| Net-new (domain, year) pairs | **206,961** |
+| Over unique domains | 189,000 |
+| Domains absent from the baseline in every year | **149,314** |
+| Equivalent-English added | **128,607.0** |
+| Growth on the 6,226,386.4 baseline | **2.0655%** |
+| Mean equivalent-English weight per pair | 0.6214 |
 
 | Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 648,313 | 5,858 | 4 (0.1%) |
-| 1997 | 1,340,527 | 43,218 | 94 (0.2%) |
-| 1998 | 1,147,924 | 14,983 | 856 (5.7%) |
-| 1999 | 1,797,655 | 26,931 | 2,536 (9.4%) |
-| 2000 | 1,806,813 | 43,246 | 8,688 (20.1%) |
-| 2001 | 2,990,654 | 36,551 | 15,411 (42.2%) |
-| **Total** | **9,731,886** | **170,787** | **27,589 (16.2%)** |
+| 1996 | 648,313 | 5,908 | 7 (0.1%) |
+| 1997 | 1,340,527 | 43,542 | 180 (0.4%) |
+| 1998 | 1,147,924 | 16,480 | 1,618 (9.8%) |
+| 1999 | 1,797,655 | 33,370 | 7,557 (22.6%) |
+| 2000 | 1,806,813 | 57,974 | 18,368 (31.7%) |
+| 2001 | 2,990,654 | 49,687 | 27,141 (54.6%) |
+| **Total** | **9,731,886** | **206,961** | **54,871 (26.5%)** |
 
 ## 2. How these were found
 
 This round the method was the work, so it is reported before the sources are.
 
-**The generative question, which produced the round's one new source.** Rather than listing more places
-to look, we asked what the sources that actually paid have in common. Registry creation dates, dated DNS
-survey shards and a defacement mirror are all **machine-generated records about whoever happened to be
-there**, not human curation of who was notable. Every family this project has rejected on measurement
-selects for authority: Usenet relay hops collapsed 7.1 million entries into 4,736 domains a
-capture-derived baseline already held in every year, and institutional link directories, award galleries,
-mailing lists and a dated software index all failed the same way. So the question is not "where is
-another list" but **"what else recorded everyone, with a date, for its own reasons"**.
+**The question this round had to answer is what happens when the sources run out.** Each round consumes
+the cheap ones, and the register of families closed on measurement now stands at roughly sixty. So the
+process was rebuilt around a different premise: that the scarce resource is no longer places to look but
+**judgement about which places are worth a request**, and that judgement can be made mechanical if every
+verdict is recorded with the measurement that produced it.
 
-A domain-dispute docket is that shape. A proceeding exists only because the domain was registered and
-someone filed a complaint about it, so the record attests existence in that year **without depending on a
-crawler having visited the site**, which is the property that makes the earliest years hard to reach any
-other way. Measured against the live database: **87.7% of the domains it names were absent**, the highest
-share of any source assessed on this project, because a disputed name is often a typosquat withdrawn
-within weeks and a crawler never sees it.
+**The result is that whole families now close without a single request.** Two rules did most of the work
+this round, both derived from measurements already in hand rather than from argument:
+
+- **A source that selects for authority cannot be net-new, however large it is.** Relay chains through
+  7.1 million entries yielded 4,736 distinct domains, every one already held in every year. Link
+  directories, award galleries and curated indexes fail identically.
+- **A corpus derived from the same archive as the baseline cannot be net-new against it.** Three large
+  research web collections and a national archive were settled by asking what their *upstream* was.
+  Two that were measured returned **0.01% net-new**.
+
+The second rule carries an exception that matters more than the rule, and finding it was the round's
+sharpest correction: the constraint is not provenance but **which resource is scarce**. Our coverage of
+the archive is limited by our own query rate, not by its holdings, so a bulk index *of the same archive*
+is enormously valuable because it converts a rate limit into a file download. The best-performing source
+this project has ever measured is exactly that shape and hits **90.4%** where the general population
+hits 46.0%. A rule that would have closed it was wrong and was corrected the same day.
+
+**The largest opportunity of the round turned out to be already on disk.** A domain typed in a dated
+message is admitted only if some other source independently places that domain in the corpus. Tens of
+thousands of names that failed that test when they were first read have since been dated by the
+collectors, so re-applying the same unchanged rule to a corpus that has grown promotes them. This costs
+no request and no new source. It is reported here because the interesting part is the shape: **in a
+mature corpus, re-examining old evidence against new knowledge outperforms looking for new evidence.**
 
 **Five programs now carry the parts of that process that can be made mechanical.** Each encodes a
 mistake already paid for once:
@@ -61,14 +75,24 @@ mistake already paid for once:
 | ledger | records what was proposed, priced, adopted or killed, with status | an unattended process re-proposing its own ideas |
 | state | regenerates the statement of where the round stands from the programs that own each figure | a hand-written summary going stale, which is how three claims in the previous one were wrong within a day |
 
-**What the method produced, including the negative results.** One source adopted. **Two closed on
-measurement**: a dated software index returned 86 records because 94.7% of what it names was already
-held, and a 1996 CD-ROM directory returned 7 at a 92.2% overlap. Both closed inside an hour at a cost of
-two or three requests. **One reopened after being wrongly closed**: a registry had been recorded as
-blocking us after returning HTTP 403 for over nine thousand consecutive requests, and re-probing it
-slowly showed that was a rate limit rather than a block. It answers every query at a gentle pace, **38%
-of those answers carry a date inside the window against 8.7% for the largest registry**, and it is now
-the round's single largest contributor. We had closed the best route available by misreading a throttle.
+**What the method produced, including the negative results, which are the majority.** Four families were
+searched and closed on measurement rather than on assumption: research web crawl collections, national
+web archives, bulk archive indexes, and the material already held on disk. Only the last paid. Some of
+those closures are now permanent in a useful way: one prize was priced at its ceiling from a published
+figure rather than by buying it, and a second was settled by discovering that the restriction covers the
+*index* files and not merely the content, which had been assumed and never tested.
+
+**A stale closure is worse than no entry**, and this round found one. A collection had been recorded as
+having an unreachable distributor; the distributor is alive and selling. The verdict did not change,
+because size closes it anyway, but the recorded *reason* did, since a reason that has expired invites the
+same fruitless re-probe every time the register is read.
+
+**Three of our own alarms were found reporting the opposite of the truth**, which is worth stating in a
+report about method because an alarm that cries wolf is worse than no alarm: it trains the reader to skip
+it. One fired by design on a condition that was expected. One counted a single background process as two
+and would have destroyed a healthy one on every check. One reported a dead source as revived when a
+squatter had simply parked the domain, which was fixed by reading the response body the checker was
+already fetching. Each is now pinned by a test.
 
 **The boundary, stated plainly, because overclaiming it would be the easiest thing to do here.** The
 mechanical half runs unattended and correctly: noticing that a collector has died, that a journal is
@@ -90,14 +114,14 @@ naming the wrong year, and the source entered only after that was corrected.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,395 | 53,400.3 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 27,440 | 25,786.7 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 96,344 | 60,258.5 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 54,665 | 45,837.5 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 7,837 | 4,763.2 |
 | `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
-| **Total** | | | | **170,787** | **101,698.0** |
+| **Total** | | | | **206,961** | **128,607.0** |
 
-**All 5 are master sources, so all 170,787 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 5 are master sources, so all 206,961 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -152,7 +176,7 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-Beyond that, 190 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8296 distinct sources on average.
+Beyond that, 248 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8294 distinct sources on average.
 
 ## 5. How to reproduce
 

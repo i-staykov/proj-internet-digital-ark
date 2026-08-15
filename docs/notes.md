@@ -7552,3 +7552,20 @@ parser's own default of `usenet` is left to apply rather than inventing a newsgr
 newsgroup in an audit trail is worse than an absent one.
 
 Gate green, 439 tests. README carries the command.
+
+## 2026-08-15 06:20: two things that looked wrong and were not, checked rather than assumed
+
+**The scoreboard read identical to four decimal places across two wakes**, 128,607.0203 EE both times,
+which is the signature of a stalled ingest. It is not one. The last bank was 05:32:34, `maintain.sh` is
+on pass 318, and both CDX batches take about 70 minutes, so two readings 30 minutes apart fell inside one
+inter-bank gap. **An unchanged number is only evidence of a stall if the interval is longer than the
+cycle that changes it**, which is the same mistake in miniature as reading a quiet log as a dead
+collector.
+
+**And a genuine Sunday risk that turned out to be already handled.** `docs/report.md` is git-tracked and
+regenerating it leaves the tree dirty, while `package_delivery.sh` refuses to package a dirty tree. That
+would have stopped the delivery at 18:03 tomorrow. Reading `just ship` rather than guessing: it
+regenerates the report, and if the file changed it stages and commits it with its own message before
+packaging, precisely so the run is a single pass. So the path is safe, and the guard and the recipe were
+built to work together. Committing the current regeneration anyway, because a clean tree going into
+Sunday costs nothing and a dirty one invites exactly this question again.
