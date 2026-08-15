@@ -7948,3 +7948,24 @@ would reach the reviewer contains the round and none of the machinery that produ
 
 That is worth having checked rather than assumed, because the report now discusses the harness at length
 in section 2 and it would have been easy for an internal reference to ride along.
+
+## 2026-08-15: patents screened and deprioritised, labelled as a projection rather than dressed as a measurement
+
+Screened URLs cited in US patents, 1996-2001. **No collision in the register**, so new ground, and the
+data really is free and bulk-downloadable from USPTO.
+
+**It fails on the authority rule before it fails on volume**, which is why it did not need a request.
+`discovery.md` section 4: a source that selects for authority cannot be net-new, however large. A cited
+reference in a patent is the definition of an authority-selected population, and that shape has already
+collapsed 7.1M Usenet relay hops into 4,736 domains and returned 2 net-new pairs from 11 archived BUBL
+LINK pages. On top of that it is `typed`, so the corroboration split applies, and the extraction cost is
+many gigabytes of full text per year for an expected yield in the hundreds of pairs.
+
+**Recorded as a projection and labelled as one inside the entry.** The register's standard is
+measurement, and most of it is measurement; writing a reasoned estimate in the same voice would let a
+later reader take it for one. The entry also names the only reopen worth having: a **pre-extracted**
+dataset of patent-cited URLs, which would make pricing cheap. Explicitly not a reopen: the bulk data
+being available, because it always was, and availability was never the objection.
+
+This is the second closure this round that cost nothing because the structural question was asked first.
+The blocklists died on the unit, patents die on the population.
