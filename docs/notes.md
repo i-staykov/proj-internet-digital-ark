@@ -8866,3 +8866,29 @@ Flagging it would be crying wolf about a system doing what it was designed to do
 The design worth naming: **report the numbers every cycle, raise the alarm rarely.** A human reading
 "4.2% against 9.7%" can judge; an alarm on that would be ignored within a day, and then the one that
 matters would be ignored with it.
+
+## 2026-08-15: the hypothesis ledger had gone quiet, and "0 unfinished" was vacuous rather than clean
+
+Audited the last unexamined check. `check_ledger` has reported "10 total, 0 unfinished" every cycle, and
+the ledger's last row was written on **12 August**, while I have screened, priced and closed roughly a
+dozen leads since. **A check that reports zero because nobody is using the file is not reporting health**,
+which is the same shape as the yield check reading a static probe: it cannot fail.
+
+**Most of those leads genuinely did not belong there**, and the ledger's own docstring says so: it is not
+a second copy of the register, and a lead screened and killed in one step never becomes a hypothesis.
+Blocklists, patents, trademarks, Archie and MARC 856 were closed on a structural argument before any
+work, and `sources.md` is their right home.
+
+**One did belong there and was missing.** The CA Domain Registry notices were screened, fetched, parsed
+and priced against the live store, which is the full hypothesis lifecycle, and the result is genuinely
+unfinished: **11,418 pairs and 9,551.2 EE as a self-dating registry record, or 936 pairs and 783.0 EE if
+it takes the corroboration split**, a 12.2x spread on a classification that is not mine to make. Added as
+H011 at status `priced`, with both figures and both warnings in the verdict.
+
+The ledger now reports **1 not finished**, which is true, and `just cycle` surfaces it. That is the check
+doing its job for the first time in three days: not because the number changed, but because the file it
+reads finally describes the work being done.
+
+**The generalisable bit**: a check over a register only means something if the register is being written.
+Three of the four instrument failures this week were a check reading the wrong thing; this one was a check
+reading the right thing that had stopped being maintained, and it looked identical from the outside.
