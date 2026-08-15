@@ -8979,3 +8979,29 @@ naming real sites is exactly what guarantees overlap.
 
 Worth carrying into any future "announcement feed" proposal, of which there are several plausible ones
 left: the yield is not limited by extraction quality, and improving the parser would change nothing.
+
+## 2026-08-15: a genuinely new source, measured end to end in one wake, and rejected
+
+Applied the sharpened rule in the generative direction rather than the destructive one: what names a
+domain for a reason unconnected to wanting it found? That produced Bruce Guenter's spam archive at
+`untroubled.org/spam/`, which is **live, in window, self-dating per message, and 9.3 MB**.
+
+The whole cycle in one wake: screened (spurious collision with the Linux Software Map, different
+population, proceeded), reachability checked with ranged GETs and the 7z magic bytes verified so a range
+honoured could not be mistaken for an error page, four archives fetched politely, 20,010 messages
+extracted with their own `Date` headers, and priced against the live store.
+
+**Rejected: 312 net-new pairs and 195.5 equivalent-English after the split**, 16x below the bar.
+
+**And my reasoning for proposing it is refuted by the measurement, which is the part worth keeping.** The
+argument was that a spamvertised domain is advertised through email, which creates no crawlable link, so
+it should escape a capture-derived baseline. **3,203 of the 4,793 domains it names are already held**,
+so two thirds did not escape. Whatever route those domains took into the archive, spam not being
+crawlable did not keep them out.
+
+Two other measurements worth carrying: **19,992 messages name 0.27 distinct domains each**, because spam
+repeats itself far harder than any corpus measured here; and the typo bound is **38.7%**, the worst on
+this project, because obfuscated body text is exactly what defeats an extractor.
+
+Cost: four requests and 9.3 MB, against a source that would have looked plausible in a proposal
+indefinitely. That is the acceptance bar working as designed, and the reason to price rather than argue.
