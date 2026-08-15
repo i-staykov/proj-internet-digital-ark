@@ -7283,3 +7283,59 @@ AltaVista graph is a dead host rather than a closed programme and does not want 
 
 **Nothing from this angle goes in the triage queue**, because a closed lead with a measured verdict
 belongs in `sources.md`, and the queue is for things that might still be worth collecting.
+
+## 2026-08-15: the biggest lever of the round was already on disk, and verifying it cut it by a third
+
+Third prospector home, and unlike the other two it found something. Re-running the corroboration split
+against today's store promotes mentions that failed it when they were written: a domain typed in a
+dated Usenet post is admitted for that year only if another source already places it in an annual
+file, and the CDX and RDAP engines have dated tens of thousands of those domains since. The category
+is not new. `diff_usenet_resplit.py` has called it `PROMOTED` since 2026-08-06, when it was 4,154
+pairs. It is now two orders of magnitude larger.
+
+**I re-measured it independently rather than accepting the number, and the number survived: 159,952
+pairs, 102,661.1 EE, exactly reproducing the agent's strict figure.** Then the controls changed it.
+
+**The negative control that cut a third of it.** 35.0% of the promotion set carries a mention year
+EARLIER than the registry creation date of the same domain, against **16.5%** of the Usenet pairs the
+store has already accepted. Same corpus, twice as contradicted. Registry dates read late for a
+re-registered name so both figures are inflated, but the comparison is what matters, and the reason
+the promotion set is worse is mechanical: my corroboration test admits a domain whose only dating is a
+`whois_creation`, so a 2001 creation was "corroborating" a 1997 mention. Dropping those leaves
+**110,409 pairs, 72,034.2 EE, 1.1569 points**.
+
+**A first positive control that was wrong, and worth recording because it looked decisive.** I asked
+how often the mention year falls inside the domain's own capture span and got **0.5% against a 20.6%
+chance rate, a lift of 0.02x**, which reads as a devastating refutation. It is an artefact. The
+promotion set excludes pairs already assigned, and the `nothing_earned_is_left_unassigned` invariant
+guarantees every captured year IS assigned, so a mention year can only survive inside the span by
+being a **gap** in it. The test was measuring gaps, not membership. **A result 40x worse than chance
+is almost always a broken test rather than a broken dataset**, and this project's own rule already
+says so: a search that finds nothing has either proved something or been pointed at the wrong place.
+
+**The corrected controls, both against a fair null built from the same domains' undated years:**
+
+- mention year inside the observed capture span: **5.52x** over the null
+- mention year within one year of a real capture: **68.5% against 22.1%**, a **3.10x** lift
+
+So the mention years are genuine observations that cluster on real activity, not noise.
+
+**Not banked.** The class is already `master` and the mechanism is the designed one, so this is
+arguably mine to do; against that, it puts 110,409 pairs into the annual files on typed evidence whose
+population my own control shows is weaker than what is already accepted, and CLAUDE.md's standing
+warning is that the split does not stop a plausible name that was never real. Waiting costs nothing:
+no requests, and banking is minutes. Raised in `key-decisions.md` with a recommendation to bank the
+110,409 and drop the 49,608 permanently.
+
+**Honest arithmetic: this is +1.1569 points, taking 2.0175% to about 3.17%, and with the engines to
+Sunday about 3.6%. It does not reach 5%.**
+
+The other two angles closed with nothing, but the national-archive pass left a finding that reframes
+the whole search: **every national archive holding in-window data holds it because the Internet
+Archive donated it**, shown five times over (Australia, Iceland, Arquivo.pt, the BnF acquisition, and
+the JISC UK dataset, which the British Library describes as Internet Archive resources on `.uk`
+domains). Native national harvesting starts 2002 at the earliest. So the UK link graph did not pay
+90.4% because it was non-IA data. It **is** IA data; it paid because a link graph is a different
+*projection* of IA's holdings, naming hosts that IA's own CDX rows do not surface as captured sites.
+The productive question is not which archive holds non-IA in-window data, to which the answer is none,
+but which publishes a derived projection of IA data in bulk.

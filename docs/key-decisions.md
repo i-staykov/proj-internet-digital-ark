@@ -27,6 +27,50 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Promote 110,409 already-held Usenet mentions? Worth 1.16 points, free
+
+**The largest lever of the round, it needs no download, no request and no new source class, and I
+have not banked it. One word from you does.**
+
+Re-running the corroboration split against today's store promotes mentions that failed it when they
+were written. A domain typed in a dated Usenet post is admitted for that year only if another source
+already places it in an annual file; tens of thousands have been dated by the CDX and RDAP engines
+since those mentions were filed. `diff_usenet_resplit.py` already calls this category `PROMOTED` and
+left it report-only on 2026-08-06, when it was worth 4,154 pairs.
+
+| tier | pairs | equivalent-English | points |
+|---|--:|--:|--:|
+| strict re-split, corroborated by a non-Usenet non-baseline source | 159,952 | 102,661.1 | 1.6488 |
+| less those the registry contradicts | **110,409** | **72,034.2** | **1.1569** |
+
+**I verified it myself rather than taking the agent's word, and the verification changed the number.**
+My independent query reproduced 159,952 pairs exactly. Then a negative control cut it:
+
+- **35.0% of the promotion set has a mention year EARLIER than the registry creation date of the same
+  domain**, against **16.5%** for the Usenet pairs the store has already accepted. Twice as
+  contradicted, from the same corpus. Registry dates read late for a re-registered name, which
+  inflates both figures, but the comparison is the point. Those 49,608 pairs are dropped.
+
+**Two positive controls say the surviving mentions are real observations, not noise.** Both use a fair
+null built from the same domains' own undated years, after I found and discarded a first control that
+was measuring gaps rather than membership:
+
+- the mention year falls inside the domain's own observed capture span **5.52x** more often than chance
+- the mention year sits within one year of a real capture **68.5%** of the time against a **22.1%**
+  null, a **3.10x** lift
+
+**Why I stopped rather than banked.** The class is already `master` and the mechanism is the designed
+one, so this is arguably mine to do. Against that: it puts 110,409 pairs into the annual files, my own
+control shows the population is measurably weaker than what is already accepted, and CLAUDE.md's own
+warning is that the split does not protect against a plausible name that was never real, which is
+exactly what typed prose produces at scale. An agent arguing its own find into the annual files is the
+thing this project trusts least. Waiting costs nothing: no requests are involved and banking takes
+minutes.
+
+**My recommendation: bank the 110,409, leave the contradicted 49,608 out permanently.** That is
+**+1.1569 points**, taking the round from 2.0175% to about 3.17%, and with the engines to Sunday about
+3.6%. It does not reach 5% and I am not going to present it as though it does.
+
 ### May we query Nominet in bulk for the .uk pool?
 
 **Nominet is the best-value RDAP target left and its terms say no. One line from you settles it.**
@@ -129,6 +173,8 @@ data arriving whether it pays: phone populated 739,972 of 739,972, against bille
 **44 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
 
 For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
+
+**You are not reviewing this yet, by your own instruction of 2026-08-15**: the queue waits until a source, or a combination of them, is found that measurably reaches the hard 5% target. So this line is a counter, not a request.
 
 **Nothing is blocked while you leave this.** A pending class cannot date a year, so collection continues either way, and the queue exists so that finding sources never waits on a decision. Raised as one entry rather than one per source, on your instruction that this list grows indefinitely.
 
