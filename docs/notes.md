@@ -7339,3 +7339,31 @@ domains). Native national harvesting starts 2002 at the earliest. So the UK link
 *projection* of IA's holdings, naming hosts that IA's own CDX rows do not surface as captured sites.
 The productive question is not which archive holds non-IA in-window data, to which the answer is none,
 but which publishes a derived projection of IA data in bulk.
+
+## 2026-08-15: the IA-derived rule needed an exception, and it is the exception that matters
+
+Wrote a rule this morning that would have closed the best family we have. It said a corpus derived
+from the Internet Archive cannot be net-new against an IA-derived baseline, which is true of the TREC
+collections, Stanford WebBase and the Australian Web Archive, all measured at or near zero. Applied
+literally it also closes the UK Web Archive host link graph, **which is IA data and is the
+best-performing source ever measured here at 90.4%**. A rule that closes your best source is wrong.
+
+**The distinction is not provenance, it is which constraint binds.** Our coverage of the Internet
+Archive is limited by our own query rate, not by IA's holdings: **212,394 domains have ever been asked
+at CDX** against 2.5M sitting in the pool, and the two engines clear about 975 requests an hour
+between them. So:
+
+- A source that **re-serves captures the baseline already drew on** is worthless. That is the TREC and
+  WebBase failure, and it is why the AWA priced at exactly zero AWA-only pairs.
+- A source that is a **different projection of IA's holdings, delivered in bulk**, is the opposite of
+  worthless, because it converts our scarcest resource into a file download. The link graph pays
+  precisely because it surfaces hosts that IA's own CDX rows do not return as captured sites.
+
+Recorded in `discovery.md` section 4 immediately under the rule, because separating them by even a
+paragraph invites the next pass to read the first and stop. Such a source is judged on the English
+share of what it covers and on whether it actually downloads, never on its upstream.
+
+A fourth prospector is out on exactly that shape: other British Library derived datasets from the
+JISC UK Web Domain Dataset, Archives Unleashed derived data, index-rather-than-content items on
+archive.org, and the other Arquivo.pt CDXJ collections. It carries the reachability traps that have
+produced false negatives here, in particular that a 200 response can be a 159-byte error stub.

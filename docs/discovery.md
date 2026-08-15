@@ -106,8 +106,22 @@ each: the TREC web collections, Stanford WebBase and Early Web CDX are all downs
 1996-1997 crawls the baseline comes from, and the two of them that were actually measured returned
 **0.01% and 0.01% net-new**. It also explains why the Australian Web Archive priced at exactly zero
 AWA-only pairs: it is Internet Archive data wearing a different interface. The tell is a dataset
-described as "built from a crawl donated by the Internet Archive", and it means the answer is already
-known without a request.
+described as "built from a crawl donated by the Internet Archive".
+
+**That rule has one exception and it is the most valuable family we know of, so read it before
+applying the rule.** Being IA-derived is fatal when the source is a *re-serving* of captures the
+baseline already drew on, and is the opposite of fatal when it is a **different projection of IA's
+holdings, delivered in bulk**. The distinction is not about provenance, it is about which constraint
+binds: our coverage of the Internet Archive is limited by **our own query rate**, not by IA's
+holdings. Only 212,394 domains have ever been asked at CDX, against 2.5M sitting in the pool, and the
+engines clear roughly 975 requests an hour between them.
+
+So a bulk index that names hosts IA holds, without our having to ask about each one, converts our
+scarcest resource into a file download. That is exactly why the UK Web Archive host link graph is the
+best-performing shape ever measured here at **90.4%**, against 46.0% pool-wide: it **is** Internet
+Archive data, and it pays because a link graph surfaces hosts that IA's own CDX rows do not return as
+captured sites. Judge such a source on the English share of what it covers and on whether it can
+actually be downloaded, never on its upstream.
 
 Where an estimate is unavoidable, **label it in the same sentence as the number**. Most figures in
 this project are measurements, which is exactly what makes an unlabelled projection dangerous.
