@@ -8892,3 +8892,22 @@ reads finally describes the work being done.
 **The generalisable bit**: a check over a register only means something if the register is being written.
 Three of the four instrument failures this week were a check reading the wrong thing; this one was a check
 reading the right thing that had stopped being maintained, and it looked identical from the outside.
+
+## 2026-08-15: the best population in the pool is exhausted, which closes the last large idea
+
+Checked the one population that could still have been a large win: names from the UK Web Archive host
+link graph, which CLAUDE.md records at a **90.4% hit rate against 46.0% pool-wide**, the best shape ever
+measured here. If a few hundred thousand of those were sitting unasked, they would be worth more per
+query than anything else available.
+
+**They are not. 132 unasked names remain across the top TLDs, worth about 25 equivalent-English**, and
+they are low-weight European namespaces at 0.06 to 0.19. The queue found them, ranked them and worked
+them through, which is the ranking doing exactly what it should.
+
+So the pool that remains is the harder 2.5M: mostly single-source Usenet names at a measured 14.8% hit
+rate, which is where the local engine's 0.39 equivalent-English per request comes from. There is no
+high-yield seam left inside it, and this was the last place I had reason to think one might be.
+
+**That closes the search for a large win from the material already held.** What remains large is the
+Usenet re-split at 1.12 points, which needs a decision rather than a discovery, and after that the round
+is the engines' hourly rate against a throttled archive.
