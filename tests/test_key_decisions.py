@@ -10,12 +10,25 @@ cannot exist without appearing under `## OPEN`". The last test checks that again
 live files, so letting one drift out of sight fails here rather than in a week.
 """
 
+import importlib.util
 from pathlib import Path
 
 import pytest
 
 from ark.approvals import pending
 from ark.key_decisions import is_open, open_titles, raise_open, refresh_open
+
+# Imported rather than repeated. The literal used to appear here AND in
+# `discover_cycle.TRIAGE_HEADING`, so renaming the live entry on 2026-08-15 broke this
+# test in a way that read as "the entry is missing" when it was merely retitled. Worse,
+# the mirror would then have failed to find it and raised a SECOND copy on the next
+# cycle. One definition, one failure, and it fails in the right place.
+_SPEC = importlib.util.spec_from_file_location(
+    "discover_cycle", Path(__file__).resolve().parents[1] / "scripts" / "discover_cycle.py"
+)
+_discover_cycle = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_discover_cycle)
+TRIAGE_HEADING = _discover_cycle.TRIAGE_HEADING
 
 SKELETON = """# Key decisions
 
@@ -209,7 +222,7 @@ def test_every_pending_approval_is_surfaced_in_the_live_files() -> None:
 
     triage = [a for a in waiting if a.is_triage]
     if triage:
-        assert is_open("Triage the newly found sources", decisions), (
+        assert is_open(TRIAGE_HEADING, decisions), (
             f"{len(triage)} source(s) sit in the triage queue with no collective entry "
             "under OPEN, so nobody has been told they are there"
         )

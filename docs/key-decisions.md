@@ -27,196 +27,60 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### The local engine is generating 3 throttled requests per answer for 0.085 points
+### Bank the 106,604 promoted Usenet mentions? Worth 1.11 points, free, one command
 
-**Not urgent and not blocking. It is a values call that is yours, and I have left the engine running
-while it waits.**
+**The single largest thing available, and it needs no download, no request and no new source class.**
+Re-running the corroboration split against today's store admits mentions that failed it when written,
+because the engines have since dated those domains. Built and tested:
+`scripts/build_promotion_journals.py --tag T --write`, then the `ark ingest` lines it prints.
 
-The local CDX engine's newest batch: **600 queries, 1,830 throttles, 188 outright failures (31%)**, its
-back-off pinned at the 3-second ceiling. Throttles have doubled since this morning and quadrupled since
-yesterday. To get 412 answers it generated roughly **2,430 HTTP requests**.
+- **106,604 pairs, 69,337.4 EE, +1.1136 points.** Round goes from ~2.09% to ~3.2%.
+- Registry-contradicted pairs already dropped (35% of the raw set, against 16.5% for pairs the store
+  already accepts). Two positive controls: mention years land inside the domain's own capture span
+  **5.52x** over chance, and within a year of a real capture 68.5% against a 22.1% null.
+- **I have not run it**: 106,604 pairs entering the annual files on typed evidence is your call.
 
-**The candidates are fine, which is what makes this a citizenship question rather than a tuning one.** Of
-the queries that were answered, **75.7% carried a capture**, the best this engine has recorded. A third of
-our questions simply never get an answer.
+Working: `notes.md`, 2026-08-15 entries. My recommendation is to bank it.
 
-**What it is buying.** Over the ~29 hours to delivery the local engine is worth about 450 requests an hour
-at 0.39 equivalent-English each, so **its entire remaining contribution is roughly 5,300 EE, or 0.085
-percentage points.** Against that: the Internet Archive has refused this project outright three times, and
-today it refused a second, entirely legitimate client from this host on all 12 of its attempts, which is
-our own collector crowding out other work from your address.
+### 5% is a hard requirement and the round will land near 2.3%
 
-**Every technical lever is already tested and closed**: fewer workers measured worse and was reverted, a
-shorter timeout is measured and rejected in `cdx.py` (51 of 100 answered at 30s against 82 at 180s), and
-the 3-second ceiling is itself a deliberate throughput-over-politeness choice from 29 July. So this is not
-"how do we fix it" but "is 0.085 points worth this load profile", and "be a good citizen" is your standing
-rule rather than my judgement to overrule.
+Status, not a question. Recorded in `brief_amendments.md`. 5% is 311,319.32 EE; the round holds
+~130,000 and banks **413 EE/h measured over 24h**, so Sunday lands **~2.30%**, or **~3.44%** with the
+promotion above.
 
-**The VPS is unaffected and does the better work anyway**, 84.5% hit from a different host, so pausing the
-local engine costs only the 0.085 points and nothing else. Say the word either way, or say nothing and it
-keeps running.
+Everything that could have closed the gap was searched and closed on measurement: zone files, research
+crawl corpora, national archives, bulk archive indexes, RDAP headroom (0.107 points, not the 1.47 once
+carried), and the whole 49-source triage queue (**9.19% of the deficit**). There is no route I know of.
+The report states the shortfall and the measured reason.
 
-### Promote 110,409 already-held Usenet mentions? Worth 1.16 points, free
+### The local engine now costs 3 throttled requests per answer, for 0.085 points
 
-**The largest lever of the round, it needs no download, no request and no new source class, and I
-have not banked it. One word from you does.**
-
-Re-running the corroboration split against today's store promotes mentions that failed it when they
-were written. A domain typed in a dated Usenet post is admitted for that year only if another source
-already places it in an annual file; tens of thousands have been dated by the CDX and RDAP engines
-since those mentions were filed. `diff_usenet_resplit.py` already calls this category `PROMOTED` and
-left it report-only on 2026-08-06, when it was worth 4,154 pairs.
-
-| tier | pairs | equivalent-English | points |
-|---|--:|--:|--:|
-| strict re-split, corroborated by a non-Usenet non-baseline source | 159,952 | 102,661.1 | 1.6488 |
-| less those the registry contradicts | 110,409 | 72,034.2 | 1.1569 |
-| **less those with no honest master class to promote INTO** | **106,604** | **69,337.4** | **1.1136** |
-
-**That last line is a correction to the figure I gave you, found by building the promotion rather than
-by arguing about it.** Eight mention sources have an exact dated sibling that shares the same journal
-format and parser, so promoting them is a re-file and not a re-parse: `usenet_mention` 79,819 pairs,
-`usenet_address_mention` 47,483, `usenet_bare_mention` 8,769, `enron_email_mention` 2,623,
-`maillist_archive_mention` 1,049, `trade_press_mention` 296, `rtfm_faq_mention` 135, `tucows_mention`
-92, deduplicating to 106,604 distinct pairs. **`ukwa_link_target` has no such sibling and is excluded.**
-Its only relative is `ukwa_link_source`, which dates the page doing the linking and not the page linked
-to, so promoting a link-graph edge would assert precisely what the `link_target` class exists to forbid.
-`uucp_map_mention` and `page_expansion` are excluded for the same reason.
-
-**I verified it myself rather than taking the agent's word, and the verification changed the number.**
-My independent query reproduced 159,952 pairs exactly. Then a negative control cut it:
-
-- **35.0% of the promotion set has a mention year EARLIER than the registry creation date of the same
-  domain**, against **16.5%** for the Usenet pairs the store has already accepted. Twice as
-  contradicted, from the same corpus. Registry dates read late for a re-registered name, which
-  inflates both figures, but the comparison is the point. Those 49,608 pairs are dropped.
-
-**Two positive controls say the surviving mentions are real observations, not noise.** Both use a fair
-null built from the same domains' own undated years, after I found and discarded a first control that
-was measuring gaps rather than membership:
-
-- the mention year falls inside the domain's own observed capture span **5.52x** more often than chance
-- the mention year sits within one year of a real capture **68.5%** of the time against a **22.1%**
-  null, a **3.10x** lift
-
-**Why I stopped rather than banked.** The class is already `master` and the mechanism is the designed
-one, so this is arguably mine to do. Against that: it puts 110,409 pairs into the annual files, my own
-control shows the population is measurably weaker than what is already accepted, and CLAUDE.md's own
-warning is that the split does not protect against a plausible name that was never real, which is
-exactly what typed prose produces at scale. An agent arguing its own find into the annual files is the
-thing this project trusts least. Waiting costs nothing: no requests are involved and banking takes
-minutes.
-
-**My recommendation: bank the 110,409, leave the contradicted 49,608 out permanently.** That is
-**+1.1569 points**, taking the round from 2.0175% to about 3.17%, and with the engines to Sunday about
-3.6%. It does not reach 5% and I am not going to present it as though it does.
+Not blocking; it keeps running unless you say otherwise. Newest batch: 600 queries, **1,830 throttles,
+188 failures**, ~2,430 HTTP requests for 412 answers. Candidates are fine (75.7% of answered carry a
+capture), so this is citizenship, not tuning, and every technical lever is tested and closed. Its whole
+remaining contribution is **~5,300 EE, 0.085 points**. The VPS is on another host at 84.5% and unaffected.
 
 ### May we query Nominet in bulk for the .uk pool?
 
-**Nominet is the best-value RDAP target left and its terms say no. One line from you settles it.**
-
-Measured 2026-08-13: `.uk` lands an in-window creation date on **30.6% of every query asked**, against
-6.7% for `.org`, and `.uk` carries the highest English share in the table at 0.9813. That makes a `.uk`
-query worth **0.30 EE against `.org`'s 0.048**, about six times better, over roughly 54,000 pool names
-never asked. Worth about **16,000 EE**, or 0.26 points.
-
-**I stopped the sweep after 23 queries rather than run it.** Nominet's own RDAP response carries terms
-prohibiting *"high volume, automated, electronic processes that query or send data to the Registry
-Operator"* and *"extracting, copying and/or using or re-using in any form and by any means all or part
-(quantitatively or qualitatively) of the contents of the RDAP database without prior and explicit
-permission"*. `sources.md` separately records Nominet refusing this project **three times in its first
-fourteen queries**. A 54,000-query sweep is squarely what that text describes, it is your name on the
-User-Agent, and being blocked by a registry is not recoverable in a weekend.
-
-The 23 queries that did run drew no refusal and dated 7 names, so this is a permission question and not
-a technical one. The options, cheapest first:
-
-1. **Leave it.** The `.uk` slice stays unasked, the sweep runs every other TLD, and we lose 0.26 points
-   that do not change the 5% arithmetic either way. **This is what is happening now**, so no answer is
-   also an answer.
-2. **Ask Nominet.** Their terms invite explicit permission and the project is non-commercial academic
-   research; the same request would also settle `nominet_whois_port43`, pending since 2026-08-12 and
-   needed before .uk WHOIS closes on 9 February 2027. Outward-facing, so I will draft and you send.
-3. **Tell me to sweep it anyway at a slow pace.** I will do it if you say so, and I would want the pace
-   at roughly one query a second with the project and a contact address in the User-Agent, which is
-   about 15 hours for the slice.
-
-### 5% is now a hard requirement, and the measured rate lands at 2.5%
-
-**You have made 5% by Sunday night a requirement rather than a target. It is recorded as one in
-`brief_amendments.md`, and I am working to it.** This entry stays open because the arithmetic below
-has not changed and you should not learn it on Sunday. The working is in the check-in entries of
-2026-08-13 in `notes.md`.
-
-The arithmetic, all of it measured rather than projected except the last line:
-
-- 5% of `merged260810` is **311,319.32 equivalent-English**. The round holds **111,704.48**, so the
-  deficit is **199,614.84**.
-- The three engines together bank **624 EE/h**, steady between 560 and 690 in every 12-hour bucket
-  since the 11th. Sunday evening is 68 hours away.
-- Closing the gap needs **2,921 EE/h**, which is **4.7x** the measured rate.
-- **Projection: about 154,000 EE, or 2.48%.**
-
-**Why more effort does not fix it.** The queues are not the constraint: 2,500,009 of the local pool's
-2,500,701 targets and 661,206 of the VPS shard's 672,864 have never been asked, which is months of
-work. The constraint is the Internet Archive's throttling, 342 throttles in the last 600 local
-queries, and this project has been refused outright three times already. The largest single source of
-the entire round is `rdap_snapshot` at 55,151.9 EE; the deficit is 3.6 of those in three days.
-
-**And the one lever I thought was in reserve is not.** RDAP headroom was carried as roughly 1.47
-percentage points. Measured 2026-08-13 against the journals, it is **6,655 EE, or 0.107 points**, and
-the collapse happened in three steps:
-
-- The Verisign `.com`/`.net` pool is **exhausted**: 71 names unasked of 1,345,949.
-- The list builder prices everything askable at 32,474 EE, but **16,000 of that is `.uk`**, which is
-  the Nominet question above.
-- Most of the remainder is micro-TLDs where the builder falls back to the pool-wide rate because it
-  has no sample. It is a bad fallback: the first **97** queries into `.vi`, `.bm`, `.pn` and `.pg`
-  returned **1** in-window date. Restricted to the five TLDs with a real measured rate, the whole
-  remaining list is 149,816 queries for **6,655 EE**.
-
-The rest of the never-asked pool is `.edu`, `.mil` and `.gov`, which have no RDAP service at all.
-
-**What is left for me to do, and I am doing it:** run the engines at the best allocation the
-measurements support, and hunt for a bulk dated corpus of the missing size. The shape that could
-supply it, a 1996-2001 zone file or bulk registry snapshot, is closed on measurement in three
-separate entries in `sources.md`, so this is a genuine search and not a known route.
-
-**What is still yours:** whether Sunday's report leads with the percentage or with the method, and
-whether the deadline moves. At the measured rate 5% is roughly 13 further days of collection with
-nothing else changing. Nothing is blocked while you leave this.
+`.uk` lands an in-window date on **30.6%** of queries at weight 0.9813, six times `.org`, over ~54,000
+unasked names: about **16,000 EE**. I stopped after 140 queries because Nominet's own RDAP terms forbid
+high-volume automated querying and re-use, and `sources.md` records it refusing us three times in
+fourteen queries. Options: leave it (current behaviour), ask them (I draft, you send), or tell me to
+sweep slowly anyway.
 
 ### May I write to a US federal agency on the project's behalf?
 
-**One line of authorisation, and it unlocks the joint-highest source in the queue.**
+USAC's portal serves only the last ten years and says to email `opendata@usac.org` for older records.
+`usac_erate_form471_contact_email_1998_2001` aims at the measured `.us` gap (18,300 in-window `.us`
+against 3,239,423 `.com`). **Outward-facing in your name, so I will not do it without your word**; if
+yes, I draft and you send. Positive control already measured on the published years.
 
-`usac_erate_form471_contact_email_1998_2001` scores 84 and is aimed at the single measured gap in this
-corpus: the store holds about 18,300 in-window `.us` domains against 3,239,423 `.com`, and E-Rate Form 471
-is every US school district and public library applying for discounts, annually from 1998.
+### Triage the newly found sources: 49 found, none priced
 
-**It cannot be fetched.** USAC's open-data portal serves only the last ten years and says so verbatim:
-*"This dataset contains data for the last 10 years. To request older records, please email
-opendata@usac.org."* Its licence is `PUBLIC_DOMAIN` and nothing prohibits the request; there is simply no
-URL for the in-window years.
+A counter, not a request, by your instruction of 2026-08-15: you review it when something reaches 5%.
+Measured whole, it covers **9.19% of the deficit**, so nothing here is urgent and reviewing it would not
+change Sunday. It keeps growing for the rounds after this one.
 
-So the next step is an e-mail to a federal agency asking for FY1998 to FY2001 basic information, naming
-the project and what it is for. **That is an outward-facing action in your name and I will not take it
-without your word.** If you say yes, I will draft it for you to send rather than send it myself, unless
-you would rather I sent it from the project address.
-
-The positive control is already measured on the published years, so we would know within an hour of the
-data arriving whether it pays: phone populated 739,972 of 739,972, against billed-entity e-mail at 46.2%.
-
-
-### Triage the newly found sources
-
-**44 source(s) found and not yet priced** are listed in `approved-sources-list.md` under `## Found, awaiting triage`, each with what it is, what would date one of its items, and whether it is reachable today.
-
-For each one you need only say **candidate pool** or **fold in directly**, which set its `Decision:` line to `candidate-only` or `master`. `rejected` also binds if it is not worth keeping.
-
-**You are not reviewing this yet, by your own instruction of 2026-08-15**: the queue waits until a source, or a combination of them, is found that measurably reaches the hard 5% target. So this line is a counter, not a request.
-
-**Nothing is blocked while you leave this.** A pending class cannot date a year, so collection continues either way, and the queue exists so that finding sources never waits on a decision. Raised as one entry rather than one per source, on your instruction that this list grows indefinitely.
 
 ---
 

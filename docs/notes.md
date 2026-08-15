@@ -8146,3 +8146,28 @@ it waits, and the entry says so.
 
 **The general lesson, which is cheap and I keep paying for it anyway:** writing a good analysis is not the
 same as delivering it, and "flagged" is a claim about the reader rather than about the writer.
+
+## 2026-08-15: the review surface had grown to six screens, and shrinking it nearly broke the mirror
+
+`key-decisions.md` is described in its own header as a two-minute review surface, "one entry, one screen
+at most". Measured: **6 entries, 195 lines, 2,166 words**, five or six screens. I wrote nearly all of it,
+each entry reasonable on its own, and the aggregate is a document nobody opens the evening before a
+delivery. Rewritten to **59 lines and 538 words**, a quarter of the size, each entry now the decision, the
+number and a pointer to the working in `notes.md` where it already lives. Also corrected a stale figure in
+a heading: the promotion entry still said 110,409 pairs after the count was corrected to 106,604.
+
+**And the rewrite nearly did real damage.** I retitled the triage entry to something clearer, and the
+suite refused the commit. `_mirror_triage_count` finds that entry by the literal `TRIAGE_HEADING`, so a
+renamed entry is invisible to it: `refresh_open` would have missed, `raise_open` would have succeeded, and
+the hourly cycle would have written a **second** triage entry onto the surface I had just spent the wake
+shrinking. The test read "44 sources sit in the triage queue with no collective entry", which is exactly
+right and looks nothing like "you renamed a heading".
+
+**The underlying defect was a duplicated literal**, the phrase living both in `discover_cycle.py` and
+again in the test. So the test now imports `TRIAGE_HEADING` rather than repeating it, and a future rename
+fails in one place with an obvious message instead of two places with a misleading one. The live title
+keeps the phrase and adds the count.
+
+Third time this round the pre-commit hook has caught something my own reading did not: a red gate on
+2026-08-13, the triage queue sorted wrongly this morning, and this. The argument for making it a hook
+rather than a rule keeps paying.
