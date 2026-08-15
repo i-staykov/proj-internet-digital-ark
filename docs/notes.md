@@ -7456,3 +7456,37 @@ bytes costs nothing. A parked answer now prints "parked page, not a source" and,
 not set `changed`, so it stays out of the summary that asks for pricing. Four tests pin it, including
 that a real directory listing survives the filter, which is the case that matters: the thing we are
 hunting must not be filtered out by the thing that filters out the squatters.
+
+## 2026-08-15: section 2 of the report now tells this round's story
+
+The template's section 2 is the part every round rewrites, and it still carried the previous round's
+narrative: the generative question, the dispute docket at 87.7% net-new, the registry reopened after a
+throttle was misread as a block. All true, all last round. Rewritten, keeping the parts that are not
+round-specific: the five-programs table, the boundary paragraph about what a program cannot do, and the
+paragraph on why an unattended process is safe at all.
+
+**The new narrative, which is the honest one.** The question this round had to answer is what happens
+when the sources run out, and the answer is that the scarce resource stopped being places to look and
+became judgement about which places are worth a request. Two rules now close whole families with no
+request at all: a source that selects for authority cannot be net-new, and a corpus derived from the same
+archive as the baseline cannot be net-new against it. The second carries the exception that matters more
+than the rule, that a **bulk index of that same archive** is enormously valuable because it converts our
+rate limit into a file download, which is why the best source ever measured here hits 90.4%.
+
+**And the finding worth reporting as a shape rather than as a source**: the largest opportunity of the
+round was already on disk. Re-applying an unchanged admission rule to a corpus that has grown promotes
+names that failed it when first read. **In a mature corpus, re-examining old evidence against new
+knowledge outperforms looking for new evidence.** That generalises past this project, which is what makes
+it worth a paragraph in a report to a reviewer who asked for scientific discovery rather than downloading.
+
+The negative results are reported as the majority, because they are: four families searched, one paid.
+Two closures are recorded as permanent in a useful way, one priced at its ceiling from a published figure
+instead of by buying the corpus, and one settled by finding that the access restriction covers the
+**index** files and not merely the content, which had been assumed and never tested.
+
+**The three crying-wolf alarms are in the report too**, and deliberately. A report about method that
+omits its own instrument failures is not a report about method. All three now have tests.
+
+No number was written by hand. Every figure in the document still comes from `fill_report.py`, which
+reports `would fill cleanly`, so the narrative can be finalised now and the numbers refreshed on Sunday
+from whatever the store then holds.
