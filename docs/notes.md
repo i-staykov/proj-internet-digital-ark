@@ -7406,3 +7406,28 @@ by Sunday. Against that, the Internet Archive has refused this project outright 
 already refusing 36% of the VPS's queries. **Trading a 0.1 point gain for a non-trivial chance of
 losing both engines is a bad trade**, and doing it anyway would be effort that looks like progress.
 Recorded so the next wake does not rediscover the idea and reach a different conclusion.
+
+## 2026-08-15: the heartbeat check counted double, so "exactly one" was never being tested
+
+Checked the process table this wake and read **2 heartbeats**, which is the one thing CLAUDE.md says
+must never happen. It was a false alarm, and the check itself is the bug.
+
+A background heartbeat is two processes: the zsh wrapper that `eval`s `sleep 540; echo "HEARTBEAT..."`,
+and the `sleep` it forks. **Both command lines contain the pattern**, so
+`pgrep -f 'slee[p] 540' | wc -l` returns **2 for a single healthy heartbeat**. Verified directly: pid
+19238 is the wrapper, pid 19242 its `sleep 540` child, one heartbeat.
+
+So the documented rule has been reporting a violation every time it was run, and its documented remedy,
+"stop them all and start one", would have killed a working heartbeat on every wake. The rule was
+adopted after two heartbeats really were in flight; **whether that original incident was two heartbeats
+or one miscount cannot now be established**, and it is worth saying so rather than quietly assuming the
+convenient answer.
+
+The correct check counts the wrapper only, which is the process whose command line carries the `echo`
+as well as the `sleep`:
+
+    ps -eo command | command grep -c 'slee[p] 540; echo "HEARTBEAT'
+
+One per heartbeat, verified. `pgrep -x sleep` is not a substitute, since it counted 8 unrelated sleeps
+on this machine. CLAUDE.md corrected in place, because a check that cries wolf every wake trains the
+reader to ignore it, which is the same failure as the gap-list alarm that was firing by design.

@@ -194,8 +194,20 @@ is the common case and used to be the case that produced nothing.
        Bash(run_in_background=true): sleep 540; echo "HEARTBEAT: continue the round"
 
    **Exactly one heartbeat at a time.** Two in flight means two wakes, two agents doing the same bounded
-   work and two sets of commits racing each other, which happened within an hour of adopting this. Check
-   with `pgrep -f 'slee[p] 540' | wc -l` before starting one, or stop them all and start one.
+   work and two sets of commits racing each other, which happened within an hour of adopting this.
+
+   **But count them correctly, because the check this file used to give reports double.** A background
+   heartbeat is a wrapper shell that `eval`s the command plus the `sleep` it forks, and **both command
+   lines contain the pattern**, so `pgrep -f 'slee[p] 540' | wc -l` returns **2 for a single healthy
+   heartbeat** (verified 2026-08-15: pids 19238 the zsh wrapper and 19242 its `sleep 540` child). The
+   old rule therefore fired on every check and its remedy, stop them all and start one, would have
+   churned a working heartbeat every wake. Count the wrapper only, which is the one whose command line
+   carries the `echo` as well:
+
+       ps -eo command | command grep -c 'slee[p] 540; echo "HEARTBEAT'
+
+   That returns exactly one per heartbeat. `pgrep -x sleep` is not a substitute: it counts every
+   unrelated `sleep` on the machine, 8 of them when this was measured.
 
    That makes the work self-sustaining and leaves cron as the backup rather than the mechanism. A workflow
    left running counts as a heartbeat, since its completion wakes you the same way.
