@@ -8751,3 +8751,20 @@ rather than assumed: `just ship` rehearsed green with 1,196 files matching their
 invariants passing, the `.docx` built and checked for internal leakage, the covering email templated with
 no remembered numbers, and now his calculator agreeing to four decimal places. What remains on the night
 is arithmetic and judgement, not discovery of a broken tool.
+
+## 2026-08-15: every figure in Sunday's email now names the tool that produces it
+
+Checked the last unverified piece of the delivery: whether each `[TOKEN]` in the covering email has
+something that actually emits it. All ten do, and the map is now written into the email file itself, so
+the evening is copying rather than deriving. Seven come from `just stats`, three from
+`round_figures.py --verify`, and one, the discovery share, is a division of two of the others.
+
+**And one figure carries a warning rather than a source.** The discovery share has fallen across the
+round: **86.5% on 13 August, 84.8% on the 14th, 81.4% today.** That is not decay. It is the VPS gap engine
+contributing proportionally more completeness while the throttled local engine contributes less
+discovery, which is the same story as everything else measured this week seen from a third angle. The
+email now says to quote the number and not to carry a remembered one forward, because that share is
+exactly the kind of figure someone repeats from memory.
+
+The reviewer asked for the two outcomes to be tracked separately, so a shifting ratio between them is
+something he will look at rather than skim.
