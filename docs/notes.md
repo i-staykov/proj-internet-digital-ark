@@ -8324,3 +8324,46 @@ that can only fail if the loader is rewritten is a test of code that does not ex
 Cron confirmed at both jobs: the recurring wake, and the one-shot at 18:03 tomorrow that ships rather than
 collects. That check is on Ivo's instruction of 2026-08-12 to make it part of every call, after several
 hours once passed with no wake he could see.
+
+## 2026-08-15: multi-source attestation predicts a CDX hit 6.6x, and the queue does not use it
+
+Asked the store the population question the RDAP builder already acts on but the CDX queue does not:
+**does the number of distinct sources attesting a pool name predict whether the archive holds it?**
+Measured over the 77,054 pool domains this engine has ever asked:
+
+| distinct sources | asked | hit rate |
+|---|--:|--:|
+| 1 | 35,485 | **14.8%** |
+| 2 | 24,565 | 48.7% |
+| 3 | 9,468 | 87.4% |
+| 4 | 4,188 | 94.4% |
+| 5+ | 3,348 | **98.1%** |
+
+**A 6.6x spread, unambiguous at that sample size.** `build_rdap_pool_list.py` already uses this as a
+tiebreak, on the reasoning that "a name three independent collectors saw is far likelier to be a real
+registration than one that appeared once in one Usenet message". The CDX queue scores per (source, TLD)
+and per-TLD plausibility, both good, but a domain enters its model under **one** source, so the *count*
+is invisible to it.
+
+**The headroom, which is the number that decides whether this matters:**
+
+| sources | unasked | expected EE per query |
+|---|--:|--:|
+| 3+ | **11,919** | **0.87** |
+| 2 | 213,386 | 0.44 |
+| 1 | 2,250,254 | 0.16 |
+
+The engine currently returns about **0.39 EE per request**, so the 11,919 best names are worth **2.2x the
+marginal query**, and their still being unasked after 77,054 queries is itself the proof the queue does
+not rank on this.
+
+**Worth about 0.09 points, and I am not changing the queue builder tonight.** 11,919 queries is roughly
+the whole remaining window at the current rate, so capturing it fully would yield ~10,400 EE against
+~4,600 on the present mix. That is real and it is also a twentieth of the gap. Against it: this is the
+program that feeds the engine 28 hours before a delivery, I have already spent two batches today proving
+one tuning change wrong, and the failure I would be risking is subtler than a crash. **The finding is
+worth more than the 0.09 points**, because it is a permanent property of the data and belongs in the next
+round's queue rather than in a rushed edit to this one.
+
+Recorded here and left as the top item for whoever builds the next queue: **add distinct-source count as
+a factor in `pool_plausibility`, not a tiebreak.** The effect is far too large to be a tiebreak.
