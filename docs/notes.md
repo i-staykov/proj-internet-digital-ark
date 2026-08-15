@@ -8225,3 +8225,29 @@ could have fixed. Both the fall and the rise belong to the archive.
 
 The 24-hour figure is the one to plan on, because it averages a good regime and a bad one and we do not
 control which we get. The six-hour figure is what happens if the archive stays generous.
+
+## 2026-08-15: trademark filings screened and closed, and the second reason is the interesting one
+
+Screened US trademark filings for domain-name marks, 1998-2001. No collision, and the bulk XML really is
+free and complete. Closed without a request on two grounds, both labelled as reasoning rather than
+measurement.
+
+**The first is the patent objection repeated**: a trademark application costs money and legal work, so the
+population is businesses notable enough to file, which is authority selection, which `discovery.md` closes
+by rule.
+
+**The second is specific to this source and is the better objection.** A mark may be filed on an
+*intent-to-use* basis, which evidences an intention and not a live domain. Only a *use-in-commerce* filing
+with a specimen attests that the site existed on the filing date, and telling the two apart means reading
+the filing basis per record. **The cheap version of this source would assert years its own evidence does
+not support**, which is exactly the error the `link_target` class exists to prevent. An abandoned
+application is worse than useless here: it is weak evidence in the wrong direction, since a company that
+filed for a name in 1999 and abandoned it may never have built the site.
+
+Both entries now name the same narrow reopen: **a pre-extracted dataset**, not the bulk data being
+available, because availability was never the objection and saying so stops the next pass re-probing it.
+
+Three closures in three wakes, none costing a request: blocklists on the unit, patents on the population,
+trademarks on the population and the dating basis. That is what the register is for, and the pattern
+across all three is the same question asked first: **what would date one item, and what population does
+this select?**
