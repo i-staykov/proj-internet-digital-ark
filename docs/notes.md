@@ -8493,3 +8493,36 @@ with a smaller count than the window. It was restarted by `just ship` this morni
 
 Nothing needed doing, which is the point: **an unverified assurance and a verified one read identically
 until the day they do not.** The RDAP list was the same shape of risk this morning and did need doing.
+
+## 2026-08-15: "measured 0% in-window" and "the registry never answered" are different facts
+
+Checked whether the zero in-window rates I recorded for the high-weight ccTLDs rest on a real sample.
+They rest on something else entirely.
+
+| tld | asked | HTTP 200 | carried a creation year |
+|---|--:|--:|--:|
+| `.au` | 39,371 | **130** | **0** |
+| `.de` | 4,380 | 0 | 0 |
+| `.dk` | 1,620 | 0 | 0 |
+| `.jp` | 1,471 | 0 | 0 |
+| `.it` | 1,111 | 0 | 0 |
+| `.se`, `.nz`, `.at`, `.us`, `.za`, `.ie` | 183 to 850 each | **0** | 0 |
+
+**None of these registries answers RDAP at all.** So "0.0% in-window" does not mean the names were not
+registered in the window; it means the question never landed. I had written those zeros into a ranking
+table as though they were measurements of the population, and they are measurements of the service.
+
+**The distinction matters because the two imply opposite actions.** A genuine 0% rate says stop asking:
+the population is fabricated or out of window, which is the `.mil` and `.gov` case the queue builder
+already handles. A 0% *answer* rate says the population is untested and must be reached another way, and
+`.au` at weight 0.9904 with 33,058 unasked names is exactly that: unreachable by registry, perfectly
+reachable by the archive, and therefore a pool question rather than an RDAP one.
+
+**The live list is clean**, checked rather than assumed: `nl` 15,923, `org` 11,617, `fr` 8,411, `pl`
+2,821, `no` 2,462, `sg` 1,529, `fi` 1,454, `br` 1,340, `ar` 1,028, and no `.au`, `.de` or `.nz` at all.
+`build_rdap_pool_list.py` filters on the IANA bootstrap service list, which is the right discriminator and
+was already doing this job.
+
+The sunk cost is worth naming so it is not repeated: **39,371 `.au` queries returned 130 answers**, from a
+wide sweep before the bootstrap filter was in place. Nothing to recover, but it is the clearest possible
+argument for filtering on service before scoring on yield.
