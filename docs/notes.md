@@ -8472,3 +8472,24 @@ it is a measurement.**
 Cost: three queries against the store, no requests, one idea tested to destruction in a wake. The general
 form is the one from section 4a: **a population question is cheap, so ask the expensive-looking idea
 early rather than saving it.**
+
+## 2026-08-15 12:40: every engine's stopping condition checked against the delivery, not assumed
+
+I have said "the engines carry absolute deadlines and outlive Sunday" several times without once reading
+the numbers back. Read them:
+
+| engine | stopping condition | outlives Sun 18:03? |
+|---|---|---|
+| local `supervise_cdx_pool` | epoch 1786924800 = **Mon 17 Aug 02:00 CEST** | yes, by 32h |
+| `discover_cycle` | same epoch | yes |
+| VPS `cdx_q1` | epoch 1788177600, **31 Aug** | yes, by 15 days |
+| `rdap_pool_sweep` | 120 batches, or its list running out | yes on count; the list was the real risk and was widened this morning |
+| `maintain.sh` | **900 iterations**, not a deadline | yes: 42 passes in 6.07h is 8.7 min each, so 900 is **5.4 days**, and Sunday needs 203 more of the 858 left |
+
+**The ingest loop was the one worth checking** and the only one whose limit is a count rather than a
+clock, which is exactly the case `extend_engines.sh` documents as needing a handover if it is ever started
+with a smaller count than the window. It was restarted by `just ship` this morning with the recipe's own
+`900 150`, and at the measured 8.7 minutes a pass that is four times the remaining window.
+
+Nothing needed doing, which is the point: **an unverified assurance and a verified one read identically
+until the day they do not.** The RDAP list was the same shape of risk this morning and did need doing.
