@@ -7490,3 +7490,37 @@ omits its own instrument failures is not a report about method. All three now ha
 No number was written by hand. Every figure in the document still comes from `fill_report.py`, which
 reports `would fill cleanly`, so the narrative can be finalised now and the numbers refreshed on Sunday
 from whatever the store then holds.
+
+## 2026-08-15: building the promotion corrected its own headline figure
+
+Started building the tool that would execute the Usenet re-split so Ivo's answer costs minutes rather
+than an afternoon, and the build found an error in the number I had given him.
+
+**The good news first: it is a re-file, not a re-parse.** `usenet_dated` and `usenet_candidates` are two
+`SourceSpec` entries over the **same parser and the same journal format**, differing only in which
+source name and evidence type they file under: `usenet_announce` / `dated_directory`, which is master
+and already approved, against `usenet_mention` / `link_target`, which is candidate-only. So promotion
+means writing the same lines under the other key. Nothing needs re-reading from the 411 GB, and the
+journal line can be reconstructed from the evidence row, since `evidence_value` is stored as
+`"{group} {message_id}"` and the URL is stored beside it.
+
+**Eight families have that exact one-to-one shape**, and the per-source split is worth recording because
+the concentration is extreme: `usenet_mention` 79,819 pairs and 52,915.4 EE, `usenet_address_mention`
+47,483 and 30,017.5, `usenet_bare_mention` 8,769 and 5,552.0, then `enron_email_mention` 2,623,
+`maillist_archive_mention` 1,049, `trade_press_mention` 296, `rtfm_faq_mention` 135, `tucows_mention` 92.
+The three Usenet families are 96% of the value.
+
+**And the correction. `ukwa_link_target` cannot be promoted at all, and I had counted it.** Its only
+relative is `ukwa_link_source`, which is `link_source`: that dates the page **doing** the linking, not
+the page linked **to**. Promoting a link-graph edge to a dated assignment on its target is exactly what
+the `link_target` class exists to forbid, and no amount of corroboration changes that, because the
+corroboration split answers "is this domain real" and never "does this edge date its target".
+`uucp_map_mention` and `page_expansion` fail identically.
+
+So the defensible figure drops from **110,409 pairs and 1.1569 points to 106,604 pairs, 69,337.4 EE and
+1.1136 points.** The OPEN entry is corrected in place rather than only here, because a number he has
+already read is the one that has to be right.
+
+**Worth noting how it was caught**: not by re-checking the arithmetic, which was correct, but by asking
+what each row would be written **as**. A figure can be measured perfectly and still count things that
+cannot legally exist in the destination.

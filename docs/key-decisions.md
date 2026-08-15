@@ -41,7 +41,18 @@ left it report-only on 2026-08-06, when it was worth 4,154 pairs.
 | tier | pairs | equivalent-English | points |
 |---|--:|--:|--:|
 | strict re-split, corroborated by a non-Usenet non-baseline source | 159,952 | 102,661.1 | 1.6488 |
-| less those the registry contradicts | **110,409** | **72,034.2** | **1.1569** |
+| less those the registry contradicts | 110,409 | 72,034.2 | 1.1569 |
+| **less those with no honest master class to promote INTO** | **106,604** | **69,337.4** | **1.1136** |
+
+**That last line is a correction to the figure I gave you, found by building the promotion rather than
+by arguing about it.** Eight mention sources have an exact dated sibling that shares the same journal
+format and parser, so promoting them is a re-file and not a re-parse: `usenet_mention` 79,819 pairs,
+`usenet_address_mention` 47,483, `usenet_bare_mention` 8,769, `enron_email_mention` 2,623,
+`maillist_archive_mention` 1,049, `trade_press_mention` 296, `rtfm_faq_mention` 135, `tucows_mention`
+92, deduplicating to 106,604 distinct pairs. **`ukwa_link_target` has no such sibling and is excluded.**
+Its only relative is `ukwa_link_source`, which dates the page doing the linking and not the page linked
+to, so promoting a link-graph edge would assert precisely what the `link_target` class exists to forbid.
+`uucp_map_mention` and `page_expansion` are excluded for the same reason.
 
 **I verified it myself rather than taking the agent's word, and the verification changed the number.**
 My independent query reproduced 159,952 pairs exactly. Then a negative control cut it:
