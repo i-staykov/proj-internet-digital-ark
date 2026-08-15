@@ -8415,3 +8415,28 @@ locally and the copy is pulled on a check, so at any moment the newest finished 
 over there. **The reason to fetch it anyway is that the machine is private and the VPN is not always
 up**, so the cheap move is always to take whatever is available while the window exists rather than to
 reason about whether it matters.
+
+## 2026-08-15: the RDAP sweep was five batches from stopping, and my estimate of what is left was 3.9x optimistic
+
+Checked how far through its list the registry sweep is: **27,358 of 149,816 targets left, 18.3%**, about
+five batches. `rdap_pool_sweep.sh` **stops when its list runs out**, so it would have gone quiet around
+21:00 tonight with twenty hours still to run, and nothing would have reported that as a fault because a
+finished sweep looks exactly like a healthy one that has nothing to do.
+
+**So the TLD set is widened, in the generator rather than in the file**, which is this morning's lesson
+applied: `discover_cycle.py` rebuilds that list hourly, so editing the list alone would have lasted an
+hour. Five TLDs had a measurable in-window rate when the restriction was written; **122,458 queries later,
+twelve do.** `.sg` is the pick at 28.6% in-window on weight 0.9476. `.uk` stays out for Nominet's terms
+rather than for arithmetic.
+
+**And my own estimate of the remaining value was wrong by 3.9x, which is the part worth recording.** From
+the journals I priced the non-`.uk` remainder at **3,648 EE**. The builder, which owns this calculation
+and has been calibrated against exactly the failure I was reproducing, prices the rebuilt 46,590-target
+list at **931 EE, 0.020 per query.** The gap is that I used raw per-TLD rates while the builder applies
+its minimum-sample rule and its fabricated-namespace discriminator. **When a tool exists for a
+calculation, its number is the number**, and a quick query that disagrees with it is evidence about the
+query.
+
+So the honest position: the sweep keeps working for roughly fifteen more hours and will return about
+**931 EE, 0.015 points**. That is worth having because registry queries cost the archive nothing, and it
+is not worth more than that. Loop restarted so the running copy carries the wider set.

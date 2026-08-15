@@ -103,13 +103,14 @@ DERIVED = (
     ),
     # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
     # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
-    # journal prefix: the alarm stays quiet about the list in use. Restricted to the five
-    # TLDs with a measured in-window rate, because the builder falls back to the pool-wide
-    # rate where it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com`
-    # for a measured 1 in-window date in 97 queries.
+    # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
+    # a measured in-window rate, because the builder falls back to the pool-wide rate where
+    # it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com` for a measured
+    # 1 in-window date in 97 queries. Five TLDs qualified when this was written and twelve
+    # do now, which is why the set lives in one place rather than in a comment.
     (
         "data/raw/rdap/pool_targets_measured.txt",
-        "build_rdap_pool_list.py --tlds com,net,org,ca,nl",
+        "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
         "candidates",
     ),
     # The mixed queue, kept because a shard of it may still be in flight on a

@@ -338,6 +338,14 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
             # in-window rate, because the builder falls back to the pool-wide rate where
             # it has no sample, and a high English share then floats namespaces nobody
             # registered in to the head of the queue.
+            #
+            # **Widened on 2026-08-15 as the sweep neared exhaustion.** The first five were
+            # the only TLDs with a sample when this was written; 122,458 queries later,
+            # seven more have one. `.sg` is the pick of them at 28.6% in-window on weight
+            # 0.9476. The others are small, and the reason to add them is not their yield
+            # but that `rdap_pool_sweep.sh` STOPS when its list runs out, which would have
+            # ended RDAP's contribution entirely with 20 hours still to run.
+            # `.uk` stays out: Nominet, not arithmetic.
             _o, ok = run(
                 [
                     "uv",
@@ -345,7 +353,7 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     "python",
                     "scripts/build_rdap_pool_list.py",
                     "--tlds",
-                    "com,net,org,ca,nl",
+                    "com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
                     "--limit",
                     "400000",
                     "--out",
