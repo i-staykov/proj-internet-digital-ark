@@ -38,6 +38,24 @@ The corroboration split, not the extraction pattern, is the wall that keeps a ba
 annual files. That is why widening recall over a human-authored corpus is safe and widening it over a
 self-dating one is not.
 
+**The trap inside "what dates one item" is not an absent date, it is a date that dates the wrong thing.**
+A source with no date at all is easy to refuse. A source carrying a plausible date next to a hostname is
+the one that gets ingested and is wrong, so the question has a sharper form: **a per-entity date is not a
+per-field date.** Ask what the date attaches to, and refuse it unless it attaches to the observation being
+borrowed. Four instances, each found separately before the pattern was named:
+
+- **the dated-dataset fallacy**: a per-entity current-state row, read as dating an address it merely
+  carries today
+- **MARC 856**: a catalogue record entered in 1998 may have acquired its URL field in 2005, so the
+  record's creation date dates the record and not the link
+- **a trademark filed on an intent-to-use basis**: evidences an intention, not a live domain, and only a
+  use-in-commerce filing with a dated specimen says the site existed
+- **Netcraft**: a name printed on a page captured in 1999, where the capture dates the *page* and the
+  inference from listing to liveness is the step that failed, measured
+
+A useful test: if the source were re-published tomorrow with today's date, would the item's date change?
+If yes, the date belongs to the container and not to the observation.
+
 ## 2. The acceptance bar
 
 A source is worth building a collector for when all three hold:

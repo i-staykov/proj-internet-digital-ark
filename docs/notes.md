@@ -8682,3 +8682,25 @@ The only safe subset would be records whose last-transaction date (MARC 005) is 
 nothing has touched them since, which is a small residue of a population already skewed toward journals
 and institutional sites. Closed on that basis rather than on availability, and the entry says reopen only
 on per-field provenance, which MARC does not carry.
+
+## 2026-08-15: promoted the per-field date rule into section 1, where it is read before a source is proposed
+
+The hazard has appeared four separate times in this project and was named only yesterday, in a log that
+is 7,600 lines long. It now sits in `discovery.md` section 1, immediately after the corroboration split,
+because that section is what a pass reads *before* proposing anything and the trap is exactly the kind
+that survives a careless reading of "does each item carry its own date?".
+
+**The sharpened form: a per-entity date is not a per-field date.** A source with no date is easy to
+refuse; a source carrying a plausible date next to a hostname is the one that gets ingested and is wrong.
+The four instances are listed so the pattern is visible rather than asserted: the dated-dataset fallacy,
+MARC 856 records that acquired their URL years after entry, trademarks filed on an intent-to-use basis,
+and Netcraft, where the capture dates the page and the inference from listing to liveness is what failed.
+
+**And a test that can be applied in one sentence**, which is what the section needed and did not have:
+*if the source were re-published tomorrow with today's date, would the item's date change?* If yes, the
+date belongs to the container rather than to the observation. That separates a capture timestamp and a
+registry creation date, which would not move, from a catalogue record and a survey page, which would.
+
+Three rules have been promoted from the log into the method this round: ask the disk before the network,
+the IA-derived rule with its bulk-index exception, and now this. Each was paid for two or three times
+before being written where it would be read.
