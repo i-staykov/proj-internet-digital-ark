@@ -8280,3 +8280,27 @@ already worked.
 **The wake's own lesson: I nearly spent archive requests on a question the disk could answer.** The
 instinct to reach for the network before the store is the same one that cost two requests re-deriving a
 register entry yesterday, and free evidence has now beaten paid evidence three times in two days.
+
+## 2026-08-15: promoted "ask the disk first" from the log into the method
+
+The lesson has now paid three times in two days and it lived only in `notes.md`, which is 7,000 lines and
+grep-only. `discovery.md` is what a pass actually reads before proposing a source, so it is now section
+4a there, with the three cases as evidence rather than as advice:
+
+- **blocklists**: the domain-bearing half was 13 `news.admin.net-abuse.*` groups on disk, 173,526 rows
+  over 168,075 domains
+- **the domain aftermarket**: four `alt.domain-names.*` groups on disk, 36,425 rows over ~32,685 domains,
+  and measuring them moved the lead from potential 40 to 22
+- **the CA Domain Registry**: `can.domain.mbox.zip`, already held, 37,578 `Date-Approved:` fields
+
+**The general form is the part worth keeping**: a question about a *population* is usually cheaper to
+answer than a question about a *source*. "Do names of this kind earn years?" is one query against the
+store. "Does this website still exist?" costs a request and answers a worse question. And the store
+answers honestly about overlap, which is the number that decides everything here and the one a fetch never
+tells you.
+
+The section closes with the corollary that has cost the most this round, all three instances of it in one
+line: **`LIMIT 4` is not a census, a heading is not a schema, and a maximum index is not a count.**
+
+Placed as 4a rather than appended, because it belongs immediately after "measure against the store" and
+before "check it is not already dead": the order of the sections is the order of the work.

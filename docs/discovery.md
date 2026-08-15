@@ -126,6 +126,30 @@ actually be downloaded, never on its upstream.
 Where an estimate is unavoidable, **label it in the same sentence as the number**. Most figures in
 this project are measurements, which is exactly what makes an unlabelled projection dangerous.
 
+## 4a. Ask the disk and the store before asking the network
+
+**Three times in two days a question that looked like it needed a fetch was answered for free**, so this
+is a step rather than an instinct. Before spending a request on a lead, ask whether 411 GB of Usenet, the
+rest of `data/raw/`, or the store itself already contains the answer.
+
+- **Anti-spam blocklists**, 1997-2001. Looked like a fetch. Every in-window list is IP-based, so there was
+  nothing to extract, and the domain-bearing version of the idea, spam sightings, was already ingested:
+  13 `news.admin.net-abuse.*` groups on disk, **173,526 evidence rows over 168,075 domains**.
+- **The domain aftermarket.** Queued as needing archived listing pages and Wayback requests we could not
+  spare. `alt.domain-names.forsale`, `.registries`, `.wanted` and `.disputes` are on disk and ingested:
+  **36,425 rows over about 32,685 domains**. The population was measurable for nothing, and the
+  measurement moved the lead from potential 40 to 22.
+- **The CA Domain Registry.** Found as a hunt for archived daily registration lists; it is
+  `can.domain.mbox.zip`, already held, carrying 37,578 `Date-Approved:` fields.
+
+The general form: **a question about a population is usually cheaper to answer than a question about a
+source.** "Do names of this kind earn years?" can be asked of the store in one query; "does this website
+still exist?" costs a request and often answers a worse question. The store also answers honestly about
+overlap, which is the number that decides everything here and the one a fetch never tells you.
+
+And the corollary that cost the most: `LIMIT 4` is not a census, a heading is not a schema, and a
+maximum index is not a count. Ask the whole file.
+
 ## 5. Before proposing a source, check it is not already dead
 
 `sources.md` has a rejected register: each entry names the measurement that closed it and, where one
