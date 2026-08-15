@@ -917,6 +917,16 @@ Decision: pending
 
 Decision: pending
 
+### wayback_longitudinal_url_sample / cdx_timestamp
+
+- potential: 45 (unverified availability, honest ceiling below; found by SEARCHING rather than by reasoning from shapes, which is the first time that method has produced anything this round)
+- what it is: the dataset behind arXiv 2507.14752, "Longitudinal Sampling of URLs From the Wayback Machine": TimeMaps for **27.3 million unique URLs over 3.8 billion archived pages, 1996 to 2021**, built by sampling IA's holdings along first-archive time, MIME type, URL depth and TLD, then log-downsampling over-represented domains like Yahoo.
+- what dates one item: each URL's **time of first capture**, which the authors queried from the CDX API. Self-dating `cdx_timestamp`, master-eligible, no corroboration split.
+- why it is the right shape: it is a **different projection of Internet Archive holdings delivered in bulk**, which `discovery.md` section 4 names as the one exception to the IA-derived rule, and the same shape as the UK link graph that measured 90.4%. It would convert per-domain queries into a file read.
+- the honest ceiling, and it is much lower than 27.3M suggests: the authors targeted 1 million URLs per year but found 1996-2001 so sparse that they **clustered the whole range and collected 1.2 million URLs for it**. So the in-window slice is ~1.2M URLs, perhaps 300,000 to 500,000 registrable domains before any overlap against the 8.26M we hold.
+- **the ZipNum route is separately closed**: the paper samples IA's ZipNum index, every 6000th line of the CDX index, which is internal infrastructure served through the CDX API rather than a public file. There is no bulk index to download there, only the per-domain API we already query.
+- next step: establish whether the 27.3M-URL dataset is published on a non-IA host (Zenodo, GitHub, ODU's WS-DL group). If it is, price the in-window slice. **Do not probe it through web.archive.org**, which is refusing us.
+
 ### uspto_tm_marktext / dated_directory
 
 - potential: 40 (dated filings, but a trademark text is only sometimes a domain and the safe class reading takes the corroboration split, which historically removes most of the net-new part)
