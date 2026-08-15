@@ -125,9 +125,12 @@ crawlable trail, so its domains should escape a capture-derived baseline; two th
 escape it. A domain that trades for months gets captured whatever channel advertised it. **The dockets
 win because a typosquat is taken down before a crawler arrives**, not because nobody was promoting it.
 
-So the question to ask of a candidate source is **how long did the domains it names survive**, and the
-best sources name domains that died young: disputes, seizures, defacements, abandoned registrations.
-Obscurity is not the axis; lifetime is.
+So the question to ask of a candidate source is **did the domain die before a crawler arrived**, and
+both halves matter. A dot-com deadpool names companies that failed, which passes the lifetime half and
+fails the other: a funded startup ran a marketing budget for eighteen months and was captured many times
+before it folded. A typosquat withdrawn after a complaint was never captured at all. **Short life is
+necessary and not sufficient; what pays is short life plus low traffic**, which is why disputes,
+seizures, defacements and abandoned registrations pay and celebrated failures do not.
 
 The sharpest form of that rule, and the one to ask first: **a source whose purpose is to make a site
 known cannot contain sites nobody knew.** Announcement feeds, directories, award galleries and
