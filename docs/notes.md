@@ -8704,3 +8704,29 @@ registry creation date, which would not move, from a catalogue record and a surv
 Three rules have been promoted from the log into the method this round: ask the disk before the network,
 the IA-derived rule with its bulk-index exception, and now this. Each was paid for two or three times
 before being written where it would be read.
+
+## 2026-08-15: Sunday's wake would have shipped without the promotion even if it had been approved
+
+Found a real gap in the plan rather than in the code. The final-wake instructions ran: check the
+collectors, `just ship`, refresh the figures, hand over. **They never mentioned the promotion.** So if Ivo
+approved it on Saturday night or Sunday morning, the wake would have exported the store without banking
+it and shipped at about 2.3% while a decided +1.11 points sat unused on disk.
+
+The ordering is the whole point: banking has to happen **before** the export, because `just ship` exports
+first and everything downstream reads that export. A decision that arrives after the export is a decision
+that arrives too late, and nothing in the instructions said so.
+
+Rewritten as step 0, ahead of the collector check:
+
+- read `key-decisions.md` and act **only on an explicit answer**
+- if the promotion is approved, run the builder with `--write`, then the `ark ingest` lines it prints,
+  then `ark check`, all before `just ship`
+- **if he has not answered, do not bank it and do not treat silence as approval**, ship without it and say
+  so plainly in the handover
+- same rule for the Nominet, USAC and local-engine entries
+
+The instruction not to read silence as consent is deliberate. A wake at 18:03 on the last evening, with a
+gap of three points and a script that could close a third of it in ten minutes, is exactly the situation
+where an unattended agent talks itself into a decision that was never given.
+
+Cron replaced: `2a1ff17f` deleted, `cda92e58` created for the same 18:03 Sunday slot.
