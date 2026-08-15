@@ -13,22 +13,40 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **207,397** |
-| Over unique domains | 189,306 |
-| Domains absent from the baseline in every year | **149,620** |
-| Equivalent-English added | **128,915.9** |
-| Growth on the 6,226,386.4 baseline | **2.0705%** |
-| Mean equivalent-English weight per pair | 0.6216 |
+| Net-new (domain, year) pairs | **207,857** |
+| Over unique domains | 189,722 |
+| Domains absent from the baseline in every year | **149,810** |
+| Equivalent-English added | **129,242.6** |
+| Growth on the 6,226,386.4 baseline | **2.0757%** |
+| Mean equivalent-English weight per pair | 0.6218 |
 
 | Year | merged260810, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 648,313 | 5,908 | 7 (0.1%) |
-| 1997 | 1,340,527 | 43,542 | 180 (0.4%) |
-| 1998 | 1,147,924 | 16,483 | 1,621 (9.8%) |
-| 1999 | 1,797,655 | 33,385 | 7,572 (22.7%) |
-| 2000 | 1,806,813 | 58,097 | 18,491 (31.8%) |
-| 2001 | 2,990,654 | 49,982 | 27,436 (54.9%) |
-| **Total** | **9,731,886** | **207,397** | **55,307 (26.7%)** |
+| 1996 | 648,313 | 5,909 | 7 (0.1%) |
+| 1997 | 1,340,527 | 43,552 | 182 (0.4%) |
+| 1998 | 1,147,924 | 16,516 | 1,638 (9.9%) |
+| 1999 | 1,797,655 | 33,521 | 7,661 (22.9%) |
+| 2000 | 1,806,813 | 58,291 | 18,621 (31.9%) |
+| 2001 | 2,990,654 | 50,068 | 27,470 (54.9%) |
+| **Total** | **9,731,886** | **207,857** | **55,579 (26.7%)** |
+
+**Against the 5% expected for this round, that is short, and the reason is measurable rather than
+rhetorical.** 5% of the current baseline is 311,319.32 equivalent-English. The binding constraint this
+round was not the supply of candidates and not the evidence rules: it was **request throughput against a
+single archive**. Roughly 2.5 million candidate names sit unqueried: measured on 15 August 2026, 212,394
+of them had ever been asked, because the two collectors together clear about 975 requests an hour and the
+archive was that day refusing 437 of 600 queries from the busier one, holding it at its maximum back-off
+of three seconds. Those three figures are a dated snapshot rather than a standing rate, which is why they
+are given with a date. Raising concurrency is the
+one lever that would close the gap arithmetically, and it is the one lever that risks losing the archive
+altogether, which would cost far more than a round.
+
+**The families that could have supplied a step change were searched and closed on measurement, not
+assumed away**: historical zone files and bulk registry snapshots, research web crawl collections,
+national web archives, and bulk archive indexes. Two of those closures are recorded as permanent. The
+honest summary is that a corpus of this maturity grows by re-examining what it already holds and by
+patient querying, and that a fivefold increase in a week would have required a bulk index that we
+established does not exist in reachable form.
 
 ## 2. How these were found
 
@@ -114,14 +132,14 @@ naming the wrong year, and the source entered only after that was corrected.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 96,344 | 60,258.5 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 55,101 | 46,146.4 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 96,534 | 60,393.4 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 55,371 | 46,338.2 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 42,299 | 14,956.4 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 7,837 | 4,763.2 |
 | `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 5,816 | 2,791.4 |
-| **Total** | | | | **207,397** | **128,915.9** |
+| **Total** | | | | **207,857** | **129,242.6** |
 
-**All 5 are master sources, so all 207,397 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 5 are master sources, so all 207,857 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -176,7 +194,7 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-Beyond that, 248 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8294 distinct sources on average.
+Beyond that, 250 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.8294 distinct sources on average.
 
 ## 5. How to reproduce
 

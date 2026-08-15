@@ -7637,3 +7637,25 @@ verbatim: "`collection:webarchivedatasets` exactly 8 items with only the two alr
 Two requests spent re-deriving a recorded answer. `discovery.md` section 5 says reading the register is
 the cheapest step in the process, and I probed first. The register was right, it was current, and it was
 not consulted.
+
+## 2026-08-15: the report did not mention the target it is judged against
+
+The report reported growth as a bare number and never named the 5% expectation. Delivering about 2.5%
+against a target of 5% without saying so reads as either oblivious or evasive, and both are worse than
+the shortfall. Section 1 now states it directly, after the figures and before the method.
+
+**The paragraph is measurement rather than excuse**, which is the only version worth writing. The binding
+constraint was not candidate supply and not the evidence rules but **request throughput against a single
+archive**: about 2.5M names unqueried, 212,394 ever asked, both collectors clearing roughly 975 requests
+an hour, and the archive refusing 437 of 600 queries from the busier one at its three-second ceiling.
+Raising concurrency is the only lever that closes the gap arithmetically and the one that risks losing
+the archive, which costs more than a round. The families that could have supplied a step change are named
+as searched and closed on measurement: zone files and registry snapshots, research crawl collections,
+national archives, bulk archive indexes.
+
+**Two corrections to my own paragraph before it could ship.** The throughput figures are a dated snapshot
+rather than a standing rate, so they now carry the date and say so; a hand-written number in a generated
+report is exactly how a document goes stale while looking authoritative, and `fill_report.py` cannot
+refresh what it does not own. And I typed **2025** for the year of the measurement in a document about
+1996-2001 growth measured in 2026, which would have put a wrong date in front of the reviewer. Caught by
+re-reading the rendered output rather than the diff.

@@ -22,6 +22,24 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 [PER_YEAR_TABLE]
 
+**Against the 5% expected for this round, that is short, and the reason is measurable rather than
+rhetorical.** 5% of the current baseline is 311,319.32 equivalent-English. The binding constraint this
+round was not the supply of candidates and not the evidence rules: it was **request throughput against a
+single archive**. Roughly 2.5 million candidate names sit unqueried: measured on 15 August 2026, 212,394
+of them had ever been asked, because the two collectors together clear about 975 requests an hour and the
+archive was that day refusing 437 of 600 queries from the busier one, holding it at its maximum back-off
+of three seconds. Those three figures are a dated snapshot rather than a standing rate, which is why they
+are given with a date. Raising concurrency is the
+one lever that would close the gap arithmetically, and it is the one lever that risks losing the archive
+altogether, which would cost far more than a round.
+
+**The families that could have supplied a step change were searched and closed on measurement, not
+assumed away**: historical zone files and bulk registry snapshots, research web crawl collections,
+national web archives, and bulk archive indexes. Two of those closures are recorded as permanent. The
+honest summary is that a corpus of this maturity grows by re-examining what it already holds and by
+patient querying, and that a fivefold increase in a week would have required a bulk index that we
+established does not exist in reachable form.
+
 ## 2. How these were found
 
 This round the method was the work, so it is reported before the sources are.
