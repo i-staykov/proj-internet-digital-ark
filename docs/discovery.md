@@ -111,6 +111,24 @@ cost real hours:
   corroboration split. Quoting the raw figure would have overstated the source 24-fold. **Always
   quote the post-split number.**
 
+**What actually predicts net-new is how long the domain lived, not how obscure it was.** Three sources
+measured on the same store settle it, and they disagree with the obvious story:
+
+| source | what it names | net-new |
+|---|---|--:|
+| UDRP dispute dockets | a name someone sued over, often a typosquat withdrawn within weeks | **87.7%** |
+| a spam archive | a name advertised by email, which leaves no crawlable link | 33% |
+| `net-happenings` | a name announced in a promotion feed | **2%** |
+
+The middle row is the informative one. Spam was proposed here on the reasoning that email creates no
+crawlable trail, so its domains should escape a capture-derived baseline; two thirds of them did not
+escape it. A domain that trades for months gets captured whatever channel advertised it. **The dockets
+win because a typosquat is taken down before a crawler arrives**, not because nobody was promoting it.
+
+So the question to ask of a candidate source is **how long did the domains it names survive**, and the
+best sources name domains that died young: disputes, seizures, defacements, abandoned registrations.
+Obscurity is not the axis; lifetime is.
+
 The sharpest form of that rule, and the one to ask first: **a source whose purpose is to make a site
 known cannot contain sites nobody knew.** Announcement feeds, directories, award galleries and
 promotion lists all exist to publicise, so anything they name was publicised, so a crawler found it, so
