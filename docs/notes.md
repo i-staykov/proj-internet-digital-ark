@@ -8578,3 +8578,26 @@ This is the second document this round where a dated hand-written number needed 
 that ages, after the report's throughput paragraph became a trend instead of a snapshot. **A generated
 document cannot go stale and a hand-written one always does**, so where a figure cannot be generated, the
 next best thing is to write it so that being out of date does not make it wrong.
+
+## 2026-08-15: followed the new lead to its end, and the answer is that the data is not published
+
+Named a next step last wake and did it rather than leaving it in the queue to look like progress.
+
+**The 27.3M-URL Wayback sample is not downloadable.** The ODU WS-DL GitHub organisation has five relevant
+repositories and none is the dataset: `MemGator`, `tmvis`, `off-topic-memento-toolkit`, `hypercane`, and
+`SampleURLs`, whose last push was **2017**, eight years before the paper. The only in-window artefact in
+any of them is `SampleURLs/OlderAlexaFourtuneAddClickLists`, Alexa and Fortune top-site lists, which is
+authority selection and tiny, and closed by rule without measuring it.
+
+**And the ZipNum route, which was the more exciting half, is internal.** Every 6000th line of the CDX
+index, served through the API rather than published as a file. There is no bulk index to fetch; there is
+the per-domain API we already query 700 times an hour.
+
+Five requests, none to `web.archive.org`, which is refusing us. Entry lowered from potential 45 to **28**
+and reworded: **it is a lead about a paper rather than a lead about data**, and the distinction is the
+useful part of the entry. The remaining route is a data-availability statement in the IEEE version or an
+e-mail to the authors, which is a later round's business.
+
+**The method result stands even though the lead did not.** Searching found something reasoning had not,
+and the reason is plain: I had been enumerating source *shapes* from memory, and memory does not contain
+a paper published last month. That is worth keeping regardless of how this particular one ended.
