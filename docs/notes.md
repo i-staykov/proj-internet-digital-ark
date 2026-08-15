@@ -8097,3 +8097,30 @@ owns the ordering; 49 entries, highest first, `--check` clean.
 Worth noting which safeguard caught it. Not the ordering tool, which I did not think to run, and not me
 re-reading the file. **The gate refused the commit**, which is exactly the argument for having made it a
 hook on 2026-08-13 rather than a rule to remember, after the rule was broken twice in one round.
+
+## 2026-08-15 10:00: throttles doubled again, and the citizenship trade is now worth stating
+
+The newest finished local batch: **600 queries, 1,830 throttles, 188 outright failures (31%), the delay
+pinned at 3.0s.** Throttles have doubled since this morning's 896 and quadrupled since yesterday's 417.
+
+**The queue is not the problem and the batch proves it.** Of the 412 queries that were answered, **312
+carried a capture, 75.7%**, which is the best hit rate this engine has recorded. The candidates are good.
+A third of the questions never get an answer.
+
+**The arithmetic that makes this worth raising rather than just recording.** To get 412 answers the engine
+generated roughly 2,430 HTTP requests. Over the 30 hours to delivery the local engine is worth about
+450 requests an hour at 0.39 equivalent-English each, so **its entire remaining contribution is around
+5,300 EE, or 0.085 percentage points.** That is the return we are buying with three throttled requests per
+answer against an archive that has refused this project outright three times, and that refused a second,
+entirely legitimate client from this host every one of 12 attempts today.
+
+**I am not changing it, and the reason is not confidence.** Every lever is tested: fewer workers measured
+worse, a shorter timeout is measured and rejected in `cdx.py`, and the 3.0s delay ceiling is itself a
+deliberate throughput-over-politeness choice made on 29 July when a 5s pin dropped a run to 240 domains an
+hour. Raising the ceiling is the one untried move and it is untried because the project already measured
+what it costs.
+
+So this is a values question rather than a technical one: **0.085 points against a load profile that is
+visibly antisocial**, on a standing rule that is Ivo's, not mine. Recorded here and flagged to him. The
+VPS is on a different host, so stopping the local engine would not touch the 84.5%-hit engine that is
+doing the better work anyway.
