@@ -121,6 +121,7 @@ SKIP_HOSTS = {
 # which is how a reader is trained to skip it. These strings are matched against the
 # 2 KB the probe already reads, so the detection is free.
 PARKED_MARKERS = (
+    # a squatter or a consent wall
     "gdprappliesglobally",
     "consentmanager.net",
     "sedoparking",
@@ -132,11 +133,31 @@ PARKED_MARKERS = (
     "domain is for sale",
     "buy this domain",
     "this domain is parked",
+    # a bot wall, which answers 200 and is equally not a source. Added 2026-08-15 after
+    # the New Zealand National Library entered the rotation and immediately reported
+    # "NOW ANSWERS, UNEXPECTED" on two hosts: both serve a 952-byte Incapsula block page
+    # under HTTP 200. The register had recorded exactly that and the checker could not
+    # see it, because the first version of this list only knew about parking.
+    "incapsula incident",
+    "_incapsula_resource",
+    "request unsuccessful",
+    "attention required!",
+    "cloudflare",
+    "just a moment",
+    "checking your browser",
+    "access denied",
+    "are you a robot",
 )
 
 
 def looks_parked(body: bytes) -> bool:
-    """Whether the first bytes of a response look like a parking or consent page."""
+    """Whether the response answered with something that is not content.
+
+    Two families, one question. A parking page and a bot interstitial both return HTTP
+    200 and neither is a source, so a re-probe that reads only the status reports both as
+    revivals. The name is historical: it started as parking detection and the bot walls
+    were added when one got through.
+    """
     text = body.decode("utf-8", "ignore").lower()
     return any(marker in text for marker in PARKED_MARKERS)
 
@@ -275,6 +296,12 @@ def main() -> None:
         for e in register
         if e.closed_on == "availability"
     ]
+    # **Named before filtering, because the ones with no URL are the finding.** This tool
+    # exists to re-ask availability closures automatically, and on 2026-08-15 it covered
+    # 8 of 20 while `just cycle` reported "0 answering unexpectedly", which reads as all
+    # 20 checked. A check that is silent about its own coverage is the same defect as an
+    # alarm that cries wolf, inverted: it reports clean over a population it never saw.
+    uncovered = [lead for lead in leads if not lead.urls]
     leads = [lead for lead in leads if lead.urls]
     if args.limit:
         leads = leads[: args.limit]
@@ -282,6 +309,13 @@ def main() -> None:
     n_avail = sum(1 for e in register if e.closed_on == "availability")
     print(f"{len(register)} closed leads, {n_avail} closed on availability,")
     print(f"of which {len(leads)} name a URL that can be re-asked.\n")
+    if uncovered:
+        print(f"  {len(uncovered)} CANNOT be re-probed: their verdicts name no URL or host.")
+        print("  That is a gap in this check, not a clean result. Add a backticked host")
+        print("  or URL to the verdict and they join the rotation.")
+        for lead in uncovered:
+            print(f"    sources.md:{lead.line}  {lead.name[:74]}")
+        print()
 
     results: list[Probe] = []
     for lead in leads:
@@ -307,7 +341,7 @@ def main() -> None:
             )
             results.append(probe)
             if answers and parked:
-                mark = "parked page, not a source"
+                mark = "parked or blocked, not a source"
             elif answers and foretold:
                 mark = "answers, as the verdict said"
             elif answers:

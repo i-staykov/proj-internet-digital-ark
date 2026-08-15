@@ -8768,3 +8768,33 @@ exactly the kind of figure someone repeats from memory.
 
 The reviewer asked for the two outcomes to be tracked separately, so a shifting ratio between them is
 something he will look at rather than skim.
+
+## 2026-08-15: the re-prober was covering 8 of 20 leads and reporting clean
+
+Chased a search result claiming the New Zealand Web Archive holds material from 1999, which would be in
+window. The register already knew: closed on **availability**, an Imperva bot interstitial, with the note
+that harvesting began in 1999. Closed on the right grounds. But following it up found something worse
+than a stale entry.
+
+**`reprobe_closed.py` re-probes 8 of the 20 availability closures, and says nothing about the other 12.**
+It extracts hosts from verdict prose, so a verdict that names no backticked host is invisible to it, and
+`just cycle` then reports "0 availability-closed leads answering unexpectedly" as though all 20 were
+checked. That is the crying-wolf failure inverted: **a check that reports clean over a population it
+never saw.** New Zealand had been in that blind spot, and among the other eleven are the UKWA bulk CDX,
+the Alexa crawl items, the post-July-1997 ISC lists and the Yahoo Directory, which are not minor entries.
+
+Fixed by making the tool name its own gap: it now prints the count and every uncovered lead with its line
+number, and says plainly that this is a gap rather than a clean result. Added the two hosts to the New
+Zealand entry, which took the uncovered count from 12 to 11.
+
+**And New Zealand immediately reported "NOW ANSWERS, UNEXPECTED" on both hosts, which was also wrong.**
+Both serve a **952-byte Incapsula block page under HTTP 200**. The parked-page detector I added yesterday
+could not see it, because it knew about squatters and consent walls and not about bot walls. Extended:
+Incapsula, Cloudflare, "just a moment", "checking your browser", "access denied", "are you a robot". Two
+tests pin it, and the label is now "parked or blocked, not a source", which is the honest description of
+both families.
+
+**So three checks in three days have each been found reporting the opposite of the truth**, and the
+pattern across them is one thing: each read a proxy for the answer rather than the answer. A PID instead
+of progress, a status code instead of a body, a filtered list instead of a population. The fix each time
+was to make the instrument report what it could not see.

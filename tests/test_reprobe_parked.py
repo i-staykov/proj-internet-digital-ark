@@ -36,3 +36,15 @@ def test_a_real_directory_listing_is_not_parked() -> None:
 def test_detection_is_case_insensitive_and_survives_bad_bytes() -> None:
     """A truncated 2 KB read can cut a multi-byte character in half."""
     assert reprobe.looks_parked(b"\xff\xfe<HTML>SEDOParking\xc3")
+
+
+def test_a_bot_interstitial_is_not_a_revival() -> None:
+    """The case that exposed the gap: New Zealand's National Library answers HTTP 200 on
+    two hosts and serves a 952-byte Incapsula block page on both. The register had already
+    recorded that verdict; only the checker could not see it."""
+    body = b"<html><body>Request unsuccessful. Incapsula incident ID: 65600015-771715</body></html>"
+    assert reprobe.looks_parked(body)
+
+
+def test_a_cloudflare_challenge_is_not_a_revival() -> None:
+    assert reprobe.looks_parked(b"<title>Just a moment...</title>Checking your browser before")
