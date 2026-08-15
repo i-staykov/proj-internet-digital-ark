@@ -7754,3 +7754,29 @@ downside it avoids is losing both engines 32 hours before a delivery.
 
 Stopped child-first, which is the orphan trap this round already paid for once, and the supervisor needed
 a `-9` after the ordinary kill left it running.
+
+## 2026-08-15: the early read on the back-off is bad, and I may have diagnosed it wrong
+
+Held myself to the falsifiable prediction from the previous entry and checked. **The first 4-worker batch
+is running at about 170 requests an hour against the 378 it replaced.** That count is a floor rather than
+a measurement, because the last gzip block of an in-flight journal is unflushed and only 37 records were
+decodable at 13.2 minutes, but the direction is clear enough to take seriously.
+
+**A hypothesis I should have considered before acting.** I attributed the collapse to concurrency
+pressure, on the reasoning that more workers draw more refusals. But the previous batch lost **101
+requests to `failed_0`**, which is a connection failure or timeout, and the timeout is **70 seconds**.
+101 failures at up to 70 seconds each is roughly 7,000 worker-seconds of dead time. If the batch is
+**timeout-bound rather than throttle-bound**, then worker count is the wrong knob entirely and halving it
+halves throughput directly, because each worker spends most of its life waiting on a socket that will
+never answer. The correct lever for that failure is a **shorter timeout**, not fewer workers.
+
+Both stories fit the same evidence I used, which is the problem: rising refusals and falling throughput
+are equally consistent with "we are pushing too hard" and with "a growing share of requests hang until
+they time out". I picked one and acted on it without a measurement that could separate them.
+
+**Not changing anything again until this batch finishes.** Thrashing a collector on a partial read is how
+a tuning decision becomes two, and the stated criterion was two batches. What will separate the
+hypotheses when the batch lands is `failed_0` per 600: if it stays near 101 the problem is hanging
+sockets and the timeout comes down to about 25 seconds; if it falls sharply then concurrency really was
+the pressure and 4 workers was right. Recording the discriminator now, before the data, so the answer
+cannot be fitted to whichever result arrives.
