@@ -8059,3 +8059,41 @@ answers in the document.
 
 Added to the Sunday checklist as the one paragraph to re-read before sending, precisely because a stale
 hand-written number would sit beside generated ones and look equally authoritative.
+
+## 2026-08-15: the domain aftermarket, screened, queued and deliberately not probed
+
+Screened the 1999-2001 domain aftermarket, GreatDomains and early Afternic. The screener raised two
+collisions and **neither is the population**: a zone file is a registry dump, a Netcraft page is a survey
+of live servers, and a for-sale listing is marketplace inventory. Recorded that distinction beside the
+proposal, which is what the screener asks for.
+
+**It has the property the register keeps rewarding.** A speculative or parked name is registered and was
+never built out, so no crawler captured it, which is precisely why the dispute dockets measured 87.7%
+net-new, the highest of any source assessed here.
+
+**And it has the property that killed Netcraft, more strongly.** Netcraft's names failed the
+contemporaneity test: a name printed on a page captured in 1999 was no likelier to hold a 1999 capture
+than a name with no claim to 1999 at all. A parked for-sale domain has *less* to capture than a surveyed
+live server, so the same instrument would very likely reject it as master too. The honest expectation is
+candidate-only, which is pool growth, and the pool is not the constraint.
+
+**Not probed, and the reason is not caution but arithmetic.** Pricing it needs Wayback requests, and the
+archive is currently refusing about a third of our collector's. Spending requests on a lead whose most
+likely outcome is candidate-only, while the engine that produces actual equivalent-English is being
+refused, is the wrong trade. Queued at potential 40 with the next step named: run the three-instrument
+test that settled Netcraft **before** any extraction, not after.
+
+That ordering is the lesson from Netcraft itself, where the extraction was faithful and it was the
+inference from listing to liveness that failed. Extracting first would have produced a large, correct,
+worthless number.
+
+**Postscript, same entry.** The commit was refused by the pre-commit hook: `test_the_live_queue_is_in_order`
+failed, because I appended the new entry at the head of the section and a potential of 40 landed above an
+88. That test exists for Ivo's instruction of 2026-08-12, "always sort the open sources by potential, such
+that I sign-off more promising sources first", and it checks the **live file** rather than a fixture, so a
+hand edit that breaks the order fails the suite. Fixed by running `rank_triage.py`, which is the tool that
+owns the ordering; 49 entries, highest first, `--check` clean.
+
+Worth noting which safeguard caught it. Not the ordering tool, which I did not think to run, and not me
+re-reading the file. **The gate refused the commit**, which is exactly the argument for having made it a
+hook on 2026-08-13 rather than a rule to remember, after the rule was broken twice in one round.

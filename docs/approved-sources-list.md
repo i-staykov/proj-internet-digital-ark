@@ -917,6 +917,16 @@ Decision: pending
 
 Decision: pending
 
+### domain_aftermarket_listings_1999_2001 / artifact_listing
+
+- potential: 40 (unpriced, and deliberately so: pricing it needs Wayback requests I am not willing to spend while the archive is refusing about a third of our collector's)
+- what it is: the 1999-2001 domain aftermarket, principally GreatDomains.com and early Afternic. Marketplace inventory: machine-generated lists of names offered for sale, with listing dates.
+- where: archived listing pages. Not fetched.
+- what dates one item: the capture date of the listing page, so `artifact_listing` in shape.
+- why it is not the two leads it collided with: the screener flagged the zone-file family (2 shared terms) and Netcraft (1). **Neither is this population.** A zone file is a registry dump, a Netcraft page is a survey of live servers, and a for-sale listing is a marketplace inventory. The interesting property is the one the register keeps rewarding: a speculative or parked name is registered but was never built out, so no crawler captured it, which is exactly why the dispute dockets measured 87.7% net-new.
+- the reason to be sceptical anyway, and it is the strongest thing in this entry: **Netcraft is the precedent and it failed on contemporaneity.** A name printed on a page captured in 1999 proved no likelier to hold a 1999 capture than an undated pool name, and a parked for-sale domain has *less* content to capture than a surveyed live server, so the same instrument would probably reject it as master. The likely honest outcome is candidate-only, worth pool growth rather than equivalent-English, and the pool is not the constraint.
+- next step: when the archive stops refusing us, run the three-instrument test that settled Netcraft (earliest capture 1999 or earlier, still registered today, registered continuously) against the same two controls, before any extraction. Do not extract first.
+
 ### uspto_tm_marktext / dated_directory
 
 - potential: 40 (dated filings, but a trademark text is only sometimes a domain and the safe class reading takes the corroboration split, which historically removes most of the net-new part)
