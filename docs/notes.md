@@ -7780,3 +7780,35 @@ hypotheses when the batch lands is `failed_0` per 600: if it stays near 101 the 
 sockets and the timeout comes down to about 25 seconds; if it falls sharply then concurrency really was
 the pressure and 4 workers was right. Recording the discriminator now, before the data, so the answer
 cannot be fitted to whichever result arrives.
+
+## 2026-08-15: the back-off was wrong, reverted, and the next lever was already measured and rejected
+
+The discriminator I wrote down before the data has answered, and it went against me. **Reverted to 8
+workers.**
+
+**What the 4-worker batch actually did.** Two in-flight samples: 37 records at 13.2 minutes, 74 at 22.6,
+so about **236 requests an hour in the interval against the 378 it replaced**. The status mix decided it:
+**17 failures in 74 records, 23%**, against 17% at 8 workers. My stated test was whether failures fell
+sharply. They rose. So the pressure was never concurrency: fewer workers just meant less parallelism
+against the same hanging sockets, and each one still burned its full timeout.
+
+**The obvious next move was to cut the timeout, and the project had already measured that and rejected
+it.** `src/ark/cdx.py` carries the figures: at 30 seconds a run answered **51 of 100** domains for 695
+answers an hour, at 180 seconds it answered **82 of the same 100** for 802 an hour, because roughly a
+third of domains reply between 30 and 60 seconds. The 70-second default already sits just above the
+server's own ~60.7 second cutoff. **Cutting in earlier is a false economy and it is written down as
+one.** I was about to do it anyway and only read the constant's own comment because I stopped to check
+whether a timed-out domain is retried or permanently skipped.
+
+That check was worth doing on its own account: `journal.py` takes an `answered` predicate precisely so a
+transport failure is **not** treated as settled, so failures are re-asked on a later pass and nothing is
+lost permanently. That is the property that makes accepting a lower rate safe.
+
+**So the conclusion is that the degradation is the archive's behaviour and not our tuning**, and the
+right response is to stop turning knobs. Both the failed attempt and the measured reason the next lever
+is closed are now recorded in `extend_engines.sh` beside the setting, because the comment there said
+"four workers, and the reduction was measured" for about an hour, which would have been a confident wrong
+answer for whoever read it next.
+
+Cost of the whole experiment: two restarts and roughly one batch of throughput, both recoverable, since a
+re-run is additive and the killed batch's journal was renamed on the way out and kept.
