@@ -8855,3 +8855,14 @@ probe is read.
 Third time this week a check has been found reporting a proxy rather than the answer, and the sharpest
 statement of the pattern is this one: **a yield check reading the wrong file cannot fail loudly.** It
 does not error, it does not go quiet, it reports a plausible number forever.
+
+**Postscript: the collapse threshold is correct and RDAP should not flag.** Having fixed the check I
+tested whether its alarm would now fire: `COLLAPSE_FRACTION` is 0.25, so rdap would have to fall below
+**2.425%** against its 9.7% history, and 4.2% does not cross it. That is right rather than lax. The alarm
+exists for the failure that took a rate from 45.8% to **exactly zero**, and a gradual decline while
+working down a value-ranked list is the expected behaviour of a queue that put its best targets first.
+Flagging it would be crying wolf about a system doing what it was designed to do.
+
+The design worth naming: **report the numbers every cycle, raise the alarm rarely.** A human reading
+"4.2% against 9.7%" can judge; an alarm on that would be ignored within a day, and then the one that
+matters would be ignored with it.
