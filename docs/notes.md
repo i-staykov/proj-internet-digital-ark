@@ -8003,3 +8003,36 @@ The honest reading is that the earlier 2.42% was a projection built on a rate th
 falling when I quoted it, which is precisely the failure this project's own rule about projections exists
 to prevent. **A projection is only as current as the rate underneath it**, and that rate needs
 re-measuring before each restatement rather than carried forward.
+
+## 2026-08-15: the decline is diagnosed, it is entirely the archive, and there is no lever left
+
+Separated the two possible causes of the rate falling from 640 to 413 EE/h, which I should have done
+before touching anything yesterday.
+
+| engine | requests/h | with a capture |
+|---|--:|--:|
+| `cdx_pool`, prior 24h | 675 | 42.3% |
+| `cdx_pool`, last 24h | **450** | **29.4%** |
+| `cdx_q1` on the VPS, prior 24h | 312 | 85.8% |
+| `cdx_q1` on the VPS, last 24h | 275 | 84.5% |
+
+**The VPS is untouched**, 12% off on throughput and flat on yield, which is noise. **The whole decline is
+the local engine**, and it lost throughput and apparent yield together: 675 to 450 requests an hour, and
+42.3% to 29.4% carrying a capture, so captures fell 6,847 to 3,178, a 54% collapse.
+
+**The apparent yield drop is not a worse queue, and that distinction matters.** A refused request
+journals with an empty year list, so it counts as "no capture" in any file-level measure. `just cycle`
+measures the hit rate among **answered** requests only, and there it reads **67.1% against a 42.4%
+lifetime average**, which is up rather than down. So the candidates are fine; a third of the questions are
+simply never getting an answer.
+
+**Which means the diagnosis is complete and unwelcome: it is the archive, not the queue and not our
+tuning.** The two engines share a queue-building method and differ only in which IP they ask from, and
+only the one asking from this host degraded.
+
+**And there is no lever left, which is worth stating positively rather than as a shrug.** Fewer workers
+was measured worse yesterday. A shorter timeout is measured and rejected in `cdx.py`, 51 of 100 answered
+at 30 seconds against 82 of 100 at 180. Raising the delay floor cannot do anything because the adaptive
+governor already sits pinned at its 3.0 second ceiling. Every knob is either tested, documented as
+counterproductive, or already at its limit. **So the right action is none**, and the round takes the rate
+it is given.
