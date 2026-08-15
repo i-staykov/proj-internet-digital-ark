@@ -113,6 +113,34 @@ SKIP_HOSTS = {
 }
 
 
+# **A host that answers is not a source that exists**, and the commonest way a dead
+# lead comes back to life is that somebody parked the domain. On 2026-08-15
+# `web-caching.com`, the IRCache proxy-trace host, went from TIMEOUT to a 27,223-byte
+# HTTP 200 and was reported as a resurrected source; the body is a consent-manager
+# parking page. A checker that reads status and not content cries wolf every wake,
+# which is how a reader is trained to skip it. These strings are matched against the
+# 2 KB the probe already reads, so the detection is free.
+PARKED_MARKERS = (
+    "gdprappliesglobally",
+    "consentmanager.net",
+    "sedoparking",
+    "parkingcrew",
+    "bodis.com",
+    "afternic",
+    "hugedomains",
+    "dan.com",
+    "domain is for sale",
+    "buy this domain",
+    "this domain is parked",
+)
+
+
+def looks_parked(body: bytes) -> bool:
+    """Whether the first bytes of a response look like a parking or consent page."""
+    text = body.decode("utf-8", "ignore").lower()
+    return any(marker in text for marker in PARKED_MARKERS)
+
+
 @dataclass
 class Probe:
     lead: str
@@ -122,6 +150,7 @@ class Probe:
     detail: str = ""
     changed: bool = False
     predicted: str = ""
+    parked: bool = False
 
 
 # A 200 is only news if the verdict did not already expect one. `ircache.net`
@@ -207,29 +236,31 @@ def targets_in(entry) -> list[str]:
     return out[:5]
 
 
-def ask(url: str, timeout: float = 20.0) -> tuple[str, str]:
-    """One shallow request. Returns (status, detail), never raises."""
+def ask(url: str, timeout: float = 20.0) -> tuple[str, str, bool]:
+    """One shallow request. Returns (status, detail, parked), never raises."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT}, method="GET")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read(2048)
             kind = response.headers.get("Content-Type", "?")
-            return str(response.status), f"{len(body)}+ bytes, {kind}"
+            parked = looks_parked(body)
+            note = ", PARKED PAGE" if parked else ""
+            return str(response.status), f"{len(body)}+ bytes, {kind}{note}", parked
     except urllib.error.HTTPError as exc:
-        return str(exc.code), (exc.reason or "")[:60]
+        return str(exc.code), (exc.reason or "")[:60], False
     except urllib.error.URLError as exc:
         reason = exc.reason
         if isinstance(reason, socket.gaierror):
-            return "DNS", "does not resolve"
+            return "DNS", "does not resolve", False
         if isinstance(reason, ssl.SSLError):
-            return "TLS", str(reason)[:60]
+            return "TLS", str(reason)[:60], False
         if isinstance(reason, TimeoutError):
-            return "TIMEOUT", ""
-        return "ERROR", str(reason)[:60]
+            return "TIMEOUT", "", False
+        return "ERROR", str(reason)[:60], False
     except TimeoutError:
-        return "TIMEOUT", ""
+        return "TIMEOUT", "", False
     except Exception as exc:  # a probe must never take the run down
-        return "ERROR", f"{type(exc).__name__}: {exc}"[:70]
+        return "ERROR", f"{type(exc).__name__}: {exc}"[:70], False
 
 
 def main() -> None:
@@ -256,7 +287,7 @@ def main() -> None:
     for lead in leads:
         print(f"-- {lead.name[:84]}  (sources.md:{lead.line})")
         for url in lead.urls:
-            status, detail = ask(url)
+            status, detail, parked = ask(url)
             answers = status.startswith("2") or status in {"301", "302", "303", "307", "308"}
             host = urllib.parse.urlsplit(url).hostname or ""
             predicted = prediction_for(lead.verdict, host)
@@ -270,11 +301,14 @@ def main() -> None:
                 url,
                 status,
                 detail,
-                changed=answers and not foretold,
+                changed=answers and not foretold and not parked,
                 predicted=predicted[:200],
+                parked=parked,
             )
             results.append(probe)
-            if answers and foretold:
+            if answers and parked:
+                mark = "parked page, not a source"
+            elif answers and foretold:
                 mark = "answers, as the verdict said"
             elif answers:
                 mark = "NOW ANSWERS, UNEXPECTED"

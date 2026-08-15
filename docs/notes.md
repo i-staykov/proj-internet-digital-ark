@@ -7431,3 +7431,28 @@ as well as the `sleep`:
 One per heartbeat, verified. `pgrep -x sleep` is not a substitute, since it counted 8 unrelated sleeps
 on this machine. CLAUDE.md corrected in place, because a check that cries wolf every wake trains the
 reader to ignore it, which is the same failure as the gap-list alarm that was firing by design.
+
+## 2026-08-15: a dead lead came back to life and it was a parking page
+
+`just cycle` reported a closed-on-availability lead answering unexpectedly:
+`https://web-caching.com/`, the third host for the **IRCache / NLANR proxy traces**, which the register
+of 2026-08-06 calls "dated squid logs holding millions of real URLs, the most promising lead on that
+day's list". It had timed out then. It returns **HTTP 200 and 27,223 bytes** now.
+
+**It is a consent-manager parking page.** Fetched and read rather than trusted: no title, one `href="#"`,
+and a body that is entirely a GDPR consent stub. Same fate as `ircache.net`, which the register already
+records as "now serves a squatted blog". So all three hosts for this lead are squatted or parked rather
+than dead, and the traces are still unlocated. **The verdict does not change.**
+
+**The re-prober was reading status and not content**, so a squatter buying a dead domain reads exactly
+like an archive coming back. That is the third check this round found crying wolf, after the gap-list
+alarm that fired by design and the heartbeat counter that read 2 for one heartbeat, and the failure mode
+is the same each time: **an alarm that fires on something harmless trains the reader to skip it**, and
+then it is worth less than no alarm at all.
+
+Fixed where it belongs, in the checker rather than in this entry. `reprobe_closed.py` already read 2 KB
+of body for its size line, so matching a short list of parking and consent signatures against those
+bytes costs nothing. A parked answer now prints "parked page, not a source" and, more importantly, does
+not set `changed`, so it stays out of the summary that asks for pricing. Four tests pin it, including
+that a real directory listing survives the filter, which is the case that matters: the thing we are
+hunting must not be filtered out by the thing that filters out the squatters.
