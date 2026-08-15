@@ -9005,3 +9005,31 @@ this project, because obfuscated body text is exactly what defeats an extractor.
 
 Cost: four requests and 9.3 MB, against a source that would have looked plausible in a proposal
 indefinitely. That is the acceptance bar working as designed, and the reason to price rather than argue.
+
+## 2026-08-15: tested my own rule, found the test invalid, and relabelled the rule
+
+Wrote three rules into `discovery.md` today on the strength of cross-source comparisons, so I tried to
+validate one against the store: do the high-yield sources really name shorter-lived domains?
+
+| population | dated domains | mean years held | hold only one |
+|---|--:|--:|--:|
+| `udrp_proceedings` | 8,892 | **1.52** | 74.0% |
+| `attrition_defacement` | 12,309 | **3.04** | 31.4% |
+| `usenet_announce` | 1,022,707 | 3.26 | 11.0% |
+| all dated domains | 5,720,032 | 1.74 | 61.7% |
+
+**The test does not test the rule.** "Years held in our store" measures **our coverage**, not the
+domain's lifetime: a domain we found once holds one year whether it lived a month or a decade. That is
+the fourth time today I have measured a proxy for the thing I meant, after two bad greps over README and
+one over the register, and this one I built deliberately to check something.
+
+**And it half-refutes the rule anyway**, which is the more useful outcome. UDRP domains do sit below the
+store mean, 1.52 against 1.74 and 74% holding a single year. But `attrition_defacement` sits at **3.04
+years, well above the mean**, and it is a source that pays. So "short life plus low traffic" cannot be
+the whole story, and a defaced site is plainly a live site that somebody attacked.
+
+`discovery.md` now says the rule is **an inference from three net-new percentages and not a measurement
+of lifetime**, that we cannot measure lifetime at all from a store that knows only what it captured, and
+that it is a prior for ranking rather than a criterion that can reject a source on its own. A rule
+written six hours ago has now been corrected twice, which is the right rate for something inferred from
+three data points.

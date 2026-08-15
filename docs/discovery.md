@@ -130,7 +130,14 @@ both halves matter. A dot-com deadpool names companies that failed, which passes
 fails the other: a funded startup ran a marketing budget for eighteen months and was captured many times
 before it folded. A typosquat withdrawn after a complaint was never captured at all. **Short life is
 necessary and not sufficient; what pays is short life plus low traffic**, which is why disputes,
-seizures, defacements and abandoned registrations pay and celebrated failures do not.
+seizures and abandoned registrations pay and celebrated failures do not.
+
+**This is an inference from three net-new percentages, not a measurement of lifetime, and the difference
+matters.** We cannot measure how long a domain lived: the store knows only what it captured, so "years
+held" is a measure of our own coverage and not of the domain's life. An attempt to validate the rule that
+way on 2026-08-15 measured the wrong thing and half-refuted itself, since `attrition_defacement` domains
+hold **3.04** years against a store mean of 1.74 while being a source that pays. Treat the rule as a
+good prior for ranking candidates and never as a criterion that can reject one on its own.
 
 The sharpest form of that rule, and the one to ask first: **a source whose purpose is to make a site
 known cannot contain sites nobody knew.** Announcement feeds, directories, award galleries and
