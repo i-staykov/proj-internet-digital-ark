@@ -8367,3 +8367,34 @@ round's queue rather than in a rushed edit to this one.
 
 Recorded here and left as the top item for whoever builds the next queue: **add distinct-source count as
 a factor in `pool_plausibility`, not a tiebreak.** The effect is far too large to be a tiebreak.
+
+## 2026-08-15: correcting my own claim about the queue, with the number I should have taken first
+
+I wrote that the 11,919 unasked multi-source names "prove the queue does not rank on this". **Too strong,
+and I checked it because it was the load-bearing sentence.** The queue does favour them, mildly:
+
+| sources | in pool | asked | share asked |
+|---|--:|--:|--:|
+| 1 | 2,298,191 | 47,937 | **2.1%** |
+| 2 | 233,724 | 20,338 | 8.7% |
+| 3 | 13,005 | 1,492 | **11.5%** |
+| 4 | 503 | 126 | 25.0% |
+| 5+ | 36 | 7 | 19.4% |
+
+A 5.5x preference for three-source names over one-source names, so the per-(source, TLD) scoring
+correlates with source count without naming it. **The claim should have been that the queue
+under-weights the signal, not that it ignores it**, and the gap between those two statements is the whole
+argument: a 5.5x ranking preference against a 6.6x difference in outcome is close enough to look
+deliberate and far enough to leave 11,500 names at 87% expected hit sitting unasked.
+
+**A second thing the first measurement got wrong and this one exposes.** My earlier count found 17,004
+asked domains with 3+ sources; this one finds 1,625. Both are right, and the difference is the point:
+**a domain that was asked and hit is no longer in the pool.** The first query joined asked-domains to
+source counts across all evidence, so it counted the successes that have since graduated. Measuring a
+queue's coverage against the population it still faces is a different question from measuring it against
+everything it ever touched, and I asked the second while believing I had asked the first.
+
+Decision unchanged: **not editing the queue builder 28 hours before delivery** for 0.08 points, with two
+failed tuning changes already today. But the recommendation for the next round is now sharper: the signal
+is present in the ranking at roughly 5.5x and needs to be present at roughly 6.6x, as an explicit factor
+in `pool_plausibility` rather than as whatever correlation the per-source rates happen to carry.
