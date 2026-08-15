@@ -427,16 +427,6 @@ a screen.
 
 **Pass 1, 2026-08-12.** Five independent lenses proposed sources, a sceptic per lens collided each against the closed register and probed whether the data is retrievable in 2026, and 11 of 21 survived. **The figures inside these entries are the hunt's own, not measurements I have reproduced**, except where an entry says otherwise; that is what pricing is for, and the `next step` line names it. One claim was checked here and holds exactly: 60,468 undated `.uk` names in the pool.
 
-### can_domain_registry_notices / whois_creation
-
-- potential: 90 (structurally verified by me, not only by the hunt: the whole 71,391,651-byte member scanned, `Subdomain:` 37,782, `Date-Approved:` 37,578, `Date-Received:` 37,576, and 37,692 subject lines containing "register". Hunt measured 12,893 net-new pairs, 11,954 net-new domains, 10,785.0 EE at mean weight 0.8365; `can.uucp.maps` adds 1,795 pairs and 1,484.8 EE, union 13,341 pairs and 11,143.0 EE)
-- what it is: the CA Domain Registry's own per-registration notices, posted to `can.domain` and already on disk at `data/raw/usenet/can.domain.mbox.zip`. One notice per approved `.ca` registration, carrying `Subdomain:`, `Date-Received:` and `Date-Approved:` as structured fields.
-- where: nothing to fetch. It is in the Usenet corpus already.
-- what dates one item: the registry's own `Date-Approved:` line for that one domain. Self-dating `whois_creation`, no corroboration split, and the registry is the authority for its own namespace.
-- class note: **master-eligible, so it needs a `Decision:` line before `ark ingest` will take it.** This is the same shape as `uucp_map_registry`, already in the store, which CLAUDE.md describes as "a .CA registry dump the Usenet parser read as prose". The group is already ingested as prose, 80,086 evidence rows over 66,158 domains, so this is a second and better reading of held material rather than a new download, and the net-new figure is measured against that.
-- caveat, mine: I verified the structure and did not re-derive the net-new count, so 12,893 is the hunt's figure. `.ca` weighs 0.8365, which is why a modest count carries real weight.
-- next step: write the extractor, price it properly, then request approval. Worth about **0.18 percentage points**, which does not change this round's outcome.
-
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - potential: 88 (per-row CYCLE_DATE, real data retrieved and parsed, 1,913 net-new pairs and 1,293.3 EE measured off one quarter, mean TLD weight 0.6845; capped by thousands-not-millions volume)
@@ -780,6 +770,16 @@ Decision: pending
 - next step: one GET and one unzip, which prices it completely: does a row represent a filing with its own date, or an adviser's current state. Everything else is downstream of that answer.
 
 Decision: pending
+
+### can_domain_registry_notices / whois_creation
+
+- potential: 55 (**priced by me against the live store, and the hunt's figure was wrong**. Structure confirmed by a whole-file scan: `Subdomain:` 37,782, `Date-Approved:` 37,578, `Date-Received:` 37,576, 37,692 subjects containing "register". Parsed to 36,892 in-window items over 36,133 distinct pairs and 35,895 domains, of which **24,715 are already held**. **Everything turns on one classification and the two answers differ 12.2x**: as a self-dating registry record it is **11,418 net-new pairs and 9,551.2 EE**; if it takes the corroboration split it is **936 pairs and 783.0 EE**, which is below the 5,000-pair bar. The hunt's 12,893 pairs / 10,785.0 EE matches neither. Mean weight 0.8365 either way. Caution: the split-figure years are {1996: 2, 1997: 53, 1998: 630, 1999: 251} with nothing in 2000-2001, and the typo bound is high, **375 of 1,500 sampled net-new names, 25.0%, are one edit from a name already held**)
+- what it is: the CA Domain Registry's own per-registration notices, posted to `can.domain` and already on disk at `data/raw/usenet/can.domain.mbox.zip`. One notice per approved `.ca` registration, carrying `Subdomain:`, `Date-Received:` and `Date-Approved:` as structured fields.
+- where: nothing to fetch. It is in the Usenet corpus already.
+- what dates one item: the registry's own `Date-Approved:` line for that one domain. Self-dating `whois_creation`, no corroboration split, and the registry is the authority for its own namespace.
+- class note: **master-eligible, so it needs a `Decision:` line before `ark ingest` will take it.** This is the same shape as `uucp_map_registry`, already in the store, which CLAUDE.md describes as "a .CA registry dump the Usenet parser read as prose". The group is already ingested as prose, 80,086 evidence rows over 66,158 domains, so this is a second and better reading of held material rather than a new download, and the net-new figure is measured against that.
+- caveat, mine: I verified the structure and did not re-derive the net-new count, so 12,893 is the hunt's figure. `.ca` weighs 0.8365, which is why a modest count carries real weight.
+- next step: write the extractor, price it properly, then request approval. Worth about **0.18 percentage points**, which does not change this round's outcome.
 
 ### uspto_trademark_case_files / artifact_listing
 

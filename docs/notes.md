@@ -7872,3 +7872,38 @@ domains, so this is a second and better reading of held material. Queued as
 `can_domain_registry_notices / whois_creation` at potential 90, the highest in the queue. It is
 master-eligible, so it cannot be banked without a decision, and at **0.18 points** it does not change
 this round.
+
+## 2026-08-15: priced the .ca registry find, and the hunt's figure was wrong in both directions
+
+Wrote the extractor, which was the only honest way to check the number I had queued four hours earlier
+with the caveat that I had not re-derived it. Good thing: **the hunt's 12,893 net-new pairs and 10,785.0
+EE matches neither of the two defensible answers.**
+
+Parsed 37,575 notices carrying both fields into **36,892 in-window items, 36,133 distinct pairs over
+35,895 domains, of which 24,715 are already held.** Then priced against the live store:
+
+| reading | net-new pairs | equivalent-English |
+|---|--:|--:|
+| as a self-dating registry record, no split | **11,418** | **9,551.2** |
+| if it takes the corroboration split | **936** | **783.0** |
+
+**A 12.2x spread on a single classification decision**, which is the exact situation CLAUDE.md warns
+about: which class a source belongs to is a decision rather than an attribute, and asserting it
+batch-wide is how a good source gets filed as rejected, or a weak one waved through. The argument for no
+split is that the registry generated the notice about its own namespace and stamped it with its own
+`Date-Approved:`, which is machine-generated rather than human-typed. The argument for the split is that
+it arrives as a Usenet post like everything else in that corpus. **I am not deciding it**, and the entry
+now carries both numbers with the decision named.
+
+**Two warnings the pricing turned up that no amount of enthusiasm should survive.** The post-split years
+are 1996: 2, 1997: 53, 1998: 630, 1999: 251, with **nothing at all in 2000 or 2001**. And the typo bound
+is bad: **375 of 1,500 sampled net-new names, 25.0%, are one edit away from a name already held.** For a
+registry feed that should be near zero, so either the parse is picking up corrections and re-posts, or
+the corpus carries typo'd re-transmissions.
+
+Potential lowered from 90 to **55**, and it drops from first in the queue to below the two statutory
+returns. Even the generous reading is **0.153 points** and the strict one is 0.013.
+
+The lesson is the cheap one and I keep relearning it: **the extractor is the measurement.** A structural
+check told me the fields were there, which is necessary and nowhere near sufficient; only parsing them
+and differencing against the store said what they are worth, and that took twenty minutes.
