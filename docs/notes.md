@@ -8036,3 +8036,26 @@ at 30 seconds against 82 of 100 at 180. Raising the delay floor cannot do anythi
 governor already sits pinned at its 3.0 second ceiling. Every knob is either tested, documented as
 counterproductive, or already at its limit. **So the right action is none**, and the round takes the rate
 it is given.
+
+## 2026-08-15: the report's one hand-written paragraph rewritten as a trend
+
+The throughput paragraph in report section 1 was the only place in the document carrying figures that
+`fill_report.py` does not own, and I dated them deliberately so they could not read as current. Two days
+later they had drifted anyway: 975 requests an hour between the collectors is now nearer 725, and "437 of
+600 refused" understates what the engine is now seeing.
+
+**A dated snapshot is honest and still ages badly**, because a reader takes the most recent thing in front
+of them as the state of the world whatever date is attached. So the paragraph now states the **trend**
+instead, which is both more robust and a better argument: 675 to 450 requests an hour and 42.3% to 29.4%
+answered on the host that degraded, against 312 to 275 and 85.8% to 84.5% on the host that did not. **The
+two engines share their target-selection method entirely and differ only in where they ask from**, which
+is what identifies the archive rather than our queue or our tuning, and that is a stronger claim than any
+single-day number.
+
+It also now records that the two obvious remedies were tried and rejected on measurement: reducing
+concurrency was worse, and shortening the timeout is rejected in our own code at 51 of 100 answered
+against 82 of 100. A reviewer asking "why did you not simply slow down or time out sooner" has both
+answers in the document.
+
+Added to the Sunday checklist as the one paragraph to re-read before sending, precisely because a stale
+hand-written number would sit beside generated ones and look equally authoritative.
