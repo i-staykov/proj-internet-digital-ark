@@ -113,8 +113,11 @@ applying the rule.** Being IA-derived is fatal when the source is a *re-serving*
 baseline already drew on, and is the opposite of fatal when it is a **different projection of IA's
 holdings, delivered in bulk**. The distinction is not about provenance, it is about which constraint
 binds: our coverage of the Internet Archive is limited by **our own query rate**, not by IA's
-holdings. Only 212,394 domains have ever been asked at CDX, against 2.5M sitting in the pool, and the
-engines clear roughly 975 requests an hour between them.
+holdings. Measured 2026-08-15: **239,631 domains have ever been asked at CDX** against 2.5M sitting in the
+pool, and the two engines clear about **713 requests an hour** between them. Those two numbers move, and
+the ratio between them is the argument rather than either figure: at any plausible rate the pool is years
+of work, so anything that converts a per-domain question into a file download is worth more than its size
+suggests.
 
 So a bulk index that names hosts IA holds, without our having to ask about each one, converts our
 scarcest resource into a file download. That is exactly why the UK Web Archive host link graph is the

@@ -8562,3 +8562,19 @@ anything we control or could improve by re-ranking.
 Also worth keeping from the same table: `.au` is 19.5%, not the zero its RDAP answer rate suggested. The
 two channels disagree about the same 27,000 names because one of them has no service, which is the
 distinction from the previous entry made concrete.
+
+## 2026-08-15: refreshed the two hand-written figures inside the discovery rule
+
+`discovery.md` section 4 carries the exception that keeps the bulk-index family alive, and its argument
+rests on two numbers I wrote by hand yesterday: domains ever asked, and the engines' combined request
+rate. Both had drifted. **239,631 asked, not 212,394. 713 requests an hour, not 975.**
+
+Neither drift changes the conclusion, which is the point worth recording: the argument is the **ratio**
+between an unasked pool of 2.5M and a rate of a few hundred an hour, not either figure. So the paragraph
+now says that explicitly and tells the reader the numbers move, which is the only honest way to leave a
+measured figure inside a rule that will be read for months.
+
+This is the second document this round where a dated hand-written number needed replacing with a shape
+that ages, after the report's throughput paragraph became a trend instead of a snapshot. **A generated
+document cannot go stale and a hand-written one always does**, so where a figure cannot be generated, the
+next best thing is to write it so that being out of date does not make it wrong.
