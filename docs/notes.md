@@ -8640,3 +8640,23 @@ a 403 and it should not cost them a request to answer.
 The wider search around it turned up nothing else new: DNS-OARC's root zone archive starts June 1999 and
 lists TLDs rather than domains, which this register already closed, and the ISC Domain Survey is the
 source we already use. Eight requests spent on this thread in total, none to `web.archive.org`.
+
+## 2026-08-15: a null hunt, and the query shape that caused it
+
+Searched the dataset hosts directly, restricted to GitHub, Zenodo, figshare, Dataverse and Kaggle, for
+historical domain lists. **Everything returned is a list of domains with no dates**: `tb0hdan/domains`,
+Google CRUX's top 17 million, TLD delegation records. Nothing in window, nothing dated.
+
+**The null result is about my query rather than about the world.** I asked for domain lists, and a domain
+list is precisely the thing this project does not need: the pool holds 2.5M names nobody has asked about,
+so names are the abundant input and **dates are the scarce one**. `discovery.md` section 1 already says
+it in the form that matters, that a source with no per-item date is seed-only and the conversation is
+over, and I searched as though I had forgotten it.
+
+The correction for the next search is to query for the **dating artefact** rather than for the domains: a
+survey, a dated directory dump, a capture index, a registry feed, a docket. Every source that has actually
+paid here was found by that shape, and today's two search-led leads, the Wayback longitudinal sample and
+the NTP census, both came from queries that named a dated artefact rather than a list of names.
+
+No register entry: there is nothing to close, because nothing was proposed. Recording the method note
+only.
