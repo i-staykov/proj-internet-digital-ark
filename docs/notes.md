@@ -7969,3 +7969,37 @@ being available, because it always was, and availability was never the objection
 
 This is the second closure this round that cost nothing because the structural question was asked first.
 The blocklists died on the unit, patents die on the population.
+
+## 2026-08-15 09:16: the Sunday forecast revised down, because the rate I forecast with no longer holds
+
+Two point readings looked like a slowdown, which is not a rate, so I measured it properly from
+`verified_at` over four windows:
+
+| window | equivalent-English | rate |
+|---|--:|--:|
+| last 3h | 1,306.6 | 435.5 /h |
+| last 6h | 4,469.3 | 744.9 /h |
+| last 12h | 5,822.3 | 485.2 /h |
+| **last 24h** | **9,916.5** | **413.2 /h** |
+
+The short windows swing because banking is granular: a 70-minute batch lands all at once, so a 3-hour
+window catches one or two. **The 24-hour figure is the one to use, and it is 413 EE/h against the 624 to
+665 measured yesterday**, a decline of roughly a third.
+
+**Revised forecast, replacing the 2.42% recorded this morning:**
+
+| | equivalent-English | growth |
+|---|--:|--:|
+| now | 129,913.6 | 2.0865% |
+| Sunday at the measured 413 EE/h | ~143,400 | **~2.30%** |
+| Sunday with the promotion banked | ~214,300 | **~3.44%** |
+| 5% would need | 311,319.3 | 5.00% |
+
+**Two causes and I will not hide behind either.** The archive is refusing more of our traffic, 41% of
+records in the current batch against 17% a day ago, which is outside our control. And I spent two batches
+proving a tuning change wrong and reverting it, which is not. Both are in the same number.
+
+The honest reading is that the earlier 2.42% was a projection built on a rate that had already started
+falling when I quoted it, which is precisely the failure this project's own rule about projections exists
+to prevent. **A projection is only as current as the rate underneath it**, and that rate needs
+re-measuring before each restatement rather than carried forward.
