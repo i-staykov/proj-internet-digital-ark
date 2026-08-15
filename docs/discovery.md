@@ -99,6 +99,16 @@ award galleries all failed the same way. 7.1 million accepted relay hops were on
 domains, and a CDX-derived baseline already holds every one of them in every year. Ask what
 population a source selects for before asking how big it is.
 
+Its sibling, and the cheaper of the two to apply: **a corpus derived from the Internet Archive cannot
+be net-new against a baseline that is itself Internet-Archive-derived.** Ask what a source's *upstream*
+is before pricing it at all. This closes a whole family in one question rather than one measurement
+each: the TREC web collections, Stanford WebBase and Early Web CDX are all downstream of the same
+1996-1997 crawls the baseline comes from, and the two of them that were actually measured returned
+**0.01% and 0.01% net-new**. It also explains why the Australian Web Archive priced at exactly zero
+AWA-only pairs: it is Internet Archive data wearing a different interface. The tell is a dataset
+described as "built from a crawl donated by the Internet Archive", and it means the answer is already
+known without a request.
+
 Where an estimate is unavoidable, **label it in the same sentence as the number**. Most figures in
 this project are measurements, which is exactly what makes an unlabelled projection dangerous.
 

@@ -7246,3 +7246,40 @@ on how many names it has.
 
 Cron re-armed: a recurring wake, plus a one-shot **final wake at 18:03 Sunday 2026-08-16** that ships
 rather than collects.
+
+## 2026-08-15: the crawl-corpora angle closes, and it leaves a rule that is worth more than the leads
+
+First prospector home. Every lead on its brief collided with the closed register, which is the register
+doing its job, but the pass produced two durable things.
+
+**The TREC family is now closed on measurement rather than availability, because the availability half
+was false.** The entry read "agreement-gated, distributor unreachable". Glasgow took the collections
+over from CSIRO and is alive: the page returns 200 and sells WT2g at 350 GBP, WT10g at 500, `.GOV` at
+500, `.GOV2` at 650, DVD only, behind a signed organisational agreement. **A stale availability closure
+is worse than no entry**, because it invites exactly the re-probe that cost this pass most of its
+requests. What actually closes it:
+
+- **The free files are a trap and were checked by GET rather than assumed.** `wt10g_inlinks.gz` and
+  `wt2g_inlinks.gz` need no agreement and contain **only opaque docids**, 8,063,026 lines of
+  `WTX001-B01-1`, with the docid-to-URL table on the paid media. Same failure mode as the SNAP graphs
+  already in the register.
+- **Size closes it whatever the price.** Bailey et al., IPM 39 (2003), give VLC2 as **117,101
+  servers**, and VLC2, WT2g and WT10g all come from one 1997 Internet Archive crawl, so that is the
+  ceiling for the entire in-window family and the year is 1997 alone.
+- **`.GOV` was crawled January 2002 and `.GOV2` in 2004**, so both are out of window entirely and need
+  never be looked at again. That was not previously written down.
+
+**And the rule, now in `discovery.md` section 4 beside its sibling.** A source that selects for
+authority cannot be net-new; **a corpus derived from the Internet Archive cannot be net-new against a
+baseline that is itself IA-derived.** The evidence is measured, not argued: Stanford WebBase returned
+**0.01%** net-new over 603,245 domains, Early Web CDX 99.99% overlap, and the Australian Web Archive
+priced at exactly zero AWA-only pairs because it is Internet Archive data wearing a different
+interface. The tell is a dataset described as built from a crawl donated by the Internet Archive, and
+it settles the lead **without a request**. Given that our own two CDX engines are IA clients, this
+rules out most of the "big 1990s crawl" family in one question.
+
+Also upgraded to permanent: `webscope.sandbox.yahoo.com` no longer resolves in DNS, so the Yahoo
+AltaVista graph is a dead host rather than a closed programme and does not want re-probing.
+
+**Nothing from this angle goes in the triage queue**, because a closed lead with a measured verdict
+belongs in `sources.md`, and the queue is for things that might still be worth collecting.
