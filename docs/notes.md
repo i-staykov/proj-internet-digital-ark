@@ -8304,3 +8304,23 @@ line: **`LIMIT 4` is not a census, a heading is not a schema, and a maximum inde
 
 Placed as 4a rather than appended, because it belongs immediately after "measure against the store" and
 before "check it is not already dead": the order of the sections is the order of the work.
+
+## 2026-08-15: a residual check that came back empty, recorded so it is not asked again
+
+Applied section 4a to the store rather than to a source: **is any evidence we already hold undated, or
+dated outside the window?** If so it would be free yield.
+
+**It is not. 54,076,874 evidence rows, 0 with a null year, 0 outside 1996-2001**, and 0 domains carrying
+an out-of-window master row while holding no in-window year at all. The loader only ever writes in-window
+dated rows, so the population this question imagines does not exist.
+
+A clean negative in one query, and worth a line precisely because it is clean: the next pass wondering
+whether there is undated evidence to rescue can read this instead of writing the query. **Recording a
+definitive nothing is cheaper than rediscovering it.**
+
+Not making it a tenth invariant in `ark check`. The loader guarantees it structurally, and an invariant
+that can only fail if the loader is rewritten is a test of code that does not exist yet.
+
+Cron confirmed at both jobs: the recurring wake, and the one-shot at 18:03 tomorrow that ships rather than
+collects. That check is on Ivo's instruction of 2026-08-12 to make it part of every call, after several
+hours once passed with no wake he could see.
