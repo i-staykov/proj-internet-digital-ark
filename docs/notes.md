@@ -7812,3 +7812,25 @@ answer for whoever read it next.
 
 Cost of the whole experiment: two restarts and roughly one batch of throughput, both recoverable, since a
 re-run is additive and the killed batch's journal was renamed on the way out and kept.
+
+## 2026-08-15: a hunt that cost nothing, which is what the register is for
+
+Screened anti-spam blocklists, 1997-2001. **No collision in the register**, so genuinely new ground, and
+the shape was the one that has actually paid here: a machine-generated dated record about whoever
+happened to be there, selecting for short-lived spam domains that a crawler-derived baseline
+systematically misses. That is precisely why the dispute dockets measured 87.7% net-new.
+
+**It dies on the unit, and no request was needed to establish it.** Every in-window blocklist is
+IP-based: MAPS RBL, ORBS, the Dial-Up List and SPEWS publish addresses and netblocks. Our output unit is
+the registered domain, so there is nothing to extract. Domain-based URI blocklists, SURBL and URIBL,
+begin in 2004 and are out of window.
+
+**And the domain-bearing version of the idea is already banked**, which the store answered for free: spam
+sightings were posted to `news.admin.net-abuse.*`, **13 of those groups are on disk**, and they have
+yielded **173,526 evidence rows over 168,075 domains**. So the good half of this idea arrived with the
+Usenet corpus and the half that is left has no domains in it.
+
+Worth recording as a positive about the method rather than only as another closure: **screen, then ask
+what the source actually contains, then probe** cost zero requests and produced a durable register entry.
+Two wakes ago I probed first and spent two requests re-deriving a recorded answer. Same agent, same day,
+opposite order.
