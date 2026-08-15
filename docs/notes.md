@@ -8192,3 +8192,36 @@ this same surface with 25 entries an hour.
 The general shape is worth keeping: **when a surface is generated, edit the generator.** Editing the
 output is the same mistake as hand-writing a figure into `report.md` instead of letting `fill_report.py`
 own it, and this project has a rule against that one already.
+
+## 2026-08-15 10:45: the rate recovered, nothing we did caused it, and that is the point
+
+The banking rate doubled over six hours, 819 EE/h against a 24-hour average of 420. Traced it rather than
+celebrating it.
+
+**It is not throughput and it is not the queue. The archive simply answered more of what we sent.**
+
+| window | `cdx_pool` requests | captures | hit rate |
+|---|--:|--:|--:|
+| 6h before last | 2,660 (443/h) | 519 | 19.5% |
+| last 6h | 2,141 (**357/h**) | **934** | **43.6%** |
+
+The local engine made **fewer** requests and got **nearly double** the captures. A refused request
+carries no capture, so a hit rate that doubles while throughput falls means refusals collapsed. The VPS
+was flat throughout, 250 requests an hour at 83%, which is the control that makes this specific to the
+throttled host.
+
+**This confirms yesterday's diagnosis from the other direction.** I concluded the decline was the archive
+rather than our tuning, and stopped turning knobs. The recovery happened with **no change on our side at
+all**, which is the evidence that the earlier decline was not something we caused and not something we
+could have fixed. Both the fall and the rise belong to the archive.
+
+**So the forecast is a range, and quoting a point estimate would be false precision:**
+
+| | Sunday equivalent-English | growth |
+|---|--:|--:|
+| at the 24h rate, averaging both regimes | ~143,700 | **~2.31%** |
+| at the last-6h rate, favourable regime | ~156,200 | **~2.51%** |
+| either, with the promotion banked | ~214,600 to ~227,100 | **~3.45% to ~3.65%** |
+
+The 24-hour figure is the one to plan on, because it averages a good regime and a bad one and we do not
+control which we get. The six-hour figure is what happens if the archive stays generous.
