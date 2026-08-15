@@ -8911,3 +8911,24 @@ high-yield seam left inside it, and this was the last place I had reason to thin
 **That closes the search for a large win from the material already held.** What remains large is the
 Usenet re-split at 1.12 points, which needs a decision rather than a discovery, and after that the round
 is the engines' hourly rate against a throttled archive.
+
+## 2026-08-15: H011 is finished as far as I can take it, and the approval request is deliberately not raised
+
+`just cycle` now surfaces H011 with "the next work, yours to settle without asking", and for this
+hypothesis that phrasing is wrong in a way worth recording. The remaining question is **which class it
+belongs to**, self-dating registry record or typed-inside-a-dated-artifact, and CLAUDE.md is explicit
+that class membership is a decision rather than an attribute and not the agent's call. The 12.2x spread
+between the two answers is exactly why.
+
+**What is mine is raising the approval request, and I am not raising it.** `request_approval.py` would
+build a seeded-random sample with live links, the measured figures and the counterfactual, which is the
+right instrument. But Ivo's standing instruction of this morning is that he reviews nothing until a find
+measurably reaches 5%, and this is **0.15 points at its most generous, 0.013 under the split.** Putting
+it on the one surface he reads would spend his attention on a source that cannot change this round.
+
+So the ledger verdict now says the deferral is deliberate and names the reason, because a priced
+hypothesis sitting with no request looks exactly like one that was forgotten. It is the next round's
+first piece of work, when the bar is different and the request is worth his two minutes.
+
+That leaves the ledger honest in both directions: it reports **1 unfinished**, which is true, and the row
+itself explains why finishing it is not currently the right move.
