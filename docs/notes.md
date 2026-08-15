@@ -8601,3 +8601,32 @@ e-mail to the authors, which is a later round's business.
 **The method result stands even though the lead did not.** Searching found something reasoning had not,
 and the reason is plain: I had been enumerating source *shapes* from memory, and memory does not contain
 a paper published last month. That is worth keeping regardless of how this particular one ended.
+
+## 2026-08-15: a genuinely orthogonal population, found by search, and its files are 403
+
+Second search-led hunt, and it found the most interesting *population* of the day even though the data is
+not reachable: **a 1999 census of 175,527 NTP hosts** by Nelson Minar at the MIT Media Lab.
+
+**Why it was worth chasing.** An NTP server is infrastructure, not content. A capture-derived baseline
+holds the organisations whose *web sites* were crawled; it has no particular reason to hold the ones
+running a time server, which is the same orthogonality that made UDRP dockets the best-yielding source
+this project has measured at 87.7% net-new. Machine-generated, self-dating by survey year, and 175,527
+hosts is a real number.
+
+**And it is 403.** The index page is live, 4,337 bytes of genuine period HTML listing three bzip2
+archives. Every one of them returns **HTTP 403** with a 326-byte Apache error page.
+
+**The tell was the byte count, not the status.** My first check was a ranged request for sizes, and it
+returned `Content-Length: 326` for all three files. Three differently-sized archives cannot share a
+length, so that was an error page rather than a size, and reading the body confirmed it. Had I recorded
+those as file sizes the entry would have said "reachable, three small files" and been wrong in the most
+useless possible way.
+
+**Third instance of this exact shape in the register**, after the UKWA 159-byte stub under HTTP 200 and
+the Alexa CDX items at HTTP 401: **a live index over dead payloads**. The pattern is common enough that
+it deserves the standing check it now has, which is to read the body and compare sizes across files that
+cannot plausibly be identical.
+
+Reopen is cheap and named: the author's address is on the page, and the host is an alumni server, so the
+likeliest explanation is permissions lost in a migration rather than a deliberate withdrawal. That is a
+later round's e-mail, not this one's.
