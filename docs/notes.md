@@ -8526,3 +8526,39 @@ was already doing this job.
 The sunk cost is worth naming so it is not repeated: **39,371 `.au` queries returned 130 answers**, from a
 wide sweep before the bootstrap filter was in place. Nothing to recover, but it is the clearest possible
 argument for filtering on service before scoring on yield.
+
+## 2026-08-15: the engine will not run out of good targets, and that closes the last open worry
+
+Measured CDX hit rate by TLD over every pool query this engine has made, then crossed it against what is
+still unasked. It answers a question I had been carrying implicitly: **does the local engine's yield decay
+because the queue head is spent?** No.
+
+Measured hit rates, pool population: `.com` **50.2%** over 17,986 asked, `.uk` **44.5%** over 34,425,
+`.org` 42.1%, `.to` 34.0%, `.za` 27.2%, `.nz` 23.2%, `.au` 19.5%, `.ca` 18.1%. And the discriminator
+working exactly as designed at the bottom: **`.edu` 0.1% over 3,895 asked, `.mil` 0.0% over 1,394,
+`.gov` 0.0% over 665.**
+
+Crossed with what remains unasked, in expected equivalent-English per query:
+
+| tld | unasked | hit | EE/query |
+|---|--:|--:|--:|
+| `.uk` | 22,742 | 44.5% | **0.677** |
+| `.com` | **906,843** | 50.2% | 0.492 |
+| `.org` | 294,126 | 42.1% | 0.463 |
+| `.ca` | 44,672 | 18.1% | 0.235 |
+
+**Over 1.2 million unasked names at 0.46 to 0.68 expected equivalent-English per query**, against an
+engine clearing roughly 400 requests an hour. At that rate even the thin `.uk` slice is 57 hours of work,
+which is longer than the window. The queue head is nowhere near spent.
+
+**And the gap between 0.49 and the 0.39 the engine actually returns is the refusals, not the targets.**
+A third of requests never land, so the realised yield is the queue's value discounted by the failure rate,
+which is precisely what has been measured all day from the other direction.
+
+So the last worry about the final day is closed: **the engine's output is bounded by the archive alone**,
+and the 413 to 820 EE/h range is a statement about how generous the archive is feeling rather than about
+anything we control or could improve by re-ranking.
+
+Also worth keeping from the same table: `.au` is 19.5%, not the zero its RDAP answer rate suggested. The
+two channels disagree about the same 27,000 names because one of them has no service, which is the
+distinction from the previous entry made concrete.
