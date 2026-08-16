@@ -395,6 +395,80 @@ deliberately.
 
 ---
 
+## `dartmouth_nber_captures`: the archive's own capture census
+
+**What it is.** A 2017 research release, deposited at archive.org under the Dartmouth/NBER web-history
+collection, publishing for every host the Wayback Machine held at that time a count of captures per
+calendar year. One row is `host<TAB>year<TAB>count`. It is a precomputed slice of exactly the index
+that `cdx/search/cdx?url=*.com` is refused for, published for one research partner, and no general
+equivalent exists.
+
+**Get it.** 228 MB, one download, no per-domain querying.
+
+```bash
+uv run ark download dartmouth_nber_captures
+uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
+```
+
+Source: <https://archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata>
+
+**Date semantics.** A row states that the archive holds N captures of that host inside that calendar
+year. That is the same fact a CDX query returns, in bulk rather than one host at a time, so it dates
+that year and no other.
+
+**Evidence type: `cdx_timestamp`.** Self-dating, so it takes no corroboration split.
+
+**Corroborated against our own independent querying.** Our CDX engine had separately queried the live
+archive months earlier. Where both speak they agree on **138,760 (domain, year) pairs**, including
+exact same-day agreement on single-capture years: `milwhite.com` 1996 against our recorded
+`19961231231928`, `omnitravelservice.com` 1996 against `19961221234954`.
+
+**Yield.** 765,188 journal records, 764,982 distinct pairs over 315,085 domains, **227,273 net-new
+pairs and 142,084.0 equivalent-English** at a mean weight of 0.6252. Measured at **997 net-new
+post-split pairs per MB**, the best yield-per-byte of any source this project has found.
+
+**Caveats.** It is a 2017 snapshot, so its per-year counts are a floor on what the archive holds today
+and never a ceiling. Approved `master` by Ivo on 2026-08-17.
+
+## `domain_creation_bulk`: published registry creation dates in bulk
+
+**What it is.** A published WHOIS/DNS compilation of 171 million domains, each carrying the registry's
+own creation date parsed from a port-43 answer by the dataset's publisher.
+
+**Get it.** 25.9 GB CSV, semicolon separated.
+
+```bash
+uv run ark ingest domain_creation_bulk data/raw/domain_creation/domains.csv
+```
+
+Source: <https://www.kaggle.com/datasets/wotschofsky/171-million-domain-names-whois-dns-dnssec>
+
+**Date semantics, and the limit that is enforced rather than promised.** The brief states that a WHOIS
+Creation Date establishes existence no later than that date and may support inclusion in the annual
+file for the year it falls in. **A creation date in 1998 writes 1998 and no other year.** The parser
+emits one evidence row for one year, so `assign_year` cannot write a second, and the brief's warning
+about later years is structural here rather than a matter of care.
+
+**Evidence type: `whois_creation`.** Filed under the `registry` provenance lineage deliberately, so it
+cannot corroborate our own `rdap` sweeps: both ask a registry when it created a name, and that is one
+authority agreeing with itself.
+
+**Falsification run before it was admitted.** A TLD cannot predate its own delegation. Across the six
+TLDs delegated in 2001 the file holds 21,698 in-window rows and **zero** dated before 2001: `.info`
+20,731, `.biz` 635, `.coop` 315, `.museum` 17. Nobody encoded that constraint, and a mis-parsed or
+fabricated date field would have violated it immediately. Separately, 7 of 7 seeded-random `.com`
+names matched live Verisign RDAP to the exact year, and an injected fabricated name read as unheld.
+
+**Yield.** 171,212,579 lines, 2,957,620 distinct pairs, **2,165,523 net-new pairs and 1,241,812.0
+equivalent-English** at a mean weight of 0.5734.
+
+**Caveats.** These are domains still registered in December 2024, so the population is
+survivorship-biased; that affects which domains it reaches, not whether the evidence is sound. The
+direction of error is loss: a name created in 1998, dropped, and re-registered in 2015 reads 2015 and
+falls out of the window, and the reverse cannot happen. It is a third-party compilation rather than a
+primary registry feed, which is what the falsification test and the RDAP spot-check exist to address.
+Approved `master` by Ivo on 2026-08-17.
+
 ## `rdap` and `rdap_snapshot`: registry creation dates
 
 **What it is.** Registry RDAP lookups, reading the `registration` event year. Since 2026-08-08 they

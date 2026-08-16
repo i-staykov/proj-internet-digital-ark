@@ -96,14 +96,20 @@ def scan(directory: Path) -> dict[str, Tally]:
     for path in sorted(directory.glob("*.jsonl*")):
         if path.name.endswith(".part"):
             continue
+        # An unstamped journal is still a journal. `cdx_discovered.jsonl.gz` carries
+        # 298 real queries and was silently dropped by requiring a `_<UTC>` suffix,
+        # which is the same mistake as enumerating prefixes: it measures the
+        # collectors that were named the expected way rather than the ones that ran.
         match = STAMPED.match(path.name)
         if match is None:
-            continue
-        prefix, stamp = match.group("prefix"), match.group("stamp")
+            prefix, stamp = path.name.split(".", 1)[0], ""
+        else:
+            prefix, stamp = match.group("prefix"), match.group("stamp")
         tally = tallies[prefix]
         tally.files += 1
-        tally.first_stamp = min(tally.first_stamp or stamp, stamp)
-        tally.last_stamp = max(tally.last_stamp, stamp)
+        if stamp:
+            tally.first_stamp = min(tally.first_stamp or stamp, stamp)
+            tally.last_stamp = max(tally.last_stamp, stamp)
 
         opener = gzip.open if path.suffix == ".gz" else open
         try:
