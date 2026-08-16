@@ -9510,3 +9510,55 @@ noticed only because somebody happened to be watching. It worked, unattended, ex
 
 Yield trend on the local pool engine across the last three finished batches: **22.9%, 19.3%, 37.5%**.
 The rise is the queue rebuild landing.
+
+## 2026-08-16: five untried families swept, four closed, and the biggest reserve is one we already own
+
+Ran five lenses over families this round had not touched, each told explicitly what had already been
+swept so none of it re-trod today's ground. Four closures and one survivor, and the closures are worth
+more than the survivor.
+
+**The bracketed-gap population is the largest known reserve and it is entirely ours.** 285,842 domains
+hold a year on both sides of a missing one and have **never been asked**. Verified figure, after the
+proposer's was cut for optimism: **103,000 to 164,000 net-new pairs, 73,061 to 85,627 EE, which is 0.88
+to 1.03 percentage points**, calibrated on 514 real queries at 0.2556 EE per query. This is the VPS's
+population and it clears it at 85 to 97% hit rate. It cannot matter tonight: at ~300 queries an hour the
+VPS reaches perhaps 3,000 of them before the deadline, worth roughly 750 EE. **It is the first thing to
+point a collector at next round**, and `queue_gap_vps_20260816.txt` is already built against the current
+baseline and waiting.
+
+**Era web traces are closed by design, not by link rot**, which is why the family keeps looking
+attractive. Dated logs holding millions of real URLs is exactly the shape we want, and it is exactly
+what the 1990s privacy norm destroyed before publication: DEC/Compaq 1996 states "it should not be
+possible to discover the actual identity of any host or URL in these traces", BU 1998 hashes the Host
+field, Berkeley Home IP anonymises URLs. **Ask any era-trace proposal for its sanitisation paragraph
+before fetching a byte.**
+
+**MARC catalogues: the dating requirement and the URL-bearing requirement are anticorrelated**, and each
+dump proves it from the opposite side. LC books carry an in-window MARC 005 on 28.25% of records and
+hold 67 distinct hosts in 72,588 records. LC serials hold 3,492 hosts in 46,390 records and carry an
+in-window 005 on 0.34%. The mechanism is not coincidence: a record keeps an in-window last-transaction
+date only if nothing has touched it in twenty-five years, and a record naming a website is exactly the
+record somebody has since touched. Yesterday's closure was reasoned; it is now measured, and the escape
+hatch it named produced **one** net-new domain in 48.2 MB.
+
+**Search engines of the era are a graveyard.** Not one machine-readable dated hostname list survives.
+The only surviving search-engine-derived corpus is the Open Directory and we hold all three in-window
+dumps. `100hot.com` had a real chance and is closed on a number: the dated series does survive, 43,116
+captures over 27,943 URLs, and 130 pages already on disk give **132 net-new pairs, 78.68 EE**.
+
+**IPEDS gives the number to screen institutional directories with: `.edu` is 95.5% saturated at the
+exact year such a file attests.** 2,946 of 3,251 domains in `IC99_HD` were already dated 1999.
+
+**The survivor, and it does not clear the bar.** `fac_sfsac` (Federal Audit Clearinghouse single-audit
+returns) measures **2,770 post-split pairs and 1,890.6 EE**, agreed to within 0.1% by three independent
+parsers including the project's own `price_items.py`. Its 67.6 MB is already on disk so the marginal
+fetch is zero, but 2,770 is 55% of the ~5,000-pair bar. **One correction it forces is worth more than
+its pairs**: the dossier proposed dating by the folder's audit year, and the signature dates inside
+`census-1999` spread 1999:10,737 / 2000:21,135 / 2001:1,428, so folder-dating would have claimed a year
+**before** the address was attested. The date is `AUDITEEDATESIGNED`, on the same row as the address.
+
+**One method worth keeping, from the research-supplements lens.** Wayback holds 78.6, 78.9 and 102.7 MB
+research zips from `cybermetrics.wlv.ac.uk`, a host that no longer resolves. That is the `nw.com/zone`
+recovery shape again, and it generalises: **when an era research data host dies, CDX its file paths
+rather than its pages.** The assumption that Wayback skips large binaries is wrong by two orders of
+magnitude here, and it is the same assumption that left the January 1997 survey unrecovered for weeks.
