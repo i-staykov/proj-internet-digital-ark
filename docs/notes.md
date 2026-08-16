@@ -9461,3 +9461,29 @@ companies are largely dated already, so the two sets barely intersect.
 Two independent measurements now agree that the untapped Usenet mention residue is mostly fiction.
 That is worth more than the 1,173 pairs: it closes, on evidence, the recurring idea that a cleverer
 corroborator would unlock a large reserve sitting in the mention tables.
+
+## 2026-08-16: built a conversion rate that was a tautology, caught it before quoting it
+
+Wanted the useful meta-question: which shape of source produces candidates that actually convert, so
+the hunt can be pointed at more of that shape. Wrote a query attributing each domain to the first
+source that saw it and measuring what fraction later got a year.
+
+**Every master source read exactly 100.0% and every mention source read exactly 0.0%.** That is not a
+finding, it is the query restating its own definitions. `min(s.name)` is alphabetically first, not
+chronologically first, so any domain a master source ever touched attributes to the master, and a
+domain a master source touched has a year by construction. The mention rows are the mirror image:
+those are domains attested by nothing but a mention, and a domain with only candidate-only evidence
+cannot have a year, again by construction.
+
+The one number in it that is real, because it does not depend on the attribution: **2,390,000-odd
+domains are attested by Usenet mentions and nothing else**, and that agrees with the two measurements
+already recorded today.
+
+**The measure that does work is the one already in hand**: in-window capture rate among ANSWERED CDX
+queries, by TLD. It is not tautological because the archive's answer is independent of how the name
+entered our store. That is the measurement to use for ranking, and it is what the pool should be ranked
+by next round.
+
+Recorded because it is the same failure as the lifetime-rule test on 2026-08-15: measuring a proxy for
+the thing I meant, in a query built deliberately to check something. The tell was the answer being
+exactly 100.0 and exactly 0.0, which is what a definition looks like.
