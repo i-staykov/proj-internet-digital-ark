@@ -48,3 +48,45 @@ def test_a_bot_interstitial_is_not_a_revival() -> None:
 
 def test_a_cloudflare_challenge_is_not_a_revival() -> None:
     assert reprobe.looks_parked(b"<title>Just a moment...</title>Checking your browser before")
+
+
+# The third way a dead source answers 200, after parking pages and bot walls.
+#
+# `bl.iro.bl.uk` reported NOW ANSWERS, UNEXPECTED on 2026-08-16. Its homepage was up;
+# the data tree was exactly as dead as the register said. `webarchive.org.uk` serves a
+# 159-byte HTML "400 Redirect" body under HTTP 200 for every path under `/datasets/`,
+# and the positive control is what makes this safe to assert rather than infer:
+# `host-linkage.tsv.gz` is a file we demonstrably hold, and it returns the same stub.
+# So a 200 in that tree proves nothing, and the largest closed prize in the register
+# would otherwise re-open itself on every wake.
+
+
+def test_html_where_a_gzip_should_be_is_a_stub() -> None:
+    assert reprobe.looks_like_a_stub(
+        "https://www.webarchive.org.uk/datasets/ukwa.ds.2/cdx/1996.cdx.gz", "text/html", 159
+    )
+
+
+def test_the_positive_control_reads_as_a_stub_too() -> None:
+    """A file we are known to hold returns the same 159 bytes, which is the whole proof."""
+    assert reprobe.looks_like_a_stub(
+        "https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz",
+        "text/html",
+        159,
+    )
+
+
+def test_a_real_gzip_is_not_a_stub() -> None:
+    assert not reprobe.looks_like_a_stub(
+        "https://example.org/1996.cdx.gz", "application/gzip", 2048
+    )
+
+
+def test_a_page_that_is_meant_to_be_a_page_is_not_a_stub() -> None:
+    """The check must not fire on every HTML URL, or it silences real revivals."""
+    assert not reprobe.looks_like_a_stub("https://bl.iro.bl.uk/", "text/html; charset=utf-8", 2048)
+
+
+def test_a_large_html_body_is_not_the_stub_shape() -> None:
+    """A big page at a .tsv address is something else, and worth a human look."""
+    assert not reprobe.looks_like_a_stub("https://example.org/big.tsv", "text/html", 50_000)

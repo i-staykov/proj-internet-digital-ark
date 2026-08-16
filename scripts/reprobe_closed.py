@@ -162,6 +162,31 @@ def looks_parked(body: bytes) -> bool:
     return any(marker in text for marker in PARKED_MARKERS)
 
 
+# Extensions whose content is never HTML. Asking for one of these and being handed a
+# page is the third way a dead source answers 200, after parking and bot walls.
+DATA_SUFFIXES = (".gz", ".zip", ".7z", ".bz2", ".xz", ".tar", ".tsv", ".csv", ".cdx", ".jsonl")
+
+
+def looks_like_a_stub(url: str, content_type: str, size: int) -> bool:
+    """Whether a binary URL answered with a small HTML page instead of the file.
+
+    Added 2026-08-16, after `bl.iro.bl.uk` reported NOW ANSWERS on its homepage while
+    the data tree was unchanged. `webarchive.org.uk` serves a **159-byte HTML "400
+    Redirect" body under HTTP 200** for every path under `/datasets/`, including
+    `host-linkage.tsv.gz`, a file we demonstrably hold. That positive control is what
+    makes this safe to assert: the stub is the tree, not the file, so a 200 there proves
+    nothing and must not read as a revival.
+
+    Deliberately narrow. It fires only when the URL names a data extension AND the
+    response is HTML, so a genuine HTML index page keeps reporting as itself.
+    """
+    if not url.lower().rstrip("/").endswith(DATA_SUFFIXES):
+        return False
+    if "html" not in content_type.lower():
+        return False
+    return size < 8192
+
+
 @dataclass
 class Probe:
     lead: str
@@ -264,9 +289,13 @@ def ask(url: str, timeout: float = 20.0) -> tuple[str, str, bool]:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read(2048)
             kind = response.headers.get("Content-Type", "?")
-            parked = looks_parked(body)
-            note = ", PARKED PAGE" if parked else ""
-            return str(response.status), f"{len(body)}+ bytes, {kind}{note}", parked
+            if looks_parked(body):
+                note, foretold = ", PARKED PAGE", True
+            elif looks_like_a_stub(url, kind, len(body)):
+                note, foretold = ", STUB: HTML where the file should be", True
+            else:
+                note, foretold = "", False
+            return str(response.status), f"{len(body)}+ bytes, {kind}{note}", foretold
     except urllib.error.HTTPError as exc:
         return str(exc.code), (exc.reason or "")[:60], False
     except urllib.error.URLError as exc:

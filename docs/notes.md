@@ -9120,3 +9120,39 @@ would be worth a great deal. `sources.md` already records why it stops: the raw 
 1997, confirmed against two independent live listings, and the `WWW-9801/` and `WWW-9807/` directories
 that look like the missing editions hold aggregate report HTML with no names in it. The closure was
 already right; what is new is only that the reviewer would now accept the evidence if it existed.
+
+## 2026-08-16: the re-prober cried wolf on the largest closed prize, and the fix has a positive control
+
+`just cycle` reported "a closed-on-availability lead answers now, price it: [200] NOW ANSWERS,
+UNEXPECTED https://bl.iro.bl.uk/". That lead is the UKWA per-year bulk CDX and the 700M-line Geoindex,
+all `.uk` at 0.9813, which `sources.md` calls the largest reachable-looking prize still closed. So it
+was worth four requests to check.
+
+**Nothing has changed, and the register was already right.** The repository homepage answers 200 and
+always did. The data tree does not:
+
+| url | result |
+|---|---|
+| `bl.iro.bl.uk/` | 200, 42,279 bytes of HTML, the repository front page |
+| `webarchive.org.uk/datasets/ukwa.ds.2/cdx/1996.cdx.gz` | 200, **159 bytes of HTML** |
+| `webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz` | 200, **159 bytes of HTML** |
+| `data.webarchive.org.uk/...` | no connection |
+
+**The third row is the whole argument.** `host-linkage.tsv.gz` is a file we demonstrably hold, 2 GiB of
+it on disk, and it returns the same 159-byte stub as the file we want. So a 200 anywhere under
+`/datasets/` proves nothing at all, which is the negative-result rule applied to a probe: prove a
+negative against a case you know is positive.
+
+**Fixed at the instrument rather than by remembering.** `looks_like_a_stub()` now fires when a URL
+naming a data extension is answered with a small HTML body, and it is deliberately narrow: it needs
+both the extension and an HTML content type, so a genuine HTML index still reports as itself. Five
+tests pin it, including the positive control, because without one this check could be tuned until it
+silenced real revivals.
+
+This is the third shape of "answers 200 and is not a source", after parking pages and bot walls, and
+each was found the same way: an alarm firing on something the register had already recorded.
+
+**Also verified while here, since it decides whether UKWA is worth a second look at all.** Our copy of
+`host-linkage.tsv.gz` is truncated at exactly 2 GiB, but it is year-sorted and its last rows are 2004,
+so the whole 1996-2001 head landed. Rows per year run 1,011 targets in 1996 to 40,566 in 2001. The
+in-window graph is complete and there is no lost tail to recover.
