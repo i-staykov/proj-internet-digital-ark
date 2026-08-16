@@ -2,9 +2,8 @@
 
 Additions to the 1996-2001 annual domain lists, measured against `merged260815`.
 
-**Every figure in this report is generated from the evidence store** by `scripts/report_figures.py` and
-substituted by `scripts/fill_report.py`. No number here is typed by hand, so a table cannot drift from
-the files shipped beside it.
+**Every figure here is generated from the evidence store**, not typed, so no table can drift from the
+files shipped beside it.
 
 ---
 
@@ -13,9 +12,9 @@ the files shipped beside it.
 | | |
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 15,428,507 |
-| 2. Equivalent-English total | 8,346,839.4 |
+| 2. Equivalent-English total | 8,346,839.3737 |
 | 3. Increment | **2,835,893** records |
-| 4. Equivalent-English increment | **1,694,957.9** |
+| 4. Equivalent-English increment | **1,694,957.8712** |
 | 5. Equivalent-English growth rate | **20.3066%** |
 
 Lines 1 and 2 are the `merged260815` totals, unchanged, since this increment is not yet merged. The
@@ -35,6 +34,10 @@ than new years on names already held. Mean equivalent-English weight per record 
 | 2001 | 2,991,302 | 981,227 | 224,018 (22.8%) |
 | **Total** | **13,783,939** | **2,835,893** | **272,584 (9.6%)** |
 
+The baseline column above counts registered domains, which is the output unit section X asks for, so
+it reads lower than the 15,428,507 raw lines of line 1. Both describe the same six files. Growth
+is quoted against line 2, the reviewer's own equivalent-English total for those files.
+
 **Cumulative across every round.** Two rounds are shown without a figure because they are contained in a later one and adding them would double-count: round 2 was measured against the same release as round 3, and round 4 was an interim report whose records are still net-new in this one. The growth rates of different rounds are not additive, because the baseline was reissued between them, so the cumulative percentage below is stated against a single fixed denominator: the 5,531,053.6089 equivalent-English of the corpus as it stood before the first submission.
 
 | Round | Date | Records | Equivalent-English | Growth as quoted then |
@@ -43,7 +46,7 @@ than new years on names already held. Mean equivalent-English weight per record 
 | 2 | 2026-08-06 | 152,773 | 105,676.0387 | _counted within round 3_ |
 | 3 | 2026-08-09 | 946,266 | 603,401.7811 | 10.9093% of the original |
 | 4 | 2026-08-12 | 159,787 | 91,908.4230 | _counted within round 5_ |
-| **5 (this one)** | today | **2,835,893** | **1,694,957.8712** | **20.3066%** |
+| **5 (this one)** | 2026-08-17 | **2,835,893** | **1,694,957.8712** | **20.3066%** |
 | **Cumulative** | | **3,934,108** | **2,390,174.3403** | **43.2137%** |
 
 ---
@@ -190,50 +193,22 @@ evidence sits unassigned. The gate is enforced by a pre-commit hook rather than 
 
 **A discovery loop that does not run out.** A candidate the CDX engine dates is by construction a site
 that was live in the window; its archived page names other sites of the same period; those names return
-to the pool. `build_expand_seeds.py` to `ark download` to `ark ingest expansion_links` to
-`build_query_queue.py` to the engine and back. Because extracted hostnames are `link_target` and can
-never date a year, this route needs no approval and is safe to leave running unattended. It was measured
-this round: seeding link-looking pages rather than home pages harvested 391 domains against 53, a 7.4x
-improvement, but yielded only 5 net-new because 386 of the 391 were already held and already dated. That
-negative result is recorded, and it is why bulk link graphs are now preferred over page-by-page expansion.
+to the pool, and because extracted hostnames are `link_target` and can never date a year, the loop needs
+no approval and is safe to leave running unattended. It was measured this round: seeding link-looking
+pages rather than home pages harvested 391 domains against 53, a 7.4x improvement, but yielded only 5
+net-new, because 386 of the 391 were already held and already dated. That negative result is why bulk
+link graphs are now preferred over page-by-page expansion.
 
 **The agent harness itself.** A standing brief, `CLAUDE.md`, is loaded into every agent session and holds
 only what does not change: the evidence rule, the metric, which document is authoritative for what, the
-operational rules, and a section of traps that have each produced a confident wrong answer. Long-running
-collectors hold their own absolute deadlines and keep running with no agent present. The agent re-invokes
-itself on a heartbeat and a cron wake, and a wake that finds everything healthy is required to spend
-itself hunting a new source, because an idle wake beside healthy engines is a wasted one. Decisions land
-in an append-only dated log; the few with structural impact become ADRs; anything genuinely needing a
-human appears on exactly one surface, so it cannot be buried.
+operational rules, and a section of traps that have each produced a confident wrong answer. Collectors
+hold their own absolute deadlines and keep running with no agent present; the agent re-invokes itself on
+a heartbeat, and a wake that finds everything healthy is required to spend itself hunting a new source,
+because an idle wake beside healthy engines is a wasted one. Decisions land in an append-only dated log,
+the few with structural impact become ADRs, and anything genuinely needing a human appears on exactly one
+surface so it cannot be buried.
 
-**Negative results are first-class.** **115 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 91 evaluated and closed, each with the measurement that closed it. The developed ones:
-
-- `prior_task`: the supplied baseline
-- `isc_survey`: Internet Domain Survey host lists
-- `afnic_fr`: `.fr` registry open data
-- `ukwa_link_source` and `ukwa_link_target`: UK Web Archive host link graph
-- `arquivo_ia` and `arquivo_roteiro`: Arquivo.pt capture indexes
-- `odp`: Open Directory Project (DMOZ) RDF content dumps
-- `early_web_cdx`: Internet Archive Early Web CDX dataset
-- `ia_cdx_bulk`: Wayback CDX verification engine
-- `rdap` and `rdap_snapshot`: registry creation dates
-- `page_directory` and `page_expansion`: archived curated directory pages
-- `internet_scout`: Internet Scout Report archive
-- `ncsa_whats_new`: NCSA "What's New" announcement pages
-- `ia_cdx`: per-year CDX verification (superseded)
-- NYPW first-capture index: assessed and rejected on measurement
-- Australian Web Archive: the CDX endpoint is reachable again
-- `trade_press` and `trade_press_mention`: scanned computer magazines
-- `usenet_address` and `usenet_address_mention`: the addresses the extractor never read
-- `usenet_bare` and `usenet_bare_mention`: the bare `foo.com` in the message bodies
-- `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`: the UUCP maps
-- `rtfm_faq` and `rtfm_faq_mention`: the Usenet FAQ mirror
-- `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
-- `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
-- `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
-- `enron_email` and `enron_email_mention`: the FERC Enron corpus
-
-The 91 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
+**Negative results are first-class.** **115 source families have been searched and recorded**, and `sources.md` ships beside this report naming every one. 24 were developed far enough to earn their own section (`prior_task`, `isc_survey`, `afnic_fr`, `ukwa_link_source` and `ukwa_link_target`, `arquivo_ia` and `arquivo_roteiro`, `odp`, `early_web_cdx`, `ia_cdx_bulk`, `rdap` and `rdap_snapshot`, `page_directory` and `page_expansion`, `internet_scout`, `ncsa_whats_new`, `ia_cdx`, NYPW first-capture index, Australian Web Archive, `trade_press` and `trade_press_mention`, `usenet_address` and `usenet_address_mention`, `usenet_bare` and `usenet_bare_mention`, `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`, `rtfm_faq` and `rtfm_faq_mention`, `usenet_announce` and `usenet_mention`, `tucows_catalogue` and `tucows_mention`, `maillist_archive` and `maillist_archive_mention`, `enron_email` and `enron_email_mention`); the other 91 were evaluated and closed, each recorded with the measurement that closed it, so that negative results stay visible and the same ground is not broken twice.
 
 ---
 
@@ -261,19 +236,14 @@ it so the same ground is not broken twice.
 
 ## 7. Reproduction
 
-The archive ships the results, the evidence behind every one of them, the code that produced them, and
-the raw journals. `README.md` inside the archive gives the order. In short:
+`README.md` inside the archive gives the full order. In short: `masters/` holds the merged annual lists
+and `additions/` this round's net-new records only, both one registered domain per line and deduplicated
+within each year; `candidates.txt` holds the names with no year evidence, separate as section X requires;
+`provenance/*.parquet` joins every (domain, year) to the evidence row that justifies it, so any single
+line of any annual file traces to the observation behind it; `journals/` holds the raw per-source records
+before interpretation; `source/source.tar.gz` is the repository at the commit that produced the delivery;
+and `verify.sh` re-checks the shipped files against each other.
 
-- `masters/1996.txt` to `2001.txt`: the full merged annual lists, one registered domain per line,
-  deduplicated within each year.
-- `additions/`: this round's net-new records only, in the same per-year shape.
-- `provenance/domain_year.parquet` and `provenance/evidence.parquet`: every (domain, year) with the
-  evidence row that justifies it, joinable by `evidence_id`. This is the audit surface: any single
-  assignment in any annual file can be traced to the observation behind it.
-- `journals/`: the raw per-source records as collected, before any interpretation.
-- `source/source.tar.gz`: the complete repository at the commit that produced this delivery.
-- `verify.sh`: re-checks the shipped files against each other and against the stated figures.
-
-`uv run ark export` regenerates every text file from the store; `uv run ark check` re-runs the nine
-invariants; `uv run python scripts/round_figures.py --verify` re-scores the round with the reviewer's own
-`equivalent_english_domains.py` and its unchanged weight model.
+`uv run ark export` regenerates every text file from the store, `uv run ark check` re-runs the nine
+invariants, and `uv run python scripts/round_figures.py --verify` re-scores the round with the reviewer's
+own `equivalent_english_domains.py` and its unchanged weight model.

@@ -240,8 +240,11 @@ def substitutions(f: dict) -> dict[str, str]:
         "HARVESTED": f"{f['harvested_this_round']:,}",
         "CAPTUREBACKED": f"{f['capture_backed_total']:,}",
         "BASELINE": BASELINE,
-        "EE": f"{f['ee_netnew']:,.1f}",
-        "EEBASELINE": f"{f['ee_baseline']:,.1f}",
+        # Four decimals, because that is the precision the reviewer reports back in
+        # and a rounded total reads to him as a different number than the one he
+        # computed with his own calculator.
+        "EE": f"{f['ee_netnew']:,.4f}",
+        "EEBASELINE": f"{f['ee_baseline']:,.4f}",
         "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
         "EEMEAN": f"{f['ee_mean_weight']:.4f}",
         "EE_SOURCE_TABLE": ee_source_table(f),
@@ -305,7 +308,7 @@ def cumulative(f: dict) -> str:
     total_records += f["netnew_pairs"]
     total_ee += Decimal(str(f["ee_netnew"]))
     rows.append(
-        f"| **5 (this one)** | today | **{f['netnew_pairs']:,}** "
+        f"| **5 (this one)** | 2026-08-17 | **{f['netnew_pairs']:,}** "
         f"| **{f['ee_netnew']:,.4f}** | **{f['ee_netnew_growth_pct']:.4f}%** |"
     )
     cum_pct = 100 * total_ee / ORIGINAL_BASELINE_EE
@@ -375,21 +378,17 @@ def datasets_searched() -> str:
     if not developed and not rejected:
         return "_No families recorded._"
 
-    lines = [
-        f"**{len(developed) + rejected} source families have been searched and recorded**: "
-        f"{len(developed)} developed far enough to earn their own section, and {rejected} "
-        "evaluated and closed, each with the measurement that closed it. The developed ones:",
-        "",
-    ]
-    lines += [f"- {name}" for name in developed]
-    lines += [
-        "",
-        f"The {rejected} closed families are listed under `## Evaluated and rejected` in "
-        "`docs/sources.md`, one row each, naming the verdict and the number behind it. They "
-        "are recorded so that negative results stay visible and the same ground is not broken "
-        "twice.",
-    ]
-    return "\n".join(lines)
+    # Inline rather than bulleted. The reviewer asks for every dataset searched and
+    # this has to be complete, but 24 bullets plus 91 rows is a page of the five he
+    # gets. The full register ships as `sources.md` beside the report.
+    names = ", ".join(name.split(":")[0].strip() for name in developed)
+    return (
+        f"**{len(developed) + rejected} source families have been searched and recorded**, and "
+        f"`sources.md` ships beside this report naming every one. {len(developed)} were developed "
+        f"far enough to earn their own section ({names}); the other {rejected} were evaluated and "
+        "closed, each recorded with the measurement that closed it, so that negative results stay "
+        "visible and the same ground is not broken twice."
+    )
 
 
 def _cdx_notes(markdown_form: bool) -> str:

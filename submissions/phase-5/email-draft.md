@@ -1,0 +1,65 @@
+# Email draft for the phase-5 submission
+
+Send to: [redacted]
+CC: [redacted]
+Subject: Re: Trial Project
+
+Attach: `report.docx`
+Link: upload `internet-digital-ark-1996-2001.tar.gz` to transfernow and paste the URL where marked.
+
+---
+
+Dear Professor Ding,
+
+This round passes the 5% threshold you set.
+
+1. Total number of original domains from 1996 to 2001: 15,428,507
+2. Equivalent-English total: 8,346,839.3737
+3. Increment: 2,835,893 records
+4. Equivalent-English increment: 1,694,957.8712
+5. Equivalent-English growth rate: 20.306583%
+
+Lines 1 and 2 are your `merged260815` totals, unchanged, since this increment is not yet merged.
+
+Cumulative across every round, which you asked me to track: 3,934,108 records and 2,390,174.3403
+equivalent-English, which is 43.2137% of the 5,531,053.6089 the corpus held before my first
+submission. I have counted each round once. Round 2 was measured against the same release as round 3
+and is contained in it, and round 4 was an interim report whose records are still net-new in this one,
+so adding either separately would double-count. The report sets the arithmetic out in full.
+
+The increment covers 2,664,363 distinct domains, and 1,788,557 of them appear in none of your six
+annual files in any year, so most of it is genuinely new names rather than new years on names already
+held.
+
+The round came from a change of strategy rather than more querying, and I think the finding is the
+useful part. When `merged260815` arrived carrying another contributor's UMN DRUM delivery, the shape
+of it was informative: one bulk dated corpus was worth roughly twenty times my entire previous round
+of per-domain archive querying. My collection had been optimised against request throughput against a
+single archive, and a bulk dated corpus does not have that constraint at all. So I re-aimed the search
+at that shape and found two more:
+
+- The Internet Archive's own capture census, published in a 2017 Dartmouth/NBER research release. It
+  states how many captures the Wayback Machine holds for each host in each calendar year, which is the
+  same fact a CDX query returns, in bulk instead of one host at a time. 227,273 net-new pairs. Where my
+  own CDX engine had separately queried the live archive, the two agree on 138,979 pairs.
+- A published compilation of registry creation dates over 171 million domains. Used strictly as you
+  specified: a creation date in 1998 writes 1998 and no other year, and later years still have to be
+  earned from a capture or a survey. 2,165,523 net-new pairs. Before admitting it I ran a falsification
+  check, since a TLD cannot predate its own delegation: across the six TLDs delegated in 2001 the file
+  has 21,698 in-window rows and zero dated before 2001.
+
+Two further gains came from material already on my own disk. A parser had been reading 6.76% of a UK
+Web Archive file since July because it assumed the file was sorted by year and it is fifteen
+concatenated shards; fixing that recovered 92,646 pairs. And the January 1997 Internet Domain Survey,
+recorded as unrecoverable because its host is dead, turned out to be intact in the Wayback Machine
+under a successor hostname.
+
+The archive holds the annual files, the candidate pool kept separate from them, the evidence behind
+every single assignment as Parquet, the raw journals, and the code at the commit that produced it. The
+report covers the CDX execution notes, the per-source contribution statistics and the discovery system
+itself.
+
+[PASTE TRANSFERNOW LINK HERE]
+
+Best regards,
+Ivaylo

@@ -2,9 +2,8 @@
 
 Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
 
-**Every figure in this report is generated from the evidence store** by `scripts/report_figures.py` and
-substituted by `scripts/fill_report.py`. No number here is typed by hand, so a table cannot drift from
-the files shipped beside it.
+**Every figure here is generated from the evidence store**, not typed, so no table can drift from the
+files shipped beside it.
 
 ---
 
@@ -26,6 +25,10 @@ six baseline annual files in any year**, so the majority of the increment is gen
 than new years on names already held. Mean equivalent-English weight per record is [EEMEAN].
 
 [PER_YEAR_TABLE]
+
+The baseline column above counts registered domains, which is the output unit section X asks for, so
+it reads lower than the [BASELINEPAIRS] raw lines of line 1. Both describe the same six files. Growth
+is quoted against line 2, the reviewer's own equivalent-English total for those files.
 
 [CUMULATIVE]
 
@@ -146,21 +149,20 @@ evidence sits unassigned. The gate is enforced by a pre-commit hook rather than 
 
 **A discovery loop that does not run out.** A candidate the CDX engine dates is by construction a site
 that was live in the window; its archived page names other sites of the same period; those names return
-to the pool. `build_expand_seeds.py` to `ark download` to `ark ingest expansion_links` to
-`build_query_queue.py` to the engine and back. Because extracted hostnames are `link_target` and can
-never date a year, this route needs no approval and is safe to leave running unattended. It was measured
-this round: seeding link-looking pages rather than home pages harvested 391 domains against 53, a 7.4x
-improvement, but yielded only 5 net-new because 386 of the 391 were already held and already dated. That
-negative result is recorded, and it is why bulk link graphs are now preferred over page-by-page expansion.
+to the pool, and because extracted hostnames are `link_target` and can never date a year, the loop needs
+no approval and is safe to leave running unattended. It was measured this round: seeding link-looking
+pages rather than home pages harvested 391 domains against 53, a 7.4x improvement, but yielded only 5
+net-new, because 386 of the 391 were already held and already dated. That negative result is why bulk
+link graphs are now preferred over page-by-page expansion.
 
 **The agent harness itself.** A standing brief, `CLAUDE.md`, is loaded into every agent session and holds
 only what does not change: the evidence rule, the metric, which document is authoritative for what, the
-operational rules, and a section of traps that have each produced a confident wrong answer. Long-running
-collectors hold their own absolute deadlines and keep running with no agent present. The agent re-invokes
-itself on a heartbeat and a cron wake, and a wake that finds everything healthy is required to spend
-itself hunting a new source, because an idle wake beside healthy engines is a wasted one. Decisions land
-in an append-only dated log; the few with structural impact become ADRs; anything genuinely needing a
-human appears on exactly one surface, so it cannot be buried.
+operational rules, and a section of traps that have each produced a confident wrong answer. Collectors
+hold their own absolute deadlines and keep running with no agent present; the agent re-invokes itself on
+a heartbeat, and a wake that finds everything healthy is required to spend itself hunting a new source,
+because an idle wake beside healthy engines is a wasted one. Decisions land in an append-only dated log,
+the few with structural impact become ADRs, and anything genuinely needing a human appears on exactly one
+surface so it cannot be buried.
 
 **Negative results are first-class.** [DATASETS_SEARCHED]
 
@@ -190,19 +192,14 @@ it so the same ground is not broken twice.
 
 ## 7. Reproduction
 
-The archive ships the results, the evidence behind every one of them, the code that produced them, and
-the raw journals. `README.md` inside the archive gives the order. In short:
+`README.md` inside the archive gives the full order. In short: `masters/` holds the merged annual lists
+and `additions/` this round's net-new records only, both one registered domain per line and deduplicated
+within each year; `candidates.txt` holds the names with no year evidence, separate as section X requires;
+`provenance/*.parquet` joins every (domain, year) to the evidence row that justifies it, so any single
+line of any annual file traces to the observation behind it; `journals/` holds the raw per-source records
+before interpretation; `source/source.tar.gz` is the repository at the commit that produced the delivery;
+and `verify.sh` re-checks the shipped files against each other.
 
-- `masters/1996.txt` to `2001.txt`: the full merged annual lists, one registered domain per line,
-  deduplicated within each year.
-- `additions/`: this round's net-new records only, in the same per-year shape.
-- `provenance/domain_year.parquet` and `provenance/evidence.parquet`: every (domain, year) with the
-  evidence row that justifies it, joinable by `evidence_id`. This is the audit surface: any single
-  assignment in any annual file can be traced to the observation behind it.
-- `journals/`: the raw per-source records as collected, before any interpretation.
-- `source/source.tar.gz`: the complete repository at the commit that produced this delivery.
-- `verify.sh`: re-checks the shipped files against each other and against the stated figures.
-
-`uv run ark export` regenerates every text file from the store; `uv run ark check` re-runs the nine
-invariants; `uv run python scripts/round_figures.py --verify` re-scores the round with the reviewer's own
-`equivalent_english_domains.py` and its unchanged weight model.
+`uv run ark export` regenerates every text file from the store, `uv run ark check` re-runs the nine
+invariants, and `uv run python scripts/round_figures.py --verify` re-scores the round with the reviewer's
+own `equivalent_english_domains.py` and its unchanged weight model.
