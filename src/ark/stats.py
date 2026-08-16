@@ -71,6 +71,10 @@ PROVENANCE_LINEAGE = {
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",
     "afnic_fr": "registry",
+    # Registry creation dates in bulk. Same lineage as our live RDAP sweeps by
+    # construction: both ask a registry when it created a name, so a pair they both
+    # attest is one authority agreeing with itself, not two witnesses.
+    "domain_creation_bulk": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",

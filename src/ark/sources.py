@@ -280,6 +280,54 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=tokens[-1], year=year, evidence_value=survey)
 
 
+def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per domain whose registry creation date falls in the window.
+
+    Rows are semicolon-separated with a header:
+    `domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at`
+    and `created_at` is the registry's own creation date for that exact domain,
+    parsed by the publisher out of a port-43 WHOIS answer. That is the same claim
+    `rdap_snapshot` makes, from the same authority, in bulk.
+
+    **One year per domain, deliberately.** A creation date says the name was created
+    on that day and nothing about any later year, so this emits the creation year
+    alone. Continued registration in 1999 is a separate fact needing separate
+    evidence, and inferring it here is exactly what the brief forbids.
+
+    **The direction of error is loss, which is the safe direction.** WHOIS reports
+    the CURRENT registration, so a name created in 1998, dropped, and re-registered
+    in 2015 reads 2015 and falls out of the window. We lose it. The reverse cannot
+    happen: nothing re-registered later can read earlier than it was created.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.rstrip("\n").split(";")
+            if len(parts) < 5:
+                stats["malformed"] += 1
+                continue
+            created = parts[4].strip()
+            if len(created) < 4 or not created[:4].isdigit():
+                stats["no_creation_date"] += 1
+                continue
+            year = int(created[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            domain = parts[0].strip()
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                evidence_value=f"registry created {created}",
+                # ICANN's own lookup rather than a registry-specific RDAP endpoint,
+                # because it resolves for every TLD and shows the creation date a
+                # reviewer is being asked to check. Without a link the approval
+                # request prints an empty column, and the request exists precisely
+                # so a human checks the registry instead of reading our prose.
+                evidence_url=f"https://lookup.icann.org/en/lookup?q={domain}",
+            )
+
+
 def parse_domain_year_captures(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window (domain, year) row of an IA capture census.
 
@@ -769,6 +817,17 @@ SOURCES: dict[str, SourceSpec] = {
     # which is the documented exception to "IA-derived cannot be net-new": it
     # converts our binding constraint, request throughput, into a file download.
     # Kept as its own source name so provenance never merges with `ia_cdx_bulk`.
+    # A published bulk of registry creation dates, CC BY 4.0, covering 171M domains.
+    # Same claim and same authority as `rdap_snapshot`, arriving as a file instead of
+    # 171 million queries we could never afford to make. Its own source name so
+    # provenance stays separable from our live RDAP sweeps.
+    "domain_creation_bulk": SourceSpec(
+        key="domain_creation_bulk",
+        source_name="domain_creation_bulk",
+        evidence_type="whois_creation",
+        acquisition_method="published_registry_creation_dates",
+        parse=parse_domain_creation_csv,
+    ),
     "dartmouth_nber_captures": SourceSpec(
         key="dartmouth_nber_captures",
         source_name="dartmouth_nber_captures",

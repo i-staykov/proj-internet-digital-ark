@@ -27,13 +27,19 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Approve, refuse or downgrade domain_creation_bulk / whois_creation
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **2,171,217 net-new pairs and 1,245,366.6 equivalent-English** under `master`, against 649,475 and 379,868.2 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+
+The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
+
 ### Approve, refuse or downgrade dartmouth_nber_captures / cdx_timestamp
 
 `approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **227,273 net-new pairs and 142,084.0 equivalent-English** under `master`, against 130,966 and 82,161.2 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
 
 The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
 
-### Where the round stands: 3.6602% banked, 5.3624% if you approve the one request above
+### Where the round stands: 3.6696% banked, and EITHER request above clears 5% on its own
 
 **Status, not a question.** The baseline moved mid-round: `merged260815` replaced `merged260810` and the
 file guide calls it "the official baseline to be expanded and used for comparison in this round". The
@@ -44,8 +50,13 @@ and found byte-identical, so the standard itself has not moved. 5% is now **417,
 | | pairs | EE | growth |
 |---|--:|--:|--:|
 | after the baseline swap | 267,686 | 166,531 | 1.9951% |
-| **banked now** | **437,169** | **305,507.6** | **3.6602%** |
-| with `dartmouth_nber_captures` | 664,442 | 447,591.6 | **5.3624%** |
+| **banked now** | **438,151** | **306,296.5** | **3.6696%** |
+| with `dartmouth_nber_captures` | 665,424 | 448,380.5 | **5.3719%** |
+| with `domain_creation_bulk` | 2,609,368 | 1,551,662.8 | **18.5898%** |
+
+**Two independent routes, on different provenance lineages**, so they corroborate rather than repeat:
+the census is `cdx_timestamp` from the Internet Archive, the creation dates are `whois_creation` from
+the registries. Either alone clears the threshold. Both are one word plus `just ship-approved`.
 
 **What closed most of the gap was not new collection.** Three of the four largest gains came from
 material already public or already on our own disk: a parser that had been reading 6.76% of a file we

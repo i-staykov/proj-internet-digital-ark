@@ -9694,3 +9694,57 @@ the same cause.
 ask what generates the hostname, not just whether a human typed it. Machine-generated names come from
 infrastructure, and infrastructure is shared. Typed names come from attention, and attention is
 distributed.
+
+## 2026-08-16: a published bulk of registry creation dates, and it is 14.92 points
+
+The user asked for a second route to 5% after the Dartmouth census. A four-lens sweep aimed only at
+shapes big enough to matter found one, and it is far larger than the first.
+
+**What it is.** A Kaggle dataset, CC BY 4.0, `171 Million Domain Names (Whois, DNS, DNSSEC)`. One row
+per domain with a `created_at` column: the registry's own creation date, parsed by the publisher from a
+port-43 WHOIS answer. **That is the same claim, from the same authority, as `rdap_snapshot`**, which is
+already `Decision: master` and which the reviewer has already merged and credited. It arrives as a file
+rather than as 171 million queries we could never afford to make.
+
+**Access, verified myself**: HTTP 206 range reads with no account, no token and no agreement.
+
+**Measured over the whole 25,915,378,913-byte file**, not extrapolated:
+
+| | |
+|---|--:|
+| rows | 171,212,579 |
+| in-window `created_at` | 2,957,620 (1.727%) |
+| already held | 786,403 |
+| **net-new pairs** | **2,171,217** |
+| domains never seen | 1,515,675 |
+| **equivalent-English** | **1,245,366.33** |
+| points | **+14.92** |
+
+Per year: 1996 57,044 / 1997 112,929 / 1998 259,459 / 1999 455,002 / 2000 682,705 / 2001 604,078. Mean
+weight 0.5736, `.com`-heavy and below our round average of 0.6991.
+
+**The falsification test is what makes this believable, and it is the same shape as the `sort -c` check
+that separated the intact January 1997 survey from its corrupt copies this morning.** `.info`, `.biz`,
+`.coop` and `.museum` were all delegated in 2001, so no row in those namespaces can legitimately carry
+an earlier creation date. Measured: **21,698 in-window rows across the four, and zero dated before
+2001.** Nobody encoded that constraint. A mis-parsed or fabricated date field would have violated it
+immediately.
+
+**Corroborated externally**: 7 of 7 seeded-random `.com` names match live Verisign RDAP to the exact
+year, including `tandyleather.com` 1996-09-16 and `drewkeller.com` 2001-02-17. A fabricated domain
+injected as a negative control correctly read as unheld.
+
+**Honest caveats, all in the request.** These are domains still registered in December 2024, so the
+population is survivorship-biased; that affects which domains we get, not whether the evidence is
+sound. The parser emits the creation year and nothing else, because a creation date says nothing about
+later years and inferring a span is what the brief forbids by name. Direction of error is loss: a name
+created 1998, dropped, and re-registered in 2015 reads 2015 and falls out of the window, and the
+reverse cannot happen. It is a third-party compilation rather than a primary registry feed, which is
+what the falsification test and the RDAP spot-check exist to address.
+
+**Even under the corroboration split it is 649,475 pairs and 379,868.2 EE**, which with what is banked
+would still be 8.2%. The split reading is not the right one here (a registry's structured field is not
+a hostname typed in prose) but it is worth knowing the decision is not finely balanced.
+
+Filed under the `registry` provenance lineage, deliberately, so it cannot corroborate our own RDAP
+sweeps: both ask a registry when it created a name, and that is one authority agreeing with itself.

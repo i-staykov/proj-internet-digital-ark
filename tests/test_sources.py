@@ -10,6 +10,7 @@ from ark.sources import (
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_cdx_snapshot,
+    parse_domain_creation_csv,
     parse_domain_year_captures,
     parse_early_web_cdx,
     parse_expansion_directory,
@@ -964,3 +965,62 @@ def test_domain_year_captures_tolerates_a_non_numeric_count(tmp_path: Path) -> N
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("good.com", 1999, "ia_captures:1999:?")
     ]
+
+
+# A published bulk of registry creation dates, CC BY 4.0, 171M domains. Same claim and
+# same authority as `rdap_snapshot`, arriving as a file rather than as 171 million
+# queries we could never afford to make.
+
+CREATION_ROWS = [
+    "domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at",
+    "stdominic.net;net;f;Reg A;1999-09-01;{ns1.x.};{};{};2024-10-12",
+    "oncall.org;org;f;Reg B;1997-11-26;{ns1.y.};{};{};2024-10-12",
+    "blueadvise.com;com;f;GoDaddy;2021-09-13;{ns1.z.};{};{};2024-10-12",  # after the window
+    "ancient.com;com;f;Reg C;1994-02-02;{ns1.w.};{};{};2024-10-12",  # before it
+    "nodate.nl;nl;t;unknown;;{een.dnssrv.nl.};{};{};2024-11-07",  # no creation date
+    "short;row",
+]
+
+
+def test_creation_csv_keeps_only_in_window_years(tmp_path: Path) -> None:
+    fixture = tmp_path / "domains.csv"
+    fixture.write_text("\n".join(CREATION_ROWS) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_creation_csv(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("stdominic.net", 1999, "registry created 1999-09-01"),
+        ("oncall.org", 1997, "registry created 1997-11-26"),
+    ]
+    assert stats["out_of_window"] == 2
+    # Two, not one: the `nodate.nl` row AND the header, whose fifth field is the
+    # literal string `created_at`. Skipping the header by not special-casing it is
+    # deliberate; a header line is just a row whose date does not parse.
+    assert stats["no_creation_date"] == 2
+    assert stats["malformed"] == 1  # the deliberately short row
+
+
+def test_creation_csv_emits_one_year_per_domain(tmp_path: Path) -> None:
+    """A creation date says the name was created that day and nothing about later.
+
+    Emitting a span would be the inference the brief forbids by name: continued
+    registration in a later year is a separate fact needing separate evidence.
+    """
+    fixture = tmp_path / "domains.csv"
+    fixture.write_text("a.com;com;f;R;1998-06-06;{};{};{};2024-10-12\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_creation_csv(fixture, stats))
+
+    assert [(r.raw, r.year) for r in records] == [("a.com", 1998)]
+    # Every row carries ICANN's lookup for that exact name, so a reviewer checking an
+    # approval request checks the registry rather than reading our argument.
+    assert records[0].evidence_url == "https://lookup.icann.org/en/lookup?q=a.com"
+
+
+def test_creation_bulk_is_registered_as_whois_master() -> None:
+    spec = SOURCES["domain_creation_bulk"]
+    assert spec.evidence_type == "whois_creation"
+    assert spec.is_candidate_only is False
+    assert spec.source_name == "domain_creation_bulk"

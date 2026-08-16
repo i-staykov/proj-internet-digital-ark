@@ -452,6 +452,54 @@ Mean equivalent-English weight of the net-new part: 0.6252. By year: {1996: 33, 
 
 Decision: pending
 
+### domain_creation_bulk / whois_creation
+
+- ingest spec: `domain_creation_bulk`
+- source: https://www.kaggle.com/datasets/wotschofsky/171-million-domain-names-whois-dns-dnssec
+- journal: `data/raw/domain_creation/domains.csv`
+- agent's dating claim: the registry's own creation date for that exact domain, one row per domain, parsed from a port-43 WHOIS answer by the dataset's publisher
+- nothing in the closed register resembles this by name.
+
+**Check these before reading anything else.** Seeded-random sample, seed `20260816`, so it is reproducible and was not chosen by the agent:
+
+| record | domain | year claimed | open this |
+|---|---|--:|---|
+| `registry created 1999-11-27` | `comprehensivecoverage.com` | 1999 | https://lookup.icann.org/en/lookup?q=comprehensivecoverage.com |
+| `registry created 2001-11-03` | `kalingasoft.com` | 2001 | https://lookup.icann.org/en/lookup?q=kalingasoft.com |
+| `registry created 1998-01-21` | `accentimpression.com` | 1998 | https://lookup.icann.org/en/lookup?q=accentimpression.com |
+| `registry created 2001-07-18` | `vqeg.org` | 2001 | https://lookup.icann.org/en/lookup?q=vqeg.org |
+| `registry created 1998-10-27` | `heirloomlinens.com` | 1998 | https://lookup.icann.org/en/lookup?q=heirloomlinens.com |
+| `registry created 1997-04-08` | `crawhen.com` | 1997 | https://lookup.icann.org/en/lookup?q=crawhen.com |
+
+**Measured against the live store**, by program, not by the agent:
+
+| | |
+|---|--:|
+| records in the journal | 2,957,620 |
+| distinct (domain, year) | 2,957,620 |
+| over distinct domains | 2,957,620 |
+| already held by the store | 786,403 |
+| absent from the store | 73.4% |
+
+**The counterfactual, so the stake is visible before you decide:**
+
+| decision | net-new pairs | equivalent-English |
+|---|--:|--:|
+| `master` (self-dating, no split) | **2,171,217** | **1,245,366.6** |
+| `master` (taking the corroboration split) | 649,475 | 379,868.2 |
+| `candidate-only` | 0 | 0.0, and the names still grow the pool |
+
+Mean equivalent-English weight of the net-new part: 0.5736. By year: {1996: 57044, 1997: 112929, 1998: 259459, 1999: 455002, 2000: 682705, 2001: 604078}.
+
+**Reasons a reader should refuse**, listed by the agent against its own request:
+
+- the sample links do not show that domain with that date;
+- the year is inferred from something other than the record itself;
+- the hostname comes out of prose rather than a structured field, in which case `candidate-only` or a split-taking spec is right, not `master`;
+- the closed family named above is the same population under another name.
+
+Decision: pending
+
 ## Found, awaiting triage
 
 **This section grows indefinitely and that is its purpose** (Ivo, 2026-08-12): *"Grow the list of sources
