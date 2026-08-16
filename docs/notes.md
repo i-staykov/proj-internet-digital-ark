@@ -9271,3 +9271,39 @@ rather than a JSONL journal, so the largest sources were the ones it could not p
 appended the request to the **end of the file**, which is inside `## Found, awaiting triage`, where
 `approvals.py` reads it as a triage line; triage reaches Ivo as a single collective counter, so the
 request most worth seeing was the one made hardest to find.
+
+## 2026-08-16: two IA-derived leads closed, and the deciding number was bytes per pair
+
+Both came out of the same sweep that found the Dartmouth capture census, so both had a good prior.
+Both are closed, and in each case the decisive figure was not the yield but the yield per byte, which
+is the right currency when the host is the constraint.
+
+**Parallel Language Records of the Early Web** (`early-web_parallel-language-urls`, 41.7 MB): rejected
+outright. Fetched the README and shard 00 rather than reasoning from the catalogue. A record is a SURT
+pattern followed by tab-indented `<lang> <url>` lines and **carries no timestamp at all**. The only
+date is the collection-level "captured before year 2000", and spreading that across four annual files
+is the DMOZ failure the brief forbids by name. Its population is also wrong for our metric by
+construction: the top language tuples are `ca-sg` 134,941, `de-en-fr` 89,557, `nl-uk` 42,349, so it
+selects for multilingual mirror sites and therefore for `.de`, `.fr`, `.nl` and `.ch`.
+
+**Not Your Parents' Web TimeMaps** (`nypw_timemaps`, 19.35 GB in window): deferred, not rejected, and
+the distinction is recorded so the next reader does not have to re-derive it. The shape is fine, field
+3 is a real per-record capture timestamp. But its own methodology paper documents **downsampling
+over-represented domains** and grouping by year of first archive, which is the population of
+`nypw_firstcdx`, already rejected at 53 net-new domains over 6.28M lines.
+
+**The number that settles it is a ratio.** Measured the same day, on the same store:
+
+| source | net-new pairs | bytes | pairs per MB |
+|---|--:|--:|--:|
+| Dartmouth capture census | 227,273 | 228 MB | **997** |
+| NYPW TimeMaps, measured part | 2,538 | 296.7 MB | **8.6** |
+
+**116x.** Pulling 19.35 GB from a host currently refusing 12.34% of our connections, while two of our
+own collectors are working it, is buying the worse deal first and paying for the privilege. Reopen it
+when the archive is not the bottleneck, and take 1996 and 1997 first: our thinnest years and the two
+smallest folders.
+
+**The general rule this yields, which the register did not previously state:** when the binding
+constraint is a third party's willingness to serve us, rank candidate sources by yield per byte
+transferred, not by yield. Two sources of equal promise are not equally affordable.
