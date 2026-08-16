@@ -27,6 +27,12 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Approve, refuse or downgrade dartmouth_nber_captures / cdx_timestamp
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **227,273 net-new pairs and 142,084.0 equivalent-English** under `master`, against 130,966 and 82,161.2 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+
+The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
+
 ### THE BASELINE MOVED. 5% is now 3.00 points away, not 2.84, and the target grew by 106,022 EE
 
 **Status, not a question, but it changes every number you have been given.** `merged260815` arrived with
@@ -80,7 +86,7 @@ yes, I draft and you send. Positive control already measured on the published ye
 
 ### Triage the newly found sources: 49 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **44 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **47 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
 
 Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 

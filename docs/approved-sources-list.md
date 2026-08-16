@@ -402,6 +402,54 @@ None at present.
 
 ---
 
+### dartmouth_nber_captures / cdx_timestamp
+
+- ingest spec: `dartmouth_nber_captures`
+- source: https://archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata
+- journal: `data/raw/dartmouth_nber/domain-year-captures.txt`
+- agent's dating claim: the Internet Archive's own count of the captures it holds for that host in that calendar year, one row per (host, year)
+- nothing in the closed register resembles this by name.
+
+**Check these before reading anything else.** Seeded-random sample, seed `20260816`, so it is reproducible and was not chosen by the agent:
+
+| record | domain | year claimed | open this |
+|---|---|--:|---|
+| `ia_captures:2000:124` | `safaripress.com` | 2000 | https://web.archive.org/web/2000*/http://safaripress.com/ |
+| `ia_captures:2001:5` | `ewen-parker.com` | 2001 | https://web.archive.org/web/2001*/http://ewen-parker.com/ |
+| `ia_captures:2000:500` | `media100.com` | 2000 | https://web.archive.org/web/2000*/http://media100.com/ |
+| `ia_captures:2001:10` | `tuckerind.com` | 2001 | https://web.archive.org/web/2001*/http://tuckerind.com/ |
+| `ia_captures:2000:5` | `honoursgolf.com` | 2000 | https://web.archive.org/web/2000*/http://honoursgolf.com/ |
+| `ia_captures:2001:186` | `mcdermott.com` | 2001 | https://web.archive.org/web/2001*/http://mcdermott.com/ |
+
+**Measured against the live store**, by program, not by the agent:
+
+| | |
+|---|--:|
+| records in the journal | 765,188 |
+| distinct (domain, year) | 764,982 |
+| over distinct domains | 315,085 |
+| already held by the store | 537,709 |
+| absent from the store | 29.7% |
+
+**The counterfactual, so the stake is visible before you decide:**
+
+| decision | net-new pairs | equivalent-English |
+|---|--:|--:|
+| `master` (self-dating, no split) | **227,273** | **142,084.0** |
+| `master` (taking the corroboration split) | 130,966 | 82,161.2 |
+| `candidate-only` | 0 | 0.0, and the names still grow the pool |
+
+Mean equivalent-English weight of the net-new part: 0.6252. By year: {1996: 33, 1997: 107, 1998: 4177, 1999: 14315, 2000: 21621, 2001: 187020}.
+
+**Reasons a reader should refuse**, listed by the agent against its own request:
+
+- the sample links do not show that domain with that date;
+- the year is inferred from something other than the record itself;
+- the hostname comes out of prose rather than a structured field, in which case `candidate-only` or a split-taking spec is right, not `master`;
+- the closed family named above is the same population under another name.
+
+Decision: pending
+
 ## Found, awaiting triage
 
 **This section grows indefinitely and that is its purpose** (Ivo, 2026-08-12): *"Grow the list of sources
@@ -776,4 +824,3 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
-

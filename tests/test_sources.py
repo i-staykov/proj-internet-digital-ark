@@ -10,6 +10,7 @@ from ark.sources import (
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_cdx_snapshot,
+    parse_domain_year_captures,
     parse_early_web_cdx,
     parse_expansion_directory,
     parse_expansion_links,
@@ -908,3 +909,58 @@ def test_a_bare_host_is_taken_only_from_the_body(tmp_path):
 
 def test_a_bare_host_drops_infrastructure_like_every_other_usenet_path():
     assert _bare("archived at groups.google.com and archive.org") == set()
+
+
+# The Internet Archive's own per-year capture census, published as an ordinary item
+# alongside the Dartmouth/NBER corporate crawl. Rows are host, year, capture count.
+
+
+def test_domain_year_captures_keeps_only_in_window_rows(tmp_path: Path) -> None:
+    rows = [
+        "petrosys.com.au\t1997\t155",
+        "petrosys.com.au\t1998\t75",
+        "21.com\t2003\t246",  # out of window
+        "other\t2001\t8",  # not a hostname, canonicalisation drops it later
+        "example.com\t1995\t3",  # out of window on the early side
+    ]
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("petrosys.com.au", 1997, "ia_captures:1997:155"),
+        ("petrosys.com.au", 1998, "ia_captures:1998:75"),
+        ("other", 2001, "ia_captures:2001:8"),
+    ]
+    assert stats["out_of_window"] == 2
+    # every row carries the Wayback calendar for that host and year, so an approval
+    # request built from these is checkable rather than merely readable
+    assert records[0].evidence_url == ("https://web.archive.org/web/1997*/http://petrosys.com.au/")
+
+
+def test_domain_year_captures_counts_malformed_rather_than_raising(tmp_path: Path) -> None:
+    """A 228 MB file must not be abandoned because one line is short."""
+    rows = ["good.com\t1999\t5", "missing-a-column\t1999", "bad-year\tnineteen\t5"]
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [r.raw for r in records] == ["good.com"]
+    assert stats["malformed"] == 2
+
+
+def test_domain_year_captures_tolerates_a_non_numeric_count(tmp_path: Path) -> None:
+    """The count is provenance, not evidence, so it must never gate a real row."""
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("good.com\t1999\tmany\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("good.com", 1999, "ia_captures:1999:?")
+    ]

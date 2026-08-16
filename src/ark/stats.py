@@ -61,6 +61,12 @@ PROVENANCE_LINEAGE = {
     # it here rather than as its own family keeps the independent-corroboration
     # count honest, which is the whole point of that measure.
     "nypw_firstcdx": "internet_archive",
+    # The Dartmouth/NBER census is the Internet Archive counting its own captures,
+    # so it shares that lineage for exactly the reason NYPW does. Filing it here
+    # costs us a corroboration statistic we could otherwise have quoted, and that
+    # is the correct trade: a pair this confirms alongside our own Wayback query
+    # is one lineage agreeing with itself, not two independent sources agreeing.
+    "dartmouth_nber_captures": "internet_archive",
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",

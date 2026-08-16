@@ -9198,3 +9198,76 @@ already `Decision: master`, on the reviewer's written confirmation of 2026-07-24
 update re-affirms host and link graph records as direct annual evidence "when their year association
 is explicit and documented". It is explicit: field 1 of every row is the crawl year. So this is not a
 new source and not a new class, it is a defect in reading an approved one.
+
+## 2026-08-16: a closure about one host's copy is not a closure about the artifact
+
+`sources.md` said the ISC survey name lists "stop at 9707", and separately that ISC's own 9607 and
+9701 copies are corrupt beyond recovery. Both statements were true. Read together they were taken to
+mean the January 1997 edition was gone, and **the Wayback copy of `nw.com/zone/9701.domains.gz` had
+never been tested.**
+
+Retrieved and verified before ingest: 3,432,439 bytes, `gzip -t` passes so CRC and length both check,
+824,791 lines, and `LC_ALL=C sort -c` reports sorted end to end. That last one is the discriminating
+test rather than a nicety: a desynchronised deflate stream produces plausible-looking garbage that is
+**not** in sort order, which is exactly how the corrupt copies were identified. Head, midpoint and
+tail all read as real period domains.
+
+External corroboration, worth more than any internal check: the OECD's 1997 report cites Network
+Wizards at about 828,000 domains for January 1997. We measure 824,791. That is 0.4%.
+
+**Ingested: 76,324 net-new (domain, 1997) pairs over 753,257 distinct domains.** No approval was
+needed, `isc_survey / artifact_listing` has been `Decision: master` since 2026-07-24.
+
+The generalisable error is worth more than the pairs. Two accurate sentences about **ISC's own FTP
+copies** were combined with one accurate sentence about **the name lists ending in July 1997** and the
+conjunction was read as "January 1997 is unobtainable". Nothing said that. `sources.md` now carries
+the correction in the row where the claim was made.
+
+## 2026-08-16: the Internet Archive publishes per-year capture censuses as ordinary items
+
+Chasing the shape that beat us (one bulk dated corpus outweighing a whole round of per-domain
+querying) turned up `DARTMOUTH-NBER-RESEARCH-2017-metadata` on archive.org, uploaded by an Internet
+Archive engineer in 2017 beside the Dartmouth/NBER corporate-web crawl. `domain-year-captures.txt` is
+227,919,677 bytes of `host<TAB>year<TAB>capture_count`, **9,227,380 rows, 0 malformed**.
+
+**It is a precomputed version of what our CDX engine exists to compute.** Our engine has spent 283,968
+requests establishing which in-window years hold a capture for a domain. This file states that for
+840,963 hosts, as a download.
+
+Measured against the live store, with a fabricated domain injected as a negative control that
+correctly read as unheld:
+
+| | |
+|---|--:|
+| in-window rows | 765,194 (8.29%) |
+| distinct in-window pairs | 764,982 |
+| already held | 537,709 |
+| **net-new pairs** | **227,273** |
+| domains never seen | 86,387 |
+| **equivalent-English** | **142,084.04** |
+
+EE measured with the reviewer's own `equivalent_english_domains.py`. That is **+1.70 points**.
+
+**The strongest check available cost nothing: 138,979 of the file's pairs are independently confirmed
+by our own `cdx_timestamp` evidence**, gathered by querying the archive ourselves. A file claiming a
+1997 capture for a host where our own engine separately found one is not asserting something we have
+to take on trust.
+
+**It needs approval and I have not ingested it.** `cdx_timestamp` is master-eligible, the source name
+is new, and `ark ingest` refuses it until a human sets the `Decision:` line. The request is written
+with a seeded-random sample carrying a Wayback calendar link per row, so it is checkable rather than
+merely readable.
+
+Honest reasons to refuse, recorded against my own request: the population is corporate websites, so
+it is prominence-selected to a degree, though a measured 29.7% net-new bounds that penalty; the year
+arrives aggregated rather than as a timestamp we can re-derive; and 187,020 of the 227,273 pairs are
+2001, our strongest year already. Filed under the `internet_archive` provenance lineage, which
+deliberately costs us a corroboration statistic: this is the archive counting itself, not a second
+witness.
+
+**Two instrument fixes fell out of writing the request**, both of which had made the approval route
+quietly worse. `request_approval.py` died with a JSON decode error on any source that is a bulk file
+rather than a JSONL journal, so the largest sources were the ones it could not put to a human. And it
+appended the request to the **end of the file**, which is inside `## Found, awaiting triage`, where
+`approvals.py` reads it as a triage line; triage reaches Ivo as a single collective counter, so the
+request most worth seeing was the one made hardest to find.

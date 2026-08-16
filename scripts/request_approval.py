@@ -70,14 +70,53 @@ def read_only_store(patience_s: int = 1800) -> duckdb.DuckDBPyConnection:
             time.sleep(5)
 
 
-def records_of(journal: Path) -> list[dict]:
+def records_of(journal: Path, source: str = "") -> list[dict]:
+    """Records for the sample, from a JSONL journal or from the spec's own parser.
+
+    Not every source arrives as a journal. A bulk file downloaded whole (a TSV
+    census, a survey name list) is read directly by its registered parser, and
+    this tool used to die on the first line of one with a JSON decode error,
+    which made the approval route quietly unavailable for exactly the sources
+    that are large enough to matter. Falling back to the parser means any
+    registered spec can be put to a human, whatever shape its input has.
+    """
     opener = gzip.open if journal.suffix == ".gz" else open
-    out = []
-    with opener(journal, "rt", encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            line = line.strip()
-            if line:
-                out.append(json.loads(line))
+    out: list[dict] = []
+    try:
+        with opener(journal, "rt", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    out.append(json.loads(line))
+        return out
+    except json.JSONDecodeError:
+        pass
+
+    if not source:
+        raise SystemExit(f"{journal} is not JSONL and no spec was given to parse it")
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from collections import Counter
+
+    from ark.canonical import to_registrable
+    from ark.sources import SOURCES
+
+    spec = SOURCES.get(source)
+    if spec is None:
+        raise SystemExit(f"unknown spec: {source}")
+    stats: Counter = Counter()
+    for record in spec.parse(journal, stats):
+        registrable = to_registrable(record.raw)
+        if not registrable:
+            continue
+        out.append(
+            {
+                "domain": registrable,
+                "year": record.year,
+                "item": record.evidence_value,
+                "url": record.evidence_url or "",
+            }
+        )
     return out
 
 
@@ -154,7 +193,7 @@ def main() -> None:
             f"its existing entry in {APPROVALS.name} and record why."
         )
 
-    records = records_of(args.journal)
+    records = records_of(args.journal, args.source)
     pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
     weights = english_weights()
 
@@ -257,7 +296,16 @@ def main() -> None:
             "which refuses to re-open a\nclass already marked `rejected`.\n"
         )
         tail = tail.replace(placeholder, "\n")
-        APPROVALS.write_text(head + marker + tail.rstrip("\n") + "\n\n" + block, encoding="utf-8")
+        # Append inside the Pending block, not at the end of the file. `tail` runs to
+        # the end of the document, so writing the block after it dropped a priced
+        # request into `## Found, awaiting triage`, where `approvals.py` reads it as a
+        # triage line. Triage lines reach Ivo as a single collective counter, so the
+        # request he most needed to see was the one made hardest to find.
+        section, sep, rest = tail.partition("\n## ")
+        APPROVALS.write_text(
+            head + marker + section.rstrip("\n") + "\n\n" + block + sep + rest,
+            encoding="utf-8",
+        )
     else:
         APPROVALS.write_text(text.rstrip("\n") + "\n\n" + marker + "\n\n" + block, encoding="utf-8")
 

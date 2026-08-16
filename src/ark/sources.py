@@ -280,6 +280,43 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=tokens[-1], year=year, evidence_value=survey)
 
 
+def parse_domain_year_captures(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window (domain, year) row of an IA capture census.
+
+    Rows are `host<TAB>year<TAB>capture_count`. The claim each row makes is the
+    same one `ia_cdx_bulk` makes from a CDX line, that the Internet Archive holds
+    a capture of this host in this year; it arrives pre-aggregated to the year
+    instead of carrying each timestamp. So the year is per-record and intrinsic,
+    not a property of the file.
+
+    The count is kept in the evidence value rather than discarded. It is not used
+    to date anything, but a reader checking a row wants to know whether it rests
+    on one capture or on two hundred.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) != 3 or not parts[1].isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(parts[1])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            captures = parts[2] if parts[2].isdigit() else "?"
+            yield BulkRecord(
+                raw=parts[0],
+                year=year,
+                evidence_value=f"ia_captures:{year}:{captures}",
+                # The Wayback calendar for that host in that year, which is the row's
+                # own claim rendered as something a reviewer can open. Without this the
+                # approval request prints an empty link column, and the request exists
+                # precisely so a human checks external evidence instead of our prose.
+                evidence_url=f"https://web.archive.org/web/{year}*/http://{parts[0]}/",
+            )
+
+
 def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window HTTP-200 capture in an Arquivo.pt CDXJ file.
 
@@ -725,6 +762,19 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="isc_domain_survey",
         parse=parse_isc_survey,
+    ),
+    # A per-year capture census the Internet Archive itself computed over the
+    # Dartmouth/NBER corporate-websites crawl, published as an ordinary item.
+    # It is a bulk index OF the archive rather than a corpus derived from it,
+    # which is the documented exception to "IA-derived cannot be net-new": it
+    # converts our binding constraint, request throughput, into a file download.
+    # Kept as its own source name so provenance never merges with `ia_cdx_bulk`.
+    "dartmouth_nber_captures": SourceSpec(
+        key="dartmouth_nber_captures",
+        source_name="dartmouth_nber_captures",
+        evidence_type="cdx_timestamp",
+        acquisition_method="ia_domain_year_census",
+        parse=parse_domain_year_captures,
     ),
     "arquivo_roteiro": SourceSpec(
         key="arquivo_roteiro",
