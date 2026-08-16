@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from report_figures import BASELINE, figures, markdown  # noqa: E402
 
+from ark.baseline import REVIEWER_BASELINE_PAIRS  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import collect_stats  # noqa: E402
 
@@ -245,11 +246,86 @@ def substitutions(f: dict) -> dict[str, str]:
         "PER_YEAR_TABLE": per_year_table(f),
         "SOURCE_TABLE": source_table(f),
         "COMPLETENESS_TABLE": _section(md, "Completeness"),
+        "CDX_TABLE": cdx_table(),
+        "CDX_FAILURES": cdx_failures(),
+        "DATASETS_SEARCHED": datasets_searched(),
     }
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
+    # The REVIEWER'S raw record count, not the store's. These differ by 1.6 million,
+    # because the store canonicalises to registrable domains and he counts lines, and
+    # a sentence that set his count for one release beside our count for the next
+    # would read as a shrinking baseline. Quote one counting unit or the other, never
+    # one of each.
+    subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
+    subs["STOREBASELINEPAIRS"] = f"{f['baseline_pairs']:,}"
+
+    # The acceptance threshold, derived rather than typed. It moved by 106,022 EE when
+    # the reviewer reissued the baseline mid-round, and a hand-written 5% figure in the
+    # prose would have quietly kept describing the old one.
+    target = float(f["ee_baseline"]) * 0.05
+    subs["EE5PCT"] = f"{target:,.2f}"
+    subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
+
+
+def datasets_searched() -> str:
+    """The register of families searched, read from `sources.md` rather than retyped.
+
+    The reviewer asks for every external dataset and repository searched. That list
+    only stays true if it is derived from the register itself: a hand-written copy
+    omits whatever was added after it was written, and the omission is invisible.
+
+    `sources.md` gives one `## ` heading per family. Headings that are not families
+    are skipped by name, since the file also uses that level for its own front matter.
+    """
+    path = Path(__file__).resolve().parents[1] / "docs" / "sources.md"
+    if not path.is_file():
+        return "_`sources.md` not found beside this report._"
+
+    skip = {"Summary", "Source names that are not separate sources"}
+    families = [
+        line[3:].strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("## ") and line[3:].strip() not in skip
+    ]
+    if not families:
+        return "_No families recorded._"
+
+    lines = [
+        f"**{len(families)} source families are recorded in `docs/sources.md`**, each with what "
+        "dates an item, where to obtain it, and the measurement that closed it where it "
+        "was closed:",
+        "",
+    ]
+    lines += [f"- {name}" for name in families]
+    return "\n".join(lines)
+
+
+def _cdx_notes(markdown_form: bool) -> str:
+    """Borrow the CDX campaign measurement rather than re-deriving it.
+
+    One implementation, used by both the standalone tool and the report, because
+    the reviewer now asks for these numbers in the deliverable and two versions of
+    a success rate is exactly the drift this whole file exists to prevent.
+    """
+    from cdx_execution_notes import CDX_DIR, render, scan
+
+    tallies = scan(CDX_DIR)
+    if not tallies:
+        return "No CDX journals were found on this machine."
+    return render(tallies, markdown_form)
+
+
+def cdx_table() -> str:
+    return _cdx_notes(markdown_form=True).split("\n\nOf ")[0]
+
+
+def cdx_failures() -> str:
+    body = _cdx_notes(markdown_form=True)
+    _, _, tail = body.partition("\n\nOf ")
+    return f"Of {tail}" if tail else body
 
 
 def fill(template: Path, target: Path, subs: dict[str, str], check: bool) -> list[str]:

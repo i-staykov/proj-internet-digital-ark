@@ -22,32 +22,45 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 [PER_YEAR_TABLE]
 
-**Against the 5% expected for this round, that is short, and the reason is measurable rather than
-rhetorical.** 5% of the current baseline is 311,319.32 equivalent-English. The binding constraint this
-round was not the supply of candidates and not the evidence rules: it was **request throughput against a
-single archive**. Roughly 2.5 million candidate names sit unqueried, of which only a small fraction have
-ever been asked, because the two collectors together clear a few hundred requests an hour between them
-and the archive refuses a large and growing share of them.
+**Against the 5% threshold this is short, and the arithmetic is worth setting out exactly, because the
+threshold moved during the round.** 5% of the current baseline is **[EE5PCT]** equivalent-English, and
+the shortfall is **[EE5PCTGAP]**.
 
-The trend over the round's last two days, measured from the collectors' own journals, is the clearest
-statement of the constraint: the engine querying from our main host fell from **675 to 450 requests an
-hour** while the share of its requests carrying a usable answer fell from **42.3% to 29.4%**, so its
-returned captures more than halved. The second engine, which queries from a different host, was flat over
-the same period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection
-method entirely and differ only in where they ask from, which is what identifies the archive rather than
-our queue or our tuning as the cause.
+**The baseline was reissued mid-round, and it changed both sides of the ratio at once.** `merged260810`
+held 11,362,034 records and 6,226,386.4245 equivalent-English. `merged260815` holds [BASELINEPAIRS]
+records and 8,346,839.3737, a **34.06% larger denominator**, both measured with the reviewer's own
+`equivalent_english_domains.py` and its unchanged weight model. At the same time 39,492 pairs we had
+collected became pairs the baseline already holds, worth **32,880 equivalent-English** of numerator.
+Measured against the
+release it was built against, this round reads 2.1641%; measured against the release that counts, it
+reads [EEGROWTH]. Both numbers are correct and only the second is the one being accepted against.
 
-Raising concurrency is the one lever that would close the gap arithmetically, and it is the one lever
-that risks losing the archive altogether, which would cost far more than a round. Reducing it was tried
-and measured worse; shortening the request timeout is measured and rejected in our own code, where 30
-seconds answered 51 of 100 domains against 82 of 100 at 180 seconds.
+**The reason is the single most useful finding of the round, and it is not about us.** The new baseline
+grew because another contributor delivered 4,063,995 accepted records drawn from one existing research
+dataset, the University of Minnesota DRUM early-web link lists (DOI 10.13020/D62684). The per-year shape
+of that delivery says what kind of artifact it was: 1,536 records for 1996 and 50 for 2001, against
+950,371 for 1999 and 2,878,339 for 2000. **One bulk dated corpus was worth roughly twenty times our
+entire round of per-domain archive querying.**
 
-**The families that could have supplied a step change were searched and closed on measurement, not
-assumed away**: historical zone files and bulk registry snapshots, research web crawl collections,
-national web archives, and bulk archive indexes. Two of those closures are recorded as permanent. The
-honest summary is that a corpus of this maturity grows by re-examining what it already holds and by
-patient querying, and that a fivefold increase in a week would have required a bulk index that we
-established does not exist in reachable form.
+That is a measurement of our strategy, not our luck. This round's collection was optimised against the
+constraint we could see, which was **request throughput against a single archive**: roughly 2.5 million
+candidate names sit unqueried because the collectors clear a few hundred requests an hour between them,
+and section 5 documents that campaign in full. A bulk dated corpus does not have that constraint at all.
+It converts a rate limit into a file download.
+
+The throughput constraint is real and measured. Over the round's last two days the engine querying from
+our main host fell from **675 to 450 requests an hour** while the share of its requests carrying a usable
+answer fell from **42.3% to 29.4%**. The second engine, on a different host, was flat over the same
+period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection method
+entirely and differ only in where they ask from, which identifies the archive rather than our queue or
+our tuning as the cause. Raising concurrency is the one lever that closes the gap arithmetically and the
+one lever that risks losing the archive altogether; reducing it was tried and measured worse; shortening
+the request timeout is measured and rejected in our own code, where 30 seconds answered 51 of 100 domains
+against 82 of 100 at 180 seconds.
+
+**But that constraint is now the second-order problem.** The correct response to the DRUM result is not
+to query faster. It is to search the same class of artifact that produced it, which is what section 6
+reports and what the discovery system has been re-aimed at.
 
 ## 2. How these were found
 
@@ -190,7 +203,132 @@ always the one this work is worth.
 
 [CORROBORATION]
 
-## 5. How to reproduce
+## 5. CDX acquisition: tools, strategy, failures and yield
+
+Every figure in this section is read from the collectors' own journals on disk by
+`scripts/cdx_execution_notes.py`, which discovers the collector prefixes from the journal directory
+rather than being told them. That detail is not incidental: an earlier version of this measurement was
+given a hardcoded list of two prefixes, and it read clean for 31 hours while a collector wrote 3,219
+answered queries and zero in-window captures under a third name.
+
+**Tools.** `ark cdx` is our own client against the public Wayback CDX API. `scripts/build_query_queue.py`
+selects and orders the population to ask. `scripts/supervise_cdx_pool.sh` runs the client in bounded
+batches against an absolute deadline, restarting it between batches so a hung run cannot stall the
+campaign. `ark ingest` banks each finished journal.
+
+**What was asked, and how requests were batched.** Two populations on two machines. The local engine
+works the **candidate pool**, names discovered from other sources and never yet dated, which is the
+discovery half. A second host works **bracketed gaps**, a missing year Y on a domain already held for
+Y-1 and Y+1, which is the completeness half. Batches are 600 queries at 8 concurrent workers with a
+0.5 second base delay, adapting between 0.15 and 3.0 seconds under load, and a 70 second timeout.
+A single request returns every in-window year for one domain at once, so one answered query can yield
+up to six pairs.
+
+[CDX_TABLE]
+
+**How failures were handled, and what the failures actually were.**
+
+[CDX_FAILURES]
+
+**Two tuning levers were tested and both are closed on measurement.** Halving concurrency to 4 workers
+made throughput worse, not better: 236 requests an hour against 378, with the failure share rising from
+17% to 23%. Shortening the timeout is rejected in our own code, where 30 seconds answered 51 of 100
+domains against 82 of 100 at 180 seconds. Raising concurrency is the only lever that would close the gap
+arithmetically, and it is declined deliberately: this project has been refused by the archive three times
+and the cost of a fourth exceeds the value of a round.
+
+**Whether the CDX route is worth further expansion: yes, with a qualification.** It is not exhausted.
+The queue is not the constraint while millions of candidates sit unasked against an engine clearing a few
+hundred an hour, and the in-window hit rate above shows the population is still productive. The
+qualification is that its yield per unit of wall-clock is bounded by a service we do not control, so it
+should run continuously in the background and should not be the thing a round's target depends on.
+
+## 6. External datasets and repositories searched
+
+The reviewer's 2026-08-15 update asks for this explicitly, including identifiers where available, and
+asks that the search not stop at one successful dataset. `docs/sources.md` is the complete register: it
+carries every family evaluated, the measurement that closed it where one was closed, and the download
+address where one exists. This section summarises rather than replaces it.
+
+**The register now stands at roughly sixty closed families plus the sources in the table in section 3.**
+A closure is recorded with the number that produced it, and closures are re-probed automatically, because
+a source recorded as unreachable may simply have had a host down on the day it was tried.
+
+[DATASETS_SEARCHED]
+
+**What the search has established about its own shape.** Two rules did most of the closing this round,
+both derived from measurement rather than argument, and both are stated in section 2. The more useful
+one for a reader planning further work is the exception to the second: a corpus derived from the same
+archive as the baseline cannot be net-new against it, **unless** it is a bulk index of that archive, in
+which case it is extremely valuable because it converts our binding constraint from a rate limit into a
+download. The DRUM result described in section 1 is precisely that shape, and it is why the search is now
+aimed at bulk dated corpora in research repositories rather than at directory pages.
+
+## 7. New methods identified this round
+
+**Re-applying an unchanged rule to a grown corpus.** A domain typed in a dated artifact is admitted only
+if some other source independently places it in an annual file. Names that failed that test when first
+read have since been dated by the collectors, so the same rule re-run promotes them. This round that was
+worth **94,051 pairs and 61,196.7 equivalent-English for zero requests and zero new sources.** The
+general form is worth more than the instance: in a mature corpus, re-examining held evidence against new
+knowledge outperforms looking for new evidence, and nothing about it depends on a third party.
+
+**Pricing before building.** Any dated corpus can be measured against the live store before a collector
+is written: net-new records, net-new domains, mean weight, a contamination bound, and a saturating
+projection beside the linear one. This has closed sources that would have looked plausible in a proposal
+indefinitely, at a cost of a few requests each. Two figures show why it matters: one raw extraction
+overstated a source 24-fold, and one linear projection overstated by thirty times.
+
+**Adversarial verification of our own findings.** Source proposals are now checked by an independent pass
+whose instruction is to refute rather than confirm, defaulting to rejection when it cannot verify a
+load-bearing claim itself. This round that pass corrected proposals that had mistaken a maximum index for
+a count, a collection-level date for a per-item date, and a physical line count of a file with embedded
+newlines for a record count.
+
+**Measuring the instruments, not just the data.** Four of our own alarms were found reporting the
+opposite of the truth this round, including one that counted a single background process as two and would
+have destroyed a healthy collector on every check. Each is now pinned by a test. An alarm that cries wolf
+is worse than no alarm, because it trains the reader to skip it.
+
+## 8. Limitations, and where further expansion is worthwhile
+
+**Limitations of the result.**
+
+- **Coverage of the archive is bounded by our query rate, not by its holdings.** Section 5 quantifies
+  this. Any statement here about a domain having no capture means we did not obtain one, not that none
+  exists.
+- **The corroboration split costs real volume, deliberately.** Every typed address that no other source
+  attests is refused rather than asserted, which is why figures quoted from section 3 are always smaller
+  than a raw extraction would give. This is the guarantee that an invented name cannot reach an annual
+  file, and it is bought with yield.
+- **A registry creation date reads late for a re-registered name.** Where `whois_creation` is the
+  evidence, the direction of error is loss rather than fabrication, which is the safe direction.
+- **The candidate pool is large and mostly unattested.** Its equivalent-English ceiling assumes every
+  name earns a year, which will not happen; the realised figure is far lower and is not claimed.
+- **The equivalent-English metric is an aggregate TLD estimate**, as the brief states, and not a language
+  classification of any individual site.
+
+**Where further expansion is worthwhile, in order.**
+
+1. **Bulk dated corpora in research repositories.** The DRUM result establishes both that they exist and
+   that they dwarf per-domain querying. This is the highest-value direction by a wide margin and it is
+   where the discovery system is now pointed.
+2. **The three evidence routes the 2026-08-15 update widened**: dated DNS survey presence, Arquivo.pt
+   capture indexes, and UK Web Archive host and link graph records where the year association is explicit.
+   The third is the most valuable to us because our holdings in that namespace are large and `.uk` carries
+   the highest English weight of any namespace we hold in volume. Each is being verified against the
+   actual record schema before anything is claimed, because a collection-level date presented as a
+   per-item date is exactly the failure the evidence rules exist to prevent.
+3. **Continued CDX querying**, as a background process rather than as a plan.
+4. **Namespaces where the weight is high and our coverage is measurably thin**, principally the `.us`
+   locality space: the store holds 217,619 in-window `.uk` domains against 18,278 `.us`.
+
+**Where it is not worthwhile**, so the ground is not broken twice: sources that select for authority,
+which cannot be net-new however large, and corpora derived from the same archive as the baseline unless
+they are bulk indexes of it. Both rules are stated with their measurements in section 2 and applied in
+`docs/sources.md`.
+
+## 9. How to reproduce
 
 All commands below are run from the **root of the unpacked archive**. `README.md` beside this file
 gives the same three steps in more detail; if the two ever disagree, `README.md` is the one kept in
