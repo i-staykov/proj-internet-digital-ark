@@ -198,6 +198,61 @@ what a (domain, year) pair rests on.
      Phase-4's six subsections are kept verbatim in
      `submissions/phase-4/report.md`; copy the shape from there, not the content. -->
 
+### `ukwa_link_source`: the crawl year written in every row of a host link graph
+
+The JISC UK Web Domain Dataset host link graph. Each row is
+`year|source_host|target_host<TAB>count`, and **field one is the year the crawl observed that link**,
+so the date is per record and intrinsic rather than a property of the file. Only the **source** host is
+admitted: it was fetched successfully in that year for the row to exist at all, which is a fact about
+the source. The target host was merely pointed at, which shows nothing about the target, so it carries
+`link_target`, can never date a year, and ships in the candidate pool instead. The same file is read
+twice under two source names for exactly that reason.
+
+**What changed this round was our reading of it, not the source.** The parser stopped at the first row
+past 2001, on a comment asserting the file was sorted by year with the window as its head. It is fifteen
+concatenated shards, each sorted internally; the year column decreases fourteen times, the first
+boundary falling at line 11,908,464. The scan had been ending at line 166,895 and reading **6.76%** of
+the in-window rows. The correction is the whole file.
+
+Its mean equivalent-English weight is the highest of any source in the table above, because a `.uk` link
+graph is `.uk` by construction. The limit is the mirror image of that strength: it says nothing about
+any web outside the United Kingdom.
+
+### `isc_survey`: a dated census of the DNS, extended back to January 1997
+
+The Network Wizards and ISC Internet Domain Survey walked the DNS twice a year and published the names
+it found. The survey edition is encoded in the filename, and every name in a file was observed in the
+DNS on that date, so the file's provenance fixes the year for all of its lines. The reviewer confirmed
+in writing that a dated DNS survey may enter the annual files directly, and his 2026-08-15 update
+restates it.
+
+**The January 1997 edition was recorded in our own register as unrecoverable and was not.** Two true
+statements, that the published name lists end in July 1997 and that ISC's own copies of two editions are
+corrupt beyond repair, had been read together as closing the edition itself. A copy held by the Wayback
+Machine had never been tested. It is intact, and the check that establishes this is the one the corrupt
+copies fail: the file is in sort order end to end, whereas a desynchronised compression stream decodes
+into plausible-looking text that is not. Independent corroboration, which matters more than any internal
+check: the OECD's 1997 report cites this survey at about 828,000 domains and we count 824,791.
+
+The standing limit is unchanged and worth restating: the claim is "seen in the DNS on the survey date",
+not "registered", and the survey misses large sites that lacked reverse DNS.
+
+### `usenet_announce`, `usenet_address` and `usenet_bare`: the same rule, re-run on a larger corpus
+
+No new collection and no new rule. A hostname typed in a dated message is admitted for that year only if
+some other source independently places that domain in an annual file, and names that failed that test
+when first read have since been dated by the collectors. Re-applying the unchanged test to a corpus that
+has grown admits them.
+
+This is worth a subsection because of what it is not: it is not a relaxation. The identical predicate
+was evaluated against a larger set of corroborating evidence. Registry-contradicted pairs are dropped
+first, and two positive controls were measured before anything was written, one placing mention years
+inside the domain's own capture span far more often than chance would give.
+
+Deliberately excluded, because they were nearly included by mistake: link-graph edges cannot be promoted
+onto their targets, however well corroborated the target is. Corroboration answers "is this domain
+real", never "does this edge date its target".
+
 ## 4. The extra filter on typed addresses
 
 The `dated_directory` sources are the ones where a human typed the address, so they carry the risk
