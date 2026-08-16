@@ -21,6 +21,7 @@ templates, never the filled copies, or the next refresh discards the edit.
 import argparse
 import re
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from ark.db import connect_read_only_patiently
@@ -29,7 +30,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from report_figures import BASELINE, figures, markdown  # noqa: E402
 
-from ark.baseline import REVIEWER_BASELINE_PAIRS  # noqa: E402
+from ark.baseline import (  # noqa: E402
+    ORIGINAL_BASELINE_EE,
+    REVIEWER_BASELINE_PAIRS,
+    SUBMITTED_ROUNDS,
+)
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import collect_stats  # noqa: E402
 
@@ -249,6 +254,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "CDX_TABLE": cdx_table(),
         "CDX_FAILURES": cdx_failures(),
         "DATASETS_SEARCHED": datasets_searched(),
+        "CUMULATIVE": cumulative(f),
     }
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
@@ -268,6 +274,59 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
+
+
+def cumulative(f: dict) -> str:
+    """Every round this project has delivered, summed once each.
+
+    The reviewer asked for a cumulative percentage as well as a per-round one. It
+    cannot be read off the store, because a round he has merged stops being net-new
+    the moment he merges it, and it cannot be got by adding the quoted growth rates
+    either, since the denominator was reissued three times. So the per-round figures
+    are carried in `ark.baseline.SUBMITTED_ROUNDS` and only the arithmetic is done
+    here, against the one denominator that predates every contribution.
+    """
+    rows = [
+        "| Round | Date | Records | Equivalent-English | Growth as quoted then |",
+        "|---|---|--:|--:|--:|",
+    ]
+    total_records = 0
+    total_ee = Decimal(0)
+    for label, date, records, ee, _against, superseded in SUBMITTED_ROUNDS:
+        if superseded:
+            note = f"_counted within round {superseded}_"
+            rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {note} |")
+            continue
+        total_records += records
+        total_ee += ee
+        pct = 100 * ee / ORIGINAL_BASELINE_EE
+        rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {pct:.4f}% of the original |")
+
+    total_records += f["netnew_pairs"]
+    total_ee += Decimal(str(f["ee_netnew"]))
+    rows.append(
+        f"| **5 (this one)** | today | **{f['netnew_pairs']:,}** "
+        f"| **{f['ee_netnew']:,.4f}** | **{f['ee_netnew_growth_pct']:.4f}%** |"
+    )
+    cum_pct = 100 * total_ee / ORIGINAL_BASELINE_EE
+    rows.append(
+        f"| **Cumulative** | | **{total_records:,}** | **{total_ee:,.4f}** | **{cum_pct:.4f}%** |"
+    )
+
+    return "\n".join(
+        [
+            "**Cumulative across every round.** Two rounds are shown without a figure because "
+            "they are contained in a later one and adding them would double-count: round 2 was "
+            "measured against the same release as round 3, and round 4 was an interim report "
+            "whose records are still net-new in this one. The growth rates of different rounds "
+            "are not additive, because the baseline was reissued between them, so the cumulative "
+            "percentage below is stated against a single fixed denominator: "
+            f"the {ORIGINAL_BASELINE_EE:,.4f} equivalent-English of the corpus as it stood "
+            "before the first submission.",
+            "",
+            *rows,
+        ]
+    )
 
 
 def datasets_searched() -> str:

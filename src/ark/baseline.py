@@ -65,3 +65,38 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
     2000: Decimal("2580907.2067"),
     2001: Decimal("1802478.9120"),
 }
+
+# The corpus as it stood before this project's first submission, taken from the
+# reviewer's own message of 2026-08-06. Every cumulative figure needs a denominator
+# that predates our first contribution, and this is the only one that does.
+ORIGINAL_BASELINE_PAIRS = 10_263_632
+ORIGINAL_BASELINE_EE = Decimal("5531053.6089")
+
+# What each round delivered, as the reviewer received it. Kept here because a
+# cumulative claim is the one figure the store cannot regenerate: rounds already
+# merged into the baseline are, by construction, no longer net-new.
+#
+# `superseded_by` is the whole reason this table exists rather than a running sum.
+# Growth RATES are not additive, since the denominator was reissued between rounds,
+# and two of these rounds are contained in a later one:
+#
+#   Round 2 is inside round 3. Both were measured against the same 10,415,768 /
+#   5,622,984.6434 release, and the merge that followed lands exactly on round 3
+#   alone: 10,415,768 + 946,266 = 11,362,034 and 5,622,984.6434 + 603,401.7811 =
+#   6,226,386.4245, which are `merged260810` to the digit.
+#
+#   Round 4 is inside round 5. It was an interim report against `merged260810`, and
+#   `merged260815` absorbed only the 39,492 pairs that overlapped another
+#   contributor's delivery. The rest is still net-new in the store today and is
+#   therefore counted once, in round 5.
+#
+# Summing a superseded round would double-count it. The store agrees: net-new rows
+# carry `verified_at` from 2026-08-09 onward, which is every round since the last
+# merge and nothing before it.
+SUBMITTED_ROUNDS = (
+    # label, date, records, equivalent-English, baseline measured against, superseded_by
+    ("1", "2026-08-03", 151_949, Decimal("91814.6880"), "originals", None),
+    ("2", "2026-08-06", 152_773, Decimal("105676.0387"), "merged260802-2", "3"),
+    ("3", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", None),
+    ("4", "2026-08-12", 159_787, Decimal("91908.4230"), "merged260810", "5"),
+)

@@ -281,6 +281,40 @@ BASELINES
 # once shipped the data without trace.py, the tool the README tells them to run
 cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 
+# ...minus the baseline's own evidence rows, which are 77% of the table and are the
+# reviewer's own data coming back to him. `prior_reused` says only "this pair was in
+# the supplied baseline", a fact `baseline/` states directly and far more compactly.
+# Dropping them takes evidence.parquet from 762 MB to roughly a fifth of that, and
+# it is the only cut here that costs a reviewer nothing: the rows are regenerable by
+# re-ingesting `baseline/`, which ships beside them, and `verify.sh` reads the
+# additions manifest rather than this file.
+uv run python - "$STAGE" <<'PROVENANCE'
+import sys
+from pathlib import Path
+
+import duckdb
+
+stage = Path(sys.argv[1])
+src = Path("output/provenance/evidence.parquet")
+dst = stage / "provenance/evidence.parquet"
+conn = duckdb.connect()
+before = dst.stat().st_size / 1024 / 1024
+conn.execute(
+    f"COPY (SELECT * FROM read_parquet('{src}') WHERE evidence_type <> 'prior_reused') "
+    f"TO '{dst}' (FORMAT PARQUET, COMPRESSION ZSTD)"
+)
+after = dst.stat().st_size / 1024 / 1024
+print(f"  evidence.parquet: {before:,.0f} MB -> {after:,.0f} MB (baseline rows dropped)")
+PROVENANCE
+cat >> "$STAGE/provenance/LOAD.sql" <<'PROVNOTE'
+
+-- NOTE ON evidence.parquet
+-- It carries this project's own observations only. The baseline's `prior_reused`
+-- rows are omitted deliberately: they were 77% of the table and they restate what
+-- baseline/ already contains. To rebuild the full table, load these rows and then
+-- ingest baseline/<marker>/*.txt, which is what tier 3 of the README does anyway.
+PROVNOTE
+
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The engine review, so the process behind the report's audit section can be
@@ -289,7 +323,14 @@ cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The English-engine review is no longer shipped: it documents the page-level
 # verification standard the reviewer has retired, and an audit of a rule nobody
 # applies reads as a rule still in force. It stays in the repo under docs/.
-cp data/logs/* "$STAGE/logs/" 2>/dev/null || true
+# Tailed, not copied whole. `maintain.log` alone was 123 MB of one line per ingest
+# pass, repeated every 150 seconds for a fortnight. What a reader wants from a log
+# is the shape of the run and its most recent state, and the last 20,000 lines give
+# both; the full files stay in the repo under `data/logs/`.
+for log in data/logs/*; do
+    [ -f "$log" ] || continue
+    tail -n 20000 "$log" > "$STAGE/logs/$(basename "$log")" 2>/dev/null || true
+done
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"

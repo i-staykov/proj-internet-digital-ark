@@ -450,7 +450,7 @@ Mean equivalent-English weight of the net-new part: 0.6252. By year: {1996: 33, 
 - the hostname comes out of prose rather than a structured field, in which case `candidate-only` or a split-taking spec is right, not `master`;
 - the closed family named above is the same population under another name.
 
-Decision: pending
+Decision: master
 
 ### domain_creation_bulk / whois_creation
 
@@ -498,7 +498,7 @@ Mean equivalent-English weight of the net-new part: 0.5736. By year: {1996: 5704
 - the hostname comes out of prose rather than a structured field, in which case `candidate-only` or a split-taking spec is right, not `master`;
 - the closed family named above is the same population under another name.
 
-Decision: pending
+Decision: master
 
 ## Found, awaiting triage
 
