@@ -319,10 +319,19 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# the host link graph is sorted by year ascending, so once the scan passes the window
-# nothing in-window remains; this also stops before the truncated 2002+ tail of
-# the partial download (Wayback drops the 20.9 GB stream mid-transfer)
-_UKWA_LAST_YEAR = max(YEARS)
+# The host link graph is NOT one file sorted by year, and believing it was cost us
+# 93% of the source for three weeks. Measured 2026-08-16 over all 168,942,882 lines:
+# the year column decreases 14 times, so the file is 15 concatenated shards each
+# sorted internally, presumably a hash partition written out in order. The old scan
+# stopped at the first row past 2001, which falls at line 166,895, the end of shard
+# one of fifteen. It read 166,890 in-window rows out of 2,468,674 that are there.
+#
+# The lesson generalises past this file: "sorted" was asserted in a docstring and
+# corroborated by a tail that showed 2004, which proves only what the LAST shard
+# ends on. A cheap positive control, does the year ever go backwards, was never run.
+#
+# There is deliberately no last-year constant here any more. Keeping one invites the
+# early exit back.
 
 
 _UKWA_SOURCE_COL = 1
@@ -332,9 +341,9 @@ _UKWA_TARGET_COL = 2
 def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRecord]:
     """Yield one host per in-window host-link-graph row, from the chosen column.
 
-    Rows are `year|source_host|target_host<TAB>count`, sorted by year ascending,
-    so the scan stops once it passes the window. That also stops before the
-    truncated 2002+ tail of the partial download.
+    Rows are `year|source_host|target_host<TAB>count`. The file is 15 internally
+    sorted shards, so an out-of-window year means only that this shard has passed
+    the window and the next one may not have. The whole file is therefore read.
     """
     with _open_text(path) as fh:
         try:
@@ -345,8 +354,6 @@ def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRe
                     stats["malformed"] += 1
                     continue
                 year = int(parts[0])
-                if year > _UKWA_LAST_YEAR:
-                    break
                 if year not in YEARS:
                     stats["out_of_window"] += 1
                     continue

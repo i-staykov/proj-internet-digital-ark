@@ -219,8 +219,25 @@ a later download will differ wherever a domain has been re-registered since.
 
 **Get it.** From a Wayback capture. The original address still answers HTTP 200, but with a 159-byte
 HTML stub rather than the file, and the dataset DOI no longer resolves, so a direct download looks
-like it worked and is not the data. The archived stream drops partway, but the file is year-sorted,
-so the 1996-2001 head transfers completely.
+like it worked and is not the data. The archived stream drops partway; our local copy is exactly
+2 GiB of the advertised 20.9 GB.
+
+**The file is NOT year-sorted, and believing it was cost us 93% of the source for three weeks.**
+Measured 2026-08-16 over all 168,942,882 lines: **the year column decreases 14 times**, so this is
+15 concatenated shards each sorted internally. In-window rows are spread across all of them:
+
+| | |
+|---|--:|
+| in-window rows in the whole file | **2,468,674** |
+| first row past 2001 | line 166,895 |
+| in-window rows before that point | 166,890 |
+
+The old parser stopped at the first post-2001 row, which is the end of shard one of fifteen, and so
+read **6.76%** of what is there. **How the wrong answer survived verification is the part worth
+keeping**: the check was real, and it was "zero in-window rows in the next 5M lines". The first shard
+boundary sits at line **11,908,464**, so the check stopped 2.4x short of the evidence that would have
+overturned it. A tail sample showing 2004 was taken as corroboration, and it proves only what the
+last shard ends on.
 
 ```bash
 mkdir -p data/raw/ukwa && cd data/raw/ukwa

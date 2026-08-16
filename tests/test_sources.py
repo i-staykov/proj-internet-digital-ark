@@ -310,14 +310,28 @@ def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
     assert stats["malformed"] == 1
 
 
-def test_ukwa_stops_after_the_window(tmp_path: Path) -> None:
-    # the graph is year-sorted; the parser breaks at the first post-2001 row
-    # (skipping the huge out-of-window tail and the truncated download end)
+def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
+    """The file is 15 internally sorted shards, so an out-of-window year is not the end.
+
+    This test replaces one that asserted the opposite. The parser used to `break` at
+    the first row past 2001 on a docstring claim that the graph was year-sorted.
+    Measured over all 168,942,882 lines of the real file on 2026-08-16: the year
+    column decreases 14 times, the break fired at line 166,895, and the scan read
+    166,890 of the 2,468,674 in-window rows that are actually there. 6.76%.
+
+    The fixture is the real shape in miniature: a shard that runs past the window,
+    then another that starts before it.
+    """
     rows = [
+        # shard one, sorted, running out of the window
         "2000|a.co.uk|x.com\t1",
         "2001|b.co.uk|y.com\t1",
         "2002|c.co.uk|z.com\t1",
-        "2005|d.co.uk|w.com\t1",
+        "2010|d.co.uk|w.com\t1",
+        # shard two starts over, and everything here used to be silently lost
+        "1996|e.co.uk|v.com\t1",
+        "2001|f.co.uk|u.com\t1",
+        "2004|g.co.uk|t.com\t1",
     ]
     fixture = tmp_path / "host-linkage.tsv.gz"
     fixture.write_bytes(gzip.compress(("\n".join(rows) + "\n").encode("utf-8")))
@@ -325,7 +339,13 @@ def test_ukwa_stops_after_the_window(tmp_path: Path) -> None:
 
     records = list(parse_ukwa_link_source(fixture, stats))
 
-    assert [(r.raw, r.year) for r in records] == [("a.co.uk", 2000), ("b.co.uk", 2001)]
+    assert [(r.raw, r.year) for r in records] == [
+        ("a.co.uk", 2000),
+        ("b.co.uk", 2001),
+        ("e.co.uk", 1996),
+        ("f.co.uk", 2001),
+    ]
+    assert stats["out_of_window"] == 3
 
 
 def test_ukwa_tolerates_truncated_gzip(tmp_path: Path) -> None:

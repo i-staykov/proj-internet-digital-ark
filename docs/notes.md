@@ -9156,3 +9156,45 @@ each was found the same way: an alarm firing on something the register had alrea
 `host-linkage.tsv.gz` is truncated at exactly 2 GiB, but it is year-sorted and its last rows are 2004,
 so the whole 1996-2001 head landed. Rows per year run 1,011 targets in 1996 to 40,566 in 2001. The
 in-window graph is complete and there is no lost tail to recover.
+
+## 2026-08-16: we had been reading 6.76% of a file on disk, and the verification that missed it was real
+
+The source hunt's UKWA lens came back with a claim big enough to distrust: that `_parse_ukwa` reads a
+fifteenth of its input. **Verified independently before touching anything**, by scanning all
+168,942,882 lines of `host-linkage.tsv.gz` and counting how often the year column goes backwards.
+
+**It goes backwards 14 times**, at lines 11,908,464, 23,820,717, 35,731,507 and so on to 166,754,982.
+The file is 15 concatenated shards, each sorted internally, which is what a hash partition written out
+in order looks like. `sources.py` stopped at the first row past 2001. That row is line **166,895**, the
+end of shard one. The ingest ledger recorded **166,890** records for each of the two source names, so
+the two numbers agree to five rows and the diagnosis is not in doubt.
+
+| | rows |
+|---|--:|
+| in-window rows in the whole file | 2,468,674 |
+| in-window rows we had read | 166,890 |
+| share | **6.76%** |
+
+**The interesting part is not the bug, it is that this was checked and the check passed.**
+`notes.md`, 2026-07-23 records: *"the file is year-sorted ascending and 1996-2001 is its head, fully
+transferred before any truncation (verified: clean 2001->2002 transition at line ~166,890, and zero
+in-window rows in the next 5M lines)"*. That verification was really performed and its result was
+really zero. **The first shard boundary is at line 11,908,464, so it stopped 2.4x short of the
+evidence that would have overturned it.** A second check, that the file's tail reads 2004, was taken
+as corroboration and proves only what the last shard ends on. I repeated that same tail check this
+morning and drew the same wrong conclusion from it, which is how the 5,398-pair UKWA closure earlier
+today came to be measured against 6.76% of the source while being reported as the whole of it.
+
+**The rule this yields, which is cheaper than either check that failed:** to test whether a file is
+sorted, do not sample it, ask whether the key ever decreases. That is one pass, no judgement about how
+far is far enough, and it cannot be defeated by a boundary sitting past the sample.
+
+The fix is to delete the early exit. There is deliberately no last-year constant left in the module,
+because keeping one invites the exit back. `test_ukwa_reads_every_shard_and_not_just_the_first`
+replaces a test that asserted the old behaviour, with a fixture that is the real shape in miniature.
+
+**No approval is involved and this is worth stating precisely.** `ukwa_link_source / link_source` is
+already `Decision: master`, on the reviewer's written confirmation of 2026-07-24, and his 2026-08-15
+update re-affirms host and link graph records as direct annual evidence "when their year association
+is explicit and documented". It is explicit: field 1 of every row is the crawl year. So this is not a
+new source and not a new class, it is a defect in reading an approved one.
