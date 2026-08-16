@@ -9630,3 +9630,29 @@ most of those names are post-window, and this project measured this morning what
 of never-in-window names is worth: `.mil` returns an in-window capture on **0.26%** of 8,234 answered
 queries. **Adding names to the pool is not free if they were never in the window.** It dilutes the one
 delivered artifact whose entire claim is that its contents merit verification.
+
+## 2026-08-16: settled the last open hypothesis on a number that was already in its own entry
+
+H011, the CA Domain Registry per-registration notices, had sat at `priced` since yesterday with two
+answers 12.2x apart depending on one classification: as a self-dating registry record it is 11,418
+pairs and 9,551.2 EE, under the corroboration split 936 pairs and 783.0 EE. The entry deferred the
+question as "not mine to decide, per CLAUDE.md: which class a source belongs to is a decision, not an
+attribute", which was the right instinct and the wrong conclusion.
+
+**The classification is a human's call. Whether this corpus is what it claims to be is a measurement,
+and the measurement was already written in the entry**: 375 of 1,500 sampled net-new names, **25.0%**,
+are one edit from a name the store already holds.
+
+A registry generating notices about its own namespace and stamping its own approval date cannot produce
+a 25% near-miss rate. That is the signature of a corpus that reached us through Usenet, which is exactly
+how this one arrives. So the split applies on evidence rather than on caution, and the figure is 936
+pairs and 783.0 EE, below the ~5,000 pair bar. Rejected.
+
+Supporting, and it points the same way: the split-year distribution is 1996:2, 1997:53, 1998:630,
+1999:251 and **nothing at all in 2000 or 2001**. No live registry feed looks like that.
+
+**What this changes about the standing rule.** "Which class a source belongs to is a decision, not an
+attribute" remains true, and it is why the triage entry stays in the queue at its own potential. But
+deferring a *hypothesis* to a human because a *classification* is a human's call conflates two things.
+The hypothesis asks "is this worth building"; that can be settled here, and today it is settled against,
+under both readings once the typo bound is taken seriously. The ledger now has no unfinished entries.
