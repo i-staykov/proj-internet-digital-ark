@@ -82,7 +82,8 @@ whether its key ever decreases rather than sampling it.**
 This round the method was the work, so it is reported before the sources are.
 
 **The question this round had to answer is what happens when the sources run out.** Each round consumes
-the cheap ones, and the register of families closed on measurement now stands at roughly sixty. So the
+the cheap ones, and the register of families closed on measurement is now the larger half of the count
+in section 6. So the
 process was rebuilt around a different premise: that the scarce resource is no longer places to look but
 **judgement about which places are worth a request**, and that judgement can be made mechanical if every
 verdict is recorded with the measurement that produced it.
@@ -426,19 +427,29 @@ net-new for us.
 - **The equivalent-English metric is an aggregate TLD estimate**, as the brief states, and not a language
   classification of any individual site.
 
-**Where further expansion is worthwhile, in order.**
+**Where further expansion is worthwhile, in order.** The first entry is measured rather than argued,
+which is the form this question deserves.
 
-1. **Bulk dated corpora in research repositories.** The DRUM result establishes both that they exist and
-   that they dwarf per-domain querying. This is the highest-value direction by a wide margin and it is
-   where the discovery system is now pointed.
-2. **The three evidence routes the 2026-08-15 update widened**: dated DNS survey presence, Arquivo.pt
+1. **The bracketed gaps we already hold and have never asked about.** A domain dated in year Y-1 and
+   Y+1 but not Y is the highest-probability query this project has: the domain is known to have existed
+   on both sides of the gap, and the completeness engine answers such queries at 85 to 97%.
+   **285,842 of them have never been queried.** Priced on 514 live queries rather than projected, that
+   is **103,000 to 164,000 net-new pairs and 73,061 to 85,627 equivalent-English**, which is 0.88 to
+   1.03 percentage points. It needs no new source, no download and no permission; it needs request
+   throughput, which section 5 explains we do not have in quantity. A first estimate of this was 1.6 to
+   1.9x higher and was cut on measurement before being written down here.
+2. **Bulk dated corpora in research repositories.** The result described in section 1 establishes both
+   that they exist and that they dwarf per-domain querying. Note the qualification the search
+   established: the capture census found this round appears to be singular rather than the first of a
+   family, since six further sweeps of the same repositories and collections returned nothing in window.
+3. **The three evidence routes the 2026-08-15 update widened**: dated DNS survey presence, Arquivo.pt
    capture indexes, and UK Web Archive host and link graph records where the year association is explicit.
    The third is the most valuable to us because our holdings in that namespace are large and `.uk` carries
    the highest English weight of any namespace we hold in volume. Each is being verified against the
    actual record schema before anything is claimed, because a collection-level date presented as a
    per-item date is exactly the failure the evidence rules exist to prevent.
-3. **Continued CDX querying**, as a background process rather than as a plan.
-4. **Namespaces where the weight is high and our coverage is measurably thin**, principally the `.us`
+4. **Continued CDX querying**, as a background process rather than as a plan.
+5. **Namespaces where the weight is high and our coverage is measurably thin**, principally the `.us`
    locality space: the store holds 217,619 in-window `.uk` domains against 18,278 `.us`.
 
 **Where it is not worthwhile**, so the ground is not broken twice: sources that select for authority,
