@@ -9596,3 +9596,37 @@ the source side is those same 110 universities. Everything else in the directory
 research host in the register. And a source can pass the availability test, pass the screening test,
 carry a per-item date, and still die on saturation in one query, which is why the store-side check
 belongs before the download rather than after it.
+
+## 2026-08-16: swept every dead host in the register for its files, and the closures hold
+
+Turned this morning's recovery method into a tool, `scripts/recover_dead_hosts.py`, and ran it over
+every host the register closed on availability. The method is sound and the sweep is a negative, which
+is the useful combination: it means the closures are real rather than untested.
+
+**The method reproduces its known positives.** Pointed at `cybermetrics.wlv.ac.uk` it finds 46 data
+files including a 166 MB zip, and that host does not resolve at all.
+
+**Across the whole register it found essentially nothing new**, and the reason is structural: the hosts
+we closed on availability are *page* hosts (national archives, a caching project, a FAQ mirror), not
+*file* hosts. `nw.com` and `cybermetrics` were file hosts, which is why the trick worked there. That is
+worth knowing before anyone tries this again expecting a second `9701.domains.gz`.
+
+**The first sweep also showed the tool was too loose, and that is now fixed.** It reported 89 "data
+files", the great majority of which were conference PDFs on Yahoo Webscope, PostScript papers from a
+1999 caching workshop, and Bootstrap glyph fonts on an Icelandic archive, all served as
+`application/octet-stream` so the mime check alone let them through. **A recovery tool that surfaces a
+reading list is a tool its reader learns to skim**, which is the alarm-that-cries-wolf failure in
+another costume. `NOT_DATA_SUFFIX` now excludes documents and fonts, and eight tests pin both
+directions: papers and fonts out, a real `.tsv` and a self-extracting `.exe` still in.
+
+**The one genuine hit, measured and refused.** `opendata/ukwa.ds.1/classification/classification.tsv`
+survives intact, 26,910 rows, and is a curated classification of UKWA-selected sites. There is **no
+date column at all**, so it is candidate-pool only. Against the store: 9,863 registrable domains, 3,167
+already dated, **6,643 never seen.**
+
+**Refusing that is the point of the entry.** 6,643 free names looks like pool growth, and Ding's update
+asks for the pool to be as large as practicable. But UKWA's selective archive began well after 2001, so
+most of those names are post-window, and this project measured this morning what an undated pool full
+of never-in-window names is worth: `.mil` returns an in-window capture on **0.26%** of 8,234 answered
+queries. **Adding names to the pool is not free if they were never in the window.** It dilutes the one
+delivered artifact whose entire claim is that its contents merit verification.
