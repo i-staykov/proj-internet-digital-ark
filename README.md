@@ -26,6 +26,7 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
 | [docs/key-decisions.md](docs/key-decisions.md) | **the only file that asks a human for a decision.** Open and closed, newest first, pointing to an ADR where the reasoning is structural. A `pending` source class is mirrored here automatically and a test enforces it ([ADR-005](docs/ADRs.md)) |
 | [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database. Its `## Found, awaiting triage` section is an append-only queue of sources found but not yet priced, and **grows indefinitely by design**: it reaches `key-decisions.md` as one line naming the count, never one entry per source |
+| [docs/source-dossiers.md](docs/source-dossiers.md) | the full working behind each triage line: the rubric breakdown, the screener's measurement, the kill condition. **Nothing here is enforced**; it exists so the decision surface above can stay one screen |
 | [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |

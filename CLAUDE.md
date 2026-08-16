@@ -69,6 +69,7 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 | `docs/ROUND.md` | **generated** current state: scoreboard, engines, residual, clock | read first, never edit |
 | `docs/key-decisions.md` | **the only place that asks Ivo for anything.** Open and closed decisions, pointing to an ADR where one exists | append as you decide; anything waiting on him appears here or nowhere |
 | `docs/approved-sources-list.md` | which source classes may date a year, one `Decision:` line each. **Enforced by `ark ingest`, not by convention** | a `pending` entry here must also be named under `## OPEN` in `key-decisions.md` |
+| `docs/source-dossiers.md` | the working behind each triage line, moved out on 2026-08-16 so the decision surface fits one screen | **nothing here is enforced**; write the dossier here and the one-line row there |
 | `docs/ADRs.md` | the few decisions with **structural** impact: taxonomy, store shape, machine allocation, shared write paths |
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |

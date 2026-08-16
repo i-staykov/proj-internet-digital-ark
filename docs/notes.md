@@ -9091,3 +9091,32 @@ which reconciles to the deduplicated projection exactly. Nothing here is a new r
 corroboration split re-applied to a store the engines have grown, re-filing mentions under their dated
 sibling specs. `ukwa_link_target`, `uucp_map_mention` and `page_expansion` remain deliberately excluded,
 because a link-graph edge cannot date its target and corroboration cannot rescue that.
+
+## 2026-08-16: the biggest-looking rule widening measured to 5,398 pairs, and that closes it
+
+His 2026-08-15 update says UK Web Archive host and link graph records may serve as direct annual
+evidence where the year association is explicit. That reads like the largest thing on offer: we hold
+`ukwa_link_target` as candidate-only by construction, `.uk` carries 0.9813, and names from a national
+link graph are the best-converting population this project has ever measured at 90.4%.
+
+**Measured before anything was built, and it is small.** The store holds 88,263 `ukwa_link_target`
+rows over 69,152 domains. Of those domains, **554 have no year assigned anywhere**, so 68,598 of
+69,152 are already dated. Counting pairs rather than domains, the evidence attests **5,398
+(domain, year) pairs the store does not already hold**, worth roughly 0.05 points.
+
+**The reason is the reason a link graph is valuable in the first place.** We have been feeding UKWA
+targets into the CDX engine all round precisely because they convert, and they did. The engine has
+already dated almost all of them on their own capture evidence, which is stronger evidence than the
+edge would have been. **A candidate pool that has been worked is not a reserve.** The widening arrives
+after the work it would have saved.
+
+Recorded so it is not re-proposed: the residual is real but it is 5,398 pairs, not a route to 5%.
+`ukwa_link_target` stays candidate-only, which also keeps `build_promotion_journals.py` correct, since
+promoting a link-graph edge onto its target is the thing the class exists to forbid.
+
+**Also measured, and also closed, for the same paragraph.** `isc_survey` holds 1996 and 1997 only,
+459,534 and 1,259,875 domains. His update blesses dated DNS surveys as direct evidence, so 1998-2001
+would be worth a great deal. `sources.md` already records why it stops: the raw name lists end at July
+1997, confirmed against two independent live listings, and the `WWW-9801/` and `WWW-9807/` directories
+that look like the missing editions hold aggregate report HTML with no names in it. The closure was
+already right; what is new is only that the reviewer would now accept the evidence if it existed.
