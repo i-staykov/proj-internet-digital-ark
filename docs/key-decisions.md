@@ -33,29 +33,32 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
 
-### THE BASELINE MOVED. 5% is now 3.00 points away, not 2.84, and the target grew by 106,022 EE
+### Where the round stands: 3.6602% banked, 5.3624% if you approve the one request above
 
-**Status, not a question, but it changes every number you have been given.** `merged260815` arrived with
-his 2026-08-15 brief update and the file guide calls it "the official baseline to be expanded and used
-for comparison in this round". Measured with his own calculator, which I diffed and found byte-identical
-to the phase-3 copy, so the weighting standard has not moved:
+**Status, not a question.** The baseline moved mid-round: `merged260815` replaced `merged260810` and the
+file guide calls it "the official baseline to be expanded and used for comparison in this round". The
+denominator grew **34.06%**, from 6,226,386.4245 to **8,346,839.3737**, and 39,492 of our pairs became
+pairs he already holds. Both measured with his own calculator, which I diffed against the phase-3 copy
+and found byte-identical, so the standard itself has not moved. 5% is now **417,341.97 EE**.
 
-| | merged260810 | merged260815 |
-|---|--:|--:|
-| records | 11,362,034 | **15,428,507** |
-| equivalent-English | 6,226,386.4245 | **8,346,839.3737** |
+| | pairs | EE | growth |
+|---|--:|--:|--:|
+| after the baseline swap | 267,686 | 166,531 | 1.9951% |
+| **banked now** | **437,169** | **305,507.6** | **3.6602%** |
+| with `dartmouth_nber_captures` | 664,442 | 447,591.6 | **5.3624%** |
 
-Both sides of the ratio moved against us. The denominator is **34.06% larger**, and 39,492 of our pairs
-are now pairs he already holds, worth 32,880 EE. **The round read 2.1641% against the old release and
-reads 1.9951% against the new one, promotion included.** 5% is now 417,341.97 EE.
+**What closed most of the gap was not new collection.** Three of the four largest gains came from
+material already public or already on our own disk: a parser that had been reading 6.76% of a file we
+had held since July (**92,646 pairs**), the January 1997 domain survey the register recorded as
+unrecoverable (**76,324**), and the promotion you authorised (**94,051**). The fourth is the request
+above.
 
-**Why it grew, which is the useful part**: another contributor delivered 4,063,995 records from one
-existing research dataset, the UMN DRUM early-web link lists (DOI 10.13020/D62684). Year 2000 grew 144%
-in a single merge. **One bulk dated corpus was worth roughly twenty times our entire round.** Our
-collection was optimised against archive request throughput; a corpus of that shape does not have that
-constraint. The search is re-aimed at that shape and nothing else is a better use of the remaining time.
+Two of those are corrections to our own errors, and both reduce to one rule now written into the
+method: **a closure about one copy of an artifact is not a closure about the artifact**, and to test
+whether a file is sorted you ask whether its key ever decreases rather than sampling it. The July check
+that verified the "year-sorted" claim was real; it stopped 2.4x short of the first shard boundary.
 
-Working: `notes.md`, 2026-08-16 entries. `src/ark/baseline.py` now points at the new release.
+Working: `notes.md`, 2026-08-16 entries. `src/ark/baseline.py` points at the new release.
 
 ### The local engine now costs 3 throttled requests per answer, for 0.085 points
 
