@@ -610,6 +610,22 @@ triage-rank *args:
 # stopping maintain.sh, since journals are ledgered by content hash and re-offering
 # an ingested one is skipped in milliseconds.
 #
+# bank whatever a human has newly approved, then ship the whole round.
+# Safe to rehearse: `bank_approved.py` reports and SKIPS anything still pending,
+# so running this before a decision arrives changes nothing and still exercises
+# every later step. That property is the point: the evening a round ships is the
+# worst time to discover the packaging path is broken.
+ship-approved round="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "== banking newly approved classes =="
+    uv run python scripts/bank_approved.py --write
+    just ship {{round}}
+    echo "== the reviewer's own calculator =="
+    uv run python scripts/round_figures.py --verify
+    echo "== the .docx he asks for =="
+    just report-docx docs/report.md
+
 # ship the round: quiesce ingestion, export, gate, package, verify
 ship round="":
     #!/usr/bin/env bash
