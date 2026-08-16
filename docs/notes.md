@@ -9442,3 +9442,22 @@ it or silently trimming it, so the limitations section now carries the table abo
 the pool by measured realisation rate per namespace rather than by English share, and consider dropping
 the measured-fabricated tail.** Weight without plausibility is the same error the pool queue already
 corrects for, applied one level up.
+
+## 2026-08-16: the second-order case for the census is measured, and it is small
+
+Before writing anything flattering into the approval request, tested a claim I could easily have
+asserted: approving `dartmouth_nber_captures` places 315,085 domains in annual files, which under the
+unchanged corroboration split should admit Usenet mentions that fail it today.
+
+**Measured: 1,173 pairs over 937 domains.** A few hundred equivalent-English. The request now says so
+explicitly, against itself, because "and it unlocks more promotions" is exactly the kind of
+second-order benefit that is easy to assert and tedious to check.
+
+**Why it is so small is the more useful half.** 2,561,871 Usenet mention pairs fail the split because
+their domain is dated nowhere at all. That is the same population as this morning's `.edu` finding:
+anti-harvester address munging, not domains. The census is a corporate-website corpus and those
+companies are largely dated already, so the two sets barely intersect.
+
+Two independent measurements now agree that the untapped Usenet mention residue is mostly fiction.
+That is worth more than the 1,173 pairs: it closes, on evidence, the recurring idea that a cleverer
+corroborator would unlock a large reserve sitting in the mention tables.

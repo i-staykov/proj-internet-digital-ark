@@ -257,6 +257,8 @@ The request block above was generated **after** the ingest, so its own counterfa
 was net-new any more. That is why `request_approval.py` now refuses to build a request for a class the
 store already holds evidence for.
 
+**One thing this does NOT do, measured rather than assumed.** Approving it would also place 315,085 domains in annual files, which could in principle corroborate Usenet mentions that fail the split today and admit them too. Measured: it would newly corroborate **1,173 pairs over 937 domains**, worth a few hundred equivalent-English. The reason it is so small is itself informative: 2,561,871 mention pairs fail the split because their domain is dated nowhere at all, and a large part of that population is anti-harvester address munging rather than domains. Do not credit this request with a second-order gain it does not have.
+
 **Reasons a reader should refuse**, listed by the agent against its own request:
 
 - the sample links do not show that domain with that date;
