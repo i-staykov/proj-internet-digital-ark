@@ -27,31 +27,29 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### Bank the 106,604 promoted Usenet mentions? Worth 1.11 points, free, one command
+### THE BASELINE MOVED. 5% is now 3.00 points away, not 2.84, and the target grew by 106,022 EE
 
-**The single largest thing available, and it needs no download, no request and no new source class.**
-Re-running the corroboration split against today's store admits mentions that failed it when written,
-because the engines have since dated those domains. Built and tested:
-`scripts/build_promotion_journals.py --tag T --write`, then the `ark ingest` lines it prints.
+**Status, not a question, but it changes every number you have been given.** `merged260815` arrived with
+his 2026-08-15 brief update and the file guide calls it "the official baseline to be expanded and used
+for comparison in this round". Measured with his own calculator, which I diffed and found byte-identical
+to the phase-3 copy, so the weighting standard has not moved:
 
-- **106,604 pairs, 69,337.4 EE, +1.1136 points.** Round goes from ~2.09% to ~3.2%.
-- Registry-contradicted pairs already dropped (35% of the raw set, against 16.5% for pairs the store
-  already accepts). Two positive controls: mention years land inside the domain's own capture span
-  **5.52x** over chance, and within a year of a real capture 68.5% against a 22.1% null.
-- **I have not run it**: 106,604 pairs entering the annual files on typed evidence is your call.
+| | merged260810 | merged260815 |
+|---|--:|--:|
+| records | 11,362,034 | **15,428,507** |
+| equivalent-English | 6,226,386.4245 | **8,346,839.3737** |
 
-Working: `notes.md`, 2026-08-15 entries. My recommendation is to bank it.
+Both sides of the ratio moved against us. The denominator is **34.06% larger**, and 39,492 of our pairs
+are now pairs he already holds, worth 32,880 EE. **The round read 2.1641% against the old release and
+reads 1.9951% against the new one, promotion included.** 5% is now 417,341.97 EE.
 
-### 5% is a hard requirement and the round will land near 2.3%
+**Why it grew, which is the useful part**: another contributor delivered 4,063,995 records from one
+existing research dataset, the UMN DRUM early-web link lists (DOI 10.13020/D62684). Year 2000 grew 144%
+in a single merge. **One bulk dated corpus was worth roughly twenty times our entire round.** Our
+collection was optimised against archive request throughput; a corpus of that shape does not have that
+constraint. The search is re-aimed at that shape and nothing else is a better use of the remaining time.
 
-Status, not a question. Recorded in `brief_amendments.md`. 5% is 311,319.32 EE; the round holds
-~130,000 and banks **413 EE/h measured over 24h**, so Sunday lands **~2.30%**, or **~3.44%** with the
-promotion above.
-
-Everything that could have closed the gap was searched and closed on measurement: zone files, research
-crawl corpora, national archives, bulk archive indexes, RDAP headroom (0.107 points, not the 1.47 once
-carried), and the whole 49-source triage queue (**9.19% of the deficit**). There is no route I know of.
-The report states the shortfall and the measured reason.
+Working: `notes.md`, 2026-08-16 entries. `src/ark/baseline.py` now points at the new release.
 
 ### The local engine now costs 3 throttled requests per answer, for 0.085 points
 
@@ -59,6 +57,11 @@ Not blocking; it keeps running unless you say otherwise. Newest batch: 600 queri
 188 failures**, ~2,430 HTTP requests for 412 answers. Candidates are fine (75.7% of answered carry a
 capture), so this is citizenship, not tuning, and every technical lever is tested and closed. Its whole
 remaining contribution is **~5,300 EE, 0.085 points**. The VPS is on another host at 84.5% and unaffected.
+
+**One correction to the framing above, from measuring the campaign properly today.** The failures are
+not the rate limits and 504s the brief asks about: over 283,968 queries those are **0.96%**. The load is
+**12.34% transport-level**, 27,151 connections refused and 7,879 timed out, which is the same throttling
+seen from the other side of the socket and cannot be read from a status code. `scripts/cdx_execution_notes.py`.
 
 ### May we query Nominet in bulk for the .uk pool?
 
@@ -84,6 +87,28 @@ Priced whole, the queue covers about a tenth of the deficit, so nothing here is 
 ---
 
 ## CLOSED
+
+### C-21. The promotion tranche is banked, at 88% of its quoted figure (2026-08-16)
+
+You authorised it. Re-priced against the new baseline **before** writing anything, which mattered: it
+was 106,604 pairs / 69,337.4 EE against `merged260810` and **94,051 pairs / 61,196.7 EE** against
+`merged260815`. Banked in eight ingests; the year rows sum to 94,051 and reconcile to the projection
+exactly. All nine integrity invariants pass afterwards, including `additions_not_double_counted`, which
+is the one that would fire if any promoted pair were already in his files.
+
+Two effects pulled opposite ways and only one is obvious: a larger baseline **removes** promoted pairs by
+holding them, and **admits** more, because the corroboration split asks whether some other source places
+the domain in an annual file and four million new rows place a great many more. The net was a loss.
+
+`ukwa_link_target`, `uucp_map_mention` and `page_expansion` stay excluded: a link-graph edge cannot date
+its target and corroboration cannot rescue that. Working: `notes.md`, 2026-08-16.
+
+### C-20. The current baseline is `merged260815`, loaded and pointed at (2026-08-16)
+
+Mechanical rather than discretionary, and recorded because every figure depends on it. `baseline.py`
+carries the marker, the reviewer's record count and the six per-year equivalent-English totals, the last
+measured by running his calculator over each file rather than by carrying our own increments forward,
+since this release came from another contributor's merge. 4,006,500 year rows added under the new marker.
 
 ### C-19. Netcraft survey listings stay candidate-only: your condition was tested and failed (2026-08-12)
 

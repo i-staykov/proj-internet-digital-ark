@@ -3,8 +3,16 @@
 The reviewer reissues the merged 1996-2001 corpus after each round he accepts, and
 every one of those releases has to be loaded under its own marker namespace, because
 the ingest ledger keys on the file name alone and a second `1996.txt` would otherwise
-be skipped as already seen. Six are now layered in the store: the originals,
-`merged260727`, `merged260730`, `merged260802`, `merged260802-2` and `merged260810`.
+be skipped as already seen. Seven are now layered in the store: the originals,
+`merged260727`, `merged260730`, `merged260802`, `merged260802-2`, `merged260810` and
+`merged260815`.
+
+`merged260815` is the one that shows why this file matters. It arrived mid-round
+carrying another contributor's UMN DRUM delivery, 4,063,995 records concentrated in
+1999 and 2000, and it moved both sides of the ratio at once: the denominator up 34.06%
+and our own increment down 32,880 EE to overlap. Measured against the release it
+replaced the round read 2.1641%; against this one it reads 1.2204%. Neither number is
+wrong, and only the second is the one the reviewer accepts against.
 
 Keeping the current one here rather than as a default spelled out at each call site
 is not tidiness. Loading a round against a stale baseline is not an error anyone sees:
@@ -24,8 +32,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback-phase-4/merged260810")
-CURRENT_BASELINE_MARKER = "merged260810"
+CURRENT_BASELINE_DIR = Path("feedback-phase-5/merged260815")
+CURRENT_BASELINE_MARKER = "merged260815"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-4/MANIFEST.txt`,
@@ -40,19 +48,20 @@ CURRENT_ROUND_SINCE = "2026-08-09 13:51:03+00"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 11_362_034
-REVIEWER_BASELINE_EE = Decimal("6226386.4245")
+REVIEWER_BASELINE_PAIRS = 15_428_507
+REVIEWER_BASELINE_EE = Decimal("8346839.3737")
 
 # Per-year equivalent-English of the same files, since the completion standard is
-# stated against each year's own baseline rather than the whole-corpus total. These
-# are his `merged260802-2` totals plus the per-year increases he reported on
-# 2026-08-10; the six sum to REVIEWER_BASELINE_EE exactly, and each year's increase
-# over the previous total reproduces his stated growth rate to six decimals.
+# stated against each year's own baseline rather than the whole-corpus total. Measured
+# by running his own `equivalent_english_domains.py` over each `merged260815` file
+# rather than by carrying his reported increments forward, because this release came
+# from another contributor's merge and no per-year statement of ours was involved.
+# The six sum to REVIEWER_BASELINE_EE exactly.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("452533.8352"),
-    1997: Decimal("823616.0668"),
-    1998: Decimal("810983.8031"),
-    1999: Decimal("1244880.5113"),
-    2000: Decimal("1092291.9241"),
-    2001: Decimal("1802080.2840"),
+    1996: Decimal("453162.0038"),
+    1997: Decimal("833557.1096"),
+    1998: Decimal("926521.2816"),
+    1999: Decimal("1750212.8600"),
+    2000: Decimal("2580907.2067"),
+    2001: Decimal("1802478.9120"),
 }

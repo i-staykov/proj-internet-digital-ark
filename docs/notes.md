@@ -9033,3 +9033,61 @@ of lifetime**, that we cannot measure lifetime at all from a store that knows on
 that it is a prior for ranking rather than a criterion that can reject a source on its own. A rule
 written six hours ago has now been corrected twice, which is the right rate for something inferred from
 three data points.
+
+## 2026-08-16: the reviewer reissued the baseline mid-round, and it cost us 44% of the round
+
+`Domain_Data_Collection_Task_update/` arrived with a brief update dated 2026-08-15 15:39 and, beside it,
+`merged260815`. The file guide is unambiguous about what that folder is: "the official baseline to be
+expanded and used for comparison in this round". So it replaces `merged260810`, and every figure quoted
+before this entry was measured against a baseline that is no longer the one we are accepted against.
+
+**Measured with his own calculator**, which I diffed against the `feedback-phase-3` copy first and found
+byte-identical, program and weight model both, so the standard genuinely has not moved:
+
+| | merged260810 | merged260815 |
+|---|--:|--:|
+| pairs | 11,362,034 | 15,428,507 |
+| equivalent-English | 6,226,386.4245 | **8,346,839.3737** |
+
+**The denominator grew 34.06% and our numerator shrank at the same time**, which is the part worth
+understanding rather than just recording. 39,492 of our net-new pairs are now in his baseline, worth
+32,880 EE. So the round read 2.1641% against the release it was built against and **1.2615%** against
+the one that counts, and neither number is wrong.
+
+**Where it came from**: his own `merge_audit_umn_drum_0814.json` names the submission
+`UMN_DRUM_part03-16`, 4,063,995 accepted records from another contributor working the University of
+Minnesota DRUM early-web link lists, DOI 10.13020/D62684. The per-year shape is extreme and worth
+recording, because it says what kind of artefact this was: 1996 n=1,536, 1997 n=18,109, 1998 n=215,590,
+1999 n=950,371, **2000 n=2,878,339**, 2001 n=50. A single dataset grew year 2000 by 144%.
+
+**The lesson is not that we were unlucky.** One bulk dated corpus was worth roughly twenty times our
+entire round of per-domain archive querying, and it was findable, public and cited in his own brief.
+Our collection strategy has been optimised for a constraint (archive request throughput) that a corpus
+of this shape does not have at all. That is now the standing hypothesis driving the search.
+
+Also recorded, because it bounds where our overlap fell: we lost 23,723 pairs in 2000 and 8,916 in 1999,
+against 151 in 1996 and 595 in 2001. **The two years his new material barely touches, 1996 and 2001, are
+the two where our work survived almost intact**, and 2001 is now our largest surviving year at 52,146
+pairs.
+
+`src/ark/baseline.py` now points at `feedback-phase-5/merged260815` with the six per-year totals measured
+rather than carried forward, since this release came from another contributor's merge and no per-year
+statement of ours was involved.
+
+## 2026-08-16: the promotion banked, at 88% of the figure it was priced at
+
+Ivo authorised it. Re-priced against the new store before writing anything, which mattered: the tranche
+was **106,604 pairs / 69,337.4 EE** against `merged260810` and is **94,051 pairs / 61,196.7 EE** against
+`merged260815`. The 12,553-pair difference is pairs the reviewer now holds himself.
+
+Two effects pulled in opposite directions here and it is worth naming both, because only the first is
+obvious. A larger baseline **removes** promoted pairs by holding them already. It also **admits** more,
+because the corroboration split asks whether some other source places the domain in an annual file, and
+four million new baseline rows place a great many more domains. The net was a loss, but a smaller one
+than the raw overlap implies.
+
+Banked in eight ingests, year rows 69,949 + 15,764 + 5,211 + 2,163 + 633 + 36 + 212 + 83 = **94,051**,
+which reconciles to the deduplicated projection exactly. Nothing here is a new rule: it is the unchanged
+corroboration split re-applied to a store the engines have grown, re-filing mentions under their dated
+sibling specs. `ukwa_link_target`, `uucp_map_mention` and `page_expansion` remain deliberately excluded,
+because a link-graph edge cannot date its target and corroboration cannot rescue that.
