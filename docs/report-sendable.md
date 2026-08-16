@@ -99,17 +99,17 @@ are given for each, as required.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `domain_creation_bulk` | see `sources.md` | `whois_creation` | master | 2,165,523 | 1,241,812.0 |
-| `dartmouth_nber_captures` | see `sources.md` | `cdx_timestamp` | master | 227,273 | 142,084.0 |
+| `domain_creation_bulk` | the registry's own creation date for that domain | `whois_creation` | master | 2,165,523 | 1,241,812.0 |
+| `dartmouth_nber_captures` | the archive's own count of captures it holds in that year | `cdx_timestamp` | master | 227,273 | 142,084.0 |
 | `ukwa_link_source` | UK Web Archive crawl date | `link_source` | master | 92,646 | 90,825.1 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 115,104 | 61,759.1 |
 | `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,657 | 54,209.7 |
 | `usenet_announce` | post date of the announcement | `dated_directory` | master | 69,949 | 46,402.0 |
 | `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 42,776 | 36,993.4 |
 | `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 15,764 | 9,579.5 |
-| `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 6,934 | 4,203.1 |
+| `udrp_proceedings` | the commencement date of the dispute | `artifact_listing` | master | 6,934 | 4,203.1 |
 | `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 5,211 | 3,246.7 |
-| `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 3,929 | 1,874.9 |
+| `attrition_defacement` | the date the defacement was recorded | `artifact_listing` | master | 3,929 | 1,874.9 |
 | `enron_email` | the message `Date:` header | `dated_directory` | master | 2,163 | 1,360.2 |
 | `maillist_archive` | the message `Date:` header | `dated_directory` | master | 633 | 395.3 |
 | `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |

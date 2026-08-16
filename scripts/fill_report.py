@@ -43,6 +43,10 @@ from ark.stats import collect_stats  # noqa: E402
 # table cannot describe a source the store no longer contains, or omit one it
 # gained. An unlisted source falls back to a pointer at `sources.md`.
 DATE_BASIS = {
+    "domain_creation_bulk": "the registry's own creation date for that domain",
+    "dartmouth_nber_captures": "the archive's own count of captures it holds in that year",
+    "udrp_proceedings": "the commencement date of the dispute",
+    "attrition_defacement": "the date the defacement was recorded",
     "usenet_announce": "post date of the announcement",
     "usenet_address": "post date of the message carrying the address",
     "usenet_bare": "post date of the message carrying the address",
