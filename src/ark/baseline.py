@@ -66,11 +66,19 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
     2001: Decimal("1802478.9120"),
 }
 
-# The corpus as it stood before this project's first submission, taken from the
-# reviewer's own message of 2026-08-06. Every cumulative figure needs a denominator
-# that predates our first contribution, and this is the only one that does.
-ORIGINAL_BASELINE_PAIRS = 10_263_632
-ORIGINAL_BASELINE_EE = Decimal("5531053.6089")
+# The corpus as it stood before this project's FIRST submission: `merged260715-2`,
+# which ships as `legacy-data/`. Measured with the reviewer's own calculator and its
+# unchanged weight model, which reproduces his published line 2 for every later
+# release to the digit.
+#
+# It is deliberately not `merged260730`, the obvious-looking choice and the wrong
+# one. That release already contains phase 1 and an external contributor's round,
+# so using it as the cumulative denominator both understates the ratio and silently
+# drops phase 1 from the numerator. Phase 1 is easy to lose because it predates the
+# equivalent-English metric entirely: the reviewer scored it on record counts and
+# never quoted an EE figure for it.
+ORIGINAL_BASELINE_PAIRS = 8_224_963
+ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 
 # What each round delivered, as the reviewer received it. Kept here because a
 # cumulative claim is the one figure the store cannot regenerate: rounds already
@@ -93,10 +101,22 @@ ORIGINAL_BASELINE_EE = Decimal("5531053.6089")
 # Summing a superseded round would double-count it. The store agrees: net-new rows
 # carry `verified_at` from 2026-08-09 onward, which is every round since the last
 # merge and nothing before it.
+# Phase 1 carries a measured EE rather than a quoted one, for the reason above: the
+# metric did not exist in July. Its record count is the reviewer's own confirmed
+# figure ("the six yearly files grew from 8,224,963 to 9,654,487 records, adding
+# 1,429,524 records (17.38%)", feedback of 2026-07-27), and the EE beside it is the
+# difference between those same two releases under the fixed weight model. The two
+# were computed independently and the record delta lands on his figure exactly.
+#
+# The merged260727 -> merged260730 step is NOT here and must never be added. Those
+# 609,145 records are an external contributor's round, filed under
+# `feedback-external-phase-2/`, and its feedback describes regional directory
+# harvesting across eleven non-English countries, which is not this project's work.
 SUBMITTED_ROUNDS = (
     # label, date, records, equivalent-English, baseline measured against, superseded_by
-    ("1", "2026-08-03", 151_949, Decimal("91814.6880"), "originals", None),
-    ("2", "2026-08-06", 152_773, Decimal("105676.0387"), "merged260802-2", "3"),
-    ("3", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", None),
-    ("4", "2026-08-12", 159_787, Decimal("91908.4230"), "merged260810", "5"),
+    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2", None),
+    ("2", "2026-08-03", 151_949, Decimal("91814.6880"), "merged260730", None),
+    ("3", "2026-08-06", 152_773, Decimal("105676.0387"), "merged260802-2", "4"),
+    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", None),
+    ("5", "2026-08-12", 159_787, Decimal("91908.4230"), "merged260810", "6"),
 )

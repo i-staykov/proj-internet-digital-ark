@@ -31,16 +31,17 @@ The baseline column above counts registered domains, which is the output unit se
 it reads lower than the 15,428,507 raw lines of line 1. Both describe the same six files. Growth
 is quoted against line 2, the reviewer's own equivalent-English total for those files.
 
-**Cumulative across every round.** Two rounds are shown without a figure because they are contained in a later one and adding them would double-count: round 2 was measured against the same release as round 3, and round 4 was an interim report whose records are still net-new in this one. The growth rates of different rounds are not additive, because the baseline was reissued between them, so the cumulative percentage below is stated against a single fixed denominator: the 5,531,053.6089 equivalent-English of the corpus as it stood before the first submission.
+**Cumulative across every round.** Growth rates from different rounds are not additive, because the baseline was reissued five times and each rate has its own denominator. So every figure below is restated against one fixed denominator: the 4,553,314.7637 equivalent-English of `merged260715-2`, the corpus as it stood before this project's first submission. Two rounds are listed without a figure because they are interim reports contained in the round that follows, and adding them would double-count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured now, over the same two releases, with the unchanged model. The last column is therefore comparable down the table, and is not the rate each round was accepted against at the time; this round's accepted rate is the 20.3066% in section 1.
 
-| Round | Date | Records | Equivalent-English | Growth as quoted then |
+| Round | Date | Records | Equivalent-English | Against `merged260715-2` |
 |---|---|--:|--:|--:|
-| 1 | 2026-08-03 | 151,949 | 91,814.6880 | 1.6600% of the original |
-| 2 | 2026-08-06 | 152,773 | 105,676.0387 | _counted within round 3_ |
-| 3 | 2026-08-09 | 946,266 | 603,401.7811 | 10.9093% of the original |
-| 4 | 2026-08-12 | 159,787 | 91,908.4230 | _counted within round 5_ |
-| **5 (this one)** | 2026-08-17 | **2,835,893** | **1,694,957.8712** | **20.3066%** |
-| **Cumulative** | | **3,934,108** | **2,390,174.3403** | **43.2137%** |
+| 1 | 2026-07-26 | 1,429,524 | 756,559.2864 | 16.6156% |
+| 2 | 2026-08-03 | 151,949 | 91,814.6880 | 2.0164% |
+| 3 | 2026-08-06 | 152,773 | 105,676.0387 | _counted within round 4_ |
+| 4 | 2026-08-09 | 946,266 | 603,401.7811 | 13.2519% |
+| 5 | 2026-08-12 | 159,787 | 91,908.4230 | _counted within round 6_ |
+| **6 (this one)** | 2026-08-17 | **2,835,893** | **1,694,957.8712** | **37.2247%** |
+| **Cumulative** | | **5,363,632** | **3,146,733.6267** | **69.1086%** |
 
 ---
 

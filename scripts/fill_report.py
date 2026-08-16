@@ -290,7 +290,7 @@ def cumulative(f: dict) -> str:
     here, against the one denominator that predates every contribution.
     """
     rows = [
-        "| Round | Date | Records | Equivalent-English | Growth as quoted then |",
+        "| Round | Date | Records | Equivalent-English | Against `merged260715-2` |",
         "|---|---|--:|--:|--:|",
     ]
     total_records = 0
@@ -303,13 +303,15 @@ def cumulative(f: dict) -> str:
         total_records += records
         total_ee += ee
         pct = 100 * ee / ORIGINAL_BASELINE_EE
-        rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {pct:.4f}% of the original |")
+        rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {pct:.4f}% |")
 
     total_records += f["netnew_pairs"]
-    total_ee += Decimal(str(f["ee_netnew"]))
+    this_ee = Decimal(str(f["ee_netnew"]))
+    total_ee += this_ee
+    last = str(int(SUBMITTED_ROUNDS[-1][0]) + 1)
     rows.append(
-        f"| **5 (this one)** | 2026-08-17 | **{f['netnew_pairs']:,}** "
-        f"| **{f['ee_netnew']:,.4f}** | **{f['ee_netnew_growth_pct']:.4f}%** |"
+        f"| **{last} (this one)** | 2026-08-17 | **{f['netnew_pairs']:,}** "
+        f"| **{this_ee:,.4f}** | **{100 * this_ee / ORIGINAL_BASELINE_EE:.4f}%** |"
     )
     cum_pct = 100 * total_ee / ORIGINAL_BASELINE_EE
     rows.append(
@@ -318,14 +320,18 @@ def cumulative(f: dict) -> str:
 
     return "\n".join(
         [
-            "**Cumulative across every round.** Two rounds are shown without a figure because "
-            "they are contained in a later one and adding them would double-count: round 2 was "
-            "measured against the same release as round 3, and round 4 was an interim report "
-            "whose records are still net-new in this one. The growth rates of different rounds "
-            "are not additive, because the baseline was reissued between them, so the cumulative "
-            "percentage below is stated against a single fixed denominator: "
-            f"the {ORIGINAL_BASELINE_EE:,.4f} equivalent-English of the corpus as it stood "
-            "before the first submission.",
+            "**Cumulative across every round.** Growth rates from different rounds are not "
+            "additive, because the baseline was reissued five times and each rate has its own "
+            "denominator. So every figure below is restated against one fixed denominator: the "
+            f"{ORIGINAL_BASELINE_EE:,.4f} equivalent-English of `merged260715-2`, the corpus as "
+            "it stood before this project's first submission. Two rounds are listed without a "
+            "figure because they are interim reports contained in the round that follows, and "
+            "adding them would double-count. Round 1 predates the equivalent-English metric, so "
+            "its records are the reviewer's own confirmed count and the weight beside it is "
+            "measured now, over the same two releases, with the unchanged model. The last column "
+            "is therefore comparable down the table, and is not the rate each round was accepted "
+            "against at the time; this round's accepted rate is the "
+            f"{f['ee_netnew_growth_pct']:.4f}% in section 1.",
             "",
             *rows,
         ]

@@ -21,11 +21,14 @@ This round passes the 5% threshold you set.
 
 Lines 1 and 2 are your `merged260815` totals, unchanged, since this increment is not yet merged.
 
-Cumulative across every round, which you asked me to track: 3,934,108 records and 2,390,174.3403
-equivalent-English, which is 43.2137% of the 5,531,053.6089 the corpus held before my first
-submission. I have counted each round once. Round 2 was measured against the same release as round 3
-and is contained in it, and round 4 was an interim report whose records are still net-new in this one,
-so adding either separately would double-count. The report sets the arithmetic out in full.
+Cumulative across every round, which you asked me to track: 5,363,632 records and 3,146,733.6267
+equivalent-English, which is 69.1086% of the 4,553,314.7637 the corpus held before my first
+submission in July. I have restated every round against that one denominator, since the baseline has
+been reissued five times and the rates are not additive, and I have counted each round once: two of
+them were interim reports contained in the round that followed. My first round predates the
+equivalent-English metric, so its 1,429,524 records are your own confirmed figure and the weight
+beside it is measured over the same two releases with the unchanged model. The report sets the
+arithmetic out in full.
 
 The increment covers 2,664,363 distinct domains, and 1,788,557 of them appear in none of your six
 annual files in any year, so most of it is genuinely new names rather than new years on names already
