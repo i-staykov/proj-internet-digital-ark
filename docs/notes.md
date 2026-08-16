@@ -9307,3 +9307,41 @@ smallest folders.
 **The general rule this yields, which the register did not previously state:** when the binding
 constraint is a third party's willingness to serve us, rank candidate sources by yield per byte
 transferred, not by yield. Two sources of equal promise are not equally affordable.
+
+## 2026-08-16: the unheld Usenet is 175 GB and three quarters of it is the wrong language
+
+We hold 19,231 group archives, 411 GB, across 12 hierarchies. The `usenethistorical` collection is
+1,019 items and 692 GB, so the obvious question is what the missing 175 GB contains. Enumerated the
+whole collection through the archive.org search API and grouped by hierarchy, which is one request.
+
+| unheld hierarchy | bytes | English weight of what it will name |
+|---|--:|---|
+| `microsoft` | 26,562,005,792 | English |
+| `de` | 22,366,672,333 | `.de` 0.1324 |
+| `it` | 18,919,848,272 | low |
+| `tw` | 17,821,441,307 | low |
+| `fido7` | 16,853,452,527 | Russian FidoNet, low |
+| `pl` | 12,037,535,148 | low |
+| `fr` | 11,923,809,642 | low |
+| `nl` | 6,551,177,193 | `.nl` 0.1629 |
+| `hr`, `es`, `dk`, `sfnet`, `relcom`, `fj`, `no` | ~31,000,000,000 | low |
+| `linux`, `bit`, `free` | ~13,100,000,000 | English |
+
+**Roughly 40 GB of the 175 GB is English-facing and about 135 GB is national hierarchies.** A large
+non-English source is a small source under this metric, so the headline 175 GB overstates the prize by
+something like 4x before a single byte is fetched.
+
+**Deferred on the yield-per-byte rule established earlier today, and the arithmetic is explicit.**
+A measured sample of `usenet-microsoft` gave 299 net-new post-split pairs from 19.3 MB, which is
+**15.5 pairs per MB against the Dartmouth census's 997**, a 64x difference, and the English part of
+this collection is 26.6 GB rather than 228 MB. Downloading it from a host currently refusing 12.34%
+of our connections, while two of our own collectors work the same host, is the worse deal bought first.
+
+**What makes it worth keeping rather than closing**: it is a genuinely different provenance lineage
+from everything else in play today. Every large gain of this round is Internet Archive derived, so a
+pair confirmed by Usenet as well is real cross-lineage corroboration rather than the archive agreeing
+with itself. That is a reason to want it, just not tonight.
+
+**Next round, take `microsoft`, `linux` and `bit` and leave the national hierarchies**, and expect
+saturation to bite hard: a support forum is dominated by a handful of ISP domains repeating endlessly,
+so pairs per MB will fall well below the 15.5 measured on one small sample.

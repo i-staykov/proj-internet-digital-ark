@@ -13,11 +13,11 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **437,169** |
-| Over unique domains | 370,571 |
-| Domains absent from the baseline in every year | **208,401** |
-| Equivalent-English added | **305,507.6** |
-| Growth on the 8,346,839.4 baseline | **3.6602%** |
+| Net-new (domain, year) pairs | **437,362** |
+| Over unique domains | 370,757 |
+| Domains absent from the baseline in every year | **208,587** |
+| Equivalent-English added | **305,621.8** |
+| Growth on the 8,346,839.4 baseline | **3.6615%** |
 | Mean equivalent-English weight per pair | 0.6988 |
 
 | Year | merged260815, this counting unit | Additions | Capture-backed |
@@ -26,13 +26,13 @@ each describes a specific run and is recorded with that run in `sources.md`.
 | 1997 | 1,358,646 | 117,122 | 40 (0.0%) |
 | 1998 | 1,363,435 | 19,592 | 583 (3.0%) |
 | 1999 | 2,745,535 | 44,384 | 1,990 (4.5%) |
-| 2000 | 4,675,256 | 60,333 | 4,160 (6.9%) |
-| 2001 | 2,991,302 | 189,640 | 30,165 (15.9%) |
-| **Total** | **13,783,939** | **437,169** | **36,943 (8.5%)** |
+| 2000 | 4,675,256 | 60,340 | 4,167 (6.9%) |
+| 2001 | 2,991,302 | 189,826 | 30,351 (16.0%) |
+| **Total** | **13,783,939** | **437,362** | **37,136 (8.5%)** |
 
 **Against the 5% threshold this is short, and the arithmetic is worth setting out exactly, because the
 threshold moved during the round.** 5% of the current baseline is **417,341.97** equivalent-English, and
-the shortfall is **111,834.39**.
+the shortfall is **111,720.21**.
 
 **The baseline was reissued mid-round, and it changed both sides of the ratio at once.** `merged260810`
 held 11,362,034 records and 6,226,386.4245 equivalent-English. `merged260815` holds 15,428,507
@@ -41,7 +41,7 @@ records and 8,346,839.3737, a **34.06% larger denominator**, both measured with 
 collected became pairs the baseline already holds, worth **32,880 equivalent-English** of numerator.
 Measured against the
 release it was built against, this round reads 2.1641%; measured against the release that counts, it
-reads 3.6602%. Both numbers are correct and only the second is the one being accepted against.
+reads 3.6615%. Both numbers are correct and only the second is the one being accepted against.
 
 **The reason is the single most useful finding of the round, and it is not about us.** The new baseline
 grew because another contributor delivered 4,063,995 accepted records drawn from one existing research
@@ -173,7 +173,7 @@ naming the wrong year, and the source entered only after that was corrected.
 | `isc_survey` | survey run date | `artifact_listing` | master | 115,104 | 61,759.1 |
 | `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,657 | 54,209.7 |
 | `usenet_announce` | post date of the announcement | `dated_directory` | master | 69,949 | 46,402.0 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 36,848 | 31,439.1 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 37,041 | 31,553.3 |
 | `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 15,764 | 9,579.5 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 6,934 | 4,203.1 |
 | `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 5,211 | 3,246.7 |
@@ -183,9 +183,9 @@ naming the wrong year, and the source entered only after that was corrected.
 | `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |
 | `tucows_catalogue` | software release date | `dated_directory` | master | 83 | 53.2 |
 | `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 36 | 25.0 |
-| **Total** | | | | **437,169** | **305,507.6** |
+| **Total** | | | | **437,362** | **305,621.8** |
 
-**All 14 are master sources, so all 437,169 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 14 are master sources, so all 437,362 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -265,18 +265,18 @@ up to six pairs.
 
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| `cdx_pool` | 146 | 96,688 | 81,226 | 84.0% | 41.8% | 81,717 | 50,899 |
-| `cdx_q1` | 195 | 58,341 | 51,448 | 88.2% | 70.3% | 51,523 | 113,526 |
+| `cdx_pool` | 147 | 97,288 | 81,722 | 84.0% | 41.8% | 82,305 | 51,092 |
+| `cdx_q1` | 196 | 58,641 | 51,713 | 88.2% | 70.4% | 51,789 | 114,427 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
-| **All** | **634** | **286,668** | **248,509** | **86.7%** | **68.8%** | **249,774** | **514,739** |
+| **All** | **636** | **287,568** | **249,270** | **86.7%** | **68.7%** | **250,628** | **515,833** |
 
 **How failures were handled, and what the failures actually were.**
 
-Of 286,668 queries, 248,509 were answered (86.7%). The 38,159 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,750 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 756 refusals (403). **Transport-level failures are 35,409 (12.35%)**: 27,337 connections refused or reset and 8,072 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 287,568 queries, 249,270 were answered (86.7%). The 38,298 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,760 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 766 refusals (403). **Transport-level failures are 35,538 (12.36%)**: 27,428 connections refused or reset and 8,110 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Two tuning levers were tested and both are closed on measurement.** Halving concurrency to 4 workers
 made throughput worse, not better: 236 requests an hour against 378, with the failure share rising from
@@ -305,7 +305,7 @@ wall, and a stub that serves HTML where a data file should be. The third was add
 largest closed prize in the register reported itself revived; the check is anchored on a positive
 control, a file we demonstrably hold that returns the same stub.
 
-**106 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 82 evaluated and closed, each with the measurement that closed it. The developed ones:
+**107 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 83 evaluated and closed, each with the measurement that closed it. The developed ones:
 
 - `prior_task`: the supplied baseline
 - `isc_survey`: Internet Domain Survey host lists
@@ -332,7 +332,7 @@ control, a file we demonstrably hold that returns the same stub.
 - `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
 - `enron_email` and `enron_email_mention`: the FERC Enron corpus
 
-The 82 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
+The 83 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
 
 **What the search has established about its own shape.** Two rules did most of the closing this round,
 both derived from measurement rather than argument, and both are stated in section 2. The more useful
