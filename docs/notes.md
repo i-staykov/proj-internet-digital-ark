@@ -9656,3 +9656,41 @@ attribute" remains true, and it is why the triage entry stays in the queue at it
 deferring a *hypothesis* to a human because a *classification* is a human's call conflates two things.
 The hypothesis asks "is this worth building"; that can be settled here, and today it is settled against,
 under both readings once the typo bound is taken seriously. The ledger now has no unfinished entries.
+
+## 2026-08-16: machine-generated hostnames are more concentrated than typed ones, not less
+
+Checked a seam nobody had touched: every Usenet message carries a `Message-ID` of the form
+`<identifier@host>`, and this project uses it only as a provenance string. The host inside it has never
+been mined.
+
+**The argument for it was good.** A `Message-ID` host is written by the posting software from the local
+machine's name. Nobody types it. So it should escape the corroboration split, which is the thing that
+removes most of the value from `usenet_mention`, and it comes with the message's own `Date`. Machine
+evidence plus an intrinsic date is the best shape this project recognises.
+
+**Measured on three groups, 73,751 in-window messages carrying both a `Message-ID` and a `Date`:**
+
+| | |
+|---|--:|
+| distinct registrable domains | 1,405 |
+| distinct (domain, year) pairs | 2,056 |
+| **net-new pairs** | **51** |
+| **domains never seen before** | **0** |
+
+Fifty-two messages per domain. The top hosts say why in one line: `wisc.edu` 22,380, `gi.net` 20,962,
+`supernews.com` 11,785, then `aol.com`, `att.net`, `earthlink.net`.
+
+**The reasoning was backwards and that is the finding.** A typed mention names an arbitrary site,
+because a human writing a post names whatever they are talking about. A `Message-ID` names the poster's
+news server or ISP. So the property that makes it strong evidence, being machine-generated, is the same
+property that makes it concentrated: the population of news servers and access providers in 1996-2001 is
+a few thousand hosts, and we hold all of them. **Better evidence about almost nothing.**
+
+This closes `Received:` header mining and any other machine-header route by the same argument, and
+`Path:` relay chains are already closed at 49 net-new pairs, which is the same number arrived at from
+the same cause.
+
+**The general form, worth keeping because it inverts an intuition I acted on:** when judging a new seam,
+ask what generates the hostname, not just whether a human typed it. Machine-generated names come from
+infrastructure, and infrastructure is shared. Typed names come from attention, and attention is
+distributed.
