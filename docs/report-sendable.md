@@ -56,9 +56,9 @@ Wayback Machine held at that time, a count of captures per calendar year. One ro
 `count`. A row is therefore a statement by the archive that it holds N captures of that host inside that
 calendar year, which is the same fact a CDX query returns, published in bulk instead of retrieved one
 host at a time. It is filed as `cdx_timestamp` for that reason. **Independent check:** for domains where
-our own CDX engine had separately queried the live archive, the two agree on 138,979 (domain, year) pairs,
-including exact same-day agreement on single-capture years such as `milwhite.com` 1996 (our engine
-recorded `19961231231928` against the census row `ia_captures:1996:1`). The census evidences only the
+our own CDX engine had separately queried the live archive, the two agree on 138,760
+(domain, year) pairs, including exact same-day agreement on single-capture years such as `milwhite.com`
+1996 (our engine recorded `19961231231928` against the census row `ia_captures:1996:1`). The census evidences only the
 years it names; no year is inferred from any other.
 
 **2. Registry creation dates in bulk (`domain_creation_bulk`).** A published WHOIS/DNS compilation of

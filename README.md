@@ -463,7 +463,13 @@ increment and line 5 is line 4 divided by line 2.
 ```bash
 uv run python scripts/round_figures.py            # the five fields, plus per-year and per-source
 uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on disagreement
+uv run python scripts/cdx_execution_notes.py      # the CDX campaign he asks for a section on
 ```
+
+`cdx_execution_notes.py` reads the journal directory rather than a list of prefixes, so a collector
+started under a name nobody wrote down is still measured. It reports queries, answered, success rate,
+in-window hit rate and the failure split per collector; `fill_report.py` calls the same function for
+the report's CDX section, so the two cannot disagree.
 
 **Always send with `--verify`.** A record his validator rejects scores zero for him and full weight
 for us, which is a live risk every time a source widens its matching. The figures are only correct

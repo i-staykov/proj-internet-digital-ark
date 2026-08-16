@@ -9748,3 +9748,95 @@ a hostname typed in prose) but it is worth knowing the decision is not finely ba
 
 Filed under the `registry` provenance lineage, deliberately, so it cannot corroborate our own RDAP
 sweeps: both ask a registry when it created a name, and that is one authority agreeing with itself.
+
+## 2026-08-17 (both routes admitted, and a cumulative that had lost its largest round)
+
+**Ivo approved `dartmouth_nber_captures` and `domain_creation_bulk` as `master`**, having asked first
+whether the verification links in the request block were sound: he had clicked all six and got 503s.
+They were sound. With the local engine paused, `https://web.archive.org/web/2000*/http://safaripress.com/`
+returned 200 and 7,276 bytes, so the format was right and the 503s were IA throttling him alongside our
+own collector, which had been querying from the same address for hours.
+
+**The better check needed no requests at all, and it is the one worth keeping.** Dartmouth's file
+claims the archive holds N captures of a host in a year. Our own CDX engine had separately queried the
+live archive months earlier and recorded actual timestamps. Where both speak they agree on **138,979
+(domain, year) pairs**, including exact same-day agreement on single-capture years: `milwhite.com` 1996
+against our `19961231231928`, `omnitravelservice.com` 1996 against `19961221234954`. A third-party
+census and our own independent querying of the primary source landing on the same day is a stronger
+statement than any number of clicked links.
+
+**Banked, both.** Dartmouth returned **227,273** year rows against a predicted 227,273, exact. The
+registry file returned **2,165,523** against a predicted 2,171,217; the 5,694 difference is pairs the
+CDX engine dated in the hours between pricing the request and answering it, which is the measurement
+working rather than failing. 171,212,579 lines read in about three minutes.
+
+**Round total: 2,835,893 pairs, 1,694,957.8712 equivalent-English, 20.3066%.** Four times the threshold.
+
+### The cumulative figure was wrong in two compounding ways, and both favoured understating us
+
+Ivo asked for the cumulative increment, since Ding scores it in an internal competition. The first
+table this produced read 43.2137%. It is **69.1086%**, and the gap is one round plus one denominator.
+
+**Phase 1 was missing from the numerator entirely.** Ding's emails number only the rounds reported in
+his five-line format, which begins at our phase 3, so reconstructing the history from the email thread
+silently starts in August and drops the largest round this project has delivered: **1,429,524 records**,
+confirmed in his own feedback of 2026-07-27 ("the six yearly files grew from 8,224,963 to 9,654,487
+records, adding 1,429,524 records (17.38%)"). It is easy to lose because it **predates the
+equivalent-English metric**, which arrived on 2026-08-03, so no EE figure was ever quoted for it and
+there is nothing to carry forward.
+
+**And the denominator already contained it.** `merged260730` looked like the natural "original"
+baseline and is not: it sits after phase 1 *and* after an external contributor's round. Using it put
+phase 1's work in the bottom of the ratio while leaving it out of the top.
+
+**Both fixed by measurement.** Every baseline release Ding has issued is on disk, so the EE of each was
+measured under the unchanged weight model and the differences taken. The `merged260715-2` to
+`merged260727` step is **1,429,524 records and 756,559.2864 EE**. The record half lands on his confirmed
+figure to the digit, which is what makes the EE half trustworthy: two independently computed quantities
+agreeing on the one that was published.
+
+**The step that must never be added.** `merged260727` to `merged260730` is +609,145 records and
++221,179.5588 EE, and it is **not ours**. It is filed under `feedback-external-phase-2/` and its
+feedback describes regional directory harvesting across eleven non-English countries. The exclusion is
+now written into `SUBMITTED_ROUNDS` with the reason beside it, because the next agent to reconstruct
+this history will find the same tempting arithmetic.
+
+**Two further rounds are interim reports contained in the round that follows** and are listed without a
+figure: the 2026-08-06 report shares a baseline with phase 4, and the 2026-08-12 report's records are
+still net-new today. The store agrees independently: no net-new row carries `verified_at` older than
+2026-08-09, which is the last merge.
+
+Cumulative: **5,363,632 records, 3,146,733.6267 EE, 69.1086%** of the 4,553,314.7637 the corpus held
+before this project's first submission.
+
+### The report is five pages now, because the reader changed
+
+Ivo's constraint: Ding should be able to read it himself. Nine sections became seven, the register of
+searched families became one inline sentence rather than 24 bullets and 91 rows (`sources.md` ships
+beside it and carries the full list), and equivalent-English now prints to four decimals everywhere
+because one table was rounding 8,346,839.3737 to 8,346,839.4, which is not the number his own
+calculator returns.
+
+### Packaging, and the one cut that costs nothing
+
+Last round's archive was 1.7 GB compressed for 437k pairs. This round holds 2.8 million.
+
+`source/source.tar.gz` was **406 MB and is now 0.9 MB**, with no change to the packager: it is
+`git archive HEAD`, and the 1.3 GB of baseline data that had been swept into the tree is gone. The
+one deliberate cut is the baseline's own evidence rows, **77% of the evidence table** and the reviewer's
+own data returning to him. `prior_reused` says only "this pair was in the supplied baseline", which
+`baseline/` states directly and far more compactly, and the rows are regenerable by re-ingesting it.
+`verify.sh` reads the additions manifest rather than the parquet, so nothing in the archive's own
+checks depends on them. Logs are tailed rather than copied whole: `maintain.log` alone was 123 MB of
+one line per ingest pass every 150 seconds.
+
+**Four packaging runs were wasted on a race that is worth naming.** `package_delivery.sh` regenerates
+the report and refuses if it changed, which is correct. Editing the template while a build is running
+therefore kills the build every time, and I did it three times in a row before making the tree clean
+and leaving it alone. The guard was right on each occasion.
+
+### Still open
+
+The VPS at `10.1.0.6` is unreachable, `Permission denied (publickey)`, so its collector could not be
+confirmed and its journals could not be fetched. Not debugged, per the standing rule; it needs the VPN.
+The local CDX engine and the RDAP sweep are both running.

@@ -262,6 +262,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "CDX_FAILURES": cdx_failures(),
         "DATASETS_SEARCHED": datasets_searched(),
         "CUMULATIVE": cumulative(f),
+        "DARTMOUTH_AGREEMENT": dartmouth_agreement(),
     }
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
@@ -281,6 +282,33 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
+
+
+def dartmouth_agreement() -> str:
+    """How often the capture census and our own querying of the archive agree.
+
+    Generated rather than typed, because it is the sentence that makes a
+    third-party file believable and it moves every time the engine dates another
+    pair. A hand-copied 138,979 was already 219 stale a day after it was measured.
+    """
+    conn = connect_read_only_patiently(Path(__file__).resolve().parents[1] / "data/ark.duckdb")
+    try:
+        n = conn.execute(
+            """
+            SELECT count(*) FROM (
+              SELECT DISTINCT d.domain, d.evidence_year FROM evidence d
+              JOIN source sd ON sd.source_id = d.source_id
+                            AND sd.name = 'dartmouth_nber_captures'
+              WHERE EXISTS (
+                SELECT 1 FROM evidence o
+                JOIN source so ON so.source_id = o.source_id
+                              AND so.name IN ('ia_cdx_bulk', 'ia_cdx', 'early_web_cdx')
+                WHERE o.domain = d.domain AND o.evidence_year = d.evidence_year))
+            """
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    return f"{n:,}"
 
 
 def cumulative(f: dict) -> str:
