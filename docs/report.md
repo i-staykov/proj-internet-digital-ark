@@ -367,7 +367,7 @@ wall, and a stub that serves HTML where a data file should be. The third was add
 largest closed prize in the register reported itself revived; the check is anchored on a positive
 control, a file we demonstrably hold that returns the same stub.
 
-**111 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 87 evaluated and closed, each with the measurement that closed it. The developed ones:
+**112 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 88 evaluated and closed, each with the measurement that closed it. The developed ones:
 
 - `prior_task`: the supplied baseline
 - `isc_survey`: Internet Domain Survey host lists
@@ -394,7 +394,7 @@ control, a file we demonstrably hold that returns the same stub.
 - `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
 - `enron_email` and `enron_email_mention`: the FERC Enron corpus
 
-The 87 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
+The 88 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
 
 **What the search has established about its own shape.** Two rules did most of the closing this round,
 both derived from measurement rather than argument, and both are stated in section 2. The more useful

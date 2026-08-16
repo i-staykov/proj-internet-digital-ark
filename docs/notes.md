@@ -9562,3 +9562,37 @@ research zips from `cybermetrics.wlv.ac.uk`, a host that no longer resolves. Tha
 recovery shape again, and it generalises: **when an era research data host dies, CDX its file paths
 rather than its pages.** The assumption that Wayback skips large binaries is wrong by two orders of
 magnitude here, and it is the same assumption that left the January 1997 survey unrecovered for weeks.
+
+## 2026-08-16: applied this round's own recovery method, and it found a source whose filenames lie
+
+The research-supplements lens surfaced but did not price one lead: Wayback holds large research zips
+from `cybermetrics.wlv.ac.uk`, a host that no longer resolves. That is the `nw.com/zone` shape that
+recovered the January 1997 survey this morning, so it was worth ten minutes.
+
+**The method works.** CDX the dead host's file paths rather than its pages and the whole `/database/`
+directory is there: `uk_2002.zip` at 166,593,268 bytes, `uk_unis_2000.exe` at 45,486,540,
+`uk_july_2000_external_links.exe`, `aus_july_2000.exe`, `nz_July_2000.exe`. Screened clean first; no
+collision in the closed register.
+
+**Then the file said something its name did not.** `stats/data/UK_2001.txt` opens with
+*"UK 2002 database crawled July 2002"*. **The filename says 2001 and the crawl is July 2002, which is
+out of window.** Dating by filename is a rule this project legitimately uses, for `isc_survey`, where
+the YYMM code is the survey edition. It works there because the naming convention is the publisher's
+own dating scheme. It fails here, and the only thing that caught it was opening the file.
+
+**Rule: read a file's own header before trusting its name to date it.** A self-dating filename is a
+claim by whoever typed the filename, not by the data.
+
+**Closed on measurement anyway, and quickly, by the authority rule.** The population is UK university
+websites. Of the 110 distinct registrable domains in the file, **110 are already dated in an annual
+file. Zero net-new.** That is the same shape as IPEDS measured a few hours earlier, where `.edu` came
+out 95.5% saturated at the exact year the file attests. Universities are among the most heavily crawled
+populations there are, so a corpus that selects for them cannot be net-new however large its bytes.
+
+The external-link files are a link graph, so master evidence would exist only on the source side, and
+the source side is those same 110 universities. Everything else in the directory is 2002 or later.
+
+**Two things to carry forward.** The recovery method is sound and should be tried on every dead
+research host in the register. And a source can pass the availability test, pass the screening test,
+carry a per-item date, and still die on saturation in one query, which is why the store-side check
+belongs before the download rather than after it.
