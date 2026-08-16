@@ -282,11 +282,14 @@ asks that the search not stop at one successful dataset. `docs/sources.md` is th
 carries every family evaluated, the measurement that closed it where one was closed, and the download
 address where one exists. This section summarises rather than replaces it.
 
-**The register now stands at roughly sixty closed families plus the sources in the table in section 3.**
 A closure is recorded with the number that produced it, and closures are re-probed automatically, because
-a source recorded as unreachable may simply have had a host down on the day it was tried.
+a source recorded as unreachable may simply have had a host down on the day it was tried. That re-probe
+distinguishes three ways a dead source answers HTTP 200 without being a source: a parking page, a bot
+wall, and a stub that serves HTML where a data file should be. The third was added this round after the
+largest closed prize in the register reported itself revived; the check is anchored on a positive
+control, a file we demonstrably hold that returns the same stub.
 
-**26 source families are recorded in `docs/sources.md`**, each with what dates an item, where to obtain it, and the measurement that closed it where it was closed:
+**104 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 80 evaluated and closed, each with the measurement that closed it. The developed ones:
 
 - `prior_task`: the supplied baseline
 - `isc_survey`: Internet Domain Survey host lists
@@ -308,12 +311,12 @@ a source recorded as unreachable may simply have had a host down on the day it w
 - `usenet_bare` and `usenet_bare_mention`: the bare `foo.com` in the message bodies
 - `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`: the UUCP maps
 - `rtfm_faq` and `rtfm_faq_mention`: the Usenet FAQ mirror
-- Evaluated and rejected
 - `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
 - `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
 - `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
 - `enron_email` and `enron_email_mention`: the FERC Enron corpus
-- Measured, and each blocked on something other than work
+
+The 80 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
 
 **What the search has established about its own shape.** Two rules did most of the closing this round,
 both derived from measurement rather than argument, and both are stated in section 2. The more useful

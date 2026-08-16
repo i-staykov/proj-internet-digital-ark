@@ -277,29 +277,59 @@ def datasets_searched() -> str:
     only stays true if it is derived from the register itself: a hand-written copy
     omits whatever was added after it was written, and the omission is invisible.
 
-    `sources.md` gives one `## ` heading per family. Headings that are not families
-    are skipped by name, since the file also uses that level for its own front matter.
+    The register has two halves and they are counted separately, because a prose
+    sentence that said "roughly sixty" sat directly above a generated "26" in the
+    first draft of this section. Developed sources get a `## ` heading each;
+    families evaluated and rejected are one table row each under a single heading.
+    Both are searches, and the second half is much the larger.
     """
     path = Path(__file__).resolve().parents[1] / "docs" / "sources.md"
     if not path.is_file():
         return "_`sources.md` not found beside this report._"
 
-    skip = {"Summary", "Source names that are not separate sources"}
-    families = [
+    text = path.read_text(encoding="utf-8")
+
+    # Headings at this level that are prose about the file rather than a source.
+    skip = {
+        "Summary",
+        "Source names that are not separate sources",
+        "Evaluated and rejected",
+        "Measured, and each blocked on something other than work",
+    }
+    developed = [
         line[3:].strip()
-        for line in path.read_text(encoding="utf-8").splitlines()
+        for line in text.splitlines()
         if line.startswith("## ") and line[3:].strip() not in skip
     ]
-    if not families:
+
+    rejected = 0
+    if "## Evaluated and rejected" in text:
+        section = text.split("## Evaluated and rejected", 1)[1].split("\n## ", 1)[0]
+        rejected = sum(
+            1
+            for line in section.splitlines()
+            if line.startswith("|")
+            and not line.startswith("|--")
+            and not line.lower().startswith("| source")
+        )
+
+    if not developed and not rejected:
         return "_No families recorded._"
 
     lines = [
-        f"**{len(families)} source families are recorded in `docs/sources.md`**, each with what "
-        "dates an item, where to obtain it, and the measurement that closed it where it "
-        "was closed:",
+        f"**{len(developed) + rejected} source families have been searched and recorded**: "
+        f"{len(developed)} developed far enough to earn their own section, and {rejected} "
+        "evaluated and closed, each with the measurement that closed it. The developed ones:",
         "",
     ]
-    lines += [f"- {name}" for name in families]
+    lines += [f"- {name}" for name in developed]
+    lines += [
+        "",
+        f"The {rejected} closed families are listed under `## Evaluated and rejected` in "
+        "`docs/sources.md`, one row each, naming the verdict and the number behind it. They "
+        "are recorded so that negative results stay visible and the same ground is not broken "
+        "twice.",
+    ]
     return "\n".join(lines)
 
 

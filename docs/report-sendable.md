@@ -1,39 +1,38 @@
 # Internet Digital Ark: round report
 
-Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
-
-**Every figure in the tables** is generated from the store by `scripts/report_figures.py` and
-substituted by `scripts/fill_report.py`, so a table here cannot drift from the shipped files. The
-handful of one-off measurements quoted in the prose of sections 2 and 3 are not regenerated per round;
-each describes a specific run and is recorded with that run in `sources.md`.
-
----
-
 ## 1. What this round adds
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **[TOTAL]** |
-| Over unique domains | [UNIQUE] |
-| Domains absent from the baseline in every year | **[NEWDOMAINS]** |
-| Equivalent-English added | **[EE]** |
-| Growth on the [EEBASELINE] baseline | **[EEGROWTH]** |
-| Mean equivalent-English weight per pair | [EEMEAN] |
+| Net-new (domain, year) pairs | **267,686** |
+| Over unique domains | 202,704 |
+| Domains absent from the baseline in every year | **112,236** |
+| Equivalent-English added | **166,531.1** |
+| Growth on the 8,346,839.4 baseline | **1.9951%** |
+| Mean equivalent-English weight per pair | 0.6221 |
 
-[PER_YEAR_TABLE]
+| Year | merged260815, this counting unit | Additions | Capture-backed |
+|---|--:|--:|--:|
+| 1996 | 649,765 | 6,095 | 5 (0.1%) |
+| 1997 | 1,358,646 | 40,791 | 40 (0.1%) |
+| 1998 | 1,363,435 | 19,427 | 567 (2.9%) |
+| 1999 | 2,745,535 | 43,745 | 1,946 (4.4%) |
+| 2000 | 4,675,256 | 58,856 | 4,087 (6.9%) |
+| 2001 | 2,991,302 | 98,772 | 29,784 (30.2%) |
+| **Total** | **13,783,939** | **267,686** | **36,429 (13.6%)** |
 
 **Against the 5% threshold this is short, and the arithmetic is worth setting out exactly, because the
-threshold moved during the round.** 5% of the current baseline is **[EE5PCT]** equivalent-English, and
-the shortfall is **[EE5PCTGAP]**.
+threshold moved during the round.** 5% of the current baseline is **417,341.97** equivalent-English, and
+the shortfall is **250,810.84**.
 
 **The baseline was reissued mid-round, and it changed both sides of the ratio at once.** `merged260810`
-held 11,362,034 records and 6,226,386.4245 equivalent-English. `merged260815` holds [BASELINEPAIRS]
+held 11,362,034 records and 6,226,386.4245 equivalent-English. `merged260815` holds 15,428,507
 records and 8,346,839.3737, a **34.06% larger denominator**, both measured with the reviewer's own
 `equivalent_english_domains.py` and its unchanged weight model. At the same time 39,492 pairs we had
 collected became pairs the baseline already holds, worth **32,880 equivalent-English** of numerator.
 Measured against the
 release it was built against, this round reads 2.1641%; measured against the release that counts, it
-reads [EEGROWTH]. Both numbers are correct and only the second is the one being accepted against.
+reads 1.9951%. Both numbers are correct and only the second is the one being accepted against.
 
 **The reason is the single most useful finding of the round, and it is not about us.** The new baseline
 grew because another contributor delivered 4,063,995 accepted records drawn from one existing research
@@ -144,12 +143,27 @@ naming the wrong year, and the source entered only after that was corrected.
 
 ## 3. Where the additions come from
 
-[EE_SOURCE_TABLE]
+| Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
+|---|---|---|---|--:|--:|
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,657 | 54,209.7 |
+| `usenet_announce` | post date of the announcement | `dated_directory` | master | 69,949 | 46,402.0 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 36,335 | 31,033.5 |
+| `isc_survey` | survey run date | `artifact_listing` | master | 38,780 | 14,013.3 |
+| `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 15,764 | 9,579.5 |
+| `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 6,934 | 4,203.1 |
+| `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 5,211 | 3,246.7 |
+| `attrition_defacement` | see `sources.md` | `artifact_listing` | master | 3,929 | 1,874.9 |
+| `enron_email` | the message `Date:` header | `dated_directory` | master | 2,163 | 1,360.2 |
+| `maillist_archive` | the message `Date:` header | `dated_directory` | master | 633 | 395.3 |
+| `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |
+| `tucows_catalogue` | software release date | `dated_directory` | master | 83 | 53.2 |
+| `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 36 | 25.0 |
+| **Total** | | | | **267,686** | **166,531.1** |
 
-[ADMISSIBLE]
+**All 13 are master sources, so all 267,686 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
-produces is one of the master types: [MASTERTYPES]. Anything else, in practice a bare outbound link,
+produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
 is `link_target` and can never assign a year; it goes to the candidate pool and ships separately in
 `candidates.txt`. Two of the integrity invariants enforce this on every build: `no_candidate_leakage`
 finds any annual assignment backed by candidate-only evidence, and `every_pair_has_master_evidence`
@@ -201,7 +215,7 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-[CORROBORATION]
+Beyond that, 710 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.5932 distinct sources on average.
 
 ## 5. CDX acquisition: tools, strategy, failures and yield
 
@@ -224,11 +238,20 @@ Y-1 and Y+1, which is the completeness half. Batches are 600 queries at 8 concur
 A single request returns every in-window year for one domain at once, so one answered query can yield
 up to six pairs.
 
-[CDX_TABLE]
+| Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| `cdx_pool` | 144 | 95,488 | 80,248 | 84.0% | 42.1% | 80,801 | 50,551 |
+| `cdx_q1` | 190 | 56,841 | 50,130 | 88.2% | 69.6% | 50,210 | 109,095 |
+| `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
+| `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
+| `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
+| `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
+| `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
+| **All** | **627** | **283,968** | **246,213** | **86.7%** | **68.8%** | **247,546** | **509,960** |
 
 **How failures were handled, and what the failures actually were.**
 
-[CDX_FAILURES]
+Of 283,968 queries, 246,213 were answered (86.7%). The 37,755 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,725 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 731 refusals (403). **Transport-level failures are 35,030 (12.34%)**: 27,151 connections refused or reset and 7,879 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Two tuning levers were tested and both are closed on measurement.** Halving concurrency to 4 workers
 made throughput worse, not better: 236 requests an hour against 378, with the failure share rising from
@@ -250,14 +273,38 @@ asks that the search not stop at one successful dataset. `docs/sources.md` is th
 carries every family evaluated, the measurement that closed it where one was closed, and the download
 address where one exists. This section summarises rather than replaces it.
 
+**The register now stands at roughly sixty closed families plus the sources in the table in section 3.**
 A closure is recorded with the number that produced it, and closures are re-probed automatically, because
-a source recorded as unreachable may simply have had a host down on the day it was tried. That re-probe
-distinguishes three ways a dead source answers HTTP 200 without being a source: a parking page, a bot
-wall, and a stub that serves HTML where a data file should be. The third was added this round after the
-largest closed prize in the register reported itself revived; the check is anchored on a positive
-control, a file we demonstrably hold that returns the same stub.
+a source recorded as unreachable may simply have had a host down on the day it was tried.
 
-[DATASETS_SEARCHED]
+**26 source families are recorded in `docs/sources.md`**, each with what dates an item, where to obtain it, and the measurement that closed it where it was closed:
+
+- `prior_task`: the supplied baseline
+- `isc_survey`: Internet Domain Survey host lists
+- `afnic_fr`: `.fr` registry open data
+- `ukwa_link_source` and `ukwa_link_target`: UK Web Archive host link graph
+- `arquivo_ia` and `arquivo_roteiro`: Arquivo.pt capture indexes
+- `odp`: Open Directory Project (DMOZ) RDF content dumps
+- `early_web_cdx`: Internet Archive Early Web CDX dataset
+- `ia_cdx_bulk`: Wayback CDX verification engine
+- `rdap` and `rdap_snapshot`: registry creation dates
+- `page_directory` and `page_expansion`: archived curated directory pages
+- `internet_scout`: Internet Scout Report archive
+- `ncsa_whats_new`: NCSA "What's New" announcement pages
+- `ia_cdx`: per-year CDX verification (superseded)
+- NYPW first-capture index: assessed and rejected on measurement
+- Australian Web Archive: the CDX endpoint is reachable again
+- `trade_press` and `trade_press_mention`: scanned computer magazines
+- `usenet_address` and `usenet_address_mention`: the addresses the extractor never read
+- `usenet_bare` and `usenet_bare_mention`: the bare `foo.com` in the message bodies
+- `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`: the UUCP maps
+- `rtfm_faq` and `rtfm_faq_mention`: the Usenet FAQ mirror
+- Evaluated and rejected
+- `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
+- `tucows_catalogue` and `tucows_mention`: the Tucows Software Library
+- `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
+- `enron_email` and `enron_email_mention`: the FERC Enron corpus
+- Measured, and each blocked on something other than work
 
 **What the search has established about its own shape.** Two rules did most of the closing this round,
 both derived from measurement rather than argument, and both are stated in section 2. The more useful
