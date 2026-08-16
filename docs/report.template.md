@@ -124,7 +124,13 @@ mistake already paid for once:
 
 **What the method produced, including the negative results, which are the majority.** Four families were
 searched and closed on measurement rather than on assumption: research web crawl collections, national
-web archives, bulk archive indexes, and the material already held on disk. Only the last paid. Some of
+web archives, bulk archive indexes, and the material already held on disk. **Two of the four paid, and
+which two is the correction worth carrying.** Material already on disk paid, as expected. Bulk archive
+indexes had been written off, and that was wrong: a per-year capture census the Internet Archive
+computed over its own holdings, published as an ordinary item, is the single largest source this round
+found. The rule that had closed the family, that a corpus derived from the same archive as the baseline
+cannot be net-new against it, is sound; what it does not cover is a bulk *index* of that archive, which
+converts our binding constraint from a rate limit into a download. Some of
 those closures are now permanent in a useful way: one prize was priced at its ceiling from a published
 figure rather than by buying it, and a second was settled by discovering that the restriction covers the
 *index* files and not merely the content, which had been assumed and never tested.

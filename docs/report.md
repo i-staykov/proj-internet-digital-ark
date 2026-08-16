@@ -132,7 +132,13 @@ mistake already paid for once:
 
 **What the method produced, including the negative results, which are the majority.** Four families were
 searched and closed on measurement rather than on assumption: research web crawl collections, national
-web archives, bulk archive indexes, and the material already held on disk. Only the last paid. Some of
+web archives, bulk archive indexes, and the material already held on disk. **Two of the four paid, and
+which two is the correction worth carrying.** Material already on disk paid, as expected. Bulk archive
+indexes had been written off, and that was wrong: a per-year capture census the Internet Archive
+computed over its own holdings, published as an ordinary item, is the single largest source this round
+found. The rule that had closed the family, that a corpus derived from the same archive as the baseline
+cannot be net-new against it, is sound; what it does not cover is a bulk *index* of that archive, which
+converts our binding constraint from a rate limit into a download. Some of
 those closures are now permanent in a useful way: one prize was priced at its ceiling from a published
 figure rather than by buying it, and a second was settled by discovering that the restriction covers the
 *index* files and not merely the content, which had been assumed and never tested.
@@ -321,17 +327,17 @@ up to six pairs.
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | `cdx_pool` | 147 | 97,288 | 81,722 | 84.0% | 41.8% | 82,305 | 51,092 |
-| `cdx_q1` | 196 | 58,641 | 51,713 | 88.2% | 70.4% | 51,789 | 114,427 |
+| `cdx_q1` | 197 | 58,941 | 51,982 | 88.2% | 70.5% | 52,054 | 115,335 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
-| **All** | **636** | **287,568** | **249,270** | **86.7%** | **68.7%** | **250,628** | **515,833** |
+| **All** | **637** | **287,868** | **249,539** | **86.7%** | **68.8%** | **250,893** | **516,741** |
 
 **How failures were handled, and what the failures actually were.**
 
-Of 287,568 queries, 249,270 were answered (86.7%). The 38,298 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,760 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 766 refusals (403). **Transport-level failures are 35,538 (12.36%)**: 27,428 connections refused or reset and 8,110 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 287,868 queries, 249,539 were answered (86.7%). The 38,329 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,760 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 766 refusals (403). **Transport-level failures are 35,569 (12.36%)**: 27,428 connections refused or reset and 8,141 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Two tuning levers were tested and both are closed on measurement.** Halving concurrency to 4 workers
 made throughput worse, not better: 236 requests an hour against 378, with the failure share rising from

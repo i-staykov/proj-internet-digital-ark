@@ -620,11 +620,23 @@ ship-approved round="":
     set -euo pipefail
     echo "== banking newly approved classes =="
     uv run python scripts/bank_approved.py --write
+    # Regenerate and COMMIT the report artifacts before packaging, not after.
+    # `package_delivery.sh` refuses to run against a dirty tree, correctly, because
+    # source/ would not match the results it ships. docs/report.docx and
+    # docs/report-sendable.md are tracked and are rebuilt from docs/report.md, so
+    # building them afterwards left the tree dirty and the first rehearsal of this
+    # recipe failed at the packaging step. Order matters here, not tidiness.
+    echo "== regenerating the report and the .docx he asks for =="
+    uv run python scripts/fill_report.py
+    just report-docx docs/report.md
+    if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
+        git add docs/report.md docs/report.docx docs/report-sendable.md
+        git commit -q -m "Regenerate the round report and its .docx before packaging"
+        echo "== committed the regenerated report artifacts =="
+    fi
     just ship {{round}}
     echo "== the reviewer's own calculator =="
     uv run python scripts/round_figures.py --verify
-    echo "== the .docx he asks for =="
-    just report-docx docs/report.md
 
 # ship the round: quiesce ingestion, export, gate, package, verify
 ship round="":
