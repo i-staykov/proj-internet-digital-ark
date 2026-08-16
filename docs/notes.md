@@ -9387,3 +9387,58 @@ so no restart is needed.
 Worth stating as a rule: **a large ingest changes what the engine should be asking next, and the queue
 does not rebuild itself.** The yield collapse was not the archive getting worse, it was us working down
 a ranked list until the good part was gone, which is exactly what a ranked list is supposed to do.
+
+## 2026-08-16: a large part of the candidate pool's headline value is names that never existed
+
+Ding's 2026-08-15 update makes the candidate pool a delivered artifact in its own right, to be "as
+large as practicable". That turns a question we had never needed to ask into one that matters: how
+much of the pool is real?
+
+**Started from an implausible number.** The undated pool holds **216,303 `.edu`** names. There have
+only ever been on the order of seven thousand `.edu` registrants. A seeded sample says why:
+
+```
+osartyrvrb.edu  yyrdub.edu  ktntl.edu  nyxoea.edu  lssygyb.edu  hkoroni.edu
+rjhxf.mil  pmfegkdlvlu.mil  ovibaj.mil     yjwuuxuqqa.gov  murj.gov  sboojsgvvo.gov
+```
+
+Provenance is unambiguous: `usenet_address_mention` 165,700 and `usenet_mention` 53,175. This is
+anti-harvester address munging, which `CLAUDE.md` already names as a hazard, arriving at a scale
+nobody had measured.
+
+**The decisive test needed no network, because our own engines have already asked.** In-window capture
+rate among ANSWERED queries, from the CDX journals:
+
+| TLD | answered | in-window | rate |
+|---|--:|--:|--:|
+| `.net` | 2,016 | 1,863 | 92.41% |
+| `.ca` | 9,003 | 8,164 | 90.68% |
+| `.org` | 30,352 | 26,845 | 88.45% |
+| `.com` | 58,975 | 50,672 | 85.92% |
+| `.au` | 21,384 | 12,814 | 59.92% |
+| `.uk` | 82,832 | 48,506 | 58.56% |
+| `.edu` | 3,370 | 1,357 | 40.27% |
+| `.gov` | 563 | 135 | 23.98% |
+| **`.mil`** | **8,234** | **21** | **0.26%** |
+
+**`.mil` is a measured near-zero over 8,234 answered queries.** That is not a thin sample and not a
+transport artefact: these are HTTP 200 answers from the archive saying it holds nothing.
+
+**What it corrects.** `ark stats` prints an upper bound for the pool "if every one earned a year", and
+that bound is dominated by exactly these namespaces: `.mil` contributes a nominal 185,927 EE at weight
+0.9981 and is worth about **483** at its measured rate; `.gov` 182,572 nominal against about 43,800;
+`.edu` 210,182 nominal against about 84,600. The bound was always labelled an upper bound, and the
+caveat beside it says the pool is mostly Usenet names no other source attests. **This puts a number on
+that caveat for the first time**, and the number is large.
+
+It also independently vindicates key-decisions C-2, which excluded `.gov` and `.mil` from RDAP ranking
+on a fabrication test. The CDX engine reaches the same verdict by a different route, which is the kind
+of agreement worth having.
+
+**Not acting on it tonight, deliberately.** Trimming the shipped pool is a judgement about what
+"meriting further verification" means, it changes a delivered artifact, and it is not reversible after
+the archive is cut. Reporting the composition honestly is strictly better than either silently shipping
+it or silently trimming it, so the limitations section now carries the table above. **Next round: rank
+the pool by measured realisation rate per namespace rather than by English share, and consider dropping
+the measured-fabricated tail.** Weight without plausibility is the same error the pool queue already
+corrects for, applied one level up.

@@ -392,8 +392,31 @@ net-new for us.
   file, and it is bought with yield.
 - **A registry creation date reads late for a re-registered name.** Where `whois_creation` is the
   evidence, the direction of error is loss rather than fabrication, which is the safe direction.
-- **The candidate pool is large and mostly unattested.** Its equivalent-English ceiling assumes every
-  name earns a year, which will not happen; the realised figure is far lower and is not claimed.
+- **The candidate pool is large, mostly unattested, and part of it is names that never existed.** This
+  round put a number on that for the first time, and it is worth stating plainly because the pool ships
+  as its own artifact. Measured from our own CDX journals, the in-window capture rate among *answered*
+  queries varies enormously by namespace:
+
+  | TLD | answered | in-window | rate |
+  |---|--:|--:|--:|
+  | `.net` | 2,016 | 1,863 | 92.41% |
+  | `.ca` | 9,003 | 8,164 | 90.68% |
+  | `.org` | 30,352 | 26,845 | 88.45% |
+  | `.com` | 58,975 | 50,672 | 85.92% |
+  | `.uk` | 82,832 | 48,506 | 58.56% |
+  | `.edu` | 3,370 | 1,357 | 40.27% |
+  | `.gov` | 563 | 135 | 23.98% |
+  | `.mil` | 8,234 | 21 | **0.26%** |
+
+  The pool holds 216,303 undated `.edu` names, against an all-time `.edu` registrant population on the
+  order of seven thousand. A sample shows why: `osartyrvrb.edu`, `rjhxf.mil`, `yjwuuxuqqa.gov`. They
+  come from Usenet address mentions and are anti-harvester address munging. **So any equivalent-English
+  ceiling computed over the pool is dominated by namespaces measured to be largely fictional**, and the
+  high-weight ones are the worst offenders: `.mil` is nominally worth 185,927 at weight 0.9981 and about
+  483 at its measured rate. The pool is delivered as it stands, with this measurement rather than
+  without it, because trimming a delivered artifact on the last day is a worse answer than describing
+  it accurately. None of this touches the annual files: a candidate cannot date a year, and the two
+  integrity checks in section 3 enforce that on every build.
 - **The equivalent-English metric is an aggregate TLD estimate**, as the brief states, and not a language
   classification of any individual site.
 
