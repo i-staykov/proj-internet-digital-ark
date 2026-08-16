@@ -9345,3 +9345,45 @@ with itself. That is a reason to want it, just not tonight.
 **Next round, take `microsoft`, `linux` and `bit` and leave the national hierarchies**, and expect
 saturation to bite hard: a support forum is dominated by a handful of ISP domains repeating endlessly,
 so pairs per MB will fall well below the 15.5 measured on one small sample.
+
+## 2026-08-16: pre-flight clean, and the engine was pointed back at the good half of the pool
+
+**Verified against his own calculator**, which is the check he actually runs:
+
+```
+records scored             : 437,362
+rejected by his validator  : 0
+already in his merged files: 0
+his equivalent-English     : 305,621.7636
+ours                       : 305,621.7636
+difference                 : 0.0000
+```
+
+All nine integrity invariants pass at the new scale, and two of them are the ones that matter after a
+day of large ingests: `no_candidate_leakage` confirms the 456,379 UKWA target domains went to the pool
+and not into an annual file, and `additions_not_double_counted` confirms nothing shipped is already in
+`merged260815`.
+
+**By source, and the shape is worth recording** because it is not what it was this morning:
+
+| source | pairs | EE | mean weight |
+|---|--:|--:|--:|
+| `isc_survey` | 115,104 | 61,759.1 | 0.5366 |
+| `ukwa_link_source` | 92,646 | 90,825.1 | **0.9803** |
+| `rdap_snapshot` | 87,657 | 54,209.7 | 0.6184 |
+| `usenet_announce` | 69,949 | 46,402.0 | 0.6634 |
+| `ia_cdx_bulk` | 37,041 | 31,553.3 | 0.8518 |
+
+`ukwa_link_source` at **0.9803** is the highest mean weight of any source this project has ever banked,
+because it is `.uk` by construction. 92,646 pairs at that weight are worth more than 115,104 at 0.5366.
+
+**So the pool queue was rebuilt, and that is the operational consequence of the day's ingests.** The
+UKWA target re-ingest enqueued 24,569 new candidates, almost all `.uk`. The local engine had been
+grinding an exhausted tail at **19.2% yield against 42.5% earlier in the round**. After the rebuild the
+queue is 2,391,453 targets with 174,720 EE expected, and the best 10,000 are worth **1.1194 EE per
+query**; the head is **991 `.uk` in the top 1,000**. The supervisor picks the file up on its next batch,
+so no restart is needed.
+
+Worth stating as a rule: **a large ingest changes what the engine should be asking next, and the queue
+does not rebuild itself.** The yield collapse was not the archive getting worse, it was us working down
+a ranked list until the good part was gone, which is exactly what a ranked list is supposed to do.
