@@ -9487,3 +9487,26 @@ by next round.
 Recorded because it is the same failure as the lifetime-rule test on 2026-08-15: measuring a proxy for
 the thing I meant, in a query built deliberately to check something. The tell was the answer being
 exactly 100.0 and exactly 0.0, which is what a definition looks like.
+
+## 2026-08-16: read my own truncated health check as a dead collector
+
+Checked the engines with `ps ... | awk ... | head -5` and concluded that `maintain.sh` and
+`supervise_cdx_pool.sh` had died. They had not. All five supervisors were running, plus a live
+`ark cdx` and a live `ark rdap`, and the collectors' deadline is 2026-08-17T00:00:00Z, twelve hours
+out. The `head -5` cut the list after two of them.
+
+**A truncated health check does not look truncated. It looks like absence**, and absence is the one
+thing the check exists to detect, so the failure mode is silent and confident. This is the same family
+as the yield check that read clean for 31 hours because it was given two collector prefixes when six
+existed: an instrument whose blind spot is shaped exactly like the thing it is watching for.
+
+`CLAUDE.md` now carries it as a trap. Count with `grep -c` and print the whole list; never `head` a
+health check.
+
+One good thing came out of looking: `maintain.sh` had an elapsed time of 10 minutes against the CDX
+supervisor's 30 hours, because `just ship` kills the ingest loop to quiesce the store and its `EXIT`
+trap restarts it. That trap exists because an early rehearsal of `ship` left ingestion dead and it was
+noticed only because somebody happened to be watching. It worked, unattended, exactly as intended.
+
+Yield trend on the local pool engine across the last three finished batches: **22.9%, 19.3%, 37.5%**.
+The rise is the queue rebuild landing.

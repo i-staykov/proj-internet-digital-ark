@@ -297,6 +297,11 @@ sixty-odd closed families is what stops the same ground being broken twice.
   Use `grep -cE`.
 - **A search that finds nothing has either proved something or been pointed at the wrong place, and
   the two look identical.** Prove a negative against a case you know is positive.
+- **Never pipe a health check through `head` or `tail`.** On 2026-08-16 a supervisor check ended in
+  `| head -5`, printed the first two supervisors, and was read as "maintain and the CDX supervisor have
+  died". All five were running and the deadline was twelve hours out. A truncated health check does not
+  look truncated, it looks like absence, and absence is exactly what it is built to detect. Count with
+  `grep -c` and print the whole list.
 - **`pgrep -f X` and `pkill -f X` match the shell that is running them**, because the pattern is in
   its own command line. So the check reports a process that is not there and the kill takes down the
   caller, which has happened twice here, once destroying a watcher mid-run. Bracket one letter:
