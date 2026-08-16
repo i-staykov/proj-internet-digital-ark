@@ -63,9 +63,9 @@ Wayback Machine held at that time, a count of captures per calendar year. One ro
 `count`. A row is therefore a statement by the archive that it holds N captures of that host inside that
 calendar year, which is the same fact a CDX query returns, published in bulk instead of retrieved one
 host at a time. It is filed as `cdx_timestamp` for that reason. **Independent check:** for domains where
-our own CDX engine had separately queried the live archive, the two agree on 138,979 (domain, year) pairs,
-including exact same-day agreement on single-capture years such as `milwhite.com` 1996 (our engine
-recorded `19961231231928` against the census row `ia_captures:1996:1`). The census evidences only the
+our own CDX engine had separately queried the live archive, the two agree on 138,760
+(domain, year) pairs, including exact same-day agreement on single-capture years such as `milwhite.com`
+1996 (our engine recorded `19961231231928` against the census row `ia_captures:1996:1`). The census evidences only the
 years it names; no year is inferred from any other.
 
 **2. Registry creation dates in bulk (`domain_creation_bulk`).** A published WHOIS/DNS compilation of
@@ -147,9 +147,10 @@ bracketed gaps, a missing year Y where Y-1 and Y+1 are already held, as a comple
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
-| **All** | **657** | **296,747** | **257,613** | **86.8%** | **69.1%** | **259,055** | **529,387** |
+| `cdx_discovered` | 1 | 298 | 233 | 78.2% | 85.0% | 298 | 278 |
+| **All** | **658** | **297,045** | **257,846** | **86.8%** | **69.1%** | **259,300** | **529,665** |
 
-Of 296,747 queries, 257,613 were answered (86.8%). The 39,134 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,783 (0.94%)**: 0 rate limits (429), 2,007 server errors (500, 502, 503, 504) and 776 refusals (403). **Transport-level failures are 36,351 (12.25%)**: 27,698 connections refused or reset and 8,653 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 297,045 queries, 257,846 were answered (86.8%). The 39,199 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,796 (0.94%)**: 0 rate limits (429), 2,020 server errors (500, 502, 503, 504) and 776 refusals (403). **Transport-level failures are 36,403 (12.26%)**: 27,750 connections refused or reset and 8,653 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 Failures are handled by adjusting the request rate rather than by stopping, as section VII requires.
 The client sends an honest User-Agent naming the project and a contact address, runs modest concurrency,
@@ -209,7 +210,7 @@ because an idle wake beside healthy engines is a wasted one. Decisions land in a
 the few with structural impact become ADRs, and anything genuinely needing a human appears on exactly one
 surface so it cannot be buried.
 
-**Negative results are first-class.** **115 source families have been searched and recorded**, and `sources.md` ships beside this report naming every one. 24 were developed far enough to earn their own section (`prior_task`, `isc_survey`, `afnic_fr`, `ukwa_link_source` and `ukwa_link_target`, `arquivo_ia` and `arquivo_roteiro`, `odp`, `early_web_cdx`, `ia_cdx_bulk`, `rdap` and `rdap_snapshot`, `page_directory` and `page_expansion`, `internet_scout`, `ncsa_whats_new`, `ia_cdx`, NYPW first-capture index, Australian Web Archive, `trade_press` and `trade_press_mention`, `usenet_address` and `usenet_address_mention`, `usenet_bare` and `usenet_bare_mention`, `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`, `rtfm_faq` and `rtfm_faq_mention`, `usenet_announce` and `usenet_mention`, `tucows_catalogue` and `tucows_mention`, `maillist_archive` and `maillist_archive_mention`, `enron_email` and `enron_email_mention`); the other 91 were evaluated and closed, each recorded with the measurement that closed it, so that negative results stay visible and the same ground is not broken twice.
+**Negative results are first-class.** **117 source families have been searched and recorded**, and `sources.md` ships beside this report naming every one. 26 were developed far enough to earn their own section (`prior_task`, `isc_survey`, `afnic_fr`, `ukwa_link_source` and `ukwa_link_target`, `arquivo_ia` and `arquivo_roteiro`, `odp`, `early_web_cdx`, `ia_cdx_bulk`, `dartmouth_nber_captures`, `domain_creation_bulk`, `rdap` and `rdap_snapshot`, `page_directory` and `page_expansion`, `internet_scout`, `ncsa_whats_new`, `ia_cdx`, NYPW first-capture index, Australian Web Archive, `trade_press` and `trade_press_mention`, `usenet_address` and `usenet_address_mention`, `usenet_bare` and `usenet_bare_mention`, `uucp_map_registry`, `uucp_map_creation`, `uucp_map_mention`, `rtfm_faq` and `rtfm_faq_mention`, `usenet_announce` and `usenet_mention`, `tucows_catalogue` and `tucows_mention`, `maillist_archive` and `maillist_archive_mention`, `enron_email` and `enron_email_mention`); the other 91 were evaluated and closed, each recorded with the measurement that closed it, so that negative results stay visible and the same ground is not broken twice.
 
 ---
 
