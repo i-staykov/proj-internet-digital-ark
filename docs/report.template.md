@@ -42,25 +42,40 @@ of that delivery says what kind of artifact it was: 1,536 records for 1996 and 5
 950,371 for 1999 and 2,878,339 for 2000. **One bulk dated corpus was worth roughly twenty times our
 entire round of per-domain archive querying.**
 
-That is a measurement of our strategy, not our luck. This round's collection was optimised against the
-constraint we could see, which was **request throughput against a single archive**: roughly 2.5 million
-candidate names sit unqueried because the collectors clear a few hundred requests an hour between them,
-and section 5 documents that campaign in full. A bulk dated corpus does not have that constraint at all.
-It converts a rate limit into a file download.
+That is a measurement of our strategy, not our luck. This round's collection had been optimised against
+the constraint we could see, which was **request throughput against a single archive**: roughly 2.5
+million candidate names sit unqueried because the collectors clear a few hundred requests an hour between
+them, and section 5 documents that campaign in full. A bulk dated corpus does not have that constraint at
+all. It converts a rate limit into a file download.
 
-The throughput constraint is real and measured. Over the round's last two days the engine querying from
-our main host fell from **675 to 450 requests an hour** while the share of its requests carrying a usable
-answer fell from **42.3% to 29.4%**. The second engine, on a different host, was flat over the same
-period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection method
-entirely and differ only in where they ask from, which identifies the archive rather than our queue or
-our tuning as the cause. Raising concurrency is the one lever that closes the gap arithmetically and the
-one lever that risks losing the archive altogether; reducing it was tried and measured worse; shortening
-the request timeout is measured and rejected in our own code, where 30 seconds answered 51 of 100 domains
-against 82 of 100 at 180 seconds.
+**So the discovery system was re-aimed at that shape, and the result is the most useful finding in this
+report: the constraint was never throughput.** Three of the four largest gains of the round came from
+material that was already public or already on our own disk, and none of them cost a meaningful number
+of requests:
 
-**But that constraint is now the second-order problem.** The correct response to the DRUM result is not
-to query faster. It is to search the same class of artifact that produced it, which is what section 6
-reports and what the discovery system has been re-aimed at.
+| what | net-new pairs | in the figures above? | how it was found |
+|---|--:|---|---|
+| a parser reading 6.76% of a file we had held since July | 92,646 | banked | asked whether a file's sort key ever decreases |
+| mentions re-admitted by a rule that had not changed | 94,051 | banked | re-ran an old test against a grown corpus |
+| the January 1997 domain survey, recorded as unrecoverable | 76,324 | banked | tested a copy nobody had tested |
+| a capture census the Internet Archive published as an ordinary item | 227,273 | **no, awaiting classification** | swept a collection for the shape that beat us |
+
+**The fourth row is not in any figure in this report.** Its evidence type is master-eligible and its
+source class has not yet been classified by a human, so the pipeline refuses it and its file waits on
+disk. That is the approvals gate described in section 4 doing exactly what it exists for. Measured, it
+would add 142,084.0 equivalent-English.
+
+The throughput constraint is real and is still measured in section 5, but it was the second-order
+problem. **The first-order problem was where we were looking.**
+
+Two of those four are corrections to our own errors rather than discoveries, and the report says so
+deliberately. The link-graph parser stopped at the first row past the window on a docstring claim that
+the file was year-sorted; it is fifteen concatenated shards, the year column decreases fourteen times,
+and the check that had verified the claim in July was real but stopped 2.4x short of the first shard
+boundary. The survey file was recorded as unrecoverable on the strength of two true statements about a
+different copy of it. Both are instances of one rule, now written into the method: **a closure about one
+copy of an artifact is not a closure about the artifact, and to test whether a file is sorted you ask
+whether its key ever decreases rather than sampling it.**
 
 ## 2. How these were found
 
@@ -288,10 +303,26 @@ load-bearing claim itself. This round that pass corrected proposals that had mis
 a count, a collection-level date for a per-item date, and a physical line count of a file with embedded
 newlines for a record count.
 
-**Measuring the instruments, not just the data.** Four of our own alarms were found reporting the
+**Measuring the instruments, not just the data.** Five of our own alarms were found reporting the
 opposite of the truth this round, including one that counted a single background process as two and would
-have destroyed a healthy collector on every check. Each is now pinned by a test. An alarm that cries wolf
-is worse than no alarm, because it trains the reader to skip it.
+have destroyed a healthy collector on every check, and one that reported the largest closed source in the
+register as revived when the host was serving a 159-byte stub. Each is now pinned by a test. An alarm
+that cries wolf is worse than no alarm, because it trains the reader to skip it.
+
+**Testing a structural assumption instead of sampling for it.** The single most productive method change
+of the round is one line long. A parser had been reading 6.76% of a two-gigabyte file for three weeks
+because a comment said the file was sorted by year and the window was its head. That claim had been
+verified, by checking that no in-window row appeared in the next five million lines; the file is fifteen
+concatenated shards and the first boundary is at line 11,908,464, so the check stopped short by a factor
+of 2.4. **The cheap form of that question is not a sample at all: ask whether the sort key ever
+decreases, in one pass.** It admits no judgement about how far is far enough, and it recovered 92,646
+pairs.
+
+**Screening a public dataset against the baseline's own merge audit before pricing it.** The reviewer's
+baseline ships a JSON audit naming what was merged into it. Checking that file first would have closed
+the round's most attractive-looking lead, the exemplar dataset named in the brief, in one minute rather
+than several agent-days: it had already been delivered in full by another contributor, and measures 0
+net-new for us.
 
 ## 8. Limitations, and where further expansion is worthwhile
 

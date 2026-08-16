@@ -13,26 +13,26 @@ each describes a specific run and is recorded with that run in `sources.md`.
 
 | | |
 |---|--:|
-| Net-new (domain, year) pairs | **267,686** |
-| Over unique domains | 202,704 |
-| Domains absent from the baseline in every year | **112,236** |
-| Equivalent-English added | **166,531.1** |
-| Growth on the 8,346,839.4 baseline | **1.9951%** |
-| Mean equivalent-English weight per pair | 0.6221 |
+| Net-new (domain, year) pairs | **437,169** |
+| Over unique domains | 370,571 |
+| Domains absent from the baseline in every year | **208,401** |
+| Equivalent-English added | **305,507.6** |
+| Growth on the 8,346,839.4 baseline | **3.6602%** |
+| Mean equivalent-English weight per pair | 0.6988 |
 
 | Year | merged260815, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 649,765 | 6,095 | 5 (0.1%) |
-| 1997 | 1,358,646 | 40,791 | 40 (0.1%) |
-| 1998 | 1,363,435 | 19,427 | 567 (2.9%) |
-| 1999 | 2,745,535 | 43,745 | 1,946 (4.4%) |
-| 2000 | 4,675,256 | 58,856 | 4,087 (6.9%) |
-| 2001 | 2,991,302 | 98,772 | 29,784 (30.2%) |
-| **Total** | **13,783,939** | **267,686** | **36,429 (13.6%)** |
+| 1996 | 649,765 | 6,098 | 5 (0.1%) |
+| 1997 | 1,358,646 | 117,122 | 40 (0.0%) |
+| 1998 | 1,363,435 | 19,592 | 583 (3.0%) |
+| 1999 | 2,745,535 | 44,384 | 1,990 (4.5%) |
+| 2000 | 4,675,256 | 60,333 | 4,160 (6.9%) |
+| 2001 | 2,991,302 | 189,640 | 30,165 (15.9%) |
+| **Total** | **13,783,939** | **437,169** | **36,943 (8.5%)** |
 
 **Against the 5% threshold this is short, and the arithmetic is worth setting out exactly, because the
 threshold moved during the round.** 5% of the current baseline is **417,341.97** equivalent-English, and
-the shortfall is **250,810.84**.
+the shortfall is **111,834.39**.
 
 **The baseline was reissued mid-round, and it changed both sides of the ratio at once.** `merged260810`
 held 11,362,034 records and 6,226,386.4245 equivalent-English. `merged260815` holds 15,428,507
@@ -41,7 +41,7 @@ records and 8,346,839.3737, a **34.06% larger denominator**, both measured with 
 collected became pairs the baseline already holds, worth **32,880 equivalent-English** of numerator.
 Measured against the
 release it was built against, this round reads 2.1641%; measured against the release that counts, it
-reads 1.9951%. Both numbers are correct and only the second is the one being accepted against.
+reads 3.6602%. Both numbers are correct and only the second is the one being accepted against.
 
 **The reason is the single most useful finding of the round, and it is not about us.** The new baseline
 grew because another contributor delivered 4,063,995 accepted records drawn from one existing research
@@ -50,25 +50,40 @@ of that delivery says what kind of artifact it was: 1,536 records for 1996 and 5
 950,371 for 1999 and 2,878,339 for 2000. **One bulk dated corpus was worth roughly twenty times our
 entire round of per-domain archive querying.**
 
-That is a measurement of our strategy, not our luck. This round's collection was optimised against the
-constraint we could see, which was **request throughput against a single archive**: roughly 2.5 million
-candidate names sit unqueried because the collectors clear a few hundred requests an hour between them,
-and section 5 documents that campaign in full. A bulk dated corpus does not have that constraint at all.
-It converts a rate limit into a file download.
+That is a measurement of our strategy, not our luck. This round's collection had been optimised against
+the constraint we could see, which was **request throughput against a single archive**: roughly 2.5
+million candidate names sit unqueried because the collectors clear a few hundred requests an hour between
+them, and section 5 documents that campaign in full. A bulk dated corpus does not have that constraint at
+all. It converts a rate limit into a file download.
 
-The throughput constraint is real and measured. Over the round's last two days the engine querying from
-our main host fell from **675 to 450 requests an hour** while the share of its requests carrying a usable
-answer fell from **42.3% to 29.4%**. The second engine, on a different host, was flat over the same
-period at 312 to 275 requests an hour and 85.8% to 84.5%. The two share their target-selection method
-entirely and differ only in where they ask from, which identifies the archive rather than our queue or
-our tuning as the cause. Raising concurrency is the one lever that closes the gap arithmetically and the
-one lever that risks losing the archive altogether; reducing it was tried and measured worse; shortening
-the request timeout is measured and rejected in our own code, where 30 seconds answered 51 of 100 domains
-against 82 of 100 at 180 seconds.
+**So the discovery system was re-aimed at that shape, and the result is the most useful finding in this
+report: the constraint was never throughput.** Three of the four largest gains of the round came from
+material that was already public or already on our own disk, and none of them cost a meaningful number
+of requests:
 
-**But that constraint is now the second-order problem.** The correct response to the DRUM result is not
-to query faster. It is to search the same class of artifact that produced it, which is what section 6
-reports and what the discovery system has been re-aimed at.
+| what | net-new pairs | in the figures above? | how it was found |
+|---|--:|---|---|
+| a parser reading 6.76% of a file we had held since July | 92,646 | banked | asked whether a file's sort key ever decreases |
+| mentions re-admitted by a rule that had not changed | 94,051 | banked | re-ran an old test against a grown corpus |
+| the January 1997 domain survey, recorded as unrecoverable | 76,324 | banked | tested a copy nobody had tested |
+| a capture census the Internet Archive published as an ordinary item | 227,273 | **no, awaiting classification** | swept a collection for the shape that beat us |
+
+**The fourth row is not in any figure in this report.** Its evidence type is master-eligible and its
+source class has not yet been classified by a human, so the pipeline refuses it and its file waits on
+disk. That is the approvals gate described in section 4 doing exactly what it exists for. Measured, it
+would add 142,084.0 equivalent-English.
+
+The throughput constraint is real and is still measured in section 5, but it was the second-order
+problem. **The first-order problem was where we were looking.**
+
+Two of those four are corrections to our own errors rather than discoveries, and the report says so
+deliberately. The link-graph parser stopped at the first row past the window on a docstring claim that
+the file was year-sorted; it is fifteen concatenated shards, the year column decreases fourteen times,
+and the check that had verified the claim in July was real but stopped 2.4x short of the first shard
+boundary. The survey file was recorded as unrecoverable on the strength of two true statements about a
+different copy of it. Both are instances of one rule, now written into the method: **a closure about one
+copy of an artifact is not a closure about the artifact, and to test whether a file is sorted you ask
+whether its key ever decreases rather than sampling it.**
 
 ## 2. How these were found
 
@@ -154,10 +169,11 @@ naming the wrong year, and the source entered only after that was corrected.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
+| `ukwa_link_source` | UK Web Archive crawl date | `link_source` | master | 92,646 | 90,825.1 |
+| `isc_survey` | survey run date | `artifact_listing` | master | 115,104 | 61,759.1 |
 | `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 87,657 | 54,209.7 |
 | `usenet_announce` | post date of the announcement | `dated_directory` | master | 69,949 | 46,402.0 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 36,335 | 31,033.5 |
-| `isc_survey` | survey run date | `artifact_listing` | master | 38,780 | 14,013.3 |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 36,848 | 31,439.1 |
 | `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 15,764 | 9,579.5 |
 | `udrp_proceedings` | see `sources.md` | `artifact_listing` | master | 6,934 | 4,203.1 |
 | `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 5,211 | 3,246.7 |
@@ -167,9 +183,9 @@ naming the wrong year, and the source entered only after that was corrected.
 | `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |
 | `tucows_catalogue` | software release date | `dated_directory` | master | 83 | 53.2 |
 | `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 36 | 25.0 |
-| **Total** | | | | **267,686** | **166,531.1** |
+| **Total** | | | | **437,169** | **305,507.6** |
 
-**All 13 are master sources, so all 267,686 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
+**All 14 are master sources, so all 437,169 pairs are admitted to the annual files.** None of them is candidate-only. Names may pass through the candidate pool on the way in, and this round many did, but a pair is only counted once a master source dates it.
 
 **What "admissible" means here.** A source may back an entry in an annual file only if the evidence it
 produces is one of the master types: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. Anything else, in practice a bare outbound link,
@@ -224,7 +240,7 @@ pipeline rather than a review step that could be skipped, and it costs real volu
 reports only what survived the split, which is why a figure quoted from it is always smaller, and
 always the one this work is worth.
 
-Beyond that, 710 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.5932 distinct sources on average.
+Beyond that, 5,075 of this round's pairs are confirmed by two or more independent collection lineages rather than one, and every asserted pair in the collection carries 1.5955 distinct sources on average.
 
 ## 5. CDX acquisition: tools, strategy, failures and yield
 
@@ -249,18 +265,18 @@ up to six pairs.
 
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| `cdx_pool` | 144 | 95,488 | 80,248 | 84.0% | 42.1% | 80,801 | 50,551 |
-| `cdx_q1` | 190 | 56,841 | 50,130 | 88.2% | 69.6% | 50,210 | 109,095 |
+| `cdx_pool` | 146 | 96,688 | 81,226 | 84.0% | 41.8% | 81,717 | 50,899 |
+| `cdx_q1` | 195 | 58,341 | 51,448 | 88.2% | 70.3% | 51,523 | 113,526 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
-| **All** | **627** | **283,968** | **246,213** | **86.7%** | **68.8%** | **247,546** | **509,960** |
+| **All** | **634** | **286,668** | **248,509** | **86.7%** | **68.8%** | **249,774** | **514,739** |
 
 **How failures were handled, and what the failures actually were.**
 
-Of 283,968 queries, 246,213 were answered (86.7%). The 37,755 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,725 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 731 refusals (403). **Transport-level failures are 35,030 (12.34%)**: 27,151 connections refused or reset and 7,879 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 286,668 queries, 248,509 were answered (86.7%). The 38,159 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,750 (0.96%)**: 0 rate limits (429), 1,994 server errors (500, 502, 503, 504) and 756 refusals (403). **Transport-level failures are 35,409 (12.35%)**: 27,337 connections refused or reset and 8,072 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Two tuning levers were tested and both are closed on measurement.** Halving concurrency to 4 workers
 made throughput worse, not better: 236 requests an hour against 378, with the failure share rising from
@@ -289,7 +305,7 @@ wall, and a stub that serves HTML where a data file should be. The third was add
 largest closed prize in the register reported itself revived; the check is anchored on a positive
 control, a file we demonstrably hold that returns the same stub.
 
-**104 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 80 evaluated and closed, each with the measurement that closed it. The developed ones:
+**105 source families have been searched and recorded**: 24 developed far enough to earn their own section, and 81 evaluated and closed, each with the measurement that closed it. The developed ones:
 
 - `prior_task`: the supplied baseline
 - `isc_survey`: Internet Domain Survey host lists
@@ -316,7 +332,7 @@ control, a file we demonstrably hold that returns the same stub.
 - `maillist_archive` and `maillist_archive_mention`: public pipermail list archives
 - `enron_email` and `enron_email_mention`: the FERC Enron corpus
 
-The 80 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
+The 81 closed families are listed under `## Evaluated and rejected` in `docs/sources.md`, one row each, naming the verdict and the number behind it. They are recorded so that negative results stay visible and the same ground is not broken twice.
 
 **What the search has established about its own shape.** Two rules did most of the closing this round,
 both derived from measurement rather than argument, and both are stated in section 2. The more useful
@@ -347,10 +363,26 @@ load-bearing claim itself. This round that pass corrected proposals that had mis
 a count, a collection-level date for a per-item date, and a physical line count of a file with embedded
 newlines for a record count.
 
-**Measuring the instruments, not just the data.** Four of our own alarms were found reporting the
+**Measuring the instruments, not just the data.** Five of our own alarms were found reporting the
 opposite of the truth this round, including one that counted a single background process as two and would
-have destroyed a healthy collector on every check. Each is now pinned by a test. An alarm that cries wolf
-is worse than no alarm, because it trains the reader to skip it.
+have destroyed a healthy collector on every check, and one that reported the largest closed source in the
+register as revived when the host was serving a 159-byte stub. Each is now pinned by a test. An alarm
+that cries wolf is worse than no alarm, because it trains the reader to skip it.
+
+**Testing a structural assumption instead of sampling for it.** The single most productive method change
+of the round is one line long. A parser had been reading 6.76% of a two-gigabyte file for three weeks
+because a comment said the file was sorted by year and the window was its head. That claim had been
+verified, by checking that no in-window row appeared in the next five million lines; the file is fifteen
+concatenated shards and the first boundary is at line 11,908,464, so the check stopped short by a factor
+of 2.4. **The cheap form of that question is not a sample at all: ask whether the sort key ever
+decreases, in one pass.** It admits no judgement about how far is far enough, and it recovered 92,646
+pairs.
+
+**Screening a public dataset against the baseline's own merge audit before pricing it.** The reviewer's
+baseline ships a JSON audit naming what was merged into it. Checking that file first would have closed
+the round's most attractive-looking lead, the exemplar dataset named in the brief, in one minute rather
+than several agent-days: it had already been delivered in full by another contributor, and measures 0
+net-new for us.
 
 ## 8. Limitations, and where further expansion is worthwhile
 
