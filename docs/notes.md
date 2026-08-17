@@ -9993,3 +9993,57 @@ exactly like an exercised one. A `Source:` line, a download command and a checks
 authoritative on the page, and only one of them had been run. Ivo's two requests tonight, run the
 reproduction commands and fix the link, both found defects of that kind, which is a reasonable argument
 for making "did anyone run this" a standing question about anything a reviewer is told to do.
+
+## 2026-08-17: five broken instructions, one real data error, and the guard that was lying
+
+Ivo asked for the reproduction commands to be run in a freshly unpacked archive, and for the dead
+Dartmouth link fixed. Both requests found defects. Everything below came out of those two asks.
+
+### The data error, and the only thing that caught it
+
+`round_figures.py --verify` refused the round: **17 records his validator rejects**, so his total read
+1,697,224.8585 against our 1,697,225.1735, a 0.3150 difference.
+
+All 17 are punycode under `.xn--fiqs8s` and `.xn--fiqz9s`, which are **`.中国` and `.中國`, delegated in
+2010**, carrying `domain_creation_bulk` creation dates in 2000 and 2001. CNNIC ran Chinese-character
+domains before ICANN delegated the TLD and the 2010 migration appears to have carried the original dates
+forward, so the registry date is not fabricated and the DNS name still did not exist in window. His
+hostname regexp requires a letters-only TLD, so they scored zero for him and full weight for us.
+
+**The falsification test run before that source was admitted could not have caught this.** It checked the
+six TLDs delegated in 2001. A TLD delegated in 2010 was outside what it could see. Fixed as a class:
+a tenth invariant `no_idn_tld_in_window`, a parser rejection with a visible `idn_tld_out_of_window`
+tally, the 17 rows deleted, and two tests (one that the check bites, one that it keys on the TLD so
+`xn--not-a-tld.com` still passes). His calculator now agrees to **0.0000**, rejecting none.
+
+### Five instructions that resolved only where they were written
+
+1. **Shipped provenance filtered.** 11,316,960 of 16,619,832 assignments cited evidence removed to save
+   429 MB. Tier 2 caught it; all three existing checks passed because every one read the additions
+   manifest and none read the parquet.
+2. **`archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata`** offered as the verification route,
+   withdrawn between our download and the next day.
+3. **`ark download dartmouth_nber_captures`**, a subcommand that does not exist, written from the shape
+   of neighbouring sections rather than by running it.
+4. **The calculator path**, hardcoded to `feedback-phase-3/`, present here and in no delivery.
+5. **The merged-baseline path**, the same mistake one step later, which only appeared after fixing 4.
+
+Five is enough to stop treating them as separate bugs. The shape is addressing a file by where it
+happened to sit rather than by what it is, so `--verify`'s two inputs now go through one resolver that
+tries the repository layout and then the delivery layout, proved from both sides rather than reasoned
+about. `verify.sh` gained a fourth check for the evidence wall, and the calculator ships in the archive
+so it can re-derive its own headline figure without fetching anything.
+
+### The check script was reporting the opposite of the truth
+
+My own fresh-extraction script printed **"all checks green"** directly beneath a check 8 that had just
+failed with "calculator not found", because its verdict flag tracked only the byte-comparison loop. This
+project already has a rule about exactly this and it did not help: a truncated or partial health check
+does not look partial, it looks like success. The verdict now includes check 8 and names which of the
+eight failed. Had I trusted that summary line rather than reading the sections, I would have told Ivo a
+broken package was clean.
+
+### Final state
+
+2,838,715 pairs, 1,697,224.8585 equivalent-English, 20.3337%, cumulative 37.7269% of the current corpus.
+All eight checks green on a fresh extraction, verified section by section rather than from the summary.

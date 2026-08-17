@@ -11,12 +11,12 @@ generated from the evidence store, so no table here can drift from the files shi
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 15,428,507 |
 | 2. Equivalent-English total | 8,346,839.3737 |
-| 3. Increment | **2,838,732** records |
-| 4. Equivalent-English increment | **1,697,225.1735** |
+| 3. Increment | **2,838,715** records |
+| 4. Equivalent-English increment | **1,697,224.8585** |
 | 5. Equivalent-English growth rate | **20.3337%** |
 
 Lines 1 and 2 are the `merged260815` totals, unchanged, since this increment is not yet merged. The
-increment covers 2,666,867 distinct domains, of which **1,790,909 appear in none of the six baseline
+increment covers 2,666,850 distinct domains, of which **1,790,892 appear in none of the six baseline
 files in any year**.
 
 | Year | merged260815, this counting unit | Additions | Capture-backed |
@@ -25,22 +25,22 @@ files in any year**.
 | 1997 | 1,358,646 | 230,192 | 289 (0.1%) |
 | 1998 | 1,363,435 | 283,156 | 4,837 (1.7%) |
 | 1999 | 2,745,535 | 513,761 | 16,602 (3.2%) |
-| 2000 | 4,675,256 | 765,569 | 27,144 (3.5%) |
-| 2001 | 2,991,302 | 982,890 | 225,540 (22.9%) |
-| **Total** | **13,783,939** | **2,838,732** | **274,451 (9.7%)** |
+| 2000 | 4,675,256 | 765,559 | 27,144 (3.5%) |
+| 2001 | 2,991,302 | 982,883 | 225,540 (22.9%) |
+| **Total** | **13,783,939** | **2,838,715** | **274,451 (9.7%)** |
 
 The baseline column counts registered domains, so it reads lower than the raw lines of line 1; both
 describe the same six files.
 
-**Cumulative.** Across the four rounds shipped so far this project has added 5,366,471 domain-year records worth 3,149,000.9290 equivalent-English, which is **37.7269%** of the 8,346,839.3737 the corpus holds today. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
+**Cumulative.** Across the four rounds shipped so far this project has added 5,366,454 domain-year records worth 3,149,000.6140 equivalent-English, which is **37.7269%** of the 8,346,839.3737 the corpus holds today. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
 
 | Round | Records | Equivalent-English |
 |---|--:|--:|
 | 1 | 1,429,524 | 756,559.2864 |
 | 3 | 151,949 | 91,814.6880 |
 | 4 | 946,266 | 603,401.7811 |
-| **5, this one** | **2,838,732** | **1,697,225.1735** |
-| **Total** | **5,366,471** | **3,149,000.9290** |
+| **5, this one** | **2,838,715** | **1,697,224.8585** |
+| **Total** | **5,366,454** | **3,149,000.6140** |
 
 ---
 
@@ -49,7 +49,7 @@ describe the same six files.
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
 | the Internet Archive's own capture census, a 2017 Dartmouth/NBER release | the archive's count of captures it holds for that host in that calendar year | 227,273 |
-| a published compilation of registry creation dates over 171M domains | the registry's own creation date, which dates that year and no other | 2,165,523 |
+| a published compilation of registry creation dates over 171M domains | the registry's own creation date, which dates that year and no other | 2,165,506 |
 | the UK Web Archive host link graph, already held since July | the crawl date on the link record | 92,646 |
 | the January 1997 Internet Domain Survey, recovered from a dead host | the survey edition date | 115,104 |
 
@@ -78,7 +78,7 @@ or a survey. The parser emits one evidence row for one year, so a second cannot 
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `domain_creation_bulk` | the registry's own creation date for that domain | `whois_creation` | master | 2,165,523 | 1,241,812.0 |
+| `domain_creation_bulk` | the registry's own creation date for that domain | `whois_creation` | master | 2,165,506 | 1,241,811.6 |
 | `dartmouth_nber_captures` | the archive's own count of captures it holds in that year | `cdx_timestamp` | master | 227,273 | 142,084.0 |
 | `ukwa_link_source` | UK Web Archive crawl date | `link_source` | master | 92,646 | 90,825.1 |
 | `isc_survey` | survey run date | `artifact_listing` | master | 115,104 | 61,759.1 |
@@ -94,7 +94,7 @@ or a survey. The parser emits one evidence row for one year, so a second cannot 
 | `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |
 | `tucows_catalogue` | software release date | `dated_directory` | master | 83 | 53.2 |
 | `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 36 | 25.0 |
-| **Total** | | | | **2,838,732** | **1,697,225.2** |
+| **Total** | | | | **2,838,715** | **1,697,224.9** |
 
 Every row above is master, so eligible for the annual files. Separately, **2,450,244 domains have no
 year-specific evidence** and ship as `candidates.txt`, kept out of the annual masters.
