@@ -403,14 +403,40 @@ calendar year. One row is `host<TAB>year<TAB>count`. It is a precomputed slice o
 that `cdx/search/cdx?url=*.com` is refused for, published for one research partner, and no general
 equivalent exists.
 
-**Get it.** 228 MB, one download, no per-domain querying.
+**Get it.** 228 MB, `host<TAB>year<TAB>count`, no per-domain querying. There is **no `ark download` for
+it**: that command takes a seed file of archived pages and nothing else, so the line that used to appear
+here would have failed for anyone who ran it. The file was fetched from the archive.org item named
+below, and since that item stopped serving there is now no command that reproduces the fetch. Ingest
+from the journal that ships in the delivery archive under `journals/`:
 
 ```bash
-uv run ark download dartmouth_nber_captures
 uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
 ```
 
-Source: <https://archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata>
+**Provenance, and the item is no longer servable.** The file came from archive.org item
+`DARTMOUTH-NBER-RESEARCH-2017-metadata` on 2026-08-16. As of 2026-08-17 that item does not serve:
+`archive.org/details/...` answers "Item cannot be found" and `archive.org/metadata/...` returns `{}`,
+which on archive.org means no such item. **It has not vanished from the index**, which is what says this
+was a takedown or a darkening rather than a wrong identifier: an advanced-search query still returns it,
+once, with its size.
+
+```bash
+# still returns numFound: 1, item_size 693302553
+curl -G https://archive.org/advancedsearch.php \
+  --data-urlencode 'q=identifier:DARTMOUTH-NBER-RESEARCH-2017* AND NOT identifier:*ARCS*' \
+  --data-urlencode 'fl[]=identifier' --data-urlencode 'fl[]=item_size' --data-urlencode 'output=json'
+```
+
+The sibling `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` and `-WARCS-*` items, several thousand of them, do
+still resolve and show the crawl this metadata item accompanied.
+
+**So the item link is not a verification route, and this is the one that is.** Every record's evidence
+row carries a live Wayback URL of the form `https://web.archive.org/web/<year>*/http://<host>/`, and
+those resolve, so any single claim can be checked against the archive directly. Independently of the
+item, the census agrees with this project's own separate CDX querying of the live archive on **138,760
+(domain, year) pairs**, including exact same-day agreement on years holding a single capture. A source
+whose origin has gone dark is still checkable when the claim it makes is checkable, and that is the case
+here.
 
 **Date semantics.** A row states that the archive holds N captures of that host inside that calendar
 year. That is the same fact a CDX query returns, in bulk rather than one host at a time, so it dates
@@ -435,13 +461,16 @@ and never a ceiling. Approved `master` by Ivo on 2026-08-17.
 **What it is.** A published WHOIS/DNS compilation of 171 million domains, each carrying the registry's
 own creation date parsed from a port-43 answer by the dataset's publisher.
 
-**Get it.** 25.9 GB CSV, semicolon separated.
+**Get it.** 25.9 GB CSV, semicolon separated. The download needs a Kaggle account and its CLI
+(`kaggle datasets download -d wotschofsky/171-million-domain-names-whois-dns-dnssec`), so it is not a
+plain `curl` and there is no `ark download` for it either.
 
 ```bash
 uv run ark ingest domain_creation_bulk data/raw/domain_creation/domains.csv
 ```
 
 Source: <https://www.kaggle.com/datasets/wotschofsky/171-million-domain-names-whois-dns-dnssec>
+(checked 2026-08-17: the dataset page resolves)
 
 **Date semantics, and the limit that is enforced rather than promised.** The brief states that a WHOIS
 Creation Date establishes existence no later than that date and may support inclusion in the annual

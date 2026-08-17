@@ -26,7 +26,7 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 | phase-2 | 2026-07-29 | `merged260727` | 17,418 | | | rolled into phase-3 | expansion rounds, candidate pool split out |
 | phase-3 | 2026-08-02 | `merged260730` | 151,949 | 91,814.69 | 1.6600% | merged as `merged260802-2` | English verification engine, two disjoint shipped sets |
 | phase-4 | 2026-08-09 | `merged260802-2` | 946,266 | 603,401.78 | **10.7310%** | **accepted in full 2026-08-10, reissued as `merged260810`** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
-| phase-5 | 2026-08-17 | `merged260815` | 2,836,693 | 1,695,551.84 | **20.3137%** | sent | the archive's own capture census, bulk registry creation dates, a UKWA parser reading 6.76% of its file, the recovered January 1997 domain survey |
+| phase-5 | 2026-08-17 | `merged260815` | 2,838,732 | 1,697,225.17 | **20.3337%** | sent | the archive's own capture census, bulk registry creation dates, a UKWA parser reading 6.76% of its file, the recovered January 1997 domain survey |
 
 Growth is always quoted against the baseline in the same row, which is the reviewer's convention. The
 same 603,401.78 equivalent-English is 9.69% against `merged260810`, so a percentage lifted out of this
