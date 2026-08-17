@@ -48,37 +48,51 @@ from ark.english_share import english_weights  # noqa: E402
 STORE = Path("data/ark.duckdb")
 
 
-def _find_calculator() -> Path:
-    """The reviewer's own scorer, wherever this checkout happens to keep it.
+def _resolve(candidates: tuple[Path, ...], must_contain: str) -> Path:
+    """The first candidate directory that actually holds `must_contain`.
 
-    It was hardcoded to `feedback-phase-3/`, which existed here and did not exist
-    inside a delivery archive, so `--verify` worked in the repository and failed for
-    anyone following the report's instruction after unpacking. All copies on disk are
-    byte-identical, model included, which is what the brief requires and what makes
-    searching for one safe. The current release is preferred anyway, so a future
-    round that does reissue the model picks up the new one rather than a stale twin.
+    `--verify` has two inputs on disk, the reviewer's scorer and his merged baseline,
+    and both were addressed by repository-relative path. That works here and fails in
+    a delivery, where the same two files live at the archive root while this script
+    runs from `source/`, one level down. The report tells a reviewer to run this
+    command, so it worked for the author and would have failed for the reader, twice
+    for two different reasons: the calculator first, then the baseline.
+
+    One resolver rather than two lookups, because the mistake was not either path. It
+    was addressing a file by where it happened to be rather than by what it is, and a
+    third such input would have repeated it a third time.
     """
-    # `../` is not padding. Inside a delivery the calculator sits at the archive root
-    # and this script runs from `source/`, one level down, so the repository-relative
-    # paths below all miss. Predicted before the fresh-extraction run rather than
-    # after, on the evidence of the three instructions already found broken tonight
-    # by the same mechanism: a path that resolves where it was written.
-    names = (
-        CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
-        Path("../equivalent_english_domain_calculator"),
-        Path("equivalent_english_domain_calculator"),
-        Path("Domain_Data_Collection_Task_update/equivalent_english_domain_calculator"),
-        Path("feedback-phase-3/equivalent_english_domain_calculator"),
+    for base in candidates:
+        if (base / must_contain).is_file():
+            return base
+    return candidates[0]
+
+
+# Repository layout first, then the delivery layout one level up. Ordering matters
+# only for the calculator, where a future round could hold two releases at once and
+# should prefer the current one.
+CALCULATOR = (
+    _resolve(
+        (
+            CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
+            Path("../equivalent_english_domain_calculator"),
+            Path("equivalent_english_domain_calculator"),
+            Path("Domain_Data_Collection_Task_update/equivalent_english_domain_calculator"),
+            Path("feedback-phase-3/equivalent_english_domain_calculator"),
+        ),
+        "equivalent_english_domains.py",
     )
-    for base in names:
-        candidate = base / "equivalent_english_domains.py"
-        if candidate.is_file():
-            return candidate
-    return names[0] / "equivalent_english_domains.py"
+    / "equivalent_english_domains.py"
+)
 
-
-CALCULATOR = _find_calculator()
-MERGED_BASELINE = CURRENT_BASELINE_DIR
+MERGED_BASELINE = _resolve(
+    (
+        CURRENT_BASELINE_DIR,
+        Path("..") / "baseline" / CURRENT_BASELINE_DIR.name,
+        Path("baseline") / CURRENT_BASELINE_DIR.name,
+    ),
+    "1996.txt",
+)
 
 # The round window opens where the last shipped release closes, so it comes from
 # `ark.baseline` rather than being retyped here. `increment()` does not actually
