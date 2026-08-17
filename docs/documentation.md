@@ -4,9 +4,10 @@
 says what came out; this file holds the reasoning that neither of those should carry. It is
 deliberately meta-level: anything a docstring or a comment already says belongs there, not here.
 
-Related documents: [SPEC.md](SPEC.md) is the counting and evidence specification, [sources.md](sources.md)
-documents each source individually, [notes.md](notes.md) is the dated decision log, and
-[engine_review_260801.md](engine_review_260801.md) is the adversarial review of the language engine.
+Related documents: [SPEC.md](SPEC.md) is the reviewer's brief and [brief_amendments.md](brief_amendments.md)
+is what he has changed since; [sources.md](sources.md) documents each source individually,
+[discovery.md](discovery.md) is the method for pricing a new one, and [notes.md](notes.md) is the dated
+decision log.
 
 ---
 
@@ -77,61 +78,40 @@ not the rate. Lowering requests per pair changes the rate.
 
 ---
 
-## 4. The language engine, and why it is separate from evidence
+## 4. Two lessons from a retired engine
 
-A language verdict is not evidence. Every `evidence_type` answers "did this domain exist in this
-year". A verdict answers "what was this website". A domain can be perfectly evidenced and still
-inadmissible, so verdicts live in their own `domain_language` table keyed on the same (domain, year).
+The page-level English verification engine is gone: the reviewer replaced that standard with the
+equivalent-English metric in August 2026, and the code is in `legacy/src/language.py` with the full
+account in `legacy/README.md`. Two of its design rules are general enough to belong here, because they
+apply to anything that asks a service a question and records the answer.
 
-### Unsettled is a first-class outcome
+**Unsettled is a first-class outcome.** A verdict, a documented rejection, and "the question did not
+land" are three different things. A naive design collapses the third into the second, which excludes a
+possibly-good record on the strength of a transport error. This project made exactly that mistake once
+in the RDAP engine, at a cost of 12,888 domains, which is why the distinction is now enforced rather
+than trusted.
 
-The engine distinguishes three things that a naive design collapses into one:
+**A record is never excluded on the strength of a question that was not asked.** A filtered CDX query
+returning nothing means "nothing matching that filter", not "nothing at all". Before an absence is
+recorded, a second unfiltered probe goes out. The same principle is why `ark check` reports a check
+that read no files as **skipped** rather than passed: a check that examined nothing must not read like
+one that found nothing wrong.
 
-| outcome | meaning | written? |
-|---|---|---|
-| a verdict | the pages were read and judged | yes |
-| a documented rejection | read and judged, and it failed the standard, with a reason | yes |
-| unsettled | the question did not land: a failed query, unreadable captures, a truncated sample | **no** |
+The `domain_language` table stays in `db.py` with its migration. Existing stores hold those rows, every
+provenance export already delivered contains them, and `ark rebuild` loads them, so dropping it would
+make a shipped archive unrebuildable.
 
-Writing "undetermined" for the third case would exclude a possibly-English domain on the strength of
-a transport error. This project made exactly that mistake once before, in the RDAP engine, at a cost
-of 12,888 domains, which is why the distinction is enforced rather than trusted.
+## 5. One set of additions, and the pool beside it
 
-### Why the unfiltered probe exists
+The deliverable is `netnew/`, six annual files, plus `candidate_unverified.txt`. Those two are not a
+set and a subset: a name in the pool has **no** year, so it appears in no annual file, and a name that
+earns a year leaves the pool. Adding the two together double counts nothing.
 
-The capture query filters on `statuscode:200` and `mimetype:text/html`. An empty result means "nothing
-matching that filter", not "nothing at all". Before `no_capture_in_year` can be written, a second
-completely unfiltered index probe is sent. **A domain is never excluded on the strength of a question
-that was not asked.**
-
-### ENGINE_VERSION
-
-Every verdict records the version of the engine that produced it, and only current-version verdicts
-can reach an annual file. This exists because two rounds of verdicts had to be discarded: the exporter
-had excluded any pair with a `domain_language` row at all, so a defect became permanent the moment it
-produced output. Now a pair leaves the work queue only when asking again could not change the answer.
-
-Bump `ENGINE_VERSION` whenever a change alters **what a verdict would be**. A change that only alters
-which pairs get looked at, or how fast, does not qualify.
-
----
-
-## 5. Two disjoint sets, not a set and a subset
-
-`netnew_english/` and `netnew_unverified/` **partition** the additions: disjoint, and summing to the
-whole. An earlier shape had the English set as a subset of `netnew/`, which meant a reviewer merging
-both double counted.
-
-Two integrity invariants assert the partition against the shipped files, and the archive's `verify.sh`
-re-checks it independently with nothing but `shasum` and `python3`. Prose in a README claiming
-disjointness is not a check.
-
-The `status` column carries the distinction that matters most: `disqualified` means asked and
-answered, `unchecked` means not reached. Every `disqualified` row carries a reason from a closed
-vocabulary and appears individually in `disqualified.csv`, because an exclusion nobody can inspect is
-an assertion rather than a finding.
-
----
+Phase 4 briefly shipped a three-way split, with the additions partitioned into English-verified and
+unverified sets. When the standard went, the partition went with it, and shipping it after that point
+was worse than useless: the English folder came out empty, the archive's own `verify.sh` printed three
+vacuous WARN lines about a partition of nothing, and the delivery loudly documented a rule nobody was
+applying. **An archive that documents a retired rule reads as a rule still in force.**
 
 ## 6. Determinism, and what "reproducible" is allowed to mean
 
@@ -158,7 +138,7 @@ else did, including a crash on step three of the documented tier-2 path.
 
 ## 7. The integrity gate
 
-`ark check` runs twelve invariants over the store and exits non-zero on any failure. They are not
+`ark check` runs nine invariants over the store and exits non-zero on any failure. They are not
 tests of the code; they are tests of the data, and the two fail differently. `just check` runs both,
 deliberately, because giving either one the bare name invites running one and believing the other
 passed.
@@ -190,12 +170,14 @@ figures are measurements.
 ```
 src/ark/          the pipeline package and the `ark` CLI
   db.py           schema, migrations, the store
-  language.py     the English verification engine
-  checks.py       the twelve data invariants
+  baseline.py     which reviewer release is current, and its totals
+  english_share.py  the scoring metric's weight table
+  checks.py       the nine data invariants
   cli.py          every command
-scripts/          operational wrappers: supervisors, watchdogs, packaging, measurement
+scripts/          collectors, splitters, supervisors, packaging, measurement
 tests/            pytest, network mocked
-docs/             SPEC, this file, sources, notes, the round report
+docs/             the brief and its amendments, sources, discovery, this file, notes, the report
+legacy/           retired engines and spent probes; not linted, not tested, not shipped
 ```
 
 Scripts under `scripts/` are the parts that run unattended for hours. They are shell rather than
@@ -208,14 +190,18 @@ a night.
 
 ## 10. Ordering the queue by what the score actually rewards
 
-Since August 2026 the reviewer scores **equivalent-English domains**: a
-(domain, year) record counts not 1 but the English page-language share of its
-right-most TLD, from a `CC-MAIN-2024-10` table he supplied. `foo.uk` is worth
-0.9813 of a record, `foo.de` 0.1324.
+Since August 2026 the reviewer scores **equivalent-English domains**, replacing a
+plain record count: a (domain, year) record counts not 1 but the English
+page-language share of its right-most TLD, from a `CC-MAIN-2024-10` table he
+supplied. `foo.uk` is worth 0.9813 of a record, `foo.de` 0.1324. Which release the
+totals are measured against is named in `src/ark/baseline.py` and nowhere else.
 
-That changes what a queue is for. Neither population can be finished: about
-575,000 domains remain against roughly 63,000 queries in a week, so the ordering
-decides the outcome and the tail is theoretical. Both list builders therefore rank
+That changes what a queue is for. **Neither population can be finished**, and both
+grow faster than the crawl closes them, because a larger merged baseline creates
+new bracketed gaps. So the ordering decides the outcome and the tail is
+theoretical. The measured pool sizes and hit rates live in `docs/sources.md` under
+`ia_cdx_bulk` and `rdap`, which is where they ship; repeating them here is how they
+come to disagree. Both list builders therefore rank
 by **expected equivalent-English per query**, and the two factors come from
 different places:
 
@@ -223,15 +209,15 @@ different places:
 - **whether there will be an answer** is measured from our own journals, never
   assumed.
 
-The candidate pool needs both because its hit rate varies enormously, from 90.6%
-for a link harvested off an archived page down to 36.9% for a name merely
-mentioned in Usenet text. The gap pool needs only the first, because a bracketed
-year is nearly always there: 96.0%, 96.9%, 97.1%, 97.5% on consecutive batches.
-There, the second factor is how many bracketed years one query can fill.
+The candidate pool needs both, because its hit rate varies enormously with where
+the name came from. The gap pool needs only the first, because a bracketed year is
+nearly always there; the second factor there is how many bracketed years one query
+can fill.
 
 Two mistakes are recorded in `notes.md` because both cost real hours. Ranking by
-share alone sent 1,709 queries at `.edu`, which scores 97.2% English and returned
-five hits; and estimating a hit rate from the pool query alone measured it over a
+share alone spent 1,709 queries on a TLD scoring 97.2% English for five hits,
+because a high share says what an answer is worth and nothing about whether there
+will be one; and estimating a hit rate from the pool query alone measured it over a
 population that structurally excludes hits, because a domain that hits is given a
 year and leaves the pool. The general lesson is that a plausible-looking ranking
 is worth nothing until its own output is measured against something independent.

@@ -25,33 +25,58 @@ def _clean_store() -> duckdb.DuckDBPyConnection:
 def _results_by_name(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path | None = None,
-    english_dir: Path | None = None,
-    unverified_dir: Path | None = None,
 ) -> dict[str, dict]:
     # Never the real output/: a check that reads files must be pointed at a
     # fixture, or the suite asserts against the actual deliverable. Every
     # file-reading directory needs its own override, and a new check that adds
     # one without threading it here will quietly start doing exactly that.
-    return {
-        r["name"]: r
-        for r in collect_checks(
-            conn,
-            netnew_dir or Path("no-such-export"),
-            english_dir or Path("no-such-english-export"),
-            unverified_dir or Path("no-such-unverified-export"),
-        )
-    }
+    return {r["name"]: r for r in collect_checks(conn, netnew_dir or Path("no-such-export"))}
 
 
 def test_clean_store_passes_all_checks() -> None:
-    results = collect_checks(
-        _clean_store(),
-        Path("no-such-export"),
-        Path("no-such-english-export"),
-        Path("no-such-unverified-export"),
-    )
-    assert results, "expected at least one check"
+    results = collect_checks(_clean_store(), Path("no-such-export"))
+    # Ten invariants: nine after the English partition was retired, plus the IDN
+    # check added 2026-08-17. Pinned, not counted loosely: a check silently dropped
+    # from the gate is the failure this assertion exists to catch.
+    assert len(results) == 10, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
+
+
+def test_detects_an_internationalised_tld() -> None:
+    """No `xn--` TLD existed before 2010, so none can hold a 1996-2001 year.
+
+    Seventeen of these shipped: `domain_creation_bulk` carries `.xn--fiqs8s` and
+    `.xn--fiqz9s` names, `.中国` and `.中國`, with registry creation dates in 2000 and
+    2001. CNNIC ran Chinese-character domains before ICANN delegated the TLD and the
+    2010 migration appears to have carried the original dates forward.
+
+    Nothing caught them here. The falsification test run before that source was
+    admitted checked the six TLDs delegated in 2001, so a TLD delegated in 2010 was
+    outside what it could see. What caught them was the reviewer's own validator,
+    whose hostname regexp requires a letters-only TLD: they scored zero for him and
+    full weight for us, and `round_figures.py --verify` refused the round over the
+    resulting 0.3150 discrepancy.
+    """
+    conn = _clean_store()
+    src = ensure_source(conn, "domain_creation_bulk", "timestamped")
+    idn = "xn--tfrxfu2p.xn--fiqs8s"
+    add_candidate(conn, idn, src)
+    assign_year(
+        conn, record_evidence(conn, idn, src, 2000, "whois_creation", "registry created 2000-11-06")
+    )
+    results = _results_by_name(conn)
+    assert results["no_idn_tld_in_window"]["ok"] is False
+    assert results["no_idn_tld_in_window"]["offending"] == 1
+
+
+def test_a_hyphenated_ascii_domain_is_not_mistaken_for_an_idn() -> None:
+    """The check keys on the TLD, not on `xn--` appearing anywhere in the name."""
+    conn = _clean_store()
+    src = ensure_source(conn, "isc_survey", "timestamped")
+    for name in ("xn--not-a-tld.com", "some-xn--thing.org"):
+        add_candidate(conn, name, src)
+        assign_year(conn, record_evidence(conn, name, src, 1999, "artifact_listing", "isc-1999"))
+    assert _results_by_name(conn)["no_idn_tld_in_window"]["ok"] is True
 
 
 def test_detects_candidate_backed_assignment() -> None:
@@ -157,95 +182,3 @@ def test_detects_master_evidence_left_unassigned() -> None:
     results = _results_by_name(conn)
     assert results["nothing_earned_is_left_unassigned"]["ok"] is False
     assert results["nothing_earned_is_left_unassigned"]["offending"] == 1
-
-
-def test_detects_an_english_file_admitting_an_unverified_domain(tmp_path) -> None:
-    """The English annual files are a deliverable now, and the failure that
-    matters is one admitting a domain the standard does not: no verdict at all,
-    or a verdict for a different year. Neither is visible by inspection."""
-    conn = _clean_store()
-    english_dir = tmp_path / "netnew_english"
-    english_dir.mkdir()
-    # verified english for 1998, but shipped in the 2000 file
-    conn.execute(
-        "INSERT INTO domain_language (domain, assigned_year, verdict) VALUES (?, ?, ?)",
-        ["sub.co.uk", 1998, "english"],
-    )
-    (english_dir / "2000.txt").write_text("sub.co.uk\n")
-    result = _results_by_name(conn, english_dir=english_dir)[
-        "english_files_hold_only_verified_english"
-    ]
-    assert not result["ok"]
-    assert result["offending"] == 1
-
-
-def test_english_check_passes_when_the_verdict_matches_the_year(tmp_path) -> None:
-    conn = _clean_store()
-    english_dir = tmp_path / "netnew_english"
-    english_dir.mkdir()
-    conn.execute(
-        "INSERT INTO domain_language (domain, assigned_year, verdict) VALUES (?, ?, ?)",
-        ["sub.co.uk", 2000, "english"],
-    )
-    (english_dir / "2000.txt").write_text("sub.co.uk\n")
-    result = _results_by_name(conn, english_dir=english_dir)[
-        "english_files_hold_only_verified_english"
-    ]
-    assert result["ok"], result
-
-
-def test_english_check_skips_when_the_export_is_absent() -> None:
-    """A fresh clone has no output/, and an absent export must not read as a
-    satisfied invariant."""
-    result = _results_by_name(_clean_store())["english_files_hold_only_verified_english"]
-    assert result.get("skipped")
-
-
-def test_english_check_skips_when_the_export_is_present_but_empty(tmp_path) -> None:
-    """Distinct from an absent export, and it broke the gate when it first
-    happened: every English annual file is empty whenever nothing has been
-    verified yet, so read_csv infers no columns and the query cannot bind. An
-    empty admitted set trivially satisfies an invariant about what the admitted
-    set may contain, but a check that examined nothing must not read as one that
-    found nothing wrong."""
-    conn = _clean_store()
-    english_dir = tmp_path / "netnew_english"
-    english_dir.mkdir()
-    for year in range(1996, 2002):
-        (english_dir / f"{year}.txt").write_text("")
-    result = _results_by_name(conn, english_dir=english_dir)[
-        "english_files_hold_only_verified_english"
-    ]
-    assert result.get("skipped")
-    assert result["ok"]
-
-
-def test_disjointness_check_catches_a_domain_in_both_sets(tmp_path) -> None:
-    """The partition is the contract with the reviewer. If a domain leaked into
-    both files, adding the two shipped sets together would double-count it, and
-    the report's headline would be wrong in a way prose cannot catch."""
-    english = tmp_path / "english"
-    unverified = tmp_path / "unverified"
-    english.mkdir()
-    unverified.mkdir()
-    (english / "1998.txt").write_text("both.com\n")
-    (unverified / "1998.txt").write_text("both.com\n")
-
-    results = _results_by_name(_clean_store(), None, english, unverified)
-    check = results["the_two_shipped_sets_are_disjoint"]
-    assert not check["ok"]
-    assert check["offending"] == 1
-
-
-def test_same_domain_in_different_years_is_not_an_overlap(tmp_path) -> None:
-    """A domain can be English in one year and unverified in another: the unit
-    is the pair, not the domain, so the check must be anchored to the year."""
-    english = tmp_path / "english"
-    unverified = tmp_path / "unverified"
-    english.mkdir()
-    unverified.mkdir()
-    (english / "1998.txt").write_text("site.com\n")
-    (unverified / "1999.txt").write_text("site.com\n")
-
-    results = _results_by_name(_clean_store(), None, english, unverified)
-    assert results["the_two_shipped_sets_are_disjoint"]["ok"]

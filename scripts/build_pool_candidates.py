@@ -238,22 +238,41 @@ def sources_for(
 def hit_rates(
     outcomes: dict[str, bool], source_of: dict[str, str]
 ) -> tuple[dict[tuple[str, str], Decimal], dict[str, Decimal], Decimal]:
-    """P(the archive holds an in-window capture), at three grains.
+    """P(the archive holds an in-window capture), at four grains.
 
-    Coarsening as the sample thins: per (source, TLD), per source, pool-wide.
-    Both factors are needed. Source alone would rank a `.mil` Usenet name highly
-    on its 99.8% English share; the (source, TLD) cell is what knows that block
+    Coarsening as the sample thins: per (source, TLD), **per TLD**, per source,
+    pool-wide. Both factors are needed. Source alone would rank a `.mil` Usenet name
+    highly on its 99.8% English share; the (source, TLD) cell is what knows that block
     has never once hit in 220 answers.
+
+    **The per-TLD grain was missing and its absence cost a fortnight of collector
+    time.** The chain ran (source, TLD) then straight to per-source, so an *unmeasured*
+    cell inherited a source's optimistic average and English share did the rest. On
+    2026-08-11 a rebuilt queue led with 2,675 `.mil` names and returned zero captures in
+    1,200 queries, while the journals already held the answer at the grain nobody
+    consulted:
+
+        .mil  0.000 over 1,372 answers        .com  0.898 over 2,492
+        .gov  0.000 over   394               .net  0.915 over   330
+        .edu  0.003 over 1,709               .uk   0.640 over 9,310
+        .bb   0.004 over   262               .org  0.468 over 4,298
+
+    The spread across TLDs is roughly 900x, far wider than across sources, which is why
+    this is the grain that matters most when a cell is thin. Its absence was not a
+    missing measurement, it was a measurement never read.
     """
     cells: dict[tuple[str, str], Counter] = {}
+    per_tld: dict[str, Counter] = {}
     per_source: dict[str, Counter] = {}
     overall: Counter = Counter()
     for domain, hit in outcomes.items():
         source = source_of.get(domain)
         if not source:
             continue
+        tld = domain.rsplit(".", 1)[-1]
         for bucket in (
-            cells.setdefault((source, domain.rsplit(".", 1)[-1]), Counter()),
+            cells.setdefault((source, tld), Counter()),
+            per_tld.setdefault(tld, Counter()),
             per_source.setdefault(source, Counter()),
             overall,
         ):
@@ -265,9 +284,38 @@ def hit_rates(
 
     return (
         {k: rate(v) for k, v in cells.items() if v["n"] >= MIN_SAMPLE},
+        {k: rate(v) for k, v in per_tld.items() if v["n"] >= MIN_SAMPLE},
         {k: rate(v) for k, v in per_source.items() if v["n"] >= MIN_SAMPLE},
         rate(overall) if overall["n"] else Decimal("0.5"),
     )
+
+
+def expected_hit_rate(
+    source: str,
+    tld: str,
+    cell_rate: dict[tuple[str, str], Decimal],
+    tld_rate: dict[str, Decimal],
+    source_rate: dict[str, Decimal],
+    pool_rate: Decimal,
+) -> Decimal:
+    """The rate to score one pool target with, coarsening only as far as it must.
+
+    An exact (source, TLD) measurement wins outright. Failing that it takes the
+    **lower** of the TLD and source rates, which is the conservative reading: with two
+    partial views and no measurement of the pair, an unmeasured cell must not outrank a
+    cell that has actually been measured well. That is the whole correction. The old
+    chain skipped to the source average, so `(some_source, .mil)` inherited a
+    pool-average optimism that 1,372 answered `.mil` domains had already refuted.
+
+    Unproven is still not impossible: a TLD nothing has answered yet falls through to
+    the pool rate and ranks in the middle, because the only way a namespace earns its
+    first measurement is by being queried.
+    """
+    exact = cell_rate.get((source, tld))
+    if exact is not None:
+        return exact
+    partial = [r for r in (tld_rate.get(tld), source_rate.get(source)) if r is not None]
+    return min(partial) if partial else pool_rate
 
 
 def main() -> None:
@@ -281,14 +329,14 @@ def main() -> None:
     finally:
         conn.close()
 
-    cell_rate, source_rate, pool_rate = hit_rates(outcomes, answered_source)
+    cell_rate, tld_rate, source_rate, pool_rate = hit_rates(outcomes, answered_source)
     answered = queried_domains(JOURNAL_DIR, "cdx", answered=cdx_answered)
     fresh = [d for d in pool_source if d not in answered]
 
     def expected_ee(domain: str, tld: str) -> Decimal:
         """Equivalent-English this query is worth in expectation."""
         source = pool_source[domain]
-        hit = cell_rate.get((source, tld), source_rate.get(source, pool_rate))
+        hit = expected_hit_rate(source, tld, cell_rate, tld_rate, source_rate, pool_rate)
         return hit * weights.get(tld, Decimal("0"))
 
     ranked = sorted(

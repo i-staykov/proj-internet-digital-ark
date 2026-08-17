@@ -50,13 +50,18 @@ SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null |
 # STORED, which then failed the comparison below and told the operator the export
 # was stale when it was current. A guard that misreports why it fired is worse
 # than no guard: it sends you to fix the wrong thing.
+# `|| true` is load-bearing. `set -e` is on, so a bare `STORED=$(cmd)` whose
+# command fails aborts the script instantly: the retry below never ran, the
+# diagnostic below never printed, and packaging exited 1 in silence. That went
+# unnoticed while nothing else held the store, and surfaced the moment the ingest
+# loop began running continuously beside two collectors.
 STORED=""
 for _ in $(seq 1 60); do
     STORED=$(uv run python -c "
 import duckdb
 from ark.stats import collect_stats
 print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
-" 2>&1 | tail -1)
+" 2>&1 | tail -1) || true
     case "$STORED" in
         ''|*[!0-9]*) sleep 5 ;;
         *) break ;;
@@ -156,9 +161,8 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
 # English verification standard of the phase-3 feedback, which the reviewer has
-# since retired in favour of the equivalent-English metric. The pipeline can still
-# produce them, and `ark lang-report` still writes them under `output/`, so this
-# is a change to what the delivery asserts rather than a loss of capability.
+# since retired in favour of the equivalent-English metric. The engine now lives in
+# `legacy/src/language.py` and nothing in the tree writes those folders any more.
 #
 # Shipping them was worse than useless once the standard went: the folders came
 # out empty, `verify.sh` printed three vacuous WARN lines about a partition of
@@ -196,43 +200,12 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' \
     -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
 
-# Superseded language journals go in their own folder, clearly named. They are
-# the verdicts produced by earlier versions of the classifier, kept so that a
-# discarded verdict is auditable rather than merely deleted. They must not sit
-# beside the current ones: the README tells the reader to ingest
-# `lang_*.jsonl.gz`, and although the engine-version gate would keep these out
-# of any annual file, a folder named `superseded` says so without relying on it.
-if compgen -G "data/raw/lang/superseded/*.jsonl.gz" > /dev/null; then
-    mkdir -p "$STAGE/journals/lang_superseded"
-    cp data/raw/lang/superseded/*.jsonl.gz "$STAGE/journals/lang_superseded/"
-    cat > "$STAGE/journals/lang_superseded/README.txt" <<'SUPERSEDED'
-Language verdicts produced by superseded versions of the classifier.
-
-They are here for audit, not for use. Each was discarded after a defect was
-found in the engine that produced it, and they are kept so that a discarded
-verdict remains reproducible rather than simply deleted.
-
-Every record carries no `engine_version` field, or one below the current
-ENGINE_VERSION in src/ark/language.py. The exporter admits a verdict to an
-annual file only at the current version, so ingesting these cannot put a
-superseded verdict into a result file. They will, correctly, be re-judged.
-
-What was wrong with them, in order of discovery:
-
-  v1  The CDX index limit was passed the page-fetch count, so the engine asked
-      the index for two rows and reported that as the whole archive. 75.4% of
-      pairs with any capture were censored this way. Captures were also taken in
-      URL-key order, so framesets and redirect stubs dominated the sample, and
-      registrar parking pages scored English at confidence 1.000.
-
-  v2  A replay request could be answered with a capture from a different year
-      and reported as success, so a verdict could be dated wrongly while its
-      recorded URL made the error invisible. Selection preferred robots.txt and
-      vendor webmail pages over site content. The placeholder test skipped any
-      page over 1,000 characters, admitting keyword link farms. A verdict could
-      be settled on a truncated sample after a fetch failure.
-SUPERSEDED
-fi
+# The retired English engine's superseded verdict journals are no longer shipped.
+# They were kept beside the current ones under `journals/lang_superseded/` so a
+# discarded verdict stayed auditable, which mattered while the standard was live.
+# The standard is retired and the engine is in `legacy/src/language.py`, so an
+# archive carrying them would document a rule nobody applies. The journals stay on
+# disk under `data/raw/lang/`; `legacy/docs/retired-data.md` says what they are.
 
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"
@@ -308,6 +281,45 @@ BASELINES
 # once shipped the data without trace.py, the tool the README tells them to run
 cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 
+# The FULL evidence table ships, baseline rows included, and the 429 MB they cost is
+# not optional. Dropping `prior_reused` was tried on 2026-08-17 and shipped once. It
+# looked free: those rows are the reviewer's own data returning to him, and
+# `verify.sh` passed because it reads the additions manifest rather than the parquet.
+#
+# Running the archive's own tier-2 reproduction against a freshly extracted copy is
+# what caught it. Without the baseline rows, 11,316,960 of 16,619,832 `domain_year`
+# rows point at an `evidence_id` that no longer exists, so `ark check` fails on
+# `evidence_wall_intact` and `every_pair_has_master_evidence`. Worse, net-new is
+# DEFINED as "no baseline evidence for this (domain, year)", so with those rows gone
+# the rebuild re-claims the entire corpus: 712,927 additions for 1996 against a true
+# 63,162. That is the exact failure `notes.md` records from phase 2, where shipping
+# would have claimed 1,339,783 pairs instead of 17,418.
+#
+# The lesson is not "keep the rows", it is that a size cut which no guard covers is
+# an unmeasured change. `verify_delivery.sh` now checks the evidence wall directly.
+
+# The reviewer's own scorer, so the archive can re-derive its headline figure without
+# reference to anything outside itself. `round_figures.py --verify` is named in the
+# report as the way to re-score the increment, and running it inside an unpacked
+# archive failed with "calculator not found": it lived only in the repository. Found
+# by running the report's own instructions in a fresh extraction, 2026-08-17.
+#
+# It is his file coming back to him, which is the same argument as `baseline/`: a
+# reviewer should be able to check the arithmetic without fetching anything, and the
+# whole thing is a few tens of kilobytes.
+mkdir -p "$STAGE/equivalent_english_domain_calculator"
+CALC_SRC="$(dirname "$MERGED")/equivalent_english_domain_calculator"
+if [ -d "$CALC_SRC" ]; then
+    # A tar pipe rather than `cp -R`, to drop `__pycache__`: shipping compiled
+    # bytecode of somebody else's script is noise, and it changes on every run so the
+    # archive checksum would never settle. `--exclude` works in both BSD and GNU tar,
+    # unlike `cp --parents`, which is GNU only and would have failed on this machine.
+    ( cd "$CALC_SRC" && tar cf - --exclude '__pycache__' . ) \
+        | ( cd "$STAGE/equivalent_english_domain_calculator" && tar xf - )
+else
+    echo "warning: no calculator beside $MERGED, archive will not self-score" >&2
+fi
+
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The engine review, so the process behind the report's audit section can be
@@ -316,7 +328,14 @@ cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The English-engine review is no longer shipped: it documents the page-level
 # verification standard the reviewer has retired, and an audit of a rule nobody
 # applies reads as a rule still in force. It stays in the repo under docs/.
-cp data/logs/* "$STAGE/logs/" 2>/dev/null || true
+# Tailed, not copied whole. `maintain.log` alone was 123 MB of one line per ingest
+# pass, repeated every 150 seconds for a fortnight. What a reader wants from a log
+# is the shape of the run and its most recent state, and the last 20,000 lines give
+# both; the full files stay in the repo under `data/logs/`.
+for log in data/logs/*; do
+    [ -f "$log" ] || continue
+    tail -n 20000 "$log" > "$STAGE/logs/$(basename "$log")" 2>/dev/null || true
+done
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"

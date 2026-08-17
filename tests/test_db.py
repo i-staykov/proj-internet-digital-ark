@@ -5,6 +5,7 @@ import pytest
 
 from ark.db import (
     add_candidate,
+    add_candidates,
     assign_year,
     connect,
     ensure_source,
@@ -102,3 +103,103 @@ def test_ensure_source_refuses_kind_change() -> None:
     ensure_source(conn, "some_source", "timestamped")
     with pytest.raises(ValueError, match="registered as timestamped"):
         ensure_source(conn, "some_source", "candidate_only")
+
+
+def test_add_candidates_batches_and_stays_idempotent() -> None:
+    """One statement for many names, and re-offering them changes nothing.
+
+    Batched because a row-at-a-time loop over 29,432 names held the store's only
+    write lock for more than twenty minutes, which blocks every reader too.
+    """
+    conn, sid = _db_with_source()
+    written = add_candidates(conn, ["a.com", "b.co.uk", "c.org"], sid)
+    assert written == 3
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 3
+    # the tld column is the registrable suffix, as add_candidate writes it
+    assert conn.execute("SELECT tld FROM domain WHERE domain = 'b.co.uk'").fetchone()[0] == "co.uk"
+    # INSERT OR IGNORE, so a second offer is a no-op rather than an error
+    add_candidates(conn, ["a.com", "d.net"], sid)
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 4
+
+
+def test_add_candidates_on_an_empty_list_touches_nothing() -> None:
+    conn, sid = _db_with_source()
+    assert add_candidates(conn, [], sid) == 0
+    assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 0
+
+
+def test_add_candidates_dedupes_within_one_batch() -> None:
+    """`INSERT OR IGNORE` used to absorb an intra-batch duplicate implicitly. The
+    set-based form tests each row against the TABLE, so two identical names inside one
+    batch would both pass the anti-join and collide on the primary key."""
+    conn = connect(":memory:")
+    init_db(conn)
+    sid = ensure_source(conn, "s", "candidate_only")
+    written = add_candidates(conn, ["dup.com", "dup.com", "other.net", "dup.com"], sid)
+    assert written == 2
+    held = {row[0] for row in conn.execute("SELECT domain FROM domain").fetchall()}
+    assert held == {"dup.com", "other.net"}
+
+
+def test_add_candidates_leaves_an_existing_row_untouched() -> None:
+    """The anti-join must reproduce OR IGNORE exactly: an existing domain keeps its
+    original source and round rather than being overwritten by a later batch."""
+    conn = connect(":memory:")
+    init_db(conn)
+    first = ensure_source(conn, "first", "candidate_only")
+    second = ensure_source(conn, "second", "candidate_only")
+    add_candidates(conn, ["keep.com"], first, discovered_round=1)
+    add_candidates(conn, ["keep.com", "new.org"], second, discovered_round=7)
+    rows = dict(
+        conn.execute("SELECT domain, discovered_source FROM domain ORDER BY domain").fetchall()
+    )
+    assert rows["keep.com"] == first
+    assert rows["new.org"] == second
+    round_of = dict(conn.execute("SELECT domain, discovered_round FROM domain").fetchall())
+    assert round_of["keep.com"] == 1
+
+
+def test_read_only_patient_connect_waits_out_a_writer(tmp_path, monkeypatch):
+    """A reporting command must queue behind the ingest loop, not crash into it.
+
+    DuckDB's single writer excludes readers too, so anything that opens the store
+    read-only meets the lock every few minutes while journals are being banked. The
+    round report generator was the one command that crashed on it, and it is only ever
+    run at the end of a round, when the collectors are busiest.
+    """
+    import duckdb
+
+    from ark.db import connect_read_only_patiently
+
+    calls = {"n": 0}
+    real = duckdb.connect
+
+    def flaky(path, **kwargs):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise duckdb.IOException("IO Error: Conflicting lock is held in ...")
+        return real(path, **kwargs)
+
+    store = tmp_path / "s.duckdb"
+    real(str(store)).close()
+    monkeypatch.setattr(duckdb, "connect", flaky)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    conn = connect_read_only_patiently(store, patience_s=60)
+    assert calls["n"] == 3
+    conn.close()
+
+
+def test_read_only_patient_connect_reraises_anything_that_is_not_the_lock(tmp_path, monkeypatch):
+    """Patience is for the lock alone. A corrupt file must fail immediately, or a real
+    fault turns into a fifteen-minute silence."""
+    import duckdb
+    import pytest
+
+    from ark.db import connect_read_only_patiently
+
+    def broken(path, **kwargs):
+        raise duckdb.IOException("IO Error: file is not a valid DuckDB database")
+
+    monkeypatch.setattr(duckdb, "connect", broken)
+    with pytest.raises(duckdb.IOException, match="not a valid"):
+        connect_read_only_patiently(tmp_path / "x.duckdb", patience_s=60)

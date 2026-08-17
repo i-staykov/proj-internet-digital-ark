@@ -160,6 +160,53 @@ def pool_outcomes(directory: Path, pattern: str = POOL_JOURNAL_GLOB) -> dict[str
     return outcomes
 
 
+IMPLAUSIBLE_POOL_RATIO = Decimal("10")
+
+
+def pool_plausibility(
+    conn: duckdb.DuckDBPyConnection, tlds: list[str]
+) -> list[tuple[str, int, int, Decimal]]:
+    """Per TLD: names holding a year, names in the pool, and the ratio between them.
+
+    A cheap discriminator for a namespace whose pool is fabricated rather than
+    undiscovered, and it costs one query. Against a baseline 11.4M records deep, a
+    real namespace has far fewer undated candidates than dated ones: `.com` and
+    `.uk` both sit at 0.3. Measured 2026-08-10, `.gov` sits at **182** and `.mil`
+    at **2,624**, and the pool names are visibly invented (`wavohsdojde.gov`,
+    `xkgnmoaeg.gov`) or prose words a bare-host rule read as hostnames
+    (`empty.gov`, `dessert.gov`, `higher.gov`). Between them they are 372,081
+    names that would rank 4th and 5th on volume times English share.
+
+    This is the `.au` mistake in a new place: ordering by expected
+    equivalent-English does this whenever the probability half of the estimate is
+    a guess, and 0.9825 times a fabricated name is still zero. Reported rather
+    than enforced, because which TLDs to exclude is a judgement about the corpus
+    and not a fact about the pool.
+    """
+    rows = conn.execute(
+        f"""
+        WITH held AS (
+            SELECT split_part(domain, '.', -1) AS tld, count(DISTINCT domain) AS n
+            FROM domain_year GROUP BY 1
+        ),
+        pool AS (
+            SELECT split_part(d.domain, '.', -1) AS tld, count(*) AS n
+            FROM domain d
+            WHERE NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = d.domain)
+            GROUP BY 1
+        )
+        SELECT p.tld, coalesce(h.n, 0), p.n
+        FROM pool p LEFT JOIN held h USING (tld)
+        WHERE p.tld IN ({", ".join(f"'{t}'" for t in tlds)})
+        """
+    ).fetchall()
+    out = []
+    for tld, held, pool in rows:
+        ratio = Decimal(pool) / Decimal(held) if held else Decimal(pool)
+        out.append((tld, held, pool, ratio))
+    return sorted(out, key=lambda row: -row[3])
+
+
 def dating_rates(outcomes: dict[str, bool]) -> tuple[dict[str, Decimal], Decimal]:
     """P(creation date lands in 1996-2001), per TLD and pool-wide."""
     per_tld: dict[str, Counter] = {}
@@ -206,6 +253,7 @@ def main() -> None:
     try:
         sql = POOL_SQL.format(tlds=", ".join(f"'{t}'" for t in askable))
         rows = conn.execute(sql).fetchall()
+        plausibility = pool_plausibility(conn, askable)
     finally:
         conn.close()
 
@@ -236,6 +284,18 @@ def main() -> None:
     print(f"\nmeasured in-window rate per TLD (>= {MIN_SAMPLE} answers):")
     for tld, r in sorted(tld_rate.items(), key=lambda kv: -kv[1]):
         print(f"  .{tld:<8} {r:>6.1%}")
+    suspect = [row for row in plausibility if row[3] > IMPLAUSIBLE_POOL_RATIO]
+    if suspect:
+        print(
+            f"\nWARNING: {len(suspect)} askable TLD(s) hold more than "
+            f"{IMPLAUSIBLE_POOL_RATIO}x as many pool names as dated ones, which is the"
+            "\nsignature of a fabricated namespace rather than an undiscovered one."
+            "\nA high English share times an invented name is still zero. Exclude them"
+            "\nwith --tlds, or probe 150 first:"
+        )
+        print(f"  {'tld':8} {'dated':>10} {'in pool':>10} {'ratio':>9}")
+        for tld, held, pool, ratio in suspect[:8]:
+            print(f"  {tld:8} {held:>10,} {pool:>10,} {ratio:>9,.1f}")
     print("\nhead of the list by TLD (first 20,000):")
     for tld, n in Counter(d.rsplit(".", 1)[-1] for _e, _s, d in ranked[:20000]).most_common(8):
         print(f"  .{tld:<8} {n:>7,}")

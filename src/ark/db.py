@@ -6,10 +6,12 @@ to_registrable(), and a year assignment is derived from its evidence row,
 so a mismatched assignment cannot be expressed.
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 
 from ark.canonical import to_registrable
 from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
@@ -114,6 +116,58 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(path))
 
 
+def connect_patiently(
+    db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
+) -> duckdb.DuckDBPyConnection:
+    """Wait out a writer instead of crashing against one, for a reporting command.
+
+    The read-only tools already do this. `ark check` and `ark stats` could not, because
+    both record a metrics row and so need the write lock themselves, and the ingest loop
+    holds it every fifteen minutes. Against a live loop they raised a DuckDB traceback,
+    which for a scheduled unattended run reads as a broken invariant rather than as a
+    busy database: exactly the confusion `ark check` exists to prevent by reporting SKIP
+    rather than PASS.
+
+    Waiting is the correct behaviour here and not merely the polite one. Per ADR-001,
+    banking a collector's finished journal outranks measuring, so the reporting side is
+    the side that yields.
+    """
+    deadline = time.monotonic() + patience_s
+    while True:
+        try:
+            return connect(db_path)
+        except duckdb.Error as exc:
+            if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(5)
+
+
+def connect_read_only_patiently(
+    db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
+) -> duckdb.DuckDBPyConnection:
+    """Read-only, and waits out a writer instead of crashing against one.
+
+    **DuckDB's single writer excludes readers too**, so a reporting command that opens
+    read-only still meets the lock every time the ingest loop banks a journal, which is
+    every few minutes. `connect_patiently` covers the commands that need to write a
+    metrics row; this covers the ones that must not write at all.
+
+    It exists because the same retry loop had been hand-written twice, in
+    `round_figures.py` and `build_round_state.py`, while `fill_report.py` and
+    `report_figures.py` crashed outright. That is the worst possible split: the round
+    report generator, which is only ever run at the end of a round when the collectors
+    are busiest, was the one that would fail.
+    """
+    deadline = time.monotonic() + patience_s
+    while True:
+        try:
+            return duckdb.connect(str(Path(db_path)), read_only=True)
+        except duckdb.Error as exc:
+            if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(5)
+
+
 def _statements(schema: str) -> list[str]:
     """Split the schema into statements, ignoring `--` comment lines.
 
@@ -169,6 +223,71 @@ def add_candidate(
         [domain, tld, source_id, discovered_round],
     )
     return domain
+
+
+def add_candidates(
+    conn: duckdb.DuckDBPyConnection,
+    domains: list[str],
+    source_id: int,
+    discovered_round: int = 0,
+) -> int:
+    """Register many already-canonical domains in ONE set-based statement.
+
+    **This is the answer to ADR-001, and it took three wrong guesses to find.** The
+    seed held the store's only write lock for 26 minutes on 6,079 names and 33 on
+    35,391, blocking every reader. Blamed first on `add_candidate` in a Python loop,
+    which was real and was replaced by `executemany`; the seed stayed slow. Blamed next
+    on the classification query, which measures 0.33 s for 3,000 names. Blamed third,
+    by me, on per-row autocommit inside `executemany`: wrapping the whole batch in an
+    explicit transaction measured **12.03 s against 11.88 s, no difference at all.**
+
+    Measured against a 4,000,000-row table, inserting 13,078:
+
+        executemany, row at a time      13.47 s        971 rows/s
+        set-based from an Arrow table    0.05 s    259,242 rows/s      267x
+
+    `executemany` is not a batch. It is N prepared-statement executions, and DuckDB is
+    columnar, so each one pays a whole statement's overhead against an 8 GB store. The
+    fix is the idiom `bulk.py` has used all along: register the batch as an Arrow table
+    and let one statement do an anti-join insert. `INSERT OR IGNORE` becomes
+    `WHERE NOT EXISTS`, which is the same thing said set-wise.
+
+    **The batch is deduplicated first**, which `INSERT OR IGNORE` used to do implicitly:
+    the anti-join tests each row against the *table*, so two identical names inside one
+    batch would both pass it and collide on the primary key.
+
+    Takes canonical names rather than raw ones, because the caller has already parsed
+    them: `add_candidate` calls `to_registrable` a second time on a value its caller
+    just produced.
+
+    One consequence, since ADR-001's interim rule leaned on the opposite. An
+    interrupted seed no longer keeps a partial insert, because this is now a single
+    statement. That is a better trade than it sounds: the window shrinks from twenty
+    minutes to a fraction of a second, and a re-run stays additive because the
+    anti-join skips whatever is already there.
+    """
+    if not domains:
+        return 0
+    unique = list(dict.fromkeys(domains))
+    batch = pa.table(
+        {
+            "domain": unique,
+            "tld": [d.split(".", 1)[1] for d in unique],
+            "discovered_source": [source_id] * len(unique),
+            "discovered_round": [discovered_round] * len(unique),
+        }
+    )
+    conn.register("_candidate_batch", batch)
+    try:
+        conn.execute(
+            "INSERT INTO domain (domain, tld, discovered_source, discovered_round) "
+            "SELECT b.domain, b.tld, b.discovered_source, b.discovered_round "
+            "FROM _candidate_batch b "
+            "WHERE NOT EXISTS (SELECT 1 FROM domain d WHERE d.domain = b.domain)"
+        )
+    finally:
+        conn.unregister("_candidate_batch")
+    return len(unique)
 
 
 def record_evidence(

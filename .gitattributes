@@ -4,3 +4,17 @@
 # submission this way once, and the decision log would have followed it.
 docs/notes.md export-ignore
 .gitattributes export-ignore
+# The archive of retired engines, spent probes and past-round logs. Kept in git so
+# posterity survives a fresh clone, kept out of the delivery so the reviewer gets
+# the working pipeline rather than its history.
+legacy/ export-ignore
+legacy/** export-ignore
+# The round's internal plan and the agent handoff. They are working documents about
+# how to approach the reviewer's feedback, not deliverables, and the handoff states
+# the working agreement in terms that are nobody's business but ours. `git archive`
+# would otherwise put both in front of him: that is exactly how an email draft's
+# private section reached the 2 August archive.
+docs/phase5-plan.md export-ignore
+# The agent's short review surface for open and closed decisions. Working
+# document about how to approach the round, same class as notes.md.
+docs/key-decisions.md export-ignore

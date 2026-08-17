@@ -13,13 +13,14 @@ classification below distinguishes three states rather than one.
 """
 
 import sqlite3
+import time
 from pathlib import Path
 
 import duckdb
 from loguru import logger
 
 from ark.canonical import to_registrable
-from ark.db import add_candidate, ensure_source
+from ark.db import add_candidates, ensure_source
 from ark.metrics import record_metrics
 from ark.work_queue import enqueue
 
@@ -58,6 +59,28 @@ def seed_from_file(
         "new_candidates": 0,
     }
 
+    # Phase timings, because this has been misdiagnosed twice. It was blamed on the
+    # row-at-a-time insert, which was real and was batched, and then on the
+    # classification query, which measures 0.33 s for 3,000 names against an idle
+    # store. A seed of 6,079 names has nonetheless held the write lock for 26
+    # minutes while the ingest loop was running. The cause is still unidentified, so
+    # the next occurrence should produce a measurement rather than a third guess.
+    # **Each mark is logged the moment it is taken**, not only in the summary at the
+    # end. The first version collected them all and printed them last, which meant a
+    # seed that ran 18 minutes emitted nothing at all, so an operator could not tell a
+    # slow phase from a hung process and the instrumentation added for ADR-001 was
+    # unreadable exactly when it was needed. A timing you cannot see until the run
+    # finishes does not measure a run that has not finished.
+    marks: dict[str, float] = {}
+    clock = time.monotonic()
+
+    def mark(phase: str) -> None:
+        nonlocal clock
+        now = time.monotonic()
+        marks[phase] = now - clock
+        clock = now
+        logger.info(f"{path.name} phase {phase}: {marks[phase]:.1f}s")
+
     seen: set[str] = set()
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -73,6 +96,7 @@ def seed_from_file(
                 continue
             seen.add(domain)
 
+    mark("read_and_canonicalize")
     if not seen:
         logger.info(f"{path.name}: {stats}")
         record_metrics(conn, "seed", path.stem, stats)
@@ -85,11 +109,13 @@ def seed_from_file(
         ).fetchall()
     }
 
+    mark("classify")
     unproven: set[str] = set()
+    fresh: list[str] = []
     for domain in sorted(seen):
         state = known.get(domain)
         if state is None:
-            add_candidate(conn, domain, source_id)
+            fresh.append(domain)
             stats["new_candidates"] += 1
             unproven.add(domain)
             continue
@@ -102,7 +128,16 @@ def seed_from_file(
         stats["already_candidate"] += 1
         unproven.add(domain)
 
+    # One statement rather than one per name. A row-at-a-time loop over 29,432
+    # PANDORA names held the store's only write lock for more than twenty minutes,
+    # which blocks every reader as well as every other writer.
+    add_candidates(conn, fresh, source_id)
+    mark("insert_candidates")
     stats["enqueued"] = enqueue(queue_conn, CDX_TASK, sorted(unproven))
+    mark("enqueue")
     logger.info(f"{path.name}: {stats}")
+    logger.info(
+        f"{path.name} phase seconds: " + ", ".join(f"{k}={v:.1f}" for k, v in marks.items())
+    )
     record_metrics(conn, "seed", path.stem, stats)
     return stats

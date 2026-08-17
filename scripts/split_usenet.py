@@ -45,7 +45,7 @@ def _open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConne
     """Open the store read-only, waiting out a writer rather than dying on one.
 
     The store query happens AFTER every archive has been parsed, which over the
-    full corpus is hours of work, and `maintain_phase3.sh` holds a write lock
+    full corpus is hours of work, and `maintain.sh` holds a write lock
     whenever it is mid-ingest. Failing here throws all of that away, which has
     already happened once tonight to a measurement script.
     """
@@ -106,7 +106,7 @@ def main() -> None:
         type=Path,
         default=OUT_DIR,
         help="Where to write the journals. Point this at a staging folder when the output is "
-        "meant to be filtered before it is ingested: `maintain_phase3.sh` globs "
+        "meant to be filtered before it is ingested: `maintain.sh` globs "
         "`data/raw/usenet/usenet_{dated,candidates}_*.jsonl.gz` every cycle and ingests what "
         "it finds, so a journal written there is in the store within minutes whether or not "
         "anyone has looked at it.",
