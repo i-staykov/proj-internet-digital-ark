@@ -30,11 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from report_figures import BASELINE, figures, markdown  # noqa: E402
 
-from ark.baseline import (  # noqa: E402
-    ORIGINAL_BASELINE_EE,
-    REVIEWER_BASELINE_PAIRS,
-    SUBMITTED_ROUNDS,
-)
+from ark.baseline import REVIEWER_BASELINE_PAIRS, SUBMITTED_ROUNDS  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import collect_stats  # noqa: E402
 
@@ -263,6 +259,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "DATASETS_SEARCHED": datasets_searched(),
         "CUMULATIVE": cumulative(f),
         "DARTMOUTH_AGREEMENT": dartmouth_agreement(),
+        "REPRODUCTION_RESULT": reproduction_result(),
     }
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
@@ -282,6 +279,22 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
+
+
+def reproduction_result() -> str:
+    """What the archive's own reproduction actually did, when it was last run.
+
+    Read from a file rather than asserted in prose, because a report that claims
+    "verified" is worth nothing next to one that names the run. `just ship` writes
+    it; if it is absent the report says so instead of implying a pass.
+    """
+    path = Path(__file__).resolve().parents[1] / "docs/reproduction.txt"
+    if not path.is_file():
+        return (
+            "_The reproduction has not been run against this build. "
+            "`bash verify.sh` inside the archive is the first check._"
+        )
+    return path.read_text(encoding="utf-8").strip()
 
 
 def dartmouth_agreement() -> str:
@@ -312,58 +325,42 @@ def dartmouth_agreement() -> str:
 
 
 def cumulative(f: dict) -> str:
-    """Every round this project has delivered, summed once each.
+    """Everything this project has contributed, against the corpus as it now stands.
 
-    The reviewer asked for a cumulative percentage as well as a per-round one. It
-    cannot be read off the store, because a round he has merged stops being net-new
-    the moment he merges it, and it cannot be got by adding the quoted growth rates
-    either, since the denominator was reissued three times. So the per-round figures
-    are carried in `ark.baseline.SUBMITTED_ROUNDS` and only the arithmetic is done
-    here, against the one denominator that predates every contribution.
+    Not readable off the store: a round the reviewer has merged stops being net-new
+    the moment he merges it. So the shipped rounds live in
+    `ark.baseline.SUBMITTED_ROUNDS` and only the arithmetic happens here.
+
+    The denominator is the CURRENT baseline, on Ivo's instruction of 2026-08-17,
+    because that is the comparison he is scored on: what this project has added,
+    measured against the corpus as it is today.
     """
     rows = [
-        "| Round | Date | Records | Equivalent-English | Against `merged260715-2` |",
-        "|---|---|--:|--:|--:|",
+        "| Round | Records | Equivalent-English |",
+        "|---|--:|--:|",
     ]
     total_records = 0
     total_ee = Decimal(0)
-    for label, date, records, ee, _against, superseded in SUBMITTED_ROUNDS:
-        if superseded:
-            note = f"_counted within round {superseded}_"
-            rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {note} |")
-            continue
+    for label, _date, records, ee, _against in SUBMITTED_ROUNDS:
         total_records += records
         total_ee += ee
-        pct = 100 * ee / ORIGINAL_BASELINE_EE
-        rows.append(f"| {label} | {date} | {records:,} | {ee:,.4f} | {pct:.4f}% |")
+        rows.append(f"| {label} | {records:,} | {ee:,.4f} |")
 
     total_records += f["netnew_pairs"]
-    this_ee = Decimal(str(f["ee_netnew"]))
-    total_ee += this_ee
-    last = str(int(SUBMITTED_ROUNDS[-1][0]) + 1)
-    rows.append(
-        f"| **{last} (this one)** | 2026-08-17 | **{f['netnew_pairs']:,}** "
-        f"| **{this_ee:,.4f}** | **{100 * this_ee / ORIGINAL_BASELINE_EE:.4f}%** |"
-    )
-    cum_pct = 100 * total_ee / ORIGINAL_BASELINE_EE
-    rows.append(
-        f"| **Cumulative** | | **{total_records:,}** | **{total_ee:,.4f}** | **{cum_pct:.4f}%** |"
-    )
+    total_ee += Decimal(str(f["ee_netnew"]))
+    rows.append(f"| **5, this one** | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.4f}** |")
+    rows.append(f"| **Total** | **{total_records:,}** | **{total_ee:,.4f}** |")
 
+    pct = 100 * total_ee / Decimal(str(f["ee_baseline"]))
     return "\n".join(
         [
-            "**Cumulative across every round.** Growth rates from different rounds are not "
-            "additive, because the baseline was reissued five times and each rate has its own "
-            "denominator. So every figure below is restated against one fixed denominator: the "
-            f"{ORIGINAL_BASELINE_EE:,.4f} equivalent-English of `merged260715-2`, the corpus as "
-            "it stood before this project's first submission. Two rounds are listed without a "
-            "figure because they are interim reports contained in the round that follows, and "
-            "adding them would double-count. Round 1 predates the equivalent-English metric, so "
-            "its records are the reviewer's own confirmed count and the weight beside it is "
-            "measured now, over the same two releases, with the unchanged model. The last column "
-            "is therefore comparable down the table, and is not the rate each round was accepted "
-            "against at the time; this round's accepted rate is the "
-            f"{f['ee_netnew_growth_pct']:.4f}% in section 1.",
+            f"**Cumulative.** Across the four rounds shipped so far this project has added "
+            f"{total_records:,} domain-year records worth {total_ee:,.4f} equivalent-English, "
+            f"which is **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the corpus holds today. "
+            "Round 1 "
+            "predates the equivalent-English metric, so its records are the reviewer's own "
+            "confirmed count and the weight beside it is measured over the two releases either "
+            "side under the unchanged model.",
             "",
             *rows,
         ]

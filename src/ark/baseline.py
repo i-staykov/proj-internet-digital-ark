@@ -71,52 +71,41 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
 # unchanged weight model, which reproduces his published line 2 for every later
 # release to the digit.
 #
-# It is deliberately not `merged260730`, the obvious-looking choice and the wrong
-# one. That release already contains phase 1 and an external contributor's round,
-# so using it as the cumulative denominator both understates the ratio and silently
-# drops phase 1 from the numerator. Phase 1 is easy to lose because it predates the
-# equivalent-English metric entirely: the reviewer scored it on record counts and
-# never quoted an EE figure for it.
+# **Not the cumulative denominator.** Ivo's instruction of 2026-08-17 is to quote the
+# cumulative contribution against the CURRENT corpus, `REVIEWER_BASELINE_EE`, which is
+# the number he is scored on. Kept because it is the only release predating every
+# contribution and is what makes phase 1's measured increment checkable.
 ORIGINAL_BASELINE_PAIRS = 8_224_963
 ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 
-# What each round delivered, as the reviewer received it. Kept here because a
-# cumulative claim is the one figure the store cannot regenerate: rounds already
-# merged into the baseline are, by construction, no longer net-new.
+# The rounds this project has SHIPPED, numbered as Ivo numbers them: 1, 3, 4, 5.
+# This is the repository's own phase numbering, and the gap at 2 is real. Phase 2 was
+# 17,418 pairs, was never sent as a scored round, and was rolled into phase 3.
 #
-# `superseded_by` is the whole reason this table exists rather than a running sum.
-# Growth RATES are not additive, since the denominator was reissued between rounds,
-# and two of these rounds are contained in a later one:
+# Only shipped rounds appear. Three interim reports were sent between them, on
+# 2026-08-05, 08-06 and 08-12, and each was measured against the same baseline as the
+# shipped round that followed, so each is already contained in one of these four rows.
+# Ivo's instruction of 2026-08-17 is not to mention them; listing them would in any
+# case invite the double-count this tuple exists to prevent.
 #
-#   Round 2 is inside round 3. Both were measured against the same 10,415,768 /
-#   5,622,984.6434 release, and the merge that followed lands exactly on round 3
-#   alone: 10,415,768 + 946,266 = 11,362,034 and 5,622,984.6434 + 603,401.7811 =
-#   6,226,386.4245, which are `merged260810` to the digit.
+# A cumulative claim is the one figure the store cannot regenerate: a round the
+# reviewer has merged stops being net-new the moment he merges it.
 #
-#   Round 4 is inside round 5. It was an interim report against `merged260810`, and
-#   `merged260815` absorbed only the 39,492 pairs that overlapped another
-#   contributor's delivery. The rest is still net-new in the store today and is
-#   therefore counted once, in round 5.
-#
-# Summing a superseded round would double-count it. The store agrees: net-new rows
-# carry `verified_at` from 2026-08-09 onward, which is every round since the last
-# merge and nothing before it.
-# Phase 1 carries a measured EE rather than a quoted one, for the reason above: the
+# Round 1 carries a MEASURED equivalent-English rather than a quoted one, because the
 # metric did not exist in July. Its record count is the reviewer's own confirmed
 # figure ("the six yearly files grew from 8,224,963 to 9,654,487 records, adding
-# 1,429,524 records (17.38%)", feedback of 2026-07-27), and the EE beside it is the
-# difference between those same two releases under the fixed weight model. The two
-# were computed independently and the record delta lands on his figure exactly.
+# 1,429,524 records (17.38%)", feedback of 2026-07-27), and the weight beside it is
+# the difference between those same two releases under the fixed model. The two were
+# computed independently and the record delta lands on his figure exactly, which is
+# what makes the weight trustworthy.
 #
 # The merged260727 -> merged260730 step is NOT here and must never be added. Those
 # 609,145 records are an external contributor's round, filed under
 # `feedback-external-phase-2/`, and its feedback describes regional directory
 # harvesting across eleven non-English countries, which is not this project's work.
 SUBMITTED_ROUNDS = (
-    # label, date, records, equivalent-English, baseline measured against, superseded_by
-    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2", None),
-    ("2", "2026-08-03", 151_949, Decimal("91814.6880"), "merged260730", None),
-    ("3", "2026-08-06", 152_773, Decimal("105676.0387"), "merged260802-2", "4"),
-    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", None),
-    ("5", "2026-08-12", 159_787, Decimal("91908.4230"), "merged260810", "6"),
+    # label, date, records, equivalent-English, baseline measured against
+    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2"),
+    ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730"),
+    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2"),
 )

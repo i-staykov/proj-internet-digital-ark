@@ -281,39 +281,22 @@ BASELINES
 # once shipped the data without trace.py, the tool the README tells them to run
 cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 
-# ...minus the baseline's own evidence rows, which are 77% of the table and are the
-# reviewer's own data coming back to him. `prior_reused` says only "this pair was in
-# the supplied baseline", a fact `baseline/` states directly and far more compactly.
-# Dropping them takes evidence.parquet from 762 MB to roughly a fifth of that, and
-# it is the only cut here that costs a reviewer nothing: the rows are regenerable by
-# re-ingesting `baseline/`, which ships beside them, and `verify.sh` reads the
-# additions manifest rather than this file.
-uv run python - "$STAGE" <<'PROVENANCE'
-import sys
-from pathlib import Path
-
-import duckdb
-
-stage = Path(sys.argv[1])
-src = Path("output/provenance/evidence.parquet")
-dst = stage / "provenance/evidence.parquet"
-conn = duckdb.connect()
-before = dst.stat().st_size / 1024 / 1024
-conn.execute(
-    f"COPY (SELECT * FROM read_parquet('{src}') WHERE evidence_type <> 'prior_reused') "
-    f"TO '{dst}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-)
-after = dst.stat().st_size / 1024 / 1024
-print(f"  evidence.parquet: {before:,.0f} MB -> {after:,.0f} MB (baseline rows dropped)")
-PROVENANCE
-cat >> "$STAGE/provenance/LOAD.sql" <<'PROVNOTE'
-
--- NOTE ON evidence.parquet
--- It carries this project's own observations only. The baseline's `prior_reused`
--- rows are omitted deliberately: they were 77% of the table and they restate what
--- baseline/ already contains. To rebuild the full table, load these rows and then
--- ingest baseline/<marker>/*.txt, which is what tier 3 of the README does anyway.
-PROVNOTE
+# The FULL evidence table ships, baseline rows included, and the 429 MB they cost is
+# not optional. Dropping `prior_reused` was tried on 2026-08-17 and shipped once. It
+# looked free: those rows are the reviewer's own data returning to him, and
+# `verify.sh` passed because it reads the additions manifest rather than the parquet.
+#
+# Running the archive's own tier-2 reproduction against a freshly extracted copy is
+# what caught it. Without the baseline rows, 11,316,960 of 16,619,832 `domain_year`
+# rows point at an `evidence_id` that no longer exists, so `ark check` fails on
+# `evidence_wall_intact` and `every_pair_has_master_evidence`. Worse, net-new is
+# DEFINED as "no baseline evidence for this (domain, year)", so with those rows gone
+# the rebuild re-claims the entire corpus: 712,927 additions for 1996 against a true
+# 63,162. That is the exact failure `notes.md` records from phase 2, where shipping
+# would have claimed 1,339,783 pairs instead of 17,418.
+#
+# The lesson is not "keep the rows", it is that a size cut which no guard covers is
+# an unmeasured change. `verify_delivery.sh` now checks the evidence wall directly.
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true

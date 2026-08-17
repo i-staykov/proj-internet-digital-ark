@@ -9,6 +9,7 @@
 #   1. every file matches SHA256SUMS
 #   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
+#   4. every assignment in the provenance export cites evidence shipped beside it
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
@@ -73,7 +74,44 @@ if missing:
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
 
-# Checks 4, 5 and 6 are gone with the standard they policed. They verified that
+PY
+
+# --- 4. the evidence wall, inside the shipped provenance ---------------------
+# Added 2026-08-17, after an archive shipped with 11,316,960 of 16,619,832
+# assignments pointing at an `evidence_id` that was not in the file beside them. A
+# packaging change had filtered the evidence table to save 429 MB; every check above
+# passed, because they all read the additions manifest and none of them read the
+# parquet. The archive's central claim is that any line of any annual file traces to
+# an observation IN THIS ARCHIVE, and nothing was testing it.
+#
+# `uv` is optional here on purpose: the rest of this script needs only coreutils and
+# python3, and a reviewer who has not installed uv should still get the first three
+# checks rather than an error.
+if [ -f provenance/evidence.parquet ] && [ -f provenance/domain_year.parquet ]; then
+    if command -v uv >/dev/null 2>&1; then
+        orphans=$(uv run --with duckdb --no-project python -c "
+import duckdb
+c = duckdb.connect()
+print(c.execute('''
+    SELECT count(*) FROM read_parquet('provenance/domain_year.parquet') dy
+    WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
+                      WHERE e.evidence_id = dy.evidence_id)
+''').fetchone()[0])
+" 2>/dev/null | tail -1)
+        case "$orphans" in
+            0)   say "evidence wall intact" "PASS  every assignment resolves to a shipped evidence row" ;;
+            ''|*[!0-9]*) say "evidence wall intact" "SKIP  could not read the provenance export" ;;
+            *)   say "evidence wall intact" "FAIL  $orphans assignments cite evidence not in this archive"; fail=1 ;;
+        esac
+    else
+        say "evidence wall intact" "SKIP  needs uv (https://docs.astral.sh/uv/)"
+    fi
+else
+    say "evidence wall intact" "SKIP  no provenance export here"
+fi
+
+python3 - <<'PY'
+# Checks 5, 6 and 7 are gone with the standard they policed. They verified that
 # `additions_english/` was a subset of the additions, that it partitioned them
 # against `additions_unverified/`, and that every rejection in `disqualified.csv`
 # carried a reason. The reviewer retired the page-level English standard in August

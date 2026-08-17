@@ -1,9 +1,7 @@
 # Internet Digital Ark: round 5
 
-Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`.
-
-**Every figure here is generated from the evidence store**, not typed, so no table can drift from the
-files shipped beside it.
+Additions to the 1996-2001 annual domain lists, measured against `[BASELINE]`. Every figure is
+generated from the evidence store, not typed, so no table can drift from the files shipped beside it.
 
 ---
 
@@ -17,189 +15,146 @@ files shipped beside it.
 | 4. Equivalent-English increment | **[EE]** |
 | 5. Equivalent-English growth rate | **[EEGROWTH]** |
 
-Lines 1 and 2 are the `[BASELINE]` totals, unchanged, since this increment is not yet merged. The
-threshold for submission is 5% of the current baseline, which is [EE5PCT] equivalent-English.
-
-Of the [TOTAL] net-new records, [UNIQUE] are distinct domains and **[NEWDOMAINS] appear in none of the
-six baseline annual files in any year**, so the majority of the increment is genuinely new names rather
-than new years on names already held. Mean equivalent-English weight per record is [EEMEAN].
+Lines 1 and 2 are the `[BASELINE]` totals, unchanged, since this increment is not yet merged. The 5%
+threshold is [EE5PCT] equivalent-English. The increment covers [UNIQUE] distinct domains, of which
+**[NEWDOMAINS] appear in none of the six baseline files in any year**; mean weight per record is [EEMEAN].
 
 [PER_YEAR_TABLE]
 
-The baseline column above counts registered domains, which is the output unit section X asks for, so
-it reads lower than the [BASELINEPAIRS] raw lines of line 1. Both describe the same six files. Growth
-is quoted against line 2, the reviewer's own equivalent-English total for those files.
+The baseline column counts registered domains, the output unit section X asks for, so it reads lower
+than the [BASELINEPAIRS] raw lines of line 1. Both describe the same six files.
 
 [CUMULATIVE]
 
 ---
 
-## 2. What was added, and the year evidence behind each addition
+## 2. What was added, and what dates each year
 
-Four routes account for nearly all of this round. Each is described with the field that dates a year,
-because under section IV of the brief a record may enter an annual file only on evidence for that year.
+Four routes account for almost all of it. `sources.md`, shipped beside this report, carries the full
+entry for each: acquisition command, date semantics, measured yield and caveats.
 
-**1. The Internet Archive's own capture census (`dartmouth_nber_captures`).** A 2017 research release
-deposited at archive.org under the Dartmouth/NBER web-history collection publishes, for every host the
-Wayback Machine held at that time, a count of captures per calendar year. One row is `host`, `year`,
-`count`. A row is therefore a statement by the archive that it holds N captures of that host inside that
-calendar year, which is the same fact a CDX query returns, published in bulk instead of retrieved one
-host at a time. It is filed as `cdx_timestamp` for that reason. **Independent check:** for domains where
-our own CDX engine had separately queried the live archive, the two agree on [DARTMOUTH_AGREEMENT]
-(domain, year) pairs, including exact same-day agreement on single-capture years such as `milwhite.com`
-1996 (our engine recorded `19961231231928` against the census row `ia_captures:1996:1`). The census evidences only the
-years it names; no year is inferred from any other.
+| Route | What dates a year | Net-new pairs |
+|---|---|--:|
+| the Internet Archive's own capture census, a 2017 Dartmouth/NBER release | the archive's count of captures it holds for that host in that calendar year | 227,273 |
+| a published compilation of registry creation dates over 171M domains | the registry's own creation date, which dates that year and no other | 2,165,523 |
+| the UK Web Archive host link graph, already held since July | the crawl date on the link record | 92,646 |
+| the January 1997 Internet Domain Survey, recovered from a dead host | the survey edition date | 115,104 |
 
-**2. Registry creation dates in bulk (`domain_creation_bulk`).** A published WHOIS/DNS compilation of
-171 million domains carries the registry's own creation date per domain, parsed from port-43 answers.
-Section IV states that a WHOIS Creation Date is valid evidence that a domain existed no later than that
-date and may support inclusion in the annual file for the year the creation date falls in. That is
-exactly and only how it is used here: **a creation date in 1998 writes 1998 and no other year.** The
-brief's warning about later years is enforced structurally rather than by care, because the parser emits
-one evidence row for one year and `assign_year` cannot write a second.
+Two of these needed no new download and one needed no querying, which is the finding of the round and
+is taken up in section 5.
 
-*Falsification run before admitting it.* A TLD cannot predate its own delegation. Across the six TLDs
-delegated in 2001, the file contains 21,698 in-window rows and **zero** dated before 2001: `.info` 20,731
-rows, `.biz` 635, `.coop` 315, `.museum` 17. Had the dates been synthesised or shifted, this is where it
-would show.
+**Each was verified before admission, not after.** The capture census agrees with our own independent
+CDX querying of the live archive on **[DARTMOUTH_AGREEMENT] (domain, year) pairs**, including exact
+same-day agreement on single-capture years. The registry dates were falsified against a constraint
+nobody encoded: a TLD cannot predate its own delegation, and across the six TLDs delegated in 2001 the
+file holds 21,698 in-window rows and **zero** dated before 2001.
 
-**3. A file we already held, read completely (`ukwa_link_source`).** The UK Web Archive host link graph
-had been parsed since July. The parser stopped at the first record whose year exceeded the window, on the
-assumption the file was sorted by year. It is not: it is fifteen concatenated shards, and the check that
-had verified the assumption stopped 2.4 times short of the first shard boundary at line 11,908,464. The
-parser had been reading **6.76%** of the file. Removing four lines recovered 92,646 net-new pairs from
-material already on disk.
-
-**4. The January 1997 Internet Domain Survey (`isc_survey`).** The survey's own host is long dead and the
-file had been recorded as unrecoverable. A sweep of every dead host in the register asked a different
-question, not "does this host answer" but "did the archive keep its files", and found `zone/9701.domains.gz`
-intact in the Wayback Machine under a successor hostname. A documented presence in a dated DNS survey is
-direct annual evidence under section V.
-
-Alongside these, mentions already held were re-admitted by the corroboration rule described in section 5,
-and the CDX engines continued to date candidates from the archive itself.
+**The narrowest evidence is also the largest contributor, and it is under-claimed deliberately.** A
+creation date attests registration, not activity, and it attests one year. Where a domain was
+registered in 1997 and ran until 2001, this route supplies 1997 alone; the other four years must still
+be earned from a capture or a survey. The parser emits one evidence row for one year, so `assign_year`
+cannot write a second.
 
 ---
 
 ## 3. Source contribution statistics
 
-Every net-new record, by the source that dated it. Raw record increase and equivalent-English increase
-are given for each, as required.
+Every net-new record by the source that dated it, with the raw and equivalent-English increase for each.
 
 [EE_SOURCE_TABLE]
 
-**Candidate pool, kept strictly separate from the annual masters:** [CANDIDATES] domains carry no
-year-specific evidence and are shipped as `candidates.txt`, never mixed into `1996.txt` through
-`2001.txt`. They are hostnames extracted from archived pages (`link_target`), which the taxonomy makes
-structurally incapable of dating a year.
+All are master, meaning eligible for the annual files. Separately, **[CANDIDATES] domains carry no
+year-specific evidence** and ship as `candidates.txt`, never mixed into the annual masters. They are
+hostnames extracted from archived pages, typed `link_target`, which the taxonomy makes structurally
+incapable of dating a year.
 
 ---
 
 ## 4. CDX execution notes
 
-Tooling: `ark cdx`, this project's own client for the public Wayback CDX API, driven by
-`scripts/supervise_cdx_pool.sh`. It runs two disjoint populations on two machines. The **VPS** works pure
-bracketed gaps, a missing year Y where Y-1 and Y+1 are already held, as a completeness baseline. The
-**local** engine works the candidate pool beside the discovery loop that feeds it.
+`ark cdx`, this project's client for the public Wayback CDX API, driven by `supervise_cdx_pool.sh`
+over two disjoint populations on two machines: the VPS works pure bracketed gaps as a completeness
+baseline, the local engine works the candidate pool beside the discovery loop that feeds it.
 
 [CDX_TABLE]
 
 [CDX_FAILURES]
 
-Failures are handled by adjusting the request rate rather than by stopping, as section VII requires.
-The client sends an honest User-Agent naming the project and a contact address, runs modest concurrency,
-honours `Retry-After`, and backs off on 429, 503 and 504 with a delay that adapts between a floor and a
-ceiling. A batch that ends is republished rather than lost, so an interrupted run costs nothing a repeat
-does not recover.
+Failures adjust the request rate rather than stopping the campaign. The client sends an honest
+User-Agent naming the project and a contact address, runs modest concurrency, honours `Retry-After`,
+and backs off on 429, 503 and 504 between a floor and a ceiling. An interrupted batch is republished
+rather than lost.
 
-**On whether the CDX route is worth further expansion: yes, but it is no longer the binding constraint.**
-Roughly 2.5 million candidate names sit unqueried against engines clearing a few hundred requests an hour.
-The queue has not been the constraint at any point this round. That observation is what redirected the
-round toward bulk dated corpora, and section 2 is the result.
+**Worth further expansion, but no longer the binding constraint.** Roughly 2.5 million candidate names
+sit unqueried against engines clearing a few hundred requests an hour. The queue was never the limit
+this round, and that observation is what redirected it toward bulk dated corpora.
 
 ---
 
 ## 5. How this contributes to an autonomous discovery system
 
-The brief asks for a system that discovers, validates and preserves rather than a set of downloads. What
-follows is the machinery, all of which ships in the archive.
+**The finding worth reporting is a negative one about our own strategy.** Collection had been optimised
+against request throughput at a single archive. When the baseline was reissued mid-round carrying
+another contributor's UMN DRUM delivery, the shape of it was the lesson: one bulk dated corpus was worth
+roughly twenty times our previous round of per-domain querying. A bulk dated corpus does not have that
+constraint at all. The system was re-aimed at that shape, and sections 2 and 3 are the result. The
+measured comparison now guides ranking: the capture census returned **997 net-new pairs per megabyte**
+against **15.5** for a Usenet sample, so sources are priced by yield per byte before a collector is built.
 
 **The evidence wall is structural, not procedural.** `domain_year.evidence_id` is `NOT NULL` and
-foreign-keys a row in `evidence`. There is no code path that can write a year assignment without naming
-the observation supporting it. An agent is therefore given wide latitude about what to try and none at
-all about what counts as proof.
+foreign-keys `evidence`. No code path can write a year assignment without naming the observation behind
+it, so an agent has wide latitude about what to try and none about what counts as proof. A taxonomy
+decides which evidence may date a year: master-eligible types are [MASTERTYPES], while `link_target`,
+a hostname seen in an archived page, never can, and `assign_year` refuses it.
 
-**A taxonomy decides which evidence may date a year.** Master-eligible types are [MASTERTYPES].
-`link_target`, a hostname seen in an archived page, never can, and `assign_year` refuses it. That single
-rule is why the discovery loop below can run unattended without risking the annual files.
+**A human gate an agent cannot argue past.** `approved-sources-list.md` carries one decision per
+(source, evidence type) and `ark ingest` refuses any master-eligible class that is pending or absent.
+Requests are machine-generated from a seeded-random sample with live links, the measured counterfactual
+and the reasons to refuse, so the reviewer checks external evidence instead of reading the agent's
+argument. Both large sources here passed that gate before a single row could date a year.
 
-**The corroboration split.** [CORROBORATION] [ADMISSIBLE]
+**Nine invariants run before anything ships**, enforced by a pre-commit hook rather than remembered.
+They assert among other things that no exported addition carries baseline evidence for that year, so
+the net-new figure cannot be inflated, and that no master-eligible evidence sits unassigned.
 
-**A human gate that an agent cannot argue past.** `docs/approved-sources-list.md` carries one decision
-line per (source, evidence type), and `ark ingest` refuses any master-eligible class that is pending,
-rejected or absent. Requests are machine-generated by `scripts/request_approval.py` out of a
-seeded-random sample with live links, the measured counterfactual and the reasons a reviewer should
-refuse, so the human checks external evidence instead of reading the agent's argument. Both sources in
-section 2 passed through this gate before a single row of theirs could date a year.
+**A discovery loop that does not run out.** A candidate the engine dates was by construction live in
+the window; its archived page names contemporaries; those return to the pool. Because extracted
+hostnames can never date a year, the loop needs no approval and is safe unattended. Measured this
+round: link-looking pages harvested 391 domains against 53 for home pages, a 7.4x improvement, but
+yielded 5 net-new because 386 were already held and dated. That negative result is why bulk link graphs
+now outrank page-by-page expansion.
 
-**Nine invariants, run before anything ships.** `ark check` asserts, among others, that no exported
-addition carries baseline evidence for that year (so the net-new figure cannot be inflated), that the
-year named inside an evidence value equals the year it is filed under, and that no master-eligible
-evidence sits unassigned. The gate is enforced by a pre-commit hook rather than remembered.
-
-**A discovery loop that does not run out.** A candidate the CDX engine dates is by construction a site
-that was live in the window; its archived page names other sites of the same period; those names return
-to the pool, and because extracted hostnames are `link_target` and can never date a year, the loop needs
-no approval and is safe to leave running unattended. It was measured this round: seeding link-looking
-pages rather than home pages harvested 391 domains against 53, a 7.4x improvement, but yielded only 5
-net-new, because 386 of the 391 were already held and already dated. That negative result is why bulk
-link graphs are now preferred over page-by-page expansion.
-
-**The agent harness itself.** A standing brief, `CLAUDE.md`, is loaded into every agent session and holds
-only what does not change: the evidence rule, the metric, which document is authoritative for what, the
-operational rules, and a section of traps that have each produced a confident wrong answer. Collectors
-hold their own absolute deadlines and keep running with no agent present; the agent re-invokes itself on
-a heartbeat, and a wake that finds everything healthy is required to spend itself hunting a new source,
-because an idle wake beside healthy engines is a wasted one. Decisions land in an append-only dated log,
-the few with structural impact become ADRs, and anything genuinely needing a human appears on exactly one
-surface so it cannot be buried.
-
-**Negative results are first-class.** [DATASETS_SEARCHED]
+**The harness.** A standing brief is loaded into every agent session holding only what does not change:
+the evidence rule, the metric, which document is authoritative, and a register of traps that have each
+produced a confident wrong answer. Collectors hold absolute deadlines and run with no agent present.
+The agent re-invokes itself on a heartbeat, and a wake that finds everything healthy must spend itself
+hunting a new source. Decisions land in an append-only dated log; anything needing a human appears on
+exactly one surface. **[DATASETS_SEARCHED]**
 
 ---
 
 ## 6. Limitations, and what is worth expanding
 
-**The registry creation dates are the largest single contribution and also the narrowest evidence.** A
-creation date attests registration, not activity, and it attests one year only. Where a domain was
-registered in 1997 and remained live through 2001, this source supplies 1997 alone; the other four years
-must still be earned from a capture, a survey or a continued-registration record. This is a deliberate
-under-claim and it is enforced by the parser.
-
-**The capture census is a 2017 snapshot.** The archive has grown since, so its per-year counts are a
-floor on what the Wayback Machine holds today, never a ceiling.
+The capture census is a 2017 snapshot, so its per-year counts are a floor on what the archive holds
+today, never a ceiling. The registry compilation covers domains still registered in December 2024, so
+it is survivorship-biased: a name created in 1998, dropped, and re-registered in 2015 reads 2015 and
+falls out of the window. The direction of error is loss, and the reverse cannot happen.
 
 **Worth expanding, in order.** Bulk dated corpora first, since one such file outweighed an entire round
-of per-domain querying and this round found two more. National web archive link graphs second, where the
-year association is explicit: `ukwa_link_source` returned a mean equivalent-English weight of 0.9803,
-the highest of any source here, because a national link graph is almost entirely `.uk`. Per-domain CDX
-querying third, which still pays but is bounded by request rate rather than by candidates.
-
-**Not worth expanding:** the closed families named above, each recorded with the measurement that closed
-it so the same ground is not broken twice.
+of per-domain querying and two more were found this round. National web archive link graphs second,
+where the year association is explicit: `ukwa_link_source` returned a mean weight of 0.9803, the highest
+here, because a national link graph is almost entirely `.uk`. Per-domain CDX querying third, which still
+pays but is bounded by request rate rather than by candidates. Not worth expanding: the closed families
+in `sources.md`, each recorded with the measurement that closed it.
 
 ---
 
 ## 7. Reproduction
 
-`README.md` inside the archive gives the full order. In short: `masters/` holds the merged annual lists
-and `additions/` this round's net-new records only, both one registered domain per line and deduplicated
-within each year; `candidates.txt` holds the names with no year evidence, separate as section X requires;
-`provenance/*.parquet` joins every (domain, year) to the evidence row that justifies it, so any single
-line of any annual file traces to the observation behind it; `journals/` holds the raw per-source records
-before interpretation; `source/source.tar.gz` is the repository at the commit that produced the delivery;
-and `verify.sh` re-checks the shipped files against each other.
+`README.md` in the archive gives the full order. `masters/` holds the merged annual lists and `additions/` this round's net-new
+records, one registered domain per line, deduplicated within each year; `candidates.txt` holds the names
+with no year evidence; `provenance/*.parquet` joins every (domain, year) to the evidence row justifying
+it, so any line of any annual file traces to an observation; `journals/` holds the raw per-source records
+before interpretation; `source/source.tar.gz` is the repository at the commit that built the delivery.
 
-`uv run ark export` regenerates every text file from the store, `uv run ark check` re-runs the nine
-invariants, and `uv run python scripts/round_figures.py --verify` re-scores the round with the reviewer's
-own `equivalent_english_domains.py` and its unchanged weight model.
+[REPRODUCTION_RESULT]
