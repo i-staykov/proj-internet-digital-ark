@@ -71,9 +71,6 @@ pool beside the discovery loop feeding it.
 
 [CDX_FAILURES]
 
-An interrupted batch is republished rather than lost, so a stopped run costs only the queries it had not
-yet made.
-
 **Still worth expanding, but no longer the binding constraint.** Roughly 2.5 million candidate names sit
 unqueried against engines clearing a few hundred requests an hour, so the queue was never the limit this
 round. That is what redirected it toward bulk dated corpora.
