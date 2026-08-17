@@ -33,12 +33,7 @@ than the [BASELINEPAIRS] raw lines of line 1. Both describe the same six files.
 Four routes account for almost all of it. `sources.md`, shipped beside this report, carries the full
 entry for each: acquisition command, date semantics, measured yield and caveats.
 
-| Route | What dates a year | Net-new pairs |
-|---|---|--:|
-| the Internet Archive's own capture census, a 2017 Dartmouth/NBER release | the archive's count of captures it holds for that host in that calendar year | 227,273 |
-| a published compilation of registry creation dates over 171M domains | the registry's own creation date, which dates that year and no other | 2,165,523 |
-| the UK Web Archive host link graph, already held since July | the crawl date on the link record | 92,646 |
-| the January 1997 Internet Domain Survey, recovered from a dead host | the survey edition date | 115,104 |
+[ROUTES_TABLE]
 
 Two of these needed no new download and one needed no querying, which is the finding of the round and
 is taken up in section 5.

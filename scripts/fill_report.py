@@ -260,6 +260,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "CUMULATIVE": cumulative(f),
         "DARTMOUTH_AGREEMENT": dartmouth_agreement(),
         "REPRODUCTION_RESULT": reproduction_result(),
+        "ROUTES_TABLE": routes_table(f),
     }
     base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
     subs["BASELINESHARE"] = f"{base_share:.2f}%"
@@ -279,6 +280,49 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
+
+
+# The four routes section 2 describes, in the order a reader should meet them. Only
+# the prose lives here; every figure beside it is read from the store, because the
+# section opens by claiming no number in this report is typed and a hand-copied pair
+# count in the summary table would make that false the first time a collector banked
+# anything. It did: the four were written on 2026-08-17 and were stale within a day.
+ROUTES = (
+    (
+        "dartmouth_nber_captures",
+        "the Internet Archive's own capture census, a 2017 Dartmouth/NBER release",
+        "the archive's count of captures it holds for that host in that calendar year",
+    ),
+    (
+        "domain_creation_bulk",
+        "a published compilation of registry creation dates over 171M domains",
+        "the registry's own creation date, which dates that year and no other",
+    ),
+    (
+        "ukwa_link_source",
+        "the UK Web Archive host link graph, already held since July",
+        "the crawl date on the link record",
+    ),
+    (
+        "isc_survey",
+        "the January 1997 Internet Domain Survey, recovered from a dead host",
+        "the survey edition date",
+    ),
+)
+
+
+def routes_table(f: dict) -> str:
+    """Section 2's summary of where the round came from, figures read from the store."""
+    by_source = {row["source"]: row for row in f["by_source"]}
+    lines = [
+        "| Route | What dates a year | Net-new pairs |",
+        "|---|---|--:|",
+    ]
+    for key, what, dates in ROUTES:
+        row = by_source.get(key)
+        pairs = f"{row['pairs']:,}" if row else "_not in this round_"
+        lines.append(f"| {what} | {dates} | {pairs} |")
+    return "\n".join(lines)
 
 
 def reproduction_result() -> str:
