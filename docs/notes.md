@@ -10047,3 +10047,127 @@ broken package was clean.
 
 2,838,715 pairs, 1,697,224.8585 equivalent-English, 20.3337%, cumulative 37.7269% of the current corpus.
 All eight checks green on a fresh extraction, verified section by section rather than from the summary.
+
+---
+
+## 2026-08-18 (early hours): phase 6 opens on `merged260817-2`
+
+Ding accepted phase 5 on 2026-08-17 and reissued the corpus. The instruction from Ivo was to treat the
+feedback archive as the source of truth, adopt it across `docs/`, reset the report and email templates,
+and rearm every engine to run until the announced internet gap at 06:00 CEST.
+
+### What he actually said, and the part that cost 130,995 EE
+
+Nothing was rejected: "All submitted domain-year records were supported by corresponding evidence, and
+no invalid or duplicate records were found." Then the sentence that matters more:
+
+> Because 230,393 submitted records had already been incorporated into the updated `merged260817`
+> baseline, the final accepted increment was recalculated against that latest baseline.
+
+So 2,838,715 records and 1,697,224.86 EE were sent and **2,608,322 and 1,566,229.7613** were credited,
+14.901054%. He merges against whatever release is current when he reaches a submission, and another
+contributor's round landed in between. There is no defence against this and it is not a defect: the
+overlap is real, it is his to count, and a submitted figure carried forward would inflate our cumulative
+by exactly that amount. `SUBMITTED_ROUNDS` in `baseline.py` therefore now stores the ACCEPTED pair per
+round, with the submitted one recorded only in the comment above it.
+
+The cumulative consequence: 5,136,061 records and 3,018,005.5168 EE, which is **24.9895%** of the corpus
+today rather than the 37.7269% quoted on 17 August. The corpus grew 44.7% in ten days, roughly 1.57M EE
+of it ours and 2.16M someone else's. Nothing was lost.
+
+### The baseline itself, and the check that it is his numbers
+
+`merged260817-2`: 22,491,418 records, 12,077,095.5404 EE. Loaded under its own marker, **4,220,591 year
+rows added**. The six per-year totals in `baseline.py` were measured by running his own calculator over
+each file, and they sum to 12,077,095.5404, which is the total he published, to the digit. He publishes
+only the total, so that sum is the only available proof that the per-year figures are his rather than
+our reconstruction.
+
+One warning during the ingest, harmless: it looks for `merge_stats_new0714.csv` and this release carries
+`merge_stats_ivaylo_0817.csv` and `merge_stats_verified_submission_0817.csv` instead. Merge stats are
+informational and nothing depends on them.
+
+### His per-year merge audit is new information, and it changes targeting
+
+The release ships `merge_audit_<contributor>_0817.json` for each contributor, so for the first time our
+round can be compared with someone else's on the same corpus.
+
+| year | ours accepted | already his | other contributor accepted | their rejected |
+|---|--:|--:|--:|--:|
+| 1996 | 58,288 | 4,876 | 46,622 | 0 |
+| 1997 | 188,186 | 42,006 | 245,075 | 1 |
+| 1998 | 246,604 | 36,552 | 623,173 | 0 |
+| 1999 | 444,023 | 69,738 | 1,423,310 | 5 |
+| 2000 | 688,340 | 77,219 | 2,116,142 | **791,037** |
+| 2001 | **982,881** | **2** | 267 | 0 |
+
+Two readings. **2001 is ours almost exclusively**, 982,881 against 267, because registry creation dates
+reach a year the web archives cover thinly; that is a property of the route rather than luck. And **1998
+to 2000 is being grown three to one by someone else**, which is also where our `already_in_baseline`
+overlap concentrates. A marginal record in those years is the most likely to be one he already holds by
+the time he merges. Prefer sources reaching 1996, 1997 and 2001.
+
+Their 2000 had 791,037 records rejected for missing evidence or invalidity against our zero across all
+six years. Worth knowing, and not worth imitating.
+
+### What was done
+
+- `feedback-phase-5/feedback-for-phase-5/Domain_Data_Collection_Task` moved to `feedback-phase-6/`,
+  matching the convention that `feedback-phase-N/` holds the baseline phase N works against. The
+  original zip is under `feedback-phase-6/original-archive/`. **`.gitignore` was extended first**,
+  before anything else touched the tree, because a `git add -A` once swept 1.3 GB of a baseline copy
+  into history and made the branch unpushable.
+- **`docs/ding/` is new**: his `.docx` and file guide transcribed verbatim by
+  `scripts/extract_ding_docs.py`, pandoc for the body and a provenance header carrying each source
+  file's sha256. Never retyped, because a paraphrase of the brief is the one document here that must not
+  exist. `CLAUDE.md` now ranks the four surfaces that carry his instructions: a later email beats
+  `docs/ding/` beats `SPEC.md`, and `brief_amendments.md` is the record of the first overruling the
+  others. The equivalent-English metric arrived by email and is nowhere in the SPEC, which is why the
+  ordering is load-bearing rather than tidy.
+- **His three documents are byte-identical to the phase-5 ones**, checked by sha256. He reissued the
+  same brief with a new corpus. Everything new is in the email.
+- `docs/report.template.md` reset: the seven sections his section X requires stay, every round-5
+  narrative paragraph is replaced by a marked instruction to write this round's. `ROUTES` in
+  `fill_report.py` is emptied and now returns a **token** when unset, so `fill` refuses the document
+  rather than shipping section 2 as a blank table. Carrying last round's routes forward would have been
+  worse than an empty table: each row keeps its own heading while the store quietly fills it with this
+  round's pairs.
+- The email is now filled too, from `private/email.template.md` to `private/email-draft.md`, so its five
+  figures cannot disagree with the report's. **Both stay outside git**, which was not the first
+  instinct: the template was written to `docs/` and moved once the comment in `fill_report.py` was read.
+  `package_delivery.sh` ships `git archive HEAD`, so any tracked file reaches Ding, and the 2 August
+  archive carried an email draft's private "notes for Ivo" section that way.
+- The two source classes approved last round were still filed under `## Pending requests` in
+  `approved-sources-list.md` while that heading said "None at present". Moved to the decided section.
+- `key-decisions.md`: the two answered requests removed from `## OPEN`, the phase-5 status entry
+  replaced with the phase-6 one, C-22 added, and C-20's title corrected from "the current baseline is
+  `merged260815`" rather than only superseded elsewhere.
+- `docs/phase6-plan.md` written; `phase5-plan.md` kept as history.
+
+### Engines, all three requeued after the baseline landed
+
+The order mattered: a queue built before the new baseline spends requests on domain-years the corpus
+already holds, which is what dropped the VPS hit rate to 82.6% last time.
+
+| engine | queue | size | expected | until |
+|---|---|--:|--:|---|
+| local `cdx_pool` | `queue_pool_20260818.txt` | 2,288,555 | 150,385 EE | 2026-08-18 04:00 UTC |
+| VPS `cdx_gap3` | `queue_gap_vps_20260818.txt` | 347,065 | 173,233 EE | 2026-08-18 04:00 UTC |
+| RDAP | `pool_targets_20260818.txt` | 288,407 | `.uk` first | 6 batches |
+
+The gap queue **grew** from 285,900 to 347,065 targets, which is the expected shape: four million new
+baseline rows create new bracketed gaps, a domain now held in 1997 and 1999 but not 1998. First
+measurement after the restart: 122 answered, 111 carrying an in-window year, because the queue is sorted
+best-first and its head is gap targets at an 88.6% fill rate.
+
+Three operational notes, each of which cost minutes tonight:
+
+1. **`kill` on the CDX supervisor is not enough.** It traps TERM to stop its batch cleanly, but it was
+   inside `sleep 30` and did not act on it; `kill -9` on the shell then left the worker running, and the
+   worker had to be taken down with the supervisor's own pattern, `bin/ark cd[x]`. The abandoned journal
+   was verified readable afterwards: 456 rows, clean gzip.
+2. **`caffeinate` is not in the supervisor**, it is in `extend_engines.sh`. Starting the supervisor by
+   hand therefore leaves the Mac free to idle-sleep and stop the run, which for an overnight window is
+   the whole run. Re-anchored with `caffeinate -i -w <supervisor pid>`.
+3. **`rdap_pool_sweep.sh` still defaults to `pool_targets_verisign.txt`**, a spent list. `LIST=` must be
+   set on every invocation and was, again.

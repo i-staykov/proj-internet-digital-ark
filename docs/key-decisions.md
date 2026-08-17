@@ -27,61 +27,56 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### Approve, refuse or downgrade domain_creation_bulk / whois_creation
+### Round 6 has opened against `merged260817-2`, and 5% is now 603,854.78 EE
 
-`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **2,171,217 net-new pairs and 1,245,366.6 equivalent-English** under `master`, against 649,475 and 379,868.2 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+**Status, not a question.** Ding accepted phase 5 on 2026-08-17 with no rejected records: every
+submitted domain-year record was evidence-backed, none invalid, none duplicated. He credited
+**2,608,322 records and 1,566,229.7613 equivalent-English, 14.901054% growth**, which is lower than the
+2,838,715 and 1,697,224.86 we sent because 230,393 of our records had already reached his interim
+`merged260817` through other contributors. His figures are the ones that count; `baseline.py` now
+records the accepted pair for every round.
 
-The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
+**The denominator moved a long way, and mostly not because of us.** Between `merged260815` and
+`merged260817-2` the corpus went from 8,346,839.3737 to **12,077,095.5404 EE**, a 44.7% rise, of which
+ours was 1.57M and another contributor's roughly 2.16M. So 5% of a round is now **603,854.78 EE**,
+against 417,341.97 last round, and our cumulative across four rounds reads **24.9895%** of the corpus
+rather than the 37.7269% quoted a day ago. Nothing was lost; the corpus grew.
 
-### Approve, refuse or downgrade dartmouth_nber_captures / cdx_timestamp
+**Where his audit says we are strong and weak.** He ships a per-year merge audit, and it is the first
+time we can see our work against someone else's on the same corpus:
 
-`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **227,273 net-new pairs and 142,084.0 equivalent-English** under `master`, against 130,966 and 82,161.2 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+| year | ours accepted | already his | the other contributor's | our growth on that year |
+|---|--:|--:|--:|--:|
+| 1996 | 58,288 | 4,876 | 46,622 | 7.20% |
+| 1997 | 188,186 | 42,006 | 245,075 | 11.47% |
+| 1998 | 246,604 | 36,552 | 623,173 | 11.73% |
+| 1999 | 444,023 | 69,738 | 1,423,310 | 10.61% |
+| 2000 | 688,340 | 77,219 | 2,116,142 | 11.14% |
+| 2001 | **982,881** | **2** | 267 | **34.27%** |
 
-The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
+2001 is ours almost exclusively, because registry creation dates reach a year the archives cover
+badly. 1998 to 2000 is where we are outproduced three to one. That is a targeting fact for this round,
+not a decision needing you.
 
-### Where the round stands: 3.6696% banked, and EITHER request above clears 5% on its own
+**No decision is waiting on you here.** The two source classes you approved last round are banked and
+shipped; `approved-sources-list.md` has no pending request. The four entries below are unchanged.
 
-**Status, not a question.** The baseline moved mid-round: `merged260815` replaced `merged260810` and the
-file guide calls it "the official baseline to be expanded and used for comparison in this round". The
-denominator grew **34.06%**, from 6,226,386.4245 to **8,346,839.3737**, and 39,492 of our pairs became
-pairs he already holds. Both measured with his own calculator, which I diffed against the phase-3 copy
-and found byte-identical, so the standard itself has not moved. 5% is now **417,341.97 EE**.
+### The local engine's cost per answer, and what it is now worth
 
-| | pairs | EE | growth |
-|---|--:|--:|--:|
-| after the baseline swap | 267,686 | 166,531 | 1.9951% |
-| **banked now** | **438,151** | **306,296.5** | **3.6696%** |
-| with `dartmouth_nber_captures` | 665,424 | 448,380.5 | **5.3719%** |
-| with `domain_creation_bulk` | 2,609,368 | 1,551,662.8 | **18.5898%** |
+Not blocking; it keeps running unless you say otherwise. Measured on 2026-08-16: 600 queries drew
+**1,830 throttles and 188 failures**, about 2,430 HTTP requests for 412 answers. Candidates are fine
+(75.7% of answered carry a capture), so this is citizenship rather than tuning, and every technical
+lever is tested and closed.
 
-**Two independent routes, on different provenance lineages**, so they corroborate rather than repeat:
-the census is `cdx_timestamp` from the Internet Archive, the creation dates are `whois_creation` from
-the registries. Either alone clears the threshold. Both are one word plus `just ship-approved`.
+**The "0.085 points" figure quoted here last round was against the old baseline and is now smaller
+still**, since the denominator rose 44.7%. What has not changed is that the queue is not the limit:
+2,288,555 pool targets carrying 150,385 EE of expected value sit against an engine clearing a few
+hundred an hour, so the constraint is request rate at one archive and always was.
 
-**What closed most of the gap was not new collection.** Three of the four largest gains came from
-material already public or already on our own disk: a parser that had been reading 6.76% of a file we
-had held since July (**92,646 pairs**), the January 1997 domain survey the register recorded as
-unrecoverable (**76,324**), and the promotion you authorised (**94,051**). The fourth is the request
-above.
-
-Two of those are corrections to our own errors, and both reduce to one rule now written into the
-method: **a closure about one copy of an artifact is not a closure about the artifact**, and to test
-whether a file is sorted you ask whether its key ever decreases rather than sampling it. The July check
-that verified the "year-sorted" claim was real; it stopped 2.4x short of the first shard boundary.
-
-Working: `notes.md`, 2026-08-16 entries. `src/ark/baseline.py` points at the new release.
-
-### The local engine now costs 3 throttled requests per answer, for 0.085 points
-
-Not blocking; it keeps running unless you say otherwise. Newest batch: 600 queries, **1,830 throttles,
-188 failures**, ~2,430 HTTP requests for 412 answers. Candidates are fine (75.7% of answered carry a
-capture), so this is citizenship, not tuning, and every technical lever is tested and closed. Its whole
-remaining contribution is **~5,300 EE, 0.085 points**. The VPS is on another host at 84.5% and unaffected.
-
-**One correction to the framing above, from measuring the campaign properly today.** The failures are
-not the rate limits and 504s the brief asks about: over 283,968 queries those are **0.96%**. The load is
-**12.34% transport-level**, 27,151 connections refused and 7,879 timed out, which is the same throttling
-seen from the other side of the socket and cannot be read from a status code. `scripts/cdx_execution_notes.py`.
+**One correction to the framing above.** The failures are not the rate limits and 504s the brief asks
+about: over 283,968 queries those are **0.96%**. The load is **12.34% transport-level**, 27,151
+connections refused and 7,879 timed out, which is the same throttling seen from the other side of the
+socket and cannot be read from a status code. `scripts/cdx_execution_notes.py`.
 
 ### May we query Nominet in bulk for the .uk pool?
 
@@ -108,6 +103,21 @@ Priced whole, the queue covers about a tenth of the deficit, so nothing here is 
 
 ## CLOSED
 
+### C-22. The current baseline is `merged260817-2`, and a round now records what he ACCEPTED (2026-08-18)
+
+Mechanical rather than discretionary, and recorded because every figure depends on it. `baseline.py`
+carries the marker, his record count of 22,491,418 and the six per-year equivalent-English totals,
+measured by running his own calculator over each file. Those six sum to **12,077,095.5404**, which is
+the total he published, to the digit, so the numbers in that file are demonstrably his rather than ours.
+4,220,591 year rows added under the new marker, and the collectors were requeued against it the same
+night so they stop asking about domains the corpus already holds.
+
+**The discretionary part is one line.** `SUBMITTED_ROUNDS` now stores the figure he **accepted** for each
+round rather than the one it was submitted with. Phase 5 went out at 2,838,715 records and 1,697,224.86
+EE and was credited 2,608,322 and 1,566,229.7613; the 230,393 difference had reached his interim
+`merged260817` by another route. Quoting the submitted figure would inflate the cumulative by exactly
+that overlap, and the overlap is only ever visible in his reply, never in our store.
+
 ### C-21. The promotion tranche is banked, at 88% of its quoted figure (2026-08-16)
 
 You authorised it. Re-priced against the new baseline **before** writing anything, which mattered: it
@@ -123,7 +133,7 @@ the domain in an annual file and four million new rows place a great many more. 
 `ukwa_link_target`, `uucp_map_mention` and `page_expansion` stay excluded: a link-graph edge cannot date
 its target and corroboration cannot rescue that. Working: `notes.md`, 2026-08-16.
 
-### C-20. The current baseline is `merged260815`, loaded and pointed at (2026-08-16)
+### C-20. The baseline moved to `merged260815`, loaded and pointed at (2026-08-16) [SUPERSEDED BY C-22]
 
 Mechanical rather than discretionary, and recorded because every figure depends on it. `baseline.py`
 carries the marker, the reviewer's record count and the six per-year equivalent-English totals, the last

@@ -391,19 +391,6 @@ own capture evidence, which needs no approval and does not depend on trusting th
 
 Decision: candidate-only
 
-
----
-
-## Pending requests
-
-Priced, measured and waiting on a decision. A class appearing here carries a seeded-random sample with
-live links and the counterfactual, is decidable in about two minutes, and gets its own entry under
-`## OPEN` in `key-decisions.md`.
-
-None at present.
-
----
-
 ### dartmouth_nber_captures / cdx_timestamp
 
 - ingest spec: `dartmouth_nber_captures`
@@ -503,6 +490,20 @@ Mean equivalent-English weight of the net-new part: 0.5736. By year: {1996: 5704
 - the closed family named above is the same population under another name.
 
 Decision: master
+
+
+
+---
+
+## Pending requests
+
+Priced, measured and waiting on a decision. A class appearing here carries a seeded-random sample with
+live links and the counterfactual, is decidable in about two minutes, and gets its own entry under
+`## OPEN` in `key-decisions.md`.
+
+None at present.
+
+---
 
 ## Found, awaiting triage
 

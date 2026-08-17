@@ -17,6 +17,7 @@ quotations, which is the only alteration made to anything quoted here.
 | after phase-2 | feedback v3, 2026-07-31 | `feedback-external-phase-2/` (markdown) |
 | after phase-3 | feedback v4 plus the equivalent-English calculator, 2026-08-03 | `feedback-phase-3/` |
 | after phase-4 | feedback, 2026-08-10 | `feedback-phase-4/` (`.docx` only, transcribed below) |
+| after phase-5 | feedback, 2026-08-17 | `feedback-phase-6/`, his `.docx` transcribed in full under [ding/](ding/) |
 
 ---
 
@@ -173,3 +174,46 @@ Two things follow, and the second is the uncomfortable one.
 What the target costs in throughput is measured, not guessed, in the check-in of 2026-08-13 late in
 `notes.md`: the round banks about 624 EE/h across all three engines, and 5% by Sunday evening needs
 about 2,920 EE/h.
+
+---
+
+## 5. What he asked for after phase 5, on 2026-08-17
+
+**The task documents did not change.** `Internet_Digital_Ark_Project_0815_Update.docx`,
+`Update_Log.docx` and `Task_Package_File_Guide.txt` in the new package are byte-identical to the
+phase-5 ones, checked by sha256. What changed is the corpus and one paragraph of email. Both are
+transcribed in [ding/](ding/), which is now the place to read his brief rather than a summary of it.
+
+Phase 5 was accepted with **nothing rejected**:
+
+> The submission was independently checked for file integrity, domain formatting, duplication,
+> evidence coverage, and Equivalent-English calculation. All submitted domain-year records were
+> supported by corresponding evidence, and no invalid or duplicate records were found.
+
+**And recalculated downward, which is the part worth remembering.** He merges against whatever
+baseline is current when he gets to it, not the one quoted in the submission:
+
+> Because 230,393 submitted records had already been incorporated into the updated `merged260817`
+> baseline, the final accepted increment was recalculated against that latest baseline.
+
+So the credited round is **2,608,322 records and 1,566,229.7613 equivalent-English, 14.901054%**,
+against the 2,838,715 and 1,697,224.86 that were sent. The corpus is now `merged260817-2`:
+**22,491,418 records, 12,077,095.5404 equivalent-English**.
+
+### What he asked for next, in his words
+
+> Please continue expanding the historical domain list and exploring additional ready-made historical
+> datasets, bulk dated corpora, national web-archive link graphs, academic repositories, registry
+> datasets, and other innovative automated discovery methods. Please also continue reviewing whether
+> previously successful methods can produce further additions.
+
+Six named shapes and one instruction to re-mine what already worked. Every one of them is already a
+row in `sources.md`, so this is a ranking instruction rather than a new requirement: bulk dated corpora
+and national link graphs first, because they are the two that outproduced per-domain querying by more
+than an order of magnitude in phase 5.
+
+**One thing the accepted figures make measurable for the first time.** He ships a per-year merge audit
+of each contributor's submission alongside the baseline, so phase 6 can be aimed at where our work is
+thin rather than at where it is merely possible. On the phase-5 audit our 2001 was 982,881 accepted
+records against another contributor's 267, and our 1999 was 444,023 against their 1,423,310. The years
+1998 to 2000 are where the corpus is being grown by someone else and 2001 is where it is not.

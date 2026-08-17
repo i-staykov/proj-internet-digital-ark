@@ -30,7 +30,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from report_figures import BASELINE, figures, markdown  # noqa: E402
 
-from ark.baseline import REVIEWER_BASELINE_PAIRS, SUBMITTED_ROUNDS  # noqa: E402
+from ark.baseline import (  # noqa: E402
+    CURRENT_ROUND_LABEL,
+    REVIEWER_BASELINE_PAIRS,
+    SUBMITTED_ROUNDS,
+)
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import collect_stats  # noqa: E402
 
@@ -78,12 +82,16 @@ DB = Path("data/ark.duckdb")
 # this round's data. The round is identified by its content and its git tag, not
 # by its filename.
 #
-# Nothing addressed to a person is filled here. `package_delivery.sh` ships
-# `git archive HEAD`, so every tracked file reaches the reviewer, and the
-# 2 August archive carried an email draft's "notes for Ivo" section, which was
-# private reasoning about how to present the work to him. Email drafts live in
-# `private/`, which is git-ignored, and are written by hand.
-DOCUMENTS = ((Path("docs/report.template.md"), Path("docs/report.md")),)
+# The email is filled too, but ONLY out of `private/`, which is git-ignored.
+# `package_delivery.sh` ships `git archive HEAD`, so every tracked file reaches the
+# reviewer, and the 2 August archive carried an email draft's "notes for Ivo" section:
+# private reasoning about how to present the work to him. A template addressed to a
+# person is one edit away from carrying that again, so the whole pair stays outside git
+# and the fill is what keeps its five figures identical to the report's.
+DOCUMENTS = (
+    (Path("docs/report.template.md"), Path("docs/report.md")),
+    (Path("private/email.template.md"), Path("private/email-draft.md")),
+)
 
 
 def _section(md: str, heading: str) -> str:
@@ -240,6 +248,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "HARVESTED": f"{f['harvested_this_round']:,}",
         "CAPTUREBACKED": f"{f['capture_backed_total']:,}",
         "BASELINE": BASELINE,
+        "ROUND": CURRENT_ROUND_LABEL,
         # Four decimals, because that is the precision the reviewer reports back in
         # and a rounded total reads to him as a different number than the one he
         # computed with his own calculator.
@@ -258,7 +267,8 @@ def substitutions(f: dict) -> dict[str, str]:
         "CDX_FAILURES": cdx_failures(),
         "DATASETS_SEARCHED": datasets_searched(),
         "CUMULATIVE": cumulative(f),
-        "DARTMOUTH_AGREEMENT": dartmouth_agreement(),
+        "CUMULATIVE_SENTENCE": cumulative_sentence(f),
+        "CROSS_SOURCE_AGREEMENT": cross_source_agreement(),
         "REPRODUCTION_RESULT": reproduction_result(),
         "ROUTES_TABLE": routes_table(f),
     }
@@ -282,37 +292,26 @@ def substitutions(f: dict) -> dict[str, str]:
     return subs
 
 
-# The four routes section 2 describes, in the order a reader should meet them. Only
-# the prose lives here; every figure beside it is read from the store, because the
-# section opens by claiming no number in this report is typed and a hand-copied pair
-# count in the summary table would make that false the first time a collector banked
-# anything. It did: the four were written on 2026-08-17 and were stale within a day.
-ROUTES = (
-    (
-        "dartmouth_nber_captures",
-        "the Internet Archive's own capture census, a 2017 Dartmouth/NBER release",
-        "the archive's count of captures it holds for that host in that calendar year",
-    ),
-    (
-        "domain_creation_bulk",
-        "a published compilation of registry creation dates over 171M domains",
-        "the registry's own creation date, which dates that year and no other",
-    ),
-    (
-        "ukwa_link_source",
-        "the UK Web Archive host link graph, already held since July",
-        "the crawl date on the link record",
-    ),
-    (
-        "isc_survey",
-        "the January 1997 Internet Domain Survey, recovered from a dead host",
-        "the survey edition date",
-    ),
-)
+# The routes section 2 describes, in the order a reader should meet them. Only the
+# prose lives here; every figure beside it is read from the store, because the section
+# opens by claiming no number in this report is typed and a hand-copied pair count in
+# the summary table would make that false the first time a collector banked anything.
+# It did: round 5's four were written on 2026-08-17 and were stale within a day.
+#
+# RESET AT THE START OF EVERY ROUND, which is why it is empty now. Carrying the
+# previous round's routes forward is not a small error: each row would keep its own
+# heading while `by_source` quietly filled it with THIS round's pairs for a source
+# that is no longer what the round is about.
+ROUTES: tuple[tuple[str, str, str], ...] = ()
 
 
 def routes_table(f: dict) -> str:
     """Section 2's summary of where the round came from, figures read from the store."""
+    if not ROUTES:
+        # Deliberately a token, so `fill` refuses the document rather than shipping a
+        # report whose central section is a blank table. `ark.baseline` names the round;
+        # this names what the round was made of, and only a human can write that.
+        return "[ROUTES_NOT_NAMED_FOR_THIS_ROUND]"
     by_source = {row["source"]: row for row in f["by_source"]}
     lines = [
         "| Route | What dates a year | Net-new pairs |",
@@ -341,27 +340,37 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def dartmouth_agreement() -> str:
-    """How often the capture census and our own querying of the archive agree.
+# The source whose credibility this round's section 2 rests on, and the sources whose
+# independent agreement with it is worth quoting. Set per round; empty means the round
+# has no such claim to make and the token is simply unused.
+CROSS_SOURCE_CHECK: tuple[str, tuple[str, ...]] | None = None
 
-    Generated rather than typed, because it is the sentence that makes a
-    third-party file believable and it moves every time the engine dates another
-    pair. A hand-copied 138,979 was already 219 stale a day after it was measured.
+
+def cross_source_agreement() -> str:
+    """On how many (domain, year) pairs a bulk source and our own querying agree.
+
+    Generated rather than typed, because it is the sentence that makes a third-party
+    file believable and it moves every time an engine dates another pair. Round 5's
+    hand-copied 138,979 was already 219 stale a day after it was measured.
     """
+    if CROSS_SOURCE_CHECK is None:
+        return "[CROSS_SOURCE_CHECK_NOT_SET_FOR_THIS_ROUND]"
+    subject, against = CROSS_SOURCE_CHECK
+    placeholders = ", ".join("?" for _ in against)
     conn = connect_read_only_patiently(Path(__file__).resolve().parents[1] / "data/ark.duckdb")
     try:
         n = conn.execute(
-            """
+            f"""
             SELECT count(*) FROM (
               SELECT DISTINCT d.domain, d.evidence_year FROM evidence d
-              JOIN source sd ON sd.source_id = d.source_id
-                            AND sd.name = 'dartmouth_nber_captures'
+              JOIN source sd ON sd.source_id = d.source_id AND sd.name = ?
               WHERE EXISTS (
                 SELECT 1 FROM evidence o
                 JOIN source so ON so.source_id = o.source_id
-                              AND so.name IN ('ia_cdx_bulk', 'ia_cdx', 'early_web_cdx')
+                              AND so.name IN ({placeholders})
                 WHERE o.domain = d.domain AND o.evidence_year = d.evidence_year))
-            """
+            """,
+            [subject, *against],
         ).fetchone()[0]
     finally:
         conn.close()
@@ -390,24 +399,50 @@ def cumulative(f: dict) -> str:
         total_ee += ee
         rows.append(f"| {label} | {records:,} | {ee:,.4f} |")
 
+    shipped = len(SUBMITTED_ROUNDS)
     total_records += f["netnew_pairs"]
     total_ee += Decimal(str(f["ee_netnew"]))
-    rows.append(f"| **5, this one** | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.4f}** |")
+    rows.append(
+        f"| **{CURRENT_ROUND_LABEL}, this one** | "
+        f"**{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.4f}** |"
+    )
     rows.append(f"| **Total** | **{total_records:,}** | **{total_ee:,.4f}** |")
 
     pct = 100 * total_ee / Decimal(str(f["ee_baseline"]))
     return "\n".join(
         [
-            f"**Cumulative.** Across the four rounds shipped so far this project has added "
-            f"{total_records:,} domain-year records worth {total_ee:,.4f} equivalent-English, "
-            f"which is **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the corpus holds today. "
-            "Round 1 "
+            f"**Cumulative.** Across the {shipped} rounds shipped so far plus this one, this "
+            f"project has added {total_records:,} domain-year records worth {total_ee:,.4f} "
+            f"equivalent-English, which is **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the "
+            "corpus holds today. Each shipped round is quoted at the figure the reviewer "
+            "ACCEPTED, which is not always the one it was submitted with: he recalculates "
+            "against whatever baseline is current when he merges, and records of ours that "
+            "reached it by another route in the meantime are his, not ours, to count. Round 1 "
             "predates the equivalent-English metric, so its records are the reviewer's own "
             "confirmed count and the weight beside it is measured over the two releases either "
             "side under the unchanged model.",
             "",
             *rows,
         ]
+    )
+
+
+def cumulative_sentence(f: dict) -> str:
+    """The same arithmetic as `cumulative`, as one sentence for the email.
+
+    Two derivations of one figure would drift, so this reuses the totals rather than
+    recomputing them, and the email gets no table: the reviewer asked for the
+    cumulative number, not for a second copy of the report.
+    """
+    records = sum(r[2] for r in SUBMITTED_ROUNDS) + f["netnew_pairs"]
+    ee = sum((r[3] for r in SUBMITTED_ROUNDS), Decimal(0)) + Decimal(str(f["ee_netnew"]))
+    pct = 100 * ee / Decimal(str(f["ee_baseline"]))
+    return (
+        f"Cumulative across my rounds, which you asked me to track: {records:,} records and "
+        f"{ee:,.4f} equivalent-English, which is {pct:.4f}% of the {f['ee_baseline']:,.4f} the "
+        "corpus holds today. Each earlier round is counted at the figure you accepted rather "
+        "than the one I submitted, so records of mine that had already reached the baseline by "
+        "another route are not counted twice."
     )
 
 

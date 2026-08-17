@@ -74,9 +74,15 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |
 | `docs/discovery.md` | how to price a source before building a collector | the acceptance bar |
+| `docs/ding/` | **his own documents, transcribed verbatim from the `.docx` he ships**, with each source file's sha256 in the header | the highest authority here. Regenerate with `scripts/extract_ding_docs.py`; never hand-edit, never paraphrase |
 | `docs/SPEC.md` | the reviewer's brief, cited by clause from 21 files | **never edit or renumber** |
 | `docs/brief_amendments.md` | what he has changed since: the metric, the retired standard | current asks |
 | `private/personal-context.md` | who Ivo is, and the reviewer's emails verbatim | git-ignored, never ships |
+
+**Four surfaces carry his instructions and they rank.** A later email of his beats `docs/ding/`, which
+beats `docs/SPEC.md`, and `docs/brief_amendments.md` is the record of the first overruling the others.
+The equivalent-English metric arrived by email and is nowhere in the original SPEC, which is why the
+order matters rather than being pedantry.
 
 **Every figure inside a dated `notes.md` entry is historical by construction.** It was true against
 the store of that day and is not a statement about now.
