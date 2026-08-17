@@ -9903,3 +9903,60 @@ Filed as `## ukwa_geoindex` in `sources.md` and as row 0 of the triage queue. No
   is not published.
 
 Four candidates were left unpriced by the fan-out cap and stay in the queue.
+
+## 2026-08-17, later still (the archive was broken, and only running it caught it)
+
+Ivo: *"make sure you ran all reproduction commands in a fresh unzipped submission archive."* Did that.
+**Tier 2 failed**, and the cause was a change I had made earlier the same night and described in its own
+commit message as "the only cut here that costs a reviewer nothing".
+
+### What happened
+
+To hold the archive under 1 GB I filtered `prior_reused` out of the shipped `evidence.parquet`, 77% of
+the table and the reviewer's own data returning to him. The reasoning was that `baseline/` states the
+same fact more compactly and the rows are regenerable by re-ingesting it. Both of those are true and
+neither is the point.
+
+Extracted the shipped archive fresh and ran its own documented route:
+
+- **Tier 1 passed.** Checksums, six annual files, every pair traced to `evidence_manifest.csv`.
+- **Tier 2 failed.** `ark rebuild` from the shipped provenance gave **712,927 additions for 1996
+  against a true 63,162**, and `ark check` failed `evidence_wall_intact` and
+  `every_pair_has_master_evidence`.
+
+**11,316,960 of 16,619,832 assignments cited an `evidence_id` that was not in the file beside them.**
+The evidence wall, which is the one structural claim this project rests on, was broken in the shipped
+artifact. And net-new is *defined* as "no baseline evidence for this (domain, year)", so removing those
+rows made the rebuild read the entire corpus as new. That is precisely the phase-2 failure recorded on
+28 July, where shipping would have claimed 1,339,783 pairs instead of 17,418, arriving by a different
+route eighteen days later.
+
+### Why every check passed anyway
+
+`verify.sh` has three checks and **all three read `additions/evidence_manifest.csv`**. The manifest is
+written from the store before packaging, so it was complete and internally consistent. Nothing read the
+parquet. The guard did not fail; it was pointed somewhere else, and a passing suite over the wrong
+artifact reads exactly like a passing suite.
+
+The lesson is not "keep the baseline rows". It is that **a size cut nothing tests is an unmeasured
+change**, and I shipped it twice while describing it as free. `verify_delivery.sh` now has a fourth
+check that counts assignments whose `evidence_id` is absent from the shipped evidence. Run against the
+broken archive it reports `FAIL 11316960` while the other three still say PASS, which is the
+demonstration that it covers something they did not.
+
+### After the revert
+
+Full evidence table ships. The rebuild returns every per-year count exactly and all nine invariants
+pass. The archive grows by about 429 MB, and that is the correct trade: reproducibility is the stated
+requirement and size was a preference.
+
+**Tier 3 was not run**, deliberately: it is a roughly 50 GB download and two of our own collectors were
+querying the Internet Archive at the time, so a third heavy client would break the citizenship rule.
+Said so in the report rather than implying three tiers were run.
+
+### Also this sitting
+
+The report is 1,610 non-table words, down from 2,274, on Ivo's instruction that Ding reads it himself.
+The cumulative table is now the four shipped rounds under his numbering (1, 3, 4, 5), with the three
+interim reports dropped rather than shown as superseded, and the percentage quoted against the current
+corpus rather than the pre-project one: **37.7068%**, because that is the comparison he is scored on.
