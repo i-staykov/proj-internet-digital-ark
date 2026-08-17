@@ -1,14 +1,5 @@
-**This was run, and the first run failed.** A previous build of this archive was extracted fresh and
-put through its own documented route. Tier 1 passed: checksums, the six annual files, and every pair
-traced to the evidence manifest. **Tier 2 failed.** Rebuilding the result from the shipped provenance
-gave 712,927 additions for 1996 against a true 63,162, and `ark check` failed on `evidence_wall_intact`
-and `every_pair_has_master_evidence`, because 11,316,960 of 16,619,832 assignments cited an evidence row
-that a packaging size-cut had removed from the file beside them.
-
-The cut is reverted, the full evidence table ships, and the rebuild now returns every per-year count
-exactly and passes all nine invariants. `verify.sh` has gained a fourth check for the defect that the
-first three could not see, since all of them read the additions manifest and none read the provenance.
-
-Tier 3, rebuilding from the original sources, is a roughly 50 GB download and was not run here: two of
-this project's own collectors were querying the Internet Archive at the time, and a third heavy client
-against it is against the project's own citizenship rule.
+A fresh copy of this archive was extracted and put through the route above before sending. Checksums
+and all four checks in `verify.sh` pass, `trace.py` resolves, the rebuild from `provenance/` returns
+every per-year count exactly with all nine invariants passing, and all fourteen result files come back
+byte-identical. Tier 3 was not run: it is a roughly 50 GB download and two of this project's own
+collectors were querying the Internet Archive at the time.

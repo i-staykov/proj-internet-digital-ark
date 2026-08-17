@@ -9960,3 +9960,36 @@ The report is 1,610 non-table words, down from 2,274, on Ivo's instruction that 
 The cumulative table is now the four shipped rounds under his numbering (1, 3, 4, 5), with the three
 interim reports dropped rather than shown as superseded, and the percentage quoted against the current
 corpus rather than the pre-project one: **37.7068%**, because that is the comparison he is scored on.
+
+## 2026-08-17: the census's own archive.org item has stopped serving, and the citation was untestable
+
+Ivo clicked the source link in `approved-sources-list.md` and got "Item cannot be found". Checked it
+rather than assuming an outage, and it is a real takedown:
+
+- `archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata` -> "Item cannot be found"
+- `archive.org/metadata/DARTMOUTH-NBER-RESEARCH-2017-metadata` -> `{}`, which on archive.org means no
+  such item. This project already knew that signature: `sources.md` uses the same `{}` result to close
+  the IA bulk CDX index lead.
+- **but an advanced-search query still returns it, once, at 693,302,553 bytes.** That is what separates
+  a takedown from a wrong identifier, and it is the reason to say "withdrawn" rather than "never existed".
+- the sibling `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` and `-WARCS-*` items, several thousand, still resolve.
+
+Downloaded on 2026-08-16, gone by 2026-08-17. Nothing about the data changes: 9,227,380 rows, 0
+malformed, and **138,760 (domain, year) pairs agree with this project's own independent CDX querying**,
+which is a verification route that never depended on the item. Every record also carries a live
+`web.archive.org/web/<year>*/http://<host>/` URL, so any single claim is checkable directly. Both
+documents now say that plainly instead of offering a dead link as the check.
+
+**Two things I had written that would have failed a reviewer, found while fixing the first.** The
+`## dartmouth_nber_captures` section told the reader to run `uv run ark download
+dartmouth_nber_captures`. **There is no such command**: `ark download` takes a seed file of archived
+pages and nothing else, so it would have errored for anyone who tried it. I wrote that line earlier the
+same night, from the shape of other sections rather than from running it. And the `domain_creation_bulk`
+block implied a plain download when the file needs a Kaggle account and its CLI. Both corrected, and the
+Kaggle page was actually fetched this time before the word "resolves" went in: HTTP 200.
+
+**The pattern is the same one as the packaging cut earlier tonight.** An unexercised instruction reads
+exactly like an exercised one. A `Source:` line, a download command and a checksum all look equally
+authoritative on the page, and only one of them had been run. Ivo's two requests tonight, run the
+reproduction commands and fix the link, both found defects of that kind, which is a reasonable argument
+for making "did anyone run this" a standing question about anything a reviewer is told to do.

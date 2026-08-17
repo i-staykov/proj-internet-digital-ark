@@ -407,7 +407,11 @@ None at present.
 ### dartmouth_nber_captures / cdx_timestamp
 
 - ingest spec: `dartmouth_nber_captures`
-- source: https://archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-metadata
+- source: archive.org item `DARTMOUTH-NBER-RESEARCH-2017-metadata`, downloaded 2026-08-16. **The item
+  stopped serving on 2026-08-17**: `details/` says "Item cannot be found" and `metadata/` returns `{}`.
+  It is still in the search index once, at 693,302,553 bytes, so this was a takedown rather than a wrong
+  identifier. Do not use it as the verification route; use the per-record Wayback links below, which
+  resolve. `sources.md` carries the full account.
 - journal: `data/raw/dartmouth_nber/domain-year-captures.txt`
 - agent's dating claim: the Internet Archive's own count of the captures it holds for that host in that calendar year, one row per (host, year)
 - nothing in the closed register resembles this by name.
