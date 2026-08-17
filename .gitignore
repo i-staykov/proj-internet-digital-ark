@@ -72,3 +72,6 @@ docs/ROUND.md
 # Phase 5 task package from the reviewer: baseline copy plus his docs.
 feedback-phase-5/
 Domain_Data_Collection_Task_update/
+
+# Word lock files, left behind when the .docx is open while it is rebuilt.
+~$*
