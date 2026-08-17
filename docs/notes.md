@@ -9840,3 +9840,66 @@ and leaving it alone. The guard was right on each occasion.
 The VPS at `10.1.0.6` is unreachable, `Permission denied (publickey)`, so its collector could not be
 confirmed and its journals could not be fetched. Not debugged, per the standing rule; it needs the VPN.
 The local CDX engine and the RDAP sweep are both running.
+
+## 2026-08-17, later (a closed lead reopened by a URL the closure said would not exist)
+
+Ran a four-modality source hunt while the delivery packaged. Twelve candidates found, eight priced,
+**seven rejected on measurement and one worth having**, which is roughly the register's usual rate.
+
+### The find: the UKWA Geoindex is served, and the register said it could not be
+
+`docs/sources.md` closed this family on 2026-08-15 with a line that has now been disproved: *"the only
+route left is an access letter to the British Library, not another URL."* **It was another URL.**
+
+The British Library's Hyku repository serves the file. `/concern/` is behind a Cloudflare challenge and
+returns 403, which is what every previous probe hit, but `/downloads/<uuid>` is not:
+
+    curl -L -r 0-0 https://bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f
+    HTTP 206, Content-Range: bytes 0-0/11217295098
+
+Verified directly rather than taken from the subagent: **11,217,295,098 bytes**, ranged GETs answered,
+CC Public Domain Mark 1.0. The ZIP64 directory lists 12 members totalling 72.07 GB uncompressed, about
+692M rows, which independently corroborates the 700,641,549 lines the register had recorded for it.
+
+**Measured on 3.05 MB of ranged reads across 5 of the 12 members**: 199,601 rows, 11,011 in-window
+pairs over 8,406 domains, 9,731 already held, **1,280 net-new at 11.6%**. That is 420 net-new pairs per
+MB downloaded against the Dartmouth census's 997. 99.7% `.uk`, so 0.9813 a pair. Estimated full
+in-window yield 10,000 to 60,000 pairs, and the bars are wide because only member heads were sampled.
+
+**The check before anything else, because this project has already paid for skipping it.** Each member
+looks sorted ascending by timestamp, which would make 1996-2001 a contiguous prefix and the extraction
+cost tens of MB instead of 11.22 GB. The sibling `host-linkage.tsv.gz` also looked sorted and was
+**fifteen concatenated shards**; the check that confirmed it stopped 2.4x short of the first boundary
+and the parser read 6.76% of its file for three weeks. Sortedness here is confirmed over each member's
+first 500 KB, which is the same size of check that failed then. Stream one member to EOF and count
+decreases before trusting early abort.
+
+**The named CDX artifact stays closed, for a better reason than before.** DOI `10.5259/ukwa.ds.2/cdx/1`
+resolves to a record with no file attached: one of 389 works in a 2021-10-20 bulk metadata import, and
+zero file_sets carry that date. Established with a positive control, not inferred, since the Host Link
+Graph record sits in the same batch, also has no file_set, and is known absent because our copy came
+from a Wayback capture. So "no route in" becomes "the repository record has no payload", which is
+cheaply re-testable.
+
+Filed as `## ukwa_geoindex` in `sources.md` and as row 0 of the triage queue. No `Decision:` line, so
+`ark ingest` refuses it as master until Ivo classifies it.
+
+### Seven closures, each with the number that closed it
+
+- **Arquivo.pt `datasets/linkgraphs/PWA9609/`** and its siblings `AWP38`, `FAWP47`. Genuinely new to
+  the register, which knew only `/datasets/cdxj/`. Dies on year distribution: measured over 8.0 MiB of
+  ranged reads, 2009 is 92-95% of every slice and the whole 1996-2001 window is **0.67%** of records.
+  86 in-window pairs found in the sample and **0 net-new**, method proved against fabricated controls.
+  The candidate said 127 parts and 14.5 GB; the listing holds **300 parts and 35.92 GB**, so it is more
+  than twice as expensive as claimed for nothing. The structural reason is the register's own rule:
+  it is a projection of the same PWA captures whose index we already ingested.
+- **NARA `webharvest.gov`**: US federal harvesting begins 2004, the Canada pattern again.
+- **Webarchiv CZ, Bentley, Korea OASIS, National Library of Norway**: two are out of window by three
+  and nine years respectively, and the Wikipedia list's "2001" for OASIS is simply wrong; it launched
+  January 2004.
+- **IIPC awesome-web-archiving**: four of its six public-data entries are already closed rows here.
+- **Zenodo 8408539** (period banner ads): parsed in full, 215 MB, too small and too overlapped.
+- **Polish ccTLD IA extract**: published artifact is 314 KB of notebooks; the 203 GB corpus behind it
+  is not published.
+
+Four candidates were left unpriced by the fan-out cap and stay in the queue.

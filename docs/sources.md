@@ -1191,6 +1191,67 @@ pipeline says so. Both re-reads found their yield in bytes already on disk.
 
 ---
 
+## `ukwa_geoindex`: the UKWA Geoindex, found served after being closed as unreachable
+
+**Status: found, priced, not yet collected.** No `Decision:` line exists for it yet, so `ark ingest`
+will refuse it as master until one does. Awaiting the shard check below before an approval request is
+worth writing.
+
+**What it is.** The geographic index of the JISC UK Web Domain Dataset: every `.uk` resource the
+Internet Archive held for 1996-2013, each capture mapped to a UK postcode. One row is a 14-digit
+capture timestamp, the captured URL, a tab, and a postcode:
+
+```
+19961030074217/http://www.dci.clrc.ac.uk:80/Person/N.B.M.Calton<TAB>OX11 0QX
+```
+
+**Why it has a section rather than a rejected row.** The register closed this family twice, and the
+second closure ended "the only route left is an access letter to the British Library, not another
+URL". **It was another URL.** The British Library's Hyku repository serves the file directly, and
+`/downloads/` is not behind the Cloudflare challenge that guards `/concern/`:
+
+```bash
+curl -L -r 0-0 https://bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f
+# HTTP 206, Content-Range: bytes 0-0/11217295098
+```
+
+Verified 2026-08-17: **11,217,295,098 bytes**, ranged GETs answered, CC Public Domain Mark 1.0, no
+access letter and no negotiation. The ZIP64 directory lists 12 members,
+`geoindex/postcode-{a0,aa..ak}.tsv`, 72.07 GB uncompressed, about 692M rows, which corroborates the
+register's independently recorded 700,641,549 lines.
+
+**Date semantics.** The 14-digit capture timestamp prefix. Self-dating `cdx_timestamp`, master-eligible,
+no corroboration split. **This is not the format the register records for this family**: the E17
+figshare slice is `postcode,year,subdomain,waybackurl`, and the bulk file has no year column, no CSV
+and no subdomain column. Anything written against the E17 shape will not parse it. A handful of rows
+carry junk stamps (`19800101000000`, some 1994 and 1995), so a window filter must reject pre-1996
+rather than trust the first row.
+
+**Measured, on 3.05 MB of ranged reads across 5 of the 12 members:** 199,601 rows inflated, 11,011
+in-window (domain, year) pairs over 8,406 domains, of which 9,731 were already held, leaving **1,280
+net-new at 11.6%**, a density of 420 net-new pairs per MB downloaded against the Dartmouth census's
+997. 99.7% `.uk`, so the weight is 0.9813 in practice. **Estimated** full in-window yield is 10,000 to
+60,000 net-new pairs; the error bars are wide because only the heads of 5 members were sampled.
+
+**The check that must happen before anything else, because this exact trap has already cost this
+project 93% of a source.** Each member looks sorted ascending by timestamp, which would make the
+1996-2001 window a contiguous prefix and the extraction cost tens of MB rather than 11.22 GB. The
+sibling `host-linkage.tsv.gz` also looked sorted and was **fifteen concatenated shards**, and the
+check that confirmed it stopped 2.4x short of the first shard boundary. The sortedness here is
+confirmed only over each member's first 500 KB, which is the same size of check that failed last time.
+**Stream one whole member to EOF and count timestamp decreases before trusting early abort.** If it is
+sharded, the download is the full 11.22 GB and the yield rises accordingly.
+
+**Citizenship note.** `bl.iro.bl.uk/robots.txt` disallows `/catalog` for all agents and names
+ClaudeBot with `Disallow: /`. Use the ResourceSync resourcelist and `/downloads/`, both allowed.
+
+**Separately, the named CDX artifact stays closed, for a better reason.** DOI `10.5259/ukwa.ds.2/cdx/1`
+resolves to a repository record with **no file attached**: it is one of 389 works in a 2021-10-20 bulk
+metadata import, and zero file_sets carry that date. Established with a positive control rather than
+inferred, since the Host Link Graph record sits in the same batch, also has no file_set, and is known
+absent because our copy of it came from a Wayback capture instead. So the closure is now "the
+repository record has no payload", which is cheaply re-testable, rather than "no route in".
+
 ## Evaluated and rejected
 
 Recorded so that negative results are visible rather than silently omitted.
@@ -1279,7 +1340,7 @@ Recorded so that negative results are visible rather than silently omitted.
 | Bruce Guenter's spam archive, `untroubled.org/spam/` (2026-08-15) | **Genuinely new, fully measured, and rejected: 312 net-new pairs and 195.5 equivalent-English after the split, 16x below the bar.** Everything about the source is good, which is why it is worth an entry rather than a line. It is live, in window and cheap: `1998.7z` through `2001.7z` total **9.3 MB** and expand to 20,010 individual messages, each carrying its own `Date` header, so it is self-dating per item and needs no inference. Four requests bought the whole thing. **The population is what failed.** 19,992 in-window messages name only **5,342 distinct (domain, year) pairs over 4,793 domains**, 0.27 distinct domains per message, because spam repeats itself relentlessly; and **3,203 of the 4,793 are already held**. The reasoning that proposed it is refuted by that last figure: the idea was that a spamvertised domain leaves no crawlable link and so escapes a capture-derived baseline, and two thirds of them did not escape it. The typo bound is also the worst measured on this project at **38.7% of sampled net-new names one edit from a held name**, which is what deliberately obfuscated body text does to any extractor. Reopen on nothing: this is a measurement over the complete in-window corpus, not a sample |
 | Anti-spam blocklists and blackhole lists, 1997-2001 (2026-08-15) | **Screened clean against the register, then killed on the unit before any request was made.** The shape looked right: a blocklist is a machine-generated dated record about whoever happened to be there, and it selects for short-lived spam domains that a crawler-derived baseline systematically misses, which is exactly why the dispute dockets measured 87.7% net-new. It fails on what it lists. **Every in-window blocklist is IP-based**, not domain-based: MAPS RBL, ORBS, the Dial-Up List and SPEWS all publish addresses and netblocks, and the output unit here is the registered domain (SPEC III.8), so there is nothing to extract. The domain-bearing variant of the idea is spam sightings posted to `news.admin.net-abuse.*`, **and that is already ingested**: 13 of those groups are on disk and they have yielded **173,526 evidence rows over 168,075 domains**. So the good half of this idea was harvested with the rest of Usenet, and the half that remains has no domains in it. Domain-based URI blocklists (SURBL, URIBL) begin in 2004, out of window |
 | `data.webarchive.org.uk` (2026-08-05) | Does not resolve. A third distinct host tried for the UKWA bulk CDX, after the 159-byte stub and the 403 DOI. Still no route in |
-| The whole `webarchive.org.uk/datasets/` tree, not just the CDX (2026-08-15) | **The stub is the tree, not the file**, established with a positive control rather than inferred: `/datasets/ukwa.ds.2/geo/` returns the same 159-byte "400 Redirect" body under HTTP 200 as `linkage/host-linkage.tsv.gz`, a file we are known to hold. So every future probe of any path under `/datasets/` is answered in advance, and only a mirror or an access grant changes it. The full Geoindex behind it is 700,641,549 lines covering 1996-2010, about 8 GB gzipped, all `.uk` at 0.9813, which makes it the largest reachable-looking prize still closed; the only route left is an access letter to the British Library, not another URL |
+| The whole `webarchive.org.uk/datasets/` tree, not just the CDX (2026-08-15) | **The stub is the tree, not the file**, established with a positive control rather than inferred: `/datasets/ukwa.ds.2/geo/` returns the same 159-byte "400 Redirect" body under HTTP 200 as `linkage/host-linkage.tsv.gz`, a file we are known to hold. So every future probe of any path under `/datasets/` is answered in advance, and only a mirror or an access grant changes it. The full Geoindex behind it is 700,641,549 lines covering 1996-2010, about 8 GB gzipped, all `.uk` at 0.9813, which makes it the largest reachable-looking prize still closed. **The last clause of this row said "the only route left is an access letter to the British Library, not another URL", and that was disproved on 2026-08-17: it was another URL.** See `## ukwa_geoindex` below; this row stays only because the reasoning about `/datasets/` stubs is still correct |
 | Alexa / Internet Archive donated crawl items on archive.org, their CDX indexes (2026-08-15) | **The bulk index we want demonstrably exists and is access-controlled, which is a different closure from "does not exist" and worth stating precisely.** In-window items carry per-item CDX files, `FS-587676-c.cdx.gz` at 104 MB and a 1999 item at 631 MB, so these are real IA-side indexes of exactly the shape that would convert our query-rate constraint into a download. A ranged GET returns **HTTP 401 with a 172-byte body**: the restriction covers the **index** files and not merely the payload WARCs, which had been assumed rather than tested. Reopens only on an access grant, and the Internet Archive has refused this project three times |
 | UKWA Geoindex, E17 postcode slice, figshare 825956 (2026-08-15) | **Reachable and real but far too small**, kept because it is the only file that did download from this family: GET 200, 1,886,146 bytes, 12,081 rows of `postcode,year,subdomain,waybackurl`. The 14-digit timestamp inside each wayback URL is self-dating `cdx_timestamp`. Priced against the live store: 1,593 pairs over 1,092 domains of which 1,297 were already held, leaving **296 net-new pairs and 290.5 EE raw, 123 pairs and 120.7 EE after the split**. 100% `.uk` at 0.9813, and still an order of magnitude below the 5,000-pair acceptance bar |
 | Other JISC UK Web Domain Dataset derived files (2026-08-15) | **Hostless by construction**, verified on the `ukwa.github.io` gh-pages copies rather than assumed: `fmts-cleaned.tsv` (49.6 MB) is MIME-type by year counts, `link-summary-*.tsv` is suffix-to-suffix counts of the form `1996 az.us ac.uk 3`, and `ds.1/classification.tsv` (3.0 MB) is URL plus category with **no year at all**. The first two name no hosts and the third dates nothing, so the family is seed-only, and the candidate pool is not the constraint |

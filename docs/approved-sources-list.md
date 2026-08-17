@@ -528,6 +528,7 @@ figure of that kind rather than a small one.
 
 | # | Source | What dates an item | Type | Net-new pairs | EE | Evidence | Decision |
 |--:|---|---|---|---|---|---|---|
+| 0 | ukwa_geoindex | 14-digit capture timestamp per row | cdx_timestamp | ~10,000 to 60,000 | ~10,000 to 59,000 | MEASURED sample, ESTIMATE total | pending |
 | 1 | can_domain_registry_notices | `Date-Approved:` on the notice | whois_creation | 11,418 self-dating / 936 split | 9,551.2 / 783.0 | MEASURED | pending |
 | 2 | nominet_whois_port43 | registry `Registered on:` per name | whois_creation | ~9,500 ceiling | ~9,300 ceiling | ESTIMATE | pending |
 | 3 | gias_england_school_website_domains | nothing in the file, Nominet per name | link_target | ~5,568 sch.uk | ~5,463 | MIXED | pending |
