@@ -457,16 +457,17 @@ def datasets_searched() -> str:
     if not developed and not rejected:
         return "_No families recorded._"
 
-    # Inline rather than bulleted. The reviewer asks for every dataset searched and
-    # this has to be complete, but 24 bullets plus 91 rows is a page of the five he
-    # gets. The full register ships as `sources.md` beside the report.
-    names = ", ".join(name.split(":")[0].strip() for name in developed)
+    # Counts only, and the names deliberately omitted. The reviewer's requirement is
+    # that every dataset searched be documented, not that it be documented twice: the
+    # register itself ships beside the report and is the place to read it. Naming all
+    # 26 developed families inline cost most of a page and told him nothing the file
+    # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
     return (
-        f"**{len(developed) + rejected} source families have been searched and recorded**, and "
-        f"`sources.md` ships beside this report naming every one. {len(developed)} were developed "
-        f"far enough to earn their own section ({names}); the other {rejected} were evaluated and "
-        "closed, each recorded with the measurement that closed it, so that negative results stay "
-        "visible and the same ground is not broken twice."
+        f"**{len(developed) + rejected} source families have been searched and recorded**, "
+        f"{len(developed)} developed far enough to earn their own section and {rejected} "
+        "evaluated and closed, each with the measurement that closed it, so negative results "
+        "stay visible and the same ground is not broken twice. `sources.md` ships beside this "
+        "report and names every one, with its acquisition route, date semantics and yield."
     )
 
 
