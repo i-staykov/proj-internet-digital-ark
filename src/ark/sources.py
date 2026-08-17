@@ -315,6 +315,23 @@ def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord
                 stats["out_of_window"] += 1
                 continue
             domain = parts[0].strip()
+            # An internationalised TLD cannot be in window: every `xn--` TLD was
+            # delegated in 2010 or later. This file nonetheless carries 17 names under
+            # `.xn--fiqs8s` and `.xn--fiqz9s`, which are `.中国` and `.中國`, with
+            # creation dates in 2000 and 2001. CNNIC ran Chinese-character domains
+            # experimentally before ICANN delegated the TLD, and the migration in 2010
+            # appears to have carried the original dates forward, so the registry's
+            # date is not a fabrication and the DNS name still did not exist then.
+            #
+            # Found because the reviewer's own validator rejects them: his hostname
+            # regexp requires a letters-only TLD, so they scored zero for him and full
+            # weight for us, and `round_figures.py --verify` refused to send the round
+            # over a 0.3150 discrepancy. The falsification test run before this source
+            # was admitted checked the six TLDs delegated in 2001 and would never have
+            # caught a TLD delegated in 2010.
+            if domain.rsplit(".", 1)[-1].lower().startswith("xn--"):
+                stats["idn_tld_out_of_window"] += 1
+                continue
             yield BulkRecord(
                 raw=domain,
                 year=year,

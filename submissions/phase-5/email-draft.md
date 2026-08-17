@@ -15,13 +15,13 @@ This round passes the 5% threshold you set.
 
 1. Total number of original domains from 1996 to 2001: 15,428,507
 2. Equivalent-English total: 8,346,839.3737
-3. Increment: 2,838,732 records
-4. Equivalent-English increment: 1,697,225.1735
+3. Increment: 2,838,715 records
+4. Equivalent-English increment: 1,697,224.8585
 5. Equivalent-English growth rate: 20.333700%
 
 Lines 1 and 2 are your `merged260815` totals, unchanged, since this increment is not yet merged.
 
-Cumulative across my four rounds, which you asked me to track: 5,366,471 records and 3,149,000.9290
+Cumulative across my four rounds, which you asked me to track: 5,366,454 records and 3,149,000.6140
 equivalent-English, which is 37.7269% of the 8,346,839.3737 the corpus holds today. My first round
 predates the equivalent-English metric, so its 1,429,524 records are your own confirmed figure and the
 weight beside it is measured over the two releases either side with the unchanged model.

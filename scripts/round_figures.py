@@ -46,9 +46,32 @@ from ark.baseline import (  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
-CALCULATOR = Path(
-    "feedback-phase-3/equivalent_english_domain_calculator/equivalent_english_domains.py"
-)
+
+
+def _find_calculator() -> Path:
+    """The reviewer's own scorer, wherever this checkout happens to keep it.
+
+    It was hardcoded to `feedback-phase-3/`, which existed here and did not exist
+    inside a delivery archive, so `--verify` worked in the repository and failed for
+    anyone following the report's instruction after unpacking. All copies on disk are
+    byte-identical, model included, which is what the brief requires and what makes
+    searching for one safe. The current release is preferred anyway, so a future
+    round that does reissue the model picks up the new one rather than a stale twin.
+    """
+    names = (
+        CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
+        Path("equivalent_english_domain_calculator"),
+        Path("Domain_Data_Collection_Task_update/equivalent_english_domain_calculator"),
+        Path("feedback-phase-3/equivalent_english_domain_calculator"),
+    )
+    for base in names:
+        candidate = base / "equivalent_english_domains.py"
+        if candidate.is_file():
+            return candidate
+    return names[0] / "equivalent_english_domains.py"
+
+
+CALCULATOR = _find_calculator()
 MERGED_BASELINE = CURRENT_BASELINE_DIR
 
 # The round window opens where the last shipped release closes, so it comes from

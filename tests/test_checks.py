@@ -35,11 +35,48 @@ def _results_by_name(
 
 def test_clean_store_passes_all_checks() -> None:
     results = collect_checks(_clean_store(), Path("no-such-export"))
-    # Nine invariants since the English partition was retired. Pinned, not
-    # counted loosely: a check silently dropped from the gate is the failure
-    # this assertion exists to catch.
-    assert len(results) == 9, [r["name"] for r in results]
+    # Ten invariants: nine after the English partition was retired, plus the IDN
+    # check added 2026-08-17. Pinned, not counted loosely: a check silently dropped
+    # from the gate is the failure this assertion exists to catch.
+    assert len(results) == 10, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
+
+
+def test_detects_an_internationalised_tld() -> None:
+    """No `xn--` TLD existed before 2010, so none can hold a 1996-2001 year.
+
+    Seventeen of these shipped: `domain_creation_bulk` carries `.xn--fiqs8s` and
+    `.xn--fiqz9s` names, `.中国` and `.中國`, with registry creation dates in 2000 and
+    2001. CNNIC ran Chinese-character domains before ICANN delegated the TLD and the
+    2010 migration appears to have carried the original dates forward.
+
+    Nothing caught them here. The falsification test run before that source was
+    admitted checked the six TLDs delegated in 2001, so a TLD delegated in 2010 was
+    outside what it could see. What caught them was the reviewer's own validator,
+    whose hostname regexp requires a letters-only TLD: they scored zero for him and
+    full weight for us, and `round_figures.py --verify` refused the round over the
+    resulting 0.3150 discrepancy.
+    """
+    conn = _clean_store()
+    src = ensure_source(conn, "domain_creation_bulk", "timestamped")
+    idn = "xn--tfrxfu2p.xn--fiqs8s"
+    add_candidate(conn, idn, src)
+    assign_year(
+        conn, record_evidence(conn, idn, src, 2000, "whois_creation", "registry created 2000-11-06")
+    )
+    results = _results_by_name(conn)
+    assert results["no_idn_tld_in_window"]["ok"] is False
+    assert results["no_idn_tld_in_window"]["offending"] == 1
+
+
+def test_a_hyphenated_ascii_domain_is_not_mistaken_for_an_idn() -> None:
+    """The check keys on the TLD, not on `xn--` appearing anywhere in the name."""
+    conn = _clean_store()
+    src = ensure_source(conn, "isc_survey", "timestamped")
+    for name in ("xn--not-a-tld.com", "some-xn--thing.org"):
+        add_candidate(conn, name, src)
+        assign_year(conn, record_evidence(conn, name, src, 1999, "artifact_listing", "isc-1999"))
+    assert _results_by_name(conn)["no_idn_tld_in_window"]["ok"] is True
 
 
 def test_detects_candidate_backed_assignment() -> None:

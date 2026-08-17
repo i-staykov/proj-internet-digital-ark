@@ -94,6 +94,12 @@ CHECKS: list[tuple[str, str, str]] = [
         f"SELECT count(*) FROM domain WHERE NOT regexp_matches(domain, '{_DOMAIN_RE}')",
     ),
     (
+        "no_idn_tld_in_window",
+        "no assigned domain sits under an internationalised TLD, since every `xn--` TLD "
+        "was delegated in 2010 or later and cannot have existed in 1996-2001",
+        "SELECT count(*) FROM domain_year WHERE split_part(domain, '.', -1) LIKE 'xn--%'",
+    ),
+    (
         "evidence_year_matches_its_value",
         "the year named inside an evidence value equals the year it was filed under "
         "(registration spans excepted, since they name two years by design)",

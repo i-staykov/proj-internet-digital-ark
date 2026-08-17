@@ -298,6 +298,28 @@ cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
 # The lesson is not "keep the rows", it is that a size cut which no guard covers is
 # an unmeasured change. `verify_delivery.sh` now checks the evidence wall directly.
 
+# The reviewer's own scorer, so the archive can re-derive its headline figure without
+# reference to anything outside itself. `round_figures.py --verify` is named in the
+# report as the way to re-score the increment, and running it inside an unpacked
+# archive failed with "calculator not found": it lived only in the repository. Found
+# by running the report's own instructions in a fresh extraction, 2026-08-17.
+#
+# It is his file coming back to him, which is the same argument as `baseline/`: a
+# reviewer should be able to check the arithmetic without fetching anything, and the
+# whole thing is a few tens of kilobytes.
+mkdir -p "$STAGE/equivalent_english_domain_calculator"
+CALC_SRC="$(dirname "$MERGED")/equivalent_english_domain_calculator"
+if [ -d "$CALC_SRC" ]; then
+    # A tar pipe rather than `cp -R`, to drop `__pycache__`: shipping compiled
+    # bytecode of somebody else's script is noise, and it changes on every run so the
+    # archive checksum would never settle. `--exclude` works in both BSD and GNU tar,
+    # unlike `cp --parents`, which is GNU only and would have failed on this machine.
+    ( cd "$CALC_SRC" && tar cf - --exclude '__pycache__' . ) \
+        | ( cd "$STAGE/equivalent_english_domain_calculator" && tar xf - )
+else
+    echo "warning: no calculator beside $MERGED, archive will not self-score" >&2
+fi
+
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
 # The engine review, so the process behind the report's audit section can be
