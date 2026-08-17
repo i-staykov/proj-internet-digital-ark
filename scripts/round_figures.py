@@ -58,8 +58,14 @@ def _find_calculator() -> Path:
     searching for one safe. The current release is preferred anyway, so a future
     round that does reissue the model picks up the new one rather than a stale twin.
     """
+    # `../` is not padding. Inside a delivery the calculator sits at the archive root
+    # and this script runs from `source/`, one level down, so the repository-relative
+    # paths below all miss. Predicted before the fresh-extraction run rather than
+    # after, on the evidence of the three instructions already found broken tonight
+    # by the same mechanism: a path that resolves where it was written.
     names = (
         CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
+        Path("../equivalent_english_domain_calculator"),
         Path("equivalent_english_domain_calculator"),
         Path("Domain_Data_Collection_Task_update/equivalent_english_domain_calculator"),
         Path("feedback-phase-3/equivalent_english_domain_calculator"),
