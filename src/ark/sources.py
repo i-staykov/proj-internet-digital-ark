@@ -20,6 +20,10 @@ from ark.ingest import YEARS
 from ark.journal import open_journal
 from ark.rdap import RDAP_REDIRECTOR, attested_years
 
+# The evidence URL every UDRP row falls back to: the consolidated list itself, so a
+# reviewer can find any proceeding by its number.
+UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
+
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
 
@@ -143,6 +147,64 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+# The consolidated ICANN list of UDRP proceedings. Every row is one dispute over a
+# registered domain, carrying an explicit commencement date and the disputed name in
+# its own column, across all five providers that heard cases in the window.
+#
+# **Why this is `artifact_listing` and takes no corroboration split**, which is the
+# only decision that matters about it and is recorded as ADR-002:
+#
+# - A proceeding exists only because the domain was registered and in dispute, so the
+#   record attests existence in that year **without depending on a crawler having
+#   visited the site**. That is the same claim `attrition_defacement` makes from a
+#   defacement date and `isc_survey` makes from a survey edition.
+# - The domain sits in a **structured column** of a published docket rather than in
+#   prose, which is the property that makes Tucows' `creator` field trustworthy where
+#   a hostname typed into a Usenet post is not. There is no transcription risk for the
+#   split to guard against.
+# - The author is an arbitration provider naming a registrar, not an anonymous poster.
+#
+# The year is the **commencement** date, deliberately, not the decision date: a case
+# commenced in late 2000 may be decided in 2001, and the domain certainly existed when
+# the complaint was filed, so the earlier date is the safer claim.
+def parse_udrp_proceedings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """A `collect_udrp_proceedings.py` journal: one JSON object per (domain, year)."""
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            domain, year = record.get("domain"), record.get("year")
+            if not domain or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            proceeding = record.get("proceeding", "").strip()
+            commenced = record.get("commenced", "").strip()
+            if not proceeding or not commenced.startswith(str(year)):
+                # The value must name the year it is filed under, which the integrity
+                # gate checks, and the proceeding number is what makes a row auditable.
+                stats["missing_identifier"] += 1
+                continue
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                # The commencement date leads, so the FIRST four-digit run in the
+                # value is the year the row is filed under, which is what
+                # `evidence_year_matches_its_value` reads. Putting the proceeding
+                # number first fails that check twice over: a NAF number like
+                # `FA0092016` offers `0092`, and a `D2000-` case commenced in
+                # January 2001 offers 2000 against an assigned 2001.
+                evidence_value=f"commenced {commenced} UDRP {proceeding}",
+                evidence_url=record.get("url") or UDRP_LIST_URL,
+            )
+
+
 # The Tucows Software Library on archive.org: ~32,600 donated items, each with a
 # release `date` and a `creator` field holding the vendor's home page URL. That
 # is a dated index file in the sense of III.1, and unlike a URL typed into a
@@ -218,6 +280,108 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=tokens[-1], year=year, evidence_value=survey)
 
 
+def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per domain whose registry creation date falls in the window.
+
+    Rows are semicolon-separated with a header:
+    `domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at`
+    and `created_at` is the registry's own creation date for that exact domain,
+    parsed by the publisher out of a port-43 WHOIS answer. That is the same claim
+    `rdap_snapshot` makes, from the same authority, in bulk.
+
+    **One year per domain, deliberately.** A creation date says the name was created
+    on that day and nothing about any later year, so this emits the creation year
+    alone. Continued registration in 1999 is a separate fact needing separate
+    evidence, and inferring it here is exactly what the brief forbids.
+
+    **The direction of error is loss, which is the safe direction.** WHOIS reports
+    the CURRENT registration, so a name created in 1998, dropped, and re-registered
+    in 2015 reads 2015 and falls out of the window. We lose it. The reverse cannot
+    happen: nothing re-registered later can read earlier than it was created.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.rstrip("\n").split(";")
+            if len(parts) < 5:
+                stats["malformed"] += 1
+                continue
+            created = parts[4].strip()
+            if len(created) < 4 or not created[:4].isdigit():
+                stats["no_creation_date"] += 1
+                continue
+            year = int(created[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            domain = parts[0].strip()
+            # An internationalised TLD cannot be in window: every `xn--` TLD was
+            # delegated in 2010 or later. This file nonetheless carries 17 names under
+            # `.xn--fiqs8s` and `.xn--fiqz9s`, which are `.中国` and `.中國`, with
+            # creation dates in 2000 and 2001. CNNIC ran Chinese-character domains
+            # experimentally before ICANN delegated the TLD, and the migration in 2010
+            # appears to have carried the original dates forward, so the registry's
+            # date is not a fabrication and the DNS name still did not exist then.
+            #
+            # Found because the reviewer's own validator rejects them: his hostname
+            # regexp requires a letters-only TLD, so they scored zero for him and full
+            # weight for us, and `round_figures.py --verify` refused to send the round
+            # over a 0.3150 discrepancy. The falsification test run before this source
+            # was admitted checked the six TLDs delegated in 2001 and would never have
+            # caught a TLD delegated in 2010.
+            if domain.rsplit(".", 1)[-1].lower().startswith("xn--"):
+                stats["idn_tld_out_of_window"] += 1
+                continue
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                evidence_value=f"registry created {created}",
+                # ICANN's own lookup rather than a registry-specific RDAP endpoint,
+                # because it resolves for every TLD and shows the creation date a
+                # reviewer is being asked to check. Without a link the approval
+                # request prints an empty column, and the request exists precisely
+                # so a human checks the registry instead of reading our prose.
+                evidence_url=f"https://lookup.icann.org/en/lookup?q={domain}",
+            )
+
+
+def parse_domain_year_captures(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window (domain, year) row of an IA capture census.
+
+    Rows are `host<TAB>year<TAB>capture_count`. The claim each row makes is the
+    same one `ia_cdx_bulk` makes from a CDX line, that the Internet Archive holds
+    a capture of this host in this year; it arrives pre-aggregated to the year
+    instead of carrying each timestamp. So the year is per-record and intrinsic,
+    not a property of the file.
+
+    The count is kept in the evidence value rather than discarded. It is not used
+    to date anything, but a reader checking a row wants to know whether it rests
+    on one capture or on two hundred.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) != 3 or not parts[1].isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(parts[1])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            captures = parts[2] if parts[2].isdigit() else "?"
+            yield BulkRecord(
+                raw=parts[0],
+                year=year,
+                evidence_value=f"ia_captures:{year}:{captures}",
+                # The Wayback calendar for that host in that year, which is the row's
+                # own claim rendered as something a reviewer can open. Without this the
+                # approval request prints an empty link column, and the request exists
+                # precisely so a human checks external evidence instead of our prose.
+                evidence_url=f"https://web.archive.org/web/{year}*/http://{parts[0]}/",
+            )
+
+
 def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window HTTP-200 capture in an Arquivo.pt CDXJ file.
 
@@ -257,10 +421,19 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# the host link graph is sorted by year ascending, so once the scan passes the window
-# nothing in-window remains; this also stops before the truncated 2002+ tail of
-# the partial download (Wayback drops the 20.9 GB stream mid-transfer)
-_UKWA_LAST_YEAR = max(YEARS)
+# The host link graph is NOT one file sorted by year, and believing it was cost us
+# 93% of the source for three weeks. Measured 2026-08-16 over all 168,942,882 lines:
+# the year column decreases 14 times, so the file is 15 concatenated shards each
+# sorted internally, presumably a hash partition written out in order. The old scan
+# stopped at the first row past 2001, which falls at line 166,895, the end of shard
+# one of fifteen. It read 166,890 in-window rows out of 2,468,674 that are there.
+#
+# The lesson generalises past this file: "sorted" was asserted in a docstring and
+# corroborated by a tail that showed 2004, which proves only what the LAST shard
+# ends on. A cheap positive control, does the year ever go backwards, was never run.
+#
+# There is deliberately no last-year constant here any more. Keeping one invites the
+# early exit back.
 
 
 _UKWA_SOURCE_COL = 1
@@ -270,9 +443,9 @@ _UKWA_TARGET_COL = 2
 def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRecord]:
     """Yield one host per in-window host-link-graph row, from the chosen column.
 
-    Rows are `year|source_host|target_host<TAB>count`, sorted by year ascending,
-    so the scan stops once it passes the window. That also stops before the
-    truncated 2002+ tail of the partial download.
+    Rows are `year|source_host|target_host<TAB>count`. The file is 15 internally
+    sorted shards, so an out-of-window year means only that this shard has passed
+    the window and the next one may not have. The whole file is therefore read.
     """
     with _open_text(path) as fh:
         try:
@@ -283,8 +456,6 @@ def _parse_ukwa(path: Path, stats: Counter, host_column: int) -> Iterator[BulkRe
                     stats["malformed"] += 1
                     continue
                 year = int(parts[0])
-                if year > _UKWA_LAST_YEAR:
-                    break
                 if year not in YEARS:
                     stats["out_of_window"] += 1
                     continue
@@ -657,6 +828,30 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="isc_domain_survey",
         parse=parse_isc_survey,
     ),
+    # A per-year capture census the Internet Archive itself computed over the
+    # Dartmouth/NBER corporate-websites crawl, published as an ordinary item.
+    # It is a bulk index OF the archive rather than a corpus derived from it,
+    # which is the documented exception to "IA-derived cannot be net-new": it
+    # converts our binding constraint, request throughput, into a file download.
+    # Kept as its own source name so provenance never merges with `ia_cdx_bulk`.
+    # A published bulk of registry creation dates, CC BY 4.0, covering 171M domains.
+    # Same claim and same authority as `rdap_snapshot`, arriving as a file instead of
+    # 171 million queries we could never afford to make. Its own source name so
+    # provenance stays separable from our live RDAP sweeps.
+    "domain_creation_bulk": SourceSpec(
+        key="domain_creation_bulk",
+        source_name="domain_creation_bulk",
+        evidence_type="whois_creation",
+        acquisition_method="published_registry_creation_dates",
+        parse=parse_domain_creation_csv,
+    ),
+    "dartmouth_nber_captures": SourceSpec(
+        key="dartmouth_nber_captures",
+        source_name="dartmouth_nber_captures",
+        evidence_type="cdx_timestamp",
+        acquisition_method="ia_domain_year_census",
+        parse=parse_domain_year_captures,
+    ),
     "arquivo_roteiro": SourceSpec(
         key="arquivo_roteiro",
         source_name="arquivo_roteiro",
@@ -809,6 +1004,29 @@ SOURCES: dict[str, SourceSpec] = {
         source_name="uucp_map_creation",
         evidence_type="whois_creation",
         acquisition_method="uucp_map_registrar_approval",
+        parse=_parse_usenet_journal,
+    ),
+    # A defacement mirror index. `artifact_listing` and NO corroboration split,
+    # deliberately, and the reason is the mirror itself: the operators saved a copy
+    # of the page at that host on that date, so a name that did not resolve could
+    # not be in the index. The hostname is verified by the act of mirroring rather
+    # than typed from memory, which is the property the split exists to supply for
+    # a hostname written into a Usenet post. Same class of claim as `isc_survey`
+    # and `uucp_map_registry`: a dated artifact enumerating hosts that were live.
+    # Domain-dispute proceedings: a dated docket naming a registered domain in its
+    # own column. Master, self-dating, no corroboration split. See ADR-002.
+    "udrp_proceedings": SourceSpec(
+        key="udrp_proceedings",
+        source_name="udrp_proceedings",
+        evidence_type="artifact_listing",
+        acquisition_method="icann_udrp_proceedings_list",
+        parse=parse_udrp_proceedings,
+    ),
+    "attrition_dated": SourceSpec(
+        key="attrition_dated",
+        source_name="attrition_defacement",
+        evidence_type="artifact_listing",
+        acquisition_method="attrition_defacement_mirror_index",
         parse=_parse_usenet_journal,
     ),
     # Hand-maintained maps: the container is fresh, the entries are not, so the

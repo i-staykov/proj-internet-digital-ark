@@ -14,6 +14,15 @@
 # quiet one: hours of an alive process finding nothing. The test is therefore
 # journal growth, which is real because `write_journal_line` flushes per record.
 #
+# **And progress is not yield**, which this script cannot see. A journal full of
+# misses grows exactly as fast as a journal full of hits, so growth proves only
+# that the loop is turning. On 11 August a rebuilt queue put 2,675 `.mil` names in
+# its first 3,000 rows and this supervisor reported two perfectly healthy batches
+# that between them found nothing in 1,200 queries. Yield is therefore checked
+# outside this script, by `src/ark/yield_check.py` via `just cycle`, because the
+# comparison it needs is against the collector's own history rather than anything
+# a single batch can know.
+#
 # The stall window has to clear the archive's own slowest answer. A single CDX
 # query has been observed taking 183 seconds to return, so a window near that
 # would kill healthy batches; 900s is comfortably clear of it.

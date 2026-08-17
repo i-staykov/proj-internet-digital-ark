@@ -90,7 +90,7 @@ def test_a_published_journal_is_gzipped(tmp_path) -> None:
 def test_a_live_journal_grows_on_disk_as_records_are_written(tmp_path) -> None:
     """The watchdog decides a run has stalled by watching this size.
 
-    `scripts/watchdog_lang.sh` reads journal bytes and restarts the supervisor when
+    `scripts/supervise_cdx_pool.sh` reads journal bytes and restarts the supervisor when
     they stop moving. gzip emits nothing until zlib fills a block, so without a
     flush per record the file sits at zero for minutes: on 3 August, with the
     archive answering slowly, the first block took 12.7 minutes against a

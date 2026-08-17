@@ -57,6 +57,40 @@ def test_collect_stats_counts() -> None:
     assert stats["candidate_pool"] == 1
 
 
+def test_two_outcomes_partition_the_netnew_total() -> None:
+    """Discovery and completeness are disjoint and exhaustive over net-new pairs.
+
+    Written because the near miss here is counting distinct domains over net-new
+    pairs, which once reported 1,161,961 domains against a true 463,566: a domain
+    the baseline already holds gaining a year is a new pair on an old domain.
+    """
+    stats = collect_stats(_populated_db())
+    # new.com and corr.com carry no baseline evidence; mixed.com/1999 is a year
+    # filled on a domain the baseline already holds
+    assert stats["discovery_pairs"] == 2
+    assert stats["completeness_pairs"] == 1
+    assert stats["discovery_pairs"] + stats["completeness_pairs"] == stats["netnew_pairs_total"]
+    assert stats["ee_discovery_pairs"] + stats["ee_completeness_pairs"] == stats["ee_netnew"]
+    # breadth is one count per domain, so it is not the discovery pair total
+    assert stats["ee_netnew_domains"] == stats["ee_discovery_pairs"]
+
+
+def test_a_discovered_domain_with_two_years_is_one_discovery() -> None:
+    """Breadth counts the domain once however many years it earns."""
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    add_candidate(conn, "found.com", cdx)
+    _assign(conn, "found.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "found.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+
+    stats = collect_stats(conn)
+    assert stats["netnew_domains"] == 1
+    assert stats["discovery_pairs"] == 2
+    assert stats["completeness_pairs"] == 0
+    # two pairs' worth of score, one domain's worth of breadth
+    assert stats["ee_discovery_pairs"] == 2 * stats["ee_netnew_domains"]
+
+
 def test_corroboration_counts_distinct_master_sources() -> None:
     stats = collect_stats(_populated_db())
     assert stats["evidence_rows"] == 9

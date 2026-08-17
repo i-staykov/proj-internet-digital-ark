@@ -25,6 +25,7 @@ import pyarrow as pa
 from loguru import logger
 from tqdm import tqdm
 
+from ark import approvals
 from ark.audit import FIELDS, change_reason
 from ark.canonical import reject_reason, to_registrable
 from ark.db import ensure_source
@@ -272,7 +273,15 @@ def ingest_files(
     report_dir: Path = DEFAULT_REPORT_DIR,
     discovered_round: int = 0,
 ) -> dict:
-    """Ingest many files of one source; each file is its own resumable unit."""
+    """Ingest many files of one source; each file is its own resumable unit.
+
+    Refuses before touching the store if this source class has no human approval
+    behind it. Master-eligible evidence can create a year assignment, and deciding
+    whether a source deserves that is a judgement about proof rather than a
+    measurement, so it is not the agent's to make. Candidate-only evidence passes
+    freely: it can never date a year.
+    """
+    approvals.check(spec.source_name, spec.evidence_type)
     kind = "candidate_only" if spec.is_candidate_only else "timestamped"
     source_id = ensure_source(conn, spec.source_name, kind)
     audit_path = report_dir / f"{spec.key}_audit.csv"

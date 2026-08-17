@@ -38,6 +38,7 @@ import duckdb  # noqa: E402
 
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_DIR,
+    CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
@@ -45,34 +46,80 @@ from ark.baseline import (  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
-CALCULATOR = Path(
-    "feedback-phase-3/equivalent_english_domain_calculator/equivalent_english_domains.py"
-)
-MERGED_BASELINE = CURRENT_BASELINE_DIR
 
-# The engines started against the store at 20:09 UTC on 3 August, the first moment
-# anything in this round could have been written.
-SINCE = "2026-08-03 18:09:00+00"
+
+def _resolve(candidates: tuple[Path, ...], must_contain: str) -> Path:
+    """The first candidate directory that actually holds `must_contain`.
+
+    `--verify` has two inputs on disk, the reviewer's scorer and his merged baseline,
+    and both were addressed by repository-relative path. That works here and fails in
+    a delivery, where the same two files live at the archive root while this script
+    runs from `source/`, one level down. The report tells a reviewer to run this
+    command, so it worked for the author and would have failed for the reader, twice
+    for two different reasons: the calculator first, then the baseline.
+
+    One resolver rather than two lookups, because the mistake was not either path. It
+    was addressing a file by where it happened to be rather than by what it is, and a
+    third such input would have repeated it a third time.
+    """
+    for base in candidates:
+        if (base / must_contain).is_file():
+            return base
+    return candidates[0]
+
+
+# Repository layout first, then the delivery layout one level up. Ordering matters
+# only for the calculator, where a future round could hold two releases at once and
+# should prefer the current one.
+CALCULATOR = (
+    _resolve(
+        (
+            CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
+            Path("../equivalent_english_domain_calculator"),
+            Path("equivalent_english_domain_calculator"),
+            Path("Domain_Data_Collection_Task_update/equivalent_english_domain_calculator"),
+            Path("feedback-phase-3/equivalent_english_domain_calculator"),
+        ),
+        "equivalent_english_domains.py",
+    )
+    / "equivalent_english_domains.py"
+)
+
+MERGED_BASELINE = _resolve(
+    (
+        CURRENT_BASELINE_DIR,
+        Path("..") / "baseline" / CURRENT_BASELINE_DIR.name,
+        Path("baseline") / CURRENT_BASELINE_DIR.name,
+    ),
+    "1996.txt",
+)
+
+# The round window opens where the last shipped release closes, so it comes from
+# `ark.baseline` rather than being retyped here. `increment()` does not actually
+# need it: each of its queries carries NOT_BASELINE, so a pair the reviewer has
+# merged drops out by itself. `held` does, and cannot be fixed the same way: a
+# candidate is never in the baseline, so the time window is the only thing
+# separating this round's held names from the last round's.
+SINCE = CURRENT_ROUND_SINCE
 
 # His merged 1996-2001 files after the last round was folded in, from `ark.baseline`
-# so this script, `ark stats` and the ingest defaults cannot drift apart. His own
-# message quotes the PRE-merge pair, 10,263,632 and 5,531,053.6089, so do not use
-# those.
+# so this script, `ark stats` and the ingest defaults cannot drift apart.
 #
 # BASELINE_PAIRS is the RAW record count, not the validator-passing subset, and the
-# difference matters: his calculator reports 10,415,768 unique nonempty records of
-# which 10,404,200 are valid, the other 11,568 being embedded ports and underscore
-# labels that score zero. His line 1 tracks the raw count. 10,263,632 plus the
-# 151,949 he credited is 10,415,581, which is 187 from the raw figure and 11,381
-# from the valid one, so quoting the valid count reads to him as 11,568 records
-# lost since his last message. The 187 is inside his own merge.
+# difference matters. Measured on `merged260802-2`, his calculator reported 10,415,768
+# unique nonempty records of which 10,404,200 were valid, the other 11,568 being
+# embedded ports and underscore labels that score zero. His line 1 tracks the raw
+# count, so quoting the valid one reads to him as 11,568 records lost since his last
+# message. The equivalent split for `merged260810` has not been re-measured; the raw
+# count is `wc -l` and was verified, the valid subset was not.
 BASELINE_PAIRS = REVIEWER_BASELINE_PAIRS
 BASELINE_EE = REVIEWER_BASELINE_EE
 BASELINE_EE_BY_YEAR = REVIEWER_BASELINE_EE_BY_YEAR
 
 # What he credited for the previous round, used only for the comparison line.
-LAST_PAIRS = 151_949
-LAST_EE = Decimal("91814.6880")
+# phase-4, merged into `merged260810` on 2026-08-10 and accepted in full.
+LAST_PAIRS = 946_266
+LAST_EE = Decimal("603401.7811")
 
 # A pair the shared baseline already holds is not ours to report. `prior_reused` is
 # the evidence type recording that a pair arrived with the baseline.

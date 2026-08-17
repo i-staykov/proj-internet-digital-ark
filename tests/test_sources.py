@@ -10,6 +10,8 @@ from ark.sources import (
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_cdx_snapshot,
+    parse_domain_creation_csv,
+    parse_domain_year_captures,
     parse_early_web_cdx,
     parse_expansion_directory,
     parse_expansion_links,
@@ -310,14 +312,28 @@ def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
     assert stats["malformed"] == 1
 
 
-def test_ukwa_stops_after_the_window(tmp_path: Path) -> None:
-    # the graph is year-sorted; the parser breaks at the first post-2001 row
-    # (skipping the huge out-of-window tail and the truncated download end)
+def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
+    """The file is 15 internally sorted shards, so an out-of-window year is not the end.
+
+    This test replaces one that asserted the opposite. The parser used to `break` at
+    the first row past 2001 on a docstring claim that the graph was year-sorted.
+    Measured over all 168,942,882 lines of the real file on 2026-08-16: the year
+    column decreases 14 times, the break fired at line 166,895, and the scan read
+    166,890 of the 2,468,674 in-window rows that are actually there. 6.76%.
+
+    The fixture is the real shape in miniature: a shard that runs past the window,
+    then another that starts before it.
+    """
     rows = [
+        # shard one, sorted, running out of the window
         "2000|a.co.uk|x.com\t1",
         "2001|b.co.uk|y.com\t1",
         "2002|c.co.uk|z.com\t1",
-        "2005|d.co.uk|w.com\t1",
+        "2010|d.co.uk|w.com\t1",
+        # shard two starts over, and everything here used to be silently lost
+        "1996|e.co.uk|v.com\t1",
+        "2001|f.co.uk|u.com\t1",
+        "2004|g.co.uk|t.com\t1",
     ]
     fixture = tmp_path / "host-linkage.tsv.gz"
     fixture.write_bytes(gzip.compress(("\n".join(rows) + "\n").encode("utf-8")))
@@ -325,7 +341,13 @@ def test_ukwa_stops_after_the_window(tmp_path: Path) -> None:
 
     records = list(parse_ukwa_link_source(fixture, stats))
 
-    assert [(r.raw, r.year) for r in records] == [("a.co.uk", 2000), ("b.co.uk", 2001)]
+    assert [(r.raw, r.year) for r in records] == [
+        ("a.co.uk", 2000),
+        ("b.co.uk", 2001),
+        ("e.co.uk", 1996),
+        ("f.co.uk", 2001),
+    ]
+    assert stats["out_of_window"] == 3
 
 
 def test_ukwa_tolerates_truncated_gzip(tmp_path: Path) -> None:
@@ -888,3 +910,117 @@ def test_a_bare_host_is_taken_only_from_the_body(tmp_path):
 
 def test_a_bare_host_drops_infrastructure_like_every_other_usenet_path():
     assert _bare("archived at groups.google.com and archive.org") == set()
+
+
+# The Internet Archive's own per-year capture census, published as an ordinary item
+# alongside the Dartmouth/NBER corporate crawl. Rows are host, year, capture count.
+
+
+def test_domain_year_captures_keeps_only_in_window_rows(tmp_path: Path) -> None:
+    rows = [
+        "petrosys.com.au\t1997\t155",
+        "petrosys.com.au\t1998\t75",
+        "21.com\t2003\t246",  # out of window
+        "other\t2001\t8",  # not a hostname, canonicalisation drops it later
+        "example.com\t1995\t3",  # out of window on the early side
+    ]
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("petrosys.com.au", 1997, "ia_captures:1997:155"),
+        ("petrosys.com.au", 1998, "ia_captures:1998:75"),
+        ("other", 2001, "ia_captures:2001:8"),
+    ]
+    assert stats["out_of_window"] == 2
+    # every row carries the Wayback calendar for that host and year, so an approval
+    # request built from these is checkable rather than merely readable
+    assert records[0].evidence_url == ("https://web.archive.org/web/1997*/http://petrosys.com.au/")
+
+
+def test_domain_year_captures_counts_malformed_rather_than_raising(tmp_path: Path) -> None:
+    """A 228 MB file must not be abandoned because one line is short."""
+    rows = ["good.com\t1999\t5", "missing-a-column\t1999", "bad-year\tnineteen\t5"]
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [r.raw for r in records] == ["good.com"]
+    assert stats["malformed"] == 2
+
+
+def test_domain_year_captures_tolerates_a_non_numeric_count(tmp_path: Path) -> None:
+    """The count is provenance, not evidence, so it must never gate a real row."""
+    fixture = tmp_path / "domain-year-captures.txt"
+    fixture.write_text("good.com\t1999\tmany\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_year_captures(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("good.com", 1999, "ia_captures:1999:?")
+    ]
+
+
+# A published bulk of registry creation dates, CC BY 4.0, 171M domains. Same claim and
+# same authority as `rdap_snapshot`, arriving as a file rather than as 171 million
+# queries we could never afford to make.
+
+CREATION_ROWS = [
+    "domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at",
+    "stdominic.net;net;f;Reg A;1999-09-01;{ns1.x.};{};{};2024-10-12",
+    "oncall.org;org;f;Reg B;1997-11-26;{ns1.y.};{};{};2024-10-12",
+    "blueadvise.com;com;f;GoDaddy;2021-09-13;{ns1.z.};{};{};2024-10-12",  # after the window
+    "ancient.com;com;f;Reg C;1994-02-02;{ns1.w.};{};{};2024-10-12",  # before it
+    "nodate.nl;nl;t;unknown;;{een.dnssrv.nl.};{};{};2024-11-07",  # no creation date
+    "short;row",
+]
+
+
+def test_creation_csv_keeps_only_in_window_years(tmp_path: Path) -> None:
+    fixture = tmp_path / "domains.csv"
+    fixture.write_text("\n".join(CREATION_ROWS) + "\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_creation_csv(fixture, stats))
+
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("stdominic.net", 1999, "registry created 1999-09-01"),
+        ("oncall.org", 1997, "registry created 1997-11-26"),
+    ]
+    assert stats["out_of_window"] == 2
+    # Two, not one: the `nodate.nl` row AND the header, whose fifth field is the
+    # literal string `created_at`. Skipping the header by not special-casing it is
+    # deliberate; a header line is just a row whose date does not parse.
+    assert stats["no_creation_date"] == 2
+    assert stats["malformed"] == 1  # the deliberately short row
+
+
+def test_creation_csv_emits_one_year_per_domain(tmp_path: Path) -> None:
+    """A creation date says the name was created that day and nothing about later.
+
+    Emitting a span would be the inference the brief forbids by name: continued
+    registration in a later year is a separate fact needing separate evidence.
+    """
+    fixture = tmp_path / "domains.csv"
+    fixture.write_text("a.com;com;f;R;1998-06-06;{};{};{};2024-10-12\n", encoding="utf-8")
+    stats: Counter = Counter()
+
+    records = list(parse_domain_creation_csv(fixture, stats))
+
+    assert [(r.raw, r.year) for r in records] == [("a.com", 1998)]
+    # Every row carries ICANN's lookup for that exact name, so a reviewer checking an
+    # approval request checks the registry rather than reading our argument.
+    assert records[0].evidence_url == "https://lookup.icann.org/en/lookup?q=a.com"
+
+
+def test_creation_bulk_is_registered_as_whois_master() -> None:
+    spec = SOURCES["domain_creation_bulk"]
+    assert spec.evidence_type == "whois_creation"
+    assert spec.is_candidate_only is False
+    assert spec.source_name == "domain_creation_bulk"

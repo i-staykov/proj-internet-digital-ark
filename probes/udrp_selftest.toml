@@ -1,0 +1,10 @@
+# A self-test, not a source: the UDRP dockets are already ingested by a bespoke
+# collector, so the right answer is known. The probe should land near 8,800 pairs
+# over 8,769 domains. Anything far off means the declarative path is lying about
+# yield, which is the one failure that would make its prices useless.
+name = "udrp_selftest"
+url = "https://www.icann.org/udrp/proceedings-list.htm"
+kind = "html_table"
+domain_column = 3
+date_column = 0
+domain_pattern = "(?i)\\b([a-z0-9][a-z0-9\\-]{0,62}(?:\\.[a-z0-9][a-z0-9\\-]{0,62})*\\.[a-z]{2,6})\\b"

@@ -113,17 +113,38 @@ grep -hoE 'cdx: \{[^}]*\}' \$(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2
 " 2>&1 | grep -v "^Warning: Permanently added" || echo "   unreachable (VPN down?)"
 
 section "journals on the VPS not yet copied here"
+# The remote listing and the reachability check are separate facts, and conflating
+# them is how this section lied. When ssh failed, `$remote` came back empty, the
+# loop body never ran, `missing` stayed 0 and it printed "none, everything is home"
+# about a machine it had not been able to ask. That is the exact failure this whole
+# section exists to catch: the VPS once ran for a day and a half with 5,793
+# year-records on its disk and absent from the store, because nothing here looked.
+# So an unanswered question now reads as unanswered.
 remote=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
     "ls '$VPS_REPO'/data/raw/cdx/cdx_*.jsonl.gz 2>/dev/null | xargs -n1 basename 2>/dev/null" 2>/dev/null)
-missing=0
-for f in $remote; do
-    [ -e "data/raw/cdx/$f" ] || { echo "   $f"; missing=$((missing + 1)); }
-done
-if [ "$missing" -eq 0 ]; then
-    echo "   none, everything is home"
-else
-    echo "   $missing missing. Bring them home with:"
+ssh_status=$?
+if [ "$ssh_status" -ne 0 ]; then
+    echo "   UNKNOWN: could not reach $VPS to ask (ssh exit $ssh_status)"
+    echo "   This is not 'nothing to fetch'. Bring the link up and re-run, then:"
     echo "     rsync -av --ignore-existing '$VPS:$VPS_REPO/data/raw/cdx/cdx_*.jsonl.gz' data/raw/cdx/"
+elif [ -z "$remote" ]; then
+    echo "   reachable, but it lists no journals at $VPS_REPO/data/raw/cdx/"
+    echo "   Check ARK_VPS_REPO: an empty listing from a live host usually means"
+    echo "   the repository is somewhere else on it."
+else
+    missing=0
+    total=0
+    for f in $remote; do
+        total=$((total + 1))
+        [ -e "data/raw/cdx/$f" ] || { echo "   $f"; missing=$((missing + 1)); }
+    done
+    if [ "$missing" -eq 0 ]; then
+        echo "   none of its $total journals is missing, everything is home"
+    else
+        echo "   $missing of $total missing. Bring them home with:"
+        echo "     rsync -av --ignore-existing '$VPS:$VPS_REPO/data/raw/cdx/cdx_*.jsonl.gz' data/raw/cdx/"
+        echo "   then ingest them: uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz"
+    fi
 fi
 
 section "power"

@@ -9,6 +9,7 @@
 #   1. every file matches SHA256SUMS
 #   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
+#   4. every assignment in the provenance export cites evidence shipped beside it
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
@@ -73,125 +74,51 @@ if missing:
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
 
-# --- 4. the English-verified subset really is a subset ------------------------
-# The one failure this cannot be allowed to have: an annual file that admits a
-# domain under the English standard which is not among the additions at all, or
-# is admitted for a year it was never added for. Cheap to check and fatal if
-# wrong, so it is checked.
-english_dir = Path("additions_english")
-if not english_dir.is_dir():
-    print(f"{'english-verified subset':<46} SKIP  additions_english/ not in this archive")
-else:
-    english = {}
-    for year in years:
-        path = english_dir / f"{year}.txt"
-        english[year] = (
-            {line.strip() for line in path.read_text().splitlines() if line.strip()}
-            if path.exists()
-            else set()
-        )
-    stray = {
-        (d, y) for y, names in english.items() for d in names if d not in additions.get(y, set())
-    }
-    if stray:
-        sample = ", ".join(f"{d} ({y})" for d, y in sorted(stray)[:3])
-        print(
-            f"{'english-verified subset':<46} FAIL  {len(stray):,} admitted but not "
-            f"an addition for that year, e.g. {sample}"
-        )
-        sys.exit(1)
-    n = sum(len(v) for v in english.values())
-    share = f"{n / total * 100:.1f}%" if total else "0%"
-    if n == 0:
-        # A vacuous pass is worse than a failure here. Every check below about
-        # the English set is trivially satisfied when the set is empty: the
-        # partition holds because 0 + everything = everything, the subset test
-        # holds because there is no subset, and the register has nothing to be
-        # inconsistent about. Shipping nothing would otherwise print six PASS
-        # lines, which is precisely the reading a reviewer must not be given.
-        print(
-            f"{'english-verified subset':<46} WARN  the English set is EMPTY, so every "
-            "check below about it is vacuous"
-        )
-    else:
-        print(
-            f"{'english-verified subset':<46} PASS  {n:,} of {total:,} additions "
-            f"({share}) verified English, all within the additions"
-        )
+PY
 
-# --- 5. the two shipped sets partition the additions --------------------------
-# This is the contract the report states: English-verified and unverified are
-# disjoint and together they are the whole. If they overlapped, a reviewer
-# adding the two files would double-count; if they left a gap, the report's
-# headline would exceed what actually shipped. Both are checked here rather
-# than asserted in prose, because prose cannot be run.
-unverified_dir = Path("additions_unverified")
-if not unverified_dir.is_dir() or not english_dir.is_dir():
-    print(f"{'the two sets partition the additions':<46} SKIP  one of the two sets is absent")
-else:
-    unverified = {}
-    for year in years:
-        path = unverified_dir / f"{year}.txt"
-        unverified[year] = (
-            {line.strip() for line in path.read_text().splitlines() if line.strip()}
-            if path.exists()
-            else set()
-        )
-    overlap = {(d, y) for y in years for d in english[y] & unverified[y]}
-    union = {(d, y) for y in years for d in english[y] | unverified[y]}
-    claimed_pairs = {(d, y) for y, names in additions.items() for d in names}
-    missing_from_split = claimed_pairs - union
-    extra_in_split = union - claimed_pairs
+# --- 4. the evidence wall, inside the shipped provenance ---------------------
+# Added 2026-08-17, after an archive shipped with 11,316,960 of 16,619,832
+# assignments pointing at an `evidence_id` that was not in the file beside them. A
+# packaging change had filtered the evidence table to save 429 MB; every check above
+# passed, because they all read the additions manifest and none of them read the
+# parquet. The archive's central claim is that any line of any annual file traces to
+# an observation IN THIS ARCHIVE, and nothing was testing it.
+#
+# `uv` is optional here on purpose: the rest of this script needs only coreutils and
+# python3, and a reviewer who has not installed uv should still get the first three
+# checks rather than an error.
+if [ -f provenance/evidence.parquet ] && [ -f provenance/domain_year.parquet ]; then
+    if command -v uv >/dev/null 2>&1; then
+        orphans=$(uv run --with duckdb --no-project python -c "
+import duckdb
+c = duckdb.connect()
+print(c.execute('''
+    SELECT count(*) FROM read_parquet('provenance/domain_year.parquet') dy
+    WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
+                      WHERE e.evidence_id = dy.evidence_id)
+''').fetchone()[0])
+" 2>/dev/null | tail -1)
+        case "$orphans" in
+            0)   say "evidence wall intact" "PASS  every assignment resolves to a shipped evidence row" ;;
+            ''|*[!0-9]*) say "evidence wall intact" "SKIP  could not read the provenance export" ;;
+            *)   say "evidence wall intact" "FAIL  $orphans assignments cite evidence not in this archive"; fail=1 ;;
+        esac
+    else
+        say "evidence wall intact" "SKIP  needs uv (https://docs.astral.sh/uv/)"
+    fi
+else
+    say "evidence wall intact" "SKIP  no provenance export here"
+fi
 
-    if overlap:
-        sample = ", ".join(f"{d} ({y})" for d, y in sorted(overlap)[:3])
-        print(
-            f"{'the two sets partition the additions':<46} FAIL  {len(overlap):,} in "
-            f"both sets, e.g. {sample}"
-        )
-        sys.exit(1)
-    if missing_from_split or extra_in_split:
-        print(
-            f"{'the two sets partition the additions':<46} FAIL  "
-            f"{len(missing_from_split):,} additions in neither set, "
-            f"{len(extra_in_split):,} in a set but not an addition"
-        )
-        sys.exit(1)
-    verdict = "PASS" if n else "WARN"
-    note = "" if n else "  (vacuous: the English set is empty)"
-    print(
-        f"{'the two sets partition the additions':<46} {verdict}  {n:,} English + "
-        f"{len(union) - n:,} unverified = {len(union):,} additions, no overlap{note}"
-    )
-
-# --- 6. every rejection is justified per item ---------------------------------
-# Ding is told that a pair outside the English set was either judged and
-# rejected for a stated reason, or not yet reached. The register is what makes
-# the first half of that inspectable, so an empty or reasonless register would
-# turn a documented exclusion back into an assertion.
-register = unverified_dir / "disqualified.csv"
-if not register.exists():
-    print(f"{'every rejection carries a reason':<46} SKIP  no disqualified.csv in this archive")
-else:
-    rows = list(csv.DictReader(register.open(newline="", encoding="utf-8")))
-    reasonless = [r for r in rows if not (r.get("reason") or "").strip()]
-    if reasonless:
-        print(
-            f"{'every rejection carries a reason':<46} FAIL  {len(reasonless):,} of "
-            f"{len(rows):,} rejections have no reason"
-        )
-        sys.exit(1)
-    if not rows:
-        print(
-            f"{'every rejection carries a reason':<46} WARN  the register is EMPTY, so "
-            "no exclusion is documented"
-        )
-    else:
-        kinds = sorted({r["reason"] for r in rows})
-        print(
-            f"{'every rejection carries a reason':<46} PASS  {len(rows):,} rejections, "
-            f"{len(kinds)} distinct reasons"
-        )
+python3 - <<'PY'
+# Checks 5, 6 and 7 are gone with the standard they policed. They verified that
+# `additions_english/` was a subset of the additions, that it partitioned them
+# against `additions_unverified/`, and that every rejection in `disqualified.csv`
+# carried a reason. The reviewer retired the page-level English standard in August
+# 2026, the archive stopped shipping all three files, and the checks then printed
+# three SKIP lines about folders that no longer exist. A check that examines
+# nothing reads like a check that found nothing wrong, which is worse than not
+# having it. `legacy/src/language.py` holds the engine.
 PY
 
 echo
