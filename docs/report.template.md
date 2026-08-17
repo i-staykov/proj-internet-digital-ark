@@ -41,10 +41,9 @@ same-day agreement on single-capture years. The registry dates were tested again
 encoded: a TLD cannot predate its own delegation, and across the six delegated in 2001 the file holds
 21,698 in-window rows and **zero** dated before 2001.
 
-One caveat on checking the census yourself: **the archive.org item it came from stopped serving on
-2026-08-17**, the day after we downloaded it, though it is still in the search index at its full size.
-Its records remain checkable regardless, because each carries a live Wayback URL for that host and year;
-`sources.md` gives the detail.
+One caveat on checking the census yourself: **the archive.org item it came from stopped serving the day
+after we downloaded it**, so use the live Wayback URL each record carries instead; `sources.md` has the
+detail.
 
 **The largest contributor carries the narrowest evidence, and is under-claimed deliberately.** A
 creation date attests registration, not activity, and only for one year. A domain registered in 1997

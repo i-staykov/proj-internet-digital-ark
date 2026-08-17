@@ -1,5 +1,5 @@
 A fresh copy of this archive was extracted and put through the route above before sending. Checksums
 and all four checks in `verify.sh` pass, `trace.py` resolves, the rebuild from `provenance/` returns
-every per-year count exactly with all nine invariants passing, and all fourteen result files come back
+every per-year count exactly with all ten invariants passing, and all fourteen result files come back
 byte-identical. Tier 3 was not run: it is a roughly 50 GB download and two of this project's own
 collectors were querying the Internet Archive at the time.

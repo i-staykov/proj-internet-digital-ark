@@ -62,10 +62,9 @@ same-day agreement on single-capture years. The registry dates were tested again
 encoded: a TLD cannot predate its own delegation, and across the six delegated in 2001 the file holds
 21,698 in-window rows and **zero** dated before 2001.
 
-One caveat on checking the census yourself: **the archive.org item it came from stopped serving on
-2026-08-17**, the day after we downloaded it, though it is still in the search index at its full size.
-Its records remain checkable regardless, because each carries a live Wayback URL for that host and year;
-`sources.md` gives the detail.
+One caveat on checking the census yourself: **the archive.org item it came from stopped serving the day
+after we downloaded it**, so use the live Wayback URL each record carries instead; `sources.md` has the
+detail.
 
 **The largest contributor carries the narrowest evidence, and is under-claimed deliberately.** A
 creation date attests registration, not activity, and only for one year. A domain registered in 1997
@@ -180,6 +179,6 @@ raw per-source records, and `source/source.tar.gz` the repository at the commit 
 
 A fresh copy of this archive was extracted and put through the route above before sending. Checksums
 and all four checks in `verify.sh` pass, `trace.py` resolves, the rebuild from `provenance/` returns
-every per-year count exactly with all nine invariants passing, and all fourteen result files come back
+every per-year count exactly with all ten invariants passing, and all fourteen result files come back
 byte-identical. Tier 3 was not run: it is a roughly 50 GB download and two of this project's own
 collectors were querying the Internet Archive at the time.
