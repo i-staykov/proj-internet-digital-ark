@@ -69,8 +69,12 @@ handback-sources-B.md
 # address and the open-decision list. Regenerable, so there is nothing to track.
 docs/ROUND.md
 
-# Phase 5 task package from the reviewer: baseline copy plus his docs.
+# Task packages from the reviewer: a baseline copy plus his docs, ~1.4 GB each.
+# His docs are the part worth tracking and they are transcribed into docs/ding/,
+# which is not ignored. A `git add -A` once swept one of these copies into history
+# and made the branch unpushable, so a new phase adds its line here first.
 feedback-phase-5/
+feedback-phase-6/
 Domain_Data_Collection_Task_update/
 
 # Word lock files, left behind when the .docx is open while it is rebuilt.
