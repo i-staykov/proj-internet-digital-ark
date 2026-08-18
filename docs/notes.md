@@ -10779,3 +10779,44 @@ re-derived at 512,261.2220 by the reviewer's own calculator running from inside 
 Not adding a `submissions/README.md` row: that table records rounds that were **sent**, and this is a
 rehearsal. The tarball is git-ignored and the four tracked artifacts beside it are left untracked until
 there is a submission to record, so the table cannot come to describe a build nobody received.
+
+### Zero survivors, and the best result of the round is a mechanism
+
+The two-lead chase finished: four candidates, all four refuted, every one on a measurement rather than
+an argument. Both leads were themselves closed, one on an exhaustive enumeration and one on the capture
+record. The enumeration is worth restating because it settles a whole shape rather than a source: **all
+13,671 sub-collections of `collection:web`, all 233 of `customcrawlservices`, all 34,841 identifiers
+containing `HISTORICAL`, and 10 probed ccTLD analogues.** No `webdataservices` national extraction
+exists for a high-weight namespace, and the three national-library HISTORICAL families that do exist are
+closed on access, except Ireland which is closed because its earliest item is 2002.
+
+**The transferable finding, and the reason this round's section 5 is about mechanisms:** the
+byte-volume filter that looks like the cure for the never-was-real trap is defeated by monthly
+summation.
+
+JANET's national web cache monthly host reports were the strongest candidate of the day and the
+sanitisation rule genuinely did not touch them: cleartext hostnames, an aggregate report rather than a
+trace, month corroborated by the origin server's own `last-modified`, 421,866 distinct registrable
+domains. The proposer found Squid's error page as a dense byte cluster at 1601-1615 and filtered above
+it, which reads as rigour. It is not, because **the byte field is a monthly sum**: any host requested
+twice carries two error pages and clears the threshold. Three typos of `bbc.co.uk` prove it out of the
+file, each with exactly two error pages, all passing. Measured against a control drawn from the same
+file, 59.3% of the surviving pairs sit in an error harmonic, and 1,444 of them could not have existed in
+1998 by registry rule as a floor: 461 bare `.uk`, which Nominet did not sell until 2014, and 602 bare
+`.co`, which Colombia opened in 2010, all of it truncated `.co.uk` typing.
+
+That is C-19's Netcraft finding arriving from a new direction: **a dated artifact that lists names
+proves the artifact's date, not the names' liveness.** The register's own established test caught it,
+and the row is amended with the summation mechanism rather than reopened.
+
+**Two smaller things recorded.** The InterNIC `inaddr.zone.gz` of July 1998 is a genuine unnoticed
+sibling of a recorded find and is worth 336 net-new pairs rather than the 2,018 first claimed, because
+99.8% of its right-hand sides are **nameserver** names (229,347 NS against 508 PTR) and nameserver
+domains are the most-covered names in the store. And the item-level `access-restricted-item` flag
+predicts nothing in either direction: Poland carries it and serves its CDX, NLI and PT do not carry it
+and refuse theirs, and `_meta.xml` returns 200 on every item tested, so metadata openness says nothing
+about derivative openness.
+
+**Four for four refuted is the system working, not the hunt failing.** Every one of the four was
+retrievable and correctly dated; all four died on novelty or liveness, which are the two things
+retrievability cannot tell you. The refute stage changed the verdict or the figure on all four.

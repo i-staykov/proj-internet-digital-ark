@@ -158,7 +158,7 @@ caught it twice more, because the collectors bank continuously and an export is 
 document you are reading exists in this form because the fill refuses to write a report with an
 unwritten section, which it did not do until this round.
 
-**Negative results are first-class.** **120 source families have been searched and recorded**, 27 developed far enough to earn their own section and 93 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
+**Negative results are first-class.** **121 source families have been searched and recorded**, 27 developed far enough to earn their own section and 94 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 
 ---
 
