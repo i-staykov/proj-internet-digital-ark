@@ -11858,3 +11858,38 @@ while the collectors are still banking is how a delivery breaks; it is the next 
 alongside the C-24 revisit. And the baseline's 13,991 is worth telling Ding: it is his corpus, it is the
 reconciliation check D3 asks for in spirit, and it is the kind of thing worth reporting whether or not it
 helps us. **This one does not help us**, since correcting our own 433 lowers our increment.
+
+**Correcting the entry above, and this one was heading into an email to the reviewer, which is why it
+matters more than the others.** I wrote that bare second-level `.uk` names "could not have existed" and
+put a line on Ivo's decision surface telling him to report 13,991 such pairs to Ding as impossible. Then
+I listed the actual names instead of trusting the rule, and the premise is wrong:
+
+    bl.uk       the British Library, real, still live today
+    jet.uk      the JET Joint Undertaking at Culham, real
+    nic.uk      Nominet's own domain, real
+    nls.uk      the National Library of Scotland, real
+    mod.uk      the Ministry of Defence, real
+
+**Nominet's 2014 launch opened second-level registration to the general public; it did not create the
+level.** A legacy set of second-level `.uk` delegations predates it by decades, and our store holds
+genuine members of it. The same caution applies to `.au`, which had legacy second-level names of the
+`csiro.au` kind, and therefore to every row of that table.
+
+**So the finding is downgraded from a defect to a candidate list, and the numbers change meaning rather
+than value.** 433 of our pairs are *suspect*, not wrong. Reading them, the class is plainly mixed: `xco.uk`,
+`xo.uk`, `orgn.uk`, `gove.uk`, `com.uk`, `ca.uk`, `ph.uk`, `uc.uk`, `sc.uk`, `ed.uk`, `lb.uk` and `cu.uk`
+are truncations of `.co.uk` names, while `bl.uk`, `jet.uk`, `nic.uk` and `nls.uk` are real. Two entries,
+`british-library.uk` and `national-engineering-laboratory.uk`, are odd in the other direction and look like
+expansions of `bl.uk` and `nel.uk` rather than truncations of anything.
+
+**The line removed from `key-decisions.md`, and why that is the important part.** Telling Ding that his
+baseline contains 13,991 impossible records, on a rule I had not checked, would have been a confident
+wrong claim to the one person whose trust the project runs on, and he had just accepted two consecutive
+rounds with nothing rejected. It is withdrawn from his surface entirely rather than softened, because a
+half-right audit is not worth his attention.
+
+**What survives, and it is the useful part.** A filter here must be an allowlist of known legacy
+second-level names per ccTLD, not a rule about label counts, which is a real piece of design rather than
+the one-line reject I was an hour from writing. And the traps list gains the general form: **a registry's
+"opened in year X" date describes when a level opened to the public and not when the level began to
+exist**, so a legacy delegation predates it and looks exactly like junk.
