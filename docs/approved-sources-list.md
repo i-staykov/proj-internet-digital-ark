@@ -793,6 +793,28 @@ Decision: pending
 
 Decision: pending
 
+### excite_query_logs / dated_directory
+- Found 2026-08-18 by the round-four completeness critic, and it is the best-shaped lead in the queue
+    because it attacks the one population a crawler-derived baseline cannot contain by construction.
+- what it is: search-engine and portal **query logs** of the window: Excite 1997, 1999 and 2001 as
+    distributed by Jansen and Spink, Ask Jeeves 2001, the MetaCrawler and Dogpile academic sets. The
+    users' side of the engine rather than the crawler's side.
+- what dates one item: the log line's own server timestamp, machine-written at the moment a user typed
+    the name, so the date attaches to the observation itself and not to a container.
+- **why it is not the closed search-engine row**: that row established that no engine ever published a
+    dated hostname LIST, which is a fact about crawler output. A query log is the opposite artifact, and
+    its population is what people knew from television, packaging and word of mouth. A domain that was
+    advertised on a cereal box and never linked to is invisible to every crawl and present here.
+- volume: the 1997 Excite log is 1,025,910 queries for one day and the later logs are the same order,
+    with the IR literature putting URL-shaped queries at a few percent, so order 10,000 to 100,000 dated
+    typed mentions per log. ESTIMATE, not measured.
+- the first screen is **availability, not density**, and it is one email to the distributors, so settle
+    that before writing a parser and kill it outright if the answer looks like the NIST agreement.
+- typed by a human, so it takes the corroboration split, which is what makes wide extraction safe.
+- potential: 68
+
+Decision: pending
+
 ### early_bulk_whois_snapshot / whois_creation
 - self-dating, so **no corroboration split**. Found 2026-08-18.
 - what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
@@ -818,12 +840,55 @@ Decision: pending
 
 Decision: pending
 
+### discmaster_by_file_size / artifact_listing
+- Found 2026-08-18. A different question to the same index, and the reason it is separate matters.
+- what it is: `discmaster.textfiles.com` queried by **FILE SIZE** rather than by link-artifact filename,
+    hunting the one-file-many-names payload on period media: InterNIC or registrar name dumps, `hosts`
+    files, `*.dom` files, ISP customer-domain exports, mail-server relay tables.
+- **why it is not the closed `discmaster_media_index` row**: that row priced three populations which are
+    all **one name per file** (120,127 `.url` shortcuts, bookmarks and hotlists, 273,212 deduplicated
+    `.txt`), so every measurement in it is a density-per-item measurement. Nobody asked the index the
+    size question. And the register's zone-file and bulk-snapshot closures are all about **web** routes
+    (Wayback, RIPE, DNS-OARC, nic.ddn.mil) rather than about physical media.
+- what dates one item: the media file date corroborated against the disc's own release date. The closed
+    pass already validated that direction: of 11,811 in-window `ADD_DATE` values, 81.2% equal the media
+    year, 18.8% are earlier and **zero are later**.
+- **the 0.042-per-item ceiling does not govern this route at all**, which is the point: a single hit of
+    this shape carries 100,000+ names. The screen is a handful of JSON queries filtered to size above
+    roughly 256 KB with in-window file dates.
+- the caveat carried over from the closed row: 77.7% of in-window `.url` files sit inside an installer,
+    where the date describes a packaging event and errs in **both** directions. A bulk list on a disc has
+    only the disc date, so check for nesting before quoting a year.
+- potential: 62
+
+Decision: pending
+
 ### uk_gazette_addressed_notices_1998_2001 / link_source
 - potential: 62
 
 Decision: pending
 
 ### courtlistener_caselaw / dated_directory
+- potential: 60
+
+Decision: pending
+
+### cybernot_cphack_blacklist / artifact_listing
+- Found 2026-08-18, and it is the named reopen condition on the squidGuard row rather than a new family.
+- what it is: the CyberPatrol **CyberNOT** list as published in the March 2000 cphack proceedings, plus
+    SurfWatch, X-Stop, Bess and the earliest MESD or urlblacklist editions. Read as dated listings of
+    sites **a human rater actually visited**.
+- what dates one item: the edition or update-file date. Unlike Netcraft, the entry exists because a
+    rater loaded the page, so listing-to-liveness is **one inference shorter** than the step law 2 killed.
+    Admitted only as a first-appearance diff across consecutive editions.
+- why it is not the closed anti-spam row: that was killed on the **unit** before any fetch, because every
+    in-window RBL is IP-based. A content filter's unit is a hostname by construction.
+- the population is the one selected for **disapproval** rather than promotion or authority, which is the
+    short-life low-traffic shape that made UDRP dockets 87.7% net-new, and it is why squidGuard measured
+    20 of 27 sampled names with no current registration at all.
+- volume: contemporaneous reporting puts a single CyberNOT edition at order 100,000 URLs with several
+    editions a year. ESTIMATE from published accounts, not measured. One edition would be 20x the pair
+    bar, and the deciding count is cheap because it is one file per edition rather than 119,000 items.
 - potential: 60
 
 Decision: pending
@@ -966,6 +1031,23 @@ Decision: pending
 
 Decision: pending
 
+### scene_nfo_archives / dated_directory
+- Found 2026-08-18. Typed inside a dated artifact, so it **takes the corroboration split**.
+- what it is: underground release-scene text archives, `defacto2` and its peers: NFO files,
+    `FILE_ID.DIZ`, courier and BBS advertisements, 1996 to 2001, bulk-downloadable from a non-IA host so
+    law 1 does not apply.
+- what dates one item: the release date in the archive's own per-file metadata, repeated inside the NFO.
+- **why no lens has touched it**: the register covers shareware and CD catalogues, defacement mirrors and
+    Usenet bodies. This is the one text population of the era that **deliberately avoided being indexed**,
+    so the usual rule that a source exists to make a site known points the other way for once.
+- volume: order 100,000 dated files with heavy in-window density at roughly one to two hostnames each,
+    so 100,000+ mentions before the split. ESTIMATE from the site's own counts.
+- **the honest risk, stated by the finder**: the split then removes exactly the hidden names that make
+    the population interesting, since a site that avoided being indexed is a site no other source dates.
+    Measure the split's survival rate first, because that single number decides the lead.
+- potential: 45
+
+Decision: pending
 ### uspto_tm_marktext / dated_directory
 - potential: 40
 
@@ -1109,4 +1191,5 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
 

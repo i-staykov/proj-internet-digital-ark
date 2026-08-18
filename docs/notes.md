@@ -11187,3 +11187,100 @@ which double counts, and `aber.ac.uk` appearing as fabricated is what exposed it
 took 15 minutes and then 31 before being killed twice: correlated `NOT EXISTS` subqueries over 20.8M
 rows, where the same question as a single `GROUP BY domain` with `max(CASE WHEN ...)` answers in
 **3 seconds**. The measurement was not slow, the SQL was.
+
+## 2026-08-18 (afternoon): round four, four lenses, and every one closed on measurement
+
+Chosen against the density ceiling, because that constant makes **item count** the deciding number and
+the scholarly family had died at 4,997. 22 candidates, **all 22 self-rejected**, so nothing even reached
+the refute stage. That is the screening working: the lenses were picked to be big enough, and three of
+the four then failed for reasons that had nothing to do with size.
+
+### The ceiling turned out to be a property of subject matter, not of prose
+
+Government grant records are **the first lens to clear the item count decisively and still die**, which
+makes it the most informative rejection available. 456,700 dated in-window items across NIH (372,444),
+NSF (60,377), CORDIS (23,879) and Gateway to Research (**zero**, its 158,712 projects all start later),
+3.8x what the ceiling demands, every route free, bulk, born-digital, dated by a start date frozen at
+award.
+
+| population | net-new pairs per item |
+|---|--:|
+| the ceiling, from RFCs and D-Lib | 0.042 |
+| NSF CSE (computing) | 0.0471 |
+| NSF BIO | 0.0152 |
+| NSF GEO, TIP | 0.0000 |
+| NIH, biomedical | **0.0012** |
+
+NIH is 35x below it, being **164 distinct hostnames in 372,444 abstracts**. And the closing arithmetic
+is almost too neat: CSE, the one sub-population that reaches the ceiling, holds about 4,984 in-window
+items, against the 4,997 of the largest scholarly corpus the ceiling was derived to reject. **Both
+corpora that established 0.042 are prose about the internet.** A million items about molecular biology
+name no web sites at all.
+
+**And the lens's one dense seam had to be killed on dating, which produced a fourth junk mechanism.**
+NSF's per-award `piEmail` is 95.1% covered at mean weight 0.7519 and gave 90 survivors. It is a
+**current-state contact field refreshed under a frozen date**: the award date is genuinely frozen, the
+mailbox is as of the last edit. The tell was `gmail.com` on 61 awards of 1996-2001, and 42 of 58
+hand-audited survivors carry a registry creation date **after** the year claimed. `discovery.md` now
+carries it beside MARC 856, with the rule: assume any per-entity contact or homepage column is undated
+until someone produces a per-field date for it.
+
+### Newswire fails by promotion, which is law 3's sibling
+
+The lens was built around Reuters RCV1, 806,791 stories inside 1996-1997, 6.8x the item count needed and
+covering the two years the archive cannot supply in bulk. The blocker was supposed to be a NIST
+agreement. It is not: **the recommendation is do not sign it**, and that is settled rather than raised,
+because the density was measured on wire copy we already hold.
+
+The ClariNet sample feed on our own disk is genuine Reuters, UPI and Newsbytes copy from inside RCV1's
+own span. 8,010 in-window stories, 20.39 MB after stripping 43.8% boilerplate: **305 pairs, all 305
+already held, zero net-new before or after the split**, and only 3 of the 305 are held on this corpus's
+own evidence, so the redundancy is real rather than circular. Only **4.79%** of wire stories name any
+domain, and the ones they name are `reuters.com`, `microsoft.com`, `aol.com`, `apple.com`,
+`amazon.com`, `yahoo.com`. **A wire story names a company's web site only once the company is famous
+enough to be in the story.**
+
+An unexpected yes on availability, worth recording so nobody spends a day on it: a free bulk newswire
+corpus larger than RCV1 does exist, `usenet-clari.*` on archive.org, 21.3 GB with Business Wire and PR
+Newswire in 61 `.releases` groups. Its earliest message is uniformly **2003-06-23**, because those items
+are the Giganews spool rather than the Deja archive. And the only licence-free RCV1 distribution is
+**stem-scrambled by design**, so no hostname can survive it.
+
+### The other two, and the defect one of them found in our own files
+
+**Pasted network diagnostics** closed on a whole-corpus census: 29,040 of 219,447,104 messages carry a
+diagnostic structure, one in 7,557, capping the lens at 1,220 pairs even at the ceiling. Measured 297
+net-new pairs, and a hand audit of 40 removed 47.5% of them, leaving roughly **150 pairs and 70
+equivalent-English for 383 GiB read**. The prediction that it would die on law 3 was right and is now
+quantified: 4,293 traceroute hop tokens collapse to 556 domains, 71.0% infrastructure-labelled, 80.0%
+held in all six years. But the real reason was available before the first byte: this corpus was read
+corpus-wide for bare hostnames on 8 August, so **76.7% of every mention comes straight back out of the
+shipped extractor**.
+
+That lens also found the day's live defect: **`.arpa` entering the metric at weight 1.0000**, which is
+the highest value in the whole table, above `.mil`. 63 assigned pairs across 18 reverse-DNS zones were
+shipping in all six annual files. Fixed at the funnel and at export, with an eleventh invariant, in
+`06d843b`.
+
+**Registration announcements** were right about dating and wrong about volume, and the reason is one
+structural fact: **a registry of this era published either dates without names or names without dates.**
+Statistics, or a zone snapshot. The intersection existed only where a registry ran its approval process
+in public, and that was exactly one namespace, the CA Domain Registry in `can.domain`, already on disk
+and already settled at 936 pairs. The on-disk domain groups give 144 net-new pairs where 18,800 posts
+would be needed at their own healthy density of 0.266 per item.
+
+### What the round leaves
+
+Four leads queued, and the best of them attacks a population no crawler-derived baseline can contain:
+**search-engine query logs**, the users' side rather than the crawler's side, dated by the server at the
+moment somebody typed the name. A domain advertised on a cereal box and never linked to is invisible to
+every crawl and present in a query log. Then Discmaster asked the **file size** question rather than the
+filename one, hunting the one-file-many-names payload where the per-item ceiling does not apply at all;
+the CyberNOT list from the cphack proceedings, which is the named reopen condition on squidGuard; and
+the release-scene NFO archives, the one text population of the era that deliberately avoided being
+indexed.
+
+**Four rounds, 22 plus 14 plus 19 plus 4 candidates, and one source that clears the bar.** The register
+is at 112 closed leads. Everything else the four rounds produced is method: five laws, a fourth junk
+mechanism, a density ceiling and now its subject-matter caveat, two defects in shared code, and one
+live defect in the shipped annual files.
