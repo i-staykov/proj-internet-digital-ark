@@ -94,6 +94,30 @@ fi
 # and this guard went in without one and refused to package for that reason
 # alone. Swallowing the error made it look like the report was broken when the
 # store was merely busy, so the failure is printed now rather than hidden.
+# D3: the merge, the overlap counts, the accepted increment and the reconciliation
+# checks, produced here rather than described. It scores every baseline and merged
+# annual file with the reviewer's own calculator, so this is his arithmetic on our
+# data, and it emits HIS column names so his audit and ours can be diffed directly.
+#
+# **A failure here stops the packaging.** The reconciliation includes two checks that
+# compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
+# measured against a release he has already replaced fails loudly instead of shipping.
+# That exact drift went unnoticed for five days in August 2026 and overstated net-new
+# by 151,949 records he had already credited.
+echo "merging against the baseline and reconciling (D3)"
+if ! uv run python scripts/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
+        --out output/merge > output/merge/merge_run.log 2>&1; then
+    echo "refusing to package: the merge reconciliation failed. Its log:" >&2
+    cat output/merge/merge_run.log >&2
+    exit 1
+fi
+cat output/merge/merge_run.log
+
+# **Before the report is filled, not after.** `fill_report.py` reads the newest
+# `output/merge/merge_audit_ark*.json` for section 8, so running the merge afterwards
+# shipped a report whose merge figures were one packaging run behind the audit beside
+# it. Found on 2026-08-18 by auditing the delivery, hours after the ordering was
+# introduced. The fill guard below now sees this run's audit.
 REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
 FILL_OUT=""
 for _ in $(seq 1 60); do
@@ -157,26 +181,14 @@ cp docs/sources.md "$STAGE/sources.md"
 cp docs/experience-summary.md "$STAGE/experience-summary.md"
 cp docs/metric-explained.md "$STAGE/metric-explained.md"
 
-# D3: the merge, the overlap counts, the accepted increment and the reconciliation
-# checks, produced here rather than described. It scores every baseline and merged
-# annual file with the reviewer's own calculator, so this is his arithmetic on our
-# data, and it emits HIS column names so his audit and ours can be diffed directly.
-#
-# **A failure here stops the packaging.** The reconciliation includes two checks that
-# compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
-# measured against a release he has already replaced fails loudly instead of shipping.
-# That exact drift went unnoticed for five days in August 2026 and overstated net-new
-# by 151,949 records he had already credited.
-echo "merging against the baseline and reconciling (D3)"
-if ! uv run python scripts/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
-        --out output/merge > "$STAGE/audit/merge_run.log" 2>&1; then
-    echo "refusing to package: the merge reconciliation failed. Its log:" >&2
-    cat "$STAGE/audit/merge_run.log" >&2
-    exit 1
-fi
-cat "$STAGE/audit/merge_run.log"
-cp output/merge/merge_stats_ark_*.csv "$STAGE/audit/"
-cp output/merge/merge_audit_ark_*.json "$STAGE/audit/"
+# The D3 audit, produced before the report was filled so the two agree. Copied by
+# exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
+# the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
+MERGE_STAMP="$(date -u +%Y%m%d)"
+cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
+cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
+cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
+
 
 # merged master year lists + net-new additions + provenance
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
