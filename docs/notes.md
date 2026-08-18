@@ -11907,3 +11907,35 @@ archives cover worst, and that remains the one year we own.
 **His validator does not reject the 433 bare second-level names**, which confirms the deferral was the
 right call rather than a lucky one: they are a correctness matter for us, not a rejection risk with him,
 so fixing them properly next round costs nothing and rushing it before a delivery could cost a lot.
+
+**Third attempt at this filter, third over-reach, and the pattern is now the finding.** Having withdrawn
+"bare second-level `.uk` cannot exist", I classified the other namespaces and then tried a narrower rule.
+Both went the same way.
+
+**The other namespaces refute the table as thoroughly as `.uk` did.** Our own bare second-level names,
+read rather than counted: `.au` has `archie.au`, `otc.au` (Australia's Overseas Telecommunications
+Commission), `ozemail.au` (a major early ISP), `uq.au` (the University of Queensland), `vicnet.au`,
+`telememo.au`; `.nz` has `archie.nz`; and `.br`, which I had marked **never**, has 215 names including
+`ansp.br` (the Academic Network at Sao Paulo), `bireme.br` (the PAHO regional library), `cefet-rj.br`,
+`biologico.br` and `cardiol.br`. Those are early academic and institutional delegations, not truncations.
+So the "impossible" framing was wrong for every namespace I tabulated, and not just for the one I caught.
+
+**Then the narrower rule, which looked unimpeachable and is not.** Catch only extraction artefacts:
+`www`-glued names, single-letter labels, and labels that are themselves a suffix. It flags 4,332 pairs
+over 3,072 names worth 2,586.21 equivalent-English, and the first page of its output is `0.com`, `1.com`,
+`2.com`, `3.com`. **Those are real domains**, as are `x.com`, `q.com` and `z.com`. A single-letter label
+is perfectly registrable and always was.
+
+**The lesson, which is worth more than the filter would have been.** Every rule I invented about what
+could not have existed over-caught real names, because the early DNS was heterogeneous and short, odd and
+level-jumping names were often genuine. The register applies a discipline to sources that I skipped three
+times on our own data: **prove the negative against a case known to be positive before believing it.**
+A name-shape filter here needs a positive control, a held-out set of names known to be real, and it needs
+to pass that control before a single row is dropped.
+
+**And the exposure was never large enough to justify the risk.** 174.64 equivalent-English on the
+unambiguous ccTLD reading, 2,586.21 on the broadest, against a round of 14,185.35 and a store of 20.8M
+assignments. His validator rejects none of them. **So the correct action was always to leave the data
+alone, and the three hours were bought back by not shipping a filter that would have deleted the British
+Library, the Academic Network at Sao Paulo and `x.com`.** The candidate list stays in this entry for
+whoever builds the control; nothing goes into the funnel or the export on the strength of it.
