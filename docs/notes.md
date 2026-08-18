@@ -10658,3 +10658,55 @@ would have started refusing to package against its own output.
 
 The archive README now carries the restore as a step in the tier-3 block rather than only as a note in
 the contents table, and says what happens without it: `just journals` runs clean and ingests nothing.
+
+### The full-size com zone was on the mirror, and the crawler missed it by four months
+
+Yesterday's reopen condition was precise: "any other mirror of `ftp.internic.net/domain/` whose
+crawler took a full-size `com` or `net` file". Chased today and the answer is **no**, closed by a
+mechanism rather than by running out of hosts to check, which is a much better closure than an
+exhausted list.
+
+The archived directory listing `19980129093726 nic.ddn.mil/ftp/domain/` shows, in InterNIC's own
+Apache index, `com.zone.gz 29-Jan-98 04:35 **26M**` and `net.zone.gz 2M`. **The files really were
+there.** But every capture of those exact URLs is the withdrawal stub: 383 to 388 bytes, one shared
+digest per file, earliest 1998-05-30, body "This file is no longer available from this site. Have a NIC
+day." The crawler took the **listing** in January and reached the **URLs** only after withdrawal. Four
+months, and the largest single artifact this project could have hoped for was never captured.
+
+RIPE really does mirror the distribution and is dry both ways: its live listing carries only arpa and
+root material, and all 130-odd Wayback captures of that prefix are 2020 to 2026.
+
+**Three operational facts recorded in `sources.md`, because each would cost the next person time.**
+A cross-host filename search is not available: `url=*.mil/...` and `url=mil&matchType=domain` both
+return HTTP 403 "This type of CDX query requires authorization", while `url=*/oroot.html/org.zone.gz`
+returns empty even though the plain per-host form returns its row. So "which host holds a
+`com.zone.gz`" cannot be asked directly and only host-by-host enumeration works. `collapse=urlkey`
+shows the first capture per URL and would hide a good capture behind a stub, so a sweep for this must
+run without it. And `curl` needs `-g` when a filter carries a character class: an unglobbed `[Zz]`
+gives "bad range in URL" and exit 3, which reads exactly like a dead endpoint.
+
+### Two candidates from that chase, one of which reopens a by-design closure
+
+Both unrefuted as of this entry, so no figure here is in the register yet.
+
+The interesting one is **JANET's national web cache monthly host reports**, the proxy every UK
+university browsed through. `sources.md` closed "Era web traces and proxy logs" **by design**, on the
+grounds that 1990s releases hashed or anonymised hostnames. That is true of DEC 1996, BU 1998 and
+Berkeley Home IP and false here: this is an aggregate monthly report rather than a trace, and the
+hostnames are cleartext. The register's rule was to demand the sanitisation paragraph before fetching
+a byte, and there is nothing to sanitise.
+
+What makes it worth reporting before refutation is the correction the chasing agent applied to its own
+first number, unprompted. The unfiltered net-new is 73,844 pairs, and it refused to quote that: **a
+proxy log records hostnames that were REQUESTED, including typos that never resolved**, which is
+exactly the never-was-real trap the corroboration split does not stop. It found the signature in the
+byte histogram, a dense cluster at 1601 to 1615 bytes that is Squid's "could not be retrieved" page
+drifting with the URL embedded in it, and filtered on bytes actually served. The honest ladder it
+reports is 21,392 net-new at a 2,001-byte floor and 7,589 at 10,000, both clearing the bar, against
+the 73,844 it could have claimed.
+
+The second is the InterNIC **in-addr.arpa** reverse zone of 10 July 1998, the one full-size zone file
+in that directory the crawler did take, which our own account of the nic.mil find never noticed.
+Verified on the same battery: 746,620 bytes, `gzip -t` passes, SOA serial `1998071000` inside the
+artifact, `;End of file.` terminator. 2,018 net-new pairs, which is under the bar, and it was reported
+as failing the bar rather than dressed up.
