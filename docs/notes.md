@@ -10750,3 +10750,32 @@ Both are rejected rows in `sources.md` with their measurements, and the `.pl` tr
 fully answered: the shape is real, retrievable, and empty for us. The general law that predicted all of
 it was already written down at `sources.md`: a corpus derived from the Internet Archive cannot be
 net-new against a baseline that is itself Internet-Archive-derived.
+
+### The three packaging changes proved together, in a fresh extraction
+
+Three changes went into `package_delivery.sh` today and none had been exercised alongside the others,
+which is exactly the state that produced the broken phase-5 archive. Packaged and unpacked to check all
+three at once.
+
+**The merge ordering fix demonstrated itself.** The run put the merge before the report fill, the fill
+then found the report stale against **this** run's audit, and the guard refused and said so. That is the
+defect being fixed rather than described: before today the merge ran afterwards, so the report shipped
+figures from the previous packaging run and nothing noticed. Two passes, as designed: commit the
+regenerated report, re-run, done.
+
+**The journal tree survives the round trip.** 18 top-level directories and 1,147 files in the archive
+against a flat directory yesterday, and after the restore step the README now documents, every
+representative glob in `just journals` matches: `cdx/cdx_*` 718, `rdap/rdap_*` 197,
+`usenet/usenet_dated*` 62, `tucows/tucows_dated` 1, `expand/round2/expand_round2` 1. Yesterday every
+one of those was zero.
+
+**The audit copy carries one stamp.** `audit/` holds exactly `merge_stats_ark_20260818.csv`,
+`merge_audit_ark_20260818.json` and the run log, rather than a glob of every stamp `output/merge/` has
+ever accumulated, which both consumers would then have picked from by filename.
+
+All eight `verify.sh` checks pass in the extraction, with round 6 at 15,522 pairs and the metric
+re-derived at 512,261.2220 by the reviewer's own calculator running from inside the archive.
+
+Not adding a `submissions/README.md` row: that table records rounds that were **sent**, and this is a
+rehearsal. The tarball is git-ignored and the four tracked artifacts beside it are left untracked until
+there is a submission to record, so the table cannot come to describe a build nobody received.
