@@ -10,7 +10,13 @@ Every figure below is measured, not projected, and says what it was measured aga
 ## 1. What worked, with yields
 
 **27 sources have contributed a dated record.** Measured over the store on 2026-08-18, excluding
-records that arrived with the reviewer's baseline:
+records that arrived with the reviewer's baseline.
+
+**These are cumulative across every round, and `report.md` section 3 is not.** That table is scoped
+to the round being submitted, so the same source reads a smaller figure there, and neither is wrong:
+this one answers "what has this method ever been worth", which is the question an experience summary
+is for. A source can also appear here with a large figure and in section 3 with none at all, because
+a round the reviewer has merged stops being net-new the moment he merges it.
 
 | source | what dates a year | pairs | domains |
 |---|---|--:|--:|

@@ -13,14 +13,24 @@ Two implementations ship, and only one of them decides anything.
 | `equivalent_english_domain_calculator/equivalent_english_domains.py` | **the reviewer's own program**, vendored unmodified with its model file | **every figure quoted to him** |
 | `source/src/ark/english_share.py` | this project's implementation, reading `src/ark/data/tld_english_share.json` | ranking during collection only |
 
-    # score any annual file with his program
-    python equivalent_english_domain_calculator/equivalent_english_domains.py additions/2001.txt
+**Run from the root of the unpacked archive**, which is where the first two work:
 
-    # the round's five headline figures, re-scored with his program, non-zero exit on disagreement
-    uv run python source/scripts/round_figures.py --verify
+    # score any annual file with his own program. Needs python3 and nothing else.
+    python equivalent_english_domain_calculator/equivalent_english_domains.py additions/2001.txt
 
     # the merge, the overlap, the increment and the reconciliation checks
     uv run python source/scripts/merge_against_baseline.py
+
+The third needs the evidence store, which this archive does **not** ship: it ships the provenance
+as Parquet instead, which is smaller and checkable without a database. So rebuild first, and run it
+from inside `source/`:
+
+    cd source && uv sync && uv run ark rebuild ../provenance
+    uv run python scripts/round_figures.py --verify   # re-scores with HIS program; non-zero exit on disagreement
+
+`--verify` is the command that refuses a round on his validator's terms rather than ours, so it is
+worth the rebuild. It is what caught the seventeen internationalised-TLD records described in
+section 4.
 
 **Why two implementations and not one.** Collection has to rank two million candidate domains by
 expected value, which means calling the weight table in a tight loop rather than shelling out per

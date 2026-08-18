@@ -10436,3 +10436,60 @@ Nine candidates were refuted, several on measurements larger than the proposals 
 Library of Congress Election 2000 CDX package at zero net-new domains from a 10.7% sample, because the
 collection was crawled for the LC *by the Internet Archive*; a UMN DRUM early-web slice at zero
 net-new; and an ISI `.us` delegation file whose arithmetic reproduced but whose population did not.
+
+### Five more delivery defects, four of them in work written hours earlier
+
+The D1 audit's findings for D2, D3 and D4 were read properly on the next wake rather than left. Each
+was verified by hand first; these five were real and are fixed.
+
+**1. Two documents addressed to a person shipped inside `source/source.tar.gz`, and one of them was
+addressed to Ding.** `submissions/phase-5/email-draft.md` opens "Send to:
+michael.xiaowei.ding@gmail.com" and "Dear Professor Ding", so every archive delivered to him
+contained a letter addressed to him. `docs/report-sendable.md` shipped beside it carrying superseded
+round-5 figures next to a round-6 report.
+
+**2. `docs/phase6-plan.md` shipped while the identical `docs/phase5-plan.md` was withheld**, because
+the rule had been written in `.gitattributes` as one filename rather than as a shape. Now
+`docs/phase*-plan.md`.
+
+This is the third occurrence of the same class: a private working document reaching the reviewer
+because `git archive` ships everything tracked unless marked. So the fix is
+`tests/test_delivery_privacy.py`, which builds the actual archive manifest and fails on any shipped
+`.md` or `.txt` whose first 4,000 characters contain "dear professor", "send to:" or "notes for ivo".
+It tests the shape, since the path is the part everyone gets wrong.
+
+One detail worth keeping: the test uses `git archive --worktree-attributes`. Without it, `git archive`
+reads `.gitattributes` from the commit, so a new export-ignore rule looks broken until it is
+committed and no test could go green in the commit that fixes it. `package_delivery.sh` refuses a
+modified tracked tree, so at packaging time the two are identical anyway.
+
+**3. The report shipped its merge figures one packaging run behind the audit beside it.**
+`fill_report.py` reads the newest `output/merge/merge_audit_ark*.json` for section 8, and I had put
+the merge invocation *after* the report fill in `package_delivery.sh`. Introduced and found the same
+day. The merge now runs before the fill, and the audit is copied into the archive by exact stamp
+rather than by glob, because `output/merge/` is never pruned and both consumers pick with
+`sorted()[-1]` on filename.
+
+**4. Two of the three commands in `metric-explained.md` could not run where the document said to run
+them.** Written yesterday, wrong yesterday. `merge_against_baseline.py` does work from the archive
+root, verified in a real extraction: the resolver walks to `baseline/merged260817-2`. But
+`round_figures.py --verify` opens `data/ark.duckdb` relative to the working directory, and the archive
+deliberately ships provenance as Parquet instead of a store. So that command needs a rebuild first,
+and the document now says so and says why the rebuild is worth it.
+
+**5. "Verified identical rather than assumed identical" was a claim with nothing checking it.**
+`tests/test_english_share.py` now pins the vendored weight table by content and, whenever the
+reviewer's package is on disk, derives his 1,306 English weights from his own model and asserts every
+one matches ours. The pin holds on a fresh clone where his package is absent, which is why both
+exist.
+
+**The pin caught my own fabrication on its first run.** `english_share.py` records only the first
+twelve characters of the hash in prose and I wrote the remaining fifty-two from memory. The prefix
+matched, which is what confirms the file is the one the docstring describes, and the rest was
+invented. Measured and corrected. Eleven ways this project has fooled itself with a figure, and this
+would have been the twelfth.
+
+**Also clarified rather than fixed**: the yields table in `experience-summary.md` is cumulative across
+every round and `report.md` section 3 is scoped to the round being submitted, so the same source reads
+different figures in two documents shipping side by side. Neither is wrong and the summary now says
+which question each answers.
