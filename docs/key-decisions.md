@@ -27,9 +27,37 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Ask Ding whether we may submit small increments often, rather than holding for 5%
+
+**This is the highest-value hour of your time available, and it is one email.** His scoring rules of
+2026-08-18 say the cumulative score is the **direct sum** of the percentages, each measured against the
+benchmark as it stood when that submission arrived. Whether we may send a small round next week instead
+of one large one in a month therefore changes the strategy completely, and nothing on our side can
+answer it.
+
+**Why it matters, measured from his own published release totals**
+(`scripts/submission_cadence.py`): other contributors are adding **1,082,013 equivalent-English a day
+and accelerating**, against our 13,200. So
+
+- work held for a week loses **38.5%** of its credit, and
+- 5% of the corpus is 603,855 EE today and **recedes by 54,101 a day while the engines close it by
+  13,200**, so that gap widens by 40,901 a day and never closes by querying.
+
+**Two questions to put to him, both short.** (1) May we submit smaller increments more frequently,
+given that percentages add and the benchmark moves? (2) Is the 5% threshold a condition of eligibility
+at all, or only the trigger for a formal batch, given that our phase-3 round was credited well below
+it? If the answer to (1) is yes, we should send what we hold rather than accumulate, and the plan for
+this round changes today.
+
+**The risk of the opposite reading, so you can weigh it.** If he prefers few substantial submissions,
+frequent small ones may read as noise and cost goodwill, which is not a thing the arithmetic can price.
+That is exactly why this is your call and not the agent's.
+
 ### Approve, refuse or downgrade internic_zone / artifact_listing
 
 `approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **12,150 net-new pairs and 8,627.7 equivalent-English** under `master`, against 7,089 and 5,033.9 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+
+**8,627.7 EE is 62% of everything this round has collected so far**, which is the fact that reframes this entry. It is not a tidy-up item beside the engines; it is larger than the engines' entire output since the round opened. And it is the cheap instance of the general problem: the measurement under the entry above says the route to 5% runs through admitting bulk sources rather than through collection rate, so **the approval gate is now the binding constraint on the score.** Every hour a priced class sits `pending` is an hour the round does not grow.
 
 The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
 
@@ -104,9 +132,9 @@ Why it is worth an email rather than a queue entry: a query log is the **users' 
 
 Nothing is blocked by either: both are additive leads and collection continues regardless.
 
-### Triage the newly found sources: 59 found, none priced
+### Triage the newly found sources: 60 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **59 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **60 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
 
 Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 

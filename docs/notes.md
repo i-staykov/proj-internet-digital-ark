@@ -11570,3 +11570,68 @@ labelled projection on the register's own per-item rate, and a reopen condition 
 **density** rather than about nationality. That is the third time today the register has answered a
 question faster than a probe would have, and the first time it has done it by remembering a refuted
 theory of mine rather than a closed source.
+
+## 2026-08-18: the scoring rules arrive, and they say the approval gate is the score
+
+Ding's fuller feedback for phase 5 landed with a section headed **Competition scoring rules**, which is
+information this project has never had: the cumulative score is the **direct sum** of the percentage
+increases awarded per accepted submission, each measured against the benchmark **as it stood when that
+submission arrived**, and submissions are processed strictly in arrival order. Transcribed with his
+acceptance figures in `docs/brief_amendments.md` section 6. Archive at
+`https://www.transfernow.net/dl/20260818nX8z1Swp`.
+
+**The measurement that follows from it is the most consequential number of the round, and it is his own
+arithmetic rather than ours.** He publishes line 2 for each release, so subtracting two of his totals
+and his credited increment for us gives everybody else's contribution directly. Three intervals exist:
+
+| to release | days | growth EE | ours | others | others/day |
+|---|--:|--:|--:|--:|--:|
+| `merged260810` | 26 | 1,673,072 | 1,451,776 | 221,296 | 8,511 |
+| `merged260815` | 5 | 2,120,453 | 0 | 2,120,453 | 424,091 |
+| `merged260817` | 2 | 2,164,026 | 0 | 2,164,026 | **1,082,013** |
+
+**Other contributors are adding 1,082,013 EE a day and accelerating, 127x the first interval and about
+82x our own 13,200.** `scripts/submission_cadence.py` recomputes this and the two models below.
+
+**One attribution error in the first version of that script, worth recording because it reversed the
+answer.** I keyed our own contribution to the date of the round, which put phase 5's 1,566,230 EE inside
+`merged260817`. But `merged260817` is precisely the benchmark phase 5 was *scored against*, so it cannot
+contain it: a round is measured against a release and merged into the next one. The bug reported others
+at 298,898 EE/day instead of 1,082,013, a 3.6x understatement, and at that rate several of the
+conclusions below flip sign. The `ours` column is now stated from his credited figures rather than
+derived from dates, and the docstring says why.
+
+**Three consequences.** Two are models on the newest measured rate and are labelled as such in the
+script's own output.
+
+1. **Holding work back destroys credit.** 13,898 EE reads 0.11508% today and 0.07072% in a week, a
+   38.5% loss on work already collected. Splitting a round across seven daily submissions beats one
+   round on day seven by about 22%, because our own dilution is second order: 13,898 against 12,077,096
+   moves the denominator by 0.12%. There is no batching bonus to protect.
+2. **Querying cannot reach 5%, and this is arithmetic rather than pessimism.** The threshold is 603,855
+   EE today and recedes by 54,101 a day; the two CDX populations and the RDAP sweep close it by 13,200.
+   The gap **widens by 40,901 a day**. Reaching 5% in a fortnight needs 96,240 EE a day, 7.3x the
+   engines. Phase 5 did manage 195,779 a day, so the bar is reachable, but it was met by landing bulk
+   dated corpora.
+3. **So the approval gate is the binding constraint on the score.** That is a genuine inversion of how
+   this project has been spending attention. `internic_zone` at 8,627.7 EE is 62% of everything round 6
+   has collected, and it has been sitting `pending` while two collectors ran all day. Pricing a source
+   and writing its request is now worth more per hour than any amount of watching a queue.
+
+**Ivo's two instructions on reading the feedback, and the line between them matters.** First: *"you need
+to be slightly less sceptic about new sources and take everything we can find which fulfills our
+evidentiary standard, while of course still prioritizing higher yield/higher quantity and especially
+higher speed sources."* So the acceptance bar in `docs/discovery.md` is now a **ranking** rule: point 1,
+per-item year evidence, stays a veto, and points 2 and 3 became a sort order with a fourth term added,
+time to first pair. A composition theory or a novelty worry is no longer grounds to refuse a source that
+would pass the wall, only grounds to rank it lower. Second, in the same message: *"still never admit
+sources, whose master status is unclear, into the provenance database without my approval."* Unchanged,
+and `ark ingest` still enforces it. A faster clock widens what we look at and never lowers what counts
+as proof.
+
+**What this does to the yesterday's refusals.** The UK trade-press extension was refused on 2026-08-17
+by a composition theory, and under the new posture that reasoning no longer disqualifies it; it ranks
+below anything bulk. It is not reopened today because the same measurement says the binding constraint
+is elsewhere, and reopening a 22-potential prose source while a priced 8,627.7 EE class waits on a
+`Decision:` line would be exactly the misallocation the arithmetic warns about. Recorded so the reversal
+of grounds is not lost.

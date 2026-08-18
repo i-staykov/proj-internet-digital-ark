@@ -141,16 +141,32 @@ of any typed corpus before quoting its equivalent-English, and count the three m
 a retrofit is a defect in the *container* and is fixable by stripping boilerplate, while an invented
 placeholder is not fixable at all.
 
-## 2. The acceptance bar
+## 2. The acceptance bar, which since 2026-08-18 ranks rather than vetoes
 
-A source is worth building a collector for when all three hold:
+**Point 1 is a gate and points 2 and 3 are a sort order.** That is a change, and it is Ivo's, made on
+2026-08-18 when the scoring rules arrived: *"take everything we can find which fulfills our evidentiary
+standard, while of course still prioritizing higher yield/higher quantity and especially higher speed
+sources."* The reasoning is in `CLAUDE.md` under **The clock**: the corpus denominator is growing about
+82 times faster than we collect, so the cost of refusing a small valid source now exceeds the cost of
+building its collector.
 
-1. **Per-item year evidence**, as above. Anything else is seed-only.
-2. **At least ~5,000 net-new `(domain, year)` pairs**, measured on a sample or credibly extrapolated
-   from one.
+1. **Per-item year evidence**, as above. Anything else is seed-only. **This is still a veto**, and no
+   deadline touches it.
+2. **Net-new `(domain, year)` pairs.** ~5,000 was the old floor and is now the point above which a
+   source jumps the queue. A measured 300 is worth having; it is simply worth having later.
 3. **A mean equivalent-English weight that pays.** Report the measured mean weight of the **net-new**
-   part, not of the source. At or above 0.6 is good. Below about 0.4 the volume has to justify itself
-   explicitly.
+   part, not of the source. At or above 0.6 is good, below about 0.4 the volume has to carry it, and
+   either way the figure now decides *order* rather than admission.
+
+Add a fourth consideration that the old bar had no reason to name: **time to first pair.** A source
+that can be collected this afternoon outranks a larger one that needs a week of parser work, because a
+week costs 38.5% of the credit on everything held back. Prefer a bulk download to a crawl, an existing
+parser to a new one, and bytes already on disk to either.
+
+**What has not relaxed at all.** A master-eligible class still may not date a year until a human has
+written its `Decision:` line, and `ark ingest` still refuses one that has not. Candidate-only evidence
+needs no approval and never did, so under the new posture the fast move on most finds is to ingest them
+as candidates immediately and raise the master question separately.
 
 Never present an unmeasured source as measured, and never pad a list to reach a count. Ranking three
 honest findings beats reporting five with two guesses in them.
