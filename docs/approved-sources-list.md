@@ -704,6 +704,57 @@ Decision: pending
 
 Decision: pending
 
+### content_filter_blacklists / artifact_listing
+- Found 2026-08-18, and **PRICED the same day**: it is the only lead in three hunt rounds to clear the
+    volume bar on a full-population measurement, and the family reduces to one artifact.
+- **MEASURED, full population, against the live store: 11,006 net-new (domain, year) pairs, 6,301.0
+    equivalent-English, mean weight 0.5725, every pair in 2001.** Reading both editions instead of
+    diffing them gives 13,724 pairs. Volume clears the ~5,000 bar by 2.2x; the mean weight is **below**
+    the 0.6 good line rather than above it, and above 0.4, so it needs no volume justification.
+- the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
+    2001, from Wayback captures of `ftp.ost.eltele.no/pub/www/proxy/squidGuard/contrib/`.
+    `blacklists.20010710.tar.gz` sha256 `cc339bfad82cb3bce296eace1fba7ab68ad9455fa044fd0f9caee02887b226f2`,
+    `blacklists.20010911.tar.gz` sha256 `46a817be48e3dc48f8b97f951927295f3d33b86f25949be22e20ad1bc2aa4eb5`,
+    both on disk under `data/raw/probes/squidguard/`. The collector is trivial: two files, 2 MB.
+- what dates one item: each category file's own compile header, *"compiled in 33:22:40 on 2001.09.09
+    09:48:47 ... from 2402 link sources and 463098 links, of which 381583 tested successfully"*. That
+    makes it a **crawl log rather than a printed listing**, which is why it is not the Netcraft law-2
+    failure. Used as a July-to-September first-appearance diff anyway.
+- **law 5 is absent by construction and was verified, not asserted**: a robot wrote the names, so there
+    are no author-invented placeholders. 0 of 30 hand-audited. A matched RDAP ladder separates the
+    populations: in-window creation dates 11 of 30 for names the store already dates 2001, 7 of 30 for
+    the actual yield, **0 of 30** for names with no store attestation, Fisher p=0.0105. All 71 TLDs
+    existed on 2001-09-09, and one bare `.co` in 30,916 names.
+- **THE OBJECTION THAT MATTERS, and it is why this is not an obvious yes.** The increment is 100%
+    year-fill and **zero new domains**: 99.3% of survivors are already dated 2000. And 14 of 14 probed
+    accepted names carry a 2001 capture in the Internet Archive's own index, as do 10 of 12 random names
+    squidGuard never mentions from the same population, so the pair arrives from the archive whether or
+    not this source names the domain. On that reading the source is worth about 9,756 saved CDX
+    requests, roughly 14 hours of one engine, rather than 6,301 equivalent-English of new knowledge.
+- two smaller deductions if it is folded in: the 442 `mail/domains` names have **no compile header at
+    all** and should be dropped, and if the class is approved master-eligible with no split the pipeline
+    banks 15,443 pre-split pairs, including 4,437 unattested names that measured 0 of 30 on in-window
+    registry creation.
+- the family's other members (CyberNOT, SurfWatch, Bess, N2H2, DansGuardian, urlblacklist, MESD) are
+    closed for want of two dated editions. The one question that would widen it: whether a 1999 or 2000
+    squidGuard blacklist survives on a Linux distribution or university mirror.
+- potential: 72
+- Self-dating as an edition, but see the first-appearance rule below.
+- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
+    the March 2000 cphack proceedings, SurfWatch, Bess and N2H2 residues, and the earliest squidGuard
+    and DansGuardian tarballs of 1999 to 2001.
+- what dates one item: the dated release edition, admitted **only as a first-appearance diff across
+    consecutive editions**, so the claim is the edition in which a classifier first saw the site. An
+    accumulating list otherwise dates a name at or before its edition, which is law 2 exactly.
+- why it is not the closed anti-spam row: that was killed because MAPS RBL, ORBS, the DUL and SPEWS are
+    **IP-based and contain no domains**. A content filter must list hostnames by construction.
+- the population is adult and warez hosts, which is short life plus low traffic and heavily `.com`, the
+    profile `discovery.md` says pays. `junkfilter_dated_blocklist`, already queued, is the ad-blocking
+    cousin at an estimated 3,000 to 8,000 pairs.
+- potential: 58
+
+Decision: pending
+
 ### nominet_whois_port43 / whois_creation
 - potential: 72
 
@@ -803,23 +854,6 @@ Decision: pending
 Decision: pending
 
 ### caselaw_access_project_opinions / dated_directory
-- potential: 58
-
-Decision: pending
-
-### content_filter_blacklists / artifact_listing
-- Found 2026-08-18. Self-dating as an edition, but see the first-appearance rule below.
-- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
-    the March 2000 cphack proceedings, SurfWatch, Bess and N2H2 residues, and the earliest squidGuard
-    and DansGuardian tarballs of 1999 to 2001.
-- what dates one item: the dated release edition, admitted **only as a first-appearance diff across
-    consecutive editions**, so the claim is the edition in which a classifier first saw the site. An
-    accumulating list otherwise dates a name at or before its edition, which is law 2 exactly.
-- why it is not the closed anti-spam row: that was killed because MAPS RBL, ORBS, the DUL and SPEWS are
-    **IP-based and contain no domains**. A content filter must list hostnames by construction.
-- the population is adult and warez hosts, which is short life plus low traffic and heavily `.com`, the
-    profile `discovery.md` says pays. `junkfilter_dated_blocklist`, already queued, is the ad-blocking
-    cousin at an estimated 3,000 to 8,000 pairs.
 - potential: 58
 
 Decision: pending
