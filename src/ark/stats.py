@@ -75,6 +75,12 @@ PROVENANCE_LINEAGE = {
     # construction: both ask a registry when it created a name, so a pair they both
     # attest is one authority agreeing with itself, not two witnesses.
     "domain_creation_bulk": "registry",
+    # An InterNIC zone file is the registry publishing its own delegations, which is the same
+    # authority a creation date comes from, so it shares that lineage. Filing it here costs a
+    # corroboration statistic and is the correct trade for the same reason NYPW's is: a pair
+    # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
+    # itself. It is genuinely independent of every web crawl, which is where its value lies.
+    "internic_zone": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",

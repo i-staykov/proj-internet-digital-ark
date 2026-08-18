@@ -280,6 +280,109 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=tokens[-1], year=year, evidence_value=survey)
 
 
+# The SOA serial of an InterNIC zone, `YYYYMMDDNN`, which is the artifact's own statement
+# of when it was generated. Read from inside the file rather than from its name or its
+# capture, because `docs/discovery.md` asks whether a date would change if the artifact were
+# re-published tomorrow: this one would not.
+_ZONE_SERIAL = re.compile(r"\b(19[89]\d)(?:0[1-9]|1[0-2])(?:[0-2]\d|3[01])\d\d\b")
+
+
+def _internic_zone_header(path: Path) -> tuple[str, int] | None:
+    """The zone's apex and year, both taken from its own SOA record.
+
+    The SOA spans several lines: the owner name is the first token of the first, and the
+    serial sits on the line commented `;serial`. Neither the filename nor the Wayback
+    capture is consulted, so a file renamed on the way here still dates itself correctly.
+    """
+    apex = None
+    with _open_text(path) as fh:
+        for index, line in enumerate(fh):
+            tokens = line.split()
+            if apex is None and "SOA" in tokens[1:4]:
+                apex = tokens[0].rstrip(".").upper()
+                continue
+            if apex is not None and ";serial" in line:
+                match = _ZONE_SERIAL.search(line)
+                if match is None:
+                    return None
+                return apex, int(match.group(1))
+            if index > 40:
+                break
+    return None
+
+
+def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per domain delegated in an InterNIC top-level zone file.
+
+    **The owner of an NS record is the delegation; the target is a nameserver.** That one
+    distinction is the whole parser, and getting it backwards is not hypothetical: the
+    sibling `inaddr.zone.gz` was first claimed at 2,018 net-new pairs and measured at 336,
+    because 99.8% of its right-hand sides were nameserver names, which are the
+    most-covered names in the store. So only the owner counts, and only where it sits
+    exactly one label under the apex.
+
+    A delegation in the 18 April 1997 `.org` zone is a registry statement that the name
+    existed on that day, which is `artifact_listing` and self-dating, so no corroboration
+    split applies. It says nothing about any later year, and none is emitted: continued
+    registration in 1998 is a separate fact needing separate evidence.
+
+    Deeper owners are skipped rather than truncated. A zone can delegate `sub.foo.org`
+    to a different nameserver, and recording that as `foo.org` would be a second claim
+    the artifact did not make, even though it happens to be true.
+    """
+    header = _internic_zone_header(path)
+    if header is None:
+        stats["no_soa_serial"] += 1
+        return
+    apex, year = header
+    if year not in YEARS:
+        stats["out_of_window_file"] += 1
+        return
+    suffix = "." + apex
+    with _open_text(path) as fh:
+        for line in fh:
+            tokens = line.split()
+            if len(tokens) < 3 or "NS" not in tokens[1:4]:
+                continue
+            stats["ns_records"] += 1
+            owner = tokens[0].rstrip(".").upper()
+            if owner == apex:
+                stats["apex_delegation"] += 1
+                continue
+            if not owner.endswith(suffix):
+                # Either a continuation line, whose first token is the TTL, or glue for a
+                # nameserver in another zone. Both are counted so a silent drop cannot hide.
+                stats["owner_outside_zone"] += 1
+                continue
+            if "." in owner[: -len(suffix)]:
+                stats["deeper_than_one_label"] += 1
+                continue
+            yield BulkRecord(
+                raw=owner.lower(),
+                year=year,
+                evidence_value=f"internic {apex.lower()} zone serial {_serial_of(path)}",
+            )
+
+
+def _serial_of(path: Path) -> str:
+    """The full `YYYYMMDDNN` serial, cached per path, for the evidence value."""
+    cached = _SERIAL_CACHE.get(path)
+    if cached is None:
+        with _open_text(path) as fh:
+            for index, line in enumerate(fh):
+                if ";serial" in line:
+                    cached = line.split()[0]
+                    break
+                if index > 40:
+                    cached = "unknown"
+                    break
+        _SERIAL_CACHE[path] = cached or "unknown"
+    return _SERIAL_CACHE[path]
+
+
+_SERIAL_CACHE: dict[Path, str] = {}
+
+
 def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per domain whose registry creation date falls in the window.
 
@@ -820,6 +923,16 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="cdx_timestamp",
         acquisition_method="bulk_cdx_file",
         parse=parse_early_web_cdx,
+    ),
+    # The Defense Data Network NIC mirrored InterNIC's zone distribution over HTTP and
+    # Wayback captured it, which is how a family closed twice for "no in-window zone file
+    # survives" turned out to have one. Self-dating on the SOA serial inside each file.
+    "internic_zone": SourceSpec(
+        key="internic_zone",
+        source_name="internic_zone",
+        evidence_type="artifact_listing",
+        acquisition_method="internic_zone_distribution",
+        parse=parse_internic_zone,
     ),
     "isc_survey": SourceSpec(
         key="isc_survey",
