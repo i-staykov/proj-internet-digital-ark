@@ -239,8 +239,19 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # `superseded/` is the one exclusion, and it is handled separately below: those
 # are verdicts from earlier engine versions and they must not sit beside the
 # current ones.
-find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' \
-    -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+# **Structure preserved, not flattened.** This copied every journal into one flat
+# directory, and `just journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
+# `data/raw/expand/round2/...`, `data/raw/usenet/...`. So tier 3's replay stage matched
+# nothing for every source while the archive README claimed "this is what tier 3 replays,
+# so every network stage reproduces offline". Found 2026-08-18 by running the layout
+# against the globs rather than reading it.
+#
+# The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
+# to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
+# Same find expression as the guard below, so the two cannot disagree.
+find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -print0 \
+    | tar -cf - --null -T - 2>/dev/null \
+    | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
 
 # The retired English engine's superseded verdict journals are no longer shipped.
 # They were kept beside the current ones under `journals/lang_superseded/` so a
@@ -390,13 +401,13 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 # evidence behind most of a round's additions from the tier-3 replay the README
 # documents. Counting is cheap and catches the next one.
 ON_DISK=$(find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' | wc -l | tr -d ' ')
-SHIPPED_JOURNALS=$(find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' | wc -l | tr -d ' ')
+SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
 if [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
     find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -exec basename {} \; \
         | sort > /tmp/ark_on_disk.txt
-    find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' -exec basename {} \; \
+    find "$STAGE/journals" -name '*.jsonl.gz' -exec basename {} \; \
         | sort > /tmp/ark_shipped.txt
     comm -23 /tmp/ark_on_disk.txt /tmp/ark_shipped.txt >&2
     exit 1
