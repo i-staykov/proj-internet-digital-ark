@@ -72,9 +72,23 @@ USER_AGENT = "internet-digital-ark research crawler (contact: ivaylo.staykov@tak
 # still cannot match, because `\b` after the TLD needs a non-word character and
 # finds `p`. Note `ark.usenet.domains_in_message` deliberately does NOT do this:
 # a bare name in conversational prose is a weaker claim than one in print.
+#
+# **And the whitelist has to refuse a PREFIX of a longer hostname, or it fabricates.**
+# Found 2026-08-18 while pricing a scholarly corpus. `uk` and `au` are on this list, so
+# `www.nctu.edu.tw` matched `www.nctu.edu` and collapsed to `nctu.edu`, and
+# `tuvok.au.af.mil` matched `tuvok.au`. Both names are well formed, so no invariant could
+# see them, and the error runs in the flattering direction TWICE: the pair count drops
+# because the real host is lost, and the equivalent-English rises because the invented
+# TLD outweighs the real one. `.edu` is 0.9717 against `.edu.tw` at 0.1338, a 7.3x
+# inflation per record, and `.au` is 0.9904 against `.mil` at 0.9981.
+#
+# The lookahead makes a trailing label refuse the match outright, so `nctu.edu.tw` now
+# yields nothing at all. That is deliberate: this module already trades recall on
+# low-weight ccTLDs for safety, and an omission is a mistake this project can survive
+# while a fabricated high-weight name is not.
 _TEXT_TLDS = "com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg"
 DOMAIN_RE = re.compile(
-    rf"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{{0,62}}\.)+(?:{_TEXT_TLDS}))\b",
+    rf"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{{0,62}}\.)+(?:{_TEXT_TLDS}))\b(?!\.[a-z])",
     re.IGNORECASE,
 )
 
