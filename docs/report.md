@@ -158,7 +158,7 @@ caught it twice more, because the collectors bank continuously and an export is 
 document you are reading exists in this form because the fill refuses to write a report with an
 unwritten section, which it did not do until this round.
 
-**Negative results are first-class.** **118 source families have been searched and recorded**, 27 developed far enough to earn their own section and 91 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
+**Negative results are first-class.** **120 source families have been searched and recorded**, 27 developed far enough to earn their own section and 93 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 
 ---
 
@@ -218,10 +218,10 @@ diffed directly.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260817-2` | 22,491,418 | 12,077,095.5404 |
-| submitted | 15,011 | |
+| submitted | 15,522 | |
 | already in the baseline | 0 | |
-| **accepted increment** | **15,011** | **11,905.1451** |
-| post-merge total | 22,506,429 | 12,089,000.6855 |
+| **accepted increment** | **15,522** | **12,340.7537** |
+| post-merge total | 22,506,940 | 12,089,436.2941 |
 
 **22 of 22 reconciliation checks pass.** They are arithmetic
 identities, so a failure is a defect rather than a finding: per year that
