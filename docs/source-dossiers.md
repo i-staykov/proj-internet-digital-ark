@@ -961,3 +961,10 @@ have taken `com.zone.gz` closed before Wayback's coverage thickened, which is wh
 mirror of April 1997 is unusual rather than one of many. The condition stays open because one
 such capture demonstrably exists, but it should be hunted at hosts that were **not** InterNIC,
 since every InterNIC-branded host is now checked.
+
+**Archived media is also checked and does not have it.** A 1997 `com.zone.gz` was roughly 25 MB
+compressed, which is exactly the one-file-many-names payload a CD-ROM could carry, so Discmaster
+was queried for in-window files over 1 MiB named `zone`, `internic` and `domain`. 120 hits and not
+one is a zone file: game discs named Zone, a PowerPoint, an `.iso`, and the two files already
+measured from this route (`email.domains`, the April 1998 `.jp` registry, and the `faces`
+`domains.tar`). So the route that found a national registry listing does not find this one.
