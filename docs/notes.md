@@ -10405,3 +10405,34 @@ from 2026-08-16 held again: a closure about one copy of an artifact is not a clo
 `com` and `net` are genuinely absent at this host, which makes the reopen condition precise and it is
 now the highest-scoring lead in the triage queue at 95: **any other mirror of `ftp.internic.net/domain/`
 whose crawler took a full-size `com` or `net` file.** A complete `.org` proves such mirrors existed.
+
+### The hunt's other two survivors are one source, and it falsifies a register row
+
+`iawds_pl_cctld_2001` and `pl_2001_extraction_cdx` were proposed by two lenses independently and are
+the same artifact: the Internet Archive's "Web Data Services" national extraction
+`Poland_pl-ccTLD_2001-12-31`, 19 items and 204,743,552,253 bytes of ARC payload, each item also
+publishing its CDX derivatives.
+
+**Measured across the whole population rather than a shard**: all 19 merged indexes downloaded,
+1,240,317,860 bytes, 36,117,804 CDX rows, giving **69,542 net-new pairs for 7,441.0
+equivalent-English**. The population is 100% `.pl` at weight 0.1070, so it is a large source and a
+small one, and 97.0% of the net-new lands in 2001, the year we already win 982,881 to 267. Scored 34
+and filed. Worth noting the two lenses disagreed on size by 2.4x on the same byte-identical shard,
+because one used a naive suffix split and the other this project's vendored Public Suffix List; the
+sceptic's number is the one recorded.
+
+**The valuable part is what it disproves.** On 2026-08-15 this project closed the Alexa/IA
+donated-crawl CDX family with a precise claim: "a ranged GET returns HTTP 401 ... the restriction
+covers the **index** files and not merely the payload WARCs, which had been assumed rather than
+tested." That test was real and its scope was wrong. Here the `.cdx.gz` derivatives return **HTTP 200
+with no authentication** while the `.arc.gz` payloads beside them return 403. The 401 is a
+per-collection policy and does not reach `webdataservices`.
+
+So the row is narrowed where it was written rather than in the newest file, and **the open question is
+now the lead worth chasing: whether a `webdataservices` extraction exists for a high-weight
+namespace.** A `.uk` equivalent would be worth roughly nine times the `.pl` one per pair.
+
+Nine candidates were refuted, several on measurements larger than the proposals they killed: the
+Library of Congress Election 2000 CDX package at zero net-new domains from a 10.7% sample, because the
+collection was crawled for the LC *by the Internet Archive*; a UMN DRUM early-web slice at zero
+net-new; and an ISI `.us` delegation file whose arithmetic reproduced but whose population did not.

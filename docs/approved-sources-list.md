@@ -810,6 +810,33 @@ Decision: pending
 
 Decision: pending
 
+### ia_webdataservices_cctld_extraction / cdx_timestamp
+- self-dating, so **no corroboration split**. Found 2026-08-18. Two lenses proposed it separately
+  (`iawds_pl_cctld_2001` and `pl_2001_extraction_cdx`); they are the same artifact.
+- what it is: the Internet Archive's "Web Data Services" national extraction collections. The measured
+  one is `Poland_pl-ccTLD_2001-12-31`: 19 items, 204,743,552,253 bytes of ARC payload, each item also
+  publishing a cluster CDX index and per-ARC `.arc.os.cdx.gz` derivatives.
+- what dates one item: field 2 of every CDX row, a 14-digit capture timestamp. The same field the
+  project already trusts for `arquivo_ia` and `early_web_cdx`.
+- measured, not projected: all 19 merged indexes downloaded, 1,240,317,860 bytes, 36,117,804 CDX rows
+  parsed through this project's own canonicaliser. **69,542 net-new pairs but only 7,441.0
+  equivalent-English**, because the population is 100% `.pl` at weight 0.1070.
+- **so it is a large source and a small one**, and the honest reading is that it clears the 5,000-pair
+  bar and sits far below `discovery.md`'s 0.4 mean-weight line. 97.0% of the net-new lands in 2001,
+  the one year the reviewer's own audit says we already win 982,881 to 267, and 1996 and 1997
+  contribute one pair each. Low priority on its own terms.
+- potential: 34
+- **its real value is the register row it falsifies, and that is worth more than the source.**
+  `sources.md` closed the Alexa/IA donated-crawl CDX family on 2026-08-15 because "a ranged GET returns
+  HTTP 401 ... the restriction covers the index files and not merely the payload WARCs". Here the
+  `.cdx.gz` derivatives return **HTTP 200 with no authentication** while the `.arc.gz` payload beside
+  them returns 403. The 401 is a per-collection policy, not an archive-wide one, and it does not reach
+  `webdataservices`. **The follow-up is the valuable part: whether an equivalent extraction exists for
+  a high-weight namespace.** A `.uk` or `.au` collection of this shape would be worth roughly nine
+  times a `.pl` one per pair.
+
+Decision: pending
+
 ### cordis_fp4_fp5_project_websites / link_target
 - potential: 32
 
