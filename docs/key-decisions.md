@@ -46,7 +46,7 @@ and accelerating**, against our 13,200. So
 **Three questions to put to him, all short.** (1) May we submit smaller increments more frequently,
 given that percentages add and the benchmark moves? (2) Is the 5% threshold a condition of eligibility
 at all, or only the trigger for a formal batch, given that our phase-3 round was credited well below
-it? (3) **What is our official cumulative score as he has it recorded?** If the answer to (1) is yes, we
+it? (3) **What is our official cumulative score as he has it recorded?** And one thing worth *telling* him in the same email rather than asking: a registry-rule audit found **13,991 bare second-level ccTLD pairs in his own `merged260817-2` baseline** that could not have existed in window, `10-downing.uk` and `10.uk` dated 1997 to 2000 among them, when Nominet sold no second-level `.uk` until 2014. Ours has 433 of the same shape, worth 174.64 EE, and we are fixing them; reporting both is the point. If the answer to (1) is yes, we
 should send what we hold rather than accumulate, and the plan for this round changes today.
 
 **Question 3 is not laziness: we cannot compute it, and the reason is worth knowing.** The new rule sums
