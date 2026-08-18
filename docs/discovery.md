@@ -81,6 +81,39 @@ all three are answerable from a source's description alone.
    certificates yielded 17 host tokens, every one a CA's own domain. The tell is that the population
    is *selected* rather than *sampled*, and a selected population is small however large the file is.
 
+### The density ceiling, and the thing it is actually a property of
+
+**A dated prose corpus yields about 0.042 net-new post-split pairs per item.** Measured twice
+independently: the closed RFC row at 0.0416 (140 pairs over 3,367 items) and a full census of D-Lib
+Magazine at 0.0420 (16 over 381). So clearing the 5,000-pair bar needs roughly **119,000 items**, and
+that single number screens a prose lead before any fetch.
+
+**But it is a property of SUBJECT MATTER, not of prose, and that was measured on 2026-08-18.** Both
+corpora that established it are prose *about the internet*. Government grant records cleared the item
+count decisively, 456,700 dated in-window items across NIH, NSF and CORDIS, 3.8x what the ceiling
+demands, and died anyway. Broken out by NSF directorate:
+
+| population | pairs per item |
+|---|--:|
+| NSF CSE (computing) | 0.0471 |
+| NSF BIO | 0.0152 |
+| NSF GEO, TIP | 0.0000 |
+| NIH, biomedical | **0.0012** |
+
+NIH sits 35x below the ceiling with **164 distinct hostnames in 372,444 abstracts**. And the closing
+arithmetic is almost too neat: CSE, the one sub-population that reaches the ceiling, holds about 4,984
+in-window items, against the 4,997 of the largest scholarly corpus the ceiling was derived to reject.
+
+**So use the ceiling to screen, and ask what the corpus is ABOUT before trusting it.** A corpus of a
+million items about molecular biology names no web sites at all.
+
+A second mechanism closed the same day and is worth keeping beside it. Newswire prose fails for a
+different reason: **a wire story names a company's web site only once the company is famous enough to
+be in the story.** Measured on 8,010 in-window Reuters, UPI and Newsbytes stories already on disk: 305
+pairs, **all 305 already held, zero net-new**, with only 4.79% of stories naming any domain and the
+ones they name being `reuters.com`, `microsoft.com`, `aol.com`, `apple.com`, `amazon.com`,
+`yahoo.com`. That is promotion-selection, the sibling of law 3's authority-selection.
+
 ### The split is not a novelty check, and here is what gets through it, measured
 
 The corroboration split asks only whether a domain is dated in *some* annual file, never whether the
@@ -94,6 +127,13 @@ RFC 2606 was about:
   and `tku.edu` from truncated `.edu.tw` names
 - **modern retrofits injected into period-dated records** by the publisher or the server, 7 of 25:
   `creativecommons.org` five times, `arxiv.org` and `description.org`
+- **a current-state contact field refreshed under a frozen date**, found 2026-08-18 on NSF award
+  records and the fourth mechanism rather than a variant of the third. The award's start date is
+  genuinely frozen at award time, but `piEmail` is the principal investigator's address **as of the
+  last edit**, so a 1997 award can carry a 2015 mailbox. The tell was `gmail.com` appearing 61 times
+  on 1996-2001 awards, and 42 of 58 hand-audited survivors carried a registry creation date **after**
+  the year claimed. **Assume any per-entity contact or homepage column is undated until someone
+  produces a per-field date for it**
 
 **53.1% of the equivalent-English was junk, and the junk concentrates in the highest-weight TLD**,
 `.edu` at 0.9717, so this class biases a reported figure upward every time. Hand-audit the survivors
