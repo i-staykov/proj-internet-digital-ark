@@ -112,6 +112,23 @@ SKIP_HOSTS = {
     "doi.org",
 }
 
+# **Hosts this register names as DATA rather than as sources.** Same reason as
+# SKIP_HOSTS, different provenance, kept apart so the reason survives: probing these
+# says nothing because they were never the thing that was tried.
+#
+# `bbc.co.uk` entered the rotation on 2026-08-18, out of the JANET refutation written the
+# day before. That verdict quotes three typos of it, each carrying exactly two Squid
+# error pages, as the proof that a byte-volume filter over a monthly SUM is defeated by
+# any host requested twice. A live national broadcaster answering 200 is not news about
+# a closed proxy-log family, and it would have been reported as an unexpected revival on
+# every wake from here on.
+NAMED_AS_DATA = {
+    "bbc.co.uk",
+    "bbbc.co.uk",
+    "cbbc.co.uk",
+    "wwww.bbc.co.uk",
+}
+
 
 # **A host that answers is not a source that exists**, and the commonest way a dead
 # lead comes back to life is that somebody parked the domain. On 2026-08-15
@@ -220,6 +237,18 @@ EXPECTED_ALIVE = (
     "is alive",
     "still answers",
     "answers today",
+    # **A claim about what a host does NOT CONTAIN is not a claim that it is down.**
+    # Added 2026-08-18. The zone-file and Archie verdicts both name `wuarchive.wustl.edu`,
+    # `ftp.uu.net`, `ftp.cdrom.com` and `ftp.funet.fi` as mirrors that "return **zero**
+    # Wayback captures matching `zone`". Every one of those hosts has always answered, and
+    # funet reported as an unexpected revival because the sentence naming it carries no
+    # phrase saying so. An HTTP 200 cannot touch a content claim, so it is foretold here.
+    "return **zero**",
+    "returns **zero**",
+    "return zero",
+    "returns zero",
+    "zero wayback captures",
+    "holds only 404",
 )
 
 # The deliberate override, checked against the WHOLE verdict rather than against the
@@ -275,7 +304,9 @@ def targets_in(entry) -> list[str]:
             host = urllib.parse.urlsplit(url).hostname or ""
         except ValueError:
             continue
-        if not host or host in SKIP_HOSTS or host.endswith(".local"):
+        if not host or host in SKIP_HOSTS or host in NAMED_AS_DATA:
+            continue
+        if host.endswith(".local"):
             continue
         if url not in out:
             out.append(url)
@@ -311,6 +342,35 @@ def ask(url: str, timeout: float = 20.0) -> tuple[str, str, bool]:
         return "TIMEOUT", "", False
     except Exception as exc:  # a probe must never take the run down
         return "ERROR", f"{type(exc).__name__}: {exc}"[:70], False
+
+
+def control_note(results: list[Probe]) -> list[str]:
+    """Whether this run held a positive control, which is what makes a negative mean anything.
+
+    A run where nothing answers looks identical to a run where every host is dead, and the
+    error text does not separate them: macOS reports a refused route as "[Errno 50] Network
+    is down", which reads as OUR network failing rather than the host's. On 2026-08-18 four
+    hosts returned exactly that while `ftp.funet.fi` answered 200 and `vefsafn.is` 302 in
+    the same minute, so those negatives were real. Had none answered, identical output would
+    have been a clean bill of health over a population never reached, which is the shape this
+    project has been fooled by before. So the run states whether it held a control rather
+    than leaving the reader to infer it.
+    """
+    if not results:
+        return []
+    answered = [probe for probe in results if probe.status.startswith(("2", "3"))]
+    if not answered:
+        return [
+            "",
+            "  NO POSITIVE CONTROL: not one host answered, so this run proves NOTHING.",
+            "  Every 'still closed' above is unproven and may be our own network or DNS.",
+            "  Check connectivity, then re-run before recording any verdict from it.",
+        ]
+    return [
+        "",
+        f"  Positive control held: {len(answered)} host(s) answered in this run,",
+        "  so the failures above are about those hosts and not about our network.",
+    ]
 
 
 def main() -> None:
@@ -406,6 +466,9 @@ def main() -> None:
             print(f"    {probe.url[:60]}  ({probe.lead[:44]})")
     print("\n  A 200 says the host answers, never that the payload is in window or worth")
     print("  having. Price it against the live store before believing anything.")
+
+    for line in control_note(results):
+        print(line)
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

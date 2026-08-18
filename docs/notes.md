@@ -10820,3 +10820,49 @@ about derivative openness.
 **Four for four refuted is the system working, not the hunt failing.** Every one of the four was
 retrievable and correctly dated; all four died on novelty or liveness, which are the two things
 retrievability cannot tell you. The refute stage changed the verdict or the figure on all four.
+
+## 2026-08-18 (midday): the re-prober cried wolf three times, and its negatives had no control
+
+`just cycle` reported two availability-closed leads "answering unexpectedly, price it": `bbc.co.uk`
+and `ftp.funet.fi`. Neither is a source and both hosts are perfectly healthy, so both were noise on
+the one surface whose whole value is that it fires rarely.
+
+**One mechanism, two shapes.** `reprobe_closed.py` harvests hosts out of verdict prose on the premise
+that "every verdict names what was tried". That premise has two exceptions this register keeps
+producing:
+
+- **A host named as contaminated DATA.** `bbc.co.uk` entered the rotation out of the JANET refutation
+  written the day before, which quotes three typos of it, each carrying exactly two Squid error pages,
+  as the proof that a byte-volume filter over a monthly sum is defeated by any host requested twice. A
+  live national broadcaster answering 200 says nothing about a closed proxy-log family.
+- **A host named in a claim about what it does NOT CONTAIN.** The zone-file and Archie verdicts both
+  name `wuarchive.wustl.edu`, `ftp.uu.net`, `ftp.cdrom.com` and `ftp.funet.fi` as mirrors that "return
+  **zero** Wayback captures matching `zone`". Every one of those hosts has always answered. An HTTP
+  200 cannot touch a content claim.
+
+The second is fixed where it belongs, in `EXPECTED_ALIVE`, which is matched against the host's own
+sentence rather than the whole verdict, so it cannot silence a sibling host in the same row. That
+mattered here: the zone-file row is the one **reopened** yesterday on the nic.mil `.org` find, so
+suppressing it wholesale with `DO_NOT_REOPEN` would have been wrong. The first is an enumerated
+`NAMED_AS_DATA` skip set, because there is no honest pattern that separates a quoted typo from a
+probe target and a clever one would eventually silence a real lead.
+
+**Then the same run turned up something worse than crying wolf.** Four hosts reported
+`[Errno 50] Network is down` and were printed as "still closed". Errno 50 is macOS's text for a
+refused route, and it reads as OUR network failing rather than the host's, which is the exact
+ambiguity CLAUDE.md warns about: a search that finds nothing has either proved something or been
+pointed at the wrong place, and the two look identical. Checked by hand, all four
+(`cybermetrics.wlv.ac.uk`, `100hot.com`, `api.archivelab.org`, `ftp.uu.net`) refuse both 80 and 443,
+with A records and no AAAA, while `ftp.funet.fi` returned 200 and `vefsafn.is` 302 in the same minute.
+So the negatives were real, **and they were real only because something answered.** The tool never
+said so, so a run in which every probe failed would have printed an identical clean bill of health
+over a population it never reached.
+
+`control_note()` now states it either way: the count of hosts that answered, or NO POSITIVE CONTROL
+and an instruction not to record any verdict from the run. Four tests pin it, including that a 302
+counts, since one of the two controls in this run was a redirect.
+
+**The general shape, since this is the fourth time a checker here has reported the opposite of the
+truth.** A health check must distinguish "I looked and found nothing" from "I could not look", and
+the cheapest way is to carry a case known to be positive inside the same run. The re-prober had one
+by accident all along and was not reading it.
