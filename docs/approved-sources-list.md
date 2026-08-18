@@ -631,6 +631,30 @@ that line is what `ark ingest` reads. Rows 1, 26 and 28 have no `Decision:` line
 recorded before they were priced; the gate refuses them exactly as it refuses `pending`, and adding a line
 is what turns one into an answer.
 
+### nic_mil_internic_zone_mirror / artifact_listing
+- self-dating, so **no corroboration split**. Found 2026-08-18.
+- what it is: the Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file distribution over
+    HTTP, and the Wayback Machine captured it. `http://nic.mil/oroot.html/org.zone.gz` at capture
+    `19970420113748` is a **complete April 1997 InterNIC `.org` zone**.
+- what dates one item: the zone's own SOA serial in `YYYYMMDDNN` form, `1997041800`, **inside the
+    artifact** on line 2 and corroborated by the capture timestamp. A name in the 18 April 1997 `.org`
+    zone evidences 1997 and nothing else.
+- verified independently, not taken from the finder: 1,317,986 bytes gzip, `gzip -t` passes,
+    9,193,881 bytes and 154,141 lines uncompressed, terminated by InterNIC's own `;End of file.`
+    marker. That is the whole battery the corrupt ISC copies fail.
+- measured: **13,324 net-new (domain, year) pairs, 9,768.6 equivalent-English**, mean weight 0.7332,
+    over six intact files. 12,409 pairs land in **1997** and 915 in 1998, which are two of the three
+    years the reviewer's own merge audit prices highest for us. Clears the ~5,000-pair bar.
+- potential: 95
+- **it disproves a closed family**, and the correction is recorded where the claim was made, in the
+    two zone-file rows of `sources.md`. `com` and `net` really are absent at this host, so the reopen
+    condition is precise: any other mirror of `ftp.internic.net/domain/` whose crawler took a full-size
+    `com` or `net` file. A complete `.org` proves such mirrors existed.
+- dossier: `docs/source-dossiers.md`, entry of 2026-08-18.
+- potential: 9769
+
+Decision: pending
+
 ### ncua_5300_call_report_webaddr / artifact_listing
 - potential: 88
 

@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from ark import approvals
 from ark.audit import write_audit
-from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
+from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
@@ -54,6 +54,10 @@ from ark.seeds import combine_parts, write_source_part
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue
+
+# Resolved once at import. Which layout we are in, repository or unpacked
+# delivery, cannot change while the process runs.
+BASELINE_DIR = baseline_dir()
 
 app = typer.Typer(
     name="ark",
@@ -112,8 +116,13 @@ def init() -> None:
 @app.command(name="ingest-legacy")
 def ingest_legacy_cmd(
     legacy_dir: Annotated[
-        Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = CURRENT_BASELINE_DIR,
+        Path,
+        typer.Option(
+            help="Folder holding the provided baseline files. Defaults to wherever the "
+            "current release actually is: the repository path, or `baseline/<marker>/` "
+            "in an unpacked delivery, where the repository path does not exist."
+        ),
+    ] = BASELINE_DIR,
     marker_prefix: Annotated[
         str,
         typer.Option(
@@ -141,8 +150,13 @@ def ingest_legacy_cmd(
 @app.command(name="legacy-review")
 def legacy_review_cmd(
     legacy_dir: Annotated[
-        Path, typer.Option(help="Folder holding the provided baseline files.")
-    ] = CURRENT_BASELINE_DIR,
+        Path,
+        typer.Option(
+            help="Folder holding the provided baseline files. Defaults to wherever the "
+            "current release actually is: the repository path, or `baseline/<marker>/` "
+            "in an unpacked delivery, where the repository path does not exist."
+        ),
+    ] = BASELINE_DIR,
 ) -> None:
     """Write the grouped droplist of baseline lines the pipeline excludes."""
     counts = review_legacy(legacy_dir)

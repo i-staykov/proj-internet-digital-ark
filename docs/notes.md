@@ -10330,3 +10330,78 @@ Final rehearsal, all eight checks green inside a fresh extraction of the 1.9 GB 
 the code snapshot carrying its lockfile; the summary covering all seven topics; 22 of 22 reconciliation
 checks; the audit agreeing with `additions/` on both sides; and **his own calculator, run from inside
 the archive, scoring the 1996 baseline at 512,261.2220 exactly as the audit claims**.
+
+### Auditing the delivery against D1 found two defects, one of them fatal to reproduction
+
+Both confirmed by hand before acting on them, because an agent's audit is a lead and not a finding.
+
+**1. `ark ingest-legacy` defaulted to a git-ignored path, so tier 3 died at its first stage for
+everyone but us.** `CURRENT_BASELINE_DIR` is `feedback-phase-6/merged260817-2`; `.gitignore` line 77
+covers `feedback-phase-6/`; `git archive HEAD` therefore cannot carry it and no extraction has that
+path. The archive puts the same six files at `baseline/<marker>/`, one level above the `source/`
+directory the code runs from. `justfile:306` makes `baseline` the first dependency of `reproduce`, so
+the documented route failed immediately with "missing year files in feedback-phase-6/merged260817-2".
+
+**This is the third time the same shape has broken a delivery**, and the notes entry of 2026-08-17
+named the first two and predicted the third in as many words: "addressing a file by where it happened
+to sit rather than by what it is, and a third such input would have repeated it a third time." It did.
+`round_figures.py` had a local `_resolve`; `merge_against_baseline.py` copied it the same day; `cli.py`
+had neither.
+
+So the resolution now lives in `ark.baseline`, the module that owns the fact of which release is
+current and therefore owns finding it: `baseline_dir()` and `calculator_path()`, with the two local
+copies deleted. `tests/test_baseline_paths.py` chdirs into a synthetic delivery layout and asserts
+both, because the bug is entirely about the working directory and nothing asserted from the repository
+root can see it. Proved from the delivery side as well: `baseline_dir()` answers
+`../baseline/merged260817-2` there and `feedback-phase-6/merged260817-2` here.
+
+**2. Three sources reached 11.5% of all assignments while no documented command ingested them.**
+`domain_creation_bulk` 2,165,506 assignments, `dartmouth_nber_captures` 227,273, `udrp_proceedings`
+7,837, against `README.md` saying of the recipes: "the recipes are the authoritative list of what gets
+ingested". They were run by hand. A reviewer following the documented route would have rebuilt a store
+missing an eighth of the result with no way to know which eighth. All three are in `just sources` now.
+
+**The durable fix is the test, not the three lines.** `tests/test_documented_ingests.py` compares the
+specs the justfile names against the registry and fails on any spec whose evidence type can date a
+year and which no recipe mentions. It found a fourth immediately, `nypw_firstcdx`, which turns out to
+be correctly absent: measured and REJECTED on 2026-08-01 at 60 net-new pairs from 6,281,952 lines, with
+its parser kept for a future release of the family and zero rows in the store. It is allowed by name
+with that reason, and the allowance list carries a note that every entry weakens the test.
+
+### The requeue worked, and the cycle found the same thing independently
+
+Measured since the restart: **48.1% in-window over 158 answered**, against 6.1% before, and the
+composition moved off `.org` entirely to `.net` at 42.9% and `.ch` at 78.6%. A 7.9x improvement in hit
+rate from re-ranking alone.
+
+Worth noting that `just cycle`, run afterwards, flagged it without being told: "cdx_pool is answering
+but finding almost nothing ... Either its queue head is a population with no captures, in which case
+rebuild and re-rank it, or the archive is refusing us." That is the check working as designed, and its
+first branch was the right one.
+
+### An intact 1997 InterNIC zone file exists, and it reopens a family closed twice
+
+`nic.mil`, the Defense Data Network NIC, mirrored InterNIC's zone distribution over HTTP and the
+Wayback Machine captured it. `http://nic.mil/oroot.html/org.zone.gz` at capture `19970420113748` is a
+complete April 1997 `.org` zone.
+
+**Verified here rather than accepted**, since a corrupt or stubbed zone is exactly the shape that has
+fooled this project and the register records ISC's 9607 copy decoding into plausible-looking garbage:
+`gzip -t` passes, 1,317,986 bytes compressed and 9,193,881 over 154,141 lines uncompressed, the SOA
+serial `1997041800` is **inside the artifact** on line 2 beside `hostmaster.INTERNIC.NET.`, and the
+file ends with InterNIC's own `;End of file.`. The serial being in the file is what matters: the date
+does not depend on the container, which is what `discovery.md` asks of a re-published artifact.
+
+Measured yield, from the hunt and **not yet re-derived here, so treat it as unconfirmed until a
+collector banks it**: 13,324 net-new pairs and 9,768.6 equivalent-English at mean weight 0.7332, of
+which 12,409 land in 1997. The integrity of the artifact is confirmed; its yield is not.
+
+**The correction is recorded where the claim was made**, in both zone-file rows of `sources.md`. The
+2026-08-08 closure asserted "archive.org holds no in-window zone file" after checking archive.org item
+search, CD-ROM images, four academic FTP mirrors, DNS-OARC and the ISC directories. Every one of those
+was a check on a *host's copy*. This is the third host now read as closing the artifact, and the rule
+from 2026-08-16 held again: a closure about one copy of an artifact is not a closure about the artifact.
+
+`com` and `net` are genuinely absent at this host, which makes the reopen condition precise and it is
+now the highest-scoring lead in the triage queue at 95: **any other mirror of `ftp.internic.net/domain/`
+whose crawler took a full-size `com` or `net` file.** A complete `.org` proves such mirrors existed.

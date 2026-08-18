@@ -848,3 +848,50 @@ Decision: rejected
 
 Decision: rejected
 
+
+## nic_mil_internic_zone_mirror (2026-08-18)
+
+**The find.** The Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file
+distribution over HTTP in the 1990s, and the Wayback Machine captured the directory.
+`http://nic.mil/oroot.html/org.zone.gz` at capture `19970420113748` is a complete April 1997
+InterNIC `.org` zone.
+
+**Why it matters more than its size.** It refutes a family this project closed twice, most
+recently on 2026-08-08 with an explicit claim that "archive.org holds no in-window zone file"
+after checking archive.org item search, CD-ROM images, four academic FTP mirrors, DNS-OARC and
+the ISC survey directories. Every one of those checks was about a *host's copy*. A military NIC
+mirroring the civilian registry's distribution was never on the list.
+
+**Verification, done here rather than accepted from the finder**, because a corrupt or stubbed
+zone file is exactly the shape that has fooled this project before and the register itself
+records ISC's 9607 copy decoding into plausible-looking garbage:
+
+| check | result |
+|---|---|
+| `gzip -t` | passes |
+| compressed size | 1,317,986 bytes |
+| uncompressed | 9,193,881 bytes, 154,141 lines |
+| SOA serial inside the artifact | `1997041800`, line 2, beside `hostmaster.INTERNIC.NET.` |
+| terminator | InterNIC's own `;End of file.` |
+
+The serial is the important one. It is *in* the file, so the date does not depend on the
+container, which is what `docs/discovery.md` asks of a re-published artifact.
+
+**Measured yield**, from the refuting agent and not yet re-derived here: 13,324 net-new
+(domain, year) pairs and 9,768.6 equivalent-English at mean weight 0.7332, over six intact
+files. 12,409 of those pairs are 1997 and 915 are 1998. **Treat the pair count as unconfirmed
+until a collector banks it**; the integrity of the artifact is confirmed, its yield is not.
+
+**Two years that matter disproportionately.** The reviewer's own per-year merge audit shows our
+1997 and 1998 being outproduced, and 1997 is where our coverage is thinnest relative to what
+exists. A registry zone is also strictly wider than the January 1997 host-based ISC survey for
+`.org`, which is why the net-new is large despite heavy existing coverage.
+
+**What is genuinely absent, so the next person does not retry it.** `com` and `net` are not
+here. The 1998 `com.zone.gz` decompresses to "This file is no longer available from this site.
+Have a NIC day." and the 1997 directory listing carries only arpa, edu, gov, mil, org and root.
+
+**The reopen condition, which is now the most valuable lead in the queue.** Any other mirror of
+`ftp.internic.net/domain/` whose crawler took a full-size `com` or `net` file. A complete `.org`
+proves such mirrors existed and that Wayback captured at least one of them. `com` in 1997 is
+roughly an order of magnitude larger than `org` and carries weight 0.6321.
