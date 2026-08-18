@@ -217,3 +217,44 @@ of each contributor's submission alongside the baseline, so phase 6 can be aimed
 thin rather than at where it is merely possible. On the phase-5 audit our 2001 was 982,881 accepted
 records against another contributor's 267, and our 1999 was 444,023 against their 1,423,310. The years
 1998 to 2000 are where the corpus is being grown by someone else and 2001 is where it is not.
+
+### The four deliverables now required of every submission
+
+Added by email the same day, and this is the part with teeth, because it changes what a delivery
+archive must contain rather than what should be collected. His words:
+
+> For every future submission, please also provide:
+>
+> - The complete runnable code, scripts, configurations, dependencies, and execution instructions
+>   used for discovery and processing.
+> - A concise experience summary covering successful and unsuccessful approaches, measured source
+>   yields, limitations, lessons learned, reusable techniques, and recommended directions for
+>   continued expansion.
+> - The code and explanation used to normalize, merge, and deduplicate the submitted annual files
+>   against the latest baseline, including overlap counts, the accepted increment, and reconciliation
+>   checks.
+> - The runnable Equivalent-English Domain calculation code and a clear explanation of the fixed TLD
+>   weights, model version, formula, invalid or unmatched-domain treatment, baseline total,
+>   post-merge total, increment, and growth rate.
+
+They are referred to throughout this repository as **D1** to **D4** in that order, so a commit
+message or a check name can cite one without restating it.
+
+**This is a reuse request, not a distrust one.** He had just accepted the round with nothing rejected,
+so nothing here is a response to a defect. Read together, the four ask for the thing that turns one
+submission into something the next person can run: the code, what was learned, the merge arithmetic,
+and the metric. Section X of his standing brief already asked for reproducibility; this makes the
+specific artifacts explicit.
+
+**D3 is the one that asks for something the project has never produced.** He performs the merge on
+his side and ships his own audit of it, `merge_stats_<contributor>_<date>.csv` and the matching
+`merge_audit_*.json`, whose columns are `year, baseline_unique, submitted_unique, already_in_baseline,
+accepted_new, merged_unique, equivalent_english_increment, growth_pct_vs_year_baseline`. Asking us to
+produce it means his number and ours can be diffed, and the overlap column is exactly the one that
+moved phase 5 from 2,838,715 records to 2,608,322. **Mirror his schema rather than inventing one**:
+a reconciliation is only useful if the two sides have the same column names.
+
+**D4 asks for a post-merge total, which is not the figure this project has been quoting.** Growth has
+always been stated against his pre-increment baseline, which is his own convention and stays. The
+post-merge total is a second number, what the corpus would hold once the submission is folded in, and
+it is what makes the increment checkable by subtraction.

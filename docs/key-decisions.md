@@ -103,6 +103,33 @@ Priced whole, the queue covers about a tenth of the deficit, so nothing here is 
 
 ## CLOSED
 
+### C-23. The four new deliverables are enforced by the build, not by a checklist (2026-08-18)
+
+Ding added four requirements for every future submission on 2026-08-17, quoted in full in
+`brief_amendments.md` and called **D1** to **D4** from now on: the runnable code, a concise experience
+summary, the merge and deduplication arithmetic against the latest baseline, and the metric
+calculation with its explanation.
+
+**Mechanical, except for one judgement.** The judgement is that they became **checks 5 to 8 in
+`verify_delivery.sh`** rather than a section of the README. This project has one expensive proof that a
+requirement living only in prose gets shipped unmet: the phase-5 build filtered provenance to save
+429 MB and left 11,316,960 of 16,619,832 assignments citing evidence no longer in the archive, and all
+three checks that existed passed because every one read the additions manifest and none read the
+parquet. `package_delivery.sh` now also refuses to build if the merge reconciliation fails.
+
+**The one that was real work is D3.** He has always done the merge on his own side and shipped his
+audit of it; he now wants ours too, so the two can be diffed. `scripts/merge_against_baseline.py`
+therefore uses **his column names unchanged**, counts the raw lowercased line as he does rather than
+the registrable domain, and scores every file with **his** calculator rather than ours. First run: 22
+of 22 reconciliation checks pass, reproducing his published baseline of 22,491,418 records and
+12,077,095.5404 equivalent-English to the digit.
+
+Two of those checks compare a freshly measured baseline against `src/ark/baseline.py`, so a round
+measured against a release he has already replaced now fails loudly. That drift went unnoticed for five
+days in August 2026 and overstated net-new by 151,949 records he had already credited.
+
+Nothing here needs you. Working: `notes.md`, 2026-08-18.
+
 ### C-22. The current baseline is `merged260817-2`, and a round now records what he ACCEPTED (2026-08-18)
 
 Mechanical rather than discretionary, and recorded because every figure depends on it. `baseline.py`

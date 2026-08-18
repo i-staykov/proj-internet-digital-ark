@@ -62,6 +62,32 @@ its right-most TLD. `foo.uk` 0.9813, `foo.com` 0.6321, `foo.net` 0.4530, `foo.de
 non-English source is a small source. Growth is quoted against the reviewer's **pre**-increment total.
 Which release is current lives in `src/ark/baseline.py` and nowhere else.
 
+## What every submission must contain
+
+Four artifacts, required by Ding of **every** future submission (email, 2026-08-17), quoted in full in
+`docs/brief_amendments.md` and cited everywhere as **D1** to **D4**:
+
+- **D1** the complete runnable code, scripts, configurations, dependencies and execution instructions.
+- **D2** a concise experience summary: what worked, what did not, measured yields, limitations,
+  lessons, reusable techniques, recommended directions.
+- **D3** the code and explanation that normalises, merges and deduplicates our annual files against
+  the latest baseline, with **overlap counts, the accepted increment and reconciliation checks**.
+- **D4** the runnable equivalent-English calculation plus an explanation of the fixed weights, model
+  version, formula, invalid and unmatched treatment, baseline total, **post-merge total**, increment
+  and growth rate.
+
+**This is a reuse request rather than a distrust one**: it arrived attached to a round he accepted
+with nothing rejected. Two clauses are easy to read past and are the ones that are actually new work.
+**D3 asks for the merge arithmetic he has until now done on his own side**, so mirror the schema of
+his `merge_stats_<contributor>_<date>.csv` exactly rather than inventing column names, or the two
+sides cannot be diffed. And **D4 asks for a post-merge total**, which is a different number from the
+pre-increment baseline that growth is quoted against; both are needed, and the convention that growth
+divides by the **pre**-increment total does not change.
+
+**`just ship` is the enforcement point, not a checklist.** A requirement that lives only in prose gets
+shipped unmet, which is how the evidence wall broke in the phase-5 archive. Anything D1 to D4 asks for
+is built by the packaging script and checked by `verify_delivery.sh` inside a fresh extraction.
+
 ## Where state lives, and which to trust
 
 | | what it is | how to use it |
@@ -74,6 +100,8 @@ Which release is current lives in `src/ark/baseline.py` and nowhere else.
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
 | `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |
 | `docs/discovery.md` | how to price a source before building a collector | the acceptance bar |
+| `docs/experience-summary.md` | **D2**, and it SHIPS at the archive root | keep it short; `sources.md` is the register it distils, not a thing to copy into it |
+| `docs/metric-explained.md` | **D4**, and it SHIPS at the archive root | every rule in it names the line of HIS program that implements it |
 | `docs/ding/` | **his own documents, transcribed verbatim from the `.docx` he ships**, with each source file's sha256 in the header | the highest authority here. Regenerate with `scripts/extract_ding_docs.py`; never hand-edit, never paraphrase |
 | `docs/SPEC.md` | the reviewer's brief, cited by clause from 21 files | **never edit or renumber** |
 | `docs/brief_amendments.md` | what he has changed since: the metric, the retired standard | current asks |
