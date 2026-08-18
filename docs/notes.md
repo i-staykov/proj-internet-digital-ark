@@ -10171,3 +10171,105 @@ Three operational notes, each of which cost minutes tonight:
    the whole run. Re-anchored with `caffeinate -i -w <supervisor pid>`.
 3. **`rdap_pool_sweep.sh` still defaults to `pool_targets_verisign.txt`**, a spent list. `LIST=` must be
    set on every invocation and was, again.
+
+---
+
+## 2026-08-18 (morning): the four new deliverables become checks
+
+Ding added four requirements by email on 2026-08-17, quoted in full in `brief_amendments.md` and
+called **D1** to **D4** everywhere from now on. Ivo's instruction was to record them as the standard
+everywhere and to make today's work reflect them.
+
+**They arrived attached to a round he accepted with nothing rejected, so this is a reuse request and
+not a distrust one.** Read together they ask for what turns one submission into something the next
+person can run: the code, what was learned, the merge arithmetic, and the metric.
+
+### The two that were actually new work
+
+**D3 asks for arithmetic he has always done on his own side.** He merges each contributor's
+submission into the current baseline and ships his audit of it: `merge_stats_<contributor>_<date>.csv`
+plus a matching JSON. Asking us to produce it means his figure and ours can be diffed rather than
+compared by eye, and the column he cares about is `already_in_baseline`, the overlap that turned
+phase 5 from the 2,838,715 records submitted into the 2,608,322 credited.
+
+So `scripts/merge_against_baseline.py` exists, and **it uses his column names unchanged**. That is the
+whole point: a reconciliation whose two sides use different words for the same quantity is not a
+reconciliation. Three decisions inside it worth recording.
+
+- **The counting unit is the raw line, lowercased, deduplicated within the year.** Not the registrable
+  domain and not the validator-passing subset. Checked against his own audit rather than assumed: his
+  1996 `merged_unique` of 866,106 is exactly `wc -l` of his 1996.txt, and his 807,818 + 58,288 lands on
+  it. Counting registrable domains instead would understate every figure by the 1.4M baseline lines
+  carrying subdomains, and would disagree with his file while looking principled.
+- **DuckDB rather than Python sets.** 2000.txt alone is 7.7M lines and the corpus is 22.5M; a set of
+  that many short strings costs gigabytes for what is a hash join. The connection is in-memory, so it
+  takes no lock on the store and runs while the collectors work.
+- **Equivalent-English is measured by running HIS calculator over each file**, never by
+  `src/ark/english_share.py`. Our implementation exists to rank two million candidates in a loop; it
+  has no vote on a reported figure.
+
+First run, 22 of 22 reconciliation checks pass, and it reproduces his published baseline totals
+exactly: 22,491,418 records and 12,077,095.5404 equivalent-English. Round 6 currently stands at
+11,712 records and 9,578.8707 EE, post-merge 22,503,130 and 12,086,674.4111.
+
+**Two of the checks are worth more than the rest.** They compare a freshly measured baseline against
+`src/ark/baseline.py`, so a round measured against a release he has already replaced fails loudly
+instead of shipping. That exact drift went unnoticed for five days in August 2026 and overstated
+net-new by 151,949 records he had already credited.
+
+**D4 asks for a post-merge total, which this project has never quoted.** Growth has always been stated
+against his pre-increment baseline, which is his convention and does not change. The post-merge total
+is a second figure and it is what makes the increment checkable by subtraction. `metric-explained.md`
+now carries all nine things he lists, and every rule in it names the line of his own program that
+implements it rather than restating his brief from memory.
+
+One thing that document pins down properly for the first time: **the two implementations are verified
+identical rather than assumed identical.** Both derive 1,306 English weights from the 14,778-row
+`CC-MAIN-2024-10` model over 1,330 distinct TLDs, and measured today there is no TLD on which they
+disagree. The clause that matters in his validator is `[a-z]{2,63}`, letters only, which is why the
+seventeen `xn--` records scored zero for him and full weight for us in phase 5.
+
+### The part that makes this stick
+
+**A requirement that lives only in prose gets shipped unmet.** This project has one proof of that and
+it is expensive: the phase-5 build filtered provenance to save 429 MB and left 11,316,960 of
+16,619,832 assignments citing evidence that was no longer in the archive, while all three existing
+checks passed, because every one read the additions manifest and none read the parquet.
+
+So D1 to D4 are **checks 5 to 8 in `verify_delivery.sh`**, run inside a fresh extraction:
+
+5. the code snapshot exists, is readable, and carries `pyproject.toml`, `uv.lock`, the justfile and the
+   three scripts a reader would need. "Complete" is not checkable; "pins no versions" is.
+6. `experience-summary.md` exists and mentions every one of the seven topics he named. Crude on
+   purpose: the failure it catches is a summary that quietly drops one and reads as complete.
+7. every reconciliation check in the merge audit passed, **and** the audit's own submitted count equals
+   what `additions/` actually holds, so the audit cannot describe a different round than the one in the
+   box.
+8. his own calculator, run from inside the archive, reproduces the audit's 1996 baseline figure. The
+   strongest check in the file, because it re-derives a number rather than comparing two of our own
+   statements. It needs only `python3`, which the rest of that script already requires.
+
+`package_delivery.sh` now runs the merge during packaging and **refuses to build if a reconciliation
+check fails**, stages `experience-summary.md` and `metric-explained.md` at the archive ROOT rather than
+inside `source.tar.gz`, since a concise summary a reader has to untar first is neither concise nor a
+summary, and copies the audit into `audit/`.
+
+### Three things that behaved exactly as designed, and are the reason to keep them
+
+1. **The empty `ROUTES` tuple refused to build a report.** Emptying it at the start of the round made
+   `fill_report.py` fail on an unfillable token rather than ship section 2 as a blank table. Set to
+   round 6's two actual routes, `ia_cdx_bulk` and `rdap_snapshot`, and the fill went clean.
+2. **The dirty-tree guard refused to package.** `source/source.tar.gz` is `git archive HEAD`, so an
+   uncommitted `merge_against_baseline.py` would not have been in it and check 5 would have failed on
+   an archive whose code did not match its own data. The guard caught it before the checks did.
+3. **A second RDAP sweep was running that nothing started deliberately.** Found while stopping
+   everything for the overnight gap: `rdap_pool_sweep.sh 70 5000 12` alongside the `6 5000 12` that was
+   started by hand. A handover most likely restarted it. Worth knowing that a stray copy can appear,
+   and worth counting supervisors rather than assuming.
+
+### Engines
+
+Requeued to the next announced gap, 2026-08-18 16:00 UTC, all three on the queues built after
+`merged260817-2` landed. `caffeinate` re-anchored to the local supervisor by PID, because it lives in
+`extend_engines.sh` and not in the supervisor, so a hand start leaves the machine free to idle-sleep
+through the window.

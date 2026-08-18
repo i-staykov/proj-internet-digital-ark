@@ -148,6 +148,36 @@ chmod +x "$STAGE/verify.sh"
 cp docs/delivery_readme.md "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
 
+# D2 and D4 of the submission standard, at the archive ROOT rather than inside
+# `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
+# explanation of the metric, and a document a reader has to untar first is neither.
+# `sources.md` above is the full register those two distil; both are needed, because
+# 91 rejected families with their measurements is the evidence and two pages is the
+# summary.
+cp docs/experience-summary.md "$STAGE/experience-summary.md"
+cp docs/metric-explained.md "$STAGE/metric-explained.md"
+
+# D3: the merge, the overlap counts, the accepted increment and the reconciliation
+# checks, produced here rather than described. It scores every baseline and merged
+# annual file with the reviewer's own calculator, so this is his arithmetic on our
+# data, and it emits HIS column names so his audit and ours can be diffed directly.
+#
+# **A failure here stops the packaging.** The reconciliation includes two checks that
+# compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
+# measured against a release he has already replaced fails loudly instead of shipping.
+# That exact drift went unnoticed for five days in August 2026 and overstated net-new
+# by 151,949 records he had already credited.
+echo "merging against the baseline and reconciling (D3)"
+if ! uv run python scripts/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
+        --out output/merge > "$STAGE/audit/merge_run.log" 2>&1; then
+    echo "refusing to package: the merge reconciliation failed. Its log:" >&2
+    cat "$STAGE/audit/merge_run.log" >&2
+    exit 1
+fi
+cat "$STAGE/audit/merge_run.log"
+cp output/merge/merge_stats_ark_*.csv "$STAGE/audit/"
+cp output/merge/merge_audit_ark_*.json "$STAGE/audit/"
+
 # merged master year lists + net-new additions + provenance
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true

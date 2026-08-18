@@ -99,3 +99,24 @@ lists and this round's net-new records, `candidates.txt` the names with no year 
 raw per-source records, and `source/source.tar.gz` the repository at the commit that built the delivery.
 
 [REPRODUCTION_RESULT]
+
+---
+
+## 8. The merge, the overlap and the reconciliation
+
+[MERGE_RECONCILIATION]
+
+---
+
+## 9. The four artifacts requested on 2026-08-17
+
+| | asked for | where it is in the archive |
+|---|---|---|
+| **D1** | complete runnable code, scripts, configurations, dependencies, execution instructions | `source/source.tar.gz`, the repository at the commit in `MANIFEST.txt`, with `pyproject.toml` and `uv.lock`. Its `README.md` is the operating guide and names what every command should print |
+| **D2** | a concise experience summary | `experience-summary.md`. `sources.md` is the full register it distils, family by family, each rejection with the measurement that closed it |
+| **D3** | the merge and deduplication code, overlap counts, accepted increment, reconciliation checks | section 8 above. `source/scripts/merge_against_baseline.py`, output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json` |
+| **D4** | the runnable metric code and its explanation | `equivalent_english_domain_calculator/`, his own program vendored unmodified, explained clause by clause in `metric-explained.md` |
+
+`verify.sh` checks all four inside a fresh extraction, as checks 5 to 8, so none of them can ship
+unmet. That is deliberate rather than tidy: the one requirement in this project that was ever
+satisfied by prose alone, the evidence wall, is also the one that broke in a shipped archive.

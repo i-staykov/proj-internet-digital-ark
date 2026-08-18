@@ -1,6 +1,6 @@
-# Internet Digital Ark: round 5
+# Internet Digital Ark: round 6
 
-Additions to the 1996-2001 annual domain lists, measured against `merged260815`. Every figure is
+Additions to the 1996-2001 annual domain lists, measured against `merged260817-2`. Every figure is
 generated from the evidence store, so no table here can drift from the files shipped beside it.
 
 ---
@@ -9,38 +9,39 @@ generated from the evidence store, so no table here can drift from the files shi
 
 | | |
 |---|--:|
-| 1. Total original domain-year records 1996-2001 | 15,428,507 |
-| 2. Equivalent-English total | 8,346,839.3737 |
-| 3. Increment | **2,838,715** records |
-| 4. Equivalent-English increment | **1,697,224.8585** |
-| 5. Equivalent-English growth rate | **20.3337%** |
+| 1. Total original domain-year records 1996-2001 | 22,491,418 |
+| 2. Equivalent-English total | 12,077,095.5404 |
+| 3. Increment | **14,992** records |
+| 4. Equivalent-English increment | **11,891.6532** |
+| 5. Equivalent-English growth rate | **0.0985%** |
 
-Lines 1 and 2 are the `merged260815` totals, unchanged, since this increment is not yet merged. The
-increment covers 2,666,850 distinct domains, of which **1,790,892 appear in none of the six baseline
+Lines 1 and 2 are the `merged260817-2` totals, unchanged, since this increment is not yet merged. The
+increment covers 14,437 distinct domains, of which **9,841 appear in none of the six baseline
 files in any year**.
 
-| Year | merged260815, this counting unit | Additions | Capture-backed |
+| Year | merged260817-2, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 649,765 | 63,164 | 39 (0.1%) |
-| 1997 | 1,358,646 | 230,192 | 289 (0.1%) |
-| 1998 | 1,363,435 | 283,156 | 4,837 (1.7%) |
-| 1999 | 2,745,535 | 513,761 | 16,602 (3.2%) |
-| 2000 | 4,675,256 | 765,559 | 27,144 (3.5%) |
-| 2001 | 2,991,302 | 982,883 | 225,540 (22.9%) |
-| **Total** | **13,783,939** | **2,838,715** | **274,451 (9.7%)** |
+| 1996 | 754,665 | 17 | 2 (11.8%) |
+| 1997 | 1,791,859 | 73 | 1 (1.4%) |
+| 1998 | 2,233,102 | 314 | 64 (20.4%) |
+| 1999 | 4,612,622 | 946 | 166 (17.5%) |
+| 2000 | 7,479,208 | 1,208 | 589 (48.8%) |
+| 2001 | 3,974,450 | 12,434 | 12,192 (98.1%) |
+| **Total** | **20,845,906** | **14,992** | **13,014 (86.8%)** |
 
 The baseline column counts registered domains, so it reads lower than the raw lines of line 1; both
 describe the same six files.
 
-**Cumulative.** Across the four rounds shipped so far this project has added 5,366,454 domain-year records worth 3,149,000.6140 equivalent-English, which is **37.7269%** of the 8,346,839.3737 the corpus holds today. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
+**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 5,151,053 domain-year records worth 3,029,897.1700 equivalent-English, which is **25.0880%** of the 12,077,095.5404 the corpus holds today. Each shipped round is quoted at the figure the reviewer ACCEPTED, which is not always the one it was submitted with: he recalculates against whatever baseline is current when he merges, and records of ours that reached it by another route in the meantime are his, not ours, to count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
 
 | Round | Records | Equivalent-English |
 |---|--:|--:|
 | 1 | 1,429,524 | 756,559.2864 |
 | 3 | 151,949 | 91,814.6880 |
 | 4 | 946,266 | 603,401.7811 |
-| **5, this one** | **2,838,715** | **1,697,224.8585** |
-| **Total** | **5,366,454** | **3,149,000.6140** |
+| 5 | 2,608,322 | 1,566,229.7613 |
+| **6, this one** | **14,992** | **11,891.6532** |
+| **Total** | **5,151,053** | **3,029,897.1700** |
 
 ---
 
@@ -48,28 +49,18 @@ describe the same six files.
 
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
-| the Internet Archive's own capture census, a 2017 Dartmouth/NBER release | the archive's count of captures it holds for that host in that calendar year | 227,273 |
-| a published compilation of registry creation dates over 171M domains | the registry's own creation date, which dates that year and no other | 2,165,506 |
-| the UK Web Archive host link graph, already held since July | the crawl date on the link record | 92,646 |
-| the January 1997 Internet Domain Survey, recovered from a dead host | the survey edition date | 115,104 |
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 13,014 |
+| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 1,978 |
 
 `sources.md`, shipped beside this report, carries the full entry for each: acquisition command, date
 semantics, measured yield, caveats.
 
-**Both new sources were verified before admission.** The capture census agrees with our own independent
-CDX querying of the live archive on **138,760 (domain, year) pairs**, including exact
-same-day agreement on single-capture years. The registry dates were tested against a constraint nobody
-encoded: a TLD cannot predate its own delegation, and across the six delegated in 2001 the file holds
-21,698 in-window rows and **zero** dated before 2001.
-
-One caveat on checking the census yourself: **the archive.org item it came from stopped serving the day
-after we downloaded it**, so use the live Wayback URL each record carries instead; `sources.md` has the
-detail.
-
-**The largest contributor carries the narrowest evidence, and is under-claimed deliberately.** A
-creation date attests registration, not activity, and only for one year. A domain registered in 1997
-and live until 2001 gets 1997 from this route alone; the other four years must be earned from a capture
-or a survey. The parser emits one evidence row for one year, so a second cannot be written.
+<!-- ROUND 6: two or three short paragraphs, no more.
+     One per route that needs it, and only where there is something a reader could not
+     infer from the table: what was done to falsify the source before it was admitted,
+     where its evidence is narrower than it looks, what a checker should watch for.
+     Every number here must come from a token or from `sources.md`. Nothing typed.
+     Delete this comment when the paragraphs are written. -->
 
 ---
 
@@ -77,25 +68,11 @@ or a survey. The parser emits one evidence row for one year, so a second cannot 
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `domain_creation_bulk` | the registry's own creation date for that domain | `whois_creation` | master | 2,165,506 | 1,241,811.6 |
-| `dartmouth_nber_captures` | the archive's own count of captures it holds in that year | `cdx_timestamp` | master | 227,273 | 142,084.0 |
-| `ukwa_link_source` | UK Web Archive crawl date | `link_source` | master | 92,646 | 90,825.1 |
-| `isc_survey` | survey run date | `artifact_listing` | master | 115,104 | 61,759.1 |
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 88,643 | 54,714.0 |
-| `usenet_announce` | post date of the announcement | `dated_directory` | master | 69,949 | 46,402.0 |
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 44,629 | 38,756.4 |
-| `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 15,764 | 9,579.5 |
-| `udrp_proceedings` | the commencement date of the dispute | `artifact_listing` | master | 6,934 | 4,203.1 |
-| `usenet_bare` | post date of the message carrying the address | `dated_directory` | master | 5,211 | 3,246.7 |
-| `attrition_defacement` | the date the defacement was recorded | `artifact_listing` | master | 3,929 | 1,874.9 |
-| `enron_email` | the message `Date:` header | `dated_directory` | master | 2,163 | 1,360.2 |
-| `maillist_archive` | the message `Date:` header | `dated_directory` | master | 633 | 395.3 |
-| `trade_press` | the issue cover date | `dated_directory` | master | 212 | 134.7 |
-| `tucows_catalogue` | software release date | `dated_directory` | master | 83 | 53.2 |
-| `rtfm_faq` | the FAQ's revision header | `dated_directory` | master | 36 | 25.0 |
-| **Total** | | | | **2,838,715** | **1,697,224.9** |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 13,014 | 10,020.1 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 1,978 | 1,871.5 |
+| **Total** | | | | **14,992** | **11,891.7** |
 
-Every row above is master, so eligible for the annual files. Separately, **2,450,244 domains have no
+Every row above is master, so eligible for the annual files. Separately, **2,354,498 domains have no
 year-specific evidence** and ship as `candidates.txt`, kept out of the annual masters.
 
 ---
@@ -108,44 +85,34 @@ pool beside the discovery loop feeding it.
 
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| `cdx_pool` | 162 | 105,687 | 89,390 | 84.6% | 44.6% | 90,100 | 57,882 |
-| `cdx_q1` | 213 | 63,741 | 55,724 | 87.4% | 71.9% | 55,845 | 127,191 |
+| `cdx_pool` | 187 | 120,269 | 103,779 | 86.3% | 48.7% | 104,276 | 69,998 |
+| `cdx_q1` | 214 | 63,919 | 55,844 | 87.4% | 71.9% | 55,943 | 127,552 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
+| `cdx_gap2` | 13 | 3,718 | 3,309 | 89.0% | 94.5% | 3,323 | 10,420 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
+| `cdx_gap3` | 6 | 1,638 | 1,490 | 91.0% | 63.2% | 1,507 | 1,666 |
 | `cdx_discovered` | 1 | 298 | 233 | 78.2% | 85.0% | 298 | 278 |
-| **All** | **669** | **301,365** | **261,182** | **86.7%** | **69.3%** | **262,722** | **535,665** |
+| **All** | **714** | **321,481** | **280,490** | **87.2%** | **69.8%** | **281,826** | **560,228** |
 
-Of 301,365 queries, 261,182 were answered (86.7%). The 40,183 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 2,909 (0.97%)**: 0 rate limits (429), 2,133 server errors (500, 502, 503, 504) and 776 refusals (403). **Transport-level failures are 37,274 (12.37%)**: 27,775 connections refused or reset and 9,499 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 321,481 queries, 280,490 were answered (87.2%). The 40,991 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,004 (0.93%)**: 0 rate limits (429), 2,153 server errors (500, 502, 503, 504) and 851 refusals (403). **Transport-level failures are 37,987 (11.82%)**: 27,840 connections refused or reset and 10,147 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
-**Still worth expanding, but no longer the binding constraint.** Roughly 2.5 million candidate names sit
-unqueried against engines clearing a few hundred requests an hour, so the queue was never the limit this
-round. That is what redirected it toward bulk dated corpora.
+<!-- ROUND 6: one sentence on whether the CDX route is still the binding constraint,
+     with the measurement that says so. Section VII of his brief forbids calling a CDX
+     route exhausted on anything but demonstrated yield. Delete this comment when written. -->
 
 ---
 
 ## 5. How this contributes to an autonomous discovery system
 
-**The useful finding this round is a negative one about our own strategy.** Collection had been
-optimised against request throughput at a single archive. When `merged260815` arrived carrying another
-contributor's UMN DRUM delivery, its shape was the lesson: one bulk dated corpus was worth roughly
-twenty times our previous round of per-domain querying, because such a corpus does not have that
-constraint at all. Re-aiming the search at that shape produced sections 2 and 3.
-
-**That is now a ranking rule rather than an anecdote.** Sources are priced by yield per byte before a
-collector is written: the capture census measured **997 net-new pairs per megabyte** against **15.5**
-for a Usenet sample, a 64x difference that no amount of extra querying closes. The same measurement
-retired a route we had been developing: seeding link-looking pages rather than home pages harvested 391
-domains against 53, a 7.4x improvement, yet yielded only 5 net-new, because 386 were already held and
-already dated. Page-by-page expansion is therefore now outranked by bulk link graphs, and the negative
-result is recorded so it is not rediscovered.
-
-**The machinery enforcing this is as documented in previous rounds** and ships in the archive. One note
-on how it behaved: both new sources had to clear the human gate before a single row could date a year,
-on a machine-generated request built from a seeded-random sample with live links and the measured
-counterfactual, so the decision rested on external evidence rather than on the agent's argument.
+<!-- ROUND 6: the section he reads most closely, and the one that must not repeat a
+     previous round. State what the system learned to do that it could not do before, and
+     price it: a rule adopted, a route retired on a measurement, a decision the harness
+     made without a human. Prefer a negative result with a number over a positive claim
+     without one. The machinery itself he already knows; name it in a clause, not a
+     paragraph. Delete this comment when written. -->
 
 **Negative results are first-class.** **118 source families have been searched and recorded**, 27 developed far enough to earn their own section and 91 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 
@@ -153,17 +120,10 @@ counterfactual, so the decision rested on external evidence rather than on the a
 
 ## 6. Limitations, and what is worth expanding
 
-The capture census is a 2017 snapshot, so its counts are a floor on what the archive holds now. The
-registry compilation covers domains still registered in December 2024, so it is survivorship-biased: a
-name created in 1998, dropped, and re-registered in 2015 reads 2015 and falls out of the window. The
-direction of error is loss, and the reverse cannot happen.
-
-**Worth expanding, in order.** Bulk dated corpora first, since one such file outweighed a whole round of
-querying and two more were found here. National web archive link graphs second, where the year
-association is explicit and the weight is high: `ukwa_link_source` returned a mean of 0.9803, the best
-of any source, because such a graph is almost entirely `.uk`. Per-domain CDX querying third, bounded by
-request rate rather than by candidates. Not worth expanding: the closed families in `sources.md`, each
-recorded with the measurement that closed it.
+<!-- ROUND 6: the honest limits of this round's sources, stating the DIRECTION of each
+     error. Then what is worth expanding, in order, each with the measurement that ranks it,
+     and what is not, pointing at the closed families in `sources.md`.
+     Delete this comment when written. -->
 
 ---
 
@@ -179,3 +139,46 @@ and all four checks in `verify.sh` pass, `trace.py` resolves, the rebuild from `
 every per-year count exactly with all ten invariants passing, and all fourteen result files come back
 byte-identical. Tier 3 was not run: it is a roughly 50 GB download and two of this project's own
 collectors were querying the Internet Archive at the time.
+
+---
+
+## 8. The merge, the overlap and the reconciliation
+
+**The merge, deduplication and overlap, computed here rather than described.**
+`merge_against_baseline.py` unions these additions into the current baseline,
+deduplicated on the lowercased line within each year, which is the reviewer's own
+counting unit, and scores every file with his own calculator. The per-year form is
+`audit/merge_stats_ark_*.csv`, in his column names so his audit and this one can be
+diffed directly.
+
+| | records | equivalent-English |
+|---|--:|--:|
+| baseline `merged260817-2` | 22,491,418 | 12,077,095.5404 |
+| submitted | 11,712 | |
+| already in the baseline | 0 | |
+| **accepted increment** | **11,712** | **9,578.8707** |
+| post-merge total | 22,503,130 | 12,086,674.4111 |
+
+**22 of 22 reconciliation checks pass.** They are arithmetic
+identities, so a failure is a defect rather than a finding: per year that
+`baseline_unique + accepted_new == merged_unique` and that
+`already_in_baseline + accepted_new == submitted_unique`, that the per-year
+equivalent-English increments sum to the headline figure, that the baseline plus
+the increment equals the post-merge total, and that a freshly measured baseline
+reproduces the record count and equivalent-English total this round was measured
+against. Every one is listed with its verdict in `audit/merge_audit_ark_*.json`.
+
+---
+
+## 9. The four artifacts requested on 2026-08-17
+
+| | asked for | where it is in the archive |
+|---|---|---|
+| **D1** | complete runnable code, scripts, configurations, dependencies, execution instructions | `source/source.tar.gz`, the repository at the commit in `MANIFEST.txt`, with `pyproject.toml` and `uv.lock`. Its `README.md` is the operating guide and names what every command should print |
+| **D2** | a concise experience summary | `experience-summary.md`. `sources.md` is the full register it distils, family by family, each rejection with the measurement that closed it |
+| **D3** | the merge and deduplication code, overlap counts, accepted increment, reconciliation checks | section 8 above. `source/scripts/merge_against_baseline.py`, output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json` |
+| **D4** | the runnable metric code and its explanation | `equivalent_english_domain_calculator/`, his own program vendored unmodified, explained clause by clause in `metric-explained.md` |
+
+`verify.sh` checks all four inside a fresh extraction, as checks 5 to 8, so none of them can ship
+unmet. That is deliberate rather than tidy: the one requirement in this project that was ever
+satisfied by prose alone, the evidence wall, is also the one that broke in a shipped archive.

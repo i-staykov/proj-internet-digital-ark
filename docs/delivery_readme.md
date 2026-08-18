@@ -35,8 +35,28 @@ Two things to know before opening anything:
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from |
 | `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
+| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` beside it is the full register this distils |
+| `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
+| `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
+| `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
+| `equivalent_english_domain_calculator/` | **D4**: the reviewer's own scorer, vendored unmodified with its fixed model, so every figure here can be re-derived without fetching anything |
 | `SHA256SUMS`, `verify.sh` | Checksum for every file, and the checker |
 
+
+## The four deliverables he asked for on 2026-08-17
+
+Named here in his order, because the table above is sorted by path.
+
+| | he asked for | where it is |
+|---|---|---|
+| **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `MANIFEST.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
+| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` as the full register behind it |
+| **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
+| **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
+
+`verify.sh` checks all four: check 5 that the code snapshot carries its lockfile, 6 that the summary
+covers every topic he listed, 7 that every reconciliation check in the merge audit passed, and 8 that
+his own calculator, run here, reproduces the audit's baseline figure.
 
 ## File formats
 

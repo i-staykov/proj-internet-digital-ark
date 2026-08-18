@@ -19,6 +19,7 @@ templates, never the filled copies, or the next refresh discards the edit.
 """
 
 import argparse
+import json
 import re
 import sys
 from decimal import Decimal
@@ -268,6 +269,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "DATASETS_SEARCHED": datasets_searched(),
         "CUMULATIVE": cumulative(f),
         "CUMULATIVE_SENTENCE": cumulative_sentence(f),
+        "MERGE_RECONCILIATION": merge_reconciliation(),
         "CROSS_SOURCE_AGREEMENT": cross_source_agreement(),
         "REPRODUCTION_RESULT": reproduction_result(),
         "ROUTES_TABLE": routes_table(f),
@@ -302,7 +304,18 @@ def substitutions(f: dict) -> dict[str, str]:
 # previous round's routes forward is not a small error: each row would keep its own
 # heading while `by_source` quietly filled it with THIS round's pairs for a source
 # that is no longer what the round is about.
-ROUTES: tuple[tuple[str, str, str], ...] = ()
+ROUTES: tuple[tuple[str, str, str], ...] = (
+    (
+        "ia_cdx_bulk",
+        "the two archive engines, a bracketed-gap population and the candidate pool",
+        "the Wayback capture timestamp, per domain and year",
+    ),
+    (
+        "rdap_snapshot",
+        "the RDAP sweep over the candidate pool",
+        "the registry's own creation date, which dates that year and no other",
+    ),
+)
 
 
 def routes_table(f: dict) -> str:
@@ -423,6 +436,60 @@ def cumulative(f: dict) -> str:
             "side under the unchanged model.",
             "",
             *rows,
+        ]
+    )
+
+
+def merge_reconciliation() -> str:
+    """The D3 merge audit, read from the file the packaging step produced.
+
+    Read rather than recomputed. `merge_against_baseline.py` scores every annual file
+    with the reviewer's own calculator, which takes minutes, and a second derivation
+    here would be a second thing to keep in step with the first. If the audit is
+    absent the report says so instead of implying the merge was run.
+    """
+    merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
+    audits = sorted(merge_dir.glob("merge_audit_ark*.json"))
+    if not audits:
+        return (
+            "_The merge has not been run against this build. "
+            "`uv run python source/scripts/merge_against_baseline.py` produces it._"
+        )
+    audit = json.loads(audits[-1].read_text(encoding="utf-8"))
+    t = audit["totals"]
+    checks = audit.get("reconciliation", [])
+    passed = sum(1 for c in checks if c.get("passed"))
+    rows = [
+        "| | records | equivalent-English |",
+        "|---|--:|--:|",
+        f"| baseline `{t['baseline_marker']}` | {int(t['baseline_records']):,} | "
+        f"{Decimal(t['baseline_equivalent_english_total']):,.4f} |",
+        f"| submitted | {int(t['submitted_records']):,} | |",
+        f"| already in the baseline | {int(t['already_in_baseline_records']):,} | |",
+        f"| **accepted increment** | **{int(t['accepted_new_records']):,}** | "
+        f"**{Decimal(t['equivalent_english_increment']):,.4f}** |",
+        f"| post-merge total | {int(t['post_merge_records']):,} | "
+        f"{Decimal(t['post_merge_equivalent_english_total']):,.4f} |",
+    ]
+    return "\n".join(
+        [
+            "**The merge, deduplication and overlap, computed here rather than described.**",
+            "`merge_against_baseline.py` unions these additions into the current baseline,",
+            "deduplicated on the lowercased line within each year, which is the reviewer's own",
+            "counting unit, and scores every file with his own calculator. The per-year form is",
+            "`audit/merge_stats_ark_*.csv`, in his column names so his audit and this one can be",
+            "diffed directly.",
+            "",
+            *rows,
+            "",
+            f"**{passed} of {len(checks)} reconciliation checks pass.** They are arithmetic",
+            "identities, so a failure is a defect rather than a finding: per year that",
+            "`baseline_unique + accepted_new == merged_unique` and that",
+            "`already_in_baseline + accepted_new == submitted_unique`, that the per-year",
+            "equivalent-English increments sum to the headline figure, that the baseline plus",
+            "the increment equals the post-merge total, and that a freshly measured baseline",
+            "reproduces the record count and equivalent-English total this round was measured",
+            "against. Every one is listed with its verdict in `audit/merge_audit_ark_*.json`.",
         ]
     )
 
