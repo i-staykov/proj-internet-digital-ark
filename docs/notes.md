@@ -10603,3 +10603,30 @@ our own system, each caught by a mechanism rather than by somebody noticing. Tha
 `tests/test_documented_counts.py` now also asserts that the generated report carries no unwritten
 section. It checks the generated file and not the template, because the template is supposed to carry
 the markers between rounds: they are the instruction for writing it.
+
+### The high-weight ccTLD extraction does not exist, and the enumeration is worth keeping
+
+Yesterday's `.pl` find left one precise question: does the Internet Archive publish a
+`webdataservices` national extraction, with public CDX derivatives, for a namespace worth more than
+`.pl`'s 0.1070? Chased today and **the literal answer is a measured no**, established through
+archive.org's own APIs rather than by guessing item names:
+
+- `collection:webdataservices` returns numFound **797** over 783 unique identifiers. Exactly **one**
+  matches `/ccTLD/i`, the Polish collection, plus its 19 data items.
+- `mediatype:collection AND title:(ccTLD)` across all of archive.org returns **1**.
+- The `*-EXTRACTION-*ARC_arc` naming pattern does not generalise: the scrape API gives **26**, the 19
+  Polish items and 7 NHK ones for a single Japanese host in 2020.
+- Ten obvious analogues were probed by identifier. None exists.
+
+That is a closed lead rather than an unanswered one, and it is recorded in the `.pl` triage entry where
+the question was asked. Worth the requests: the alternative was leaving a plausible high-value lead
+open indefinitely on the strength of one example.
+
+**The same chase found two things the question did not ask for, both retrievable, both unrefuted as of
+this entry.** `webdataservices` holds extractions that are not ccTLD slices, and their CDX derivatives
+are served on the same terms. One is a set of six sibling items covering **exactly 1996 to 2001, one
+per year**; the other is a 659-item family belonging to the same Dartmouth/NBER project whose metadata
+item was darkened, whose ARCS items are apparently still up. Deliberately not written into the register
+yet: the refuting pass is measuring novelty against the store, and yesterday two proposals were
+corrected by 2.4x and 15x in opposite directions by exactly that step. Numbers recorded before
+refutation are the ones that end up needing correcting twice.

@@ -831,9 +831,15 @@ Decision: pending
   HTTP 401 ... the restriction covers the index files and not merely the payload WARCs". Here the
   `.cdx.gz` derivatives return **HTTP 200 with no authentication** while the `.arc.gz` payload beside
   them returns 403. The 401 is a per-collection policy, not an archive-wide one, and it does not reach
-  `webdataservices`. **The follow-up is the valuable part: whether an equivalent extraction exists for
-  a high-weight namespace.** A `.uk` or `.au` collection of this shape would be worth roughly nine
-  times a `.pl` one per pair.
+  `webdataservices`. **The follow-up was chased on 2026-08-18 and the literal question is measured
+  dry: no ccTLD extraction of this shape exists for a high-weight namespace.** Enumerated through
+  archive.org's own APIs rather than by guessing item names: `collection:webdataservices` returns
+  numFound 797 over 783 unique identifiers, and exactly one member matches `/ccTLD/i`, the Polish one.
+  `mediatype:collection AND title:(ccTLD)` over all of archive.org returns 1. The
+  `*-EXTRACTION-*ARC_arc` naming pattern does not generalise: the scrape API gives 26, being the 19
+  Polish items and 7 NHK ones. Ten obvious analogues were probed by identifier and none exists.
+  **What the same chase did find is under triage separately**, since `webdataservices` turns out to
+  hold non-ccTLD extractions of the same shape whose CDX derivatives are equally public.
 
 Decision: pending
 
