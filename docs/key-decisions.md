@@ -27,6 +27,16 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### The archive has never been asked about 1996 or 2001 for 6.5M held domains
+
+**Measured today, with no new requests.** The gap engine can only target a year bracketed by two years we already hold, so **1996 and 2001 can never be targets at all**: they would need 1995 and 2002. `gaps.py` calls the wider set "far more speculative" and that was never measured. It is now: given a 2000 capture, the archive also holds 2001 **94.4%** of the time (n=140,924), against 98.2% for a bracketed year measured the same way. **5,344,810 of those 2001 slots have never been asked**, and only 285,862 domains have ever been asked of the archive against 10,867,530 held.
+
+The queue is built, so these are ranked figures rather than estimates: **6,039,568 targets, 2,878,510 EE expected**, and the **best 10,000 run at 1.52 EE per query against 1.249 for the bracketed gap queue and about 0.18 for the candidate pool the local engine is working now.** Caveat stated plainly: the 94.4% is conditional on the archive holding the 2000 capture, so it is a ceiling, and a pilot batch is what would settle it. Full working in **ADR-006**.
+
+**What I need is one word, because the trade is yours and not arithmetic.** An edge hit adds a **pair and never a new domain**, so it is completeness, and Ding asked for discovery to be prioritised. Options: *leave* both engines as they are; *switch* the local engine to the edge queue; or *shard* the edge queue to the VPS beside its bracketed work, where completeness already lives.
+
+Nothing is blocked while this sits here: both engines keep running on their current queues, and I have pointed nothing at the new one.
+
 ### Round 6 has opened against `merged260817-2`, and 5% is now 603,854.78 EE
 
 **Status, not a question.** Ding accepted phase 5 on 2026-08-17 with no rejected records: every

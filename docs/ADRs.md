@@ -490,3 +490,99 @@ right trade only because the approvals gate is downstream of it: a hypothesis ca
 and priced on the agent's judgement, and **its records still cannot date a year until a human classifies
 the source**. If a future change ever lets a hypothesis reach the annual files without passing ADR-003's
 gate, this ADR stops being safe and needs revisiting rather than reapplying.
+
+## ADR-006. Edge-year gaps are a third population, and the bracketing rule was never measured
+
+**Date** 2026-08-18. **Status** Proposed. The measurement is done and the machine allocation is Ivo's.
+
+### The question
+
+`src/ark/gaps.py` selects gap targets with `h2.y = h1.y + 2`: a domain is a target only where the store
+already holds **both** flanking years. So a domain held in 2000 and missing 2001 needs 2002, and one
+held in 1997 and missing 1996 needs 1995. Both are outside the window, which means **1996 and 2001 can
+never be gap targets at all.** The module says the restriction is deliberate:
+
+> ...rather than to every year adjacent to a held one, which is 17.5x larger and far more speculative.
+
+That sentence predates the equivalent-English metric. The 17.5x is right. **"Far more speculative" was
+never measured, and it is wrong for the 2001 edge.**
+
+### What was measured, on 2026-08-18, with zero new requests
+
+Every answered CDX record carries the full list of in-window years found, so the conditional
+probability can be read off 725 journals. A control on a bracketed year is included, because a method
+that cannot reproduce a known answer cannot be trusted on an unknown one.
+
+| | measured | n |
+|---|--:|--:|
+| given a 2000 capture, also 2001 | **94.4%** | 140,924 |
+| given a 1997 capture, also 1996 | **60.0%** | 30,198 |
+| CONTROL: given 1998 and 2000, also 1999 | 98.2% | 63,761 |
+
+The control lands on the gap engine's own measured 96.0% to 97.5%, so the method agrees with the engine
+where the answer is already known. The 2001 edge is 3.8 points behind a bracketed gap, not
+"far more speculative".
+
+The population, and the part that makes this an ADR rather than a note:
+
+| | slots | never asked of CDX | EE ceiling, unasked |
+|---|--:|--:|--:|
+| 2001 edge | 5,358,097 | **99.8%** | 2,678,201 |
+| 1996 edge | 1,141,039 | 95.5% | 587,188 |
+
+**285,862 domains have ever been asked of the CDX index, out of 10,867,530 held.** And an answer
+containing 2000 returns **3.52 in-window years on average**, so one edge query can fill several missing
+years rather than the edge one alone.
+
+### The two biases in those figures, in opposite directions
+
+Stated because the temptation is to quote the product and call it a forecast.
+
+- **The rate is a ceiling.** 94.4% is conditional on the archive holding a 2000 capture, whereas this
+  population holds 2000 from *any* source, including registry creation dates for sites that were never
+  archived at all. The one direct probe of the real population measured 10 of 12 (83%), which is a
+  sample of twelve and is quoted as such.
+- **The EE is a floor.** Each figure counts one slot per domain, the edge year only, while the measured
+  answer carries 3.52 years.
+
+So the honest range for the 2001 edge is roughly 1.3M to 2.5M equivalent-English, and the correct next
+step is a pilot batch that measures the rate on the population itself rather than on a proxy.
+
+### The decision this forces, which is not the agent's
+
+Ranked by expected equivalent-English per request, which is ADR-001's rule:
+
+| population | EE per query | basis |
+|---|--:|---|
+| **edge, best 10,000** | **1.5237** | built and ranked, `--population edge` |
+| bracketed gap | 1.249 | measured, `docs/report.md` section 4 |
+| edge, best 250,000 | 1.0316 | built and ranked |
+| edge, whole population | 0.4766 | 2,878,510 EE over 6,039,568 targets |
+| candidate pool | ~0.18 | 19.8% recent yield x mean weight |
+
+**The head of the edge queue is the best work per request the project has, and it was unreachable.**
+Built rather than estimated: `build_query_queue.py --population edge` writes 6,039,568 targets worth
+2,878,510 EE expected, and every one of the best 10,000 rows is an edge row, ahead of both existing
+populations. The arithmetic behind that is coherent rather than lucky: a single-slot bracketed gap
+scores `0.886 x weight` and a 2001 edge scores `0.944 x weight`, so the edge wins on the same TLD, while
+a two-slot bracketed gap scores `1.33 x weight` and still wins. A domain missing **both** edges scores
+`1.544 x weight` and outranks everything.
+
+Read that table with the ceiling caveat above in force: the 94.4% is conditional on the archive holding
+the adjacent capture, so the expected values inherit that bias and a pilot is what settles it. But the trade is not purely arithmetic: an edge hit adds a *pair* and never a *domain*, so it
+is completeness, and the reviewer asked for discovery to be prioritised. That is the same objection that
+refuted squidGuard this morning, and it applies here with 400x the volume behind it.
+
+The options are Ivo's: leave the local engine on discovery and accept the slower route; move it to the
+edge population; or shard the edge population to the VPS beside its bracketed work, which is where
+completeness already lives. Whatever he chooses, **the queue definition should exist**, because a
+population that no queue can express is invisible to every future ranking pass, and this one has been
+invisible for a month.
+
+### Consequence if adopted
+
+`build_query_queue.py` gains `--population edge`, ranked on the measured 94.4% and 60.0% rather than on
+the bracketed 96-97.5%, and `src/ark/gaps.py` keeps `sandwich_gap_domains` unchanged so the existing
+queues and their reproductions are untouched. Both are done: the queue builds in 1 second and no
+existing queue changed. **Nothing points an engine at it**, because that is the allocation question
+above and it is Ivo's.

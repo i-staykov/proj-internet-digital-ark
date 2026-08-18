@@ -87,7 +87,13 @@ from build_pool_candidates import (  # noqa: E402
 
 from ark.cdx import answered as cdx_answered  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
-from ark.gaps import sandwich_gap_domains, spread, take_weighted_shard  # noqa: E402
+from ark.gaps import (  # noqa: E402
+    EDGE_RATE,
+    edge_gap_domains,
+    sandwich_gap_domains,
+    spread,
+    take_weighted_shard,
+)
 from ark.journal import queried_domains  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
@@ -283,6 +289,7 @@ def build(weights: list[int]) -> dict:
         attested = dict(conn.execute(ATTESTED_SQL).fetchall())
         answered_source = sources_for(conn, list(outcomes))
         gap_rows = sandwich_gap_domains(conn)
+        edge_rows = edge_gap_domains(conn)
     finally:
         conn.close()
 
@@ -305,6 +312,33 @@ def build(weights: list[int]) -> dict:
             (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "gap")
         )
     held = {domain for domain, _r, _g in gap_rows}
+
+    # **The window's two edge years, which no queue could express until ADR-006.** A domain
+    # held in 2000 and missing 2001 is not a bracketed gap, because 2002 is out of window, and
+    # it is not a pool candidate either, because it already carries a year. It was therefore
+    # invisible to both engines: 99.8% of the 5.3M such slots had never been asked.
+    #
+    # Scored on the MEASURED conditional rate for its own edge year, times the TLD's English
+    # share, and deliberately counting the edge year ALONE even though an answer returns 3.52
+    # in-window years on average. That understates the population and keeps it comparable with
+    # the gap rows, which are scored on the years they can actually name.
+    #
+    # A domain can hold both edges, so scores are summed per domain: one query answers both.
+    edge_score: dict[str, Decimal] = {}
+    for domain, edge_year in edge_rows:
+        if domain in already or is_reverse_dns(domain):
+            continue
+        tld = domain.rsplit(".", 1)[-1]
+        rate = Decimal(EDGE_RATE[edge_year])
+        edge_score[domain] = edge_score.get(domain, Decimal(0)) + rate * tld_weight.get(
+            tld, Decimal(0)
+        )
+    for domain, score in edge_score.items():
+        tld = domain.rsplit(".", 1)[-1]
+        rows.append(
+            (in_window_era(tld), score, attested.get(tld, 0) >= ATTESTED_MIN, domain, "edge")
+        )
+
     plausible = pool_plausibility(pool_source, attested)
     for domain, source in pool_source.items():
         if domain in already or domain in held or is_reverse_dns(domain):
@@ -442,6 +476,10 @@ def write_single(built: dict, population: str, out: Path) -> None:
     print(f"  wrote {out} : {len(rows):,} {population} targets, {value:,.0f} EE expected")
     if population == "gap":
         print("    completeness: every hit is a new pair on a domain already held")
+    elif population == "edge":
+        print("    completeness at the window's edge: 1996 and 2001, which no bracketed")
+        print("    query can reach. Measured 94.4% for 2001 and 60.0% for 1996 (ADR-006),")
+        print("    and a hit adds a pair and never a domain.")
     else:
         print("    discovery: every hit makes a name net-new, which is the prioritised half")
 
@@ -488,7 +526,7 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="report without writing")
     ap.add_argument(
         "--population",
-        choices=("both", "gap", "pool"),
+        choices=("both", "gap", "pool", "edge"),
         default="both",
         help="both writes the hash-sharded mixed queue. `gap` or `pool` writes ONE ranked "
         "list for that population alone, which is how the two machines are split: the VPS "
