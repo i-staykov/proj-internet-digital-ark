@@ -642,9 +642,18 @@ is what turns one into an answer.
 - verified independently, not taken from the finder: 1,317,986 bytes gzip, `gzip -t` passes,
     9,193,881 bytes and 154,141 lines uncompressed, terminated by InterNIC's own `;End of file.`
     marker. That is the whole battery the corrupt ISC copies fail.
-- measured: **13,324 net-new (domain, year) pairs, 9,768.6 equivalent-English**, mean weight 0.7332,
-    over six intact files. 12,409 pairs land in **1997** and 915 in 1998, which are two of the three
-    years the reviewer's own merge audit prices highest for us. Clears the ~5,000-pair bar.
+- **measured HERE on 2026-08-18, not inherited, and all six files are now on disk under
+    `data/raw/internic_zones/` and sha256-pinned so the figure is reproducible**: 65,261 delegated
+    domains, 52,861 already held, **12,400 net-new pairs and 8,871.2 equivalent-English** as the
+    self-dating class it is, or 7,326 pairs and 5,264.6 EE if the corroboration split were applied
+    anyway. **Both readings clear the ~5,000-pair bar and both mean weights clear the 0.6 line**
+    (0.7154 and 0.7186). Every pair lands in **1997**, one of the two years the reviewer's own merge
+    audit prices highest for us. By TLD: `.org` 61,252 delegations, `.edu` 3,475, `.gov` 477,
+    `.mil` 57; `root` and `arpa` yield zero by construction, the second because the canonicaliser
+    now refuses reverse-DNS zones.
+- it differs from the 13,324 first reported by 924 pairs, and the direction is the explanation: the
+    store has banked more `.org` since, so fewer of the same names are net-new. A figure measured
+    against a live store is a figure with a timestamp.
 - potential: 95
 - **it disproves a closed family**, and the correction is recorded where the claim was made, in the
     two zone-file rows of `sources.md`. `com` and `net` really are absent at this host, so the reopen
