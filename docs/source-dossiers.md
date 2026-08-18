@@ -968,3 +968,28 @@ was queried for in-window files over 1 MiB named `zone`, `internic` and `domain`
 one is a zone file: game discs named Zone, a PowerPoint, an `.iso`, and the two files already
 measured from this route (`email.domains`, the April 1998 `.jp` registry, and the `faces`
 `domains.tar`). So the route that found a national registry listing does not find this one.
+
+## wikipedia_externallinks (screened 2026-08-18, deliberately left unmeasured)
+
+**What it is.** Every `web.archive.org/web/<14-digit-timestamp>/http://host/...` citation on Wikipedia
+embeds both a capture timestamp and a hostname, so the external-links corpus is in principle a
+per-item-dated hostname list of exactly the shape this project wants, and it needs no Internet Archive
+requests at all.
+
+**Why it is not closed and not adopted: it is predicted to be worthless and that prediction is not a
+measurement.** Law 1 says an Internet-Archive-derived source cannot be net-new against an
+Internet-Archive-derived baseline, and `early_web_cdx` already banked 2,160,814 domains straight from the
+IA CDX index. Any host Wikipedia cites at a 1996-2001 capture is in that index by construction, so the
+expected net-new is near zero. **Labelled a prediction, because nothing here has been counted.**
+
+**The method, so the next attempt does not repeat mine.** The `insource:"web.archive.org/web/1998"`
+search API is the wrong instrument and fails silently: Wikipedia's tokeniser breaks URLs, so the phrase
+never matches. My probe returned 1, 0, 0, 1, 0 pages for 1997 to 2001, which reads as a decisive negative
+and is not one. **The positive control is what caught it**: the same query for 2015, where the true figure
+is in the hundreds of thousands, returned **4**. `action=query&list=exturlusage&euquery=web.archive.org`
+does work and returns real timestamped citations, but it paginates and cannot be counted cheaply. The
+affordable route is the bulk `enwiki-latest-externallinks.sql.gz` dump, one download, no per-item requests.
+
+**What would make it worth the download.** Only a reason to think Wikipedia cites early captures the CDX
+index does not serve, for instance captures of hosts whose CDX rows are suppressed or whose SURT differs.
+That is a narrow hypothesis and worth testing on a sample of a few hundred rows before 10 GB is fetched.
