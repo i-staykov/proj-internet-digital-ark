@@ -108,6 +108,16 @@ The instructive ones:
    admitted after checking that no TLD predated its own delegation, across the six TLDs delegated in
    2001. Seventeen records under a TLD delegated in **2010** were outside what that test could see.
 
+7. **Prove a negative against a case known to be positive, and apply that to your OWN data and not
+   only to sources.** Three filters were designed in one afternoon to remove domains that "could not
+   have existed", and all three over-caught real names. "Nominet sold no second-level `.uk` until 2014"
+   would have deleted `bl.uk`, the British Library. `.br` marked as never permitting second-level names
+   holds `ansp.br`, the Academic Network at Sao Paulo. A narrow rule catching single-letter labels
+   flags `0.com` and `x.com`. **The early DNS was heterogeneous, so short, odd and level-jumping names
+   were often genuine**, and a registry's "opened in year X" date describes when a level opened to the
+   public rather than when it began to exist. The exposure was 174.64 equivalent-English against a
+   14,185 round, so the correct action was to leave the data alone.
+
 ## 5. Techniques worth reusing
 
 - **Structural enforcement over convention.** `domain_year.evidence_id` is `NOT NULL` with a foreign
@@ -150,5 +160,15 @@ In order, each with what ranks it:
    studied the web at scale generally deposited their crawl seeds somewhere.
 5. **Re-auditing what is already held**, which has twice been the cheapest source available.
 
-**Not worth expanding**: the 91 closed families, each recorded with its measurement so the same ground
+6. **Submitting sooner, which is not a source at all and outranks most of them.** The organisers score
+   a cumulative total as the sum of the percentage increases awarded per submission, each measured
+   against the benchmark as it stood when that submission arrived. Measured across the three intervals
+   between published releases, other contributors added 8,511 then 424,091 then **1,082,013**
+   equivalent-English per day, against our own 13,200. On the newest rate, work held for a week loses
+   **38.5%** of its credit, and a 5% threshold recedes by 54,101 a day while per-domain querying closes
+   it by 13,200, so that gap never closes. **The corollary is that a corpus you hold but have not
+   submitted can be credited to somebody else**: the 4,063,995-record delivery that grew the benchmark
+   most was measured here at 45,130 of 45,130 sampled pairs already held.
+
+**Not worth expanding**: the 112 closed families, each recorded with its measurement so the same ground
 is not broken twice.
