@@ -11635,3 +11635,23 @@ below anything bulk. It is not reopened today because the same measurement says 
 is elsewhere, and reopening a 22-potential prose source while a priced 8,627.7 EE class waits on a
 `Decision:` line would be exactly the misallocation the arithmetic warns about. Recorded so the reversal
 of grounds is not lost.
+
+**Same day, the hunt step, and both answers are negative in a way that is worth having.** Under the
+relaxed bar the fastest possible source is one whose parser already exists, so the first question was
+whether `internic_zone` can be widened. It cannot, and now provably: one CDX listing of
+`nic.mil/oroot.html/` returns the mirror's entire contents, six zone files whose sizes sum to 1,459,641
+bytes against the 1,458,311 on disk. **No `com.zone` and no `net.zone`**, which are the two that would
+have been worth hundreds of thousands of pairs rather than twelve thousand. The canonical
+`ftp.internic.net/domain/` is closed for a structural reason rather than a missing-file one: that host
+IS archived, but only its HTTP face, because Wayback never crawled FTP trees. Four index requests, no
+payloads.
+
+**And a fact about the competition that reframes the whole round.** The register's own measurement of
+the UMN DRUM deposit, taken on 2026-08-16, found **45,130 of 45,130 sampled pairs already held** and one
+net-new pair worth 0.63 EE. That deposit is the 4,063,995 records another contributor was credited for in
+`merged260815`. So they were not credited for finding something we could not; they were credited for
+**submitting a corpus we already had** before we did. Combined with the cadence measurement above, the
+lesson is sharper than "submit often": **anything we hold that is not yet in his benchmark is at risk of
+being credited to somebody else.** The live instance is the `internic_zone` journal, 12,150 pairs sitting
+on disk behind a `pending` decision, taken from six files that have been public on archive.org since
+1997 and that anybody else can find with one CDX query.
