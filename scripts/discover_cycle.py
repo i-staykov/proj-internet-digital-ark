@@ -324,10 +324,22 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
             )
             findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
             if ok:
-                findings.append(
-                    "derived: the running collector picks it up at its next dispatch, "
-                    "so nothing is restarted"
-                )
+                reader = collector_reading(path)
+                if reader:
+                    findings.append(
+                        "derived: the running collector reads this exact file, so it picks the "
+                        "rebuild up at its next dispatch and nothing is restarted"
+                    )
+                else:
+                    attention.append(
+                        f"the pool queue was rebuilt and NO RUNNING COLLECTOR READS {path}. "
+                        f"A supervisor fixes ARK_TARGETS at startup, so a rebuild reaches it "
+                        f"only if it was started on this path. Copy the rebuilt list over the "
+                        f"file the running collector was given, or restart it on this one; "
+                        f"until then the re-rank is inert and the engine keeps working a stale "
+                        f"head. Measured cost of exactly this on 2026-08-18: two hours of .ca "
+                        f"at 9.5% while a re-ranked queue sat unread"
+                    )
             else:
                 attention.append(
                     "the pool queue rebuild FAILED, so the local collector is working a "
@@ -394,6 +406,34 @@ def check_ledger() -> tuple[list[str], list[str]]:
 
 
 TRIAGE_HEADING = "Triage the newly found sources"
+
+
+def collector_reading(path: str) -> str | None:
+    """The command line of a running collector that reads this exact target list, if any.
+
+    **A rebuilt queue that nothing reads is not a rebuild.** `supervise_cdx_pool.sh` resolves
+    `ARK_TARGETS` once, at startup, and passes that fixed path to every `ark cdx` batch. So the
+    cycle's old claim that "the running collector picks it up at its next dispatch" held only
+    when the collector happened to have been started on the file the cycle rebuilds. On
+    2026-08-18 it had not been: the engine ran `queue_pool_20260818c.txt` for two hours at 9.5%
+    on a `.ca` head while `queue_pool_local.txt` sat correctly re-ranked and unread, and every
+    health check read clean because presence, progress and yield were all fine in their own
+    terms. Only the queue identity was wrong.
+
+    Matched on the basename, because the supervisor may have been given a relative path and the
+    worker an absolute one.
+    """
+    name = Path(path).name
+    try:
+        out = subprocess.run(
+            ["ps", "-eo", "command"], capture_output=True, text=True, check=False
+        ).stdout
+    except OSError:
+        return None
+    for line in out.splitlines():
+        if "ark cdx" in line and name in line:
+            return line.strip()
+    return None
 
 
 def _mirror_triage_count(count: int, findings: list[str]) -> None:
