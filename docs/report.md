@@ -219,10 +219,10 @@ diffed directly.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260817-2` | 22,491,418 | 12,077,095.5404 |
-| submitted | 15,522 | |
+| submitted | 17,733 | |
 | already in the baseline | 0 | |
-| **accepted increment** | **15,522** | **12,340.7537** |
-| post-merge total | 22,506,940 | 12,089,436.2941 |
+| **accepted increment** | **17,733** | **14,358.9235** |
+| post-merge total | 22,509,151 | 12,091,454.4639 |
 
 **22 of 22 reconciliation checks pass.** They are arithmetic
 identities, so a failure is a defect rather than a finding: per year that
