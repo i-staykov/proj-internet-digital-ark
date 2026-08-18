@@ -406,12 +406,29 @@ equivalent exists.
 **Get it.** 228 MB, `host<TAB>year<TAB>count`, no per-domain querying. There is **no `ark download` for
 it**: that command takes a seed file of archived pages and nothing else, so the line that used to appear
 here would have failed for anyone who ran it. The file was fetched from the archive.org item named
-below, and since that item stopped serving there is now no command that reproduces the fetch. Ingest
-from the journal that ships in the delivery archive under `journals/`:
+below, and since that item stopped serving there is now no command that reproduces the fetch.
+
+**The input does not ship in the delivery archive, and this entry used to say it did.** Corrected
+2026-08-18: `journals/` holds `*.jsonl.gz` collector journals, and this source's input is a 228 MB
+tab-separated text file that is not among them. So the ingest command below runs only for someone who
+already holds the file, which since the takedown is only us:
 
 ```bash
 uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
 ```
+
+**What that costs, and what covers it.** This source and `domain_creation_bulk` together account for
+2,387,824 assignments, 44.9% of everything carrying this project's own evidence, that a tier-3 rebuild
+from original sources cannot re-derive. Measured 2026-08-18, and `docs/delivery_readme.md` states it in
+the reproduction section rather than leaving a reader to discover it. **Tier 2 covers all of it**: the
+provenance export ships the evidence row behind every one of those assignments, and `verify.sh` check 4
+tests exactly that.
+
+**Not shipping it is a decision rather than an oversight.** Shipping would make tier 3 whole for this
+source and would preserve the only copy we know of, which is tempting for a project called an ark. It
+is declined because redistributing a third party's research deposit to the reviewer is a licensing
+call this project has no standing to make on their behalf, and the deposit was darkened by somebody,
+which is a signal to respect rather than to route around. The 228 MB is the smaller objection.
 
 **Provenance, and the item is no longer servable.** The file came from archive.org item
 `DARTMOUTH-NBER-RESEARCH-2017-metadata` on 2026-08-16. As of 2026-08-17 that item does not serve:

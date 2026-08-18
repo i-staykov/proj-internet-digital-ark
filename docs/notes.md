@@ -10533,3 +10533,43 @@ withholding `docs/ROUND.md`, which is fair as far as it goes. Three reasons to l
 The sentence in `CLAUDE.md` is also load-bearing as written: it tells an agent which host is private
 and not to debug SSH against it, and a vaguer version of that rule is worth less than the address is
 worth hiding.
+
+### The archive overstated its own reproducibility by four orders of magnitude
+
+The tier-3 paragraph in `delivery_readme.md`, which is the execution-instructions surface D1 asks
+about, said: "The gap is two sources with no journal to replay, whose **840 domains** return to the
+candidate pool." True of phase 1. Not true since phase 5, and nobody re-measured it when the two
+largest sources this project has ever ingested arrived.
+
+Measured against the store on 2026-08-18:
+
+| | assignments | share |
+|---|--:|--:|
+| carrying this project's own evidence | 5,323,465 | |
+| **not re-derivable by a tier-3 rebuild** | **2,387,824** | **44.9%** |
+| of that, inside this round's additions | 0 | |
+
+Two sources account for all of it and I verified that neither input is anywhere in a fresh
+extraction: `dartmouth_nber_captures`, whose archive.org item **stopped serving the day after we
+downloaded it**, and `domain_creation_bulk`, a Kaggle dataset behind an account. Only their audit
+CSVs ship.
+
+**`sources.md` was worse than vague, it was wrong.** Its "Get it" block said "Ingest from the journal
+that ships in the delivery archive under `journals/`". That directory holds `*.jsonl.gz` collector
+journals; a 228 MB tab-separated text file is not among them, so the instruction was addressed to a
+file the reader does not have. Corrected, with the measured cost stated in both documents rather than
+left for a reviewer to discover by running it.
+
+**The mitigation is real and worth stating rather than hiding behind.** Tier 2 reproduces all
+2,387,824, because the provenance export ships the evidence row behind every assignment and
+`verify.sh` check 4 tests that every one resolves inside the archive. Tier 3 proves the evidence
+follows from the source data; tier 2 proves the result follows from the evidence. Only the first can
+be taken away by a third party changing their mind, which is exactly what happened here.
+
+**Shipping the 228 MB file was considered and declined, and that is a decision rather than an
+oversight.** It would make tier 3 whole for that source and would preserve the only copy we know
+still exists, which is tempting for a project called an ark. Against: redistributing another group's
+research deposit to the reviewer is a licensing call this project has no standing to make for them,
+and the deposit was darkened by somebody, which is a signal to respect rather than route around. The
+size is the smaller objection. Not raised as an open decision, because the safe default needs no
+sign-off and the cost of it is now documented where a reader meets it.
