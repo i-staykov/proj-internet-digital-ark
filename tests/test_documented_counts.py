@@ -86,3 +86,27 @@ def test_every_live_document_states_the_real_invariant_count() -> None:
     assert not wrong, "documented invariant counts have drifted from the code:\n  " + "\n  ".join(
         wrong
     )
+
+
+def test_the_shipped_report_carries_no_unwritten_section() -> None:
+    """An empty section 5 reaching the reviewer is what the token mechanism is for.
+
+    `docs/report.template.md` marks each section whose prose a human must write as
+    `<!-- ROUND [ROUND]: ... -->`. On 2026-08-18 `docs/report.md` held four of them,
+    `fill_report.py --check` reported "would fill cleanly", and `just ship` would have
+    packaged a report whose sections 2, 4, 5 and 6 were empty. The template itself calls
+    5 and 6 the sections he reads most closely.
+
+    The generated report is checked rather than the template, because the template is
+    SUPPOSED to carry the markers between rounds: they are the instruction for writing it.
+    """
+    report = ROOT / "docs" / "report.md"
+    if not report.is_file():
+        return  # nothing generated yet in this checkout
+    text = report.read_text(encoding="utf-8")
+    stubs = [
+        line.strip() for line in text.splitlines() if line.lstrip().lower().startswith("<!-- round")
+    ]
+    assert not stubs, (
+        f"docs/report.md has {len(stubs)} unwritten section(s) and would ship that way: {stubs[:2]}"
+    )

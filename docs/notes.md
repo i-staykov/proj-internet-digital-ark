@@ -10573,3 +10573,33 @@ research deposit to the reviewer is a licensing call this project has no standin
 and the deposit was darkened by somebody, which is a signal to respect rather than route around. The
 size is the smaller objection. Not raised as an open decision, because the safe default needs no
 sign-off and the cost of it is now documented where a reader meets it.
+
+### The report could ship with four empty sections and nothing complained
+
+`fill_report.py` exists on one principle, stated in its own docstring: it "fails loudly on a token it
+cannot fill, rather than shipping a report with `[TOTAL]` in it, which is the one outcome worse than a
+stale number." The round-6 template marks each section whose prose a human must write as
+`<!-- ROUND [ROUND]: ... -->`, and those are not `[TOKEN]` shaped, so **`docs/report.md` held four of
+them while `--check` reported "would fill cleanly"**. A submission built at any point today would have
+carried empty sections 2, 4, 5 and 6, and the template itself calls 5 and 6 the ones he reads most
+closely.
+
+Found by asking the question the other way round: not "does the report fill" but "what would ship if
+I packaged right now".
+
+The fix reuses the one mechanism rather than adding a second, because a second is the one nobody
+wires up: an unwritten section is reported as a pseudo-token, so `--check` lists it, `main` refuses to
+write, and `package_delivery.sh` stops. One nuance was needed. The refusal is fatal only for documents
+that **ship**: the email draft is finished by hand at submission time and never leaves `private/`, so
+making it fatal there would block every packaging run for a document nobody is sending. It prints the
+count instead, because a draft that looks finished is its own trap.
+
+**Then the guard had to be satisfied, which meant writing the four sections.** They are written from
+what is true now and will move as the round develops, which is how the report has always worked.
+Section 5 is the one worth noting: this round's reportable results are four negative findings about
+our own system, each caught by a mechanism rather than by somebody noticing. That is a better section
+5 than a collection total would have been, and it is the section his brief asks the most of.
+
+`tests/test_documented_counts.py` now also asserts that the generated report carries no unwritten
+section. It checks the generated file and not the template, because the template is supposed to carry
+the markers between rounds: they are the instruction for writing it.

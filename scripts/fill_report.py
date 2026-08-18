@@ -89,9 +89,14 @@ DB = Path("data/ark.duckdb")
 # private reasoning about how to present the work to him. A template addressed to a
 # person is one edit away from carrying that again, so the whole pair stays outside git
 # and the fill is what keeps its five figures identical to the report's.
+# (template, target, an unwritten round section is fatal). Fatal for the report, which
+# ships: an empty section 5 reaching the reviewer is the failure the whole token
+# mechanism exists to prevent. Not fatal for the email, which is a draft Ivo finishes by
+# hand at submission time and which never leaves `private/`. Making it fatal there would
+# block every packaging run for a document nobody is sending yet.
 DOCUMENTS = (
-    (Path("docs/report.template.md"), Path("docs/report.md")),
-    (Path("private/email.template.md"), Path("private/email-draft.md")),
+    (Path("docs/report.template.md"), Path("docs/report.md"), True),
+    (Path("private/email.template.md"), Path("private/email-draft.md"), False),
 )
 
 
@@ -598,11 +603,31 @@ def cdx_failures() -> str:
     return f"Of {tail}" if tail else body
 
 
-def fill(template: Path, target: Path, subs: dict[str, str], check: bool) -> list[str]:
+# The template marks each section whose prose a human must write for this round as
+# `<!-- ROUND [ROUND]: ... -->`. An unwritten one is exactly the failure the token
+# mechanism exists to prevent, and it slipped through: on 2026-08-18 `docs/report.md`
+# held four of them, `--check` said "would fill cleanly", and `just ship` would have
+# packaged a report whose sections 2, 4, 5 and 6 were empty. Sections 5 and 6 are the
+# ones the template itself calls the ones he reads most closely.
+UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
+
+
+def fill(
+    template: Path, target: Path, subs: dict[str, str], check: bool, stubs_fatal: bool
+) -> list[str]:
     text = template.read_text()
     for token, value in subs.items():
         text = text.replace(f"[{token}]", value)
     remaining = sorted(set(re.findall(r"\[([A-Z_0-9]{2,})\]", text)))
+    # Reported as a pseudo-token so it travels the same path as a real one: `--check`
+    # lists it, `main` refuses, and the packaging script stops. One mechanism, not two,
+    # because the second would be the one nobody wired up.
+    stubs = len(UNWRITTEN_SECTION.findall(text))
+    if stubs and stubs_fatal:
+        remaining = sorted({*remaining, f"UNWRITTEN_ROUND_SECTIONS_x{stubs}"})
+    # A non-fatal stub is still worth saying out loud, or the draft looks finished.
+    if stubs and not stubs_fatal:
+        print(f"{target}: {stubs} round section(s) still to write by hand")
     if not check and not remaining:
         target.write_text(text)
     return remaining
@@ -618,13 +643,13 @@ def main() -> None:
     conn.close()
 
     failed = False
-    for template, target in DOCUMENTS:
+    for template, target, stubs_fatal in DOCUMENTS:
         # `private/` is git-ignored, so a fresh clone has no email template. That
         # must not fail the report build, which is the part that ships.
         if not template.exists():
             print(f"{template}: absent, skipping")
             continue
-        remaining = fill(template, target, subs, args.check)
+        remaining = fill(template, target, subs, args.check, stubs_fatal)
         if remaining:
             print(f"{template}: UNFILLED {remaining}", file=sys.stderr)
             failed = True
