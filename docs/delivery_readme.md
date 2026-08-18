@@ -161,10 +161,32 @@ just reproduce
 ```
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
-about 3 GB** and reproduced 98.7% of the phase-1 archive. Measured on that archive this returned 99.77%
-of its pairs with all invariants passing; those per-source cost figures have not been re-measured for
-this round, so treat them as indicative. The gap is two sources with no journal to replay, whose 840
-domains return to the candidate pool. Tier 2 above is the byte-for-byte check.
+about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been
+re-measured since, so treat them as indicative.
+
+**What tier 3 cannot re-derive, stated plainly, because the figure used to be wrong by four orders of
+magnitude.** This paragraph said "the gap is two sources with no journal to replay, whose 840 domains
+return to the candidate pool". That was true of phase 1 and has not been true since phase 5. Measured
+on 2026-08-18:
+
+| | assignments | share |
+|---|--:|--:|
+| carrying this project's own evidence | 5,323,465 | |
+| **not re-derivable by tier 3** | **2,387,824** | **44.9%** |
+| of that, falling inside this round's additions | 0 | |
+
+Two sources account for all of it and neither input can ship. The capture census came from an
+archive.org item that **stopped serving the day after it was downloaded**, so it cannot be re-fetched
+by us or by anyone. The registry creation-date compilation is a Kaggle dataset that needs an account,
+which we may not redistribute. `sources.md` gives the acquisition route for both, and
+`audit/dartmouth_nber_captures_audit.csv` and `audit/domain_creation_bulk_audit.csv` record what each
+contributed.
+
+**Tier 2 reproduces all of it, and that is the check to run.** The provenance export ships the
+evidence row behind every single assignment, including those 2,387,824, which is why `verify.sh`
+check 4 tests that every assignment resolves to an evidence row **in this archive**. Tier 3 proves
+the evidence follows from the source data; tier 2 proves the result follows from the evidence. Only
+the first is limited by what a third party is willing to keep serving.
 
 Two sources are live rather than hash-pinned, so a later download need not match: the `.fr` file is
 republished monthly (this used the June 2026 edition) and the Internet Scout feed keeps growing. The
