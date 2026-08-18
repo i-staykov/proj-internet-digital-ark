@@ -11048,3 +11048,95 @@ one caller that owns a count passes it, rather than the default being loosened f
 report's merge figures and the re-prober's expectations. The pattern is worth naming: a figure that
 appears twice needs one writer, and the writer has to own both copies or neither. The new test asserts
 against the live file, so the two copies cannot drift again silently.
+
+## 2026-08-18 (afternoon): round three, and the first source in three rounds that clears the bar
+
+Eleven agents, 59 minutes. One lead priced at scale from disk, four new lenses, 14 candidates. The
+headline is that **one candidate clears the volume bar on a full-population measurement**, and that its
+two refuters split, which has not happened before and is the interesting part.
+
+### squidGuard, and a disagreement worth keeping
+
+`squidGuard`, the proxy content filter, published a robot-compiled blacklist. Exactly two editions
+survive, both 2001, recovered from Wayback captures of `ftp.ost.eltele.no` (403,211 and 1,576,754
+bytes, sha256 recorded in the triage entry). Every category file carries its own compile header:
+*"This list was compiled in 33:22:40 on 2001.09.09 09:48:47 ... from 2402 link sources and 463098
+links, of which 381583 tested successfully."* So it is a **crawl log rather than a printed listing**,
+which is why it is not the Netcraft law-2 failure, and used conservatively as a July-to-September
+first-appearance diff.
+
+Measured on the full population, not a sample, and the refuters reproduced it independently:
+**11,006 net-new pairs, 6,301.0 equivalent-English, mean weight 0.5725, all in 2001.** Both editions
+read rather than diffed gives 13,724 pairs. Volume clears the ~5,000 bar by 2.2x.
+
+**Law 5 is absent by construction and this was verified rather than asserted.** A robot wrote the
+names, so there are no author-invented placeholders: 0 of 30 hand-audited, and a matched RDAP ladder
+separates the populations properly. Names the store already dates for 2001 carry an in-window creation
+date 11 of 30; the actual post-split yield 7 of 30; names with no store attestation at all **0 of 30**,
+Fisher two-tailed p=0.0105 for the yield against the unattested tail. All 71 TLDs in the set existed on
+2001-09-09, no `.info`, no `.biz`, no `.name`, and exactly one bare `.co` in 30,916 names against
+yesterday's 461 bare `.uk`. And the 43.1% edit-distance-1 figure is **not** transcription junk: a
+control of 1,500 names the store already dates 2001 scores **61.0%** one-edit-from-held against the
+accepted set's 51.4%, so the accepted set is LESS typo-like than the known-real control.
+
+**What one refuter killed it on is novelty, and the argument is stronger than the source.** Every
+accepted pair is "store holds 2000, store lacks 2001", so the increment is **100% year-fill and zero
+new domains**: 99.3% of survivors are already dated 2000. Then the probe that matters: **14 of 14
+accepted names that answered carry a 2001 capture in the Internet Archive's own CDX index**, and so do
+**10 of 12 random names squidGuard never mentions** drawn from the same population, against a positive
+control of 9 of 10 on names the store already dates 2001. So the pair arrives from the archive at
+roughly 83% to 100% whether or not this source names the domain (two small samples, labelled).
+
+Both refuters also found, independently of each other and of my own morning's work, that
+`price_items.py` silently dropped 2,333 of 30,916 names through the prose TLD whitelist, which is why
+the proposer's 0.6249 mean weight is really 0.5725. Fixed in `8175732`.
+
+### The rest of round three
+
+**Quoted whois in Usenet bodies**, the one lead that arrived with a positive control, is closed on
+measurement: 155 net-new pairs pre-split over 28.20 GB read from disk, then the refuter read the WHOLE
+seam and got **103 net-new pairs and 59.73 equivalent-English** against the proposer's labelled
+projection of roughly 2,400. A 23x overstatement, caught by reading everything rather than fitting a
+curve. Two findings outlive it. The obvious safety rule is **wrong rather than conservative**:
+requiring the `Domain Name` field and the date with no blank line between them admits only 94 of 488
+pairs, because the NSI layout always puts a blank line before `Record created on`. And law 5 does not
+bite at all, 0 of 26 invented, for a reason worth carrying: **a placeholder has no registry record to
+paste.**
+
+**The ISI US Domain Registry is the cleanest instance of the accumulating-list trap yet recorded.**
+Four dated in-window editions, genuinely self-dating, covering the 0.9261-weight namespace the store is
+thinnest on. It added **four names** between August 2000 and November 2001, so the legitimate
+first-appearance diff prices at **1 net-new pair** while the illegitimate listing reading would have
+claimed **13,014**. A ratio of 13,014 to 1 between the two readings of the same file.
+
+**Discmaster exists, works, and the media population is already ours**: three censuses, best
+sub-population 2.5% of the volume bar. Its dating finding is the keeper. Of 11,811 in-window Netscape
+`ADD_DATE` values, 81.2% equal the media file-date year, 18.8% are earlier, **zero later**, so a
+browser's own date is the tighter field and the container drifts one way only. **But that safety does
+not survive nesting**, and 77.7% of in-window `.url` files sit inside an installer or archive, where
+the date describes a packaging event and errs both ways: `edimensional.com` dated 2000 off an October
+2005 cover DVD, `spamarrest.com` dated 2000 for a company founded in 2001.
+
+**The research-repository census is now a count**: the entire in-window population of precomputed IA
+capture indexes is **four items**, three already in this register and one new, Weber's 74.83 GB DRUM
+deposit, measured at **1 net-new pair from 226,171 rows**. ICPSR, OSF and Dryad were blank against
+working positive controls.
+
+**An early bulk whois snapshot is closed mechanically**, which is the strongest kind: whois of that era
+answered on port 43, which no web archive crawls; bulk access was contractual to accredited registrars;
+and the paid market's own archive begins January 2016 by its own statement, so no 2002-2008 file exists
+for a free copy to derive from. Its by-product generalises yesterday's `.se` finding to the whole
+store: **7,909,927 of 10,867,530 in-window domains carry no in-window creation date from the 2024
+snapshot, worth 4,021,267.2 equivalent-English at mean weight 0.5084.** A $999 purchase would address
+part of that, but the only measurable evidence, the vendors' free samples, projects **632 net-new pairs,
+12.6% of the bar**, so I am not recommending it and it is recorded in the queue rather than on Ivo's
+screen. If he wants it anyway the price is one line away.
+
+### Two rounds of laws, and one number still being measured
+
+Refuter 1's kill implies something larger than the source it killed, and it is being measured rather
+than asserted: **2001 and 1996 can never be bracketed-gap targets**, because the gap SQL requires a
+year held at Y-1 AND Y+1 and 2002 and 1995 are out of window. `src/ark/gaps.py` says the restriction is
+deliberate, "rather than to every year adjacent to a held one, which is 17.5x larger and far more
+speculative", and that was written before the metric existed and has never been measured against it.
+The measurement is running now.
