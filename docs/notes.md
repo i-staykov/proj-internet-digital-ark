@@ -10710,3 +10710,43 @@ in that directory the crawler did take, which our own account of the nic.mil fin
 Verified on the same battery: 746,620 bytes, `gzip -t` passes, SOA serial `1998071000` inside the
 artifact, `;End of file.` terminator. 2,018 net-new pairs, which is under the bar, and it was reported
 as failing the bar rather than dressed up.
+
+### Both webdataservices candidates measured and rejected, and the refutation caught a fabricated pass
+
+The two candidates held unrefuted this morning are both dry, measured rather than argued.
+
+**`USFEDGOV-EXTRACT-1996` through `-2001`: 81 net-new pairs, 56.2 equivalent-English.** Everything about
+the artifact is as good as it looked. Six sibling items covering exactly the window, not
+access-restricted, `gzip -t` passing, the 1996 index tiling with **zero gap** and 647,995 of 647,995
+timestamped records falling in 1996. It was priced without downloading the 3.26 GB, by a structural
+shortcut worth reusing: **the entire non-`.gov` population sits in the first one or two ZipNum blocks
+of each item and everything after is `gov,*`**, proved by a boundary-key TLD census, so a few thousand
+records exhaust the non-gov side of a year. The 1996 item is exhaustive and its net-new is exactly
+**0 of 294**.
+
+The ceiling needs no estimate: `.gov` is a tiny namespace, the InterNIC `gov.zone` we already ingested
+for April 1997 is 1,805 lines, and the store holds 13,364 in-window `.gov` pairs. **Weight without
+novelty is nothing**, and this is the cleanest demonstration of it the project has: mean weight 0.9448,
+8.8x the `.pl` figure, for 56.2 EE.
+
+**The Dartmouth/NBER ARCS family: exactly zero.** Three complete verified indexes over 6.56 MB give
+1,204 in-window pairs and **0 net-new**, which is 0 pairs per megabyte against the census's own measured
+997. It is the payload of `dartmouth_nber_captures`, already `master` with 227,273 pairs, and the
+redundancy is structural: the census is captures-per-year for exactly the host list these ARCs contain,
+so the CDX can only restate it. Two of three probes held no in-window records at all despite in-window
+date labels, so the fraction cannot be selected for in advance and pricing the family would mean
+downloading order 150 GB for a measured zero.
+
+**The part worth keeping is how the first pass got it wrong.** The chasing agent reported a ranged GET
+of the merged index as "valid gzip, inflated to 1,143 CDX lines". It returns HTTP 206 with 65,536 bytes
+and it does decode. `gzip -t` fails on it and zlib confirms the stream never terminates: it is a
+truncated member that happens to decode, which is precisely the failure this register records for the
+corrupt ISC copies, where a partial recovery is "a few thousand good lines followed by fiction". **It
+survived one careful reader and was caught by a second.** That is the case for the refute stage
+existing at all, and it is the second time in two days that the stage has changed a candidate's verdict
+rather than merely confirming it.
+
+Both are rejected rows in `sources.md` with their measurements, and the `.pl` triage entry now reads as
+fully answered: the shape is real, retrievable, and empty for us. The general law that predicted all of
+it was already written down at `sources.md`: a corpus derived from the Internet Archive cannot be
+net-new against a baseline that is itself Internet-Archive-derived.

@@ -838,8 +838,12 @@ Decision: pending
   `mediatype:collection AND title:(ccTLD)` over all of archive.org returns 1. The
   `*-EXTRACTION-*ARC_arc` naming pattern does not generalise: the scrape API gives 26, being the 19
   Polish items and 7 NHK ones. Ten obvious analogues were probed by identifier and none exists.
-  **What the same chase did find is under triage separately**, since `webdataservices` turns out to
-  hold non-ccTLD extractions of the same shape whose CDX derivatives are equally public.
+  **And the wider version of the question is answered too, negatively.** `webdataservices` does hold
+  non-ccTLD extractions of the same shape with equally public CDX, and both were measured and
+  rejected the same day: the six-item US federal government extraction covering exactly 1996-2001 is
+  worth **56.2 equivalent-English**, and the 659-item Dartmouth/NBER payload family is worth **zero**
+  and is the payload of a source already banked. Both rows are in `sources.md`. So the shape is real,
+  retrievable and empty for us, which makes this entry's own `.pl` figure the best the family offers.
 
 Decision: pending
 
