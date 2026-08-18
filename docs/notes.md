@@ -11774,3 +11774,45 @@ gap: start the pool collector on `queue_pool_local.txt`, the path the cycle main
 diverge again." The divergence is real but currently costs nothing: `queue_pool_20260818c.txt` and
 `queue_pool_local.txt` are 2,280,468 lines each with an identical head composition, built an hour apart
 from the same ranking. Worth unifying so they cannot drift, not worth interrupting a collector for.
+
+**A half hour spent chasing a ranking bug that does not exist, and the one real defect it found was the
+label that sent me after it.** Recording the whole path because the wrong turn is the useful part.
+
+**What looked wrong.** The live queue's head is 576 `.au` in its first 600, while 805,574 `.com`,
+395,547 `.net` and 19,861 `.uk` names sit unqueried behind it, and `.au` returned 8.8% on the newest
+finished batch. On the crude metric of rate times weight that is backwards: `.uk` pays 0.5557 expected
+equivalent-English per query, `.com` 0.3916, `.net` 0.3534 and `.au` 0.2047. Then the builder's own dry
+run printed **"measured pool-wide hit rate : 44.5% (trailing 2,000 answers)"** against a figure the
+journals put at **12.8%** over the same nominal window, which read as a 3.5x inflated prior and therefore
+as the cause.
+
+**It is not.** Replicating the builder's exact computation, its own filtered window returns **13.0%**,
+which agrees with the journals to two tenths of a point, and 1,994 of its 2,000 windowed domains appear
+in the last 20,000 pool answers, so the window is genuinely recent and dict insertion order is not the
+fault I supposed it was. The 44.5% is the **pool-wide prior**, and `hit_rates` does not window it **on
+purpose**: the docstring and `CLAUDE.md` both record that windowing the prior scored every unmeasured
+namespace at zero, so nothing new could ever earn a first measurement. The three specific grains, per
+cell, per TLD and per source, are windowed, and they are what actually rank a name.
+
+**The defect is the label, and it is worth the one-line fix it got.** Printing a lifetime prior beside
+the words "trailing 2,000 answers" attaches a windowing claim to a number that deliberately has none.
+That is how a correct system gets "fixed" into a broken one by the next reader, and this project has the
+scar already: the 2026-08-12 entry records that windowing the prior WAS tried and had to be reverted. The
+diagnostic now reads `pool-wide prior, LIFETIME ... (fallback only; the per-cell, per-TLD and per-source
+grains ARE windowed to 2,000)`, and the comment above it names the half hour so the next agent does not
+spend it.
+
+**What remains genuinely unexplained, stated as such.** Why `.au` heads the queue is still not accounted
+for by my rate-times-weight arithmetic, and the honest reason is that my arithmetic is not the builder's:
+its score is rate x weight x years-per-hit x per-TLD plausibility, and I measured neither of the last two
+per namespace. So this is an open question rather than a finding, and it is **not** grounds to touch the
+ranker. The cheap next step is to print the top of the queue with its score decomposed into the four
+factors, which turns the question into a reading rather than an investigation.
+
+**One action refused on the strength of this.** The cycle correctly reports that the re-ranked
+`queue_pool_local.txt` is inert because no running collector reads it, and recommends copying it over the
+file the running collector was given. **Not done.** The freshly built head is *more* `.au`-heavy than the
+running one, 576 against 399, and drops `.net` from 160 to 4, so copying it would have spent the round's
+last batches on the namespace currently returning 8.8% on the strength of a ranking I had just failed to
+explain. The generic advice is right and this instance is not, which is exactly the distinction a program
+cannot make.
