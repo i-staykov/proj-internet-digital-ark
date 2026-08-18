@@ -808,8 +808,17 @@ Decision: pending
 - volume: the 1997 Excite log is 1,025,910 queries for one day and the later logs are the same order,
     with the IR literature putting URL-shaped queries at a few percent, so order 10,000 to 100,000 dated
     typed mentions per log. ESTIMATE, not measured.
-- the first screen is **availability, not density**, and it is one email to the distributors, so settle
-    that before writing a parser and kill it outright if the answer looks like the NIST agreement.
+- **the availability screen is DONE, and it came back the good way.** Probed 2026-08-18:
+    `faculty.ist.psu.edu/jjansen/` is HTTP 200 and links to a transaction-log page offering six logs, of
+    which **three are in window**: `Excite_1997_small`, `Excite_1997_large`, `Excite_2001`. Access is
+    neither a fee nor an agreement, which is what killed the NIST route: *"Please email me if you would
+    like access to one or more of the transaction logs"*, after which he *"will place the file(s) on an
+    ftp site for you"*. `data.html` is a 404, so the log page is the only route and it is the live one.
+- so the remaining blocker is **one email in Ivo's name**, and it sits under `## OPEN` in
+    `key-decisions.md` beside the USAC request rather than as a second entry.
+- what is still unmeasured, and it is the novelty risk rather than the volume: most of what people type
+    is famous, so the pairs may all be held. Measure the split's survival rate on the first log before
+    parsing the other two.
 - typed by a human, so it takes the corroboration split, which is what makes wide extraction safe.
 - potential: 68
 
