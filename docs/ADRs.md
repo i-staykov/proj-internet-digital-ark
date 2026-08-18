@@ -493,7 +493,8 @@ gate, this ADR stops being safe and needs revisiting rather than reapplying.
 
 ## ADR-006. Edge-year gaps are a third population, and the bracketing rule was never measured
 
-**Date** 2026-08-18. **Status** Proposed. The measurement is done and the machine allocation is Ivo's.
+**Date** 2026-08-18. **Status** Accepted for the queue definition; the reallocation is REFUSED on the
+pilot's own numbers. Settled without Ivo, as C-24 in `key-decisions.md`.
 
 ### The question
 
@@ -504,121 +505,83 @@ never be gap targets at all.** The module says the restriction is deliberate:
 
 > ...rather than to every year adjacent to a held one, which is 17.5x larger and far more speculative.
 
-That sentence predates the equivalent-English metric. The 17.5x is right. **"Far more speculative" was
-never measured, and it is wrong for the 2001 edge.**
+That sentence predates the equivalent-English metric. The 17.5x is right. **"Far more speculative" had
+never been measured**, and measuring it took three attempts of which only the last was sound.
 
-### What was measured, on 2026-08-18, with zero new requests
-
-Every answered CDX record carries the full list of in-window years found, so the conditional
-probability can be read off 725 journals. A control on a bracketed year is included, because a method
-that cannot reproduce a known answer cannot be trusted on an unknown one.
-
-| | measured | n |
-|---|--:|--:|
-| given a 2000 capture, also 2001 | **94.4%** | 140,924 |
-| given a 1997 capture, also 1996 | **60.0%** | 30,198 |
-| CONTROL: given 1998 and 2000, also 1999 | 98.2% | 63,761 |
-
-The control lands on the gap engine's own measured 96.0% to 97.5%, so the method agrees with the engine
-where the answer is already known. The 2001 edge is 3.8 points behind a bracketed gap, not
-"far more speculative".
-
-The population, and the part that makes this an ADR rather than a note:
+### The population, which is what makes this an ADR rather than a note
 
 | | slots | never asked of CDX | EE ceiling, unasked |
 |---|--:|--:|--:|
 | 2001 edge | 5,358,097 | **99.8%** | 2,678,201 |
 | 1996 edge | 1,141,039 | 95.5% | 587,188 |
 
-**285,862 domains have ever been asked of the CDX index, out of 10,867,530 held.** And an answer
-containing 2000 returns **3.52 in-window years on average**, so one edge query can fill several missing
-years rather than the edge one alone.
+**285,862 domains have ever been asked of the CDX index, out of 10,867,530 held.** An answer containing
+2000 returns **3.52 in-window years on average**, so one query can fill several missing years rather
+than the edge one alone. The queue builds in 1 second as one `GROUP BY domain`; the obvious form with
+correlated `NOT EXISTS` subqueries over 20.8M rows took 15 minutes and was killed twice.
 
-### The two biases in those figures, in opposite directions
+### The rate was measured three times and only the third was right
 
-Stated because the temptation is to quote the product and call it a forecast.
+A seeded sample of 200 domains from the best 50,000 rows, one worker and a two-second delay so as not
+to become a third heavy client on `web.archive.org`.
 
-- **The rate is a ceiling.** 94.4% is conditional on the archive holding a 2000 capture, whereas this
-  population holds 2000 from *any* source, including registry creation dates for sites that were never
-  archived at all. The one direct probe of the real population measured 10 of 12 (83%), which is a
-  sample of twelve and is quoted as such.
-- **The EE is a floor.** Each figure counts one slot per domain, the edge year only, while the measured
-  answer carries 3.52 years.
+| | what it measures | 2001 | 1996 |
+|---|---|--:|--:|
+| conditional off 725 journals | given an adjacent CAPTURE | 94.4% | 60.0% |
+| pilot vs the LIVE edge set | 200 domains | 24.2% | 0.0% |
+| **pilot vs a FIXED snapshot** | the same 200 answers | **59.7%** (111/186) | **0.0%** (0/186) |
 
-So the honest range for the 2001 edge is roughly 1.3M to 2.5M equivalent-English, and the correct next
-step is a pilot batch that measures the rate on the population itself rather than on a proxy.
+The journal figure carried a control that validated the method where the answer was already known:
+given 1998 and 2000, the archive also holds 1999 for **98.2%** of 63,761 answers, against the gap
+engine's own measured 96.0% to 97.5%. So the method was sound and the *population* was wrong.
 
-### The decision this forces, which is not the agent's
+**The conditional was labelled a ceiling and was one.** It is conditional on the archive holding the
+adjacent capture, while this population holds its adjacent year from any source, very often a registry
+creation date for a site that was never archived at all. Overstated by 1.6x.
+
+**The second measurement is the one worth naming, because it looked like the careful one.** Recomputing
+the edge set live at measurement time biases a rate downward *by its own success*: every domain where
+2001 was found was banked by the ingest loop, left the edge set, and was removed from the very
+denominator it had just satisfied. 24.2% and 59.7% are the same 200 answers against a moving and a fixed
+denominator. The tell was arithmetic that could not be true, 25 hits in the first 47 answers and then 24
+in 99. **A rate measured against a set that your own measurement mutates is not a rate.**
+
+**1996 is not a thin edge, it is not an edge at all.** 0 of 186, where all 186 were sites established
+enough to hold both 1997 and 2000, which is exactly where a 1996 capture should have been most likely.
+`EDGE_RATE[1996]` is `0.000`, kept in the selector rather than deleted so that one constant revives it
+if a later pilot ever measures it above zero.
+
+One caveat on the 59.7%: it is a **head-of-queue** rate, since the pilot was drawn from the best 50,000
+rows and every resolvable domain in it was missing both edges. Expect it to fall as the queue is worked.
+
+### The decision, and it turned out not to need Ivo
 
 Ranked by expected equivalent-English per request, which is ADR-001's rule:
 
 | population | EE per query | basis |
 |---|--:|---|
-| **edge, best 10,000** | **1.5237** | built and ranked, `--population edge` |
 | bracketed gap | 1.249 | measured, `docs/report.md` section 4 |
-| edge, best 250,000 | 1.0316 | built and ranked |
-| edge, whole population | 0.4766 | 2,878,510 EE over 6,039,568 targets |
+| edge, whole population | **0.2645** | 1,597,557 EE over 6,039,003 targets, on the pilot rates |
 | candidate pool | ~0.18 | 19.8% recent yield x mean weight |
 
-**The head of the edge queue is the best work per request the project has, and it was unreachable.**
-Built rather than estimated: `build_query_queue.py --population edge` writes 6,039,568 targets worth
-2,878,510 EE expected, and every one of the best 10,000 rows is an edge row, ahead of both existing
-populations. The arithmetic behind that is coherent rather than lucky: a single-slot bracketed gap
-scores `0.886 x weight` and a 2001 edge scores `0.944 x weight`, so the edge wins on the same TLD, while
-a two-slot bracketed gap scores `1.33 x weight` and still wins. A domain missing **both** edges scores
-`1.544 x weight` and outranks everything.
+**Rebuilt on the measured rates, the answer reverses: nothing should move.** With `0.597` and `0.000` in
+place of the conditionals, the merged queue gives **9,999 of its best 10,000 rows to bracketed gaps**,
+which is the ranking working correctly rather than a disappointment. A single-slot bracketed gap scores
+`0.886 x weight` against a 2001 edge's `0.597 x weight`, so the gap wins on the same TLD, which it did
+not under the conditional. The edge population is worth roughly **1.5x the candidate pool** and about a
+fifth of a bracketed gap, not the 4.7x an earlier draft of this ADR reported off the journal figure.
 
-Read that table with the ceiling caveat above in force: the 94.4% is conditional on the archive holding
-the adjacent capture, so the expected values inherit that bias and a pilot is what settles it.
+So the VPS stays on bracketed gaps, the local engine stays on discovery, and the edge queue exists for
+whenever the pool runs thin. An edge hit adds a **pair and never a domain**, so it is completeness and
+the reviewer asked for discovery, but that trade never had to be put to Ivo: the arithmetic settles it.
 
-### The pilot ran, and the ceiling caveat was worth stating
+### Consequence
 
-**Partial result, n=47 of 200, labelled as partial.** A seeded sample of 200 drawn from the best 50,000
-rows, queried at one worker and a two-second delay so as not to become a third heavy client:
+`build_query_queue.py` gains `--population edge`, ranked on the pilot's rates. `src/ark/gaps.py` keeps
+`sandwich_gap_domains` unchanged, so no existing queue or reproduction moves. Both are done and eight
+tests pin them. **Nothing points an engine at the new queue.**
 
-| | journal conditional | PILOT, on the population itself |
-|---|--:|--:|
-| 2001 edge filled | 94.4% | **53%** (25 of 47) |
-| 1996 edge filled | 60.0% | **0%** (0 of 47) |
-| in-window years returned on a hit | 3.52 | 3.48 |
-
-So the conditional overstated the 2001 edge by 1.8x and the 1996 edge completely, for the reason the
-caveat gave: those rates are conditional on the archive holding the adjacent *capture*, while this
-population holds its adjacent year from any source, very often a registry creation date for a site that
-was never archived at all. **The direction was predicted and the size was not.**
-
-Two things follow. The expected value of the head falls from 1.5237 to roughly **0.86 equivalent-English
-per query**, which is still about 4.7x the candidate pool and now **below** the bracketed gap queue's
-1.249, so the allocation answer changes: the VPS should stay on bracketed gaps, and the edge queue is a
-candidate for the pool engine's requests rather than the gap engine's. And the 1996 edge should be
-dropped from the ranking until something measures it above zero, which halves the target list.
-
-A selection effect worth naming, because it makes the 1996 figure worse than the population's: the head
-of the queue is enriched for domains missing **both** edges, since those score `1.544 x weight`, and all
-47 pilot domains were of that kind. So 0 of 47 is measured on the names the ranking likes best, which is
-where a 1996 capture should have been most likely.
-
-The remaining 153 are running. This section gets the final figure when they land, and the numbers above
-are not to be quoted as final.
-
-**One operational note that is itself a measurement.** The pilot slowed from 3.5 to 17.9 seconds per
-domain within four requests, because `ark cdx` honours `Retry-After` and backs off, and the local pool
-engine was querying the same host throughout. That is CLAUDE.md's "never point a third heavy client at
-`web.archive.org`" arriving as a fact rather than as advice: the third client does not fail, it is
-throttled, and it slows the other two. But the trade is not purely arithmetic: an edge hit adds a *pair* and never a *domain*, so it
-is completeness, and the reviewer asked for discovery to be prioritised. That is the same objection that
-refuted squidGuard this morning, and it applies here with 400x the volume behind it.
-
-The options are Ivo's: leave the local engine on discovery and accept the slower route; move it to the
-edge population; or shard the edge population to the VPS beside its bracketed work, which is where
-completeness already lives. Whatever he chooses, **the queue definition should exist**, because a
-population that no queue can express is invisible to every future ranking pass, and this one has been
-invisible for a month.
-
-### Consequence if adopted
-
-`build_query_queue.py` gains `--population edge`, ranked on the measured 94.4% and 60.0% rather than on
-the bracketed 96-97.5%, and `src/ark/gaps.py` keeps `sandwich_gap_domains` unchanged so the existing
-queues and their reproductions are untouched. Both are done: the queue builds in 1 second and no
-existing queue changed. **Nothing points an engine at it**, because that is the allocation question
-above and it is Ivo's.
+**And the reusable part is not the population, it is the method.** Two of the three measurements above
+were wrong in ways that looked rigorous, and both failures are cheap to avoid next time: prefer a small
+sample of the real population to a large sample of a proxy, and freeze the denominator before measuring
+against it.

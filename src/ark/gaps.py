@@ -89,12 +89,25 @@ UNION ALL
 SELECT domain, 2001 FROM per_domain WHERE y00 = 1 AND y01 = 0
 """
 
-# Measured conditional rates, not assumed ones. See ADR-006 for the control that validates
-# the method: the same measurement on a bracketed year returns 98.2% against the engine's own
-# 96.0% to 97.5%. Both are CEILINGS for this population, because they are conditional on the
-# archive holding the adjacent capture while this population holds its adjacent year from any
-# source, including registry creation dates for sites that were never archived.
-EDGE_RATE = {1996: "0.600", 2001: "0.944"}
+# **Rates measured on the population itself, by a 200-domain pilot, not conditionals.**
+#
+# The first version of this constant carried 0.600 and 0.944, read off 725 journals as
+# "given a capture in the adjacent year, the archive also holds the edge year". Those were
+# labelled ceilings and they were: the journal figure is conditional on the archive holding
+# the adjacent CAPTURE, while this population holds its adjacent year from any source, very
+# often a registry creation date for a site that was never archived at all.
+#
+# The pilot measured the population itself: 2001 fills 111 of 186, and **1996 fills 0 of
+# 186**. So 1996 is not a thin edge, it is not an edge at all, and it is scored zero here
+# rather than dropped from the selector, because the selector's job is to describe the
+# population and the ranking's job is to price it.
+#
+# 0.597 is a HEAD-OF-QUEUE rate, not a population rate: the pilot was drawn from the best
+# 50,000 rows and every one of its 186 resolvable domains was missing both edges, which
+# means an established site holding 1997 and 2000. Such a site is more likely to be archived
+# in 2001 than the population average, so this number should fall as the queue is worked.
+# See ADR-006.
+EDGE_RATE = {1996: "0.000", 2001: "0.597"}
 
 
 def edge_gap_domains(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:

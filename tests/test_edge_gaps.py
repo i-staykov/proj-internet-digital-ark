@@ -67,8 +67,21 @@ def test_a_domain_with_no_adjacent_year_is_not_an_edge_target(store) -> None:
     assert edge_gap_domains(store) == []
 
 
-def test_the_measured_rates_are_the_measured_rates(store) -> None:
-    """Pinned so a future edit cannot quietly substitute the bracketed 96-97.5% here.
-    2001 is 3.8 points behind a bracketed year; 1996 is 38 points behind."""
-    assert EDGE_RATE == {1996: "0.600", 2001: "0.944"}
-    assert float(EDGE_RATE[2001]) < 0.982, "the edge rate must stay below the bracketed control"
+def test_the_rates_are_the_ones_the_pilot_measured(store) -> None:
+    """Pinned to the pilot, not to the journal conditional it replaced.
+
+    The conditional said 0.600 and 0.944 and was labelled a ceiling. The pilot measured the
+    population itself at 0 of 186 for 1996 and 111 of 186 for 2001, so a future edit cannot
+    quietly restore the flattering pair.
+    """
+    assert EDGE_RATE == {1996: "0.000", 2001: "0.597"}
+    assert float(EDGE_RATE[1996]) == 0.0, "1996 measured 0 of 186 and must score nothing"
+    assert float(EDGE_RATE[2001]) < 0.944, "the pilot must not be replaced by the conditional"
+
+
+def test_a_1996_only_domain_scores_nothing_while_still_being_selected(store) -> None:
+    """The selector describes the population; the ranking prices it. Keeping 1996 in the
+    selector at rate zero means a later pilot can revive it by changing one constant."""
+    add(store, "held1997.com", 1997)
+    assert edge_gap_domains(store) == [("held1997.com", 1996)]
+    assert float(EDGE_RATE[1996]) == 0.0
