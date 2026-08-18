@@ -27,15 +27,17 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### The archive has never been asked about 1996 or 2001 for 6.5M held domains
+### The archive has never been asked about 2001 for 5.3M held domains, and it pays 53%
 
-**Measured today, with no new requests.** The gap engine can only target a year bracketed by two years we already hold, so **1996 and 2001 can never be targets at all**: they would need 1995 and 2002. `gaps.py` calls the wider set "far more speculative" and that was never measured. It is now: given a 2000 capture, the archive also holds 2001 **94.4%** of the time (n=140,924), against 98.2% for a bracketed year measured the same way. **5,344,810 of those 2001 slots have never been asked**, and only 285,862 domains have ever been asked of the archive against 10,867,530 held.
+**Measured today, no new requests needed for the first half.** The gap engine can only target a year bracketed by two years we already hold, so **1996 and 2001 can never be targets**: they would need 1995 and 2002. **5,344,810 such 2001 slots have never been asked**, and only 285,862 domains have ever been asked of the archive against 10,867,530 held. The queue is built: `--population edge`, 6,039,568 targets.
 
-The queue is built, so these are ranked figures rather than estimates: **6,039,568 targets, 2,878,510 EE expected**, and the **best 10,000 run at 1.52 EE per query against 1.249 for the bracketed gap queue and about 0.18 for the candidate pool the local engine is working now.** Caveat stated plainly: the 94.4% is conditional on the archive holding the 2000 capture, so it is a ceiling, and a pilot batch is what would settle it. Full working in **ADR-006**.
+**Then the pilot corrected me, which is why this entry is shorter than it was an hour ago.** Off the journals, given a 2000 capture the archive also holds 2001 for 94.4% of 140,924 answers. On the actual population, a seeded 200-domain pilot (47 answered so far) fills the 2001 edge **53%** of the time and the 1996 edge **0 of 47**. The conditional overstated it by 1.8x, for the reason I had flagged: it is conditional on the archive holding the adjacent capture, and this population often holds its adjacent year from a registry creation date for a site never archived.
 
-**What I need is one word, because the trade is yours and not arithmetic.** An edge hit adds a **pair and never a new domain**, so it is completeness, and Ding asked for discovery to be prioritised. Options: *leave* both engines as they are; *switch* the local engine to the edge queue; or *shard* the edge queue to the VPS beside its bracketed work, where completeness already lives.
+At 53% the head of the edge queue is worth about **0.86 equivalent-English per query**, against 1.249 for the bracketed gap queue and about 0.18 for the candidate pool. So it is **4.7x better than what the local engine is querying now and worse than what the VPS is querying**, over a population 17x larger than the bracketed one.
 
-Nothing is blocked while this sits here: both engines keep running on their current queues, and I have pointed nothing at the new one.
+**The one word I need**, because an edge hit adds a pair and never a new domain, so it is completeness and Ding asked for discovery: *leave* both engines as they are, *switch* the local engine from the pool to the edge queue, or *split* its time. Full working, including the pilot's own correction of my earlier figure, in **ADR-006**.
+
+Nothing is blocked: both engines are on their current queues and I have pointed neither at the new one.
 
 ### Round 6 has opened against `merged260817-2`, and 5% is now 603,854.78 EE
 
