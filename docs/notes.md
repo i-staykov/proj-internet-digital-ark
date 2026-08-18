@@ -11683,3 +11683,34 @@ answers are also a thin sample to reallocate a machine on. **So this is the firs
 round rather than the last of this one**, and it needs C-24 revisited against trailing rates rather than
 lifetime ones, which is the correction the 2026-08-12 entry already made for TLDs and never propagated
 to populations.
+
+**Correcting the entry above within the hour, because the check I ran to confirm it nearly became the
+twelfth way this project has fooled itself with a figure.** Having recommended the edge population on
+trailing hit rates, I measured what actually matters, net-new equivalent-English per answered query,
+by joining each population's recent journals against the store:
+
+| population | answered | in-window pairs | net-new | EE | EE/query |
+|---|--:|--:|--:|--:|--:|
+| edge (pilot) | 186 | 430 | 24 | 17.7 | 0.0951 |
+| pool (last 3) | 1,735 | 163 | 52 | 43.5 | 0.0251 |
+| gap (last 3) | 804 | 1,013 | **0** | 0.0 | **0.0000** |
+
+**The gap row is the tell, and it is not a finding about the gap population.** That population runs at
+98.4% in-window and has been the most productive thing in the project all round; it cannot be worth
+zero. It reads zero because **those journals have already been ingested, so every pair they found is now
+held, and "net-new against the store" is zero by construction for any banked journal.** This is the same
+bias that made the edge rate read 24.2% on 2026-08-13 before it was re-measured at 59.7% against a
+frozen snapshot: a measurement that asks the store about work the store has already absorbed measures
+recency, not quality.
+
+**So the honest split of what is and is not established.** The in-window hit rate is *not* contaminated
+this way, because a hit is a hit whether or not it was later banked: the pool at **9.5% trailing against
+the edge pilot's 80.9%** stands, and so does the observation that the pool's 47.6% lifetime figure
+overstates it 5x. What is *not* established is the ratio of net-new value, because the only measurement
+that could supply it needs a snapshot frozen before ingest, and the table above is not that. The
+recommendation to revisit C-24 stands on the hit rates; **the wording "beats it by 6x to 8.5x" should be
+read as a hit-rate ratio and not a value ratio**, and the value ratio is the thing the next round has to
+measure properly before an engine is moved.
+
+**Worth adding to the traps list rather than only here**: joining a journal against the store to count
+net-new returns zero for any journal already ingested, and zero looks identical to worthless.

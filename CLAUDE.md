@@ -390,5 +390,12 @@ sixty-odd closed families is what stops the same ground being broken twice.
   correctness rather than for waiting: a reporting command that needs the lock must still be patient,
   because the ingest loop legitimately takes it.
 - **`ark export` before `ark check`, always**: one invariant reads the exported annual files.
+- **Counting "net-new against the store" from a journal that has already been ingested returns zero
+  by construction**, and zero looks identical to worthless. On 2026-08-18 this reported the bracketed-gap
+  population, which runs at 98.4% in-window and was the round's most productive engine, at **0.0 net-new
+  equivalent-English from 804 answered queries**. The same bias had already made the edge-year rate read
+  24.2% before it was re-measured at 59.7% against a frozen snapshot. A hit *rate* is safe to compare
+  across populations because a hit is a hit whether or not it was later banked; a net-new *value* needs a
+  snapshot taken before ingest, and the two are not interchangeable.
 - **Never present a projection as a measurement.** Label an estimate in the same sentence as the
   number. `docs/notes.md` records eleven distinct ways this project has fooled itself with a figure.
