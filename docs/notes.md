@@ -10866,3 +10866,185 @@ counts, since one of the two controls in this run was a redirect.
 truth.** A health check must distinguish "I looked and found nothing" from "I could not look", and
 the cheapest way is to carry a case known to be positive inside the same run. The re-prober had one
 by accident all along and was not reading it.
+
+## 2026-08-18 (midday): five non-IA lenses, zero survivors, and a fabricating extractor found by accident
+
+The second hunt of the day ran five lenses in parallel, each chosen to be **not derived from Internet
+Archive crawls**, since that law closed three candidates yesterday. 19 candidates, 18 self-rejected on
+measurement, and the one that claimed to survive was refuted. **The run's most valuable output is a bug
+in our own shared code, found because a lens hand-audited its own survivors.**
+
+### The bug, which is the thing that mattered
+
+Pricing arXiv, the scholarly lens reported 4 net-new pairs and then audited all four by hand. Two of
+them, `nctu.edu` and `tku.edu`, are not names anybody typed: they are `nctu.edu.tw` and `tku.edu.tw`
+with the ccTLD cut off. `probe_texts_corpus.domains_in` carries `uk` and `au` on its TLD whitelist and
+its pattern had **no right boundary**, so `www.nctu.edu.tw` matched `www.nctu.edu` and
+`tuvok.au.af.mil` matched `tuvok.au`.
+
+**Both results are well-formed domains, so no store invariant could see them**, and the error ran in
+the flattering direction twice over: the real host is lost so the pair count falls, and the invented
+TLD outweighs the real one so the equivalent-English rises. `.edu` is 0.9717 against `.edu.tw` at
+0.1338, a **7.3x inflation per record**. `.au` is 0.9904 against `.mil` at 0.9981, which is the version
+hardest to notice because the weights are nearly equal.
+
+This extractor is shared: `price_items.py` imports it, so does `collect_trade_press.py` and
+`split_rtfm_faqs.py`. Measured by re-reading bytes already on disk, at the whole-corpus level, which
+matters because a first pass that diffed per file and unioned the differences double counted and put
+`aber.ac.uk` in the fabricated list:
+
+| corpus | files | invented names | names gained by the fix |
+|---|--:|--:|--:|
+| trade press OCR | 1,911 | **534** | 0 |
+| RTFM FAQs | 19,478 | **1,442** | 0 |
+| union | | **1,934** | 0 |
+
+What the invented names are is worth seeing: `acer.com`, `abit.com`, `accton.com`, `advantech.com` from
+Taiwanese hardware vendors written `acer.com.tw` in computer magazines, and `agh.edu` from
+`agh.edu.pl`. **So the fabricated name is usually a real domain given the wrong year**, which is the
+version the corroboration split cannot reason about, since the split only asks whether the domain is
+dated somewhere.
+
+**Then the store came back clean, and the reason is structural.** 128 pairs worth 85.2549
+equivalent-English reached the annual files on those names, and **every one of the 128 also carries
+same-year evidence from another source**. Both corpora are typed, so the split admitted a pair only
+where another source already dated the domain, and here it happened to hold at the exact year in every
+case. No assignment loses its justification and no shipped figure was inflated. **The split contained
+a fabricating extractor.** What it could not contain is pricing, which is the whole point: the arXiv
+sample reported 4 net-new pairs where hand audit found 1.
+
+The fix refuses a whitelisted TLD followed by another label, so `nctu.edu.tw` now yields nothing at
+all. That is deliberate rather than lazy: this module already trades recall on low-weight ccTLDs for
+safety, and an omission is survivable where a fabricated high-weight name is not. Ten tests, **the
+first this extractor has ever had**, which is how it survived. Commit `798d281`.
+
+Two things recorded rather than fixed. The evidence row's `evidence_value` holds the **item**
+identifier (`tradepress PC-Mag-1997-07-01`), not the matched string, so no invariant can catch this
+class today; storing the matched substring would make it checkable, and that is a schema change worth
+considering rather than doing in passing. And `.mil` at 0.9981 is absent from the whitelist, so
+`au.af.mil` was missed entirely: a recall gain worth pricing separately, kept out of this change so the
+diff measured fabrication only.
+
+### The five lenses
+
+**OpenPGP keyserver dumps.** The dump hosts were probed for the first time here, the 2026-08-12 pass
+having issued exactly one request, to upstream's source list. Nine hosts dead, NXDOMAIN or 404;
+`keys.openpgp.org` publishes no dump **by design**; `archive.org` and Zenodo hold none against a
+positive control that reproduced a figure this register already records. `pgp.key-server.io/sks-dump/`
+**answers HTTP 200 with a squatted FingerprintJS redirect stub**, which is precisely the trap that
+would report a revival on every automated re-probe, so the row says so in the sentence naming the host.
+The retrievable curated end (Debian removed-keys and emeritus, GNU, Apache KEYS, 2,605 keys, 36 MB)
+prices at **69 net-new pairs and 44.4 equivalent-English**, mean weight 0.6436, with 89.8% already
+held, because `debian.org` alone is 1,033 of the in-window user IDs. `gpg` 2.5.20 returns zero `pub`
+records for the 2005 Debian keyrings, so a 120-line packet parser was written and cross-validated.
+
+**And the dating premise was disproved by measurement.** A key's creation timestamp dates the
+**keypair**, not the address bound to it: over 4,225 binding self-signatures, 47.6% of user IDs were
+bound in a **later** year than the key, median lag two years, and **0% earlier**. So the reading that
+looks safest, a cryptographically signed timestamp, manufactures claims that a domain existed before
+its address was attached, and only ever in that direction. That is a fifth instance of the
+per-entity-versus-per-field trap and it now sits in `discovery.md` beside MARC 856.
+
+**X.509 certificates.** Closed on a mechanism measured from the inside. The one retrievable in-window
+corpus is the history of Mozilla's `certdata.txt`, and finding it is real: `hg.mozilla.org` serves 139
+revisions back to the 2000-03-31 checkin. Censused rather than sampled: 126 in-window certs, **1
+net-new pair worth 0.6 equivalent-English**, and **0 of the 126 are end-entity web-server certs**. The
+17 host tokens the whole corpus yields are the CAs' own domains. **The general law: a corpus assembled
+by a TRUST decision selects for authorities, not for hosts**, the same shape that collapsed 7.1M Usenet
+`Path:` hops to 4,736 domains, and sharper here because the window held two dozen CAs.
+
+**Mail headers.** The lens premise misread this register and the correction kills the lens: the
+`Message-ID` row does not say the header seam is unexploited, it says the seam was mined for 51
+net-new pairs and zero new domains and extends that to `Received`. Two new facts. `pipermail` **strips
+the `Received` chain entirely**, so the 868 MB on disk can never answer a `Received` question. And a
+full-header bulk route does exist, newly recorded: `lists.apache.org/api/mbox.lua` serves raw mbox with
+unbroken chains from 1996 at no archive.org cost, measuring **4 net-new pairs** over 8,877 messages
+because 29,387 relay stamps collapse to 354 domains at 83 lines each. **The marginal number is the
+law**: `Received`-only is worth 0.48 equivalent-English against **17.30 from the addresses in the same
+messages**, so the header seam is dominated by the body seam and a full-header archive is worth hunting
+for its bodies or not at all.
+
+**Non-IA web archives.** Converted from a hope into a count, which is what closes it. Three registries
+harvested mechanically (109 initiative rows, 20 Memento endpoints, 48 IIPC permalinks); the suggested
+starting point, the **Memento TimeTravel aggregator, no longer has a DNS record** on any of its three
+hosts. Of 13 initiatives created 2001 or earlier, one is the Internet Archive and three are already
+closed here, and of the nine remaining **not one serves a bulk-queryable in-window index**, over 16
+programmes, 34 hostnames, ~81 HTTP requests, none to `web.archive.org`. The one accessible in-window
+holding, Czech Webarchiv, is genuinely its own crawl and dies on a publisher allowlist: **0 of 25
+store-dated 2001 `.cz` domains readable**, proved against `nkp.cz` and `cuni.cz` as known positives.
+China's Tianwang, the one pre-2002 own-crawl archive absent from all three registries, now serves a
+domain-sale listing.
+
+**Kulturarw3 was the only defer, and it was refuted.** Sweden is the largest genuinely IA-free
+in-window corpus known to exist and the refutation did not need to argue about that. Its own pages say
+the oldest sites are from **1997**, not 1996; access is on-site in Stockholm and **the interface cannot
+emit an unknown hostname** ("you must enter, for example, `www.sf.se`"), so an access letter buys a
+year-filler for names already held rather than a discovery route; and the yield is bounded without any
+access at all, since the 22,685 in-window `.se` creations in the 2024 registry snapshot are **100%
+already held at the exact year**. The refuter also established, against the obvious objection, that our
+`.se` coverage is not merely today's registry: **32,332 of the store's 65,291 in-window `.se` domains
+(49.5%) are already extinct** in that snapshot, mostly from the 1997 Network Wizards zone walk.
+
+**Scholarly full text.** Closed on a number rather than five rejections. Two unrelated corpora fix the
+family's ceiling at **0.042 net-new post-split pairs per item**: the closed RFC row at 0.0416 and a
+full census of D-Lib Magazine's 381 in-window articles at 0.0420. The bar therefore needs 119,062
+items of that density and the largest such corpus holds 4,997. **In this family density and size are
+anti-correlated**: the corpora dense in hostnames are the small ones written about the web. And the
+invented-example question the lens was told to measure came back worse than the RFC row's "large
+minority", splitting into three mechanisms of which only one is what RFC 2606 was about: of 25
+survivors, 13 genuine, 2 author-invented placeholders, 3 transcription artefacts (our own bug), and
+**7 modern retrofits injected into period-dated records** by the publisher or the server,
+`creativecommons.org` five times. **53.1% of the equivalent-English was junk and it concentrates in
+`.edu` at 0.9717**, so this class biases a reported figure upward every time. All of it is now in
+`discovery.md`.
+
+### What the run leaves behind
+
+Seven screened next modalities from the completeness critic, all seven in the triage queue, ranked, and
+one of them already measured: **quoted `whois` records pasted into Usenet bodies**, self-dating on the
+registry's own `Record created on` line, 4 net-new pairs from the first 300 MB of one group at **zero
+network cost**, roughly 5,500 over 411 GB as a labelled linear projection. The others are another
+research-repository IA capture census (the `dartmouth_nber_captures` shape, worth 227,273 pairs),
+an early bulk whois snapshot of 2002-2008 vintage, Discmaster's index over archived media contents,
+in-window content-filter blacklists, the ISI RFC 1480 US Domain Registry, and Reuters RCV1.
+
+**Two for two rounds with zero survivors, and both rounds paid.** Yesterday's produced the
+byte-summation mechanism; today's produced a live correctness bug in shared code, three laws about what
+a corpus can contain, and a fifth instance of the dating trap. A hunt that returns no source is not a
+hunt that returns nothing, and the register now names 103 closed leads precisely because each closure
+was worth writing down.
+
+### A postscript: the register rows above immediately produced four more false revivals
+
+Writing those verdicts put `keys.openpgp.org`, `lists.debian.org`, `seclists.org` and `marc.info` into
+the re-probe rotation, and the next `just cycle` reported all four as "answering unexpectedly, price
+it". None had ever been down. This is the same species as the morning's `ftp.funet.fi`, and it is now
+clear that **it is a standing consequence of writing good verdicts**: a thorough verdict names the
+hosts it checked, and most of them were alive with an absent payload rather than dead.
+
+Two rules rather than a longer phrase list. **Where a verdict names a PATH, the path is what was
+tried**, so the bare host root is dropped for that host: probing it asks a question the verdict never
+asked, and it wastes one of the five target slots. And four payload-absence phrases were added for the
+case with no failing URL to name, `keys.openpgp.org`, which publishes no dump by design.
+
+Honestly stated, because the two are easy to conflate: the live suppression of the three mail hosts
+came from the phrase list rather than the path rule, since the row names them in one sentence that
+happens to contain "410 Gone". The path rule is pinned by tests against synthetic verdicts and will
+matter the next time a verdict quotes a full URL, which is the more common shape. 23 tests on this one
+script now, and the check ends with `Positive control held: 9 host(s) answered in this run`.
+
+### And one more copy of the same defect, in the surface Ivo actually reads
+
+`just cycle` refreshed the triage counter's body to 55 while its heading still read
+**"Triage the newly found sources: 49 found, none priced"**, so the one entry on his review surface
+disagreed with itself, and the stale half is the half he reads first.
+
+`key_decisions.refresh_open` protects the heading on purpose, documented as "a heading the agent
+improved by hand survives the refresh", and that is right for prose. The error was writing a **live
+figure** into a heading governed by that rule. So the function now takes an explicit `heading` and the
+one caller that owns a count passes it, rather than the default being loosened for everybody.
+
+**This is the third time today that a number was correct in one place and stale in another**, after the
+report's merge figures and the re-prober's expectations. The pattern is worth naming: a figure that
+appears twice needs one writer, and the writer has to own both copies or neither. The new test asserts
+against the live file, so the two copies cannot drift again silently.

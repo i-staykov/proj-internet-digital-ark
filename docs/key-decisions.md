@@ -93,9 +93,9 @@ USAC's portal serves only the last ten years and says to email `opendata@usac.or
 against 3,239,423 `.com`). **Outward-facing in your name, so I will not do it without your word**; if
 yes, I draft and you send. Positive control already measured on the published years.
 
-### Triage the newly found sources: 49 found, none priced
+### Triage the newly found sources: 55 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **49 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **55 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
 
 Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 

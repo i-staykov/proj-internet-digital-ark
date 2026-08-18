@@ -249,6 +249,13 @@ EXPECTED_ALIVE = (
     "returns zero",
     "zero wayback captures",
     "holds only 404",
+    # The same class again, in the form "the host is up and the payload is not there".
+    # `keys.openpgp.org` is the one that needs this rather than the path rule below,
+    # because there is no failing URL to name: it publishes no dump by design.
+    "publishes no",
+    "serves no",
+    "holds none",
+    "410 gone",
 )
 
 # The deliberate override, checked against the WHOLE verdict rather than against the
@@ -299,17 +306,36 @@ def targets_in(entry) -> list[str]:
             continue
         found.append(f"https://{host}/")
     out: list[str] = []
+    specific: set[str] = set()
     for url in found:
         try:
-            host = urllib.parse.urlsplit(url).hostname or ""
+            parts = urllib.parse.urlsplit(url)
+            host = parts.hostname or ""
         except ValueError:
             continue
         if not host or host in SKIP_HOSTS or host in NAMED_AS_DATA:
             continue
         if host.endswith(".local"):
             continue
+        if parts.path.strip("/") or parts.query:
+            specific.add(host)
         if url not in out:
             out.append(url)
+    # **When a verdict names a PATH, the path is what was tried, so the host root is not
+    # the test.** Added 2026-08-18 after four rows written that morning each reported an
+    # unexpected revival on a host that had never been down: `lists.debian.org` (whose
+    # 1999 monthly mbox 404s), `seclists.org` (which serves MHonArc HTML with the headers
+    # stripped) and `marc.info` (whose mbox export is 410 Gone) all answer 200 at the root
+    # and always did. Probing the root asks a question the verdict never asked, and the
+    # answer reads as news. Dropping it also frees a slot in the five-target budget for a
+    # URL that can actually change.
+    out = [
+        url
+        for url in out
+        if (urllib.parse.urlsplit(url).hostname or "") not in specific
+        or urllib.parse.urlsplit(url).path.strip("/")
+        or urllib.parse.urlsplit(url).query
+    ]
     return out[:5]
 
 
