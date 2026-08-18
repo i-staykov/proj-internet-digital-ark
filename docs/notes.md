@@ -11140,3 +11140,50 @@ year held at Y-1 AND Y+1 and 2002 and 1995 are out of window. `src/ark/gaps.py` 
 deliberate, "rather than to every year adjacent to a held one, which is 17.5x larger and far more
 speculative", and that was written before the metric existed and has never been measured against it.
 The measurement is running now.
+
+### The measurement landed, and it is the largest number of the session
+
+Refuter 1's kill implied a population, and the population is real. Measured with **zero new requests**,
+because every answered CDX record carries the full list of in-window years it found, so the conditional
+probability is readable off 725 journals. A control on a bracketed year is included, since a method that
+cannot reproduce a known answer cannot be trusted on an unknown one:
+
+| | measured | n |
+|---|--:|--:|
+| given a 2000 capture, also 2001 | **94.4%** | 140,924 |
+| given a 1997 capture, also 1996 | **60.0%** | 30,198 |
+| CONTROL, given 1998 and 2000, also 1999 | 98.2% | 63,761 |
+
+The control lands on the gap engine's own 96.0% to 97.5%, so the method agrees with the engine where the
+answer is already known, and **the 2001 edge is 3.8 points behind a bracketed gap rather than "far more
+speculative"**, which is what `gaps.py` has said since before the metric existed.
+
+| | slots | never asked | EE ceiling, unasked |
+|---|--:|--:|--:|
+| 2001 edge | 5,358,097 | **99.8%** | 2,678,201 |
+| 1996 edge | 1,141,039 | 95.5% | 587,188 |
+
+**285,862 domains have ever been asked of the CDX index, against 10,867,530 held**, and an answer
+containing 2000 returns **3.52 in-window years on average**, so one edge query fills several years and
+not just the edge one.
+
+**Both figures are biased, in opposite directions, and neither is a forecast.** The rate is a CEILING:
+94.4% is conditional on the archive holding a 2000 capture, while this population holds 2000 from any
+source, including registry creation dates for sites never archived. The one direct probe of the real
+population measured 10 of 12, and twelve is twelve. The EE is a FLOOR: it counts the edge year only
+against a measured 3.52 years per answer. The honest range is roughly 1.3M to 2.5M equivalent-English
+and the next step is a pilot on the population itself.
+
+Written up as **ADR-006**, because the choice it forces is machine allocation and that is Ivo's design.
+Ranked per request, the edge population is worth about 2.5x the candidate pool the local engine is
+working, and about 40% of a bracketed gap. But an edge hit adds a **pair and never a domain**, so it is
+completeness, and the reviewer asked for discovery: the identical objection that refuted squidGuard this
+morning, now with 400x the volume behind it. **The one thing that is not a judgement call is that the
+queue definition should exist**, because a population no queue can express is invisible to every future
+ranking pass, and this one has been invisible for a month.
+
+Two process notes worth keeping. The first attempt at this diffed per file and unioned the differences,
+which double counts, and `aber.ac.uk` appearing as fabricated is what exposed it. And the store query
+took 15 minutes and then 31 before being killed twice: correlated `NOT EXISTS` subqueries over 20.8M
+rows, where the same question as a single `GROUP BY domain` with `max(CASE WHEN ...)` answers in
+**3 seconds**. The measurement was not slow, the SQL was.

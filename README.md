@@ -283,19 +283,35 @@ Collectors write journals and never touch the store, so they run for hours along
 That one property is why collection can be split across machines, why a parsing bug costs no requests,
 and why every network stage replays offline.
 
-### One queue, both populations
+### One queue, three populations
 
-Two populations can be queried, and they are worth different things. A **gap target** is a domain that
+Three populations can be queried, and they are worth different things. A **gap target** is a domain that
 already holds a year and is missing one it is bracketed by; a hit adds a pair. A **pool target** is a
-domain held with no year at all; a hit makes the name net-new. Keeping them in two lists forced a
-choice about which to work, and that choice was once made by hand and made wrong.
+domain held with no year at all; a hit makes the name net-new. An **edge target** is a domain missing
+1996 or 2001 with the adjacent in-window year held. Keeping them in separate lists forced a choice about
+which to work, and that choice was once made by hand and made wrong.
 
-Both are now scored on the one scale that decides the allocation, **expected net-new
-equivalent-English per query**, and merged into a single queue.
+All three are scored on the one scale that decides the allocation, **expected net-new equivalent-English
+per query**, and merged into a single queue.
+
+**The edge population existed for a month before any queue could express it**, which is why it is worth
+naming here rather than only in an ADR. A bracketed gap needs a year held at Y-1 *and* Y+1, so 1996
+would need 1995 and 2001 would need 2002: both outside the window. A domain held in 2000 and missing
+2001 was therefore not a gap target, and not a pool target either because it already carries a year.
+Measured on 2026-08-18: **5,358,097 such slots, 99.8% never asked**, at a measured 94.4% conditional
+rate for 2001 and 60.0% for 1996, against a bracketed control of 98.2% on the same method. The best
+10,000 rows run at **1.52 expected equivalent-English per query** against 1.249 for the bracketed queue.
+The rate is a ceiling and a pilot is what settles it. See ADR-006; nothing points an engine at it yet,
+because that allocation is a `key-decisions.md` question.
 
 ```bash
 just query-queue-preview            # what it would return, writes nothing
 just query-queue                    # -> queue_shard0.txt, queue_shard1.txt, queue_manifest.tsv.gz
+
+# one population at a time, for one machine
+uv run python scripts/build_query_queue.py --population gap  --out data/raw/cdx/queue_gap_vps.txt
+uv run python scripts/build_query_queue.py --population pool --out data/raw/cdx/queue_pool_local.txt
+uv run python scripts/build_query_queue.py --population edge --out data/raw/cdx/queue_edge.txt
 ```
 
 A gap target scores `realisation x English share x bracketed years it could fill`; a pool target

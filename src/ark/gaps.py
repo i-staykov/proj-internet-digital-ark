@@ -63,6 +63,45 @@ GROUP BY domain
 """
 
 
+# **The window's two edge years, which the bracketing rule above cannot express.**
+#
+# `_SANDWICH_SQL` requires a year held at Y-1 AND Y+1, so 1996 needs 1995 and 2001 needs 2002.
+# Both are outside the window, which means those two years were never targets at all. The
+# docstring calls the wider set "far more speculative", and that was written before the metric
+# existed and is wrong for 2001: measured on 2026-08-18 off 725 journals, given a 2000 capture
+# the archive also holds 2001 for **94.4%** of 140,924 answers, against 98.2% for a bracketed
+# year measured the same way. 1996 is the genuinely thin one at 60.0% of 30,198.
+#
+# Written as one `GROUP BY domain` rather than as correlated `NOT EXISTS` subqueries, which is
+# not a style choice: the subquery form took 15 minutes over 20.8M rows and this answers in 3
+# seconds. See ADR-006.
+_EDGE_SQL = """
+WITH per_domain AS (
+  SELECT domain,
+         max(CASE WHEN assigned_year = 1996 THEN 1 ELSE 0 END) AS y96,
+         max(CASE WHEN assigned_year = 1997 THEN 1 ELSE 0 END) AS y97,
+         max(CASE WHEN assigned_year = 2000 THEN 1 ELSE 0 END) AS y00,
+         max(CASE WHEN assigned_year = 2001 THEN 1 ELSE 0 END) AS y01
+  FROM domain_year GROUP BY domain
+)
+SELECT domain, 1996 AS edge_year FROM per_domain WHERE y97 = 1 AND y96 = 0
+UNION ALL
+SELECT domain, 2001 FROM per_domain WHERE y00 = 1 AND y01 = 0
+"""
+
+# Measured conditional rates, not assumed ones. See ADR-006 for the control that validates
+# the method: the same measurement on a bracketed year returns 98.2% against the engine's own
+# 96.0% to 97.5%. Both are CEILINGS for this population, because they are conditional on the
+# archive holding the adjacent capture while this population holds its adjacent year from any
+# source, including registry creation dates for sites that were never archived.
+EDGE_RATE = {1996: "0.600", 2001: "0.944"}
+
+
+def edge_gap_domains(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
+    """Held domains missing a window-edge year whose adjacent in-window year is held."""
+    return conn.execute(_EDGE_SQL).fetchall()
+
+
 def sandwich_gap_domains(
     conn: duckdb.DuckDBPyConnection,
     first: int = min(YEARS),
