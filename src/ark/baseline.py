@@ -131,3 +131,64 @@ SUBMITTED_ROUNDS = (
     ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2"),
     ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817"),
 )
+
+
+def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
+    """The first candidate directory that actually holds `must_contain`.
+
+    **Addressing a file by where it happens to sit rather than by what it is has broken
+    this project's own delivery three times.** `docs/notes.md` for 2026-08-17 records the
+    first two: the calculator path hardcoded to `feedback-phase-3/`, then the merged
+    baseline one step later. The third was found on 2026-08-18 by auditing the delivery
+    against D1, and is the worst of them, because it breaks the reproduction route the
+    archive tells a reviewer to run.
+
+    The repository keeps the baseline under `feedback-phase-N/`, which is **git-ignored**,
+    so `git archive HEAD` cannot carry it and no fresh extraction has that path. The
+    archive puts the same six files at `baseline/<marker>/`, one level up from the
+    `source/` directory the code runs from. `ark ingest-legacy` defaulted to the
+    repository path with no fallback, so `just reproduce` died at its first stage with
+    "missing year files in feedback-phase-6/merged260817-2" for anybody but us.
+
+    So the resolution lives here, in the module that owns the fact of which release is
+    current, rather than in each caller. Two callers already had their own copy.
+    """
+    for base in candidates:
+        if (base / must_contain).is_file():
+            return base
+    return candidates[0]
+
+
+def baseline_dir() -> Path:
+    """Where the current baseline's annual files actually are, repository or delivery."""
+    return _first_holding(
+        (
+            CURRENT_BASELINE_DIR,
+            Path("..") / "baseline" / CURRENT_BASELINE_MARKER,
+            Path("baseline") / CURRENT_BASELINE_MARKER,
+            Path("..") / "baseline" / CURRENT_BASELINE_DIR.name,
+            Path("baseline") / CURRENT_BASELINE_DIR.name,
+        ),
+        "1996.txt",
+    )
+
+
+def calculator_path() -> Path:
+    """The reviewer's own scorer, repository or delivery.
+
+    Ordering matters here in a way it does not for the baseline: a round can hold two
+    releases at once, and the current one must win.
+    """
+    return (
+        _first_holding(
+            (
+                CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
+                Path("..") / "equivalent_english_domain_calculator",
+                Path("equivalent_english_domain_calculator"),
+                Path("feedback-phase-5") / "equivalent_english_domain_calculator",
+                Path("feedback-phase-3") / "equivalent_english_domain_calculator",
+            ),
+            "equivalent_english_domains.py",
+        )
+        / "equivalent_english_domains.py"
+    )

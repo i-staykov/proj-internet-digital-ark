@@ -210,6 +210,12 @@ sources:
     uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
     uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
     uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
+    # These three were ingested by hand and reached 11.5% of all assignments while this
+    # recipe, which README.md calls "the authoritative list of what gets ingested", did
+    # not name them. Found on 2026-08-18 by auditing the delivery against D1.
+    uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
+    uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
+    uv run ark ingest domain_creation_bulk   data/raw/domain_creation/domains.csv
 
 # stage 3: grow the candidate pool from the year-unlabelled host lists
 candidates:

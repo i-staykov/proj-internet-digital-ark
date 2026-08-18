@@ -47,11 +47,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import duckdb  # noqa: E402
 
 from ark.baseline import (  # noqa: E402
-    CURRENT_BASELINE_DIR,
     CURRENT_BASELINE_MARKER,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
+    _first_holding,
+    baseline_dir,
+    calculator_path,
 )
 
 YEARS = (1996, 1997, 1998, 1999, 2000, 2001)
@@ -69,38 +71,13 @@ COLUMNS = (
 )
 
 
-def _resolve(candidates: tuple[Path, ...], must_contain: str) -> Path:
-    """The first candidate directory that actually holds `must_contain`.
-
-    Same resolver as `round_figures.py`, and for the same reason: this script is named
-    in the delivery README, where it runs from `source/` with the baseline and the
-    calculator one level up rather than where the repository keeps them. Addressing a
-    file by where it happens to sit rather than by what it is has produced two separate
-    broken deliveries here.
-    """
-    for base in candidates:
-        if (base / must_contain).is_file():
-            return base
-    return candidates[0]
-
-
-CALCULATOR = (
-    _resolve(
-        (
-            CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
-            Path("../equivalent_english_domain_calculator"),
-            Path("equivalent_english_domain_calculator"),
-        ),
-        "equivalent_english_domains.py",
-    )
-    / "equivalent_english_domains.py"
-)
+CALCULATOR = calculator_path()
 
 # The round's own annual files. `ark export` writes them to `output/netnew/` and
 # `package_delivery.sh` stages the same six as `additions/`, so the one name a reader
 # of the archive knows is not the one the repository uses. Both are tried rather than
 # either being right.
-ADDITIONS = _resolve(
+ADDITIONS = _first_holding(
     (
         Path("output/netnew"),
         Path("additions"),
@@ -236,7 +213,7 @@ def reconcile(rows: list[dict], totals: dict) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--baseline", type=Path, default=CURRENT_BASELINE_DIR)
+    ap.add_argument("--baseline", type=Path, default=baseline_dir())
     ap.add_argument("--additions", type=Path, default=ADDITIONS)
     ap.add_argument("--out", type=Path, default=Path("output/merge"))
     ap.add_argument("--stamp", default="", help="suffix for the audit filenames, e.g. 20260818")
