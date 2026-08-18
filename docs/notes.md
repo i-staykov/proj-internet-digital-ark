@@ -11344,3 +11344,48 @@ unrelated corpora eight hours apart.**
 The reopen condition is precise: **the same shape for a high-weight namespace.** A `.uk`, `.au` or `.ca`
 registry listing of the period is worth 16x per name against `.jp`. I looked: `.domains` as a filename
 yields 60 hits and nothing else of size, all source code, HTML and small config.
+
+### The pool yield collapsed to 8.9% and the harness corrected it without me
+
+`just cycle` reported `cdx_pool` at 12.4% of 1,768 answered, newest batch **8.9%**, against 48.4%
+lifetime. That is the shape of yesterday's `.org` collapse and the one check CLAUDE.md says would have
+caught 1,200 queries returning zero while everything else read clean.
+
+Diagnosed rather than assumed: the engine was spending **100% of its recent requests on `.ca`**, 1,567
+of 1,567, at 9.6% for 0.0806 equivalent-English per query. Then the reassuring half. The cycle's own
+rebuild had already demoted it: the head of the new queue is `.au` 1,799 of the first 2,000 and `.com`
+14,898 of the first 20,000, with **no `.ca` at all**. So the trailing-window model was tested in
+production and self-corrected, and the 8.9% describes the batch that ran on the old file.
+
+`.au` at the head is the documented trap, since 0.9904 floats it up on share alone, so I checked whether
+its rate is measured or inherited from the unwindowed prior. It is measured, over 10,758 answers:
+
+| TLD | pool answered | hit rate | weight | EE per query |
+|---|--:|--:|--:|--:|
+| `.uk` | 41,496 | 58.3% | 0.9813 | **0.5719** |
+| `.com` | 22,792 | 65.0% | 0.6321 | 0.4109 |
+| `.net` | 1,390 | 82.3% | 0.4530 | 0.3728 |
+| `.org` | 8,934 | 45.0% | 0.7101 | 0.3194 |
+| `.au` | 10,758 | 22.7% | 0.9904 | 0.2244 |
+| `.ca` | 2,456 | 13.9% | 0.8365 | 0.1161 |
+
+`.uk` is the best per query and is not at the head, which is genuine exhaustion rather than a ranking
+error: 41,496 of its names have already been answered, more than any other namespace. And at 0.22 for
+the new head against the edge queue's 0.264 average there is no case to reopen C-24: the two are
+comparable, and the reviewer's discovery priority decides a tie.
+
+### The faces database: a clean zero, and the dating discipline that produced it
+
+The Discmaster file-size route's second find is the `faces` project's `domains.tar.gz`, 9.6 MB with its
+own gzip mtime of 1996-07-06 and `gzip -t` passing, a `domains/<tld>/<label>/` tree of 1,012
+organisations.
+
+**The first reading I wrote was wrong and I caught it before pricing.** Assigning the container's
+1996-07-06 to every entry would have dated a directory created in 1991 to 1996, which is the inference
+the rules forbid and the accumulating-list trap the ISI registry row closed on this morning. The honest
+field is each entry's own first-appearance mtime, and those run **1991 to 1996**: only **211 domains
+first appear in window**, 801 predate it.
+
+Priced: 192 of 192 resolvable pairs **already held, zero net-new**. That is worth recording as a
+positive control on our own coverage rather than as a disappointment, because a 1996 list of
+organisational domains coming back 100% held is a statement about the store.
