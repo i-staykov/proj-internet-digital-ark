@@ -27,6 +27,12 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
+### Approve, refuse or downgrade internic_zone / artifact_listing
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **12,150 net-new pairs and 8,627.7 equivalent-English** under `master`, against 7,089 and 5,033.9 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+
+The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
+
 ### Round 6 has opened against `merged260817-2`, and 5% is now 603,854.78 EE
 
 **Status, not a question.** Ding accepted phase 5 on 2026-08-17 with no rejected records: every
@@ -98,9 +104,9 @@ Why it is worth an email rather than a queue entry: a query log is the **users' 
 
 Nothing is blocked by either: both are additive leads and collection continues regardless.
 
-### Triage the newly found sources: 55 found, none priced
+### Triage the newly found sources: 59 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **55 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **59 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
 
 Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 

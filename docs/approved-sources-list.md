@@ -505,6 +505,85 @@ None at present.
 
 ---
 
+### internic_zone / artifact_listing
+
+- ingest spec: `internic_zone`
+- source: https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz
+- journal: `data/raw/internic_zones/org.zone.gz`
+- agent's dating claim: a delegation in the 18 April 1997 .org zone is the registry stating the name existed that day, and the SOA serial 1997041800 is inside the file rather than in its name or its capture
+- closest closed family, 2 shared terms, `docs/sources.md:1328`: **InterNIC public zone files, via Wayback (2026-08-08)**, closed on measurement.
+
+**Check these before reading anything else.** Seeded-random sample, seed `20260811`, so it is reproducible and was not chosen by the agent:
+
+| record | domain | year claimed | open this |
+|---|---|--:|---|
+| `internic org zone serial 1997041800` | `ambainc.org` | 1997 |  |
+| `internic org zone serial 1997041800` | `cfserve.org` | 1997 |  |
+| `internic org zone serial 1997041800` | `meherbaba.org` | 1997 |  |
+| `internic org zone serial 1997041800` | `deltadentalnj.org` | 1997 |  |
+| `internic org zone serial 1997041800` | `limac.org` | 1997 |  |
+| `internic org zone serial 1997041800` | `itug.org` | 1997 |  |
+
+**Measured against the live store**, by program, not by the agent:
+
+| | |
+|---|--:|
+| records in the journal | 72,972 |
+| distinct (domain, year) | 61,252 |
+| over distinct domains | 61,252 |
+| already held by the store | 49,102 |
+| absent from the store | 19.8% |
+
+**The counterfactual, so the stake is visible before you decide:**
+
+| decision | net-new pairs | equivalent-English |
+|---|--:|--:|
+| `master` (self-dating, no split) | **12,150** | **8,627.7** |
+| `master` (taking the corroboration split) | 7,089 | 5,033.9 |
+| `candidate-only` | 0 | 0.0, and the names still grow the pool |
+
+Mean equivalent-English weight of the net-new part: 0.7101. By year: {1997: 12150}.
+
+**Reasons a reader should refuse**, listed by the agent against its own request:
+
+- the sample links do not show that domain with that date;
+- the year is inferred from something other than the record itself;
+- the hostname comes out of prose rather than a structured field, in which case `candidate-only` or a split-taking spec is right, not `master`;
+- the closed family named above is the same population under another name.
+
+**Two things the generator could not know, added by hand.**
+
+**The class covers six files and the counterfactual above prices one.** `org.zone.gz` is the
+journal that was sampled, so the table understates the stake. Across the whole 1997-04-20 crawl,
+measured the same way: **12,400 net-new pairs and 8,871.2 equivalent-English** as a self-dating
+class, or 7,326 and 5,264.6 with the split applied anyway. The extra 250 pairs are `.edu` 199,
+`.gov` 37, `.mil` 1 and the rest, at higher weights than `.org`. `root.zone.gz` and
+`arpa.zone.gz` contribute nothing by construction, the second because the canonicaliser refuses
+reverse-DNS zones.
+
+**Why the closed family it collides with is the reason to read it, not to refuse it.** That row
+closed on 2026-08-08 having checked archive.org item search, CD-ROM images, four academic FTP
+mirrors, DNS-OARC and the ISC survey directories, and concluded no in-window zone file survives.
+Every one of those checks was about a *host's* copy. A military NIC mirroring the civilian
+registry's distribution was on nobody's list. So this request does not re-propose a rejected
+population, it produces the artifact that closure said did not exist, with four independent
+integrity checks on it:
+
+    gzip -t          passes on all six
+    size             1,317,986 bytes, reproducing the figure recorded before this fetch
+    lines            154,141, likewise
+    SOA serial       1997041800 on line 2, beside hostmaster.INTERNIC.NET.
+    terminator       InterNIC's own `;End of file.`
+
+    97d068586523f8f7ad700ba088f7936d30cf2103e1c36a42e1d02320f1fa8408  arpa.zone.gz
+    ce0e56617c00d31dc9ffefb848ac1a6aeec3274e03a2e4338ccedc3df1bcf873  edu.zone.gz
+    c6d53fdb2ef331cefe2ee1cec059a43acc3312fb2b25672d9082ca88e733f73c  gov.zone.gz
+    ae7faaa46ea9eacc55472d8faa71c8364c914c0b84de2c77b1e2d6a07d39e1c6  mil.zone.gz
+    f15c95046eefe6437f84c971979ab5aaf5902b35164527c50e43de31f41f9cc8  org.zone.gz
+    91161c22bb76d6e51179c0651f64a8d31c89ad5f64308c33df7f070487ce5912  root.zone.gz
+
+Decision: pending
+
 ## Found, awaiting triage
 
 **This section grows indefinitely and that is its purpose** (Ivo, 2026-08-12): *"Grow the list of sources

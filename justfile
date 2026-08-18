@@ -202,6 +202,7 @@ baseline:
 sources:
     uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
+    uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
