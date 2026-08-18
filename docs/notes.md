@@ -11284,3 +11284,63 @@ indexed.
 is at 112 closed leads. Everything else the four rounds produced is method: five laws, a fourth junk
 mechanism, a density ceiling and now its subject-matter caveat, two defects in shared code, and one
 live defect in the shipped annual files.
+
+## 2026-08-18 (late afternoon): I hunted the queue myself, and the morning's fix earned its keep
+
+Ultracode went off, so the standing hunt continued by hand rather than by workflow. Two leads screened
+and one priced end to end, and the result is the cleanest demonstration this project has that a tooling
+fix is worth more than the source that prompted it.
+
+### The Excite query logs are live, offered, and cost one email
+
+The round-four critic's best lead, and its availability screen is the whole question. Probed:
+`faculty.ist.psu.edu/jjansen/` is HTTP 200 and links to a transaction-log page offering six logs, **three
+in window**, `Excite_1997_small`, `Excite_1997_large`, `Excite_2001`. Access is neither a fee nor an
+agreement, which is what killed Reuters RCV1 this morning: *"Please email me if you would like access to
+one or more of the transaction logs"*, after which he *"will place the file(s) on an ftp site for you"*.
+`data.html` is a 404, so the log page is the only route and it is the live one.
+
+Why it is worth an email at all, and why the closed search-engine row does not cover it: **a query log is
+the users' side of a search engine, not the crawler's.** It is dated by the server at the moment somebody
+typed the name, and its population is what people knew from television, packaging and word of mouth. A
+domain advertised on a cereal box and never linked to is invisible to every crawl and present in a query
+log. That is the one population a crawler-derived baseline cannot contain by construction. It joined the
+USAC request inside the existing outreach entry rather than opening a second one, so Ivo's screen stays
+at five.
+
+### Discmaster by file size found a national registry snapshot on the first try
+
+Asked the index the question nobody had asked, filename and size rather than link-artifact shape. Two
+operational facts first, because they cost me four failed requests: **`dedup=1` kills the connection**
+and every other parameter is fine, and `robots.txt` says Disallow while carrying its own written
+exception for targeted research automation.
+
+The find is `email.domains`, 2,085,500 bytes and 42,701 lines dated 1998-04-29, on the
+`ftp.cs.arizona.edu` mirror. **It is self-dating from inside itself and carries its own liveness flag**,
+which is rarer than either: *"Registered Domains in JP (Apr 30 1998): 42143"*, *"Connected Domains in JP
+(Apr 30 1998): 36225"*, *"(Domains in parentheses are not connected.)"*. Sectioned by second level, `CO`
+30,305 through `AD` 188, plus 54 prefecture and city sections.
+
+**The parser is validated against the artifact's own arithmetic to the unit**: 36,225 connected parsed
+against 36,225 declared, `+0`, with a quantified `+431` over-count confined to the not-connected half.
+That is the positive control this project asks for, supplied by the file itself.
+
+Priced on the connected subset: 36,187 pairs, **31,686 already held (87.5%)**, **3,062 net-new post-split
+at 185.3 equivalent-English**, mean weight 0.0605. **Reject on both bar conditions.**
+
+### The part that matters: without this morning's fix the source scores exactly zero
+
+Run without `--all-tlds`, this file prices at **0 pairs and 0.0 equivalent-English**, because `.jp` is not
+in `domains_in`'s 13-TLD prose whitelist. The line added this morning reports it instead of hiding it:
+
+    WHITELIST DROPPED : 36,187 hostname-shaped names under a weighted TLD, mean weight 0.0605
+      so the pair count above is a FLOOR and the mean weight is a CEILING.
+
+So a complete dated national registry listing would have been measured at zero and discarded silently,
+and the only reason it was measured at all is that the same defect was found this morning on a source
+that did clear the bar. **A silent drop does not announce itself, and the two places it bit today were
+unrelated corpora eight hours apart.**
+
+The reopen condition is precise: **the same shape for a high-weight namespace.** A `.uk`, `.au` or `.ca`
+registry listing of the period is worth 16x per name against `.jp`. I looked: `.domains` as a filename
+yields 60 hits and nothing else of size, all source code, HTML and small config.

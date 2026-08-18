@@ -868,6 +868,14 @@ Decision: pending
 - the caveat carried over from the closed row: 77.7% of in-window `.url` files sit inside an installer,
     where the date describes a packaging event and errs in **both** directions. A bulk list on a disc has
     only the disc date, so check for nesting before quoting a year.
+- **PROBED 2026-08-18, and the route works.** First payload found was a complete April 1998 `.jp`
+    registry listing, 42,701 lines, self-dating from its own header and carrying its own connected flag.
+    Priced: 87.5% already held, **3,062 net-new pairs at 185.3 equivalent-English**, rejected on both bar
+    conditions. Full verdict in `sources.md`. Two operational facts for the next pass: `dedup=1` kills
+    the connection and every other parameter is fine, and `.domains` as a filename yields nothing else
+    of size.
+- so what remains is the **high-weight** version of the same query, which is where the value would be: a
+    `.uk`, `.au` or `.ca` registry listing of the period is worth 16x per name against `.jp` at 0.0605.
 - potential: 62
 
 Decision: pending
