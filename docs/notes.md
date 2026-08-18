@@ -11714,3 +11714,26 @@ measure properly before an engine is moved.
 
 **Worth adding to the traps list rather than only here**: joining a journal against the store to count
 net-new returns zero for any journal already ingested, and zero looks identical to worthless.
+
+**Hunt, second pass, and both leads were already answered by the register.** Under the relaxed bar the
+question for any closed family is *which* ground closed it: a ranking ground reopens, an evidence ground
+does not.
+
+- **Era proxy logs and web traces**, the shape I reached for first because dated logs of millions of real
+  URLs is exactly what this project wants, are closed on an **evidence** ground and stay closed. The
+  register's amendment of today already tested the one proposal the sanitisation rule does not touch,
+  JANET's national web cache monthly host reports, and refuted it: 59.3% of the filtered pairs are Squid
+  error-page harmonics, because the byte field is a monthly sum, and 1,444 of them could not have existed
+  in 1998 by registry rule. A proxy log records what was **requested**, so it is the never-was-real trap
+  in its purest form.
+- **The `.au` registry family** is new and is now closed on volume. Screened because `.au` weighs 0.9904,
+  so a pair there is worth 1.57 of a `.com` one, and AUNIC administered the namespace for the whole
+  window. Its entire archived footprint is 1,605 captures whose only domain-bearing shape is the
+  `aunicstatus.pl` whois CGI, and those name the domain in the query string, so the population is
+  extractable from the index for free. **104 captures, 17 distinct names.** `auda.org.au` holds
+  governance prose and no data, and the AARNet and AUNIC list paths are empty. Four index requests.
+
+**The transferable line, and it is the correction to my own reasoning rather than to the register's.** I
+went after `.au` because the weight is nearly the highest in the model, which is a reason a pair *pays*
+and not a reason the artifact *exists*. Weight belongs in the ranking step, where the new posture put it,
+and never in the screen. Applying it earlier just picks a namespace and hopes.
