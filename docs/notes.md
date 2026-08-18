@@ -11893,3 +11893,17 @@ second-level names per ccTLD, not a rule about label counts, which is a real pie
 the one-line reject I was an hour from writing. And the traps list gains the general form: **a registry's
 "opened in year X" date describes when a level opened to the public and not when the level began to
 exist**, so a legacy delegation predates it and looks exactly like junk.
+
+**Pre-flight before the 16:00Z packaging, and the round verifies clean.** `round_figures.py --verify`
+re-scores our increment with his own `equivalent_english_domains.py`: **17,499 records, 14,185.3495
+equivalent-English, agreed to 0.0000, 0 rejected by his validator, 0 already in his merged files.**
+
+Two things worth noting from it. The mean weight is **0.8106 against last round's 0.6377**, up 27.1%,
+because this round is `ia_cdx_bulk` and `rdap_snapshot` only and both skew to high-weight namespaces; and
+2001 carries 14,042 of the 17,499 records, which is the same shape his phase-5 audit showed, where our
+2001 was 982,881 accepted against another contributor's 267. Registry creation dates reach the year the
+archives cover worst, and that remains the one year we own.
+
+**His validator does not reject the 433 bare second-level names**, which confirms the deferral was the
+right call rather than a lucky one: they are a correctness matter for us, not a rejection risk with him,
+so fixing them properly next round costs nothing and rushing it before a delivery could cost a lot.
