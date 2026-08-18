@@ -11655,3 +11655,31 @@ lesson is sharper than "submit often": **anything we hold that is not yet in his
 being credited to somebody else.** The live instance is the `internic_zone` journal, 12,150 pairs sitting
 on disk behind a `pending` decision, taken from six files that have been public on archive.org since
 1997 and that anybody else can find with one CDX query.
+
+**And the lifetime-average trap has reappeared one level up, in the choice of POPULATION.** The lesson
+of 2026-08-12 was that a per-TLD hit rate measured over a collector's whole life flatters a namespace
+that has already been worked out, so rates are now measured over a trailing window. The same error is
+sitting in the population comparison, and today's numbers show it:
+
+| collector | population | lifetime in-window | trailing |
+|---|---|--:|--:|
+| `cdx_gap` | bracketed gaps | 98.4% of 35,964 | 98.2% |
+| `cdx_q1` | gaps, VPS | 71.9% of 55,844 | 73.8% |
+| `cdx_edgepilot` | edge years | (new) | **80.9% of 141** |
+| `cdx_pool` | candidate pool | 47.6% of 107,546 | **9.5% of 1,767** |
+
+**The pool reads 47.6% over its life and 9.5% over its most recent answers, a 5x overstatement**, which
+is the identical shape to the `.org` finding, and it means the comparison that closed C-24 no longer
+holds. C-24 refused to reallocate an engine to the edge years on the ground that the pool paid better,
+and it was decided while the pool was still paying. On the trailing figures the edge population beats it
+by roughly 6x even at the conservative 59.7% recorded in `EDGE_RATE` for 2001, and by 8.5x at the 80.9%
+the pilot is actually returning.
+
+**Not acted on today, deliberately, and the arithmetic is why rather than caution.** The local
+supervisor holds a 16:00Z deadline, so switching populations now buys about 800 queries; killing a
+healthy collector and restarting it on a different target list to gain a few hundred equivalent-English
+in the last eighty minutes of a round is the kind of motion this file warns about. The pilot's 141
+answers are also a thin sample to reallocate a machine on. **So this is the first action of the next
+round rather than the last of this one**, and it needs C-24 revisited against trailing rates rather than
+lifetime ones, which is the correction the 2026-08-12 entry already made for TLDs and never propagated
+to populations.
