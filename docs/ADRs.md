@@ -569,7 +569,43 @@ a two-slot bracketed gap scores `1.33 x weight` and still wins. A domain missing
 `1.544 x weight` and outranks everything.
 
 Read that table with the ceiling caveat above in force: the 94.4% is conditional on the archive holding
-the adjacent capture, so the expected values inherit that bias and a pilot is what settles it. But the trade is not purely arithmetic: an edge hit adds a *pair* and never a *domain*, so it
+the adjacent capture, so the expected values inherit that bias and a pilot is what settles it.
+
+### The pilot ran, and the ceiling caveat was worth stating
+
+**Partial result, n=47 of 200, labelled as partial.** A seeded sample of 200 drawn from the best 50,000
+rows, queried at one worker and a two-second delay so as not to become a third heavy client:
+
+| | journal conditional | PILOT, on the population itself |
+|---|--:|--:|
+| 2001 edge filled | 94.4% | **53%** (25 of 47) |
+| 1996 edge filled | 60.0% | **0%** (0 of 47) |
+| in-window years returned on a hit | 3.52 | 3.48 |
+
+So the conditional overstated the 2001 edge by 1.8x and the 1996 edge completely, for the reason the
+caveat gave: those rates are conditional on the archive holding the adjacent *capture*, while this
+population holds its adjacent year from any source, very often a registry creation date for a site that
+was never archived at all. **The direction was predicted and the size was not.**
+
+Two things follow. The expected value of the head falls from 1.5237 to roughly **0.86 equivalent-English
+per query**, which is still about 4.7x the candidate pool and now **below** the bracketed gap queue's
+1.249, so the allocation answer changes: the VPS should stay on bracketed gaps, and the edge queue is a
+candidate for the pool engine's requests rather than the gap engine's. And the 1996 edge should be
+dropped from the ranking until something measures it above zero, which halves the target list.
+
+A selection effect worth naming, because it makes the 1996 figure worse than the population's: the head
+of the queue is enriched for domains missing **both** edges, since those score `1.544 x weight`, and all
+47 pilot domains were of that kind. So 0 of 47 is measured on the names the ranking likes best, which is
+where a 1996 capture should have been most likely.
+
+The remaining 153 are running. This section gets the final figure when they land, and the numbers above
+are not to be quoted as final.
+
+**One operational note that is itself a measurement.** The pilot slowed from 3.5 to 17.9 seconds per
+domain within four requests, because `ark cdx` honours `Retry-After` and backs off, and the local pool
+engine was querying the same host throughout. That is CLAUDE.md's "never point a third heavy client at
+`web.archive.org`" arriving as a fact rather than as advice: the third client does not fail, it is
+throttled, and it slows the other two. But the trade is not purely arithmetic: an edge hit adds a *pair* and never a *domain*, so it
 is completeness, and the reviewer asked for discovery to be prioritised. That is the same objection that
 refuted squidGuard this morning, and it applies here with 400x the volume behind it.
 
