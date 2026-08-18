@@ -43,11 +43,20 @@ and accelerating**, against our 13,200. So
 - 5% of the corpus is 603,855 EE today and **recedes by 54,101 a day while the engines close it by
   13,200**, so that gap widens by 40,901 a day and never closes by querying.
 
-**Two questions to put to him, both short.** (1) May we submit smaller increments more frequently,
+**Three questions to put to him, all short.** (1) May we submit smaller increments more frequently,
 given that percentages add and the benchmark moves? (2) Is the 5% threshold a condition of eligibility
 at all, or only the trigger for a formal batch, given that our phase-3 round was credited well below
-it? If the answer to (1) is yes, we should send what we hold rather than accumulate, and the plan for
-this round changes today.
+it? (3) **What is our official cumulative score as he has it recorded?** If the answer to (1) is yes, we
+should send what we hold rather than accumulate, and the plan for this round changes today.
+
+**Question 3 is not laziness: we cannot compute it, and the reason is worth knowing.** The new rule sums
+the percentages *he awarded*, and he has stated an explicit one for only two of the four accepted rounds:
+17.38% for round 1 and 14.901054% for round 5. Rounds 3 and 4 arrived as `.docx` feedback that gives the
+increment without a percentage (round 3 at 91,931.0345 EE, his figure). Worse, round 1's 17.38% is a
+**record-count** growth from July, before the equivalent-English metric existed, so adding it to an
+equivalent-English percentage sums two different measurements. Only he knows which number is in his
+ledger, and if the answer is that round 1 counts at 17.38% then a single early round is worth more than
+everything since.
 
 **The risk of the opposite reading, so you can weigh it.** If he prefers few substantial submissions,
 frequent small ones may read as noise and cost goodwill, which is not a thing the arithmetic can price.
