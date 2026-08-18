@@ -132,6 +132,21 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "no_arpa_in_the_shipped_files",
+        "no exported annual line sits under `.arpa`, because no website ever did in "
+        "1996-2001: the ARPANET host transition finished in 1990 and every zone delegated "
+        "under `.arpa` since is infrastructure, while the TLD scores 1.0000, the highest "
+        "weight in the model",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false
+        )
+        WHERE domain LIKE '%.arpa'
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",

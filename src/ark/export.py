@@ -34,6 +34,31 @@ _NOT_IN_BASELINE = f"""
     )
 """
 
+# **A reverse-DNS zone is not a website and must not ship, whoever listed it first.**
+#
+# `ark.canonical` refuses them at the funnel since 2026-08-18, so no new one can arrive, but 63
+# assigned pairs across 18 zones had already got in from Usenet `From:` headers and from the
+# reviewer's own baseline, and all six shipped annual files carried them. The reason it matters
+# more than 63 rows should is the weight: `.arpa` scores **1.0000** in the CC-MAIN model, the
+# highest value in the table, above `.mil` at 0.9981. So it is junk concentrated in the top
+# weight, and the reviewer's validator accepts `206.in-addr.arpa` as well formed, so his side
+# would score it too.
+#
+# Filtered here rather than deleted from the store, because deleting rows is a destructive
+# migration and the store's history is harmless once nothing can add to it or ship it.
+# `dropped_domains.txt` already ships the baseline lines this pipeline excludes, and these join
+# them.
+#
+# **And the rule is the whole TLD rather than the reverse-DNS pattern, which is the stronger and
+# simpler statement.** No website ever lived under `.arpa` in 1996-2001: the ARPANET host
+# transition finished in 1990, and every zone delegated under `.arpa` since is infrastructure
+# (`in-addr`, `ip6`, `e164`, `uri`, `urn`, `iris`). Narrowing to `in-addr` and `ip6` left exactly
+# one survivor in the annual files, `ignore.arpa` in 2000, which is a placeholder scoring 1.0000,
+# so the narrow rule was catching the shape and missing the class.
+_NOT_REVERSE_DNS = """
+    domain NOT LIKE '%.arpa'
+"""
+
 
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,13 +83,14 @@ def export_all(
         netnew_query = f"""
             SELECT DISTINCT dy.domain FROM domain_year dy
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
+              AND {_NOT_REVERSE_DNS.replace("domain", "dy.domain")}
             ORDER BY dy.domain
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
         stats[f"netnew_{year}"] = count
         masters_query = f"""
             SELECT DISTINCT domain FROM domain_year
-            WHERE assigned_year = {year} ORDER BY domain
+            WHERE assigned_year = {year} AND {_NOT_REVERSE_DNS} ORDER BY domain
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
 
@@ -75,17 +101,23 @@ def export_all(
         JOIN evidence e ON dy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
         WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
+          AND {_NOT_REVERSE_DNS.replace("domain", "dy.domain")}
         ORDER BY dy.domain, dy.assigned_year
     """
     path = netnew_dir / "evidence_manifest.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(f"COPY ({manifest_query}) TO '{path}' (HEADER true)")
 
-    candidates_query = """
+    candidates_query = (
+        """
         SELECT d.domain FROM domain d
         WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+          AND """
+        + _NOT_REVERSE_DNS.replace("domain", "d.domain")
+        + """
         ORDER BY d.domain
     """
+    )
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
 
     # per-source and per-year contribution tables, which ship in the audit folder

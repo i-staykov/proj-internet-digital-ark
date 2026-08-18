@@ -35,10 +35,12 @@ def _results_by_name(
 
 def test_clean_store_passes_all_checks() -> None:
     results = collect_checks(_clean_store(), Path("no-such-export"))
-    # Ten invariants: nine after the English partition was retired, plus the IDN
-    # check added 2026-08-17. Pinned, not counted loosely: a check silently dropped
+    # Eleven invariants: nine after the English partition was retired, the IDN
+    # check added 2026-08-17, and the `.arpa` check added 2026-08-18 when a hunt lens
+    # found reverse-DNS zones shipping in all six annual files at weight 1.0000.
+    # Pinned, not counted loosely: a check silently dropped
     # from the gate is the failure this assertion exists to catch.
-    assert len(results) == 10, [r["name"] for r in results]
+    assert len(results) == 11, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
 
