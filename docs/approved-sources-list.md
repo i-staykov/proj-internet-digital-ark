@@ -1235,6 +1235,30 @@ Decision: pending
 
 Decision: pending
 
+### uk_trade_press_extension / dated_directory
+- Screened 2026-08-18 and **deprioritised on the register's own refuted theory**, recorded so nobody
+    proposes it a third time.
+- the idea: the trade-press OCR route is adopted and works (5,389 pairs, 3,281.0 equivalent-English as
+    `artifact_listing`), but it was measured on a hobbyist corpus and an American one. British titles
+    (PCW, Internet Magazine, .net, Computer Shopper UK) would carry `.co.uk` at 0.9813 instead of `.com`
+    at 0.6321, a 1.55x weight advantage per name on a route already proven.
+- **why it is not worth the window.** This is a composition theory, and the register already tested one:
+    `collection:computermagazines` being European and hobbyist was read as the cause of its shortfall,
+    predicting the American weeklies would beat it several-fold, and they did not. Measured, both:
+    hobbyist 0.641 equivalent-English per reachable item, American 0.449. Per-item yield is driven by how
+    many URLs a periodical prints, which is low everywhere, not by which country printed it.
+- and the corpus is **already partly British and European**: the mined `computermagazines` collection is
+    `EnigmaAmiga`, `Elettronica2000`, `Electronique_et_Loisirs`, so the nationality premise is half
+    false before any fetch.
+- the arithmetic if someone insists: at the measured ~0.5 EE per reachable item, 3,000 in-window British
+    items would be roughly 1,500 EE, and the weight advantage might lift it to ~2,300. That is real but
+    it is a widening of a working route rather than a source, and it competes against leads with 10x the
+    figure. PROJECTION, labelled, on the register's own per-item rate.
+- reopen only with evidence that a specific British title prints URLs at several times the measured
+    rate, which is a claim about density and not about nationality.
+- potential: 22
+
+Decision: pending
 ### cog2002_gid_school_systems_weburl / link_target
 - potential: 20
 
@@ -1296,5 +1320,6 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
 
 

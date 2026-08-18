@@ -11550,3 +11550,23 @@ nothing reads passes every test that asks whether the rebuild happened.
 **And the standing fix for after the gap**: start the pool collector on `queue_pool_local.txt`, the
 path the cycle maintains, so the two can never diverge again. Until then the new check will report the
 mismatch on every wake, correctly.
+
+### The register earned its keep by refusing my own idea before I spent the window
+
+Screened a British trade-press extension: the OCR route is adopted and works, but it was measured on a
+hobbyist corpus and an American one, so British titles carrying `.co.uk` at 0.9813 instead of `.com` at
+0.6321 looked like a 1.55x weight gain on proven ground.
+
+**It is a composition theory, and the register had already tested one and lost.**
+`collection:computermagazines` being European and hobbyist was read as the *cause* of its shortfall, with
+the explicit prediction that the American weeklies would beat it several-fold. They did not: 0.641
+equivalent-English per reachable item against 0.449. Per-item yield is driven by how many URLs a
+periodical prints, which is low everywhere, and not by which country printed it. The mined corpus is also
+already substantially European (`EnigmaAmiga`, `Elettronica2000`, `Electronique_et_Loisirs`), so the
+nationality premise was half false before any fetch.
+
+Recorded at potential 22 with the arithmetic attached, roughly 1,500 to 2,300 equivalent-English as a
+labelled projection on the register's own per-item rate, and a reopen condition that is a claim about
+**density** rather than about nationality. That is the third time today the register has answered a
+question faster than a probe would have, and the first time it has done it by remembering a refuted
+theory of mine rather than a closed source.
