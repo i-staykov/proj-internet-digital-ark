@@ -11816,3 +11816,45 @@ running one, 576 against 399, and drops `.net` from 160 to 4, so copying it woul
 last batches on the namespace currently returning 8.8% on the strength of a ranking I had just failed to
 explain. The generic advice is right and this instance is not, which is exactly the distinction a program
 cannot make.
+
+**A registry-rule audit of our own store, prompted by junk sitting in the queue head, and it cuts both
+ways.** The decomposition above put `www.uk` and `www.tf` in the first 3,000 queue entries.
+`to_registrable('www.uk')` returns `www.uk`, which is syntactically correct and historically impossible,
+because **Nominet sold no second-level `.uk` until 2014** and the register established exactly that this
+morning while refusing the JANET proxy report. So the same rule is a test of our own data, and `.uk` is the
+highest-weight namespace we hold at 0.9813.
+
+**Bare second-level names carrying a dated year, by namespace**, with the year direct registration actually
+opened:
+
+| tld | opened | pairs | names | weight | EE |
+|---|--:|--:|--:|--:|--:|
+| `co` | 2010 | 8,104 | 5,457 | 0.5558 | 4,504.2 |
+| `uk` | 2014 | 3,450 | 1,857 | 0.9813 | 3,385.5 |
+| `au` | 2021 | 2,223 | 1,207 | 0.9904 | 2,201.7 |
+| `br` | never | 5,065 | 2,146 | 0.0934 | 473.1 |
+| `nz` | 2014 | 369 | 211 | 0.9895 | 365.1 |
+| `il` | never | 443 | 246 | 0.1958 | 86.7 |
+| `tr` | 2023 | 269 | 163 | 0.1817 | 48.9 |
+
+**11,065.2 EE across the namespaces whose rule is unambiguous**, which is 78% of this round, and the
+first reading of that number was alarming and wrong. `.jp` (13,321 pairs) and `.ee` (13,124) are
+deliberately excluded: general-use `.jp` opened in February 2001, so 2001 pairs there may be legitimate,
+and direct `.ee` registration may predate 2002 and is not established. Asserting those would have been
+the mistake this project keeps making.
+
+**Then the provenance join, which is the whole finding: 13,991 of the 14,146 pairs, 98.9%, carry
+`prior_task` evidence.** That is the reviewer's own merged baseline, not our collection. **Our own
+exposure is 433 pairs worth 174.64 equivalent-English, 1.23% of the round**, from `isc_survey`,
+`usenet_announce`, `usenet_bare`, `usenet_address`, `ia_cdx_bulk`, `rtfm_faq`, `trade_press` and one
+`ukwa_link_source`. The examples are unmistakable truncations: `a.au` dated in all six years, `alan.br`,
+`andf.br`, `aegsp.br`.
+
+**Two consequences, and neither is acted on today.** Ours is a real defect and it is the same shape as
+the `.arpa` one fixed this morning, a class of names that could not have existed, carried at high weight,
+so the fix is the same: reject at the funnel and filter at export, with a twelfth invariant reading the
+exported files. **Not done hours before a delivery**, because changing what ships on a 174 EE correction
+while the collectors are still banking is how a delivery breaks; it is the next round's first code change,
+alongside the C-24 revisit. And the baseline's 13,991 is worth telling Ding: it is his corpus, it is the
+reconciliation check D3 asks for in spirit, and it is the kind of thing worth reporting whether or not it
+helps us. **This one does not help us**, since correcting our own 433 lowers our increment.
