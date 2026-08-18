@@ -395,7 +395,11 @@ sixty-odd closed families is what stops the same ground being broken twice.
   about label counts. On 2026-08-18 the rule "Nominet sold no second-level `.uk` until 2014" was used to
   call 14,146 stored pairs impossible; the list of names contains `bl.uk` (the British Library), `jet.uk`,
   `nic.uk` and `nls.uk`, all real. A blunt filter would have deleted the British Library, and the claim was
-  one edit from an email to the reviewer. Any such filter needs a per-ccTLD allowlist of legacy names.
+  one edit from an email to the reviewer. Two further rules were then tried and both over-caught: `.br`
+  marked "never" holds `ansp.br` and `bireme.br`, real academic delegations, and a narrow
+  artefact rule flagging single-letter labels flags `0.com`, `1.com` and `x.com`, all real. **The early
+  DNS was heterogeneous, so short, odd and level-jumping names were often genuine.** Any name-shape
+  filter needs a positive control of known-real names and must pass it before one row is dropped.
 - **Counting "net-new against the store" from a journal that has already been ingested returns zero
   by construction**, and zero looks identical to worthless. On 2026-08-18 this reported the bracketed-gap
   population, which runs at 98.4% in-window and was the round's most productive engine, at **0.0 net-new
