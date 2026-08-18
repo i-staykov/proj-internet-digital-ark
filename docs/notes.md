@@ -11434,3 +11434,49 @@ The D3 merge was re-run against today's export, after the `.arpa` filter changed
 and 12,077,095.5404 EE, and the round stands at **16,907 net-new records, 13,619.3581 equivalent-English,
 growth 0.112770%**, mean weight 0.806. Zero overlap with the baseline. So the 16:00 packaging is
 de-risked: the arithmetic that `verify_delivery.sh` checks as D3 already holds.
+
+### The largest measured increment available was waiting on me, not on Ivo
+
+Chased the top of the triage queue and found the blocker was in the wrong place. `nic_mil_internic_zone_mirror`
+is the highest-ranked entry at potential 95, measured yesterday at 13,324 net-new pairs and 9,768.6
+equivalent-English, `Decision: pending`. I assumed the block was Ivo's classification. It was not: a
+priced approval request needs a wired collector spec and a collected journal, and this had neither,
+because it was priced through a probe and ADR-004 keeps probes deliberately unwired. **So the largest
+available increment was waiting on me.**
+
+Worse, **the bytes were gone.** Nothing under `data/raw/` held the zone files, so the 13,324 figure was
+unreproducible: it lived in the register and not on disk. That is the opposite of what
+`data/raw/` exists for.
+
+**Fixed the durable part first, because the internet goes away at 16:00.** All six files are now on disk
+and sha256-pinned, fetched at their own capture timestamps rather than at `org`'s, which is why four of
+them failed on the first attempt. The CDX index answered that in one request: all six were taken in a
+single crawl on 1997-04-20 and all six returned 200.
+
+| file | bytes | lines | SOA serial | delegations |
+|---|--:|--:|---|--:|
+| `org.zone.gz` | 1,317,986 | 154,141 | `1997041800` | **61,252** |
+| `edu.zone.gz` | 111,076 | 12,132 | `1997041800` | 3,475 |
+| `gov.zone.gz` | 15,972 | 1,805 | `1997041800` | 477 |
+| `mil.zone.gz` | 2,949 | 301 | `1997041700` | 57 |
+| `root.zone.gz` | 9,915 | 1,316 | `1997041800` | 0, all owners are TLDs |
+| `arpa.zone.gz` | 413 | 35 | `1997041800` | 0, reverse-DNS only |
+
+`org` reproduced the dossier's four independent checks to the digit: 1,317,986 bytes, 154,141 lines,
+serial `1997041800`, `;End of file.`. That is a positive control on the whole fetch, supplied by
+yesterday's own verification.
+
+**Re-derived rather than inherited**, which the dossier had asked for in writing: 65,261 delegated
+domains, 52,861 already held, **12,400 net-new pairs and 8,871.2 equivalent-English** as the
+self-dating class it is, or 7,326 and 5,264.6 with the split applied anyway. Both readings clear the
+volume bar and both mean weights clear the 0.6 line. It differs from 13,324 by 924 pairs and the
+direction is the explanation: the store has banked more `.org` since yesterday. **A figure measured
+against a live store is a figure with a timestamp.**
+
+Three details worth keeping. The parser's entire discipline is that **the LHS of an NS record is the
+delegation and the RHS is a nameserver**, which is exactly what the `inaddr.zone.gz` sibling got wrong
+when it was claimed at 2,018 pairs and measured at 336. `mil` carries serial `1997041700`, one day
+earlier than the other five, because the distribution was rebuilt daily. And **`arpa` yields zero
+because of this afternoon's own fix**: the canonicaliser now refuses reverse-DNS zones, so the one
+file in this set that would have poured `in-addr.arpa` names in at weight 1.0000 contributes nothing.
+Two fixes made hours apart, and the second protected the source found by the first.

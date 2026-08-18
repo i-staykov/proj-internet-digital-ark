@@ -877,10 +877,54 @@ records ISC's 9607 copy decoding into plausible-looking garbage:
 The serial is the important one. It is *in* the file, so the date does not depend on the
 container, which is what `docs/discovery.md` asks of a re-published artifact.
 
-**Measured yield**, from the refuting agent and not yet re-derived here: 13,324 net-new
-(domain, year) pairs and 9,768.6 equivalent-English at mean weight 0.7332, over six intact
-files. 12,409 of those pairs are 1997 and 915 are 1998. **Treat the pair count as unconfirmed
-until a collector banks it**; the integrity of the artifact is confirmed, its yield is not.
+**Measured yield, RE-DERIVED here on 2026-08-18 rather than inherited**, which the earlier
+version of this dossier asked for. All six files are now on disk under `data/raw/internic_zones/`
+and sha256-pinned, so the figure is reproducible instead of remembered:
+
+| file | capture | bytes | lines | SOA serial | delegations |
+|---|---|--:|--:|---|--:|
+| `org.zone.gz` | 19970420113748 | 1,317,986 | 154,141 | `1997041800` | **61,252** |
+| `edu.zone.gz` | 19970420112952 | 111,076 | 12,132 | `1997041800` | 3,475 |
+| `gov.zone.gz` | 19970420113002 | 15,972 | 1,805 | `1997041800` | 477 |
+| `mil.zone.gz` | 19970420113104 | 2,949 | 301 | `1997041700` | 57 |
+| `root.zone.gz` | 19970420113816 | 9,915 | 1,316 | `1997041800` | 0, all owners are TLDs |
+| `arpa.zone.gz` | 19970420111956 | 413 | 35 | `1997041800` | 0, reverse-DNS only |
+
+The set is pinnable, so a reviewer can check that these are the bytes that were measured:
+
+    97d068586523f8f7ad700ba088f7936d30cf2103e1c36a42e1d02320f1fa8408  arpa.zone.gz
+    ce0e56617c00d31dc9ffefb848ac1a6aeec3274e03a2e4338ccedc3df1bcf873  edu.zone.gz
+    c6d53fdb2ef331cefe2ee1cec059a43acc3312fb2b25672d9082ca88e733f73c  gov.zone.gz
+    ae7faaa46ea9eacc55472d8faa71c8364c914c0b84de2c77b1e2d6a07d39e1c6  mil.zone.gz
+    f15c95046eefe6437f84c971979ab5aaf5902b35164527c50e43de31f41f9cc8  org.zone.gz
+    91161c22bb76d6e51179c0651f64a8d31c89ad5f64308c33df7f070487ce5912  root.zone.gz
+
+Every file passes `gzip -t` and ends with InterNIC's own `;End of file.`. `mil` carries serial
+`1997041700`, one day earlier than the other five, which is a real detail rather than a defect:
+the set is one crawl of a distribution that was rebuilt daily.
+
+**The parser's whole discipline is that the LHS is the delegation and the RHS is a nameserver**,
+which is what the `inaddr.zone.gz` sibling got wrong when it was first claimed at 2,018 pairs and
+measured at 336. Only the owner name of an NS record counts, and only one label under the apex.
+
+Priced against the live store: 65,261 delegated domains, **52,861 already held**.
+
+| reading | pairs | equivalent-English | mean weight |
+|---|--:|--:|--:|
+| **self-dating, which is what this class IS** | **12,400** | **8,871.2** | 0.7154 |
+| with the corroboration split applied anyway | 7,326 | 5,264.6 | 0.7186 |
+
+`artifact_listing` is self-dating and takes no split, so 12,400 and 8,871.2 are the figures that
+would be banked; the split row is what a reviewer insisting on corroboration would get, and it
+clears the bar on its own. By TLD after the split: `.org` 7,089, `.edu` 199, `.gov` 37, `.mil` 1.
+
+**It differs from the inherited 13,324 by 924 pairs and the direction is the explanation**: the
+store has banked more `.org` since yesterday, so fewer of the same names are net-new. A figure
+measured against a live store is a figure with a timestamp.
+
+The 58.3% edit-distance-1 bound is not transcription junk here for the same reason it was not on
+squidGuard: a registry zone contains genuinely sibling registrations one edit apart, and there is
+no OCR anywhere in the path.
 
 **Two years that matter disproportionately.** The reviewer's own per-year merge audit shows our
 1997 and 1998 being outproduced, and 1997 is where our coverage is thinnest relative to what
