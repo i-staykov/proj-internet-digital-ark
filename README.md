@@ -485,7 +485,15 @@ increment and line 5 is line 4 divided by line 2.
 uv run python scripts/round_figures.py            # the five fields, plus per-year and per-source
 uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on disagreement
 uv run python scripts/cdx_execution_notes.py      # the CDX campaign he asks for a section on
+uv run python scripts/submission_cadence.py       # WHEN to submit: the denominator's growth rate
 ```
+
+`submission_cadence.py` answers a question the other two cannot: his scoring rules of 2026-08-18 make
+the cumulative score the **sum** of the percentages, each measured against the benchmark on the day the
+submission arrives, so timing is a lever independent of collection. It subtracts his own published
+release totals to measure how fast other contributors inflate that denominator (currently **1,082,013
+equivalent-English a day against our 13,200**) and prints what holding work back costs. Its first table
+is measured; everything after it is a model on one assumed rate and says so in its own output.
 
 `cdx_execution_notes.py` reads the journal directory rather than a list of prefixes, so a collector
 started under a name nobody wrote down is still measured. It reports queries, answered, success rate,

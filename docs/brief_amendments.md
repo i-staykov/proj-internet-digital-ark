@@ -258,3 +258,76 @@ a reconciliation is only useful if the two sides have the same column names.
 always been stated against his pre-increment baseline, which is his own convention and stays. The
 post-merge total is a second number, what the corpus would hold once the submission is folded in, and
 it is what makes the increment checkable by subtraction.
+
+---
+
+## 6. The scoring rules, stated for the first time on 2026-08-18
+
+The feedback after phase 5 arrived twice: the acceptance in section 5, then a fuller message with a
+section headed **Competition scoring rules**. Nothing in `SPEC.md` or in `ding/` says how rounds
+combine into a score, so this is new information rather than a restatement, and it makes *when* we
+submit a lever in its own right. His words:
+
+> Your cumulative competition score is the direct sum of the official percentage increases awarded by
+> the organizers for all your accepted submissions. For example, official verified increases of 5%,
+> 15%, and 25% produce a cumulative score of:
+>
+> 5% + 15% + 25% = 45%
+>
+> When multiple participants submit results, submissions are processed strictly in the order in which
+> they are received. After each accepted submission is merged and deduplicated, the benchmark database
+> is updated immediately. The next submission is evaluated against that updated benchmark database.
+> Your submission timestamp therefore determines the benchmark used to calculate your official
+> percentage increase.
+
+And on the threshold, which is the clause most easily misread as a gate:
+
+> Reaching the 5% submission threshold triggers a formal submission batch but does not end your
+> participation. Your final competition position will be announced after the competition closes, all
+> eligible submissions have been verified in chronological order, and all cumulative scores have been
+> finalized.
+
+The feedback archive for this round is at `https://www.transfernow.net/dl/20260818nX8z1Swp`.
+
+### Three consequences, and the arithmetic is in `scripts/submission_cadence.py`
+
+**1. Percentages add, so a round is credited at the denominator of the day it arrives.** Two forces
+inflate that denominator: our own accepted work, which dilutes only our later submissions, and other
+contributors' work, which dilutes ours and is outside our control. Measured over the three intervals
+between releases whose totals he has published, the second dominates by two orders of magnitude:
+
+| to release | days | growth EE | ours | others | others/day |
+|---|--:|--:|--:|--:|--:|
+| `merged260810` | 26 | 1,673,072 | 1,451,776 | 221,296 | 8,511 |
+| `merged260815` | 5 | 2,120,453 | 0 | 2,120,453 | 424,091 |
+| `merged260817` | 2 | 2,164,026 | 0 | 2,164,026 | **1,082,013** |
+
+**Other contributors are adding 1,082,013 equivalent-English a day and accelerating, 127x the rate of
+the first interval.** Our own recent rate is 13,200 a day, so the denominator grows about 82 times
+faster than we collect. The `ours` column is his credited figure and is stated rather than derived from
+dates, because a round is scored *against* a release and merged *into* the next one: keying on the
+round's own date puts phase 5 inside `merged260817`, which is the benchmark it was measured against,
+and understates everybody else by 3.6x.
+
+**2. Holding work back destroys credit, so submit early and often.** On the newest measured rate,
+13,898 EE submitted today reads 0.11508% and the same records a week later read 0.07072%, a **38.5%
+loss on work already done**. Splitting a fixed body of collection across seven daily submissions beats
+holding it for one round by about 22%, because our own dilution is second order: an increment of 13,898
+against 12,077,096 moves the denominator by 0.12%. There is no batching bonus to protect.
+
+**3. The 5% threshold is a receding target, and querying alone cannot reach it.** Five per cent of the
+corpus is 603,855 EE today and grows by 54,101 EE a day at the measured rate, while the engines add
+13,200. **The gap widens by 40,901 EE a day and never closes.** Reaching 5% in a fortnight needs 96,240
+EE a day, 7.3x what the two CDX populations and the RDAP sweep produce together. Phase 5 did hit
+195,779 EE a day, so the bar is not impossible, but it was met by landing bulk dated corpora and not by
+per-domain querying. **So the route to 5% runs through source admission rather than through collection
+rate**, which makes the approval gate in `approved-sources-list.md` the binding constraint on the
+score and not a formality beside it.
+
+### What this does not change
+
+The evidence rules in section 3 and the corroboration split are untouched, and so is the rule that a
+master-eligible class may not date a year until a human has classified it. A faster clock is a reason
+to widen what we look at, never a reason to lower what counts as proof: a rejected record costs the
+round twice, once in the pairs withdrawn and once in the reviewer's confidence, and he has now accepted
+two consecutive rounds with nothing rejected.

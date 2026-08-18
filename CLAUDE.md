@@ -62,6 +62,43 @@ its right-most TLD. `foo.uk` 0.9813, `foo.com` 0.6321, `foo.net` 0.4530, `foo.de
 non-English source is a small source. Growth is quoted against the reviewer's **pre**-increment total.
 Which release is current lives in `src/ark/baseline.py` and nowhere else.
 
+## The clock, and why it now outranks caution
+
+**The score is the sum of the percentages, each measured at the denominator of the day it arrives**
+(his scoring rules, 2026-08-18, quoted in `docs/brief_amendments.md` section 6). That single sentence
+makes timing a lever independent of collection, and the measurement beside it is the one number that
+should shape a round: **other contributors are adding 1,082,013 equivalent-English a day and
+accelerating, against our 13,200.** The denominator grows about 82 times faster than we collect.
+
+Three things follow, and `scripts/submission_cadence.py` recomputes all of them from his published
+release totals rather than from anything of ours.
+
+- **Submit early and often; there is no batching bonus.** Work held for a week loses 38.5% of its
+  credit. Our own increment moves the denominator by 0.12%, so splitting a round costs nothing and
+  reaching a smaller denominator sooner gains about 22% over seven days.
+- **Querying cannot reach 5%.** The threshold is 603,855 EE today and recedes by 54,101 a day while the
+  engines close it at 13,200, so **the gap widens by 40,901 a day and never closes.** Phase 5 managed
+  195,779 a day, but by landing bulk dated corpora, not by per-domain querying.
+- **Therefore the approval gate is the binding constraint on the score**, not a formality beside it.
+  A bulk source waiting on a `Decision:` line is worth more than a week of engine time, so pricing a
+  source and writing the request is higher-value work than watching a collector.
+
+**Ivo's instruction of 2026-08-18 changes the screening posture, and only the screening posture:**
+*"you need to be slightly less sceptic about new sources and take everything we can find which
+fulfills our evidentiary standard, while of course still prioritizing higher yield/higher quantity and
+especially higher speed sources. Time is of the essence."* So the acceptance bar in
+`docs/discovery.md` is now a **ranking** rule rather than a veto: a source that clears the evidence
+standard is admitted even if it is small, and the three-part bar decides what to build *first*. A
+composition theory or a novelty worry is no longer a reason to refuse a source that would pass the
+wall; it is a reason to rank it below something bigger or faster.
+
+**What did not move an inch is the same sentence he wrote next:** *"still never admit sources, whose
+master status is unclear, into the provenance database without my approval."* A faster clock widens
+what we look at and never lowers what counts as proof. Two consecutive rounds have been accepted with
+nothing rejected, and a rejected record costs the round twice: the pairs withdrawn, and the standing
+that makes the next round believed.
+
+
 ## What every submission must contain
 
 Four artifacts, required by Ding of **every** future submission (email, 2026-08-17), quoted in full in
