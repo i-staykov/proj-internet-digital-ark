@@ -96,14 +96,14 @@ pool beside the discovery loop feeding it.
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
 | `cdx` | 72 | 34,779 | 26,392 | 75.9% | 95.5% | 28,508 | 89,168 |
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
-| `cdx_gap3` | 16 | 4,638 | 4,173 | 90.0% | 67.1% | 4,206 | 4,919 |
+| `cdx_gap3` | 17 | 4,844 | 4,364 | 90.1% | 65.1% | 4,379 | 4,987 |
 | `cdx_gap2` | 13 | 3,718 | 3,309 | 89.0% | 94.5% | 3,323 | 10,420 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
 | `cdx_discovered` | 1 | 298 | 233 | 78.2% | 85.0% | 298 | 278 |
 | `cdx_edgepilot_b` | 1 | 155 | 141 | 91.0% | 80.9% | 155 | 325 |
-| **All** | **735** | **329,722** | **288,300** | **87.4%** | **68.8%** | **289,519** | **564,613** |
+| **All** | **736** | **329,928** | **288,491** | **87.4%** | **68.8%** | **289,692** | **564,681** |
 
-Of 329,722 queries, 288,300 were answered (87.4%). The 41,422 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,081 (0.93%)**: 0 rate limits (429), 2,153 server errors (500, 502, 503, 504) and 928 refusals (403). **Transport-level failures are 38,341 (11.63%)**: 27,897 connections refused or reset and 10,444 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 329,928 queries, 288,491 were answered (87.4%). The 41,437 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,081 (0.93%)**: 0 rate limits (429), 2,153 server errors (500, 502, 503, 504) and 928 refusals (403). **Transport-level failures are 38,356 (11.63%)**: 27,898 connections refused or reset and 10,458 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Still worth expanding, and still not the binding constraint.** The measurement that says so:
 2,284,110 candidate names sit unqueried against engines clearing a few hundred requests an hour, so
