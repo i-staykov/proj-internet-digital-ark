@@ -77,6 +77,7 @@ from build_pool_candidates import (  # noqa: E402
     ATTESTED_MIN,
     ATTESTED_SQL,
     POOL_SQL,
+    WINDOW,
     expected_hit_rate,
     hit_rates,
     in_window_era,
@@ -335,7 +336,11 @@ def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
         f"something\n  already answered and skipped: {built['answered']:,}"
     )
     print(f"  measured years per pool hit : {built['years_per_hit']:.3f}")
-    print(f"  measured pool-wide hit rate : {built['pool_rate']:.1%}")
+    # Naming the window matters: a reader who thinks this is a lifetime average will
+    # not understand why a namespace's rate fell after a week of working it.
+    print(
+        f"  measured pool-wide hit rate : {built['pool_rate']:.1%}  (trailing {WINDOW:,} answers)"
+    )
     fill_rates = ", ".join(f"{k} slot {v}" for k, v in sorted(GAP_FILL_RATE.items()))
     print(f"  gap fill rate applied       : {fill_rates}, deeper {GAP_FILL_RATE_DEEP}")
 

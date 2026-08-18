@@ -86,7 +86,7 @@ import hashlib
 import json
 import sys
 import time
-from collections import Counter
+from collections import Counter, deque
 from decimal import Decimal
 from pathlib import Path
 
@@ -125,6 +125,10 @@ ATTESTED_MIN = 1000
 # above it. Low enough that most (source, TLD) cells qualify, high enough that a
 # handful of unlucky timeouts cannot condemn a whole block.
 MIN_SAMPLE = 25
+# How many recent answers a hit rate is measured over. Large enough to be steady,
+# small enough to notice a namespace going flat: see `hit_rates` for the measurement
+# that set it. Capping every bucket also bounds this function's memory.
+WINDOW = 2000
 
 # Domains the store holds with no in-window year, and where each came from.
 # `domain_year` is the master table, so absence from it is exactly what "still
@@ -237,8 +241,8 @@ def sources_for(
 
 def hit_rates(
     outcomes: dict[str, bool], source_of: dict[str, str]
-) -> tuple[dict[tuple[str, str], Decimal], dict[str, Decimal], Decimal]:
-    """P(the archive holds an in-window capture), at four grains.
+) -> tuple[dict[tuple[str, str], Decimal], dict[str, Decimal], dict[str, Decimal], Decimal]:
+    """P(the archive holds an in-window capture), at four grains, over a trailing window.
 
     Coarsening as the sample thins: per (source, TLD), **per TLD**, per source,
     pool-wide. Both factors are needed. Source alone would rank a `.mil` Usenet name
@@ -260,33 +264,53 @@ def hit_rates(
     The spread across TLDs is roughly 900x, far wider than across sources, which is why
     this is the grain that matters most when a cell is thin. Its absence was not a
     missing measurement, it was a measurement never read.
+
+    **Every bucket is a trailing WINDOW of answers, not a lifetime average**, and that
+    is the second correction. A lifetime rate describes a namespace's whole history and
+    the queue needs its margin: the productive names in a namespace get queried first, so
+    a worked-out namespace keeps a flattering average long after it has stopped paying.
+    Measured over 188 pool journals on 2026-08-18:
+
+        tld   answers   lifetime   last 2,000   last 500
+        org     8,388      0.461        0.342      0.068
+        uk     41,496      0.583        0.793      0.798
+        com    22,792      0.650        0.857      0.886
+
+    `.org` is a **6.8x overstatement** at the margin, and its 0.7101 English weight kept
+    it at the head of the queue: a batch that morning spent 132 of 147 queries on `.org`
+    for nine hits, 0.048 expected equivalent-English per query against 0.783 for `.uk`.
+    The window corrects in both directions, since `.uk` and `.com` are understated by
+    lifetime for the mirror-image reason: their pools have grown faster than they were
+    worked.
+
+    `outcomes` must be in journal order, which is what `journal_outcomes` returns,
+    because the window's whole meaning is "most recent".
     """
-    cells: dict[tuple[str, str], Counter] = {}
-    per_tld: dict[str, Counter] = {}
-    per_source: dict[str, Counter] = {}
-    overall: Counter = Counter()
+    cells: dict[tuple[str, str], deque[bool]] = {}
+    per_tld: dict[str, deque[bool]] = {}
+    per_source: dict[str, deque[bool]] = {}
+    overall: deque[bool] = deque(maxlen=WINDOW)
     for domain, hit in outcomes.items():
         source = source_of.get(domain)
         if not source:
             continue
         tld = domain.rsplit(".", 1)[-1]
         for bucket in (
-            cells.setdefault((source, tld), Counter()),
-            per_tld.setdefault(tld, Counter()),
-            per_source.setdefault(source, Counter()),
+            cells.setdefault((source, tld), deque(maxlen=WINDOW)),
+            per_tld.setdefault(tld, deque(maxlen=WINDOW)),
+            per_source.setdefault(source, deque(maxlen=WINDOW)),
             overall,
         ):
-            bucket["n"] += 1
-            bucket["hit"] += hit
+            bucket.append(hit)
 
-    def rate(bucket: Counter) -> Decimal:
-        return Decimal(bucket["hit"]) / Decimal(bucket["n"])
+    def rate(bucket: deque[bool]) -> Decimal:
+        return Decimal(sum(bucket)) / Decimal(len(bucket))
 
     return (
-        {k: rate(v) for k, v in cells.items() if v["n"] >= MIN_SAMPLE},
-        {k: rate(v) for k, v in per_tld.items() if v["n"] >= MIN_SAMPLE},
-        {k: rate(v) for k, v in per_source.items() if v["n"] >= MIN_SAMPLE},
-        rate(overall) if overall["n"] else Decimal("0.5"),
+        {k: rate(v) for k, v in cells.items() if len(v) >= MIN_SAMPLE},
+        {k: rate(v) for k, v in per_tld.items() if len(v) >= MIN_SAMPLE},
+        {k: rate(v) for k, v in per_source.items() if len(v) >= MIN_SAMPLE},
+        rate(overall) if overall else Decimal("0.5"),
     )
 
 

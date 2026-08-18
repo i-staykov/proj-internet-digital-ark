@@ -10273,3 +10273,60 @@ Requeued to the next announced gap, 2026-08-18 16:00 UTC, all three on the queue
 `merged260817-2` landed. `caffeinate` re-anchored to the local supervisor by PID, because it lives in
 `extend_engines.sh` and not in the supervisor, so a hand start leaves the machine free to idle-sleep
 through the window.
+
+### The per-TLD hit rate was a lifetime average, and `.org` was 6.8x overstated
+
+Found by checking yield rather than presence after the morning restart: the local engine had gone from
+**91.2% in-window to 6.1%**. Not a dead collector and not a throttle. The batch had spent **132 of 147
+queries on `.org`** for nine hits.
+
+`.org` is not a bad namespace, it is a *worked-out* one, and the ranking could not see the difference.
+`hit_rates` measured P(capture) over every answer a bucket had ever produced, and the productive names
+in a namespace get queried first, so a lifetime average keeps flattering a namespace long after it has
+stopped paying. Measured over all 188 pool journals:
+
+| tld | answers | lifetime | last 2,000 | last 500 | overstatement |
+|---|--:|--:|--:|--:|--:|
+| `org` | 8,388 | 0.461 | 0.342 | **0.068** | **6.8x** |
+| `uk` | 41,496 | 0.583 | 0.793 | 0.798 | 0.7x |
+| `com` | 22,792 | 0.650 | 0.857 | 0.886 | 0.7x |
+| `au` | 10,758 | 0.227 | 0.210 | 0.296 | 0.8x |
+| `edu` | 1,709 | 0.003 | 0.003 | 0.004 | 0.7x |
+
+**`.org` is the only one of the twelve busiest TLDs that has gone flat**, and its 0.7101 English weight
+was enough to hold it at the head of the queue: 0.068 x 0.7101 = **0.048 expected equivalent-English per
+query, against 0.783 for `.uk`**. A 16x misallocation, invisible to every health check, because the
+collector was alive, writing, and answering.
+
+**Every bucket is now a trailing window of 2,000 answers** rather than a lifetime average. Three things
+worth recording about the shape of the fix.
+
+- **It corrects in both directions.** `.uk` and `.com` are *understated* by lifetime for the mirror
+  reason, their pools having grown faster than they were worked, so the window raises them from 0.583
+  and 0.650 to 0.798 and 0.886. A change that only ever cut a rate would be a pessimism knob rather
+  than a measurement, and one of the two new tests asserts the upward direction specifically.
+- **Most cells never fill the window**, so for them nothing changed. The third test pins that.
+- **It is the same class of error as the `.mil` incident of 2026-08-11**, and the same lesson one level
+  further in. That one was a measurement never read at the grain that mattered; this one is a
+  measurement read at the right grain over the wrong interval. A rate is not a property of a namespace,
+  it is a property of a namespace *at a point in its exhaustion*.
+
+`build_query_queue.py` now prints the window beside the pool-wide rate, because a reader who thinks it
+is a lifetime average will not understand why a namespace's rate fell after a week of working it.
+
+### The two packaging guards both fired, twice, and both were right
+
+Worth recording because they are cheap to resent and each has already prevented a bad submission.
+
+1. **The dirty-tree guard** refused to package with `merge_against_baseline.py` uncommitted.
+   `source/source.tar.gz` is `git archive HEAD`, so the archive would have shipped without the very
+   script its own check 5 looks for, and check 5 would have failed on an archive whose code did not
+   match its data.
+2. **The stale-export guard** refused twice, at 11,712 net-new against 14,992 in the store, because the
+   engines bank continuously and an export is a snapshot. Re-exported and repackaged.
+
+Final rehearsal, all eight checks green inside a fresh extraction of the 1.9 GB archive:
+1,389 files match `SHA256SUMS`; 14,992 pairs, all traced to an observation; the evidence wall intact;
+the code snapshot carrying its lockfile; the summary covering all seven topics; 22 of 22 reconciliation
+checks; the audit agreeing with `additions/` on both sides; and **his own calculator, run from inside
+the archive, scoring the 1996 baseline at 512,261.2220 exactly as the audit claims**.
