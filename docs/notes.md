@@ -11389,3 +11389,48 @@ first appear in window**, 801 predate it.
 Priced: 192 of 192 resolvable pairs **already held, zero net-new**. That is worth recording as a
 positive control on our own coverage rather than as a disappointment, because a 1996 list of
 organisational domains coming back 100% held is a statement about the store.
+
+### The whitelist was measured and it is right, which is the opposite of what I expected to find
+
+This morning's fix stopped `domains_in` fabricating names and deliberately did not widen its 13-TLD
+whitelist, so the diff would measure fabrication alone. I noted `.mil` as a promised follow-up: 0.9981
+is the highest real weight in the model, the store holds only 1,619 pairs under it, and `mil` was not on
+the list, so `au.af.mil` extracted as nothing.
+
+Measured over both corpora the extractor feeds, with a whitelist-free pattern:
+
+| | names | weight | EE ceiling |
+|---|--:|--:|--:|
+| **`.zip`** | **3,547** | 0.5797 | **2,056.2** |
+| `.de` | 3,011 | 0.1324 | 398.7 |
+| `.hu` | 3,506 | 0.0986 | 345.7 |
+| `.co` | 578 | 0.5558 | 321.3 |
+| ... | | | |
+| all of it | 34,494 | | 12,033.9 |
+
+**The single largest prize is `.zip`, and `.zip` is a file extension.** It became a real TLD in 2023 and
+CC-MAIN gives it 0.5797. So are `.so` (shared object), `.ps` (PostScript), `.st` and `.in`. And of the
+34,494, only 21,114 are undated, which is the population that could pay: an undated name scores **zero**
+under the corroboration split by definition, so the entire apparent 12,033.9 is fabricated candidates.
+
+**So the narrowness is correct, on prose, and now measured to be correct.** That is worth more than the
+recall it costs, because "widen the whitelist" is an obvious-looking proposal that a future pass would
+otherwise make. It is pinned by two tests naming `.zip` and `.so` specifically.
+
+`mil` is the one addition, taken for correctness rather than yield: 46 names, mostly famous
+(`army.mil`, `darpa.mil`, `ddn.mil`, `dtic.mil`), and `mil` is safe because it is not also a file
+extension. `tuvok.au.af.mil` now yields `af.mil`, where this morning it yielded the fabricated
+`tuvok.au` and then nothing.
+
+**The pair of results is the useful shape.** The same whitelist was wrong for a list of hostnames, where
+it silently dropped 36,187 `.jp` names and priced a national registry snapshot at zero, and right for
+prose, where widening it would fabricate 3,547 `.zip` domains. One narrow pattern and one flag, chosen
+by what the input is, rather than one rule pretending to fit both.
+
+### Round state, verified rather than asserted
+
+The D3 merge was re-run against today's export, after the `.arpa` filter changed every master count:
+**22 of 22 reconciliation identities pass**, the baseline reproduces to the digit at 22,491,418 records
+and 12,077,095.5404 EE, and the round stands at **16,907 net-new records, 13,619.3581 equivalent-English,
+growth 0.112770%**, mean weight 0.806. Zero overlap with the baseline. So the 16:00 packaging is
+de-risked: the arithmetic that `verify_delivery.sh` checks as D3 already holds.
