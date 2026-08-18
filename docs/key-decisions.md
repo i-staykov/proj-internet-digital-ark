@@ -58,6 +58,13 @@ equivalent-English percentage sums two different measurements. Only he knows whi
 ledger, and if the answer is that round 1 counts at 17.38% then a single early round is worth more than
 everything since.
 
+**And if the answer to (1) is yes, there is something to send the same day.** As of 2026-08-18 15:30Z
+the round is **17,499 records / 14,185.3495 EE / 0.117457%**, and it has passed his own calculator with
+`round_figures.py --verify`: he scores it identically to the last decimal place, **rejects none of the
+17,499, and none are already in his merged files.** So this is not a question about work still to do; it
+is a question about whether a small verified increment should go now or wait, and the arithmetic above
+says now.
+
 **The risk of the opposite reading, so you can weigh it.** If he prefers few substantial submissions,
 frequent small ones may read as noise and cost goodwill, which is not a thing the arithmetic can price.
 That is exactly why this is your call and not the agent's.
