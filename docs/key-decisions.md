@@ -86,12 +86,17 @@ high-volume automated querying and re-use, and `sources.md` records it refusing 
 fourteen queries. Options: leave it (current behaviour), ask them (I draft, you send), or tell me to
 sweep slowly anyway.
 
-### May I write to a US federal agency on the project's behalf?
+### May I write two researchers and one agency on the project's behalf?
 
-USAC's portal serves only the last ten years and says to email `opendata@usac.org` for older records.
-`usac_erate_form471_contact_email_1998_2001` aims at the measured `.us` gap (18,300 in-window `.us`
-against 3,239,423 `.com`). **Outward-facing in your name, so I will not do it without your word**; if
-yes, I draft and you send. Positive control already measured on the published years.
+Two now, both outward-facing in your name, so I will not send either without your word. If yes, I draft and you send.
+
+**1. USAC, for the `.us` gap.** Their portal serves only the last ten years and says to email `opendata@usac.org` for older records. `usac_erate_form471_contact_email_1998_2001` aims at the measured `.us` shortfall, 18,300 in-window `.us` against 3,239,423 `.com`. Positive control already measured on the published years.
+
+**2. Jim Jansen, for the Excite query logs, and this one is new and cheap.** Screened and probed today. Three in-window logs exist and are offered: `Excite_1997_small`, `Excite_1997_large`, `Excite_2001`. Access is neither a fee nor an agreement: his page says *"Please email me if you would like access to one or more of the transaction logs"* and he *"will place the file(s) on an ftp site for you"*.
+
+Why it is worth an email rather than a queue entry: a query log is the **users' side** of a search engine, dated by the server at the moment somebody typed the name. The register's closed search-engine row is about crawler output, which is a different artifact. **A domain advertised on a cereal box and never linked to is invisible to every crawl and present in a query log**, which is the one population a crawler-derived baseline cannot contain by construction. Volume: the 2001 log is 1,025,910 queries and the 1997 logs are the same order, with the IR literature putting URL-shaped queries at a few percent, so order 10,000 to 100,000 dated typed mentions per log. ESTIMATE, not measured, and the novelty risk is that most of what people type is famous.
+
+Nothing is blocked by either: both are additive leads and collection continues regardless.
 
 ### Triage the newly found sources: 55 found, none priced
 
