@@ -149,7 +149,7 @@ Registry datasets publishing creation dates as open data third, because that is 
 2001 where the archives are thin. Re-auditing material already on disk fourth, which has twice been
 the cheapest source available.
 
-**Not worth expanding**: the 91 closed families in `sources.md`, each with the measurement that closed
+**Not worth expanding**: the 112 closed families in `sources.md`, each with the measurement that closed
 it. Two of those closures were narrowed this round rather than reversed, and both corrections are
 recorded where the original claim was made rather than only in the newest file.
 

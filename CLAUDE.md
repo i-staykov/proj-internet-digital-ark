@@ -135,7 +135,7 @@ is built by the packaging script and checked by `verify_delivery.sh` inside a fr
 | `docs/source-dossiers.md` | the working behind each triage line, moved out on 2026-08-16 so the decision surface fits one screen | **nothing here is enforced**; write the dossier here and the one-line row there |
 | `docs/ADRs.md` | the few decisions with **structural** impact: taxonomy, store shape, machine allocation, shared write paths |
 | `docs/notes.md` | append-only dated history, thousands of lines | **grep it, never read it whole**; never edit a past entry |
-| `docs/sources.md` | every source, what dates it, what remains, ~60 rejected families | `just screen` before proposing anything |
+| `docs/sources.md` | every source, what dates it, what remains, 112 rejected families | `just screen` before proposing anything |
 | `docs/discovery.md` | how to price a source before building a collector | the acceptance bar |
 | `docs/experience-summary.md` | **D2**, and it SHIPS at the archive root | keep it short; `sources.md` is the register it distils, not a thing to copy into it |
 | `docs/metric-explained.md` | **D4**, and it SHIPS at the archive root | every rule in it names the line of HIS program that implements it |
@@ -353,7 +353,7 @@ is the common case and used to be the case that produced nothing.
 
 **Do not invent busywork, and never start a second copy of a collector to look busy.** Hunting a source
 is not busywork: it costs a few requests, it is the one activity with no ceiling, and the register of
-sixty-odd closed families is what stops the same ground being broken twice.
+hundred-odd closed families is what stops the same ground being broken twice.
 
 ## Traps that have each produced a confident wrong answer
 
