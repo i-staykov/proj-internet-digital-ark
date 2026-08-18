@@ -935,7 +935,29 @@ exists. A registry zone is also strictly wider than the January 1997 host-based 
 here. The 1998 `com.zone.gz` decompresses to "This file is no longer available from this site.
 Have a NIC day." and the 1997 directory listing carries only arpa, edu, gov, mil, org and root.
 
-**The reopen condition, which is now the most valuable lead in the queue.** Any other mirror of
-`ftp.internic.net/domain/` whose crawler took a full-size `com` or `net` file. A complete `.org`
-proves such mirrors existed and that Wayback captured at least one of them. `com` in 1997 is
-roughly an order of magnitude larger than `org` and carries weight 0.6321.
+**The reopen condition, and nine hosts now checked against it (2026-08-18).** The condition is
+any other mirror of `ftp.internic.net/domain/` whose crawler took a full-size `com` or `net`
+file. A complete `.org` proves such mirrors existed and that Wayback captured at least one of
+them, and `com` in 1997 is roughly an order of magnitude larger than `org` at weight 0.6321.
+
+Nine hosts probed through the CDX index, none of them satisfying it:
+
+| host | captures | what is there |
+|---|--:|---|
+| `ftp.internic.net/domain*` | many | **only 2017 onward**, FTP crawls of the modern root and `arpa` distribution |
+| `rs.internic.net/domain*` | several | HTML pages only, mostly 301, 302 and 404 |
+| `ftp.rs.internic.net` | 20 | no zone path; `/domain/` is a 404 in 2004 |
+| `nic.merit.edu` | 500+ | in-window roots from 1996-11-10, no zone path in the sample |
+| `ds.internic.net` | **0** | nothing at all |
+| `nic.ddn.mil` | **0** | nothing at all |
+| `ftp.nic.mil` | **0** | nothing at all |
+| `ftp.ncren.net` | **0** | nothing at all |
+| `internic.net/domain*` | **0** | nothing at all |
+
+**And one structural fact explains the shape of that table.** By 2000-10-17 `ftp.rs.internic.net`
+served the ICANN-era InterNIC *website*, an informational page about accredited registrars, not a
+file tree: the zone-distribution era had already ended. So the window in which a crawler could
+have taken `com.zone.gz` closed before Wayback's coverage thickened, which is why the `nic.mil`
+mirror of April 1997 is unusual rather than one of many. The condition stays open because one
+such capture demonstrably exists, but it should be hunted at hosts that were **not** InterNIC,
+since every InterNIC-branded host is now checked.

@@ -11480,3 +11480,34 @@ earlier than the other five, because the distribution was rebuilt daily. And **`
 because of this afternoon's own fix**: the canonicaliser now refuses reverse-DNS zones, so the one
 file in this set that would have poured `in-addr.arpa` names in at weight 1.0000 contributes nothing.
 Two fixes made hours apart, and the second protected the source found by the first.
+
+### The gate refuses, verified end to end, and the com-zone reopen condition is narrowed to nine dead hosts
+
+**First, the check that matters most after wiring a master-eligible spec.** I read the enforcement
+before running it, because if the gate were broken the command would have written 12,400 unapproved
+master pairs that I could not delete. It is belt-and-braces: `cli.py` checks before the store is opened,
+"so an unapproved ingest does not even take the write lock", and `ingest_files` checks again because it
+is the gate every caller passes through. Then confirmed by running it:
+
+    refusing to ingest: internic_zone / artifact_listing is awaiting classification
+    (docs/approved-sources-list.md:508).
+    The journal is on disk and nothing is lost: ingest again once the `Decision:` line says
+    master, candidate-only or rejected.
+    exit code: 2
+
+ADR-003 works end to end. 8,871.2 equivalent-English is parsed, priced, pinned, wired, and correctly
+withheld pending one word.
+
+**Then the hunt, on the register's own most valuable reopen condition**: another mirror of
+`ftp.internic.net/domain/` whose crawler took a full-size `com` file, which in 1997 was an order of
+magnitude larger than `org`. Nine hosts probed through CDX, none satisfying it: `ftp.internic.net`
+captured only from 2017, `rs.internic.net` and `ftp.rs.internic.net` HTML only, `nic.merit.edu` roots
+only, and **five hosts with zero captures at all** (`ds.internic.net`, `nic.ddn.mil`, `ftp.nic.mil`,
+`ftp.ncren.net`, `internic.net/domain*`).
+
+**One structural fact explains that table.** By 2000-10-17 `ftp.rs.internic.net` served the ICANN-era
+InterNIC *website*, a page about accredited registrars, not a file tree. The zone-distribution era had
+already ended before Wayback's coverage thickened, which is why the `nic.mil` mirror of April 1997 is
+unusual rather than one of many. So the condition stays open, because one such capture demonstrably
+exists, but it should be hunted at hosts that were **not** InterNIC: every InterNIC-branded host is now
+checked and recorded, so nobody repeats this.
