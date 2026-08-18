@@ -10630,3 +10630,31 @@ item was darkened, whose ARCS items are apparently still up. Deliberately not wr
 yet: the refuting pass is measuring novelty against the store, and yesterday two proposals were
 corrected by 2.4x and 15x in opposite directions by exactly that step. Numbers recorded before
 refutation are the ones that end up needing correcting twice.
+
+### The archive shipped its replay inputs flat, so tier 3 ingested nothing
+
+`journals/` held all 1,143 files in one directory. Every command in `just journals` addresses its
+inputs by nested path: `data/raw/cdx/cdx_*.jsonl.gz`, `data/raw/expand/round2/expand_round2.jsonl.gz`,
+`data/raw/usenet/usenet_dated*.jsonl.gz`, `data/raw/tucows/tucows_dated.jsonl.gz`. So a reviewer
+following the documented tier-3 route would have watched every one of those globs match nothing, while
+the archive README said of that directory: "This is what tier 3 replays, so every network stage
+reproduces offline."
+
+**Found by running the layout against the globs rather than reading it.** The same class as the
+baseline-path defect: a claim about reproduction that is only true from the working directory the
+author happened to be in.
+
+The packaging step flattened deliberately, or at least consistently, using
+`find ... -exec cp {} "$STAGE/journals/"`. It now pipes the same find expression through tar with
+`--strip-components=2`, which drops the `data/raw` prefix and preserves everything below it, so
+`cp -R journals/. data/raw/` restores the tree exactly. Tested before changing the script: 1,147 files
+in, 1,147 out, twelve top-level directories recreated, and all five representative globs matching
+718, 197, 1, 62 and 1 files respectively.
+
+`tar` rather than `cp --parents`, which is GNU-only and this project has already been bitten once by a
+BSD-versus-GNU flag difference in `stat`. Same find expression as the completeness guard below it, so
+the two cannot disagree, and the guard's shipped-side count lost its `-maxdepth 1` in both places or it
+would have started refusing to package against its own output.
+
+The archive README now carries the restore as a step in the tier-3 block rather than only as a note in
+the contents table, and says what happens without it: `just journals` runs clean and ingests nothing.
