@@ -11737,3 +11737,40 @@ does not.
 went after `.au` because the weight is nearly the highest in the model, which is a reason a pair *pays*
 and not a reason the artifact *exists*. Weight belongs in the ranking step, where the new posture put it,
 and never in the screen. Applying it earlier just picks a namespace and hopes.
+
+**The cycle's one item needing judgement, "cdx_pool is answering but finding almost nothing", settled:
+the queue is right and the pool is simply spent at its high-value end.** The cycle cannot decide this
+because the two explanations, a bad queue head or an exhausted population, look identical from the
+outside. Measured over all 85,173 pool answers, expected equivalent-English per query by namespace:
+
+| tld | answered | rate | weight | EE/query |
+|---|--:|--:|--:|--:|
+| `uk` | 32,186 | 56.6% | 0.9813 | **0.5557** |
+| `com` | 20,300 | 62.0% | 0.6321 | 0.3916 |
+| `net` | 1,133 | 78.0% | 0.4530 | 0.3534 |
+| `za` | 2,037 | 32.4% | 0.9682 | 0.3132 |
+| `au` | 8,614 | 20.7% | 0.9904 | 0.2047 |
+| `ca` | 2,757 | 9.8% | 0.8365 | 0.0822 |
+| `mil` | 1,152 | **0.0%** | 0.9981 | 0.0000 |
+| `bb` | 255 | **0.0%** | 0.9983 | 0.0000 |
+
+**Two things worth keeping.** First, `.net` at 0.4530 outranks `.ca` at 0.8365 by 4.3x on expected value,
+which is the standing argument for multiplying weight by a measured rate rather than sorting on weight,
+in one line of evidence. Second, the `.mil` and `.bb` rows are **historical rather than current**, and
+checking that distinction is what stopped this becoming a re-reported bug: `.mil` really did burn 1,152
+queries for zero captures, but that is what produced the plausibility factor in the first place, and the
+factor works. Its 177,979 remaining names now sit at lines 2,084,240 to 2,263,545 of a 2,280,468-line
+queue, and `.bb`'s 35 at line 1,659,756. Pushed to the back, as designed.
+
+So the head of the live queue is 4,359 `.au` and 600 `.net` in its first 5,000, with exactly **one** `.uk`
+left, and that single fact is the answer: the ranker spent the best namespaces first and they are gone.
+The pool's fall to 9.5% trailing is the population being worked out at the top, not a broken head. **No
+action, and the finding is a strengthening of today's earlier one rather than a separate item**: an engine
+whose best queue is exhausted is exactly why the edge population at 80.9% and, far more, the admission of
+bulk sources outrank more engine time.
+
+**One correction to my own handover note of this morning.** I had recorded a "standing fix for after the
+gap: start the pool collector on `queue_pool_local.txt`, the path the cycle maintains, so the two cannot
+diverge again." The divergence is real but currently costs nothing: `queue_pool_20260818c.txt` and
+`queue_pool_local.txt` are 2,280,468 lines each with an identical head composition, built an hour apart
+from the same ranking. Worth unifying so they cannot drift, not worth interrupting a collector for.
