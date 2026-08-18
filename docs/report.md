@@ -11,28 +11,28 @@ generated from the evidence store, so no table here can drift from the files shi
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 22,491,418 |
 | 2. Equivalent-English total | 12,077,095.5404 |
-| 3. Increment | **15,110** records |
-| 4. Equivalent-English increment | **12,003.1947** |
-| 5. Equivalent-English growth rate | **0.0994%** |
+| 3. Increment | **15,522** records |
+| 4. Equivalent-English increment | **12,340.7537** |
+| 5. Equivalent-English growth rate | **0.1022%** |
 
 Lines 1 and 2 are the `merged260817-2` totals, unchanged, since this increment is not yet merged. The
-increment covers 14,545 distinct domains, of which **9,860 appear in none of the six baseline
+increment covers 14,932 distinct domains, of which **10,155 appear in none of the six baseline
 files in any year**.
 
 | Year | merged260817-2, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
 | 1996 | 754,665 | 17 | 2 (11.8%) |
-| 1997 | 1,791,859 | 73 | 1 (1.4%) |
-| 1998 | 2,233,102 | 321 | 71 (22.1%) |
-| 1999 | 4,612,622 | 954 | 174 (18.2%) |
-| 2000 | 7,479,208 | 1,215 | 596 (49.1%) |
-| 2001 | 3,974,450 | 12,530 | 12,288 (98.1%) |
-| **Total** | **20,845,906** | **15,110** | **13,132 (86.9%)** |
+| 1997 | 1,791,859 | 78 | 1 (1.3%) |
+| 1998 | 2,233,102 | 352 | 78 (22.2%) |
+| 1999 | 4,612,622 | 1,008 | 184 (18.3%) |
+| 2000 | 7,479,208 | 1,272 | 612 (48.1%) |
+| 2001 | 3,974,450 | 12,795 | 12,536 (98.0%) |
+| **Total** | **20,845,906** | **15,522** | **13,413 (86.4%)** |
 
 The baseline column counts registered domains, so it reads lower than the raw lines of line 1; both
 describe the same six files.
 
-**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 5,151,171 domain-year records worth 3,030,008.7115 equivalent-English, which is **25.0889%** of the 12,077,095.5404 the corpus holds today. Each shipped round is quoted at the figure the reviewer ACCEPTED, which is not always the one it was submitted with: he recalculates against whatever baseline is current when he merges, and records of ours that reached it by another route in the meantime are his, not ours, to count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
+**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 5,151,583 domain-year records worth 3,030,346.2705 equivalent-English, which is **25.0917%** of the 12,077,095.5404 the corpus holds today. Each shipped round is quoted at the figure the reviewer ACCEPTED, which is not always the one it was submitted with: he recalculates against whatever baseline is current when he merges, and records of ours that reached it by another route in the meantime are his, not ours, to count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
 
 | Round | Records | Equivalent-English |
 |---|--:|--:|
@@ -40,8 +40,8 @@ describe the same six files.
 | 3 | 151,949 | 91,814.6880 |
 | 4 | 946,266 | 603,401.7811 |
 | 5 | 2,608,322 | 1,566,229.7613 |
-| **6, this one** | **15,110** | **12,003.1947** |
-| **Total** | **5,151,171** | **3,030,008.7115** |
+| **6, this one** | **15,522** | **12,340.7537** |
+| **Total** | **5,151,583** | **3,030,346.2705** |
 
 ---
 
@@ -49,8 +49,8 @@ describe the same six files.
 
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
-| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 13,132 |
-| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 1,978 |
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 13,413 |
+| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 2,109 |
 
 `sources.md`, shipped beside this report, carries the full entry for each: acquisition command, date
 semantics, measured yield, caveats.
@@ -73,11 +73,11 @@ so the queue has never been the limit.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 13,132 | 10,131.7 |
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 1,978 | 1,871.5 |
-| **Total** | | | | **15,110** | **12,003.2** |
+| `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 13,413 | 10,340.7 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 2,109 | 2,000.1 |
+| **Total** | | | | **15,522** | **12,340.8** |
 
-Every row above is master, so eligible for the annual files. Separately, **2,354,479 domains have no
+Every row above is master, so eligible for the annual files. Separately, **2,354,184 domains have no
 year-specific evidence** and ship as `candidates.txt`, kept out of the annual masters.
 
 ---
@@ -98,11 +98,11 @@ pool beside the discovery loop feeding it.
 | `cdx_gap_vps` | 44 | 11,894 | 10,508 | 88.3% | 98.8% | 10,529 | 40,370 |
 | `cdx_gap2` | 13 | 3,718 | 3,309 | 89.0% | 94.5% | 3,323 | 10,420 |
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
-| `cdx_gap3` | 7 | 1,938 | 1,766 | 91.1% | 62.2% | 1,790 | 1,960 |
+| `cdx_gap3` | 8 | 2,238 | 2,035 | 90.9% | 61.9% | 2,066 | 2,289 |
 | `cdx_discovered` | 1 | 298 | 233 | 78.2% | 85.0% | 298 | 278 |
-| **All** | **717** | **322,620** | **281,582** | **87.3%** | **69.6%** | **282,926** | **560,719** |
+| **All** | **718** | **322,920** | **281,851** | **87.3%** | **69.6%** | **283,202** | **561,048** |
 
-Of 322,620 queries, 281,582 were answered (87.3%). The 41,038 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,025 (0.94%)**: 0 rate limits (429), 2,153 server errors (500, 502, 503, 504) and 872 refusals (403). **Transport-level failures are 38,013 (11.78%)**: 27,843 connections refused or reset and 10,170 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 322,920 queries, 281,851 were answered (87.3%). The 41,069 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,025 (0.94%)**: 0 rate limits (429), 2,153 server errors (500, 502, 503, 504) and 872 refusals (403). **Transport-level failures are 38,044 (11.78%)**: 27,844 connections refused or reset and 10,200 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 **Still worth expanding, and still not the binding constraint.** The measurement that says so:
 2,284,110 candidate names sit unqueried against engines clearing a few hundred requests an hour, so
