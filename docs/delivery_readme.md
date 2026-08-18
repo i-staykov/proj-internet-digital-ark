@@ -87,10 +87,19 @@ Then from inside this folder:
 bash verify.sh
 ```
 
-It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure. It
-checks every file against `SHA256SUMS`, counts the annual addition files, and confirms every pair
-appears in `additions/evidence_manifest.csv`. It prints WARN rather than PASS where a check would be
-vacuous, and SKIP where the thing it checks is not in the archive.
+It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure.
+**Eight checks.** The first four are the result and the evidence behind it: every file against
+`SHA256SUMS`, the annual addition files and their counts, every added pair present in
+`additions/evidence_manifest.csv`, and every assignment in the Parquet provenance resolving to an
+evidence row shipped beside it. Checks 5 to 8 are the four artifacts of the section above, D1 to D4:
+that the code snapshot carries its dependency manifest and lockfile, that the experience summary
+covers every topic asked for, that every reconciliation check in the merge audit passed and that the
+audit agrees with `additions/` on the record count, and that **the reviewer's own calculator, run
+from inside this archive, reproduces the audit's baseline figure**.
+
+It prints SKIP where the thing a check examines is not in the archive, and says which of the eight
+failed rather than only that something did. Check 8 needs a writable extraction, because it runs the
+calculator into `audit/` and cleans up after itself.
 
 To look up why a single domain is in a given year, no database needed, only
 [`uv`](https://docs.astral.sh/uv/):

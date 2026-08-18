@@ -10493,3 +10493,43 @@ would have been the twelfth.
 every round and `report.md` section 3 is scoped to the round being submitted, so the same source reads
 different figures in two documents shipping side by side. Neither is wrong and the summary now says
 which question each answers.
+
+### Three smaller shipped-documentation defects, and one deliberately not fixed
+
+**The invariant count was wrong in nine places.** `ark check` went from nine invariants to ten on
+2026-08-17 and the documentation kept saying nine: `README.md` four times, `docs/documentation.md`
+twice, the `justfile` three times including the banner `just ship` prints while running them. Both
+`README.md` and `docs/documentation.md` ship, and the report cites the invariants as the reason the
+result is trustworthy, so the wrong number sat exactly where it costs most.
+
+Corrected, and `tests/test_documented_counts.py` now refuses to let it drift: it counts the
+invariants the code actually registers and compares against every prose claim on the live surfaces.
+Dated entries are exempt, since `notes.md` and the `CLOSED` block of `key-decisions.md` record what
+was true on a day and rewriting them would falsify history. The test's first run flagged two false
+positives, "one invariant reads the exported annual files" in `README.md` and `CLAUDE.md`, which
+count a single member rather than the total; counts of one are now skipped, because a document
+claiming exactly one invariant in total is not a failure mode worth that noise.
+
+**`delivery_readme.md` contradicted itself about its own checker.** The D1-to-D4 section added
+yesterday named checks 5 to 8 while the paragraph forty lines below still described a three-check
+script and its WARN behaviour. Rewritten to describe all eight, including that check 8 needs a
+writable extraction because it runs the calculator into `audit/`.
+
+**Not fixed, and recorded so it is not raised again as a finding: the VPS address in three tracked
+files.** `10.1.0.6` appears in `CLAUDE.md` and as the default of `ARK_VPS` in `maintain.sh` and
+`engine_status.sh`, and all three ship. The audit called it inconsistent with `.gitignore`
+withholding `docs/ROUND.md`, which is fair as far as it goes. Three reasons to leave it:
+
+- **The address is RFC1918 and unroutable from outside the VPN**, so what leaks is the shape of the
+  setup rather than access to anything.
+- **`ROUND.md` is withheld for two reasons and the stronger is the other one.** Its own `.gitignore`
+  comment says it "embeds the VPS address **and** the open-decision list", and the decision list is
+  what makes it private.
+- **`ARK_VPS` already exists as the override**, so the literal is only a default. Emptying it would
+  make every hand-started collector and `extend_engines.sh` fail unless the variable were exported
+  everywhere, which is real operational fragility bought for a cosmetic gain, mid-round, on the day
+  of an announced internet gap.
+
+The sentence in `CLAUDE.md` is also load-bearing as written: it tells an agent which host is private
+and not to debug SSH against it, and a vaguer version of that rule is worth less than the address is
+worth hiding.
