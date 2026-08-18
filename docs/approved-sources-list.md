@@ -651,7 +651,6 @@ is what turns one into an answer.
     condition is precise: any other mirror of `ftp.internic.net/domain/` whose crawler took a full-size
     `com` or `net` file. A complete `.org` proves such mirrors existed.
 - dossier: `docs/source-dossiers.md`, entry of 2026-08-18.
-- potential: 9769
 
 Decision: pending
 
@@ -720,8 +719,41 @@ Decision: pending
 
 Decision: pending
 
+### repository_ia_capture_census / cdx_timestamp
+- self-dating, so **no corroboration split**. Found 2026-08-18.
+- what it is: another precomputed Internet Archive capture census deposited as a research replication
+    package. The precedent is not speculative: `dartmouth_nber_captures` is exactly this shape and is
+    worth 227,273 net-new pairs and 142,084.0 equivalent-English.
+- where to look: openICPSR, Harvard Dataverse, OSF and Dryad, with DataCite or OpenAIRE as the one API
+    that searches all of them, targeting replication packages of 2010-2025 economics, information
+    systems and communication papers that were given or bought an IA slice.
+- what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
+- why it is not already closed: the 2026-08-15 dataset sweep asked those hosts for **domain lists** and
+    recorded in its own entry that the query shape was wrong and one should ask for the dating artifact
+    instead. That corrected query was never re-run, and ICPSR, OSF and Dryad appear in no tracked file.
+- law 1 does not bite: `discovery.md`'s exception is precisely a bulk projection of IA holdings.
+- check before pricing: that the deposit is a capture index rather than a bare URL list.
+- potential: 70
+
+Decision: pending
+
 ### ted_ojs_notices_1996_2001 / link_source
 - potential: 70
+
+Decision: pending
+
+### early_bulk_whois_snapshot / whois_creation
+- self-dating, so **no corroboration split**. Found 2026-08-18.
+- what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
+    `created_at` field. Hunt it as a file on academictorrents, HuggingFace, Kaggle, GitHub releases,
+    university mirrors and the pre-CZDS registrar distributions.
+- what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
+    already runs on, **so the collector exists and only the file is missing**.
+- why it is not the closed zone-file family: those are names without dates. This is a dated snapshot.
+- what makes it worth hunting, measured: a 2024 snapshot structurally cannot see a name that died
+    before 2024, and on `.se` alone **32,332 of the store's 65,291 in-window domains (49.5%) are absent
+    from the 2024 live zone**, against a 2024 file that still paid 649,475 post-split pairs.
+- potential: 65
 
 Decision: pending
 
@@ -745,12 +777,49 @@ Decision: pending
 
 Decision: pending
 
+### discmaster_media_index / dated_directory
+- Found 2026-08-18. Takes the corroboration split for a link page; a browser history is self-dating.
+- what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
+    floppy, hard-disk and FTP-mirror items. Probed live: HTTP 200, 9,889 bytes, reporting 1,870,232,668
+    files across 43,452 items and 125.3 TiB.
+- what to query for: period link pages, `.url` shortcuts, `bookmark.htm`, `hosts` files, mIRC and WS_FTP
+    site lists, and Netscape `history.dat` or IE `index.dat` profiles whose per-visit timestamps are
+    machine-written.
+- what dates one item: the file's own filesystem date on the media, which is the `page_directory` shape,
+    or a per-visit timestamp for a browser history, which is **orthogonal to every crawl**.
+- the trap to guard: a re-mastered or zeroed mtime. Corroborate the file date against the disc's own
+    release date before quoting either.
+- why it is not the closed shareware-disc family: that was closed because archive.org cannot list inside
+    an ISO, so density cost a whole ISO download per item and the items carried no date metadata.
+    **Discmaster is the missing index**, it is built from user uploads rather than IA crawls so law 1
+    does not apply, and no lens has looked at media contents at all.
+- potential: 60
+
+Decision: pending
+
 ### pmc_oa_subset_fulltext_1998_2001 / link_source
 - potential: 60
 
 Decision: pending
 
 ### caselaw_access_project_opinions / dated_directory
+- potential: 58
+
+Decision: pending
+
+### content_filter_blacklists / artifact_listing
+- Found 2026-08-18. Self-dating as an edition, but see the first-appearance rule below.
+- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
+    the March 2000 cphack proceedings, SurfWatch, Bess and N2H2 residues, and the earliest squidGuard
+    and DansGuardian tarballs of 1999 to 2001.
+- what dates one item: the dated release edition, admitted **only as a first-appearance diff across
+    consecutive editions**, so the claim is the edition in which a classifier first saw the site. An
+    accumulating list otherwise dates a name at or before its edition, which is law 2 exactly.
+- why it is not the closed anti-spam row: that was killed because MAPS RBL, ORBS, the DUL and SPEWS are
+    **IP-based and contain no domains**. A content filter must list hostnames by construction.
+- the population is adult and warez hosts, which is short life plus low traffic and heavily `.com`, the
+    profile `discovery.md` says pays. `junkfilter_dated_blocklist`, already queued, is the ad-blocking
+    cousin at an estimated 3,000 to 8,000 pairs.
 - potential: 58
 
 Decision: pending
@@ -765,6 +834,25 @@ Decision: pending
 
 Decision: pending
 
+### usenet_quoted_whois / whois_creation
+- self-dating, so **no corroboration split**. Found 2026-08-18 by the completeness critic on the
+    non-IA hunt, and it is the only one of that hunt's seven leads already carrying a measurement.
+- what it is: NSI-format and ccTLD-format `whois` output **pasted into message bodies** in
+    `news.admin.net-abuse.*` and `alt.domain-names.*`, and in the Enron and pipermail corpora. The
+    411 GB Usenet archive is already on disk, so this costs no requests at all.
+- what dates one item: the registry's own `Record created on DD-Mon-YYYY` line inside the quoted
+    record, paired with the `Domain Name:` or `(FOO-DOM)` handle in the same block. **The paste date is
+    irrelevant to the year claimed**, which is the property that makes deleted names reachable.
+- the trap to guard: a paste that has been re-wrapped or truncated so the creation date attaches to the
+    neighbouring domain. Require the name and the date inside one block, never across a blank line.
+- measured, positive control over the first 300 MB of `news.admin.net-abuse.email.mbox.zip`: 648
+    creation-date lines, 283 with a name attached, 32 in-window pairs, 28 already held, **4 net-new**.
+- PROJECTION, labelled: 0.0133 net-new pairs per MB gives roughly 5,500 over 411 GB, linear, with no
+    saturation fitted. The register's own history says a linear fit over a corpus like this overstates.
+- potential: 55
+
+Decision: pending
+
 ### uspto_trademark_case_files / artifact_listing
 - potential: 55
 
@@ -775,6 +863,45 @@ Decision: pending
 
 Decision: pending
 
+### isi_us_domain_registry / artifact_listing
+- Found 2026-08-18. Self-dating as an edition, with the same first-appearance rule.
+- what it is: the ISI RFC 1480 US Domain Registry delegation database, the hand-maintained registry for
+    `k12.XX.us`, `lib.XX.us`, `ci.` and `co.` locality names. Recover it by CDXing the **file paths** of
+    `isi.edu/in-notes/usdnr/` and `nic.us` rather than their pages, which is the method the Cybermetrics
+    row established.
+- what dates one item: the delegation file's own publication or approval date, the `uucp_map_registry`
+    shape that paid 28,471 pairs.
+- the trap to guard: a cumulative registry dates a name at or before the edition, so use a
+    first-appearance diff across editions and never a single latest file.
+- why it is not already closed: the register's `.us` locality work is all 2002-era **canvasses**
+    (COG2002, NCES IMLS, GIAS) rather than the registry itself, and `isi.edu` appears only inside a
+    seeds file.
+- what makes it worth it: `.us` is the population the store is thinnest on, 18,278 distinct in-window
+    against 216,581 `.uk`, at 0.9261 weight.
+- probed 2026-08-18: `https://www.isi.edu/in-notes/usdnr/` is HTTP 404 with `https://www.isi.edu/` HTTP
+    200 as the positive control, so the artifact must come from an archived path or an FTP mirror.
+- potential: 52
+
+Decision: pending
+
+### reuters_rcv1_newswire / dated_directory
+- Found 2026-08-18. Typed inside a dated artifact, so it **takes the corroboration split**.
+- what it is: Reuters RCV1, 806,791 stories from 1996-08-20 to 1997-08-19, free from NIST under a signed
+    agreement, plus its RCV2 and Gigaword siblings. Read as dot-com-era business prose that names a
+    company's own website.
+- what dates one item: the story's own dateline.
+- why it clears the ceiling the scholarly lens established: at 0.042 net-new post-split pairs per item
+    the 5,000-pair bar needs 119,062 items, and RCV1 has 806,791. That is roughly **33,900 pairs as a
+    PROJECTION** on the family's own measured density, concentrated in 1996 and 1997, which are the two
+    years the Internet Archive cannot supply in bulk.
+- why it is not the closed trade-press row: that is OCR'd magazines. This is born-digital newswire.
+- the trap to guard: the retrofit mechanism measured on 2026-08-18, where 7 of 25 post-split survivors
+    were publisher-injected boilerplate. Strip boilerplate before counting.
+- the blocker is an **access agreement** rather than engineering, which is the one thing here that
+    genuinely needs a human.
+- potential: 50
+
+Decision: pending
 ### cipo_ca_trademark_marktext_1996_2001 / typed
 - potential: 49
 
@@ -892,11 +1019,6 @@ Decision: pending
 
 Decision: pending
 
-### openpgp_keyserver_dumps / link_target
-- potential: 20
-
-Decision: pending
-
 ### ripe_db_lastmodified / link_target
 - potential: 12
 
@@ -932,6 +1054,18 @@ Decision: pending
 
 Decision: rejected
 
+### openpgp_keyserver_dumps / link_target
+- potential: 20
+- **Measured and closed 2026-08-18, so this needs no decision.** The dump hosts were probed for the
+    first time (nine dead, NXDOMAIN or 404; `keys.openpgp.org` publishes none by design;
+    `pgp.key-server.io/sks-dump/` serves a squatted stub under HTTP 200). The retrievable curated
+    substitute prices at **69 net-new pairs and 44.4 equivalent-English**, 70x under the bar, and the
+    dating premise was separately disproved: a key creation timestamp dates the keypair, not the
+    address, with 47.6% of user IDs bound in a later year and 0% earlier. Full verdict in
+    `docs/sources.md`, two rows of 2026-08-18.
+
+Decision: rejected
+
 ### nlm_medline_affiliation_email_1996_2001 / link_source
 - potential: 3
 
@@ -941,3 +1075,4 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+

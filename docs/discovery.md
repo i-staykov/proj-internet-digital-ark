@@ -42,7 +42,7 @@ self-dating one is not.
 A source with no date at all is easy to refuse. A source carrying a plausible date next to a hostname is
 the one that gets ingested and is wrong, so the question has a sharper form: **a per-entity date is not a
 per-field date.** Ask what the date attaches to, and refuse it unless it attaches to the observation being
-borrowed. Four instances, each found separately before the pattern was named:
+borrowed. Five instances, each found separately before the pattern was named:
 
 - **the dated-dataset fallacy**: a per-entity current-state row, read as dating an address it merely
   carries today
@@ -52,9 +52,54 @@ borrowed. Four instances, each found separately before the pattern was named:
   use-in-commerce filing with a dated specimen says the site existed
 - **Netcraft**: a name printed on a page captured in 1999, where the capture dates the *page* and the
   inference from listing to liveness is the step that failed, measured
+- **an OpenPGP key's creation timestamp**: dates the *keypair*, not the email address bound to it, and
+  this is the instance that shows the trap survives a machine-written date. Measured over 4,225 binding
+  self-signatures in the Debian keyrings on 2026-08-18: 47.6% of user IDs were bound in a **later** year
+  than the key was created, median lag two years, and **0% earlier**. So the reading that looks safest,
+  a cryptographically signed timestamp, manufactures claims that a domain existed before its address
+  was attached, and only ever in that direction. The correct field is the UID binding signature
 
 A useful test: if the source were re-published tomorrow with today's date, would the item's date change?
 If yes, the date belongs to the container and not to the observation.
+
+### Three laws about what a corpus can CONTAIN, which retrievability cannot tell you
+
+Each was established by measurement here, and each closed candidates that were retrievable, correctly
+dated and worth building on every other test. **They are the questions to ask before fetching**, since
+all three are answerable from a source's description alone.
+
+1. **A corpus derived from Internet Archive crawls cannot be net-new against a baseline that is itself
+   IA-derived** (2026-08-18, three candidates). The exception is a bulk *projection* of IA holdings,
+   which is what `dartmouth_nber_captures` is and why it paid.
+2. **A dated artifact that LISTS names proves the artifact's date, not the names' liveness**
+   (2026-08-12 on Netcraft, 2026-08-18 on JANET). A byte-volume or request-count filter does not fix
+   this when the field is a period **sum**: any host requested twice carries two error pages and clears
+   any threshold set above one.
+3. **A corpus assembled by a TRUST decision selects for authorities, not for hosts** (2026-08-18).
+   Certificate bundles hold CAs, `Path:` headers hold relays, keyrings hold maintainers, and academic
+   papers cite universities. 7.1M Usenet relay hops collapsed to 4,736 domains; 126 in-window
+   certificates yielded 17 host tokens, every one a CA's own domain. The tell is that the population
+   is *selected* rather than *sampled*, and a selected population is small however large the file is.
+
+### The split is not a novelty check, and here is what gets through it, measured
+
+The corroboration split asks only whether a domain is dated in *some* annual file, never whether the
+mention was genuine. Hand-auditing 25 post-split survivors across three scholarly corpora on
+2026-08-18 found **13 genuine (52%)** and three distinct failure mechanisms, only one of which is what
+RFC 2606 was about:
+
+- **author-invented placeholders**, 2 of 25: `bigstate.edu` from an invented URN example, `foo.edu`
+  from a `host1`/`host2` pair
+- **transcription artefacts**, 3 of 25: `ich.edu` from a line break inside `umich.edu`, and `nctu.edu`
+  and `tku.edu` from truncated `.edu.tw` names
+- **modern retrofits injected into period-dated records** by the publisher or the server, 7 of 25:
+  `creativecommons.org` five times, `arxiv.org` and `description.org`
+
+**53.1% of the equivalent-English was junk, and the junk concentrates in the highest-weight TLD**,
+`.edu` at 0.9717, so this class biases a reported figure upward every time. Hand-audit the survivors
+of any typed corpus before quoting its equivalent-English, and count the three mechanisms separately:
+a retrofit is a defect in the *container* and is fixable by stripping boilerplate, while an invented
+placeholder is not fixable at all.
 
 ## 2. The acceptance bar
 

@@ -422,10 +422,13 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
         f"way**: a pending class cannot date a year, so `ark ingest` refuses it and collection "
         f"continues. One word each when you want them, *candidate pool* or *fold in directly*."
     )
-    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC):
+    # The heading carries the count too, so it has to be rewritten with the body. It was
+    # not, and read "49 found" over a body saying 55 until 2026-08-18.
+    titled = f"{TRIAGE_HEADING}: {count} found, none priced"
+    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC, heading=titled):
         findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
         return
-    key_decisions.raise_open(TRIAGE_HEADING, body, DECISIONS_DOC)
+    key_decisions.raise_open(titled, body, DECISIONS_DOC)
     findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
 
 

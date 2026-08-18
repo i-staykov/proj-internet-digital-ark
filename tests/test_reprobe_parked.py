@@ -188,3 +188,66 @@ def test_a_redirect_counts_as_answering() -> None:
 
 def test_an_empty_run_makes_no_claim_either_way() -> None:
     assert reprobe.control_note([]) == []
+
+
+# The fifth shape, and the one my own register rows produced within an hour of writing them.
+#
+# Four leads reported NOW ANSWERS on 2026-08-18 after the non-IA hunt's verdicts were
+# recorded: lists.debian.org, seclists.org, marc.info and keys.openpgp.org. None had ever
+# been down. In three of the four the verdict names the exact failing URL, and the prober
+# had harvested the bare host root alongside it and asked a question the verdict never
+# asked. Where a path is named, the path is what was tried.
+
+
+def test_a_named_path_suppresses_the_bare_host_on_the_same_host() -> None:
+    class Entry:
+        name = "Machine-written mail headers in bulk mailing-list archives"
+        verdict = (
+            "`https://lists.debian.org/debian-devel/1999/debian-devel-199901.txt.gz` returns "
+            "HTTP 404, 303 bytes. `seclists.org` is MHonArc-rendered HTML: "
+            "`https://seclists.org/bugtraq/1999/Jan/1` is one page per message."
+        )
+
+    targets = reprobe.targets_in(Entry())
+    assert "https://lists.debian.org/" not in targets
+    assert "https://seclists.org/" not in targets
+    assert "https://lists.debian.org/debian-devel/1999/debian-devel-199901.txt.gz" in targets
+
+
+def test_a_query_string_counts_as_a_named_path() -> None:
+    """marc.info's mbox export is a query, not a path, and it is what was tried."""
+
+    class Entry:
+        name = "marc.info mbox export"
+        verdict = (
+            "The site root is live but `https://marc.info/?l=bugtraq&m=91752236024417&q=mbox` "
+            "returns HTTP 410 Gone, 18 bytes."
+        )
+
+    targets = reprobe.targets_in(Entry())
+    assert "https://marc.info/" not in targets
+    assert any("q=mbox" in url for url in targets)
+
+
+def test_a_bare_host_survives_when_no_path_is_named() -> None:
+    """The rule must not empty the rotation for the leads that only name a host."""
+
+    class Entry:
+        name = "IRCache / NLANR proxy traces"
+        verdict = "`web-caching.com` served the index and `ircache.net` is gone."
+
+    assert reprobe.targets_in(Entry()) == [
+        "https://web-caching.com/",
+        "https://ircache.net/",
+    ]
+
+
+def test_a_payload_absence_claim_expects_a_live_host() -> None:
+    """keys.openpgp.org has no failing URL to name: it publishes no dump by design."""
+    verdict = (
+        "`keys.openpgp.org` publishes no dump by design, its FAQ stating that exact-match "
+        "search exists so nobody can discover any new email addresses."
+    )
+    predicted = reprobe.prediction_for(verdict, "keys.openpgp.org")
+    assert predicted
+    assert any(sign in predicted.lower() for sign in reprobe.EXPECTED_ALIVE)
