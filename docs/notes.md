@@ -11511,3 +11511,42 @@ already ended before Wayback's coverage thickened, which is why the `nic.mil` mi
 unusual rather than one of many. So the condition stays open, because one such capture demonstrably
 exists, but it should be hunted at hosts that were **not** InterNIC: every InterNIC-branded host is now
 checked and recorded, so nobody repeats this.
+
+## 2026-08-18 (late): the re-rank was inert, because nothing read the file it rebuilt
+
+The pool engine sat at **9.5%** for two hours and every health check read clean. Yesterday's
+trailing-window fix was working, the cycle was rebuilding the queue, the rebuild was correct, and the
+engine never saw it.
+
+**The measurement that found it.** The newest two pool journals are 811 answered, and every single one
+is `.ca`, at 9.5%, worth 0.0794 equivalent-English per query. An hour after a rebuild that had demoted
+`.ca` out of the head entirely.
+
+**The cause is one line of shell.** `supervise_cdx_pool.sh` resolves `ARK_TARGETS` once, at startup,
+and passes that fixed path to every `ark cdx` batch. This collector was started on
+`queue_pool_20260818c.txt`. The cycle rebuilds `queue_pool_local.txt`. Two different files:
+
+| | rows | head of the first 3,000 |
+|---|--:|---|
+| `queue_pool_20260818c.txt`, what the collector reads | 2,284,110 | **`.ca` 1,613**, `.ie` 686, `.org` 459 |
+| `queue_pool_local.txt`, what the cycle rebuilds | 2,280,468 | **`.au` 2,799**, `.net` 160 |
+
+So the cycle's reassurance, *"the running collector picks it up at its next dispatch, so nothing is
+restarted"*, was false for this collector, and it is the kind of false that is worse than silence: it
+told a reader the problem was already handled.
+
+**Fixed operationally and structurally.** The rebuilt list was copied over the file the collector
+actually reads, atomically, so the next dispatch works the `.au` head; `ark cdx` skips
+already-answered domains, so re-pointing is additive and costs nothing. And `collector_reading()` now
+asks the process table whether any running `ark cdx` reads the exact file just rebuilt. If none does,
+the cycle raises it as needing judgement instead of claiming a pickup that cannot happen.
+
+**Why every existing check missed it, which is the part worth keeping.** Presence was fine, progress
+was fine, and the yield check did fire. But the yield check's advice was *"rebuild and re-rank it"*,
+and that had already been done, twice. The failure was not in any of the three properties those checks
+measure; it was in the **identity of the file**, and nothing was looking at that. A rebuild that
+nothing reads passes every test that asks whether the rebuild happened.
+
+**And the standing fix for after the gap**: start the pool collector on `queue_pool_local.txt`, the
+path the cycle maintains, so the two can never diverge again. Until then the new check will report the
+mismatch on every wake, correctly.
