@@ -373,7 +373,14 @@ def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
     # Naming the window matters: a reader who thinks this is a lifetime average will
     # not understand why a namespace's rate fell after a week of working it.
     print(
-        f"  measured pool-wide hit rate : {built['pool_rate']:.1%}  (trailing {WINDOW:,} answers)"
+        # Labelled LIFETIME on purpose. This figure is the last-resort prior for a
+        # namespace with no measurement of its own, and it is deliberately NOT windowed:
+        # windowing it scored every unmeasured namespace at zero, so nothing new could
+        # ever earn a first measurement. The windowed grains are the three above it.
+        # The old label read "(trailing N answers)" beside this number, which cost an
+        # agent half an hour on 2026-08-18 chasing a 3.5x discrepancy that was the label.
+        f"  pool-wide prior, LIFETIME   : {built['pool_rate']:.1%}  (fallback only; the"
+        f" per-cell, per-TLD and per-source grains ARE windowed to {WINDOW:,})"
     )
     fill_rates = ", ".join(f"{k} slot {v}" for k, v in sorted(GAP_FILL_RATE.items()))
     print(f"  gap fill rate applied       : {fill_rates}, deeper {GAP_FILL_RATE_DEEP}")
