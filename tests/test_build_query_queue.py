@@ -24,6 +24,16 @@ _SPEC = importlib.util.spec_from_file_location(
 build_query_queue = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(build_query_queue)
 
+# The rate model itself lives one module over. `build_query_queue` imports the parts it
+# calls, so reaching through it would only reach those; the ordering helper is used
+# inside `journal_outcomes` and has to be addressed where it is defined.
+_POOL_SPEC = importlib.util.spec_from_file_location(
+    "build_pool_candidates",
+    Path(__file__).resolve().parents[1] / "scripts" / "build_pool_candidates.py",
+)
+build_pool_candidates = importlib.util.module_from_spec(_POOL_SPEC)
+_POOL_SPEC.loader.exec_module(build_pool_candidates)
+
 
 def _store() -> duckdb.DuckDBPyConnection:
     """One baseline pair and two net-new pairs, stamped either side of a window."""
@@ -239,3 +249,54 @@ def test_a_bucket_shorter_than_the_window_is_unaffected() -> None:
     outcomes, source_of = _outcomes([("s", "com", 400, 360)])
     _, tld, _, _ = build_query_queue.hit_rates(outcomes, source_of)
     assert tld["com"] == Decimal(360) / Decimal(400)
+
+
+def test_journals_sort_by_when_they_were_written_not_by_prefix() -> None:
+    """Name order groups by collector, and reading it as recency read 0.0% pool-wide.
+
+    Six collector prefixes exist. `cdx_q1_*` sorts last by name, and its final runs
+    worked an exhausted shard, so windowing the tail of a name-sorted stream measured
+    "the last answers of whichever prefix sorts last" rather than the last answers.
+    """
+    paths = [
+        Path("cdx_q1_20260801T000000Z.jsonl.gz"),  # oldest, but sorts LAST by name
+        Path("cdx_gap3_20260818T000000Z.jsonl.gz"),  # newest, sorts first by name
+        Path("cdx_pool_20260810T000000Z.jsonl.gz"),
+    ]
+    by_name = sorted(paths)
+    by_time = sorted(paths, key=build_pool_candidates.journal_order)
+    assert [p.name for p in by_name] != [p.name for p in by_time]
+    assert by_time[0].name.startswith("cdx_q1_2026080")
+    assert by_time[-1].name.startswith("cdx_gap3_")
+
+
+def test_an_unstamped_journal_still_sorts_deterministically(tmp_path: Path) -> None:
+    """A journal with no UTC stamp in its name must not raise or sort randomly."""
+    unstamped = tmp_path / "cdx_discovered.jsonl.gz"
+    unstamped.write_bytes(b"")
+    key = build_pool_candidates.journal_order(unstamped)
+    assert isinstance(key, tuple) and len(key) == 2
+    assert build_pool_candidates.journal_order(unstamped) == key
+
+
+def test_the_pool_wide_prior_is_not_windowed() -> None:
+    """Asymmetry on purpose: the fallback must let an unmeasured namespace rank.
+
+    A windowed pool-wide rate read 0.0% on 2026-08-18, because the tail of the stream
+    happened to be an exhausted shard. Every unmeasured cell would then have scored
+    zero, so no new namespace could ever earn its first measurement.
+    """
+    window = build_query_queue.WINDOW
+    outcomes, source_of = {}, {}
+    for i in range(window):
+        d = f"hit{i}.aa"
+        outcomes[d], source_of[d] = True, "s"
+    for i in range(window):
+        d = f"miss{i}.bb"
+        outcomes[d], source_of[d] = False, "s"
+
+    _, _, _, pool = build_query_queue.hit_rates(outcomes, source_of)
+    # Lifetime over both halves is 0.5. A windowed tail would read 0.
+    assert pool == Decimal("0.5")
+    unmeasured = build_query_queue.expected_hit_rate("brand_new", "zz", {}, {}, {}, pool)
+    assert unmeasured == Decimal("0.5")

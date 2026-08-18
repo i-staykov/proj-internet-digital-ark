@@ -84,9 +84,11 @@ Read-only. Writes the target list and nothing else.
 
 import hashlib
 import json
+import re
 import sys
 import time
 from collections import Counter, deque
+from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
 
@@ -195,6 +197,29 @@ def spread(domain: str) -> bytes:
     return hashlib.blake2b(domain.encode(), digest_size=8).digest()
 
 
+def journal_order(path: Path) -> tuple[str, str]:
+    """Sort key putting journals in the order they were WRITTEN.
+
+    `sorted(glob(...))` sorts by name, and a name begins with its collector's prefix,
+    so name order groups by collector and only then by time. That is not recency, and
+    reading it as recency produced a measured 0.0% pool-wide hit rate on 2026-08-18:
+    six prefixes exist, `cdx_q1_*` sorts last, and its final runs worked an exhausted
+    shard, so "the most recent 2,000 answers" was really "the last 2,000 answers of
+    whichever prefix sorts last".
+
+    The 14-digit UTC stamp in the filename is the real clock. A journal without one
+    falls back to its mtime, which is why the key is a string pair rather than a
+    number: an unstamped journal must still sort somewhere deterministic.
+    """
+    match = re.search(r"(\d{8}T\d{6}Z)", path.name)
+    if match:
+        return (match.group(1), path.name)
+    try:
+        return (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(path.stat().st_mtime)), path.name)
+    except OSError:
+        return ("", path.name)
+
+
 def journal_outcomes(directory: Path, pattern: str = "cdx_pool_*.jsonl*") -> dict[str, bool]:
     """Every pool domain the archive actually answered, and whether it held a capture.
 
@@ -209,7 +234,9 @@ def journal_outcomes(directory: Path, pattern: str = "cdx_pool_*.jsonl*") -> dic
     pool's 41%, and roughly double every hit rate this returns.
     """
     outcomes: dict[str, bool] = {}
-    for path in sorted(directory.glob(pattern)):
+    # Written order, not name order: `hit_rates` windows the tail of this dict and
+    # the window's whole meaning is recency. See `journal_order`.
+    for path in sorted(directory.glob(pattern), key=journal_order):
         try:
             with open_journal(path) as fh:
                 for line in fh:
@@ -265,7 +292,8 @@ def hit_rates(
     this is the grain that matters most when a cell is thin. Its absence was not a
     missing measurement, it was a measurement never read.
 
-    **Every bucket is a trailing WINDOW of answers, not a lifetime average**, and that
+    **The three specific grains are a trailing WINDOW of answers, not a lifetime
+    average**, and that
     is the second correction. A lifetime rate describes a namespace's whole history and
     the queue needs its margin: the productive names in a namespace get queried first, so
     a worked-out namespace keeps a flattering average long after it has stopped paying.
@@ -289,7 +317,12 @@ def hit_rates(
     cells: dict[tuple[str, str], deque[bool]] = {}
     per_tld: dict[str, deque[bool]] = {}
     per_source: dict[str, deque[bool]] = {}
-    overall: deque[bool] = deque(maxlen=WINDOW)
+    # NOT windowed, unlike the three above, and the asymmetry is deliberate. This is
+    # the fallback for a namespace nothing has answered yet, and its job is to let
+    # such a namespace rank in the middle so it can earn its first measurement. A
+    # windowed version read 0.0% on 2026-08-18 and would have made every unmeasured
+    # cell unrankable, so nothing new could ever be tried.
+    overall: list[bool] = []
     for domain, hit in outcomes.items():
         source = source_of.get(domain)
         if not source:
@@ -303,7 +336,7 @@ def hit_rates(
         ):
             bucket.append(hit)
 
-    def rate(bucket: deque[bool]) -> Decimal:
+    def rate(bucket: Sequence[bool]) -> Decimal:
         return Decimal(sum(bucket)) / Decimal(len(bucket))
 
     return (
