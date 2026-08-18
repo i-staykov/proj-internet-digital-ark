@@ -188,3 +188,54 @@ def test_a_wholly_unmeasured_namespace_falls_through_to_the_pool_rate() -> None:
     rate = build_query_queue.expected_hit_rate("brand_new", "zz", cell, tld, source, pool)
     assert rate == pool
     assert rate > 0
+
+
+def test_a_namespace_that_has_gone_flat_loses_its_lifetime_average() -> None:
+    """The window. A lifetime rate describes a namespace's history; the queue needs its
+    margin.
+
+    Measured on 2026-08-18 over 188 pool journals, `.org` had answered 8,388 queries at a
+    lifetime 0.461 and its most recent 500 at **0.068**, a 6.8x overstatement, because the
+    productive names in a namespace get queried first. Its 0.7101 English weight then kept
+    it at the head of the queue: one batch spent 132 of 147 queries there for nine hits.
+    """
+    window = build_query_queue.WINDOW
+    outcomes, source_of = {}, {}
+    # A full window of misses, preceded by an equally long run of hits. The lifetime
+    # rate is 0.5 and the margin is 0.
+    for i in range(window):
+        d = f"old{i}.org"
+        outcomes[d], source_of[d] = True, "s"
+    for i in range(window):
+        d = f"new{i}.org"
+        outcomes[d], source_of[d] = False, "s"
+
+    _, tld, _, _ = build_query_queue.hit_rates(outcomes, source_of)
+    assert tld["org"] == 0, "the window must not average in the exhausted namespace's past"
+
+
+def test_the_window_corrects_upwards_too() -> None:
+    """A pool that has grown faster than it was worked is UNDERSTATED by a lifetime rate.
+
+    Same measurement, mirror image: `.uk` read 0.583 over its whole history and 0.798 over
+    its last 500. A window that only ever cut a rate would be a pessimism knob rather than
+    a measurement.
+    """
+    window = build_query_queue.WINDOW
+    outcomes, source_of = {}, {}
+    for i in range(window):
+        d = f"old{i}.uk"
+        outcomes[d], source_of[d] = False, "s"
+    for i in range(window):
+        d = f"new{i}.uk"
+        outcomes[d], source_of[d] = True, "s"
+
+    _, tld, _, _ = build_query_queue.hit_rates(outcomes, source_of)
+    assert tld["uk"] == 1
+
+
+def test_a_bucket_shorter_than_the_window_is_unaffected() -> None:
+    """Most cells never fill the window, and for those nothing changed."""
+    outcomes, source_of = _outcomes([("s", "com", 400, 360)])
+    _, tld, _, _ = build_query_queue.hit_rates(outcomes, source_of)
+    assert tld["com"] == Decimal(360) / Decimal(400)
