@@ -309,6 +309,50 @@ Priced whole, the queue covers about a tenth of the deficit, so nothing here is 
 
 ## CLOSED
 
+### C-28. The local engine moves to the edge population, which is C-24's own contingency firing (2026-08-19)
+
+**Decided by measurement under a standing rule, so it needed no answer from Ivo, but it reverses the
+practical effect of C-24 and is recorded for that reason.**
+
+C-24 kept the local engine on the candidate pool and closed with one explicit condition: *"the edge queue
+is available for whenever the pool runs thin."* It has run thin, and the switch is that sentence firing
+rather than a disagreement with it.
+
+**The measurement had to be done twice, and the first version was wrong in a way worth naming.** A
+trailing window of the last 20,000 answered queries per prefix put the pool at 57.6% and 0.474
+equivalent-English per query, which flatly contradicted `just cycle`'s 18.4%. The window was reaching
+back into older, better journals, and it was ordered by file mtime, which is not content recency because
+a journal copied from the VPS gets a new mtime. Ordering by the run stamp in the filename and reporting
+each journal separately:
+
+| population | answered | hit rate | EE per query |
+|---|--:|--:|--:|
+| `cdx_pool`, last 15 runs | 7,355 | **15.8%** | **0.110** |
+| `cdx_gap3`, last 8 runs | 2,060 | 67.8% | 1.126 |
+| `cdx_edgepilot_b` | 141 | 80.9% | 1.776 |
+
+**A second attempt to compare them fairly failed, and the failure is the documented trap.** Those figures
+count every year a query returns, which is right for the pool, where the domain holds no year and
+everything is new, and wrong for gap and edge, where only the missing years count. Re-measuring net-new
+against the store returned **0.000 for every population**, because `maintain.sh` had already banked every
+journal, and net-new against the live store from a banked journal is zero by construction. Zero looks
+identical to worthless. The comparison therefore rests on the queue builder's own expected values, which
+are structural rather than retrospective: **0.6075 EE per query for the best 250,000 edge targets**
+against the pool's realised **0.110**.
+
+**Why edge rather than gap, which is better still.** The gap population is the VPS's, and two collectors
+on one list duplicate each other's queries. Edge is disjoint from gap **by construction**: an edge target
+is 1996 or 2001, and a bracketed gap needs both neighbours, so it can never reach them. No coordination
+is needed and neither machine can tread on the other.
+
+**Confirmed in flight rather than assumed.** The first three minutes on the new queue returned 40
+answered and **53 year-records, 1.33 per query, against the pool's 0.167**. The queue holds 6,038,320
+targets and 1,597,226 EE of expected value, so it will not run thin soon.
+
+**The pool list is kept and kept fresh.** A population that has run thin is not one that is finished, and
+the candidate pool grows every time a mention is extracted. `audit_residual.py` now tracks both files and
+`discover_cycle.py` rebuilds each with its own population.
+
 ### C-27. A third of the candidate pool's quoted value is names that were never real (2026-08-19)
 
 **The pool's headline "1,639,929 EE if every one earned a year" is overstated by 574,973 EE, 35.1%,

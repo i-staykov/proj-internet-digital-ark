@@ -101,6 +101,18 @@ DERIVED = (
         "build_query_queue.py --population pool",
         ("candidates", "journals"),
     ),
+    # **The list the local engine reads since 2026-08-20.** C-24 kept the local engine on
+    # the candidate pool and left one explicit contingency: "the edge queue is available
+    # for whenever the pool runs thin." It has. Measured per journal in run order rather
+    # than over a window that reaches back into better ones, the pool's last fifteen runs
+    # gave 15.8% and 0.110 equivalent-English per query, against 0.6075 expected for the
+    # best 250,000 edge targets. The pool list above is kept and kept fresh, because a
+    # population that has run thin is not a population that is finished.
+    (
+        "data/raw/cdx/queue_edge_local.txt",
+        "build_query_queue.py --population edge",
+        ("candidates", "journals"),
+    ),
     # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
     # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
     # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
