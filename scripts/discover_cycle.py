@@ -309,7 +309,8 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     f"do NOT restart anything, since it re-reads its target list at every batch"
                 )
             continue
-        if "queue_pool_local" in path:
+        if "queue_pool_local" in path or "queue_edge_local" in path:
+            population = "edge" if "queue_edge_local" in path else "pool"
             _o, ok = run(
                 [
                     "uv",
@@ -317,7 +318,7 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     "python",
                     "scripts/build_query_queue.py",
                     "--population",
-                    "pool",
+                    population,
                     "--out",
                     path,
                 ]
@@ -332,7 +333,8 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     )
                 else:
                     attention.append(
-                        f"the pool queue was rebuilt and NO RUNNING COLLECTOR READS {path}. "
+                        f"the {population} queue was rebuilt and NO RUNNING COLLECTOR READS "
+                        f"{path}. "
                         f"A supervisor fixes ARK_TARGETS at startup, so a rebuild reaches it "
                         f"only if it was started on this path. Copy the rebuilt list over the "
                         f"file the running collector was given, or restart it on this one; "
