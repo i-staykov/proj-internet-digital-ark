@@ -708,6 +708,12 @@ hooks:
 # reports and does not act: the header of scripts/scheduled_cycle.sh says why a
 # restarting watchdog is the wrong shape here, and extend_engines.sh says it again.
 #
+# **This needs Full Disk Access and will fail silently without it.** The repository
+# lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
+# grant from the terminal that installed it. The first install exited 126 four times
+# a day while `launchctl list` looked normal, so this recipe now runs the job once
+# and reports the exit status rather than trusting the load.
+#
 # install the launchd job that runs the health check unattended
 schedule:
     #!/usr/bin/env bash
@@ -717,7 +723,25 @@ schedule:
     sed "s|ARK_ROOT|{{justfile_directory()}}|g" scripts/com.ark.cycle.plist.template > "$plist"
     launchctl unload "$plist" 2>/dev/null || true
     launchctl load "$plist"
-    echo "loaded com.ark.cycle; it appends to data/logs/scheduled_cycle.log"
+    echo "loaded com.ark.cycle; running it once to find out whether it can actually run"
+    launchctl kickstart -k "gui/$(id -u)/com.ark.cycle" 2>/dev/null || true
+    sleep 20
+    status=$(launchctl list | awk '$3 == "com.ark.cycle" { print $2 }')
+    if [ "${status:-0}" = "0" ]; then
+        echo "OK: exited 0. It appends to data/logs/scheduled_cycle.log"
+    else
+        echo "FAILED: last exit status $status"
+        echo
+        echo "  126 or 1 here is almost always macOS TCC: this repository is under"
+        echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
+        echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
+        echo "  /bin/bash. Then run 'just schedule' again."
+        echo
+        echo "  Until then the hourly 'just cycle' inside 'just hunt-overnight' covers"
+        echo "  the same ground, because it inherits the grant of the terminal that"
+        echo "  started it. Check it is running before relying on this."
+        tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
+    fi
 
 # remove the scheduled health check
 unschedule:
