@@ -728,3 +728,15 @@ unschedule:
     rm -f "$plist"
     echo "removed com.ark.cycle"
 
+# The unattended half of discovery. Takes an absolute epoch like the collectors do,
+# e.g. `just hunt-overnight $(date -u -v+7d +%s)`. See the header of
+# scripts/overnight_hunt.sh for what it deliberately cannot do.
+#
+# run the autonomous source hunt until a deadline, detached
+hunt-overnight until sleep="3600":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    nohup bash scripts/overnight_hunt.sh {{until}} {{sleep}} > /dev/null 2>&1 < /dev/null &
+    sleep 3
+    ps -eo pid,args | grep "[o]vernight_hunt.sh" || echo "did not start; is the lock held?"
+
