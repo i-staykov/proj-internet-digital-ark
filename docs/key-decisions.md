@@ -81,6 +81,48 @@ million equivalent-English at weight 0.6321**. That is two to three times the 60
 is wide because it turns on how much of the 39.6% shortfall is names that no longer exist anywhere, which
 no current compilation can recover, against names simply absent from this publisher's crawl.
 
+**THAT ESTIMATE WAS TESTED THE NEXT HOUR AND IS ROUGHLY HALVED. Read the correction, not the paragraph
+above.** The paragraph names its own weak point, that the shortfall might be dead domains, and then
+prices the lead without settling it. It is left standing rather than edited so the correction is legible.
+
+**The test.** The compilation is of domains that exist **now**. A 1998 domain that dropped and was never
+re-registered is absent from it and would be absent from **any** current compilation, a complete zone
+file included. So the missing 1,813 names were asked of Verisign's RDAP service, which is the registry's
+own answer, against a control of 100 names known to be in the compilation.
+
+| | decided | registered today |
+|---|--:|--:|
+| **control**, names known to be in the compilation | 100 | **98.0%** |
+| **test**, names missing from it | 200 | **52.5%** |
+
+The control is what makes this a measurement: at 98% it shows the probe works, so 52.5% is a fact about
+the names rather than about the method.
+
+**So 47.5% of the shortfall is dead and unrecoverable by anyone, and 52.5% is real headroom.** Redone on
+the measured figures: a complete current compilation would hold 71.3% of the in-window `.com` population
+rather than 39.6%, and dating them at the same 55.3% rate would take the share it can date from **21.9%
+to about 39.4%, a multiplier of 1.80x** rather than the 2 to 3x assumed. That is **roughly 1.7 million
+further in-window `.com` pairs, about 1.06 million equivalent-English gross**.
+
+**Two things about that number that must travel with it.**
+
+**It is gross, not net-new, and this sample cannot measure net-new by construction.** Every domain in it
+was drawn from names we already date, so a more complete compilation would corroborate them rather than
+add them. What the sample measures is *coverage*. How much of the 1.06 million is new to the store is
+unmeasured, and quoting the gross figure as an increment would be the error this project has made before.
+
+**The remaining bias runs against us and its direction is known.** The sample is domains dated on
+non-WHOIS evidence, meaning something archived or mentioned them, so they are more prominent than the
+average 1998 domain and therefore **more likely to have survived to today**. The true survival rate of
+the shortfall is below 52.5%, so 1.80x is an upper bound on the multiplier.
+
+**One genuinely new number falls out, and it bounds all `.com` work rather than just this source.** If
+the compilation dates 21.9% of the in-window `.com` population and holds 2,100,199 such rows, that
+population is on the order of **9.6 million `.com` domains**, against **6,104,712 `.com` domains the
+store already dates**. So `.com` discovery has perhaps 3.5 million domains of headroom in total, about
+2.2 million equivalent-English, from every source combined and not from this one. That is the ceiling the
+5% gate has to be found inside, and it is the first time this project has had an estimate of it.
+
 **So the ask is concrete rather than a research direction, and it is the first thing found in this round
 that could clear 5% on its own.** Three routes, in ascending cost:
 
@@ -93,9 +135,127 @@ that could clear 5% on its own.** Three routes, in ascending cost:
    at thousands a day here, and tens of millions of lookups is not a plan. So route 3 only becomes real
    if route 1 finds a compilation that already did the work.
 
+### Route 1 has an answer, and it is a class of source this register has never once considered
+
+**Searched for a larger compilation and found one, commercial.** `whoisxmlapi.com` publishes a WHOIS
+Database Download whose own product page states **374 million active domains tracked**, **7,596 TLDs and
+ccTLDs**, and lists **creation date** among the per-domain fields. Read off their page on 2026-08-20,
+not inferred.
+
+Against the 171 million of the compilation we hold, and a current `.com` zone of roughly 157 million,
+that is the "compilation that already did the work" route 1 was defined to look for. On the measured
+ceiling above it would be worth up to the full **1.80x multiplier, about 1.7 million further in-window
+`.com` pairs and 1.06 million equivalent-English gross**, with net-new unmeasured and certainly lower.
+
+**The reason this is worth writing down even before it is priced is that the whole class is missing from
+the register.** `docs/sources.md` holds 112 closed families. A grep for `domaintools`, `whoisxmlapi` and
+`securitytrails` across `sources.md` and `approved-sources-list.md` returns **zero**, against a control
+grep for `netcraft` in the same two files which returns 2 and 18. So the search works and the absence is
+real: **commercial WHOIS data vendors have never been evaluated here at all.** Every registry route this
+project has taken has been to a registry or to a free deposit.
+
+**What is NOT established, and was checked rather than assumed.** DomainTools advertises a WHOIS History
+product and it is widely said to reach the late 1990s. **Three of their live pages were read and none
+states a start year**, so the depth claim is unverified and is not being relied on. It matters because a
+*historical* WHOIS archive is categorically better than any current one: it could hold the **47.5% of
+in-window names that are dead today**, which the measurement above shows no current compilation can ever
+reach. If that product really does reach 1996-1998, it is the most valuable source this project has ever
+identified. That is a question for them, not for us.
+
+**The catch is that both are commercial**, so this is a purchase or a research-access grant rather than a
+download, and either needs a named person. It is prepared below.
+
+### The compilation is dark over two high-weight namespaces, and that is a smaller separate lead
+
+Counted over the same file: several namespaces are held in bulk with **zero** in-window creation dates,
+because their registries do not publish one. Filtered to weight >= 0.5 and 100,000+ rows, the ones that
+also plausibly existed in the window are:
+
+| namespace | rows in the file | in-window dates | weight |
+|---|--:|--:|--:|
+| `com.au` + `au` | 2,166,910 | **0** | 0.9904 |
+| `co.za` | 903,228 | **0** | 0.9682 |
+
+Everything else on that list is disqualified by delegation date rather than by policy: `.us` was
+locality-only until its 2002 relaunch, bare `.uk` did not open until 2014, and `.io`, `.store`, `.dev`,
+`.ai`, `.bond` and the rest are modern gTLDs that could not have existed in the window. **That
+disqualification is a registry fact, not a name-shape rule.**
+
+So the honest residue is `.au` and `.co.za`, both at near-1.0 weight. Neither registry publishes bulk
+creation dates and `data.gov.au` has nothing (1,466 results for "domain", every one geological or
+planning). Worth a probe when the large routes are exhausted; **not worth a night**, since the whole `.au`
+namespace was on the order of 200,000 names by 2001 and the store already dates 90,669 of them.
+
 **Nothing here has been fetched and nothing needs deciding tonight.** What is needed is a yes to opening
 a Kaggle account and applying to CZDS, both of which are ordinary and neither of which touches the
 evidence rules: a registry creation date is already an approved master class under `whois_creation`.
+
+**ANSWERED YES BY IVO, 2026-08-19, on both routes.** Both are now the agent's to execute, with one
+boundary that neither the answer nor the mandate moves: **an account and an application are things done
+in a person's name.** Where a route needs an identity, a signature or a stated purpose attributed to a
+human, the agent prepares it and stops. What was blocked was permission and permission is granted; what
+remains blocked on Ivo is only the parts that are literally his to sign. Those are collected under
+`## WAITING ON IVO, PREPARED AND READY` below, so a single sitting clears them.
+
+## WAITING ON IVO, PREPARED AND READY
+
+**Everything here is drafted and blocked only on something that is literally yours to do**: an account in
+your name, a signature, or a message sent as you. None of it is blocked on a decision any more, and none
+of it touches the evidence rules. Ranked by what it is worth.
+
+### 1. Ask WhoisXML API for research access to the WHOIS Database Download
+
+**Worth up to 1.06 million equivalent-English gross**, the largest single lead the project holds, and the
+only one measured against a ceiling rather than guessed. Their page states 374 million active domains
+with creation dates across 7,596 TLDs, against the 171 million we hold. Commercial, so it needs a quote
+or an academic grant, and a vendor will not open an account to an agent.
+
+Suggested wording, to `sales@whoisxmlapi.com` or their contact form:
+
+> I am a contributor to an academic benchmark reconstructing the set of domain names that existed
+> between 1996 and 2001, run by Prof. Xiaowei Ding. The only field I need is the domain name and its
+> registry creation date, restricted to domains created between 1996 and 2001. I do not need registrant
+> details, contact data or any personal information, and would prefer they were excluded.
+>
+> Could you tell me whether a one-off extract on those terms is available, and whether you offer academic
+> or research pricing? I am happy to cite the dataset in the resulting work.
+
+**Ask for the two fields only.** It lowers the price, removes the personal-data question entirely, and
+the extra columns are of no use here.
+
+### 2. Ask DomainTools one question before considering their product
+
+Their WHOIS History product may or may not reach the 1990s; **three of their live pages state no start
+year and the claim is unverified.** It matters more than the size of any current database, because a
+historical archive could hold the 47.5% of in-window domains that are dead today and that no current
+compilation can ever contain. One question settles it:
+
+> What is the earliest year for which your WHOIS History data has coverage, and is coverage of the
+> 1996-2001 period substantial enough to be useful for research into domains registered in that period?
+
+### 3. Open a Kaggle account
+
+Free, two minutes, and it unblocks the download of anything the search finds. The search itself needs no
+account and has already been run: nothing on Kaggle is larger than what we hold. **So this is now low
+value and is kept only because a future search may find something.**
+
+### 4. Apply to ICANN CZDS
+
+Free, needs a stated purpose and per-registry approval. **Downgraded on the night's measurement.** A zone
+file is a list of names with **no creation dates**, so it cannot date anything by itself, and dating the
+names it would reveal is the route already established as not scaling. Its real use is as a denominator:
+it would settle exactly how incomplete any compilation is. Worth having, not worth waiting for.
+
+Purpose statement, if you do apply:
+
+> Academic research reconstructing the historical set of registered domain names for the period
+> 1996-2001, as a contribution to a benchmark dataset. Zone data will be used to measure the completeness
+> of existing domain-name compilations and will not be redistributed.
+
+### 5. The two standing asks from before, unchanged
+
+Bulk Nominet queries, now priced at 48,545 EE and not worth much; and writing the researchers and agency
+about an unpublished early-web crawl.
 
 ### Our cumulative score, reconstructed: 41.0640%
 
