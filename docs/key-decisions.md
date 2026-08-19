@@ -79,13 +79,19 @@ The request block in `approved-sources-list.md` carries a seeded-random sample w
 measured figures and the counterfactual. It is worth 60% of the packaged round, and it is nowhere near
 the 5% gate on its own.
 
-### Two permission asks, both unchanged and both small
+### Two permission asks, and one of them has now been priced
 
 - **May we query Nominet in bulk for the `.uk` pool?** Their terms are ambiguous and a sweep was stopped
-  for that reason.
+  for that reason. **Priced 2026-08-19 and it is small: the whole ceiling is 48,545 EE.** The pool holds
+  49,470 undated `.uk` names at weight 0.9813, so even if Nominet answered every one with a creation date
+  inside the window, that is **8.0% of the 603,855 EE gate** and 3.0% of the pool's own upper bound. A
+  WHOIS sweep of names we already hold cannot be the route to a submittable round, whatever the terms
+  say. What could be is a **bulk request to Nominet for the names registered 1996-2001**, which is a
+  different ask and belongs with the outreach below rather than with a sweep.
 - **May the project write two researchers and one agency** to ask whether an early-web crawl or link
   graph can be shared? This is the one route that could plausibly reach 600,000 EE, because it asks for
-  bulk data that is not published.
+  bulk data that is not published. **It is now the only such route on the list**, since the repository
+  registries were swept and are dry (C-25).
 
 ### Triage the newly found sources: 60 found, none priced
 
@@ -94,6 +100,67 @@ A counter, not a request, by your instruction of 2026-08-15: you review this whe
 Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 
 ## CLOSED
+
+### C-27. A third of the candidate pool's quoted value is names that were never real (2026-08-19)
+
+**The pool's headline "1,639,929 EE if every one earned a year" is overstated by 574,973 EE, 35.1%,
+and the overstatement sits in one identifiable block.** 584,646 undated candidates are `.gov`, `.mil`,
+`.edu` or `.int`, namespaces whose weights are 0.9825, 0.9981, 0.9717 and 1.0000, so they carry a third
+of the ceiling on 25% of the rows. `.gov` and `.mil` are closed registries that between them never held
+more than a few thousand names in the window, and the store holds 184,948 and 186,181 of them.
+
+They arrive almost entirely from `usenet_address_mention` and `usenet_mention`, and they are what
+anti-harvester munging looks like at scale: `yjwuuxuqqa.gov`, `sboojsgvvo.gov`, `rjhxf.mil`.
+
+**Measured rather than asserted, and with the positive control the brief demands.** Within the
+`cdx_pool` journals, so the same population, period and method on both sides:
+
+| namespace | answered | with a capture | rate |
+|---|--:|--:|--:|
+| everything else | 105,404 | 51,328 | **48.70%** |
+| `.edu` | 1,709 | 5 | 0.29% |
+| `.mil` | 1,372 | 0 | 0.00% |
+| `.gov` | 394 | 0 | 0.00% |
+| `.int` | 30 | 0 | 0.00% |
+
+**The positive control is that the same namespaces answer normally elsewhere in the same engine.** In
+`cdx_gap`, `cdx_q0` and `cdx_q1`, `.edu` returns 74.7% to 86.0% and `.gov` 57.1% to 94.2%. So neither the
+namespace nor the query method is at fault, and a search that found nothing here has proved something
+rather than been pointed at the wrong place. That test is the whole reason this is a closure and not a
+hunch.
+
+**This is not a name-shape filter and must not be turned into one.** The membership test that justifies
+excluding these rows is registry closure, an external fact about `.gov` and `.mil`, not the look of the
+strings. `dotgov_real_names` in the triage queue is the list that would make the exclusion checkable.
+
+Nothing has been deleted and no filter has been applied. What changes is the quoted ceiling, and that
+574,374 of the 2,278,511 rows in `queue_pool_local.txt` are worth 0.14% rather than 48.70%. They rank
+late, so the engine is not spending on them today.
+
+### C-26. Demunging Usenet addresses is real and is worth a few thousand EE, not a round (2026-08-19)
+
+Prompted by C-27: the same block of pool names contains recoverable ones. 35,162 undated candidates
+carry a known anti-harvester token (`nospam`, `removethis`, `spamsucks` and 17 others), for example
+`nospamciti-link.com` and `undertonenospam.com`. Stripping the token yields **23,028 distinct
+candidates, of which 15,062 are already dated in the store**, which is the only class the corroboration
+split would admit, since a Usenet address is something a human typed.
+
+So the ceiling is 15,062 domains, and the realised figure is lower again because a recovered pair only
+counts where that domain does not already hold that year. **Worth doing and worth nothing like 5%.**
+Recorded so it is not rediscovered as a large idea.
+
+### C-25. The research-repository route to a bulk capture census is dry across five registries (2026-08-19)
+
+`repository_ia_capture_census` sits in the triage queue on the reasoning that `dartmouth_nber_captures`
+paid 227,273 pairs, so siblings of it might exist. **Searched and empty.** DataCite restricted to
+datasets, Zenodo, Harvard Dataverse, OSF and HuggingFace, 15 query phrasings across crawl, hyperlink
+graph, capture census and early-web wording, 569 distinct records returned and **not one is an
+in-window web corpus.** The nearest misses are a 2020 German academic web crawl, a Common Crawl
+language benchmark and a banner-ad study that is itself derived from Wayback snapshots.
+
+This does not close the idea that such a deposit exists somewhere, but it closes the five places where
+a deposit of that kind would normally be registered, and it should stop the next agent repeating the
+sweep.
 
 ### C-24. Edge-year gaps are real, measured, and NOT worth reallocating an engine to (2026-08-18)
 

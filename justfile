@@ -702,3 +702,29 @@ hooks:
         ln -sf "../../hooks/$n" ".git/hooks/$n"
         echo "installed .git/hooks/$n -> hooks/$n"
     done
+
+# Point macOS at the health check four times a day, so a day nobody is watching
+# still leaves a record of what the collectors did and what needed judgement. It
+# reports and does not act: the header of scripts/scheduled_cycle.sh says why a
+# restarting watchdog is the wrong shape here, and extend_engines.sh says it again.
+#
+# install the launchd job that runs the health check unattended
+schedule:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    plist="$HOME/Library/LaunchAgents/com.ark.cycle.plist"
+    mkdir -p "$HOME/Library/LaunchAgents" data/logs
+    sed "s|ARK_ROOT|{{justfile_directory()}}|g" scripts/com.ark.cycle.plist.template > "$plist"
+    launchctl unload "$plist" 2>/dev/null || true
+    launchctl load "$plist"
+    echo "loaded com.ark.cycle; it appends to data/logs/scheduled_cycle.log"
+
+# remove the scheduled health check
+unschedule:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    plist="$HOME/Library/LaunchAgents/com.ark.cycle.plist"
+    launchctl unload "$plist" 2>/dev/null || true
+    rm -f "$plist"
+    echo "removed com.ark.cycle"
+
