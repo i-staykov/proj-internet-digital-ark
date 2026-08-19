@@ -40,6 +40,14 @@ Seven source families were screened on the last working day and every one was al
 measurement. **There is no known candidate of that size on the list.** That is the honest state, and
 finding one is the job.
 
+**But keep the engines running the whole time, and this is Ivo's explicit instruction** (2026-08-19):
+*something is better than nothing, so we always want a baseline of additions accruing, including on the
+VPS.* The two facts sit together without contradiction. Querying cannot *reach* the gate, so it must never
+be the thing you spend a week tuning; it does produce a few hundred equivalent-English a day for free,
+unattended, while you hunt. **The failure mode to avoid is not a slow engine, it is an idle one.** A round
+that eventually clears 5% will be a bulk corpus plus whatever the engines banked in the meantime, and the
+second part costs nothing but remembering to start it.
+
 ## 3. How the evidence model works, and why it is strict
 
 `domain_year.evidence_id` is `NOT NULL` with a foreign key into `evidence`. No code path can write a year
@@ -90,16 +98,93 @@ just ship-approved  # bank approvals, regenerate the report, export, gate, packa
 `README.md` documents every command and what each should print. Keep it current in the same sitting as
 any change that adds one.
 
-**The collectors are shell supervisors that run without an agent.** `scripts/supervise_cdx_pool.sh` and
-`scripts/rdap_pool_sweep.sh` take their own absolute deadlines and keep going with nobody watching. That
-property is what made unattended stretches safe. They are **stopped** as of the handoff; restart one only
-if you have a reason, and remember that a queue file is read at batch start, so a rebuilt queue reaches a
-running collector only if it was started on that path.
+**On the previous harness.** The Claude setup drove itself with background timers and a cron wake. None of
+that machinery is needed. The equivalent is: run `just cycle`, act on whatever it flags as undecidable by
+a program, then hunt for a bulk source. If your environment offers scheduled runs, point one at
+`just cycle`.
 
-**On the previous harness.** The Claude setup drove itself with background timers and a cron wake, and
-step 5 of that loop was "hunt for a new source every wake, without exception". None of that machinery is
-needed. The equivalent is simply: run `just cycle`, act on what it says cannot be decided by a program,
-then look for a bulk source. If your environment offers scheduled runs, point them at `just cycle`.
+## 5a. The CDX engine: what it is and how to work it
+
+This is the thing that must never sit idle. Read this section before touching a collector.
+
+**What it does.** `ark cdx` asks the Internet Archive's CDX index, for each domain in a target file, which
+of the years 1996-2001 hold a capture. One collapsed query covers all six years. A capture in 1998
+evidences 1998, on that domain's own evidence, so this route needs no approval from anyone.
+
+**It never touches the store.** `ark cdx` writes a per-run journal and nothing else, which is why it can
+run for hours beside other work. It is **resumable**: any domain already recorded in a journal in the same
+folder is skipped, so re-running is always additive and interrupting costs only the queries not yet made.
+Journals become evidence separately:
+
+```bash
+uv run ark ingest cdx_snapshot data/raw/cdx/cdx_pool_<stamp>.jsonl.gz
+```
+
+In practice the `maintain.sh` loop does that banking for you every few minutes. **A journal on disk is not
+yet a result**; `just cycle` reports unbanked ones.
+
+**Two populations, two machines** (Ivo's design). Build either with
+`scripts/build_query_queue.py --population gap|pool|edge|both --out PATH`:
+
+- **`gap`** is a bracketed missing year: year Y absent while Y-1 and Y+1 are held. It is a *completeness*
+  baseline, its hit rate is 96-97.5% and flat across TLDs, so ranking it by English share alone is
+  correct. **This is the VPS's job.**
+- **`pool`** is the candidate pool, domains held with no year at all. It is the *discovery* half. Its hit
+  rate runs from 36.9% to 90.6% depending on where the name came from, so English share must be
+  multiplied by a **measured** rate or `.au` sorts to the top of the queue and returns nothing. **This is
+  the local machine's job.**
+
+**Starting the local engine.** A supervisor loops batches until an absolute deadline and needs no agent:
+
+```bash
+UNTIL=$(date -u -v+7d +%s)
+ARK_TARGETS=data/raw/cdx/queue_pool_local.txt ARK_PREFIX=cdx_pool \
+  nohup caffeinate -i bash scripts/supervise_cdx_pool.sh "$UNTIL" 600 8 900 >/dev/null 2>&1 </dev/null &
+nohup bash scripts/maintain.sh 900 150 >/dev/null 2>&1 </dev/null &
+```
+
+Positional arguments are `DEADLINE BATCH WORKERS CHECK DELAY MIN_DELAY MAX_DELAY TIMEOUT`, defaulting to
+`1200 8 900 0.5 0.15 3.0 70`. `ARK_TARGETS` picks the queue and `ARK_PREFIX` names the journals and the
+log at `data/logs/<prefix>.log`. **Use `queue_pool_local.txt`**, because that is the path `just cycle`
+rebuilds; starting on a one-off filename is how a re-ranked queue sat unread for two hours while the
+engine worked a stale head.
+
+**A supervisor fixes `ARK_TARGETS` at startup.** Rebuilding a queue does not reach a running collector,
+and `ark cdx` reads its target list at batch start. To adopt a new ranking, either copy the new list over
+the file the collector was given, or restart it on the new path.
+
+**Stopping it.** `just engines-stop`, or `TERM` to the supervisor, which runs its trap and lets the batch
+publish what it has. **Never `kill -9`**: that strands the `.part` file and its work becomes unreachable.
+If you must kill by pattern, **kill the worker child first, then the supervisor**, or the worker is
+reparented to init, matches no supervisor pattern, and keeps querying while `pgrep` reports it stopped.
+
+**The VPS, which is the gap population.** `10.1.0.6` is private and needs Ivo to bring the VPN up; do not
+debug SSH. Deploy with `bash scripts/make_vps_bundle.sh` locally, then `bash scripts/vps_bootstrap.sh` on
+that machine, and drive it with `just engines-start $(date -u -v+12d +%s)`, `just engines`,
+`just engines-stop`. Refresh its gap shard rarely and only from a shard built after the current baseline
+landed. **`just engines` prints UNKNOWN rather than "everything is home" when it cannot reach the
+machine**, and that distinction exists because 5,793 collected records once sat stranded on the VPS for a
+day and a half while every local measurement read clean.
+
+**Judging health, which is three different questions.** *Presence* is not *progress* and progress is not
+*yield*. A batch stuck on a socket leaves the process alive and the journal frozen; the supervisor
+therefore tests journal growth, not liveness alone. But a journal full of misses grows exactly as fast as
+one full of hits, so yield is checked outside the supervisor by `just cycle`. On one occasion a collector
+ran 3,219 answered queries for **zero** captures while every other check read clean.
+
+- Ask the **process table**, never a log file, whether something is running:
+  `pgrep -f 'supervise_cdx_poo[l]'`. Bracket a letter so the pattern cannot match your own command line.
+  Expect the count to read 2 for one healthy collector, because `caffeinate` wraps the shell.
+- **Never enumerate journal prefixes anywhere.** Six exist, including the VPS's own `cdx_q1`, and a yield
+  check hardcoded to two of them let the VPS write 3,219 answered queries against an exhausted shard for
+  31 hours while every yield line read clean.
+- Rates decay as a namespace is worked out. Measure over a **trailing window**, never a lifetime: the pool
+  read 47.6% in-window lifetime and 9.1% over its most recent answers.
+
+**Citizenship, which is not optional here.** The Internet Archive has refused this project outright three
+times. Honest User-Agent naming the project and a contact address, honour `Retry-After`, back off on
+429/503/504, modest concurrency. **Never point a third heavy client at `web.archive.org` while the VPS is
+collecting.**
 
 ## 6. What has already been tried, so you do not repeat it
 
@@ -152,6 +237,11 @@ In `docs/key-decisions.md`, which is the only surface he reads:
 Never move a `pending` class to `master` yourself. It is the one rule with no exceptions.
 
 ## 9. The state at handoff
+
+**The local CDX engine is running**, on `queue_pool_local.txt` under prefix `cdx_pool`, with an absolute
+deadline of 2026-08-26T15:40:50Z, and `maintain.sh` is banking its journals. Restart or extend it per
+section 5a rather than letting it lapse. **The VPS is not running** and needs Ivo's VPN before it can be
+reached at all.
 
 Round 6 is **packaged and deliberately not sent**, because it is 0.118894% against a 5% gate. The archive
 verifies on all nine checks inside a fresh extraction, D3 reconciles 22 of 22, overlap with his baseline

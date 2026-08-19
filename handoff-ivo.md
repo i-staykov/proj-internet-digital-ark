@@ -67,9 +67,30 @@ Packaged, verified, and deliberately unsent because 0.118894% is far below the g
 - **D3 reconciles 22 of 22**; his own calculator reproduces our figure to the digit
 - archive `submissions/phase-6/`, 1.9 GB, sha256 in `MANIFEST.txt`, git-ignored and regenerable
 
-## 5. What I changed in the repository today
+## 5. The engines are running again, and that is now a rule rather than a note
 
-**The rules now live in one place.** `.github/copilot-instructions.md` is the standing brief, 120 lines,
+I had stopped everything when you said to pause. Your point that something is better than nothing is
+correct and my handoff had the wrong emphasis, so it is fixed in three places:
+
+- **The local CDX engine is running**, on `data/raw/cdx/queue_pool_local.txt`, the queue `just cycle`
+  keeps rebuilding, with an absolute deadline of **2026-08-26T15:40:50Z**. The ingest loop is banking its
+  journals. Starting it on that path also fixes a divergence I found earlier today, where the engine was
+  working a one-off filename while a freshly re-ranked queue sat unread.
+- **The VPS is not running, and only you can start it**, because `10.1.0.6` needs your VPN. It is the
+  **gap** population, whose hit rate is 96-97.5% and flat across TLDs, so it is both the better half and
+  the half currently missing. Bring the VPN up and the next agent can deploy it in two commands.
+- **It is a standing rule now**, in the brief itself rather than buried in a handoff: keep the collectors
+  running at all times, the failure mode is an idle engine rather than a slow one, and querying is never
+  the thing to spend a week tuning because it cannot reach the gate on its own.
+
+`handoff-copilot.md` section 5a is a full operating guide for the next agent: what `ark cdx` does and that
+it never opens the store, the two populations and which machine each belongs to, the supervisor's exact
+arguments, why a rebuilt queue does not reach a running collector, how to stop one without stranding the
+`.part` file, the VPS deployment, and the three separate health questions (presence, progress, yield).
+
+## 6. What I changed in the repository today
+
+**The rules now live in one place.** `.github/copilot-instructions.md` is the standing brief, 142 lines,
 and Copilot reads that path automatically. `CLAUDE.md` is now a 16-line pointer at it rather than a second
 copy, because two copies of an evidence rule drift and that is the last rule that should.
 
@@ -86,7 +107,7 @@ holds it regardless.
 **Nothing was deleted as dead**, because nothing was: every document is cross-referenced and there are no
 orphaned scripts. The bulk was verbosity, not rot.
 
-## 6. Three corrections I owe you from today
+## 7. Three corrections I owe you from today
 
 I want these on the record because two of them nearly went outward.
 
@@ -103,7 +124,7 @@ I want these on the record because two of them nearly went outward.
 The delivery figures in section 4 are program-generated and cross-checked against Ding's own calculator,
 and none of them depend on the three items above.
 
-## 7. Starting Copilot
+## 8. Starting Copilot
 
 Point it at the repository and it will pick up `.github/copilot-instructions.md` on its own. If it seems
 not to, tell it in the first message: *"Read .github/copilot-instructions.md and handoff-copilot.md before
