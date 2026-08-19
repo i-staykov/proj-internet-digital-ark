@@ -89,9 +89,9 @@ the 5% gate on its own.
 
 ### Triage the newly found sources: 60 found, none priced
 
-**60 source(s) found** and awaiting one word each in `approved-sources-list.md` under `## Found, awaiting
-triage`: *candidate pool* or *fold in directly*. Nothing is blocked while they sit there, since a
-`pending` class cannot date a year, so `ark ingest` refuses it and collection never waits.
+A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **60 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
+
+Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
 
 ## CLOSED
 
