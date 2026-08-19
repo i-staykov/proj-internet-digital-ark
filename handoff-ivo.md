@@ -83,6 +83,15 @@ correct and my handoff had the wrong emphasis, so it is fixed in three places:
   running at all times, the failure mode is an idle engine rather than a slow one, and querying is never
   the thing to spend a week tuning because it cannot reach the gate on its own.
 
+- **How the two are allocated is now written down too**, on your instruction: the VPS keeps the gap
+  population permanently and the local machine works the candidate pool as a steady background queue,
+  yielding it whenever the agent needs the archive itself. One correction to the framing, because it
+  changes the rule: the constraint is **concurrent heavy clients at one archive**, not the agent's spare
+  time. Its own probes hit the same CDX endpoint, one 600-query batch drew 480 throttles, and 11.67% of
+  328,175 queries have failed at transport level. So the rule is **default on, pause for the burst,
+  restart at once**, rather than "run it if there is time", which an always-busy agent would read as
+  never. Pausing costs almost nothing because `ark cdx` is resumable and a re-run is additive.
+
 `handoff-copilot.md` section 5a is a full operating guide for the next agent: what `ark cdx` does and that
 it never opens the store, the two populations and which machine each belongs to, the supervisor's exact
 arguments, why a rebuilt queue does not reach a running collector, how to stop one without stranding the

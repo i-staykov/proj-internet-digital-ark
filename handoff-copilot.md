@@ -134,6 +134,36 @@ yet a result**; `just cycle` reports unbanked ones.
   multiplied by a **measured** rate or `.au` sorts to the top of the queue and returns nothing. **This is
   the local machine's job.**
 
+**How to allocate the two, which is Ivo's instruction of 2026-08-19 and has a measured basis.** Give the
+**VPS the gap population permanently** and let the **local machine work the candidate pool as a steady
+background queue**, yielding it whenever you need the archive yourself.
+
+**The reason is not spare local compute, and getting that wrong leads to the wrong rule.** The binding
+constraint is **concurrent heavy clients at one archive.** `ark cdx` and your own source-exploration
+probes hit the same service, `web.archive.org/cdx/search/cdx`: a single 600-query batch drew **480
+throttles**, and across 328,175 queries **11.67% failed at transport level** against 0.93% carrying an
+HTTP status, which is throttling seen from the other side of the socket. So a collector and an exploring
+agent compete for one rate budget. The VPS does not compete with either: different machine, different
+population.
+
+**Which is why the pool is the half to yield.** The gap population runs 96-97.5% in-window and flat
+across TLDs, so pausing it wastes the best queries available; the pool reads 9.1% over its recent answers.
+Yield the cheap engine, never the expensive one.
+
+**The rule is default on, pause for the burst, restart at once.** Not "run it if you have time": an agent
+that is always exploring would then never start it, and **an idle engine is the failure mode.** Pausing is
+close to free because `ark cdx` is resumable and any re-run is additive, so a stop costs only the queries
+already in flight. Practical shape:
+
+```bash
+just engines-stop          # before a burst of your own archive requests
+# ... explore, price a source, probe an index ...
+# then restart per the block below, with a fresh deadline
+```
+
+**And never a third client.** If the VPS is collecting and the local pool is collecting, you are already
+at two. Do your own probing in place of the local collector, not alongside it.
+
 **Starting the local engine.** A supervisor loops batches until an absolute deadline and needs no agent:
 
 ```bash
