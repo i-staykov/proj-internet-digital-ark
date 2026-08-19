@@ -114,6 +114,13 @@ the operating guide; the essentials:
   English share alone is correct there. The **local** machine works `--population pool`, the discovery
   half, where the hit rate runs 36.9% to 90.6% by origin, so English share must be multiplied by a
   **measured** rate or `.au` sorts to the top for zero dates.
+- **Allocate them: VPS on `gap` permanently, local on `pool` as a steady background queue**, and yield
+  the local one whenever you need the archive yourself. The constraint is **concurrent heavy clients at
+  one archive**, not local compute: your own probes hit the same `web.archive.org` CDX endpoint, where one
+  600-query batch drew 480 throttles and 11.67% of 328,175 queries failed at transport level. Yield the
+  **pool** (9.1% trailing), never the gap (96-97.5%, flat). **Default on, pause for the burst, restart at
+  once**; pausing is nearly free since `ark cdx` is resumable and a re-run is additive. **Never a third
+  client** at that host.
 - `ark cdx` **never opens the store**; it writes a resumable journal, and `ark ingest cdx_snapshot` or the
   `maintain.sh` loop turns it into evidence. **A journal on disk is not yet a result.**
 - A supervisor fixes `ARK_TARGETS` at startup, so **a rebuilt queue does not reach a running collector.**
