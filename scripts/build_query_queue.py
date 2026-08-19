@@ -485,8 +485,11 @@ def write_single(built: dict, population: str, out: Path) -> None:
         print("    completeness: every hit is a new pair on a domain already held")
     elif population == "edge":
         print("    completeness at the window's edge: 1996 and 2001, which no bracketed")
-        print("    query can reach. Measured 94.4% for 2001 and 60.0% for 1996 (ADR-006),")
-        print("    and a hit adds a pair and never a domain.")
+        print("    query can reach. Ranked on EDGE_RATE, 0.597 for 2001 and 0.000 for")
+        print("    1996, which are the pilot rates against a FIXED snapshot. The 94.4%")
+        print("    and 60.0% in ADR-006 are the superseded CEILING, conditional on the")
+        print("    archive holding the adjacent capture, and must not be quoted as the")
+        print("    operative rate. A hit adds a pair and never a domain.")
     else:
         print("    discovery: every hit makes a name net-new, which is the prioritised half")
 
