@@ -27,134 +27,71 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-### Ask Ding whether we may submit small increments often, rather than holding for 5%
+**Project paused 2026-08-18 and handed to GitHub Copilot.** Collectors stopped, round packaged and not
+sent. Read `handoff-ivo.md` first; the agent reads `.github/copilot-instructions.md` and
+`handoff-copilot.md`.
 
-**This is the highest-value hour of your time available, and it is one email.** His scoring rules of
-2026-08-18 say the cumulative score is the **direct sum** of the percentages, each measured against the
-benchmark as it stood when that submission arrived. Whether we may send a small round next week instead
-of one large one in a month therefore changes the strategy completely, and nothing on our side can
-answer it.
+### The only question that matters now: where do 590,000 equivalent-English come from?
 
-**Why it matters, measured from his own published release totals**
-(`scripts/submission_cadence.py`): other contributors are adding **1,082,013 equivalent-English a day
-and accelerating**, against our 13,200. So
+**5% gates every submission** (Ivo, 2026-08-18): we may not send anything below it. That closes the
+cadence question I had open here, and it makes the arithmetic brutal rather than merely tight.
 
-- work held for a week loses **38.5%** of its credit, and
-- 5% of the corpus is 603,855 EE today and **recedes by 54,101 a day while the engines close it by
-  13,200**, so that gap widens by 40,901 a day and never closes by querying.
+- threshold today: **603,854.78 EE**; we hold **14,358.92**.
+- the threshold **recedes by about 54,101 EE a day** as other contributors grow the corpus, measured at
+  1,082,013 EE/day over the newest interval between his releases.
+- our own collection adds about **13,200 EE a day**.
+- so the gap **widens by roughly 40,901 EE a day and never closes by querying.** `scripts/submission_cadence.py`.
 
-**Three questions to put to him, all short.** (1) May we submit smaller increments more frequently,
-given that percentages add and the benchmark moves? (2) Is the 5% threshold a condition of eligibility
-at all, or only the trigger for a formal batch, given that our phase-3 round was credited well below
-it? (3) **What is our official cumulative score as he has it recorded?** If the answer to (1) is yes, we
-should send what we hold rather than accumulate, and the plan for this round changes today.
+**Therefore only a bulk dated corpus can produce a submittable round**, something in the order of 600,000
+EE at once, which is what phase 5 did at 195,779 EE/day by landing `domain_creation_bulk` and the
+Dartmouth capture census. Per-domain archive querying is arithmetically incapable of it. Seven source
+families were screened on 2026-08-18 and every one was already closed on a sound measurement, so **there
+is no known candidate of that size on the list today.** That is the honest state, and it is the problem
+to hand over.
 
-**Question 3 is not laziness: we cannot compute it, and the reason is worth knowing.** The new rule sums
-the percentages *he awarded*, and he has stated an explicit one for only two of the four accepted rounds:
-17.38% for round 1 and 14.901054% for round 5. Rounds 3 and 4 arrived as `.docx` feedback that gives the
-increment without a percentage (round 3 at 91,931.0345 EE, his figure). Worse, round 1's 17.38% is a
-**record-count** growth from July, before the equivalent-English metric existed, so adding it to an
-equivalent-English percentage sums two different measurements. Only he knows which number is in his
-ledger, and if the answer is that round 1 counts at 17.38% then a single early round is worth more than
-everything since.
+### Our cumulative score, reconstructed: 41.0640%
 
-**And if the answer to (1) is yes, there is something to send the same day.** As of 2026-08-18 15:30Z
-the round is **17,499 records / 14,185.3495 EE / 0.117457%**, and it has passed his own calculator with
-`round_figures.py --verify`: he scores it identically to the last decimal place, **rejects none of the
-17,499, and none are already in his merged files.** So this is not a question about work still to do; it
-is a question about whether a small verified increment should go now or wait, and the arithmetic above
-says now.
+Ding does not hold this figure either, so it is reconstructed from his emails on your instruction: the
+sum of the **net-new record** percentage of each accepted round, each against the baseline it was scored
+against.
 
-**The risk of the opposite reading, so you can weigh it.** If he prefers few substantial submissions,
-frequent small ones may read as noise and cost goodwill, which is not a thing the arithmetic can price.
-That is exactly why this is your call and not the agent's.
+| round | accepted records | baseline records | record % |
+|---|--:|--:|--:|
+| 1 | 1,429,524 | 8,224,963 | 17.3803% |
+| 3 | 151,949 | 10,263,632 | 1.4805% |
+| 4 | 946,266 | 10,415,768 | 9.0849% |
+| 5 | 2,608,322 | 19,883,096 | 13.1183% |
+| | | | **41.0640%** |
+
+**The method is validated by round 1**: he stated 17.38% himself and this reproduces 17.3803%. One
+baseline is derived rather than quoted, `merged260730` at 10,263,632 = 9,654,487 plus the 609,145 records
+of an external contributor's round, so that row carries a small uncertainty and no other does.
+
+**Reported separately, as you asked:** cumulative accepted equivalent-English is **3,018,005.5168** over
+5,136,061 records, which is 24.9895% of the corpus as it now stands. That percentage is not additive and
+must not be summed with the table above.
 
 ### Approve, refuse or downgrade internic_zone / artifact_listing
 
-`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal waits on disk. At stake: **12,150 net-new pairs and 8,627.7 equivalent-English** under `master`, against 7,089 and 5,033.9 if it takes the corroboration split, and zero if it stays `candidate-only` (the names still grow the pool).
+Still `pending`, so `ark ingest` refuses it and its journal waits on disk. **12,150 net-new pairs and
+8,627.7 EE** under `master`, 7,089 and 5,033.9 under the corroboration split, zero as `candidate-only`.
+The request block in `approved-sources-list.md` carries a seeded-random sample with live links, the
+measured figures and the counterfactual. It is worth 60% of the packaged round, and it is nowhere near
+the 5% gate on its own.
 
-**8,627.7 EE is 62% of everything this round has collected so far**, which is the fact that reframes this entry. It is not a tidy-up item beside the engines; it is larger than the engines' entire output since the round opened. And it is the cheap instance of the general problem: the measurement under the entry above says the route to 5% runs through admitting bulk sources rather than through collection rate, so **the approval gate is now the binding constraint on the score.** Every hour a priced class sits `pending` is an hour the round does not grow.
+### Two permission asks, both unchanged and both small
 
-The request block in `approved-sources-list.md` carries a seeded-random sample with a live link per record, the figures measured by program, and the reasons to refuse. **Decide from those, not from the agent's argument.** Set the `Decision:` line to `master`, `candidate-only` or `rejected`.
-
-### Round 6 has opened against `merged260817-2`, and 5% is now 603,854.78 EE
-
-**Status, not a question.** Ding accepted phase 5 on 2026-08-17 with no rejected records: every
-submitted domain-year record was evidence-backed, none invalid, none duplicated. He credited
-**2,608,322 records and 1,566,229.7613 equivalent-English, 14.901054% growth**, which is lower than the
-2,838,715 and 1,697,224.86 we sent because 230,393 of our records had already reached his interim
-`merged260817` through other contributors. His figures are the ones that count; `baseline.py` now
-records the accepted pair for every round.
-
-**The denominator moved a long way, and mostly not because of us.** Between `merged260815` and
-`merged260817-2` the corpus went from 8,346,839.3737 to **12,077,095.5404 EE**, a 44.7% rise, of which
-ours was 1.57M and another contributor's roughly 2.16M. So 5% of a round is now **603,854.78 EE**,
-against 417,341.97 last round, and our cumulative across four rounds reads **24.9895%** of the corpus
-rather than the 37.7269% quoted a day ago. Nothing was lost; the corpus grew.
-
-**Where his audit says we are strong and weak.** He ships a per-year merge audit, and it is the first
-time we can see our work against someone else's on the same corpus:
-
-| year | ours accepted | already his | the other contributor's | our growth on that year |
-|---|--:|--:|--:|--:|
-| 1996 | 58,288 | 4,876 | 46,622 | 7.20% |
-| 1997 | 188,186 | 42,006 | 245,075 | 11.47% |
-| 1998 | 246,604 | 36,552 | 623,173 | 11.73% |
-| 1999 | 444,023 | 69,738 | 1,423,310 | 10.61% |
-| 2000 | 688,340 | 77,219 | 2,116,142 | 11.14% |
-| 2001 | **982,881** | **2** | 267 | **34.27%** |
-
-2001 is ours almost exclusively, because registry creation dates reach a year the archives cover
-badly. 1998 to 2000 is where we are outproduced three to one. That is a targeting fact for this round,
-not a decision needing you.
-
-**No decision is waiting on you here.** The two source classes you approved last round are banked and
-shipped; `approved-sources-list.md` has no pending request. The four entries below are unchanged.
-
-### The local engine's cost per answer, and what it is now worth
-
-Not blocking; it keeps running unless you say otherwise. Measured on 2026-08-16: 600 queries drew
-**1,830 throttles and 188 failures**, about 2,430 HTTP requests for 412 answers. Candidates are fine
-(75.7% of answered carry a capture), so this is citizenship rather than tuning, and every technical
-lever is tested and closed.
-
-**The "0.085 points" figure quoted here last round was against the old baseline and is now smaller
-still**, since the denominator rose 44.7%. What has not changed is that the queue is not the limit:
-2,288,555 pool targets carrying 150,385 EE of expected value sit against an engine clearing a few
-hundred an hour, so the constraint is request rate at one archive and always was.
-
-**One correction to the framing above.** The failures are not the rate limits and 504s the brief asks
-about: over 283,968 queries those are **0.96%**. The load is **12.34% transport-level**, 27,151
-connections refused and 7,879 timed out, which is the same throttling seen from the other side of the
-socket and cannot be read from a status code. `scripts/cdx_execution_notes.py`.
-
-### May we query Nominet in bulk for the .uk pool?
-
-`.uk` lands an in-window date on **30.6%** of queries at weight 0.9813, six times `.org`, over ~54,000
-unasked names: about **16,000 EE**. I stopped after 140 queries because Nominet's own RDAP terms forbid
-high-volume automated querying and re-use, and `sources.md` records it refusing us three times in
-fourteen queries. Options: leave it (current behaviour), ask them (I draft, you send), or tell me to
-sweep slowly anyway.
-
-### May I write two researchers and one agency on the project's behalf?
-
-Two now, both outward-facing in your name, so I will not send either without your word. If yes, I draft and you send.
-
-**1. USAC, for the `.us` gap.** Their portal serves only the last ten years and says to email `opendata@usac.org` for older records. `usac_erate_form471_contact_email_1998_2001` aims at the measured `.us` shortfall, 18,300 in-window `.us` against 3,239,423 `.com`. Positive control already measured on the published years.
-
-**2. Jim Jansen, for the Excite query logs, and this one is new and cheap.** Screened and probed today. Three in-window logs exist and are offered: `Excite_1997_small`, `Excite_1997_large`, `Excite_2001`. Access is neither a fee nor an agreement: his page says *"Please email me if you would like access to one or more of the transaction logs"* and he *"will place the file(s) on an ftp site for you"*.
-
-Why it is worth an email rather than a queue entry: a query log is the **users' side** of a search engine, dated by the server at the moment somebody typed the name. The register's closed search-engine row is about crawler output, which is a different artifact. **A domain advertised on a cereal box and never linked to is invisible to every crawl and present in a query log**, which is the one population a crawler-derived baseline cannot contain by construction. Volume: the 2001 log is 1,025,910 queries and the 1997 logs are the same order, with the IR literature putting URL-shaped queries at a few percent, so order 10,000 to 100,000 dated typed mentions per log. ESTIMATE, not measured, and the novelty risk is that most of what people type is famous.
-
-Nothing is blocked by either: both are additive leads and collection continues regardless.
+- **May we query Nominet in bulk for the `.uk` pool?** Their terms are ambiguous and a sweep was stopped
+  for that reason.
+- **May the project write two researchers and one agency** to ask whether an early-web crawl or link
+  graph can be shared? This is the one route that could plausibly reach 600,000 EE, because it asks for
+  bulk data that is not published.
 
 ### Triage the newly found sources: 60 found, none priced
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **60 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
-
-Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
-
----
+**60 source(s) found** and awaiting one word each in `approved-sources-list.md` under `## Found, awaiting
+triage`: *candidate pool* or *fold in directly*. Nothing is blocked while they sit there, since a
+`pending` class cannot date a year, so `ark ingest` refuses it and collection never waits.
 
 ## CLOSED
 

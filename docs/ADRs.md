@@ -1,6 +1,6 @@
 # Architecture decision records
 
-**What belongs here and what does not.** `docs/notes.md` is the dated log of every decision, and it is
+**What belongs here and what does not.** `docs/archive/notes-2026-07-08.md` is the dated log of every decision, and it is
 long by design. This file holds only the few decisions with **structural** impact: a change to the
 evidence taxonomy, to the store's shape, to how the machines are allocated, or to a write path every
 route depends on. Each record states the question, what was measured, what was decided, and **what was
