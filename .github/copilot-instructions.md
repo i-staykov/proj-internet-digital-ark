@@ -64,6 +64,28 @@ path can write a year assignment without one. That is structural, not a conventi
   naming the project and a contact address, honour `Retry-After`, back off on 429/503/504, modest
   concurrency, prefer bulk downloads.
 
+## Standing operational rule: the CDX engines stay running
+
+**Keep the collectors running at all times, including the VPS** (Ivo, 2026-08-19): *something is better
+than nothing, so we always want a baseline of additions.* Querying cannot reach the 5% gate, so never
+spend a week tuning it, but it banks a few hundred equivalent-English a day unattended while you hunt for
+a bulk source. **The failure mode is an idle engine, not a slow one.** `handoff-copilot.md` section 5a is
+the operating guide; the essentials:
+
+- **Two populations, two machines.** The **VPS** works `--population gap`, a missing year Y with Y-1 and
+  Y+1 held, as an unattended completeness baseline: hit rate 96-97.5% and flat across TLDs, so ranking by
+  English share alone is correct there. The **local** machine works `--population pool`, the discovery
+  half, where the hit rate runs 36.9% to 90.6% by origin, so English share must be multiplied by a
+  **measured** rate or `.au` sorts to the top for zero dates.
+- `ark cdx` **never opens the store**; it writes a resumable journal, and `ark ingest cdx_snapshot` or the
+  `maintain.sh` loop turns it into evidence. **A journal on disk is not yet a result.**
+- A supervisor fixes `ARK_TARGETS` at startup, so **a rebuilt queue does not reach a running collector.**
+  Start it on `data/raw/cdx/queue_pool_local.txt`, the path `just cycle` maintains.
+- **Presence is not progress and progress is not yield.** A journal of misses grows as fast as one of hits;
+  `just cycle` is what checks yield.
+- Stop with `just engines-stop` or `TERM`, never `kill -9`, which strands the `.part`. Killing by pattern
+  means **worker child first, supervisor second**, or the worker is reparented and keeps querying.
+
 ## Where state lives, and which to trust
 
 | | what it is | how to use it |
