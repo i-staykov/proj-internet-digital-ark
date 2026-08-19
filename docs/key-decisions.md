@@ -49,6 +49,54 @@ families were screened on 2026-08-18 and every one was already closed on a sound
 is no known candidate of that size on the list today.** That is the honest state, and it is the problem
 to hand over.
 
+### The one sized lead found on 2026-08-19: the registry route is roughly 40% worked, not finished
+
+`domain_creation_bulk` is the largest source this project holds, 2,165,523 in-window pairs from a
+published compilation of 171 million domains. **It was assumed to be spent. Measured, it is not.**
+
+Counted over the 25.9 GB file itself: **84,279,284 `.com` rows, of which 2,100,199 carry a creation date
+inside 1996-2001.** The current `.com` zone is roughly 157 million names, so the compilation holds about
+**half the namespace**.
+
+**The tempting inference is that a complete compilation holds twice as many in-window creations, and it
+had to be tested rather than believed.** The test: draw 2,999 `.com` domains this project already dates
+inside the window **on evidence that is not `whois_creation`**, so the sample cannot have come from this
+file, and ask how many the file holds.
+
+| | |
+|---|--:|
+| sampled, dated in window on non-WHOIS evidence | 2,999 |
+| present in the compilation at all | **1,187 (39.6%)** |
+| of those, carrying an in-window creation date | 656 (55.3% of the 1,187) |
+
+Two things fall out. **The compilation covers the in-window population worse than it covers the
+namespace**, 39.6% against about 54%, and **44.7% of the in-window names it does hold now carry a later
+creation date**, which is a domain that dropped and was re-registered, and is the mechanism that makes
+WHOIS lossy about 1998 in the first place.
+
+**What that is worth, stated as an estimate and not a measurement.** If the uncovered part of the current
+`.com` zone carries in-window creations at anything like the density of the covered part, a complete
+current compilation is worth a further **1.8 to 3.1 million `.com` year-pairs, or roughly 1.1 to 2.0
+million equivalent-English at weight 0.6321**. That is two to three times the 603,855 EE gate. The range
+is wide because it turns on how much of the 39.6% shortfall is names that no longer exist anywhere, which
+no current compilation can recover, against names simply absent from this publisher's crawl.
+
+**So the ask is concrete rather than a research direction, and it is the first thing found in this round
+that could clear 5% on its own.** Three routes, in ascending cost:
+
+1. **A larger published compilation.** The one we hold is a Kaggle deposit and there is no Kaggle account
+   on this machine. Others may exist. This costs an account and an afternoon.
+2. **ICANN CZDS.** Free zone-file access to `.com`, `.net` and `.org` gives the complete current name
+   list, though not creation dates. It needs an account, a stated purpose and registry approval. It would
+   settle the estimate above exactly, by telling us how many names the compilation is missing.
+3. **Creation dates for the missing names.** This is the part that does not scale: port-43 and RDAP run
+   at thousands a day here, and tens of millions of lookups is not a plan. So route 3 only becomes real
+   if route 1 finds a compilation that already did the work.
+
+**Nothing here has been fetched and nothing needs deciding tonight.** What is needed is a yes to opening
+a Kaggle account and applying to CZDS, both of which are ordinary and neither of which touches the
+evidence rules: a registry creation date is already an approved master class under `whois_creation`.
+
 ### Our cumulative score, reconstructed: 41.0640%
 
 Ding does not hold this figure either, so it is reconstructed from his emails on your instruction: the
