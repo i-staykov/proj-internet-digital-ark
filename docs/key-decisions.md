@@ -33,22 +33,29 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**The gate is 603,855 EE.** O1 is the one that moves the number; the rest are small.
-The working behind every figure is in `docs/archive/decisions-working.md`.
+**The gate moved to 619,240 EE** on the `merged260820` benchmark of 2026-08-20. We hold
+**24,695 EE, 3.99% of it**, and rising. Working in `docs/archive/decisions-working.md`.
+
+**Two things in his 2026-08-20 update change the strategy and neither needs a decision from you.**
+Scoring is now **time-weighted**, `S_i = 10 x (p_i / t_i)` with `t_i` in days from benchmark release
+to submission, so the clock started today and speed is now worth as much as size. And the corpus
+grew by only **102,571 EE/day** over the last interval against 1,082,013 before it, so the threshold
+recedes at about **5,129 EE/day** while we collect about 17,400. **The gap now closes rather than
+widens**, which reverses the standing conclusion that querying could never reach the gate.
 
 | | the ask | reaches 5%? |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, already downloaded and measured. | **Not alone: 77,749 EE, 12.9% of the gate.** The largest available public source found, and self-dating so it takes no corroboration split. |
-| **O2** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
-| **O3** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
-| **O4** | Bring the VPN up when convenient; the VPS has been unreachable since ~09:00Z | **No.** It is collecting, but its journals cannot come home |
-| **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 8.0% |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, downloaded and measured. | **Not alone: 77,749 EE, 12.6% of the gate.** Largest public source found; self-dating, so no corroboration split. |
+| **O2** | Bring the VPN up when convenient. The VPS has been unreachable since ~09:00Z. | **No,** but it is the cheapest doubling of collection rate available. |
+| **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
+| **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
+| **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
-**Nothing known reaches 5% on its own, and that is the honest state.** Everything public and
-measured now totals roughly **190,000 EE, 31% of the gate**: `ukwa_geoindex` 77,749, the unheld
-Usenet hierarchies about 104,000, and `internic_zone` 8,628. The edge-year CDX engine adds a
-measured 17,400 EE a day on top.
+**Nothing single-handedly reaches 5%, and that remains the honest state.** What is now identified,
+measured and either running or one word away totals **roughly 40% of the gate**, against 3% when
+this round started. The unheld Usenet is banking itself under a decision you took in phase 4 and
+needs nothing from you.
 
 **Withdrawn by your instruction of 2026-08-20, public sources only:** research access to the WhoisXML
 API database, the depth question to DomainTools, and the outreach for an unpublished early-web crawl.
@@ -63,17 +70,17 @@ sampled**, 98.1% `.uk` at weight 0.9813, and 45,122 of the domains are ones the 
 Self-dating, so no corroboration split. Set its `Decision:` line in this file's triage table. Working
 in C-31.
 
-### Approve, refuse or downgrade internic_zone / artifact_listing  (O2)
+### Approve, refuse or downgrade internic_zone / artifact_listing  (O3)
 
 Set its `Decision:` line in `approved-sources-list.md` to `master`, `candidate-only` or `rejected`; that
 file carries the seeded-random sample with live links. **8,627.7 EE as master, 1.4% of the gate.**
 
-### Give /bin/bash Full Disk Access  (O3)
+### Give /bin/bash Full Disk Access  (O4)
 
 System Settings > Privacy & Security > Full Disk Access. Without it the launchd health check exits 126
 four times a day, because this repository sits under `~/Documents`. Then run `just schedule` again.
 
-### Bring the VPN up when convenient  (O4)
+### Bring the VPN up when convenient  (O2)
 
 `10.1.0.6` stopped answering around 09:00Z on 2026-08-20. Its collector holds a deadline of 31 August
 and is still working, but nothing it finds can be banked here until the tunnel is back.
@@ -92,6 +99,57 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-33. Scoring is now time-weighted, so submitting sooner is worth as much as submitting bigger (2026-08-20)
+
+**His update of 2026-08-20 17:02 UTC+8, quoted in `docs/ding/project-brief.md` and the update log.**
+Recorded here because it changes what "wait until 5%" costs, and because no summary of it should be
+trusted over his own text.
+
+For each accepted submission, `S_i = k x (p_i / t_i)` with `k = 10`, where `p_i` is the verified
+equivalent-English percentage increase and **`t_i` is elapsed days from the release of the applicable
+benchmark to receipt of the complete submission**. Ranking is `S_total = sum(S_i)`. The direct sum of
+verified percentages survives as a separate contribution record.
+
+**What that does to this project's plan.** The 5% gate still gates a submission, and he restates that
+reaching it "is a trigger for the next formal submission batch, not a completion condition". But the
+clock for `t_i` started when `merged260820` was released, which was 2026-08-20. **A 5% round submitted
+on day 10 scores 5.0; the same round on day 30 scores 1.67.** So the cost of a slow round is now
+explicit and large, where before it was only the credit lost to a growing denominator.
+
+He also added, on 2026-08-18, that participation does not end at 5%: contributors continue "until they
+have systematically searched, tested, and reasonably exhausted all discoverable sources".
+
+### C-32. The threshold recedes 10x slower than the model assumed, and the gap now closes (2026-08-20)
+
+**The single number that most changes what this project should do**, and it is measured rather than
+modelled.
+
+`merged260820` is 23,015,567 records and **12,384,808.0318 EE**, measured per year with his own
+calculator, so the gate is **619,240 EE**. The corpus grew **307,712.4914 EE in three days**, and that
+growth is exactly one contributor's accepted 5% round, reproduced to the digit from his own
+`merge_stats_final_submission_5pct_0820.csv`.
+
+| interval | days | others' EE/day |
+|---|--:|--:|
+| to `merged260815` | 5 | 424,091 |
+| to `merged260817` | 2 | 1,082,013 |
+| **to `merged260820`** | 3 | **102,571** |
+
+So the threshold recedes at about **5,129 EE/day**, not the 54,101 the plan was built on. Our own
+edge-year collection measures about **17,400 EE/day**. **Collection now exceeds recession by roughly
+12,300 EE/day and the gap closes.**
+
+**The standing conclusion that per-domain querying can never reach the gate is therefore withdrawn.**
+It was true when the recession was ten times larger and it is not true now. What has not changed is
+that querying alone is slow: closing 600,000 EE at 12,300/day is about seven weeks, and under C-33 a
+seven-week round scores a fifth of a one-week one. **Bulk sources are still the answer; they are now
+the answer for a different reason.**
+
+**One caution that belongs with this number.** It is a single three-day interval. If the other
+contributors resume at 400,000 EE/day the recession returns to 20,000 and the conclusion flips back.
+`scripts/submission_cadence.py` recomputes it from his published totals and now reads the direction
+from the data rather than asserting it.
 
 ### C-31. The British Library geoindex is real, free and worth 77,749 EE, measured over the whole file (2026-08-20)
 
