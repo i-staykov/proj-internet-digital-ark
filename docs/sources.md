@@ -1316,6 +1316,21 @@ sharded, the download is the full 11.22 GB and the yield rises accordingly.
 **Citizenship note.** `bl.iro.bl.uk/robots.txt` disallows `/catalog` for all agents and names
 ClaudeBot with `Disallow: /`. Use the ResourceSync resourcelist and `/downloads/`, both allowed.
 
+**The rest of that repository is now enumerated, and the geoindex is the only web dataset in it**
+(2026-08-20). The obvious question after a 77,749 EE find is what else the host holds, and until now
+it could not be asked: `/concern/` returns a Cloudflare challenge and `/catalog` is disallowed. But
+`robots.txt` publishes `https://bl.iro.bl.uk/resourcelist` as the intended enumeration mechanism and
+allows `/` for a generic agent, and a HEAD of `/downloads/<id>` returns a **302 whose `Location`
+carries `response-content-disposition=attachment; filename=<name>`**. So a filename costs one
+redirect followed nowhere and no payload. `scripts/bl_repository_index.py` did all **20,871**
+file_sets that way.
+
+The result is a clean negative. The only bulk file that is not images, OCR, audio or 3D scans is
+`woa1.zip` at 16.7 GB, which `scripts/bl_zip_map.py` identifies from three ranged reads of its ZIP64
+central directory as **583 War Office photographs**. The `web-archives-*.zip` entries are software
+releases of 4 to 9 MB. **So this route is exhausted rather than merely unexplored**, which is worth
+more than another maybe, and the two scripts generalise to any Samvera or Hyku repository.
+
 **Separately, the named CDX artifact stays closed, for a better reason.** DOI `10.5259/ukwa.ds.2/cdx/1`
 resolves to a repository record with **no file attached**: it is one of 389 works in a 2021-10-20 bulk
 metadata import, and zero file_sets carry that date. Established with a positive control rather than
