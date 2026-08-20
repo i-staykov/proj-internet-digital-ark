@@ -85,9 +85,9 @@ even if every undated `.uk` name answered with an in-window date, so it cannot p
 
 ### Triage the newly found sources: 60 found  (O6)
 
-**60 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting
-triage`. One word each, *candidate pool* or *fold in directly*. Nothing is blocked: a pending class
-cannot date a year, so `ark ingest` refuses it and collection continues.
+**60 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+
+A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
 ---
 

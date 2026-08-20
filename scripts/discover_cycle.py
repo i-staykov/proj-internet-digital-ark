@@ -451,22 +451,32 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     review surface that stops moving is worse than no number, because nothing about it
     looks stale.
     """
-    # **Deliberately five lines.** This entry is rewritten every cycle, so its length is
-    # not a one-off choice but a standing tax on the one surface Ivo reads, and that
-    # surface is meant to be a screen. It reached six screens on 2026-08-15, most of it
-    # mine. A counter needs the count, the reason it is not a request, and where to look.
+    # **Deliberately two lines, and the number goes on the end of the heading.** Ivo's
+    # instruction of 2026-08-20 is that OPEN is a numbered list of one-liners, and this
+    # entry is rewritten on every cycle, so a long body here is not a one-off choice but
+    # a standing tax on the one surface he reads. The first version of this restructure
+    # was silently reverted within the hour, because the writer below still emitted the
+    # old five-line body and dropped the `(O6)` marker with it: an automated writer that
+    # disagrees with the file's format wins every time, and quietly.
     body = (
-        f"A counter, not a request, by your instruction of 2026-08-15: you review this when "
-        f"something reaches 5%. **{count} source(s) found and not yet priced**, listed in "
-        f"`{APPROVALS.name}` under `## Found, awaiting triage`.\n\n"
-        f"Priced whole, the queue covers about a tenth of the deficit, so nothing here is "
-        f"urgent and reviewing it would not change this round. **Nothing is blocked either "
-        f"way**: a pending class cannot date a year, so `ark ingest` refuses it and collection "
-        f"continues. One word each when you want them, *candidate pool* or *fold in directly*."
+        f"**{count} source(s) found and not yet priced**, in `{APPROVALS.name}` under "
+        f"`## Found, awaiting triage`. One word each, *candidate pool* or *fold in "
+        f"directly*.\n\n"
+        f"A counter rather than a request, by your instruction of 2026-08-15. Nothing is "
+        f"blocked: a pending class cannot date a year, so `ark ingest` refuses it and "
+        f"collection continues."
     )
     # The heading carries the count too, so it has to be rewritten with the body. It was
-    # not, and read "49 found" over a body saying 55 until 2026-08-18.
-    titled = f"{TRIAGE_HEADING}: {count} found, none priced"
+    # not, and read "49 found" over a body saying 55 until 2026-08-18. The `(On)` marker
+    # is preserved from whatever the file currently uses, so renumbering by hand sticks.
+    marker = ""
+    for title in key_decisions.open_titles(DECISIONS_DOC):
+        if TRIAGE_HEADING in title:
+            found = re.search(r"\((O\d+)\)\s*$", title)
+            if found:
+                marker = f"  ({found.group(1)})"
+            break
+    titled = f"{TRIAGE_HEADING}: {count} found{marker}"
     if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC, heading=titled):
         findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
         return
