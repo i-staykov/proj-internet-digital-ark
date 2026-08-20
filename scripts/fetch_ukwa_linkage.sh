@@ -19,18 +19,39 @@
 # **Run it with the collectors stopped.** It is a heavy client at the same host they
 # use, and the project has been refused by the Internet Archive three times.
 #
+# **`--probe` asks whether the replay is serving at all, in one cheap request**, and is
+# what the overnight loop calls. As of 2026-08-20 the replay returns HTTP 504 from nginx
+# reproducibly, so an unconditional hourly retry would be a heavy request against a
+# known failure, which is the kind of thing that gets a project blocked. The probe takes
+# 15 seconds and only a success justifies the full stream.
+#
 # Usage: bash scripts/fetch_ukwa_linkage.sh [out.tsv.gz]
+#        bash scripts/fetch_ukwa_linkage.sh --probe
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-OUT="${1:-data/raw/ukwa/host-linkage-inwindow.tsv.gz}"
-LOG="data/logs/ukwa_linkage.log"
 URL="https://web.archive.org/web/20221031190607id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz"
 UA="InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
-
-mkdir -p "$(dirname "$OUT")" data/logs
+LOG="data/logs/ukwa_linkage.log"
+mkdir -p data/logs data/raw/ukwa
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
+
+if [ "${1:-}" = "--probe" ]; then
+    code=$(curl -sS -o /dev/null -w '%{http_code}' -r 0-1023 \
+        -A "$UA" --connect-timeout 10 --max-time 15 "$URL" 2>/dev/null)
+    if [ "$code" = "200" ] || [ "$code" = "206" ]; then
+        note "PROBE: replay answers $code. The 20.9 GB capture may now be fetchable:"
+        note "PROBE: stop the collectors and run scripts/fetch_ukwa_linkage.sh (see C-30)"
+        exit 0
+    fi
+    note "probe: replay still not serving (HTTP $code)"
+    exit 1
+fi
+
+OUT="${1:-data/raw/ukwa/host-linkage-inwindow.tsv.gz}"
+
+mkdir -p "$(dirname "$OUT")"
 
 note "streaming $URL"
 note "keeping only rows whose year field is 1996-2001, into $OUT"
