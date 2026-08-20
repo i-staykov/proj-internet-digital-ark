@@ -1,4 +1,4 @@
-"""Enumerate the British Library repository's files by name, cheaply.
+"""Enumerate a Hyku repository's files by name, cheaply.
 
 **Why this exists.** `ukwa_geoindex` was found by hand and measured at 77,749
 equivalent-English, which is 12.6% of the 5% gate from a single free CC Public
@@ -7,11 +7,16 @@ now there was no way to ask: `/concern/` is behind a Cloudflare challenge and
 `/catalog` is disallowed by robots.
 
 **The cheap route.** `robots.txt` allows `/` for a generic agent and publishes
-`https://bl.iro.bl.uk/resourcelist` as the intended enumeration mechanism, which
-lists 39,158 `file_set` ids. A HEAD of `/downloads/<id>` returns **302** whose
-`Location` carries `response-content-disposition=attachment; filename=<name>`. So
-one redirect, followed nowhere, yields the filename. No S3 object is touched and
-no payload is transferred.
+`<host>/resourcelist`, which lists every `file_set` id. A HEAD of `/downloads/<id>`
+returns **302** whose `Location` carries
+`response-content-disposition=attachment; filename=<name>`. So one redirect,
+followed nowhere, yields the filename. No S3 object is touched and no payload is
+transferred.
+
+**One host or many.** `bl.iro.bl.uk/robots.txt` advertises five siblings on the
+same platform: `nls` (National Library of Scotland), `nms`, `mola`, `nt` and
+`kew`. They take the same treatment, which is why the host is an argument rather
+than a constant.
 
 Politeness, which is not optional after three refusals from another archive: an
 honest User-Agent naming the project and a contact, a small worker count, a delay
@@ -19,10 +24,11 @@ between requests, and a hard stop on 429 or 503 rather than a backoff that keeps
 hammering.
 
     uv run python scripts/bl_repository_index.py --limit 2000
-    uv run python scripts/bl_repository_index.py            # the whole list
+    uv run python scripts/bl_repository_index.py --host nls.iro.bl.uk
 
-Writes `data/raw/bl/file_index.tsv` as `id<TAB>filename`, resumable: ids already
-in the file are skipped, so an interrupted run costs only the requests in flight.
+Writes `data/raw/bl/<host>_file_index.tsv` as `id<TAB>filename`, resumable: ids
+already in the file are skipped, so an interrupted run costs only the requests in
+flight.
 """
 
 import argparse
@@ -37,17 +43,15 @@ from pathlib import Path
 from queue import Queue
 
 UA = "InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
-RESOURCELIST = "https://bl.iro.bl.uk/resourcelist"
-OUT = Path("data/raw/bl/file_index.tsv")
 FILESET = re.compile(r"concern/file_sets/([0-9a-f-]{36})")
 
 _stop = threading.Event()
 _lock = threading.Lock()
 
 
-def fetch_resourcelist(cache: Path) -> list[str]:
+def fetch_resourcelist(host: str, cache: Path) -> list[str]:
     if not cache.exists():
-        req = urllib.request.Request(RESOURCELIST, headers={"User-Agent": UA})
+        req = urllib.request.Request(f"https://{host}/resourcelist", headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=300) as fh:
             cache.write_bytes(fh.read())
     ids = FILESET.findall(cache.read_text(encoding="utf-8", errors="replace"))
@@ -69,8 +73,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(NoRedirect)
 
 
-def filename_of(fid: str, timeout: float) -> tuple[str, str]:
-    url = f"https://bl.iro.bl.uk/downloads/{fid}"
+def filename_of(host: str, fid: str, timeout: float) -> tuple[str, str]:
+    url = f"https://{host}/downloads/{fid}"
     req = urllib.request.Request(url, headers={"User-Agent": UA}, method="HEAD")
     try:
         with _opener.open(req, timeout=timeout) as resp:
@@ -90,21 +94,29 @@ def filename_of(fid: str, timeout: float) -> tuple[str, str]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--host", default="bl.iro.bl.uk")
     ap.add_argument("--limit", type=int, default=0, help="stop after N new ids")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--delay", type=float, default=0.25, help="seconds between requests")
     ap.add_argument("--timeout", type=float, default=30.0)
     args = ap.parse_args()
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    stem = args.host.split(".")[0]
+    base = Path("data/raw/bl")
+    out = base / ("file_index.tsv" if args.host == "bl.iro.bl.uk" else f"{stem}_file_index.tsv")
+    cache = base / (
+        "resourcelist.xml" if args.host == "bl.iro.bl.uk" else f"{stem}_resourcelist.xml"
+    )
+
+    out.parent.mkdir(parents=True, exist_ok=True)
     done = set()
-    if OUT.exists():
-        for line in OUT.read_text(encoding="utf-8").splitlines():
+    if out.exists():
+        for line in out.read_text(encoding="utf-8").splitlines():
             if line:
                 done.add(line.split("\t", 1)[0])
-    print(f"{len(done):,} already indexed")
+    print(f"{args.host}: {len(done):,} already indexed")
 
-    ids = [i for i in fetch_resourcelist(OUT.parent / "resourcelist.xml") if i not in done]
+    ids = [i for i in fetch_resourcelist(args.host, cache) if i not in done]
     if args.limit:
         ids = ids[: args.limit]
     print(f"{len(ids):,} to ask")
@@ -113,7 +125,7 @@ def main() -> None:
     for i in ids:
         work.put(i)
 
-    fh = OUT.open("a", encoding="utf-8")
+    fh = out.open("a", encoding="utf-8")
     counter = {"n": 0}
 
     def worker() -> None:
@@ -122,7 +134,7 @@ def main() -> None:
                 fid = work.get_nowait()
             except Exception:  # noqa: BLE001
                 return
-            fid, name = filename_of(fid, args.timeout)
+            fid, name = filename_of(args.host, fid, args.timeout)
             with _lock:
                 fh.write(f"{fid}\t{name}\n")
                 counter["n"] += 1
@@ -141,7 +153,7 @@ def main() -> None:
     if _stop.is_set():
         print("STOPPED: the server returned 429 or 503. Re-run later; this is resumable.")
         sys.exit(1)
-    print(f"wrote {OUT}")
+    print(f"wrote {out}")
 
 
 if __name__ == "__main__":

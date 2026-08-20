@@ -22,20 +22,29 @@
 # to do. The list is therefore built into a temp file and read with `while read`,
 # and the run refuses to end quietly if it banked nothing while archives waited.
 #
+# **Two populations, one banker.** By default it works whatever the fetcher has
+# downloaded into `data/raw/usenet_new`. Given `ARK_USENET_LIST`, it works the
+# archives named in that file instead, which is how the 110.8 GB of phase-4
+# downloads whose groups the store never named gets read: those are already on
+# local disk, so they cost no bandwidth at all. Build the list with
+# `scripts/usenet_unworked.py`.
+#
 # Usage: bash scripts/bank_usenet_new.sh <deadline_epoch> [batch_size]
+#        ARK_USENET_LIST=data/raw/usenet/unworked.txt bash scripts/bank_usenet_new.sh <epoch>
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 DEADLINE="${1:?usage: bank_usenet_new.sh <deadline_epoch> [batch]}"
 BATCH="${2:-40}"
+LIST="${ARK_USENET_LIST:-}"
 SRC="data/raw/usenet_new"
 DONE="$SRC/.banked"
 LOG="data/logs/usenet_bank.log"
 mkdir -p "$DONE" data/logs
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
-LOCK="data/logs/usenet_bank.lock"
+LOCK="data/logs/usenet_bank${LIST:+_list}.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
     note "another banker holds $LOCK"
     exit 1
@@ -62,21 +71,30 @@ retry_ingest() {
 note "banking from $SRC in batches of $BATCH, deadline $(date -u -r "$DEADLINE" '+%F %T UTC')"
 
 round=0
-PENDING="$SRC/.pending.list"
+PENDING="$SRC/.pending${LIST:+_list}.list"
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     : > "$PENDING"
-    find "$SRC" -maxdepth 1 -name '*.mbox.zip' -type f | sort | while read -r f; do
-        [ -e "$DONE/$(basename "$f").ok" ] || echo "$f"
-    done | head -n "$BATCH" > "$PENDING"
+    if [ -n "$LIST" ]; then
+        # The list is ordered largest first, so taking the head takes the valuable
+        # part; an interrupted run has banked the big groups.
+        while read -r f; do
+            [ -s "$f" ] || continue
+            [ -e "$DONE/$(basename "$f").ok" ] || echo "$f"
+        done < "$LIST" | head -n "$BATCH" > "$PENDING"
+    else
+        find "$SRC" -maxdepth 1 -name '*.mbox.zip' -type f | sort | while read -r f; do
+            [ -e "$DONE/$(basename "$f").ok" ] || echo "$f"
+        done | head -n "$BATCH" > "$PENDING"
+    fi
 
     count=$(wc -l < "$PENDING" | tr -d ' ')
     if [ "$count" -eq 0 ]; then
-        if pgrep -f 'fetch_usenet_hierarchie[s]' > /dev/null; then
+        if [ -z "$LIST" ] && pgrep -f 'fetch_usenet_hierarchie[s]' > /dev/null; then
             note "nothing new yet; the fetcher is still running, waiting"
             sleep 300
             continue
         fi
-        note "nothing left to bank and the fetcher has finished"
+        note "nothing left to bank"
         break
     fi
 
@@ -109,7 +127,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
 done
 
 note "banker finished after $round round(s)"
-if [ "$round" -eq 0 ]; then
+if [ "$round" -eq 0 ] && [ -z "$LIST" ]; then
     waiting=$(find "$SRC" -maxdepth 1 -name '*.mbox.zip' -type f | wc -l | tr -d ' ')
     if [ "$waiting" -gt 0 ]; then
         note "REFUSING TO EXIT 0: $waiting archive(s) on disk and none banked"
