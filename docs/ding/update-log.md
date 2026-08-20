@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback-phase-6/Update_Log.docx` |
-| sha256 | `a47f07bb425f175626ae17fb30e7ecf5d7a6e04ab7ef8fa98535fd6a36e5bf5e` |
-| delivered in | `feedback-phase-6/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
-| transcribed | 2026-08-18 by `scripts/extract_ding_docs.py` |
+| source file | `feedback-phase-6/Domain_Data_Collection_Task/Update_Log.docx` |
+| sha256 | `6c6db17be09de4e45f8e9e3476ccbe3fe9a16d7d3d89fbdb53d09ea51c357d54` |
+| delivered in | `feedback-phase-6/Domain_Data_Collection_Task/`, from feedback-phase-6/Domain_Data_Collection_Task_0820_Update_v2.zip (2026-08-20) |
+| transcribed | 2026-08-20 by `scripts/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
@@ -43,3 +43,95 @@ Contributors are encouraged to search more broadly across university and researc
 ## Direction and Scope
 
 Extracting domains from existing historical and academic archives is a high-value direction confirmed by this update, but it is not the only direction. Future work should remain open-ended and innovative, continuing to identify both similar and entirely new domain-discovery methods.
+
+# Update Record
+
+**Timestamp:** 2026-08-17 22:49:40 (UTC+8)
+
+**Related document:** Internet_Digital_Ark_Project_0815_Update.docx
+
+**Update topic:** Mandatory code, experience, merge, and Equivalent-English calculation package
+
+## Changes in This Update
+
+- Every submission must include complete runnable code, scripts, configurations, dependency or environment instructions, and execution commands for the full discovery and processing workflow.
+
+- Every submission must include a concise experience summary covering successful and unsuccessful approaches, measured source yield, limitations, lessons learned, reusable techniques, and recommended directions for further domain expansion.
+
+- Contributors must provide the code and explanation used to normalize, compare, merge, and deduplicate their annual domain results against the latest supplied baseline, including overlap counts, the true baseline-external increment, and reconciliation checks.
+
+- Contributors must provide the runnable Equivalent-English Domain calculation code and explain the formula, fixed Common Crawl-derived TLD English-share weights, model/version, invalid and unmatched-domain treatment, and per-year aggregation. Baseline total, post-merge total, increment, and growth rate must be reported separately.
+
+## Practical Effect
+
+The new requirement makes each submission independently reproducible and auditable. It also preserves operational experience for later contributors and autonomous agents, prevents ambiguity about overlap with the current baseline, and ensures that Equivalent-English growth is calculated from the actual post-merge, within-year-deduplicated result.
+
+# Update Record
+
+**Timestamp:** 2026-08-18 10:23:39 (UTC+8)
+
+**Related document:** Internet_Digital_Ark_Project_0817_Update.docx
+
+**Update topic:** Formal internal competition continuation, cumulative tracking, and final-ranking rules
+
+## Changes in This Update
+
+- Participants must continue submitting verified results until they have maximized their individual accepted increment and have systematically searched, tested, and reasonably exhausted all discoverable sources, related datasets, expansion routes, and innovative methods available to them.
+
+- The 5% Equivalent-English Domain threshold remains the trigger for a formal submission batch, but reaching it is not a completion condition and does not end participation in the competition.
+
+- After each review, the organizers will provide the authoritative accepted increment, Equivalent-English Domain increment, and verified percentage increase relative to the applicable baseline.
+
+- Each participant must track every organizer-verified submission. The participant's overall cumulative percentage score is the direct sum of the official percentage increases awarded for all accepted submissions. For example, verified increases of 5%, 15%, and 25% produce a cumulative score of 45%.
+
+- Final competition positions will be determined only after the competition closes, all eligible submissions have been independently verified, baseline overlaps have been resolved, and cumulative credited increases have been finalized.
+
+## Practical Effect
+
+The update separates batch-submission timing from task completion, establishes organizer-verified performance as the authoritative competition record, and ensures that contributors continue exploring beyond a successful round until the available discovery space has been reasonably exhausted.
+
+# Update Record
+
+**Timestamp:** 2026-08-18 16:33:24 (UTC+8)
+
+**Related document:** Internet_Digital_Ark_Project_0817_Update.docx
+
+**Update topic:** Correction and clarification of cumulative scoring and chronological benchmark updates
+
+## Changes in This Update
+
+- The previous statement that verified submission percentages should not be added mechanically has been removed because it contradicted the official competition scoring rule.
+
+- A participant's cumulative competition score is the direct arithmetic sum of all official percentage increases awarded by the organizers for that participant's accepted submissions.
+
+- Scoring example: if three organizer-verified submissions receive 5%, 15%, and 25%, the participant's cumulative competition score is 5% + 15% + 25% = 45%.
+
+- When multiple participants submit results, submissions are processed strictly in order of receipt. After each accepted submission, the benchmark database is immediately updated through merge and deduplication; the next submission is then evaluated against that updated benchmark.
+
+- Each official submission percentage is calculated from the accepted Equivalent-English Domain increment remaining after deduplication against the benchmark database applicable at that submission's chronological position.
+
+## Practical Effect
+
+The correction aligns contributor scorekeeping with the official rules: verified percentages are added directly to form the cumulative score, while chronological benchmark updates ensure that overlapping contributions are credited only once and are assigned according to submission order.
+
+# Update Record
+
+Timestamp: 2026-08-20 17:02:26 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0820_Update.docx
+
+Update topic: Time-weighted competition scoring based on verified Equivalent-English growth and submission speed
+
+## Changes in This Update
+
+- The organizer-verified Equivalent-English Domain percentage increase remains the underlying increment measure, and each participant must continue tracking the direct cumulative sum of all official percentage increases as a separate contribution record.
+
+- Submission speed is now an explicit competition-scoring factor. For submission i, the elapsed time t_i is measured in actual days from formal release of the applicable latest benchmark package to receipt of the complete submission; fractional days are retained and official timestamps use a consistent time zone.
+
+- The time-weighted score for each accepted submission is S_i = k x (p_i / t_i), where k = 10 and p_i is the organizer-verified Equivalent-English Domain percentage increase expressed as the percentage value. The participant's overall ranking score is S_total = sum_i S_i.
+
+- With the same verified increment percentage, a faster complete submission produces a higher time-weighted score. Chronological benchmark updating continues to apply, so each submission is first deduplicated against the benchmark current at its receipt position.
+
+## Practical Effect
+
+The scoring system now recognizes both verified Equivalent-English Domain growth and the speed of producing a complete, traceable, reproducible submission. Cumulative official percentage increases remain visible as a contribution record, while final competition ranking uses the sum of time-weighted submission scores.

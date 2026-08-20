@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback-phase-6/merged260817-2")
-CURRENT_BASELINE_MARKER = "merged260817-2"
+CURRENT_BASELINE_DIR = Path("feedback-phase-6/Domain_Data_Collection_Task/merged260820")
+CURRENT_BASELINE_MARKER = "merged260820"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,24 +61,21 @@ CURRENT_ROUND_LABEL = "6"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 22_491_418
-REVIEWER_BASELINE_EE = Decimal("12077095.5404")
+REVIEWER_BASELINE_PAIRS = 23_015_567
+REVIEWER_BASELINE_EE = Decimal("12384808.0318")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260817-2` file
+# by running his own `equivalent_english_domains.py` over each `merged260820` file
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
-# The six sum to REVIEWER_BASELINE_EE exactly, which is the check that they are his
-# numbers and not ours: he published only the total, 12,077,095.5404, and these six
-# reproduce it to the digit.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("512261.2220"),
-    1997: Decimal("1066414.0190"),
-    1998: Decimal("1387485.6867"),
-    1999: Decimal("2714773.8715"),
-    2000: Decimal("3975913.5149"),
-    2001: Decimal("2420247.2263"),
+    1996: Decimal("512268.6829"),
+    1997: Decimal("1066465.0340"),
+    1998: Decimal("1387595.7114"),
+    1999: Decimal("2715011.1474"),
+    2000: Decimal("3977564.4454"),
+    2001: Decimal("2725903.0107"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
