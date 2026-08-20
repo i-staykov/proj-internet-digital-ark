@@ -40,13 +40,19 @@ measurement, and is recorded so you can still object. Newest first within each b
 Scoring is now **time-weighted**, `S_i = 10 x (p_i / t_i)` with `t_i` in days from benchmark release
 to submission, so the clock started today and speed is now worth as much as size. And the corpus
 grew by only **102,571 EE/day** over the last interval against 1,082,013 before it, so the threshold
-recedes at about **5,129 EE/day** while we collect about 17,400. **The gap now closes rather than
+recedes at about **5,129 EE/day** while we collect about 13,500. **The gap now closes rather than
 widens**, which reverses the standing conclusion that querying could never reach the gate.
+
+**There is now a measured 5% path, which is what you asked to hear before anything else.** Banked
+38,106 plus the edge population's 1,597,226, `ukwa_geoindex` 77,749, the Usenet remainder about
+60,000 and `internic_zone` 8,628. Every part is public and every figure is net rather than gross.
+The binding constraint is query throughput, not sources: **about seven weeks locally, about three
+with the VPS.** Working in C-34.
 
 | | the ask | reaches 5%? |
 |---|---|---|
 | **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, downloaded and measured. | **Not alone: 77,749 EE, 12.6% of the gate.** Largest public source found; self-dating, so no corroboration split. |
-| **O2** | Bring the VPN up when convenient. The VPS has been unreachable since ~09:00Z. | **No,** but it is the cheapest doubling of collection rate available. |
+| **O2** | Bring the VPN up when convenient. The VPS has been unreachable since ~09:00Z. | **It roughly halves the time to 5%**, from about seven weeks to about three, and under the new time-weighted scoring that is worth about double the final score. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
@@ -99,6 +105,45 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-34. A 5% path exists, it is measured, and every part of it is public (2026-08-20)
+
+**Ivo's standing bar is "at least a 5% potential". This is the first time the project can show one
+from measured numbers rather than hope.** The gate is 619,240 EE.
+
+| source | net EE | state |
+|---|--:|---|
+| already banked against `merged260820` | **38,106** | done, and rising hourly |
+| the **edge population**, 6,038,320 targets | **1,597,226** | queue built, engine running on it |
+| `ukwa_geoindex` | 77,749 | downloaded, parsed, waits on O1 |
+| unheld Usenet hierarchies | ~60,000 | downloading and banking now, no approval needed |
+| `internic_zone` | 8,628 | journal on disk, waits on O3 |
+
+**The edge population alone is 2.6x the gate**, and that figure is net rather than gross, which was
+checked rather than assumed. The queue builder forecast 0.6075 net EE per query for its best 250,000
+targets. Measured against the **in-flight, not-yet-banked** journal, which is the only place the
+question can be asked honestly:
+
+| | |
+|---|--:|
+| answered | 451 |
+| years the archive returned | 945, **2.075 EE/query gross** |
+| of those, **net-new** | 300, **0.659 EE/query net** |
+| net-new share of what came back | **31.7%** |
+
+**0.659 measured against 0.6075 forecast, so the builder's expected values are sound and the queue's
+1,597,226 EE is a real figure.** The gross number is 2.075 and quoting it would have overstated the
+engine by 3.1x; it is recorded here so nobody quotes it later.
+
+**So the constraint is throughput, not sources.** Measured over 12 batches: 6,672 answered in 7.8
+hours, 20,520 queries/day, **13,500 net EE/day**. Against a threshold receding 5,129/day the gap
+closes at about 8,400 EE/day, so the remaining 435,000 EE after the four listed sources is **about
+seven weeks locally and about three with the VPS**. Under C-33's time weighting that difference is
+worth roughly double the final score, which is why the VPN is now O2.
+
+**What this does not say.** It does not say a round is imminent, and the seven weeks is a projection
+from one day's throughput, not a measurement of seven weeks. What it does say is that the question
+"is there a 5% path at all" is now answered yes, on public sources, with each component measured.
 
 ### C-33. Scoring is now time-weighted, so submitting sooner is worth as much as submitting bigger (2026-08-20)
 
