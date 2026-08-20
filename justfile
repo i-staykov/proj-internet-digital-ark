@@ -210,6 +210,11 @@ sources:
     uv run ark ingest odp               data/raw/odp/*.gz
     uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
     uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
+    # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
+    # is set in docs/approved-sources-list.md, so this line is a no-op until then and
+    # is here so the documented reproduction is complete rather than nearly complete.
+    # Build the input first with `bash scripts/ukwa_geoindex_pull.sh`.
+    uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
     uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
     # These three were ingested by hand and reached 11.5% of all assignments while this
     # recipe, which README.md calls "the authoritative list of what gets ingested", did

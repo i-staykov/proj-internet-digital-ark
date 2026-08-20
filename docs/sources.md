@@ -1279,6 +1279,31 @@ net-new at 11.6%**, a density of 420 net-new pairs per MB downloaded against the
 997. 99.7% `.uk`, so the weight is 0.9813 in practice. **Estimated** full in-window yield is 10,000 to
 60,000 net-new pairs; the error bars are wide because only the heads of 5 members were sampled.
 
+**SUPERSEDED 2026-08-20: extracted whole, and the estimate above was 1.3x to 7.8x too low.** All twelve
+members were streamed and filtered by `scripts/ukwa_geoindex_pull.sh`, then priced against the store:
+
+| | |
+|---|--:|
+| in-window rows | 17,912,511 |
+| distinct in-window pairs | 289,857 |
+| already held | 210,604 |
+| **net-new pairs** | **79,253 (27.3%)** |
+| domains the store had never seen | 45,122 |
+| **net-new equivalent-English** | **77,749.1** at mean weight 0.9810 |
+
+A parser is registered as `ukwa_geoindex` / `cdx_timestamp`, and **the class is still `pending`, so
+`ark ingest` refuses it**; a parser is not a permission.
+
+**The sortedness check below was run, passed, and was still not enough, which is the part worth
+keeping.** `postcode-ab` was streamed to EOF: **0 timestamp decreases over all 529,492,931 compressed
+bytes**, with the in-window count flat for the last 470 MB. That justified an early abort. It was
+nevertheless wrong, because **sortedness is a property of the member and not of the archive**:
+`postcode-a0` has **49 decreases**, as do nine of the twelve. Aborting `a0` early wrote 74,907 in-window
+rows where the full member holds **1,390,754**, so it would have taken **5.4%** of that member and
+looked entirely normal doing it. The streamer now cancels its own early abort the moment it sees a
+decrease. **Verifying the check on one member and generalising it to the file is the same mistake as
+the 5M-line check that cost 93% of `host-linkage.tsv.gz`, one level up.**
+
 **The check that must happen before anything else, because this exact trap has already cost this
 project 93% of a source.** Each member looks sorted ascending by timestamp, which would make the
 1996-2001 window a contiguous prefix and the extraction cost tens of MB rather than 11.22 GB. The

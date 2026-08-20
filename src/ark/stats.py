@@ -84,6 +84,13 @@ PROVENANCE_LINEAGE = {
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",
+    # Same JISC dataset as the link graph and the same lineage, but a different
+    # artifact: IA capture timestamps rather than a crawled link. It is a bulk
+    # projection of IA holdings, so it is NOT independent corroboration of anything
+    # already attested by `internet_archive`, and grouping it under `uk_web_archive`
+    # rather than its own name is what keeps the independent-corroboration count
+    # honest.
+    "ukwa_geoindex": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
     # Usenet is its own lineage: the archive is a Giganews donation of posts,

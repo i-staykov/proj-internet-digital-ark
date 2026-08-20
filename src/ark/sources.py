@@ -592,6 +592,55 @@ def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
 
 
+# The British Library geoindex: the geographic index of the same JISC UK Web Domain
+# Dataset, but a different artifact from the host link graph above and a much better
+# one. Every `.uk` resource the Internet Archive held for 1996-2013, one row per
+# capture, `<14-digit timestamp>/<url><TAB><postcode>`.
+#
+# **The timestamp is the capture's own, so this is `cdx_timestamp` and self-dating**,
+# which is why it takes no corroboration split where the link graph's source side
+# does. It is a bulk projection of IA holdings, the one exception to the rule that an
+# IA-derived source cannot be net-new against an IA-derived baseline, and the same
+# shape that made `dartmouth_nber_captures` pay.
+#
+# Measured over the whole file on 2026-08-20, extracted by `scripts/ukwa_geoindex_*`:
+# 17,912,511 in-window rows, 289,857 distinct pairs, **79,253 net-new and 77,749.1
+# equivalent-English** at mean weight 0.9810, 45,122 domains never seen before.
+#
+# **Junk stamps exist and the window filter is what rejects them**: a handful of rows
+# carry `19800101000000` and some 1994 and 1995 dates, so nothing here trusts the
+# first row or the file's ordering. `YEARS` membership is the only gate.
+def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window capture row of the BL geoindex extract.
+
+    Input is the filtered output of `scripts/ukwa_geoindex_pull.sh`, not the 11.2 GB
+    original: the extraction and the parse are separate because the extraction has to
+    stream 9 GB over HTTP and count shard boundaries, and repeating that on every
+    ingest would be absurd.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            stamp, _, rest = line.partition("/")
+            if len(stamp) != 14 or not stamp.isdigit():
+                stats["malformed"] += 1
+                continue
+            url = rest.split("\t", 1)[0].strip()
+            if not url:
+                stats["malformed"] += 1
+                continue
+            year = int(stamp[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            yield BulkRecord(
+                raw=url,
+                year=year,
+                evidence_value=stamp,
+                evidence_url=f"https://web.archive.org/web/{stamp}/{url}",
+            )
+
+
 # AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or
 # recently-withdrawn .fr domain. Column 1 is the domain, column 11 the creation
 # date and column 12 the WHOIS-withdrawal date, both DD-MM-YYYY (12 empty = still
@@ -987,6 +1036,19 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_source",
         acquisition_method="ukwa_host_link_graph",
         parse=parse_ukwa_link_source,
+    ),
+    # The BL geoindex extract: IA capture timestamps for `.uk` resources, so
+    # `cdx_timestamp` and self-dating. Registering the spec does NOT let it date a
+    # year: `ark ingest` still refuses the class until a human writes its `Decision:`
+    # line in docs/approved-sources-list.md, which is the whole point of ADR-003.
+    # The parser exists ahead of that decision so approving it is one command rather
+    # than a day's work.
+    "ukwa_geoindex": SourceSpec(
+        key="ukwa_geoindex",
+        source_name="ukwa_geoindex",
+        evidence_type="cdx_timestamp",
+        acquisition_method="bl_geoindex_extract",
+        parse=parse_ukwa_geoindex,
     ),
     # AFNIC .fr open data: registration-interval evidence (whois_creation),
     # one year per in-window year the domain was continuously registered

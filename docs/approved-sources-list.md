@@ -53,6 +53,38 @@ Decision: master
 
 Decision: master
 
+### ukwa_geoindex / cdx_timestamp
+
+- ingest specs: `ukwa_geoindex`
+- what dates one item: the 14-digit Internet Archive capture timestamp that prefixes every row. A
+    capture in 1999 evidences 1999 and nothing else. Self-dating, so **no corroboration split**.
+- the artifact: the geographic index of the JISC UK Web Domain Dataset, every `.uk` resource the
+    Internet Archive held for 1996-2013, one row per capture as
+    `<14-digit timestamp>/<url><TAB><postcode>`. **11,217,295,098 bytes** at
+    `https://bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f`, **CC Public Domain Mark
+    1.0**, ranged GETs answered, no access letter and no negotiation. Verified 2026-08-17 and again
+    2026-08-20.
+- **measured over the whole file on 2026-08-20**, not sampled: 17,912,511 in-window rows, 289,857
+    distinct (domain, year) pairs, 210,604 already held, **79,253 net-new (27.3%)**, of which 45,122
+    are domains the store has never seen. **77,749.1 equivalent-English at mean weight 0.9810**, and
+    98.1% of the net-new is `.uk` at 0.9813.
+- the counterfactual: as `candidate-only` it scores **0**, since a capture timestamp is the only thing
+    dating these rows and a candidate carries no year. There is no corroboration-split middle case
+    here, because nothing in the file was typed by a human.
+- **it is a bulk projection of Internet Archive holdings**, which is the one exception to the rule that
+    an IA-derived source cannot be net-new against an IA-derived baseline, and the same shape that made
+    `dartmouth_nber_captures` pay 227,273 pairs. Filed under the `uk_web_archive` lineage rather than
+    its own, so it cannot inflate the independent-corroboration count.
+- how to reproduce: `uv run python scripts/ukwa_geoindex_map.py`, then
+    `bash scripts/ukwa_geoindex_pull.sh`, then `uv run python scripts/ukwa_geoindex_price.py
+    data/raw/ukwa/*_inwindow.tsv.gz`.
+- potential: 100
+- **the trap, in case this is ever re-extracted**: nine of the twelve members are sharded, so an early
+    abort on a sorted-looking prefix reads about 5% of one and looks normal doing it. The streamer
+    counts timestamp decreases and cancels its own abort when it sees one. Working in C-31.
+
+Decision: pending
+
 ### arquivo_roteiro / cdx_timestamp
 
 - ingest specs: `arquivo_roteiro`
