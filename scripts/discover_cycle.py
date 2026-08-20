@@ -532,19 +532,28 @@ def check_approvals() -> tuple[list[str], list[str]]:
         findings.append(f"approvals: {needle} mirrored into key-decisions OPEN")
 
     # The other direction: a decision was taken and its OPEN entry was left behind.
+    #
+    # **Both matches below are substring rather than equality, and that is the fix for a
+    # false alarm rather than a loosening.** Ivo's rewrite of 2026-08-20 numbers the OPEN
+    # entries and, because this code and a test both match on a heading's opening words,
+    # the number has to sit at the END: `... internic_zone / artifact_listing  (O1)`.
+    # Equality then failed against the still-pending set and the cycle told him to close
+    # an entry that was still genuinely waiting on him. **A false "you can close this" on
+    # the one surface he reads is worse than no check**, because acting on it would have
+    # stranded the journal it protects. The identifying phrase is the source and evidence
+    # type; anything a human wraps around it is decoration.
     still_pending = {f"{a.source_name} / {a.evidence_type}" for a in priced}
     for title in key_decisions.open_titles(DECISIONS_DOC):
-        if title == TRIAGE_HEADING:
+        if TRIAGE_HEADING in title:
             if not triage:
                 attention.append(
                     f"key-decisions still has '{TRIAGE_HEADING}' under OPEN, but the triage queue "
                     f"is empty. Move it to CLOSED"
                 )
             continue
-        if not title.startswith("Approve, refuse or downgrade "):
+        if "Approve, refuse or downgrade " not in title:
             continue
-        named = title.removeprefix("Approve, refuse or downgrade ").strip()
-        if named not in still_pending:
+        if not any(needle in title for needle in still_pending):
             attention.append(
                 f"key-decisions still has '{title}' under OPEN, but that class is no longer "
                 f"pending. Move it to CLOSED with what was decided and why"
