@@ -60,3 +60,34 @@ def test_a_numbered_triage_heading_is_still_recognised(tmp_path) -> None:
     assert not any(title == dc.TRIAGE_HEADING for title in titles), (
         "the numbered form is the one that needs covering; equality would pass trivially"
     )
+
+
+def test_the_cycle_preserves_the_number_when_it_refreshes_the_count(tmp_path, monkeypatch) -> None:
+    """An automated writer that disagrees with the file's format wins, and quietly.
+
+    The first version of Ivo's numbered layout was reverted within the hour because
+    this writer still emitted the old heading and dropped the `(O6)` marker with it.
+    """
+    doc = _titles(tmp_path)
+    monkeypatch.setattr(dc, "DECISIONS_DOC", doc)
+    findings: list[str] = []
+    dc._mirror_triage_count(77, findings)
+
+    body = doc.read_text(encoding="utf-8")
+    titles = dc.key_decisions.open_titles(doc)
+    triage = next(t for t in titles if dc.TRIAGE_HEADING in t)
+    assert triage.endswith("(O4)"), f"the number was dropped: {triage!r}"
+    assert "77 found" in triage
+    assert "**77 source(s) found" in body
+
+
+def test_the_refreshed_triage_body_stays_short(tmp_path, monkeypatch) -> None:
+    """OPEN is a numbered list of one-liners, and this entry is rewritten every cycle,
+    so its length is a standing tax rather than a one-off choice."""
+    doc = _titles(tmp_path)
+    monkeypatch.setattr(dc, "DECISIONS_DOC", doc)
+    dc._mirror_triage_count(60, [])
+    body = doc.read_text(encoding="utf-8")
+    entry = body.split("### Triage", 1)[1].split("---", 1)[0]
+    prose = [line for line in entry.splitlines() if line.strip()][1:]
+    assert len(prose) <= 3, f"the triage entry grew back to {len(prose)} lines:\n{entry}"
