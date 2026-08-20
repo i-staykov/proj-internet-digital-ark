@@ -51,9 +51,29 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     exit 1
 fi
 echo "$$" > "$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT INT TERM
+# **The handler must exit, and the first version did not.** A bare `trap 'rm -rf
+# "$LOCK"'` on TERM runs the handler and then carries on with the loop, so a TERM
+# released the lock while leaving the process downloading. A second copy could then
+# start, and did: two fetchers ran against archive.org for two minutes, duplicating
+# every request. INT and TERM therefore clean up and leave.
+cleanup() { rm -rf "$LOCK"; }
+trap 'cleanup' EXIT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 130' INT
 
 note "deadline $(date -u -r "$DEADLINE" '+%F %T UTC'), hierarchies: ${HIERARCHIES[*]}"
+
+# **Several passes, not one.** archive.org returns a 500 for individual objects
+# often enough to matter: 55 groups failed that way in the first hour, about 2% of
+# the list, and a single pass loses every one of them. A later pass costs nothing
+# for files already on disk, because the loop skips anything non-empty, so the only
+# question is whether the deadline has room. It usually does, since the fetch is
+# bandwidth-bound and the failures are instant.
+pass=0
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+pass=$((pass + 1))
+note "===== pass $pass ====="
+missing_before=0
 
 for h in "${HIERARCHIES[@]}"; do
     [ "$(date +%s)" -ge "$DEADLINE" ] && { note "deadline reached"; break; }
@@ -84,6 +104,7 @@ for f in fs:
         [ "$(date +%s)" -ge "$DEADLINE" ] && { note "deadline reached"; break 2; }
         out="$DEST/$name"
         [ -s "$out" ] && continue
+        missing_before=$((missing_before + 1))
         curl -sSL -A "$UA" --max-time 1800 --retry 3 --retry-delay 20 \
             -o "$out.part" "https://archive.org/download/usenet-$h/$name"
         if [ -s "$out.part" ]; then
@@ -96,4 +117,14 @@ for f in fs:
     note "== usenet-$h done: $(ls -1 "$DEST"/*.mbox.zip 2>/dev/null | wc -l | tr -d ' ') archives on disk =="
 done
 
-note "fetch finished"
+if [ "$missing_before" -eq 0 ]; then
+    note "pass $pass found nothing missing; every listed archive is on disk"
+    break
+fi
+note "pass $pass finished with $missing_before archive(s) attempted"
+# A pass that attempted nothing new would spin, and the guard above catches that.
+# A pass that attempted some and failed all of them should not retry instantly.
+sleep 120
+done
+
+note "fetch finished after $pass pass(es)"
