@@ -142,6 +142,52 @@ The instructive ones:
   beside the discovery loop that feeds it, where the hit rate varies from 36.9% to 90.6% by origin and
   the share must be multiplied by a measured rate.
 
+### 5a. Six rules for measuring a source, each of which we got wrong first
+
+These are the transferable part of this project, because each was learned by producing a confident
+wrong number and then catching it. They generalise to any autonomous search over external corpora.
+
+1. **Sample a file at many offsets, never at its head.** A head sample proves what the head holds.
+   The Arquivo.pt collections were closed on 206 ranged reads all taken at offset zero; re-reading
+   head, quarter, middle and tail found in-window rows in four collections the first pass had missed.
+   The verdict survived, but the method had not earned it.
+2. **Sortedness is a property of a member, not of an archive.** The British Library geoindex was
+   streamed to EOF on one member to justify an early abort: 0 timestamp decreases over all
+   529,492,931 compressed bytes. Nine of its twelve members turned out to be sharded, and aborting
+   early on one of those read 74,907 in-window rows where the member holds 1,390,754. **5.4%, and it
+   looked entirely normal.**
+3. **Net-new against a live store is zero by construction once a journal is banked**, and zero looks
+   identical to worthless. Measure against an in-flight journal or a snapshot taken before ingest.
+   The gross figure is not a fallback: the edge engine reads 2.075 EE per query gross and 0.659 net,
+   so quoting gross would have overstated it 3.1x.
+4. **Prove a negative against a positive control.** Every closure here now carries one: a
+   known-in-window collection beside the tested one, a `netcraft` grep beside the vendor grep that
+   returned nothing, a registered domain beside the unregistered. Three separate wrong conclusions in
+   one afternoon came from skipping it.
+5. **A rate is a property of a moment.** A trailing window ordered by file mtime said the candidate
+   pool ran at 57.6%; ordered by the run stamp in the filename it was 15.8%. Copying a file from
+   another machine resets its mtime, so mtime is not content recency.
+6. **Test an assumption about content that was inferred from a fact about form.** 135 GB of national
+   Usenet was dismissed because an English-weighted metric discounts national TLDs. A German
+   newsgroup could easily name `.com` domains. Measured: mean weight 0.2353 and 0.26 EE per MB, so
+   the dismissal was right, and it cost 598 MB to know rather than assume. **The check is worth
+   running when being wrong is expensive in either direction**, here 135 GB wasted or 400,000 EE
+   missed.
+
+### 5b. The agent competes with its own collectors, and that is invisible from inside
+
+The single most expensive operational fault of this round was self-interference. The local collector
+runs against `web.archive.org`; so does an agent probing a lead. On 2026-08-20 the collector reached
+**55% transport failures with 2,400 throttles on a 600-query batch**, and every liveness check read
+normal, because the process was up and its journal was growing. It was growing with failures.
+
+Two fixes, both structural. **Prefer hosts the collectors do not use**: `archive.org/download/`,
+`bl.iro.bl.uk` and `arquivo.pt` are different services, and the question "which host does this
+actually touch" is now asked of every new source before it is fetched. And **when the archive must
+be touched, yield the engine first**, because a slower engine that works beats a faster one that
+fails: rebuilt at 4 workers with longer delays, the same engine returned **0% failures and 2.0
+year-records per query**.
+
 ## 6. Recommended directions
 
 In order, each with what ranks it:
@@ -158,6 +204,29 @@ In order, each with what ranks it:
 4. **Academic repositories and replication packages** from early-web research. The reviewer's own
    worked example returned millions of records for another contributor. Papers from 1997 to 2003 that
    studied the web at scale generally deposited their crawl seeds somewhere.
+
+5. **Look for corpora already on your own disk before looking outward.** The largest single find of
+   the 2026-08-20 round was not a new source: 6,148 Usenet archives across **110.8 GB** had been
+   downloaded in an earlier phase and never split, found by asking the evidence which groups it names
+   rather than by trusting any ledger. The same audit closed two large routes: the 25.9 GB bulk WHOIS
+   file was already 99.99% ingested, 231 pairs short of complete, and Arquivo.pt's 50.93 GB `IA.cdxj`
+   is entirely `.pt` with every sampled pair already held. **An audit that returns a clean negative is
+   worth as much as one that returns a find**, because it stops a route being re-proposed.
+
+### 6a. What actually limits this project, stated plainly
+
+**Sources are not the constraint; archive query rate is.** The edge population holds 1,597,226
+equivalent-English, 2.6x the 5% gate, measured at 0.659 net EE per query against a forecast of
+0.6075. At a polite 17,500 queries a day that is 50 days on one machine and about 25 on two. Every
+bulk source found in this round together comes to roughly a fifth of what that queue already holds.
+
+That has a strategic consequence worth stating for whoever inherits this. **Effort spent widening the
+source list has a lower return than effort spent raising sustainable query throughput**, and
+throughput is bounded by a third party's tolerance rather than by our hardware. The three levers that
+remain are: a second machine on a disjoint shard, which is the one being used; not competing with
+your own collectors, per 5b; and ranking the queue well, since the difference between the best and
+worst 250,000 targets in the same population is about 3x.
+
 5. **Re-auditing what is already held**, which has twice been the cheapest source available.
 
 6. **Submitting sooner, which is not a source at all and outranks most of them.** The organisers score

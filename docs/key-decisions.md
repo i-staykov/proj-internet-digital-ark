@@ -33,28 +33,25 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**The gate moved to 619,240 EE** on the `merged260820` benchmark of 2026-08-20. We hold
-**24,695 EE, 3.99% of it**, and rising. Working in `docs/archive/decisions-working.md`.
+**Gate 619,240 EE. We hold 51,057, which is 8.25% of it, up from 2.8% yesterday.**
 
-**Two things in his 2026-08-20 update change the strategy and neither needs a decision from you.**
-Scoring is now **time-weighted**, `S_i = 10 x (p_i / t_i)` with `t_i` in days from benchmark release
-to submission, so the clock started today and speed is now worth as much as size. And the corpus
-grew by only **102,571 EE/day** over the last interval against 1,082,013 before it, so the threshold
-recedes at about **5,129 EE/day** while we collect about 13,500. **The gap now closes rather than
-widens**, which reverses the standing conclusion that querying could never reach the gate.
+**Sunday: no. 5% by Sunday is not reachable and the arithmetic is in C-36.** Everything identified,
+running or one word away comes to **220,000 to 266,000 EE by Sunday, 36% to 43% of the gate**. The
+binding constraint is archive query rate, not sources: the edge population alone holds 1,597,226 EE,
+which is 2.6x the gate, and at 17,500 queries a day that is **50 days, or about 25 with the VPS**.
+No bulk source found in this round changes that, because the bulk sources are the small part.
 
-**There is now a measured 5% path, which is what you asked to hear before anything else.** Banked
-38,106 plus the edge population's 1,597,226, `ukwa_geoindex` 77,749, the Usenet remainder about
-60,000 and `internic_zone` 8,628. Every part is public and every figure is net rather than gross.
-The binding constraint is query throughput, not sources: **about seven weeks locally, about three
-with the VPS.** Working in C-34.
+**Scoring is now time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so the
+clock started 2026-08-20 and a slow round is expensive in a way it was not before. The threshold
+now recedes at only 5,129 EE/day against our 25,000 to 30,000, so **the gap closes**; it just does
+not close by Sunday.
 
-| | the ask | reaches 5%? |
+| | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, downloaded and measured. | **Not alone: 77,749 EE, 12.6% of the gate.** Largest public source found; self-dating, so no corroboration split. |
-| **O2** | Bring the VPN up when convenient. The VPS has been unreachable since ~09:00Z. | **It roughly halves the time to 5%**, from about seven weeks to about three, and under the new time-weighted scoring that is worth about double the final score. |
-| **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
-| **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 12.6% of the gate, available the minute you say so.** Self-dating, so no corroboration split. |
+| **O2** | Bring the VPN up. The VPS is collecting on a 10-day deadline but its journals cannot come home. | **Halves the time to 5%**, from about 50 days to 25, and under time-weighted scoring that is worth roughly double the final score. |
+| **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.4% of the gate |
+| **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
@@ -105,6 +102,55 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-36. 5% by Sunday is not reachable, and here is the arithmetic that says so (2026-08-21)
+
+**Asked for directly, so answered directly rather than hedged.** The gate is 619,240 EE. We hold
+51,057. Everything identified, measured and either running or one word away:
+
+| | EE | state |
+|---|--:|---|
+| banked against `merged260820` | 51,057 | done |
+| Usenet backlog on local disk, 110.8 GB | ~15,000 | banking, about 19h left |
+| Usenet English hierarchies, remote | 40,000 to 86,000 | downloading |
+| `ukwa_geoindex` | 77,749 | on disk and parsed, waits on O1 |
+| `internic_zone` | 8,628 | journal on disk, waits on O3 |
+| both CDX engines, 3 days | ~28,000 | running |
+| **total by Sunday** | **220,000 to 266,000** | **36% to 43% of the gate** |
+
+**The binding constraint is archive query rate and nothing else.** The edge population holds
+1,597,226 EE, which is 2.6x the gate, and it is measured rather than projected: 0.659 net EE per
+query against the builder's 0.6075 forecast. At 17,500 queries a day that is **50 days**, or about
+**25 with the VPS working**. No bulk source found in this round changes that, because the bulk
+sources are the small part and the queue is the large one.
+
+**Two things would move the date and both are yours.** The VPN, which roughly halves it, and O1,
+which is 77,749 EE sitting parsed on disk. Neither makes Sunday.
+
+### C-35. National Usenet hierarchies really do name national domains, tested rather than assumed (2026-08-21)
+
+The register dismissed 135 GB of `de`, `it`, `tw`, `fido7`, `pl`, `fr` and `nl` Usenet on the
+reasoning that an English-weighted metric discounts them. **That is an assumption about content
+drawn from a fact about language, and it is exactly the kind this project has been wrong about
+before**, so it was tested: a German newsgroup could perfectly well name `.com` domains, and `.com`
+scores 0.6321 against `.de`'s 0.1324.
+
+Measured over 598 MB of `de.soc.politik.misc`, `de.admin.news.groups` and `de.sci.philosophie`:
+
+| | |
+|---|--:|
+| net-new post-split pairs | 636 |
+| equivalent-English | 155.2 |
+| **mean weight** | **0.2353** |
+| EE per MB | **0.26** |
+
+Against 0.68 for `bit.listserv` and 3.25 for `microsoft.public`. **The assumption holds**: the mean
+weight of 0.2353 is close to `.de`'s own 0.1324 and nowhere near `.com`'s 0.6321, so these groups do
+name mostly national domains. Extrapolated, the whole 135 GB is worth about 35,000 EE, which is not
+worth the download or the days of processing.
+
+**The point of recording a confirmed assumption is that it was cheap to check and would have been
+expensive to be wrong about**, in either direction: 135 GB wasted, or 400,000 EE missed.
 
 ### C-34. A 5% path exists, it is measured, and every part of it is public (2026-08-20)
 
