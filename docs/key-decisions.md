@@ -33,16 +33,22 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Four things wait on you. None of them reaches 5%, and finding what does is the agent's job.**
-The gate is **603,855 EE**. The working behind every figure here is in
-`docs/archive/decisions-working.md`.
+**The gate is 603,855 EE.** O1 is the one that moves the number; the rest are small.
+The working behind every figure is in `docs/archive/decisions-working.md`.
 
 | | the ask | reaches 5%? |
 |---|---|---|
-| **O1** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
-| **O2** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
-| **O3** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 8.0% |
-| **O4** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, already downloaded and measured. | **Not alone: 77,749 EE, 12.9% of the gate.** The largest available public source found, and self-dating so it takes no corroboration split. |
+| **O2** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | **No.** 8,627.7 EE, 1.4% of the gate |
+| **O3** | Give `/bin/bash` Full Disk Access so the scheduled check can run | **No.** Housekeeping, two minutes |
+| **O4** | Bring the VPN up when convenient; the VPS has been unreachable since ~09:00Z | **No.** It is collecting, but its journals cannot come home |
+| **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 8.0% |
+| **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
+
+**Nothing known reaches 5% on its own, and that is the honest state.** Everything public and
+measured now totals roughly **190,000 EE, 31% of the gate**: `ukwa_geoindex` 77,749, the unheld
+Usenet hierarchies about 104,000, and `internic_zone` 8,628. The edge-year CDX engine adds a
+measured 17,400 EE a day on top.
 
 **Withdrawn by your instruction of 2026-08-20, public sources only:** research access to the WhoisXML
 API database, the depth question to DomainTools, and the outreach for an unpublished early-web crawl.
@@ -50,30 +56,85 @@ The Kaggle account goes too, since the sweep it would have unblocked was run una
 nothing larger than what is already held. ICANN CZDS stays available, free and public, but is not raised
 as an ask because a zone file carries no creation dates and cannot date a year by itself.
 
-### Approve, refuse or downgrade internic_zone / artifact_listing  (O1)
+### Approve ukwa_geoindex / cdx_timestamp as master  (O1)
+
+**77,749.1 equivalent-English over 79,253 net-new pairs, measured over the whole file rather than
+sampled**, 98.1% `.uk` at weight 0.9813, and 45,122 of the domains are ones the store has never seen.
+Self-dating, so no corroboration split. Set its `Decision:` line in this file's triage table. Working
+in C-31.
+
+### Approve, refuse or downgrade internic_zone / artifact_listing  (O2)
 
 Set its `Decision:` line in `approved-sources-list.md` to `master`, `candidate-only` or `rejected`; that
 file carries the seeded-random sample with live links. **8,627.7 EE as master, 1.4% of the gate.**
 
-### Give /bin/bash Full Disk Access  (O2)
+### Give /bin/bash Full Disk Access  (O3)
 
 System Settings > Privacy & Security > Full Disk Access. Without it the launchd health check exits 126
 four times a day, because this repository sits under `~/Documents`. Then run `just schedule` again.
 
-### May we query Nominet in bulk for the .uk candidate pool  (O3)
+### Bring the VPN up when convenient  (O4)
+
+`10.1.0.6` stopped answering around 09:00Z on 2026-08-20. Its collector holds a deadline of 31 August
+and is still working, but nothing it finds can be banked here until the tunnel is back.
+
+### May we query Nominet in bulk for the .uk candidate pool  (O5)
 
 Their terms are ambiguous and a sweep was stopped for that reason. **Priced 2026-08-19 at 48,545 EE**
 even if every undated `.uk` name answered with an in-window date, so it cannot produce a round.
 
-### Triage the newly found sources: 60 found, none priced
+### Triage the newly found sources: 60 found  (O6)
 
-A counter, not a request, by your instruction of 2026-08-15: you review this when something reaches 5%. **60 source(s) found and not yet priced**, listed in `approved-sources-list.md` under `## Found, awaiting triage`.
-
-Priced whole, the queue covers about a tenth of the deficit, so nothing here is urgent and reviewing it would not change this round. **Nothing is blocked either way**: a pending class cannot date a year, so `ark ingest` refuses it and collection continues. One word each when you want them, *candidate pool* or *fold in directly*.
+**60 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting
+triage`. One word each, *candidate pool* or *fold in directly*. Nothing is blocked: a pending class
+cannot date a year, so `ark ingest` refuses it and collection continues.
 
 ---
 
 ## CLOSED
+
+### C-31. The British Library geoindex is real, free and worth 77,749 EE, measured over the whole file (2026-08-20)
+
+**The largest available public source this project has found, and it was sitting at position 0 of the
+triage queue with an estimate 1.3x to 7.8x too low.** Recorded because the extraction turned up a trap
+that the register had explicitly predicted and that nearly bit again.
+
+The geographic index of the JISC UK Web Domain Dataset: every `.uk` resource the Internet Archive held
+for 1996-2013, one row per capture, `<14-digit timestamp>/<url><TAB><postcode>`. **11,217,295,098 bytes
+at `bl.iro.bl.uk/downloads/`, CC Public Domain Mark 1.0, ranged GETs answered, no access letter.** The
+timestamp is `cdx_timestamp`, self-dating, so it takes **no corroboration split**.
+
+**Measured over the whole file, not sampled:**
+
+| | |
+|---|--:|
+| in-window rows extracted | 17,912,511 |
+| distinct in-window (domain, year) pairs | 289,857 |
+| already held | 210,604 |
+| **net-new pairs** | **79,253 (27.3%)** |
+| of which domains the store has never seen | 45,122 |
+| **net-new equivalent-English** | **77,749.1** |
+| mean weight | 0.9810 |
+
+98.1% of the net-new is `.uk` at 0.9813, which is why 79,253 pairs carry almost the same number of EE.
+The triage table had it at 10,000 to 60,000 pairs; it is 79,253.
+
+**The trap, which the register predicted and which the first run walked into.** The 12 members look
+sorted by timestamp, which would put 1996-2001 in a contiguous prefix and make extraction cheap. The
+sibling `host-linkage.tsv.gz` looked sorted too and was fifteen concatenated shards, and the check that
+cleared it stopped 2.4x short of the first boundary. So `postcode-ab` was streamed to EOF: **0 decreases
+over all 529,492,931 compressed bytes, with the in-window count flat for the last 470 MB.** Early abort
+justified.
+
+**And then it was wrong anyway, because sortedness is a property of the member and not of the archive.**
+`postcode-a0` has **49 timestamp decreases**, as do nine of the twelve. Only `ab` and `ac` are sorted. The
+first pull aborted `a0` early and wrote a file holding 74,907 in-window rows; streamed in full it holds
+1,390,754, so the early abort would have taken **5.4%** of that member and looked entirely normal doing
+it. The abort is now cancelled the moment a decrease is seen, the two partial files were deleted, and the
+ten sharded members were re-streamed to EOF.
+
+**Cost: about 9 GB of downloads and 40 minutes**, against `bl.iro.bl.uk`, which is not
+`web.archive.org`, so it ran beside the CDX collector without competing with it.
 
 ### C-30. The UKWA host link graph is 10x bigger than the copy we hold, and the only copy is unservable (2026-08-20)
 
