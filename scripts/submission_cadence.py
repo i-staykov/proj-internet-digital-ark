@@ -54,7 +54,15 @@ RELEASES = (
     # another contributor's UMN DRUM delivery, 4,063,995 records
     ("merged260815", date(2026, 8, 15), Decimal("8346839.3737"), Decimal(0)),
     ("merged260817", date(2026, 8, 17), Decimal("10510865.7791"), Decimal(0)),
-    ("merged260817-2", date(2026, 8, 17), REVIEWER_BASELINE_EE, Decimal("1566229.7613")),
+    ("merged260817-2", date(2026, 8, 17), Decimal("12077095.5404"), Decimal("1566229.7613")),
+    # **The interval that breaks the model built on the one before it.** One
+    # contributor's accepted 5% round, 307,712.4914 EE over three days, which is
+    # 102,571 EE/day against the 1,082,013 EE/day of the previous interval. The
+    # threshold therefore recedes at about 5,129 EE/day rather than 54,101, and for
+    # the first time this project's own collection rate exceeds it. Measured from
+    # his own `merge_stats_final_submission_5pct_0820.csv` and reproduced by running
+    # his calculator over the six files, which agree to the digit.
+    ("merged260820", date(2026, 8, 20), REVIEWER_BASELINE_EE, Decimal(0)),
 )
 
 
@@ -111,14 +119,34 @@ def main() -> int:
             f"{row['others_per_day']:>13,.0f}"
         )
 
-    first, latest = intervals[0], intervals[-1]
+    latest = intervals[-1]
+    # **Do not hardcode the direction.** This said "ACCELERATING across the three
+    # intervals" and went on saying it when a fourth interval arrived at a tenth of
+    # the third, which would have had the agent quoting a 10x-wrong recession rate
+    # off the project's own tool. The trend is a fact about the data, so it is read
+    # from the data, and the sentence names the newest interval rather than a
+    # lifetime shape, because a rate is a property of a moment.
+    peak = max(i["others_per_day"] for i in intervals)
+    direction = "SLOWED SHARPLY" if latest["others_per_day"] < peak / 2 else "ACCELERATING"
     print(
-        f"\nOthers' rate is ACCELERATING across the three intervals: "
-        f"{first['others_per_day']:,.0f} -> {intervals[1]['others_per_day']:,.0f} "
-        f"-> {latest['others_per_day']:,.0f} EE/day, the newest being "
-        f"{latest['others_per_day'] / first['others_per_day']:,.0f}x the oldest."
+        f"\nOthers' rate has {direction}: "
+        + " -> ".join(f"{i['others_per_day']:,.0f}" for i in intervals)
+        + " EE/day."
+    )
+    print(
+        f"The NEWEST interval is the one that matters, and it is "
+        f"{latest['others_per_day']:,.0f} EE/day over {latest['days']} day(s), "
+        f"so the 5% threshold recedes at about "
+        f"{latest['others_per_day'] * Decimal('0.05'):,.0f} EE/day."
     )
     print(f"Our own recent rate, for scale: {args.per_day:,.0f} EE/day.")
+    if args.per_day > latest["others_per_day"] * Decimal("0.05"):
+        print(
+            "**Our collection now EXCEEDS the threshold's recession**, so the gap "
+            "closes rather than widens. This reverses the standing conclusion that "
+            "querying can never reach the gate; that conclusion was drawn when the "
+            f"recession was {peak * Decimal('0.05'):,.0f} EE/day."
+        )
 
     rate = latest["others_per_day"]
     b0 = REVIEWER_BASELINE_EE

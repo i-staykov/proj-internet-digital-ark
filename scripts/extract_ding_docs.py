@@ -44,15 +44,38 @@ diff against everything under the rule.
 
 # source file, output name, title. Filenames carry his own dates, so a package
 # that renames one is a signal to look rather than something to guess around.
+# **The brief's filename carries its own date, so it changes with every package**:
+# `..._0815_Update.docx` became `..._0820_Update_v2.docx`. Hardcoding it meant the
+# 2026-08-20 package raised FileNotFoundError, which reads like a missing document
+# rather than a renamed one. The glob is anchored on the stable part of the name and
+# `_pick` fails loudly if it matches none or several, because silently transcribing
+# the wrong one of two briefs is worse than not transcribing at all.
 DOCS = (
     (
-        "Internet_Digital_Ark_Project_0815_Update.docx",
+        "Internet_Digital_Ark_Project_*.docx",
         "project-brief.md",
-        "The task brief (Internet Digital Ark Project, 2026-08-15 update)",
+        "The task brief (Internet Digital Ark Project)",
     ),
     ("Update_Log.docx", "update-log.md", "The task brief update log"),
     ("Task_Package_File_Guide.txt", "task-package-file-guide.md", "Task package file guide"),
 )
+
+
+def _pick(package: Path, pattern: str) -> Path:
+    """The one file in `package` matching `pattern`, or a loud failure."""
+    if "*" not in pattern:
+        return package / pattern
+    matches = sorted(package.glob(pattern))
+    if not matches:
+        raise SystemExit(f"no file in {package} matches {pattern!r}")
+    if len(matches) > 1:
+        # Newest by name, which encodes the date, but say so rather than guess quietly.
+        raise SystemExit(
+            f"{len(matches)} files in {package} match {pattern!r}: "
+            + ", ".join(m.name for m in matches)
+            + ". Name the one you mean."
+        )
+    return matches[0]
 
 
 def body(src: Path) -> str:
@@ -92,11 +115,11 @@ def main() -> None:
     rel = package.relative_to(REPO) if package.is_relative_to(REPO) else package
     args.out.mkdir(parents=True, exist_ok=True)
     for name, out_name, title in DOCS:
-        src = package / name
+        src = _pick(package, name)
         sha = hashlib.sha256(src.read_bytes()).hexdigest()
         text = HEADER.format(
             title=title,
-            src=f"{rel}/{name}",
+            src=f"{rel}/{src.name}",
             sha=sha,
             archive=f"`{rel}/`, from {args.archive}",
             stamp=args.stamp,
