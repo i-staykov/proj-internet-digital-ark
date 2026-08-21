@@ -33,23 +33,24 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 619,240 EE. We hold 51,057, which is 8.25% of it, up from 2.8% yesterday.**
+**Gate 619,240 EE. We hold 68,056, which is 10.99% of it**, up from 2.8% two days ago.
 
-**Sunday: no. 5% by Sunday is not reachable and the arithmetic is in C-36.** Everything identified,
-running or one word away comes to **220,000 to 266,000 EE by Sunday, 36% to 43% of the gate**. The
-binding constraint is archive query rate, not sources: the edge population alone holds 1,597,226 EE,
-which is 2.6x the gate, and at 17,500 queries a day that is **50 days, or about 25 with the VPS**.
-No bulk source found in this round changes that, because the bulk sources are the small part.
+**The 50-day estimate is withdrawn.** A public-suffix CDX query enumerates a whole namespace through
+one paginated endpoint, measured at **~134,000 net-new EE per day against the old 13,500** (C-38).
+At that rate the remaining 551,000 EE is **days rather than weeks**, and it needs no decision from
+you, because the evidence class is already approved master.
 
-**Scoring is now time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so the
-clock started 2026-08-20 and a slow round is expensive in a way it was not before. The threshold
-now recedes at only 5,129 EE/day against our 25,000 to 30,000, so **the gap closes**; it just does
-not close by Sunday.
+**Sunday is now plausible rather than impossible.** It turns on whether the rate holds as the
+high-weight suffixes saturate, which the next day of running will show. That is not a promise; the
+honest position is that the constraint which made Sunday impossible has gone.
+
+**Scoring is time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so the clock
+started 2026-08-20 and speed now counts as much as size.
 
 | | the ask | what it is worth |
 |---|---|---|
 | **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 12.6% of the gate, available the minute you say so.** Self-dating, so no corroboration split. |
-| **O2** | Bring the VPN up. The VPS is collecting on a 10-day deadline but its journals cannot come home. | **Halves the time to 5%**, from about 50 days to 25, and under time-weighted scoring that is worth roughly double the final score. |
+| **O2** | Keep the VPN up when you can. The VPS collects on a 10-day deadline and its journals rsync home automatically whenever the tunnel is up. | A second machine on a disjoint shard, for the cost of the tunnel. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.4% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
@@ -102,6 +103,51 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-38. The query-rate ceiling is broken: one endpoint enumerates a whole namespace (2026-08-21)
+
+**This overturns C-36, which said 5% was about 50 days away, and it overturns the reasoning behind
+every archive route in this register.** Every one of them asked about a single domain at a time,
+capping the project near 17,500 queries a day. That cap no longer binds.
+
+**`matchType=domain` on a public SUFFIX returns captures for every domain beneath it, and it
+paginates.** Established with controls on 2026-08-21, and the control matters because the register
+already records the bare-TLD form being refused and that is still true:
+
+| query | result |
+|---|---|
+| `url=uk&matchType=domain` | **HTTP 403**, as are the `from`, `collapse`, `fl` and `showNumPages` variants |
+| `url=co.uk&matchType=domain` | **200**, returning many distinct registrable domains |
+| `showNumPages` on `co.uk` | **3,387,186 pages** |
+| pages 0, 1, 2 | **disjoint**, so the namespace can genuinely be walked |
+
+So the block is on the bare TLD rather than on the query shape, and a public suffix is treated as an
+ordinary two-label name while behaving as a suffix. The distinction was worth testing precisely
+because the register's earlier note, "`url=mil&matchType=domain` returns 403", is true and would
+have closed this without the second experiment.
+
+**Measured, then measured again at scale.** A five-minute run gave 23 pages, 96,343 capture rows,
+1,437 in-window pairs, **600 net-new and 588.8 EE**. One hour gave 1,045,699 rows, 13,286 pairs,
+**5,696 net-new and 5,589.5 EE at 42.9% net-new**, every one `.uk` at weight 0.9813.
+
+| route | net-new EE per day |
+|---|--:|
+| edge-year per-domain querying | ~13,500 |
+| **suffix sweep** | **~134,000** |
+
+**It needs no new decision.** Each row carries a 14-digit capture timestamp, so the evidence is
+`cdx_timestamp`, and `cdx_snapshot / cdx_timestamp` is already approved master.
+`cdx_suffix_convert.py` collapses capture rows into that journal format rather than declaring a new
+`SourceSpec`, which would duplicate a reviewed decision for no gain.
+
+**Banked immediately: the store went from 54,417 to 68,056 EE**, 8.79% to **10.99% of the gate**, in
+about ninety minutes.
+
+**Two operational notes that belong with it.** The sweep and the CDX collectors are both heavy
+clients at `web.archive.org` and compete for one rate budget, so the local engine is stopped while
+the sweep runs; the sweep is about ten times better per request, which makes that trade obvious.
+And the sweep stops dead on 429 or 503 rather than backing off, because this route is worth
+protecting and the Internet Archive has refused this project three times.
 
 ### C-37. The original Alexa crawl indexes exist, are enormous, and are access-restricted (2026-08-21)
 
