@@ -36,9 +36,21 @@ mkdir -p data/logs
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
 LOCK="data/logs/rdap_novel.lock"
+# **A stale lock is taken over; a live one is respected.** The first version only
+# tested whether the directory existed, so a run killed without its trap firing
+# left a lock nobody could clear, and clearing it by hand is what started a second
+# copy against the same registry: 32 concurrent workers at Verisign instead of 16.
+# Reading the pid and asking the process table is the difference between "somebody
+# is working" and "somebody died holding this".
 if ! mkdir "$LOCK" 2>/dev/null; then
-    note "another run holds $LOCK (pid $(cat "$LOCK/pid" 2>/dev/null || echo unknown))"
-    exit 1
+    holder=$(cat "$LOCK/pid" 2>/dev/null || echo "")
+    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+        echo "another run is live (pid $holder); refusing to start a second" >&2
+        exit 1
+    fi
+    echo "stale lock from pid ${holder:-unknown}, taking it over" >&2
+    rm -rf "$LOCK"
+    mkdir "$LOCK" 2>/dev/null || { echo "could not take $LOCK" >&2; exit 1; }
 fi
 echo "$$" > "$LOCK/pid"
 # The handler must exit, not just clean up: a bare EXIT/INT/TERM trap releases the
