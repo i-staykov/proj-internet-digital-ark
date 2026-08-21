@@ -103,6 +103,38 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 ## CLOSED
 
+### C-42. Page 0 of a CDX namespace is about twice as dense as the namespace (2026-08-21)
+
+**A sampling bias found by checking my own ranking against the sweep it had ranked**, and the third
+correction in one day to the same family of estimates. Worth its own entry because the artifact this
+round leaves behind depends on it.
+
+`psl_rank.py` estimates a namespace's size as `pages x domains-per-page`, sampling one page for the
+density. It sampled **page 0**. CDX pages are ordered by SURT key, so page 0 is the alphabetical
+start of a namespace, where short numeric and single-letter names cluster. Measured across the
+quartiles:
+
+| suffix | page 0 | 25% | 50% | 75% | bias |
+|---|--:|--:|--:|--:|--:|
+| `com.au` | 11 | 4 | 7 | 8 | **1.7x** |
+| `co.uk` | 70 | 0 | 33 | - | **2.1x** |
+| `org.uk` | 25 | 62 | 77 | 29 | 0.4x |
+
+So page 0 overstates the large namespaces by about **2x**, and the error propagates straight into a
+headroom figure and then into a decision about where to point a three-day sweep. `org.uk` running the
+other way is the reminder that this is a bias and not a constant: it cannot be corrected with a
+factor, only by sampling properly.
+
+**Fixed by sampling three quartile pages and averaging**, which costs two extra requests per suffix.
+The first scan's output was discarded rather than kept with a caveat, because a ranked list with a
+2x error in its score column is exactly the kind of artifact that gets trusted later.
+
+**The general lesson, which is the one worth carrying.** Three separate estimates this round were
+wrong in the same way: a structural quantity was sampled at whatever point was cheapest to reach,
+and the sample's position turned out to carry information. The head of a file, the first page of an
+index, the first hour of a collector. **If a sample's position is convenient, ask what the position
+selects for before trusting what it says.**
+
 ### C-41. The suffix sweep is exhausted, and the complete accounting of what remains (2026-08-21)
 
 **The measurement that ends the route.** After `co.uk`, the sweep moved to `com.au`, `ac.uk`,
