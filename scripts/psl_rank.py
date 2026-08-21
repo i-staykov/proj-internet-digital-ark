@@ -83,7 +83,18 @@ def ask(url: str, extra: dict) -> tuple[int, str]:
 
 
 def measure(suffix: str) -> tuple[int, int]:
-    """(pages, distinct domains in one sampled page)."""
+    """(pages, mean distinct domains per page).
+
+    **Sampled from the middle of the namespace, not from page 0, and that is a
+    correction rather than a preference.** CDX pages are ordered by SURT key, so
+    page 0 is the alphabetical start, where short numeric and single-letter names
+    cluster. Measured on 2026-08-21: `com.au` reads 11 domains on page 0 against a
+    mean of 6.3 across the quartiles, and `co.uk` reads 70 against 33. So page 0
+    overstates density by about 2x, which propagates straight into the headroom
+    estimate and then into a decision about where to point the sweep.
+
+    Three quartile pages cost two extra requests per suffix and remove the bias.
+    """
     code, body = ask(suffix, {"showNumPages": "true", "pageSize": "200"})
     if code != 200:
         return -1, 0
@@ -93,21 +104,28 @@ def measure(suffix: str) -> tuple[int, int]:
         return 0, 0
     if pages <= 0:
         return 0, 0
-    time.sleep(1.0)
-    code, body = ask(suffix, {"fl": "original", "pageSize": "200", "page": "0"})
-    if code != 200:
-        return pages, 0
+
+    spots = sorted({pages // 4, pages // 2, (pages * 3) // 4}) or [0]
     depth = len(suffix.split(".")) + 1
-    hosts = set()
-    for line in body.splitlines():
-        url = line.strip()
-        if not url:
+    counts = []
+    for page in spots:
+        time.sleep(1.0)
+        code, body = ask(suffix, {"fl": "original", "pageSize": "200", "page": str(page)})
+        if code != 200:
             continue
-        host = url.split("//", 1)[-1].split("/", 1)[0].split(":")[0]
-        parts = host.split(".")
-        if len(parts) >= depth:
-            hosts.add(".".join(parts[-depth:]))
-    return pages, len(hosts)
+        hosts = set()
+        for line in body.splitlines():
+            url = line.strip()
+            if not url:
+                continue
+            host = url.split("//", 1)[-1].split("/", 1)[0].split(":")[0]
+            parts = host.split(".")
+            if len(parts) >= depth:
+                hosts.add(".".join(parts[-depth:]))
+        counts.append(len(hosts))
+    if not counts:
+        return pages, 0
+    return pages, int(sum(counts) / len(counts))
 
 
 def main() -> None:
