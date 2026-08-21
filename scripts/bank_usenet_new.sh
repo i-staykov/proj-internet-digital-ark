@@ -50,7 +50,15 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     exit 1
 fi
 echo "$$" > "$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT INT TERM
+# **The handler must exit.** A bare `trap 'rm -rf "$LOCK"' EXIT INT TERM` runs the
+# handler on TERM and then carries on with the loop, so a TERM releases the lock
+# while leaving the banker running. A second copy then starts and both work the
+# same list. This bit the fetcher first and then bit this script, which is why the
+# fix belongs in both rather than in a note about being careful.
+cleanup() { rm -rf "$LOCK"; }
+trap 'cleanup' EXIT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 130' INT
 
 retry_ingest() {
     local spec="$1" file="$2"

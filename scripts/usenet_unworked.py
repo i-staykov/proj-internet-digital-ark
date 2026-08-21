@@ -5,8 +5,15 @@
 110.8 GB of dated corpus on local disk needing no download and no approval, since
 `usenet_announce / dated_directory` has been master since phase 4.
 
-Writes the archive paths, largest first, so an interrupted run has taken the
-valuable part. Read-only against the store.
+**Ordered by the group's NAME, not by its size**, which is the same correction
+`legacy/scripts/fetch_usenet_groups.py` records making: "ordering by size put dead
+vanity archives at the head of the queue". Sorting 110.8 GB by size puts
+`alt.sex.erotica` and `alt.anonymous.messages` first, and those announce nothing.
+The first pass here did exactly that and was measured at about 0.2 EE per MB,
+against 3.25 for `microsoft.public`, so this is a 15x ordering decision rather
+than a tidy one.
+
+Read-only against the store.
 
     uv run python scripts/usenet_unworked.py > data/raw/usenet/unworked.txt
 """
@@ -16,6 +23,46 @@ import time
 from pathlib import Path
 
 import duckdb
+
+# Announcement and commerce groups first, which is where announced URLs live.
+# Short tokens are matched as whole dot-separated components, because
+# `talk.bizarre` contains "biz" and announces nothing.
+SUBSTRING_TOKENS = (
+    "announce",
+    "net-happenings",
+    "commerce",
+    "marketplace",
+    "entrepreneur",
+    "business",
+    "internet",
+    "hosting",
+    "advertis",
+    "promotion",
+    "providers",
+    "webmaster",
+    "ecommerce",
+    "infosystems",
+)
+COMPONENT_TOKENS = frozenset(
+    {"www", "web", "biz", "ads", "market", "isp", "domain", "shopping", "homepage", "comp"}
+)
+# Adult and binaries groups are the largest thing a size sort catches and they are
+# advertising traffic rather than website announcements. Ranked last rather than
+# dropped, so the decision stays reversible and nothing is silently discarded.
+DEPRIORITISE = ("alt.sex", "alt.binaries", "alt.showbiz", "alt.anonymous")
+
+
+def rank(group: str) -> int:
+    """0 is worked first. Lower is better."""
+    lowered = group.lower()
+    if lowered.startswith(DEPRIORITISE):
+        return 3
+    if any(t in lowered for t in SUBSTRING_TOKENS):
+        return 0
+    if set(lowered.split(".")) & COMPONENT_TOKENS:
+        return 1
+    return 2
+
 
 for _ in range(120):
     try:
@@ -42,15 +89,21 @@ for root in (Path("data/raw/usenet"), Path("data/raw/usenet_new")):
     if not root.exists():
         continue
     for p in root.rglob("*.mbox.zip"):
-        if p.name.removesuffix(".mbox.zip") not in seen:
-            rows.append((p.stat().st_size, p))
+        group = p.name.removesuffix(".mbox.zip")
+        if group not in seen:
+            rows.append((rank(group), -p.stat().st_size, p))
 
-rows.sort(reverse=True)
-for _size, p in rows:
+# Within a rank, largest first: the ordering that matters is the rank, and size is
+# a reasonable tie-break once the population is already the right one.
+rows.sort()
+for _r, _s, p in rows:
     print(p)
 
-total = sum(s for s, _ in rows)
-print(
-    f"# {len(rows):,} archives, {total / 1e9:.1f} GB, none of whose groups the store names",
-    file=sys.stderr,
-)
+by_rank: dict[int, list[int]] = {}
+for r, s, _p in rows:
+    by_rank.setdefault(r, []).append(-s)
+print(f"# {len(rows):,} archives, {sum(-s for _r, s, _p in rows) / 1e9:.1f} GB", file=sys.stderr)
+for r in sorted(by_rank):
+    n = len(by_rank[r])
+    gb = sum(by_rank[r]) / 1e9
+    print(f"#   rank {r}: {n:>6,} archives, {gb:>6.1f} GB", file=sys.stderr)
