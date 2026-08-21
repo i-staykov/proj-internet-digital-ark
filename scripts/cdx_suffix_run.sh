@@ -30,12 +30,9 @@ mkdir -p data/logs data/raw/cdx_suffix
 
 # English share of the right-most TLD, which is what the metric pays for.
 SUFFIXES=(
-    co.uk org.uk me.uk ltd.uk plc.uk sch.uk ac.uk
-    com.au net.au org.au id.au
-    co.nz net.nz org.nz
-    co.za org.za
-    co.in net.in org.in
-    com.sg com.hk com.my com.ph
+    com.au gov.uk ac.uk org.au gov.au edu.au co.nz
+    com.ng co.ke org.nz govt.nz nhs.uk ac.nz id.au ac.za me.uk
+    net.au asn.au net.nz com.my com.ph com.mt
     ie co.il
     com.pk com.ng co.ke
 )
