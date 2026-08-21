@@ -49,9 +49,18 @@ trap 'cleanup' EXIT
 trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 130' INT
 
+# `date -u -r <epoch>` is macOS; GNU date reads `-d @<epoch>`. This runs on both
+# machines, and on the VPS the macOS form printed an empty deadline, which made a
+# misconfigured run look like a configured one.
+human_time() {
+    date -u -r "$1" '+%F %T UTC' 2>/dev/null \
+        || date -u -d "@$1" '+%F %T UTC' 2>/dev/null \
+        || echo "epoch $1"
+}
+
 [ -s "$TARGETS" ] || { note "no targets at $TARGETS"; exit 1; }
 note "targets $TARGETS ($(wc -l < "$TARGETS" | tr -d ' ') domains)"
-note "deadline $(date -u -r "$DEADLINE" '+%F %T UTC'), batch $BATCH, workers $WORKERS"
+note "deadline $(human_time "$DEADLINE"), batch $BATCH, workers $WORKERS"
 
 round=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
