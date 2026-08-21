@@ -33,28 +33,25 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 71,461, which is 10.70% of it.**
+**Gate 668,118 EE on `merged260821`. We hold 71,586, which is 10.71% of it.**
 
-**A contributor landed 977,561 EE in one day**, 94% of it in the year 2000 alone, so the gate moved
-up 48,878 and the threshold's recession went back to 48,878 EE/day after one interval at 5,129. The
-caution C-32 attached to its own conclusion was the right one.
+**A contributor landed 977,561 EE in one day**, 94% of it in the year 2000, so the gate moved up
+48,878 and the threshold's recession returned to 48,878 EE/day after one interval at 5,129.
 
-**Against that, the suffix sweep (C-38) measures about 134,000 net-new EE per day**, so collection
-still outruns the recession by roughly 85,000 EE/day and the gap closes. It needs no decision from
-you: the evidence class is already approved master.
+**I have to correct myself on the suffix sweep, and the correction is bigger than the finding**
+(C-40). I reported it at 134,000 EE/day and priced `com.au` at 308,000 EE. Both rested on an
+unmeasured assumption of 20 domains per index page. Measured, `com.au` returns **1.5**, so every
+high-weight suffix now scores near zero headroom and **the route does not close the gap.** The rate
+I quoted was taken over one hour on the one namespace we had barely touched.
 
-**Where the remaining 597,000 EE is, measured rather than hoped** (C-39). `suffix_rank.py` ranks
-namespaces by weight x headroom, and `com.au` alone scores **308,000 EE at weight 0.9904**, 46% of
-the gate, with `co.nz`, `gov.uk`, `org.au`, `gov.au`, `edu.au` behind it. Both machines are sweeping
-that list on disjoint suffixes.
-
-**Scoring is time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so speed now
-counts as much as size and a benchmark that moves every day makes holding work expensive.
+**So the honest position is the one from C-36 again: the constraint is archive query rate, and no
+route found so far removes it.** The sweep is still the best instrument available, because it costs
+one query per page rather than one per domain, and both machines are running it. It is not enough.
 
 | | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, available the minute you say so.** Self-dating, so no corroboration split. |
-| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set on a 3-day deadline and its journals rsync home automatically whenever the tunnel is up. | A second machine at no marginal cost. |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, available the minute you say so.** The largest single thing available and the only one that needs a decision. |
+| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set on a 3-day deadline and rsyncs home whenever the tunnel is up. | A second machine at no marginal cost. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.3% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
@@ -107,6 +104,43 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-40. The suffix sweep is real but an order of magnitude smaller than C-38 and C-39 claimed (2026-08-21)
+
+**This corrects two of my own entries from the same day, and the correction is larger than either
+finding.** C-38 measured the sweep at about 134,000 net-new EE per day and C-39 priced `com.au` at
+308,000 EE of headroom. Both rested on the same unmeasured assumption and both are wrong.
+
+**The assumption.** `suffix_rank.py` estimated a namespace's size as `pages x 20`, where 20 domains
+per 200-row page was taken from the `.uk` sweeps. **A page count measures captures; the metric pays
+for domains, and the ratio between them is a property of how a namespace was crawled.** Measured on
+`com.au`: **56,872 capture rows yielded 435 distinct in-window pairs**, about 1.5 domains per page
+against the assumed 20. That namespace is a few sites crawled deeply, not many sites crawled once.
+
+**Re-ranked with the density sampled per suffix rather than assumed, every candidate collapses:**
+
+| suffix | weight | pages | held | headroom EE, assumed | headroom EE, measured |
+|---|--:|--:|--:|--:|--:|
+| `com.au` | 0.9904 | 20,491 | 98,659 | 308,174 | **0** |
+| `gov.uk` | 0.9813 | 1,498 | 2,733 | 26,718 | **0** |
+| `ac.uk` | 0.9813 | 1,386 | 4,902 | 22,392 | **0** |
+| `govt.nz` | 0.9895 | 209 | 565 | 3,577 | 475 |
+
+**The 134,000 EE/day figure has the same defect.** It was taken over the first hour on `co.uk`,
+which is 16,936 pages of a namespace the store had barely touched, and it does not survive contact
+with a namespace we already hold. The honest current rate, measured on the live `com.au` journal
+against the store: **28.3% net-new but only 435 pairs and 121.8 EE from 56,872 capture rows.**
+
+**What is still true.** The sweep is a genuine bulk enumeration and it costs one query per page
+rather than one per domain, so it remains the right instrument. What is false is that any large
+namespace remains unharvested: the store already holds 445,443 `co.uk`, 98,659 `com.au` and 38,158
+`org.uk` domains, and the sweep is now confirming our own coverage rather than extending it.
+
+**So the 5% gap is not closed by this route, and the OPEN block is corrected to say so.** The
+mistake worth naming is that I priced a route on a structural estimate and reported it before the
+first namespace had been measured end to end. C-38's own rate was measured against one favourable
+namespace in its first hour, which is exactly the "a rate is a property of a moment" trap this
+project has written down twice.
 
 ### C-39. The suffix sweep cannot be extended to `.com`, and the reason is structural (2026-08-21)
 
