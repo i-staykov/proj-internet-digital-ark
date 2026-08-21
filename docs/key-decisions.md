@@ -33,32 +33,34 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 72,170, which is 10.80% of it.**
+**Gate 668,118 EE on `merged260821`. We hold 88,062, which is 13.2% of it, up from 10.8% this
+afternoon and 2.8% yesterday.**
 
-**There is no 5% of immediate potential and I am not going to claim there is.** Everything
-identified, measured and either running or one word away totals **about 165,000 EE, 25% of the
-gate** (C-41). The suffix sweep that looked like the answer this morning is exhausted: two million
-index rows on `ac.uk` returned sixteen net-new pairs.
+**The fast channel is RDAP and it is running on both machines.** The registry's own creation date is
+`whois_creation`: master-eligible, self-dating, no corroboration split, and approved since phase 4,
+so it needed no decision from anyone. It is a different service from the archive, so it does not
+compete with the CDX sweeps, and it runs at **156 queries a second across the two machines against
+the archive's 17,500 a day**. Measured delivered rate: **about 12,900 EE an hour.** Working in C-42.
 
-**O1 is now more than half of what is left.** 77,749 EE, on disk, parsed, gated only by your word.
-Nothing else available comes close, and it costs you one line.
-
-**A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
-48,878 a day. Under time-weighted scoring a slow round is doubly expensive.
+**16.7 million domains are queued**, about thirty hours of work, worth roughly **262,000 EE** at the
+measured per-query rates. That is 39% of the gate from a channel that needs nothing from you.
 
 | | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, the minute you say so.** More than half of everything remaining. |
-| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set to 2026-08-24 and rsyncs home automatically. | A second machine at no marginal cost. |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, the minute you say so.** |
+| **O2** | Keep the VPN up when you can. The VPS is the faster of the two machines at RDAP, 102 q/s against 54. | Roughly two thirds of total throughput. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.3% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
-**Nothing single-handedly reaches 5%, and that remains the honest state.** What is now identified,
-measured and either running or one word away totals **roughly 40% of the gate**, against 3% when
-this round started. The unheld Usenet is banking itself under a decision you took in phase 4 and
-needs nothing from you.
+**The honest total.** Banked 88,062, plus about 262,000 queued in RDAP, plus `ukwa_geoindex` 77,749
+and `internic_zone` 8,628 on your word, is **about 436,000 EE, 65% of the gate**. That is not the
+whole thing and I will not pretend it is, but it is the first time a single channel has been worth
+a third of the gate and been deliverable in a day rather than a month.
+
+**A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
+48,878 a day. RDAP delivers about 310,000 a day, so the gap closes rather than widens.
 
 **Withdrawn by your instruction of 2026-08-20, public sources only:** research access to the WhoisXML
 API database, the depth question to DomainTools, and the outreach for an unpublished early-web crawl.
@@ -102,6 +104,51 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-43. RDAP is the fast channel, and both of my first two target lists were wrong (2026-08-21)
+
+**Ivo's reframing was the whole insight**: finding more candidates is worthless when the constraint
+is *dating* them. The store already held 2.35 million undated candidates and the archive gives about
+17,500 queries a day. RDAP is a different service, it returns the registry's own creation date, and
+`rdap_snapshot / whois_creation` has been approved master since phase 4. So it needed no decision
+from anyone and does not compete with the CDX sweeps.
+
+**Measured: 156 queries a second across two machines**, against the archive's 17,500 a day, and a
+delivered rate of about **12,900 equivalent-English an hour**.
+
+**Where to point it took three measurements, and my first two answers were wrong in opposite ways.**
+
+**Wrong once, by filtering for novelty.** The obvious optimisation is to query only domains the store
+has never seen, since a domain we already hold cannot produce a net-new pair:
+
+| target list | in-window | net-new of those | net EE / 1,000 |
+|---|--:|--:|--:|
+| never seen by the store | 1.02% | 100% | **6.3** |
+| unfiltered | 36.4% | 11.4% | **25.7** |
+| **store domains never RDAP-queried** | 19.26% | 16.6% | **20.2** |
+
+**A domain the store has never seen is precisely a domain that did not exist in 1996-2001**, so the
+novelty filter removes the value along with the waste. The population that pays is names some era
+source already attested but whose creation year we do not hold: 11,446,886 of the store's 14.8
+million qualify.
+
+**Wrong twice, by ordering on English weight.** That put `.er`, `.gu` and `.nr` at the head: they
+score 1.0000 in the model, the store holds a handful of each, and their registries answer in about
+five seconds. **Measured at 0.2 queries a second against 65 for the same code on Verisign, a 300x
+difference decided entirely by which registry was asked.** A volume floor moved `.au` to the front
+at 11 q/s, still 6x slow. The ranking has to be **equivalent-English per second**, so the list now
+sorts on weight times a measured per-registry rate and `.com` leads.
+
+**Three faults found by running it rather than reading it.** The VPS `src/` was stale, so `ark rdap`
+rejected `--workers` and the run exited reporting an exhausted list rather than a broken one.
+`date -u -r` is macOS-only, so the deadline printed empty on Linux and a misconfigured run looked
+configured. And clearing a stale lock by hand started a second supervisor: **32 concurrent workers at
+Verisign from one machine**, which is how a project gets refused. The lock now reads its pid and asks
+the process table, so a live holder is respected and a dead one is taken over.
+
+**What is queued.** 16.7 million domains across both machines, about thirty hours, worth roughly
+262,000 EE at the measured rates: the store population at 20.2 per thousand, then a follow-on of
+4,980,427 novel domains from the reviewer's own out-of-window URL dumps at 6.3.
 
 ### C-42. Page 0 of a CDX namespace is about twice as dense as the namespace (2026-08-21)
 
