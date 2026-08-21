@@ -22,22 +22,30 @@ paths = sys.argv[1:] or sorted(glob.glob("data/raw/cdx_suffix/*.jsonl.gz"))
 pairs: set[tuple[str, int]] = set()
 rows = 0
 for path in paths:
-    with gzip.open(path, "rt", errors="replace") as fh:
-        for line in fh:
-            try:
-                d = json.loads(line)
-            except Exception:
-                continue
-            rows += 1
-            stamp = d.get("timestamp") or ""
-            if len(stamp) != 14 or not stamp.isdigit():
-                continue
-            year = int(stamp[:4])
-            if not (1996 <= year <= 2001):
-                continue
-            dom = to_registrable(d.get("url") or "")
-            if dom:
-                pairs.add((dom, year))
+    # **A journal being written has no end-of-stream marker**, so gzip raises
+    # EOFError on the last partial member. That is the normal state of the file
+    # this pricer exists to read: the sweep runs for days and the question is
+    # always "what has it found so far". Everything before the truncation point
+    # is valid, so it is kept and the exception is where the read stops.
+    try:
+        with gzip.open(path, "rt", errors="replace") as fh:
+            for line in fh:
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                rows += 1
+                stamp = d.get("timestamp") or ""
+                if len(stamp) != 14 or not stamp.isdigit():
+                    continue
+                year = int(stamp[:4])
+                if not (1996 <= year <= 2001):
+                    continue
+                dom = to_registrable(d.get("url") or "")
+                if dom:
+                    pairs.add((dom, year))
+    except EOFError:
+        pass
 
 print(f"{len(paths)} journal(s): {rows:,} rows, {len(pairs):,} distinct in-window pairs")
 print(f"  distinct domains: {len({d for d, _ in pairs}):,}")
