@@ -103,6 +103,44 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 ## CLOSED
 
+### C-37. The original Alexa crawl indexes exist, are enormous, and are access-restricted (2026-08-21)
+
+**The most obvious idea nobody had written down: stop querying the Wayback index one domain at a
+time and download the crawl indexes it was built from.** They exist, they are exactly the right
+shape, and they are shut. Recorded in full because the idea will occur to the next agent within an
+hour and this saves them the day.
+
+Archive.org carries the original Alexa crawls under `alexacrawls` (**226,901 items**), `alexa_1999`
+(243), `20thcenturyweb` (331) and `greencrawl` (148). A typical item, for instance
+`green-0027-19990127005032-917571173-c`, is a 1.45 GB crawl from January 1999 that ships its own
+**636 MB `.cdx.gz`**: a bulk capture index of every URL the crawl saw, each with a 14-digit
+timestamp. That is `cdx_timestamp`, self-dating, and `early_web_cdx / cdx_timestamp` is **already
+approved master**, so it would have needed no decision from anyone.
+
+**It is also the one thing that would have broken the rate limit**, because the constraint on this
+project is 17,500 archive queries a day and one of these files carries more captures than a month of
+querying.
+
+**Measured, with a control, because the first attempt proved nothing.** That attempt reported 401 on
+every item and its control returned HTTP 502, meaning archive.org was refusing everything at that
+moment and the 401s were not evidence about the files. Re-run with a control that had to pass first:
+
+| item | result |
+|---|---|
+| control, `usenet-bit`, a file we have downloaded before | **OK**, after four 500s |
+| `green-0027-...` | **HTTP 401**, metadata carries `access-restricted-item: true` |
+| `sarah-000063-...` | **HTTP 403** |
+| `green-000196-...` | 302 to a storage node that then returns 500, three times |
+
+**So the metadata is public and the payload is not.** This is a policy restriction rather than link
+rot, and it is consistent with the Internet Archive having refused this project three times: the raw
+crawl data behind the Wayback Machine is not open bulk download.
+
+**The reopen condition is narrow and worth stating.** Not "try again later", which will read the same
+500s. It is: an item in these collections **whose metadata lacks `access-restricted-item`**, or a
+research-access route to the collection, which is outreach and therefore not ours to start.
+`scripts/alexa_crawl_index.py` enumerates and samples them, so testing the condition is one command.
+
 ### C-36. 5% by Sunday is not reachable, and here is the arithmetic that says so (2026-08-21)
 
 **Asked for directly, so answered directly rather than hedged.** The gate is 619,240 EE. We hold
