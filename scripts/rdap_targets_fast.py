@@ -17,6 +17,14 @@ second because slow and dead registries block the queue, while the same code aga
 Verisign alone ran 3,000 queries in 46 seconds, **65 q/s**. `.com` is also the
 largest share of the pool and carries weight 0.6321.
 
+**This list is the FOLLOW-ON, not the first choice.** Measured, it returns 100%
+net-new but only 1.02% in-window, worth **6.3 equivalent-English per thousand
+queries**, against **20.2** for `rdap_store_targets.py`. A domain the store has
+never seen is precisely a domain that did not exist in 1996-2001. So the store
+population is worked first and this one exists to stop the channel idling when
+that is exhausted: 11.4 million store domains is about twenty hours at the
+measured combined rate, and this adds roughly twenty million more.
+
 Read-only against the store.
 
     uv run python scripts/rdap_targets_fast.py --dir <merged dir> --out <file>
@@ -41,6 +49,10 @@ ERAS = (
     "2007-2008",
     "2008-2009",
     "2009-2010",
+    "2010-2011",
+    "2011-2012",
+    "2012-2013",
+    "2013-2014",
 )
 
 
