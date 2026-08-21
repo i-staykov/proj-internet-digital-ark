@@ -33,25 +33,29 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 619,240 EE. We hold 68,056, which is 10.99% of it**, up from 2.8% two days ago.
+**Gate 668,118 EE on `merged260821`. We hold 71,461, which is 10.70% of it.**
 
-**The 50-day estimate is withdrawn.** A public-suffix CDX query enumerates a whole namespace through
-one paginated endpoint, measured at **~134,000 net-new EE per day against the old 13,500** (C-38).
-At that rate the remaining 551,000 EE is **days rather than weeks**, and it needs no decision from
-you, because the evidence class is already approved master.
+**A contributor landed 977,561 EE in one day**, 94% of it in the year 2000 alone, so the gate moved
+up 48,878 and the threshold's recession went back to 48,878 EE/day after one interval at 5,129. The
+caution C-32 attached to its own conclusion was the right one.
 
-**Sunday is now plausible rather than impossible.** It turns on whether the rate holds as the
-high-weight suffixes saturate, which the next day of running will show. That is not a promise; the
-honest position is that the constraint which made Sunday impossible has gone.
+**Against that, the suffix sweep (C-38) measures about 134,000 net-new EE per day**, so collection
+still outruns the recession by roughly 85,000 EE/day and the gap closes. It needs no decision from
+you: the evidence class is already approved master.
 
-**Scoring is time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so the clock
-started 2026-08-20 and speed now counts as much as size.
+**Where the remaining 597,000 EE is, measured rather than hoped** (C-39). `suffix_rank.py` ranks
+namespaces by weight x headroom, and `com.au` alone scores **308,000 EE at weight 0.9904**, 46% of
+the gate, with `co.nz`, `gov.uk`, `org.au`, `gov.au`, `edu.au` behind it. Both machines are sweeping
+that list on disjoint suffixes.
+
+**Scoring is time-weighted**, `S_i = 10 x (p_i / t_i)` in days from benchmark release, so speed now
+counts as much as size and a benchmark that moves every day makes holding work expensive.
 
 | | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 12.6% of the gate, available the minute you say so.** Self-dating, so no corroboration split. |
-| **O2** | Keep the VPN up when you can. The VPS collects on a 10-day deadline and its journals rsync home automatically whenever the tunnel is up. | A second machine on a disjoint shard, for the cost of the tunnel. |
-| **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.4% of the gate |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, available the minute you say so.** Self-dating, so no corroboration split. |
+| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set on a 3-day deadline and its journals rsync home automatically whenever the tunnel is up. | A second machine at no marginal cost. |
+| **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.3% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
@@ -103,6 +107,39 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-39. The suffix sweep cannot be extended to `.com`, and the reason is structural (2026-08-21)
+
+**The obvious next step after C-38, closed in ten minutes rather than a day.** The sweep enumerates a
+whole namespace from one query and reaches about 7,000 EE/hour. `.com` is the largest namespace in
+the metric, so the question is whether the same trick reaches it.
+
+**It does not, and the failure is not the 403 everyone would expect.** `matchType=domain` on `com`,
+`net` and `org` returns HTTP 403, which the register already knew. The idea worth testing was that a
+second-level prefix might be legal, letting `.com` be swept as 36 namespaces. It is legal: `a.com`
+returns HTTP 200. **But it matches only the literal domain `a.com`.** Measured: `a.com`, `b.com` and
+`c.com` each report exactly **1 page**, where `co.uk` reports 16,936. `matchType=domain` means "this
+domain and its subdomains", not "domains beginning with this string".
+
+So the sweep reaches exactly where a **public suffix** exists to name the namespace, and `.com` has
+no sub-namespace to name. That is a property of the DNS hierarchy rather than of the archive's
+policy, so it will not change and should not be retried.
+
+**What it leaves, and it is a lot.** `suffix_rank.py` measures which multi-label suffixes are worth
+sweeping by combining weight, true namespace size from the CDX page count, and what the store holds:
+
+| suffix | weight | pages | held | headroom EE |
+|---|--:|--:|--:|--:|
+| `com.au` | 0.9904 | 20,491 | 98,659 | **308,174** |
+| `co.nz` | 0.9895 | 4,462 | 39,642 | 49,077 |
+| `gov.uk` | 0.9813 | 1,498 | 2,733 | 26,718 |
+| `org.au` | 0.9904 | 1,453 | 5,694 | 23,142 |
+| `ac.uk` | 0.9813 | 1,386 | 4,901 | 22,392 |
+| `co.uk` | 0.9813 | 16,936 | 445,443 | **0, exhausted** |
+
+**`com.au` alone is 46% of the gate**, and the contrast with `co.uk` is the point: both are about
+17,000-20,000 pages, and one is worth nothing because we already hold it. Headroom, not size, is what
+ranks a namespace.
 
 ### C-38. The query-rate ceiling is broken: one endpoint enumerates a whole namespace (2026-08-21)
 
