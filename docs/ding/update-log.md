@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback-phase-6/Domain_Data_Collection_Task/Update_Log.docx` |
+| source file | `feedback-phase-6/Domain_Data_Collection_Task 2/Update_Log.docx` |
 | sha256 | `6c6db17be09de4e45f8e9e3476ccbe3fe9a16d7d3d89fbdb53d09ea51c357d54` |
-| delivered in | `feedback-phase-6/Domain_Data_Collection_Task/`, from feedback-phase-6/Domain_Data_Collection_Task_0820_Update_v2.zip (2026-08-20) |
-| transcribed | 2026-08-20 by `scripts/extract_ding_docs.py` |
+| delivered in | `feedback-phase-6/Domain_Data_Collection_Task 2/`, from feedback-phase-6/Domain_Data_Collection_Task 2/ (2026-08-21) |
+| transcribed | 2026-08-21 by `scripts/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
