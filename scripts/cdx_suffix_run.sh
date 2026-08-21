@@ -30,9 +30,10 @@ mkdir -p data/logs data/raw/cdx_suffix
 
 # English share of the right-most TLD, which is what the metric pays for.
 SUFFIXES=(
-    com.au gov.uk ac.uk org.au gov.au edu.au co.nz
-    com.ng co.ke org.nz govt.nz nhs.uk ac.nz id.au ac.za me.uk
-    net.au asn.au net.nz com.my com.ph com.mt
+    k12.ca.us state.tx.us k12.il.us k12.oh.us k12.pa.us k12.mi.us
+    k12.ny.us k12.tx.us state.fl.us k12.va.us k12.nc.us k12.ma.us
+    lib.ny.us co.la.ca.us lib.ca.us state.ny.us state.pa.us cc.fl.us
+    govt.nz asn.au com.ng ac.nz co.in net.nz me.uk id.au
     ie co.il
     com.pk com.ng co.ke
 )
