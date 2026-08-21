@@ -33,25 +33,23 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 71,586, which is 10.71% of it.**
+**Gate 668,118 EE on `merged260821`. We hold 72,170, which is 10.80% of it.**
 
-**A contributor landed 977,561 EE in one day**, 94% of it in the year 2000, so the gate moved up
-48,878 and the threshold's recession returned to 48,878 EE/day after one interval at 5,129.
+**There is no 5% of immediate potential and I am not going to claim there is.** Everything
+identified, measured and either running or one word away totals **about 165,000 EE, 25% of the
+gate** (C-41). The suffix sweep that looked like the answer this morning is exhausted: two million
+index rows on `ac.uk` returned sixteen net-new pairs.
 
-**I have to correct myself on the suffix sweep, and the correction is bigger than the finding**
-(C-40). I reported it at 134,000 EE/day and priced `com.au` at 308,000 EE. Both rested on an
-unmeasured assumption of 20 domains per index page. Measured, `com.au` returns **1.5**, so every
-high-weight suffix now scores near zero headroom and **the route does not close the gap.** The rate
-I quoted was taken over one hour on the one namespace we had barely touched.
+**O1 is now more than half of what is left.** 77,749 EE, on disk, parsed, gated only by your word.
+Nothing else available comes close, and it costs you one line.
 
-**So the honest position is the one from C-36 again: the constraint is archive query rate, and no
-route found so far removes it.** The sweep is still the best instrument available, because it costs
-one query per page rather than one per domain, and both machines are running it. It is not enough.
+**A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
+48,878 a day. Under time-weighted scoring a slow round is doubly expensive.
 
 | | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, available the minute you say so.** The largest single thing available and the only one that needs a decision. |
-| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set on a 3-day deadline and rsyncs home whenever the tunnel is up. | A second machine at no marginal cost. |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, the minute you say so.** More than half of everything remaining. |
+| **O2** | Keep the VPN up when you can. The VPS sweeps a disjoint suffix set to 2026-08-24 and rsyncs home automatically. | A second machine at no marginal cost. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.3% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
@@ -104,6 +102,50 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 ---
 
 ## CLOSED
+
+### C-41. The suffix sweep is exhausted, and the complete accounting of what remains (2026-08-21)
+
+**The measurement that ends the route.** After `co.uk`, the sweep moved to `com.au`, `ac.uk`,
+`gov.uk` and the rest of the ranked list. On the live `ac.uk` journal:
+
+| | |
+|---|--:|
+| capture rows read | **2,069,189** |
+| distinct in-window pairs | 458 |
+| already held | 442 |
+| **net-new** | **16 pairs, 15.7 EE** |
+
+Two million index rows for sixteen pairs. The delivered rate over the sweep's second and third hours
+is **about 620 EE/hour, roughly 15,000 EE/day**, against the 134,000 EE/day I reported from its first
+hour on `co.uk`.
+
+**The honest reading of C-38.** The sweep is a genuine bulk instrument and it did work: `co.uk` was a
+16,936-page namespace the store had barely touched, and taking it was worth about 68,000 EE in a few
+hours. But that was **one unharvested namespace, not a new rate**. Every other high-weight suffix is
+already in the benchmark, which is unsurprising: the Wayback CDX is the most obvious source in this
+task and several contributors have been mining it for weeks.
+
+**`psl_rank.py` exists so the next agent does not re-guess.** It walks the whole Public Suffix List,
+filters to weight >= 0.5 and to TLDs that existed in the window, and measures each survivor's page
+count and per-page domain density rather than assuming either. 2,988 suffixes pass the filters. Its
+output is `data/raw/cdx_suffix/psl_ranked.tsv`, which is the artifact worth keeping from this round.
+
+**The complete accounting, everything measured, nothing projected:**
+
+| | EE | state |
+|---|--:|---|
+| banked against `merged260821` | 72,170 | done |
+| `ukwa_geoindex` | 77,749 | on disk, parsed, **waits on O1** |
+| `internic_zone` | 8,628 | journal on disk, **waits on O3** |
+| `.us` locality namespaces | ~6,000 | measured, sweepable, unheld |
+| remaining suffix sweep and Usenet | ~15,000/day, falling | running |
+| **total identified** | **~165,000, 25% of the gate** | |
+
+**So there is no 5% of immediate potential and I will not claim there is.** The gate is 668,118 EE
+and moved 48,878 in a day. What would change that is a bulk dated corpus that is not IA-derived, and
+this round closed the remaining candidates: the Alexa crawl indexes (access-restricted, C-37), the
+`.com` extension (structurally impossible, C-39), the British Library repository (one dataset, all of
+it taken), and the commercial WHOIS vendors (excluded by the public-sources rule).
 
 ### C-40. The suffix sweep is real but an order of magnitude smaller than C-38 and C-39 claimed (2026-08-21)
 
