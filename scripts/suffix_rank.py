@@ -18,6 +18,7 @@ request per suffix and gives the true namespace size, then combines the three.
     uv run python scripts/suffix_rank.py
 """
 
+import argparse
 import sys
 import time
 import urllib.parse
@@ -131,7 +132,58 @@ def pages(suffix: str) -> int:
         return -1
 
 
+# Fallback when `--probe` is off. Deliberately low: `com.au` measured about 1.5 and
+# the `.uk` suffixes about 20, so a middling default is wrong for both and a low one
+# at least fails towards under-claiming.
+DEFAULT_DENSITY = 3.0
+
+
+def probe_density(suffix: str) -> float:
+    """Distinct registrable domains in one page of this namespace.
+
+    A page count measures captures; the metric pays for domains. The ratio varies by
+    an order of magnitude between namespaces, so it is sampled rather than assumed.
+    """
+    q = urllib.parse.urlencode(
+        {
+            "url": suffix,
+            "matchType": "domain",
+            "from": "1996",
+            "to": "2001",
+            "filter": "statuscode:200",
+            "fl": "original",
+            "pageSize": "200",
+            "page": "1",
+        }
+    )
+    req = urllib.request.Request(f"{BASE}?{q}", headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as fh:
+            body = fh.read().decode("utf-8", "replace")
+    except Exception:
+        return DEFAULT_DENSITY
+    hosts = set()
+    for line in body.splitlines():
+        url = line.strip()
+        if not url:
+            continue
+        host = url.split("//", 1)[-1].split("/", 1)[0].split(":")[0]
+        parts = host.split(".")
+        depth = len(suffix.split(".")) + 1
+        if len(parts) >= depth:
+            hosts.add(".".join(parts[-depth:]))
+    return max(len(hosts), 1) / 1.0
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--probe",
+        action="store_true",
+        help="sample one page per suffix to measure domains per page rather than assume it",
+    )
+    args = ap.parse_args()
+
     weights = english_weights()
     for _ in range(120):
         try:
@@ -159,9 +211,20 @@ def main() -> None:
         if n <= 0:
             print(f"  {suffix:<10} pages={n} (skipped)", file=sys.stderr)
             continue
-        # One page is 200 index rows; distinct domains per page runs about 20 on the
-        # measured .uk sweeps, so this is a scale rather than a precise count.
-        est_domains = n * 20
+        # **Domains per page is measured, not assumed, and the assumption was wrong.**
+        # The first version used a flat 20 domains per 200-row page, taken from the
+        # `.uk` sweeps. Measured on `com.au`: 56,872 capture rows yielded 435 distinct
+        # in-window pairs, about 1.5 domains per page, because that namespace is a few
+        # sites crawled deeply rather than many sites crawled once. Estimating headroom
+        # from page count alone therefore overstated `com.au` by more than tenfold.
+        #
+        # A page count measures CAPTURES, and what the metric pays for is DOMAINS. The
+        # ratio between them is a property of how a namespace was crawled, so it has to
+        # come from a sample of that namespace. `--probe` takes one page per suffix and
+        # counts the distinct domains in it, which costs one extra request and removes
+        # the guess.
+        per_page = probe_density(suffix) if args.probe else DEFAULT_DENSITY
+        est_domains = int(n * per_page)
         headroom = max(est_domains - held[suffix], 0)
         rows.append((w * headroom, suffix, w, n, held[suffix], headroom))
         print(f"  {suffix:<10} pages={n:>9,} held={held[suffix]:>9,}", file=sys.stderr)
