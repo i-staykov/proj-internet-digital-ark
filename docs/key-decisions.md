@@ -52,9 +52,16 @@ launch with stdin from `/dev/null` and query `.com`/`.net` only, measured at **9
 **Point it at the store, not at novel names.** Measured, and the ratio is four to one: domains the
 store already holds but has never RDAP-asked return **25.7 EE per thousand queries**, while names the
 store has never seen return **6.3**. A domain the store has never seen is precisely a domain that did
-not exist in 1996-2001. `store_targets.txt` holds **8,490,214 such names, already all `.com`/`.net`**,
-split in disjoint halves across the two machines, and at the measured rate the list is worth roughly
-**218,000 EE, about half the gate**, in something like a day of unattended running.
+not exist in 1996-2001.
+
+**Both machines now work one queue of 48.7 million names, ordered by measured yield and split in
+disjoint halves**, so neither spends a query the other has spent and neither idles for about a week:
+**2,138,120** store-known `.com`/`.net` never asked, then **5,599,479** store-known other TLDs, then
+**40,989,363** Common Crawl names that are neither in the store nor in the asked-ledger. The last of
+those is priced at 4.2 EE per thousand on a 19,987-query pilot, six times thinner than the first, which
+is exactly why the queue is ordered rather than concatenated. Rough worth of the whole queue at the
+measured rates: **roughly 330,000 EE**, which with what is banked and `ukwa_geoindex` would pass the
+gate. Those are projections from measured rates, not measurements.
 
 | | the ask | what it is worth |
 |---|---|---|
