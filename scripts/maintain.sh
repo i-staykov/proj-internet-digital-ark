@@ -76,6 +76,19 @@ for i in $(seq 1 "$ITERATIONS"); do
         "${VPS}:${VPS_REPO}/data/raw/cdx/cdx_*.jsonl.gz" data/raw/cdx/ \
         >> "$LOG" 2>&1 || echo "  vps unreachable this pass, continuing" >> "$LOG"
 
+    # **And the RDAP journals, which this block did not fetch until 2026-08-21.**
+    # The VPS was put on RDAP that evening and produced 67 journals in three hours;
+    # every one of them was stranded, because the pattern above names only `cdx_`.
+    # That is the same defect the comment above describes, repeated on a new prefix,
+    # which is the argument for fetching by DIRECTORY rather than by a hand-written
+    # glob: a new collector on the remote machine should not be able to write work
+    # that no pass here can see.
+    mkdir -p data/raw/rdap
+    rsync -a --ignore-existing --timeout=120 \
+        -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        "${VPS}:${VPS_REPO}/data/raw/rdap/rdap_*.jsonl.gz" data/raw/rdap/ \
+        >> "$LOG" 2>&1 || echo "  vps rdap unreachable this pass, continuing" >> "$LOG"
+
     bash scripts/ingest_new_usenet.sh auto >> "$LOG" 2>&1
 
     # Every journal on disk is re-offered, not only the ones this pass produced.
