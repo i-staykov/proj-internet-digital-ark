@@ -38,11 +38,23 @@ measurement, and is recorded so you can still object. Newest first within each b
 **The fast channel is RDAP and it is running on both machines.** The registry's own creation date is
 `whois_creation`: master-eligible, self-dating, no corroboration split, and approved since phase 4,
 so it needed no decision from anyone. It is a different service from the archive, so it does not
-compete with the CDX sweeps, and it runs at **156 queries a second across the two machines against
-the archive's 17,500 a day**. Measured delivered rate: **about 12,900 EE an hour.** Working in C-42.
+compete with the CDX sweeps. Working in C-42.
 
-**16.7 million domains are queued**, about thirty hours of work, worth roughly **262,000 EE** at the
-measured per-query rates. That is 39% of the gate from a channel that needs nothing from you.
+**It was down or crippled for most of 2026-08-22 and both faults were silent.** The local run stopped
+at 05:45 after Python failed with `init_sys_streams: can't initialize sys standard streams`, a dead
+stdin inherited from a terminal that had gone away; the supervisor reported it as **"the list is
+exhausted or the API refused"**, which is the one sentence guaranteed to stop anyone looking. It was
+not exhausted: the round before had dated **138,783 of 200,000**. The VPS meanwhile was alive, and
+therefore looked fine, while running at **1.92 queries a second** because it had been pointed at an
+8.2-million-name list spanning every registry, and slow registries block the queue. Both machines now
+launch with stdin from `/dev/null` and query `.com`/`.net` only, measured at **95 q/s each**.
+
+**Point it at the store, not at novel names.** Measured, and the ratio is four to one: domains the
+store already holds but has never RDAP-asked return **25.7 EE per thousand queries**, while names the
+store has never seen return **6.3**. A domain the store has never seen is precisely a domain that did
+not exist in 1996-2001. `store_targets.txt` holds **8,490,214 such names, already all `.com`/`.net`**,
+split in disjoint halves across the two machines, and at the measured rate the list is worth roughly
+**218,000 EE, about half the gate**, in something like a day of unattended running.
 
 | | the ask | what it is worth |
 |---|---|---|
