@@ -33,8 +33,7 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 88,062, which is 13.2% of it, up from 10.8% this
-afternoon and 2.8% yesterday.**
+**Gate 668,118 EE on `merged260821`. We hold 224,546, which is 33.6% of it, up from 88,062 yesterday.**
 
 **The fast channel is RDAP and it is running on both machines.** The registry's own creation date is
 `whois_creation`: master-eligible, self-dating, no corroboration split, and approved since phase 4,
@@ -54,10 +53,11 @@ measured per-query rates. That is 39% of the gate from a channel that needs noth
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
-**The honest total.** Banked 88,062, plus about 262,000 queued in RDAP, plus `ukwa_geoindex` 77,749
-and `internic_zone` 8,628 on your word, is **about 436,000 EE, 65% of the gate**. That is not the
-whole thing and I will not pretend it is, but it is the first time a single channel has been worth
-a third of the gate and been deliverable in a day rather than a month.
+**The honest total.** Banked 224,546, plus what is left in the RDAP queue, plus `ukwa_geoindex`
+77,749 and `internic_zone` 8,628 on your word, is **about 436,000 EE, 65% of the gate**. That is not
+the whole thing and I will not pretend it is. **The remaining third has no identified source.** The
+suffix sweep was measured on 2026-08-22 and returns **5,722 net-new pairs for 4,800 EE across twelve
+suffixes**, because `co.uk` and `ac.uk` are already saturated, so it is a trickle and not a channel.
 
 **A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
 48,878 a day. RDAP delivers about 310,000 a day, so the gap closes rather than widens.
