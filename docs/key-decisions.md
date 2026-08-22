@@ -33,7 +33,7 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 224,546, which is 33.6% of it, up from 88,062 yesterday.**
+**Gate 668,118 EE on `merged260821`. We hold 265,363, which is 39.7% of it, up from 88,062 yesterday.**
 
 **The fast channel is RDAP and it is running on both machines.** The registry's own creation date is
 `whois_creation`: master-eligible, self-dating, no corroboration split, and approved since phase 4,
@@ -65,18 +65,20 @@ gate. Those are projections from measured rates, not measurements.
 
 | | the ask | what it is worth |
 |---|---|---|
-| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **77,749 EE, 11.6% of the gate, the minute you say so.** |
+| **O1** | Approve `ukwa_geoindex` / `cdx_timestamp` as **master**. Free, public, CC Public Domain, on disk and parsed. | **4,512 EE, 0.7% of the gate.** Was 77,749; we overtook it ourselves, see below. |
 | **O2** | Keep the VPN up when you can. The VPS is the faster of the two machines at RDAP, 102 q/s against 54. | Roughly two thirds of total throughput. |
 | **O3** | Set one `Decision:` line for `internic_zone` / `artifact_listing` | 8,627.7 EE, 1.3% of the gate |
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
-**The honest total.** Banked 224,546, plus what is left in the RDAP queue, plus `ukwa_geoindex`
-77,749 and `internic_zone` 8,628 on your word, is **about 436,000 EE, 65% of the gate**. That is not
-the whole thing and I will not pretend it is. **The remaining third has no identified source.** The
-suffix sweep was measured on 2026-08-22 and returns **5,722 net-new pairs for 4,800 EE across twelve
-suffixes**, because `co.uk` and `ac.uk` are already saturated, so it is a trickle and not a channel.
+**The honest total.** Banked **265,363**, plus roughly **330,000** projected from the 48.7 million
+names now queued at the measured per-query rates, is **about 595,000 EE, 89% of the gate**, and the
+two sources awaiting your word add about 13,000 rather than the 86,000 this file claimed yesterday.
+**So the queue is now the whole plan, and the projection is the weak part of it**: it multiplies two
+measured rates, 25.7 EE per thousand for store-known names and 4.2 for Common Crawl names, across
+populations far larger than the samples those rates came from. It will be replaced by measurement as
+the queue drains, and it may fall.
 
 **A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
 48,878 a day. RDAP delivers about 310,000 a day, so the gap closes rather than widens.
@@ -89,10 +91,25 @@ as an ask because a zone file carries no creation dates and cannot date a year b
 
 ### Approve ukwa_geoindex / cdx_timestamp as master  (O1)
 
-**77,749.1 equivalent-English over 79,253 net-new pairs, measured over the whole file rather than
-sampled**, 98.1% `.uk` at weight 0.9813, and 45,122 of the domains are ones the store has never seen.
-Self-dating, so no corroboration split. Set its `Decision:` line in this file's triage table. Working
-in C-31.
+**Re-measured 2026-08-22 and the answer changed by seventeen times, downwards: 4,610 net-new pairs
+worth 4,511.6 equivalent-English, not the 77,749 this file carried for two days.** The source has not
+changed and neither has the parser; all 12 in-window files still yield **289,857 gross in-window
+pairs**, 98% `.uk` at weight 0.9813. What changed is the store underneath it. The measurement was
+taken on 2026-08-20, and since then the CDX suffix sweeps worked `co.uk`, `ac.uk`, `org.uk`, `me.uk`,
+`ltd.uk`, `plc.uk` and `sch.uk`, which is precisely this file's population, so **we banked those pairs
+ourselves through a different door**.
+
+That also revises the suffix sweep's own entry in a useful direction: priced alone it returned 4,800
+EE and looked like a trickle, but it had additionally pre-empted about 73,000 EE of this source, which
+no per-channel measurement would ever have shown.
+
+**It is still free and still worth banking**, and it still needs your one line, but it is no longer a
+gate item and should not be waited on as one. **`internic_zone` (O3) was measured on the same day and
+has not been re-checked; assume its 8,628 is stale in the same direction until it is.**
+
+**The transferable lesson: the value of an unbanked source decays as the store grows**, so a measured
+figure is a measurement of a moment, and any source parked pending a decision must be re-priced before
+it is quoted, not when it is banked.
 
 ### Approve, refuse or downgrade internic_zone / artifact_listing  (O3)
 
