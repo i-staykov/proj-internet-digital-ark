@@ -59,9 +59,17 @@ disjoint halves**, so neither spends a query the other has spent and neither idl
 **2,138,120** store-known `.com`/`.net` never asked, then **5,599,479** store-known other TLDs, then
 **40,989,363** Common Crawl names that are neither in the store nor in the asked-ledger. The last of
 those is priced at 4.2 EE per thousand on a 19,987-query pilot, six times thinner than the first, which
-is exactly why the queue is ordered rather than concatenated. Rough worth of the whole queue at the
-measured rates: **roughly 330,000 EE**, which with what is banked and `ukwa_geoindex` would pass the
-gate. Those are projections from measured rates, not measurements.
+is exactly why the queue is ordered rather than concatenated.
+
+**The slow registries are now quarantined into their own queue, because mixing them costs everything.**
+A name outside `.com`/`.net` goes to a registry that may answer at a tenth of Verisign's rate or not at
+all, and a queue is only as fast as what stands in front of it, so 5.6 million such names sitting in
+the middle would have stalled both machines for days once the fast work ran out. They are `slowq_*.txt`
+now, to be worked deliberately rather than accidentally. Each machine holds **26,765,189 pure-Verisign
+names**, including 10.4 million more from the 2018 crawl, and both are sustaining about **105 queries a
+second**. Rough worth at the measured rates: **roughly 400,000 EE**, which with what is banked would
+pass the gate. Those are projections from measured rates, not measurements, and the rates may not hold
+across populations this much larger than the samples they came from.
 
 | | the ask | what it is worth |
 |---|---|---|
@@ -72,13 +80,15 @@ gate. Those are projections from measured rates, not measurements.
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 
-**The honest total.** Banked **265,363**, plus roughly **330,000** projected from the 48.7 million
-names now queued at the measured per-query rates, is **about 595,000 EE, 89% of the gate**, and the
-two sources awaiting your word add about 13,000 rather than the 86,000 this file claimed yesterday.
+**The honest total.** Banked **265,363**, plus roughly **400,000** projected from the 59 million
+names now queued at the measured per-query rates, is **about 665,000 EE, which is the gate almost
+exactly**, and the two sources awaiting your word add about 13,000 rather than the 86,000 this file
+claimed yesterday.
 **So the queue is now the whole plan, and the projection is the weak part of it**: it multiplies two
-measured rates, 25.7 EE per thousand for store-known names and 4.2 for Common Crawl names, across
-populations far larger than the samples those rates came from. It will be replaced by measurement as
-the queue drains, and it may fall.
+measured rates, 25.7 EE per thousand for store-known names and 4.2 to 4.7 for Common Crawl names,
+across populations far larger than the samples those rates came from. Landing exactly on the gate is
+not a comfortable place to be, so it needs either the rates to hold across 59 million queries or one
+more source. It will be replaced by measurement as the queue drains, and it may fall.
 
 **A contributor added 977,561 EE in one day**, 94% of it in the year 2000, so the gate rises about
 48,878 a day. RDAP delivers about 310,000 a day, so the gap closes rather than widens.
