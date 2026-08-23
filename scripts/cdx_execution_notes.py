@@ -38,6 +38,19 @@ from pathlib import Path
 CDX_DIR = Path("data/raw/cdx")
 STAMPED = re.compile(r"^(?P<prefix>.+?)_(?P<stamp>\d{8}T\d{6}Z)\.jsonl")
 
+# A run that names each batch after its own start time is one collector, not twenty.
+# The suffix sweep wrote `cdx_suffix_s20260823T144431Z` per batch, so the table grew a
+# near-identical row per run and buried the six collectors that matter. Collapsing on the
+# trailing stamp keeps the discovery property intact: families are still found on disk
+# rather than enumerated here.
+_RUN_SUFFIX = re.compile(r"_s?\d{8}T\d{6}Z$")
+
+
+def _family(prefix: str) -> str:
+    """The collector a journal belongs to, with any per-run stamp folded away."""
+    return _RUN_SUFFIX.sub("", prefix)
+
+
 # The window the whole project is scored on. A capture outside it answers the query
 # and is still worth nothing, which is the distinction the yield line exists to make.
 WINDOW = range(1996, 2002)
@@ -105,6 +118,7 @@ def scan(directory: Path) -> dict[str, Tally]:
             prefix, stamp = path.name.split(".", 1)[0], ""
         else:
             prefix, stamp = match.group("prefix"), match.group("stamp")
+        prefix = _family(prefix)
         tally = tallies[prefix]
         tally.files += 1
         if stamp:
