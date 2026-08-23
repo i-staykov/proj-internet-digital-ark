@@ -35,3 +35,5 @@ docs/key-decisions.md export-ignore
 # and the decision log: working documents about how to approach the round, and
 # corrections owed. Neither is a deliverable and neither is his business.
 handoff-*.md export-ignore
+# The round email prose, read by fill_report. Working document, not a deliverable.
+docs/email-sections.md export-ignore

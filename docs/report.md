@@ -11,28 +11,28 @@ generated from the evidence store, so no table here can drift from the files shi
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 25,064,981 |
 | 2. Equivalent-English total | 13,362,368.8792 |
-| 3. Increment | **594,141** records |
-| 4. Equivalent-English increment | **372,942.3855** |
-| 5. Equivalent-English growth rate | **2.7910%** |
+| 3. Increment | **597,300** records |
+| 4. Equivalent-English increment | **374,890.6533** |
+| 5. Equivalent-English growth rate | **2.8056%** |
 
 Lines 1 and 2 are the `merged260821` totals, unchanged, since this increment is not yet merged. The
-increment covers 571,805 distinct domains, of which **86,005 appear in none of the six baseline
+increment covers 574,964 distinct domains, of which **89,164 appear in none of the six baseline
 files in any year**.
 
 | Year | merged260821, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 754,672 | 32,643 | 6 (0.0%) |
-| 1997 | 1,791,900 | 49,858 | 21 (0.0%) |
-| 1998 | 2,233,240 | 114,185 | 419 (0.4%) |
-| 1999 | 4,612,976 | 139,108 | 1,764 (1.3%) |
-| 2000 | 9,471,543 | 83,263 | 2,419 (2.9%) |
-| 2001 | 4,550,999 | 175,084 | 49,806 (28.4%) |
-| **Total** | **23,415,330** | **594,141** | **54,435 (9.2%)** |
+| 1996 | 754,672 | 32,646 | 6 (0.0%) |
+| 1997 | 1,791,900 | 49,903 | 21 (0.0%) |
+| 1998 | 2,233,240 | 114,360 | 419 (0.4%) |
+| 1999 | 4,612,976 | 139,644 | 1,764 (1.3%) |
+| 2000 | 9,471,543 | 84,400 | 2,419 (2.9%) |
+| 2001 | 4,550,999 | 176,347 | 49,806 (28.2%) |
+| **Total** | **23,415,330** | **597,300** | **54,435 (9.1%)** |
 
 The baseline column counts registered domains, so it reads lower than the raw lines of line 1; both
 describe the same six files.
 
-**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 5,730,202 domain-year records worth 3,390,947.9023 equivalent-English, which is **25.3768%** of the 13,362,368.8792 the corpus holds today. Each shipped round is quoted at the figure the reviewer ACCEPTED, which is not always the one it was submitted with: he recalculates against whatever baseline is current when he merges, and records of ours that reached it by another route in the meantime are his, not ours, to count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
+**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 5,733,361 domain-year records worth 3,392,896.1701 equivalent-English, which is **25.3914%** of the 13,362,368.8792 the corpus holds today. Each shipped round is quoted at the figure the reviewer ACCEPTED, which is not always the one it was submitted with: he recalculates against whatever baseline is current when he merges, and records of ours that reached it by another route in the meantime are his, not ours, to count. Round 1 predates the equivalent-English metric, so its records are the reviewer's own confirmed count and the weight beside it is measured over the two releases either side under the unchanged model.
 
 | Round | Records | Equivalent-English |
 |---|--:|--:|
@@ -40,8 +40,8 @@ describe the same six files.
 | 3 | 151,949 | 91,814.6880 |
 | 4 | 946,266 | 603,401.7811 |
 | 5 | 2,608,322 | 1,566,229.7613 |
-| **6, this one** | **594,141** | **372,942.3855** |
-| **Total** | **5,730,202** | **3,390,947.9023** |
+| **6, this one** | **597,300** | **374,890.6533** |
+| **Total** | **5,733,361** | **3,392,896.1701** |
 
 ---
 
@@ -50,7 +50,7 @@ describe the same six files.
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
 | the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 54,122 |
-| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 431,063 |
+| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 434,222 |
 
 `sources.md`, shipped beside this report, carries the full entry for each: acquisition command, date
 semantics, measured yield, caveats.
@@ -73,7 +73,7 @@ so the queue has never been the limit.
 
 | Source | What carries the date | Evidence type | Admissible | Net-new pairs | Equivalent-English |
 |---|---|---|---|--:|--:|
-| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 431,063 | 267,412.6 |
+| `rdap_snapshot` | the registry's own `registration` event date | `whois_creation` | master | 434,222 | 269,360.9 |
 | `usenet_announce` | post date of the announcement | `dated_directory` | master | 101,465 | 50,206.3 |
 | `ia_cdx_bulk` | Wayback capture timestamp | `cdx_timestamp` | master | 54,122 | 49,466.3 |
 | `usenet_address` | post date of the message carrying the address | `dated_directory` | master | 4,231 | 3,165.7 |
@@ -82,7 +82,7 @@ so the queue has never been the limit.
 | `trade_press` | the issue cover date | `dated_directory` | master | 32 | 23.4 |
 | `enron_email` | the message `Date:` header | `dated_directory` | master | 31 | 17.3 |
 | `maillist_archive` | the message `Date:` header | `dated_directory` | master | 27 | 15.7 |
-| **Total** | | | | **594,141** | **372,942.4** |
+| **Total** | | | | **597,300** | **374,890.7** |
 
 Every row above is master, so eligible for the annual files. Separately, **2,395,383 domains have no
 year-specific evidence** and ship as `candidates.txt`, kept out of the annual masters.

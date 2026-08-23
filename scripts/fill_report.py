@@ -611,6 +611,39 @@ def cdx_failures() -> str:
 # ones the template itself calls the ones he reads most closely.
 UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
 
+# A stub can also be satisfied from a tracked file rather than by hand, which is why
+# this exists: `private/email-draft.md` is REGENERATED from its template, so prose typed
+# straight into the draft is destroyed by the next fill. That happened, and the round's
+# email had to be rewritten from a copy kept elsewhere. `docs/email-sections.md` is
+# tracked (and export-ignored, so it never reaches the reviewer), holding one `## name`
+# heading per section. The first stub in the template takes the first section, the second
+# the second, in order, so the template keeps owning what sections exist.
+EMAIL_SECTIONS = Path("docs/email-sections.md")
+_STUB_RE = re.compile(r"<!--\s*ROUND\b.*?-->", re.S | re.I)
+
+
+def written_sections(path: Path | None = None) -> list[str]:
+    """Prose blocks under each `## ` heading, in file order. Empty if absent.
+
+    `path=None` resolves `EMAIL_SECTIONS` at call time rather than binding it as a
+    default at import, so a test can point this at a fixture. `ark.approvals` carries the
+    same note for the same reason, and writing it the other way here cost two red tests.
+    """
+    path = Path(path) if path is not None else EMAIL_SECTIONS
+    if not path.is_file():
+        return []
+    blocks, current = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            if current is not None:
+                blocks.append("\n".join(current).strip())
+            current = []
+        elif current is not None:
+            current.append(line)
+    if current is not None:
+        blocks.append("\n".join(current).strip())
+    return [b for b in blocks if b]
+
 
 def fill(
     template: Path, target: Path, subs: dict[str, str], check: bool, stubs_fatal: bool
@@ -618,6 +651,13 @@ def fill(
     text = template.read_text()
     for token, value in subs.items():
         text = text.replace(f"[{token}]", value)
+    # Satisfy stubs from the tracked sections file, in order, before counting them.
+    sections = written_sections()
+    if sections:
+        for block in sections:
+            text, n = _STUB_RE.subn(lambda _m, b=block: b, text, count=1)
+            if not n:
+                break
     remaining = sorted(set(re.findall(r"\[([A-Z_0-9]{2,})\]", text)))
     # Reported as a pseudo-token so it travels the same path as a real one: `--check`
     # lists it, `main` refuses, and the packaging script stops. One mechanism, not two,
