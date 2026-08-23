@@ -53,7 +53,16 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     exit 1
 fi
 echo "$$" > "$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT INT TERM
+# **The handler must exit, not merely clean up.** A bare `trap 'rm -rf "$LOCK"' EXIT
+# INT TERM` releases the lock and then lets the loop carry straight on, so the job
+# survives its own TERM while no longer holding the lock that stops a second copy
+# starting beside it. Measured on 2026-08-23: this script ignored two TERMs, had to
+# be stopped with `kill -9`, and had already dropped its lock. Splitting EXIT from
+# the signals is the fix, because only the signal handlers may exit.
+cleanup() { rm -rf "$LOCK"; }
+trap 'cleanup' EXIT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 130' INT
 
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
