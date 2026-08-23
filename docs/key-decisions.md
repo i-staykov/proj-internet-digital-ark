@@ -138,24 +138,27 @@ writes 1998 and no other year".
 **This is worth asking him directly**, since it is his rule and the answer either removes 54,632 pairs
 or hands us the gate outright.
 
-**The honest total.** Banked **352,000**. **The plan changed on 2026-08-23 and it is now two archive
-queues rather than the RDAP bulk**, because a query into the right population is worth sixty times a
-query into a large one:
+**The honest total.** Banked **357,432, which is 53.5%**. Two new archive queues were built on
+2026-08-23 and both are worth having, but **the claim written here an hour earlier, that they replaced
+the RDAP bulk as the plan, was wrong and is corrected**:
 
-| queue | size | measured yield | worth |
+| channel | yield per 1,000 queries | queries a day | EE a day |
 |---|---|---|---|
-| `cdx_tightgap` on the VPS | 449,754 domains, 456,351 holes | 96-97.5% hit, the highest in the project | **~250,000 EE** |
-| `cdx_linkhint` locally | 148,527 domains | **297 EE per 1,000 queries**, measured | **~44,000 EE** |
-| RDAP on both machines | 59M names | 4.75 EE per 1,000 | continues in the background |
+| `cdx_linkhint`, local | **297.2**, measured | ~15,000 | ~4,600 |
+| `cdx_tightgap`, VPS | **116.9**, measured | ~15,000 | ~1,800 |
+| RDAP, both machines | 4.75 | ~17,000,000 | **~80,000** |
 
-**The tight gap is a missing year with both neighbours held**, and the collectors have always measured
-it at 96-97.5%. It had been left unworked: the VPS was on a suffix sweep priced at 4,800 EE while
-456,351 holes worth 261,294 EE gross sat untouched. That is the correction, not a discovery.
+**Per-query yield and total yield point in opposite directions here, and total yield is what pays.** A
+link-hinted archive query is sixty times more valuable than an RDAP query and the archive will only
+answer about fifteen thousand a day, while the registries answer seventeen million. So the archive
+queues add roughly 8% on top and the RDAP bulk remains the engine.
 
-**The two archive queues together are worth about 294,000 EE against a gap of about 316,000**, so for
-the first time the identified work is nearly the whole remainder. What is not yet measured is how long
-they take: the archive gives roughly 17,500 queries a day per client and there are 598,281 domains
-between them. **That is the open question, and it may still be days rather than hours.**
+**Measured rate over the last 7.3 hours: 2,680 EE an hour**, down from 3,931 this morning, because the
+RDAP queue has moved off store-known names at 25.7 EE per thousand and onto Common Crawl names at 4.2.
+Net of the gate receding, that is **about 7 days**, and the rate will keep falling as the queue thins.
+
+**The one lever that is fast is O8, and it is a decision rather than work**: 97,893 EE already on disk,
+no querying at all, which would move 53.5% to 68.2% the moment it is granted.
 names now queued at the measured per-query rates, is **about 665,000 EE, which is the gate almost
 exactly**, and the two sources awaiting your word add about 13,000 rather than the 86,000 this file
 claimed yesterday.
