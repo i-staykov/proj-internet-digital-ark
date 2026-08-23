@@ -204,7 +204,7 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # neither is the language rejection register. They implemented the page-level
 # English verification standard of the phase-3 feedback, which the reviewer has
 # since retired in favour of the equivalent-English metric. The engine now lives in
-# `legacy/src/language.py` and nothing in the tree writes those folders any more.
+# the retired English-verification engine, and nothing writes those folders any more.
 #
 # Shipping them was worse than useless once the standard went: the folders came
 # out empty, `verify.sh` printed three vacuous WARN lines about a partition of
@@ -256,9 +256,9 @@ find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -print0 \
 # The retired English engine's superseded verdict journals are no longer shipped.
 # They were kept beside the current ones under `journals/lang_superseded/` so a
 # discarded verdict stayed auditable, which mattered while the standard was live.
-# The standard is retired and the engine is in `legacy/src/language.py`, so an
+# The standard is retired and its engine is deleted, so an
 # archive carrying them would document a rule nobody applies. The journals stay on
-# disk under `data/raw/lang/`; `legacy/docs/retired-data.md` says what they are.
+# disk under `data/raw/lang/` and are no longer read.
 
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"

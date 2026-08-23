@@ -34,7 +34,7 @@ PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
 # Page-language verdicts, from the standard the reviewer retired in August 2026
-# (see `legacy/README.md`). Still exported and still loaded, because a reviewer
+# (the engine was retired and removed). Still exported and still loaded, because a reviewer
 # holding an archive from a round that shipped them must be able to rebuild it,
 # and because a verdict that was acted on once should stay auditable. Optional on
 # load in both directions: an export from before the standard existed has no such

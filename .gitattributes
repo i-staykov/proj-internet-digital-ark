@@ -7,11 +7,8 @@ docs/notes.md export-ignore
 # The whole archive of retired working documents, by directory rather than by file.
 # it, which silently defeated the `docs/phase*-plan.md` rule below, because that pattern
 # matches one level only. `tests/test_delivery_privacy.py` caught it.
-# The archive of retired engines, spent probes and past-round logs. Kept in git so
 # posterity survives a fresh clone, kept out of the delivery so the reviewer gets
 # the working pipeline rather than its history.
-legacy/ export-ignore
-legacy/** export-ignore
 # The round's internal plan and the agent handoff. They are working documents about
 # how to approach the reviewer's feedback, not deliverables, and the handoff states
 # the working agreement in terms that are nobody's business but ours. `git archive`

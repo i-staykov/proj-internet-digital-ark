@@ -81,7 +81,7 @@ not the rate. Lowering requests per pair changes the rate.
 ## 4. Two lessons from a retired engine
 
 The page-level English verification engine is gone: the reviewer replaced that standard with the
-equivalent-English metric in August 2026, and the code is in `legacy/src/language.py` with the full
+equivalent-English metric in August 2026, and the code was removed on 2026-08-23, with the full
 account in `legacy/README.md`. Two of its design rules are general enough to belong here, because they
 apply to anything that asks a service a question and records the answer.
 

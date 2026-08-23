@@ -55,7 +55,7 @@ additions split into English-verified and unverified sets.
 **That standard was retired in August 2026 and replaced by the metric above.** The deliverable is one
 `additions/` set beside `candidates.txt`. Reporting page-level language verification now describes a
 rule nobody applies, which reads as a rule still in force, so it is not reported at all. The engine
-that implemented it is preserved at `legacy/src/language.py`; see `legacy/README.md`.
+that implemented it was removed on 2026-08-23; the git history holds it.
 
 ## 3. Evidence rules that have not changed
 

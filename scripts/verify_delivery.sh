@@ -301,7 +301,7 @@ python3 - <<'PY'
 # 2026, the archive stopped shipping all three files, and the checks then printed
 # three SKIP lines about folders that no longer exist. A check that examines
 # nothing reads like a check that found nothing wrong, which is worse than not
-# having it. `legacy/src/language.py` holds the engine.
+# having it. The engine was retired and removed.
 PY
 
 echo
