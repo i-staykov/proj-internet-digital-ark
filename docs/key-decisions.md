@@ -87,33 +87,29 @@ across populations this much larger than the samples they came from.
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 | **O7** | **Does `afnic_fr` breach rule 6?** 54,632 already-shipped pairs hang on it | **Nothing to gain, something to lose.** Correctness, not yield |
-| **O8** | Should `link_target` become master-eligible **with the corroboration split**? | **97,893 EE, 14.7% of the gate**, on disk, no querying. 85.3% accurate against his own baseline |
+| **O8** | ~~Should `link_target` become master-eligible?~~ **WITHDRAWN, my number was wrong** | Claimed 97,893 EE. Correctly filtered it is about **5,000**, and it is already banked |
 
-### Should link_target date a year, under the corroboration split  (O8)
+### Withdrawn: link_target under the corroboration split  (O8)
 
-**Not a source, a rule.** `link_target` is the one candidate-only evidence type and holds 4,115,694
-rows. It cannot date a year because a link is a claim by the LINKING page: dead links, typos and
-names registered later are all common, and that reasoning is sound.
+**I raised this yesterday at 97,893 EE and it is worth about 5,000. Withdrawing it and recording why,
+because the error is more useful than the idea was.**
 
-**But the project already admits other human-typed material under the corroboration split.** A Usenet
-post from 1998 that mentions a domain may date 1998 provided another source already places that domain
-in an annual file. A hostname typed into an href on a page captured in 1998 is the same kind of
-artefact as one typed into a post dated 1998, and it is currently treated as categorically worse.
+The measurement asked whether a `link_target` pair's domain appears anywhere in `domain_year`. It does,
+86.5% of the time, and against the reviewer's baseline 85.3% against a 37.1% control, so the signal is
+real and that part stands. **What the query did not do is exclude the corpus from corroborating
+itself.** `scripts/build_promotion_journals.py` already implements this exact rule and applies three
+filters I skipped: the corroborating source must be neither the Usenet corpus nor the baseline;
+the pair must not already be held; and the registry must not say the domain was created after the year
+claimed, which alone rejects 35% of the raw set.
 
-**Measured rather than argued.** Against the reviewer's own baseline, which knows nothing of our link
-extraction, a link's year is confirmed **85.3%** of the time. The same domains with the year shifted
-by three confirm at **37.1%**, so the links name the right years and not merely real names. Admitting
-them under the split, so only domains already in an annual file qualify, would add **165,945 pairs
-worth 97,893 EE**, from data already on disk with no querying at all.
+**Run properly against today's store the tranche is 7,356 pairs worth 5,097.5 EE, and it is now
+banked.** No approval was needed for any of it: `usenet_announce / dated_directory` is `Decision:
+master` and its entry says in terms that it "takes the corroboration split", so re-running the split
+against a store that has grown is executing an approved mechanism, not proposing a new one.
 
-**I have not done it and will not.** The standing brief calls `link_target` never dating a year
-structural rather than conventional, and `assign_year` refuses it. This is a change to the evidence
-taxonomy, which is exactly what the approval gate exists to stop an agent doing alone, and it may be
-worth putting to Ding rather than deciding here.
-
-**Meanwhile the same finding is already paying without any decision.** Using the links as a RANKING
-signal for the archive queue rather than as evidence needs nothing from anyone: measured at **297 EE
-per 1,000 queries, 63 times the RDAP queue**, and running now as `cdx_linkhint`.
+**The real lesson is about the shape of the error.** A source is worth what it adds *after* the rules
+are applied, and a first-pass query that skips the rules will overstate by roughly the factor the rules
+were written to remove. Twenty times, here.
 
 ### Does afnic_fr breach rule 6, and 54,632 shipped pairs turn on it  (O7)
 
@@ -157,8 +153,9 @@ queues add roughly 8% on top and the RDAP bulk remains the engine.
 RDAP queue has moved off store-known names at 25.7 EE per thousand and onto Common Crawl names at 4.2.
 Net of the gate receding, that is **about 7 days**, and the rate will keep falling as the queue thins.
 
-**The one lever that is fast is O8, and it is a decision rather than work**: 97,893 EE already on disk,
-no querying at all, which would move 53.5% to 68.2% the moment it is granted.
+**There is no fast lever left.** O8 looked like one and was withdrawn: correctly filtered it is about
+5,000 EE, now banked, not the 97,893 I claimed. Nothing else on this list is worth more than 1.3% of
+the gate. **The remaining distance is querying time, or a bulk dated corpus nobody has found yet.**
 names now queued at the measured per-query rates, is **about 665,000 EE, which is the gate almost
 exactly**, and the two sources awaiting your word add about 13,000 rather than the 86,000 this file
 claimed yesterday.
