@@ -87,6 +87,33 @@ across populations this much larger than the samples they came from.
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 | **O7** | **Does `afnic_fr` breach rule 6?** 54,632 already-shipped pairs hang on it | **Nothing to gain, something to lose.** Correctness, not yield |
+| **O8** | Should `link_target` become master-eligible **with the corroboration split**? | **97,893 EE, 14.7% of the gate**, on disk, no querying. 85.3% accurate against his own baseline |
+
+### Should link_target date a year, under the corroboration split  (O8)
+
+**Not a source, a rule.** `link_target` is the one candidate-only evidence type and holds 4,115,694
+rows. It cannot date a year because a link is a claim by the LINKING page: dead links, typos and
+names registered later are all common, and that reasoning is sound.
+
+**But the project already admits other human-typed material under the corroboration split.** A Usenet
+post from 1998 that mentions a domain may date 1998 provided another source already places that domain
+in an annual file. A hostname typed into an href on a page captured in 1998 is the same kind of
+artefact as one typed into a post dated 1998, and it is currently treated as categorically worse.
+
+**Measured rather than argued.** Against the reviewer's own baseline, which knows nothing of our link
+extraction, a link's year is confirmed **85.3%** of the time. The same domains with the year shifted
+by three confirm at **37.1%**, so the links name the right years and not merely real names. Admitting
+them under the split, so only domains already in an annual file qualify, would add **165,945 pairs
+worth 97,893 EE**, from data already on disk with no querying at all.
+
+**I have not done it and will not.** The standing brief calls `link_target` never dating a year
+structural rather than conventional, and `assign_year` refuses it. This is a change to the evidence
+taxonomy, which is exactly what the approval gate exists to stop an agent doing alone, and it may be
+worth putting to Ding rather than deciding here.
+
+**Meanwhile the same finding is already paying without any decision.** Using the links as a RANKING
+signal for the archive queue rather than as evidence needs nothing from anyone: measured at **297 EE
+per 1,000 queries, 63 times the RDAP queue**, and running now as `cdx_linkhint`.
 
 ### Does afnic_fr breach rule 6, and 54,632 shipped pairs turn on it  (O7)
 
