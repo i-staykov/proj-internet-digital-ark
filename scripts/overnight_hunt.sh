@@ -82,13 +82,6 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     just cycle >> "$LOG" 2>&1
     note "-- cycle done (exit $?) --"
 
-    # The one lead that is blocked on a server rather than on a measurement or a
-    # permission: the 20.9 GB UKWA host link graph capture, C-30. `--probe` is a single
-    # 1 KB ranged request with a 15 second ceiling, so asking hourly is polite; the
-    # 20.9 GB stream is never started unattended, because it needs the collectors
-    # stopped and that is a judgement.
-    bash scripts/fetch_ukwa_linkage.sh --probe >> "$LOG" 2>&1
-
     # Sleep in short hops so the deadline is honoured to the minute rather than to
     # the sleep interval, and so a TERM lands promptly.
     remaining=$((DEADLINE - $(date +%s)))

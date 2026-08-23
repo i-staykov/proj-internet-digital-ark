@@ -17,7 +17,7 @@
 # **Measured yield**, on 3,000 raw `.com` queries: 36.4% carried an in-window
 # creation date, 11.4% of those were net-new, so 25.7 net equivalent-English per
 # thousand. The target list here is filtered to domains the store has never seen, so
-# almost none of that 88.6% waste should remain; `rdap_journal_value.py` re-measures
+# almost none of that 88.6% waste should remain; `ark.yield_check` re-measures
 # it per journal rather than assuming the improvement.
 #
 # It never touches `web.archive.org`, so it runs beside both CDX sweeps.

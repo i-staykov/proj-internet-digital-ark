@@ -27,7 +27,7 @@
 # archives named in that file instead, which is how the 110.8 GB of phase-4
 # downloads whose groups the store never named gets read: those are already on
 # local disk, so they cost no bandwidth at all. Build the list with
-# `scripts/usenet_unworked.py`.
+# the register, which records the corpus as fully worked.
 #
 # Usage: bash scripts/bank_usenet_new.sh <deadline_epoch> [batch_size]
 #        ARK_USENET_LIST=data/raw/usenet/unworked.txt bash scripts/bank_usenet_new.sh <epoch>
