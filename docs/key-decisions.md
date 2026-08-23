@@ -7,8 +7,13 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-**Gate 668,118 EE. We hold 372,772, which is 55.8%. The gap is 295,347.** Measured 2,680 EE an hour with
-everything running; the gate recedes about 893 an hour.
+**Gate 668,118 EE. We hold 372,772, which is 55.8%. The gap is 295,347.**
+
+**The gate does not recede hourly, and the earlier framing that it did made this look worse than it is.**
+It is 5% of `merged260821`, a fixed release, so it moves only when Ding issues a new one. Measured EE
+added to the store, 2026-08-23: **2,553 an hour over the last two hours, 3,409 over eight**. The 24-hour
+figure of 5,016 spans a backfill and is not a rate. So the gap is **3 to 5 days of the current queues**,
+and the risk to that is a new baseline landing first, not an hourly drift.
 
 ### O7. Does afnic_fr breach your rule 6, and 54,632 shipped pairs turn on it
 
