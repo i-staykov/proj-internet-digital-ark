@@ -88,6 +88,28 @@ across populations this much larger than the samples they came from.
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
 | **O7** | **Does `afnic_fr` breach rule 6?** 54,632 already-shipped pairs hang on it | **Nothing to gain, something to lose.** Correctness, not yield |
 | **O8** | ~~Should `link_target` become master-eligible?~~ **WITHDRAWN, my number was wrong** | Claimed 97,893 EE. Correctly filtered it is about **5,000**, and it is already banked |
+| **O9** | **575,000 impossible `.mil`/`.gov`/`.edu` candidates in the pool.** Purge them? | **No yield either way.** The evidence wall held: 0 reached the annual files. It is wasted queries |
+
+### 575,000 candidates that cannot exist, and the wall that stopped them  (O9)
+
+**Found while measuring how much of the candidate pool has never been asked of the archive.** The pool
+holds names like `tfvkrp.mil`, `tavbhemvmx.gov` and `sypwlusx.edu`. Those three namespaces have never
+permitted an arbitrary registration, so a random consonant string under them cannot ever have existed.
+There are **178,306 `.mil`, 184,926 `.gov` and 212,185 `.edu`** of this shape, and **462,155 of them
+come from `usenet_address_mention`**, which is address extraction from Usenet, so the cause is almost
+certainly anti-spam address munging and garbled quoted text rather than anything sinister.
+
+**The good news is the important half, and it is worth stating plainly: not one of them reached an
+annual file.** Every shipped `.mil`, `.gov` and `.edu` domain, 826, 6,679 and 25,155 of them, carries
+independent attestation from a capture, a registry date, an artifact listing or the reviewer's own
+baseline. **100.0%, with zero resting on mention evidence alone.** The corroboration split did exactly
+what it exists to do, on the three highest-weighted namespaces in the model, where junk would have been
+most expensive.
+
+**So this costs queries, not credibility.** They are 25% of the never-asked pool and every one is a
+guaranteed miss. They are excluded from the queue now rather than deleted, since deleting evidence to
+tidy a queue is the wrong trade. A tighter address extractor would stop them accumulating, and that is
+the only reason to raise it at all.
 
 ### Withdrawn: link_target under the corroboration split  (O8)
 
