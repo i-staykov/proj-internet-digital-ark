@@ -289,7 +289,7 @@ And on the threshold, which is the clause most easily misread as a gate:
 
 The feedback archive for this round is at `https://www.transfernow.net/dl/20260818nX8z1Swp`.
 
-### Three consequences, and the arithmetic is in `scripts/submission_cadence.py`
+### Three consequences of the scoring rules
 
 **1. Percentages add, so a round is credited at the denominator of the day it arrives.** Two forces
 inflate that denominator: our own accepted work, which dilutes only our later submissions, and other

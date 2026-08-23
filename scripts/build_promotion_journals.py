@@ -4,7 +4,7 @@
 that year only if some other source already places that domain in an annual file.
 Names that failed that test when they were first read have since been dated by the
 CDX and RDAP engines, so the same unchanged rule, applied to a store that has grown,
-admits them now. `diff_usenet_resplit.py` has called this category `PROMOTED` since
+admits them now. The staged re-split called this category `PROMOTED` since
 2026-08-06, when it was 4,154 pairs.
 
 **It is a re-file rather than a re-parse.** Each mention source has a dated sibling

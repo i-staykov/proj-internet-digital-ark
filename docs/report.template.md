@@ -86,43 +86,124 @@ were understated by lifetime for the mirror reason. After re-ranking, the same e
 
 ---
 
-## 5. How this contributes to an autonomous discovery system
+## 5. The autonomous discovery system, which is the part worth reading
 
-**The useful results this round are four negative ones about our own system, each found by a
-mechanism rather than by noticing.** That is the capability worth reporting: not that the pipeline
-collected, but that it caught itself.
+This round is deliberately reported architecture-first. The collection figures above are the output; the
+system below is the thing that produced them without supervision, and it is what we would keep if the
+corpus were thrown away.
 
-**A rate is not a property of a namespace, it is a property of a namespace at a point in its
-exhaustion.** Section 4 has the measurement. The general lesson is that a ranking model fed its own
-lifetime history will keep recommending whatever it has already spent, and the fix is to measure the
-margin. Two corrections were needed inside that fix, both caught by reading the queue builder's own
-output rather than trusting the change: journals were being ordered by filename, which groups by
-collector before time, so "the most recent 2,000 answers" meant "the last answers of whichever
-collector prefix sorts last"; and windowing the pool-wide prior made every unmeasured namespace score
-zero, so nothing new could ever earn a first measurement. The prior is deliberately not windowed.
+### 5.1 What bounds an agent that nobody is watching
 
-**An audit of the delivery against the four artifacts requested on 2026-08-17 found that the archive
-overstated its own reproducibility by four orders of magnitude.** The reproduction instructions said
-the tier-3 gap was 840 domains. Measured: 2,387,824 assignments, 44.9% of everything carrying this
-project's own evidence, from two sources whose inputs cannot ship, one because the depositing item
-stopped serving the day after it was downloaded. Both documents now state the measured figure where a
-reader meets it. Tier 2 reproduces all of it, which is why the evidence for every assignment ships as
-Parquet and `verify.sh` check 4 tests that every one resolves inside the archive.
+Two mechanisms do the work, and both are structural rather than procedural.
 
-**A requirement that lives only in prose gets shipped unmet, so the four requested artifacts are
-checks.** `verify.sh` grew checks 5 to 8: that the code snapshot carries its dependency manifest and
-lockfile, that the experience summary covers every topic asked for, that every reconciliation identity
-in the merge audit holds and that the audit agrees with the shipped files, and that the reviewer's own
-calculator, run from inside the archive, reproduces the audit's baseline figure. `merge_against_baseline.py`
-uses his column names unchanged so his audit and ours can be diffed rather than compared by eye.
+**The evidence wall.** `domain_year.evidence_id` is `NOT NULL` with a foreign key into `evidence`, so no
+code path anywhere can write a year assignment without naming the observation that supports it. There is
+no "trust me" branch to find. Eleven integrity invariants run as `ark check` before any commit and inside
+the delivery archive: the wall holds, no annual assignment rests on candidate-only evidence, every pair
+carries master-eligible evidence for that exact year, no year falls outside 1996-2001, no assignment
+duplicates another, and nothing earned sits unassigned.
 
-**Two guards earned their keep by refusing to build.** The dirty-tree guard caught an archive whose
-shipped code would not have contained the very script its own check looks for. The stale-export guard
-caught it twice more, because the collectors bank continuously and an export is a snapshot. And the
-document you are reading exists in this form because the fill refuses to write a report with an
-unwritten section, which it did not do until this round.
+**The approval gate.** A source class may not date a year until a human has written one `Decision:` line;
+`ark ingest` refuses a master-eligible class that is `pending` and exits non-zero. The request itself is
+generated, not argued: `request_approval.py` emits a seeded-random sample with live links and the measured
+figures, so the reviewer checks external evidence rather than an agent's reasoning. That inversion is the
+point. **An agent asserting that its own find is trustworthy is the least reliable artifact in the
+system**, so the design never asks it to.
 
-**Negative results are first-class.** [DATASETS_SEARCHED]
+The corroboration split sits underneath both: anything a human typed is admitted only if another source
+already dates that domain, and self-dating records take no split.
+
+**These are not theoretical.** This round the candidate pool accumulated 575,417 names that cannot exist,
+strings like `tfvkrp.mil` under three namespaces that have never permitted arbitrary registration, 462,155
+of them from Usenet address extraction where anti-spam munging garbles text. **Not one reached an annual
+file.** Every shipped `.mil`, `.gov` and `.edu` domain, 826, 6,679 and 25,155 of them, carries independent
+attestation: 100.0%, zero resting on a mention alone, on the three highest-weighted namespaces in the
+model where junk would have been most expensive. The wall was tested by accident and held completely.
+
+### 5.2 The instruction file as an instrument
+
+The agent's standing brief is one file, loaded every turn. It has been treated as a tuneable component
+rather than documentation, and the finding is counter-intuitive: **it was cut from 186 lines to 79 because
+length was making the agent worse.** A rule that takes a paragraph to state is a rule that gets skipped;
+prose competes with the task for attention on every turn. What survives is the evidence bar, the
+where-state-lives table, and a list of traps that each cost a day, one line apiece.
+
+One copy, not one per tool, because two copies of an evidence rule drift and that is the last rule that
+should. The tool-specific entry points are pointers to it.
+
+### 5.3 Collectors that survive the agent leaving
+
+Collection does not run inside the agent's session. Each engine is a shell supervisor taking an **absolute
+epoch deadline**, detached, holding its own queue, and continuing when the agent goes away for a day. That
+property is what makes unattended operation real rather than aspirational.
+
+Two disjoint populations on two machines, so neither spends a query the other has spent: bracketed gap
+years as an unattended completeness baseline, where the hit rate is flat across namespaces and ranking by
+English share alone is correct; and the candidate pool beside the discovery loop, where the hit rate varies
+by a factor of two and a half depending on where the name came from, so weight must be multiplied by a
+**measured** rate. A scheduled `launchd` job runs the health cycle independently of any agent.
+
+### 5.4 Health is three questions, not one
+
+**Presence is not progress, and progress is not yield.** A supervisor that checks only liveness reports a
+batch stalled on a socket as healthy; one that checks only journal growth cannot tell a journal full of
+misses from one full of hits. So liveness is polled, growth is judged on a longer clock, and yield is
+measured outside the supervisor against the collector's own history.
+
+This round produced the cleanest possible demonstration. RDAP was down or crippled on both machines for
+most of a day and **neither failure looked like one**: locally the process died on a dead inherited stdin
+and the supervisor reported "the list is exhausted or the API refused", which is the one sentence
+guaranteed to stop anyone looking, when the previous round had dated 138,783 of 200,000; remotely it was
+alive, and therefore looked fine, while running at 1.92 queries a second instead of 95 because it had been
+pointed at a list spanning every registry and slow registries block a queue. **A collector that is running
+is not a collector that is working, and a supervisor's guess at why it stopped is not evidence.**
+
+### 5.5 Measurement discipline, learned by getting it wrong
+
+The recurring failure is not collecting too little; it is believing a number. Four rules now hold, each
+bought with a wasted day.
+
+**Gross and net differ by more than an order of magnitude.** Registries look spectacular on gross rate,
+`.sg` at 341 and `.ca` at 234 equivalent-English per thousand queries against Verisign's 4.75, and the
+population they were measured on was 97.9% already dated. Measured net on full-headroom names, `.ca` is
+7.7: **1.6x, not 20x.**
+
+**Per-query yield and total yield point opposite ways.** A link-hinted archive query is worth sixty times
+an RDAP query, and the archive answers about 15,000 a day against the registries' 17 million, so RDAP
+still delivers an order of magnitude more per day. Optimising the wrong one of those was written on the
+decision surface and corrected within the hour.
+
+**Rank a queue by weight alone and it fills with namespaces delegated in 2013.** `.aaa`, `.like` and `.med`
+weigh 1.0 because they are English, and are worth nothing in 1996-2001. A volume floor precedes the
+ranking now.
+
+**A source's worth decays while it waits.** A parked source measured at 77,749 equivalent-English was worth
+4,512 by the time it was approved, because our own sweeps had banked that population through a different
+door. Anything held pending a decision is re-priced before it is quoted.
+
+### 5.6 What the mechanisms caught this round
+
+Three findings, all produced by a check rather than by noticing.
+
+**A prize measured before the rule was read.** An idea priced at 1,704,843 equivalent-English, two and a
+half times the whole submission threshold, was forbidden by rule 6 of the brief: a creation date alone does
+not establish that a domain remained registered. The rule took four minutes to find and the measurement
+took an afternoon. The same check then exposed a source already shipped that rests on the same reasoning,
+which is now the one open question on the decision surface.
+
+**A source overstated twentyfold by skipping the rules it was measured against.** A tranche was put on the
+decision surface at 97,893 equivalent-English and is worth about 5,000. The query asked whether a domain
+appears anywhere in the annual files and **did not exclude the corpus from corroborating itself**. The tool
+that implements the rule correctly, with three filters, one of which alone rejects 35%, was already in the
+repository, written for that exact question. **Look for the existing tool before writing a worse one.**
+
+**Guards that refuse to build.** The dirty-tree guard caught an archive whose shipped code would not have
+contained the script its own check looks for. The stale-export guard caught the same class twice more,
+because collectors bank continuously and an export is a snapshot. The delivery privacy check caught a
+round plan that would have shipped to the reviewer after a directory move defeated a pattern matching one
+level only.
+
+**Negative results are first-class, and the register is the deliverable.** [DATASETS_SEARCHED]
 
 ---
 
