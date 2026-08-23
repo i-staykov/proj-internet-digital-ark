@@ -23,13 +23,10 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [docs/report.md](docs/report.md) | the round report. **Generated** from `docs/report.template.md`; edit the template, never the output |
 | [docs/experience-summary.md](docs/experience-summary.md) | **D2**: what worked, what did not, the measured yields, the limits, the lessons, the reusable techniques, the next directions. Ships at the archive root; `sources.md` is the register behind it |
 | [docs/metric-explained.md](docs/metric-explained.md) | **D4**: the equivalent-English metric, runnable. Weights, model version, formula, invalid and unmatched treatment, and the four totals |
-| [docs/archive/notes-2026-07-08.md](docs/archive/notes-2026-07-08.md) | the dated decision log |
-| [docs/phase6-plan.md](docs/phase6-plan.md) | this round's plan, in plain terms. The previous round's is [docs/archive/phase5-plan.md](docs/archive/phase5-plan.md), kept as history |
 | [CLAUDE.md](CLAUDE.md) | the standing brief an agent is loaded with: the evidence rules, the house rules, the traps. **Only what never changes** |
 | [docs/ROUND.md](docs/ROUND.md) | **generated**: where the round stands right now. `just state` writes it, `just state --check` says whether it is stale |
 | [docs/key-decisions.md](docs/key-decisions.md) | **the only file that asks a human for a decision.** Open and closed, newest first, pointing to an ADR where the reasoning is structural. A `pending` source class is mirrored here automatically and a test enforces it ([ADR-005](docs/ADRs.md)) |
 | [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database. Its `## Found, awaiting triage` section is an append-only queue of sources found but not yet priced, and **grows indefinitely by design**: it reaches `key-decisions.md` as one line naming the count, never one entry per source |
-| [docs/archive/source-dossiers.md](docs/archive/source-dossiers.md) | the full working behind each triage line: the rubric breakdown, the screener's measurement, the kill condition. **Nothing here is enforced**; it exists so the decision surface above can stay one screen |
 | [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
 | [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |

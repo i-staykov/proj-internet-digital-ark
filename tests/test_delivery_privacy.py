@@ -39,15 +39,22 @@ ADDRESSED = (
 def _archive_names() -> set[str]:
     """What the next `git archive HEAD` would contain, honouring export-ignore.
 
-    `--worktree-attributes` on purpose. `git archive` normally reads `.gitattributes`
-    from the commit, so a newly written export-ignore rule looks like it has not worked
-    until it is committed, and a test asserting on HEAD cannot go green in the same
-    commit that fixes it. `package_delivery.sh` refuses to build with a modified tracked
-    tree, so at packaging time the two are identical anyway, and here the worktree is the
-    version worth testing.
+    Two deliberate departures from `git archive HEAD`, for the same reason.
+
+    `--worktree-attributes` reads the export-ignore rules from the worktree rather than
+    the commit, so a newly written rule does not look broken until it is committed.
+
+    **And the tree archived is the INDEX, not HEAD**, because otherwise a staged deletion
+    is invisible: removing a file that ships would fail this test in the very commit that
+    removes it. That happened twice, on 2026-08-19 and 2026-08-23. `package_delivery.sh`
+    refuses to build against a modified tracked tree, so at packaging time index and HEAD
+    are identical anyway, and what is about to be committed is the version worth testing.
     """
+    tree = subprocess.run(
+        ["git", "write-tree"], cwd=ROOT, check=True, capture_output=True, text=True
+    ).stdout.strip()
     out = subprocess.run(
-        ["git", "archive", "--worktree-attributes", "--format=tar", "HEAD"],
+        ["git", "archive", "--worktree-attributes", "--format=tar", tree],
         cwd=ROOT,
         check=True,
         capture_output=True,
