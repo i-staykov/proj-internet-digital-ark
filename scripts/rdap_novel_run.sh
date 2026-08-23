@@ -31,11 +31,18 @@ DEADLINE="${1:?usage: rdap_novel_run.sh <deadline_epoch> [batch] [workers]}"
 BATCH="${2:-150000}"
 WORKERS="${3:-16}"
 TARGETS="${ARK_RDAP_NOVEL:-data/raw/rdap/novel_com.txt}"
-LOG="data/logs/rdap_novel.log"
+# **`ARK_RDAP_NAME` exists so a second engine can work a DIFFERENT registry.**
+# The lock is what stops two copies hammering one registrar, so it stays
+# single-instance per name rather than being removed. Verisign is throttling the
+# `.com`/`.net` engines harder as the day goes on, but `.ca`, `.nl`, `.br`, `.gov`
+# and `.fr` are separate hosts, so a run named `registries` is added capacity and
+# not extra pressure. Never point two names at the same registry.
+NAME="${ARK_RDAP_NAME:-rdap_novel}"
+LOG="data/logs/${NAME}.log"
 mkdir -p data/logs
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
-LOCK="data/logs/rdap_novel.lock"
+LOCK="data/logs/${NAME}.lock"
 # **A stale lock is taken over; a live one is respected.** The first version only
 # tested whether the directory existed, so a run killed without its trap firing
 # left a lock nobody could clear, and clearing it by hand is what started a second
