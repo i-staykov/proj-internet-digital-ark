@@ -86,6 +86,30 @@ across populations this much larger than the samples they came from.
 | **O4** | Give `/bin/bash` Full Disk Access so the scheduled check can run | Housekeeping, two minutes |
 | **O5** | May we query Nominet in bulk for `.uk`? | **No.** The whole `.uk` pool is 48,545 EE, 7.8% |
 | **O6** | One word each on 60 found sources, whenever you like | **No.** All 60 priced whole is about a tenth |
+| **O7** | **Does `afnic_fr` breach rule 6?** 54,632 already-shipped pairs hang on it | **Nothing to gain, something to lose.** Correctness, not yield |
+
+### Does afnic_fr breach rule 6, and 54,632 shipped pairs turn on it  (O7)
+
+**Raised because an idea I priced at 1,704,843 EE turned out to be forbidden, and the same reasoning
+sits underneath a source we have already shipped.** Rule 6 of your brief: a WHOIS creation date "alone
+does not automatically establish that the domain remained registered", and a later annual file "still
+requires a WHOIS record demonstrating continued registration in that year".
+
+`afnic_fr` assigns every year of a registration interval. Where AFNIC publishes a withdrawal date the
+interval is closed and the registry is positively asserting the domain was registered across it; those
+**25,429 pairs look safe**. Where the withdrawal cell is blank we read it as "still active" and fill
+the years to 2001, and **54,632 assigned pairs are open-ended and beyond the creation year**. Those
+rest on creation date plus current existence, which is precisely the pair of facts rule 6 says is not
+enough.
+
+**The two stand or fall together.** If open-ended AFNIC intervals are legitimate, so is the RDAP span
+and it is worth 2.5 times the gate. If rule 6 means what it plainly says, then these 54,632 pairs
+should come out. I have assumed the strict reading and built nothing, because we also told him in
+writing on 2026-08-17 that creation dates were "used strictly as specified: a creation date in 1998
+writes 1998 and no other year".
+
+**This is worth asking him directly**, since it is his rule and the answer either removes 54,632 pairs
+or hands us the gate outright.
 
 **The honest total.** Banked **265,363**, plus roughly **400,000** projected from the 59 million
 names now queued at the measured per-query rates, is **about 665,000 EE, which is the gate almost
