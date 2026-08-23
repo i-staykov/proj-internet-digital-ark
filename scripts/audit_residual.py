@@ -149,7 +149,7 @@ ACCOUNTED = {
     "nypw": "rejected on measurement: 53 net-new domains over 6.28M lines",
     "100hot": "worked in phase 1 to 3,453 hostnames; master-evidence route declined",
     "wwwvl": "page cache for the Virtual Library expansion rounds",
-    "lang": "retired English-verification engine, see legacy/README.md",
+    "lang": "retired English-verification engine, removed 2026-08-23",
     "yahoo96": "rejected on measurement: 7.73 EE over 55 requests",
     # read by a script rather than by an ingest glob, so `unreferenced` cannot
     # clear it on its own: seeds candidates, evidences nothing, has no date column

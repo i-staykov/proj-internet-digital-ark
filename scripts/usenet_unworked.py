@@ -6,7 +6,7 @@
 `usenet_announce / dated_directory` has been master since phase 4.
 
 **Ordered by the group's NAME, not by its size**, which is the same correction
-`legacy/scripts/fetch_usenet_groups.py` records making: "ordering by size put dead
+The retired group fetcher recorded making it: "ordering by size put dead
 vanity archives at the head of the queue". Sorting 110.8 GB by size puts
 `alt.sex.erotica` and `alt.anonymous.messages` first, and those announce nothing.
 The first pass here did exactly that and was measured at about 0.2 EE per MB,

@@ -792,7 +792,7 @@ two orders of magnitude and the reason is a units error that is easy to repeat.
   Internet Archive CDX that the baseline and this project's own `early_web_cdx` and Wayback routes already
   drain.
 - **Verdict: REJECT**, and do not pursue the 19.35 GB TimeMaps sibling either, since it samples the
-  same URL universe. `legacy/scripts/measure_nypw_yield.py` reproduces the measurement in about two
+  same URL universe. The measurement is recorded here and took about two
   minutes. The parser (`nypw_firstcdx` in `sources.py`) is kept, tested and wired, so a future
   release of the same family can be measured without rebuilding it.
 
@@ -1493,7 +1493,7 @@ the URLs in each message.
   cross-lineage corroboration rather than the same organisation agreeing with itself.
 - **Choosing which of the 19,233 groups to take, measured rather than guessed.** The donation is
   411 GB and size does not predict in-window yield: `alt.www.webmaster` cost 170 MB and returned one
-  pair because the whole group is 2006 to 2013. `legacy/scripts/fetch_usenet_groups.py` selected on the
+  pair because the whole group is 2006 to 2013. The retired group fetcher selected on the
   group *name* and ranks by expected yield, with announcement forums first and commerce second,
   because ordering by size put dead vanity archives at the head of the queue. 628 groups selected
   within a 100 MB per-group cap, 5.7 GB in total.
@@ -1638,7 +1638,7 @@ work:
   equivalent-English is 0.0 for every hierarchy, which the same query confirms. The figure attributes a
   pair to the evidence row that **won** it, so it understates what a hierarchy merely asserts: many
   Usenet-asserted pairs were assigned from a CDX row instead.
-  `legacy/scripts/screen_usenet_archives.py` still lists any archive with 0.0% in-window coverage, which
+  The retired archive screener listed any archive with 0.0% in-window coverage, which
   is how a silently barren group shows up.
 - **Two seams have measurable coverage gaps, both small and both precise.** The header run and the
   first address run each covered **19,083 archives**, not 19,231: the 148-archive batch ingested on

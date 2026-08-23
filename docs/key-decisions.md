@@ -1250,7 +1250,7 @@ the ordering the refresh will keep. Same intent, and the multiplier that stops i
 
 `phase5-handoff.md` is a hand-written snapshot of current state, which is the one category of memory
 that cannot be hand-written: three of its claims were disproved within a day. State moves to a
-generated `ROUND.md` with a guard against hand edits, the handoff moves to `legacy/docs/`.
+generated `ROUND.md` with a guard against hand edits, and the handoff is retired.
 See notes.md, 2026-08-11.
 
 ### C-3. Two sources closed on measurement (2026-08-10)
