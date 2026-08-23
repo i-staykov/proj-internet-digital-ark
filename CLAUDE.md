@@ -10,7 +10,9 @@ Read, in this order:
 
 1. `.github/copilot-instructions.md` for the rules, which are non-negotiable.
 2. `handoff-copilot.md` once, for the orientation: what exists, what has been tried, what to do next.
-3. `docs/ROUND.md` for where the round stands. It is generated; never edit it.
-4. `docs/key-decisions.md` for anything waiting on Ivo.
+3. `handback-to-claude.md` for what changed between 2026-08-19 and 2026-08-23, what is running now,
+   and the mistakes worth not repeating.
+4. `docs/ROUND.md` for where the round stands. It is generated; never edit it.
+5. `docs/key-decisions.md` for anything waiting on Ivo.
 
 `handoff-ivo.md` is written for Ivo rather than for an agent.
