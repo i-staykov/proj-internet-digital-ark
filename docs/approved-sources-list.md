@@ -771,7 +771,6 @@ is what turns one into an answer.
     two zone-file rows of `sources.md`. `com` and `net` really are absent at this host, so the reopen
     condition is precise: any other mirror of `ftp.internic.net/domain/` whose crawler took a full-size
     `com` or `net` file. A complete `.org` proves such mirrors existed.
-- dossier: `docs/archive/source-dossiers.md`, entry of 2026-08-18.
 
 Decision: pending
 

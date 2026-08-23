@@ -5,7 +5,7 @@
 
 **Rewritten 2026-08-20 on his instruction**, and the rule it enforces is the point: this file had grown
 to a 280-line essay and the four questions it actually asked were invisible inside it. **If an entry
-needs a third line, the extra belongs in `docs/archive/decisions-working.md`, not here.** He decides
+needs a third line, it is being over-explained.** He decides
 from the one-liner and reads the working only if he wants to.
 
 **This is the only file that asks Ivo for anything**, on his instruction of 2026-08-11: "Everything

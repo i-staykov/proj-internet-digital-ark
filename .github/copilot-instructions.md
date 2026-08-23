@@ -1,186 +1,79 @@
-# Internet Digital Ark: the standing brief
+# Internet Digital Ark
 
-**This file is the harness.** It is loaded automatically at the start of every session and holds only
-what never changes. Anything that moves is generated or logged elsewhere, because a hand-written file
-about current state rots. For the full orientation, read `handoff-copilot.md` once.
+Reconstruct the domain names that existed 1996-2001 for Prof. Xiaowei Ding. Scored on **equivalent-English
+domains**: each `(domain, year)` record counts the English share of its TLD (`.uk` 0.9813, `.com` 0.6321,
+`.net` 0.4530, `.de` 0.1324). Non-English ccTLDs are close to worthless.
 
-## The goal, and the one constraint that decides everything
+**The job, in one line: find new sources, hold the evidence bar, automate the work, stay creative, and
+keep re-testing old sources that may have become available or cheaper.**
 
-Reconstruct the list of domain names that existed 1996-2001, for Prof. Xiaowei Ding. Scored on
-**equivalent-English domains**: each `(domain, year)` record counts the English page-language share of
-its right-most TLD (`.uk` 0.9813, `.com` 0.6321, `.net` 0.4530, `.de` 0.1324). A large non-English
-source is a small source.
+## The evidence bar
 
-**A submission is only allowed at 5% growth or above.** The threshold is about 603,855 EE and it
-**recedes by roughly 54,101 EE a day** because other contributors keep growing the corpus, while
-per-domain archive querying adds about 13,200 EE a day. **The gap widens by about 40,901 EE a day and
-never closes.** So only a bulk dated corpus of roughly 600,000 EE produces a submittable round. Read
-that again before spending a day on a collector: `scripts/submission_cadence.py` recomputes it.
+- **Per-item dates, no inference.** A capture in 1998 evidences 1998 and nothing else. A registry creation
+  date evidences its own year only; continued registration needs its own record (Ding's rule 6).
+- `domain_year.evidence_id` is `NOT NULL` and foreign-keys `evidence`, so no year can be written without
+  naming the observation behind it. Master-eligible types: `prior_reused`, `cdx_timestamp`,
+  `artifact_listing`, `link_source`, `dated_directory`, `whois_creation`. **`link_target` never dates a year.**
+- **Corroboration split**: anything a human typed is admitted only if another source already dates that
+  domain. Self-dating records take no split. The split does not check whether a hostname was ever real.
+- **A master-eligible class needs a human `Decision:` line** in `docs/approved-sources-list.md` before it
+  can date a year; `ark ingest` refuses otherwise. Generate the request with
+  `scripts/request_approval.py`. Candidate-only evidence needs no approval.
+- **Quote net-new post-split equivalent-English, never gross.** Gross and net differ by more than 10x.
 
-## The one idea
+## Before pricing anything
 
-A domain in an annual file is a **claim about a year**, and every claim names the observation that
-supports it. `domain_year.evidence_id` is `NOT NULL` and foreign-keys a row in `evidence`, so no code
-path can write a year assignment without one. That is structural, not a convention.
+**Check `docs/sources.md`.** It records every source and ~120 closed families with the measurement that
+closed each. Do not re-test a closed family; do re-price a parked one, because an unbanked source decays
+as the store grows (`ukwa_geoindex` fell 77,749 to 4,512 while it waited).
 
-- **Per-item year evidence, no inference.** A capture in 1998 evidences 1998 and nothing else.
-- **Master-eligible** types may assign a year: `prior_reused`, `cdx_timestamp`, `artifact_listing`,
-  `link_source`, `dated_directory`, `whois_creation`. **`link_target` never can**, and `assign_year`
-  refuses it.
-- **The corroboration split.** Anything a human typed is admitted only if another source already places
-  that domain in an annual file. Self-dating records (a capture timestamp, a registry creation date, a
-  dated listing) take no split. So widening extraction over a human-authored corpus is safe and widening
-  it over a self-dating one is not.
-- **What the split does not catch: a hostname that was never real.** It asks only whether the domain is
-  dated somewhere, never whether the mention was genuine. Technical prose invents plausible examples
-  (`acmecorp.com`, `widgetco.com`), which is why RFC 2606 reserved `example.com`.
-- **Quote the post-split number, never the raw one.**
-- **A source class may not date a year until a human has classified it.**
-  `docs/approved-sources-list.md` holds one `Decision:` line per (source, evidence type), and
-  `ark ingest` refuses a master-eligible class that is `pending`, `rejected` or absent. **This is not
-  advisory and it is not the agent's call.** Write the request with
-  `uv run python scripts/request_approval.py <spec> --journal <journal>`, which builds it from a
-  seeded-random sample with live links, the measured figures and the counterfactual, so a reviewer
-  checks external evidence rather than reading an argument. **Candidate-only evidence needs no
-  approval**, so collection never waits on a human.
+Check the dates fall inside 1996-2001 before counting contents. Real hostname counts on 1990-1992 files
+have wasted days.
 
-## House rules, all non-negotiable
+## Where state lives
 
-- **Never `git push`.** Committing coherent units on a non-`main` branch is authorised; `main` is not.
-- **Never add a `Co-Authored-By` trailer or any AI attribution.** Commits are Ivo's.
-- **No em-dashes and no en-dashes** anywhere: code, comments, docs, commit messages.
-- **Run the gate before proposing a commit**, and never through a red one:
-  `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
-  A pre-commit hook enforces it (`just hooks`). **Never put the gate through a pipe**: `pytest -q | tail`
-  returns tail's exit status, so `&&` walks past a failure. Never `git add -A`.
-- **`ark export` before `ark check`, always**: one invariant reads the exported annual files.
-- **Explain and outline before non-trivial file edits**, then act.
-- **Update `README.md` in the same sitting** as anything that adds a tool or command.
-- **Never edit** `docs/SPEC.md` (cited by clause from 21 files), `docs/report.md` (generated), the frozen
-  files in `submissions/phase-4/` and `submissions/phase-5/`, or anything under `legacy/`. All raw data
-  under `data/raw/` stays. `private/` is git-ignored and never ships.
-- **Big data must never reach git.** A `git add -A` once swept a 1.3 GB baseline into history.
-- **Be a good citizen.** The Internet Archive has refused this project three times. Honest User-Agent
-  naming the project and a contact address, honour `Retry-After`, back off on 429/503/504, modest
-  concurrency, prefer bulk downloads.
+| | |
+|---|---|
+| `docs/ROUND.md` | generated current state; read first, never edit |
+| `docs/key-decisions.md` | the only place anything asks Ivo for a decision |
+| `docs/approved-sources-list.md` | which classes may date a year; enforced by `ark ingest` |
+| `docs/sources.md` | the register: every source, every closure, with its measurement |
+| `docs/ding/`, `feedback-phase-*/`, `private/personal-context.md` | **his own words. Git-ignored, so grep will not find them.** Highest authority |
 
-## His own words, and where they are on disk
+## Commands
 
-**Four surfaces carry the reviewer's instructions and they rank.** A later email of his beats
-`docs/ding/`, which beats `docs/SPEC.md`; `docs/brief_amendments.md` records each overruling.
+```bash
+just cycle                                       # health: collectors, yields, unbanked journals, approvals
+uv run ark export && uv run ark check            # export first; one invariant reads the export
+uv run python scripts/round_figures.py --verify   # re-score with HIS calculator before any send
+just ship-approved                               # bank, report, export, gate, package, verify
+```
 
-**Read his primary sources before trusting any summary of them, including this file.** Two locations hold
-direct, unparaphrased material and **both are git-ignored, so a tool that honours `.gitignore` will not
-find them and a fresh clone will not contain them**:
+## Rules
 
-- **`feedback-phase-*/` and `feedback-external-phase-2/`** hold every round's feedback package as he sent
-  it: the `.docx` feedback, his `equivalent_english_domain_calculator/`, the merged baseline releases, his
-  per-contributor merge audits and the TLD weight table. `docs/ding/` holds verbatim transcriptions of the
-  `.docx` files with each source file's sha256 in the header, regenerated by
-  `scripts/extract_ding_docs.py`. Never hand-edit those, and never paraphrase them.
-- **`private/personal-context.md`** holds who Ivo is and **the reviewer's emails verbatim**, including the
-  scoring rules and the D1-D4 request. It never ships and is never quoted outward.
+- Never `git push`. Commit coherent units on a non-`main` branch. No AI attribution in commits.
+- **No em-dashes or en-dashes** anywhere.
+- Gate before every commit, never through a pipe: `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`.
+- Never edit `docs/SPEC.md`, `docs/report.md` (generated), frozen `submissions/phase-4|5/`, or `legacy/`.
+  Keep all of `data/raw/`. `private/` never ships. **Big data must never reach git.**
+- Archive citizenship: honest User-Agent with contact, honour `Retry-After`, back off on 429/503/504,
+  **never a third heavy client** at `web.archive.org` while two are collecting.
+- **Keep the collectors running**; an idle engine is the failure mode. VPS works `gap`, local works `pool`.
+  A supervisor fixes its queue at startup, so a rebuilt queue needs a restart to take effect.
+- Long-running work holds its own absolute deadline and survives the agent leaving. Restart any loop after
+  editing a module it imports.
 
-When a question is about what the reviewer actually asked for, the answer is in one of those two places,
-not in a summary. Several confident wrong turns in this project came from reasoning off a digest.
+## Traps that each cost a day
 
-## Your standing mandate: make this more autonomous
-
-**Ivo's instruction, 2026-08-19: improve the harness architecture as you see fit so that you can run for
-hours or days without supervision.** Use whatever your environment offers: scheduled or cron-driven runs,
-custom instruction files, background jobs, watchdogs, or a mechanism of your own design. This is explicit
-permission to change how the agent loop works, not just what it does.
-
-Two constraints on that freedom, and only two. **The evidence rules and the approval gate do not bend**,
-because an unattended agent is exactly the thing they exist to bound. And **long-running work must hold
-its own deadline and survive the agent going away**, which is why the collectors are shell supervisors
-taking an absolute epoch rather than anything driven by a session. Design for the agent being absent.
-
-One lesson from the previous harness worth inheriting: **a long-running loop keeps the code it started
-with.** Changing a module a running loop imports does not change the running copy, so restart the loop
-after editing anything it imports. That once flooded Ivo's only decision surface with 25 duplicate entries
-an hour while the code on disk was already correct and its test was green.
-
-## Standing operational rule: the CDX engines stay running
-
-**Keep the collectors running at all times, including the VPS** (Ivo, 2026-08-19): *something is better
-than nothing, so we always want a baseline of additions.* Querying cannot reach the 5% gate, so never
-spend a week tuning it, but it banks a few hundred equivalent-English a day unattended while you hunt for
-a bulk source. **The failure mode is an idle engine, not a slow one.** `handoff-copilot.md` section 5a is
-the operating guide; the essentials:
-
-- **Two populations, two machines.** The **VPS** works `--population gap`, a missing year Y with Y-1 and
-  Y+1 held, as an unattended completeness baseline: hit rate 96-97.5% and flat across TLDs, so ranking by
-  English share alone is correct there. The **local** machine works `--population pool`, the discovery
-  half, where the hit rate runs 36.9% to 90.6% by origin, so English share must be multiplied by a
-  **measured** rate or `.au` sorts to the top for zero dates.
-- **Allocate them: VPS on `gap` permanently, local on `pool` as a steady background queue**, and yield
-  the local one whenever you need the archive yourself. The constraint is **concurrent heavy clients at
-  one archive**, not local compute: your own probes hit the same `web.archive.org` CDX endpoint, where one
-  600-query batch drew 480 throttles and 11.67% of 328,175 queries failed at transport level. Yield the
-  **pool** (9.1% trailing), never the gap (96-97.5%, flat). **Default on, pause for the burst, restart at
-  once**; pausing is nearly free since `ark cdx` is resumable and a re-run is additive. **Never a third
-  client** at that host.
-- `ark cdx` **never opens the store**; it writes a resumable journal, and `ark ingest cdx_snapshot` or the
-  `maintain.sh` loop turns it into evidence. **A journal on disk is not yet a result.**
-- A supervisor fixes `ARK_TARGETS` at startup, so **a rebuilt queue does not reach a running collector.**
-  Start it on `data/raw/cdx/queue_pool_local.txt`, the path `just cycle` maintains.
-- **Presence is not progress and progress is not yield.** A journal of misses grows as fast as one of hits;
-  `just cycle` is what checks yield.
-- Stop with `just engines-stop` or `TERM`, never `kill -9`, which strands the `.part`. Killing by pattern
-  means **worker child first, supervisor second**, or the worker is reparented and keeps querying.
-
-## Where state lives, and which to trust
-
-| | what it is | how to use it |
-|---|---|---|
-| `docs/ROUND.md` | **generated** current state | read first, never edit |
-| `docs/key-decisions.md` | **the only place that asks Ivo for anything** | anything waiting on him appears here or nowhere |
-| `docs/approved-sources-list.md` | which classes may date a year. **Enforced by `ark ingest`** | a `pending` entry must also be under `## OPEN` in key-decisions |
-| `docs/sources.md` | every source, what dates it, **112 closed families** | check here before proposing anything |
-| `docs/discovery.md` | how to price a source | the acceptance bar |
-| `docs/ADRs.md` | the few structurally significant decisions |
-| `docs/ding/` | **his own documents, transcribed verbatim** | the highest authority |
-| `docs/brief_amendments.md` | what he has changed since the SPEC | current asks |
-| `docs/archive/` | historical: the old decision log, dossiers | **grep, never read whole** |
-
-**Four surfaces carry his instructions and they rank.** A later email of his beats `docs/ding/`, which
-beats `docs/SPEC.md`; `docs/brief_amendments.md` records the overruling.
-
-## What every submission must contain, D1 to D4
-
-Required of **every** future submission (his email, 2026-08-17): **D1** the complete runnable code and
-execution instructions; **D2** a concise experience summary; **D3** the merge and deduplication code
-with overlap counts, accepted increment and reconciliation checks, mirroring the column names of his own
-`merge_stats_<contributor>_<date>.csv`; **D4** the runnable equivalent-English calculation with the fixed
-weights, formula, baseline total, **post-merge total**, increment and growth rate.
-
-**`just ship` is the enforcement point, not a checklist**, and `verify.sh` checks all four inside a fresh
-extraction. Anything that lives only in prose gets shipped unmet.
-
-## Traps that have each produced a confident wrong answer
-
-- **A search that finds nothing has either proved something or been pointed at the wrong place, and the
-  two look identical. Prove a negative against a case you know is positive.** This is the single most
-  useful rule here. Three separate wrong conclusions in one afternoon came from skipping it.
-- **Any name-shape filter over-catches.** "Nominet sold no second-level `.uk` until 2014" would have
-  deleted `bl.uk`, the British Library. `.br` marked as never allowing them holds `ansp.br`, a real
-  academic network. A rule flagging single-letter labels flags `0.com` and `x.com`, both real. **The
-  early DNS was heterogeneous**, and a registry's "opened in year X" date says when a level opened to the
-  *public*, not when it began to exist.
-- **Counting net-new against the store from an already-ingested journal returns zero by construction**,
-  and zero looks identical to worthless. A hit *rate* is safe to compare; a net-new *value* needs a
-  snapshot taken before ingest.
-- **A rate is a property of a namespace at a point in its exhaustion.** Measure over a trailing window,
-  not a lifetime. But the pool-wide prior is deliberately **not** windowed, because windowing it scores
-  every unmeasured namespace at zero.
-- **Never present a projection as a measurement.** Label an estimate in the same sentence as the number.
-- **`grep` here may honour `.gitignore`**, hiding `data/`, `output/`, `private/`, `legacy/`. Use
-  `git ls-files > /tmp/f && tr '\n' '\0' < /tmp/f | xargs -0 grep -n 'pattern'`.
-- **`ls data/raw/usenet/*.mbox.zip | wc -l` returns 0**, not 19,231: argument overflow. Use `find`.
-- **`grep -c "A|B|C"` is a basic regexp** and returns 0 by construction. Use `grep -cE`.
-- **Never pipe a health check through `head` or `tail`.** A truncated health check looks like absence.
-- **`pgrep -f X` and `pkill -f X` match the shell running them.** Bracket a letter:
-  `pgrep -f 'supervise_cdx_poo[l]'`. **Kill a worker child before its supervisor**, or the worker is
-  reparented and keeps querying while `pgrep` reports it stopped.
-- **DuckDB takes one writer.** Open `read_only=True` with a retry loop for anything that measures.
+- **Prove a negative against a known positive.** A search finding nothing and a search pointed at the
+  wrong place look identical.
+- **Verify every number, including a subagent's.** Several were fabricated or out by 1000x.
+- **A running collector is not a working one**, and a supervisor's guess at why it stopped is not evidence.
+  Presence is not progress; progress is not yield. `just cycle` checks yield.
+- **Rank a queue by TLD weight alone and `.aaa`, `.like`, `.med` lead it.** They weigh 1.0 and were
+  delegated in 2013. Require a volume floor before ranking on weight.
+- **Measure rates over a trailing window, not a lifetime**, and never across a backfill.
+- **Counting net-new against the store from an already-ingested journal returns zero by construction.**
+- **Any name-shape filter over-catches**: `bl.uk` is the British Library, `x.com` is real.
+- Look for an existing tool before writing one. A worse reimplementation of
+  `build_promotion_journals.py` overstated a source 20x.

@@ -5,11 +5,8 @@
 docs/notes.md export-ignore
 .gitattributes export-ignore
 # The whole archive of retired working documents, by directory rather than by file.
-# The decision log moved to `docs/archive/` on 2026-08-19 and `phase5-plan.md` moved with
 # it, which silently defeated the `docs/phase*-plan.md` rule below, because that pattern
 # matches one level only. `tests/test_delivery_privacy.py` caught it.
-docs/archive/ export-ignore
-docs/archive/** export-ignore
 # The archive of retired engines, spent probes and past-round logs. Kept in git so
 # posterity survives a fresh clone, kept out of the delivery so the reviewer gets
 # the working pipeline rather than its history.
@@ -39,6 +36,5 @@ docs/report-sendable.md export-ignore
 docs/key-decisions.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans
 # and the decision log: working documents about how to approach the round, and
-# `handoff-ivo.md` additionally carries a reconstruction of our own score and a list of
 # corrections owed. Neither is a deliverable and neither is his business.
 handoff-*.md export-ignore
