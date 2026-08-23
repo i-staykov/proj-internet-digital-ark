@@ -33,7 +33,14 @@ measurement, and is recorded so you can still object. Newest first within each b
 
 ## OPEN
 
-**Gate 668,118 EE on `merged260821`. We hold 265,363, which is 39.7% of it, up from 88,062 yesterday.**
+**Gate 668,118 EE on `merged260821`. We hold 337,950, which is 50.6% of it.**
+
+**The projection this file carried yesterday was too high and is now replaced by a measured rate.**
+Over a clean 46-minute window on 2026-08-23, with both machines running and the backlog from the
+internet gap already banked, the three engines deliver **3,931 EE an hour**. The gate recedes about
+893 an hour as others contribute, so the gap closes at **3,039 an hour**, and the remaining 330,168 EE
+is **about 109 hours, four and a half days**. Yesterday's "roughly 400,000 EE from the queue" assumed
+rates measured on small samples would hold across 59 million queries. They did not.
 
 **The fast channel is RDAP and it is running on both machines.** The registry's own creation date is
 `whois_creation`: master-eligible, self-dating, no corroboration split, and approved since phase 4,
