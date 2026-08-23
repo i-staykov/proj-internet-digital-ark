@@ -138,7 +138,24 @@ writes 1998 and no other year".
 **This is worth asking him directly**, since it is his rule and the answer either removes 54,632 pairs
 or hands us the gate outright.
 
-**The honest total.** Banked **265,363**, plus roughly **400,000** projected from the 59 million
+**The honest total.** Banked **352,000**. **The plan changed on 2026-08-23 and it is now two archive
+queues rather than the RDAP bulk**, because a query into the right population is worth sixty times a
+query into a large one:
+
+| queue | size | measured yield | worth |
+|---|---|---|---|
+| `cdx_tightgap` on the VPS | 449,754 domains, 456,351 holes | 96-97.5% hit, the highest in the project | **~250,000 EE** |
+| `cdx_linkhint` locally | 148,527 domains | **297 EE per 1,000 queries**, measured | **~44,000 EE** |
+| RDAP on both machines | 59M names | 4.75 EE per 1,000 | continues in the background |
+
+**The tight gap is a missing year with both neighbours held**, and the collectors have always measured
+it at 96-97.5%. It had been left unworked: the VPS was on a suffix sweep priced at 4,800 EE while
+456,351 holes worth 261,294 EE gross sat untouched. That is the correction, not a discovery.
+
+**The two archive queues together are worth about 294,000 EE against a gap of about 316,000**, so for
+the first time the identified work is nearly the whole remainder. What is not yet measured is how long
+they take: the archive gives roughly 17,500 queries a day per client and there are 598,281 domains
+between them. **That is the open question, and it may still be days rather than hours.**
 names now queued at the measured per-query rates, is **about 665,000 EE, which is the gate almost
 exactly**, and the two sources awaiting your word add about 13,000 rather than the 86,000 this file
 claimed yesterday.
