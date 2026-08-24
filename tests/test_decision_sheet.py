@@ -34,7 +34,7 @@ Decision: pending
 
 Decision: pending
 """
-    rows = parse(doc)
+    rows, _ = parse(doc)
     assert [r["source"] for r in rows] == ["measured_pending"]
     assert rows[0]["ee"] == 1234.5
     assert rows[0]["standard"] == "the zone's own SOA serial"
@@ -54,7 +54,7 @@ Decision: pending
 
 Decision: pending
 """
-    assert [r["source"] for r in parse(doc)] == ["big", "small"]
+    assert [r["source"] for r in parse(doc)[0]] == ["big", "small"]
 
 
 def test_a_class_that_cannot_date_a_year_is_marked_not_blocking():
@@ -65,7 +65,7 @@ def test_a_class_that_cannot_date_a_year_is_marked_not_blocking():
 
 Decision: pending
 """
-    out = render(parse(doc))
+    out = render(*parse(doc))
     assert "not blocking" in out
     # It cannot date a year, so it must not be counted in the waiting total.
     assert "**1 rows, 0 equivalent-English waiting on a word.**" in out
@@ -78,7 +78,7 @@ def test_a_missing_standard_is_named_rather_than_left_blank():
 
 Decision: pending
 """
-    assert parse(doc)[0]["standard"] == "NOT STATED"
+    assert parse(doc)[0][0]["standard"] == "NOT STATED"
 
 
 def test_an_empty_sheet_says_so():
@@ -95,6 +95,47 @@ def test_a_wrapped_standard_is_joined_rather_than_truncated():
 
 Decision: pending
 """
-    standard = parse(doc)[0]["standard"]
+    standard = parse(doc)[0][0]["standard"]
     assert standard.endswith("written by the registry")
     assert "\n" not in standard
+
+
+def test_the_sheet_says_what_it_is_not_showing():
+    """A pending master-eligible class with no figure must be NAMED, not dropped.
+
+    `ia_webdataservices_cctld_extraction` sat pending at 7,216.9 EE for six days
+    without appearing here, because the 2026-08-23 compaction took its `- measured:`
+    line and this sheet silently skips anything without one. A sheet that shows what
+    it can and says nothing about what it cannot reads as a complete queue.
+    """
+    doc = """
+### priced / artifact_listing
+- measured: 5000 net-new post-split EE
+- what dates one item: a stamp
+
+Decision: pending
+
+### unpriced / cdx_timestamp
+- what dates one item: a stamp
+
+Decision: pending
+"""
+    rows, unmeasured = parse(doc)
+    assert [r["source"] for r in rows] == ["priced"]
+    assert unmeasured == ["unpriced / cdx_timestamp"]
+    out = render(rows, unmeasured)
+    assert "unpriced / cdx_timestamp" in out
+    assert "not the whole queue" in out
+
+
+def test_a_candidate_only_class_without_a_figure_is_not_reported_as_blocking():
+    """Only master-eligible classes block a round, so only they belong in the footer."""
+    doc = """
+### seeds / link_target
+- what dates one item: nothing
+
+Decision: pending
+"""
+    rows, unmeasured = parse(doc)
+    assert rows == []
+    assert unmeasured == []
