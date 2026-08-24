@@ -1,8 +1,9 @@
-# State, 2026-08-24 01:15Z
+# State, 2026-08-24 05:45Z (internet gap, everything paused)
 
 ## Position
-**386,428.95 EE, 2.891919% growth. Gate 668,118.44 (5% of `merged260821`, fixed). 57.8% of it.**
-Gap **281,689 EE**. Engines delivered ~3,900 EE/hour overnight, so the gap is ~72 hours of querying.
+**397,735.62 EE, 2.976535%. Gate 668,118.44. 59.5% of it. Gap 270,383.**
+All journals banked, invariants pass, **all collectors stopped** for the internet gap. Two `.part` files
+stranded (355 KB, unbankable by design). Restart needs no agent: supervisors take an absolute deadline.
 
 ## Delivery: built and verified, NOT sendable (below the gate)
 `submissions/phase-6/`, built 2026-08-24T00:45:07Z at commit `de44f5ce`, baseline `merged260821`.
@@ -40,3 +41,17 @@ before quoting. Neither changes the arithmetic.
 Archive is 1.94 GB against a ~1 GB target. `provenance/` is 1.6 GB and 86% of it is the reviewer's own
 baseline evidence. Dropping it alone left 11,316,960 `domain_year` rows pointing at missing evidence and
 failed `ark check` inside the archive, so the slice must be cut on both sides or not at all.
+
+## Why there is no 5%, in one paragraph
+The gap needed 44% of the round's total in one night and querying yields ~3,900 EE/hour, so it was
+unreachable before the night began. The deeper cause is saturation: the store is now large enough that
+public in-window sources are already held. Dartmouth's capture census gave **764,982 in-window pairs and
+0 net-new**; the banner corpus was 92.4% held, AFNIC 88%. The only lead ever sized to close the gap, the
+UKWA host link graph at ~1.1M EE, is structurally unreachable behind a 2 GiB replay cap. Approval latency
+cost roughly 95,000 EE on its own: `ukwa_geoindex` decayed 77,749 to 4,512 while pending.
+
+## Next session, cheapest ground first
+Eight of nine hunt lenses died on the spend limit, not on measurement, and were never probed: award
+lists, ezines, hosting directories, library catalogues, domain-market lists, academic supplementary data,
+software release feeds beyond freshmeat, and the wildcard. Re-probe ERIC (availability failure, control
+also failed, so no content claim stands).
