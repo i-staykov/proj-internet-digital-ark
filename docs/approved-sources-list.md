@@ -28,6 +28,8 @@ Decision: master
 Decision: master
 
 ### ukwa_geoindex / cdx_timestamp
+- measured: 4509.1 net-new post-split EE over 4,595 pairs, re-counted 2026-08-24 against the live
+  store; 4,559 of them `.uk` and 4,565 of them 2001
 
 - ingest specs: `ukwa_geoindex`
 - what dates one item: the 14-digit Internet Archive capture timestamp that prefixes every row. A

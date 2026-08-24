@@ -18,7 +18,8 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `iedr_register` | `artifact_listing` | the page's own machine-written line, `updated automatically at 14:51 GMT on Friday, 21 December 2001`, and a register regeneration is the registry stating what was registered at that instant | 18,846 |
 | `internic_zone` | `artifact_listing` | the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day | 8,814 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
+| `ukwa_geoindex` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp that prefixes every row. A | 4,509 |
 | `fac_single_audit` | `dated_directory` | that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down | 2,407 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**5 rows, 36,383 equivalent-English waiting on a word.**
+**6 rows, 40,893 equivalent-English waiting on a word.**

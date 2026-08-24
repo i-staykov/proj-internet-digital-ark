@@ -45,11 +45,11 @@ So the scheduled cycle can run unattended. Two minutes.
 
 **Answered: no.** The whole `.uk` candidate pool is 48,545 EE.
 
-### Triage the newly found sources: 60 found
+### Triage the newly found sources: 64 found
 
-**60 source(s) found** and awaiting one word each in `approved-sources-list.md`, *candidate pool* or *fold
-in directly*. Not urgent: all 60 priced whole is about a tenth of the gate, and nothing is blocked while
-they sit, since a pending class cannot date a year.
+**64 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+
+A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
 ### O9. 575,417 impossible .mil/.gov/.edu candidates in the pool
 
