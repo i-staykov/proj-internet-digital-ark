@@ -263,7 +263,16 @@ reach it: the registry was serving that name at that instant.
   Dutch, so the EU sui generis DATABASE right applies to the extraction of a substantial part, and
   641,241 rows is substantial by any reading. **This is your call and it is the reason nothing has
   been ingested.** Your standing rule was "I am paid for this work, so if that makes bulk queries
-  illegal, let's not do it", and this is the same shape of question
+  illegal, let's not do it", and this is the same shape of question.
+  **Checked further 2026-08-24 and it got stronger, not weaker.** The restriction is not one file's
+  header: the same paragraph appears verbatim in three sibling files in the same directory,
+  `RIGHTS` (2000-02-22), `COPYRIGHT` (2002-02-03, covering 1992 to 2002) and `README` (2000-02-23),
+  and the README opens `For all database files in this directory the following copyright notice
+  applies`. So it is a directory-wide stated term, restated three times, with **no research
+  exception**: the only carve-out is "agreed Internet operational purposes", which this is not.
+  **The concrete route, if you want the 90,799 EE, is to ask.** RIPE NCC has a research-access
+  process and the text itself says "without prior permission of the RIPE NCC", so permission is
+  the named remedy rather than a hypothetical one. That is a letter, not a workaround
 - what dates one item: the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a
   `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences
   1999 and no other year, per rule 6
