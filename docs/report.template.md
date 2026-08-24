@@ -123,9 +123,9 @@ administered second levels taking applications by e-mail, so there was no single
 **Four measurement rules, each bought with a wasted day.** Gross and net yield differ by more than 10x,
 and a population that looks spectacular on gross was 97.9% already dated. Per-query and total yield point
 opposite ways, so optimising the wrong one is easy. Ranking a queue by TLD weight alone fills it with
-namespaces delegated in 2013. And a source's worth decays while it waits: one parked at 77,749
-equivalent-English was worth 4,512 by the time it was approved, because our own sweeps had banked that
-population first.
+namespaces delegated in 2013. And a source must be priced at the moment it is
+admitted rather than the moment it is found: one measured at 77,749 equivalent-English in August was
+worth 4,493 four days later, against a store that had grown into it in the meantime.
 
 **The most useful result was a refusal.** An idea priced at 1,704,843 equivalent-English, two and a half
 times this threshold, was forbidden by your rule 6: a creation date alone does not establish continued
