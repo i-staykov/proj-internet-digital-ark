@@ -36,6 +36,33 @@ list: ask what *kind* of artifact you have never looked for, not which host you 
 the wake-up wording. Re-price parked sources, since an unbanked source decays as the store grows.
 Never re-test a closed family; never grind an old source because it is familiar.
 
+## Breadth, on Ding's own list
+
+He asks for all of these and expects each to be tried and reported, positive or negative: dated
+directories and navigation sites, national web-archive indexes and link graphs, academic repositories
+and DOI datasets (UMN DRUM is his worked example), paper supplements and replication packages, registry
+datasets, government open data, mailing-list archives, preserved software and documentation
+collections, outbound-link expansion from pages already held, and automated dataset discovery over
+repository APIs.
+
+**One lens per cycle, and never the same lens twice running.** Rotate even when the last one paid.
+A run of nothing is a signal to move sideways, not to push harder on the same shape.
+
+## What kills a source, before you download it
+
+`discovery.md` has the three measured laws. In one line each, plus what has closed since:
+
+1. IA-derived cannot be net-new: the baseline is IA-derived too.
+2. Listing a name proves the artifact's date, not that the name was live.
+3. A trust-selected corpus holds authorities, not hosts.
+4. A current-state snapshot cannot evidence a past year.
+5. Human-typed novel names take the split and earn no year.
+6. Anonymised or hashed hostnames are worth nothing: ask for the sanitisation paragraph first.
+7. Dating and URL-bearing anticorrelate: a record naming a site is one somebody has since edited.
+
+Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask what the
+corpus is *about* before trusting even that.
+
 ## Rules
 
 - Never `git push`. Non-`main` branch only. No AI attribution in commits. **No em-dashes or en-dashes.**
