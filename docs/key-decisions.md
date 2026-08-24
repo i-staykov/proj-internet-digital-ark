@@ -28,7 +28,10 @@ measured**, because our own `.uk` sweeps banked that population first. Re-price 
 
 ### O3. Approve, refuse or downgrade internic_zone / artifact_listing
 
-One `Decision:` line. Last measured 8,628 EE and **assume it is stale downward** for the same reason as O1.
+One `Decision:` line. **Re-measured 2026-08-24 against the live store: 12,322 net-new pairs, 8,815.05
+EE**, slightly UP from the 8,627.7 recorded. It did not decay the way `ukwa_geoindex` did, because its
+namespaces are `.edu`, `.gov` and `.mil` at 0.97 to 1.00 and our own sweeps never overtook them. This is
+now the largest single thing one word of yours can bank.
 
 ### O2. Keep the VPN up when convenient
 
