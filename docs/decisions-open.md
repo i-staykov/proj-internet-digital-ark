@@ -19,9 +19,12 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `internic_zone` | `artifact_listing` | the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day | 8,814 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
 | `ukwa_geoindex` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp that prefixes every row. A | 4,509 |
+| `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
 | `mynic_my_change_report` | `artifact_listing` | the per-day heading above each entry, `2 April 2001`, with `New` or `Delete` beside the name, so the registry is stating that this name entered or left the register that day | 3,091 |
+| `cctld_register_listing_inbody` | `artifact_listing` | the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at that instant | 2,856 |
 | `coza_deletion_listing` | `cdx_timestamp` | the Wayback capture stamp on the page, since the listing carries no in-body date at all, and a name shortlisted for deletion is one the registry is stating is registered right now | 2,721 |
 | `fac_single_audit` | `dated_directory` | that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down | 2,407 |
+| `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**8 rows, 46,704 equivalent-English waiting on a word.**
+**11 rows, 54,187 equivalent-English waiting on a word.**
