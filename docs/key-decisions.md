@@ -7,20 +7,25 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Approve, refuse or downgrade internic_zone / artifact_listing
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
+### Approve, refuse or downgrade ukwa_geoindex / cdx_timestamp
+
+`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
+
+Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
+
 **Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
 
-### Triage the newly found sources: 69 found, incl. ukwa_geoindex / cdx_timestamp and internic_zone / artifact_listing
+### Triage the newly found sources: 69 found
 
-**69 source(s) found and not yet priced**, in `approved-sources-list.md` under
-`## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+**69 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
 
-The measured subset, which is what a decision actually turns on, is generated into
-`docs/decisions-open.md` by `scripts/decision_sheet.py`: eleven rows and 54,187 EE, largest first. The two
-named in the heading used to be separate asks on this surface and are now rows on that sheet, by your
-instruction of 2026-08-24; they stay named here only because a priced request must remain visible.
-
-A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class
-cannot date a year, so `ark ingest` refuses it and collection continues.
+A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
 ## CLOSED
 

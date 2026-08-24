@@ -72,34 +72,51 @@ worse: a rule that takes a paragraph gets skipped, and prose competes with the t
 measured effect of the split is in section 4: collection continued through a full day when the agent was
 away, which phase 5's design could not have done.
 
-**Health is three questions, not one.** Presence is not progress and progress is not yield. A supervisor
-that checks only liveness calls a batch stalled on a socket healthy; one that checks only journal growth
-cannot tell misses from hits. This round RDAP was crippled on both machines for most of a day and neither
-fault looked like one: locally it died on a dead inherited stdin while the supervisor reported "the list
-is exhausted", and remotely it was alive and therefore looked fine while running at 1.92 queries a second
-instead of 95. **A running collector is not a working one, and a supervisor's guess at why it stopped is
-not evidence.**
+**Health is three questions, not one: presence, progress, yield.** A supervisor that checks only liveness
+calls a batch stalled on a socket healthy; one that checks only journal growth cannot tell misses from hits.
+This round the check earned itself twice: a collector re-ingested the same frozen journal fourteen times
+overnight for zero rows, and a queue rebuild that looked like an improvement measured 24x worse per query
+than the file it replaced, 28 dated years per 600 queries against 673.
 
-**One method changed the question: generate the targets rather than discover them.** Finding candidate
-names has never been this project's constraint; dating them has. So instead of hunting for more names we
-asked which *generated* population is densest in in-window registrations, and measured four against each
-other using the registry's own creation dates. English dictionary words carry an in-window creation date
-on **28.00%** of queries and pay **13.5 equivalent-English per thousand queries**; siblings of names we
-already hold under another gTLD pay 9.7; random four-character strings 6.3; and invented two-word
-compounds pay **nothing at all**, zero in-window in 859 queries. The engine's own candidate list pays
-about 4.8, so the best generated population is worth nearly three times the discovered one, and it does
-not run out: the sibling queue is 14,080,169 names of which 2.3% had ever been queried. The dictionary
-result also says something we did not expect. Real English words skew **1996-1999**, our thinnest years,
-and are still 92.4% already held, so saturation is not a property of famous names.
+**One method changed the question: generate the query population rather than discover it.** Finding
+candidate names has never been this project's constraint; dating them has. We hold 2,395,205 names with no
+in-window year, worth 1,658,653 equivalent-English if each earned a single year, and **RDAP cannot date one
+of them**: two independent samples returned 602 answers and **zero** in-window creation dates, because 73%
+of that pool is HTTP 404 today. A candidate is by construction a name no crawler captured, which correlates
+with a name that stopped existing, and only an archive capture can date a name that is gone.
 
-**And a shape transfers where a host does not.** The largest new source this round was found by asking
-what *kind* of artifact a registry of that era produced, not which registry we had not tried. The IE
-Domain Registry regenerated its whole register as static A-Z web pages carrying their own line, `updated
-automatically at 14:51 GMT on Friday, 21 December 2001`. That is the same instrument as a DNS zone file:
-the registry asserting what was registered at a stated instant, rather than a directory listing names it
-happens to know. **18,512 net-new pairs and 18,038 equivalent-English** from 27 HTTP requests and 724 KB.
-The same question is now being asked of every other namespace whose registry was run by a university
-computing service, which is where these artifacts survive.
+So we asked which *generated* population is densest in in-window registrations, and measured four against
+each other with the registry's own creation dates. English dictionary words carry an in-window creation date
+on **28.00%** of queries; random four-character strings 6.73%; **invented two-word compounds nothing at
+all**, zero in-window in 859 queries; and siblings of names we already hold under another gTLD, measured on
+a full production round of 150,000 queries, **9.47% and 59.9 equivalent-English per thousand queries**
+against about 4.8 for the discovered candidate list. Two honest caveats. A 1,400-answer pilot of that same
+sibling population read 5.64%, six-fold low, so **a sample of the source population is not a sample of the
+queue**. And the density decays as the queue head moves: successive rounds returned 14,205, 14,495, 14,436,
+6,287 and 2,640 in-window creations, so 52,063 pairs is what it actually paid rather than what one round
+extrapolates to. The dictionary result carries the finding we did not expect: real English words skew
+**1996-1999**, our thinnest years, and are still 92.4% already held, so saturation is not a property of
+famous names.
+
+**A measurement worth more than the sources it came from.** We had assumed a lapsed-and-re-registered name
+reports the later creation date, which would make registry dates weak evidence. Measured over 472 domains we
+date in window from captures: of the 370 that answer, **59.7% still carry an in-window creation date**. A
+transfer never resets it, and neither does bankruptcy and a change of owner. What does hold is that when a
+reset has happened there is no route back: across 55 domains no registry emitted `reregistration` or
+`reinstantiation`, and no event of any kind predated the `registration` event. So a registry creation date is
+considerably stronger in-window evidence than we had been treating it as.
+
+**And a shape transfers where a host does not.** The largest new source this round was found by asking what
+*kind* of artifact a registry of that era produced, not which registry we had not tried. The IE Domain
+Registry regenerated its whole register as static A-Z pages carrying their own line, `updated automatically
+at 14:51 GMT on Friday, 21 December 2001`. That is the same instrument as a DNS zone file: the registry
+asserting what was registered at a stated instant, rather than a directory listing names it happens to know.
+**19,341 net-new pairs and 18,846 equivalent-English** from 38 requests and 1.1 MB. Taken to nine further
+namespaces the same question found MYNIC's fortnightly change report, the CO.ZA deletion queue, TWNIC's
+frozen-domain list, SaudiNIC, NIC Malta, NIC Venezuela, RESTENA and IDNIC, and the screen that separates
+them is one question: **who held the database, and did they ever write it to a file?** `.ie` was one
+university computing service regenerating one register onto one static tree; `.za` was eleven separately
+administered second levels taking applications by e-mail, so there was no single machine to regenerate.
 
 **Four measurement rules, each bought with a wasted day.** Gross and net yield differ by more than 10x,
 and a population that looks spectacular on gross was 97.9% already dated. Per-query and total yield point
