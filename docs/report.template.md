@@ -111,7 +111,9 @@ considerably stronger in-window evidence than we had been treating it as.
 Registry regenerated its whole register as static A-Z pages carrying their own line, `updated automatically
 at 14:51 GMT on Friday, 21 December 2001`. That is the same instrument as a DNS zone file: the registry
 asserting what was registered at a stated instant, rather than a directory listing names it happens to know.
-**19,341 net-new pairs and 18,846 equivalent-English** from 38 requests and 1.1 MB. Taken to nine further
+**19,353 net-new pairs and 18,827 equivalent-English** from 38 requests and 1.1 MB, admitted on those
+grounds and on nothing else: the 99.6% agreement with your own 2000 files, edition by edition, was used
+to check the reading rather than to justify it. Taken to nine further
 namespaces the same question found MYNIC's fortnightly change report, the CO.ZA deletion queue, TWNIC's
 frozen-domain list, SaudiNIC, NIC Malta, NIC Venezuela, RESTENA and IDNIC, and the screen that separates
 them is one question: **who held the database, and did they ever write it to a file?** `.ie` was one

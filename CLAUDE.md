@@ -59,6 +59,10 @@ A run of nothing is a signal to move sideways, not to push harder on the same sh
 5. Human-typed novel names take the split and earn no year.
 6. Anonymised or hashed hostnames are worth nothing: ask for the sanitisation paragraph first.
 7. Dating and URL-bearing anticorrelate: a record naming a site is one somebody has since edited.
+8. Overlap with the baseline corroborates a reading; it never justifies one (Ivo, 2026-08-24).
+   The grounds must be what dates the item: the artifact asserting a state at an instant it
+   stamps itself, and a capture fixing when it existed. Agreement with `prior_task` is a check
+   on that argument, and cited only after it.
 
 Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask what the
 corpus is *about* before trusting even that.
