@@ -88,6 +88,28 @@ def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     return conn.execute(f"SELECT count(*) FROM ({query})").fetchone()[0]
 
 
+def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection) -> int:
+    """Net-new pairs that will actually reach the annual files.
+
+    **Not the same as the store's raw net-new total, and the difference is the point.**
+    `_shipping_filter` drops a pair whose TLD did not exist in its year, so the store can
+    hold more net-new pairs than any export will ever write. Packaging compares its
+    exported line count against this, because comparing it against the raw total made a
+    current export look permanently stale: 726,344 against 726,336, a difference that is
+    the filter doing its job.
+    """
+    total = 0
+    for year in YEARS:
+        total += conn.execute(
+            f"""
+            SELECT COUNT(DISTINCT dy.domain) FROM domain_year dy
+            WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
+              AND {_shipping_filter("dy.")}
+            """
+        ).fetchone()[0]
+    return total
+
+
 def export_all(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,

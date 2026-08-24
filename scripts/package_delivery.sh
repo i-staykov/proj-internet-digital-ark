@@ -57,10 +57,16 @@ SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null |
 # loop began running continuously beside two collectors.
 STORED=""
 for _ in $(seq 1 60); do
+    # Counted through the SAME shipping filter the export applies, not the raw
+    # store total. Those two were equal until the export learned to drop a pair
+    # whose TLD did not exist in its year, and from then on the guard compared a
+    # pre-filter number with a post-filter one and refused a perfectly current
+    # export forever: 726,344 in the store against 726,336 on disk, a difference
+    # that is the filter working rather than the export being stale.
     STORED=$(uv run python -c "
 import duckdb
-from ark.stats import collect_stats
-print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
+from ark.export import netnew_shipped_pairs
+print(netnew_shipped_pairs(duckdb.connect('data/ark.duckdb', read_only=True)))
 " 2>&1 | tail -1) || true
     case "$STORED" in
         ''|*[!0-9]*) sleep 5 ;;
