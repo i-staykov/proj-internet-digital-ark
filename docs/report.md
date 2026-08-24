@@ -185,11 +185,11 @@ diffed directly.
 
 | | records | equivalent-English |
 |---|--:|--:|
-| baseline `merged260817-2` | 22,491,418 | 12,077,095.5404 |
-| submitted | 17,733 | |
+| baseline `merged260821` | 25,064,981 | 13,362,368.8792 |
+| submitted | 616,037 | |
 | already in the baseline | 0 | |
-| **accepted increment** | **17,733** | **14,358.9235** |
-| post-merge total | 22,509,151 | 12,091,454.4639 |
+| **accepted increment** | **616,037** | **386,428.9457** |
+| post-merge total | 25,681,018 | 13,748,797.8249 |
 
 **22 of 22 reconciliation checks pass.** They are arithmetic
 identities, so a failure is a defect rather than a finding: per year that
