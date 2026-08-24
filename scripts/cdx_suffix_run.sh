@@ -89,8 +89,19 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         end=$((now + SLICE))
         [ "$end" -gt "$DEADLINE" ] && end=$DEADLINE
         note "-- $s until $(date -u -r "$end" '+%H:%M:%SZ' 2>/dev/null || echo "$end") --"
-        uv run python scripts/cdx_suffix_sweep.py "$s" --deadline "$end" \
-            --page-size 200 --delay 2.0 >> "$LOG" 2>&1
+        # The archive refuses connections in bursts, so a failed control means
+        # "not this second", not "not this namespace". Without this retry a
+        # 3-second refusal costs the suffix its whole slice and the next attempt
+        # is a full round away, which is how `org.uk` and `co.nz`, the two
+        # biggest, went unswept for a day. Three tries, then move on.
+        for try_n in 1 2 3; do
+            uv run python scripts/cdx_suffix_sweep.py "$s" --deadline "$end" \
+                --page-size 200 --delay 2.0 >> "$LOG" 2>&1
+            tail -1 "$LOG" | grep -q "control failed" || break
+            [ "$(date +%s)" -ge "$end" ] && break
+            note "  control refused, retry $try_n in 45s"
+            sleep 45
+        done
     done
 done
 

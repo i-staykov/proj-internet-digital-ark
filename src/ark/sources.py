@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import IO
 
 from ark.bulk import BulkRecord, SourceSpec
+from ark.canonical import to_registrable
 from ark.cdx import evidence_years as cdx_evidence_years
 from ark.ingest import YEARS
 from ark.journal import open_journal
@@ -362,6 +363,61 @@ def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 year=year,
                 evidence_value=f"internic {apex.lower()} zone serial {_serial_of(path)}",
             )
+
+
+# The IE Domain Registry, run by University College Dublin Computing Services,
+# regenerated its WHOLE register as static A-Z pages and Wayback captured them.
+_IEDR_FOOTER = re.compile(r"updated\s+automatically\s+at\s+.{0,80}?((?:19|20)\d\d)", re.I | re.S)
+_IEDR_NAME = re.compile(r"\b([a-z0-9][a-z0-9\-]{0,60}(?:\.[a-z0-9\-]{1,60})*\.ie)\b")
+_IEDR_SELF = ("domainregistry.ie", "iedr.ie")
+
+
+def parse_iedr_register(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per `.ie` name printed on an archived IEDR register page.
+
+    **The date is inside the artifact, and the whole page stands or falls on it.** Each page
+    carries its own machine-written line, `updated automatically at 14:51 GMT on Friday, 21
+    December 2001`, and that is what dates every name on it. The Wayback capture stamp only
+    corroborates. A page whose own line falls outside the window is dropped ENTIRELY rather
+    than pulled in: of the 27 letter pages, `l-doms.html` reads 28 March 2002, and taking the
+    capture date instead would have imported 931 names into 2001 that the artifact places in 2002.
+
+    **Read the date with the tags stripped.** The footer spans an anchor in some editions, so a
+    regex over raw HTML matches on most pages and silently misses others. Three pages were lost
+    that way on the first pass, which understates rather than errs loudly.
+
+    This is `artifact_listing`: a register regeneration is the registry stating which names were
+    registered at a stated instant, the same instrument as an InterNIC zone file. Nobody typed
+    the list, so no corroboration split applies. It says nothing about any other year.
+    """
+    text = path.read_text(encoding="utf-8", errors="replace")
+    flat = re.sub(r"<[^>]+>", " ", text)
+    found = _IEDR_FOOTER.search(flat)
+    if found is None:
+        stats["no_footer_date"] += 1
+        return
+    year = int(found.group(1))
+    if year not in YEARS:
+        stats["out_of_window_page"] += 1
+        return
+    body = flat[flat.find("[") :] if "[" in flat else flat
+    seen: set[str] = set()
+    for raw in _IEDR_NAME.findall(body.lower()):
+        if raw.endswith(_IEDR_SELF):
+            stats["registry_own_host"] += 1
+            continue
+        name = to_registrable(raw)
+        if name is None or not name.endswith(".ie"):
+            stats["not_registrable"] += 1
+            continue
+        if name in seen:
+            continue
+        seen.add(name)
+        yield BulkRecord(
+            raw=name,
+            year=year,
+            evidence_value=f"iedr register listing {found.group(0).strip()}",
+        )
 
 
 def _serial_of(path: Path) -> str:
@@ -982,6 +1038,16 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="internic_zone_distribution",
         parse=parse_internic_zone,
+    ),
+    # The IE Domain Registry regenerated its whole register as static A-Z pages and
+    # Wayback took them. Self-dating on the page's own "updated automatically at ..."
+    # line, which is why a 2002-footered page is dropped rather than read as 2001.
+    "iedr_register": SourceSpec(
+        key="iedr_register",
+        source_name="iedr_register",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_register_listing",
+        parse=parse_iedr_register,
     ),
     "isc_survey": SourceSpec(
         key="isc_survey",
