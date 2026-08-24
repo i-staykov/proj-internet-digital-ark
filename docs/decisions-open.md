@@ -15,7 +15,6 @@ collected without asking. Only the master-eligible classes below are blocked on 
 
 | Source | Evidence type | What dates one item | Net-new EE |
 |---|---|---|--:|
-| `iedr_register` | `artifact_listing` | the page's own machine-written line, `updated automatically at 14:51 GMT on Friday, 21 December 2001`, and a register regeneration is the registry stating what was registered at that instant | 18,846 |
 | `internic_zone` | `artifact_listing` | the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day | 8,814 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
 | `ukwa_geoindex` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp that prefixes every row. A | 4,509 |
@@ -27,4 +26,4 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**11 rows, 54,187 equivalent-English waiting on a word.**
+**10 rows, 35,341 equivalent-English waiting on a word.**

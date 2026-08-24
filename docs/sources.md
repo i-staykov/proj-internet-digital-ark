@@ -1387,11 +1387,17 @@ edition of this artifact.
 lists PENDING APPLICATIONS: names nobody had registered yet. Reading it as a register would manufacture
 registrations that never happened, so the parser checks the filename before it reads the date.
 
-**Why the store had room for it.** It holds 18,438 `.ie` at 2000 against 6,598 at 2001. The reason
-is visible in the baseline: 889 of 892 names on this artifact's **April 2000** edition are already
-dated 2000, so whoever built `prior_task` used a 2000 edition of this very artifact and never a 2001
-one. That is also the argument for admitting it, since the evidence class is one the task has already
-accepted rather than a new one being proposed.
+**Admitted master by Ivo, 2026-08-24, on the artifact's own semantics.** A cron regenerated the whole
+register and stamped the page with the instant it did so, and an IA crawl fixes when that page existed.
+Those two facts alone date every name on it, and they are the grounds.
+
+**Corroborating, and explicitly not the grounds.** The store holds 18,438 `.ie` at 2000 against 6,598
+at 2001, and the baseline shows why: 889 of 892 names on this artifact's **April 2000** edition are
+already dated 2000, so whoever built `prior_task` read a 2000 edition of these very pages and never a
+1999 or 2001 one. Re-measured against the live store on the day of the decision, edition by edition:
+99.6% of the 29 February 2000 C page is already dated 2000, against 34.0% of the 27 November 1999 A
+page and 28.4% of the 21 December 2001 A page. That agreement is a check on our reading of the
+artifact, not a reason to admit it: killer 8 in `CLAUDE.md`.
 
 **Residual.** Both trees are collected to exhaustion of what Wayback holds: 26 of 27 `/statistics/`
 letters and 8 of 8 `/lists/` letter pages that serve 200. The `/lists/` tree is missing letters b and
