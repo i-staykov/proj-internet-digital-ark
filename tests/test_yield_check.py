@@ -258,3 +258,27 @@ def test_a_hand_named_probe_is_not_read_as_the_newest_batch(tmp_path) -> None:
     reading = measure(tmp_path, "rdap", verdict=rdap_verdict)
     assert reading.newest_answered == 40
     assert reading.newest_hits == 0, "the probe file was read instead of the live batch"
+
+
+def test_a_corrupt_stream_is_reported_truncated_rather_than_crashing(tmp_path):
+    """A killed collector leaves a journal whose deflate stream desynchronises mid-file.
+
+    That raises `zlib.error`, which is not a subclass of OSError, EOFError or
+    BadGzipFile, so it used to escape `_count` and take the entire health cycle down
+    with `Error -3 while decompressing data: invalid stored block lengths`. The register
+    documents the same shape on the corrupt ISC survey copies.
+    """
+    import gzip
+
+    from ark.yield_check import _count
+
+    path = tmp_path / "rdap_corrupt.jsonl.gz"
+    good = gzip.compress(
+        b'{"domain": "a.com", "creation_year": 1998}\n{"domain": "b.com", "creation_year": 1999}\n'
+    )
+    # Keep a valid header and first member, then corrupt the deflate body.
+    path.write_bytes(good[: len(good) // 2] + b"\x00\xff\x00\xff" * 8)
+
+    answered, hits, truncated = _count(path, verdict=lambda r: (True, True))
+    assert truncated, "a corrupt stream must be reported, not raised"
+    assert answered >= 0

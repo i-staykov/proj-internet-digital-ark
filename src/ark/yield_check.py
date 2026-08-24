@@ -34,6 +34,7 @@ import gzip
 import json
 import re
 import time
+import zlib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -215,7 +216,19 @@ def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[in
                     continue
                 answered += 1
                 hits += was_hit
-    except (OSError, EOFError, gzip.BadGzipFile):
+    except (OSError, EOFError, gzip.BadGzipFile, zlib.error):
+        # zlib.error is the CORRUPT case as opposed to the truncated one, and it is
+        # not a subclass of any of the others, so it used to escape and take the whole
+        # health cycle down: `zlib.error: Error -3 while decompressing data: invalid
+        # stored block lengths`, from a journal a killed collector left mid-write. The
+        # register already documents this shape on the corrupt ISC survey copies, where
+        # a desynchronised deflate stream decodes as plausible-looking garbage. Same
+        # treatment as truncation: keep what parsed and say the read was incomplete.
+        #
+        # Not UnicodeDecodeError: `open_journal` already opens with errors="replace",
+        # so inflated garbage is substituted rather than raised. An ad-hoc reader using
+        # the default strict decoding DOES die that way, which is how this was nearly
+        # mis-diagnosed as a second bug in this function.
         truncated = True
     return answered, hits, truncated
 
