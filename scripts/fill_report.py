@@ -243,11 +243,36 @@ def admissibility_sentence(f: dict) -> str:
     )
 
 
+def accepted_totals() -> dict | None:
+    """The reviewer-equivalent figures from the latest merge audit, or None.
+
+    **Section 1 must quote what HIS calculator will produce over the shipped files,
+    not what our store holds.** The two differ by a handful of records, because the
+    merge applies the normalisation his calculator applies and the store does not:
+    on 2026-08-24 the store held 726,344 net-new pairs and 726,336 survived it. A
+    report whose headline disagrees with its own reconciliation section by eight
+    records is the kind of thing a reviewer bounces, and this register already warns
+    that quoting a count in two places is how they come to disagree.
+    """
+    merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
+    audits = sorted(merge_dir.glob("merge_audit_ark*.json"))
+    if not audits:
+        return None
+    return json.loads(audits[-1].read_text(encoding="utf-8"))["totals"]
+
+
 def substitutions(f: dict) -> dict[str, str]:
     md = markdown(f)
+    accepted = accepted_totals()
+    # Fall back to the store only when no merge has been run, so a missing audit
+    # produces a slightly different number rather than an empty placeholder.
+    total = int(accepted["accepted_new_records"]) if accepted else f["netnew_pairs"]
+    ee_total = (
+        Decimal(accepted["equivalent_english_increment"]) if accepted else Decimal(f["ee_netnew"])
+    )
 
     subs: dict[str, str] = {
-        "TOTAL": f"{f['netnew_pairs']:,}",
+        "TOTAL": f"{total:,}",
         "UNIQUE": f"{f['netnew_unique_domains']:,}",
         "NEWDOMAINS": f"{f['netnew_domains_absent_from_baseline']:,}",
         "CANDIDATES": f"{f['candidate_pool']:,}",
@@ -258,7 +283,7 @@ def substitutions(f: dict) -> dict[str, str]:
         # Four decimals, because that is the precision the reviewer reports back in
         # and a rounded total reads to him as a different number than the one he
         # computed with his own calculator.
-        "EE": f"{f['ee_netnew']:,.4f}",
+        "EE": f"{ee_total:,.4f}",
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
         "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
         "EEMEAN": f"{f['ee_mean_weight']:.4f}",
