@@ -1371,9 +1371,21 @@ nothing about any other year.
 
 **Lineage `registry`.** Independent of every web crawl.
 
-**Measured yield: 18,512 net-new (domain, 2001) pairs worth 18,038.1 equivalent-English**, counted
-three times independently on 2026-08-24 and agreeing to within 0.3%. `.ie` weighs 0.9744, so a pair
-here is worth 1.54 of a `.com` one. 6,626 of the net-new names are dated at no in-window year at all.
+**Measured yield: 19,341 net-new pairs worth 18,845.9 equivalent-English**, one measurement over
+both trees: 18,512 at 2001, **812 at 1999** and 17 at 2000. The 2001 tree alone was counted three times
+independently and agreed to within 0.3%. `.ie` weighs 0.9744, so a pair here is worth 1.54 of a `.com`
+one. 6,626 of the net-new names are dated at no in-window year at all.
+
+**Two trees, and the earlier one is where the thin years are.** `/statistics/` is the December 2001
+edition. The earlier `/lists/` tree, enumerated from the CDX index at 11 pages serving 200, gives
+`a-doms.html` at 27 November 1999 and `t-doms.html` at 29 November 1999 plus six pages at 29 February
+and 1 March 2000. It is worth **829 pairs and 807.8 EE, of which 812 are 1999**, and the 2000 side is
+worth 17 pairs. That asymmetry is the same fact as the note below: the baseline already used a 2000
+edition of this artifact.
+
+**`stalled.html` is excluded by filename and this is not a detail.** The same trees publish it, and it
+lists PENDING APPLICATIONS: names nobody had registered yet. Reading it as a register would manufacture
+registrations that never happened, so the parser checks the filename before it reads the date.
 
 **Why the store had room for it.** It holds 18,438 `.ie` at 2000 against 6,598 at 2001. The reason
 is visible in the baseline: 889 of 892 names on this artifact's **April 2000** edition are already
@@ -1381,10 +1393,11 @@ dated 2000, so whoever built `prior_task` used a 2000 edition of this very artif
 one. That is also the argument for admitting it, since the evidence class is one the task has already
 accepted rather than a new one being proposed.
 
-**Residual.** An earlier tree exists at `/lists/` and reaches 1999: `19991128191652` of
-`domainregistry.ie/lists/a-doms.html` is 25,492 bytes, footer `Last updated 27 Nov 1999`, 714 names of
-which only 34.0% are dated 1999 here. Eight letter pages return 200 in that tree, so **[GUESS]**
-another 800 to 1,500 EE in a thin year, which is the better prize per byte and is not yet collected.
+**Residual.** Both trees are collected to exhaustion of what Wayback holds: 26 of 27 `/statistics/`
+letters and 8 of 8 `/lists/` letter pages that serve 200. The `/lists/` tree is missing letters b and
+h through z entirely, which is an archiving gap rather than an artifact gap, so **[GUESS]** a full 1999
+register would be worth roughly 3,000 to 4,000 EE rather than 808. `iedr.ie` carries a 2002-only tree,
+out of window. Nothing further to fetch here.
 
 ---
 
