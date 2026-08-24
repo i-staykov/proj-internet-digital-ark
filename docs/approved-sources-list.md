@@ -377,6 +377,31 @@ Decision: pending
 
 Decision: pending
 
+### mynic_my_change_report / artifact_listing
+
+- measured: 3091.1 net-new post-split EE pre-split over 4,078 pairs from 25 of 60 pages, or **159.9 EE
+  over 211 pairs if the corroboration split applies**; whole-tree figures land near 10,000 and 400
+- what dates one item: the per-day heading above each entry, `2 April 2001`, with `New` or `Delete`
+  beside the name, so the registry is stating that this name entered or left the register that day
+- ingest specs: not yet written; the parser is measured but no spec is registered until this is decided
+- the artifact: MYNIC published a fortnightly `Domain Name Listing` at
+  `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. 60 archived pages, of which the `-1` and `-2` halves
+  carry names and the bare-month pages are statistics tables only. `.my` weighs 0.7580
+- potential: 70
+- **THE DECISION IS ONE QUESTION AND IT IS WORTH 19x**: 24 of 25 pages carry
+  `<META NAME="Generator" CONTENT="Microsoft Word 97">` and many carry
+  `saved from url=(0022)http://internet.e-mail`, so this is a registry report hand-published through
+  Word rather than a register regenerating itself. The names originate in MYNIC's database, but a human
+  handled the file and three double-dot typos prove it (`imej.com..my`, `mycomplaints..com.my`). If that
+  counts as machine-authored it is worth about 10,000 EE; if the Word round-trip makes it human-typed it
+  takes the split and is worth about 400
+- **also refutes a closure in `sources.md`**: the 2026-08-18 row on dated registration announcements
+  concluded that a registry of this era published either dates without names or names without dates, and
+  that the CA Domain Registry was the only exception. MYNIC is a second exception, so that row is wrong
+  and the lens is reopened
+
+Decision: pending
+
 ### repository_ia_capture_census / cdx_timestamp
 
 - what it is: another precomputed Internet Archive capture census deposited as a research replication
@@ -419,6 +444,25 @@ Decision: pending
 - potential: 63
 
 Decision: pending
+
+### coza_deletion_listing / cdx_timestamp
+
+- measured: 2720.6 net-new post-split EE over 2,810 pairs, counted 2026-08-24 over 10 of the 11 archived
+  captures on `co.za`; an agent measured a wider tree including `posix.co.za` at 4,462 EE and I have not
+  verified that half
+- what dates one item: the Wayback capture stamp on the page, since the listing carries no in-body date
+  at all, and a name shortlisted for deletion is one the registry is stating is registered right now
+- the artifact: the CO.ZA registry's own `cgi-bin/warn.sh` and `cgi-bin/todel.sh`, 11 in-window
+  captures, listing bare labels under a header reading `The following domains are shortlisted for
+  deletion. This is either due to lack of payment or lack of paperwork`. `.za` weighs 0.9682
+- potential: 62
+- what makes it worth it: machine-generated with no prose and no author, so no corroboration split, and
+  it reaches **1998 n=2,274 and 1999 n=1,252**, two of our thin years, against only 90 for 2000. The
+  weakness is honest and worth stating: it is the register's failing tail, selected for delinquency
+  rather than sampled, and it is about 5% of the ~100,000 names `co.za` held in the window
+
+Decision: pending
+
 
 ### discmaster_by_file_size / artifact_listing
 
