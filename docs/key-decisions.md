@@ -7,65 +7,31 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-**Gate 668,118 EE. We hold 372,772, which is 55.8%. The gap is 295,347.**
+**Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
 
-**The gate does not recede hourly, and the earlier framing that it did made this look worse than it is.**
-It is 5% of `merged260821`, a fixed release, so it moves only when Ding issues a new one. Measured EE
-added to the store, 2026-08-23: **2,553 an hour over the last two hours, 3,409 over eight**. The 24-hour
-figure of 5,016 spans a backfill and is not a rate. So the gap is **3 to 5 days of the current queues**,
-and the risk to that is a new baseline landing first, not an hourly drift.
+### Triage the newly found sources: 69 found, incl. ukwa_geoindex / cdx_timestamp and internic_zone / artifact_listing
 
-### O7. Does afnic_fr breach your rule 6, and 54,632 shipped pairs turn on it
+**69 source(s) found and not yet priced**, in `approved-sources-list.md` under
+`## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
 
-54,632 already-shipped pairs are open-ended intervals resting on a creation date plus the domain existing
-today, which rule 6 says is not enough; the 25,429 with a published withdrawal date are safe either way.
-**Correctness, not yield: nothing to gain and 54,632 pairs to lose.**
+The measured subset, which is what a decision actually turns on, is generated into
+`docs/decisions-open.md` by `scripts/decision_sheet.py`: eleven rows and 54,187 EE, largest first. The two
+named in the heading used to be separate asks on this surface and are now rows on that sheet, by your
+instruction of 2026-08-24; they stay named here only because a priced request must remain visible.
 
-### O1. Approve ukwa_geoindex / cdx_timestamp as master
-
-Free, public, CC Public Domain, on disk and parsed. Worth 77,749 EE when found and **4,512 when last
-measured**, because our own `.uk` sweeps banked that population first. Re-price before quoting.
-
-### O3. Approve, refuse or downgrade internic_zone / artifact_listing
-
-One `Decision:` line. **Re-measured 2026-08-24 against the live store: 12,322 net-new pairs, 8,815.05
-EE**, slightly UP from the 8,627.7 recorded. It did not decay the way `ukwa_geoindex` did, because its
-namespaces are `.edu`, `.gov` and `.mil` at 0.97 to 1.00 and our own sweeps never overtook them. This is
-now the largest single thing one word of yours can bank.
-
-### O2. Keep the VPN up when convenient
-
-The VPS is the faster machine at RDAP, 102 q/s against 54, so roughly two thirds of total throughput.
-
-### O4. Give /bin/bash Full Disk Access
-
-So the scheduled cycle can run unattended. Two minutes.
-
-### O5. Bulk Nominet queries for .uk
-
-**Answered: no.** The whole `.uk` candidate pool is 48,545 EE.
-
-### Triage the newly found sources: 64 found
-
-**64 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
-
-A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
-
-### O9. 575,417 impossible .mil/.gov/.edu candidates in the pool
-
-Purge them? **No yield either way.** They are names like `tfvkrp.mil` under namespaces that never allowed
-arbitrary registration, 462,155 of them from Usenet address extraction. The evidence wall held: 0 reached
-an annual file, and every shipped `.mil`, `.gov` and `.edu` domain carries independent attestation. Wasted
-queries only.
-
-**O8 is withdrawn.** I put `link_target` on this surface at 97,893 EE; it is worth about 5,000 and is
-banked. The query failed to exclude the corpus from corroborating itself, and
-`scripts/build_promotion_journals.py` already applied the three filters I skipped.
+A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class
+cannot date a year, so `ark ingest` refuses it and collection continues.
 
 ## CLOSED
 
 | | date | decision |
 |---|---|---|
+| **C-49** | 2026-08-24 | O9 answered: purge the 575,417 impossible `.mil`/`.gov`/`.edu` candidates. No yield either way, wasted queries only |
+| **C-48** | 2026-08-24 | O5 answered no, and it binds RDAP too: this is paid work, so no bulk Nominet querying. The `.uk` engine started that morning at 118.8 EE per 1,000 queries was stopped the same day |
+| **C-47** | 2026-08-24 | O4 closed as unnecessary. The in-session cron runs the cycle hourly, so Full Disk Access for `/bin/bash` buys nothing |
+| **C-46** | 2026-08-24 | O2 answered: the VPN goes up when convenient. **The VPS is a standalone autonomous helper reached from time to time, not a regularly driven machine**, so its collectors take deadlines measured in days |
+| **C-45** | 2026-08-24 | O1 and O3 moved off this surface into the source triage queue, where they are two rows of `decisions-open.md` rather than two asks of their own |
+| **C-44** | 2026-08-24 | O7 answered: `afnic_fr` does **not** breach rule 6. Ding has already ingested and approved these pairs into the baseline, and AFNIC is a documented one-off exception to the creation-year rule: its *Technical Integration Guide* v3.0 states `crDate` is "the last creation date of the domain name", so `crDate = max(last creation, last transmission)` and the interval `[crDate, deletion-or-now]` is continuous by construction. Cited in `sources.md` |
 | **C-43** | 2026-08-21 | RDAP is the fast channel, and both of my first two target lists were wrong |
 | **C-42** | 2026-08-21 | Page 0 of a CDX namespace is about twice as dense as the namespace |
 | **C-41** | 2026-08-21 | The suffix sweep is exhausted, and the complete accounting of what remains |
