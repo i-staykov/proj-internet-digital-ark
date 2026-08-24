@@ -228,6 +228,8 @@ Decision: master
 
 
 ### internic_zone / artifact_listing
+- measured: 8814.04 net-new post-split EE over 12,322 pairs, re-counted 2026-08-24 against the live store, `.arpa` excluded because the export drops it
+- what dates one item: the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day
 
 - ingest spec: `internic_zone`
 - source: https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz
@@ -236,6 +238,29 @@ Decision: master
 Decision: pending
 
 ## Found, awaiting triage
+
+### iedr_register / artifact_listing
+
+- measured: 18038.1 net-new post-split EE over 18,512 pairs, counted three times independently on
+  2026-08-24 and agreeing to within 0.3%
+- what dates one item: the page's own machine-written line, `updated automatically at 14:51 GMT on
+  Friday, 21 December 2001`, and a register regeneration is the registry stating what was registered
+  at that instant
+- ingest specs: `iedr_register`
+- the artifact: the IE Domain Registry, run by University College Dublin Computing Services, published
+  the whole `.ie` register as static A-Z pages at `domainregistry.ie/statistics/<letter>-doms.html`.
+  26 in-window pages hold 24,805 distinct names; `l-doms.html` resolves to a March 2002 edition and the
+  parser drops it whole
+- collect it: `uv run python scripts/collect_iedr_register.py`, 27 requests, 724 KB
+- potential: 96
+- what makes it worth it: `.ie` weighs 0.9744, so a pair here is worth 1.54 of a `.com` one, and the
+  store holds 18,438 `.ie` at 2000 against 6,598 at 2001, which is exactly the hole this fills. Machine
+  generated, so no corroboration split. **The reviewer's own baseline already used this artifact**: 889
+  of 892 names on its April 2000 edition are already dated 2000 in the store, so the evidence class is
+  one the task has accepted, not a new one being proposed
+
+Decision: pending
+
 
 ### nic_mil_internic_zone_mirror / artifact_listing
 
@@ -323,6 +348,7 @@ Decision: pending
 Decision: pending
 
 ### sec_edgar_filings / dated_directory
+- measured: 5884 net-new post-split EE, 2026-08-24
 
 - what it is: URLs and e-mail domains printed in SEC 8-K, DEF 14A and 10-KSB filings, 1996-2001
 - what dates one item: the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx`
@@ -456,6 +482,7 @@ Decision: pending
 Decision: pending
 
 ### fac_single_audit / dated_directory
+- measured: 2406.69 net-new post-split EE, 2026-08-24
 
 - what it is: e-mail domains on Federal Audit Clearinghouse Single Audit filings, 1998-2001
 - what dates one item: that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote
@@ -555,6 +582,7 @@ Decision: pending
 Decision: pending
 
 ### zenodo_banner_ads / cdx_timestamp
+- measured: 432.81 net-new post-split EE, whole file censused, 2026-08-24
 
 - what it is: 22,915 banner images from archived snapshots of URLs in six printed internet directories
   published 1999-2001, `zenodo.org/records/8408539`, CC-BY-4.0, 215 MB

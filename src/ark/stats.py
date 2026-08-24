@@ -81,6 +81,7 @@ PROVENANCE_LINEAGE = {
     # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
     # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
+    "iedr_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",
