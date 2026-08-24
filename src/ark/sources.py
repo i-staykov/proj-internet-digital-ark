@@ -1045,6 +1045,27 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="bulk_cdx_file",
         parse=parse_early_web_cdx,
     ),
+    # The seed layer of IA's breadth-first expansion of URLs pulled from SEC 10-K
+    # filings. Same classic CDX shape as Early Web, so it reuses that parser; a
+    # separate spec only because provenance and lineage must name it separately.
+    #
+    # **It is not the closed DARTMOUTH-NBER-RESEARCH-ARCS family**, which measured
+    # exactly zero net-new because every capture in it is of a host on the NBER
+    # corporate list whose capture census we had already banked. This is a different
+    # and much larger seed population, and level 0 measures 2,460 net-new pairs.
+    #
+    # Only BFS level 0 is worth reading. Levels 2 and 3 are 92 of the 102 ARC items
+    # and measured 0.00, 0.00 and 0.59 EE per MB over three indexes, against level
+    # 0's 104.7, so extrapolating a shallow rate across the family overstates it
+    # about six-fold. The WARC half of the collection is 2012-2019 with zero
+    # in-window rows.
+    "dartmouth_bfs_seed": SourceSpec(
+        key="dartmouth_bfs_seed",
+        source_name="dartmouth_bfs_seed",
+        evidence_type="cdx_timestamp",
+        acquisition_method="bulk_cdx_file",
+        parse=parse_early_web_cdx,
+    ),
     # The Defense Data Network NIC mirrored InterNIC's zone distribution over HTTP and
     # Wayback captured it, which is how a family closed twice for "no in-window zone file
     # survives" turned out to have one. Self-dating on the SOA serial inside each file.

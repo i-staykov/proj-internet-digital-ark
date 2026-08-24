@@ -21,7 +21,8 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `cctld_register_listing_inbody` | `artifact_listing` | the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at that instant | 2,856 |
 | `coza_deletion_listing` | `cdx_timestamp` | the Wayback capture stamp on the page, since the listing carries no in-body date at all, and a name shortlisted for deletion is one the registry is stating is registered right now | 2,721 |
 | `fac_single_audit` | `dated_directory` | that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down | 2,407 |
+| `dartmouth_bfs_seed` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split | 1,420 |
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**8 rows, 22,018 equivalent-English waiting on a word.**
+**9 rows, 23,438 equivalent-English waiting on a word.**
