@@ -538,6 +538,42 @@ Decision: pending
 
 Decision: pending
 
+### jpnic_register / artifact_listing
+
+- measured: 1623.0 net-new post-split EE over 26,827 (domain, 1999) pairs, measured 2026-08-24 against
+  the live store. An agent reported the same figure; I reparsed and repriced from the bytes and it
+  agrees to the decimal
+- what dates one item: the file's own header line, `Registered Domains in JP (Apr 30 1999): 72769`, so
+  the registry is stating its register's contents on 30 April 1999. Machine-generated, no split.
+  Evidences 1999 and no other year, per rule 6
+- **licence: EXPLICIT PERMISSION, which is why this is worth deciding even at 1,623 EE.** Lines 3 to 10
+  carry JPNIC's open-document notice, ending: as long as this copyright notice is included, anyone may
+  freely reprint, reproduce and redistribute it. That is the opposite of the RIPE blocker sitting above
+  it in this queue
+- ingest specs: `jpnic_register`
+- collect it: `curl -o data/raw/jpnic_tomocha/domain-list.txt https://tomocha.net/files/dns/domain-list.txt`,
+  one request, 6.2 MB. `robots.txt` explicitly `Allow: /files/`
+- the artifact: `https://tomocha.net/files/dns/domain-list.txt`, 6,185,475 bytes,
+  `Last-Modified: Fri, 30 Apr 1999 04:43:08 GMT`. JPNIC's own register of every registered `.jp` name,
+  frozen on a personal DNS document mirror while JPNIC's own tree kept only policy prose
+- **completeness proved by the file's own arithmetic, not asserted**: each of 63 sections declares its
+  own size and **62 reconcile exactly**; the total lands at 72,770 against a declared 72,769, one over
+  in `co.jp`
+- measured composition: 72,704 distinct registrable names, 45,877 already dated 1999, 61,074 dated in
+  some year, **11,630 the store has never seen**. Second levels: `co.jp` 55,715, `ne.jp`, `gr.jp`,
+  `or.jp`, plus 47 geographic sections
+- **the trap, worth 4.4x**: 45,662 entries are marked reserved and 923 abolished, and neither was ever
+  a registration. The reserved ones are municipal and school names JPNIC held back. Counting them gives
+  about 4,394 EE instead of 1,623, and the registry's own header count excludes them, which is how the
+  parse is checked
+- `.jp` weighs 0.0605, the second-lowest in the model, so 26,827 pairs are worth 1,623 EE. This clears
+  the bar on volume alone
+- lineage: `registry`, independent of every web crawl
+- potential: 62
+
+Decision: pending
+
+
 ### uk_gazette_addressed_notices_1998_2001 / link_source
 
 - potential: 62

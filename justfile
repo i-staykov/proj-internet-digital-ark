@@ -204,6 +204,7 @@ sources:
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
+    uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
     uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
