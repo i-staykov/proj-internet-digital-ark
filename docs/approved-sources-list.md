@@ -237,7 +237,11 @@ Decision: master
 - source: https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz
 - journal: `data/raw/internic_zones/org.zone.gz`
 
-Decision: pending
+Decision: master
+Decided by Ivo, 2026-08-24. The grounds are the artifact alone: the SOA serial `1997041800` sits on
+line 2 inside the payload, and an IA crawl two days later fixes when the file existed. An NS record
+in a zone is the delegation itself rather than a description of one, which is why killer 2 does not
+reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
