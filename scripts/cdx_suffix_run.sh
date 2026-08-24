@@ -39,6 +39,31 @@ SUFFIXES=(
     com.pk com.ng co.ke
 )
 
+# Round 1 walked the list above. These are the unswept high-weight namespaces,
+# ordered by English share times expected in-window volume: .au 0.9904,
+# .nz 0.9895, .uk 0.9813, .za 0.9682, .us 0.9261. The `.us` locality tree is the
+# long one, and it is schools, towns and libraries rather than authorities, which
+# is the population the store is least saturated on.
+SUFFIXES_R2=(
+    org.uk net.uk
+    co.nz org.nz school.nz
+    org.au net.au edu.au
+    co.za org.za ac.za
+    k12.wa.us k12.ga.us k12.nj.us k12.mn.us k12.mo.us k12.wi.us k12.in.us
+    k12.tn.us k12.az.us k12.co.us k12.md.us k12.sc.us k12.ky.us k12.al.us
+    state.ca.us state.wa.us state.oh.us state.mi.us state.va.us state.nc.us
+    lib.tx.us lib.fl.us lib.oh.us lib.pa.us cc.ca.us cc.tx.us
+)
+
+# ARK_SUFFIXES overrides the list, space separated. Fixed at startup like every
+# other collector target, so editing it mid-run changes nothing.
+if [ -n "${ARK_SUFFIXES:-}" ]; then
+    # shellcheck disable=SC2206
+    SUFFIXES=(${ARK_SUFFIXES})
+elif [ -n "${ARK_SUFFIX_ROUND2:-}" ]; then
+    SUFFIXES=("${SUFFIXES_R2[@]}")
+fi
+
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
 LOCK="data/logs/cdx_suffix.lock"
