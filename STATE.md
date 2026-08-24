@@ -1,43 +1,42 @@
-# State, 2026-08-23 20:50Z (paused for tokens, wake 00:20Z / 02:20 CEST)
+# State, 2026-08-24 01:15Z
 
 ## Position
-Gate **668,118 EE** (5% of `merged260821`, fixed until Ding reissues). Hold **372,772**. **Gap 295,347.**
-Store accrues 2,553-4,152 EE/hour, so querying alone is 3-5 days. **Only a bulk dated corpus closes this.**
+**386,428.95 EE, 2.891919% growth. Gate 668,118.44 (5% of `merged260821`, fixed). 57.8% of it.**
+Gap **281,689 EE**. Engines delivered ~3,900 EE/hour overnight, so the gap is ~72 hours of querying.
 
-## Running, do not restart
+## Delivery: built and verified, NOT sendable (below the gate)
+`submissions/phase-6/`, built 2026-08-24T00:45:07Z at commit `de44f5ce`, baseline `merged260821`.
+**1,941,273,504 bytes, 276 files**, sha256 `70299a90...85da7`. **All nine checks pass**, D1-D4 included.
+D3 reconciles 22/22 with overlap zero. `ARK_SLIM=1` omits the 3.4 GB of raw journals; tier 2 unaffected.
+
+## Running
 2 RDAP workers, 1 CDX supervisor + worker, `maintain.sh`. Hourly cron `cccba25e` fires the hunt cycle.
 
-## In flight, collect these first
-- `w2zfevh5g` bulk-corpus-hunt: 9 untried artifact kinds (software release feeds, regulatory filings,
-  award lists, ezines, hosting lists, domain market, library catalogues, academic supplementary, wildcard).
-  Each must price net-new EE against the store. **Verify every number before acting.**
-- `wp3qhqt60` hunt-new-sources: 3 verdicts still pending (LoC US Elections 2000, Netarkivet and Arquivo
-  link graphs).
+## Spend limit is exhausted
+10 of 11 agents in the last hunt failed on it. **No further subagents or workflows will run**, so hunting
+is single-threaded until the limit resets.
 
-## Measured and closed tonight, do not retry
-| candidate | net-new EE |
-|---|--:|
-| Dartmouth/NBER reopened (item answers again, payload already banked) | **0** |
-| Zenodo banner ads | 433 |
-| AFNIC `.fr` back editions (OPENDATA is a current-state snapshot, so back editions add nothing) | 782 |
-| ODP alternate dump host `rdf.dmoz.org` | 0 in-window captures |
-| Usenet mention promotion re-run | 163 |
+## Closed on measurement, never retry
+Dartmouth reopened **0** (payload already banked) | ODP alt host **0** | Zenodo banner ads **433** |
+AFNIC back editions **782** | promotion re-run **163** | FAC Single Audits **2,407** |
+SEC EDGAR extended **5,884** | USPTO unretrievable | Companies House out of window.
 
-**UKWA host linkage, C-30, re-probed and still shut.** Our copy is exactly 2147483648 bytes, a 2 GiB
-replay cap rather than a network drop, so the other 18.9 GB is structurally unreachable. The resolved
-capture `20200106181208id_` refuses ranged requests at transport level while a CDX control returns 200,
-and the original host still serves a 159-byte stub. Worth ~1.1M EE if it ever opens: re-probe, do not
-re-reason.
+**Screening test earned tonight: a current-state snapshot cannot evidence a past year.** AFNIC and
+Companies House both died on it. Apply before downloading.
 
-## Done tonight
-- ~30,000 lines deleted: `docs/archive/`, `legacy/`, 3 handoffs, 24 one-shot scripts.
-- `CLAUDE.md` 59 lines with a prompted hierarchy and a change-the-method-not-the-effort rule.
-- Report template cut 363 -> 212 lines, architecture section 121 -> 50, collector table 38 -> 20 rows.
-- Email fully generated from `docs/email-sections.md`; no hand-work left in the ship path.
+**UKWA host linkage (~1.1M EE if it opens) is still shut.** Our copy is exactly 2147483648 bytes, a 2 GiB
+replay cap. Capture `20200106181208id_` refuses ranged requests while a CDX control returns 200; the
+origin serves a 159-byte stub. Re-probe, do not re-reason.
 
-## Open risks
-- Archive is 1.9 GB against a ~1 GB target. `evidence.parquet` is 1.3 GB and 86% of it is the reviewer's
-  own baseline returning to him. A consistent slice (drop baseline rows from BOTH `domain_year` and
-  `evidence`) lands near 300 MB, but dropping one side alone broke tier-2 reproduction once, so the slice
-  must be cut on both or not at all. Not attempted yet.
-- `docs/sources.md` compression was discarded: 66 blocking fact losses, 4 blocking reproduction.
+## Best unbuilt source
+**SEC EDGAR extended, 5,884 EE.** Dated by EDGAR's own `Date Filed` over 222,232 in-window filings of
+8-K, DEF 14A and 10-KSB, taking printed URLs and e-mail domains. Collector is straightforward.
+
+## Needs Ivo
+`internic_zone` and `ukwa_geoindex`: one word each, ~13,000 EE claimed, both stale-downward so re-price
+before quoting. Neither changes the arithmetic.
+
+## Open
+Archive is 1.94 GB against a ~1 GB target. `provenance/` is 1.6 GB and 86% of it is the reviewer's own
+baseline evidence. Dropping it alone left 11,316,960 `domain_year` rows pointing at missing evidence and
+failed `ark check` inside the archive, so the slice must be cut on both sides or not at all.
