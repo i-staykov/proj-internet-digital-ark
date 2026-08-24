@@ -11,6 +11,7 @@ import duckdb
 from loguru import logger
 
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
+from ark.delegation import sql_predicate
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -34,6 +35,7 @@ _NOT_IN_BASELINE = f"""
     )
 """
 
+
 # **A reverse-DNS zone is not a website and must not ship, whoever listed it first.**
 #
 # `ark.canonical` refuses them at the funnel since 2026-08-18, so no new one can arrive, but 63
@@ -55,9 +57,29 @@ _NOT_IN_BASELINE = f"""
 # (`in-addr`, `ip6`, `e164`, `uri`, `urn`, `iris`). Narrowing to `in-addr` and `ip6` left exactly
 # one survivor in the annual files, `ignore.arpa` in 2000, which is a placeholder scoring 1.0000,
 # so the narrow rule was catching the shape and missing the class.
-_NOT_REVERSE_DNS = """
-    domain NOT LIKE '%.arpa'
-"""
+#
+# **The same filter now also drops a pair whose TLD did not yet exist**, which is the general form
+# of the same mistake: 1,087 assigned pairs predated their own TLD's delegation, `.eu` 409 and
+# `.info` 202 among them. `ark.delegation` owns the years, so the list is in one place rather than
+# repeated at each of the four destinations this predicate reaches.
+def _shipping_filter(prefix: str = "", with_year: bool = True) -> str:
+    """The rows allowed into a shipped file, for a given table alias.
+
+    Built per call site rather than string-replaced. The `.arpa` rule survived a blanket
+    `.replace("domain", "dy.domain")`, but the delegation rule also names `assigned_year`, and that
+    replace leaves the year unqualified: the first export after wiring it in died on an unqualified
+    column in three of the four destinations.
+    """
+    dom = f"{prefix}domain" if prefix else "domain"
+    if not with_year:
+        # The candidate pool claims no year, so "the TLD did not exist yet" cannot apply to it.
+        # Only the `.arpa` rule does, which is a statement about the name rather than about a year.
+        return f"{dom} NOT LIKE '%.arpa'"
+    year = f"{prefix}assigned_year" if prefix else "assigned_year"
+    return f"{dom} NOT LIKE '%.arpa'\n      AND {sql_predicate(dom, year)}"
+
+
+_NOT_REVERSE_DNS = _shipping_filter()
 
 
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
@@ -83,7 +105,7 @@ def export_all(
         netnew_query = f"""
             SELECT DISTINCT dy.domain FROM domain_year dy
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
-              AND {_NOT_REVERSE_DNS.replace("domain", "dy.domain")}
+              AND {_shipping_filter("dy.")}
             ORDER BY dy.domain
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
@@ -101,7 +123,7 @@ def export_all(
         JOIN evidence e ON dy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
         WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
-          AND {_NOT_REVERSE_DNS.replace("domain", "dy.domain")}
+          AND {_shipping_filter("dy.")}
         ORDER BY dy.domain, dy.assigned_year
     """
     path = netnew_dir / "evidence_manifest.csv"
@@ -113,7 +135,7 @@ def export_all(
         SELECT d.domain FROM domain d
         WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
           AND """
-        + _NOT_REVERSE_DNS.replace("domain", "d.domain")
+        + _shipping_filter("d.", with_year=False)
         + """
         ORDER BY d.domain
     """
