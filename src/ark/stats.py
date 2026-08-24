@@ -61,6 +61,9 @@ PROVENANCE_LINEAGE = {
     # it here rather than as its own family keeps the independent-corroboration
     # count honest, which is the whole point of that measure.
     "nypw_firstcdx": "internet_archive",
+    # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
+    # shares the lineage for the same reason NYPW does.
+    "dartmouth_bfs_seed": "internet_archive",
     # The Dartmouth/NBER census is the Internet Archive counting its own captures,
     # so it shares that lineage for exactly the reason NYPW does. Filing it here
     # costs us a corroboration statistic we could otherwise have quoted, and that

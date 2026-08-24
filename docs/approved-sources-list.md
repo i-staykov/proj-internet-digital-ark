@@ -310,6 +310,38 @@ Decision: pending
 
 Decision: pending
 
+### dartmouth_bfs_seed / cdx_timestamp
+
+- measured: 1419.9 net-new post-split EE over 2,460 pairs, measured 2026-08-24 over the COMPLETE level 0,
+  three of three files and 13.6 MB, not sampled
+- what dates one item: the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with
+  field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split
+- ingest specs: `dartmouth_bfs_seed`
+- collect it: `uv run python scripts/collect_dartmouth_bfs_seed.py`, 3 requests, 13.6 MB
+- the artifact: IA ran a breadth-first crawl seeded with URLs pulled from SEC 10-K filings and deposited
+  it as `Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls`, 204 items and 2,064 GB under
+  `CorporationWebsitesCollection`. **Only BFS level 0, the seed layer, is worth reading.**
+- source: https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls
+- **not the closed ARCS family**: `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` measured exactly zero net-new
+  because every capture in it is of a host on the NBER corporate list whose capture census we had banked.
+  This is a different and much larger seed population, from 10-K filings rather than that list
+- measured composition: 311,543 rows, 58,035 in-window HTTP 200s, 57,878 distinct pairs, 55,418 already
+  held, 2,460 net-new, 104.7 EE per MB. `com` 2,001 of 2,460; **2,377 land in 2001**; 440 of the names
+  the store has never seen
+- **the rest of the family is not worth downloading and this was measured, not assumed**: levels 2 and 3
+  are 92 of the 102 ARC items and three indexes there gave 0.00, 0.00 and 0.59 EE per MB, one level-1
+  index gave 1.93, against level 0's 104.7. A rate sampled from the shallow files overstates the family
+  about six-fold. The 102 `_warc` items are 2012-2019 with zero in-window rows
+- access note: the merged item-level `.cdx.gz` returns HTTP 401 while the per-file `.arc.os.cdx.gz`
+  returns 200. The restriction is on the merged object, not the parts, and `access-restricted-item: true`
+  predicts neither. `archive.org` downloads are a different service from `web.archive.org` replay, so
+  this spends neither archive-client slot
+- lineage: `internet_archive`, so it cannot inflate the independent-corroboration count
+- potential: 74
+
+Decision: pending
+
+
 ### junkfilter_dated_blocklist / dated_directory
 
 - potential: 74
