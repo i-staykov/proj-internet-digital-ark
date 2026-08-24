@@ -369,6 +369,79 @@ def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # regenerated its WHOLE register as static A-Z pages and Wayback captured them.
 # Two editions, two wordings. `/statistics/` writes "updated automatically at 14:51 GMT on
 # Friday, 21 December 2001"; the earlier `/lists/` tree writes "Last updated 27 Nov 1999".
+# JPNIC's own register of every registered `.jp` name, frozen on a personal DNS
+# document mirror at 1999-04-30 while JPNIC's own tree kept only policy prose.
+#
+# **Three details, each of which produced a wrong number before it was handled.**
+#
+# 1. **Shift-JIS, and it must be split on CRLF rather than by `splitlines()`.** The
+#    Japanese organisation names contain bytes that Python treats as line breaks
+#    (NEL, 0x85), so `splitlines()` shatters comments into phantom entries.
+# 2. **A label is not a domain.** Entries carry the label alone and the suffix comes
+#    from the section header: `AAA` under `------ AD domains:` is `aaa.ad.jp`. Labels
+#    in the geographic sections contain dots of their own (`CITY.CHITOSE`), so a
+#    dot-free label pattern reads 65 Hokkaido entries as 1.
+# 3. **45,662 entries are marked reserved and 923 abolished, and neither was ever a
+#    registration.** The reserved ones are municipal and school names JPNIC held back.
+#    Counting them inflates the source 4.4x, from 1,623 EE to about 4,394.
+#
+# The parse is checked against the file's own arithmetic rather than trusted: each
+# section declares its own size and **62 of 63 reconcile exactly**, the total landing
+# at 72,770 against a declared 72,769, one over in `co.jp`.
+#
+# Licence, unusually for this family, is explicit permission. Lines 3 to 10 carry
+# JPNIC's open-document notice, which ends: as long as this copyright notice is
+# included, anyone may freely reprint, reproduce and redistribute it.
+_JPNIC_SECTION = re.compile(r"^-{3,}\s*(\S+)\s+domains:\s*([\d,]+)\s*\(([\d,]+)\)")
+_JPNIC_ENTRY = re.compile(r"^\(?\s*([A-Za-z0-9][A-Za-z0-9\-.]*)\s+#")
+_JPNIC_STAMP = re.compile(r"Registered Domains in JP \(([A-Za-z]{3} \d{1,2} (\d{4}))\)")
+_JPNIC_RESERVED = "\u4e88\u7d04\u30c9\u30e1\u30a4\u30f3\u540d"  # reserved domain name
+_JPNIC_ABOLISHED = "\u5ec3\u6b62"  # abolished
+
+
+def parse_jpnic_register(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per registered `.jp` name, dated by the file's own stamp."""
+    text = path.read_bytes().decode("shift_jis", errors="replace")
+    lines = text.split("\r\n")
+
+    stamp = _JPNIC_STAMP.search(text)
+    if not stamp:
+        stats["no_header_stamp"] += 1
+        return
+    year = int(stamp.group(2))
+    if year not in YEARS:
+        stats["out_of_window_edition"] += 1
+        return
+
+    suffix: str | None = None
+    for line in lines:
+        section = _JPNIC_SECTION.match(line)
+        if section:
+            tag = section.group(1).lower()
+            suffix = "jp" if tag == "jp" else f"{tag}.jp"
+            continue
+        if suffix is None:
+            continue
+        entry = _JPNIC_ENTRY.match(line)
+        if not entry:
+            continue
+        if _JPNIC_RESERVED in line:
+            stats["reserved_never_registered"] += 1
+            continue
+        if _JPNIC_ABOLISHED in line:
+            stats["abolished"] += 1
+            continue
+        name = to_registrable(f"{entry.group(1).lower()}.{suffix}")
+        if not name:
+            stats["not_registrable"] += 1
+            continue
+        yield BulkRecord(
+            raw=name,
+            year=year,
+            evidence_value=f"jpnic register listing {stamp.group(1)}",
+        )
+
+
 _IEDR_FOOTER = re.compile(
     r"(?:updated\s+automatically\s+at|last\s+updated)\s+.{0,80}?((?:19|20)\d\d)",
     re.I | re.S,
@@ -1059,6 +1132,15 @@ SOURCES: dict[str, SourceSpec] = {
     # 0's 104.7, so extrapolating a shallow rate across the family overstates it
     # about six-fold. The WARC half of the collection is 2012-2019 with zero
     # in-window rows.
+    # JPNIC's register at 1999-04-30, frozen on a personal mirror. Permissive licence,
+    # unusually: JPNIC's open-document notice grants free redistribution.
+    "jpnic_register": SourceSpec(
+        key="jpnic_register",
+        source_name="jpnic_register",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_register_listing",
+        parse=parse_jpnic_register,
+    ),
     "dartmouth_bfs_seed": SourceSpec(
         key="dartmouth_bfs_seed",
         source_name="dartmouth_bfs_seed",

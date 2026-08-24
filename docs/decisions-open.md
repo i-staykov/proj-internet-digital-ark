@@ -22,10 +22,11 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `cctld_register_listing_inbody` | `artifact_listing` | the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at that instant | 2,856 |
 | `coza_deletion_listing` | `cdx_timestamp` | the Wayback capture stamp on the page, since the listing carries no in-body date at all, and a name shortlisted for deletion is one the registry is stating is registered right now | 2,721 |
 | `fac_single_audit` | `dated_directory` | that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down | 2,407 |
+| `jpnic_register` | `artifact_listing` | the file's own header line, `Registered Domains in JP (Apr 30 1999): 72769`, so the registry is stating its register's contents on 30 April 1999. Machine-generated, no split. Evidences 1999 and no other year, per rule 6 | 1,623 |
 | `dartmouth_bfs_seed` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split | 1,420 |
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**10 rows, 114,237 equivalent-English waiting on a word.**
+**11 rows, 115,860 equivalent-English waiting on a word.**
 
 42 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `can_domain_registry_notices / whois_creation`, `caselaw_access_project_opinions / dated_directory`, `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `content_filter_blacklists / artifact_listing`, `courtlistener_caselaw / dated_directory`, `cybernot_cphack_blacklist / artifact_listing`, `discmaster_by_file_size / artifact_listing`, `discmaster_media_index / dated_directory`, `dnsrf_dap_udrp_multiprovider / artifact_listing`, `domain_aftermarket_listings_1999_2001 / artifact_listing`, `early_bulk_whois_snapshot / whois_creation`, `eric_fulltext_1996_2001 / dated_directory`, and 30 more.

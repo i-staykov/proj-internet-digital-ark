@@ -85,6 +85,7 @@ PROVENANCE_LINEAGE = {
     # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
     "iedr_register": "registry",
+    "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",
