@@ -285,10 +285,15 @@ cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 # superseded baseline while asserting in `baseline/README.txt` that it was the one
 # the figures mean. Scoring these additions against it gives a different answer
 # than the report claims, and nothing in the archive would have revealed why.
+# `shlex.quote`, because the reviewer's own directory names contain spaces:
+# `feedback-phase-6/Domain_Data_Collection_Task 2/merged260821`. Unquoted, `eval` split
+# that into three words and ran `2/merged260821` as a command, so the baseline never
+# reached the archive and packaging died at the copy with "No such file or directory".
 eval "$(uv run python -c "
+import shlex
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
-print(f'MERGED={CURRENT_BASELINE_DIR}')
-print(f'MARKER={CURRENT_BASELINE_MARKER}')
+print(f'MERGED={shlex.quote(str(CURRENT_BASELINE_DIR))}')
+print(f'MARKER={shlex.quote(CURRENT_BASELINE_MARKER)}')
 ")"
 mkdir -p "$STAGE/baseline/original" "$STAGE/baseline/$MARKER"
 cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/original/" 2>/dev/null || true
