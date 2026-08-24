@@ -32,11 +32,14 @@ Decision: master
   store; 4,559 of them `.uk` and 4,565 of them 2001
 
 - ingest specs: `ukwa_geoindex`
-- what dates one item: the 14-digit Internet Archive capture timestamp that prefixes every row. A
-- the artifact: the geographic index of the JISC UK Web Domain Dataset, every `.uk` resource the
+- what dates one item: the 14-digit Internet Archive capture timestamp that prefixes every row, so a capture in 1999 evidences 1999 and nothing else. Nothing in the file was typed by a human, so no corroboration split
+- the artifact: the geographic index of the JISC UK Web Domain Dataset, 11,217,295,098 bytes under CC Public Domain Mark 1.0 at `https://bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f`, one row per capture as `<14-digit timestamp>/<url><TAB><postcode>`, every `.uk` resource the
 - potential: 100
 
-Decision: pending
+Decision: master
+Decided by Ivo, 2026-08-24. The grounds are the row itself: a 14-digit IA capture timestamp is a
+record of the capture, so it dates that year and no other, and nothing in the file was typed. The
+bulk-projection exception to killer 1 applies, as it did for `dartmouth_nber_captures`.
 
 ### arquivo_roteiro / cdx_timestamp
 

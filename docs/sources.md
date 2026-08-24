@@ -1291,8 +1291,15 @@ members were streamed and filtered by `scripts/ukwa_geoindex_pull.sh`, then pric
 | domains the store had never seen | 45,122 |
 | **net-new equivalent-English** | **77,749.1** at mean weight 0.9810 |
 
-A parser is registered as `ukwa_geoindex` / `cdx_timestamp`, and **the class is still `pending`, so
-`ark ingest` refuses it**; a parser is not a permission.
+**ADMITTED MASTER 2026-08-24, at 4,493.0 EE rather than the 77,749.1 above, and the decay is the
+finding.** The grounds are the row itself: a 14-digit IA capture timestamp is a record of the capture,
+so it dates that year and no other, and nothing in the file was typed by a human. The bulk-projection
+exception to killer 1 applies here as it did for `dartmouth_nber_captures`. Re-priced on the day of the
+decision over the same 17,912,511 rows and the same 289,857 distinct pairs: **285,266 already held,
+4,591 net-new, 4,493.0 EE at mean weight 0.9786**, 4,556 of them `.uk`. Ingested at 4,591 year rows,
+matching the price to the pair. Nothing about the file changed between the two measurements; the store
+grew into it. **A source's worth decays while it waits, and this is the measured case: 94% of it in
+four days.**
 
 **The sortedness check below was run, passed, and was still not enough, which is the part worth
 keeping.** `postcode-ab` was streamed to EOF: **0 timestamp decreases over all 529,492,931 compressed
