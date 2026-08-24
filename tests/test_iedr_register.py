@@ -68,3 +68,34 @@ def test_a_page_with_no_date_line_yields_nothing(tmp_path):
     records, stats = _records(tmp_path, "<html><body>orphan.ie<br></body></html>")
     assert records == []
     assert stats["no_footer_date"] == 1
+
+
+LISTS_PAGE = """<html><body>
+<p>[ 0-9 | A | B ]</p>
+oldname.ie<br>
+another.ie<br>
+<p>Last updated 27 Nov 1999</p>
+</body></html>
+"""
+
+
+def test_the_earlier_lists_tree_wording_is_also_read(tmp_path):
+    records, stats = _records(tmp_path, LISTS_PAGE, name="19991128191652_a-doms.html")
+    assert {r.year for r in records} == {1999}
+    assert {r.raw for r in records} == {"oldname.ie", "another.ie"}
+    assert stats["no_footer_date"] == 0
+
+
+def test_a_pending_applications_page_is_never_read_as_a_register(tmp_path):
+    # stalled.html lists names nobody had registered yet.
+    stalled = LISTS_PAGE.replace("oldname.ie", "notyetregistered.ie")
+    records, stats = _records(tmp_path, stalled, name="19991128233948_stalled.html")
+    assert records == []
+    assert stats["not_a_register_page"] == 1
+
+
+def test_the_registrys_own_prose_pages_are_not_registers(tmp_path):
+    for name in ("19991129020519_weekly.html", "19991128213509_dom-list.html"):
+        records, stats = _records(tmp_path, LISTS_PAGE, name=name)
+        assert records == []
+        assert stats["not_a_register_page"] == 1

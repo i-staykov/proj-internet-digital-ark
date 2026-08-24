@@ -367,7 +367,16 @@ def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # The IE Domain Registry, run by University College Dublin Computing Services,
 # regenerated its WHOLE register as static A-Z pages and Wayback captured them.
-_IEDR_FOOTER = re.compile(r"updated\s+automatically\s+at\s+.{0,80}?((?:19|20)\d\d)", re.I | re.S)
+# Two editions, two wordings. `/statistics/` writes "updated automatically at 14:51 GMT on
+# Friday, 21 December 2001"; the earlier `/lists/` tree writes "Last updated 27 Nov 1999".
+_IEDR_FOOTER = re.compile(
+    r"(?:updated\s+automatically\s+at|last\s+updated)\s+.{0,80}?((?:19|20)\d\d)",
+    re.I | re.S,
+)
+# Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
+# are names nobody had registered yet, and reading it would manufacture registrations that
+# never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+_IEDR_PAGE = re.compile(r"(?:^|_)(?:0-9|[a-z])-doms\.html$", re.I)
 _IEDR_NAME = re.compile(r"\b([a-z0-9][a-z0-9\-]{0,60}(?:\.[a-z0-9\-]{1,60})*\.ie)\b")
 _IEDR_SELF = ("domainregistry.ie", "iedr.ie")
 
@@ -386,10 +395,17 @@ def parse_iedr_register(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     regex over raw HTML matches on most pages and silently misses others. Three pages were lost
     that way on the first pass, which understates rather than errs loudly.
 
+    **Only a letter page is a register.** The same trees publish `stalled.html`, which lists
+    PENDING APPLICATIONS: names nobody had registered yet. Reading it would manufacture
+    registrations that never happened, so the filename is checked before the date is.
+
     This is `artifact_listing`: a register regeneration is the registry stating which names were
     registered at a stated instant, the same instrument as an InterNIC zone file. Nobody typed
     the list, so no corroboration split applies. It says nothing about any other year.
     """
+    if _IEDR_PAGE.search(path.name) is None:
+        stats["not_a_register_page"] += 1
+        return
     text = path.read_text(encoding="utf-8", errors="replace")
     flat = re.sub(r"<[^>]+>", " ", text)
     found = _IEDR_FOOTER.search(flat)

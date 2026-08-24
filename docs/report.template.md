@@ -80,6 +80,27 @@ is exhausted", and remotely it was alive and therefore looked fine while running
 instead of 95. **A running collector is not a working one, and a supervisor's guess at why it stopped is
 not evidence.**
 
+**One method changed the question: generate the targets rather than discover them.** Finding candidate
+names has never been this project's constraint; dating them has. So instead of hunting for more names we
+asked which *generated* population is densest in in-window registrations, and measured four against each
+other using the registry's own creation dates. English dictionary words carry an in-window creation date
+on **28.00%** of queries and pay **13.5 equivalent-English per thousand queries**; siblings of names we
+already hold under another gTLD pay 9.7; random four-character strings 6.3; and invented two-word
+compounds pay **nothing at all**, zero in-window in 859 queries. The engine's own candidate list pays
+about 4.8, so the best generated population is worth nearly three times the discovered one, and it does
+not run out: the sibling queue is 14,080,169 names of which 2.3% had ever been queried. The dictionary
+result also says something we did not expect. Real English words skew **1996-1999**, our thinnest years,
+and are still 92.4% already held, so saturation is not a property of famous names.
+
+**And a shape transfers where a host does not.** The largest new source this round was found by asking
+what *kind* of artifact a registry of that era produced, not which registry we had not tried. The IE
+Domain Registry regenerated its whole register as static A-Z web pages carrying their own line, `updated
+automatically at 14:51 GMT on Friday, 21 December 2001`. That is the same instrument as a DNS zone file:
+the registry asserting what was registered at a stated instant, rather than a directory listing names it
+happens to know. **18,512 net-new pairs and 18,038 equivalent-English** from 27 HTTP requests and 724 KB.
+The same question is now being asked of every other namespace whose registry was run by a university
+computing service, which is where these artifacts survive.
+
 **Four measurement rules, each bought with a wasted day.** Gross and net yield differ by more than 10x,
 and a population that looks spectacular on gross was 97.9% already dated. Per-query and total yield point
 opposite ways, so optimising the wrong one is easy. Ranking a queue by TLD weight alone fills it with

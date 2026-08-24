@@ -241,17 +241,21 @@ Decision: pending
 
 ### iedr_register / artifact_listing
 
-- measured: 18038.1 net-new post-split EE over 18,512 pairs, counted three times independently on
-  2026-08-24 and agreeing to within 0.3%
+- measured: 18845.9 net-new post-split EE over 19,341 pairs, one measurement over both trees on
+  2026-08-24; the 2001 tree alone was counted three times independently and agreed to within 0.3%
 - what dates one item: the page's own machine-written line, `updated automatically at 14:51 GMT on
   Friday, 21 December 2001`, and a register regeneration is the registry stating what was registered
   at that instant
 - ingest specs: `iedr_register`
 - the artifact: the IE Domain Registry, run by University College Dublin Computing Services, published
-  the whole `.ie` register as static A-Z pages at `domainregistry.ie/statistics/<letter>-doms.html`.
-  26 in-window pages hold 24,805 distinct names; `l-doms.html` resolves to a March 2002 edition and the
-  parser drops it whole
-- collect it: `uv run python scripts/collect_iedr_register.py`, 27 requests, 724 KB
+  the whole `.ie` register as static A-Z pages. Two trees: `/statistics/` gives 26 in-window pages and
+  24,805 names at December 2001, and the earlier `/lists/` gives 8 pages at November 1999 and March 2000.
+  `l-doms.html` resolves to a March 2002 edition and the parser drops it whole. `stalled.html` is PENDING
+  APPLICATIONS and is excluded by filename, because reading it would invent registrations
+- collect it: `uv run python scripts/collect_iedr_register.py`, 38 requests, 1.1 MB
+- years: 18,512 pairs at 2001, **812 at 1999**, 17 at 2000. The 1999 pairs come from the `/lists/` tree
+  and land in a thin year; the 2000 side is worth 17 pairs because the baseline already used a 2000
+  edition of this same artifact
 - potential: 96
 - what makes it worth it: `.ie` weighs 0.9744, so a pair here is worth 1.54 of a `.com` one, and the
   store holds 18,438 `.ie` at 2000 against 6,598 at 2001, which is exactly the hole this fills. Machine
