@@ -73,7 +73,7 @@ ship as `candidates.txt`, kept out of the annual files.
 
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| `cdx_suffix` | 26 | 1,270,463 | 1,270,463 | 100.0% | 100.0% | 56,516 | 2,454,234 |
+| `cdx_suffix` | 27 | 1,326,979 | 1,326,979 | 100.0% | 100.0% | 56,516 | 2,565,971 |
 | `cdx_pool` | 200 | 126,345 | 109,728 | 86.8% | 47.0% | 110,077 | 71,044 |
 | `cdx_q1` | 214 | 63,919 | 55,844 | 87.4% | 71.9% | 55,943 | 127,552 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
@@ -90,9 +90,9 @@ ship as `candidates.txt`, kept out of the annual files.
 | `cdx_disc` | 6 | 3,222 | 3,192 | 99.1% | 44.6% | 3,193 | 2,032 |
 | `cdx_discovered` | 1 | 298 | 233 | 78.2% | 85.0% | 298 | 278 |
 | `cdx_edgepilot_b` | 1 | 155 | 141 | 91.0% | 80.9% | 155 | 325 |
-| **All** | **856** | **1,677,326** | **1,633,847** | **97.4%** | **93.8%** | **379,531** | **3,133,091** |
+| **All** | **857** | **1,733,842** | **1,690,363** | **97.5%** | **94.1%** | **379,531** | **3,244,828** |
 
-Of 1,677,326 queries, 1,633,847 were answered (97.4%). The 43,479 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,124 (0.19%)**: 0 rate limits (429), 2,155 server errors (500, 502, 503, 504) and 969 refusals (403). **Transport-level failures are 40,355 (2.41%)**: 29,171 connections refused or reset and 11,184 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
+Of 1,733,842 queries, 1,690,363 were answered (97.5%). The 43,479 that were not divide into two kinds, and the smaller kind is the one usually discussed. **HTTP-level errors are 3,124 (0.18%)**: 0 rate limits (429), 2,155 server errors (500, 502, 503, 504) and 969 refusals (403). **Transport-level failures are 40,355 (2.33%)**: 29,171 connections refused or reset and 11,184 timed out. So the binding constraint is not a status code we could read and obey, it is the connection being dropped before a status exists. Rate limits and server errors are retried with exponential backoff honouring `Retry-After`; refusals and timeouts are retried with a widening delay and then requeued, so no domain is lost by one failure; a 403 is treated as a permanent answer for that host and is not retried.
 
 ## 5. The discovery method, and what changed this round
 

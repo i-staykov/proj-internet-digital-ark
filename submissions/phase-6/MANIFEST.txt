@@ -1,9 +1,9 @@
 round        phase-6
-built        2026-08-24T00:38:27Z
-commit       df7478baac161a71b18961daf2bb89a026c9c29e
+built        2026-08-24T00:45:07Z
+commit       de44f5ce06df30410394ca230cc342515ef17478
 baseline     merged260821
 archive      internet-digital-ark-1996-2001.tar.gz
-sha256       6521aeb55c5fd82e383f05c81359e78059cb38aa5439328b8565e796a0b23fc4
-bytes        5282215349
-files        3500
+sha256       70299a906fe9c2d829aa4ef85ea5f9c459e2eb5f194f80379f71e1358a185da7
+bytes        1941273504
+files        276
 netnew_pairs 616037
