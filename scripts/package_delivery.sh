@@ -249,9 +249,15 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
 # Same find expression as the guard below, so the two cannot disagree.
-find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -print0 \
-    | tar -cf - --null -T - 2>/dev/null \
-    | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
+# ARK_SLIM=1 omits the raw journals, which are 3.4 GB of the 4.9 GB archive and are read
+# by none of the nine delivery checks. They exist for tier-3 replay, re-parsing the raw
+# sources offline; tier 2, which reproduces every shipped assignment from the provenance
+# Parquet, is unaffected. The omission is asserted below rather than left to be noticed.
+if [ -z "${ARK_SLIM:-}" ]; then
+    find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -print0 \
+        | tar -cf - --null -T - 2>/dev/null \
+        | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
+fi
 
 # The retired English engine's superseded verdict journals are no longer shipped.
 # They were kept beside the current ones under `journals/lang_superseded/` so a
@@ -407,7 +413,21 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 # documents. Counting is cheap and catches the next one.
 ON_DISK=$(find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' | wc -l | tr -d ' ')
 SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
-if [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
+if [ -n "${ARK_SLIM:-}" ]; then
+    if [ "$SHIPPED_JOURNALS" != "0" ]; then
+        echo "refusing to package: ARK_SLIM set but $SHIPPED_JOURNALS journals staged" >&2
+        exit 1
+    fi
+    cat > "$STAGE/journals/README.txt" <<'SLIM'
+The raw per-source journals are deliberately not in this archive.
+
+They are 3.4 GB and exist only for tier-3 reproduction, which re-parses the raw sources
+offline. Tier 2 is unaffected and is the route this archive documents: every shipped
+(domain, year) resolves to its evidence row in provenance/, and verify.sh checks that
+for all of them. Ask if you want the journals and they will be sent separately.
+SLIM
+    echo "journals: omitted deliberately (ARK_SLIM), $ON_DISK on disk"
+elif [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
     find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -exec basename {} \; \
