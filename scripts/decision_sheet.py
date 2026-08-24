@@ -51,15 +51,29 @@ collected without asking. Only the master-eligible classes below are blocked on 
 """
 
 
-def parse(text: str) -> list[dict]:
-    """Pull every pending entry that carries a measured figure."""
+def parse(text: str) -> tuple[list[dict], list[str]]:
+    """(rows, unmeasured). Pending entries with a figure, and the ones without.
+
+    **The second list is returned rather than dropped, because dropping it silently
+    is how a 7,216.9 EE source stayed off this sheet for six days.** The 2026-08-23
+    compaction of `approved-sources-list.md` cut reasoning to one line per entry and
+    took some `- measured:` lines with it, so `ia_webdataservices_cctld_extraction`
+    became invisible here while `docs/sources.md` still carried its measurement. A
+    sheet that shows what it can and says nothing about what it cannot reads as
+    complete, and a reviewer working from it will believe the queue is empty when it
+    is not.
+    """
     rows = []
+    unmeasured: list[str] = []
     for block in re.split(r"\n### ", text)[1:]:
         head, _, body = block.partition("\n")
         if not re.search(r"^Decision: pending", body, re.M):
             continue
         measured = re.search(r"^- measured:\s*([\d,.]+)\s*(.*)$", body, re.M)
         if not measured:
+            source, _, etype = head.strip().partition(" / ")
+            if etype.strip() in MASTER_ELIGIBLE:
+                unmeasured.append(f"{source.strip()} / {etype.strip()}")
             continue
         source, _, etype = head.strip().partition(" / ")
         # The field wraps over indented continuation lines in the source file, and a
@@ -75,12 +89,31 @@ def parse(text: str) -> list[dict]:
             }
         )
     rows.sort(key=lambda r: -r["ee"])
-    return rows
+    unmeasured.sort()
+    return rows, unmeasured
 
 
-def render(rows: list[dict]) -> str:
+def _footer(unmeasured: list[str]) -> str:
+    if not unmeasured:
+        return ""
+    listed = "`, `".join(unmeasured[:12])
+    more = f", and {len(unmeasured) - 12} more" if len(unmeasured) > 12 else ""
+    return (
+        f"\n{len(unmeasured)} further master-eligible classes are pending with "
+        f"**no measured figure**, so they are not rows above and this sheet is not the "
+        f"whole queue. Price one before deciding it, or read its verdict in "
+        f"`docs/sources.md`: `{listed}`{more}.\n"
+    )
+
+
+def render(rows: list[dict], unmeasured: list[str] | None = None) -> str:
+    unmeasured = unmeasured or []
     if not rows:
-        return HEADER + "Nothing measured is waiting. Every measured source has a decision.\n"
+        return (
+            HEADER
+            + "Nothing measured is waiting. Every measured source has a decision.\n"
+            + _footer(unmeasured)
+        )
     lines = [
         HEADER,
         "| Source | Evidence type | What dates one item | Net-new EE |",
@@ -97,7 +130,7 @@ def render(rows: list[dict]) -> str:
         )
     lines.append("")
     lines.append(f"**{len(rows)} rows, {total:,.0f} equivalent-English waiting on a word.**")
-    lines.append("")
+    lines.append(_footer(unmeasured))
     return "\n".join(lines)
 
 
@@ -106,7 +139,8 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="exit 1 if the sheet is stale")
     args = ap.parse_args()
 
-    want = render(parse(DOC.read_text()))
+    rows, unmeasured = parse(DOC.read_text())
+    want = render(rows, unmeasured)
     if args.check:
         have = OUT.read_text() if OUT.exists() else ""
         if have != want:

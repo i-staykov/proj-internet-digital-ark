@@ -248,6 +248,51 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
+### ripe_dbase_1999 / artifact_listing
+
+- measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
+  against the live store. A subagent measured 93,857.7 an hour earlier; the gap is the store growing
+  underneath it, not a disagreement
+- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE. Read this before the number.** The file's own
+  header, lines 6 to 15, says: `Restricted rights. Except for agreed Internet operational purposes,
+  no part of this publication may be reproduced, stored in a retrieval system, or transmitted, in any
+  form or by any means, electronic, mechanical, recording, or otherwise, without prior permission of
+  the RIPE NCC on behalf of the copyright holders.` Ingesting is arguably "stored in a retrieval
+  system" and shipping to the reviewer is arguably "transmitted". Against that: we would ship
+  `(domain, 1999)` pairs, not the publication, and bare facts are thin copyright. For it: RIPE NCC is
+  Dutch, so the EU sui generis DATABASE right applies to the extraction of a substantial part, and
+  641,241 rows is substantial by any reading. **This is your call and it is the reason nothing has
+  been ingested.** Your standing rule was "I am paid for this work, so if that makes bulk queries
+  illegal, let's not do it", and this is the same shape of question
+- what dates one item: the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a
+  `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences
+  1999 and no other year, per rule 6
+- ingest specs: none written. **No parser exists and none will be written until the licence question
+  is answered**, so an approval here cannot be acted on by accident
+- the artifact: `http://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`, 71,919,736 bytes,
+  `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT`
+- **why it exists at all, which is the transferable part**: `ftp.ripe.net`'s own `dbase` is closed in
+  `sources.md` as GDPR-dummified and `ripe/registries/` as empty since 1998. FUNET mirrored RIPE's
+  whole DOCUMENT tree into `/pub/netinfo/`, beside `docs/`, `procedures/` and `minutes/`, then stopped
+  updating. The mirror froze holding the pre-GDPR original. This is the "filed next to its documents"
+  rule that the zone-file closure produced, working on the first try
+- integrity, all three checks pass: `gzip -t` clean, 20,528,780 lines, its own `# 990804 00:07:01` on
+  line 2 and its own `# EOF` terminator, so it is not a partial recovery
+- measured composition: 1,256,414 `*dn:` lines, 21,047 `.arpa` reverse zones excluded, 429 rejected,
+  **1,232,554 distinct registrable names**; 591,313 already dated 1999, 849,540 dated in some year,
+  **383,014 the store has never seen**
+- **volume beats weight here, which is why it nearly got discarded**: net-new by TLD is `de` 411,128,
+  `dk` 73,658, `at` 29,910, `it` 29,685, `nl` 19,753, `cz` 19,314, `no` 15,271, `fr` 12,027, `be`
+  9,433, `il` 6,518. Every one is on the near-worthless list, and 1.2M names at 0.1324 still outruns
+  any high-weight namespace still available to us
+- gross would be 173,359.2 EE. Quoting net-new, as the rule requires
+- robots: `ftp.funet.fi/robots.txt` permits `/pub/netinfo/` (it disallows `/ftp/`, `/incoming/`,
+  `/pub/mirrors/`, `/.m/`, `/cgi-bin/`) and asks `Crawl-delay: 15`. One request was made
+- potential: 99
+
+Decision: pending
+
+
 ### nic_mil_internic_zone_mirror / artifact_listing
 
 - what it is: the Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file distribution over

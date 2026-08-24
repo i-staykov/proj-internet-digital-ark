@@ -15,6 +15,7 @@ collected without asking. Only the master-eligible classes below are blocked on 
 
 | Source | Evidence type | What dates one item | Net-new EE |
 |---|---|---|--:|
+| `ripe_dbase_1999` | `artifact_listing` | the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences 1999 and no other year, per rule 6 | 90,799 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
 | `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
 | `mynic_my_change_report` | `artifact_listing` | the per-day heading above each entry, `2 April 2001`, with `New` or `Delete` beside the name, so the registry is stating that this name entered or left the register that day | 3,091 |
@@ -25,4 +26,6 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**9 rows, 23,438 equivalent-English waiting on a word.**
+**10 rows, 114,237 equivalent-English waiting on a word.**
+
+42 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `can_domain_registry_notices / whois_creation`, `caselaw_access_project_opinions / dated_directory`, `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `content_filter_blacklists / artifact_listing`, `courtlistener_caselaw / dated_directory`, `cybernot_cphack_blacklist / artifact_listing`, `discmaster_by_file_size / artifact_listing`, `discmaster_media_index / dated_directory`, `dnsrf_dap_udrp_multiprovider / artifact_listing`, `domain_aftermarket_listings_1999_2001 / artifact_listing`, `early_bulk_whois_snapshot / whois_creation`, `eric_fulltext_1996_2001 / dated_directory`, and 30 more.
