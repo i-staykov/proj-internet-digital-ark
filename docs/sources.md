@@ -1479,6 +1479,15 @@ Recorded so that negative results are visible rather than silently omitted.
 
 ## `usenet_announce` and `usenet_mention`: dated website announcements from Usenet
 
+**The 383 GB of `.mbox.zip` archives were deleted from `data/raw/usenet/` on 2026-08-24 to free disk,
+and this is what makes that safe.** All 19,231 archives on disk were listed in the corpus's own
+`.processed` ledger with zero unprocessed, that ledger is kept, and archive.org publishes a sha1 per
+file, so any archive can be re-fetched and pinned. The journals derived from them are still on disk and
+still in the ingest ledger, so **tier 2 reproduction is unaffected**; only tier 3, which re-parses the
+raw archives, now requires re-downloading them first. `data/raw/usenet_new/` and
+`data/raw/usenet_bulk/` were left alone: their filenames match nothing in the `.processed` ledger, so
+their status is not established and deleting them would have been a guess.
+
 Adopted 2026-08-01, and the largest single addition of phase-4. Giganews donated its Usenet
 archive to the Internet Archive in 2013; announcement and commerce groups carry a posting date beside
 the URLs in each message.
