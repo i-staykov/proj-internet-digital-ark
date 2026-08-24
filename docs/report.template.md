@@ -51,7 +51,7 @@ what the system is and how this round's method differed from the last.
 
 **Two mechanisms bound an agent nobody is watching, and both are structural.**
 `domain_year.evidence_id` is `NOT NULL` with a foreign key into `evidence`, so no code path can write a
-year without naming the observation behind it; eleven invariants check that before every commit and again
+year without naming the observation behind it; twelve invariants check that before every commit and again
 inside the archive. And a source class cannot date a year until a human writes one `Decision:` line, with
 the request generated from a seeded-random sample and live links, so the reviewer checks external evidence
 rather than an agent's argument. **An agent asserting its own find is trustworthy is the least reliable

@@ -449,14 +449,6 @@ Decision: pending
 
 Decision: pending
 
-### usenet_quoted_whois / whois_creation
-
-- what it is: NSI-format and ccTLD-format `whois` output **pasted into message bodies** in
-- what dates one item: the registry's own `Record created on DD-Mon-YYYY` line inside the quoted
-- potential: 55
-
-Decision: pending
-
 ### uspto_trademark_case_files / artifact_listing
 
 - potential: 55
@@ -539,6 +531,20 @@ Decision: pending
 - what dates one item: the release date in the archive's own per-file metadata, repeated inside the NFO.
 - volume: order 100,000 dated files with heavy in-window density at roughly one to two hostnames each,
 - potential: 45
+
+Decision: pending
+
+### usenet_quoted_whois / whois_creation
+
+- what it is: NSI-format and ccTLD-format `whois` output **pasted into message bodies** in
+- what dates one item: the registry's own `Record created on DD-Mon-YYYY` line inside the quoted
+  block, which dates the domain independently of when the message was posted
+- what makes it worth it: **MEASURED 2026-08-24 on the 146 densest archives, 14.4 GB of 383 GB**:
+  1,672 in-window blocks (1996 n=834, 1997 n=379, 1998 n=149, 1999 n=107, 2000 n=64, 2001 n=139) giving
+  850 distinct pairs, **701 already held and 149 net-new worth 90.41 equivalent-English**. 82% overlap.
+  The sample is the dense end, domain and net-abuse groups, so the whole corpus is unlikely to reach
+  3,000 EE. Real, cheap, master-eligible, and not a round
+- potential: 40
 
 Decision: pending
 

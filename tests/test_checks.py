@@ -40,7 +40,7 @@ def test_clean_store_passes_all_checks() -> None:
     # found reverse-DNS zones shipping in all six annual files at weight 1.0000.
     # Pinned, not counted loosely: a check silently dropped
     # from the gate is the failure this assertion exists to catch.
-    assert len(results) == 11, [r["name"] for r in results]
+    assert len(results) == 12, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
 
