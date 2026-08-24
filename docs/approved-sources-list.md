@@ -513,9 +513,52 @@ Decision: pending
 
 Decision: pending
 
+### cctld_register_listing_inbody / artifact_listing
+
+- measured: 2855.6 net-new post-split EE over 12,251 pairs across three registries, each measured twice
+  by independent agents against the live store; **I verified the store side of every figure myself and it
+  reproduces exactly** (`.tw` 43,981 in-window names and 1,283 `idv.tw`, `.lu` 1999 holdings), but I have
+  not re-parsed the artifacts
+- what dates one item: the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's
+  frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at
+  that instant
+- the artifacts, one line each. **TWNIC `.tw` frozen-domain list** `twnic.net.tw/DN/fz1.shtml`, 9,529
+  net-new pairs, **1,275.0 EE** at 0.1338: names whose registration expired between 2001-05-29 and
+  2001-08-26, so every one was in the register during 2001 and the artifact implies nothing about another
+  year. **IDNIC `.id` unpaid list** `idnic.net.id/Info/RekapBelumBayar.html`, 2,162 pairs, **872.6 EE** at
+  0.4036. **RESTENA `.lu` register**, 1,865 pairs, **708.5 EE** at 0.3799
+- potential: 58
+- what makes it worth it: none of it is hand-typed, so no corroboration split, and the novelty is real
+  rather than a re-dating: 8,754 of TWNIC's 9,593 names are absent from the store in every year, because
+  `idv.tw` personal sites had nothing for a crawler to find. Weights are low, which is why 12,251 pairs
+  buy only 2,856 EE
+- **one point a human must rule on**: whether a stated EXPIRY date evidences the registration year. Here
+  it does so with no term-length inference, since every date falls inside 2001. The same reasoning kills
+  `DN/data/eng.tab`, whose expiry dates are 2002: recovering a 2000 registration from a 2002 expiry minus
+  an assumed term would be manufacturing
+
+Decision: pending
+
 ### sec_form_adv_part1_2000_2001 / artifact_listing
 
 - potential: 58
+
+Decision: pending
+
+### cctld_register_listing_capture / cdx_timestamp
+
+- measured: 3496.0 net-new post-split EE over 6,996 pairs across four registries, same provenance and
+  same caveat as the entry above
+- what dates one item: the Wayback capture stamp, since these editions carry no in-body date, and a
+  register listing is the registry stating what stood in it when the crawler took the page
+- the artifacts, one line each. **NIC Malta `.mt` register**, 1,624 pairs, **1,470.5 EE** at 0.9055, the
+  highest weight in this batch. **SaudiNIC `AllSA`**, 2,944 pairs, **1,506.4 EE** at 0.5117, of which
+  2,654 names are absent from the store in every year. **ISOC-IL `.il` 1998 register**, 1,915 pairs,
+  **375.0 EE** at 0.1958, and only 641 of its 7,315 names are new, so `.il` 1998 is already well covered.
+  **`.nu` `notrenewed.cfm`**, 517 pairs, **144.1 EE** at 0.2787
+- potential: 56
+- what makes it worth it: `.mt` at 0.9055 is worth having on weight alone, and `.sa` brings 2,654 wholly
+  new names. All four are machine-generated with no prose, so no split
 
 Decision: pending
 
@@ -610,6 +653,22 @@ Decision: pending
 - potential: 45
 
 Decision: pending
+
+### nic_ve_cartelera / artifact_listing
+
+- measured: 1131.3 net-new post-split EE over 3,885 pairs, **or 75.7 EE over 260 pairs if the
+  corroboration split applies**; measured twice and the sceptic reproduced every figure to the unit
+- what dates one item: the notice's own publication date on NIC Venezuela's `cartelera`, the registry's
+  public notice board of names entering the register
+- the artifact: 4,071 distinct `.ve` names, 4,281 pairs, 2000 n=1,746 and 2001 n=2,535. `.ve` weighs
+  0.2912 and the store holds 5,733 in-window `.ve` pairs, verified
+- potential: 44
+- **same 15x split question as `mynic_my_change_report` and it should be ruled the same way**: only 586
+  of the 4,071 names were known to the store under any year, so if the split applies almost all of the
+  value is refused. Deciding `.my` decides this too
+
+Decision: pending
+
 
 ### usenet_quoted_whois / whois_creation
 
