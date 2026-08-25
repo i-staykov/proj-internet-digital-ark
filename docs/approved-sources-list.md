@@ -304,23 +304,50 @@ Decision: pending
 
 ### ncua_5300_call_report_webaddr / artifact_listing
 
+- measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
+  16 in-window quarters. An agent got 1,289.84 independently; the two agree within 3%
+- what dates one item: `CYCLE_DATE` on every `fs220d` row, the quarter the call report covers
+- what it is: the web-site and e-mail columns of NCUA's quarterly 5300 Call Report for credit unions,
+  `https://ncua.gov/files/publications/data-apps/QCR{YYYY}{MM}.zip`, one zip per quarter. Genuine ERA
+  VINTAGE: the 2001Q4 zip's inner files carry a 2002-03-13 mtime
+- the columns, verbatim from the `fs220d` header: **`Acct_891`** (web site) and **`Acct_890`** (e-mail),
+  neither of which appears in `AcctDesc.txt`. The 1996 zips carry both headers with zero values and the
+  1997 zips lack the columns entirely, so coverage is 1998Q1 to 2001Q4
+- **human-typed, so the full corroboration split applies**, and the values prove it: `W.W.W.EFEDCU.ORG`,
+  `THRU WEB PAGE WWW.BE`, `USE WORLD WIDE WEB ADDRESS`, `JDELLUCA@NOFFCU,ORG`
+- measured composition: 150,346 `fs220d` rows, 85,055 non-empty cells, 21,029 candidate pairs, **17,309
+  already held (82%)**, 3,720 net-new gross at 2,451.34 EE, **1,502 novel names refused by the split**,
+  leaving 1,998 pairs at 1,328.31 EE. `org` 1,066, `com` 773, `net` 118. By year 1998 346, 1999 462,
+  2000 474, 2001 716
+- **the 82% already-held rate is killer 3 exactly**: a regulated-institution population is what a
+  capture-derived store holds first, which is why an era vintage still only reaches the floor
 - potential: 88
 
 Decision: pending
 
 ### fac_sfsac_historic_1998_2001 / artifact_listing
 
+- **BLOCKED BY ROBOTS, NOT BY EVIDENCE, and it needs one human action.** The bulk files exist and are
+  exactly the era vintage wanted: `https://app.fac.gov/dissemination/public-data/census/csv/census-1998.zip`
+  through `census-2001.zip`, each with a `.sha1`, linked from the allowed page
+  `https://www.fac.gov/data/download/historic/`. But `app.fac.gov/robots.txt` is `User-agent: *` /
+  `Disallow: /`, byte-checked, a blanket group binding any automated fetch, so no agent may download it.
+  No mirror exists: `archive.org` returns 25 hits and none is the data, `catalog.data.gov` has none, and
+  `facdissem.census.gov` and `harvester.census.gov` now redirect to this host
+- **A human clicking that link is not a crawler.** If Ivo downloads the four zips by hand into
+  `data/raw/fac/`, an agent can price them locally without touching the host
+- what dates one item: `AUDITEEDATESIGNED`, "Date of auditee signature", per filing
+- the carrying columns are `AUDITEEEMAIL` and `CPAEMAIL`, both typed by a human, so the full split
+  applies. **There is no web-address or URL column anywhere in the historic dictionary**, so this pays
+  through e-mail domains only
+- relationship to `fac_single_audit`, which is measured at 2,406.69 EE: same clearinghouse and same
+  window, so these may be one source under two names, but the evidence types differ and neither has been
+  measured against the other. Do not close either as a duplicate without that check
 - potential: 86
 
 Decision: pending
 
 ### uk_historic_hansard / dated_directory
-
-- potential: 84
-
-Decision: pending
-
-### usac_erate_form471_contact_email_1998_2001 / dated_directory
 
 - potential: 84
 
@@ -487,12 +514,6 @@ Decision: pending
 
 - what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
 - what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
-- potential: 65
-
-Decision: pending
-
-### sbir_sttr_award_pi_email_2000_2001 / dated_directory
-
 - potential: 65
 
 Decision: pending
@@ -808,7 +829,7 @@ since a pending class cannot date a year. Reaches `key-decisions.md` as a count,
 | 2 | nominet_whois_port43 | registry `Registered on:` per name | whois_creation | ~9,500 ceiling | ~9,300 ceiling | ESTIMATE | pending |
 | 3 | gias_england_school_website_domains | nothing in the file, Nominet per name | link_target | ~5,568 sch.uk | ~5,463 | MIXED | pending |
 | 4 | ccew_charity_register_contact_domains | nothing in the file, CDX per name | link_target | ~5,200 | ~4,557 | MIXED | pending |
-| 5 | ncua_5300_call_report_webaddr | CYCLE_DATE on every FS220D row | artifact_listing | 1,913 per quarter | 1,293.3 per quarter | MEASURED | pending |
+| 5 | ncua_5300_call_report_webaddr | CYCLE_DATE on every FS220D row | artifact_listing | 1,998 whole corpus | 1,328.3 whole corpus | MEASURED | pending |
 | 6 | fac_sfsac_historic_1998_2001 | AUDITEEDATESIGNED on the e-mail row | artifact_listing | ~6,000-12,000 per year | unpriced | ESTIMATE | pending |
 | 7 | junkfilter_dated_blocklist | the ISO-dated release directory | dated_directory | ~3,000-8,000 | unpriced | ESTIMATE | pending |
 | 8 | ipgod_au_marktext | the mark's own filing date | dated_directory | ~2,000-6,000 pre-split | unpriced | ESTIMATE | pending |
@@ -1004,11 +1025,39 @@ from this mirror are in the ingest ledger: `arpa`, `edu`, `gov`, `mil`, `org`, `
 request generator stops reopening a duplicate of a decided source; the evidence stands under the other
 name. Closed by the agent rather than by Ivo because admitting nothing new is not an approval.
 
+### usac_erate_form471_contact_email_1998_2001 / dated_directory
+
+- potential: 84
+
+Decision: rejected
+Measured 2026-08-25: **there is no in-window data published, so there is nothing to price.** The
+`opendata.usac.org` dataset `9s6i-myen` has exactly the right columns (`funding_year`, `cnct_email`,
+`org_email`, `aut_email`) and a `$group=funding_year` count returns **2017-2026 only**; `avi8-svp9`
+returns 2016-2026. The portal's own description on `gifc-3grz` settles it: "provides users with the
+ability to search, view, and download FCC Form 471 data for **Funding Year 2016+**. To request older
+records, please email opendata@usac.org." The legacy host `data.usac.org` publishes no robots.txt and
+403s on `/publicreports/`. Everything on the portal is EPC current state in any case, so killer 4 would
+apply even if the years were there. Reopen only if someone makes that e-mail request and receives files.
+
 ### educause_edu_whois_activation / whois_creation
 
 - potential: 78
 
 Decision: rejected
+
+### sbir_sttr_award_pi_email_2000_2001 / dated_directory
+
+- potential: 65
+
+Decision: rejected
+Measured 2026-08-25 and closed under Ivo's 1,000 EE floor. 502.05 EE over the whole 1996-2001 window,
+169.14 EE at the 2000-2001 scope this entry actually asks for. **Killer 4, proven rather than argued**:
+of 10,189 in-window rows whose `Company Website` canonicalises, **89 carry a TLD that did not exist in
+2001** (`.space` 37, `.biz` 19, `.aero` 17, `.ai` 11, `.tech` 5). A 1998 award row cannot have carried a
+`.space` domain, so the column is current state refreshed later under an old `Award Year`. Both address
+columns are self-reported, so the split applies on top. 219,503 rows in
+`data.www.sbir.gov/mod_awarddatapublic_no_abstract/award_data_no_abstract.csv`, 29,922 in window, and
+3,502 of 5,017 candidate pairs already held.
 
 ### openpgp_keyserver_dumps / link_target
 
