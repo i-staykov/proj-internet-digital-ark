@@ -713,12 +713,6 @@ Decision: pending
 
 Decision: pending
 
-### itu_operational_bulletin_1996_2001 / link_source
-
-- potential: 49
-
-Decision: pending
-
 ### cbd_secretariat_meeting_documents_1996_2001 / link_source
 
 - potential: 48
@@ -733,21 +727,6 @@ Decision: pending
 
 ### ietf_meeting_attendee_rosters / typed
 
-- potential: 45
-
-Decision: pending
-
-### nz_dnc_zone_data / whois_creation
-
-- potential: 45
-
-Decision: pending
-
-### scene_nfo_archives / dated_directory
-
-- what it is: underground release-scene text archives, `defacto2` and its peers: NFO files,
-- what dates one item: the release date in the archive's own per-file metadata, repeated inside the NFO.
-- volume: order 100,000 dated files with heavy in-window density at roughly one to two hostnames each,
 - potential: 45
 
 Decision: pending
@@ -883,12 +862,6 @@ Decision: pending
 ### domainsproject_bulk_list / link_target
 
 - potential: 30
-
-Decision: pending
-
-### wayback_longitudinal_url_sample / cdx_timestamp
-
-- potential: 28
 
 Decision: pending
 
@@ -1388,6 +1361,78 @@ but the registry **added four names between August 2000 and November 2001**, giv
 claimed **13,014 EE, a ratio of 13,014 to 1**. Separately confirmed: the "ISI contact column at 97.7%
 already held" recorded elsewhere is a DIFFERENT artifact from this delegation register, so the two should
 not be conflated.
+
+### itu_operational_bulletin_1996_2001 / link_source
+
+- potential: 49
+
+Decision: rejected
+Measured 2026-08-25 with a ceiling of **~300 EE**, below this entry's own ~519-934 estimate. Dated in
+body, verbatim `No. 739 - 1.V.2001` with `(Information received by 24 April 2001)`. Licence: none found;
+robots permits `/dms_pub/itu-t/opb/sp/`. **Retrievable for 1999-2001 only**: issues 690, 715, 731, 739
+and 745 return 200 while 665/1998, 640/1997 and 615/1996 all 404 at the same derived path, controls
+passing both ways in the same minutes. At 24 issues a year the in-window population is ~144 items, **826x
+short of the 119,000-item prose screen**. **Density is wildly stratified and one issue alone would have
+misled**: a plain issue carries 3-6 domains, but the annexed *List of ITU Carrier Codes* in OB 739 carries
+**244 in 144,646 characters**. Pricing that richest item gives 93.0% domain-known and **37 pairs at 12.27
+EE post-split** (54 pairs / 20.37 EE pre-split, do not quote), on a TLD mix that is mostly worthless
+(`it` 37, `kz` 8, `mx` 8) at ~0.33 EE per pair.
+
+### nz_dnc_zone_data / whois_creation
+
+- potential: 45
+
+Decision: rejected
+**Measured at 7,586 EE and rejected on the registry's own terms, which an agent reported as "none
+found".** The measurement is sound and its arithmetic was verified against the store: 200 domains drawn at
+random from all 47,914 held `.nz` names, 123 dated, **122 in-window and 1 out (2023)**, a 99.2% in-window
+rate that is the opposite of a refresh signature; 32 net-new pairs at 0.1600 per held domain;
+0.1600 x 47,914 x 0.9895 = **7,586 EE**, CI 5,177 to 9,995. No corroboration split, since a creation date
+is the registry's own machine record. The route is **port 43 at `whois.irs.net.nz`**, not the
+`dnc.org.nz` zone file this entry was named for, which Cloudflare-403s.
+**But the terms of use ARE in the response, about 1,100 bytes in, after the record and after the
+`>>> Last update of WHOIS database <<<` line, which is why they were missed.** Verbatim: `By submitting a
+WHOIS query you are entering into an agreement with Domain Name Commission Ltd on the following terms and
+conditions... It is prohibited to: - Send high volume WHOIS queries with the effect of downloading part of
+or all of the .nz Register or collecting register data or records; - Access the .nz Register in bulk
+through the WHOIS service (ie. where a user is able to access WHOIS data other than by sending individual
+queries to the database);`
+**A 47,914-query sweep is precisely the prohibited act, in the registry's own words.** Same shape as
+`nominet_whois_port43`, which Ivo rejected on 2026-08-24 answering O5: "I am paid for this work, so if
+that makes bulk queries illegal, let's not do it." Rejected on the same ground.
+**The transferable lesson: on a port-43 source, read PAST the record.** The terms follow the data, so a
+reader that stops at the last field or the first blank line reports "no licence" on a source that carries
+an explicit prohibition.
+
+### scene_nfo_archives / dated_directory
+
+- what it is: underground release-scene text archives, `defacto2` and its peers: NFO files,
+- what dates one item: the release date in the archive's own per-file metadata, repeated inside the NFO.
+- volume: order 100,000 dated files with heavy in-window density at roughly one to two hostnames each,
+- potential: 45
+
+Decision: rejected
+Measured 2026-08-25 at **34.61 net-new post-split EE**, the novelty-is-a-cost rule paid in cash.
+`defacto2.net` Cloudflare-403s, but the artifact is reachable as
+`archive.org/download/Defacto2_NFO_PACK-1.7z/Defacto2_NFO_PACK-1.7z`, 6,324,360 bytes, **licence: none
+found** (`licenseurl` and `rights` both absent from the item metadata). 7,014 files with preserved mtimes
+of which **5,381 are in window** (1996:338 rising to 2000:2107), and genuine pre-1996 files exist, which
+is the evidence that mtimes were not stamped at pack time. 1,431 pairs over 1,074 domains after filtering
+to pre-2002 TLDs, 84.6% already-held. Net-new 221 pairs and 115.16 EE pre-split (do not quote), **58
+pairs and 34.61 EE post-split, because 73.8% of the net-new pairs sit on domains not in the store at
+all** and therefore earn no year. Ceiling at the claimed 19x volume ~643 EE. **One trap recorded**: the
+first pass showed `.zip` as the top TLD at 1,741 pairs, the filename-as-hostname error, removed by a TLD
+whitelist.
+
+### wayback_longitudinal_url_sample / cdx_timestamp
+
+- potential: 28
+
+Decision: rejected
+**Unmeasurable by construction: the data was never published.** This entry's own row records "first
+capture time, data unpublished" with evidence "none". It is also structurally dead by law 1, since an
+IA-derived sample cannot be net-new against a baseline that is itself IA-derived. Marked refused rather
+than left pending so the request generator stops re-queueing a source that does not exist.
 
 ### openpgp_keyserver_dumps / link_target
 
