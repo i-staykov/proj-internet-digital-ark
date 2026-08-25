@@ -131,6 +131,9 @@ what survives the split we already hold. Ask whether the lister held the databas
 - Rank a queue by TLD weight alone and 2013 gTLDs lead it. Volume floor first.
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
 - Look for the existing tool before writing one.
+- **Clear a whole FTP host with ONE request: pull its own `ls-lR.gz` or `locatedb.gz` and grep offline.**
+  Proven twice today: `ftp.gwdg.de`'s 926 MB locatedb indexed an 8.8 GB tree, and a 9.8 MB `ls-lR` gave
+  1.46M lines. Politer and more complete than crawling, and it turns a zero into a proved zero.
 - **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
   that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
   `.nz` cost 7,586 EE that way; `.uk` says the same thing.
@@ -138,7 +141,8 @@ what survives the split we already hold. Ask whether the lister held the databas
   can sit anywhere in the file and a permissive `User-agent: *` block at the top does not override it.
   `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
   Refusing us by name: `cryptome.org`, `tbtf.com`, `www.openpgp.net`, `ftp.nluug.nl`, `tomocha.net`,
-  `mirror.aarnet.edu.au`, `ftp.aarnet.edu.au`, `www.potaroo.net`, `ftp.sunet.se`, `ftp.surfnet.nl`
+  `mirror.aarnet.edu.au`, `ftp.aarnet.edu.au`, `www.potaroo.net`, `ftp.sunet.se`, `ftp.surfnet.nl`,
+  `www.math.upenn.edu`
   (the last two name Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot together).
 - **Host survival and robots refusal are correlated, so this will keep happening.** The old mirrors that
   survive did so because a commercial or university operation kept paying, and mirror operators are
