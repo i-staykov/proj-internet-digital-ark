@@ -67,9 +67,11 @@ A run of nothing is a signal to move sideways, not to push harder on the same sh
 Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask what the
 corpus is *about* before trusting even that.
 
-**Blocklists invert killer 3, measured.** Already-held is ~50% on a blocklist against 87-99% on any
-authority-selected corpus, because a blocklist selects for what someone wanted to BLOCK. Ask what a
-corpus selects FOR before asking how big it is.
+**ADVERSARIAL selection inverts killer 3; merely-not-curated does not.** Already-held is ~50% on a
+blocklist against 87-99% on an authority-selected corpus. But traffic logs, which are not curated
+either, measured 98.4% and 99.6%, WORSE than curated: a visitor log's hostname is reverse DNS, so the
+long tail resolves to its ISP and only big organisations resolve to themselves. Ask what a corpus
+selects FOR, and whether the selector was hostile to the names in it.
 
 Curated-directory floor, measured over four artifacts: 0.013 to 0.024 net-new post-split pairs per
 LISTED domain, at 0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000+ listed domains in one artifact.
