@@ -149,6 +149,10 @@ what survives the split we already hold. Ask whether the lister held the databas
 - **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
   that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
   `.nz` cost 7,586 EE that way; `.uk` says the same thing.
+- **A 403 wall is not always a refusal. Test it before recording one.** `.info` RDAP returned 403 on
+  record 199 and on all 394 after it, unbroken, with `awselb/2.0`, 118 bytes and no `Retry-After`.
+  After ~12 minutes idle the SAME User-Agent got a genuine 404: it throttles above ~3 q/s and answers
+  again after a rest. Honour it by slowing down, not by filing the host as refusing us.
 - **Read the WHOLE robots.txt, not its head, and act on it before any other request.** A by-name group
   can sit anywhere in the file and a permissive `User-agent: *` block at the top does not override it.
   `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
