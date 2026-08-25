@@ -248,36 +248,6 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
-### ukwa_ds2_year_cdx / cdx_timestamp
-
-- what it is: one CDX file per year, 1996 to 2013, in `webarchive.org.uk/datasets/ukwa.ds.2/cdx/`,
-  the same JISC UK Web Domain Dataset directory that already gave us `geo/` (`ukwa_geoindex`, banked
-  4,493 EE) and `linkage/` (`host-linkage.tsv.gz`, 116,467 pairs from its first 10.26%). The `cdx/`
-  sibling had never been looked at. In-window sizes, compressed, read off the archived listing:
-  1996 52,619,201; 1997 509,195,112; 1998 364,720,850; 1999 1,428,820,719; 2000 4,580,260,146;
-  2001 6,515,380,682. **13.45 GB in window**, and 2001 is the largest in-window year
-- what dates one item: field 2 of every CDX row, a 14-digit capture timestamp. Self-dating,
-  machine-written, so no corroboration split, and the same field `dartmouth_bfs_seed` is admitted on
-- why it would outrank everything else on this page: the population is the `.uk` crawl and `.uk`
-  scores 0.9813, the highest weight in the model. Law 1 does not dismiss it, and the two siblings in
-  the same dataset are the proof: both are equally IA-derived and both paid, because Ding's baseline
-  is a merged sample rather than the whole `.uk` crawl, and our CDX engine can only ask about names
-  it already holds. A full `.uk` CDX dump is discovery as well as dating
-- **BLOCKED ON ACCESS, NOT ON EVIDENCE, and the zero is proved rather than assumed.** IA captured the
-  directory listing and never the files: a prefix query for `ukwa.ds.2/cdx*` returns empty while the
-  identical probe for `linkage/host-linkage.tsv.gz` returns its two known captures, so the emptiness
-  is the archive's and not the query's. The publisher now answers every path with a 7-line HTML
-  `400 Redirect` stub, including `robots.txt`. And no mirror exists: archive.org `advancedsearch.php`
-  returns numFound 0 for both `jisc uk web domain dataset` and `ukwa.ds`
-- so this is a human request in the shape of `ripe_dbase_1999`, addressed to the UK Web Archive at the
-  British Library, and on expected value it should be sent FIRST: RIPE is 90,799 EE of mixed-weight
-  European names, this is 13.45 GB of the highest-weight TLD, self-dating and unsplit
-- potential: 100. Unpriceable without the file, and scored at the ceiling deliberately: it is the
-  highest-weight TLD, self-dating, unsplit, 13.45 GB in window, and its two siblings in the same
-  directory both paid. The score says send the request first, not that the yield is proved
-
-Decision: pending, needs Ivo to send an access request
-
 ### ripe_dbase_1999 / artifact_listing
 
 - measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
@@ -1045,6 +1015,51 @@ Decision: pending
 - potential: 12
 
 Decision: pending
+
+### ukwa_ds2_year_cdx / cdx_timestamp
+
+- **ASKED AND ANSWERED: NO, AND NOT BEFORE AUTUMN 2026. Do not write to them again.** Ivo enquired
+  through `openaccess@bl.uk` on 2026-07-22, citing the dataset record at
+  `bl.iro.bl.uk/concern/datasets/3c39a755-5e3d-405b-9944-b13e76a87ad8` and the dead download location.
+  Nora Ramsey, Assistant Web Archivist, replied for the UK Web Archive Team: "it is not currently
+  possible to access dataset hosted on our servers. The UK Web Archive website remains offline
+  following a cyber-attack on the British Library in October 2023 ... Our target for restoring access
+  to digital collections is Autumn 2026. The first stage of restoration will include a URL lookup
+  service", with full-text search and other features "reintroduced gradually thereafter"
+- **so this is out of reach for this project, on two counts.** Autumn 2026 is later than the submission
+  needs, and the first restored service is a per-URL lookup rather than a bulk download, which is not
+  what a 13.45 GB CDX pull is. The data is preserved and the Library says so; it simply cannot be served
+- the potential below is deliberately LOW and encodes obtainability, not value. On value this would
+  still outrank everything else on the page. Nothing here is a reason to stop wanting it, and if the
+  restoration lands early and includes bulk access it should be re-opened at once
+- what it is: one CDX file per year, 1996 to 2013, in `webarchive.org.uk/datasets/ukwa.ds.2/cdx/`,
+  the same JISC UK Web Domain Dataset directory that already gave us `geo/` (`ukwa_geoindex`, banked
+  4,493 EE) and `linkage/` (`host-linkage.tsv.gz`, 116,467 pairs from its first 10.26%). The `cdx/`
+  sibling had never been looked at. In-window sizes, compressed, read off the archived listing:
+  1996 52,619,201; 1997 509,195,112; 1998 364,720,850; 1999 1,428,820,719; 2000 4,580,260,146;
+  2001 6,515,380,682. **13.45 GB in window**, and 2001 is the largest in-window year
+- what dates one item: field 2 of every CDX row, a 14-digit capture timestamp. Self-dating,
+  machine-written, so no corroboration split, and the same field `dartmouth_bfs_seed` is admitted on
+- why it would outrank everything else on this page: the population is the `.uk` crawl and `.uk`
+  scores 0.9813, the highest weight in the model. Law 1 does not dismiss it, and the two siblings in
+  the same dataset are the proof: both are equally IA-derived and both paid, because Ding's baseline
+  is a merged sample rather than the whole `.uk` crawl, and our CDX engine can only ask about names
+  it already holds. A full `.uk` CDX dump is discovery as well as dating
+- the retrieval zero is proved rather than assumed, and it is now explained by the outage above. IA captured the
+  directory listing and never the files: a prefix query for `ukwa.ds.2/cdx*` returns empty while the
+  identical probe for `linkage/host-linkage.tsv.gz` returns its two known captures, so the emptiness
+  is the archive's and not the query's. The publisher now answers every path with a 7-line HTML
+  `400 Redirect` stub, including `robots.txt`. And no mirror exists: archive.org `advancedsearch.php`
+  returns numFound 0 for both `jisc uk web domain dataset` and `ukwa.ds`
+- **superseded.** This entry previously said the request should be sent FIRST, ahead of
+  `ripe_dbase_1999`. That was written without checking whether we had already asked, and we had.
+  `ripe_dbase_1999` is now unambiguously the top access request, because permission there is a decision
+  someone can still take, whereas here there is no server to serve the file
+- potential: 12. Scored on obtainability before submission, not on value: the British Library has
+  already said no until Autumn 2026 and the first restored service is a URL lookup rather than bulk
+  access. It sat at 100 for one evening on the assumption that nobody had asked yet
+
+Decision: pending, but externally blocked. Nothing for Ivo to do here.
 
 ### bsd_ports_master_sites_dated_trees / typed
 
