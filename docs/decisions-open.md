@@ -21,6 +21,7 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `squidguard_2001_blacklist` | `artifact_listing` | the list's own header line, `# This list was compiled in 0:00:20 on 2001.12.18 15:04:29.`, corroborated by the tar member mtime `Dec 18 2001` and by dated diffs running `domains.20010814.diff` through `domains.20011218.diff` | 10,736 |
 | `can_domain_registry_notices` | `whois_creation` | `Date-Approved:` on the notice | 8,768 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
+| `expiring_list_2002_term_inference` | `artifact_listing` | NOT STATED | 3,620 |
 | `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
 | `mynic_my_change_report` | `artifact_listing` | the per-day heading above each entry, `2 April 2001`, with `New` or `Delete` beside the name, so the registry is stating that this name entered or left the register that day | 3,091 |
 | `early_bulk_whois_snapshot` | `whois_creation` | the registry creation date in the row, the same semantics `domain_creation_bulk` | 2,968 |
@@ -35,6 +36,6 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 | `usenet_quoted_whois` | `whois_creation` | the registry's own `Record created on DD-Mon-YYYY` line inside the quoted block, which dates the domain independently of when the message was posted | 90 |
 
-**19 rows, 165,704 equivalent-English waiting on a word.**
+**20 rows, 169,324 equivalent-English waiting on a word.**
 
 10 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `discmaster_media_index / dated_directory`, `fac_sfsac_historic_1998_2001 / artifact_listing`, `ia_webdataservices_cctld_extraction / cdx_timestamp`, `lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source`, `osbar_bulletin_html_issues_2000_2001 / link_source`, `reuters_rcv1_newswire / dated_directory`, `uk_trade_press_extension / dated_directory`, `ukwa_ds2_year_cdx / cdx_timestamp`, `uspto_tm_marktext / dated_directory`.
