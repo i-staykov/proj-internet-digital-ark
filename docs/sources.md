@@ -2548,3 +2548,73 @@ names) and two are the 2002-04 pair (1,443,945 and 1,443,957 bytes). **Every oth
 So the single in-window artifact is maximal and there is nothing to iterate over. The only untested
 item on the host is `whole_list_bids.php?del=none` at 20,702 bytes, captured 2002-01-25: a bids page,
 2002-dated, and about 700 names at that size, so it is below any bar even before the inference problem.
+
+---
+
+## Academic repositories and DOI datasets: CLOSED, by enumeration through five APIs and two registries
+
+**Ding asks for this lens by name and it can now be reported closed with numbers rather than with a
+shrug.** A sweep on 2026-08-24 concluded it was empty for a structural reason: research on the
+1996-2001 web predates data-deposit norms, which arrived around 2010, so the papers exist and their
+data does not. That reading now has a second, independent proof through four doors nobody here had
+opened.
+
+**1. DRUM, Ding's own worked example, closed by enumeration rather than sampling.** The DSpace 7 REST
+API at `conservancy.umn.edu/server/api/discover/search/objects` returns **exactly six** items in the
+"Link Lists for Websites" family: Early Web **1996 to 2000** (DOI `10.13020/d62684`, **already
+ingested**), Hurricane Sandy 2003-2012, US Senate 2009, US House 2009, Occupy Wall Street 2010-2012,
+and US newspapers 2008-2012. One is in window and we hold it; the other five cannot evidence an
+in-window year.
+
+**2. The DataCite screen that actually matters, and it returns one item.** `dates` is queryable, which
+the earlier sweep never used. Enumerating every DataCite **dataset** carrying a date in 1996-2001
+together with a web-ish title token (`web|website|internet|hyperlink|hostname|domains|url|crawl`)
+leaves opinion surveys (Eurobarometer, ICPSR, Slovenian RIS, Taiwan SRDA), Thai masters theses, and
+NMR protein-domain entries. **The single host list in the whole population is DRUM `10.13020/d62684`,
+which we already hold.**
+
+**3. Harvard Dataverse FILE-level search, a genuinely different index, empty for our shapes.** This was
+the one promising angle, because a replication package's `hostnames.txt` is invisible to DataCite
+dataset metadata. Measured zeros: `domains.txt`, `hostnames.txt`, `websites.txt`, `domains.csv`,
+`webgraph`, `zonefile`, `dnszone`, `hostlist`, `domainlist`, `hosts.txt`, `nslookup`, `netcraft`,
+`"web crawl"`, `"hyperlink network"` all **0**. Non-zero but dead: `urls.txt` 12 (Twitter ID dumps
+2015-2016), `hostnames` 80 (diplomatic-presence tables and empty `hostname.err` files).
+**Route note worth keeping: Harvard's index federates harvested metadata from other installations**
+(Scholars Portal, DataverseNL, Virginia, TDL, QDR all surfaced), so one Harvard call covers much of the
+99 installations and walking them individually is unnecessary.
+
+**4. Repository-level discovery, so the lens is closed at the registry level too.** `re3data`'s API
+returns all **3,521** repositories in one request, and filtering offline gives **exactly three**
+name matches: Internet Archive (killer 1), the UK Government Web Archive (already logged at 250
+addressable domains), and Unidata weather. Cross-checked against DataCite's client list for
+`web archive`: **4** clients, of which the only relevant one is `bl.wap`, whose complete DOI list is
+**6 items, all already in this file**. **OpenAIRE** adds nothing: eight keyword shapes, and the only
+web-host artifacts are the WDC 2012 hyperlink graphs and the UKWA host link graph we already hold.
+
+**Named in-window candidates, and each dies on arithmetic rather than on access.** figshare
+`10.6084/m9.figshare.786494`, "Mainland China university web sites December 2001 - January 2002",
+is CC-BY and dated in the most valuable year, and its own description says **76 universities**: the
+ceiling if every name were held and missing 2001 is 76 x 0.0744 for `cn` = **5.65 EE gross**. Zenodo
+`10.5281/zenodo.20379517` is 514 annotated documents sourced *from Arquivo.pt*, which is already
+ingested, at `pt` weight 0.2492. `10.23695/qggj-3130` "Webbnyheter 2001" is Swedish news prose, failing
+the density screen by construction under a non-English ccTLD.
+
+**Two access facts to obey next time.** `api.osf.io/robots.txt` is a **blanket `Disallow: /`** for all
+agents and `osf.io` disallows `/api/*`, so **OSF is closed on robots, not on content**; its dataset
+metadata is still reachable through DataCite, which serves no robots.txt at all. `zenodo.org` disallows
+`/api` and `/search` with `Crawl-delay: 10`, carving back only `Allow: /api/records/*/files`, so
+Zenodo's search API must not be swept directly and was queried only through DataCite. Claude is not
+named on any host checked. `dataverse.harvard.edu` and `figshare.com` both answer `robots.txt` with
+**HTTP 202, zero bytes and `x-amzn-waf-action: challenge`**, which is no rules retrievable rather than
+a refusal, and their `/api/` paths answered normally.
+
+**One method correction, and it cuts the right way.** DataCite's `titles.title:"phrase"` is **stemmed
+and slop-tolerant, not exact**: `"zone files"` returns "Snow persistence grids and snow zone shape
+files", and on `descriptions.description:` it degrades to proximity noise (69 geospatial shapefiles for
+`"zone file"`). So the earlier sweep's queries were **broader than exact, not narrower, and its zeros
+stand as conservative**. But keyword sweeping DataCite descriptions is not a usable instrument; the
+`dates` plus `titles.title` combination above is.
+
+**Verdict: treat "academic repositories and DOI datasets" as closed and report it to Ding as closed
+with these numbers.** Five APIs and two registries converge on the same three artifacts, all of which
+we already hold or have priced. Do not rotate back to this lens.
