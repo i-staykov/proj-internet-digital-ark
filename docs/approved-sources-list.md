@@ -347,12 +347,6 @@ Decision: pending
 
 Decision: pending
 
-### eric_fulltext_1996_2001 / dated_directory
-
-- potential: 83
-
-Decision: pending
-
 ### gias_england_school_website_domains / link_target
 
 - potential: 82
@@ -1059,6 +1053,34 @@ ability to search, view, and download FCC Form 471 data for **Funding Year 2016+
 records, please email opendata@usac.org." The legacy host `data.usac.org` publishes no robots.txt and
 403s on `/publicreports/`. Everything on the portal is EPC current state in any case, so killer 4 would
 apply even if the years were there. Reopen only if someone makes that e-mail request and receives files.
+
+### eric_fulltext_1996_2001 / dated_directory
+
+- potential: 83
+
+Decision: rejected
+Measured 2026-08-25 at **12.98 net-new post-split EE over 296 documents**, and rejected on COST rather
+than on the band. **The ERIC API is up again**, so this can be re-classified from UNRETRIEVABLE, and the
+reachable population is **52,354** documents with ERIC full text (`e_fulltextauth:1`), not the 77,079 a
+pool ratio first suggested. Dated per document and cleanly: `publicationdateyear` is a separate field
+from `e_yearadded`, so the publication year is not borrowed from the accession year.
+**It passes the density screen and fails the authority screen, which is the finding.** Raw URL density
+is **0.339 per 1,000 words over 5,003,152 words, 221x Hansard's 0.00153**, so grey literature really does
+print URLs. But **93.0% of its pairs are already held**, above the abandon line, and 38 of 57 net-new
+pairs die to the split as OCR damage (120 of 1,174 host observations rejected outright, the killed bucket
+holding `oracle` and `grainger` as TLDs and `educatiorialliance.org`).
+**`.edu` is where the apparent high weight evaporates**: the union holds **184 `.edu` pairs and exactly
+one survives** (`educause.edu` 1997), so the survivors' mean weight is 0.6833 and they are 15 `.org`
+against 1 `.edu`.
+**Two honest limits on the band.** Sampling was NOT uniform: the API sorts `ED` documents ahead of `EJ`
+ones, so both samples come from two accession blocks per year (offsets 0 and 4000) covering roughly the
+first 4,200 of ~8,700. Between those blocks yield differs **5.5x** (0.0707 against 0.0129 EE per item) at
+similar raw density, the difference being entirely split survival, so both samples are biased upward by
+the rich block. And with 19 survivors, Poisson alone is +/-40%. Whole-corpus band therefore **~700 to
+2,900 EE**, straddling the floor.
+**Cost is what settles it**: 52,354 PDF fetches and ~36 GB at the observed 690 KB mean is **0.044 EE per
+request**, about 125 hours at the measured 7 PDFs/min, against querying's ~3,000 EE/hour. Record the lens
+finding, do not collect the corpus.
 
 ### educause_edu_whois_activation / whois_creation
 
