@@ -89,6 +89,36 @@ for i in $(seq 1 "$ITERATIONS"); do
         "${VPS}:${VPS_REPO}/data/raw/rdap/rdap_*.jsonl.gz" data/raw/rdap/ \
         >> "$LOG" 2>&1 || echo "  vps rdap unreachable this pass, continuing" >> "$LOG"
 
+    # **And the ABANDONED partials, which is the third time this defect has bitten.**
+    # The two globs above take `*.jsonl.gz` and never `*.jsonl.gz.part`, so a batch
+    # that dies mid-round leaves its work on the VPS where no pass can see it. On
+    # 2026-08-25 that was **five files, 62 MB, 502,293 records and 3,599.2 net-new
+    # equivalent-English**, the oldest stranded since 22 August. The comment above
+    # already argued for fetching by directory rather than by hand-written glob, and
+    # this is that argument applied a third time.
+    #
+    # **Only STALE partials are taken, and the staleness test is the whole safety
+    # argument.** A live `.part` is still growing, and copying it here under its
+    # final name would ingest a prefix; when the completed journal arrived later, the
+    # ledger keys on content, so the same name with a different hash would be REFUSED
+    # and the full journal lost. 90 minutes is comfortably past any batch's write
+    # interval, so anything older than that belongs to a dead run.
+    stale=$(ssh -o ConnectTimeout=15 -o BatchMode=yes "$VPS" \
+        "find '$VPS_REPO'/data/raw/rdap '$VPS_REPO'/data/raw/cdx -name '*.jsonl.gz.part' -mmin +90 2>/dev/null" \
+        2>/dev/null)
+    for remote in $stale; do
+        base=$(basename "$remote" .part)
+        case "$base" in
+            rdap_*) local_dir=data/raw/rdap ;;
+            cdx_*)  local_dir=data/raw/cdx ;;
+            *) continue ;;
+        esac
+        [ -e "$local_dir/$base" ] && continue
+        rsync -a --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+            "${VPS}:${remote}" "$local_dir/$base" >> "$LOG" 2>&1 \
+            && echo "  recovered abandoned partial $base" >> "$LOG"
+    done
+
     bash scripts/ingest_new_usenet.sh auto >> "$LOG" 2>&1
 
     # Every journal on disk is re-offered, not only the ones this pass produced.
