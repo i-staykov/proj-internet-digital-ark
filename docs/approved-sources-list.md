@@ -636,6 +636,41 @@ Decision: pending
 
 Decision: pending
 
+### expiring_list_2002_term_inference / artifact_listing
+
+- measured: 3,619.5 net-new post-split EE on the conservative reading, over 5,941 pairs, measured
+  2026-08-25 against the live store. Two artifacts, priced separately and reproduced independently of
+  the subagent that found them: `namewinner.com/whole_list.php?del=none` capture `20020407171418`,
+  52,204 distinct domains, 2,543.2 EE; and `dailychanges.com detail/?ns=LAME-DELEGATION.ORG&date=2002-08-01`,
+  4,511 domains, 1,565.3 EE (1,076.3 on the stricter adjacent-year measure)
+- **this row IS a question, and answering it once decides both artifacts.** Both are dated in 2002,
+  outside the window, so reaching 2001 needs one inference: a registration had a minimum one-year term,
+  so a name expiring or dropping in April or August 2002 was registered no later than the same date in
+  2001 and was therefore live during 2001
+- why I think the inference holds: `.com`, `.net` and `.org` registrations in that era were sold in
+  whole-year increments with a one-year minimum, so a shorter term was not purchasable. And the two
+  possible readings of the printed date both land in 2001: if it is the registry expiry, registration
+  began at least a year earlier; if it is the deletion date, the name expired some 45 to 75 days before
+  that and registration began earlier still. There is no reading on which a name on these lists was
+  absent throughout 2001
+- what would break it: a printed date that is neither expiry nor deletion but the auction's own
+  scheduling date, unrelated to registry state. The April list argues against that, since its per-item
+  dates straddle the capture rather than trailing it, which is what a forward schedule of registry
+  events looks like
+- **the master reading is much larger and I am NOT quoting it as the price**: dropping the
+  corroboration split, as `domain_aftermarket_listings_1999_2001` argues it should be dropped for a
+  registrar database dump, gives 31,207.7 EE for the April list and 2,456.3 for the LAME page,
+  **33,664 EE combined**. But two judgements then compound, the split and the term inference, over a
+  population that is 89.9% novel. Decide the inference on the conservative figure first
+- a methodological note worth keeping: the conservative figures here use held-at-any-year-and-missing-2001,
+  not the adjacent-year measure the headroom rule prescribes. That rule exists because a gap between a
+  domain's last held year and the target is evidence of death when you are GUESSING whether data
+  exists. Here the artifact is the data and asserts the name was live, so death is not the competing
+  explanation. The adjacent figure is quoted alongside as the stricter floor
+- potential: 60
+
+Decision: pending
+
 ### antispam_media_blocklist / artifact_listing
 
 - measured: 1055.3 net-new post-split EE, measured 2026-08-25, for the two components carrying **no
