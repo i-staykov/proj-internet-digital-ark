@@ -597,6 +597,48 @@ Decision: pending
 
 Decision: pending
 
+### antispam_media_blocklist / artifact_listing
+
+- measured: 1055.3 net-new post-split EE, measured 2026-08-25, for the two components carrying **no
+  licence**. I repriced the larger one from the bytes and got **1,605 pairs and 967.1 EE** against an
+  agent's 969.0, agreeing to 0.2%; SQDR adds 88.2
+- what dates one item: the file's own timestamp on the preserved media, e.g.
+  `BlackList.json | JavaScript Object Notation | 1 | 312.6 KiB | 2001-04-06`, with the parent
+  `data.mdb ... 2001-04-06`. Per EDITION, not per record, so this is the same shape as
+  `junkfilter_dated_blocklist`
+- **a source CLASS nobody had looked at**: consumer anti-spam products shipped their spam-sender
+  blocklist as a plain data file, and hundreds of 1996-2001 CD-ROMs preserve those files with per-file
+  mtimes on the media. Discmaster's `tsMin`/`tsMax` filter turns the era screen into a query rather
+  than a fetch, which is why 24 dated in-window artifacts were found across five products
+- the two shippable components, **licence: NONE FOUND in either package**:
+  - `BlackList` table of `data.mdb`, "spam filtering services 2.1" (sMaxiimus), Twilight 60, 320,099
+    bytes, 10,088 rows, one domain per row in a single `MailServer` column (`{"MailServer":"00154.com"}`),
+    8,121 distinct registrable after dropping 9 wildcards and 727 unparseable. **967.1 EE, all at 2001**
+  - SQDR `blacklist.upd` x2 from OS/2 Hobbes, 38,739 bytes, 2,322 lines, dated `2001-06-21` and
+    `2001-12-28`. **88.2 EE**
+- **BLOCKED and deliberately kept separate so it does not hold up the rest**: SpamEater Pro
+  `spammers.txt`, 14 editions 1998-05-24 to 1999-09-19 plus a 1997 `SPAMMERS.LST`, 207,777 lines,
+  **546.2 EE**, carrying `Copyright (C) 1997-1998 High Mountain Software / All Rights Reserved` and
+  `you are specifically prohibited from ... distributing the software and/or documentation with other
+  products (commercial or otherwise) without prior written permission`. Two lanes measured it
+  independently and agreed to 0.3% (546.2 against 544.4), so the number is sound and the licence is the
+  only obstacle
+- collect it: targeted requests to `discmaster.textfiles.com`, whose `robots.txt` is `Disallow: /`
+  **followed verbatim by** "If you are a researcher, historian or hobbyist, you are free to automate
+  requests to the site so long as it's reasonable or somewhat limited or somewhat targeted"
+- adversarial selection working as the law predicts: 65.4% of the 2001 blacklist's domains are known to
+  the store at all and only 45.6% carry 2001, against 87-99% for authority corpora
+- **the honest caveat, and it is the reason to look at a sample before deciding**: the union's typo upper
+  bound is 73.7%, the worst on this project. On the component I verified it is milder, 240 of 2,812 novel
+  names all-numeric (8.5%), but the union figure of 33.5% means the SpamEater half carries most of it.
+  All-numeric `.com` labels have dense one-edit neighbours by construction and cannot be told from junk
+  without registry evidence
+- lineage: none of these is crawl-derived, so the class is independent of every web archive
+- potential: 58
+
+Decision: pending
+
+
 ### caselaw_access_project_opinions / dated_directory
 
 - potential: 58
