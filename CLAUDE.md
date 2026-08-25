@@ -74,6 +74,12 @@ already held, because program reports print the URLs of institutions we already 
 a sample before pricing any prose corpus, and expect `.edu` and `.gov` to die to the split: ERIC held
 184 `.edu` pairs and exactly one survived.
 
+**Under the split, a list's EE is (held domains) x (years it can add). Novelty above ~50% is a COST.**
+A novel name earns no year, so what pays is a LONG-RUNNING dated series over a population we already
+hold: junkfilter spans 13 editions 1997-2001 and paid 2,189 EE, while a two-year list over the same
+population paid 120, its held domains already carrying 1997 at 93.0% and 1998 at 91.4%. Ask how many
+YEARS an artifact can add before asking how many names it has.
+
 **Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
 fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
 typosquat listing 25.8%. Anything that learned its names by following links inherits the crawler's
