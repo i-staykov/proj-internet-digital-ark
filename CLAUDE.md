@@ -67,6 +67,11 @@ A run of nothing is a signal to move sideways, not to push harder on the same sh
 Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask what the
 corpus is *about* before trusting even that.
 
+**And that ceiling is an upper bound, not an estimate. FORMAL prose runs ~15x under it**, so counting
+items predicts the wrong answer: Hansard is 3.26M words per 5 URLs at 0.0028 pairs/item, and both it
+and the London Gazette are far past 119,000 items and pay nothing. Measure URL density on a sample
+before pricing any corpus of debates, judgments, gazettes or filings.
+
 **ADVERSARIAL selection inverts killer 3; merely-not-curated does not.** Already-held is ~50% on a
 blocklist against 87-99% on an authority-selected corpus. But traffic logs, which are not curated
 either, measured 98.4% and 99.6%, WORSE than curated: a visitor log's hostname is reverse DNS, so the
