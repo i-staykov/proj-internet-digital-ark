@@ -2618,3 +2618,48 @@ stand as conservative**. But keyword sweeping DataCite descriptions is not a usa
 **Verdict: treat "academic repositories and DOI datasets" as closed and report it to Ding as closed
 with these numbers.** Five APIs and two registries converge on the same three artifacts, all of which
 we already hold or have priced. Do not rotate back to this lens.
+
+---
+
+## Dated internet-trade directories (ISPs and web hosts): closed, and the ceiling is the reason
+
+**The idea was sound and the population is too small to matter.** ISPs and hosting companies in
+1996-2001 were thousands of small regional businesses, which is the mid-tail rather than the head, so a
+2001-dated directory of them looked like a good fit for the 2001 threshold: one already-held `.com`
+name in a 2001-dated artifact is worth 0.386 EE, so ~2,600 held names clears 1,000 EE.
+
+**`thelist.com` is a proved zero on retrieval, and the proof is one number.** Mecklermedia's ISP
+directory was the big one, and it is not in the archive in bulk: querying every 1996-2002 capture of
+`thelist.com` and `thelist.internet.com` sorted by size, **the 25 largest objects on each host are all
+ad banners, and the largest of any kind is a 14,390-byte GIF** (`ads/1999/12/tsl-468.gif`). There is no
+listing page above about 12 KB, because the directory was a database-driven per-state query interface
+and the crawler took the chrome rather than the data. `web.archive.org/robots.txt` is a 404 with no
+rules, so this is absence, not refusal.
+
+**And the lens has a low ceiling even with a perfect artifact, which is the transferable part.** The
+`Message-ID` posting-host study of 2026-08-16 already measured this exact population from the other
+direction: the top hosts were `wisc.edu`, `gi.net`, `supernews.com`, `aol.com`, `att.net`,
+`earthlink.net`, and its conclusion was that **the population of ISPs and news servers in 1996-2001 is
+a few thousand hosts we already hold in full**, returning zero never-before-seen domains over 73,751
+messages. So the addressable set is thousands, not the tens of thousands a 1,000 EE find needs at
+`.com` weight, and the part of it that pays is only the fraction still missing 2001.
+
+**Boardwatch stays where it was**: the magazine issues are ingested, and its separately catalogued ISP
+Directory volumes remain blocked because `..._djvu.txt` returns a 146-byte stub. That is an access
+failure rather than a content zero, so a route to those volumes' text would still be worth having, but
+the ceiling above says it is not worth hunting for.
+
+**Do not rotate back to trade directories of internet businesses.** The failure is not which host you
+try; it is that the whole industry was a few thousand names and we hold them.
+
+**Housekeeping, and a scare worth recording because it looked exactly like a known bug.**
+`data/raw/usenet_bulk/` holds **9,266 archives and 52 GB with no `.processed` marker of its own**, which
+is the precise shape of the directory-mismatch bug that once hid 50 GB for weeks. It is a false alarm:
+all 9,266 basenames are in `data/raw/usenet/.processed`, as are all 48 in `usenet_probe5`, because the
+marker lives in the sibling directory the pipeline writes to. **Check the marker's contents, not its
+location.** Sweeping all thirteen `usenet_*` directories the same way found exactly three genuinely
+unprocessed archives, in `usenet_msft`, 488 MB. Split and ingested: 23,410 dated records over 19,095
+domains and **0 net-new year rows**, which is what `microsoft.public.*` should give, and they are now
+marked. Also confirmed against the ledger: 117 GB of `data/raw` is unledgered, and it is all either
+processed Usenet source archives (the ledger holds journal names, not `.mbox.zip` names), the 2 GiB
+`host-linkage` backup, out-of-window Common Crawl vertex files, or RDAP queue text.
