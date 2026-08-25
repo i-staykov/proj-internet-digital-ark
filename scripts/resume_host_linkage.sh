@@ -33,7 +33,13 @@ DEADLINE="${1:-0}"
 CHUNK_MB="${2:-256}"
 CHUNK=$((CHUNK_MB * 1024 * 1024))
 TOTAL=20928588915
-URL="https://web.archive.org/web/2019id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz"
+# **Pin the 2022 capture, and never use a bare `<year>id_`.** A CDX enumeration of this
+# URL returns TWO captures of different sizes: `20200106181208` at 2,148,135,247 bytes
+# and `20221031190607` at 20,930,377,408. A `2019id_` request resolves to the nearest,
+# which is the 2 GiB one, and it advertises `content-range: .../20928588915` from the
+# captured headers while serving a tenth of that. So the earlier "the archive stops at
+# 2^31" reading was wrong: we were asking a 2 GiB record for byte 2^31.
+URL="https://web.archive.org/web/20221031190607id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz"
 UA="internet-digital-ark/1.0 (research; ivaylo.staykov@student.hpi.uni-potsdam.de)"
 OUT="data/raw/ukwa/host-linkage.tsv.gz"
 LOG="data/logs/host_linkage_resume.log"
