@@ -359,6 +359,19 @@ Decision: pending
   to 1999
 - access note: `ftp.isc.org/robots.txt` ends `Disallow: /` under `User-agent: *`, so the live host must
   never be touched. The 2015 mirror inside archive.org is a different host
+- **complete edition list, so a collector does not have to rediscover it.** Three sources, ten editions:
+  inside `2015.04.ftp.isc.org.tar` at `pub/rfc/`, the mtimes 1996-10-09 (`-new` variant), 1996-11-20
+  (`.backup`) and 1999-03-22 plus rotations `.0`-`.5` spanning 1999-02-19 to 1999-03-18; at
+  `www.isi.edu/in-notes/`, captures 2000-08-15, 2000-12-06, 2001-04-11 and 2001-06-06, the last three
+  byte-identical; and at **`ftp.isi.edu/in-notes/`, six rotations `.0`-`.5` all captured 2001-05-01**,
+  which the original survey missed because it only looked at the `www` host
+- the `ftp.isi.edu` rotations are a small addition, not a new year: the 1999 chain differed by about
+  900 bytes across a month, so consecutive rotations are near-duplicates, and these sit between the
+  2001-04-11 and 2001-06-06 editions already counted. Worth fetching for completeness, not for a
+  re-price
+- **1997 and 1998 are confirmed unreachable, checked from both hosts.** `ftp.isi.edu` has no capture of
+  the base filename at all and nothing before 2001-05-01; `www.isi.edu` starts at 2000-08-15; and the
+  ISC tar jumps 1996 to 1999. So the gap is real rather than unexamined
 - potential: 99
 
 Decision: pending
