@@ -160,6 +160,22 @@ for i in $(seq 1 "$ITERATIONS"); do
     # which is the same failure the VPS journals caused twice.
     ingest_all rdap_snapshot     data/raw/rdap/rdap_*.jsonl.gz
 
+    # **Measure the promotion tranche every pass, and never bank it here.** The split
+    # is deliberate: `build_promotion_journals.py` prints its ingests rather than
+    # running them because whether to bank a tranche is a judgement, and
+    # `bank_promotion.sh` exists for when that judgement is made. What was missing is
+    # that nobody SAW the number, so a tranche could sit unmeasured for days.
+    #
+    # It compounds, which is why it belongs on the loop rather than on a schedule of
+    # its own: a mention is promoted when some OTHER source dates its domain, so every
+    # master ingest above can unlock pool names that the previous pass could not admit.
+    # On 2026-08-25 the `.ie` register landing the day before contributed 157 of 2,476
+    # pairs, and the tranche measured 1,556.6 equivalent-English.
+    #
+    # No `--write`, so this touches nothing.
+    uv run python scripts/build_promotion_journals.py --tag "dryrun$(date -u '+%Y%m%d')" \
+        >> "$LOG" 2>&1 || echo "  promotion dry run failed this pass, continuing" >> "$LOG"
+
     sleep "$PAUSE"
 done
 echo "$(date '+%F %T') maintenance loop finished" >> "$LOG"
