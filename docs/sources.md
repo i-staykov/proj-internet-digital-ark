@@ -2386,3 +2386,155 @@ authorities we already hold: law 3 in its purest form. And **most rows are out o
 86,281 and 226,315 of 284,247, because the graph runs to 2013. So the narrow siblings say nothing
 about the full `host-linkage.tsv.gz`, whose first tenth gave 116,467 pairs from an unselected
 population. Do not use these to re-price that one.
+
+---
+
+## namewinner.com expiring-domain list, 2001-10-26 (PRICED, needs a Decision)
+
+**This prices `domain_aftermarket_listings_1999_2001`, which had sat unmeasured since the aftermarket
+lens was first opened.** That lens was closed once already, correctly, for the Usenet for-sale groups:
+`alt.domain-names.forsale` and its siblings are ingested at 36,425 rows over ~32,685 domains and were
+measurable for nothing. **What had never been retrieved was the bulk listing half**, and it pays.
+
+**The artifact.** `http://namewinner.com/whole_list.php?del=tab`, Wayback capture
+`20011026120205`, Dotster's expiring-domain auction list. 581,560 bytes, **20,943 distinct
+registrable domains** (15,660 `.com`, 3,333 `.net`, 1,950 `.org`). The `?del=none` sibling capture is
+a strict subset, 16,125 of the 20,943.
+
+**What dates it, and it needs no inference.** Every row carries the per-item date `25-OCT-01`.
+Verified directly rather than taken on report: the file contains **20,945 occurrences of `25-OCT-01`
+and no other date string of that shape**. The Wayback capture fixes the instant at 2001-10-26 12:02
+UTC, and the operator's own `rule_book.php` (capture `20011027003733`) calls it "our list of soon to
+be expiring domain names". A name on a soon-to-expire list is one the registrar is stating is
+registered right now, which is the `coza_deletion_listing` argument already on the sheet, and it is
+exactly the standard Ivo set in killer 8: the artifact asserts a state at an instant it stamps itself,
+and a capture fixes when it existed.
+
+**Two prices, and the difference is a judgement rather than a measurement.**
+
+| reading | net-new pairs | net-new EE |
+|---|--:|--:|
+| **master**: the listing dates every name on it | **18,951** | **11,555.0** |
+| conservative: only names the store already holds | 3,377 | 2,083.9 |
+
+**The master reading is the right one and here is the argument.** The corroboration split exists for
+"anything a human typed". This is a database dump out of a registrar's own expiring-domain system, not
+a human-typed list, and the names on it are real registrations by construction, because being
+registered is the only way onto the list. That is the same shape as `iedr_register` (banked 18,826 EE)
+and `internic_zone` (banked 8,813 EE), both machine-generated register listings admitted as
+`artifact_listing`, and both of which dated novel names. **Applying the split here would be treating a
+registrar's database output as though a person had typed it.**
+
+**The low held-fraction is the point, not a warning.** 25.6% held is far below the ~50% a blocklist
+gives and nowhere near an authority corpus's 87-99%. The reason is that these are speculative names
+from the 1999-2001 land rush that nobody linked to and no crawler visited, and which then dropped:
+precisely the long tail a trust-selected corpus cannot reach (law 3, from the other side). 1,992 of
+them are already held at 2001, so the store is not blind to this population, just thin in it.
+
+**The 2002 sibling, and why it is a separate decision.** `whole_list.php?del=none` at capture
+`20020407171418` holds **52,204 distinct domains** with per-item dates `05-APR-02` to `10-APR-02`
+straddling the capture, so it is a forward schedule and the names were live when captured. It has
+**zero overlap** with the October list, as two drop lists months apart should. But its own date is
+2002, outside the window, so reaching 2001 needs the minimum-one-year-registration-term inference.
+Post-split that is 4,134 pairs and 2,543.2 EE. **Filed separately: the inference may be sound, but it
+is not the same class of claim as a stamped in-window date, and it should not be smuggled in beside one.**
+
+**Also found, and it is small: dailychanges.com.** Per-nameserver deleted-domain pages,
+`detail/?ns=X&date=Y&act=d`. One page pays: `ns=LAME-DELEGATION.ORG&date=2002-08-01` is 4,511 names at
+**66.7% held**, 1,076.3 EE on the adjacent-year measure, because that nameserver is Verisign's legacy
+lame-delegation park and its population is 1990s names we already hold. **Four ordinary registrar
+pages measured 0.021 EE per name, ten times worse**: REGISTER.COM 5.2% held, WORLDNIC.COM 3.2%,
+DIRECTNIC.COM 6.3%, NAME-SERVICES.COM 7.3%. Whole-2002 harvest is ~739 pages and ~19,300 names for an
+estimated 1,400 EE, and the 2003 pages are mostly Sep-Dec, which attests 2002 at best.
+
+**The transferable screen, and it is new:** on a drop list, held-fraction tracks **how old the
+nameserver's population is**, not how long the list is. 66.7% for a legacy park against 3.2-7.3% for
+live registrars, from the same site on the same dates. Ask whose nameserver the names sat on.
+
+**Proved zeros in the same family, so nobody re-walks them.** `deleteddomains.com`: 286 non-affiliate
+captures 2001-2004, and all four list endpoints are 3.0-3.4 KB query forms that never contain a result
+set; its CDX is 20,000+ `?cid=` affiliate URLs, so **filter `!original:.*cid=.*` or the host looks far
+richer than it is**. `snapnames.com`: 10,580 captures, lists sat behind `/protect/` login, best
+candidates are 5-6 KB marketing pages. `pool.com`: `?dom=X` is one domain per page, `hotlist.aspx` is
+2003. `unclaimeddomains.com`: bare labels with no TLD and no date, and "available" means not
+registered, so killer 4. `deletedomains.com`: 14 captures, largest 2,987 bytes. `domainstate.com`:
+zero CDX rows 2001-2003. `dotster.com`: no bulk list in 2,583 captures. **`domainsbot.com` is NOT a
+zero: CDX never answered in 5 attempts and it was not tested.**
+
+---
+
+## US Domain delegated-subdomains list (PRICED, needs a Decision), and the ISC survey closed for good
+
+**The find.** `us-domain-delegated.txt`, the US Domain Registry's list of delegated `.us` zones, one
+per line with the delegate's contact beside it. Six editions totalling ~2.5 MB, reached two ways:
+inside the `2015.04.ftp.isc.org.tar` mirror on archive.org at `pub/rfc/`, with tar-preserved mtimes
+**1996-10-09**, **1996-11-20** and **1999-03-22** plus six rotations `.0`-`.5` running 1999-02-19 to
+1999-03-18; and at the file's other home `www.isi.edu/in-notes/us-domain-delegated.txt`, captured
+**2000-08-15, 2000-12-06, 2001-04-11 and 2001-06-06** (the last three byte-identical at 435,847 B).
+
+**Priced with the project's own `price_items.py` against the live store:**
+
+| edition | net-new pairs post-split | net-new EE |
+|---|--:|--:|
+| 2001-06-06 alone | 3,524 | 3,247.3 |
+| **union 1996 + 1999 + 2000 + 2001** | **13,816** | **12,775.5** |
+
+Mean weight **0.9247**, because `.us` scores 0.9261. By year 1996 2,284 / 1999 4,185 / 2000 3,823 /
+2001 3,524. Gross was 15,270.0 EE and **must not be quoted**.
+
+**What dates it.** The artifact asserts the delegation state of the `.us` namespace, and the instant is
+fixed twice over: the tar-preserved mtimes, whose rotation chain is **monotone in both date and size**
+(425,505 to 426,388 bytes across Feb-Mar 1999, continuing monotone into the Wayback captures at
+433,937 to 435,847), and `cdx_timestamp` on the 2000 and 2001 captures. A delegation is the registry
+serving that name at that instant rather than a description of one, which is the `internic_zone`
+reasoning and the reason killer 2 does not reach it. Class `artifact_listing`, master-eligible.
+
+**The name shapes are legitimate and this was checked, not assumed.** The lines are `.us` locality and
+`k12` zones, so the obvious worry is that they are public suffixes rather than domains. The pinned PSL
+handles it exactly right: `to_registrable` returns **None** for `K12.AK.US`, `AK.US` and `US`,
+resolves `ANCHORAGE.AK.US` and `STATE.AK.US`, and collapses `CI.ANCHORAGE.AK.US` to `anchorage.ak.us`.
+
+**Contamination is real but negligible.** Every data line also carries a contact email, and those
+domains are not delegated `.us` zones. They survive in the count at **56 pairs of 13,816**: by TLD it
+is `us` 13,760, `com` 36, `net` 18, `org` 2. The contacts are a small repeated set of ISPs and
+registrars (`nametamer.com`, `troika.net`, `wwa.com`) that the store already holds for those years.
+
+**Caveats to weigh before approving.** The typo upper bound is **17.8%**, which is high, and the
+honest reason is structural rather than reassuring: sibling locality names are one edit apart by
+construction (`HAINES` and `HEALY`, `NOME` and `TOK`), so an edit-distance test cannot separate a typo
+from a neighbouring town. And **1997 and 1998 are unreachable**: no `*.isi.edu` capture predates
+2000-08-15 and the ISC tar jumps 1996 to 1999.
+
+**`ftp.isc.org` refuses everything and must not be touched live.** Its `robots.txt` is 4 lines ending
+`Disallow: /` under `User-agent: *`. Blanket, not by name. The 2015 mirror held inside archive.org is
+a different host and is unaffected. (`www.isc.org` allows all but `/thankyou-contact/`.)
+
+**The ISC Domain Survey question is now closed permanently, and this is the useful half of the run.**
+The complete uncapped listing of that mirror, 197,589 entries, settles what survives:
+`www/survey/archive-data/` ends at **`9707.domains.gz`**, exactly where `sources.md` already had it,
+with no 9801 or later. `reports/1998/` through `reports/2002/` do exist for both editions of every
+year, and **every file in them is 1.4-21 KB**: `dist-byname`, `dist-bynum`, `firstnames`,
+`hosts.txt`, `report.txt`. Per-TLD counts, no name lists. Wayback holds 24 URLs for `ftp.isc.org`
+across 1996-2004 and **none under `/www/survey/`**. So the raw ISC survey host data for 1998-2001 does
+not survive on its own host, in the fullest mirror of that host that exists. **Treat the ISC family as
+a 1996-1997 window, permanently, and stop re-testing it.**
+
+**Also tested, dead:** `ftp.isc.org/pub/rfc/enterprise-numbers`, the IANA PEN registry, 339,504 bytes
+dated 1999-03-22. 2,348 of 2,445 domains already held for 1999, **48.1 EE**. A textbook authority
+corpus failing the second screen.
+
+**And the FTP-mirror-ZIP lens is now fully closed, including the 42 gaps.** The 20 MB listing cap was
+client-side and two methods removed it. **All 9 truncated ZIPs listed complete via ranged reads of the
+ZIP64 central directory**, row counts matching the declared entry counts exactly, including a 576.6 GB
+nvidia ZIP at 157,962 entries: size is irrelevant to that method, which costs ~2 requests. For TARs,
+`view_archive.php` completes only below ~15 GB, so 8 of 20 finished. Completeness was proved, not
+assumed: `ftp.shroo.ms.tar` gave **85,595 rows by listing and 85,595 by the item's own `.tar.txt`**.
+
+Of the 13 zero-row archives, **three are corrupt uploads rather than listing failures**, each exactly
+**4,294,967,295 bytes, which is 2^32 - 1**, a 32-bit overflow at upload; no method recovers those. The
+other ten are the size ceiling at 36-672 GB, cutting at ~33 s and 130,234 bytes every time. **One
+correction to the earlier sweep: `ftp.oracle.com` was not a zero**, it listed 6,568 rows untruncated.
+The cheap alternative for a huge tar is the item's own `.tar.txt` companion (23 MB for a 672 GB tar);
+it exists for 4 of the remaining 22 and all four parsed to zero bulk host data. `ftp.microsoft.com.zip`
+holds 48,230 in-window entries and 3 pattern hits, all false. **The single bulk host artifact in all 42
+archives is the `us-domain-delegated.txt` family above.**
