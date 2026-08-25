@@ -250,6 +250,14 @@ reach it: the registry was serving that name at that instant.
 
 ### ripe_dbase_1999 / artifact_listing
 
+- **REQUEST SENT 2026-08-25 by Ivo, to the RIPE NCC. Awaiting a reply; do not send a second.** The ask
+  is the narrow one: derive `(domain, 1999)` pairs only, publish no database text and no personal data,
+  no contact, person or maintainer objects, and accept conditions. Draft kept at
+  `private/access-request-ripe-20260825.md`
+- **if they say yes, this is a parser job and nothing else is blocking it.** No parser exists yet, by
+  design. The file is already on disk, integrity-checked, and the measurement below is current
+- if they say no, or do not answer, the answer is no: the header names prior permission as the remedy,
+  so proceeding without it would be proceeding against a term we have read three times over
 - measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
   against the live store. A subagent measured 93,857.7 an hour earlier; the gap is the store growing
   underneath it, not a disagreement
