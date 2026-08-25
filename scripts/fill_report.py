@@ -187,18 +187,33 @@ def ee_source_table(f: dict) -> str:
     orders disagree: 23,678 `.ca` pairs outrank 107,304 pairs of mixed Usenet
     origin, and a table sorted by volume would put the weaker source first.
     """
+    # Four columns, not six. The date basis repeats section 3 and `sources.md`, and
+    # an "admissible" column whose every value is "master" is a column of one fact,
+    # stated once in the prose instead. A candidate-only row would still be marked,
+    # so the distinction the reviewer asked for survives the cut.
     lines = [
-        "| Source | What carries the date | Evidence type | Admissible | Net-new pairs | "
-        "Equivalent-English |",
-        "|---|---|---|---|--:|--:|",
+        "| Source | Evidence type | Net-new pairs | Equivalent-English |",
+        "|---|---|--:|--:|",
     ]
-    for row in f["by_source"]:
-        admissible = "master" if row["master"] else "**candidate only**"
+    # Sources contributing under a tenth of a percent of the round are folded into one
+    # row. Nine of them together were 162 equivalent-English of 510,613 last round, so
+    # they cost eight lines of a four-page report to say nothing. The full per-source
+    # breakdown ships in `audit/` and in the provenance parquet either way.
+    floor = Decimal("0.001") * Decimal(str(f["ee_netnew"]))
+    shown = [r for r in f["by_source"] if r["ee"] >= floor]
+    folded = [r for r in f["by_source"] if r["ee"] < floor]
+    for row in shown:
+        mark = "" if row["master"] else " **(candidate only)**"
         lines.append(
-            f"| `{row['source']}` | {DATE_BASIS.get(row['source'], 'see `sources.md`')} | "
-            f"`{row['evidence_type']}` | {admissible} | {row['pairs']:,} | {row['ee']:,.1f} |"
+            f"| `{row['source']}`{mark} | `{row['evidence_type']}` | "
+            f"{row['pairs']:,} | {row['ee']:,.1f} |"
         )
-    lines.append(f"| **Total** | | | | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.1f}** |")
+    if folded:
+        lines.append(
+            f"| *{len(folded)} further sources, each under 0.1% of the round* | | "
+            f"{sum(r['pairs'] for r in folded):,} | {sum(r['ee'] for r in folded):,.1f} |"
+        )
+    lines.append(f"| **Total** | | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.1f}** |")
     return "\n".join(lines)
 
 
@@ -297,6 +312,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "CDX_TABLE": cdx_table(),
         "CDX_FAILURES": cdx_failures(),
         "DATASETS_SEARCHED": datasets_searched(),
+        **ingest_counters(),
         "CUMULATIVE": cumulative(f),
         "CUMULATIVE_SENTENCE": cumulative_sentence(f),
         "MERGE_RECONCILIATION": merge_reconciliation(),
@@ -431,42 +447,31 @@ def cumulative(f: dict) -> str:
     because that is the comparison he is scored on: what this project has added,
     measured against the corpus as it is today.
     """
-    rows = [
-        "| Round | Records | Equivalent-English |",
-        "|---|--:|--:|",
-    ]
+    # One line, not a table. The per-round figures are the reviewer's own accepted
+    # numbers, so he already holds them; what he cannot read off his own records is
+    # the cumulative share, and that is the figure his competition score uses.
     total_records = 0
     total_ee = Decimal(0)
+    per_round = []
     for label, _date, records, ee, _against in SUBMITTED_ROUNDS:
         total_records += records
         total_ee += ee
-        rows.append(f"| {label} | {records:,} | {ee:,.4f} |")
+        per_round.append(f"round {label} {records:,} / {ee:,.0f}")
 
     shipped = len(SUBMITTED_ROUNDS)
     total_records += f["netnew_pairs"]
     total_ee += Decimal(str(f["ee_netnew"]))
-    rows.append(
-        f"| **{CURRENT_ROUND_LABEL}, this one** | "
-        f"**{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.4f}** |"
+    per_round.append(
+        f"**{CURRENT_ROUND_LABEL}, this one {f['netnew_pairs']:,} / {f['ee_netnew']:,.0f}**"
     )
-    rows.append(f"| **Total** | **{total_records:,}** | **{total_ee:,.4f}** |")
 
     pct = 100 * total_ee / Decimal(str(f["ee_baseline"]))
-    return "\n".join(
-        [
-            f"**Cumulative.** Across the {shipped} rounds shipped so far plus this one, this "
-            f"project has added {total_records:,} domain-year records worth {total_ee:,.4f} "
-            f"equivalent-English, which is **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the "
-            "corpus holds today. Each shipped round is quoted at the figure the reviewer "
-            "ACCEPTED, which is not always the one it was submitted with: he recalculates "
-            "against whatever baseline is current when he merges, and records of ours that "
-            "reached it by another route in the meantime are his, not ours, to count. Round 1 "
-            "predates the equivalent-English metric, so its records are the reviewer's own "
-            "confirmed count and the weight beside it is measured over the two releases either "
-            "side under the unchanged model.",
-            "",
-            *rows,
-        ]
+    return (
+        f"**Cumulative.** Across the {shipped} rounds shipped so far plus this one, this project "
+        f"has added {total_records:,} domain-year records worth {total_ee:,.4f} "
+        f"equivalent-English, **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the corpus holds "
+        f"today. Records / equivalent-English by round, each at the figure you ACCEPTED rather "
+        f"than the one submitted: {'; '.join(per_round)}."
     )
 
 
@@ -503,23 +508,20 @@ def merge_reconciliation() -> str:
     ]
     return "\n".join(
         [
-            "**The merge, deduplication and overlap, computed here rather than described.**",
-            "`merge_against_baseline.py` unions these additions into the current baseline,",
-            "deduplicated on the lowercased line within each year, which is the reviewer's own",
-            "counting unit, and scores every file with his own calculator. The per-year form is",
-            "`audit/merge_stats_ark_*.csv`, in his column names so his audit and this one can be",
-            "diffed directly.",
+            "**Computed here, not described.** `merge_against_baseline.py` unions these",
+            "additions into the current baseline, deduplicated on the lowercased line within",
+            "each year, and scores every file with your own calculator. Per-year form in",
+            "`audit/merge_stats_ark_*.csv`, in your column names so the two audits diff directly.",
             "",
             *rows,
             "",
-            f"**{passed} of {len(checks)} reconciliation checks pass.** They are arithmetic",
-            "identities, so a failure is a defect rather than a finding: per year that",
-            "`baseline_unique + accepted_new == merged_unique` and that",
+            f"**{passed} of {len(checks)} reconciliation checks pass**, all arithmetic identities,",
+            "so a failure would be a defect rather than a finding: per year that",
+            "`baseline_unique + accepted_new == merged_unique` and",
             "`already_in_baseline + accepted_new == submitted_unique`, that the per-year",
-            "equivalent-English increments sum to the headline figure, that the baseline plus",
-            "the increment equals the post-merge total, and that a freshly measured baseline",
-            "reproduces the record count and equivalent-English total this round was measured",
-            "against. Every one is listed with its verdict in `audit/merge_audit_ark_*.json`.",
+            "increments sum to the headline figure, and that a freshly measured baseline",
+            "reproduces the totals this round was measured against. Each is listed with its",
+            "verdict in `audit/merge_audit_ark_*.json`.",
         ]
     )
 
@@ -541,6 +543,40 @@ def cumulative_sentence(f: dict) -> str:
         "than the one I submitted, so records of mine that had already reached the baseline by "
         "another route are not counted twice."
     )
+
+
+def ingest_counters() -> dict:
+    """Pipeline-wide normalisation and drop statistics, summed from `run_metrics`.
+
+    Every `ark ingest` call records its own counters, so summing them is the only
+    figure that describes the whole pipeline rather than one source. The reviewer
+    asks for normalisation, salvage and dropped-domain statistics by name, and a
+    hand-typed number here would be the one figure in the report nothing checks.
+    """
+    from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently
+
+    conn = connect_read_only_patiently(DEFAULT_DB_PATH)
+    rows = conn.execute("SELECT metrics_json FROM run_metrics WHERE command = 'ingest'").fetchall()
+    total: dict[str, int] = {}
+    for (blob,) in rows:
+        try:
+            parsed = json.loads(blob)
+        except (ValueError, TypeError):
+            continue
+        for key, value in parsed.items():
+            if isinstance(value, int):
+                total[key] = total.get(key, 0) + value
+    # `out_of_window` is the bulk parsers' counter and `outside_window` the RDAP
+    # one; they mean the same thing and are reported as one line.
+    outside = total.get("out_of_window", 0) + total.get("outside_window", 0)
+    return {
+        "INGESTRUNS": f"{len(rows):,}",
+        "RAWLINES": f"{total.get('lines', 0) + total.get('journal_lines', 0):,}",
+        "STAGEDRECORDS": f"{total.get('records', 0):,}",
+        "CORRECTED": f"{total.get('corrected', 0):,}",
+        "REJECTED": f"{total.get('rejected', 0):,}",
+        "OUTOFWINDOW": f"{outside:,}",
+    }
 
 
 def datasets_searched() -> str:
@@ -618,14 +654,52 @@ def _cdx_notes(markdown_form: bool) -> str:
     return render(tallies, markdown_form)
 
 
+# The reviewer asks for the retrieval strategy, the errors and the domains added,
+# not a census of every collector prefix we happened to name. Eighteen rows is most
+# of a page in the Word file, so the long tail is folded into one row here and the
+# full per-prefix breakdown ships in `audit/`. TOP_PREFIXES is the cut point.
+TOP_PREFIXES = 6
+
+
 def cdx_table() -> str:
-    return _cdx_notes(markdown_form=True).split("\n\nOf ")[0]
+    """The collector table, with everything below the top prefixes folded into one row."""
+    from cdx_execution_notes import NOTES_MARKER
+
+    table = _cdx_notes(markdown_form=True).split(NOTES_MARKER)[0].rstrip()
+    lines = table.split("\n")
+    head, rows = lines[:2], [ln for ln in lines[2:] if ln.startswith("|")]
+    if not rows:
+        return table
+    total = rows[-1] if rows[-1].lower().startswith("| **all**") else None
+    body = rows[:-1] if total else rows
+
+    def cell(row: str, index: int) -> int:
+        raw = row.split("|")[index].strip().replace(",", "").replace("*", "")
+        return int(raw) if raw.isdigit() else 0
+
+    kept, folded = body[:TOP_PREFIXES], body[TOP_PREFIXES:]
+    if folded:
+        # Sum the count columns; the two rate columns are recomputed from them so a
+        # folded row cannot show an average of percentages, which is not a percentage.
+        journals = sum(cell(r, 2) for r in folded)
+        queries = sum(cell(r, 3) for r in folded)
+        answered = sum(cell(r, 4) for r in folded)
+        domains = sum(cell(r, 7) for r in folded)
+        pairs = sum(cell(r, 8) for r in folded)
+        rate = f"{100.0 * answered / queries:.1f}%" if queries else "n/a"
+        kept.append(
+            f"| *{len(folded)} further prefixes* | {journals:,} | {queries:,} | "
+            f"{answered:,} | {rate} | | {domains:,} | {pairs:,} |"
+        )
+    return "\n".join(head + kept + ([total] if total else []))
 
 
 def cdx_failures() -> str:
+    from cdx_execution_notes import NOTES_MARKER
+
     body = _cdx_notes(markdown_form=True)
-    _, _, tail = body.partition("\n\nOf ")
-    return f"Of {tail}" if tail else body
+    _, marker, tail = body.partition(NOTES_MARKER)
+    return f"{marker}{tail}" if tail else body
 
 
 # The template marks each section whose prose a human must write for this round as
