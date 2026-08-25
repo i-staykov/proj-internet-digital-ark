@@ -2538,3 +2538,13 @@ The cheap alternative for a huge tar is the item's own `.tar.txt` companion (23 
 it exists for 4 of the remaining 22 and all four parsed to zero bulk host data. `ftp.microsoft.com.zip`
 holds 48,230 in-window entries and 3 pattern hits, all false. **The single bulk host artifact in all 42
 archives is the `us-domain-delegated.txt` family above.**
+
+**No collector is needed for namewinner, and the capture enumeration is why.** The obvious follow-up
+was that Oct 2001 and Apr 2002 share zero names, so more captures should mean more names. Enumerated:
+`namewinner.com` has 21 captures of `whole_list*.php`, and **only four carry content**. Two are the
+2001-10-26 pair (`?del=none` 129,231 bytes and `?del=tab` 128,536, the latter a superset at 20,943
+names) and two are the 2002-04 pair (1,443,945 and 1,443,957 bytes). **Every other capture is 373 to
+415 bytes**, an empty or error page, including all four from December 2001 and January-February 2002.
+So the single in-window artifact is maximal and there is nothing to iterate over. The only untested
+item on the host is `whole_list_bids.php?del=none` at 20,702 bytes, captured 2002-01-25: a bids page,
+2002-dated, and about 700 names at that size, so it is below any bar even before the inference problem.
