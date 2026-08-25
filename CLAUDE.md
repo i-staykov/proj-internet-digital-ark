@@ -80,6 +80,12 @@ A novel name earns no year. But high already-held is only half the test: an IRR 
 junkfilter paid 2,189 EE spanning 13 editions 1997-2001; a two-year list over the same population paid
 120. Ask which YEARS an artifact can add to names we already have.
 
+**Compute headroom from the ADJACENT year only.** A gap between a domain's LAST held year and the
+target is evidence of death, not of missing data: of 9,680 `.us` names missing 2001, **6,948 were last
+seen in July 1997**, and only 37.65% of the names an ISC 1997 walk attests have any 2001 record at all
+(`.com` from the same file: 40.31%). So "held ANY year, missing Y" is contaminated and "held Y-1,
+missing Y" is not. Quote the adjacent figure.
+
 **Aim at 2001, not 1996.** Measured headroom: **6,708,320 domains held at 2000 and missing 2001**, worth
 ~2.92M EE gross in the top eight TLDs, against **103,953** for the 1996-to-1997 gap. A 64x difference.
 Thin in absolute pairs is not the same as fillable. So aim the frozen-mirror rule at media and mirrors
