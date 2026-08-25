@@ -111,6 +111,9 @@ what survives the split we already hold. Ask whether the lister held the databas
 - Rank a queue by TLD weight alone and 2013 gTLDs lead it. Volume floor first.
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
 - Look for the existing tool before writing one.
+- **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
+  that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
+  `.nz` cost 7,586 EE that way; `.uk` says the same thing.
 - **Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it is
   closed three times over wastes the run and teaches the agent to distrust the brief.
 
