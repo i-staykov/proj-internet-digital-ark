@@ -126,6 +126,10 @@ what survives the split we already hold. Ask whether the lister held the databas
 - **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
   that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
   `.nz` cost 7,586 EE that way; `.uk` says the same thing.
+- **Read the WHOLE robots.txt, not its head, and act on it before any other request.** A by-name group
+  can sit anywhere in the file and a permissive `User-agent: *` block at the top does not override it.
+  `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
+  Refusing us by name: `cryptome.org`, `tbtf.com`, `www.openpgp.net`, `ftp.nluug.nl`, `tomocha.net`.
 - **Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it is
   closed three times over wastes the run and teaches the agent to distrust the brief.
 
