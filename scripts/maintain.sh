@@ -11,6 +11,17 @@
 # half-written journal would ledger it at a partial hash and make the rest of
 # that run permanently unreachable.
 #
+# **That rule is right about LIVE partials and wrong about ABANDONED ones**, and
+# the difference is measurable in EE. A collector killed by a deadline, a signal
+# or a crash never renames, so its work sits in a `.part` no glob will ever
+# match. Locally on 2026-08-25 that was three files holding 1,451 year rows and
+# about 919 equivalent-English, the oldest abandoned on 18 August; remotely it
+# was five files, 62 MB and 3,599 EE. **The staleness test separates the two
+# cases**: nothing has written to an abandoned partial for hours, while a live
+# one grows every few seconds. 90 minutes is comfortably past any batch's write
+# interval, so a partial older than that belongs to a dead run and can be
+# promoted to its final name safely.
+#
 # Usage: bash scripts/maintain.sh [iterations] [sleep_seconds]
 set -uo pipefail
 
@@ -128,6 +139,17 @@ for i in $(seq 1 "$ITERATIONS"); do
 
     # CDX candidate journals, which is what turns a discovered name into a net-new
     # domain.
+    # Promote LOCAL abandoned partials before the ingest sees them. Same 90-minute
+    # staleness rule as the remote recovery below, and the same reason: a partial
+    # with no final counterpart is a dead run's work, not a live run's file.
+    for part in data/raw/cdx/*.jsonl.gz.part data/raw/rdap/*.jsonl.gz.part; do
+        [ -e "$part" ] || continue
+        final="${part%.part}"
+        [ -e "$final" ] && continue
+        if [ -z "$(find "$part" -mmin +90 2>/dev/null)" ]; then continue; fi
+        cp "$part" "$final" && echo "  promoted abandoned partial $(basename "$final")" >> "$LOG"
+    done
+
     ingest_all cdx_snapshot      data/raw/cdx/cdx_*.jsonl.gz
 
     # Registry journals, which this loop did not know about until 8 August. The
