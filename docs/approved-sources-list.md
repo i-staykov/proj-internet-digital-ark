@@ -598,15 +598,6 @@ Decision: pending
 
 Decision: pending
 
-### cybernot_cphack_blacklist / artifact_listing
-
-- what it is: the CyberPatrol **CyberNOT** list as published in the March 2000 cphack proceedings, plus
-- what dates one item: the edition or update-file date. Unlike Netcraft, the entry exists because a
-- volume: contemporaneous reporting puts a single CyberNOT edition at order 100,000 URLs with several
-- potential: 60
-
-Decision: pending
-
 ### discmaster_media_index / dated_directory
 
 - what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
@@ -1117,6 +1108,24 @@ was lost in the 2026-08-23 compaction, which is why it reappeared as unpriced. *
 condition remains untested rather than refuted**: the search endpoint's `file=` parameter is silently
 ignored, returning 25 unrelated rows, and the `q=` with `qfields=file` route timed out at 120s on three
 consecutive queries.
+
+### cybernot_cphack_blacklist / artifact_listing
+
+- what it is: the CyberPatrol **CyberNOT** list as published in the March 2000 cphack proceedings, plus
+- what dates one item: the edition or update-file date. Unlike Netcraft, the entry exists because a
+- volume: contemporaneous reporting puts a single CyberNOT edition at order 100,000 URLs with several
+- potential: 60
+
+Decision: rejected
+Measured 2026-08-25 as the CyberNOT half of `content_filter_blacklists`, which was rejected in the same
+pass, so this is one artifact under two entries. **The 40,715-hostname decoded list is gone from the
+live web**: its one publication route, `cphack.robinlionheart.com`, is NXDOMAIN on both the system
+resolver and 8.8.8.8, and the apex resolves only to a ZoneEdit forwarder returning HTTP 400. The two
+surviving cphack mirrors, `cyberpetrol.978.org` and `linas.org/banned/cp4break/`, carry the paper and no
+`blacklist/` path; four searches found no other copy outside Wayback. The largest surviving related
+artifact, peacefire's `SurfWatch/first-1000-com.txt`, is 1,000 names measured at **32.2 EE** and
+**ceilings at 632.1 EE even at 100% novelty**, below the floor before anything is measured. Reopen
+condition: a non-Wayback mirror of the decoded blacklist.
 
 ### openpgp_keyserver_dumps / link_target
 
