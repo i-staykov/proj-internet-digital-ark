@@ -641,12 +641,6 @@ Decision: pending
 
 Decision: pending
 
-### sec_form_adv_part1_2000_2001 / artifact_listing
-
-- potential: 58
-
-Decision: pending
-
 ### cctld_register_listing_capture / cdx_timestamp
 
 - measured: 3496.0 net-new post-split EE over 6,996 pairs across four registries, same provenance and
@@ -666,6 +660,28 @@ Decision: pending
 
 ### can_domain_registry_notices / whois_creation
 
+- measured: 783.0 net-new post-split EE over 936 pairs **under the split reading**, and **9551.2 EE over
+  11,418 pairs under the self-dating reading**. Both figures are already in this file's triage table,
+  measured, row 1
+- **THIS IS A RULING WORTH 8,768 EE, NOT A MEASUREMENT.** The two readings differ **12.2x** and the
+  difference is one word from Ivo, not any further collection. The question: **is a `Date-Approved:`
+  field, printed by the CA Domain Registry in its own approval notice, the registry self-dating, or is it
+  prose a human typed?** `docs/discovery.md` records **37,578 `Date-Approved:` fields** in the artifact.
+  If the registry self-dates, the class earns 11,418 pairs at 9,551.2 EE; if a human typed it, 936 pairs
+  at 783.0. The 936 are the corroborated remainder, so the incremental prize on a self-dating ruling is
+  about **10,482 pairs and 8,768 EE for zero further fetching**
+- **the same question sits on the UDRP row at 5.5x**, so a ruling here probably settles that too
+- what dates one item: `Date-Approved:` on the notice
+- **why this is the one namespace where the shape exists at all**: `docs/sources.md` establishes that a
+  registry of this era published either dates without names (statistics) or names without dates (a zone
+  snapshot), and **the intersection existed in exactly one namespace, the CA Domain Registry, because it
+  ran its approval process in public**
+- **the honest complication**: `can.domain.mbox.zip` is **no longer on disk** (nothing under `data/`
+  matches), so acting on a self-dating ruling needs a re-download from the archive.org `usenethistorical`
+  collection before anything can be re-verified. The 936-pair split reading is already banked, since
+  `can.domain` was the single largest contributor to the Usenet ingest at 7,137 net-new pairs
+- for scale: the store holds 235,237 in-window `.ca` pairs over 96,505 domains, so 11,418 is about 5% on
+  top, at `.ca` 0.8365
 - potential: 55
 
 Decision: pending
@@ -680,20 +696,6 @@ Decision: pending
 - what makes it worth it: **2,406.69 net-new equivalent-English, measured 2026-08-24.** 18,698 rows were
   dropped for falling outside the window, mostly FY2001 audits signed in 2002: taking the audit year
   instead would have imported all of them silently
-
-Decision: pending
-
-### dnsrf_dap_udrp_multiprovider / artifact_listing
-
-- potential: 52
-
-Decision: pending
-
-### isi_us_domain_registry / artifact_listing
-
-- what it is: the ISI RFC 1480 US Domain Registry delegation database, the hand-maintained registry for
-- what dates one item: the delegation file's own publication or approval date, the `uucp_map_registry`
-- potential: 52
 
 Decision: pending
 
@@ -1325,6 +1327,25 @@ decision-date field at all**: `created` is the 2024 ingest timestamp on every ro
 reading would have to parse the date out of the opinion text. The measured shard is 1972-77 so it does
 not price the window directly, but the format facts are corpus-wide.
 
+### sec_form_adv_part1_2000_2001 / artifact_listing
+
+- potential: 58
+
+Decision: rejected
+Measured 2026-08-25 at **674.42 net-new post-split EE** over 1,076 pairs, under the floor. The only
+genuinely open one of its batch, and an era vintage does exist: `www.sec.gov/files/adv-filing-data-20001019-20111104.zip`,
+249,976,083 bytes, read by HTTP range over the ZIP central directory so ~52 MB moved rather than 250.
+**Licence: none found**, and US federal work so 17 USC 105 applies by default. Dated per filing by its own
+`DateSubmitted`, verbatim `"07/17/2001 12:56:08 PM"` on FilingID 16215 with `FormVersion "02/2001"`,
+joining to a Schedule D 1.I `Website` of `"WWW.CONSECOSECURITIES.COM"`. **Anachronism test passed**: 1
+`.biz` domain among 4,052 in-window, 0.02%, against the 89-of-10,189 that condemned SBIR. Selection is
+not what kills it either, at 82.5% already-held on domains and 56.7% on pairs, both under the abandon
+line. **It dies on item count**: IARD went live on **2000-10-19**, so the era-vintage window is 14.5
+months of 72 and everything before was paper that was never digitised. Density is fine, 0.075 post-split
+pairs per filing, which beats the 0.042 prose ceiling. The monthly IAPD compilation series that covers
+more advisers starts at **June 2006** and is a current-state snapshot, so killer 4 closes the reopen
+route. The free-text `Schedule_D_Miscellaneous` adds **0.63 EE** over 72,468 rows.
+
 ### uspto_trademark_case_files / artifact_listing
 
 - potential: 55
@@ -1337,6 +1358,36 @@ filed for a name before it is used, so the filing date evidences an intention ra
 Both objections were re-confirmed this weekend when the same reasoning closed the Australian equivalent
 `ipgod_au_marktext`, whose mark text is applicant-typed and therefore takes the corroboration split as
 well. Nothing new to measure.
+
+### dnsrf_dap_udrp_multiprovider / artifact_listing
+
+- potential: 52
+
+Decision: rejected
+**Already answered: 90.10 EE, and the family is explicitly closed.** `docs/sources.md` records the
+multiprovider bulk artifact measured, Zenodo 16954717 under MIT,
+`full-udrp-parsed-proceedings.jsonl.gz`, 90,153 proceedings across all five providers, 6,766 in-window
+pairs and **158 net-new at 90.10 EE**; the ICANN plain-text exports gave 8,662 in-window pairs and 90
+net-new. The store already holds all five providers as `udrp_proceedings` (WIPO 5,963, NAF 2,575, DeC
+210, eResolution 133, CPR 42, 8,923 evidence rows). The register's own wording: do not reopen this family
+on availability, the ceiling for everything remaining in it is about 90 EE. **And the Zenodo `submitted`
+date is the corrupted field this project has already been caught by**: trusting it inflates 158 to 769 by
+inventing 518 fabricated 1999 pairs.
+
+### isi_us_domain_registry / artifact_listing
+
+- what it is: the ISI RFC 1480 US Domain Registry delegation database, the hand-maintained registry for
+- what dates one item: the delegation file's own publication or approval date, the `uucp_map_registry`
+- potential: 52
+
+Decision: rejected
+**Already answered on 2026-08-18 at 0.9 EE, and it is this register's cleanest instance of killer 2.**
+Four dated in-window editions were recovered from a non-ISI route, so the artifact is not unreachable,
+but the registry **added four names between August 2000 and November 2001**, giving **1 net-new pair and
+0.9 EE**. The illegitimate reading, taking each edition's date as dating every name in it, would have
+claimed **13,014 EE, a ratio of 13,014 to 1**. Separately confirmed: the "ISI contact column at 97.7%
+already held" recorded elsewhere is a DIFFERENT artifact from this delegation register, so the two should
+not be conflated.
 
 ### openpgp_keyserver_dumps / link_target
 
