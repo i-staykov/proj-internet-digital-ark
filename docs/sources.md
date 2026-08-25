@@ -2371,3 +2371,18 @@ answering roughly **1 request in 5** (5 probes 10 s apart: one 200, four connect
 established connections yet its journal kept growing, so the engine was working through retries the
 whole time. **A TCP connect failure on one IA hostname is not an outage and not a block**, and inline
 fetches should be handed to a retry loop with an absolute deadline rather than attempted by hand.
+
+**The two small `linkage/` siblings, fetched and priced: 9.81 EE, and law 3 is why.**
+`bl-uk-linkage.tsv` (86,281 lines) and `york-ac-uk-linkage.tsv.gz` (284,247 lines) are the same
+`year|source|target` shape as `host-linkage.tsv.gz`, so the existing `ukwa_link_source` parser reads
+them and no decision was needed. Measured before ingesting and the ingest then matched the prediction
+exactly: **1,899 and 3,731 in-window pairs over 1,007 and 1,900 distinct source hosts, of which 99.9%
+and 99.8% were already held, giving 1 and 9 net-new pairs, 1.0 and 8.8 EE.** Banked, total 9.81.
+
+Two reasons, both reusable. **The files are TARGET-selected**, holding only links pointing at
+`bl.uk` and `york.ac.uk`, so the source population is 1,007 and 1,900 hosts rather than the millions
+in the full graph, and what points at the British Library and a Russell Group university is `.ac.uk`
+authorities we already hold: law 3 in its purest form. And **most rows are out of window**, 75,870 of
+86,281 and 226,315 of 284,247, because the graph runs to 2013. So the narrow siblings say nothing
+about the full `host-linkage.tsv.gz`, whose first tenth gave 116,467 pairs from an unselected
+population. Do not use these to re-price that one.
