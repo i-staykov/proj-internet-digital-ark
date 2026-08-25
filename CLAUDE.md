@@ -85,6 +85,13 @@ junkfilter paid 2,189 EE spanning 13 editions 1997-2001; a two-year list over th
 Thin in absolute pairs is not the same as fillable. So aim the frozen-mirror rule at media and mirrors
 that stopped in **2001-2003**, not the 1990s.
 
+**The 2001 threshold, and it is the screen to use.** P(store lacks 2001 | domain held) is `com` 0.611,
+`net` 0.653, `org` 0.568, `uk` 0.309, `de` 0.841. So one ALREADY-HELD name in a 2001-dated artifact is
+worth 0.386 EE in `com`, and **1,000 EE needs only ~2,600 held `com` names** (2,477 `org`, 2,484 `au`,
+3,298 `uk`). That is 32x below the 83,000 the curated-directory floor demands, because that floor was
+measured on artifacts dated in years already well covered. **A few thousand held names dated 2001 is a
+find; the same list dated 1999 is not.**
+
 **Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
 fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
 typosquat listing 25.8%. Anything that learned its names by following links inherits the crawler's
