@@ -248,6 +248,36 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
+### ukwa_ds2_year_cdx / cdx_timestamp
+
+- what it is: one CDX file per year, 1996 to 2013, in `webarchive.org.uk/datasets/ukwa.ds.2/cdx/`,
+  the same JISC UK Web Domain Dataset directory that already gave us `geo/` (`ukwa_geoindex`, banked
+  4,493 EE) and `linkage/` (`host-linkage.tsv.gz`, 116,467 pairs from its first 10.26%). The `cdx/`
+  sibling had never been looked at. In-window sizes, compressed, read off the archived listing:
+  1996 52,619,201; 1997 509,195,112; 1998 364,720,850; 1999 1,428,820,719; 2000 4,580,260,146;
+  2001 6,515,380,682. **13.45 GB in window**, and 2001 is the largest in-window year
+- what dates one item: field 2 of every CDX row, a 14-digit capture timestamp. Self-dating,
+  machine-written, so no corroboration split, and the same field `dartmouth_bfs_seed` is admitted on
+- why it would outrank everything else on this page: the population is the `.uk` crawl and `.uk`
+  scores 0.9813, the highest weight in the model. Law 1 does not dismiss it, and the two siblings in
+  the same dataset are the proof: both are equally IA-derived and both paid, because Ding's baseline
+  is a merged sample rather than the whole `.uk` crawl, and our CDX engine can only ask about names
+  it already holds. A full `.uk` CDX dump is discovery as well as dating
+- **BLOCKED ON ACCESS, NOT ON EVIDENCE, and the zero is proved rather than assumed.** IA captured the
+  directory listing and never the files: a prefix query for `ukwa.ds.2/cdx*` returns empty while the
+  identical probe for `linkage/host-linkage.tsv.gz` returns its two known captures, so the emptiness
+  is the archive's and not the query's. The publisher now answers every path with a 7-line HTML
+  `400 Redirect` stub, including `robots.txt`. And no mirror exists: archive.org `advancedsearch.php`
+  returns numFound 0 for both `jisc uk web domain dataset` and `ukwa.ds`
+- so this is a human request in the shape of `ripe_dbase_1999`, addressed to the UK Web Archive at the
+  British Library, and on expected value it should be sent FIRST: RIPE is 90,799 EE of mixed-weight
+  European names, this is 13.45 GB of the highest-weight TLD, self-dating and unsplit
+- potential: 100. Unpriceable without the file, and scored at the ceiling deliberately: it is the
+  highest-weight TLD, self-dating, unsplit, 13.45 GB in window, and its two siblings in the same
+  directory both paid. The score says send the request first, not that the yield is proved
+
+Decision: pending, needs Ivo to send an access request
+
 ### ripe_dbase_1999 / artifact_listing
 
 - measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24

@@ -2309,3 +2309,65 @@ this did not spend an archive-client slot.
 four `ftp.icm.edu.pl` parts, `ftp.nvg.org`), and 29 were truncated at the 20,000,000-byte listing cap
 (including `ftp.microsoft.com.zip`, `ftp.isc.org.tar`, `download.intel.com.tar`). Given 638 of 651
 listed with a passing positive control and zero true hits, those 42 do not change the verdict.
+
+---
+
+## JISC UK Web Domain Dataset per-year CDX (`ukwa.ds.2/cdx/`): found, sized, NOT retrievable
+
+**This is the largest in-window artifact the project has identified, and it needs a human request.**
+Found by asking a question we had not asked of a source we already use: `host-linkage.tsv.gz` sits in
+`webarchive.org.uk/datasets/ukwa.ds.2/linkage/`, so what ELSE is in `ukwa.ds.2/`? A CDX prefix query
+over `webarchive.org.uk/datasets/*` answers it in one request: `cdx/`, `geo/` and `linkage/`. We had
+already banked `geo/` (`ukwa_geoindex`, 4,493 EE) and part-read `linkage/`. **`cdx/` was never looked at.**
+
+**What it is.** One CDX file per year, 1996 to 2013, all stamped `15-Aug-2014` on the directory
+listing. Sizes read off the listing, compressed bytes:
+
+| file | bytes | file | bytes |
+|---|--:|---|--:|
+| `1996.cdx.gz` | 52,619,201 | `1999.cdx.gz` | 1,428,820,719 |
+| `1997.cdx.gz` | 509,195,112 | `2000.cdx.gz` | 4,580,260,146 |
+| `1998.cdx.gz` | 364,720,850 | `2001.cdx.gz` | 6,515,380,682 |
+
+**In-window total 13.45 GB compressed**, and out-of-window years run to 73 GB for 2012 alone.
+
+**Why it would pay, in the project's own terms.** CDX means field 2 is a 14-digit capture timestamp, so
+every line is self-dating and master-eligible as `cdx_timestamp` with **no corroboration split**. The
+population is the `.uk` domain crawl, and `.uk` scores **0.9813**, the highest weight in the model.
+The 2001 file is the largest in-window year, which is the store's largest hole. And the sibling files
+in the same dataset are the counter-argument to a lazy dismissal on law 1: this is IA-derived, yet
+`geo/` paid 4,493 EE and the first 10.26% of `linkage/` gave **116,467 assigned pairs**, because
+Ding's baseline is a merged sample rather than the whole `.uk` crawl and our own CDX engine can only
+ask about names it already knows. **A full `.uk` CDX dump is discovery, not just dating.**
+
+**Why we cannot have it, proved rather than assumed.**
+
+1. **IA captured the directory listing and never the files.** A prefix query for
+   `www.webarchive.org.uk/datasets/ukwa.ds.2/cdx*` returns empty, run against a positive control in
+   the same breath: the identical probe for `linkage/host-linkage.tsv.gz` returns its two known
+   captures, `20200106181208` and `20221031190607`. So the emptiness is the archive's, not the query's.
+2. **The publisher now serves stubs for everything.** `www.webarchive.org.uk/robots.txt` returns a
+   7-line HTML `400 Redirect` document, not a robots file, which is the same soft-200 behaviour that
+   already made a `host-linkage` download look successful while returning 159 bytes.
+3. **No mirror exists on archive.org.** `advancedsearch.php` for `jisc uk web domain dataset` and for
+   `ukwa.ds` both return `numFound` 0; `uk web archive linkage` returns 17 items, all unrelated
+   (VOA broadcasts, a YouTube rip, an OSF registration).
+
+**So this is an access request, not a collection job**, and it is the same shape as `ripe_dbase_1999`:
+the artifact is known to exist, its size is known, and a human has to ask. **Queued for Ivo, and it
+should outrank RIPE on expected value**: RIPE is 90,799 EE of mixed-weight European names, this is
+13.45 GB of the highest-weight TLD in the model, self-dating, unsplit.
+
+**Also recorded so nobody re-derives it:** `linkage/` holds exactly three files, so `host-linkage.tsv.gz`
+is **monolithic and unsharded** and there is no small-file route into it. The 2022 capture that holds
+the full 20,930,377,408 bytes returns **504 after exactly 120.5 s at any offset**, including offset 0,
+while the 2020 capture is IA's own 2 GiB truncation which we already hold complete. The two small
+siblings in that directory, `bl-uk-linkage.tsv` (724,598 bytes) and `york-ac-uk-linkage.tsv.gz`
+(2,244,274 bytes), DID capture in 2022 and are being fetched.
+
+**Fetch conditions on the day, worth knowing before anyone calls IA broken:** `web.archive.org` was
+answering roughly **1 request in 5** (5 probes 10 s apart: one 200, four connect failures at
+`connect=0.000000`), while `archive.org` and unrelated hosts answered normally. `ark cdx` held zero
+established connections yet its journal kept growing, so the engine was working through retries the
+whole time. **A TCP connect failure on one IA hostname is not an outage and not a block**, and inline
+fetches should be handed to a retry loop with an absolute deadline rather than attempted by hand.
