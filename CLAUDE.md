@@ -131,6 +131,10 @@ what survives the split we already hold. Ask whether the lister held the databas
 - Rank a queue by TLD weight alone and 2013 gTLDs lead it. Volume floor first.
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
 - Look for the existing tool before writing one.
+- **archive.org's `services/search/v1/scrape` LIES under load. Use `advancedsearch.php` for any zero.**
+  Caught twice today: it returned the same 6 items for five different collections, and an identical
+  bogus `total=28330` for five different queries, producing six false zeros in one batch. It also
+  rejects `count<100`. A false zero is how a real source gets buried.
 - **Clear a whole FTP host with ONE request: pull its own `ls-lR.gz` or `locatedb.gz` and grep offline.**
   Proven twice today: `ftp.gwdg.de`'s 926 MB locatedb indexed an 8.8 GB tree, and a 9.8 MB `ls-lR` gave
   1.46M lines. Politer and more complete than crawling, and it turns a zero into a proved zero.
@@ -142,7 +146,7 @@ what survives the split we already hold. Ask whether the lister held the databas
   `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
   Refusing us by name: `cryptome.org`, `tbtf.com`, `www.openpgp.net`, `ftp.nluug.nl`, `tomocha.net`,
   `mirror.aarnet.edu.au`, `ftp.aarnet.edu.au`, `www.potaroo.net`, `ftp.sunet.se`, `ftp.surfnet.nl`,
-  `www.math.upenn.edu`
+  `www.math.upenn.edu`, `ftp.cc.uoc.gr`
   (the last two name Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot together).
 - **Host survival and robots refusal are correlated, so this will keep happening.** The old mirrors that
   survive did so because a commercial or university operation kept paying, and mirror operators are
