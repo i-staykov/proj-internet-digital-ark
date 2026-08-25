@@ -106,12 +106,14 @@ forged-header spam corpora **~5%** (a remailer log was 23,102 names and 4.56% he
 hostnames are invented). And when sampling to check, sample DISTINCT DOMAINS, not `domain_year` rows:
 per-row gives P=0.492 against the true per-domain 0.611.
 
-**Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
-fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
-typosquat listing 25.8%. Anything that learned its names by following links inherits the crawler's
-own population and pays nothing: a squidGuard robot list whose header says it was compiled from
-739,695 crawled links is 99.47% held and worth 18 EE. Visitor logs are the same failure by another
-route, 98.4% and 99.6%, because the hostname is reverse DNS and the long tail resolves to its ISP.
+**Crawling kills DISCOVERY, not COMPLETENESS, and the two laws interact.** A crawl-fed adversary finds
+few novel names (only 15% of a squidGuard list is unknown to us), so it loses on discovery. But if its
+held names LACK the year it is dated, it wins anyway: the **2001-12-18** squidGuard blacklist is 84.8%
+known and only 57.9% held at 2001, so it pays **10,736 EE**, while the 2000-10-18 edition paid 18
+because its names already carried 2000. **So ask which YEAR the artifact can add before dismissing it
+for crawling.** Non-crawl channels still win on discovery: junkfilter 50.4% held, SpamEater 59.1%, a
+typosquat listing 25.8%. Visitor logs lose on both, at 98.4% and 99.6%, because the hostname is
+reverse DNS and the long tail resolves to its ISP.
 
 Curated-directory floor, measured over four artifacts: 0.013 to 0.024 net-new post-split pairs per
 LISTED domain, at 0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000+ listed domains in one artifact.
