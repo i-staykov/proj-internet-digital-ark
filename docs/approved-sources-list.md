@@ -542,10 +542,9 @@ Decision: pending
 - measured: 1055.3 net-new post-split EE, measured 2026-08-25, for the two components carrying **no
   licence**. I repriced the larger one from the bytes and got **1,605 pairs and 967.1 EE** against an
   agent's 969.0, agreeing to 0.2%; SQDR adds 88.2
-- what dates one item: the file's own timestamp on the preserved media, e.g.
-  `BlackList.json | JavaScript Object Notation | 1 | 312.6 KiB | 2001-04-06`, with the parent
-  `data.mdb ... 2001-04-06`. Per EDITION, not per record, so this is the same shape as
-  `junkfilter_dated_blocklist`
+- what dates one item: the file's own timestamp on the preserved media, `2001-04-06`, shown in
+  discmaster's listing row for `BlackList.json` and again on its parent `data.mdb`. Per EDITION,
+  not per record, so the same shape as `junkfilter_dated_blocklist`
 - **a source CLASS nobody had looked at**: consumer anti-spam products shipped their spam-sender
   blocklist as a plain data file, and hundreds of 1996-2001 CD-ROMs preserve those files with per-file
   mtimes on the media. Discmaster's `tsMin`/`tsMax` filter turns the era screen into a query rather
@@ -624,9 +623,11 @@ Decision: pending
 
 ### can_domain_registry_notices / whois_creation
 
-- measured: 783.0 net-new post-split EE over 936 pairs **under the split reading**, and **9551.2 EE over
-  11,418 pairs under the self-dating reading**. Both figures are already in this file's triage table,
-  measured, row 1
+- measured: 8768.2 EE **is what your one-word ruling is worth**, and that is why this row shows that
+  number rather than either raw figure. The artifact measures **9551.2 EE over 11,418 pairs if the
+  registry self-dates** and **783.0 EE over 936 pairs if a human typed it**; the 936 are already
+  banked, so the incremental prize is 10,482 pairs and 8,768.2 EE. Both raw figures are in this
+  file's triage table, measured, row 1
 - **THIS IS A RULING WORTH 8,768 EE, NOT A MEASUREMENT.** The two readings differ **12.2x** and the
   difference is one word from Ivo, not any further collection. The question: **is a `Date-Approved:`
   field, printed by the CA Domain Registry in its own approval notice, the registry self-dating, or is it
