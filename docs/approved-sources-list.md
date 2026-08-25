@@ -332,6 +332,37 @@ Decision: pending, needs Ivo to send an access request
 Decision: pending
 
 
+### us_domain_delegated / artifact_listing
+
+- measured: 12,775.5 net-new post-split EE over 13,816 pairs, measured 2026-08-25 with the
+  project's own `price_items.py` against the live store, over the union of the 1996, 1999, 2000 and
+  2001 editions. Mean weight 0.9247. By year 1996 2,284 / 1999 4,185 / 2000 3,823 / 2001 3,524. The
+  2001 edition alone is 3,524 pairs and 3,247.3 EE. Gross was 15,270.0 and must not be quoted
+- what it is: `us-domain-delegated.txt`, the US Domain Registry's list of delegated `.us` zones, one
+  per line with the delegate's contact beside it. Six editions, ~2.5 MB, reached two ways: inside the
+  `2015.04.ftp.isc.org.tar` mirror on archive.org at `pub/rfc/`, and at the file's other home
+  `www.isi.edu/in-notes/us-domain-delegated.txt`
+- what dates one item: the artifact asserts the delegation state of the namespace, and the instant is
+  fixed twice. Tar-preserved mtimes 1996-10-09, 1996-11-20 and 1999-03-22 with six rotations whose
+  chain is monotone in both date and size (425,505 to 426,388 bytes over Feb-Mar 1999, continuing
+  monotone into the captures at 433,937 to 435,847); and `cdx_timestamp` on the 2000-08-15,
+  2000-12-06, 2001-04-11 and 2001-06-06 captures. A delegation is the registry serving the name at
+  that instant rather than a description of one, which is why killer 2 does not reach it, exactly as
+  for `internic_zone`
+- the name shapes were checked rather than assumed: the pinned PSL returns None for `K12.AK.US`,
+  `AK.US` and `US`, resolves `ANCHORAGE.AK.US`, and collapses `CI.ANCHORAGE.AK.US` to `anchorage.ak.us`
+- contamination measured and negligible: every line also carries a contact email, and those survive as
+  56 pairs of 13,816. By TLD `us` 13,760, `com` 36, `net` 18, `org` 2
+- caveats: the typo upper bound is **17.8%**, structurally rather than reassuringly, since sibling
+  locality names are one edit apart by construction (`HAINES`/`HEALY`, `NOME`/`TOK`). And 1997 and
+  1998 are unreachable, since no `*.isi.edu` capture predates 2000-08-15 and the ISC tar jumps 1996
+  to 1999
+- access note: `ftp.isc.org/robots.txt` ends `Disallow: /` under `User-agent: *`, so the live host must
+  never be touched. The 2015 mirror inside archive.org is a different host
+- potential: 99
+
+Decision: pending
+
 ### squidguard_2001_blacklist / artifact_listing
 
 - measured: 10736.2 net-new post-split EE over 18,588 (domain, 2001) pairs, measured 2026-08-25.
@@ -900,6 +931,28 @@ Decision: pending
 
 ### domain_aftermarket_listings_1999_2001 / artifact_listing
 
+- measured: 11,555.0 net-new EE over 18,951 (domain, 2001) pairs, measured 2026-08-25 against the
+  live store, on the master reading. The conservative reading, applying the corroboration split, is
+  3,377 pairs and 2,083.9 EE. Both figures independently reproduced; the split figure matches a
+  subagent's to the pair
+- what it is: `namewinner.com/whole_list.php?del=tab`, Dotster's expiring-domain auction list, Wayback
+  capture `20011026120205`. 20,943 distinct registrable domains, 15,660 `.com` / 3,333 `.net` /
+  1,950 `.org`. The `?del=none` capture is a strict subset
+- what dates one item: the per-item date `25-OCT-01` on every row. Verified in the file itself, which
+  carries 20,945 occurrences of that string and no other date of that shape, with the Wayback capture
+  fixing the instant at 2001-10-26 12:02 UTC. The operator's own `rule_book.php` calls it "our list of
+  soon to be expiring domain names", so the registrar is stating these names are registered now. The
+  `coza_deletion_listing` argument, and the standard set in killer 8
+- **the one judgement to make**: whether the corroboration split applies. It should not. The split is
+  for what a human typed, and this is a dump out of a registrar's expiring-domain database, on which
+  being registered is the only way to appear. `iedr_register` (18,826 EE) and `internic_zone`
+  (8,813 EE) are the same shape and both dated novel names
+- the 25.6% held-fraction is the point rather than a warning: these are speculative 1999-2001 land-rush
+  names nobody linked to and no crawler visited, which is the tail law 3 says a trust-selected corpus
+  cannot reach. 1,992 are already held at 2001, so the store is thin here, not blind
+- **not included in the figure**: the 2002-04-07 sibling, 52,204 domains with zero overlap, worth
+  2,543.2 EE post-split but needing the minimum-one-year-term inference to reach 2001. Decide it
+  separately rather than beside a stamped in-window date
 - potential: 22
 
 Decision: pending
