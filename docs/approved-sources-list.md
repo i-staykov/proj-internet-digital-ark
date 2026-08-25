@@ -302,14 +302,6 @@ reach it: the registry was serving that name at that instant.
 Decision: pending
 
 
-### nic_mil_internic_zone_mirror / artifact_listing
-
-- what it is: the Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file distribution over
-- what dates one item: the zone's own SOA serial in `YYYYMMDDNN` form, `1997041800`, **inside the
-- potential: 95
-
-Decision: pending
-
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - potential: 88
@@ -998,6 +990,19 @@ whole register and stamped the page with the instant it did so, and an IA crawl 
 page existed. The 99.6% agreement with `prior_task` on the 2000 edition corroborates that reading;
 it is not the grounds for it.
 
+
+### nic_mil_internic_zone_mirror / artifact_listing
+
+- what it is: the Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file distribution over
+- what dates one item: the zone's own SOA serial in `YYYYMMDDNN` form, `1997041800`, **inside the
+- potential: 95
+
+Decision: rejected
+Superseded, not refused on merit. This is the same artifact as `internic_zone`, which Ivo approved
+master on 2026-08-24 and which is banked at 12,320 net-new 1997 pairs and 8,813.3 EE. All six zones
+from this mirror are in the ingest ledger: `arpa`, `edu`, `gov`, `mil`, `org`, `root`. Rejected so the
+request generator stops reopening a duplicate of a decided source; the evidence stands under the other
+name. Closed by the agent rather than by Ivo because admitting nothing new is not an approval.
 
 ### educause_edu_whois_activation / whois_creation
 
