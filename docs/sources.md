@@ -2702,3 +2702,15 @@ seeing: the machine-readable line refuses everyone, and the party the operator n
 companies, which is at least arguably us even when the work is a student's.** If he would rather we
 treat the `Disallow` as binding regardless of the comment, this section and that entry are the two
 places that assume otherwise.
+
+**Addendum, the harvested-address-list variant, because the earlier queries had a real gap.** The five
+filename queries above looked for registry and DNS shapes and never for bulk email-address lists, which
+was an omission worth closing: the `.jp` `email.domains` file was found on this very index by a
+file-size search, so the family demonstrably exists on 1996-2001 media, and a US or global equivalent
+would carry `.com` at 0.6321 rather than `.jp` at 0.0605, roughly ten times the weight per name. Four
+further queries settle it. **`email.domains` returns exactly one file, which is the `.jp` listing
+already rejected at 185.3 EE**, plus an unrelated GIF. `emails`, `addresses` and `maillist` return BBS
+and software furniture: `EMAILS.ANS` ANSI menus, `EMAILS.CFG`, `INSTALL.DAT` payloads, `maillist.h`,
+`maillist.Z`, and an `emails.gif` inside a clipart ISO. No bulk list among them. Combined with
+`discmaster_by_file_size` already being rejected on the one artifact it did find, **both routes into
+preserved media are now exhausted, by name and by size.** Ten requests were made to that host in total.
