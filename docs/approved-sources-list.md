@@ -436,12 +436,6 @@ Decision: pending
 
 Decision: pending
 
-### nominet_whois_port43 / whois_creation
-
-- potential: 72
-
-Decision: pending
-
 ### sec_edgar_filings / dated_directory
 - measured: 5884 net-new post-split EE, 2026-08-24
 
@@ -455,12 +449,6 @@ Decision: pending
 Decision: pending
 
 ### govinfo_cbd_bulk / typed
-
-- potential: 71
-
-Decision: pending
-
-### ipgod_au_marktext / dated_directory
 
 - potential: 71
 
@@ -491,18 +479,39 @@ Decision: pending
 
 Decision: pending
 
-### repository_ia_capture_census / cdx_timestamp
-
-- what it is: another precomputed Internet Archive capture census deposited as a research replication
-- what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
-- potential: 70
-
-Decision: pending
-
 ### early_bulk_whois_snapshot / whois_creation
 
 - what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
 - what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
+- measured: 2968.49 net-new post-split EE over 4,747 (domain, year) pairs, measured 2026-08-25 across
+  three sibling listings. **Corroborated on the largest of the three by an independent per-block parse**:
+  8,718 record blocks, 5,239 carrying a creation date, 4,228 in-window pairs, 3,491 net-new, 2,195.92 EE,
+  with novelty at 23.9% against the agent's 25.8%. Both the block count and the dated count match exactly
+- what dates one item: the record's own `Dates of creation / last modification / expiration:
+  27-Feb-2000 / 15-Feb-2002 / 27-Feb-2003`, or on a sibling `Registered on: Sep 29, 2001`, under the
+  page's own "All data is as of January-October 2003"
+- **licence: NONE FOUND.** No copyright line, no CC mark, no restriction clause on the index or any
+  listing page. The only rights-adjacent sentence concerns reader comments. That is the opposite of the
+  `ripe_dbase_1999` blocker and of Nominet's terms
+- the artifact: Ben Edelman's whois transcriptions, "Last Updated: June 2, 2002", on space at the Berkman
+  Center for Internet & Society at Harvard Law School. Three sibling listings, 81 pages, 13,507,154
+  bytes, 15,990 entries, 8,787 carrying a creation date:
+  `cyber.harvard.edu/archived_content/people/edelman/{invalid-whois/nicgod,renewals/tina,typo-domains/list}-*.html`
+- **anachronism test passes**, which is how a frozen artifact is told from a refreshed column: the
+  in-window pairs carry exactly `com`, `net` and `org`, no `.biz`, `.info` or `.aero`, and creation years
+  run 1996 n=1, 1998 n=4, 1999 n=570, 2000 n=2,592, 2001 n=3,748, 2002 n=1,872 and **nothing after 2002**
+- **novelty is the whole reason it pays**: only 49.7% of its domains were in the store at all, and
+  **25.8% for the typosquat file**, against 87-99% for every authority-selected corpus. These are junk
+  names a capture-derived baseline never held, which is adversarial selection doing the same work it did
+  for the junkfilter blocklist
+- **the parse trap, and it cost me a 47% overstatement before I caught it**: each `<p>` block names its
+  subject in `<b>` and then mentions OTHER domains in the same block, the redirect target and the
+  original that was typo'd. Binding a name to any date within reach gave 7,010 pairs and 4,366.68 EE.
+  Only the block's subject may take the block's date
+- **a human must rule on one thing**: this is a third party's transcription of registrar whois output on
+  a uniform template. Read as machine-extracted it takes no split, which is how the figure above is
+  computed. Read as human-typed it takes the split and falls sharply
+- 230 EE per MiB, so the whole artifact is a 13 MB download
 - potential: 65
 
 Decision: pending
@@ -1063,6 +1072,64 @@ dated in body `8/2/2000` and "as of June 14, 2000". Measured: 497 already held, 
 floor before anything is measured.** The squidGuard half of this entry was already closed on era
 (2026-08-24, artifact is 2003). Reopen condition: a non-Wayback mirror of the decoded cphack blacklist;
 four searches found none.
+
+### nominet_whois_port43 / whois_creation
+
+- potential: 72
+
+Decision: rejected
+**Rejected on Ivo's own standing decision, not on the measurement, and the measurement is the reason to
+record it carefully.** The port-43 door is genuinely open where RDAP was shut: 432 queries at 0.5 q/s
+with **zero refusals**, against this register's "3 refusals in the first fourteen queries" for Nominet
+RDAP. Two random-sampled pools over the 560,548 addressable `.uk` domains project **~81,419 EE**
+(measured 32.38 EE over 300 queries; Wilson 95% band 55,946 to 115,872), at 0.1636 EE per query, **1.8x
+Verisign's measured 0.091**. Dated by `Relevant dates: / Registered on: 14-Oct-1997`.
+**But Ivo already stopped a Nominet bulk engine for legality on 2026-08-24**, answering O5: "I am paid
+for this work, so if that makes bulk queries illegal, let's not do it." The port-43 footer states the
+terms verbatim and they name exactly what we would do: "You may not access the .uk WHOIS or use any data
+from it except as permitted by the terms of use... which includes restrictions on: (A) use of the data
+for advertising, or its repackaging, recompilation, redistribution or reuse... and (C) exceeding query
+rate or volume limits." A 481,543-query sweep and a shipped master file are repackaging and volume.
+**Two traps recorded because they would silently fabricate yield.** `*.ac.uk` and `*.gov.uk`
+third-levels return the PARENT record (`newoldlabour.gov.uk` gives `Domain name: gov.uk`); re-querying
+all 128 dated hits found 10 such mismatches and every one returned `before Aug-1996`, so scoring that
+string as 1996 would have invented ~12% of the yield. And `before Aug-1996` carries no year at all.
+Positive control: `bbc.co.uk` answered in the same minutes as the 100 no-match responses. Also noted
+in-band: "WHOIS service for .UK will cease on 9th of February 2027".
+
+### ipgod_au_marktext / dated_directory
+
+- potential: 71
+
+Decision: rejected
+**Blocked by robots at the only distribution host, and rejected on the screen rather than parked.**
+IPGOD is published only on `data.gov.au`, whose host-root `robots.txt` is, in full after the comments,
+`User-agent: * / Disallow: /` (HTTP 200, 552 bytes). That is the `app.fac.gov` condition, so nothing was
+fetched. The sub-path `data.gov.au/data/robots.txt` is permissive, but the standard is host-scoped and
+the root file governs; that conflict is a human call. `researchdata.edu.au/ipgod2022/3792412` is metadata
+whose two download links point back into `data.gov.au`, and `www.ipaustralia.gov.au` serves no bulk file.
+Rejected because the screen answers it without the exemption: mark text is applicant-typed so it takes
+the corroboration split, which cost MYNIC 19x and junkfilter 2.2x, and this register already closed the
+USPTO version on authority selection plus the intent-to-use dating defect. Both objections apply
+unchanged to AU marks.
+
+### repository_ia_capture_census / cdx_timestamp
+
+- what it is: another precomputed Internet Archive capture census deposited as a research replication
+- what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
+- potential: 70
+
+Decision: rejected
+**Not unpriced, mis-filed: the fourth entry today whose `- measured:` line was lost in the 2026-08-23
+compaction.** Measured 2026-08-18 and recorded in `docs/sources.md`: UMN DRUM `10.13020/D62684`, "Link
+Lists for Websites Tracking the Development of the Early Web from 1996 to 2000", 74.83 GB in 16 tar
+parts, and **45,130 of 45,130 sampled pairs already held, 1 net-new pair worth 0.63 EE over 226,171 real
+rows**, with 97,904 of 97,905 source-side pairs already dated that exact year. Payload presence is
+established by that read, which is the test the payload-less UKWA CDX sibling failed. Licence is
+Attribution-NonCommercial-ShareAlike 3.0 US. Killer 1 in its documented-exception form, and **the
+exception did not fire**: this census is a projection of the same index our baseline was built from.
+Access note for anyone returning: `conservancy.umn.edu` 403s an honest User-Agent behind Azure WAF, and
+`api.datacite.org` answers the DOI in full.
 
 ### ted_ojs_notices_1996_2001 / link_source
 
