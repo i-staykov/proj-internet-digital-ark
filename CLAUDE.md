@@ -67,6 +67,10 @@ A run of nothing is a signal to move sideways, not to push harder on the same sh
 Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask what the
 corpus is *about* before trusting even that.
 
+**Blocklists invert killer 3, measured.** Already-held is ~50% on a blocklist against 87-99% on any
+authority-selected corpus, because a blocklist selects for what someone wanted to BLOCK. Ask what a
+corpus selects FOR before asking how big it is.
+
 Curated-directory floor, measured over four artifacts: 0.013 to 0.024 net-new post-split pairs per
 LISTED domain, at 0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000+ listed domains in one artifact.
 For a human-curated list, novelty and datability are mutually exclusive: what we lack takes the split,

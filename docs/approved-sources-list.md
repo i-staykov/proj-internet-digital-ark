@@ -417,18 +417,34 @@ Decision: pending
 
 ### junkfilter_dated_blocklist / dated_directory
 
+- measured: 2189.4 net-new post-split EE over 3,553 pairs, measured 2026-08-25. Verified two ways: my
+  own run over the 13 in-window `jf-domains` editions gave 3,122 pairs and 1,924.1 EE, and the
+  difference is exactly the 431 pairs at 1997 that live in the two tarballs I did not open, so the two
+  measurements agree to the pair
+- what dates one item: three independent machine-written stamps agreeing. The HTTP header on the file
+  itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36
+  2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997
+  half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec  6  1997 junkfilter/jf-domains`
+- ingest specs: none written yet
+- collect it: `https://junkfilter.zer0.org/pkg/` holds 13 ISO-dated in-window release directories,
+  `19980508` through `20010529`, plus `/pkg/old/` with two 1997 tarballs. About 900 KB in total
+- the artifact: Gregory Sutter's procmail spam filter. `jf-domains` is one `|`-joined line of
+  backslash-escaped literal hostnames. **The triage note guessed these were escaped regexps and
+  wildcards rather than hostnames, and that is refuted**: 42,005 of 42,034 tokens are domain-shaped,
+  99.9%
+- **human-typed, so the corroboration split applies and it is already applied above.** A maintainer
+  added each spam-origin domain by hand. Gross would be 4,815.8 EE, post-split 2,189.4
+- **the reason this lens was worth trying, now measured**: already-held is **50.4% of pairs**, against
+  87.5% to 99.8% for every authority-selected corpus closed this week. A blocklist selects for what
+  somebody wanted to BLOCK, which is the opposite of the fame bias that killed six lenses. Mean weight
+  0.6163, above the 0.4 floor
+- reaches the thin years: 431 pairs at 1997 and 727 at 1999
+- **killer 2, for a human to rule on**: an entry means the maintainer received mail from or advertising
+  that host, which is one inference shorter than a directory listing but is still not a resolution.
+  Killer 4 does not apply, since these are 15 separately dated editions rather than a re-released
+  current state, and junkfilter began 1997-07-06, inside the window, so no edition carries pre-window
+  content
 - potential: 74
-
-Decision: pending
-
-### content_filter_blacklists / artifact_listing
-
-- the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
-- what dates one item: each category file's own compile header, *"compiled in 33:22:40 on 2001.09.09
-- potential: 72
-- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
-- what dates one item: the dated release edition, admitted **only as a first-appearance diff across
-- potential: 58
 
 Decision: pending
 
@@ -501,15 +517,6 @@ Decision: pending
 
 Decision: pending
 
-### excite_query_logs / dated_directory
-
-- what it is: search-engine and portal **query logs** of the window: Excite 1997, 1999 and 2001 as
-- what dates one item: the log line's own server timestamp, machine-written at the moment a user typed
-- volume: the 1997 Excite log is 1,025,910 queries for one day and the later logs are the same order,
-- potential: 68
-
-Decision: pending
-
 ### early_bulk_whois_snapshot / whois_creation
 
 - what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
@@ -542,14 +549,6 @@ Decision: pending
 
 Decision: pending
 
-
-### discmaster_by_file_size / artifact_listing
-
-- what it is: `discmaster.textfiles.com` queried by **FILE SIZE** rather than by link-artifact filename,
-- what dates one item: the media file date corroborated against the disc's own release date. The closed
-- potential: 62
-
-Decision: pending
 
 ### jpnic_register / artifact_listing
 
@@ -1045,6 +1044,49 @@ apply even if the years were there. Reopen only if someone makes that e-mail req
 
 Decision: rejected
 
+### content_filter_blacklists / artifact_listing
+
+- the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
+- what dates one item: each category file's own compile header, *"compiled in 33:22:40 on 2001.09.09
+- potential: 72
+- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
+- what dates one item: the dated release edition, admitted **only as a first-appearance diff across
+- potential: 58
+
+Decision: rejected
+Measured 2026-08-25 at **32.2 EE**, and closed on a ceiling rather than on the measurement. **The
+artifact that mattered is gone from the live web**: the 16 March 2000 decoded CyberNOT list, 40,715
+hostnames, had one publication route at `cphack.robinlionheart.com`, which is **NXDOMAIN on both the
+system resolver and 8.8.8.8**; the apex resolves only to a ZoneEdit forwarder returning HTTP 400. The
+two surviving cphack mirrors, `cyberpetrol.978.org` and `linas.org/banned/cp4break/`, carry the paper
+and no `blacklist/` path. What does survive is the COPA Commission's mirror of peacefire at
+`govinfo.library.unt.edu`, whose one real name list is `SurfWatch/first-1000-com.txt`, 1,000 names,
+dated in body `8/2/2000` and "as of June 14, 2000". Measured: 497 already held, **51 pairs post-split,
+32.2 EE**, all `.com`. **The whole surviving artifact ceilings at 1,000 x 0.6321 = 632.1 EE, below the
+floor before anything is measured.** The squidGuard half of this entry was already closed on era
+(2026-08-24, artifact is 2003). Reopen condition: a non-Wayback mirror of the decoded cphack blacklist;
+four searches found none.
+
+### excite_query_logs / dated_directory
+
+- what it is: search-engine and portal **query logs** of the window: Excite 1997, 1999 and 2001 as
+- what dates one item: the log line's own server timestamp, machine-written at the moment a user typed
+- volume: the 1997 Excite log is 1,025,910 queries for one day and the later logs are the same order,
+- potential: 68
+
+Decision: rejected
+Not measured, because **no bytes are obtainable**. Four in-window logs are listed at
+`faculty.ist.psu.edu/jjansen/academic/transaction_logs.html` (Excite 1997 small and large, 1999, 2001)
+and none has a download link; the access instruction is verbatim "Please email me, Jim Jansen
+(jjansen@acm.org), if you would like access to one or more of the transaction logs." Cross-checked
+against Jeff Huang's aggregator of public query logs, whose **earliest entry is AOL 2006** and which
+lists no Excite log. Rejected rather than parked because two structural problems would need answering
+even if the file arrived: **killer 5 in its purest form**, since a query string is a human keystroke so
+every novel name takes the split and earns no year; and killer 3 from the demand side, since search
+volume concentrates on popular sites, which is the population the store is already saturated on.
+**Reopen cheaply if Ivo wants to spend one e-mail**: ask for `Excite_1997_large` and `Excite_2001` only,
+and price before requesting the rest.
+
 ### sbir_sttr_award_pi_email_2000_2001 / dated_directory
 
 - potential: 65
@@ -1058,6 +1100,23 @@ of 10,189 in-window rows whose `Company Website` canonicalises, **89 carry a TLD
 columns are self-reported, so the split applies on top. 219,503 rows in
 `data.www.sbir.gov/mod_awarddatapublic_no_abstract/award_data_no_abstract.csv`, 29,922 in window, and
 3,502 of 5,017 candidate pairs already held.
+
+### discmaster_by_file_size / artifact_listing
+
+- what it is: `discmaster.textfiles.com` queried by **FILE SIZE** rather than by link-artifact filename,
+- what dates one item: the media file date corroborated against the disc's own release date. The closed
+- potential: 62
+
+Decision: rejected
+**Not an open question, a bookkeeping gap.** `docs/sources.md` closed this on 2026-08-18 with full
+working under "Discmaster by file size, and the April 1998 `.jp` registry listing it found":
+`email.domains`, 2,085,500 bytes, 42,701 lines, self-dating from its own header "Registered Domains in
+JP (Apr 30 1998): 42143", priced at 36,187 pairs, **31,686 already held (87.5%), 3,062 net-new
+post-split, 185.3 EE** at mean weight 0.0605, rejected on both bar conditions. The `- measured:` line
+was lost in the 2026-08-23 compaction, which is why it reappeared as unpriced. **The recorded reopen
+condition remains untested rather than refuted**: the search endpoint's `file=` parameter is silently
+ignored, returning 25 unrelated rows, and the `q=` with `qfields=file` route timed out at 120s on three
+consecutive queries.
 
 ### openpgp_keyserver_dumps / link_target
 
