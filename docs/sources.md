@@ -2262,3 +2262,50 @@ government hosts. At 0.23 s each that is under a minute of queries, so **the col
 the answers**. Worth twenty minutes as a special case reusing an existing CDX adapter with a different
 base URL and a browser UA, and worth nothing as a project. `.uk` weight is 0.9813, which is the only
 reason it is on the list at all.
+
+---
+
+## archive.org FTP mirror archives, 2001 mtimes inside the ZIPs (closed, zero)
+
+**The idea.** A ZIP or TAR of a mirrored FTP tree carries each member's original mtime. So the
+container's own date is irrelevant: an entry stamped 2001 inside a 2015 archive is a per-item date
+inside the window, and listing a container costs one request via `view_archive.php` rather than a
+download. That is a genuinely new lens, and it is worth writing down that it was tried properly.
+
+**Coverage, measured.** `title:("ftp site")` returns 1,629 items and `identifier:ftp-*` returns 375,
+union **1,697**. Of those **1,073 are `archiveteam_ftp_*` megawarcs holding `.warc.gz`, not ZIPs**
+(8 of 8 sampled), and their per-file dates are 2015-2016 crawl timestamps, so the mtime route cannot
+apply to them at all. The real haystack is the other 624 items: **651 ZIP/TAR archives, 2.6 TB**, of
+which **638 were listed and parsed, 6,161,470 entry rows**.
+
+**The positive control passed, which is what makes this a proved zero.** **143,338 rows dated 2001**
+across **254 of 638 archives**, so real 2001 mtimes were flowing the whole run, and a synthetic-row
+control matched `pub/dns/example.com.zone`, `pub/lists/whois.txt`, `etc/hosts` and `pub/ls-lR.gz`
+while correctly rejecting the same `.zone` name dated 2004.
+
+**No zone file, whois dump, domain list, nameserver inventory or email-domain list dated 2001 exists
+in the 638 archives.** The filename regex produced 69 matches on 2001-dated rows and **all 69 are
+false positives**: DOS/Windows software (`whois32.zip`, `nslookup.zip`, matched because the parent
+directory is named `finger-whois-nslookup`), the Linux `fdomain` SCSI driver, `/etc/hosts` at 0-110
+bytes inside RTLinux images, the stock BIND `localhost.zone` loopback example at 195 bytes, CPAN
+`Net-ParseWhois`, and three `ls-lR.Z` at 23-30 KB which are one tree's own index and too small to
+hold a bulk list regardless.
+
+**The vhost variant is also zero, and the reason generalises.** Counting domain-shaped path segments,
+exactly **1 of 638** archives cleared 200 distinct segments, and it is a false positive: `ftp.oldskool.org`
+at 517 segments is a **DOS `.COM` executable collection** (`0-8xma.com`, `525drive.com`), and only 2 of
+its 517 appear on a directory row. Restricted to 2001-dated rows the maximum anywhere was 15.
+**So `.com` as a DOS executable suffix is the dominant false positive in any FTP mirror, and a bare
+segment regex is unusable without a directory-row constraint.** Worth remembering before anyone
+proposes name-shape matching over a mirror again (see the `bl.uk` trap).
+
+**Access.** `archive.org/robots.txt` disallows only `/control/` and `/report/`; the `ia8031xx` node
+hosts return 404 for robots.txt with no rules. Metadata and `view_archive.php` only, 2 concurrent
+workers, 1 s spacing, 0 metadata failures over 632 items. No `web.archive.org` and no CDX API, so
+this did not spend an archive-client slot.
+
+**Honest gaps, listed so a re-run knows what to aim at:** 13 archives returned a valid
+`view_archive.php` page with 0 rows on all three attempts (mostly very large tars: `ftp.oracle.com`,
+four `ftp.icm.edu.pl` parts, `ftp.nvg.org`), and 29 were truncated at the 20,000,000-byte listing cap
+(including `ftp.microsoft.com.zip`, `ftp.isc.org.tar`, `download.intel.com.tar`). Given 638 of 651
+listed with a passing positive control and zero true hits, those 42 do not change the verdict.
