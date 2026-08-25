@@ -2663,3 +2663,42 @@ domains and **0 net-new year rows**, which is what `microsoft.public.*` should g
 marked. Also confirmed against the ledger: 117 GB of `data/raw` is unledgered, and it is all either
 processed Usenet source archives (the ledger holds journal names, not `.mbox.zip` names), the 2 GiB
 `host-linkage` backup, out-of-window Common Crawl vertex files, or RDAP queue text.
+
+---
+
+## discmaster by FILENAME: reopen condition resolved, and the lens is saturated
+
+**The recorded reopen condition is now discharged, which is the durable part of this.** `sources.md`
+had it that discmaster's search "silently ignores" `file=` and that the `q=` route "timed out at 120s
+on three consecutive queries". With the corrected parameters from CLAUDE.md, `qfields=name`,
+`mode=deep` and `YYYYMMDD` rather than ISO dates, **the endpoint answers in about 5 seconds** and the
+date filter is honoured. So that closure was a parameter error, not a broken endpoint, and nobody needs
+to re-test it again.
+
+**And with a working endpoint the lens is saturated.** Five targeted queries over 1996-2001 file dates,
+`domains`, `zone`, `whois`, `hostlist`, `nslookup`, against an index of **1,718,970,121 files**:
+
+- `domains` returns squidGuard blacklists inside Devil-Linux ISOs, in bulk. One FTP item,
+  `ftp.fl.priv.at`, accounts for **1,492** of them, the same handful of lists shipped in every release.
+  That family is already priced: `squidguard_2001_blacklist` sits on the sheet at 10,736 EE.
+- `zone`, `whois`, `hostlist`, `nslookup` return **software and documentation only**: Doom's
+  `z_zone.c`, `whois.c`, `m_whois.c`, `nslookup.0`/`.1`/`.8` man pages, `HOSTLIST.BAT`,
+  `HOSTLIST.JAVA`, `HostList.gif`. Not one bulk data file among roughly 400 result rows.
+
+**These are the same false-positive classes for the third time**, after the archive.org FTP-ZIP sweep
+and after discmaster-by-file-size. The bulk artifacts preserved on 1996-2001 media are the anti-spam
+and proxy blocklists, all of which are now found and priced (`antispam_media_blocklist` 1,055 EE,
+`junkfilter_dated_blocklist` 2,189, `squidguard_2001_blacklist` 10,736), plus the `.jp` registry
+listing already rejected at 185.3 EE on `jp` weight 0.0605. **Treat preserved media as worked out, and
+do not open it again on a filename hunch.**
+
+**Access, recorded because it is a judgement rather than a rule.** `discmaster.textfiles.com/robots.txt`
+is `User-agent: *` / `Disallow: /` followed verbatim by the operator's own note: "This is mainly to
+prevent AI companies from scraping the entire website. If you are a researcher, historian or hobbyist,
+you are free to automate requests to the site so long as it's reasonable or somewhat limited or somewhat
+targeted." This project already records that carve-out as the collection method for
+`antispam_media_blocklist`. Six requests were made in total here. **The tension is real and worth Ivo
+seeing: the machine-readable line refuses everyone, and the party the operator names as excluded is AI
+companies, which is at least arguably us even when the work is a student's.** If he would rather we
+treat the `Disallow` as binding regardless of the comment, this section and that entry are the two
+places that assume otherwise.
