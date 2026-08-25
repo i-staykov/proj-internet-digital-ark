@@ -92,6 +92,14 @@ worth 0.386 EE in `com`, and **1,000 EE needs only ~2,600 held `com` names** (2,
 measured on artifacts dated in years already well covered. **A few thousand held names dated 2001 is a
 find; the same list dated 1999 is not.**
 
+**But that is a population average and does NOT transfer to head-selected corpora.** A 2001 magazine
+article archive measured **0.041 EE per name**, nine times worse, because a magazine cites the head of
+the distribution and we already cover the head at 2001. Head-type artifacts need ~24,000 names. **The
+pre-download discriminator is the expected held-fraction**: blocklists ~50%, authority corpora 87-99%,
+forged-header spam corpora **~5%** (a remailer log was 23,102 names and 4.56% held, since spam sender
+hostnames are invented). And when sampling to check, sample DISTINCT DOMAINS, not `domain_year` rows:
+per-row gives P=0.492 against the true per-domain 0.611.
+
 **Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
 fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
 typosquat listing 25.8%. Anything that learned its names by following links inherits the crawler's
