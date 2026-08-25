@@ -565,12 +565,6 @@ Decision: pending
 Decision: pending
 
 
-### courtlistener_caselaw / dated_directory
-
-- potential: 60
-
-Decision: pending
-
 ### discmaster_media_index / dated_directory
 
 - what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
@@ -620,12 +614,6 @@ Decision: pending
 
 Decision: pending
 
-
-### caselaw_access_project_opinions / dated_directory
-
-- potential: 58
-
-Decision: pending
 
 ### cctld_register_listing_inbody / artifact_listing
 
@@ -677,12 +665,6 @@ Decision: pending
 Decision: pending
 
 ### can_domain_registry_notices / whois_creation
-
-- potential: 55
-
-Decision: pending
-
-### uspto_trademark_case_files / artifact_listing
 
 - potential: 55
 
@@ -1280,6 +1262,24 @@ strata: 13 distinct pairs, **12 already held (92.3%)**. Killer 3 visible in the 
 alone being 3 of 18 hits. Dated `Publication date: 29 June 1998`; human-typed, the advertiser drafts the
 notice.
 
+### courtlistener_caselaw / dated_directory
+
+- potential: 60
+
+Decision: rejected
+Closed 2026-08-25 on access AND on content, so no exemption would help. **Access**: `static.case.law` is
+`User-agent: * / Disallow: /`, `case.law` disallows `/caselaw/`, and `www.courtlistener.com`
+blanket-403s us at CloudFront ("Request blocked"), all treated as refusals and not evaded. **Content, via
+the one permitted route**: a complete 25,676-opinion shard on the Hugging Face CAP mirror, **432,051,278
+characters and roughly 69 million words, contains ZERO occurrences of `http://`, `https://` or `www.`**,
+against same-shard controls returning 23,548 rows for `Circuit` and 62 for `.com`. Judicial opinions do
+not print URLs, which is the density screen failing about as hard as it can. **And the mirrors carry no
+decision-date field at all**: `created` is the 2024 ingest timestamp on every row, so a `dated_directory`
+reading would have to parse the date out of the opinion text. The measured shard is 1972-77 so it does
+not price the window directly, but the format facts are corpus-wide.
+Same population as `caselaw_access_project_opinions` from a second publisher, closed together and for the
+same reasons; treat them as one artifact in future.
+
 ### cybernot_cphack_blacklist / artifact_listing
 
 - what it is: the CyberPatrol **CyberNOT** list as published in the March 2000 cphack proceedings, plus
@@ -1308,6 +1308,35 @@ entry's `- measured:` line was lost. 299 articles, 5.89 MB, **5 net-new pairs an
 `creativecommons.org`**, dated 1996 to 2000 from a `<license>` element **added to the XML decades after
 publication**. That is killer 4 in a form worth remembering: a modern element inside an old document
 carries the old document's date unless the parser knows better.
+
+### caselaw_access_project_opinions / dated_directory
+
+- potential: 58
+
+Decision: rejected
+Closed 2026-08-25 on access AND on content, so no exemption would help. **Access**: `static.case.law` is
+`User-agent: * / Disallow: /`, `case.law` disallows `/caselaw/`, and `www.courtlistener.com`
+blanket-403s us at CloudFront ("Request blocked"), all treated as refusals and not evaded. **Content, via
+the one permitted route**: a complete 25,676-opinion shard on the Hugging Face CAP mirror, **432,051,278
+characters and roughly 69 million words, contains ZERO occurrences of `http://`, `https://` or `www.`**,
+against same-shard controls returning 23,548 rows for `Circuit` and 62 for `.com`. Judicial opinions do
+not print URLs, which is the density screen failing about as hard as it can. **And the mirrors carry no
+decision-date field at all**: `created` is the 2024 ingest timestamp on every row, so a `dated_directory`
+reading would have to parse the date out of the opinion text. The measured shard is 1972-77 so it does
+not price the window directly, but the format facts are corpus-wide.
+
+### uspto_trademark_case_files / artifact_listing
+
+- potential: 55
+
+Decision: rejected
+**Already closed in `docs/sources.md` on 2026-08-15**, on two independent grounds, and this entry is a
+duplicate of that verdict: authority selection, since a corpus of registered trademarks holds the brands
+a capture-derived store already has, plus the **intent-to-use dating defect**, since a US mark can be
+filed for a name before it is used, so the filing date evidences an intention rather than a live site.
+Both objections were re-confirmed this weekend when the same reasoning closed the Australian equivalent
+`ipgod_au_marktext`, whose mark text is applicant-typed and therefore takes the corroboration split as
+well. Nothing new to measure.
 
 ### openpgp_keyserver_dumps / link_target
 
