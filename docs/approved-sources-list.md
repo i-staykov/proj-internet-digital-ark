@@ -813,6 +813,11 @@ Decision: pending
 
 ### usenet_quoted_whois / whois_creation
 
+- measured: 90.41 net-new EE over 149 pairs, measured 2026-08-24 on the 146 densest archives, 14.4 GB
+  of 383 GB. The figure was written into this entry as prose and so never reached the decision sheet,
+  which listed the class as unpriced for a day; it is on its own line now. The projection for the whole
+  corpus is under 3,000 EE and the sample was the dense end, so treat 90.41 as the measurement and
+  3,000 as a ceiling that will not be reached
 - what it is: NSI-format and ccTLD-format `whois` output **pasted into message bodies** in
 - what dates one item: the registry's own `Record created on DD-Mon-YYYY` line inside the quoted
   block, which dates the domain independently of when the message was posted
