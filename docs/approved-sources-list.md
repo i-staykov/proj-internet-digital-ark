@@ -347,12 +347,6 @@ Decision: pending
 
 Decision: pending
 
-### uk_historic_hansard / dated_directory
-
-- potential: 84
-
-Decision: pending
-
 ### eric_fulltext_1996_2001 / dated_directory
 
 - potential: 83
@@ -374,12 +368,6 @@ Decision: pending
 ### ucsf_industry_documents / dated_directory
 
 - potential: 78
-
-Decision: pending
-
-### oireachtas_debates_xml / dated_directory
-
-- potential: 77
 
 Decision: pending
 
@@ -511,12 +499,6 @@ Decision: pending
 
 Decision: pending
 
-### ted_ojs_notices_1996_2001 / link_source
-
-- potential: 70
-
-Decision: pending
-
 ### early_bulk_whois_snapshot / whois_creation
 
 - what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
@@ -585,12 +567,6 @@ Decision: pending
 
 Decision: pending
 
-
-### uk_gazette_addressed_notices_1998_2001 / link_source
-
-- potential: 62
-
-Decision: pending
 
 ### courtlistener_caselaw / dated_directory
 
@@ -1015,6 +991,22 @@ from this mirror are in the ingest ledger: `arpa`, `edu`, `gov`, `mil`, `org`, `
 request generator stops reopening a duplicate of a decided source; the evidence stands under the other
 name. Closed by the agent rather than by Ivo because admitting nothing new is not an approval.
 
+### uk_historic_hansard / dated_directory
+
+- potential: 84
+
+Decision: rejected
+Measured 2026-08-25 at **0.00 net-new post-split EE**, and it is the most instructive negative of the
+batch because it passes the item screen 9.7x over and still pays nothing. 1,002 sitting days enumerated
+exactly from all 72 month indexes, ~235,270 section pages at a measured 234.8 per day. Sampled **1,795
+section pages and 3,260,082 words**, and they contain **exactly 5 URLs**: `dti.gov.uk`, `fco.gov.uk`,
+`homeoffice.gov.uk`, `edwarddavey.co.uk`, `ecb.int`. **All 5 pairs already held.** Density is 0.0028
+gross pairs per item, **15x below the 0.042 prose ceiling**. Reweighted to the true section mix
+(written answers are 77.9% of pages, sampled 1 in 7) the whole corpus carries ~479 URL mentions, so even
+if every one were a distinct never-held `.uk` name the ceiling is 470 EE, under the floor. Dated by
+`HC Deb 21 February 1996 vol 272 cc137-8W` printed on the page; human-typed, a Minister speaking. No
+bulk exists and mySociety's parlparse is `Disallow: /pwdata`.
+
 ### usac_erate_form471_contact_email_1998_2001 / dated_directory
 
 - potential: 84
@@ -1034,6 +1026,20 @@ apply even if the years were there. Reopen only if someone makes that e-mail req
 - potential: 78
 
 Decision: rejected
+
+### oireachtas_debates_xml / dated_directory
+
+- potential: 77
+
+Decision: rejected
+Measured 2026-08-25 at **0.00 net-new post-split EE**, and decidable on arithmetic before any download:
+**1,527 debate records** in window (1996: 247 through 2001: 299) against the ~24,438 items that `.ie` at
+0.9744 needs for a 1,000 EE bar, so the corpus is **16x too small**. Measured anyway on 119 records
+(7.8%, random across all six years, 68.2 MB): 19 distinct pairs, **18 already held (94.7%)**, and the
+mentions are `irlgov.ie`, `doh.ie`, `entemp.ie`, `welfare.ie`, the authority core. Dated by
+`<FRBRdate date="1999-02-03" name="#generation"/>`; human-typed, a TD speaking. Note the store's `.ie`
+position changed under this source's feet: after the IEDR register was banked it holds 55,432 in-window
+`.ie` pairs over 27,067 domains, so saturation is far higher than a week ago.
 
 ### content_filter_blacklists / artifact_listing
 
@@ -1057,6 +1063,22 @@ dated in body `8/2/2000` and "as of June 14, 2000". Measured: 497 already held, 
 floor before anything is measured.** The squidGuard half of this entry was already closed on era
 (2026-08-24, artifact is 2003). Reopen condition: a non-Wayback mirror of the decoded cphack blacklist;
 four searches found none.
+
+### ted_ojs_notices_1996_2001 / link_source
+
+- potential: 70
+
+Decision: rejected
+Not measured, because **the bulk download is robots-disallowed at the only host that has it**. The
+in-window packages do exist: `ted.europa.eu/en/simap/xml-bulk-download/-/xml-files/monthly/1998` lists
+12 monthly files and the year selector runs to 1993, but every endpoint sits under
+`ted.europa.eu/packages/...` and TED's robots.txt carries `Disallow: /packages/*` for `User-agent: *`.
+Not fetched. The structured alternative `ted-csv` on `data.europa.eu` has 48 distributions spanning
+**2006-2024 only**, entirely outside the window, and EUR-Lex returns 202 with zero bytes for robots.txt
+so it is off limits too. Rejected rather than parked on the screen: OJ S notices are pan-European
+contracting authorities, so the histogram would be dominated by `fr` 0.1021, `de` 0.1324 and `it`
+0.1421, needing roughly 6,700 pairs rather than 1,019, on top of killer 5 for address-block URLs a
+human typed and killer 3 for ministries and municipalities.
 
 ### excite_query_logs / dated_directory
 
@@ -1108,6 +1130,21 @@ was lost in the 2026-08-23 compaction, which is why it reappeared as unpriced. *
 condition remains untested rather than refuted**: the search endpoint's `file=` parameter is silently
 ignored, returning 25 unrelated rows, and the `q=` with `qfields=file` route timed out at 120s on three
 consecutive queries.
+
+### uk_gazette_addressed_notices_1998_2001 / link_source
+
+- potential: 62
+
+Decision: rejected
+Measured 2026-08-25 at **0.98 EE over 1 pair**, projecting ~50 EE and ceilinged at ~500. Passes the item
+screen 20x over (**490,740 notices**, from the Atom feed's own `rel="last"`) and still fails, which is
+the same lesson as Hansard. **The URL-bearing population is tiny and was measured rather than assumed**:
+`text=www` returns 720 notices and `text=http` 360, while `text=co.uk` (3,080) and `text=.com` (910) are
+**tokenisation artefacts proved as such** (43 `co.uk` hits yielded 2 notices carrying a domain, 8 `.com`
+hits yielded 0, against 14 of 14 precision on the `www` stratum). Sample of 69 notices across three
+strata: 13 distinct pairs, **12 already held (92.3%)**. Killer 3 visible in the sample, `wales.gov.uk`
+alone being 3 of 18 hits. Dated `Publication date: 29 June 1998`; human-typed, the advertiser drafts the
+notice.
 
 ### cybernot_cphack_blacklist / artifact_listing
 
