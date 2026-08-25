@@ -365,12 +365,6 @@ Decision: pending
 
 Decision: pending
 
-### ucsf_industry_documents / dated_directory
-
-- potential: 78
-
-Decision: pending
-
 ### dartmouth_bfs_seed / cdx_timestamp
 
 - measured: 1419.9 net-new post-split EE over 2,460 pairs, measured 2026-08-24 over the COMPLETE level 0,
@@ -587,12 +581,6 @@ Decision: pending
 
 - what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
 - what dates one item: the file's own filesystem date on the media, which is the `page_directory` shape,
-- potential: 60
-
-Decision: pending
-
-### pmc_oa_subset_fulltext_1998_2001 / link_source
-
 - potential: 60
 
 Decision: pending
@@ -1078,6 +1066,21 @@ apply even if the years were there. Reopen only if someone makes that e-mail req
 
 Decision: rejected
 
+### ucsf_industry_documents / dated_directory
+
+- potential: 78
+
+Decision: rejected
+**Fifth entry today whose `- measured:` line was lost in the 2026-08-23 compaction; the measurement has
+existed since 2026-08-24.** `docs/sources.md` records it in full: the solr index gives 3,826,999
+in-window documents, dated per document (`'documentdate' = '1996 January 24'`), non-IA and properly
+enriched rather than sampled blind, 0.76% of documents containing `www` and **6,000 of those fetched end
+to end**. 5,462 pairs, 3,522 already held, **1,940 net-new gross for 1,284.4 EE and 216 pairs for 146.6
+EE after the split**, because 89% of the net-new names are dated nowhere else. Whole-population
+projection about **730 EE post-split**, under the floor. The TLD census names the other half of the
+problem: `cam` appears 34 times, which is `com` misread, so the net-new half and the OCR-damaged half are
+the same population.
+
 ### oireachtas_debates_xml / dated_directory
 
 - potential: 77
@@ -1272,6 +1275,17 @@ surviving cphack mirrors, `cyberpetrol.978.org` and `linas.org/banned/cp4break/`
 artifact, peacefire's `SurfWatch/first-1000-com.txt`, is 1,000 names measured at **32.2 EE** and
 **ceilings at 632.1 EE even at 100% novelty**, below the floor before anything is measured. Reopen
 condition: a non-Wayback mirror of the decoded blacklist.
+
+### pmc_oa_subset_fulltext_1998_2001 / link_source
+
+- potential: 60
+
+Decision: rejected
+Measured and recorded at **0 net-new EE**; the table row already reads `0 / 0.0 / MEASURED` and only this
+entry's `- measured:` line was lost. 299 articles, 5.89 MB, **5 net-new pairs and every one of them
+`creativecommons.org`**, dated 1996 to 2000 from a `<license>` element **added to the XML decades after
+publication**. That is killer 4 in a form worth remembering: a modern element inside an old document
+carries the old document's date unless the parser knows better.
 
 ### openpgp_keyserver_dumps / link_target
 
