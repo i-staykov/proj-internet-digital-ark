@@ -139,3 +139,26 @@ Decision: pending
     rows, unmeasured = parse(doc)
     assert rows == []
     assert unmeasured == []
+
+
+def test_a_pipe_in_the_standard_cannot_break_the_table():
+    """A verbatim quote containing `|` must not eat the EE column.
+
+    The `antispam_media_blocklist` row rendered its evidence figure as "JavaScript
+    Object Notation" because its standard quoted a pipe-delimited listing row, so
+    markdown read the pipes as cell separators and Ivo's sheet showed no number.
+    """
+    doc = """
+### piped / artifact_listing
+- measured: 1234.5 net-new post-split EE
+- what dates one item: the row `BlackList.json | JSON | 1 | 312.6 KiB | 2001-04-06`
+
+Decision: pending
+"""
+    rows, _ = parse(doc)
+    assert rows[0]["standard"].count("\\|") == 4
+    out = render(rows)
+    line = [ln for ln in out.splitlines() if ln.startswith("| `piped`")][0]
+    # 4 real cell separators plus the two outer bars: the quoted pipes must be escaped.
+    assert line.count("|") - line.count("\\|") == 5
+    assert "1,234" in line

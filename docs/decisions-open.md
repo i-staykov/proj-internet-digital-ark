@@ -16,6 +16,7 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | Source | Evidence type | What dates one item | Net-new EE |
 |---|---|---|--:|
 | `ripe_dbase_1999` | `artifact_listing` | the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences 1999 and no other year, per rule 6 | 90,799 |
+| `can_domain_registry_notices` | `whois_creation` | `Date-Approved:` on the notice | 8,768 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
 | `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
 | `mynic_my_change_report` | `artifact_listing` | the per-day heading above each entry, `2 April 2001`, with `New` or `Delete` beside the name, so the registry is stating that this name entered or left the register that day | 3,091 |
@@ -27,10 +28,9 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `dartmouth_bfs_seed` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split | 1,420 |
 | `ncua_5300_call_report_webaddr` | `artifact_listing` | `CYCLE_DATE` on every `fs220d` row, the quarter the call report covers | 1,328 |
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
-| `antispam_media_blocklist` | `artifact_listing` | the file's own timestamp on the preserved media, e.g. `BlackList.json | JavaScript Object Notation | 1 | 312.6 KiB | 2001-04-06`, with the parent `data.mdb ... 2001-04-06`. Per EDITION, not per record, so this is the same shape as `junkfilter_dated_blocklist` | 1,055 |
-| `can_domain_registry_notices` | `whois_creation` | `Date-Approved:` on the notice | 783 |
+| `antispam_media_blocklist` | `artifact_listing` | the file's own timestamp on the preserved media, `2001-04-06`, shown in discmaster's listing row for `BlackList.json` and again on its parent `data.mdb`. Per EDITION, not per record, so the same shape as `junkfilter_dated_blocklist` | 1,055 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**15 rows, 122,562 equivalent-English waiting on a word.**
+**15 rows, 130,547 equivalent-English waiting on a word.**
 
 11 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `discmaster_media_index / dated_directory`, `domain_aftermarket_listings_1999_2001 / artifact_listing`, `fac_sfsac_historic_1998_2001 / artifact_listing`, `ia_webdataservices_cctld_extraction / cdx_timestamp`, `lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source`, `osbar_bulletin_html_issues_2000_2001 / link_source`, `reuters_rcv1_newswire / dated_directory`, `uk_trade_press_extension / dated_directory`, `usenet_quoted_whois / whois_creation`, `uspto_tm_marktext / dated_directory`.

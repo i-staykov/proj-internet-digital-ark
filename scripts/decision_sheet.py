@@ -85,7 +85,16 @@ def parse(text: str) -> tuple[list[dict], list[str]]:
                 "etype": etype.strip(),
                 "ee": float(measured.group(1).replace(",", "")),
                 "note": measured.group(2).strip().rstrip(","),
-                "standard": (" ".join(standard.group(1).split()) if standard else "NOT STATED"),
+                # A `|` inside the standard silently breaks the markdown table and eats
+                # the EE column: the `antispam_media_blocklist` row rendered its evidence
+                # figure as "JavaScript Object Notation" because the field quoted a
+                # pipe-delimited listing row verbatim. Escape rather than strip, so a
+                # verbatim quote stays verbatim.
+                "standard": (
+                    " ".join(standard.group(1).split()).replace("|", "\\|")
+                    if standard
+                    else "NOT STATED"
+                ),
             }
         )
     rows.sort(key=lambda r: -r["ee"])
