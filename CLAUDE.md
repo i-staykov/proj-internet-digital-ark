@@ -74,11 +74,16 @@ already held, because program reports print the URLs of institutions we already 
 a sample before pricing any prose corpus, and expect `.edu` and `.gov` to die to the split: ERIC held
 184 `.edu` pairs and exactly one survived.
 
-**Under the split, a list's EE is (held domains) x (years it can add). Novelty above ~50% is a COST.**
-A novel name earns no year, so what pays is a LONG-RUNNING dated series over a population we already
-hold: junkfilter spans 13 editions 1997-2001 and paid 2,189 EE, while a two-year list over the same
-population paid 120, its held domains already carrying 1997 at 93.0% and 1998 at 91.4%. Ask how many
-YEARS an artifact can add before asking how many names it has.
+**Under the split, a list's EE is (domains held AND missing that year) x nothing else. Novelty is a COST.**
+A novel name earns no year. But high already-held is only half the test: an IRR dump at 97.6% held paid
+**4.44 EE** because 95.2% were held **in that very year**. The screen is *held AND missing this year*.
+junkfilter paid 2,189 EE spanning 13 editions 1997-2001; a two-year list over the same population paid
+120. Ask which YEARS an artifact can add to names we already have.
+
+**Aim at 2001, not 1996.** Measured headroom: **6,708,320 domains held at 2000 and missing 2001**, worth
+~2.92M EE gross in the top eight TLDs, against **103,953** for the 1996-to-1997 gap. A 64x difference.
+Thin in absolute pairs is not the same as fillable. So aim the frozen-mirror rule at media and mirrors
+that stopped in **2001-2003**, not the 1990s.
 
 **Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
 fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
