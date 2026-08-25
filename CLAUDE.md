@@ -72,11 +72,12 @@ items predicts the wrong answer: Hansard is 3.26M words per 5 URLs at 0.0028 pai
 and the London Gazette are far past 119,000 items and pay nothing. Measure URL density on a sample
 before pricing any corpus of debates, judgments, gazettes or filings.
 
-**ADVERSARIAL selection inverts killer 3; merely-not-curated does not.** Already-held is ~50% on a
-blocklist against 87-99% on an authority-selected corpus. But traffic logs, which are not curated
-either, measured 98.4% and 99.6%, WORSE than curated: a visitor log's hostname is reverse DNS, so the
-long tail resolves to its ISP and only big organisations resolve to themselves. Ask what a corpus
-selects FOR, and whether the selector was hostile to the names in it.
+**Adversarial selection inverts killer 3, but ONLY if the adversary did not crawl.** Ask what channel
+fed it. Mail received or whois transcribed pays: junkfilter 50.4% already-held, SpamEater 59.1%, a
+typosquat listing 25.8%. Anything that learned its names by following links inherits the crawler's
+own population and pays nothing: a squidGuard robot list whose header says it was compiled from
+739,695 crawled links is 99.47% held and worth 18 EE. Visitor logs are the same failure by another
+route, 98.4% and 99.6%, because the hostname is reverse DNS and the long tail resolves to its ISP.
 
 Curated-directory floor, measured over four artifacts: 0.013 to 0.024 net-new post-split pairs per
 LISTED domain, at 0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000+ listed domains in one artifact.

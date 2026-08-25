@@ -28,8 +28,9 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `dartmouth_bfs_seed` | `cdx_timestamp` | the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split | 1,420 |
 | `ncua_5300_call_report_webaddr` | `artifact_listing` | `CYCLE_DATE` on every `fs220d` row, the quarter the call report covers | 1,328 |
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
+| `antispam_media_blocklist` | `artifact_listing` | the file's own timestamp on the preserved media, e.g. `BlackList.json | JavaScript Object Notation | 1 | 312.6 KiB | 2001-04-06`, with the parent `data.mdb ... 2001-04-06`. Per EDITION, not per record, so this is the same shape as `junkfilter_dated_blocklist` | 1,055 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 
-**14 rows, 122,347 equivalent-English waiting on a word.**
+**15 rows, 123,402 equivalent-English waiting on a word.**
 
 25 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `can_domain_registry_notices / whois_creation`, `caselaw_access_project_opinions / dated_directory`, `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `courtlistener_caselaw / dated_directory`, `discmaster_media_index / dated_directory`, `dnsrf_dap_udrp_multiprovider / artifact_listing`, `domain_aftermarket_listings_1999_2001 / artifact_listing`, `eric_fulltext_1996_2001 / dated_directory`, `fac_sfsac_historic_1998_2001 / artifact_listing`, `ia_webdataservices_cctld_extraction / cdx_timestamp`, `isi_us_domain_registry / artifact_listing`, `itu_operational_bulletin_1996_2001 / link_source`, and 13 more.
