@@ -57,10 +57,16 @@ SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null |
 # loop began running continuously beside two collectors.
 STORED=""
 for _ in $(seq 1 60); do
+    # Counted through the SAME shipping filter the export applies, not the raw
+    # store total. Those two were equal until the export learned to drop a pair
+    # whose TLD did not exist in its year, and from then on the guard compared a
+    # pre-filter number with a post-filter one and refused a perfectly current
+    # export forever: 726,344 in the store against 726,336 on disk, a difference
+    # that is the filter working rather than the export being stale.
     STORED=$(uv run python -c "
 import duckdb
-from ark.stats import collect_stats
-print(collect_stats(duckdb.connect('data/ark.duckdb', read_only=True))['netnew_pairs_total'])
+from ark.export import netnew_shipped_pairs
+print(netnew_shipped_pairs(duckdb.connect('data/ark.duckdb', read_only=True)))
 " 2>&1 | tail -1) || true
     case "$STORED" in
         ''|*[!0-9]*) sleep 5 ;;
@@ -94,6 +100,30 @@ fi
 # and this guard went in without one and refused to package for that reason
 # alone. Swallowing the error made it look like the report was broken when the
 # store was merely busy, so the failure is printed now rather than hidden.
+# D3: the merge, the overlap counts, the accepted increment and the reconciliation
+# checks, produced here rather than described. It scores every baseline and merged
+# annual file with the reviewer's own calculator, so this is his arithmetic on our
+# data, and it emits HIS column names so his audit and ours can be diffed directly.
+#
+# **A failure here stops the packaging.** The reconciliation includes two checks that
+# compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
+# measured against a release he has already replaced fails loudly instead of shipping.
+# That exact drift went unnoticed for five days in August 2026 and overstated net-new
+# by 151,949 records he had already credited.
+echo "merging against the baseline and reconciling (D3)"
+if ! uv run python scripts/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
+        --out output/merge > output/merge/merge_run.log 2>&1; then
+    echo "refusing to package: the merge reconciliation failed. Its log:" >&2
+    cat output/merge/merge_run.log >&2
+    exit 1
+fi
+cat output/merge/merge_run.log
+
+# **Before the report is filled, not after.** `fill_report.py` reads the newest
+# `output/merge/merge_audit_ark*.json` for section 8, so running the merge afterwards
+# shipped a report whose merge figures were one packaging run behind the audit beside
+# it. Found on 2026-08-18 by auditing the delivery, hours after the ordering was
+# introduced. The fill guard below now sees this run's audit.
 REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
 FILL_OUT=""
 for _ in $(seq 1 60); do
@@ -148,6 +178,24 @@ chmod +x "$STAGE/verify.sh"
 cp docs/delivery_readme.md "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
 
+# D2 and D4 of the submission standard, at the archive ROOT rather than inside
+# `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
+# explanation of the metric, and a document a reader has to untar first is neither.
+# `sources.md` above is the full register those two distil; both are needed, because
+# 91 rejected families with their measurements is the evidence and two pages is the
+# summary.
+cp docs/experience-summary.md "$STAGE/experience-summary.md"
+cp docs/metric-explained.md "$STAGE/metric-explained.md"
+
+# The D3 audit, produced before the report was filled so the two agree. Copied by
+# exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
+# the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
+MERGE_STAMP="$(date -u +%Y%m%d)"
+cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
+cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
+cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
+
+
 # merged master year lists + net-new additions + provenance
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
@@ -162,7 +210,7 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # neither is the language rejection register. They implemented the page-level
 # English verification standard of the phase-3 feedback, which the reviewer has
 # since retired in favour of the equivalent-English metric. The engine now lives in
-# `legacy/src/language.py` and nothing in the tree writes those folders any more.
+# the retired English-verification engine, and nothing writes those folders any more.
 #
 # Shipping them was worse than useless once the standard went: the folders came
 # out empty, `verify.sh` printed three vacuous WARN lines about a partition of
@@ -197,15 +245,59 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # `superseded/` is the one exclusion, and it is handled separately below: those
 # are verdicts from earlier engine versions and they must not sit beside the
 # current ones.
-find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' \
-    -exec cp {} "$STAGE/journals/" \; 2>/dev/null || true
+# **Structure preserved, not flattened.** This copied every journal into one flat
+# directory, and `just journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
+# `data/raw/expand/round2/...`, `data/raw/usenet/...`. So tier 3's replay stage matched
+# nothing for every source while the archive README claimed "this is what tier 3 replays,
+# so every network stage reproduces offline". Found 2026-08-18 by running the layout
+# against the globs rather than reading it.
+#
+# The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
+# to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
+#
+# **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
+# else.** They are 387 files and 3.67 GB against 1.18 GB for every other source combined,
+# and shipping them makes the archive 6.5 GB against the 1.86 GB the reviewer received last
+# round. State the cost honestly rather than dressing it up: `rdap_snapshot` is the round's
+# second-largest source at 581,458 net-new pairs, so this is the one source whose tier-3
+# replay the archive cannot offer. Tier 2 is unaffected and covers every one of those pairs,
+# which is what `verify.sh` check 4 tests. Available on request. Ivo, 2026-08-26.
+#
+# ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
+# tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
+# assignment from the provenance Parquet, is unaffected.
+#
+# One expression for the copy and for the count guard at the bottom, so the two cannot
+# disagree about what should be present.
+journal_paths() {
+    find data/raw -name '*.jsonl.gz' \
+        -not -path '*/superseded/*' \
+        -not -path 'data/raw/rdap/*' \
+        -not -path 'data/raw/rdap_pool/*' "$@"
+}
+if [ -z "${ARK_SLIM:-}" ]; then
+    journal_paths -print0 \
+        | tar -cf - --null -T - 2>/dev/null \
+        | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
+    cat > "$STAGE/journals/README.txt" <<'EXCL'
+One collector's raw logs are deliberately not here: the RDAP walks, under rdap/ and
+rdap_pool/. The reason is size and nothing else. They are 3.67 GB against 1.18 GB for every
+other source combined, and including them would triple this archive.
+
+Stated plainly, because it is a real limitation: rdap_snapshot is this round's second-largest
+source at 581,458 net-new pairs, so it is the one source whose tier-3 replay this archive
+cannot offer. Everything it evidenced still ships and is still checkable: each (domain, year)
+resolves to its evidence row in provenance/, which is what verify.sh check 4 tests over every
+assignment, and the target queues are under seeds/. Ask and the logs will be sent separately.
+EXCL
+fi
 
 # The retired English engine's superseded verdict journals are no longer shipped.
 # They were kept beside the current ones under `journals/lang_superseded/` so a
 # discarded verdict stayed auditable, which mattered while the standard was live.
-# The standard is retired and the engine is in `legacy/src/language.py`, so an
+# The standard is retired and its engine is deleted, so an
 # archive carrying them would document a rule nobody applies. The journals stay on
-# disk under `data/raw/lang/`; `legacy/docs/retired-data.md` says what they are.
+# disk under `data/raw/lang/` and are no longer read.
 
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"
@@ -232,10 +324,15 @@ cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 # superseded baseline while asserting in `baseline/README.txt` that it was the one
 # the figures mean. Scoring these additions against it gives a different answer
 # than the report claims, and nothing in the archive would have revealed why.
+# `shlex.quote`, because the reviewer's own directory names contain spaces:
+# `feedback-phase-6/Domain_Data_Collection_Task 2/merged260821`. Unquoted, `eval` split
+# that into three words and ran `2/merged260821` as a command, so the baseline never
+# reached the archive and packaging died at the copy with "No such file or directory".
 eval "$(uv run python -c "
+import shlex
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
-print(f'MERGED={CURRENT_BASELINE_DIR}')
-print(f'MARKER={CURRENT_BASELINE_MARKER}')
+print(f'MERGED={shlex.quote(str(CURRENT_BASELINE_DIR))}')
+print(f'MARKER={shlex.quote(CURRENT_BASELINE_MARKER)}')
 ")"
 mkdir -p "$STAGE/baseline/original" "$STAGE/baseline/$MARKER"
 cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/original/" 2>/dev/null || true
@@ -347,14 +444,28 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 # and the language verdicts were simply never added, which silently removed the
 # evidence behind most of a round's additions from the tier-3 replay the README
 # documents. Counting is cheap and catches the next one.
-ON_DISK=$(find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' | wc -l | tr -d ' ')
-SHIPPED_JOURNALS=$(find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' | wc -l | tr -d ' ')
-if [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
+ON_DISK=$(journal_paths | wc -l | tr -d ' ')
+SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
+if [ -n "${ARK_SLIM:-}" ]; then
+    if [ "$SHIPPED_JOURNALS" != "0" ]; then
+        echo "refusing to package: ARK_SLIM set but $SHIPPED_JOURNALS journals staged" >&2
+        exit 1
+    fi
+    cat > "$STAGE/journals/README.txt" <<'SLIM'
+The raw per-source journals are deliberately not in this archive.
+
+They are 4.85 GB and exist only for tier-3 reproduction, which re-parses the raw sources
+offline. Tier 2 is unaffected and is the route this archive documents: every shipped
+(domain, year) resolves to its evidence row in provenance/, and verify.sh checks that
+for all of them. Ask if you want the journals and they will be sent separately.
+SLIM
+    echo "journals: omitted deliberately (ARK_SLIM), $ON_DISK on disk"
+elif [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
-    find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -exec basename {} \; \
+    journal_paths -exec basename {} \; \
         | sort > /tmp/ark_on_disk.txt
-    find "$STAGE/journals" -maxdepth 1 -name '*.jsonl.gz' -exec basename {} \; \
+    find "$STAGE/journals" -name '*.jsonl.gz' -exec basename {} \; \
         | sort > /tmp/ark_shipped.txt
     comm -23 /tmp/ark_on_disk.txt /tmp/ark_shipped.txt >&2
     exit 1

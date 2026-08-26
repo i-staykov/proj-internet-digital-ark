@@ -61,6 +61,9 @@ PROVENANCE_LINEAGE = {
     # it here rather than as its own family keeps the independent-corroboration
     # count honest, which is the whole point of that measure.
     "nypw_firstcdx": "internet_archive",
+    # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
+    # shares the lineage for the same reason NYPW does.
+    "dartmouth_bfs_seed": "internet_archive",
     # The Dartmouth/NBER census is the Internet Archive counting its own captures,
     # so it shares that lineage for exactly the reason NYPW does. Filing it here
     # costs us a corroboration statistic we could otherwise have quoted, and that
@@ -75,9 +78,54 @@ PROVENANCE_LINEAGE = {
     # construction: both ask a registry when it created a name, so a pair they both
     # attest is one authority agreeing with itself, not two witnesses.
     "domain_creation_bulk": "registry",
+    # An InterNIC zone file is the registry publishing its own delegations, which is the same
+    # authority a creation date comes from, so it shares that lineage. Filing it here costs a
+    # corroboration statistic and is the correct trade for the same reason NYPW's is: a pair
+    # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
+    # itself. It is genuinely independent of every web crawl, which is where its value lies.
+    "internic_zone": "registry",
+    "iedr_register": "registry",
+    # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
+    # so it shares the registry lineage rather than earning its own: a pair this and a
+    # zone file both attest is one authority agreeing with itself.
+    "us_domain_delegated": "registry",
+    # A regional registry stating its own database contents. Same lineage as every
+    # other registry assertion, so a pair this and a zone file both attest is one
+    # authority agreeing with itself.
+    "ripe_dbase_1999": "registry",
+    # The same file's audit trail. Same authority, so a pair this and the snapshot both
+    # attest is one registry agreeing with itself, not two witnesses.
+    "ripe_dbase_changed": "registry",
+    # A registrar printing from its own database. Same authority family as a registry
+    # listing: both are the operator of record stating what it holds.
+    "namewinner_expiring": "registry",
+    # The .ca registry stating when it approved a registration. Registry authority,
+    # same family as every other registry assertion.
+    "can_domain_registry_notices": "registry",
+    # A ccTLD registry printing its own register. Registry authority.
+    "cctld_register_listing_inbody": "registry",
+    # A maintainer's hand-kept spam blocklist. Not a crawl and not a registry: its own
+    # family, so a pair it and a crawl both attest counts as two witnesses.
+    # A human transcription of registry whois records. Registry lineage, since the
+    # field being read is the registry's, even though a person copied it.
+    "early_bulk_whois_snapshot": "registry",
+    "junkfilter_dated_blocklist": "blocklist",
+    "junkfilter_mention": "blocklist",
+    # A crawler compiled this list, so it shares the lineage of everything else that
+    # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
+    # fetching in 2001 and owes the archive nothing.
+    "squidguard_2001_blacklist": "crawl",
+    "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",
+    # Same JISC dataset as the link graph and the same lineage, but a different
+    # artifact: IA capture timestamps rather than a crawled link. It is a bulk
+    # projection of IA holdings, so it is NOT independent corroboration of anything
+    # already attested by `internet_archive`, and grouping it under `uk_web_archive`
+    # rather than its own name is what keeps the independent-corroboration count
+    # honest.
+    "ukwa_geoindex": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
     # Usenet is its own lineage: the archive is a Giganews donation of posts,

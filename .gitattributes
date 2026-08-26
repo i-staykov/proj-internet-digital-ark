@@ -2,19 +2,26 @@
 # `git archive` builds the shipped source snapshot, so anything tracked ends up
 # in front of the reader unless it is marked here. A session log reached the
 # submission this way once, and the decision log would have followed it.
-docs/notes.md export-ignore
 .gitattributes export-ignore
-# The archive of retired engines, spent probes and past-round logs. Kept in git so
-# posterity survives a fresh clone, kept out of the delivery so the reviewer gets
-# the working pipeline rather than its history.
-legacy/ export-ignore
-legacy/** export-ignore
-# The round's internal plan and the agent handoff. They are working documents about
-# how to approach the reviewer's feedback, not deliverables, and the handoff states
-# the working agreement in terms that are nobody's business but ours. `git archive`
-# would otherwise put both in front of him: that is exactly how an email draft's
-# private section reached the 2 August archive.
-docs/phase5-plan.md export-ignore
+# Every round's plan, by pattern rather than one line per round. `phase6-plan.md`
+# shipped on 2026-08-18 while the identical phase-5 file was withheld, because the rule
+# lived as one filename instead of as a shape.
+docs/phase*-plan.md export-ignore
+# **Anything addressed to a person.** `submissions/phase-5/email-draft.md` opens "Send to:
+# michael.xiaowei.ding@gmail.com" and "Dear Professor Ding", and travelled to Ding inside
+# every archive; `docs/report-sendable.md` is the same document's prose and additionally
+# carried superseded round-5 figures beside a round-6 report. The house rule is that
+# nothing addressed to a person is tracked at all, and `private/` is where drafts belong;
+# these two are already in history, so this is the containment. `tests/test_delivery_privacy.py`
+# fails if the shape reappears.
+submissions/*/email-draft.md export-ignore
+docs/report-sendable.md export-ignore
 # The agent's short review surface for open and closed decisions. Working
 # document about how to approach the round, same class as notes.md.
 docs/key-decisions.md export-ignore
+# The handoff documents, by pattern rather than one line each. Same class as the plans
+# and the decision log: working documents about how to approach the round, and
+# corrections owed. Neither is a deliverable and neither is his business.
+handoff-*.md export-ignore
+# The round email prose, read by fill_report. Working document, not a deliverable.
+docs/email-sections.md export-ignore

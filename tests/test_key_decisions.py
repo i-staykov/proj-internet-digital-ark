@@ -226,3 +226,54 @@ def test_every_pending_approval_is_surfaced_in_the_live_files() -> None:
             f"{len(triage)} source(s) sit in the triage queue with no collective entry "
             "under OPEN, so nobody has been told they are there"
         )
+
+
+# A live figure in a heading is a second copy, and the copy that never refreshed is the
+# one Ivo reads first.
+#
+# `_mirror_triage_count` writes the count into both the heading and the body. On
+# 2026-08-18 the body refreshed to 55 while the heading still read "49 found, none
+# priced", so the entry disagreed with itself. `refresh_open` protects headings by
+# design, which is right for prose and wrong for a counter, so the caller now says which
+# it owns.
+
+
+def test_refresh_open_leaves_the_heading_alone_by_default(tmp_path) -> None:
+    doc = tmp_path / "key-decisions.md"
+    doc.write_text(
+        "# Decisions\n\n## OPEN\n\n### Something: 3 found\n\nold body\n\n## CLOSED\n",
+        encoding="utf-8",
+    )
+    assert refresh_open("Something", "new body", doc)
+    text = doc.read_text(encoding="utf-8")
+    assert "### Something: 3 found" in text
+    assert "new body" in text
+    assert "old body" not in text
+
+
+def test_refresh_open_rewrites_the_heading_when_the_caller_owns_the_figure(tmp_path) -> None:
+    doc = tmp_path / "key-decisions.md"
+    doc.write_text(
+        "# Decisions\n\n## OPEN\n\n### Triage: 49 found\n\nbody saying 49\n\n## CLOSED\n",
+        encoding="utf-8",
+    )
+    assert refresh_open("Triage", "body saying 55", doc, heading="Triage: 55 found")
+    text = doc.read_text(encoding="utf-8")
+    assert "### Triage: 55 found" in text
+    assert "49" not in text, "no stale copy of the count may survive anywhere in the entry"
+
+
+def test_the_live_triage_entry_agrees_with_itself() -> None:
+    """Against the real file, because the two copies disagreed there and nowhere else."""
+    import re
+
+    text = (Path(__file__).resolve().parents[1] / "docs" / "key-decisions.md").read_text()
+    match = re.search(r"### Triage the newly found sources[^\n]*\n\n(.{0,400})", text, re.S)
+    assert match, "the triage mirror entry is missing from key-decisions.md"
+    heading = text[match.start() : text.index("\n", match.start())]
+    in_heading = re.search(r"(\d[\d,]*) found", heading)
+    in_body = re.search(r"\*\*([\d,]+) source\(s\) found", match.group(1))
+    assert in_heading and in_body, f"expected a count in both, got {heading!r}"
+    assert in_heading.group(1) == in_body.group(1), (
+        f"heading says {in_heading.group(1)}, body says {in_body.group(1)}"
+    )

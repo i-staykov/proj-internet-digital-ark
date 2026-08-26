@@ -84,9 +84,11 @@ Read-only. Writes the target list and nothing else.
 
 import hashlib
 import json
+import re
 import sys
 import time
-from collections import Counter
+from collections import Counter, deque
+from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
 
@@ -125,6 +127,10 @@ ATTESTED_MIN = 1000
 # above it. Low enough that most (source, TLD) cells qualify, high enough that a
 # handful of unlucky timeouts cannot condemn a whole block.
 MIN_SAMPLE = 25
+# How many recent answers a hit rate is measured over. Large enough to be steady,
+# small enough to notice a namespace going flat: see `hit_rates` for the measurement
+# that set it. Capping every bucket also bounds this function's memory.
+WINDOW = 2000
 
 # Domains the store holds with no in-window year, and where each came from.
 # `domain_year` is the master table, so absence from it is exactly what "still
@@ -191,6 +197,29 @@ def spread(domain: str) -> bytes:
     return hashlib.blake2b(domain.encode(), digest_size=8).digest()
 
 
+def journal_order(path: Path) -> tuple[str, str]:
+    """Sort key putting journals in the order they were WRITTEN.
+
+    `sorted(glob(...))` sorts by name, and a name begins with its collector's prefix,
+    so name order groups by collector and only then by time. That is not recency, and
+    reading it as recency produced a measured 0.0% pool-wide hit rate on 2026-08-18:
+    six prefixes exist, `cdx_q1_*` sorts last, and its final runs worked an exhausted
+    shard, so "the most recent 2,000 answers" was really "the last 2,000 answers of
+    whichever prefix sorts last".
+
+    The 14-digit UTC stamp in the filename is the real clock. A journal without one
+    falls back to its mtime, which is why the key is a string pair rather than a
+    number: an unstamped journal must still sort somewhere deterministic.
+    """
+    match = re.search(r"(\d{8}T\d{6}Z)", path.name)
+    if match:
+        return (match.group(1), path.name)
+    try:
+        return (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(path.stat().st_mtime)), path.name)
+    except OSError:
+        return ("", path.name)
+
+
 def journal_outcomes(directory: Path, pattern: str = "cdx_pool_*.jsonl*") -> dict[str, bool]:
     """Every pool domain the archive actually answered, and whether it held a capture.
 
@@ -205,7 +234,9 @@ def journal_outcomes(directory: Path, pattern: str = "cdx_pool_*.jsonl*") -> dic
     pool's 41%, and roughly double every hit rate this returns.
     """
     outcomes: dict[str, bool] = {}
-    for path in sorted(directory.glob(pattern)):
+    # Written order, not name order: `hit_rates` windows the tail of this dict and
+    # the window's whole meaning is recency. See `journal_order`.
+    for path in sorted(directory.glob(pattern), key=journal_order):
         try:
             with open_journal(path) as fh:
                 for line in fh:
@@ -237,8 +268,8 @@ def sources_for(
 
 def hit_rates(
     outcomes: dict[str, bool], source_of: dict[str, str]
-) -> tuple[dict[tuple[str, str], Decimal], dict[str, Decimal], Decimal]:
-    """P(the archive holds an in-window capture), at four grains.
+) -> tuple[dict[tuple[str, str], Decimal], dict[str, Decimal], dict[str, Decimal], Decimal]:
+    """P(the archive holds an in-window capture), at four grains, over a trailing window.
 
     Coarsening as the sample thins: per (source, TLD), **per TLD**, per source,
     pool-wide. Both factors are needed. Source alone would rank a `.mil` Usenet name
@@ -260,33 +291,59 @@ def hit_rates(
     The spread across TLDs is roughly 900x, far wider than across sources, which is why
     this is the grain that matters most when a cell is thin. Its absence was not a
     missing measurement, it was a measurement never read.
+
+    **The three specific grains are a trailing WINDOW of answers, not a lifetime
+    average**, and that
+    is the second correction. A lifetime rate describes a namespace's whole history and
+    the queue needs its margin: the productive names in a namespace get queried first, so
+    a worked-out namespace keeps a flattering average long after it has stopped paying.
+    Measured over 188 pool journals on 2026-08-18:
+
+        tld   answers   lifetime   last 2,000   last 500
+        org     8,388      0.461        0.342      0.068
+        uk     41,496      0.583        0.793      0.798
+        com    22,792      0.650        0.857      0.886
+
+    `.org` is a **6.8x overstatement** at the margin, and its 0.7101 English weight kept
+    it at the head of the queue: a batch that morning spent 132 of 147 queries on `.org`
+    for nine hits, 0.048 expected equivalent-English per query against 0.783 for `.uk`.
+    The window corrects in both directions, since `.uk` and `.com` are understated by
+    lifetime for the mirror-image reason: their pools have grown faster than they were
+    worked.
+
+    `outcomes` must be in journal order, which is what `journal_outcomes` returns,
+    because the window's whole meaning is "most recent".
     """
-    cells: dict[tuple[str, str], Counter] = {}
-    per_tld: dict[str, Counter] = {}
-    per_source: dict[str, Counter] = {}
-    overall: Counter = Counter()
+    cells: dict[tuple[str, str], deque[bool]] = {}
+    per_tld: dict[str, deque[bool]] = {}
+    per_source: dict[str, deque[bool]] = {}
+    # NOT windowed, unlike the three above, and the asymmetry is deliberate. This is
+    # the fallback for a namespace nothing has answered yet, and its job is to let
+    # such a namespace rank in the middle so it can earn its first measurement. A
+    # windowed version read 0.0% on 2026-08-18 and would have made every unmeasured
+    # cell unrankable, so nothing new could ever be tried.
+    overall: list[bool] = []
     for domain, hit in outcomes.items():
         source = source_of.get(domain)
         if not source:
             continue
         tld = domain.rsplit(".", 1)[-1]
         for bucket in (
-            cells.setdefault((source, tld), Counter()),
-            per_tld.setdefault(tld, Counter()),
-            per_source.setdefault(source, Counter()),
+            cells.setdefault((source, tld), deque(maxlen=WINDOW)),
+            per_tld.setdefault(tld, deque(maxlen=WINDOW)),
+            per_source.setdefault(source, deque(maxlen=WINDOW)),
             overall,
         ):
-            bucket["n"] += 1
-            bucket["hit"] += hit
+            bucket.append(hit)
 
-    def rate(bucket: Counter) -> Decimal:
-        return Decimal(bucket["hit"]) / Decimal(bucket["n"])
+    def rate(bucket: Sequence[bool]) -> Decimal:
+        return Decimal(sum(bucket)) / Decimal(len(bucket))
 
     return (
-        {k: rate(v) for k, v in cells.items() if v["n"] >= MIN_SAMPLE},
-        {k: rate(v) for k, v in per_tld.items() if v["n"] >= MIN_SAMPLE},
-        {k: rate(v) for k, v in per_source.items() if v["n"] >= MIN_SAMPLE},
-        rate(overall) if overall["n"] else Decimal("0.5"),
+        {k: rate(v) for k, v in cells.items() if len(v) >= MIN_SAMPLE},
+        {k: rate(v) for k, v in per_tld.items() if len(v) >= MIN_SAMPLE},
+        {k: rate(v) for k, v in per_source.items() if len(v) >= MIN_SAMPLE},
+        rate(overall) if overall else Decimal("0.5"),
     )
 
 

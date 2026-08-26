@@ -72,11 +72,17 @@ def main() -> int:
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as handle:
         handle.write(body)
         staged = Path(handle.name)
+    # A reference document, because the reviewer asked for four pages and pandoc's
+    # default is 12pt with 10pt paragraph spacing and one-inch margins, which spends
+    # about a page and a half on air. `docs/assets/report-reference.docx` is that
+    # default with 10pt body, 5pt spacing and 0.75in margins, and nothing else changed.
+    command = ["pandoc", "--from=gfm", "--to=docx", "--standalone"]
+    reference = Path("docs/assets/report-reference.docx")
+    if reference.exists():
+        command.append(f"--reference-doc={reference}")
+    command += ["-o", str(out), str(staged)]
     try:
-        subprocess.run(
-            ["pandoc", "--from=gfm", "--to=docx", "--standalone", "-o", str(out), str(staged)],
-            check=True,
-        )
+        subprocess.run(command, check=True)
     except FileNotFoundError:
         print("pandoc is not installed: brew install pandoc", file=sys.stderr)
         return 1

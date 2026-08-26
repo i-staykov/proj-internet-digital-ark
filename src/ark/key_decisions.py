@@ -2,7 +2,7 @@
 
 **Why this is a module and not a convention.** Ivo's instruction, 2026-08-11:
 "Everything I have to sign-off should be in one place, so I know about it." Before
-that there were three places. `notes.md` entries each ended asking for a sign-off he
+that there were three places. The old decision log's entries each ended asking for a sign-off he
 does not give and does not want; the approvals file accumulated `pending` classes he
 had no reason to open; and the hypothesis ledger surfaced five unfinished leads as
 though they were his to judge, which he had not known existed. **A question raised in
@@ -92,7 +92,12 @@ def raise_open(heading: str, body: str, path: Path | str | None = None) -> bool:
     return True
 
 
-def refresh_open(needle: str, body: str, path: Path | str | None = None) -> bool:
+def refresh_open(
+    needle: str,
+    body: str,
+    path: Path | str | None = None,
+    heading: str | None = None,
+) -> bool:
     """Rewrite the body of the OPEN entry whose heading contains `needle`.
 
     **For an entry that carries a live figure rather than a question.** `raise_open` is
@@ -103,6 +108,14 @@ def refresh_open(needle: str, body: str, path: Path | str | None = None) -> bool
 
     The heading is left exactly as found, so a heading the agent improved by hand
     survives the refresh. Returns False if no OPEN entry matches.
+
+    **Pass `heading` when the heading itself carries the live figure.** Protecting the
+    heading is right by default and was wrong for the one caller that had written a count
+    into it: the triage mirror refreshed its body to 55 on 2026-08-18 while its heading
+    still read "49 found, none priced", so the entry disagreed with itself on the one
+    surface Ivo reads, and the stale half is the half he reads first. That is the same
+    defect this function was written to fix, one level up. A caller that owns a figure in
+    its heading must say so rather than rely on a default built for prose.
     """
     path = Path(path) if path is not None else DEFAULT_PATH
     text = path.read_text(encoding="utf-8")
@@ -121,7 +134,8 @@ def refresh_open(needle: str, body: str, path: Path | str | None = None) -> bool
         # Rebuilt from the title rather than reused from `group(0)`: the heading pattern
         # ends in `\s*$`, and `\s` matches newlines, so the match greedily swallows the
         # blank lines below the heading and re-emitting it grows a gap on every refresh.
-        entry = f"### {match.group('title')}\n\n{body.strip()}\n\n"
+        title = heading.strip() if heading else match.group("title")
+        entry = f"### {title}\n\n{body.strip()}\n\n"
         path.write_text(
             head + OPEN_MARK + block[: match.start()] + entry + block[end:] + tail,
             encoding="utf-8",

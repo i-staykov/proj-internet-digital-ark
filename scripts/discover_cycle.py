@@ -309,7 +309,8 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     f"do NOT restart anything, since it re-reads its target list at every batch"
                 )
             continue
-        if "queue_pool_local" in path:
+        if "queue_pool_local" in path or "queue_edge_local" in path:
+            population = "edge" if "queue_edge_local" in path else "pool"
             _o, ok = run(
                 [
                     "uv",
@@ -317,17 +318,30 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
                     "python",
                     "scripts/build_query_queue.py",
                     "--population",
-                    "pool",
+                    population,
                     "--out",
                     path,
                 ]
             )
             findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
             if ok:
-                findings.append(
-                    "derived: the running collector picks it up at its next dispatch, "
-                    "so nothing is restarted"
-                )
+                reader = collector_reading(path)
+                if reader:
+                    findings.append(
+                        "derived: the running collector reads this exact file, so it picks the "
+                        "rebuild up at its next dispatch and nothing is restarted"
+                    )
+                else:
+                    attention.append(
+                        f"the {population} queue was rebuilt and NO RUNNING COLLECTOR READS "
+                        f"{path}. "
+                        f"A supervisor fixes ARK_TARGETS at startup, so a rebuild reaches it "
+                        f"only if it was started on this path. Copy the rebuilt list over the "
+                        f"file the running collector was given, or restart it on this one; "
+                        f"until then the re-rank is inert and the engine keeps working a stale "
+                        f"head. Measured cost of exactly this on 2026-08-18: two hours of .ca "
+                        f"at 9.5% while a re-ranked queue sat unread"
+                    )
             else:
                 attention.append(
                     "the pool queue rebuild FAILED, so the local collector is working a "
@@ -396,6 +410,34 @@ def check_ledger() -> tuple[list[str], list[str]]:
 TRIAGE_HEADING = "Triage the newly found sources"
 
 
+def collector_reading(path: str) -> str | None:
+    """The command line of a running collector that reads this exact target list, if any.
+
+    **A rebuilt queue that nothing reads is not a rebuild.** `supervise_cdx_pool.sh` resolves
+    `ARK_TARGETS` once, at startup, and passes that fixed path to every `ark cdx` batch. So the
+    cycle's old claim that "the running collector picks it up at its next dispatch" held only
+    when the collector happened to have been started on the file the cycle rebuilds. On
+    2026-08-18 it had not been: the engine ran `queue_pool_20260818c.txt` for two hours at 9.5%
+    on a `.ca` head while `queue_pool_local.txt` sat correctly re-ranked and unread, and every
+    health check read clean because presence, progress and yield were all fine in their own
+    terms. Only the queue identity was wrong.
+
+    Matched on the basename, because the supervisor may have been given a relative path and the
+    worker an absolute one.
+    """
+    name = Path(path).name
+    try:
+        out = subprocess.run(
+            ["ps", "-eo", "command"], capture_output=True, text=True, check=False
+        ).stdout
+    except OSError:
+        return None
+    for line in out.splitlines():
+        if "ark cdx" in line and name in line:
+            return line.strip()
+    return None
+
+
 def _mirror_triage_count(count: int, findings: list[str]) -> None:
     """One entry naming the count, refreshed in place as the queue grows.
 
@@ -409,23 +451,36 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     review surface that stops moving is worse than no number, because nothing about it
     looks stale.
     """
-    # **Deliberately five lines.** This entry is rewritten every cycle, so its length is
-    # not a one-off choice but a standing tax on the one surface Ivo reads, and that
-    # surface is meant to be a screen. It reached six screens on 2026-08-15, most of it
-    # mine. A counter needs the count, the reason it is not a request, and where to look.
+    # **Deliberately two lines, and the number goes on the end of the heading.** Ivo's
+    # instruction of 2026-08-20 is that OPEN is a numbered list of one-liners, and this
+    # entry is rewritten on every cycle, so a long body here is not a one-off choice but
+    # a standing tax on the one surface he reads. The first version of this restructure
+    # was silently reverted within the hour, because the writer below still emitted the
+    # old five-line body and dropped the `(O6)` marker with it: an automated writer that
+    # disagrees with the file's format wins every time, and quietly.
     body = (
-        f"A counter, not a request, by your instruction of 2026-08-15: you review this when "
-        f"something reaches 5%. **{count} source(s) found and not yet priced**, listed in "
-        f"`{APPROVALS.name}` under `## Found, awaiting triage`.\n\n"
-        f"Priced whole, the queue covers about a tenth of the deficit, so nothing here is "
-        f"urgent and reviewing it would not change this round. **Nothing is blocked either "
-        f"way**: a pending class cannot date a year, so `ark ingest` refuses it and collection "
-        f"continues. One word each when you want them, *candidate pool* or *fold in directly*."
+        f"**{count} source(s) found and not yet priced**, in `{APPROVALS.name}` under "
+        f"`## Found, awaiting triage`. One word each, *candidate pool* or *fold in "
+        f"directly*.\n\n"
+        f"A counter rather than a request, by your instruction of 2026-08-15. Nothing is "
+        f"blocked: a pending class cannot date a year, so `ark ingest` refuses it and "
+        f"collection continues."
     )
-    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC):
+    # The heading carries the count too, so it has to be rewritten with the body. It was
+    # not, and read "49 found" over a body saying 55 until 2026-08-18. The `(On)` marker
+    # is preserved from whatever the file currently uses, so renumbering by hand sticks.
+    marker = ""
+    for title in key_decisions.open_titles(DECISIONS_DOC):
+        if TRIAGE_HEADING in title:
+            found = re.search(r"\((O\d+)\)\s*$", title)
+            if found:
+                marker = f"  ({found.group(1)})"
+            break
+    titled = f"{TRIAGE_HEADING}: {count} found{marker}"
+    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC, heading=titled):
         findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
         return
-    key_decisions.raise_open(TRIAGE_HEADING, body, DECISIONS_DOC)
+    key_decisions.raise_open(titled, body, DECISIONS_DOC)
     findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
 
 
@@ -487,19 +542,28 @@ def check_approvals() -> tuple[list[str], list[str]]:
         findings.append(f"approvals: {needle} mirrored into key-decisions OPEN")
 
     # The other direction: a decision was taken and its OPEN entry was left behind.
+    #
+    # **Both matches below are substring rather than equality, and that is the fix for a
+    # false alarm rather than a loosening.** Ivo's rewrite of 2026-08-20 numbers the OPEN
+    # entries and, because this code and a test both match on a heading's opening words,
+    # the number has to sit at the END: `... internic_zone / artifact_listing  (O1)`.
+    # Equality then failed against the still-pending set and the cycle told him to close
+    # an entry that was still genuinely waiting on him. **A false "you can close this" on
+    # the one surface he reads is worse than no check**, because acting on it would have
+    # stranded the journal it protects. The identifying phrase is the source and evidence
+    # type; anything a human wraps around it is decoration.
     still_pending = {f"{a.source_name} / {a.evidence_type}" for a in priced}
     for title in key_decisions.open_titles(DECISIONS_DOC):
-        if title == TRIAGE_HEADING:
+        if TRIAGE_HEADING in title:
             if not triage:
                 attention.append(
                     f"key-decisions still has '{TRIAGE_HEADING}' under OPEN, but the triage queue "
                     f"is empty. Move it to CLOSED"
                 )
             continue
-        if not title.startswith("Approve, refuse or downgrade "):
+        if "Approve, refuse or downgrade " not in title:
             continue
-        named = title.removeprefix("Approve, refuse or downgrade ").strip()
-        if named not in still_pending:
+        if not any(needle in title for needle in still_pending):
             attention.append(
                 f"key-decisions still has '{title}' under OPEN, but that class is no longer "
                 f"pending. Move it to CLOSED with what was decided and why"

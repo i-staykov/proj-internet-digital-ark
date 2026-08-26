@@ -1,13 +1,13 @@
 # Architecture decision records
 
-**What belongs here and what does not.** `docs/notes.md` is the dated log of every decision, and it is
+**What belongs here and what does not.** The git log is the record of every decision, and it is
 long by design. This file holds only the few decisions with **structural** impact: a change to the
 evidence taxonomy, to the store's shape, to how the machines are allocated, or to a write path every
 route depends on. Each record states the question, what was measured, what was decided, and **what was
 rejected and why**, so a later session can disagree with the reasoning rather than rediscover it.
 
 **How it links to the other logs.** `docs/key-decisions.md` is the short review surface and names the
-ADR for anything structural. `notes.md` carries the day-to-day working. An ADR is the durable answer.
+ADR for anything structural. The git log carries the day-to-day working. An ADR is the durable answer.
 
 **Status values.** `Accepted` means it is in force. `Superseded by ADR-N` means read that one instead.
 `Open` means the question is live and the record exists so the next session does not start from zero.
@@ -490,3 +490,98 @@ right trade only because the approvals gate is downstream of it: a hypothesis ca
 and priced on the agent's judgement, and **its records still cannot date a year until a human classifies
 the source**. If a future change ever lets a hypothesis reach the annual files without passing ADR-003's
 gate, this ADR stops being safe and needs revisiting rather than reapplying.
+
+## ADR-006. Edge-year gaps are a third population, and the bracketing rule was never measured
+
+**Date** 2026-08-18. **Status** Accepted for the queue definition; the reallocation is REFUSED on the
+pilot's own numbers. Settled without Ivo, as C-24 in `key-decisions.md`.
+
+### The question
+
+`src/ark/gaps.py` selects gap targets with `h2.y = h1.y + 2`: a domain is a target only where the store
+already holds **both** flanking years. So a domain held in 2000 and missing 2001 needs 2002, and one
+held in 1997 and missing 1996 needs 1995. Both are outside the window, which means **1996 and 2001 can
+never be gap targets at all.** The module says the restriction is deliberate:
+
+> ...rather than to every year adjacent to a held one, which is 17.5x larger and far more speculative.
+
+That sentence predates the equivalent-English metric. The 17.5x is right. **"Far more speculative" had
+never been measured**, and measuring it took three attempts of which only the last was sound.
+
+### The population, which is what makes this an ADR rather than a note
+
+| | slots | never asked of CDX | EE ceiling, unasked |
+|---|--:|--:|--:|
+| 2001 edge | 5,358,097 | **99.8%** | 2,678,201 |
+| 1996 edge | 1,141,039 | 95.5% | 587,188 |
+
+**285,862 domains have ever been asked of the CDX index, out of 10,867,530 held.** An answer containing
+2000 returns **3.52 in-window years on average**, so one query can fill several missing years rather
+than the edge one alone. The queue builds in 1 second as one `GROUP BY domain`; the obvious form with
+correlated `NOT EXISTS` subqueries over 20.8M rows took 15 minutes and was killed twice.
+
+### The rate was measured three times and only the third was right
+
+A seeded sample of 200 domains from the best 50,000 rows, one worker and a two-second delay so as not
+to become a third heavy client on `web.archive.org`.
+
+| | what it measures | 2001 | 1996 |
+|---|---|--:|--:|
+| conditional off 725 journals | given an adjacent CAPTURE | 94.4% | 60.0% |
+| pilot vs the LIVE edge set | 200 domains | 24.2% | 0.0% |
+| **pilot vs a FIXED snapshot** | the same 200 answers | **59.7%** (111/186) | **0.0%** (0/186) |
+
+The journal figure carried a control that validated the method where the answer was already known:
+given 1998 and 2000, the archive also holds 1999 for **98.2%** of 63,761 answers, against the gap
+engine's own measured 96.0% to 97.5%. So the method was sound and the *population* was wrong.
+
+**The conditional was labelled a ceiling and was one.** It is conditional on the archive holding the
+adjacent capture, while this population holds its adjacent year from any source, very often a registry
+creation date for a site that was never archived at all. Overstated by 1.6x.
+
+**The second measurement is the one worth naming, because it looked like the careful one.** Recomputing
+the edge set live at measurement time biases a rate downward *by its own success*: every domain where
+2001 was found was banked by the ingest loop, left the edge set, and was removed from the very
+denominator it had just satisfied. 24.2% and 59.7% are the same 200 answers against a moving and a fixed
+denominator. The tell was arithmetic that could not be true, 25 hits in the first 47 answers and then 24
+in 99. **A rate measured against a set that your own measurement mutates is not a rate.**
+
+**1996 is not a thin edge, it is not an edge at all.** 0 of 186, where all 186 were sites established
+enough to hold both 1997 and 2000, which is exactly where a 1996 capture should have been most likely.
+`EDGE_RATE[1996]` is `0.000`, kept in the selector rather than deleted so that one constant revives it
+if a later pilot ever measures it above zero.
+
+One caveat on the 59.7%: it is a **head-of-queue** rate, since the pilot was drawn from the best 50,000
+rows and every resolvable domain in it was missing both edges. Expect it to fall as the queue is worked.
+
+### The decision, and it turned out not to need Ivo
+
+Ranked by expected equivalent-English per request, which is ADR-001's rule:
+
+| population | EE per query | basis |
+|---|--:|---|
+| bracketed gap | 1.249 | measured, `docs/report.md` section 4 |
+| edge, whole population | **0.2645** | 1,597,557 EE over 6,039,003 targets, on the pilot rates |
+| candidate pool | ~0.18 | 19.8% recent yield x mean weight |
+
+**Rebuilt on the measured rates, the answer reverses: nothing should move.** With `0.597` and `0.000` in
+place of the conditionals, the merged queue gives **9,999 of its best 10,000 rows to bracketed gaps**,
+which is the ranking working correctly rather than a disappointment. A single-slot bracketed gap scores
+`0.886 x weight` against a 2001 edge's `0.597 x weight`, so the gap wins on the same TLD, which it did
+not under the conditional. The edge population is worth roughly **1.5x the candidate pool** and about a
+fifth of a bracketed gap, not the 4.7x an earlier draft of this ADR reported off the journal figure.
+
+So the VPS stays on bracketed gaps, the local engine stays on discovery, and the edge queue exists for
+whenever the pool runs thin. An edge hit adds a **pair and never a domain**, so it is completeness and
+the reviewer asked for discovery, but that trade never had to be put to Ivo: the arithmetic settles it.
+
+### Consequence
+
+`build_query_queue.py` gains `--population edge`, ranked on the pilot's rates. `src/ark/gaps.py` keeps
+`sandwich_gap_domains` unchanged, so no existing queue or reproduction moves. Both are done and eight
+tests pin them. **Nothing points an engine at the new queue.**
+
+**And the reusable part is not the population, it is the method.** Two of the three measurements above
+were wrong in ways that looked rigorous, and both failures are cheap to avoid next time: prefer a small
+sample of the real population to a large sample of a proxy, and freeze the denominator before measuring
+against it.

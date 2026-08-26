@@ -69,3 +69,15 @@ def test_a_partial_file_is_still_skipped(tmp_path: Path) -> None:
     """Relaxing the name rule must not start reading half-written batches."""
     _journal(tmp_path, "cdx_pool_20260816T212501Z.jsonl.gz.part", [ANSWERED])
     assert notes.scan(tmp_path) == {}
+
+
+def test_per_run_stamps_collapse_into_one_collector_family() -> None:
+    """A sweep that names each batch after its start time is one collector, not twenty.
+
+    The suffix sweep wrote `cdx_suffix_s20260823T144431Z` per batch and the report grew a
+    near-identical row per run, burying the six collectors that matter.
+    """
+    assert notes._family("cdx_suffix_s20260823T144431Z") == "cdx_suffix"
+    assert notes._family("cdx_suffix_20260821a") == "cdx_suffix_20260821a"
+    assert notes._family("cdx_pool") == "cdx_pool"
+    assert notes._family("cdx_gap_vps") == "cdx_gap_vps"

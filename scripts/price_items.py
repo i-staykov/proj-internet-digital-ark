@@ -55,9 +55,44 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import duckdb  # noqa: E402
-from probe_texts_corpus import domains_in  # noqa: E402
+from probe_texts_corpus import domains_in, to_registrable  # noqa: E402
 
 from ark.english_share import english_weights  # noqa: E402
+
+# **The prose extractor's TLD whitelist is wrong for a list of hostnames, and it errs in
+# the direction that flatters.** `domains_in` recognises com|net|org|edu|gov|us|uk|au|ca|
+# nz|ie|za|sg, deliberately, because a permissive pattern over OCR turns sentence
+# punctuation into fabricated domains. That trade is right for prose and wrong when an
+# item's text is already a clean list of names: measured on the squidGuard blacklists on
+# 2026-08-18 by two independent readings, it silently dropped 2,333 of 30,916 names, almost
+# all low-weight (.de 1,377, .dk 158, .nl 136, .nu 91), which understated the pair count by
+# 7.5% AND raised the reported mean weight from 0.5725 to 0.6249, straight across the 0.6
+# line the acceptance bar tests. Both errors in one pass, both flattering.
+#
+# So `--all-tlds` prices with no whitelist, and the whitelisted default now says what it
+# threw away instead of dropping it silently.
+_WIDE_HOST = re.compile(
+    r"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{0,62}\.)+[a-z]{2,24})\b(?!\.[a-z])",
+    re.IGNORECASE,
+)
+
+
+def wide_domains_in(text: str) -> set[str]:
+    """Hostnames under any TLD that carries an English weight, with no whitelist.
+
+    Restricted to TLDs the metric knows, because that is the same guard the whitelist was
+    providing against filenames without also discarding the low-English tail. `.md`, `.py`
+    and `.sh` are real TLDs, so this is a narrowing and not a proof: on prose the count it
+    reports is an upper bound and the report says so.
+    """
+    weights = english_weights()
+    out: set[str] = set()
+    for raw in _WIDE_HOST.findall(text):
+        name = to_registrable(raw.lower())
+        if name and name.rsplit(".", 1)[-1] in weights:
+            out.add(name)
+    return out
+
 
 # The two fits live in the script that first needed them; importing rather than
 # reimplementing is the point, since a second saturation curve would eventually
@@ -138,6 +173,13 @@ def main() -> None:
         help="items in the whole corpus, if this is a sample. Turns on the projections.",
     )
     ap.add_argument("--label", default="", help="name for the report line")
+    ap.add_argument(
+        "--all-tlds",
+        action="store_true",
+        help="price with no TLD whitelist. Correct when each item's text is a list of "
+        "hostnames rather than prose: the whitelist drops the low-English tail, which "
+        "understates pairs and overstates the mean weight at the same time.",
+    )
     args = ap.parse_args()
 
     weights = english_weights()
@@ -149,6 +191,7 @@ def main() -> None:
     stats = Counter()
     order: list[tuple[str, int]] = []
     seen_pair: set[tuple[str, int]] = set()
+    dropped: set[str] = set()
     item_marks: list[int] = []
     with opener(args.items) as handle:
         for line in handle:
@@ -162,7 +205,14 @@ def main() -> None:
                 stats["undated_or_out_of_window"] += 1
             else:
                 stats["in_window"] += 1
-                for name in domains_in(record.get("text") or ""):
+                text = record.get("text") or ""
+                narrow = domains_in(text)
+                if args.all_tlds:
+                    kept = wide_domains_in(text)
+                else:
+                    kept = narrow
+                    dropped |= wide_domains_in(text) - narrow
+                for name in kept:
                     key = (name, year)
                     if key not in seen_pair:
                         seen_pair.add(key)
@@ -241,6 +291,24 @@ def main() -> None:
     mean = ee(corroborated) / len(corroborated) if corroborated else Decimal(0)
     print(f"  net-new domains          : {len({d for d, _ in corroborated}):,}")
     print(f"  mean weight of net-new   : {mean:.4f}")
+    # **A silent drop turns this tool's answer into a lie**, which is the standard
+    # `probe_source.py` already holds itself to. The whitelist drops the low-English tail,
+    # so it moves the pair count down and the mean weight UP, and the mean weight is the
+    # figure the bar tests. Reported rather than fixed by default, because on prose the
+    # wide pattern also matches filenames and the narrow one is right there.
+    if dropped and not args.all_tlds:
+        weights = english_weights()
+        drop_w = [Decimal(str(weights.get(d.rsplit(".", 1)[-1], 0))) for d in dropped]
+        drop_mean = sum(drop_w, Decimal(0)) / len(drop_w) if drop_w else Decimal(0)
+        print(
+            f"  WHITELIST DROPPED        : {len(dropped):,} hostname-shaped names under a "
+            f"weighted TLD, mean weight {drop_mean:.4f}"
+        )
+        print(
+            "    so the pair count above is a FLOOR and the mean weight is a CEILING. On a "
+            "list of hostnames pass --all-tlds; on prose this count is an upper bound, "
+            "since .md, .py and .sh are real TLDs and also file extensions."
+        )
     print(
         f"to the candidate pool      : {len(pooled):,} pairs, "
         f"{len({d for d, _ in pooled} - known):,} names new to the pool"

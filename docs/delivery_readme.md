@@ -30,13 +30,33 @@ Two things to know before opening anything:
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
-| `journals/` | The raw response of every archive, registry and page query ever made, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline |
+| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **One collector is excluded on size**, the RDAP walks: 3.67 GB against 1.18 GB for everything else. It is this round's second-largest source, so that is a real limitation and `journals/README.txt` states it; the pairs remain checkable through `provenance/`, and the logs are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from |
 | `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
+| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` beside it is the full register this distils |
+| `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
+| `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
+| `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
+| `equivalent_english_domain_calculator/` | **D4**: the reviewer's own scorer, vendored unmodified with its fixed model, so every figure here can be re-derived without fetching anything |
 | `SHA256SUMS`, `verify.sh` | Checksum for every file, and the checker |
 
+
+## The four deliverables he asked for on 2026-08-17
+
+Named here in his order, because the table above is sorted by path.
+
+| | he asked for | where it is |
+|---|---|---|
+| **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `source/COMMIT.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
+| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` as the full register behind it |
+| **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
+| **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
+
+`verify.sh` checks all four: check 5 that the code snapshot carries its lockfile, 6 that the summary
+covers every topic he listed, 7 that every reconciliation check in the merge audit passed, and 8 that
+his own calculator, run here, reproduces the audit's baseline figure.
 
 ## File formats
 
@@ -67,10 +87,19 @@ Then from inside this folder:
 bash verify.sh
 ```
 
-It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure. It
-checks every file against `SHA256SUMS`, counts the annual addition files, and confirms every pair
-appears in `additions/evidence_manifest.csv`. It prints WARN rather than PASS where a check would be
-vacuous, and SKIP where the thing it checks is not in the archive.
+It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure.
+**Eight checks.** The first four are the result and the evidence behind it: every file against
+`SHA256SUMS`, the annual addition files and their counts, every added pair present in
+`additions/evidence_manifest.csv`, and every assignment in the Parquet provenance resolving to an
+evidence row shipped beside it. Checks 5 to 8 are the four artifacts of the section above, D1 to D4:
+that the code snapshot carries its dependency manifest and lockfile, that the experience summary
+covers every topic asked for, that every reconciliation check in the merge audit passed and that the
+audit agrees with `additions/` on the record count, and that **the reviewer's own calculator, run
+from inside this archive, reproduces the audit's baseline figure**.
+
+It prints SKIP where the thing a check examines is not in the archive, and says which of the eight
+failed rather than only that something did. Check 8 needs a writable extraction, because it runs the
+calculator into `audit/` and cleans up after itself.
 
 To look up why a single domain is in a given year, no database needed, only
 [`uv`](https://docs.astral.sh/uv/):
@@ -127,15 +156,45 @@ in `sources.md`.
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source   # if not already done in step 2
 uv sync
-cp -R ../baseline/original/. legacy-data/
+cp -R ../baseline/original/. legacy-data/                # the first supplied baseline
+mkdir -p data/raw && cp -R ../journals/. data/raw/       # the replay inputs, tree preserved
 just reproduce
 ```
 
+The `journals/` copy is what makes the network stages reproduce offline: every ingest command
+addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
+this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
+it behaved before 2026-08-18. **The RDAP stage is the exception and will replay nothing**, because
+those logs are excluded on size. The 581,458 net-new pairs it contributed are still checkable by tier 2, which is the
+route below, and the logs will be sent on request.
+
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
-about 3 GB** and reproduced 98.7% of the phase-1 archive. Measured on that archive this returned 99.77%
-of its pairs with all invariants passing; those per-source cost figures have not been re-measured for
-this round, so treat them as indicative. The gap is two sources with no journal to replay, whose 840
-domains return to the candidate pool. Tier 2 above is the byte-for-byte check.
+about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been
+re-measured since, so treat them as indicative.
+
+**What tier 3 cannot re-derive, stated plainly, because the figure used to be wrong by four orders of
+magnitude.** This paragraph said "the gap is two sources with no journal to replay, whose 840 domains
+return to the candidate pool". That was true of phase 1 and has not been true since phase 5. Measured
+on 2026-08-27:
+
+| | assignments | share |
+|---|--:|--:|
+| carrying this project's own evidence | 7,254,144 | |
+| **not re-derivable by tier 3** | **3,139,263** | **43.3%** |
+
+Three sources account for all of it. `domain_creation_bulk`, 2,165,506 assignments, is a Kaggle
+dataset that needs an account and may not be redistributed. `dartmouth_nber_captures`, 227,273, came
+from an archive.org item that **stopped serving the day after it was downloaded**, so it cannot be
+re-fetched by us or by anyone. `rdap_snapshot`, 746,484, is the one whose journals exist and are held
+back on size, as the layout table above says; ask and they will be sent. `sources.md` gives the
+acquisition route for all three, and `audit/dartmouth_nber_captures_audit.csv` and
+`audit/domain_creation_bulk_audit.csv` record what the first two contributed.
+
+**Tier 2 reproduces all of it, and that is the check to run.** The provenance export ships the
+evidence row behind every single assignment, including those 3,139,263, which is why `verify.sh`
+check 4 tests that every assignment resolves to an evidence row **in this archive**. Tier 3 proves
+the evidence follows from the source data; tier 2 proves the result follows from the evidence. Only
+the first is limited by what a third party is willing to keep serving.
 
 Two sources are live rather than hash-pinned, so a later download need not match: the `.fr` file is
 republished monthly (this used the June 2026 edition) and the Internet Scout feed keeps growing. The

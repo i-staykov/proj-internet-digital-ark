@@ -19,6 +19,7 @@ templates, never the filled copies, or the next refresh discards the edit.
 """
 
 import argparse
+import json
 import re
 import sys
 from decimal import Decimal
@@ -28,45 +29,14 @@ from ark.db import connect_read_only_patiently
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from report_figures import BASELINE, figures, markdown  # noqa: E402
+from report_figures import BASELINE, figures  # noqa: E402
 
-from ark.baseline import REVIEWER_BASELINE_PAIRS, SUBMITTED_ROUNDS  # noqa: E402
+from ark.baseline import (  # noqa: E402
+    CURRENT_ROUND_LABEL,
+    REVIEWER_BASELINE_PAIRS,
+    SUBMITTED_ROUNDS,
+)
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.stats import collect_stats  # noqa: E402
-
-# The one column a reviewer actually interrogates: not where a name was found,
-# but what establishes the year. Kept here rather than in prose so the per-source
-# table cannot describe a source the store no longer contains, or omit one it
-# gained. An unlisted source falls back to a pointer at `sources.md`.
-DATE_BASIS = {
-    "domain_creation_bulk": "the registry's own creation date for that domain",
-    "dartmouth_nber_captures": "the archive's own count of captures it holds in that year",
-    "udrp_proceedings": "the commencement date of the dispute",
-    "attrition_defacement": "the date the defacement was recorded",
-    "usenet_announce": "post date of the announcement",
-    "usenet_address": "post date of the message carrying the address",
-    "usenet_bare": "post date of the message carrying the address",
-    "ia_cdx_bulk": "Wayback capture timestamp",
-    "uucp_map_registry": "posting date of the registry's generated dump",
-    "uucp_map_creation": "the registrar's own `approved:` date",
-    "enron_email": "the message `Date:` header",
-    "rtfm_faq": "the FAQ's revision header",
-    "trade_press": "the issue cover date",
-    "tucows_catalogue": "software release date",
-    "afnic_fr": "registry creation date",
-    "isc_survey": "survey run date",
-    "early_web_cdx": "Wayback capture timestamp",
-    "rdap_snapshot": "the registry's own `registration` event date",
-    "rdap": "the registry's own `registration` event date",
-    "maillist_archive": "the message `Date:` header",
-    "page_directory": "capture timestamp of the archived catalogue page",
-    "page_expansion": "capture timestamp of the archived page",
-    "ukwa_link_source": "UK Web Archive crawl date",
-    "ncsa_whats_new": "the announcement page's own date",
-    "internet_scout": "the Scout Report issue date",
-    "arquivo_ia": "capture timestamp",
-    "arquivo_roteiro": "capture timestamp",
-}
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -78,250 +48,286 @@ DB = Path("data/ark.duckdb")
 # this round's data. The round is identified by its content and its git tag, not
 # by its filename.
 #
-# Nothing addressed to a person is filled here. `package_delivery.sh` ships
-# `git archive HEAD`, so every tracked file reaches the reviewer, and the
-# 2 August archive carried an email draft's "notes for Ivo" section, which was
-# private reasoning about how to present the work to him. Email drafts live in
-# `private/`, which is git-ignored, and are written by hand.
-DOCUMENTS = ((Path("docs/report.template.md"), Path("docs/report.md")),)
-
-
-def _section(md: str, heading: str) -> str:
-    """Pull one `### heading` block out of the markdown emitter's output."""
-    blocks = md.split("### ")
-    for block in blocks:
-        if block.startswith(heading):
-            body = block[len(heading) :].strip("\n")
-            return body.strip()
-    raise KeyError(f"no section titled {heading!r} in the figures output")
+# The email is filled too, but ONLY out of `private/`, which is git-ignored.
+# `package_delivery.sh` ships `git archive HEAD`, so every tracked file reaches the
+# reviewer, and the 2 August archive carried an email draft's "notes for Ivo" section:
+# private reasoning about how to present the work to him. A template addressed to a
+# person is one edit away from carrying that again, so the whole pair stays outside git
+# and the fill is what keeps its five figures identical to the report's.
+# (template, target, an unwritten round section is fatal). Fatal for the report, which
+# ships: an empty section 5 reaching the reviewer is the failure the whole token
+# mechanism exists to prevent. Not fatal for the email, which is a draft Ivo finishes by
+# hand at submission time and which never leaves `private/`. Making it fatal there would
+# block every packaging run for a document nobody is sending yet.
+DOCUMENTS = (
+    (Path("docs/report.template.md"), Path("docs/report.md"), True),
+    (Path("private/email.template.md"), Path("private/email-draft.md"), False),
+)
 
 
 def per_year_table(f: dict) -> str:
-    """Volume per year, beside the baseline it is measured against.
+    """Volume and equivalent-English per year, read from the shipped merge audit.
 
-    The per-source split and the growth thresholds have their own tables, so
-    neither is repeated here.
+    **Read from the audit rather than from the store, because the two disagree by 12
+    records and the report used to print both.** The store counts a canonicalised
+    (domain, year); the audit counts what survives export into the annual files and is
+    then scored by the reviewer's own calculator, so a name his validator refuses is in
+    the first and not the second. His figure is the one that matters and it is the one
+    the headline quotes, so the table now comes from the same file: the columns satisfy
+    `baseline_unique + accepted_new == merged_unique` per year, which he can check
+    against `audit/merge_stats_ark_*.csv` line by line.
     """
+    merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
+    newest = newest_audit(merge_dir)
+    if newest is None:
+        return "_No merge audit in this build; `merge_against_baseline.py` produces it._"
+    audit = json.loads(newest.read_text(encoding="utf-8"))
     lines = [
-        f"| Year | {BASELINE}, this counting unit | Additions | Capture-backed |",
-        "|---|--:|--:|--:|",
+        f"| Year | {BASELINE} | Additions | Merged | Equivalent-English added |",
+        "|---|--:|--:|--:|--:|",
     ]
-    for year in sorted(f["netnew_by_year"]):
-        added = f["netnew_by_year"][year]
-        base = f["baseline_by_year"].get(year, 0)
-        cb = f["capture_backed_by_year"].get(year, 0)
-        share = 100.0 * cb / added if added else 0.0
-        lines.append(f"| {year} | {base:,} | {added:,} | {cb:,} ({share:.1f}%) |")
-    cb_total = f["capture_backed_total"]
-    cb_share = 100.0 * cb_total / f["netnew_pairs"] if f["netnew_pairs"] else 0.0
-    lines.append(
-        f"| **Total** | **{f['baseline_pairs']:,}** | **{f['netnew_pairs']:,}** | "
-        f"**{cb_total:,} ({cb_share:.1f}%)** |"
-    )
-    return "\n".join(lines)
-
-
-def source_table(f: dict) -> str:
-    """The per-source table, with every column feedback section 7 names.
-
-    Scoped to sources that contribute to this round: net-new pairs or names in
-    the candidate pool. Sources from the initial gathering now score zero on
-    both, because merged260730 absorbed their additions, and listing twenty rows
-    of zeros reports the initial gathering rather than this round. Section 7's
-    "zero-yield or failure reasons" is answered by the assessment table beside
-    this one, which names the sources tried this round and rejected.
-    """
-    conn = connect_read_only_patiently(DB)
-    rows = conn.execute("""
-        SELECT source, evidence_type, files_ingested, evidence_rows,
-               pairs_backed, netnew_pairs, netnew_domains, candidate_domains
-        FROM read_csv('data/reports/source_contribution.csv', header = true)
-        WHERE evidence_type <> 'prior_reused'
-        ORDER BY netnew_pairs DESC, candidate_domains DESC, source
-    """).fetchall()
-    conn.close()
-    lines = [
-        "| Source | Evidence type | Files | Evidence rows | Accepted pairs |"
-        " Net-new pairs | Domains absent from baseline | Candidates found |",
-        "|---|---|--:|--:|--:|--:|--:|--:|",
-    ]
-    contributing = 0
-    for src, etype, files, ev, backed, netnew, newdom, cand in rows:
-        # In if it added pairs this round, or if its whole contribution is names
-        # in the candidate pool. A source with accepted pairs and no net-new ones
-        # is an initial-gathering source the baseline has absorbed.
-        if netnew == 0 and not (cand > 0 and backed == 0):
-            continue
-        if netnew:
-            contributing += 1
+    for row in audit["years"]:
         lines.append(
-            f"| `{src}` | `{etype}` | {files:,} | {ev:,} | {backed:,} | {netnew:,} | "
-            f"{newdom:,} | {cand:,} |"
+            f"| {row['year']} | {row['baseline_unique']:,} | {row['accepted_new']:,} | "
+            f"{row['merged_unique']:,} | {Decimal(row['equivalent_english_increment']):,.4f} |"
         )
-    lines.append("")
+    t = audit["totals"]
     lines.append(
-        f"{contributing} sources contributed net-new pairs. Rows showing zero there are "
-        "candidate-only sources, whose whole contribution is names awaiting evidence."
+        f"| **Total** | **{int(t['baseline_records']):,}** | "
+        f"**{int(t['accepted_new_records']):,}** | **{int(t['post_merge_records']):,}** | "
+        f"**{Decimal(t['equivalent_english_increment']):,.4f}** |"
     )
     return "\n".join(lines)
 
 
-def ee_source_table(f: dict) -> str:
-    """Per source, ordered by the metric the round is scored on.
+# Sources admitted in THIS round, with the one-line ground each was admitted on and the
+# receipt a reviewer can open. Everything not listed here was approved in an earlier round
+# and is unchanged, so the report does not re-argue it. Ivo, 2026-08-26: the additions are
+# what has to be verifiable, and nothing else earns space.
+NEW_THIS_ROUND = {
+    "ripe_dbase_1999": (
+        "the file's own generation stamp, `# 990804 00:07:01` on line 2",
+        "ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz",
+    ),
+    "ripe_dbase_changed": (
+        "the date on each object's own `changed:` transaction line",
+        "same file, `*ch:` attribute",
+    ),
+    "us_domain_delegated": (
+        "the edition's tar-preserved mtime, or its capture stamp",
+        "archive.org/details/2015.04.ftp.isc.org and www.isi.edu/in-notes/",
+    ),
+    "squidguard_2001_blacklist": (
+        "the list's own `compiled in ... on 2001.12.18` header, or the diff's filename date",
+        "archive.debian.org/.../squidguard_1.2.0.orig.tar.gz",
+    ),
+    "namewinner_expiring": (
+        "the per-row date `25-OCT-01`, on every line",
+        "web.archive.org/web/20011026120205id_/namewinner.com/whole_list.php?del=tab",
+    ),
+    "can_domain_registry_notices": (
+        "the registry's own `Date-Approved:` field in its public approval notice",
+        "archive.org/download/usenet-can/can.domain.mbox.zip",
+    ),
+    "cctld_register_listing_inbody": (
+        "the register page's own machine-written timestamp, or the row's due date",
+        "twnic.net.tw/DN/fz1.shtml and idnic.net.id/Info/RekapBelumBayar.html",
+    ),
+    "dartmouth_bfs_seed": (
+        "field 2 of each CDX row, a 14-digit capture timestamp",
+        "archive.org, Dartmouth_10KwebURLs_GWB BFS level 0",
+    ),
+    "iedr_register": (
+        "the page's own footer: `updated automatically at ... 2001` on the 2001 editions, "
+        "a plain `Last updated 27 Nov 1999` on the two earlier ones, which carry 829 of the pairs",
+        "web.archive.org/web/20011221145100id_/http://www.domainregistry.ie/lists/a-doms.html",
+    ),
+    "internic_zone": (
+        "the SOA serial inside the zone payload: `1997041800` for 12,320 pairs, "
+        "`1999111901` for the 183 from the 1999 `gov` zone",
+        "nic.mil mirror of ftp.internic.net/domain/, via web.archive.org",
+    ),
+    "ukwa_geoindex": (
+        "the 14-digit capture timestamp on each row",
+        "bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f",
+    ),
+}
 
-    Ordered by equivalent-English rather than by pair count, because those two
-    orders disagree: 23,678 `.ca` pairs outrank 107,304 pairs of mixed Usenet
-    origin, and a table sorted by volume would put the weaker source first.
-    """
+
+def new_sources_table(f: dict) -> str:
+    """The additions of this round, with grounds and receipts, so they can be checked."""
+    by_name = {row["source"]: row for row in f["by_source"]}
     lines = [
-        "| Source | What carries the date | Evidence type | Admissible | Net-new pairs | "
-        "Equivalent-English |",
+        "| Source | Evidence type | What dates one item | Receipt | Pairs | EE |",
         "|---|---|---|---|--:|--:|",
     ]
-    for row in f["by_source"]:
-        admissible = "master" if row["master"] else "**candidate only**"
+    shown = 0
+    for name, (ground, receipt) in NEW_THIS_ROUND.items():
+        row = by_name.get(name)
+        if row is None:
+            continue
+        shown += 1
         lines.append(
-            f"| `{row['source']}` | {DATE_BASIS.get(row['source'], 'see `sources.md`')} | "
-            f"`{row['evidence_type']}` | {admissible} | {row['pairs']:,} | {row['ee']:,.1f} |"
+            f"| `{name}` | `{row['evidence_type']}` | {ground} | {receipt} | "
+            f"{row['pairs']:,} | {row['ee']:,.1f} |"
         )
-    lines.append(f"| **Total** | | | | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.1f}** |")
+    if not shown:
+        return "No source was admitted for the first time in this round."
     return "\n".join(lines)
 
 
-def corroboration_sentence(f: dict) -> str:
-    """Cross-source agreement in one line, because it is not the deliverable.
+def newest_audit(merge_dir: Path) -> Path | None:
+    """The most recently WRITTEN merge audit, or None.
 
-    This was a table. The reviewer's interest is the annual files, and a
-    corroboration statistic is a nice-to-have beside them, so it earns a sentence
-    rather than a section.
+    **By modification time, never by name, and there is exactly one of these because two
+    call sites disagreeing is how the report contradicted itself twice on 2026-08-26.**
+    Sorting alphabetically picks `merge_audit_ark_20260824c.json` over a freshly written
+    `merge_audit_ark.json`, since the tagged name sorts last. That put a 488,722 increment
+    beside a 5.3344% growth rate in section 1, and after that was fixed in one place it did
+    the same again in section 8's merge table.
     """
-    conn = connect_read_only_patiently(DB)
-    stats = collect_stats(conn)
-    conn.close()
-    return (
-        f"Beyond that, {stats['independently_corroborated_netnew']:,} of this round's pairs are "
-        f"confirmed by two or more independent collection lineages rather than one, and every "
-        f"asserted pair in the collection carries {stats['avg_sources_per_pair']} distinct sources "
-        f"on average."
-    )
+    audits = list(merge_dir.glob("merge_audit_ark*.json"))
+    if not audits:
+        return None
+    return max(audits, key=lambda path: path.stat().st_mtime)
 
 
-def admissibility_sentence(f: dict) -> str:
-    """Whether every source in the table may back an annual-file entry.
+def accepted_totals() -> dict | None:
+    """The reviewer-equivalent figures from the latest merge audit, or None.
 
-    Generated rather than asserted. The reviewer asked precisely this question of
-    the previous draft, and the honest answer has to come from the shipped rows:
-    if a candidate-only type ever backed an assignment, this says so by name
-    instead of repeating a claim that had stopped being true.
+    **Section 1 must quote what HIS calculator will produce over the shipped files,
+    not what our store holds.** The two differ by a handful of records, because the
+    merge applies the normalisation his calculator applies and the store does not:
+    on 2026-08-24 the store held 726,344 net-new pairs and 726,336 survived it. A
+    report whose headline disagrees with its own reconciliation section by eight
+    records is the kind of thing a reviewer bounces, and this register already warns
+    that quoting a count in two places is how they come to disagree.
     """
-    n_sources = len(f["by_source"])
-    if f["all_sources_master"]:
-        return (
-            f"**All {n_sources} are master sources, so all {f['netnew_pairs']:,} pairs are "
-            f"admitted to the annual files.** None of them is candidate-only. Names may pass "
-            f"through the candidate pool on the way in, and this round many did, but a pair is "
-            f"only counted once a master source dates it."
-        )
-    named = ", ".join(f"`{s}`" for s in f["non_master_sources"])
-    return (
-        f"**{n_sources - len(f['non_master_sources'])} of {n_sources} are master sources.** "
-        f"These are not, and their rows do not enter the annual files: {named}."
-    )
+    merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
+    newest = newest_audit(merge_dir)
+    if newest is None:
+        return None
+    return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
 def substitutions(f: dict) -> dict[str, str]:
-    md = markdown(f)
+    accepted = accepted_totals()
+    # Fall back to the store only when no merge has been run, so a missing audit
+    # produces a slightly different number rather than an empty placeholder.
+    total = int(accepted["accepted_new_records"]) if accepted else f["netnew_pairs"]
+    ee_total = (
+        Decimal(accepted["equivalent_english_increment"]) if accepted else Decimal(f["ee_netnew"])
+    )
+    # **The headline increment comes from the MERGE AUDIT and the growth rate from the
+    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5.** Caught on
+    # 2026-08-26 with the audit reading 769,438 records and 488,722 EE beside a live
+    # 5.3344% that implies 712,801. Both numbers were individually right and the table was
+    # nonsense. Re-run `merge_against_baseline.py` after the last ingest of a round; this
+    # refuses to fill rather than shipping a self-contradicting table.
+    if accepted:
+        drift = abs(Decimal(f["ee_netnew"]) - ee_total)
+        # Relative, because a running collector moves the store by a few pairs while the
+        # merge is scoring files. 0.05% catches a stale ROUND (488,722 against 712,801 is
+        # 31%) while tolerating the handful of pairs a live ingest adds mid-run. For a
+        # submission, stop the ingest loop first so the drift is zero.
+        if drift > max(Decimal("50"), ee_total * Decimal("0.0005")):
+            raise SystemExit(
+                "merge audit is stale: it reports "
+                f"{ee_total:,.4f} equivalent-English over {total:,} records, but the store "
+                f"holds {Decimal(f['ee_netnew']):,.4f} over {f['netnew_pairs']:,}. "
+                "Run `uv run python scripts/merge_against_baseline.py` and refill."
+            )
+
+    # The growth rate has to come from the same place as the increment. It did not: the
+    # increment was the merge audit's and the rate the store's, which differ by the twelve
+    # pairs the export filter drops, so the cumulative sentence printed components summing
+    # to 32.6315 beside a total of 32.6316.
+    growth = (
+        Decimal(str(accepted["equivalent_english_growth_rate_pct"]))
+        if accepted and accepted.get("equivalent_english_growth_rate_pct") is not None
+        else Decimal(str(f["ee_netnew_growth_pct"]))
+    )
 
     subs: dict[str, str] = {
-        "TOTAL": f"{f['netnew_pairs']:,}",
+        "TOTAL": f"{total:,}",
         "UNIQUE": f"{f['netnew_unique_domains']:,}",
         "NEWDOMAINS": f"{f['netnew_domains_absent_from_baseline']:,}",
         "CANDIDATES": f"{f['candidate_pool']:,}",
-        "HARVESTED": f"{f['harvested_this_round']:,}",
-        "CAPTUREBACKED": f"{f['capture_backed_total']:,}",
         "BASELINE": BASELINE,
+        "ROUND": CURRENT_ROUND_LABEL,
         # Four decimals, because that is the precision the reviewer reports back in
         # and a rounded total reads to him as a different number than the one he
         # computed with his own calculator.
-        "EE": f"{f['ee_netnew']:,.4f}",
+        "EE": f"{ee_total:,.4f}",
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
-        "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
-        "EEMEAN": f"{f['ee_mean_weight']:.4f}",
-        "EE_SOURCE_TABLE": ee_source_table(f),
-        "CORROBORATION": corroboration_sentence(f),
-        "ADMISSIBLE": admissibility_sentence(f),
+        "EEGROWTH": f"{growth:.4f}%",
+        "NEW_SOURCES_TABLE": new_sources_table(f),
+        "DECISIONS": str(len(NEW_THIS_ROUND.keys() & {r["source"] for r in f["by_source"]})),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
-        "SOURCE_TABLE": source_table(f),
-        "COMPLETENESS_TABLE": _section(md, "Completeness"),
-        "CDX_TABLE": cdx_table(),
-        "CDX_FAILURES": cdx_failures(),
         "DATASETS_SEARCHED": datasets_searched(),
-        "CUMULATIVE": cumulative(f),
-        "DARTMOUTH_AGREEMENT": dartmouth_agreement(),
+        "POOL_RESTRICTED": pool_restricted(),
+        "CUMULATIVE": cumulative(f, growth),
+        "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
+        "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
         "ROUTES_TABLE": routes_table(f),
     }
-    base_share = 100.0 * f["netnew_pairs"] / f["baseline_pairs"] if f["baseline_pairs"] else 0.0
-    subs["BASELINESHARE"] = f"{base_share:.2f}%"
     # The REVIEWER'S raw record count, not the store's. These differ by 1.6 million,
     # because the store canonicalises to registrable domains and he counts lines, and
     # a sentence that set his count for one release beside our count for the next
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
-    subs["STOREBASELINEPAIRS"] = f"{f['baseline_pairs']:,}"
-
-    # The acceptance threshold, derived rather than typed. It moved by 106,022 EE when
-    # the reviewer reissued the baseline mid-round, and a hand-written 5% figure in the
-    # prose would have quietly kept describing the old one.
-    target = float(f["ee_baseline"]) * 0.05
-    subs["EE5PCT"] = f"{target:,.2f}"
-    subs["EE5PCTGAP"] = f"{target - float(f['ee_netnew']):,.2f}"
 
     return subs
 
 
-# The four routes section 2 describes, in the order a reader should meet them. Only
-# the prose lives here; every figure beside it is read from the store, because the
-# section opens by claiming no number in this report is typed and a hand-copied pair
-# count in the summary table would make that false the first time a collector banked
-# anything. It did: the four were written on 2026-08-17 and were stale within a day.
-ROUTES = (
+# The routes section 2 describes, in the order a reader should meet them. Only the
+# prose lives here; every figure beside it is read from the store, because the section
+# opens by claiming no number in this report is typed and a hand-copied pair count in
+# the summary table would make that false the first time a collector banked anything.
+# It did: round 5's four were written on 2026-08-17 and were stale within a day.
+#
+# RESET AT THE START OF EVERY ROUND, which is why it is empty now. Carrying the
+# previous round's routes forward is not a small error: each row would keep its own
+# heading while `by_source` quietly filled it with THIS round's pairs for a source
+# that is no longer what the round is about.
+ROUTES: tuple[tuple[str, str, str], ...] = (
     (
-        "dartmouth_nber_captures",
-        "the Internet Archive's own capture census, a 2017 Dartmouth/NBER release",
-        "the archive's count of captures it holds for that host in that calendar year",
+        "ia_cdx_bulk",
+        "the two archive engines, a bracketed-gap population and the candidate pool",
+        "the Wayback capture timestamp, per domain and year",
     ),
     (
-        "domain_creation_bulk",
-        "a published compilation of registry creation dates over 171M domains",
+        "rdap_snapshot",
+        "the RDAP sweep over generated sibling names and over `.uk` we already hold",
         "the registry's own creation date, which dates that year and no other",
-    ),
-    (
-        "ukwa_link_source",
-        "the UK Web Archive host link graph, already held since July",
-        "the crawl date on the link record",
-    ),
-    (
-        "isc_survey",
-        "the January 1997 Internet Domain Survey, recovered from a dead host",
-        "the survey edition date",
     ),
 )
 
 
 def routes_table(f: dict) -> str:
     """Section 2's summary of where the round came from, figures read from the store."""
+    if not ROUTES:
+        # Deliberately a token, so `fill` refuses the document rather than shipping a
+        # report whose central section is a blank table. `ark.baseline` names the round;
+        # this names what the round was made of, and only a human can write that.
+        return "[ROUTES_NOT_NAMED_FOR_THIS_ROUND]"
     by_source = {row["source"]: row for row in f["by_source"]}
+    # Equivalent-English beside the pairs, because the two rank sources differently and
+    # only the second is scored: the source with the most pairs this round paid a fifth
+    # of what this table's second row did, being mostly `.de` at 0.1324.
     lines = [
-        "| Route | What dates a year | Net-new pairs |",
-        "|---|---|--:|",
+        "| Route | What dates a year | Net-new pairs | Equivalent-English |",
+        "|---|---|--:|--:|",
     ]
     for key, what, dates in ROUTES:
         row = by_source.get(key)
-        pairs = f"{row['pairs']:,}" if row else "_not in this round_"
-        lines.append(f"| {what} | {dates} | {pairs} |")
+        if row is None:
+            lines.append(f"| {what} | {dates} | _not in this round_ | |")
+            continue
+        lines.append(f"| {what} | {dates} | {row['pairs']:,} | {row['ee']:,.1f} |")
     return "\n".join(lines)
 
 
@@ -341,74 +347,116 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def dartmouth_agreement() -> str:
-    """How often the capture census and our own querying of the archive agree.
+def cumulative(f: dict, growth: Decimal) -> str:
+    """The competition score, which is the sum of the percentages he awarded.
 
-    Generated rather than typed, because it is the sentence that makes a
-    third-party file believable and it moves every time the engine dates another
-    pair. A hand-copied 138,979 was already 219 stale a day after it was measured.
+    Not a ratio and not derivable from the store. His update log of 2026-08-18 defines
+    it as "the direct arithmetic sum of all official percentage increases awarded", each
+    taken against the baseline of the day that round arrived. So the per-round figures
+    are quoted from his feedback in `ark.baseline.SUBMITTED_ROUNDS` and only the addition
+    happens here. Round 1 is held out of the sum: it was awarded on records, before the
+    equivalent-English metric existed, so adding it would mix two units.
     """
-    conn = connect_read_only_patiently(Path(__file__).resolve().parents[1] / "data/ark.duckdb")
+    scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
+    this = Decimal(str(growth))
+    total = sum((r[5] for r in scored), Decimal(0)) + this
+    awarded = ", ".join(f"{r[5]}%" for r in scored)
+    unscored = [r for r in SUBMITTED_ROUNDS if r[5] is None]
+    return (
+        f"**Cumulative.** Summing the increases you have awarded, which is how the update log "
+        f"of 2026-08-18 defines the score: {awarded} and this round's {this:.4f}% give "
+        f"**{total:.4f}%**, with round {unscored[0][0]}'s {unscored[0][2]:,} records held out "
+        f"because it was awarded at 17.38% on records before the equivalent-English metric "
+        f"existed."
+    )
+
+
+def merge_reconciliation() -> str:
+    """The D3 merge audit, read from the file the packaging step produced.
+
+    Read rather than recomputed. `merge_against_baseline.py` scores every annual file
+    with the reviewer's own calculator, which takes minutes, and a second derivation
+    here would be a second thing to keep in step with the first. If the audit is
+    absent the report says so instead of implying the merge was run.
+    """
+    merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
+    newest = newest_audit(merge_dir)
+    if newest is None:
+        return (
+            "_The merge has not been run against this build. "
+            "`uv run python source/scripts/merge_against_baseline.py` produces it._"
+        )
+    audit = json.loads(newest.read_text(encoding="utf-8"))
+    t = audit["totals"]
+    checks = audit.get("reconciliation", [])
+    passed = sum(1 for c in checks if c.get("passed"))
+    rows = [
+        "| | records | equivalent-English |",
+        "|---|--:|--:|",
+        f"| baseline `{t['baseline_marker']}` | {int(t['baseline_records']):,} | "
+        f"{Decimal(t['baseline_equivalent_english_total']):,.4f} |",
+        f"| **accepted increment** | **{int(t['accepted_new_records']):,}** | "
+        f"**{Decimal(t['equivalent_english_increment']):,.4f}** |",
+        f"| post-merge total | {int(t['post_merge_records']):,} | "
+        f"{Decimal(t['post_merge_equivalent_english_total']):,.4f} |",
+    ]
+    return "\n".join(
+        [
+            "`merge_against_baseline.py` unions these additions into the current baseline,",
+            "deduplicated on the lowercased line within each year, and scores every file with your",
+            "own calculator. Per-year form in `audit/merge_stats_ark_*.csv`, in your column names",
+            "so the two audits diff directly.",
+            "",
+            *rows,
+            "",
+            f"**Overlap with the baseline is "
+            f"{int(t['already_in_baseline_records']):,} records**, so all "
+            f"{int(t['submitted_records']):,} submitted are accepted and nothing counts twice.",
+            "",
+            f"**{passed} of {len(checks)} reconciliation checks pass.** All are arithmetic",
+            "identities, so a failure would be a defect rather than a finding: per year that",
+            "`baseline_unique + accepted_new == merged_unique`, that the per-year increments sum",
+            "to the headline, and that a freshly measured baseline reproduces the totals this",
+            "round was measured against. Each is listed with its verdict in",
+            "`audit/merge_audit_ark_*.json`.",
+        ]
+    )
+
+
+def cumulative_sentence(f: dict, growth: Decimal) -> str:
+    """The same sum as `cumulative`, as one sentence for the email."""
+    scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
+    this = Decimal(str(growth))
+    total = sum((r[5] for r in scored), Decimal(0)) + this
+    return (
+        f"Cumulative, as the direct sum of the percentages you have awarded: "
+        f"{' + '.join(str(r[5]) for r in scored)} + {this:.4f} = {total:.4f}%. Round 1 is "
+        "not in that sum because it was awarded on records, at 17.38%, before the "
+        "equivalent-English metric existed."
+    )
+
+
+def pool_restricted() -> str:
+    """Candidate-pool names under namespaces nobody could register in freely.
+
+    Was typed as 575,417 and had drifted, in the one sentence of the report that argues
+    the gate is worth something. Generated so it cannot drift again, and the namespaces
+    are now named in the prose so a reviewer can reproduce the query.
+    """
+    from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently
+    from ark.delegation import shipping_filter
+
+    conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        n = conn.execute(
-            """
-            SELECT count(*) FROM (
-              SELECT DISTINCT d.domain, d.evidence_year FROM evidence d
-              JOIN source sd ON sd.source_id = d.source_id
-                            AND sd.name = 'dartmouth_nber_captures'
-              WHERE EXISTS (
-                SELECT 1 FROM evidence o
-                JOIN source so ON so.source_id = o.source_id
-                              AND so.name IN ('ia_cdx_bulk', 'ia_cdx', 'early_web_cdx')
-                WHERE o.domain = d.domain AND o.evidence_year = d.evidence_year))
-            """
-        ).fetchone()[0]
+        n = conn.execute(f"""
+            SELECT count(*) FROM domain d
+            WHERE (d.domain LIKE '%.edu' OR d.domain LIKE '%.gov' OR d.domain LIKE '%.mil')
+              AND NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+              AND {shipping_filter("d.", with_year=False)}
+        """).fetchone()[0]
     finally:
         conn.close()
     return f"{n:,}"
-
-
-def cumulative(f: dict) -> str:
-    """Everything this project has contributed, against the corpus as it now stands.
-
-    Not readable off the store: a round the reviewer has merged stops being net-new
-    the moment he merges it. So the shipped rounds live in
-    `ark.baseline.SUBMITTED_ROUNDS` and only the arithmetic happens here.
-
-    The denominator is the CURRENT baseline, on Ivo's instruction of 2026-08-17,
-    because that is the comparison he is scored on: what this project has added,
-    measured against the corpus as it is today.
-    """
-    rows = [
-        "| Round | Records | Equivalent-English |",
-        "|---|--:|--:|",
-    ]
-    total_records = 0
-    total_ee = Decimal(0)
-    for label, _date, records, ee, _against in SUBMITTED_ROUNDS:
-        total_records += records
-        total_ee += ee
-        rows.append(f"| {label} | {records:,} | {ee:,.4f} |")
-
-    total_records += f["netnew_pairs"]
-    total_ee += Decimal(str(f["ee_netnew"]))
-    rows.append(f"| **5, this one** | **{f['netnew_pairs']:,}** | **{f['ee_netnew']:,.4f}** |")
-    rows.append(f"| **Total** | **{total_records:,}** | **{total_ee:,.4f}** |")
-
-    pct = 100 * total_ee / Decimal(str(f["ee_baseline"]))
-    return "\n".join(
-        [
-            f"**Cumulative.** Across the four rounds shipped so far this project has added "
-            f"{total_records:,} domain-year records worth {total_ee:,.4f} equivalent-English, "
-            f"which is **{pct:.4f}%** of the {f['ee_baseline']:,.4f} the corpus holds today. "
-            "Round 1 "
-            "predates the equivalent-English metric, so its records are the reviewer's own "
-            "confirmed count and the weight beside it is measured over the two releases either "
-            "side under the unchanged model.",
-            "",
-            *rows,
-        ]
-    )
 
 
 def datasets_searched() -> str:
@@ -446,12 +494,15 @@ def datasets_searched() -> str:
     rejected = 0
     if "## Evaluated and rejected" in text:
         section = text.split("## Evaluated and rejected", 1)[1].split("\n## ", 1)[0]
+        # Rows the register itself labels "Not a source" are notes about our own queue,
+        # not families searched, and counting them overstated the headline by two.
         rejected = sum(
             1
             for line in section.splitlines()
             if line.startswith("|")
             and not line.startswith("|--")
             and not line.lower().startswith("| source")
+            and "not a source" not in line.lower()
         )
 
     if not developed and not rejected:
@@ -471,36 +522,71 @@ def datasets_searched() -> str:
     )
 
 
-def _cdx_notes(markdown_form: bool) -> str:
-    """Borrow the CDX campaign measurement rather than re-deriving it.
+# The template marks each section whose prose a human must write for this round as
+# `<!-- ROUND [ROUND]: ... -->`. An unwritten one is exactly the failure the token
+# mechanism exists to prevent, and it slipped through: on 2026-08-18 `docs/report.md`
+# held four of them, `--check` said "would fill cleanly", and `just ship` would have
+# packaged a report whose sections 2, 4, 5 and 6 were empty. Sections 5 and 6 are the
+# ones the template itself calls the ones he reads most closely.
+UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
 
-    One implementation, used by both the standalone tool and the report, because
-    the reviewer now asks for these numbers in the deliverable and two versions of
-    a success rate is exactly the drift this whole file exists to prevent.
+# A stub can also be satisfied from a tracked file rather than by hand, which is why
+# this exists: `private/email-draft.md` is REGENERATED from its template, so prose typed
+# straight into the draft is destroyed by the next fill. That happened, and the round's
+# email had to be rewritten from a copy kept elsewhere. `docs/email-sections.md` is
+# tracked (and export-ignored, so it never reaches the reviewer), holding one `## name`
+# heading per section. The first stub in the template takes the first section, the second
+# the second, in order, so the template keeps owning what sections exist.
+EMAIL_SECTIONS = Path("docs/email-sections.md")
+_STUB_RE = re.compile(r"<!--\s*ROUND\b.*?-->", re.S | re.I)
+
+
+def written_sections(path: Path | None = None) -> list[str]:
+    """Prose blocks under each `## ` heading, in file order. Empty if absent.
+
+    `path=None` resolves `EMAIL_SECTIONS` at call time rather than binding it as a
+    default at import, so a test can point this at a fixture. `ark.approvals` carries the
+    same note for the same reason, and writing it the other way here cost two red tests.
     """
-    from cdx_execution_notes import CDX_DIR, render, scan
-
-    tallies = scan(CDX_DIR)
-    if not tallies:
-        return "No CDX journals were found on this machine."
-    return render(tallies, markdown_form)
-
-
-def cdx_table() -> str:
-    return _cdx_notes(markdown_form=True).split("\n\nOf ")[0]
-
-
-def cdx_failures() -> str:
-    body = _cdx_notes(markdown_form=True)
-    _, _, tail = body.partition("\n\nOf ")
-    return f"Of {tail}" if tail else body
+    path = Path(path) if path is not None else EMAIL_SECTIONS
+    if not path.is_file():
+        return []
+    blocks, current = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            if current is not None:
+                blocks.append("\n".join(current).strip())
+            current = []
+        elif current is not None:
+            current.append(line)
+    if current is not None:
+        blocks.append("\n".join(current).strip())
+    return [b for b in blocks if b]
 
 
-def fill(template: Path, target: Path, subs: dict[str, str], check: bool) -> list[str]:
+def fill(
+    template: Path, target: Path, subs: dict[str, str], check: bool, stubs_fatal: bool
+) -> list[str]:
     text = template.read_text()
     for token, value in subs.items():
         text = text.replace(f"[{token}]", value)
+    # Satisfy stubs from the tracked sections file, in order, before counting them.
+    sections = written_sections()
+    if sections:
+        for block in sections:
+            text, n = _STUB_RE.subn(lambda _m, b=block: b, text, count=1)
+            if not n:
+                break
     remaining = sorted(set(re.findall(r"\[([A-Z_0-9]{2,})\]", text)))
+    # Reported as a pseudo-token so it travels the same path as a real one: `--check`
+    # lists it, `main` refuses, and the packaging script stops. One mechanism, not two,
+    # because the second would be the one nobody wired up.
+    stubs = len(UNWRITTEN_SECTION.findall(text))
+    if stubs and stubs_fatal:
+        remaining = sorted({*remaining, f"UNWRITTEN_ROUND_SECTIONS_x{stubs}"})
+    # A non-fatal stub is still worth saying out loud, or the draft looks finished.
+    if stubs and not stubs_fatal:
+        print(f"{target}: {stubs} round section(s) still to write by hand")
     if not check and not remaining:
         target.write_text(text)
     return remaining
@@ -516,13 +602,13 @@ def main() -> None:
     conn.close()
 
     failed = False
-    for template, target in DOCUMENTS:
+    for template, target, stubs_fatal in DOCUMENTS:
         # `private/` is git-ignored, so a fresh clone has no email template. That
         # must not fail the report build, which is the part that ships.
         if not template.exists():
             print(f"{template}: absent, skipping")
             continue
-        remaining = fill(template, target, subs, args.check)
+        remaining = fill(template, target, subs, args.check, stubs_fatal)
         if remaining:
             print(f"{template}: UNFILLED {remaining}", file=sys.stderr)
             failed = True
