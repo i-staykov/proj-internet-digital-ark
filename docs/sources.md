@@ -2863,3 +2863,55 @@ only. Never emit any other attribute into evidence, and in particular never `*ch
 attribute in the file that carries an e-mail address. Attribute the RIPE NCC as the source in the
 report, which Ivo offered unprompted. Rule 6 still applies: the snapshot's own header dates it
 `# 990804 00:07:01`, so it evidences **1999 and no other year**.
+
+---
+
+## `ripe_dbase_1999`: BANKED 90,770.29 EE, the largest single source of the round
+
+**Approved master by Ivo 2026-08-26 once RIPE NCC granted the request, and banked.** Store went
+536,163.51 to **626,933.80 equivalent-English**, from 4.01% to **4.6918%** growth, on 641,038 pairs.
+The licence question that blocked this for two days is answered; the exchange is recorded above.
+
+**Measured at ingest on the real file, not projected.** 20,528,780 lines read; **19,272,364
+attributes discarded**; 1,235,440 domain objects; 20,974 reverse zones skipped; header year **read as
+1999 rather than assumed**; 4,100 salvaged and 502 rejected by the canonicaliser; 1,232,554 evidence
+rows over 1,232,554 distinct names, of which 68.9% were already held at some year; **641,038 net-new
+pairs at 1999 worth 90,770.29 EE**. That is 29 EE below the figure measured on 2026-08-24, the
+difference being the store growing underneath it rather than a disagreement.
+
+**Where the value is, and why volume beat weight.** Net-new by TLD is `de` 411,005, `dk` 73,647,
+`at` 29,889, `it` 29,674, `nl` 19,736, `cz` 19,314, `no` 15,268, `fr` 12,020. Every one is on the
+near-worthless list, and the round's mean weight per pair fell from 0.6388 to 0.4235 because of it.
+**1.2M names at 0.1324 still outran every high-weight namespace still available to us**, which is the
+lesson: this source nearly got discarded on a weight screen that a volume screen would have kept.
+
+**The promise made to RIPE is enforced in code, not in prose, and this is the part to preserve.**
+Ivo's request undertook to read the domain objects and publish no personal data.
+`parse_ripe_dbase_1999` matches `*dn:` and nothing else, and **four tests in `tests/test_sources.py`
+hold it there**, one of which fails if a postal address, a phone number or an e-mail reaches the
+output. The dry run over the whole 71.9 MB file emitted **zero values that were not bare hostnames**.
+
+**Why that guard is not theatre.** The file has no `person:` objects at all, and a census of all 63
+attribute codes returns zero for person, address, phone, fax, e-mail, nic-hdl and role. That invites
+the conclusion that there is nothing to protect. **The conclusion is wrong**, and finding out why was
+the most useful five minutes of this ingest: the contact details are inline in the domain objects
+under other codes, and three of the five are not obviously personal from their names.
+
+    *dn: TuKKK.FI
+    *de: Rehtorinpellonkatu 3, SF-20500 TURKU, Finland   <- postal address, under "descr"
+    *ac: +358 21 6383105                                 <- phone number, under "admin-c"
+    *ac: mniemi@abo.fi                                   <- e-mail, under "admin-c"
+    *ch: ripe-dbm@ripe.net 19920825                      <- e-mail, under "changed"
+
+**Two refusals built in, because the failure modes are asymmetric.** A file whose stamp is missing is
+refused rather than dated from context: guessing a year for a 20-million-line dump is the worst
+available outcome, so the parser gives up if no `# YYMMDD HH:MM:SS` line appears in the first forty.
+A stamp outside 1996-2001 is refused the same way. Both are covered by tests.
+
+**Rule 6 is respected and it costs a great deal here.** The snapshot evidences **1999 and no other
+year**. A `.de` name in this file that was also live in 2000 and 2001 earns 1999 from this source and
+must earn the other years from a capture. That is why 1.2M names yield 641,038 pairs rather than
+several million.
+
+**Attribution.** The report now names the RIPE NCC as the source and states that only the domain name
+is read, which is what Ivo offered them unprompted.
