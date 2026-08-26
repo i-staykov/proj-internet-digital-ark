@@ -494,7 +494,16 @@ Decision: pending
   outside the window, so reaching 2001 needs one inference: a registration had a minimum one-year term,
   so a name expiring or dropping in April or August 2002 was registered no later than the same date in
   2001 and was therefore live during 2001
-- why I think the inference holds: `.com`, `.net` and `.org` registrations in that era were sold in
+- **RULE 6 PROBABLY FORBIDS THIS, and that objection was missed when the row was written.** Ivo's
+  rule 6 reads: a creation date evidences its own year only, and continued registration needs its own
+  record. An expiry or deletion date is the same kind of fact pointing the other way, so by symmetry
+  it evidences **2002 and no other year**, and 2002 is outside the window. The whole move here is to
+  infer a 2001 registration from a 2002 registry event, which is precisely the inference rule 6
+  blocks in the forward direction. **Unless Ivo rules that rule 6 is asymmetric, this row is not
+  admissible at all**, and the arithmetic below is moot. Recorded because the row previously argued
+  only for the inference and never tested it against his own rule
+- why the inference is otherwise sound, if he does rule it asymmetric: `.com`, `.net` and `.org`
+  registrations in that era were sold in
   whole-year increments with a one-year minimum, so a shorter term was not purchasable. And the two
   possible readings of the printed date both land in 2001: if it is the registry expiry, registration
   began at least a year earlier; if it is the deletion date, the name expired some 45 to 75 days before
@@ -505,7 +514,7 @@ Decision: pending
   dates straddle the capture rather than trailing it, which is what a forward schedule of registry
   events looks like
 - **the master reading is much larger and I am NOT quoting it as the price**: dropping the
-  corroboration split, as `domain_aftermarket_listings_1999_2001` argues it should be dropped for a
+  corroboration split, as `namewinner_expiring (formerly domain_aftermarket_listings_1999_2001)` argues it should be dropped for a
   registrar database dump, gives 31,207.7 EE for the April list and 2,456.3 for the LAME page,
   **33,664 EE combined**. But two judgements then compound, the split and the term inference, over a
   population that is 89.9% novel. Decide the inference on the conservative figure first
@@ -763,7 +772,7 @@ since a pending class cannot date a year. Reaches `key-decisions.md` as a count,
 | 23 | uspto_tm_marktext | the application's filing date | dated_directory | unpriced | unpriced | none | pending |
 | 24 | dnsrf_dap_udrp_multiprovider | the case filing year | artifact_listing | unpriced | unpriced | none | pending |
 | 25 | domainsproject_bulk_list | nothing, RDAP dates it after | link_target | unpriced | unpriced | none | pending |
-| 26 | domain_aftermarket_listings_1999_2001 | the listing page's capture date | artifact_listing | unpriced | unpriced | none | pending |
+| 26 | namewinner_expiring (formerly domain_aftermarket_listings_1999_2001) | the listing page's capture date | artifact_listing | unpriced | unpriced | none | pending |
 | 27 | openpgp_keyserver_dumps | key self-signature, owner-asserted | link_target | ~50,000-150,000 names, gated | unpriced | ESTIMATE | pending |
 | 28 | wayback_longitudinal_url_sample | first capture time, data unpublished | cdx_timestamp | unpriced | unpriced | none | pending |
 | 29 | dotgov_real_names | nothing, RDAP dates it after | link_target | ~few hundred to low thousands | unpriced | ESTIMATE | pending |
@@ -813,34 +822,6 @@ Decision: pending
 ### domainsproject_bulk_list / link_target
 
 - potential: 30
-
-Decision: pending
-
-### domain_aftermarket_listings_1999_2001 / artifact_listing
-
-- measured: 11,555.0 net-new EE over 18,951 (domain, 2001) pairs, measured 2026-08-25 against the
-  live store, on the master reading. The conservative reading, applying the corroboration split, is
-  3,377 pairs and 2,083.9 EE. Both figures independently reproduced; the split figure matches a
-  subagent's to the pair
-- what it is: `namewinner.com/whole_list.php?del=tab`, Dotster's expiring-domain auction list, Wayback
-  capture `20011026120205`. 20,943 distinct registrable domains, 15,660 `.com` / 3,333 `.net` /
-  1,950 `.org`. The `?del=none` capture is a strict subset
-- what dates one item: the per-item date `25-OCT-01` on every row. Verified in the file itself, which
-  carries 20,945 occurrences of that string and no other date of that shape, with the Wayback capture
-  fixing the instant at 2001-10-26 12:02 UTC. The operator's own `rule_book.php` calls it "our list of
-  soon to be expiring domain names", so the registrar is stating these names are registered now. The
-  `coza_deletion_listing` argument, and the standard set in killer 8
-- **the one judgement to make**: whether the corroboration split applies. It should not. The split is
-  for what a human typed, and this is a dump out of a registrar's expiring-domain database, on which
-  being registered is the only way to appear. `iedr_register` (18,826 EE) and `internic_zone`
-  (8,813 EE) are the same shape and both dated novel names
-- the 25.6% held-fraction is the point rather than a warning: these are speculative 1999-2001 land-rush
-  names nobody linked to and no crawler visited, which is the tail law 3 says a trust-selected corpus
-  cannot reach. 1,992 are already held at 2001, so the store is thin here, not blind
-- **not included in the figure**: the 2002-04-07 sibling, 52,204 domains with zero overlap, worth
-  2,543.2 EE post-split but needing the minimum-one-year-term inference to reach 2001. Decide it
-  separately rather than beside a stamped in-window date
-- potential: 22
 
 Decision: pending
 
@@ -1686,6 +1667,44 @@ Decision: rejected
 capture time, data unpublished" with evidence "none". It is also structurally dead by law 1, since an
 IA-derived sample cannot be net-new against a baseline that is itself IA-derived. Marked refused rather
 than left pending so the request generator stops re-queueing a source that does not exist.
+
+### namewinner_expiring / artifact_listing
+
+- measured: 11,555.0 net-new EE over 18,951 (domain, 2001) pairs, measured 2026-08-25 against the
+  live store, on the master reading. The conservative reading, applying the corroboration split, is
+  3,377 pairs and 2,083.9 EE. Both figures independently reproduced; the split figure matches a
+  subagent's to the pair
+- what it is: `namewinner.com/whole_list.php?del=tab`, Dotster's expiring-domain auction list, Wayback
+  capture `20011026120205`. 20,943 distinct registrable domains, 15,660 `.com` / 3,333 `.net` /
+  1,950 `.org`. The `?del=none` capture is a strict subset
+- what dates one item: the per-item date `25-OCT-01` on every row. Verified in the file itself, which
+  carries 20,945 occurrences of that string and no other date of that shape, with the Wayback capture
+  fixing the instant at 2001-10-26 12:02 UTC. The operator's own `rule_book.php` calls it "our list of
+  soon to be expiring domain names", so the registrar is stating these names are registered now. The
+  `coza_deletion_listing` argument, and the standard set in killer 8
+- **the one judgement to make**: whether the corroboration split applies. It should not. The split is
+  for what a human typed, and this is a dump out of a registrar's expiring-domain database, on which
+  being registered is the only way to appear. `iedr_register` (18,826 EE) and `internic_zone`
+  (8,813 EE) are the same shape and both dated novel names
+- the 25.6% held-fraction is the point rather than a warning: these are speculative 1999-2001 land-rush
+  names nobody linked to and no crawler visited, which is the tail law 3 says a trust-selected corpus
+  cannot reach. 1,992 are already held at 2001, so the store is thin here, not blind
+- **not included in the figure**: the 2002-04-07 sibling, 52,204 domains with zero overlap, worth
+  2,543.2 EE post-split but needing the minimum-one-year-term inference to reach 2001. Decide it
+  separately rather than beside a stamped in-window date
+- potential: 22
+
+Decision: master
+
+Approved by Ivo 2026-08-26, on the master reading: the corroboration split does NOT apply. The
+ruling is that a dump out of a registrar's expiring-domain database is not something a human typed,
+and being registered is the only way onto it, so it dates the names on it including novel ones,
+exactly as `iedr_register` and `internic_zone` do. Ingested as `namewinner_expiring`.
+
+Scope of the ruling: the 2001-10-26 capture only. It needs no inference, because the artifact's own
+per-item date `25-OCT-01` is inside the window. The 2002-04 capture of the same page is a separate
+row and is NOT covered by this, and the parser refuses it automatically by reading each row's own
+date rather than the file's.
 
 ### openpgp_keyserver_dumps / link_target
 

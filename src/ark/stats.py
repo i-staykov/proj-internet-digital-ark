@@ -93,6 +93,9 @@ PROVENANCE_LINEAGE = {
     # other registry assertion, so a pair this and a zone file both attest is one
     # authority agreeing with itself.
     "ripe_dbase_1999": "registry",
+    # A registrar printing from its own database. Same authority family as a registry
+    # listing: both are the operator of record stating what it holds.
+    "namewinner_expiring": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.

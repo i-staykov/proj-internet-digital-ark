@@ -449,6 +449,74 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# `NAME<TAB>25-OCT-01`. Oracle-style two-digit year, so the century is inferred: a
+# `01` is 2001, not 1901. The month name is parsed only to prove the field is a date
+# and not something else that happens to have two hyphens.
+_NW_ROW = re.compile(r"^(\S+)\t(\d{1,2})-([A-Z]{3})-(\d{2})\s*$")
+_NW_MONTHS = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+
+
+def parse_namewinner_expiring(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per name on a namewinner expiring-domain list.
+
+    **What the artifact asserts.** Dotster's `rule_book.php` calls this "our list of soon
+    to be expiring domain names", so a name on it is one the registrar is stating is
+    registered at that moment. That is the `coza_deletion_listing` argument and it is the
+    reason this is `artifact_listing` rather than a directory: the registrar held the
+    database and printed from it.
+
+    **No corroboration split.** This is a dump out of a registrar's expiring-domain system,
+    not a list a person compiled: being registered is the only way onto it. So it dates the
+    names on it, novel ones included, exactly as `iedr_register` and `internic_zone` do.
+    Ruled by Ivo 2026-08-26.
+
+    **The date is read PER ROW, and that is deliberate rather than defensive.** Every row of
+    the 2001-10-26 capture carries `25-OCT-01`, verified as 20,945 occurrences with no other
+    date of that shape in the file. Reading each row's own date instead of the file's means
+    the 2002-04 capture of the same page is refused automatically, one row at a time, which
+    is what rule 6 requires: an expiry date evidences its own year, and 2002 is out of
+    window. A parser that took the filename's date would have imported it.
+
+    **The two-digit year is expanded on a 30-year pivot**, so `01` is 2001. A `97` would be
+    1997. Nothing in this source's captures reaches either boundary, but the file format is
+    Oracle's default and the ambiguity is real, so it is resolved explicitly.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            row = _NW_ROW.match(line.rstrip("\n"))
+            if row is None:
+                stats["not_a_data_row"] += 1
+                continue
+            if row.group(3) not in _NW_MONTHS:
+                stats["unparseable_month"] += 1
+                continue
+            two = int(row.group(4))
+            year = 2000 + two if two <= 30 else 1900 + two
+            if year not in YEARS:
+                stats["row_out_of_window"] += 1
+                continue
+            stats["rows"] += 1
+            yield BulkRecord(
+                raw=row.group(1),
+                year=year,
+                evidence_value=f"namewinner_expiring:{row.group(2)}-{row.group(3)}-{row.group(4)}",
+            )
+
+
 # The 1999 RIPE database snapshot. **Read the docstring before touching this.**
 # Line 2 of the payload is the file's own stamp, `# 990804 00:07:01`. Two-digit year,
 # so 99 is 1999; anything below 90 would be 20xx, which this file is not.
@@ -1398,6 +1466,16 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # Dotster's expiring-domain auction list, 2001-10-26. `artifact_listing`: a
+    # registrar stating which names are registered and about to expire. Per-row dates,
+    # so an out-of-window edition is refused row by row. Approved by Ivo 2026-08-26.
+    "namewinner_expiring": SourceSpec(
+        key="namewinner_expiring",
+        source_name="namewinner_expiring",
+        evidence_type="artifact_listing",
+        acquisition_method="registrar_expiring_listing",
+        parse=parse_namewinner_expiring,
+    ),
     # The 1999 RIPE database snapshot, used under written permission from RIPE NCC
     # dated 2026-08-26. `artifact_listing`: the file states its own generation instant
     # and a `domain:` object in it is the registry's database contents at that instant.
