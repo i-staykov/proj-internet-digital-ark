@@ -9,24 +9,24 @@ generated from the evidence store, so no table here can disagree with the files 
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 25,064,981 |
 | 2. Equivalent-English total | 13,362,368.8792 |
-| 3. Increment | **1,928,571** records |
-| 4. Equivalent-English increment | **712,796.2234** |
-| 5. Equivalent-English growth rate | **5.3344%** |
+| 3. Increment | **1,929,655** records |
+| 4. Equivalent-English increment | **713,481.4198** |
+| 5. Equivalent-English growth rate | **5.3395%** |
 
-The increment covers 1,659,521 distinct domains, of which **666,783 appear in none of the six
+The increment covers 1,660,237 distinct domains, of which **666,783 appear in none of the six
 baseline files in any year**.
 
 | Year | merged260821, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
 | 1996 | 754,672 | 55,467 | 7 (0.0%) |
 | 1997 | 1,791,900 | 134,717 | 37 (0.0%) |
-| 1998 | 2,233,240 | 447,015 | 668 (0.1%) |
-| 1999 | 4,612,976 | 822,719 | 4,322 (0.5%) |
-| 2000 | 9,471,543 | 145,553 | 3,454 (2.4%) |
-| 2001 | 4,550,999 | 323,112 | 79,193 (24.5%) |
-| **Total** | **23,415,330** | **1,928,583** | **87,681 (4.5%)** |
+| 1998 | 2,233,240 | 447,042 | 695 (0.2%) |
+| 1999 | 4,612,976 | 822,812 | 4,416 (0.5%) |
+| 2000 | 9,471,543 | 145,578 | 3,480 (2.4%) |
+| 2001 | 4,550,999 | 324,051 | 80,145 (24.7%) |
+| **Total** | **23,415,330** | **1,929,667** | **88,780 (4.6%)** |
 
-**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 7,064,644 domain-year records worth 3,730,807.1248 equivalent-English, **27.9203%** of the 13,362,368.8792 the corpus holds today. Records / equivalent-English by round, each at the figure you ACCEPTED rather than the one submitted: round 1 1,429,524 / 756,559; round 3 151,949 / 91,815; round 4 946,266 / 603,402; round 5 2,608,322 / 1,566,230; **6, this one 1,928,583 / 712,802**.
+**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 7,065,728 domain-year records worth 3,731,492.3212 equivalent-English, **27.9254%** of the 13,362,368.8792 the corpus holds today. Records / equivalent-English by round, each at the figure you ACCEPTED rather than the one submitted: round 1 1,429,524 / 756,559; round 3 151,949 / 91,815; round 4 946,266 / 603,402; round 5 2,608,322 / 1,566,230; **6, this one 1,929,667 / 713,487**.
 
 ## 2. What is new in this round, and how to check it
 
@@ -62,7 +62,7 @@ evidence type, location, timestamp, extraction method and measurement.
 
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
-| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 79,186 |
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 80,270 |
 | the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 581,458 |
 
 **Both routes are self-dating and take no corroboration split**, being records of the thing itself
@@ -88,10 +88,10 @@ carries no known public suffix, is a bare public suffix, or has an invalid chara
 label. **Salvage** is the same operation on a dirty line, so a URL or mail address is reduced rather
 than discarded.
 
-| across 131,820 ingest runs | records | | |
+| across 131,825 ingest runs | records | | |
 |---|--:|---|--:|
-| raw lines read | 1,634,267,320 | **salvaged** by normalisation | **129,805,348** |
-| staged records | 213,024,888 | **rejected** as invalid | **2,836,010** |
+| raw lines read | 1,634,272,120 | **salvaged** by normalisation | **129,805,348** |
+| staged records | 213,031,636 | **rejected** as invalid | **2,836,010** |
 | outside 1996-2001, never eligible | 1,236,761,978 | | |
 
 Reject reasons over the 1,299,177 dropped lines retained in the shipped audit CSVs: IP address 95.41%,
@@ -103,12 +103,12 @@ character 0.09%.
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | `cdx_suffix` | 43 | 2,238,415 | 2,238,415 | 100.0% | 100.0% | 57,592 | 4,367,087 |
-| `cdx_pool` | 252 | 151,890 | 133,339 | 87.8% | 52.1% | 133,840 | 103,671 |
+| `cdx_pool` | 253 | 152,394 | 133,671 | 87.7% | 52.2% | 134,197 | 104,344 |
 | `cdx_q1` | 214 | 63,919 | 55,844 | 87.4% | 71.9% | 55,943 | 127,552 |
-| *16 further prefixes* | 445 | 248,284 | 228,000 | 91.8% | | 230,750 | 523,371 |
-| **All** | **954** | **2,702,508** | **2,655,598** | **98.3%** | **95.7%** | **430,582** | **5,121,681** |
+| *16 further prefixes* | 446 | 249,484 | 229,119 | 91.8% | | 231,915 | 525,056 |
+| **All** | **956** | **2,704,212** | **2,657,049** | **98.3%** | **95.7%** | **432,095** | **5,124,039** |
 
-**Strategy.** One query per domain against the Wayback CDX index, filtered to in-window captures, written to an append-only journal that is ingested only once complete, so a killed batch loses no answered query. **Errors:** of 2,702,508 queries 2,655,598 were answered (98.3%); HTTP-level failures are 3,139 (0.12%), being 0 rate limits (429), 2,155 server errors and 984 refusals (403), while **transport-level failures are 43,771 (1.62%)**, 31,197 refused or reset and 12,574 timed out. **The binding constraint is not a status code we could obey but the connection being dropped before a status exists.** **Handling:** rate limits and server errors retry with exponential backoff honouring `Retry-After`; refusals and timeouts retry with a widening delay and are then requeued, so no domain is lost to one failure; a 403 is a permanent answer for that host and is not retried.
+**Strategy.** One query per domain against the Wayback CDX index, filtered to in-window captures, written to an append-only journal that is ingested only once complete, so a killed batch loses no answered query. **Errors:** of 2,704,212 queries 2,657,049 were answered (98.3%); HTTP-level failures are 3,139 (0.12%), being 0 rate limits (429), 2,155 server errors and 984 refusals (403), while **transport-level failures are 44,024 (1.63%)**, 31,362 refused or reset and 12,662 timed out. **The binding constraint is not a status code we could obey but the connection being dropped before a status exists.** **Handling:** rate limits and server errors retry with exponential backoff honouring `Retry-After`; refusals and timeouts retry with a widening delay and are then requeued, so no domain is lost to one failure; a 403 is a permanent answer for that host and is not retried.
 
 ## 6. How the discovery ran, and where the human sits
 
