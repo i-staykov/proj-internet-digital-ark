@@ -254,15 +254,42 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 #
 # The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
-# Same find expression as the guard below, so the two cannot disagree.
-# ARK_SLIM=1 omits the raw journals, which are 3.4 GB of the 4.9 GB archive and are read
-# by none of the nine delivery checks. They exist for tier-3 replay, re-parsing the raw
-# sources offline; tier 2, which reproduces every shipped assignment from the provenance
-# Parquet, is unaffected. The omission is asserted below rather than left to be noticed.
+#
+# **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
+# else.** They are 387 files and 3.67 GB against 1.18 GB for every other source combined,
+# and shipping them makes the archive 6.5 GB against the 1.86 GB the reviewer received last
+# round. State the cost honestly rather than dressing it up: `rdap_snapshot` is the round's
+# second-largest source at 581,458 net-new pairs, so this is the one source whose tier-3
+# replay the archive cannot offer. Tier 2 is unaffected and covers every one of those pairs,
+# which is what `verify.sh` check 4 tests. Available on request. Ivo, 2026-08-26.
+#
+# ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
+# tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
+# assignment from the provenance Parquet, is unaffected.
+#
+# One expression for the copy and for the count guard at the bottom, so the two cannot
+# disagree about what should be present.
+journal_paths() {
+    find data/raw -name '*.jsonl.gz' \
+        -not -path '*/superseded/*' \
+        -not -path 'data/raw/rdap/*' \
+        -not -path 'data/raw/rdap_pool/*' "$@"
+}
 if [ -z "${ARK_SLIM:-}" ]; then
-    find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -print0 \
+    journal_paths -print0 \
         | tar -cf - --null -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
+    cat > "$STAGE/journals/README.txt" <<'EXCL'
+One collector's raw logs are deliberately not here: the RDAP walks, under rdap/ and
+rdap_pool/. The reason is size and nothing else. They are 3.67 GB against 1.18 GB for every
+other source combined, and including them would triple this archive.
+
+Stated plainly, because it is a real limitation: rdap_snapshot is this round's second-largest
+source at 581,458 net-new pairs, so it is the one source whose tier-3 replay this archive
+cannot offer. Everything it evidenced still ships and is still checkable: each (domain, year)
+resolves to its evidence row in provenance/, which is what verify.sh check 4 tests over every
+assignment, and the target queues are under seeds/. Ask and the logs will be sent separately.
+EXCL
 fi
 
 # The retired English engine's superseded verdict journals are no longer shipped.
@@ -417,7 +444,7 @@ git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 # and the language verdicts were simply never added, which silently removed the
 # evidence behind most of a round's additions from the tier-3 replay the README
 # documents. Counting is cheap and catches the next one.
-ON_DISK=$(find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' | wc -l | tr -d ' ')
+ON_DISK=$(journal_paths | wc -l | tr -d ' ')
 SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
 if [ -n "${ARK_SLIM:-}" ]; then
     if [ "$SHIPPED_JOURNALS" != "0" ]; then
@@ -427,7 +454,7 @@ if [ -n "${ARK_SLIM:-}" ]; then
     cat > "$STAGE/journals/README.txt" <<'SLIM'
 The raw per-source journals are deliberately not in this archive.
 
-They are 3.4 GB and exist only for tier-3 reproduction, which re-parses the raw sources
+They are 4.85 GB and exist only for tier-3 reproduction, which re-parses the raw sources
 offline. Tier 2 is unaffected and is the route this archive documents: every shipped
 (domain, year) resolves to its evidence row in provenance/, and verify.sh checks that
 for all of them. Ask if you want the journals and they will be sent separately.
@@ -436,7 +463,7 @@ SLIM
 elif [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
-    find data/raw -name '*.jsonl.gz' -not -path '*/superseded/*' -exec basename {} \; \
+    journal_paths -exec basename {} \; \
         | sort > /tmp/ark_on_disk.txt
     find "$STAGE/journals" -name '*.jsonl.gz' -exec basename {} \; \
         | sort > /tmp/ark_shipped.txt
