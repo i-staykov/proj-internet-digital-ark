@@ -450,6 +450,53 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# `junkfilter-(dated|cand).<YYYYMMDD>.txt`, written by `split_junkfilter.py`. One
+# canonical domain per line; the lane is in the name and so is the edition date.
+_JF_FILE = re.compile(r"^junkfilter-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$")
+
+
+def parse_junkfilter_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per name in one lane of one junkfilter edition.
+
+    **What dates an edition, three machine-written stamps agreeing.** The HTTP
+    `last-modified` header on the file, the release directory's own ISO name, and the
+    in-body `$Id: junkfilter,v 2.36 2001/05/28 20:00:08 gsutter Exp $` of the same release.
+    All thirteen in-window editions were verified to agree header-to-directory at
+    collection, and the headers are kept in `data/raw/junkfilter/last-modified.txt`.
+
+    **`dated_directory` for the corroborated lane, `link_target` for the other**, because
+    the list is hand-maintained: the date is a machine's and the name is a person's. The
+    split is applied by `split_junkfilter.py` before ingest, against the strict predicate
+    (the domain already carries an assigned year), so this parser only reads whichever lane
+    it is pointed at and never decides.
+
+    **An edition evidences its own date and nothing else.** junkfilter began 1997-07-06,
+    inside the window, so no edition carries pre-window content, and the thirteen editions
+    are separately dated releases rather than one current state re-published, which is why
+    killer 4 does not reach it.
+
+    **What a listing means, and it is the honest weak point.** An entry means the maintainer
+    received mail from or advertising that host. That is one inference shorter than a
+    directory listing but it is still not a resolution, which is why the corroborated lane
+    exists at all.
+    """
+    match = _JF_FILE.match(path.name)
+    if match is None:
+        stats["not_a_junkfilter_lane"] += 1
+        return
+    year = int(match.group(2))
+    if year not in YEARS:
+        stats["edition_out_of_window"] += 1
+        return
+    stamp = "".join(match.groups()[1:])
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        name = line.strip()
+        if not name:
+            continue
+        stats["names"] += 1
+        yield BulkRecord(raw=name, year=year, evidence_value=f"junkfilter:{stamp}")
+
+
 # `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
 # trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
 # on the page, IDNIC's rows carry a due date each.
@@ -1643,6 +1690,23 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # junkfilter's hand-maintained spam-origin blocklist, thirteen in-window editions.
+    # Two lanes: the corroborated half dates a year, the rest parks as candidates.
+    # Approved by Ivo 2026-08-26.
+    "junkfilter_dated": SourceSpec(
+        key="junkfilter_dated",
+        source_name="junkfilter_dated_blocklist",
+        evidence_type="dated_directory",
+        acquisition_method="dated_blocklist_release",
+        parse=parse_junkfilter_split,
+    ),
+    "junkfilter_candidates": SourceSpec(
+        key="junkfilter_candidates",
+        source_name="junkfilter_mention",
+        evidence_type="link_target",
+        acquisition_method="dated_blocklist_release",
+        parse=parse_junkfilter_split,
+    ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.
     # Approved by Ivo 2026-08-26.
