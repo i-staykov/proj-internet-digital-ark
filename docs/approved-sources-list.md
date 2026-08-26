@@ -315,7 +315,25 @@ Decision: pending
   itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36
   2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997
   half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec  6  1997 junkfilter/jf-domains`
-- ingest specs: none written yet
+- **BUILD COMPLETE 2026-08-26, awaiting only a decision.** Collector, splitter, parser and two specs
+  are written and the artifacts are on disk. One command banks it:
+  `uv run ark ingest junkfilter_dated data/raw/junkfilter/dated/*.txt` (plus the candidate lane)
+- **RE-MEASURED 2026-08-26 against the live store: 3,529 net-new pairs, 2,175.8 EE.** Reproduces the
+  register's own 2,189.4 to within 0.6%, and the 1997 half reproduces too: 429 net-new pairs against
+  the 431 recorded. Net-new by year 1997 429 / 1998 488 / 1999 726 / 2000 573 / **2001 1,313**
+- the corroborated fraction is now **72.8%**, well above the rate implied when this was first priced,
+  because the store has grown to 13.1M domains carrying an assigned year. That RAISES the yield here,
+  since corroboration is what admits a hand-typed name rather than what excludes it
+- **the 1997 edition is a tar member, not a directory**, which is why an earlier pass missed it:
+  `pkg/old/junkfilter-4.13.tar.gz` carries `junkfilter/jf-domains` at member mtime 1997-12-06, 43,879
+  bytes, exactly the stamp recorded by hand here. The collector now extracts it, so `just reproduce`
+  gets the thin year too
+- all 13 in-window editions verified header-to-directory at collection: every `last-modified` matches
+  its ISO directory name, recorded in `data/raw/junkfilter/last-modified.txt`
+- **the split is applied before ingest**, by `split_junkfilter.py`, against the strict predicate: a
+  domain is corroborated when it already carries an assigned year. `split_expansion_journal.py` uses a
+  weaker test (any row of the `domain` table, candidates included) and that is too weak for a
+  blocklist, so the two are deliberately different and this one says so
 - collect it: `https://junkfilter.zer0.org/pkg/` holds 13 ISO-dated in-window release directories,
   `19980508` through `20010529`, plus `/pkg/old/` with two 1997 tarballs. About 900 KB in total
 - the artifact: Gregory Sutter's procmail spam filter. `jf-domains` is one `|`-joined line of

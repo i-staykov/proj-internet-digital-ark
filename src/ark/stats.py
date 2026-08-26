@@ -101,6 +101,10 @@ PROVENANCE_LINEAGE = {
     "can_domain_registry_notices": "registry",
     # A ccTLD registry printing its own register. Registry authority.
     "cctld_register_listing_inbody": "registry",
+    # A maintainer's hand-kept spam blocklist. Not a crawl and not a registry: its own
+    # family, so a pair it and a crawl both attest counts as two witnesses.
+    "junkfilter_dated_blocklist": "blocklist",
+    "junkfilter_mention": "blocklist",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
