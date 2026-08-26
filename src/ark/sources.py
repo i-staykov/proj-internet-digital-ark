@@ -450,6 +450,89 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# Edelman's whois transcriptions. A record begins at a BOLD subject and runs to the
+# next one; the creation date sits inside it as `Registered on: Jun 28, 2001`.
+_ED_SUBJECT = re.compile(r"<b>\s*(?:<a[^>]*>)?\s*([A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,})", re.I)
+_ED_REGISTERED = re.compile(
+    r"Registered on:\s*</i>\s*</font>\s*([A-Za-z]{3})[a-z]*\s+(\d{1,2}),\s*(\d{4})", re.I
+)
+_ED_MONTHS = {
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+}
+
+
+def parse_edelman_whois(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per domain whose OWN whois creation date Edelman transcribed.
+
+    **This parser exists to avoid one specific, measured mistake.** An earlier pass
+    overstated this source by **47%** by binding a name to a neighbouring record's date.
+    The page format is why:
+
+        <B><a href="http://A1-DESIGNS.COM">A1-DESIGNS.COM</a></b>
+        <BR>Current title: A1-DESIGNS.COM - Welcome!
+        <BR>Registered on: Jun 28, 2001  by registrar: BULKREGISTER.COM, INC.
+        <BR>Google: ... www.google.com/search?q=... linking to a1-designs.com
+        <BR>Archive: ... web.archive.org/*/http://A1-DESIGNS.COM
+
+    One record mentions the **registrar** (`bulkregister.com`), **google.com** and
+    **web.archive.org** alongside its subject, and the typo-domain pages additionally name
+    the redirect target and the correctly-spelled original. A regexp that swept domains out
+    of a page and paired them with the nearest date would date all of those.
+
+    **So the record is delimited by its bold subject, and only that subject takes the
+    date.** Everything else in the block is discarded, counted as `other_domain_ignored`,
+    which is the number to watch if this is ever re-verified.
+
+    **`whois_creation`, so rule 6 applies**: the transcribed creation date evidences its own
+    year and no other. A record whose creation year falls outside 1996-2001 is skipped, and
+    so is a record with no `Registered on:` line at all, which is common because Edelman
+    notes the date only "when available from registrar".
+
+    **What is being trusted, stated plainly.** This is a human transcription of a registry
+    record, not the registry's own file, so the date is second-hand. The register admits it
+    as `whois_creation` on the grounds that the transcribed field is a registry field, and
+    the anachronism test passed. It is the weakest dating provenance of any master source
+    here, and it is the reason the subject-binding has to be exact.
+    """
+    text = path.read_text(encoding="utf-8", errors="replace")
+    marks = list(_ED_SUBJECT.finditer(text))
+    stats["subject_blocks"] += len(marks)
+    for index, mark in enumerate(marks):
+        stop = marks[index + 1].start() if index + 1 < len(marks) else len(text)
+        block = text[mark.start() : stop]
+        registered = _ED_REGISTERED.search(block)
+        if registered is None:
+            stats["no_registered_on"] += 1
+            continue
+        if registered.group(1).lower() not in _ED_MONTHS:
+            stats["unparseable_month"] += 1
+            continue
+        year = int(registered.group(3))
+        if year not in YEARS:
+            stats["created_out_of_window"] += 1
+            continue
+        # Everything in the block that is NOT the subject is deliberately dropped.
+        others = len(re.findall(r"[a-z0-9][a-z0-9\-]*\.(?:com|net|org)\b", block, re.I)) - 1
+        stats["other_domain_ignored"] += max(0, others)
+        stats["records"] += 1
+        yield BulkRecord(
+            raw=mark.group(1),
+            year=year,
+            evidence_value=f"edelman_whois_created:{year}",
+        )
+
+
 # `junkfilter-(dated|cand).<YYYYMMDD>.txt`, written by `split_junkfilter.py`. One
 # canonical domain per line; the lane is in the name and so is the edition date.
 _JF_FILE = re.compile(r"^junkfilter-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$")
@@ -1690,6 +1773,15 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # Edelman's 2002 whois transcriptions. `whois_creation`, so rule 6 gives the
+    # transcribed creation year and no other. Approved by Ivo 2026-08-26.
+    "early_bulk_whois_snapshot": SourceSpec(
+        key="early_bulk_whois_snapshot",
+        source_name="early_bulk_whois_snapshot",
+        evidence_type="whois_creation",
+        acquisition_method="transcribed_whois_record",
+        parse=parse_edelman_whois,
+    ),
     # junkfilter's hand-maintained spam-origin blocklist, thirteen in-window editions.
     # Two lanes: the corroborated half dates a year, the rest parks as candidates.
     # Approved by Ivo 2026-08-26.
