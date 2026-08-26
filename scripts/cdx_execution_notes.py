@@ -38,6 +38,19 @@ from pathlib import Path
 CDX_DIR = Path("data/raw/cdx")
 STAMPED = re.compile(r"^(?P<prefix>.+?)_(?P<stamp>\d{8}T\d{6}Z)\.jsonl")
 
+# A run that names each batch after its own start time is one collector, not twenty.
+# The suffix sweep wrote `cdx_suffix_s20260823T144431Z` per batch, so the table grew a
+# near-identical row per run and buried the six collectors that matter. Collapsing on the
+# trailing stamp keeps the discovery property intact: families are still found on disk
+# rather than enumerated here.
+_RUN_SUFFIX = re.compile(r"_s?\d{8}T\d{6}Z$")
+
+
+def _family(prefix: str) -> str:
+    """The collector a journal belongs to, with any per-run stamp folded away."""
+    return _RUN_SUFFIX.sub("", prefix)
+
+
 # The window the whole project is scored on. A capture outside it answers the query
 # and is still worth nothing, which is the distinction the yield line exists to make.
 WINDOW = range(1996, 2002)
@@ -105,6 +118,7 @@ def scan(directory: Path) -> dict[str, Tally]:
             prefix, stamp = path.name.split(".", 1)[0], ""
         else:
             prefix, stamp = match.group("prefix"), match.group("stamp")
+        prefix = _family(prefix)
         tally = tallies[prefix]
         tally.files += 1
         if stamp:
@@ -269,19 +283,27 @@ def _failure_paragraph(total: Tally) -> str:
     transport = total.refused + total.timed_out
     pct = lambda n: 100.0 * n / total.queries  # noqa: E731
     return (
-        f"Of {total.queries:,} queries, {total.answered:,} were answered "
-        f"({total.success_rate:.1f}%). The {total.failed:,} that were not divide into two kinds, "
-        f"and the smaller kind is the one usually discussed. **HTTP-level errors are "
-        f"{http_level:,} ({pct(http_level):.2f}%)**: {total.throttled:,} rate limits (429), "
-        f"{total.server_error:,} server errors (500, 502, 503, 504) and {total.forbidden:,} "
-        f"refusals (403). **Transport-level failures are {transport:,} ({pct(transport):.2f}%)**: "
-        f"{total.refused:,} connections refused or reset and {total.timed_out:,} timed out. "
-        f"So the binding constraint is not a status code we could read and obey, it is the "
-        f"connection being dropped before a status exists. Rate limits and server errors are "
-        f"retried with exponential backoff honouring `Retry-After`; refusals and timeouts are "
-        f"retried with a widening delay and then requeued, so no domain is lost by one failure; "
-        f"a 403 is treated as a permanent answer for that host and is not retried."
+        NOTES_MARKER + f"One query per domain against the Wayback CDX index, filtered to "
+        f"in-window captures, written to an append-only journal that is ingested only once "
+        f"complete, so a killed batch loses no answered query. **Errors:** of "
+        f"{total.queries:,} queries {total.answered:,} were answered ({total.success_rate:.1f}%); "
+        f"HTTP-level failures are {http_level:,} ({pct(http_level):.2f}%), being "
+        f"{total.throttled:,} rate limits (429), {total.server_error:,} server errors and "
+        f"{total.forbidden:,} refusals (403), while **transport-level failures are "
+        f"{transport:,} ({pct(transport):.2f}%)**, {total.refused:,} refused or reset and "
+        f"{total.timed_out:,} timed out. **The binding constraint is not a status code we could "
+        f"obey but the connection being dropped before a status exists.** **Handling:** rate "
+        f"limits and server errors retry with exponential backoff honouring `Retry-After`; "
+        f"refusals and timeouts retry with a widening delay and are then requeued, so no domain "
+        f"is lost to one failure; a 403 is a permanent answer for that host and is not retried."
     )
+
+
+# The report splits this block into a table and a prose half on this exact string,
+# so it is a named constant rather than a literal in two files. Changing the opening
+# words of the prose without changing the split key made both halves return the whole
+# block, which silently doubled section 5 of the report.
+NOTES_MARKER = "**Strategy.** "
 
 
 def main() -> None:

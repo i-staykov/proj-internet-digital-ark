@@ -25,6 +25,7 @@ from ark.db import connect_read_only_patiently
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
+from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
@@ -48,6 +49,15 @@ NOT_BASELINE = """
     )
 """
 
+# The rows that reach a shipped file. `ark export` drops `.arpa` and any pair whose
+# TLD did not exist in its year, so counting without the same predicate describes the
+# store rather than the delivery: the report said 1,929,667 pairs, 1,660,237 domains
+# and a 2,380,575-line candidate pool beside annual files holding 1,929,655, 1,660,226
+# and 2,380,517. Found 2026-08-26 by grepping the shipped manifest for the round's
+# largest source and getting four fewer pairs than the report printed.
+SHIPPED = _shipping_filter("dy.")
+CANDIDATES_SHIPPED = _shipping_filter("d.", with_year=False)
+
 
 def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     out: dict = {}
@@ -56,23 +66,24 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         int(y): int(n)
         for y, n in conn.execute(f"""
             SELECT assigned_year, count(*) FROM domain_year dy
-            WHERE {NOT_BASELINE} GROUP BY 1 ORDER BY 1
+            WHERE {NOT_BASELINE} AND {SHIPPED} GROUP BY 1 ORDER BY 1
         """).fetchall()
     }
     out["netnew_pairs"] = sum(out["netnew_by_year"].values())
     out["netnew_unique_domains"] = conn.execute(
-        f"SELECT count(DISTINCT domain) FROM domain_year dy WHERE {NOT_BASELINE}"
+        f"SELECT count(DISTINCT domain) FROM domain_year dy WHERE {NOT_BASELINE} AND {SHIPPED}"
     ).fetchone()[0]
 
     # Genuinely new DOMAINS: a name the baseline does not hold in any year at
     # all, which is a stricter and much smaller claim than a new pair.
-    out["netnew_domains_absent_from_baseline"] = conn.execute("""
+    out["netnew_domains_absent_from_baseline"] = conn.execute(f"""
         SELECT count(*) FROM (
             SELECT DISTINCT dy.domain FROM domain_year dy
             WHERE NOT EXISTS (
                 SELECT 1 FROM evidence p
                 WHERE p.domain = dy.domain AND p.evidence_type = 'prior_reused'
             )
+            AND {SHIPPED}
         )
     """).fetchone()[0]
 
@@ -179,10 +190,11 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
 
     out["syntax_anomalous"] = 0
 
-    out["candidate_pool"] = conn.execute("""
+    out["candidate_pool"] = conn.execute(f"""
         SELECT count(*) FROM (
             SELECT DISTINCT d.domain FROM domain d
             WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+            AND {CANDIDATES_SHIPPED}
         )
     """).fetchone()[0]
 

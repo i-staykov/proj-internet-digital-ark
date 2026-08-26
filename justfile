@@ -5,7 +5,7 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (nine integrity invariants over
+# On naming: `ark check` validates the DATA (twelve integrity invariants over
 # the store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: nine invariants over the store, non-zero exit on any failure
+# the integrity gate: twelve invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 
@@ -202,6 +202,27 @@ baseline:
 sources:
     uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
+    uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
+    uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
+    # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
+    # the whole recipe with it. Left here, commented, because the artifact is on disk
+    # and the next reader should see why it is not ingested rather than wonder.
+    # uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
+    uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
+    uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
+    uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
+    uv run ark ingest ripe_dbase_1999   data/raw/ripe_funet/ripe.db.gz
+    uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz
+    uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
+    uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
+    uv run ark ingest cctld_register_listing_inbody data/raw/cctld/*.html
+    # Built and measured, not approved, so these exit 2 the same way. junkfilter is
+    # 2,175.8 EE and the Edelman whois transcriptions 2,968.2; both wait on a
+    # `Decision:` line. Uncomment when one exists.
+    # uv run python scripts/split_junkfilter.py --write
+    # uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
+    # uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
+    # uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
@@ -209,7 +230,18 @@ sources:
     uv run ark ingest odp               data/raw/odp/*.gz
     uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
     uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
+    # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
+    # is set in docs/approved-sources-list.md, so this line is a no-op until then and
+    # is here so the documented reproduction is complete rather than nearly complete.
+    # Build the input first with `bash scripts/ukwa_geoindex_pull.sh`.
+    uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
     uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
+    # These three were ingested by hand and reached 11.5% of all assignments while this
+    # recipe, which README.md calls "the authoritative list of what gets ingested", did
+    # not name them. Found on 2026-08-18 by auditing the delivery against D1.
+    uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
+    uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
+    uv run ark ingest domain_creation_bulk   data/raw/domain_creation/domains.csv
 
 # stage 3: grow the candidate pool from the year-unlabelled host lists
 candidates:
@@ -655,7 +687,7 @@ ship round="":
     until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
     echo "== exporting =="
     uv run ark export
-    echo "== nine invariants =="
+    echo "== twelve invariants =="
     uv run ark check
     # `package_delivery.sh` regenerates the report and refuses if it changed, so a
     # human reviews the diff. Doing it here instead makes `ship` a single pass: the
@@ -695,3 +727,65 @@ hooks:
         ln -sf "../../hooks/$n" ".git/hooks/$n"
         echo "installed .git/hooks/$n -> hooks/$n"
     done
+
+# Point macOS at the health check four times a day, so a day nobody is watching
+# still leaves a record of what the collectors did and what needed judgement. It
+# reports and does not act: the header of scripts/scheduled_cycle.sh says why a
+# restarting watchdog is the wrong shape here, and extend_engines.sh says it again.
+#
+# **This needs Full Disk Access and will fail silently without it.** The repository
+# lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
+# grant from the terminal that installed it. The first install exited 126 four times
+# a day while `launchctl list` looked normal, so this recipe now runs the job once
+# and reports the exit status rather than trusting the load.
+#
+# install the launchd job that runs the health check unattended
+schedule:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    plist="$HOME/Library/LaunchAgents/com.ark.cycle.plist"
+    mkdir -p "$HOME/Library/LaunchAgents" data/logs
+    sed "s|ARK_ROOT|{{justfile_directory()}}|g" scripts/com.ark.cycle.plist.template > "$plist"
+    launchctl unload "$plist" 2>/dev/null || true
+    launchctl load "$plist"
+    echo "loaded com.ark.cycle; running it once to find out whether it can actually run"
+    launchctl kickstart -k "gui/$(id -u)/com.ark.cycle" 2>/dev/null || true
+    sleep 20
+    status=$(launchctl list | awk '$3 == "com.ark.cycle" { print $2 }')
+    if [ "${status:-0}" = "0" ]; then
+        echo "OK: exited 0. It appends to data/logs/scheduled_cycle.log"
+    else
+        echo "FAILED: last exit status $status"
+        echo
+        echo "  126 or 1 here is almost always macOS TCC: this repository is under"
+        echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
+        echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
+        echo "  /bin/bash. Then run 'just schedule' again."
+        echo
+        echo "  Until then the hourly 'just cycle' inside 'just hunt-overnight' covers"
+        echo "  the same ground, because it inherits the grant of the terminal that"
+        echo "  started it. Check it is running before relying on this."
+        tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
+    fi
+
+# remove the scheduled health check
+unschedule:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    plist="$HOME/Library/LaunchAgents/com.ark.cycle.plist"
+    launchctl unload "$plist" 2>/dev/null || true
+    rm -f "$plist"
+    echo "removed com.ark.cycle"
+
+# The unattended half of discovery. Takes an absolute epoch like the collectors do,
+# e.g. `just hunt-overnight $(date -u -v+7d +%s)`. See the header of
+# scripts/overnight_hunt.sh for what it deliberately cannot do.
+#
+# run the autonomous source hunt until a deadline, detached
+hunt-overnight until sleep="3600":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    nohup bash scripts/overnight_hunt.sh {{until}} {{sleep}} > /dev/null 2>&1 < /dev/null &
+    sleep 3
+    ps -eo pid,args | grep "[o]vernight_hunt.sh" || echo "did not start; is the lock held?"
+

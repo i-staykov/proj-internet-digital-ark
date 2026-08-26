@@ -5,7 +5,7 @@ discipline the project has actually paid to learn, written down so it does not h
 [sources.md](sources.md) is the register of what has been tried; this is the method.
 
 Read this before proposing a source, and read `sources.md`'s rejected table before proposing one that
-sounds obvious. Roughly forty source families have been evaluated and rejected, each with the
+sounds obvious. Source families that have been evaluated and rejected are all in the register, each with the
 measurement that killed it, and rediscovering one is the single most likely way to waste a session.
 
 ---
@@ -42,7 +42,7 @@ self-dating one is not.
 A source with no date at all is easy to refuse. A source carrying a plausible date next to a hostname is
 the one that gets ingested and is wrong, so the question has a sharper form: **a per-entity date is not a
 per-field date.** Ask what the date attaches to, and refuse it unless it attaches to the observation being
-borrowed. Four instances, each found separately before the pattern was named:
+borrowed. Five instances, each found separately before the pattern was named:
 
 - **the dated-dataset fallacy**: a per-entity current-state row, read as dating an address it merely
   carries today
@@ -52,20 +52,121 @@ borrowed. Four instances, each found separately before the pattern was named:
   use-in-commerce filing with a dated specimen says the site existed
 - **Netcraft**: a name printed on a page captured in 1999, where the capture dates the *page* and the
   inference from listing to liveness is the step that failed, measured
+- **an OpenPGP key's creation timestamp**: dates the *keypair*, not the email address bound to it, and
+  this is the instance that shows the trap survives a machine-written date. Measured over 4,225 binding
+  self-signatures in the Debian keyrings on 2026-08-18: 47.6% of user IDs were bound in a **later** year
+  than the key was created, median lag two years, and **0% earlier**. So the reading that looks safest,
+  a cryptographically signed timestamp, manufactures claims that a domain existed before its address
+  was attached, and only ever in that direction. The correct field is the UID binding signature
 
 A useful test: if the source were re-published tomorrow with today's date, would the item's date change?
 If yes, the date belongs to the container and not to the observation.
 
-## 2. The acceptance bar
+### Three laws about what a corpus can CONTAIN, which retrievability cannot tell you
 
-A source is worth building a collector for when all three hold:
+Each was established by measurement here, and each closed candidates that were retrievable, correctly
+dated and worth building on every other test. **They are the questions to ask before fetching**, since
+all three are answerable from a source's description alone.
 
-1. **Per-item year evidence**, as above. Anything else is seed-only.
-2. **At least ~5,000 net-new `(domain, year)` pairs**, measured on a sample or credibly extrapolated
-   from one.
+1. **A corpus derived from Internet Archive crawls cannot be net-new against a baseline that is itself
+   IA-derived** (2026-08-18, three candidates). The exception is a bulk *projection* of IA holdings,
+   which is what `dartmouth_nber_captures` is and why it paid.
+2. **A dated artifact that LISTS names proves the artifact's date, not the names' liveness**
+   (2026-08-12 on Netcraft, 2026-08-18 on JANET). A byte-volume or request-count filter does not fix
+   this when the field is a period **sum**: any host requested twice carries two error pages and clears
+   any threshold set above one.
+3. **A corpus assembled by a TRUST decision selects for authorities, not for hosts** (2026-08-18).
+   Certificate bundles hold CAs, `Path:` headers hold relays, keyrings hold maintainers, and academic
+   papers cite universities. 7.1M Usenet relay hops collapsed to 4,736 domains; 126 in-window
+   certificates yielded 17 host tokens, every one a CA's own domain. The tell is that the population
+   is *selected* rather than *sampled*, and a selected population is small however large the file is.
+
+### The density ceiling, and the thing it is actually a property of
+
+**A dated prose corpus yields about 0.042 net-new post-split pairs per item.** Measured twice
+independently: the closed RFC row at 0.0416 (140 pairs over 3,367 items) and a full census of D-Lib
+Magazine at 0.0420 (16 over 381). So clearing the 5,000-pair bar needs roughly **119,000 items**, and
+that single number screens a prose lead before any fetch.
+
+**But it is a property of SUBJECT MATTER, not of prose, and that was measured on 2026-08-18.** Both
+corpora that established it are prose *about the internet*. Government grant records cleared the item
+count decisively, 456,700 dated in-window items across NIH, NSF and CORDIS, 3.8x what the ceiling
+demands, and died anyway. Broken out by NSF directorate:
+
+| population | pairs per item |
+|---|--:|
+| NSF CSE (computing) | 0.0471 |
+| NSF BIO | 0.0152 |
+| NSF GEO, TIP | 0.0000 |
+| NIH, biomedical | **0.0012** |
+
+NIH sits 35x below the ceiling with **164 distinct hostnames in 372,444 abstracts**. And the closing
+arithmetic is almost too neat: CSE, the one sub-population that reaches the ceiling, holds about 4,984
+in-window items, against the 4,997 of the largest scholarly corpus the ceiling was derived to reject.
+
+**So use the ceiling to screen, and ask what the corpus is ABOUT before trusting it.** A corpus of a
+million items about molecular biology names no web sites at all.
+
+A second mechanism closed the same day and is worth keeping beside it. Newswire prose fails for a
+different reason: **a wire story names a company's web site only once the company is famous enough to
+be in the story.** Measured on 8,010 in-window Reuters, UPI and Newsbytes stories already on disk: 305
+pairs, **all 305 already held, zero net-new**, with only 4.79% of stories naming any domain and the
+ones they name being `reuters.com`, `microsoft.com`, `aol.com`, `apple.com`, `amazon.com`,
+`yahoo.com`. That is promotion-selection, the sibling of law 3's authority-selection.
+
+### The split is not a novelty check, and here is what gets through it, measured
+
+The corroboration split asks only whether a domain is dated in *some* annual file, never whether the
+mention was genuine. Hand-auditing 25 post-split survivors across three scholarly corpora on
+2026-08-18 found **13 genuine (52%)** and three distinct failure mechanisms, only one of which is what
+RFC 2606 was about:
+
+- **author-invented placeholders**, 2 of 25: `bigstate.edu` from an invented URN example, `foo.edu`
+  from a `host1`/`host2` pair
+- **transcription artefacts**, 3 of 25: `ich.edu` from a line break inside `umich.edu`, and `nctu.edu`
+  and `tku.edu` from truncated `.edu.tw` names
+- **modern retrofits injected into period-dated records** by the publisher or the server, 7 of 25:
+  `creativecommons.org` five times, `arxiv.org` and `description.org`
+- **a current-state contact field refreshed under a frozen date**, found 2026-08-18 on NSF award
+  records and the fourth mechanism rather than a variant of the third. The award's start date is
+  genuinely frozen at award time, but `piEmail` is the principal investigator's address **as of the
+  last edit**, so a 1997 award can carry a 2015 mailbox. The tell was `gmail.com` appearing 61 times
+  on 1996-2001 awards, and 42 of 58 hand-audited survivors carried a registry creation date **after**
+  the year claimed. **Assume any per-entity contact or homepage column is undated until someone
+  produces a per-field date for it**
+
+**53.1% of the equivalent-English was junk, and the junk concentrates in the highest-weight TLD**,
+`.edu` at 0.9717, so this class biases a reported figure upward every time. Hand-audit the survivors
+of any typed corpus before quoting its equivalent-English, and count the three mechanisms separately:
+a retrofit is a defect in the *container* and is fixable by stripping boilerplate, while an invented
+placeholder is not fixable at all.
+
+## 2. The acceptance bar, which since 2026-08-18 ranks rather than vetoes
+
+**Point 1 is a gate and points 2 and 3 are a sort order.** That is a change, and it is Ivo's, made on
+2026-08-18 when the scoring rules arrived: *"take everything we can find which fulfills our evidentiary
+standard, while of course still prioritizing higher yield/higher quantity and especially higher speed
+sources."* The reasoning is in `CLAUDE.md` under **Method, and when to change it**: the corpus denominator is growing about
+82 times faster than we collect, so the cost of refusing a small valid source now exceeds the cost of
+building its collector.
+
+1. **Per-item year evidence**, as above. Anything else is seed-only. **This is still a veto**, and no
+   deadline touches it.
+2. **Net-new `(domain, year)` pairs.** ~5,000 was the old floor and is now the point above which a
+   source jumps the queue. A measured 300 is worth having; it is simply worth having later.
 3. **A mean equivalent-English weight that pays.** Report the measured mean weight of the **net-new**
-   part, not of the source. At or above 0.6 is good. Below about 0.4 the volume has to justify itself
-   explicitly.
+   part, not of the source. At or above 0.6 is good, below about 0.4 the volume has to carry it, and
+   either way the figure now decides *order* rather than admission.
+
+Add a fourth consideration that the old bar had no reason to name: **time to first pair.** A source
+that can be collected this afternoon outranks a larger one that needs a week of parser work, because a
+week costs 38.5% of the credit on everything held back. Prefer a bulk download to a crawl, an existing
+parser to a new one, and bytes already on disk to either.
+
+**What has not relaxed at all.** A master-eligible class still may not date a year until a human has
+written its `Decision:` line, and `ark ingest` still refuses one that has not. Candidate-only evidence
+needs no approval and never did, so under the new posture the fast move on most finds is to ingest them
+as candidates immediately and raise the master question separately.
 
 Never present an unmeasured source as measured, and never pad a list to reach a count. Ranking three
 honest findings beats reporting five with two guesses in them.
@@ -95,7 +196,7 @@ not caution for its own sake. Three of five sources assessed in one day were rej
 measurement contradicted the estimate, two of them by two orders of magnitude, and one of those
 measurements avoided a 19.35 GB download in two minutes.
 
-Four ways this project has got a projection wrong, all recorded in [notes.md](notes.md) because each
+Four ways this project has got a projection wrong, all recorded in the git log because each
 cost real hours:
 
 - **Wrong counting unit.** The NYPW index was estimated at 27,276 net-new domains and measured at
@@ -223,24 +324,11 @@ AWA-only pairs).
 An automated discovery agent will walk straight back into all of these unless it reads that register
 first. Reading it is the cheapest step in the process.
 
-## 6. What phase 5 changes about all of this
+## 6. Where this is automated
 
-The reviewer's [amended brief](brief_amendments.md) asks for the generating and the pricing to be
-**automated**: hypotheses proposed, tested against dated evidence, and kept or discarded, on a loop,
-rather than a human picking the next lead by hand.
-
-Nothing above changes. The acceptance bar, the corroboration split and the measure-before-ingesting
-rule are what make an automated proposal safe to act on, and they are the reason a harness can be
-trusted to run unattended at all. What changes is who applies them and how often.
-
-The concrete shape that follows from sections 1 to 5:
-
-- **A hypothesis is a source plus a claim about what dates its items.** That is the unit the harness
-  should generate, because it is the unit section 1 can reject cheaply.
-- **Pricing is a sample measured against the live store**, reported as net-new pairs, net-new domains
-  and mean weight of the net-new part, with projections labelled. Section 4 is the checklist for not
-  fooling yourself, and every item on it is a mistake already made once.
-- **The two outcomes are counted separately**: a genuinely unknown domain and a filled year on a
-  known domain are different results, and the reviewer asked for both to stay visible.
-- **The dead-lead register is an input, not an afterthought.** A proposal that duplicates a closed
-  lead should be killed before it costs a request.
+The generating and the pricing run as code, not by hand: `scripts/discover_cycle.py` proposes,
+`scripts/screen_hypothesis.py` kills anything colliding with the closed register above, and
+`scripts/price_items.py` measures a sample against the live store before a collector is written.
+Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
+act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
+section 1 can reject cheaply.

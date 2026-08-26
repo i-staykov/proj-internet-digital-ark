@@ -54,6 +54,22 @@ _STRICT_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
 
+# **A reverse-DNS zone is not a website and never was.** `build_query_queue.py` already knew
+# this and refused to spend a capture request on one, but nothing stopped one being STORED, so
+# 64 of them reached the shipped annual files: `206.in-addr.arpa` and friends, harvested out of
+# Usenet `From:` headers and announcement bodies.
+#
+# The reason it matters more than 64 rows should is the weight. `.arpa` scores **1.0000** in the
+# CC-MAIN model, the highest value in the whole table, above `.mil` at 0.9981, so this is junk
+# concentrated in the top weight: exactly the shape law 5 describes. Ding's own validator accepts
+# `206.in-addr.arpa` as a well-formed domain, so his side would score it too.
+#
+# Found 2026-08-18 by a hunt lens that noticed `.arpa` entering the metric at weight 1. Rejected
+# here rather than at export, because this function is the single funnel every domain from every
+# source passes through before touching the database.
+_REVERSE_DNS = (".in-addr.arpa", ".ip6.arpa")
+
+
 def _canonicalize(raw: str) -> tuple[str | None, str | None]:
     """Return (registrable, None) on success or (None, reject_reason)."""
     host = unquote(raw).strip().lower()
@@ -76,6 +92,8 @@ def _canonicalize(raw: str) -> tuple[str | None, str | None]:
         return None, "empty line"
     if _IPV4.match(host):
         return None, "ip address, not a domain"
+    if host.endswith(_REVERSE_DNS) or host in {"in-addr.arpa", "ip6.arpa"}:
+        return None, "reverse-dns zone, not a website"
     if not all(_LABEL.match(label) for label in host.split(".")):
         return None, "invalid hostname syntax"
     # extract domain and suffix using the pinned PSL plus historical ccTLDs
