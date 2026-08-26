@@ -456,6 +456,13 @@ _ED_SUBJECT = re.compile(r"<b>\s*(?:<a[^>]*>)?\s*([A-Za-z0-9][A-Za-z0-9.\-]*\.[A
 _ED_REGISTERED = re.compile(
     r"Registered on:\s*</i>\s*</font>\s*([A-Za-z]{3})[a-z]*\s+(\d{1,2}),\s*(\d{4})", re.I
 )
+# The typo-domain pages use a THIRD format and print three dates on one line:
+# `Dates of creation / last modification / expiration:</span> 25-May-2001 / 18-Jun-2002
+# / 25-May-2003`. Only the FIRST is the creation date. Anchored so the second and third
+# cannot match: taking the wrong one would date a domain to its expiry.
+_ED_CREATION_TRIPLE = re.compile(
+    r"Dates of creation[^<]*</span>\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})", re.I
+)
 _ED_MONTHS = {
     "jan",
     "feb",
@@ -494,6 +501,16 @@ def parse_edelman_whois(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     date.** Everything else in the block is discarded, counted as `other_domain_ignored`,
     which is the number to watch if this is ever re-verified.
 
+    **Three record formats, and the third one is where the overstatement came from.** The
+    `nicgod` pages print `Registered on: Jun 28, 2001`. The `renewals` pages use the same
+    field but carry 2002 dates, so they fall out of window by themselves. The `typo-domains`
+    pages instead print THREE dates on one line, `Dates of creation / last modification /
+    expiration: 25-May-2001 / 18-Jun-2002 / 25-May-2003`, and **only the first is the
+    creation date**. The pattern is anchored on the label so the second and third cannot
+    match: taking the wrong one would date a domain to its expiry. Those records also name
+    the redirect targets, the registrar and the correctly-spelled original, which is four
+    more domains per block that must not be dated.
+
     **`whois_creation`, so rule 6 applies**: the transcribed creation date evidences its own
     year and no other. A record whose creation year falls outside 1996-2001 is skipped, and
     so is a record with no `Registered on:` line at all, which is common because Edelman
@@ -512,13 +529,20 @@ def parse_edelman_whois(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stop = marks[index + 1].start() if index + 1 < len(marks) else len(text)
         block = text[mark.start() : stop]
         registered = _ED_REGISTERED.search(block)
-        if registered is None:
-            stats["no_registered_on"] += 1
-            continue
-        if registered.group(1).lower() not in _ED_MONTHS:
+        if registered is not None:
+            month, year_text = registered.group(1), registered.group(3)
+            stats["dated_by_registered_on"] += 1
+        else:
+            triple = _ED_CREATION_TRIPLE.search(block)
+            if triple is None:
+                stats["no_creation_date"] += 1
+                continue
+            month, year_text = triple.group(2), triple.group(3)
+            stats["dated_by_creation_triple"] += 1
+        if month.lower() not in _ED_MONTHS:
             stats["unparseable_month"] += 1
             continue
-        year = int(registered.group(3))
+        year = int(year_text)
         if year not in YEARS:
             stats["created_out_of_window"] += 1
             continue
