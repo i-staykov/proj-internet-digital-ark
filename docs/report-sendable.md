@@ -167,11 +167,11 @@ round was measured against. Each is listed with its verdict in
 `README.md` in the archive gives the order. `masters/` and `additions/` hold the merged annual lists
 and this round's net-new records, `candidates.txt` the undated names, `provenance/*.parquet` every
 (domain, year) joined to the evidence row justifying it, and `logs/` the collectors' execution logs.
-A fresh copy of this archive was extracted and put through the route above before sending. Checksums
-and all four checks in `verify.sh` pass, `trace.py` resolves, the rebuild from `provenance/` returns
-every per-year count exactly with all eleven invariants passing, and all fourteen result files come back
-byte-identical. Tier 3 was not run: it is a roughly 50 GB download and two of this project's own
-collectors were querying the Internet Archive at the time.
+A fresh copy of this archive was extracted and put through the route above before sending. Every check in
+`verify.sh` passes, `trace.py` resolves, and the tier-2 rebuild from `provenance/` returns
+every per-year count exactly, with all twelve invariants passing and all thirteen result files
+byte-identical to the ones shipped here. Tier 3 was not run: it is a roughly 50 GB download, and one
+collector's journals are held out of this archive on size, so it would replay every source but that one.
 
 | | asked for | where it is |
 |---|---|---|
