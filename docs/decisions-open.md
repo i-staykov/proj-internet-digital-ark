@@ -15,7 +15,6 @@ collected without asking. Only the master-eligible classes below are blocked on 
 
 | Source | Evidence type | What dates one item | Net-new EE |
 |---|---|---|--:|
-| `ripe_dbase_changed` | `artifact_listing` | the date on the `changed:` line itself. You cannot modify a registry object that does not exist, so `19980315` is the registry's own dated record that this registration existed then. Not an inference from a listing but an explicit transaction record inside the object, which is why killer 2 does not reach it | 58,398 |
 | `sec_edgar_filings` | `dated_directory` | the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx` | 5,884 |
 | `expiring_list_2002_term_inference` | `artifact_listing` | NOT STATED | 3,620 |
 | `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
@@ -30,6 +29,6 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 | `usenet_quoted_whois` | `whois_creation` | the registry's own `Record created on DD-Mon-YYYY` line inside the quoted block, which dates the domain independently of when the message was posted | 90 |
 
-**14 rows, 88,812 equivalent-English waiting on a word.**
+**13 rows, 30,414 equivalent-English waiting on a word.**
 
 10 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `discmaster_media_index / dated_directory`, `fac_sfsac_historic_1998_2001 / artifact_listing`, `ia_webdataservices_cctld_extraction / cdx_timestamp`, `lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source`, `osbar_bulletin_html_issues_2000_2001 / link_source`, `reuters_rcv1_newswire / dated_directory`, `uk_trade_press_extension / dated_directory`, `ukwa_ds2_year_cdx / cdx_timestamp`, `uspto_tm_marktext / dated_directory`.
