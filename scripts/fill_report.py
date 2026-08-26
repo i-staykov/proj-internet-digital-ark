@@ -38,47 +38,6 @@ from ark.baseline import (  # noqa: E402
 )
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 
-# The one column a reviewer actually interrogates: not where a name was found,
-# but what establishes the year. Kept here rather than in prose so the per-source
-# table cannot describe a source the store no longer contains, or omit one it
-# gained. An unlisted source falls back to a pointer at `sources.md`.
-DATE_BASIS = {
-    "domain_creation_bulk": "the registry's own creation date for that domain",
-    "us_domain_delegated": "the edition date of the delegated-zone list",
-    "ripe_dbase_1999": "the snapshot's own generation stamp, `# 990804 00:07:01`",
-    "ripe_dbase_changed": "the date on the object's own `changed:` transaction line",
-    "squidguard_2001_blacklist": "the list's own compile stamp, or the diff's date",
-    "iedr_register": "the register page's own `updated automatically at` line",
-    "internic_zone": "the SOA serial inside the zone payload",
-    "ukwa_geoindex": "the 14-digit capture timestamp on the row",
-    "dartmouth_nber_captures": "the archive's own count of captures it holds in that year",
-    "udrp_proceedings": "the commencement date of the dispute",
-    "attrition_defacement": "the date the defacement was recorded",
-    "usenet_announce": "post date of the announcement",
-    "usenet_address": "post date of the message carrying the address",
-    "usenet_bare": "post date of the message carrying the address",
-    "ia_cdx_bulk": "Wayback capture timestamp",
-    "uucp_map_registry": "posting date of the registry's generated dump",
-    "uucp_map_creation": "the registrar's own `approved:` date",
-    "enron_email": "the message `Date:` header",
-    "rtfm_faq": "the FAQ's revision header",
-    "trade_press": "the issue cover date",
-    "tucows_catalogue": "software release date",
-    "afnic_fr": "registry creation date",
-    "isc_survey": "survey run date",
-    "early_web_cdx": "Wayback capture timestamp",
-    "rdap_snapshot": "the registry's own `registration` event date",
-    "rdap": "the registry's own `registration` event date",
-    "maillist_archive": "the message `Date:` header",
-    "page_directory": "capture timestamp of the archived catalogue page",
-    "page_expansion": "capture timestamp of the archived page",
-    "ukwa_link_source": "UK Web Archive crawl date",
-    "ncsa_whats_new": "the announcement page's own date",
-    "internet_scout": "the Scout Report issue date",
-    "arquivo_ia": "capture timestamp",
-    "arquivo_roteiro": "capture timestamp",
-}
-
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
 # and the numbers have to be refilled every time the archive is re-cut, so the
@@ -141,43 +100,6 @@ def per_year_table(f: dict) -> str:
     return "\n".join(lines)
 
 
-# Sources admitted in THIS round, with the one-line ground on which each was
-# admitted. Ivo, 2026-08-26: a reader of the report should see WHY a new source was
-# accepted, not only what it yielded, and `sources.md` should not be the only place
-# that says so. Keyed by source name; a source absent from here is one the reviewer
-# has already seen in an earlier round.
-ADMITTED_THIS_ROUND = {
-    "us_domain_delegated": (
-        "a delegated-zone list is the registry serving those names at the instant the "
-        "edition is stamped, the same instrument as a zone file"
-    ),
-    "iedr_register": (
-        "the registry regenerated its whole register as static pages, each carrying the "
-        "instant a cron wrote it"
-    ),
-    "internic_zone": "the zone file's own SOA serial, which the registry wrote",
-    "ripe_dbase_1999": (
-        "the snapshot states its own generation instant, so a domain object in it is the "
-        "registry's database contents at that instant; used with the RIPE NCC's written "
-        "permission and read for the domain name only, no contact or personal data"
-    ),
-    "ripe_dbase_changed": (
-        "each registry object carries a dated `changed:` line per update applied to it, and "
-        "an object cannot be modified before it exists, so the line evidences the "
-        "registration at its own date; this is what rule 6 means by continued registration "
-        "needing its own record, and it reaches 1996-1998 which the snapshot's own date "
-        "cannot. The top eight changer addresses are ccTLD registry role accounts, DENIC "
-        "alone 49.4%, and only the date is read, never the address beside it"
-    ),
-    "squidguard_2001_blacklist": (
-        "the compiler's header asserts a successful fetch, 510,389 of 654,820 links tested "
-        "successfully, so a listed host answered when the robot called"
-    ),
-    "ukwa_geoindex": "a per-row capture timestamp, self-dating and unsplit",
-    "ukwa_link_source": "the crawl year on each host link-graph row",
-}
-
-
 # Sources admitted in THIS round, with the one-line ground each was admitted on and the
 # receipt a reviewer can open. Everything not listed here was approved in an earlier round
 # and is unchanged, so the report does not re-argue it. Ivo, 2026-08-26: the additions are
@@ -216,16 +138,18 @@ NEW_THIS_ROUND = {
         "archive.org, Dartmouth_10KwebURLs_GWB BFS level 0",
     ),
     "iedr_register": (
-        "the register page's own `updated automatically at ... 2001` line",
-        "IE Domain Registry register, archived",
+        "the page's own footer: `updated automatically at ... 2001` on the 2001 editions, "
+        "a plain `Last updated 27 Nov 1999` on the two earlier ones, which carry 829 of the pairs",
+        "web.archive.org/web/20011221145100id_/http://www.domainregistry.ie/lists/a-doms.html",
     ),
     "internic_zone": (
-        "the SOA serial inside the zone payload, `1997041800`",
-        "InterNIC 1997 zone files, nic.mil mirror",
+        "the SOA serial inside the zone payload: `1997041800` for 12,320 pairs, "
+        "`1999111901` for the 183 from the 1999 `gov` zone",
+        "nic.mil mirror of ftp.internic.net/domain/, via web.archive.org",
     ),
     "ukwa_geoindex": (
         "the 14-digit capture timestamp on each row",
-        "webarchive.org.uk/datasets/ukwa.ds.2/geo/",
+        "bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f",
     ),
 }
 
@@ -314,6 +238,16 @@ def substitutions(f: dict) -> dict[str, str]:
                 "Run `uv run python scripts/merge_against_baseline.py` and refill."
             )
 
+    # The growth rate has to come from the same place as the increment. It did not: the
+    # increment was the merge audit's and the rate the store's, which differ by the twelve
+    # pairs the export filter drops, so the cumulative sentence printed components summing
+    # to 32.6315 beside a total of 32.6316.
+    growth = (
+        Decimal(str(accepted["equivalent_english_growth_rate_pct"]))
+        if accepted and accepted.get("equivalent_english_growth_rate_pct") is not None
+        else Decimal(str(f["ee_netnew_growth_pct"]))
+    )
+
     subs: dict[str, str] = {
         "TOTAL": f"{total:,}",
         "UNIQUE": f"{f['netnew_unique_domains']:,}",
@@ -326,14 +260,15 @@ def substitutions(f: dict) -> dict[str, str]:
         # computed with his own calculator.
         "EE": f"{ee_total:,.4f}",
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
-        "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
+        "EEGROWTH": f"{growth:.4f}%",
         "NEW_SOURCES_TABLE": new_sources_table(f),
         "DECISIONS": str(len(NEW_THIS_ROUND.keys() & {r["source"] for r in f["by_source"]})),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
-        "CUMULATIVE": cumulative(f),
-        "CUMULATIVE_SENTENCE": cumulative_sentence(f),
+        "POOL_RESTRICTED": pool_restricted(),
+        "CUMULATIVE": cumulative(f, growth),
+        "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
         "ROUTES_TABLE": routes_table(f),
@@ -407,13 +342,7 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-# The source whose credibility this round's section 2 rests on, and the sources whose
-# independent agreement with it is worth quoting. Set per round; empty means the round
-# has no such claim to make and the token is simply unused.
-CROSS_SOURCE_CHECK: tuple[str, tuple[str, ...]] | None = None
-
-
-def cumulative(f: dict) -> str:
+def cumulative(f: dict, growth: Decimal) -> str:
     """The competition score, which is the sum of the percentages he awarded.
 
     Not a ratio and not derivable from the store. His update log of 2026-08-18 defines
@@ -424,7 +353,7 @@ def cumulative(f: dict) -> str:
     equivalent-English metric existed, so adding it would mix two units.
     """
     scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
-    this = Decimal(str(f["ee_netnew_growth_pct"]))
+    this = Decimal(str(growth))
     total = sum((r[5] for r in scored), Decimal(0)) + this
     awarded = ", ".join(f"{r[5]}%" for r in scored)
     unscored = [r for r in SUBMITTED_ROUNDS if r[5] is None]
@@ -489,10 +418,10 @@ def merge_reconciliation() -> str:
     )
 
 
-def cumulative_sentence(f: dict) -> str:
+def cumulative_sentence(f: dict, growth: Decimal) -> str:
     """The same sum as `cumulative`, as one sentence for the email."""
     scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
-    this = Decimal(str(f["ee_netnew_growth_pct"]))
+    this = Decimal(str(growth))
     total = sum((r[5] for r in scored), Decimal(0)) + this
     return (
         f"Cumulative, as the direct sum of the percentages you have awarded: "
@@ -500,6 +429,29 @@ def cumulative_sentence(f: dict) -> str:
         "not in that sum because it was awarded on records, at 17.38%, before the "
         "equivalent-English metric existed."
     )
+
+
+def pool_restricted() -> str:
+    """Candidate-pool names under namespaces nobody could register in freely.
+
+    Was typed as 575,417 and had drifted, in the one sentence of the report that argues
+    the gate is worth something. Generated so it cannot drift again, and the namespaces
+    are now named in the prose so a reviewer can reproduce the query.
+    """
+    from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently
+    from ark.delegation import shipping_filter
+
+    conn = connect_read_only_patiently(DEFAULT_DB_PATH)
+    try:
+        n = conn.execute(f"""
+            SELECT count(*) FROM domain d
+            WHERE (d.domain LIKE '%.edu' OR d.domain LIKE '%.gov' OR d.domain LIKE '%.mil')
+              AND NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+              AND {shipping_filter("d.", with_year=False)}
+        """).fetchone()[0]
+    finally:
+        conn.close()
+    return f"{n:,}"
 
 
 def datasets_searched() -> str:
@@ -537,12 +489,15 @@ def datasets_searched() -> str:
     rejected = 0
     if "## Evaluated and rejected" in text:
         section = text.split("## Evaluated and rejected", 1)[1].split("\n## ", 1)[0]
+        # Rows the register itself labels "Not a source" are notes about our own queue,
+        # not families searched, and counting them overstated the headline by two.
         rejected = sum(
             1
             for line in section.splitlines()
             if line.startswith("|")
             and not line.startswith("|--")
             and not line.lower().startswith("| source")
+            and "not a source" not in line.lower()
         )
 
     if not developed and not rejected:
@@ -560,13 +515,6 @@ def datasets_searched() -> str:
         "stay visible and the same ground is not broken twice. `sources.md` ships beside this "
         "report and names every one, with its acquisition route, date semantics and yield."
     )
-
-
-# The reviewer asks for the retrieval strategy, the errors and the domains added,
-# not a census of every collector prefix we happened to name. Eighteen rows is most
-# of a page in the Word file, so the long tail is folded into one row here and the
-# full per-prefix breakdown ships in `audit/`. TOP_PREFIXES is the cut point.
-TOP_PREFIXES = 3
 
 
 # The template marks each section whose prose a human must write for this round as

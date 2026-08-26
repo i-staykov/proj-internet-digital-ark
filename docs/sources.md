@@ -11,10 +11,13 @@ Sources evaluated and closed are here too, each with the single measurement that
 same ground is not broken twice. [discovery.md](discovery.md) is the method used to price one before
 building a collector.
 
-**Per-source counts are not repeated here.** They live in `audit/source_contribution.csv`, which
-`ark export` rewrites from the store on every run, and the report's tables are generated from the
-same data. A hand-copied snapshot once lived here claiming to be generated, and by the time anyone
-checked it had omitted the round's largest contributor entirely.
+**Where a figure appears below it is the measurement a source was admitted or rejected on, at the
+date given, not a current count.** A source re-measured later against a larger store reads lower, so
+the two are different quantities and both are kept. The authoritative current counts are in
+`audit/source_contribution.csv`, which `ark export` rewrites from the store on every run and whose
+`netnew_pairs` column sums to the report's headline increment. A hand-copied snapshot once lived here
+claiming to be generated, and by the time anyone checked it had omitted the round's largest
+contributor entirely.
 
 ---
 
@@ -537,9 +540,12 @@ stamp instead would have imported 931 names into 2001.
 
 `artifact_listing`, lineage `registry`: the registry stating which names were registered at a stated
 instant, the same instrument as an InterNIC zone file. Nobody typed the list, so no corroboration
-split, and it says nothing about any other year. **Admitted master by Ivo, 2026-08-24**, at 19,341
-net-new pairs worth 18,845.9 EE, including 829 pairs from the earlier `/lists/` tree of which 812 are
-1999.
+split, and it says nothing about any other year. **Admitted master by Ivo, 2026-08-24**, at 19,263
+net-new pairs worth 18,769.9 EE. **829 of those come from the earlier `/lists/` tree, 812 at 1999 and
+17 at 2000, and they carry a different footer**: a plain `Last updated 27 Nov 1999` rather than the
+`updated automatically at 14:51 GMT on Friday, 21 December 2001` cron stamp the 2001 editions carry.
+They rest on the page being a generated register listing, not on the word "automatically", which is a
+weaker ground and is stated so it can be discarded separately.
 
 `stalled.html` is excluded by filename before its date is read: it lists pending applications, names
 nobody had registered.
@@ -564,7 +570,7 @@ nobody had registered.
 | squidGuard robot-compiled blacklists (2026-08-24) | Closed on era: `ftp.teledanmark.no/pub/www/proxy/squidGuard/contrib/blacklists.tar.gz`, 429,365 bytes, earliest Wayback capture 2003-12-11, two years outside the window. |
 | Registry change reports across five regions (2026-08-24) | Paid about 7,500 EE over eight small artifacts (TWNIC 1,275.0, SaudiNIC 1,506.4, NIC Malta 1,470.5, NIC Venezuela 1,131.3, IDNIC 872.6, RESTENA 708.5, ISOC-IL 375.0, `.nu` 144.1). gTLD side empty: the only in-window listing is `greatdomains.com`, 2,466 owner-submitted records, about 104 EE after the split. |
 | National register listings, the `.ie` shape across nine namespaces (2026-08-24) | Two paid (`.my` MYNIC, `co.za`), six empty on measurement: `.nz` whole Domainz site is 170 URLs yielding 5 and 1 names, `.au` largest AUNIC page yields 10 names all worked examples, `.ca` counts only, `.sg` and `.hk` no listing, `.ph` a rolling 30-day expiry window. |
-| Pricing on parser `raw` rather than canonical form (2026-08-24) | `ukwa_geoindex` is 4,509.1 EE over 4,595 pairs. Joining `BulkRecord.raw` URLs against `domain_year` finds zero held and returns top TLDs `htm` 2,106,483 and `html` 2,055,761. After canonicalisation 17,912,511 rows collapse to 289,857 pairs, 285,262 already held. |
+| Pricing on parser `raw` rather than canonical form (2026-08-24) | `ukwa_geoindex` priced at 4,509.1 EE over 4,595 pairs, admitted at 4,493.0 over 4,591. Joining `BulkRecord.raw` URLs against `domain_year` finds zero held and returns top TLDs `htm` 2,106,483 and `html` 2,055,761. After canonicalisation 17,912,511 rows collapse to 289,857 pairs, 285,262 already held. |
 | DataCite sweep for deposited early-web datasets (2026-08-24) | Eight query shapes against `api.datacite.org/dois` surface nothing not already held: link list/graph plus web gives 21 hits, the only in-window one the UKWA host link graph; `early web` gives 19 hits whose only deposits are UMN DRUM and the Zenodo banner ads; `web crawl` 1997-2006 zero. |
 | Nominet RDAP over held `.uk`, banked (2026-08-24) | Banked, no approval needed. `rdap.nominet.uk` publishes a machine-written `registration` event with a full timestamp, verified `demon.co.uk` `1996-05-05T21:08:48Z`, reached through the IANA bootstrap by `ark rdap`. Evidence type `rdap_snapshot / whois_creation`, `Decision: master` since phase 4. On 400 seeded held `.uk` names read at 157 answers: 29.3% in-window, 19 of 46 pairs net-new, 118.8 EE per 1,000 queries. |
 | UCSF Industry Documents Library (2026-08-24) | 3,826,999 in-window documents with per-document `documentdate`, and 6,000 fetched give 216 pairs for 146.6 EE after the corroboration split, because 89% of the net-new names are dated nowhere else. Whole-population projection about 730 EE post-split. |
@@ -736,7 +742,7 @@ nobody had registered.
 | Dated directories and navigation sites (2026-08-24) | Closed on arithmetic. Net-new pairs per listed domain: BUBL LINK 5 over 388 (0.0129, 1.96 EE), award galleries 5 over 206 (0.024, 3.16 EE), the Yahoo 1996-97 tree 11 pairs and 7.73 EE, the Zenodo printed-directory corpus 934 pairs and 432.81 EE over 7,600 domains, at 0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000 to 154,000 distinct listed domains in one artifact, and only DMOZ, Yahoo and LookSmart/Snap were ever that big. |
 | The UKWA host link graph truncation (2026-08-24) | Truncated by the archive, not by our download, and not resumable from this host. The local copy is exactly 2,147,483,648 bytes, `gzip -t` fails with "unexpected end of file", and the Wayback `id_` capture reports `content-range: bytes 0-0/20928588915`, so 10.26% of a master-eligible source has been read and that tenth paid 231,865 evidence rows over 183,515 domains and 116,467 assigned pairs. |
 | Preserved software and documentation collections (2026-08-24) | Closed on a mechanism, best member 31.8 EE against a 1,000 EE floor: every in-window package format is build-generated in its structure and dates and carries no build-generated URL. Debian `Homepage:` returns 0 across all 36 in-window index files; CPAN `resources.homepage` exists on 0 of 15,871 in-window releases against 121,281 unfiltered by year. |
-| InterNIC zone files at the `nic.mil` mirror, admitted (2026-08-24) | **Master, on the artifact alone: the SOA serial `1997041800` sits on line 2 inside the payload and the IA capture of 1997-04-20 fixes when the file existed. An NS record in `.org` is the delegation itself, the registry serving that name at that instant, so killer 2 does not reach a zone file.** All six zones re-verified, `gzip -t` passing and each ending on InterNIC's own `;End of file.` marker: `org` 154,141 lines, `edu` 12,132, `gov` 1,805, `mil` 301 at serial `1997041700`, `root` 1,316, `arpa` 35. Ingested at 12,320 net-new (domain, 1997) pairs and 8,813.3 EE, with 4,889 of the net-new names dated at no in-window year at all. |
+| InterNIC zone files at the `nic.mil` mirror, admitted (2026-08-24) | **Master, on the artifact alone: the SOA serial `1997041800` sits on line 2 inside the payload and the IA capture of 1997-04-20 fixes when the file existed. An NS record in `.org` is the delegation itself, the registry serving that name at that instant, so killer 2 does not reach a zone file.** All six zones re-verified, `gzip -t` passing and each ending on InterNIC's own `;End of file.` marker: `org` 154,141 lines, `edu` 12,132, `gov` 1,805, `mil` 301 at serial `1997041700`, `root` 1,316, `arpa` 35. Ingested at 12,503 net-new pairs and 8,993.1 EE, of which 12,320 are 1997 under serial `1997041800` and 183 are 1999 from a `gov` zone at serial `1999111901`, with 4,889 of the net-new names dated at no in-window year at all. |
 | More InterNIC zone files, and `ftp.internic.net/domain/` (2026-08-18) | The population is six and we hold all six, so `internic_zone` cannot be widened. One CDX listing of `nic.mil/oroot.html/` returns the complete contents: `arpa` 694 bytes, `mil` 3,265, `root` 10,219, `gov` 16,251, `edu` 110,995, `org` 1,318,217, summing to 1,459,641 against 1,458,311 on disk. There is no `com.zone` or `net.zone` anywhere on the mirror. |
 | The `.au` registry family: AUNIC, auDA, AARNet (2026-08-18) | Does not survive in bulk. AUNIC's archived footprint is 1,605 captures whose only domain-bearing shape is `aunicstatus.pl?domain-name=<name>`, extractable free from the CDX index: 104 such captures yield 17 distinct `.au` names. A capture of a lookup would be candidate-only in any case. |
 | CDX public-suffix sweep as a bulk channel (2026-08-22) | Demoted from channel to trickle. Twelve swept suffixes, 159 MB of journal, reduce to 68,386 in-window registrable pairs of which 5,722 are net-new, worth 4,800 EE, and every net-new pair is `.ca` or `.us`: `co.uk` and `ac.uk` are saturated. The ceiling is structural, because the bare TLD is HTTP 403 so `.com` cannot be enumerated this way. |
@@ -1036,10 +1042,12 @@ row-dated name, the page stamp otherwise.
 ## BANKED: `ripe_dbase_changed`, 399,401 pairs and 58,398 EE, and the round crosses 5%
 
 The `changed:` attributes of the domain objects in the 1999-08-04 RIPE snapshot already on disk.
-**Dating: a `changed:` line is `address SPACE date` and carries its own 8-digit date, an update the
-registry itself recorded; a registry object cannot be modified if it does not exist, so the line is its
-own dated record of existence in its own year, the shape rule 6 demands and one a creation date can
-never supply.** By year 1996 18,944 / 1997 67,515 / 1998 312,942, 1999 zero, which is the thin end of the store's
+**Dating: a `changed:` line is `address SPACE date` and carries its own 8-digit date, recording an
+update applied to that object by a party with authority over it. An object cannot be modified if it does
+not exist, so the line is its own dated record of existence in its own year, the shape rule 6 demands
+and one a creation date can never supply.** The changer is a ccTLD registry role account in the large
+majority of cases, DENIC's `hostmaster@nic.de` alone writing 49.4% of the 2,016,169 lines; for the tail
+the claim is only that somebody entitled to modify the object did so. By year 1996 18,944 / 1997 67,515 / 1998 312,942, 1999 zero, which is the thin end of the store's
 coverage. The pattern captures only the trailing 8-digit group; three tests fail on a leaked address.
 
 ## Candidate-only pools

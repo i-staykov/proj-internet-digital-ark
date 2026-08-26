@@ -5,7 +5,7 @@
 # dependencies live inside source/ and are not available until a reviewer has
 # already decided to trust the contents.
 #
-# Three checks, each printed with its own verdict:
+# Eight checks, each printed with its own verdict (D3 prints two):
 #   1. every file matches SHA256SUMS
 #   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
@@ -293,16 +293,12 @@ else:
 
 sys.exit(1 if fail else 0)
 PY
-python3 - <<'PY'
-# The old checks 5, 6 and 7 are gone with the standard they policed. They verified that
-# `additions_english/` was a subset of the additions, that it partitioned them
-# against `additions_unverified/`, and that every rejection in `disqualified.csv`
-# carried a reason. The reviewer retired the page-level English standard in August
-# 2026, the archive stopped shipping all three files, and the checks then printed
-# three SKIP lines about folders that no longer exist. A check that examines
-# nothing reads like a check that found nothing wrong, which is worse than not
-# having it. The engine was retired and removed.
-PY
+# Three checks that once sat here are gone with the standard they policed: they verified
+# `additions_english/` against the additions and against `additions_unverified/`, and that
+# every rejection in `disqualified.csv` carried a reason. The reviewer retired the
+# page-level English standard in August 2026 and the archive stopped shipping all three
+# files, at which point the checks printed SKIP lines about folders that no longer exist.
+# A check that examines nothing reads like a check that found nothing wrong.
 
 echo
 if [ "$fail" -eq 0 ]; then

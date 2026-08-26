@@ -11,7 +11,7 @@ import duckdb
 from loguru import logger
 
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
-from ark.delegation import sql_predicate
+from ark.delegation import shipping_filter as _shipping_filter
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -62,23 +62,6 @@ _NOT_IN_BASELINE = f"""
 # of the same mistake: 1,087 assigned pairs predated their own TLD's delegation, `.eu` 409 and
 # `.info` 202 among them. `ark.delegation` owns the years, so the list is in one place rather than
 # repeated at each of the four destinations this predicate reaches.
-def _shipping_filter(prefix: str = "", with_year: bool = True) -> str:
-    """The rows allowed into a shipped file, for a given table alias.
-
-    Built per call site rather than string-replaced. The `.arpa` rule survived a blanket
-    `.replace("domain", "dy.domain")`, but the delegation rule also names `assigned_year`, and that
-    replace leaves the year unqualified: the first export after wiring it in died on an unqualified
-    column in three of the four destinations.
-    """
-    dom = f"{prefix}domain" if prefix else "domain"
-    if not with_year:
-        # The candidate pool claims no year, so "the TLD did not exist yet" cannot apply to it.
-        # Only the `.arpa` rule does, which is a statement about the name rather than about a year.
-        return f"{dom} NOT LIKE '%.arpa'"
-    year = f"{prefix}assigned_year" if prefix else "assigned_year"
-    return f"{dom} NOT LIKE '%.arpa'\n      AND {sql_predicate(dom, year)}"
-
-
 _NOT_REVERSE_DNS = _shipping_filter()
 
 

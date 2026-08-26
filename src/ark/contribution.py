@@ -24,6 +24,7 @@ from pathlib import Path
 
 import duckdb
 
+from ark.delegation import shipping_filter as _shipping_filter
 from ark.ingest import YEARS
 from ark.stats import BASELINE_TYPE, _lineage_case_sql
 
@@ -74,7 +75,12 @@ netnew AS (
     FROM domain_year dy
     JOIN evidence e ON e.evidence_id = dy.evidence_id
     JOIN source s ON s.source_id = e.source_id
+    -- Scoped to what reaches a shipped annual file, so a per-source figure a reviewer
+    -- reads here equals what he counts in `additions/evidence_manifest.csv`. Without
+    -- it the column summed 12 pairs above the headline and the round's largest source
+    -- was quoted four pairs above what ships.
     WHERE e.evidence_type <> '{BASELINE_TYPE}'
+      AND {_shipping_filter("dy.")}
     GROUP BY s.name
 ),
 candidates AS (
@@ -127,6 +133,10 @@ LEFT JOIN (
     SELECT DISTINCT domain, evidence_year FROM evidence
     WHERE evidence_type = '{BASELINE_TYPE}'
 ) b ON b.domain = dy.domain AND b.evidence_year = dy.assigned_year
+-- Same scope as the export, so `merged_unique` equals `wc -l masters/<year>.txt` and
+-- `added_unique` equals `wc -l additions/<year>.txt`. Without it the table claimed to
+-- reconcile the shipped files and was 70 lines above them in 1996 alone.
+WHERE {_shipping_filter("dy.")}
 GROUP BY y.year ORDER BY y.year
 """
 

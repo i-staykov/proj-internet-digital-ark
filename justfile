@@ -204,7 +204,10 @@ sources:
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
-    uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
+    # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
+    # the whole recipe with it. Left here, commented, because the artifact is on disk
+    # and the next reader should see why it is not ingested rather than wonder.
+    # uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
     uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
     uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
     uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
@@ -213,10 +216,13 @@ sources:
     uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
     uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
     uv run ark ingest cctld_register_listing_inbody data/raw/cctld/*.html
-    uv run python scripts/split_junkfilter.py --write
-    uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
-    uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
-    uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
+    # Built and measured, not approved, so these exit 2 the same way. junkfilter is
+    # 2,175.8 EE and the Edelman whois transcriptions 2,968.2; both wait on a
+    # `Decision:` line. Uncomment when one exists.
+    # uv run python scripts/split_junkfilter.py --write
+    # uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
+    # uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
+    # uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv

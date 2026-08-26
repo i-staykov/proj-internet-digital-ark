@@ -8,7 +8,7 @@ creation date falls") and rules out more: a creation date alone "does not
 automatically establish that the domain remained registered ... in every
 subsequent year", and later years need evidence "tied to that specific year".
 So `attested_years` returns at most the creation year. See the
-`whois_creation` standard in notes.md for the full reasoning.
+`whois_creation` standard in `docs/ADRs.md` for the full reasoning.
 
 Collection is separated from interpretation. `lookup` queries one domain and
 returns a journal record; the caller appends those to a per-run journal file,

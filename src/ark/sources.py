@@ -2075,7 +2075,7 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_odp,
     ),
     # kept distinct from the legacy `rdap` source, whose rows predate the
-    # journal and so cannot be replayed from a file (see notes.md 2026-07-25)
+    # journal and so cannot be replayed from a file (2026-07-25)
     "rdap_snapshot": SourceSpec(
         key="rdap_snapshot",
         source_name="rdap_snapshot",
