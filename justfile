@@ -210,6 +210,7 @@ sources:
     uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
     uv run ark ingest ripe_dbase_1999   data/raw/ripe_funet/ripe.db.gz
     uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
+    uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv

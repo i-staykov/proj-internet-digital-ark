@@ -2948,3 +2948,41 @@ approval gate reads the register, so the ingest refused with "awaiting classific
 `Decision:` line said master. **The gate matches on the entry name, so the spec key and the entry
 heading have to be the same string.** Renamed the entry and left the old slug as a pointer. This is
 the second time in one day: `squidguard_blacklist` against `squidguard_2001_blacklist` did the same.
+
+---
+
+## `can_domain_registry_notices`: BANKED 7,934.20 EE on a one-word ruling
+
+**Approved master by Ivo 2026-08-26 and banked: 9,485 pairs.** Store 642,078.94 to **650,013.14**,
+4.8051% to **4.8645%**. The banked figure matched the pre-ingest measurement to the decimal.
+
+**The ruling.** A `Date-Approved:` field printed by the registry inside its own approval notice IS the
+registry stating its database, not prose. Grounds: machine-formatted aligned columns, ISO-style dates,
+and the approval is the registry's own act rather than a description of someone else's. So
+`whois_creation`, and rule 6 gives that year and no other. Read as prose it would have been worth
+about a tenth.
+
+**Rule 6 is what costs the file.** 37,679 subdomain records and 36,892 approvals in window collapse to
+**9,485 assigned pairs**, because approvals cluster 1996 7,766 / 1997 9,520 / 1998 15,133 / 1999 4,473
+/ **2000 and 2001 zero** (the registry stopped posting), and the many thousands approved before 1996
+contribute nothing.
+
+**Two checks that changed the answer, and both are the transferable part.**
+
+**`Date-Modified:` is worth nothing, measured rather than assumed.** It looked like free upside: a
+record cannot be modified for a name that is not registered, so a 2000 modification would attest 2000
+and reach the years rule 6 denies us. **Nine such records exist in the whole archive. 0.0 EE.** Not a
+route, and worth knowing before anyone else has the same idea.
+
+**The archive a search finds first is the wrong one, and trusting it would have produced a confident
+zero on a source worth 7,934 EE.** Searching archive.org for `can.domain` returns `usenet-can.domain`
+(208 KB) and `FULL-USENET-BACKUP-2020-Oct-can.domain.189.mbox.7z` (124 KB). Both were downloaded and
+both hold **zero `Date-Approved:` fields**, with messages dating **2003-2009**: group chatter about web
+design and domain sales. The real archive is at the hierarchy-level item,
+**`archive.org/download/usenet-can/can.domain.mbox.zip`, 14,326,153 bytes, 37,578 approval fields.**
+**On this collection the item is named for the HIERARCHY, not the group**, which is how a 14 MB
+archive hides behind a 208 KB decoy with a better-matching name.
+
+**Parser note.** A record block is bounded by the next `Subdomain:` line, so an approval date belonging
+to a neighbouring record can never attach to this one. That is exactly the failure that once inflated
+a source by binding a name to the date printed beside it.

@@ -611,36 +611,6 @@ Decision: pending
 
 Decision: pending
 
-### can_domain_registry_notices / whois_creation
-
-- measured: 8768.2 EE **is what your one-word ruling is worth**, and that is why this row shows that
-  number rather than either raw figure. The artifact measures **9551.2 EE over 11,418 pairs if the
-  registry self-dates** and **783.0 EE over 936 pairs if a human typed it**; the 936 are already
-  banked, so the incremental prize is 10,482 pairs and 8,768.2 EE. Both raw figures are in this
-  file's triage table, measured, row 1
-- **THIS IS A RULING WORTH 8,768 EE, NOT A MEASUREMENT.** The two readings differ **12.2x** and the
-  difference is one word from Ivo, not any further collection. The question: **is a `Date-Approved:`
-  field, printed by the CA Domain Registry in its own approval notice, the registry self-dating, or is it
-  prose a human typed?** `docs/discovery.md` records **37,578 `Date-Approved:` fields** in the artifact.
-  If the registry self-dates, the class earns 11,418 pairs at 9,551.2 EE; if a human typed it, 936 pairs
-  at 783.0. The 936 are the corroborated remainder, so the incremental prize on a self-dating ruling is
-  about **10,482 pairs and 8,768 EE for zero further fetching**
-- **the same question sits on the UDRP row at 5.5x**, so a ruling here probably settles that too
-- what dates one item: `Date-Approved:` on the notice
-- **why this is the one namespace where the shape exists at all**: `docs/sources.md` establishes that a
-  registry of this era published either dates without names (statistics) or names without dates (a zone
-  snapshot), and **the intersection existed in exactly one namespace, the CA Domain Registry, because it
-  ran its approval process in public**
-- **the honest complication**: `can.domain.mbox.zip` is **no longer on disk** (nothing under `data/`
-  matches), so acting on a self-dating ruling needs a re-download from the archive.org `usenethistorical`
-  collection before anything can be re-verified. The 936-pair split reading is already banked, since
-  `can.domain` was the single largest contributor to the Usenet ingest at 7,137 net-new pairs
-- for scale: the store holds 235,237 in-window `.ca` pairs over 96,505 domains, so 11,418 is about 5% on
-  top, at `.ca` 0.8365
-- potential: 55
-
-Decision: pending
-
 ### fac_single_audit / dated_directory
 - measured: 2406.69 net-new post-split EE, 2026-08-24
 
@@ -1552,6 +1522,53 @@ months of 72 and everything before was paper that was never digitised. Density i
 pairs per filing, which beats the 0.042 prose ceiling. The monthly IAPD compilation series that covers
 more advisers starts at **June 2006** and is a current-state snapshot, so killer 4 closes the reopen
 route. The free-text `Schedule_D_Miscellaneous` adds **0.63 EE** over 72,468 rows.
+
+### can_domain_registry_notices / whois_creation
+
+- measured: 8768.2 EE **is what your one-word ruling is worth**, and that is why this row shows that
+  number rather than either raw figure. The artifact measures **9551.2 EE over 11,418 pairs if the
+  registry self-dates** and **783.0 EE over 936 pairs if a human typed it**; the 936 are already
+  banked, so the incremental prize is 10,482 pairs and 8,768.2 EE. Both raw figures are in this
+  file's triage table, measured, row 1
+- **THIS IS A RULING WORTH 8,768 EE, NOT A MEASUREMENT.** The two readings differ **12.2x** and the
+  difference is one word from Ivo, not any further collection. The question: **is a `Date-Approved:`
+  field, printed by the CA Domain Registry in its own approval notice, the registry self-dating, or is it
+  prose a human typed?** `docs/discovery.md` records **37,578 `Date-Approved:` fields** in the artifact.
+  If the registry self-dates, the class earns 11,418 pairs at 9,551.2 EE; if a human typed it, 936 pairs
+  at 783.0. The 936 are the corroborated remainder, so the incremental prize on a self-dating ruling is
+  about **10,482 pairs and 8,768 EE for zero further fetching**
+- **the same question sits on the UDRP row at 5.5x**, so a ruling here probably settles that too
+- what dates one item: `Date-Approved:` on the notice
+- **why this is the one namespace where the shape exists at all**: `docs/sources.md` establishes that a
+  registry of this era published either dates without names (statistics) or names without dates (a zone
+  snapshot), and **the intersection existed in exactly one namespace, the CA Domain Registry, because it
+  ran its approval process in public**
+- **the honest complication**: `can.domain.mbox.zip` is **no longer on disk** (nothing under `data/`
+  matches), so acting on a self-dating ruling needs a re-download from the archive.org `usenethistorical`
+  collection before anything can be re-verified. The 936-pair split reading is already banked, since
+  `can.domain` was the single largest contributor to the Usenet ingest at 7,137 net-new pairs
+- for scale: the store holds 235,237 in-window `.ca` pairs over 96,505 domains, so 11,418 is about 5% on
+  top, at `.ca` 0.8365
+- potential: 55
+
+Decision: master
+
+Approved by Ivo 2026-08-26. The ruling: a `Date-Approved:` field printed by the registry inside its
+own approval notice IS the registry stating its database, not prose a human typed. Grounds: the
+fields are machine-formatted with aligned columns and ISO-style dates, the approval is the registry's
+own act rather than a description of somebody else's, and this is the registry publishing its own
+process in public. So it is `whois_creation`, and rule 6 gives that year and no other.
+
+Re-measured at approval against the live store: **9,485 net-new pairs, 7,934.2 EE**, below the 8,768
+on record because the store grew underneath it. Approvals fall 1996 7,766 / 1997 9,520 / 1998 15,133
+/ 1999 4,473 / 2000 0 / 2001 0, so 36,133 in-window pairs collapse to 9,485 under rule 6.
+
+`Date-Modified:` was checked as a possible second route and is worth nothing: nine in-window records
+in the whole archive, 0.0 EE.
+
+**The archive is not the one a search finds first.** `usenet-can.domain` and a `FULL-USENET-BACKUP`
+item are 208 KB and 124 KB, hold ZERO `Date-Approved:` fields and date 2003-2009. The real archive is
+`archive.org/download/usenet-can/can.domain.mbox.zip`, 14,326,153 bytes, 37,578 approval fields.
 
 ### uspto_trademark_case_files / artifact_listing
 
