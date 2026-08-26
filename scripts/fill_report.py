@@ -47,6 +47,7 @@ DATE_BASIS = {
     "domain_creation_bulk": "the registry's own creation date for that domain",
     "us_domain_delegated": "the edition date of the delegated-zone list",
     "ripe_dbase_1999": "the snapshot's own generation stamp, `# 990804 00:07:01`",
+    "ripe_dbase_changed": "the date on the object's own `changed:` transaction line",
     "squidguard_2001_blacklist": "the list's own compile stamp, or the diff's date",
     "iedr_register": "the register page's own `updated automatically at` line",
     "internic_zone": "the SOA serial inside the zone payload",
@@ -206,6 +207,14 @@ ADMITTED_THIS_ROUND = {
         "registry's database contents at that instant; used with the RIPE NCC's written "
         "permission and read for the domain name only, no contact or personal data"
     ),
+    "ripe_dbase_changed": (
+        "each registry object carries a dated `changed:` line per update applied to it, and "
+        "an object cannot be modified before it exists, so the line evidences the "
+        "registration at its own date; this is what rule 6 means by continued registration "
+        "needing its own record, and it reaches 1996-1998 which the snapshot's own date "
+        "cannot. The top eight changer addresses are ccTLD registry role accounts, DENIC "
+        "alone 49.4%, and only the date is read, never the address beside it"
+    ),
     "squidguard_2001_blacklist": (
         "the compiler's header asserts a successful fetch, 510,389 of 654,820 links tested "
         "successfully, so a listed host answered when the robot called"
@@ -326,7 +335,12 @@ def accepted_totals() -> dict | None:
     audits = sorted(merge_dir.glob("merge_audit_ark*.json"))
     if not audits:
         return None
-    return json.loads(audits[-1].read_text(encoding="utf-8"))["totals"]
+    # **By modification time, not by name.** Sorting alphabetically picks
+    # `merge_audit_ark_20260824c.json` over a freshly written `merge_audit_ark.json`,
+    # because the tagged name sorts last. That is how a stale audit survived a re-run on
+    # 2026-08-26 and put a 488,722 increment beside a 5.3344% growth rate.
+    newest = max(audits, key=lambda path: path.stat().st_mtime)
+    return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
 def substitutions(f: dict) -> dict[str, str]:
@@ -338,6 +352,25 @@ def substitutions(f: dict) -> dict[str, str]:
     ee_total = (
         Decimal(accepted["equivalent_english_increment"]) if accepted else Decimal(f["ee_netnew"])
     )
+    # **The headline increment comes from the MERGE AUDIT and the growth rate from the
+    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5.** Caught on
+    # 2026-08-26 with the audit reading 769,438 records and 488,722 EE beside a live
+    # 5.3344% that implies 712,801. Both numbers were individually right and the table was
+    # nonsense. Re-run `merge_against_baseline.py` after the last ingest of a round; this
+    # refuses to fill rather than shipping a self-contradicting table.
+    if accepted:
+        drift = abs(Decimal(f["ee_netnew"]) - ee_total)
+        # Relative, because a running collector moves the store by a few pairs while the
+        # merge is scoring files. 0.05% catches a stale ROUND (488,722 against 712,801 is
+        # 31%) while tolerating the handful of pairs a live ingest adds mid-run. For a
+        # submission, stop the ingest loop first so the drift is zero.
+        if drift > max(Decimal("50"), ee_total * Decimal("0.0005")):
+            raise SystemExit(
+                "merge audit is stale: it reports "
+                f"{ee_total:,.4f} equivalent-English over {total:,} records, but the store "
+                f"holds {Decimal(f['ee_netnew']):,.4f} over {f['netnew_pairs']:,}. "
+                "Run `uv run python scripts/merge_against_baseline.py` and refill."
+            )
 
     subs: dict[str, str] = {
         "TOTAL": f"{total:,}",

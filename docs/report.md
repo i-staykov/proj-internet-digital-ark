@@ -9,25 +9,25 @@ the evidence store, so no table here can disagree with the files shipped beside 
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 25,064,981 |
 | 2. Equivalent-English total | 13,362,368.8792 |
-| 3. Increment | **769,438** records |
-| 4. Equivalent-English increment | **488,722.0745** |
-| 5. Equivalent-English growth rate | **4.6918%** |
+| 3. Increment | **1,928,571** records |
+| 4. Equivalent-English increment | **712,796.2234** |
+| 5. Equivalent-English growth rate | **5.3344%** |
 
 Lines 1 and 2 are your `merged260821` totals, unchanged, since this increment is not yet merged. The
-increment covers 1,436,663 distinct domains, of which **634,353 appear in none of the six baseline
+increment covers 1,659,521 distinct domains, of which **666,783 appear in none of the six baseline
 files in any year**.
 
 | Year | merged260821, this counting unit | Additions | Capture-backed |
 |---|--:|--:|--:|
-| 1996 | 754,672 | 36,469 | 7 (0.0%) |
-| 1997 | 1,791,900 | 66,571 | 33 (0.0%) |
-| 1998 | 2,233,240 | 127,226 | 627 (0.5%) |
-| 1999 | 4,612,976 | 819,410 | 3,296 (0.4%) |
-| 2000 | 9,471,543 | 145,002 | 3,251 (2.2%) |
-| 2001 | 4,550,999 | 285,695 | 70,095 (24.5%) |
-| **Total** | **23,415,330** | **1,480,373** | **77,309 (5.2%)** |
+| 1996 | 754,672 | 55,467 | 7 (0.0%) |
+| 1997 | 1,791,900 | 134,717 | 37 (0.0%) |
+| 1998 | 2,233,240 | 447,015 | 668 (0.1%) |
+| 1999 | 4,612,976 | 822,719 | 4,322 (0.5%) |
+| 2000 | 9,471,543 | 145,553 | 3,454 (2.4%) |
+| 2001 | 4,550,999 | 323,112 | 79,193 (24.5%) |
+| **Total** | **23,415,330** | **1,928,583** | **87,681 (4.5%)** |
 
-**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 6,616,434 domain-year records worth 3,644,939.3198 equivalent-English, **27.2776%** of the 13,362,368.8792 the corpus holds today. Records / equivalent-English by round, each at the figure you ACCEPTED rather than the one submitted: round 1 1,429,524 / 756,559; round 3 151,949 / 91,815; round 4 946,266 / 603,402; round 5 2,608,322 / 1,566,230; **6, this one 1,480,373 / 626,934**.
+**Cumulative.** Across the 4 rounds shipped so far plus this one, this project has added 7,064,644 domain-year records worth 3,730,807.1248 equivalent-English, **27.9203%** of the 13,362,368.8792 the corpus holds today. Records / equivalent-English by round, each at the figure you ACCEPTED rather than the one submitted: round 1 1,429,524 / 756,559; round 3 151,949 / 91,815; round 4 946,266 / 603,402; round 5 2,608,322 / 1,566,230; **6, this one 1,928,583 / 712,802**.
 
 ## 2. Counting unit, normalisation and what gets dropped
 
@@ -44,11 +44,11 @@ reverse-DNS zone, syntactically invalid, carries no known public suffix, is a ba
 has an invalid character in the registered label. **Salvage** is the same operation applied to a dirty
 line, so a URL or mail address is reduced rather than discarded.
 
-| across 131,773 ingest runs | records | | |
+| across 131,820 ingest runs | records | | |
 |---|--:|---|--:|
-| raw lines read | 1,592,149,694 | **salvaged** by normalisation | **129,622,200** |
-| staged records | 209,799,196 | **rejected** as invalid | **2,834,606** |
-| outside 1996-2001, never eligible | 1,236,201,812 | | |
+| raw lines read | 1,634,267,320 | **salvaged** by normalisation | **129,805,348** |
+| staged records | 213,024,888 | **rejected** as invalid | **2,836,010** |
+| outside 1996-2001, never eligible | 1,236,761,978 | | |
 
 Reject reasons over the 1,299,177 dropped lines retained in the shipped audit CSVs: **IP address
 95.41%**, no known public suffix 2.92%, invalid hostname syntax 0.95%, bare public suffix 0.63%,
@@ -59,8 +59,8 @@ name hosts by address, and an address is not a domain under your counting unit.
 
 | Route | What dates a year | Net-new pairs |
 |---|---|--:|
-| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 71,641 |
-| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 581,235 |
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 79,186 |
+| the RDAP sweep over the candidate pool | the registry's own creation date, which dates that year and no other | 581,458 |
 
 **Both routes are self-dating and take no corroboration split**, being records of the thing itself
 rather than a description of it. The registry route is deliberately under-claimed: **a creation date
@@ -83,39 +83,44 @@ registration and **not one reached an annual file**.
 
 | Source | Evidence type | Net-new pairs | Equivalent-English |
 |---|---|--:|--:|
-| `rdap_snapshot` | `whois_creation` | 581,235 | 357,622.9 |
+| `rdap_snapshot` | `whois_creation` | 581,458 | 357,755.3 |
 | `ripe_dbase_1999` | `artifact_listing` | 641,038 | 90,770.3 |
-| `ia_cdx_bulk` | `cdx_timestamp` | 71,641 | 61,129.7 |
+| `ia_cdx_bulk` | `cdx_timestamp` | 79,186 | 65,968.5 |
+| `ripe_dbase_changed` | `artifact_listing` | 399,401 | 58,398.0 |
 | `usenet_announce` | `dated_directory` | 106,915 | 52,774.6 |
 | `iedr_register` | `artifact_listing` | 19,263 | 18,769.9 |
 | `us_domain_delegated` | `artifact_listing` | 16,384 | 15,173.2 |
+| `namewinner_expiring` | `artifact_listing` | 18,937 | 11,546.3 |
 | `squidguard_2001_blacklist` | `artifact_listing` | 18,000 | 10,376.9 |
 | `internic_zone` | `artifact_listing` | 12,503 | 8,993.1 |
+| `can_domain_registry_notices` | `whois_creation` | 9,485 | 7,934.2 |
 | `ukwa_geoindex` | `cdx_timestamp` | 4,591 | 4,493.0 |
 | `usenet_address` | `dated_directory` | 5,119 | 3,811.2 |
 | `usenet_bare` | `dated_directory` | 3,467 | 2,856.8 |
+| `cctld_register_listing_inbody` | `artifact_listing` | 10,177 | 1,609.6 |
+| `dartmouth_bfs_seed` | `cdx_timestamp` | 2,442 | 1,408.6 |
 | *5 further sources, each under 0.1% of the round* | | 217 | 162.2 |
-| **Total** | | **1,480,373** | **626,933.8** |
+| **Total** | | **1,928,583** | **712,801.6** |
 
-Every row is master-eligible. Separately, **2,387,754 domains carry no year-specific evidence** and
+Every row is master-eligible. Separately, **2,380,575 domains carry no year-specific evidence** and
 ship as `candidates.txt`, kept out of the annual files as you asked.
 
-**Admitted this round, and the ground each was admitted on** (the full argument, and every rejected source beside it, is in `sources.md`): **`ripe_dbase_1999`**, the snapshot states its own generation instant, so a domain object in it is the registry's database contents at that instant; used with the RIPE NCC's written permission and read for the domain name only, no contact or personal data; **`iedr_register`**, the registry regenerated its whole register as static pages, each carrying the instant a cron wrote it; **`us_domain_delegated`**, a delegated-zone list is the registry serving those names at the instant the edition is stamped, the same instrument as a zone file; **`squidguard_2001_blacklist`**, the compiler's header asserts a successful fetch, 510,389 of 654,820 links tested successfully, so a listed host answered when the robot called; **`internic_zone`**, the zone file's own SOA serial, which the registry wrote; **`ukwa_geoindex`**, a per-row capture timestamp, self-dating and unsplit; **`ukwa_link_source`**, the crawl year on each host link-graph row. The 1999 RIPE database snapshot is used with the written permission of the **RIPE NCC**, gratefully acknowledged, and only the domain name is read from it.
+**Admitted this round, and the ground each was admitted on** (the full argument, and every rejected source beside it, is in `sources.md`): **`ripe_dbase_1999`**, the snapshot states its own generation instant, so a domain object in it is the registry's database contents at that instant; used with the RIPE NCC's written permission and read for the domain name only, no contact or personal data; **`ripe_dbase_changed`**, each registry object carries a dated `changed:` line per update applied to it, and an object cannot be modified before it exists, so the line evidences the registration at its own date; this is what rule 6 means by continued registration needing its own record, and it reaches 1996-1998 which the snapshot's own date cannot. The top eight changer addresses are ccTLD registry role accounts, DENIC alone 49.4%, and only the date is read, never the address beside it; **`iedr_register`**, the registry regenerated its whole register as static pages, each carrying the instant a cron wrote it; **`us_domain_delegated`**, a delegated-zone list is the registry serving those names at the instant the edition is stamped, the same instrument as a zone file; **`squidguard_2001_blacklist`**, the compiler's header asserts a successful fetch, 510,389 of 654,820 links tested successfully, so a listed host answered when the robot called; **`internic_zone`**, the zone file's own SOA serial, which the registry wrote; **`ukwa_geoindex`**, a per-row capture timestamp, self-dating and unsplit; **`ukwa_link_source`**, the crawl year on each host link-graph row. The 1999 RIPE database snapshot is used with the written permission of the **RIPE NCC**, gratefully acknowledged, and only the domain name is read from it.
 
 ## 5. Archive execution
 
 | Collector prefix | Journals | Queries | Answered | Success | In-window hit rate | Distinct domains | In-window pairs |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | `cdx_suffix` | 43 | 2,238,415 | 2,238,415 | 100.0% | 100.0% | 57,592 | 4,367,087 |
-| `cdx_pool` | 247 | 148,890 | 131,375 | 88.2% | 51.6% | 131,780 | 99,623 |
+| `cdx_pool` | 252 | 151,890 | 133,339 | 87.8% | 52.1% | 133,840 | 103,671 |
 | `cdx_q1` | 214 | 63,919 | 55,844 | 87.4% | 71.9% | 55,943 | 127,552 |
 | `cdx_gap` | 104 | 41,816 | 35,964 | 86.0% | 98.4% | 36,355 | 134,864 |
 | `cdx_q0` | 67 | 39,928 | 39,779 | 99.6% | 71.3% | 39,781 | 83,880 |
-| `cdx` | 75 | 35,232 | 26,844 | 76.2% | 94.8% | 28,961 | 89,561 |
-| *12 further prefixes* | 189 | 119,659 | 114,468 | 95.7% | | 114,818 | 198,358 |
-| **All** | **939** | **2,687,859** | **2,642,689** | **98.3%** | **95.8%** | **418,589** | **5,100,925** |
+| `cdx_vedge` | 33 | 35,396 | 33,629 | 95.0% | 76.3% | 33,703 | 48,669 |
+| *13 further prefixes* | 241 | 131,144 | 118,628 | 90.5% | | 120,911 | 255,958 |
+| **All** | **954** | **2,702,508** | **2,655,598** | **98.3%** | **95.7%** | **430,582** | **5,121,681** |
 
-**Strategy.** One query per domain against the Wayback CDX index, filtered to in-window captures, written to an append-only journal that is ingested only once complete, so a killed batch loses no answered query. **Errors:** of 2,687,859 queries 2,642,689 were answered (98.3%); HTTP-level failures are 3,139 (0.12%), being 0 rate limits (429), 2,155 server errors and 984 refusals (403), while **transport-level failures are 42,031 (1.56%)**, 30,193 refused or reset and 11,838 timed out. **The binding constraint is not a status code we could obey but the connection being dropped before a status exists.** **Handling:** rate limits and server errors retry with exponential backoff honouring `Retry-After`; refusals and timeouts retry with a widening delay and are then requeued, so no domain is lost to one failure; a 403 is a permanent answer for that host and is not retried.
+**Strategy.** One query per domain against the Wayback CDX index, filtered to in-window captures, written to an append-only journal that is ingested only once complete, so a killed batch loses no answered query. **Errors:** of 2,702,508 queries 2,655,598 were answered (98.3%); HTTP-level failures are 3,139 (0.12%), being 0 rate limits (429), 2,155 server errors and 984 refusals (403), while **transport-level failures are 43,771 (1.62%)**, 31,197 refused or reset and 12,574 timed out. **The binding constraint is not a status code we could obey but the connection being dropped before a status exists.** **Handling:** rate limits and server errors retry with exponential backoff honouring `Retry-After`; refusals and timeouts retry with a widening delay and are then requeued, so no domain is lost to one failure; a 403 is a permanent answer for that host and is not retried.
 
 ## 6. Discovery method, and what this round learned
 
@@ -142,7 +147,7 @@ changed which sources are worth opening. `experience-summary.md` carries the ful
 **The method that generalised** was asking what *kind* of artifact an organisation of that era
 produced, then what else sat in the same directory: that found the `.ie` register, the InterNIC 1997
 zone files, the JISC UK per-year index and a US Domain delegation list. **Negative results are
-first-class.** **245 source families have been searched and recorded**, 37 developed far enough to earn their own section and 208 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield. Every rejected source is in `sources.md` with its evidence type,
+first-class.** **251 source families have been searched and recorded**, 43 developed far enough to earn their own section and 208 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield. Every rejected source is in `sources.md` with its evidence type,
 location, timestamp, extraction method and the measurement that closed it.
 
 ## 7. Limitations, and whether further expansion is worthwhile

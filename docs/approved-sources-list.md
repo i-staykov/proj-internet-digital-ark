@@ -248,53 +248,6 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
-### ripe_dbase_changed / artifact_listing
-
-- measured: 58,398.0 net-new post-split EE over **399,401 pairs**, measured 2026-08-26 against the
-  live store. By year **1996 18,944 / 1997 67,515 / 1998 312,942**, and 1999 contributes ZERO because
-  the snapshot's own date already banked that year. Top TLDs `de` 220,606, `dk` 51,034, `nl` 27,662,
-  `it` 24,449, `no` 18,045, `at` 15,369
-- what it is: the audit trail INSIDE the 1999 RIPE snapshot we already hold and already ingested. Every
-  RIPE object carries a `changed:` attribute per update applied to it, 2,045,382 of them in this file
-- what dates one item: the date on the `changed:` line itself. You cannot modify a registry object that
-  does not exist, so `19980315` is the registry's own dated record that this registration existed then.
-  Not an inference from a listing but an explicit transaction record inside the object, which is why
-  killer 2 does not reach it
-- **this is what rule 6 asks for and a creation date cannot give.** Rule 6 says a creation date
-  evidences its own year only and continued registration needs its own record. Each `changed:` line IS
-  its own record for its own year, so one object legitimately attests several years on separate
-  evidence. The snapshot was ingested dating every object to 1999 alone; this reads underneath it and
-  reaches the three thin years the snapshot's own date cannot
-- **no new collection, no new licence question, no new host.** The file is on disk, the permission RIPE
-  NCC gave on 2026-08-26 covers research use of it, and this reads one more attribute of the same
-  objects
-- **personal data: a `changed:` line is `address SPACE date`, so an address is on every line this
-  touches.** The pattern captures only the trailing 8-digit group and the record carries only the date.
-  Three tests in `tests/test_sources.py` fail on a leak of an address, and one checks that the year
-  inside the evidence value matches the assigned year, which is the invariant a sibling parser tripped
-  earlier the same day
-- **build complete, awaiting only a decision.** One command:
-  `uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz`
-- **who writes the `changed:` line, measured before trusting it, because it is an attribute of the
-  object rather than a registry-generated log.** 10,806 distinct addresses, and the top eight are all
-  ccTLD registry role accounts: `hostmaster@nic.de` **996,427 lines, 49.4% alone**, then DK Hostmaster
-  101,556, NIC.it 78,987, SIDN 51,933, a second DENIC address 45,014, AFNIC 44,035, the `.at` registry
-  at Univie 42,508, `hostmaster@dk.net` 37,900. So in the overwhelming majority this is the registry
-  maintaining its own delegations. The remaining tail is weaker: there the claim is only that somebody
-  with authority over the object updated it, which still requires the object to have existed
-- **1998 is real activity, not a bulk migration**, the other thing worth ruling out: 643,788 lines over
-  368 distinct day values, largest single day 16,486 at 2.6% of the year. A re-stamp would have put
-  most of the year on one date
-- **volume, not weight**: mean weight is about 0.146 and 220,606 of the 399,401 pairs are `.de`. This
-  is the RIPE snapshot's own trade repeating itself, and it is the reason the source is worth having
-- **the honest limit.** This inherits the premise the snapshot's approval already rests on, that a RIPE
-  `domain:` object is a real registration. If that premise is wrong then the snapshot is wrong too, so
-  this extends an existing decision rather than opening a new one. What is genuinely new is only the
-  claim that a dated update record evidences existence at its own date
-- potential: 100
-
-Decision: pending
-
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
@@ -927,6 +880,69 @@ Decision: pending
 - potential: 3
 
 Decision: pending
+
+### ripe_dbase_changed / artifact_listing
+
+- measured: 58,398.0 net-new post-split EE over **399,401 pairs**, measured 2026-08-26 against the
+  live store. By year **1996 18,944 / 1997 67,515 / 1998 312,942**, and 1999 contributes ZERO because
+  the snapshot's own date already banked that year. Top TLDs `de` 220,606, `dk` 51,034, `nl` 27,662,
+  `it` 24,449, `no` 18,045, `at` 15,369
+- what it is: the audit trail INSIDE the 1999 RIPE snapshot we already hold and already ingested. Every
+  RIPE object carries a `changed:` attribute per update applied to it, 2,045,382 of them in this file
+- what dates one item: the date on the `changed:` line itself. You cannot modify a registry object that
+  does not exist, so `19980315` is the registry's own dated record that this registration existed then.
+  Not an inference from a listing but an explicit transaction record inside the object, which is why
+  killer 2 does not reach it
+- **this is what rule 6 asks for and a creation date cannot give.** Rule 6 says a creation date
+  evidences its own year only and continued registration needs its own record. Each `changed:` line IS
+  its own record for its own year, so one object legitimately attests several years on separate
+  evidence. The snapshot was ingested dating every object to 1999 alone; this reads underneath it and
+  reaches the three thin years the snapshot's own date cannot
+- **no new collection, no new licence question, no new host.** The file is on disk, the permission RIPE
+  NCC gave on 2026-08-26 covers research use of it, and this reads one more attribute of the same
+  objects
+- **personal data: a `changed:` line is `address SPACE date`, so an address is on every line this
+  touches.** The pattern captures only the trailing 8-digit group and the record carries only the date.
+  Three tests in `tests/test_sources.py` fail on a leak of an address, and one checks that the year
+  inside the evidence value matches the assigned year, which is the invariant a sibling parser tripped
+  earlier the same day
+- **build complete, awaiting only a decision.** One command:
+  `uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz`
+- **who writes the `changed:` line, measured before trusting it, because it is an attribute of the
+  object rather than a registry-generated log.** 10,806 distinct addresses, and the top eight are all
+  ccTLD registry role accounts: `hostmaster@nic.de` **996,427 lines, 49.4% alone**, then DK Hostmaster
+  101,556, NIC.it 78,987, SIDN 51,933, a second DENIC address 45,014, AFNIC 44,035, the `.at` registry
+  at Univie 42,508, `hostmaster@dk.net` 37,900. So in the overwhelming majority this is the registry
+  maintaining its own delegations. The remaining tail is weaker: there the claim is only that somebody
+  with authority over the object updated it, which still requires the object to have existed
+- **1998 is real activity, not a bulk migration**, the other thing worth ruling out: 643,788 lines over
+  368 distinct day values, largest single day 16,486 at 2.6% of the year. A re-stamp would have put
+  most of the year on one date
+- **volume, not weight**: mean weight is about 0.146 and 220,606 of the 399,401 pairs are `.de`. This
+  is the RIPE snapshot's own trade repeating itself, and it is the reason the source is worth having
+- **the honest limit.** This inherits the premise the snapshot's approval already rests on, that a RIPE
+  `domain:` object is a real registration. If that premise is wrong then the snapshot is wrong too, so
+  this extends an existing decision rather than opening a new one. What is genuinely new is only the
+  claim that a dated update record evidences existence at its own date
+- potential: 100
+
+Decision: master
+
+Approved by Ivo 2026-08-26, on the condition that it is fully documented and that the reviewer can
+inspect and discard it. Both are met: the grounds are stated in the round report's source table so
+Prof. Ding sees WHY it was admitted and not only what it yielded, every pair carries its own evidence
+row naming the `changed:` date it came from, and the shipped provenance parquet joins each pair to
+that row. So the class can be removed by the reviewer without touching anything else.
+
+The ruling: a dated `changed:` transaction on a registry object evidences that the registration
+existed on that date. This satisfies rule 6 literally rather than by analogy, since rule 6 asks for
+"its own record" for continued registration and a `changed:` line is exactly that. It extends the
+existing snapshot decision rather than opening a new one, because it rests on the same premise, that
+a RIPE `domain:` object is a real registration.
+
+Checked before approval rather than asserted: the top eight changer addresses are all ccTLD registry
+role accounts with DENIC alone at 49.4%, and the 1998 concentration is 643,788 lines over 368 distinct
+day values rather than one bulk re-stamp.
 
 ### ripe_dbase_1999 / artifact_listing
 

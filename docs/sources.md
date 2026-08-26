@@ -3113,3 +3113,37 @@ invariant the ccTLD parser tripped earlier the same day.
 `domain:` object is a real registration. If that is wrong the snapshot is wrong too, so this extends an
 existing decision rather than opening a new one. What is genuinely new is only the claim that a dated
 update record evidences existence at its own date.
+
+---
+
+## BANKED: `ripe_dbase_changed`, 399,401 pairs and 58,398 EE, and the round crosses 5%
+
+**Approved master by Ivo 2026-08-26 on two conditions, both met: full documentation, and the reviewer
+able to inspect and discard it.** The grounds are printed in the round report's own source section so
+Prof. Ding sees WHY it was admitted and not only what it yielded; every pair carries an evidence row
+naming the `changed:` date it came from; and the shipped provenance parquet joins each pair to that
+row, so the class can be removed by the reviewer without disturbing anything else.
+
+**Ingest, measured:** 20,528,780 lines, 2,016,169 `changed:` lines on domain objects, 60,031 outside
+the window, 1,956,138 in window, **509,199 same-year repeats collapsed**, 1,443,716 evidence rows over
+1,230,138 domains, and **399,401 assigned pairs worth 58,398.0 EE**. The store went 654,403.60 to
+**712,801.61 equivalent-English, 4.8974% to 5.3344%**, past the 668,118.44 gate.
+
+**Two defects found while packaging, and they are the durable part of this entry.**
+
+**1. The report mixed a stale merge audit with live store figures.** Lines 3 and 4 of the results table
+come from the last merge audit; line 5 comes from the live store. So the table read **769,438 records
+and 488,722.0745 EE beside 5.3344%**, which implies 712,801. Both halves were individually correct and
+the table was nonsense. `fill_report.py` now refuses to fill when the two disagree by more than 0.05%
+of the increment, naming both numbers and the command to run.
+
+**2. The audit was selected alphabetically, so a fresh one lost to an old one.**
+`accepted_totals()` did `sorted(glob("merge_audit_ark*.json"))[-1]`, and
+`merge_audit_ark_20260824c.json` sorts AFTER a newly written `merge_audit_ark.json`. Re-running the
+merge therefore changed nothing, which is the worst kind of failure: the fix appears to work.
+Now selected by modification time.
+
+**The operational rule that falls out: freeze the ingest loop before packaging.** A running collector
+moved the store by 12 pairs while the merge was scoring files, which is why the guard is relative
+rather than exact. Stop `maintain.sh`, then export, merge, fill and package in one pass so every
+artifact describes the same store state.
