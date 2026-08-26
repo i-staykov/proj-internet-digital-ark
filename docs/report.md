@@ -146,10 +146,10 @@ so the two audits diff directly.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260821` | 25,064,981 | 13,362,368.8792 |
-| submitted | 1,929,655 | |
-| already in the baseline | 0 | |
 | **accepted increment** | **1,929,655** | **713,481.4198** |
 | post-merge total | 26,994,636 | 14,075,850.2990 |
+
+**Overlap with the baseline is 0 records**, so all 1,929,655 submitted are accepted and nothing counts twice.
 
 **22 of 22 reconciliation checks pass.** All are arithmetic
 identities, so a failure would be a defect rather than a finding: per year that
