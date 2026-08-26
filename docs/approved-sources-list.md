@@ -275,6 +275,18 @@ reach it: the registry was serving that name at that instant.
   earlier the same day
 - **build complete, awaiting only a decision.** One command:
   `uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz`
+- **who writes the `changed:` line, measured before trusting it, because it is an attribute of the
+  object rather than a registry-generated log.** 10,806 distinct addresses, and the top eight are all
+  ccTLD registry role accounts: `hostmaster@nic.de` **996,427 lines, 49.4% alone**, then DK Hostmaster
+  101,556, NIC.it 78,987, SIDN 51,933, a second DENIC address 45,014, AFNIC 44,035, the `.at` registry
+  at Univie 42,508, `hostmaster@dk.net` 37,900. So in the overwhelming majority this is the registry
+  maintaining its own delegations. The remaining tail is weaker: there the claim is only that somebody
+  with authority over the object updated it, which still requires the object to have existed
+- **1998 is real activity, not a bulk migration**, the other thing worth ruling out: 643,788 lines over
+  368 distinct day values, largest single day 16,486 at 2.6% of the year. A re-stamp would have put
+  most of the year on one date
+- **volume, not weight**: mean weight is about 0.146 and 220,606 of the 399,401 pairs are `.de`. This
+  is the RIPE snapshot's own trade repeating itself, and it is the reason the source is worth having
 - **the honest limit.** This inherits the premise the snapshot's approval already rests on, that a RIPE
   `domain:` object is a real registration. If that premise is wrong then the snapshot is wrong too, so
   this extends an existing decision rather than opening a new one. What is genuinely new is only the
