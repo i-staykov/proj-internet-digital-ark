@@ -1,7 +1,7 @@
 # Internet Digital Ark: round [ROUND]
 
-Additions to the 1996-2001 annual lists, measured against `[BASELINE]`. Every figure is generated from
-the evidence store, so no table here can disagree with the files shipped beside it.
+Additions to the 1996-2001 annual lists, measured against `[BASELINE]`. Every figure below is
+generated from the evidence store, so no table here can disagree with the files shipped beside it.
 
 ## 1. Results
 
@@ -13,28 +13,57 @@ the evidence store, so no table here can disagree with the files shipped beside 
 | 4. Equivalent-English increment | **[EE]** |
 | 5. Equivalent-English growth rate | **[EEGROWTH]** |
 
-Lines 1 and 2 are your `[BASELINE]` totals, unchanged, since this increment is not yet merged. The
-increment covers [UNIQUE] distinct domains, of which **[NEWDOMAINS] appear in none of the six baseline
-files in any year**.
+The increment covers [UNIQUE] distinct domains, of which **[NEWDOMAINS] appear in none of the six
+baseline files in any year**.
 
 [PER_YEAR_TABLE]
 
 [CUMULATIVE]
 
-## 2. Counting unit, normalisation and what gets dropped
+## 2. What is new in this round, and how to check it
+
+Every source below was admitted for the first time in this round. Each row gives the evidence type,
+what dates one item, and where the artifact is, so any of them can be opened and checked. Sources not
+listed here were approved in earlier rounds and are unchanged.
+
+[NEW_SOURCES_TABLE]
+
+**Two of these need a sentence.** `ripe_dbase_1999` is used with the written permission of the RIPE
+NCC, gratefully acknowledged, and only the domain name is read from it: no contact, address or other
+personal data. `ripe_dbase_changed` reads a second attribute of that same file, the dated `changed:`
+line each object carries per update; an object cannot be modified before it exists, so the line
+evidences that year and no other, which is what rule 6 asks for and a creation date cannot give. Its
+top eight changer addresses are ccTLD registry role accounts, DENIC alone 49.4%.
+
+`sources.md` ships beside this report and carries every source, admitted and rejected, with its
+evidence type, location, timestamp, extraction method and measurement.
+
+## 3. What dates a year, and the standard applied
+
+[ROUTES_TABLE]
+
+**Both routes are self-dating and take no corroboration split**, being records of the thing itself
+rather than a description of it. **A creation date writes its own year and no other**, per rule 6.
+
+Master-eligible classes are `[MASTERTYPES]`, each a machine-written record asserting a state at an
+instant the artifact stamps. Anything a human typed is candidate-only until another source dates that
+domain first, and `link_target` never dates a year. **[CANDIDATES] domains carry no year-specific
+evidence** and ship as `candidates.txt`, kept out of the annual files.
+
+## 4. Counting unit, normalisation and what is dropped
 
 **The counting unit is the (registrable domain, year) pair**, deduplicated on the lowercased line
-within each year, which is your own unit. Every name from every source passes through one function
-before reaching the database, so the dedup key is identical across sources.
+within each year. Every name from every source passes through one function before reaching the
+database, so the dedup key is identical across sources.
 
 **Normalisation, in order:** percent-decode, trim, lowercase; strip scheme, `//`, path, query,
-fragment, userinfo and port; strip stray leading and trailing `.` and `,` but never a hyphen, which
-would alter the name; then reduce to the registrable domain with a **pinned Public Suffix List** plus
-historical ccTLDs, so `ci.anchorage.ak.us` becomes `anchorage.ak.us` while `k12.ak.us` is refused as a
-public suffix in its own right. **Validity:** a line is dropped if it is empty, an IPv4 literal, a
-reverse-DNS zone, syntactically invalid, carries no known public suffix, is a bare public suffix, or
-has an invalid character in the registered label. **Salvage** is the same operation applied to a dirty
-line, so a URL or mail address is reduced rather than discarded.
+fragment, userinfo, port, and stray leading or trailing `.` and `,` but never a hyphen; then reduce to
+the registrable domain with a pinned Public Suffix List plus historical ccTLDs, so `ci.anchorage.ak.us`
+becomes `anchorage.ak.us` while `k12.ak.us` is refused as a public suffix in its own right.
+**Validity:** drop the line if it is empty, an IPv4 literal, a reverse-DNS zone, syntactically invalid,
+carries no known public suffix, is a bare public suffix, or has an invalid character in the registered
+label. **Salvage** is the same operation on a dirty line, so a URL or mail address is reduced rather
+than discarded.
 
 | across [INGESTRUNS] ingest runs | records | | |
 |---|--:|---|--:|
@@ -42,40 +71,9 @@ line, so a URL or mail address is reduced rather than discarded.
 | staged records | [STAGEDRECORDS] | **rejected** as invalid | **[REJECTED]** |
 | outside 1996-2001, never eligible | [OUTOFWINDOW] | | |
 
-Reject reasons over the 1,299,177 dropped lines retained in the shipped audit CSVs: **IP address
-95.41%**, no known public suffix 2.92%, invalid hostname syntax 0.95%, bare public suffix 0.63%,
-invalid character in the registered label 0.09%. The IP share is expected: link graphs and server logs
-name hosts by address, and an address is not a domain under your counting unit.
-
-## 3. What dates each year, and the standard applied to each category
-
-[ROUTES_TABLE]
-
-**Both routes are self-dating and take no corroboration split**, being records of the thing itself
-rather than a description of it. The registry route is deliberately under-claimed: **a creation date
-writes its own year and no other**, per your rule 6, so a domain created in 1997 and live in 2001 earns
-1997 here and must earn the other four from a capture.
-
-**The standard, by category.** Master-eligible classes are `[MASTERTYPES]`, each a machine-written
-record asserting a state at an instant the artifact itself stamps. Anything a human typed is
-candidate-only until another source dates that domain first, and `link_target` never dates a year at
-all. A master-eligible class also needs a written human decision before it can assign a year, so
-nothing enters the annual files on an agent's judgement.
-
-**Structurally enforced.** `domain_year.evidence_id` is `NOT NULL` with a foreign key into
-`evidence`, so no code path can write a year without naming the observation behind it, and twelve
-invariants check that before every commit and again inside the archive. Tested by accident this round:
-the candidate pool accumulated 575,417 strings under namespaces that never allowed arbitrary
-registration and **not one reached an annual file**.
-
-## 4. Source contributions
-
-[EE_SOURCE_TABLE]
-
-Every row is master-eligible. Separately, **[CANDIDATES] domains carry no year-specific evidence** and
-ship as `candidates.txt`, kept out of the annual files as you asked.
-
-[ADMITTED_THIS_ROUND]
+Reject reasons over the 1,299,177 dropped lines retained in the shipped audit CSVs: IP address 95.41%,
+no known public suffix 2.92%, invalid hostname syntax 0.95%, bare public suffix 0.63%, invalid
+character 0.09%.
 
 ## 5. Archive execution
 
@@ -83,53 +81,52 @@ ship as `candidates.txt`, kept out of the annual files as you asked.
 
 [CDX_FAILURES]
 
-## 6. Discovery method, and what this round learned
+## 6. How the discovery ran, and where the human sits
 
-Collectors hold absolute epoch deadlines and outlive any session; the agent hunts and prices sources
-and never writes a year itself. The gains came less from new hosts than from four measurements that
-changed which sources are worth opening. `experience-summary.md` carries the full working.
+The system runs unattended for hours at a time and **never assigns a year on its own judgement**. That
+split is the design, and it is what makes the output checkable.
 
-- **Aim at 2001, not 1996.** The store holds **6,708,320 domains at 2000 missing 2001**, against
-  103,953 for the 1996-to-1997 gap. `P(store lacks 2001 | domain held)` is 0.611 `.com`, 0.653 `.net`,
-  0.568 `.org`, 0.309 `.uk`, so **one already-held `.com` name in a 2001-dated artifact is worth 0.386
-  equivalent-English and about 2,600 such names clear 1,000**: 32x below the curated-directory floor,
-  which was measured on artifacts dated in years already covered.
-- **Novelty is a cost; the screen is held AND missing this year.** So **crawling kills discovery but
-  not completeness**: a 2000-dated blacklist paid 18 equivalent-English because its names already
-  carried 2000, while the 2001 edition of the same list paid **10,736**, being 84.8% known but only
-  57.9% held at 2001.
-- **Compute headroom from the adjacent year only.** A gap between a domain's last held year and the
-  target is evidence of death, not of missing data: of 9,680 `.us` names missing 2001, **6,948 were
-  last seen in July 1997**. "Held any year, missing Y" is contaminated; "held Y-1, missing Y" is not.
-- **Density and authority are two independent screens.** One parliamentary corpus yielded 5 URLs in
-  3.26M words; grey literature passes that screen at **221x the rate** and then fails the second at
-  93.0% already held, because programme reports print the URLs of institutions we already hold.
+**What ran.** Collectors are detached shell supervisors holding an absolute epoch deadline, so they
+outlive the session that started them and a day of absence costs nothing. The agent spends its turns
+hunting sources, measuring them against the store and pricing them, and writes no year itself.
 
-**The method that generalised** was asking what *kind* of artifact an organisation of that era
-produced, then what else sat in the same directory: that found the `.ie` register, the InterNIC 1997
-zone files, the JISC UK per-year index and a US Domain delegation list. **Negative results are
-first-class.** [DATASETS_SEARCHED] Every rejected source is in `sources.md` with its evidence type,
-location, timestamp, extraction method and the measurement that closed it.
+**What worked and what did not.** One clear written instruction from the supervisor, then unattended
+running, worked: it is how this round's sources were found. Detached collectors with absolute deadlines
+worked, and kept collecting through a day when the agent was unreachable. **Scheduled wake-ups did
+not**: the agent answered only some firings. **A self-scheduling loop did not hold** either, tried
+once. So the durable pattern is a human-written objective plus processes that do not depend on the
+agent being awake.
 
-## 7. Limitations, and whether further expansion is worthwhile
+**Where the human sits.** The agent runs the two collection engines, which are mechanical, and it may
+re-run anything already decided. Everything else goes onto an approval list with a measured figure and
+primary links. The supervisor works through that list source by source, opens the links, checks the
+dating argument, and rules per source: master, candidate-only or rejected. **This is enforced in code
+rather than by habit**: `ark ingest` refuses to run for a class with no written `Decision:` line, and
+it refused twice in this round until the decision existed.
 
-**Both routes err toward under-claiming.** A capture proves presence and never absence, so a year
-with no capture is unevidenced rather than empty, and a creation date attests one year only. Neither
-can invent a year; the mistake they can make is omission. **Three limits no amount of work fixes.** A
-material share of archive requests fail at transport level rather than with a status code, which is
-throttling seen from the other side of the socket. The corroboration split asks whether a domain is
-dated somewhere, never whether a mention was genuine, so invented-but-plausible prose is the one shape
-it does not stop, which is why both routes here are self-dating. And host survival correlates with
-refusal: the mirrors that still run do so because an institution kept paying, and those operators are
-the population now adding blanket `Disallow` rules.
+**What that gate is worth, measured.** [DECISIONS] sources were admitted in this round, each on a
+separate written decision. The candidate pool accumulated 575,417 strings under namespaces that never
+allowed arbitrary registration and **not one reached an annual file**. Twelve invariants run before
+every commit and again inside the shipped archive; one of them caught a defect in this round, an
+evidence value citing a page's date for a row dated from its own column, which was a wrong citation
+rather than a wrong year.
 
-**Worth expanding, in order.** Bulk dated corpora first, at two orders of magnitude more net-new pairs
-per megabyte than prose. Registry datasets publishing creation dates second, the route that reaches
-2001 where archives are thin. Re-auditing material already on disk third. **Not worth expanding**, each
-closed with numbers this round: academic repositories and DOI datasets, national web-archive indexes,
-preserved CD-ROM media, trade directories of internet businesses, and prose corpora of any kind.
+**Negative results are recorded as first-class.** [DATASETS_SEARCHED]
 
-## 8. The merge, the overlap and the reconciliation
+## 7. Limitations, and whether to expand further
+
+A capture proves presence and never absence, so a year with no capture is unevidenced rather than
+empty, and a creation date attests one year only. Neither route can invent a year; the mistake they can
+make is omission. A material share of archive requests fail at transport level rather than with a
+status code, which is throttling seen from the other side of the socket.
+
+**Worth expanding, in order.** Bulk dated corpora first. Registry datasets publishing dates second,
+the route that reaches 2001 where archives are thin. Re-auditing material already on disk third, which
+produced the largest single addition of this round. **Closed with measurements this round**, so not
+worth repeating: academic repositories and DOI datasets, national web-archive indexes, preserved CD-ROM
+media, trade directories of internet businesses, FTP-mirror archive listings, and prose corpora.
+
+## 8. Merge, overlap and reconciliation
 
 [MERGE_RECONCILIATION]
 
