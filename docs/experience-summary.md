@@ -7,7 +7,7 @@ settled it.
 
 Every figure here is measured against the store, not projected, and says what it was measured against.
 
-## 1. The method, and the part that is transferable
+## 1. The reusable technique
 
 **The largest addition of this round came from a file already ingested.** The 1999 RIPE snapshot had
 been read for one attribute, the domain name, and dated to the file's own instant. Each object also
@@ -23,8 +23,9 @@ The same question paid three times in this round:
 | `archive.org` "what is the item named for, the group or the hierarchy?" | a 14 MB registry archive hiding behind a better-matching 208 KB decoy |
 | `ripe.db.gz` "what else do these objects say?" | 58,398 equivalent-English |
 
-**So the rule is: exhaust the artifact you already hold before looking for another one.** It is cheaper
-than discovery, it needs no new licence, and it is where this round's yield actually came from.
+**So the reusable technique is: exhaust the artifact you already hold before looking for another one.**
+It is cheaper than discovery, it needs no new licence, and it is where this round's yield actually came
+from.
 
 ## 2. What worked
 
@@ -61,7 +62,9 @@ than discovery, it needs no new licence, and it is where this round's yield actu
   web-archive indexes, preserved CD-ROM media by name and by size, trade directories of internet
   businesses, and FTP-mirror archive listings (6.16M entries, 143,338 genuinely dated 2001, zero lists).
 
-## 4. Measured rules for pricing a source
+## 4. Lessons: the measured rules for pricing a source
+
+Each lesson below cost at least a day to learn.
 
 1. **Quote net-new, never gross.** They differ by more than 10x. One source read 15,270 gross and
    12,775 net.
@@ -88,7 +91,7 @@ throttling seen from the other side of the socket. And host survival correlates 
 mirrors that still run do so because an institution kept paying, and those operators are the population
 now adding blanket `Disallow` rules, so the best-preserved hosts are disproportionately closed.
 
-## 6. Where to go next
+## 6. Recommended directions
 
 1. **Bulk dated corpora**, still the best yield per megabyte by two orders of magnitude over prose.
 2. **Registry datasets that publish dates**, the only route that reaches 2001, where the archives are
