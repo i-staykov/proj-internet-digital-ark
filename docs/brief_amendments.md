@@ -171,10 +171,6 @@ Two things follow, and the second is the uncomfortable one.
   does, because carrying a met goal forward silently retargets a fraction of a baseline that has itself
   grown. A target belongs in the report and in the allocation argument, never in a queue length.
 
-What the target costs in throughput is measured, not guessed, in the check-in of 2026-08-13 late in
-`notes.md`: the round banks about 624 EE/h across all three engines, and 5% by Sunday evening needs
-about 2,920 EE/h.
-
 ---
 
 ## 5. What he asked for after phase 5, on 2026-08-17
@@ -289,40 +285,16 @@ And on the threshold, which is the clause most easily misread as a gate:
 
 The feedback archive for this round is at `https://www.transfernow.net/dl/20260818nX8z1Swp`.
 
-### Three consequences of the scoring rules
+### What follows from them, and what the round then measured
 
-**1. Percentages add, so a round is credited at the denominator of the day it arrives.** Two forces
-inflate that denominator: our own accepted work, which dilutes only our later submissions, and other
-contributors' work, which dilutes ours and is outside our control. Measured over the three intervals
-between releases whose totals he has published, the second dominates by two orders of magnitude:
-
-| to release | days | growth EE | ours | others | others/day |
-|---|--:|--:|--:|--:|--:|
-| `merged260810` | 26 | 1,673,072 | 1,451,776 | 221,296 | 8,511 |
-| `merged260815` | 5 | 2,120,453 | 0 | 2,120,453 | 424,091 |
-| `merged260817` | 2 | 2,164,026 | 0 | 2,164,026 | **1,082,013** |
-
-**Other contributors are adding 1,082,013 equivalent-English a day and accelerating, 127x the rate of
-the first interval.** Our own recent rate is 13,200 a day, so the denominator grows about 82 times
-faster than we collect. The `ours` column is his credited figure and is stated rather than derived from
-dates, because a round is scored *against* a release and merged *into* the next one: keying on the
-round's own date puts phase 5 inside `merged260817`, which is the benchmark it was measured against,
-and understates everybody else by 3.6x.
-
-**2. Holding work back destroys credit, so submit early and often.** On the newest measured rate,
-13,898 EE submitted today reads 0.11508% and the same records a week later read 0.07072%, a **38.5%
-loss on work already done**. Splitting a fixed body of collection across seven daily submissions beats
-holding it for one round by about 22%, because our own dilution is second order: an increment of 13,898
-against 12,077,096 moves the denominator by 0.12%. There is no batching bonus to protect.
-
-**3. The 5% threshold is a receding target, and querying alone cannot reach it.** Five per cent of the
-corpus is 603,855 EE today and grows by 54,101 EE a day at the measured rate, while the engines add
-13,200. **The gap widens by 40,901 EE a day and never closes.** Reaching 5% in a fortnight needs 96,240
-EE a day, 7.3x what the two CDX populations and the RDAP sweep produce together. Phase 5 did hit
-195,779 EE a day, so the bar is not impossible, but it was met by landing bulk dated corpora and not by
-per-domain querying. **So the route to 5% runs through source admission rather than through collection
-rate**, which makes the approval gate in `approved-sources-list.md` the binding constraint on the
-score and not a formality beside it.
+**Percentages add, so a round is credited at the denominator of the day it arrives**, and that
+denominator grows mostly on other contributors' work: over the three intervals whose totals he has
+published, others added up to 1,082,013 equivalent-English a day against our own 13,200. So holding
+work back destroys credit and the rule is to submit early and often. The corollary drawn on 2026-08-18,
+that the 5% threshold recedes faster than collection can close it, held for querying and not for source
+admission: round 6 reached **5.3395%** on 2026-08-26, and it did so by admitting bulk dated corpora,
+the largest of them a second attribute of a file already on disk. **The approval gate in
+`approved-sources-list.md` is therefore the binding constraint on the score, not a formality beside it.**
 
 ### What this does not change
 

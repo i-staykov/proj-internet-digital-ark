@@ -7,7 +7,7 @@ route depends on. Each record states the question, what was measured, what was d
 rejected and why**, so a later session can disagree with the reasoning rather than rediscover it.
 
 **How it links to the other logs.** `docs/key-decisions.md` is the short review surface and names the
-ADR for anything structural. `notes.md` carries the day-to-day working. An ADR is the durable answer.
+ADR for anything structural. The git log carries the day-to-day working. An ADR is the durable answer.
 
 **Status values.** `Accepted` means it is in force. `Superseded by ADR-N` means read that one instead.
 `Open` means the question is live and the record exists so the next session does not start from zero.

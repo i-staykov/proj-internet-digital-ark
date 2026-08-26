@@ -5,7 +5,7 @@ discipline the project has actually paid to learn, written down so it does not h
 [sources.md](sources.md) is the register of what has been tried; this is the method.
 
 Read this before proposing a source, and read `sources.md`'s rejected table before proposing one that
-sounds obvious. Roughly forty source families have been evaluated and rejected, each with the
+sounds obvious. Source families that have been evaluated and rejected are all in the register, each with the
 measurement that killed it, and rediscovering one is the single most likely way to waste a session.
 
 ---
@@ -146,7 +146,7 @@ placeholder is not fixable at all.
 **Point 1 is a gate and points 2 and 3 are a sort order.** That is a change, and it is Ivo's, made on
 2026-08-18 when the scoring rules arrived: *"take everything we can find which fulfills our evidentiary
 standard, while of course still prioritizing higher yield/higher quantity and especially higher speed
-sources."* The reasoning is in `CLAUDE.md` under **The clock**: the corpus denominator is growing about
+sources."* The reasoning is in `CLAUDE.md` under **Method, and when to change it**: the corpus denominator is growing about
 82 times faster than we collect, so the cost of refusing a small valid source now exceeds the cost of
 building its collector.
 
@@ -196,7 +196,7 @@ not caution for its own sake. Three of five sources assessed in one day were rej
 measurement contradicted the estimate, two of them by two orders of magnitude, and one of those
 measurements avoided a 19.35 GB download in two minutes.
 
-Four ways this project has got a projection wrong, all recorded in [notes.md](notes.md) because each
+Four ways this project has got a projection wrong, all recorded in the git log because each
 cost real hours:
 
 - **Wrong counting unit.** The NYPW index was estimated at 27,276 net-new domains and measured at
@@ -324,24 +324,11 @@ AWA-only pairs).
 An automated discovery agent will walk straight back into all of these unless it reads that register
 first. Reading it is the cheapest step in the process.
 
-## 6. What phase 5 changes about all of this
+## 6. Where this is automated
 
-The reviewer's [amended brief](brief_amendments.md) asks for the generating and the pricing to be
-**automated**: hypotheses proposed, tested against dated evidence, and kept or discarded, on a loop,
-rather than a human picking the next lead by hand.
-
-Nothing above changes. The acceptance bar, the corroboration split and the measure-before-ingesting
-rule are what make an automated proposal safe to act on, and they are the reason a harness can be
-trusted to run unattended at all. What changes is who applies them and how often.
-
-The concrete shape that follows from sections 1 to 5:
-
-- **A hypothesis is a source plus a claim about what dates its items.** That is the unit the harness
-  should generate, because it is the unit section 1 can reject cheaply.
-- **Pricing is a sample measured against the live store**, reported as net-new pairs, net-new domains
-  and mean weight of the net-new part, with projections labelled. Section 4 is the checklist for not
-  fooling yourself, and every item on it is a mistake already made once.
-- **The two outcomes are counted separately**: a genuinely unknown domain and a filled year on a
-  known domain are different results, and the reviewer asked for both to stay visible.
-- **The dead-lead register is an input, not an afterthought.** A proposal that duplicates a closed
-  lead should be killed before it costs a request.
+The generating and the pricing run as code, not by hand: `scripts/discover_cycle.py` proposes,
+`scripts/screen_hypothesis.py` kills anything colliding with the closed register above, and
+`scripts/price_items.py` measures a sample against the live store before a collector is written.
+Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
+act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
+section 1 can reject cheaply.

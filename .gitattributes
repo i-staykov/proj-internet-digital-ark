@@ -2,20 +2,8 @@
 # `git archive` builds the shipped source snapshot, so anything tracked ends up
 # in front of the reader unless it is marked here. A session log reached the
 # submission this way once, and the decision log would have followed it.
-docs/notes.md export-ignore
 .gitattributes export-ignore
-# The whole archive of retired working documents, by directory rather than by file.
-# it, which silently defeated the `docs/phase*-plan.md` rule below, because that pattern
-# matches one level only. `tests/test_delivery_privacy.py` caught it.
-# posterity survives a fresh clone, kept out of the delivery so the reviewer gets
-# the working pipeline rather than its history.
-# The round's internal plan and the agent handoff. They are working documents about
-# how to approach the reviewer's feedback, not deliverables, and the handoff states
-# the working agreement in terms that are nobody's business but ours. `git archive`
-# would otherwise put both in front of him: that is exactly how an email draft's
-# private section reached the 2 August archive.
-docs/phase5-plan.md export-ignore
-# Every later round's plan, by pattern rather than one line per round. `phase6-plan.md`
+# Every round's plan, by pattern rather than one line per round. `phase6-plan.md`
 # shipped on 2026-08-18 while the identical phase-5 file was withheld, because the rule
 # lived as one filename instead of as a shape.
 docs/phase*-plan.md export-ignore

@@ -4,12 +4,14 @@ Rebuild the list of domains that existed 1996-2001 for Prof. Ding. Scored on **e
 each `(domain, year)` counts its TLD's English share. `.uk` 0.9813, `.com` 0.6321, `.net` 0.4530,
 `.de` 0.1324. Non-English ccTLDs are worthless.
 
-**Now: gate 668,118 EE (5% of `merged260821`). We hold ~373,000. Need ~295,000 more.**
+**Where the round stands is in `docs/ROUND.md`, which is generated. Never state it here.**
+Round 6 crossed the 5% gate on 2026-08-26. The task does not end at a gate: keep collecting until the
+discoverable sources are exhausted, and submit early, because percentages add and the denominator grows.
 
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Hunt a bulk dated corpus.** This is the job. Querying adds ~3,000 EE/hour and cannot close the gap.
+2. **Hunt a bulk dated corpus.** This is the job. Querying alone adds ~3,000 EE/hour.
 3. Price what you find: net-new EE against the store, dates inside 1996-2001, before proposing anything.
 4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
 5. Log the result in `docs/sources.md` whatever the answer, so nobody re-tests it.
@@ -140,11 +142,11 @@ what survives the split we already hold. Ask whether the lister held the databas
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
 - Look for the existing tool before writing one.
 - **archive.org's `services/search/v1/scrape` LIES under load. Use `advancedsearch.php` for any zero.**
-  Caught twice today: it returned the same 6 items for five different collections, and an identical
+  Caught twice on 2026-08-19: it returned the same 6 items for five different collections, and an identical
   bogus `total=28330` for five different queries, producing six false zeros in one batch. It also
   rejects `count<100`. A false zero is how a real source gets buried.
 - **Clear a whole FTP host with ONE request: pull its own `ls-lR.gz` or `locatedb.gz` and grep offline.**
-  Proven twice today: `ftp.gwdg.de`'s 926 MB locatedb indexed an 8.8 GB tree, and a 9.8 MB `ls-lR` gave
+  Proven twice on 2026-08-19: `ftp.gwdg.de`'s 926 MB locatedb indexed an 8.8 GB tree, and a 9.8 MB `ls-lR` gave
   1.46M lines. Politer and more complete than crawling, and it turns a zero into a proved zero.
 - **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
   that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
