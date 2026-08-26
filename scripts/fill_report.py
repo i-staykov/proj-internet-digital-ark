@@ -45,6 +45,10 @@ from ark.stats import collect_stats  # noqa: E402
 # gained. An unlisted source falls back to a pointer at `sources.md`.
 DATE_BASIS = {
     "domain_creation_bulk": "the registry's own creation date for that domain",
+    "us_domain_delegated": "the edition date of the delegated-zone list",
+    "iedr_register": "the register page's own `updated automatically at` line",
+    "internic_zone": "the SOA serial inside the zone payload",
+    "ukwa_geoindex": "the 14-digit capture timestamp on the row",
     "dartmouth_nber_captures": "the archive's own count of captures it holds in that year",
     "udrp_proceedings": "the commencement date of the dispute",
     "attrition_defacement": "the date the defacement was recorded",
@@ -180,6 +184,38 @@ def source_table(f: dict) -> str:
     return "\n".join(lines)
 
 
+# Sources admitted in THIS round, with the one-line ground on which each was
+# admitted. Ivo, 2026-08-26: a reader of the report should see WHY a new source was
+# accepted, not only what it yielded, and `sources.md` should not be the only place
+# that says so. Keyed by source name; a source absent from here is one the reviewer
+# has already seen in an earlier round.
+ADMITTED_THIS_ROUND = {
+    "us_domain_delegated": (
+        "a delegated-zone list is the registry serving those names at the instant the "
+        "edition is stamped, the same instrument as a zone file"
+    ),
+    "iedr_register": (
+        "the registry regenerated its whole register as static pages, each carrying the "
+        "instant a cron wrote it"
+    ),
+    "internic_zone": "the zone file's own SOA serial, which the registry wrote",
+    "ukwa_geoindex": "a per-row capture timestamp, self-dating and unsplit",
+    "ukwa_link_source": "the crawl year on each host link-graph row",
+}
+
+
+def admitted_this_round(f: dict) -> str:
+    """One line per source admitted this round, naming the ground it was admitted on."""
+    present = [r["source"] for r in f["by_source"] if r["source"] in ADMITTED_THIS_ROUND]
+    if not present:
+        return ""
+    items = "; ".join(f"**`{s}`**, {ADMITTED_THIS_ROUND[s]}" for s in present)
+    return (
+        "**Admitted this round, and the ground each was admitted on** (the full argument, "
+        f"and every rejected source beside it, is in `sources.md`): {items}."
+    )
+
+
 def ee_source_table(f: dict) -> str:
     """Per source, ordered by the metric the round is scored on.
 
@@ -303,6 +339,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
         "EEMEAN": f"{f['ee_mean_weight']:.4f}",
         "EE_SOURCE_TABLE": ee_source_table(f),
+        "ADMITTED_THIS_ROUND": admitted_this_round(f),
         "CORROBORATION": corroboration_sentence(f),
         "ADMISSIBLE": admissibility_sentence(f),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),

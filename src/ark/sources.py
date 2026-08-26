@@ -449,6 +449,83 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# `squidguard-<category>-<basename>`, written by `collect_squidguard_2001.py`. The
+# category is kept only for the evidence value; the date is what matters.
+_SG_FILE = re.compile(r"^squidguard-([a-z0-9-]+)-(domains|urls)(?:\.(\d{4})(\d{2})(\d{2})\.diff)?$")
+# The robot's own stamp inside a base list: "compiled in 19:44:45 on 2001.12.15 19:56:41."
+_SG_STAMP = re.compile(r"compiled in [\d:]+ on (\d{4})\.(\d{2})\.(\d{2})")
+
+
+def parse_squidguard_blacklist(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per host in one squidGuard blacklist file.
+
+    **Why a crawler-compiled blocklist is admissible at all.** The header asserts liveness
+    rather than mere listing: `compiled from 2402 link sources and 654820 links, of which
+    510389 tested successfully`. So the robot fetched the host and it answered. Nobody typed
+    the list, so no corroboration split applies, and `squidGuardRobot-2.3.4` names itself.
+
+    **Two date routes, and neither is the tar's.** A base `domains` or `urls` file carries its
+    own compile stamp and that dates its names. A diff carries the date in its filename. Both
+    are the robot's own output. A file with neither is skipped rather than dated from the
+    archive around it.
+
+    **A diff's `-` lines are dropped, and this is the one judgement in here.** `+host` means
+    the robot added the host after testing it successfully at that date, which is an
+    assertion about that instant. `-host` means the host was REMOVED, which is evidence it
+    stopped answering, not that it was live then. Across this edition that is 104,242 added
+    against 23,267 removed, so keeping the removals would have inflated the count by a fifth
+    on exactly the wrong inference.
+
+    **`urls` lines carry a path**, `007dedicatedserver.net/sexkey`, and the canonicaliser
+    strips it. IP-address lines appear in the diffs and are rejected there, not here.
+    """
+    match = _SG_FILE.match(path.name)
+    if match is None:
+        stats["not_a_blacklist_file"] += 1
+        return
+    category, kind = match.group(1), match.group(2)
+    is_diff = match.group(3) is not None
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if is_diff:
+        year = int(match.group(3))
+        stamp = f"{match.group(3)}{match.group(4)}{match.group(5)}"
+    else:
+        found = _SG_STAMP.search(text)
+        if found is None:
+            stats["no_compile_stamp"] += 1
+            return
+        year = int(found.group(1))
+        stamp = f"{found.group(1)}{found.group(2)}{found.group(3)}"
+    if year not in YEARS:
+        stats["out_of_window_edition"] += 1
+        return
+
+    for line in text.splitlines():
+        stats["lines"] += 1
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            stats["comment_or_blank"] += 1
+            continue
+        if is_diff:
+            if entry.startswith("-"):
+                stats["diff_removal_skipped"] += 1
+                continue
+            if entry.startswith("+"):
+                entry = entry[1:].strip()
+            else:
+                stats["diff_context_line"] += 1
+                continue
+        if not entry:
+            continue
+        stats["hosts"] += 1
+        yield BulkRecord(
+            raw=entry,
+            year=year,
+            evidence_value=f"squidguard:{category}/{kind}@{stamp}",
+        )
+
+
 # The US Domain Registry's delegated-zone list. The artifact carries NO in-body date,
 # so the edition date lives in the filename and the collector is what puts it there:
 # `us-domain-delegated.YYYYMMDD.txt`, taken from the tar-preserved mtime for the
@@ -1233,6 +1310,16 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # squidGuard's robot-compiled blacklists, 2001-12 edition. Master-eligible: the
+    # header asserts successful fetches, and nobody typed the list. Approved by Ivo
+    # 2026-08-26. GPL v2, so licence-clear.
+    "squidguard_2001_blacklist": SourceSpec(
+        key="squidguard_2001_blacklist",
+        source_name="squidguard_2001_blacklist",
+        evidence_type="artifact_listing",
+        acquisition_method="robot_compiled_blocklist",
+        parse=parse_squidguard_blacklist,
+    ),
     "us_domain_delegated": SourceSpec(
         key="us_domain_delegated",
         source_name="us_domain_delegated",

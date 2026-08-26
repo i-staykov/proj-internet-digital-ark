@@ -75,6 +75,8 @@ registration and **not one reached an annual file**.
 Every row is master-eligible. Separately, **[CANDIDATES] domains carry no year-specific evidence** and
 ship as `candidates.txt`, kept out of the annual files as you asked.
 
+[ADMITTED_THIS_ROUND]
+
 ## 5. Archive execution
 
 [CDX_TABLE]

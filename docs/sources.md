@@ -2758,3 +2758,108 @@ weakest link in this source and it is deliberately visible: `_USD_EDITION` skips
 date, and `parse_us_domain_delegated` reads **column 2 only**, so the contact mail address in column
 3 is never read as a delegation. Scanning the whole line instead would have imported 56 third-party
 pairs on this file's authority.
+
+---
+
+## squidGuard 2001-12 blacklists: BANKED 10,376.92 EE, and the closure it reopens
+
+**Approved master by Ivo 2026-08-26 and banked: 18,000 pairs, 10,376.92 EE.** Store went 525,786.59
+to 536,163.51, crossing 4% growth.
+
+**Why a crawler-compiled blocklist is admissible.** The header asserts a successful fetch rather than
+mere listing: `compiled from 2402 link sources and 654820 links, of which 510389 tested
+successfully`, and `squidGuardRobot-2.3.4` names itself. Nobody typed the list, so no corroboration
+split. Licence is **GPL v2**, verbatim in `squidguard-1.2.0/COPYING`.
+
+**Receipts, all re-verified live before approval.** One request, and the host serves no `robots.txt`
+(404, no rules): `archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz`,
+**1,852,659 bytes**, holding `squidguard-1.2.0/samples/dest/blacklists.tar.gz`. The dated header is a
+line of its own, and the first pass nearly mis-read this: grepping `compiled from` finds a line with
+no date, while the stamp is on the preceding line, `# This list was compiled in 19:44:45 on
+2001.12.15 19:56:41.` Every stamp in the edition falls between **2001.12.15 and 2001.12.18**,
+corroborated by tar member mtimes reading `Dec 18 2001` and `Dec 15 2001`, and by diffs running
+`domains.20010813.diff` onward.
+
+**It does not contradict the 2026-08-24 closure, it triggers it.** That closure was correct for the
+artifact it examined, `blacklists.tar.gz` on `ftp.teledanmark.no`, earliest capture 2003-12-11 and a
+base list reading `compiled in 120:47:13 on 2003.09.04`. Its own reopen condition read "reopen only
+on an in-window edition from a non-Wayback mirror", which is exactly what `archive.debian.org` is.
+
+**Banked at 10,376.92 rather than the 10,736.2 measured earlier, and the gap is deliberate.** A
+diff's `-` lines are REMOVALS: evidence that a host stopped answering, not that it was live at that
+date. Dropping them costs 35,230 lines and about 360 EE, and keeping them would have inflated the
+count by a fifth on exactly the wrong inference. Final parser stats: 298,189 lines, 262,679 hosts,
+129,178 rejected by the canonicaliser (the diffs are full of bare IP addresses), 42,460 evidence rows
+and 18,000 assigned pairs.
+
+**Two implementation traps worth keeping.** The tree is `blacklists/<category>/{domains,urls,*.diff}`
+and eleven categories each hold a file called `domains`, while **the bulk ledger keys on `path.name`
+alone**, so loading the tree as-is would ledger one `domains` and skip the other ten. The collector
+flattens every file to `squidguard-<category>-<basename>`. And **one file in the archive has no
+compile header at all**: `mail/domains` is 16 blank lines then a hand-kept list of free-webmail
+providers (`123india.com`, `163.net`, `2bmail.co.uk`), which is a person's list rather than robot
+output. The parser refuses a file it cannot date, so it is skipped for the right reason twice over.
+
+**Content note, put to Ivo before he approved:** the bulk of the 42,460 names are adult, gambling,
+drugs and warez sites. They are domains that existed, which is what the project asks for, and the
+report names the source rather than hiding it.
+
+---
+
+## RIPE NCC's reply, 2026-08-26: permission given, and what the file actually contains
+
+**The exchange, recorded verbatim so nobody re-litigates it.**
+
+Ivo wrote on **2026-08-25 22:41 GMT+2**, describing the artifact and the notice precisely: an
+academic project under Prof. Xiaowei Ding and Prof. Kay Giesecke to reconstruct domains live
+1996-2001; the file is the 1999-08-04 snapshot at
+`ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`; its header carries the "Restricted rights" notice,
+repeated in `RIGHTS`, `COPYRIGHT` and `README`; the intended use is to read the `domain:` objects and
+derive `(domain name, 1999)` pairs, republishing no database text and **no personal data, no contact
+names, e-mail addresses, addresses, phone numbers, maintainer or person objects**; and an offer to
+accept conditions including attribution, restricted distribution or an agreement.
+
+**Valentino, RIPE NCC Member Services Analyst, replied 2026-08-26 10:24 GMT+2:**
+
+> Regarding your request, I understand that you would like to use certain data that we make available
+> for your research. This is absolutely fine, provided that you do not require any special permissions
+> that we are unable to grant.
+>
+> As long as the data is publicly available and visible to you, you are welcome to use it for your
+> research. However, please be mindful not to make a large number of requests involving personal data,
+> as the RIPE Database may automatically block the IP address from which the requests are originating.
+
+**Reading, and why it clears the block.** The one condition attached is about **request volume against
+the live database**, and we make zero requests: the artifact is a static file already on disk, so that
+caution cannot bind us. The file is publicly available and visible, served by FUNET's open FTP mirror
+with no authentication. The permitted use is "for your research", which is what this is. And our use
+is narrower than what was permitted, because we take the domain name and nothing else.
+
+**The honest limit of this permission.** It is a support-desk reply and it does not quote the 1999
+notice back. What makes it sufficient is the sequence rather than the wording: the request described
+the exact file, quoted the exact notice, and named the exact use, and the answer to that description
+was "absolutely fine". Recorded here so the basis is auditable rather than remembered.
+
+**What the file contains, measured rather than assumed**, since the commitment made to RIPE was about
+personal data. Object types, by count of objects: `*dn` domain **1,256,414**; `*in` inetnum 204,825;
+`*rt` route 17,536; `*mt` mntner 2,920; `*an` aut-num 2,440; `*am` as-macro 734; `*ir` inet-rtr 105;
+`*li` limerick 96; `*kc` key-cert 78; `*cm` community 9; `*dp` 6; `*i6` inet6num 2.
+
+**There are no person objects in this file at all, and that is the important finding.** A census of
+all 63 attribute codes returns **`*pn` person 0, `*ad` address 0, `*ph` phone 0, `*fx` fax 0, `*em`
+e-mail 0, `*nh` nic-hdl 0, `*ro` role 0**. FUNET mirrored the non-person half of the dump. The only
+personal data present at all is inside `*ch` changed lines (2,045,382), which carry an e-mail address
+beside a date, plus 9 `*au` auth lines in maintainer objects. **We read none of it.**
+
+**What we are not using, in one line:** every IP allocation, route, AS number, router, maintainer, PGP
+key and limerick object; and within domain objects, `*de` descr, `*ns` nserver, `*rm` remarks, `*cy`
+country, `*ch` changed, `*ac`/`*tc`/`*zc` admin, tech and zone contact handles, `*mb` mnt-by and `*so`
+source. We take the `*dn` value, canonicalise it, and pair it with 1999. Of the 1,256,414 domain
+objects, 21,047 are `.arpa` reverse zones excluded by the store's own invariant, leaving **1,232,554
+distinct registrable names**.
+
+**Consequences for the parser, which does not exist yet and must be written this way.** Read `*dn`
+only. Never emit any other attribute into evidence, and in particular never `*ch`, which is the one
+attribute in the file that carries an e-mail address. Attribute the RIPE NCC as the source in the
+report, which Ivo offered unprompted. Rule 6 still applies: the snapshot's own header dates it
+`# 990804 00:07:01`, so it evidences **1999 and no other year**.
