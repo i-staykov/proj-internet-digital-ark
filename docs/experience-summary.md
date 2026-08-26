@@ -9,8 +9,12 @@ Every figure here is measured against the store, not projected, and says what it
 
 ## 1. The reusable technique
 
-**The third-largest addition of this round cost nothing, because it came from a file already
-ingested.** The 1999 RIPE snapshot had
+**Half of this round's equivalent-English came from one route, and the reason is weight rather
+than volume: 357,755 of 713,481 are RDAP creation dates, at a mean weight of 0.6153 over 581,458
+pairs, while the source with the MOST pairs, 641,034, paid 90,769 because it is mostly `.de` at
+0.1324. Rank a source by pairs and you will pick the wrong one.**
+
+**The cheapest addition came from a file already ingested.** The 1999 RIPE snapshot had
 been read for one attribute, the domain name, and dated to the file's own instant. Each object also
 carries a `changed:` line per update applied to it, 2,016,169 of them, each with its own date. An
 object cannot be modified before it exists, so those lines reach 1996, 1997 and 1998, which the
@@ -97,8 +101,8 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 1. **Bulk dated corpora**, still the best yield per megabyte by two orders of magnitude over prose.
 2. **Registry datasets that publish dates**, the only route that reaches 2001, where the archives are
    thin: `P(store lacks 2001 | domain held)` is 0.611 for `.com` against near zero for 1999.
-3. **Re-auditing material already on disk**, which produced the largest single addition of this round
-   and cost nothing.
+3. **Re-auditing material already on disk**, which produced 58,398 equivalent-English this round
+   for no new download.
 4. **Two sources are blocked on access rather than evidence.** The JISC UK per-year CDX index, 13.45 GB
    in window over the highest-weight TLD, is preserved but unservable: the UK Web Archive has been
    offline since the October 2023 British Library cyber-attack, with restoration targeted at Autumn 2026

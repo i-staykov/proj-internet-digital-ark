@@ -315,14 +315,19 @@ def routes_table(f: dict) -> str:
         # this names what the round was made of, and only a human can write that.
         return "[ROUTES_NOT_NAMED_FOR_THIS_ROUND]"
     by_source = {row["source"]: row for row in f["by_source"]}
+    # Equivalent-English beside the pairs, because the two rank sources differently and
+    # only the second is scored: the source with the most pairs this round paid a fifth
+    # of what this table's second row did, being mostly `.de` at 0.1324.
     lines = [
-        "| Route | What dates a year | Net-new pairs |",
-        "|---|---|--:|",
+        "| Route | What dates a year | Net-new pairs | Equivalent-English |",
+        "|---|---|--:|--:|",
     ]
     for key, what, dates in ROUTES:
         row = by_source.get(key)
-        pairs = f"{row['pairs']:,}" if row else "_not in this round_"
-        lines.append(f"| {what} | {dates} | {pairs} |")
+        if row is None:
+            lines.append(f"| {what} | {dates} | _not in this round_ | |")
+            continue
+        lines.append(f"| {what} | {dates} | {row['pairs']:,} | {row['ee']:,.1f} |")
     return "\n".join(lines)
 
 
