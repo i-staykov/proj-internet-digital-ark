@@ -28,6 +28,7 @@ import io
 import json
 import os
 import signal
+import zlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -160,24 +161,49 @@ def queried_domains(
 
     Truncation is tolerated: an interrupted run leaves a journal readable up to
     its last flush, and whatever it lost is simply queried again next time.
+
+    **It was only tolerated for one of the two ways a journal breaks, and the other
+    one stopped both engines dead on 2026-08-27.** A journal cut off between flushes
+    raises `EOFError`, which this caught. A journal whose last gzip block is damaged,
+    which is what a `kill -9` mid-write leaves behind, raises `zlib.error`, which is
+    not an `OSError` and so escaped: eleven such files sat under `data/raw/rdap` and
+    the resume scan died on the first of them, before a single query went out. Both
+    RDAP engines reported "the list is exhausted or the API refused" and exited in
+    under three minutes, which reads exactly like a finished queue.
+
+    So the guard now names the decompression errors too, and it sits INSIDE the read
+    loop rather than around it. Around it, a file that fails on its last block throws
+    away every domain read from the good blocks before it, and those get re-queried
+    for nothing: one of the eleven is 23.6 MB.
     """
     seen: set[str] = set()
     if not directory.is_dir():
         return seen
+    broken = (EOFError, OSError, zlib.error, gzip.BadGzipFile)
     for path in sorted(directory.glob(f"{prefix}_*.jsonl*")):
         try:
-            with open_journal(path) as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        record = json.loads(line)
-                    except ValueError:
-                        continue
-                    domain = record.get("domain")
-                    if domain and (answered is None or answered(record)):
-                        seen.add(domain)
-        except (EOFError, OSError):
+            fh = open_journal(path)
+        except broken:
             continue
+        try:
+            while True:
+                try:
+                    line = next(fh)
+                except StopIteration:
+                    break
+                except broken:
+                    # Damaged tail. Keep what the good blocks gave and move on.
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue
+                domain = record.get("domain")
+                if domain and (answered is None or answered(record)):
+                    seen.add(domain)
+        finally:
+            fh.close()
     return seen
