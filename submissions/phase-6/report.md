@@ -61,13 +61,16 @@ of ours are in `source/src/ark/canonical.py`, with their tests, and apply to our
 
 ## 3. What dates a year, and the standard applied
 
-| Route | What dates a year | Net-new pairs |
-|---|---|--:|
-| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 80,270 |
-| the RDAP sweep over generated sibling names and over `.uk` we already hold | the registry's own creation date, which dates that year and no other | 581,458 |
+| Route | What dates a year | Net-new pairs | Equivalent-English |
+|---|---|--:|--:|
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 80,270 | 66,653.7 |
+| the RDAP sweep over generated sibling names and over `.uk` we already hold | the registry's own creation date, which dates that year and no other | 581,458 | 357,755.3 |
 
 **Both routes are self-dating and take no corroboration split**, being records of the thing itself
 rather than a description of it. **A creation date writes its own year and no other**, per rule 6.
+Registry creation dates alone are half this round's equivalent-English, on 30% of its pairs: weight
+decides, not volume, and the source contributing the most pairs paid a fifth as much because it is
+mostly `.de` at 0.1324. Per-source figures are in `audit/source_contribution.csv`.
 
 Master-eligible classes are `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`, each a machine-written record asserting a state at an
 instant the artifact stamps. Anything a human typed is candidate-only until another source dates that
