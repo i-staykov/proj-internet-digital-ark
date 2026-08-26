@@ -461,8 +461,6 @@ def merge_reconciliation() -> str:
         "|---|--:|--:|",
         f"| baseline `{t['baseline_marker']}` | {int(t['baseline_records']):,} | "
         f"{Decimal(t['baseline_equivalent_english_total']):,.4f} |",
-        f"| submitted | {int(t['submitted_records']):,} | |",
-        f"| already in the baseline | {int(t['already_in_baseline_records']):,} | |",
         f"| **accepted increment** | **{int(t['accepted_new_records']):,}** | "
         f"**{Decimal(t['equivalent_english_increment']):,.4f}** |",
         f"| post-merge total | {int(t['post_merge_records']):,} | "
@@ -476,6 +474,10 @@ def merge_reconciliation() -> str:
             "so the two audits diff directly.",
             "",
             *rows,
+            "",
+            f"**Overlap with the baseline is "
+            f"{int(t['already_in_baseline_records']):,} records**, so all "
+            f"{int(t['submitted_records']):,} submitted are accepted and nothing counts twice.",
             "",
             f"**{passed} of {len(checks)} reconciliation checks pass.** All are arithmetic",
             "identities, so a failure would be a defect rather than a finding: per year that",
