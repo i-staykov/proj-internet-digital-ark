@@ -533,13 +533,22 @@ def parse_cctld_register_inbody(path: Path, stats: Counter) -> Iterator[BulkReco
     names = set(re.findall(rf"[a-z0-9][a-z0-9.\-]*\.{re.escape(tld)}\b", flat, re.I))
     stats["names_on_page"] += len(names)
     stats["rows_with_own_date"] += len(dated)
+    page_stamp = f"{match.group(3)}{match.group(4)}{match.group(5)}"
     for name in sorted(n.lower() for n in names):
-        year = dated.get(name, file_year)
-        stats["dated_from_row" if name in dated else "dated_from_page"] += 1
+        row_year = dated.get(name)
+        year = row_year if row_year is not None else file_year
+        # **The evidence value must carry the date that justifies THIS year, not the
+        # page's.** `evidence_year_matches_its_value` compares the year inside the value
+        # against the year the row is filed under, and a row-dated name filed under 1998
+        # beside a value reading `@20010415` fails it. That is the invariant doing its job:
+        # citing the page stamp for a year the page stamp does not support would be a
+        # provenance lie even though the year itself is right.
+        stamp = str(row_year) if row_year is not None else page_stamp
+        stats["dated_from_row" if row_year is not None else "dated_from_page"] += 1
         yield BulkRecord(
             raw=name,
             year=year,
-            evidence_value=f"cctld_register:{registry}.{tld}@{match.group(3)}{match.group(4)}{match.group(5)}",
+            evidence_value=f"cctld_register:{registry}.{tld}@{stamp}",
         )
 
 

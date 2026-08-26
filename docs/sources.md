@@ -3050,6 +3050,20 @@ whose registration expired between 2001-05-29 and 2001-08-26, so every one was i
 2001 and the artifact implies nothing about another year. IDNIC's due date is the registry stating the
 boundary of that registration's paid period, so the name existed then.
 
+**A defect I introduced and the invariant caught, worth recording because it was a provenance lie
+rather than a wrong year.** The first ingest filed IDNIC's row-dated names under their own year (1998
+to 2000) while stamping every evidence value with the page's `@20010415`. The year was right and the
+citation was not, and `evidence_year_matches_its_value` failed exactly as designed. Fixed so the value
+carries the date that justifies that row: `@1998` for a row-dated name, the page stamp otherwise.
+Rolled back 10,177 domain_year and 10,961 evidence rows, cleared the ledger and re-ingested to the same
+totals, so only the provenance string changed.
+
+**Two process notes from that.** The pre-commit hook runs ruff, format and pytest but **not `ark
+check`**, which is why the project rule says run the gate by hand before every commit; I started it in
+the background and committed before reading it, so a failing check reached a commit. And DuckDB will
+not delete parent rows and children in one transaction: delete from `domain_year` first, confirm zero
+remaining references, then delete from `evidence`.
+
 **Still open in this family:** the four `_capture` artifacts (NIC Malta, SaudiNIC, ISOC-IL, `.nu`
 notrenewed, 3,496 EE recorded) have their measurements on record but **not their URLs**, so each has to
 be re-found by CDX search against a throttled archive. A targeted hunt is running with a three-hour
