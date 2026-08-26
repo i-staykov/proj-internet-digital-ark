@@ -89,6 +89,10 @@ PROVENANCE_LINEAGE = {
     # so it shares the registry lineage rather than earning its own: a pair this and a
     # zone file both attest is one authority agreeing with itself.
     "us_domain_delegated": "registry",
+    # A crawler compiled this list, so it shares the lineage of everything else that
+    # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
+    # fetching in 2001 and owes the archive nothing.
+    "squidguard_2001_blacklist": "crawl",
     "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
