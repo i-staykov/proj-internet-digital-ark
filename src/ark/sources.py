@@ -460,10 +460,27 @@ def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]
 
     **The claim, which is narrower than it first looks.** A RIPE object carries a
     `changed:` attribute for every update applied to it. You cannot modify a registry
-    object that does not exist, so a line reading `19980315` is the registry's own dated
-    record that this registration existed on that date. That is not an inference from a
-    listing; it is an explicit transaction record inside the object, which is why killer 2
-    does not reach it.
+    object that does not exist, so a line reading `19980315` records that this
+    registration existed on that date. That is not an inference from a listing; it is an
+    explicit transaction record inside the object, which is why killer 2 does not reach it.
+
+    **`changed:` is an attribute of the object rather than a registry-generated log, so
+    WHO writes it was measured before this was trusted.** 10,806 distinct addresses appear,
+    and the top eight are all ccTLD registry role accounts: `hostmaster@nic.de` **996,427
+    lines, 49.4% of the file on its own**, then `hostmaster@dk-hostmaster.dk` 101,556,
+    `hostmaster@nic.it` 78,987, `hostmaster@domain-registry.nl` 51,933, `jens@nic.de`
+    45,014, `ripe-dbm-updates@nic.fr` 44,035, `domain-admin@univie.ac.at` 42,508,
+    `hostmaster@dk.net` 37,900. So in the overwhelming majority this IS the registry
+    maintaining its own delegations. The tail of 10,798 other addresses is weaker: there
+    the claim is only that somebody with authority over the object updated it, which still
+    requires the object to have existed.
+
+    **The 1998 concentration is real activity, not a migration artifact**, which was the
+    other thing worth ruling out: 643,788 lines spread over 368 distinct day values, with
+    the largest single day at 16,486, only 2.6% of the year. A bulk re-stamp would have put
+    most of the year on one date. (368 distinct values over a 365-day year means a handful
+    of malformed dates; only the leading four digits are read, so a bad day-of-month cannot
+    change the year assigned.)
 
     **This is what rule 6 asks for and a creation date cannot give.** Rule 6 says a
     creation date evidences its own year only, and continued registration needs its own
