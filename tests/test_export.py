@@ -90,3 +90,38 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
     source = inspect.getsource(test_export_all)
     missed = {name for name in destinations if f"{name}=" not in source}
     assert not missed, f"test_export_all must redirect these: {sorted(missed)}"
+
+
+def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> None:
+    """Packaging compares these two, so a mismatch refuses a current export forever.
+
+    They were equal until the export learned to drop a pair whose TLD did not exist in
+    its year. From then on the guard held a pre-filter number against a post-filter one
+    and reported a fresh export as stale: 726,344 against 726,336.
+    """
+    from ark.export import netnew_shipped_pairs
+
+    conn = connect(":memory:")
+    init_db(conn)
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "real.com", cdx)
+    assign_year(
+        conn, record_evidence(conn, "real.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    )
+    # .biz was delegated in 2001, so a 1998 pair under it can never ship.
+    add_candidate(conn, "impossible.biz", cdx)
+    assign_year(
+        conn, record_evidence(conn, "impossible.biz", cdx, 1998, "cdx_timestamp", "19980101000000")
+    )
+
+    stats = export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+    )
+    written = sum(v for k, v in stats.items() if k.startswith("netnew_"))
+    assert written == 1, "the impossible pair must not reach an annual file"
+    assert netnew_shipped_pairs(conn) == written

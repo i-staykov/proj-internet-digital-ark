@@ -11,6 +11,17 @@
 # half-written journal would ledger it at a partial hash and make the rest of
 # that run permanently unreachable.
 #
+# **That rule is right about LIVE partials and wrong about ABANDONED ones**, and
+# the difference is measurable in EE. A collector killed by a deadline, a signal
+# or a crash never renames, so its work sits in a `.part` no glob will ever
+# match. Locally on 2026-08-25 that was three files holding 1,451 year rows and
+# about 919 equivalent-English, the oldest abandoned on 18 August; remotely it
+# was five files, 62 MB and 3,599 EE. **The staleness test separates the two
+# cases**: nothing has written to an abandoned partial for hours, while a live
+# one grows every few seconds. 90 minutes is comfortably past any batch's write
+# interval, so a partial older than that belongs to a dead run and can be
+# promoted to its final name safely.
+#
 # Usage: bash scripts/maintain.sh [iterations] [sleep_seconds]
 set -uo pipefail
 
@@ -76,6 +87,49 @@ for i in $(seq 1 "$ITERATIONS"); do
         "${VPS}:${VPS_REPO}/data/raw/cdx/cdx_*.jsonl.gz" data/raw/cdx/ \
         >> "$LOG" 2>&1 || echo "  vps unreachable this pass, continuing" >> "$LOG"
 
+    # **And the RDAP journals, which this block did not fetch until 2026-08-21.**
+    # The VPS was put on RDAP that evening and produced 67 journals in three hours;
+    # every one of them was stranded, because the pattern above names only `cdx_`.
+    # That is the same defect the comment above describes, repeated on a new prefix,
+    # which is the argument for fetching by DIRECTORY rather than by a hand-written
+    # glob: a new collector on the remote machine should not be able to write work
+    # that no pass here can see.
+    mkdir -p data/raw/rdap
+    rsync -a --ignore-existing --timeout=120 \
+        -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        "${VPS}:${VPS_REPO}/data/raw/rdap/rdap_*.jsonl.gz" data/raw/rdap/ \
+        >> "$LOG" 2>&1 || echo "  vps rdap unreachable this pass, continuing" >> "$LOG"
+
+    # **And the ABANDONED partials, which is the third time this defect has bitten.**
+    # The two globs above take `*.jsonl.gz` and never `*.jsonl.gz.part`, so a batch
+    # that dies mid-round leaves its work on the VPS where no pass can see it. On
+    # 2026-08-25 that was **five files, 62 MB, 502,293 records and 3,599.2 net-new
+    # equivalent-English**, the oldest stranded since 22 August. The comment above
+    # already argued for fetching by directory rather than by hand-written glob, and
+    # this is that argument applied a third time.
+    #
+    # **Only STALE partials are taken, and the staleness test is the whole safety
+    # argument.** A live `.part` is still growing, and copying it here under its
+    # final name would ingest a prefix; when the completed journal arrived later, the
+    # ledger keys on content, so the same name with a different hash would be REFUSED
+    # and the full journal lost. 90 minutes is comfortably past any batch's write
+    # interval, so anything older than that belongs to a dead run.
+    stale=$(ssh -o ConnectTimeout=15 -o BatchMode=yes "$VPS" \
+        "find '$VPS_REPO'/data/raw/rdap '$VPS_REPO'/data/raw/cdx -name '*.jsonl.gz.part' -mmin +90 2>/dev/null" \
+        2>/dev/null)
+    for remote in $stale; do
+        base=$(basename "$remote" .part)
+        case "$base" in
+            rdap_*) local_dir=data/raw/rdap ;;
+            cdx_*)  local_dir=data/raw/cdx ;;
+            *) continue ;;
+        esac
+        [ -e "$local_dir/$base" ] && continue
+        rsync -a --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+            "${VPS}:${remote}" "$local_dir/$base" >> "$LOG" 2>&1 \
+            && echo "  recovered abandoned partial $base" >> "$LOG"
+    done
+
     bash scripts/ingest_new_usenet.sh auto >> "$LOG" 2>&1
 
     # Every journal on disk is re-offered, not only the ones this pass produced.
@@ -85,6 +139,17 @@ for i in $(seq 1 "$ITERATIONS"); do
 
     # CDX candidate journals, which is what turns a discovered name into a net-new
     # domain.
+    # Promote LOCAL abandoned partials before the ingest sees them. Same 90-minute
+    # staleness rule as the remote recovery below, and the same reason: a partial
+    # with no final counterpart is a dead run's work, not a live run's file.
+    for part in data/raw/cdx/*.jsonl.gz.part data/raw/rdap/*.jsonl.gz.part; do
+        [ -e "$part" ] || continue
+        final="${part%.part}"
+        [ -e "$final" ] && continue
+        if [ -z "$(find "$part" -mmin +90 2>/dev/null)" ]; then continue; fi
+        cp "$part" "$final" && echo "  promoted abandoned partial $(basename "$final")" >> "$LOG"
+    done
+
     ingest_all cdx_snapshot      data/raw/cdx/cdx_*.jsonl.gz
 
     # Registry journals, which this loop did not know about until 8 August. The
@@ -94,6 +159,22 @@ for i in $(seq 1 "$ITERATIONS"); do
     # a collector whose work is invisible to every measurement taken afterwards,
     # which is the same failure the VPS journals caused twice.
     ingest_all rdap_snapshot     data/raw/rdap/rdap_*.jsonl.gz
+
+    # **Measure the promotion tranche every pass, and never bank it here.** The split
+    # is deliberate: `build_promotion_journals.py` prints its ingests rather than
+    # running them because whether to bank a tranche is a judgement, and
+    # `bank_promotion.sh` exists for when that judgement is made. What was missing is
+    # that nobody SAW the number, so a tranche could sit unmeasured for days.
+    #
+    # It compounds, which is why it belongs on the loop rather than on a schedule of
+    # its own: a mention is promoted when some OTHER source dates its domain, so every
+    # master ingest above can unlock pool names that the previous pass could not admit.
+    # On 2026-08-25 the `.ie` register landing the day before contributed 157 of 2,476
+    # pairs, and the tranche measured 1,556.6 equivalent-English.
+    #
+    # No `--write`, so this touches nothing.
+    uv run python scripts/build_promotion_journals.py --tag "dryrun$(date -u '+%Y%m%d')" \
+        >> "$LOG" 2>&1 || echo "  promotion dry run failed this pass, continuing" >> "$LOG"
 
     sleep "$PAUSE"
 done

@@ -1,4 +1,4 @@
-"""The signed-off evidence taxonomy (notes.md, "Definition: evidence types").
+"""The signed-off evidence taxonomy.
 
 A type's disposition decides where its rows may go: master types may back
 a (domain, year) assignment, candidate-only types never do. The schema's

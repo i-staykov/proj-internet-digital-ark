@@ -132,6 +132,47 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "no_arpa_in_the_shipped_files",
+        "no exported annual line sits under `.arpa`, because no website ever did in "
+        "1996-2001: the ARPANET host transition finished in 1990 and every zone delegated "
+        "under `.arpa` since is infrastructure, while the TLD scores 1.0000, the highest "
+        "weight in the model",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false
+        )
+        WHERE domain LIKE '%.arpa'
+        """,
+    ),
+    (
+        "no_tld_predates_its_own_delegation",
+        "no exported annual line sits under a TLD that did not exist that year: `.info` and "
+        "`.biz` were delegated in 2001 and `.eu` in 2005, so a 1998 line under either is "
+        "impossible. `domain_creation_bulk` was admitted after exactly this check, but it was "
+        "written against the six TLDs delegated in 2001 and could not see one delegated later, "
+        "which left 1,087 such pairs in the store",
+        r"""
+        SELECT count(*)
+        FROM read_csv(
+            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        )
+        WHERE NOT (
+        """
+        + " AND ".join(
+            f"NOT (domain LIKE '%.{tld}' AND TRY_CAST("
+            r"regexp_extract(filename, '([0-9]{{4}})\.txt$', 1) AS INT) < " + str(year) + ")"
+            for tld, year in sorted(
+                __import__("ark.delegation", fromlist=["DELEGATED"]).DELEGATED.items()
+            )
+        )
+        + """
+        )
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",

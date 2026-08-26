@@ -72,9 +72,37 @@ USER_AGENT = "internet-digital-ark research crawler (contact: ivaylo.staykov@tak
 # still cannot match, because `\b` after the TLD needs a non-word character and
 # finds `p`. Note `ark.usenet.domains_in_message` deliberately does NOT do this:
 # a bare name in conversational prose is a weaker claim than one in print.
-_TEXT_TLDS = "com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg"
+#
+# **And the whitelist has to refuse a PREFIX of a longer hostname, or it fabricates.**
+# Found 2026-08-18 while pricing a scholarly corpus. `uk` and `au` are on this list, so
+# `www.nctu.edu.tw` matched `www.nctu.edu` and collapsed to `nctu.edu`, and
+# `tuvok.au.af.mil` matched `tuvok.au`. Both names are well formed, so no invariant could
+# see them, and the error runs in the flattering direction TWICE: the pair count drops
+# because the real host is lost, and the equivalent-English rises because the invented
+# TLD outweighs the real one. `.edu` is 0.9717 against `.edu.tw` at 0.1338, a 7.3x
+# inflation per record, and `.au` is 0.9904 against `.mil` at 0.9981.
+#
+# The lookahead makes a trailing label refuse the match outright, so `nctu.edu.tw` now
+# yields nothing at all. That is deliberate: this module already trades recall on
+# low-weight ccTLDs for safety, and an omission is a mistake this project can survive
+# while a fabricated high-weight name is not.
+# **`mil` added 2026-08-18, and the measurement that justifies only `mil` is worth keeping.**
+# `.mil` is 0.9981, the highest real weight in the model, and the store holds 1,619 pairs under it,
+# so its absence was a pure loss: `au.af.mil` extracted as nothing. 46 names recovered across both
+# corpora, mostly famous (`army.mil`, `darpa.mil`, `ddn.mil`, `dtic.mil`), so expect near-zero
+# net-new and take it for correctness rather than yield. `mil` is safe to add because it is not
+# also a file extension.
+#
+# **Widening further was measured and refused.** A whitelist-free pattern over the same two corpora
+# finds 34,494 more hostname-shaped names worth 12,033.9 equivalent-English as a ceiling, and the
+# single largest contributor is **`.zip`, 3,547 names at 2,056.2 EE**, which is a file extension.
+# So are `.so`, `.ps`, `.st` and `.in`. Of the 34,494, only 21,114 are undated, and an undated name
+# scores zero under the corroboration split by definition, so the whole apparent gain is fabricated
+# candidates. The narrowness is correct ON PROSE, which is what this module reads. Use
+# `price_items.py --all-tlds` when the input is a list of hostnames instead.
+_TEXT_TLDS = "com|net|org|edu|gov|mil|us|uk|au|ca|nz|ie|za|sg"
 DOMAIN_RE = re.compile(
-    rf"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{{0,62}}\.)+(?:{_TEXT_TLDS}))\b",
+    rf"(?<![a-z0-9.\-])((?:[a-z0-9][a-z0-9\-]{{0,62}}\.)+(?:{_TEXT_TLDS}))\b(?!\.[a-z])",
     re.IGNORECASE,
 )
 

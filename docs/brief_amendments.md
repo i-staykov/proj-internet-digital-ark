@@ -17,6 +17,7 @@ quotations, which is the only alteration made to anything quoted here.
 | after phase-2 | feedback v3, 2026-07-31 | `feedback-external-phase-2/` (markdown) |
 | after phase-3 | feedback v4 plus the equivalent-English calculator, 2026-08-03 | `feedback-phase-3/` |
 | after phase-4 | feedback, 2026-08-10 | `feedback-phase-4/` (`.docx` only, transcribed below) |
+| after phase-5 | feedback, 2026-08-17 | `feedback-phase-6/`, his `.docx` transcribed in full under [ding/](ding/) |
 
 ---
 
@@ -54,7 +55,7 @@ additions split into English-verified and unverified sets.
 **That standard was retired in August 2026 and replaced by the metric above.** The deliverable is one
 `additions/` set beside `candidates.txt`. Reporting page-level language verification now describes a
 rule nobody applies, which reads as a rule still in force, so it is not reported at all. The engine
-that implemented it is preserved at `legacy/src/language.py`; see `legacy/README.md`.
+that implemented it was removed on 2026-08-23; the git history holds it.
 
 ## 3. Evidence rules that have not changed
 
@@ -170,6 +171,135 @@ Two things follow, and the second is the uncomfortable one.
   does, because carrying a met goal forward silently retargets a fraction of a baseline that has itself
   grown. A target belongs in the report and in the allocation argument, never in a queue length.
 
-What the target costs in throughput is measured, not guessed, in the check-in of 2026-08-13 late in
-`notes.md`: the round banks about 624 EE/h across all three engines, and 5% by Sunday evening needs
-about 2,920 EE/h.
+---
+
+## 5. What he asked for after phase 5, on 2026-08-17
+
+**The task documents did not change.** `Internet_Digital_Ark_Project_0815_Update.docx`,
+`Update_Log.docx` and `Task_Package_File_Guide.txt` in the new package are byte-identical to the
+phase-5 ones, checked by sha256. What changed is the corpus and one paragraph of email. Both are
+transcribed in [ding/](ding/), which is now the place to read his brief rather than a summary of it.
+
+Phase 5 was accepted with **nothing rejected**:
+
+> The submission was independently checked for file integrity, domain formatting, duplication,
+> evidence coverage, and Equivalent-English calculation. All submitted domain-year records were
+> supported by corresponding evidence, and no invalid or duplicate records were found.
+
+**And recalculated downward, which is the part worth remembering.** He merges against whatever
+baseline is current when he gets to it, not the one quoted in the submission:
+
+> Because 230,393 submitted records had already been incorporated into the updated `merged260817`
+> baseline, the final accepted increment was recalculated against that latest baseline.
+
+So the credited round is **2,608,322 records and 1,566,229.7613 equivalent-English, 14.901054%**,
+against the 2,838,715 and 1,697,224.86 that were sent. The corpus is now `merged260817-2`:
+**22,491,418 records, 12,077,095.5404 equivalent-English**.
+
+### What he asked for next, in his words
+
+> Please continue expanding the historical domain list and exploring additional ready-made historical
+> datasets, bulk dated corpora, national web-archive link graphs, academic repositories, registry
+> datasets, and other innovative automated discovery methods. Please also continue reviewing whether
+> previously successful methods can produce further additions.
+
+Six named shapes and one instruction to re-mine what already worked. Every one of them is already a
+row in `sources.md`, so this is a ranking instruction rather than a new requirement: bulk dated corpora
+and national link graphs first, because they are the two that outproduced per-domain querying by more
+than an order of magnitude in phase 5.
+
+**One thing the accepted figures make measurable for the first time.** He ships a per-year merge audit
+of each contributor's submission alongside the baseline, so phase 6 can be aimed at where our work is
+thin rather than at where it is merely possible. On the phase-5 audit our 2001 was 982,881 accepted
+records against another contributor's 267, and our 1999 was 444,023 against their 1,423,310. The years
+1998 to 2000 are where the corpus is being grown by someone else and 2001 is where it is not.
+
+### The four deliverables now required of every submission
+
+Added by email the same day, and this is the part with teeth, because it changes what a delivery
+archive must contain rather than what should be collected. His words:
+
+> For every future submission, please also provide:
+>
+> - The complete runnable code, scripts, configurations, dependencies, and execution instructions
+>   used for discovery and processing.
+> - A concise experience summary covering successful and unsuccessful approaches, measured source
+>   yields, limitations, lessons learned, reusable techniques, and recommended directions for
+>   continued expansion.
+> - The code and explanation used to normalize, merge, and deduplicate the submitted annual files
+>   against the latest baseline, including overlap counts, the accepted increment, and reconciliation
+>   checks.
+> - The runnable Equivalent-English Domain calculation code and a clear explanation of the fixed TLD
+>   weights, model version, formula, invalid or unmatched-domain treatment, baseline total,
+>   post-merge total, increment, and growth rate.
+
+They are referred to throughout this repository as **D1** to **D4** in that order, so a commit
+message or a check name can cite one without restating it.
+
+**This is a reuse request, not a distrust one.** He had just accepted the round with nothing rejected,
+so nothing here is a response to a defect. Read together, the four ask for the thing that turns one
+submission into something the next person can run: the code, what was learned, the merge arithmetic,
+and the metric. Section X of his standing brief already asked for reproducibility; this makes the
+specific artifacts explicit.
+
+**D3 is the one that asks for something the project has never produced.** He performs the merge on
+his side and ships his own audit of it, `merge_stats_<contributor>_<date>.csv` and the matching
+`merge_audit_*.json`, whose columns are `year, baseline_unique, submitted_unique, already_in_baseline,
+accepted_new, merged_unique, equivalent_english_increment, growth_pct_vs_year_baseline`. Asking us to
+produce it means his number and ours can be diffed, and the overlap column is exactly the one that
+moved phase 5 from 2,838,715 records to 2,608,322. **Mirror his schema rather than inventing one**:
+a reconciliation is only useful if the two sides have the same column names.
+
+**D4 asks for a post-merge total, which is not the figure this project has been quoting.** Growth has
+always been stated against his pre-increment baseline, which is his own convention and stays. The
+post-merge total is a second number, what the corpus would hold once the submission is folded in, and
+it is what makes the increment checkable by subtraction.
+
+---
+
+## 6. The scoring rules, stated for the first time on 2026-08-18
+
+The feedback after phase 5 arrived twice: the acceptance in section 5, then a fuller message with a
+section headed **Competition scoring rules**. Nothing in `SPEC.md` or in `ding/` says how rounds
+combine into a score, so this is new information rather than a restatement, and it makes *when* we
+submit a lever in its own right. His words:
+
+> Your cumulative competition score is the direct sum of the official percentage increases awarded by
+> the organizers for all your accepted submissions. For example, official verified increases of 5%,
+> 15%, and 25% produce a cumulative score of:
+>
+> 5% + 15% + 25% = 45%
+>
+> When multiple participants submit results, submissions are processed strictly in the order in which
+> they are received. After each accepted submission is merged and deduplicated, the benchmark database
+> is updated immediately. The next submission is evaluated against that updated benchmark database.
+> Your submission timestamp therefore determines the benchmark used to calculate your official
+> percentage increase.
+
+And on the threshold, which is the clause most easily misread as a gate:
+
+> Reaching the 5% submission threshold triggers a formal submission batch but does not end your
+> participation. Your final competition position will be announced after the competition closes, all
+> eligible submissions have been verified in chronological order, and all cumulative scores have been
+> finalized.
+
+The feedback archive for this round is at `https://www.transfernow.net/dl/20260818nX8z1Swp`.
+
+### What follows from them, and what the round then measured
+
+**Percentages add, so a round is credited at the denominator of the day it arrives**, and that
+denominator grows mostly on other contributors' work: over the three intervals whose totals he has
+published, others added up to 1,082,013 equivalent-English a day against our own 13,200. So holding
+work back destroys credit and the rule is to submit early and often. The corollary drawn on 2026-08-18,
+that the 5% threshold recedes faster than collection can close it, held for querying and not for source
+admission: round 6 reached **5.3395%** on 2026-08-26, and it did so by admitting bulk dated corpora,
+the largest of them a second attribute of a file already on disk. **The approval gate in
+`approved-sources-list.md` is therefore the binding constraint on the score, not a formality beside it.**
+
+### What this does not change
+
+The evidence rules in section 3 and the corroboration split are untouched, and so is the rule that a
+master-eligible class may not date a year until a human has classified it. A faster clock is a reason
+to widen what we look at, never a reason to lower what counts as proof: a rejected record costs the
+round twice, once in the pairs withdrawn and once in the reviewer's confidence, and he has now accepted
+two consecutive rounds with nothing rejected.
