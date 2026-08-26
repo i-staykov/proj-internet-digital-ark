@@ -12,29 +12,26 @@ This round passes the 5% threshold you set.
 
 ## substance
 
-The round came from three routes, all self-dating or split-tested, and none of them new to you in
-principle:
+Eleven sources are new this round and every one is a machine-written record rather than a person's
+list. The largest came from a file already on disk. The 1999 RIPE database snapshot had been read for
+one attribute, the domain name, and dated to the file's own instant; each object also carries a
+`changed:` line per update applied to it, each with its own date. An object cannot be modified before
+it exists, so those lines reach 1996, 1997 and 1998, which the snapshot's own date cannot: 399,401
+further pairs and 58,398 equivalent-English, with no new download. It is used with the written
+permission of the RIPE NCC, gratefully acknowledged, and the parser reads the domain name and nothing
+else, enforced by tests that fail on a leaked address or telephone number.
 
-- **Registry creation dates**, read from RDAP rather than a compilation, as `whois_creation`. Used
-  strictly as your rule 6 requires: a creation date in 1998 writes 1998 and no other year, and no later
-  year is inferred from the domain still existing. I priced the opposite reading, treating creation plus
-  present existence as an interval, at over 1.7 million equivalent-English, then found your rule forbids
-  it and built nothing. Falsified before admitting: no TLD may predate its own delegation, checked
-  across every TLD in the set.
-- **Archive capture timestamps** from the Wayback CDX index, as `cdx_timestamp`, with the queue ordered
-  by measured yield per query rather than by TLD weight. Ranking on weight alone puts namespaces
-  delegated in 2013 at the head, which was worth nothing.
-- **Dated Usenet announcements**, admitted only under the corroboration split: a hostname somebody typed
-  earns a year only if a different source already dates that domain, and the corpus is excluded from
-  corroborating itself.
+The method finding is about which names to ask about. Asking RDAP about the 2,395,205 undated names
+in our candidate pool returns nothing: 602 queries, drawn once from the head and once seeded-random,
+produced zero in-window creation dates, because 73% of that pool answers 404 against 21.6% for
+domains we hold. A name no crawler captured is usually a name that was never much of a site. So we
+priced four invented populations against each other instead, and sibling names, every `.com`, `.net`
+and `.org` label we hold re-suffixed to the other two, returned 14,205 in-window creation dates from
+150,000 queries. Invented two-word compounds returned exactly zero from 859. A registry can only date
+a name that survived, so inventing plausible survivors beats enumerating known casualties.
 
-The useful negative is about our own data rather than a source. The candidate pool accumulated 575,417
-names that cannot ever have existed, strings under three namespaces that have never allowed arbitrary
-registration, mostly from address extraction where anti-spam munging garbles text. **Not one reached an
-annual file.** Every shipped `.mil`, `.gov` and `.edu` domain carries independent attestation, 100.0% of
-them, on the three highest-weighted namespaces in the model. The evidence wall was tested by accident and
-held, which I would rather report than a source count.
-
-The report leads with the discovery architecture rather than the totals, because that is the part you
-said the project is for: what bounds an agent nobody is watching, why the collectors outlive the agent,
-and the four measurement rules that each cost a day to learn.
+The gate is unchanged and is in code rather than in habit: no class may date a year until a human has
+written its decision, and `ark ingest` refused twice this round until the decision existed. Eleven
+sources, eleven written decisions, each with the primary link and the measurement it was approved on.
+Section 2 of the report lists all eleven with what dates one item and where the artifact is, so any of
+them can be opened and checked.
