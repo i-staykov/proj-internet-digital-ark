@@ -30,7 +30,7 @@ Two things to know before opening anything:
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
-| `journals/` | The raw response of every archive, registry and page query ever made, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs |
+| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **One collector is excluded on size**, the RDAP walks: 3.67 GB against 1.18 GB for everything else. It is this round's second-largest source, so that is a real limitation and `journals/README.txt` states it; the pairs remain checkable through `provenance/`, and the logs are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from |
@@ -164,7 +164,9 @@ just reproduce
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
 this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
-it behaved before 2026-08-18.
+it behaved before 2026-08-18. **The RDAP stage is the exception and will replay nothing**, because
+those logs are excluded on size. Its 581,458 assignments are still checkable by tier 2, which is the
+route below, and the logs will be sent on request.
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
 about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been
