@@ -394,6 +394,22 @@ def admissibility_sentence(f: dict) -> str:
     )
 
 
+def newest_audit(merge_dir: Path) -> Path | None:
+    """The most recently WRITTEN merge audit, or None.
+
+    **By modification time, never by name, and there is exactly one of these because two
+    call sites disagreeing is how the report contradicted itself twice on 2026-08-26.**
+    Sorting alphabetically picks `merge_audit_ark_20260824c.json` over a freshly written
+    `merge_audit_ark.json`, since the tagged name sorts last. That put a 488,722 increment
+    beside a 5.3344% growth rate in section 1, and after that was fixed in one place it did
+    the same again in section 8's merge table.
+    """
+    audits = list(merge_dir.glob("merge_audit_ark*.json"))
+    if not audits:
+        return None
+    return max(audits, key=lambda path: path.stat().st_mtime)
+
+
 def accepted_totals() -> dict | None:
     """The reviewer-equivalent figures from the latest merge audit, or None.
 
@@ -406,14 +422,9 @@ def accepted_totals() -> dict | None:
     that quoting a count in two places is how they come to disagree.
     """
     merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
-    audits = sorted(merge_dir.glob("merge_audit_ark*.json"))
-    if not audits:
+    newest = newest_audit(merge_dir)
+    if newest is None:
         return None
-    # **By modification time, not by name.** Sorting alphabetically picks
-    # `merge_audit_ark_20260824c.json` over a freshly written `merge_audit_ark.json`,
-    # because the tagged name sorts last. That is how a stale audit survived a re-run on
-    # 2026-08-26 and put a 488,722 increment beside a 5.3344% growth rate.
-    newest = max(audits, key=lambda path: path.stat().st_mtime)
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
@@ -647,13 +658,13 @@ def merge_reconciliation() -> str:
     absent the report says so instead of implying the merge was run.
     """
     merge_dir = Path(__file__).resolve().parents[1] / "output/merge"
-    audits = sorted(merge_dir.glob("merge_audit_ark*.json"))
-    if not audits:
+    newest = newest_audit(merge_dir)
+    if newest is None:
         return (
             "_The merge has not been run against this build. "
             "`uv run python source/scripts/merge_against_baseline.py` produces it._"
         )
-    audit = json.loads(audits[-1].read_text(encoding="utf-8"))
+    audit = json.loads(newest.read_text(encoding="utf-8"))
     t = audit["totals"]
     checks = audit.get("reconciliation", [])
     passed = sum(1 for c in checks if c.get("passed"))

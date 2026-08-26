@@ -165,10 +165,10 @@ each year, and scores every file with your own calculator. Per-year form in
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260821` | 25,064,981 | 13,362,368.8792 |
-| submitted | 769,438 | |
+| submitted | 1,929,655 | |
 | already in the baseline | 0 | |
-| **accepted increment** | **769,438** | **488,722.0745** |
-| post-merge total | 25,834,419 | 13,851,090.9537 |
+| **accepted increment** | **1,929,655** | **713,481.4198** |
+| post-merge total | 26,994,636 | 14,075,850.2990 |
 
 **22 of 22 reconciliation checks pass**, all arithmetic identities,
 so a failure would be a defect rather than a finding: per year that
