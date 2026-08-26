@@ -89,6 +89,10 @@ PROVENANCE_LINEAGE = {
     # so it shares the registry lineage rather than earning its own: a pair this and a
     # zone file both attest is one authority agreeing with itself.
     "us_domain_delegated": "registry",
+    # A regional registry stating its own database contents. Same lineage as every
+    # other registry assertion, so a pair this and a zone file both attest is one
+    # authority agreeing with itself.
+    "ripe_dbase_1999": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.

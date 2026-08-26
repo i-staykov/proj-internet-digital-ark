@@ -46,6 +46,8 @@ from ark.stats import collect_stats  # noqa: E402
 DATE_BASIS = {
     "domain_creation_bulk": "the registry's own creation date for that domain",
     "us_domain_delegated": "the edition date of the delegated-zone list",
+    "ripe_dbase_1999": "the snapshot's own generation stamp, `# 990804 00:07:01`",
+    "squidguard_2001_blacklist": "the list's own compile stamp, or the diff's date",
     "iedr_register": "the register page's own `updated automatically at` line",
     "internic_zone": "the SOA serial inside the zone payload",
     "ukwa_geoindex": "the 14-digit capture timestamp on the row",
@@ -199,6 +201,15 @@ ADMITTED_THIS_ROUND = {
         "instant a cron wrote it"
     ),
     "internic_zone": "the zone file's own SOA serial, which the registry wrote",
+    "ripe_dbase_1999": (
+        "the snapshot states its own generation instant, so a domain object in it is the "
+        "registry's database contents at that instant; used with the RIPE NCC's written "
+        "permission and read for the domain name only, no contact or personal data"
+    ),
+    "squidguard_2001_blacklist": (
+        "the compiler's header asserts a successful fetch, 510,389 of 654,820 links tested "
+        "successfully, so a listed host answered when the robot called"
+    ),
     "ukwa_geoindex": "a per-row capture timestamp, self-dating and unsplit",
     "ukwa_link_source": "the crawl year on each host link-graph row",
 }
@@ -213,6 +224,12 @@ def admitted_this_round(f: dict) -> str:
     return (
         "**Admitted this round, and the ground each was admitted on** (the full argument, "
         f"and every rejected source beside it, is in `sources.md`): {items}."
+        + (
+            " The 1999 RIPE database snapshot is used with the written permission of the "
+            "**RIPE NCC**, gratefully acknowledged, and only the domain name is read from it."
+            if "ripe_dbase_1999" in present
+            else ""
+        )
     )
 
 

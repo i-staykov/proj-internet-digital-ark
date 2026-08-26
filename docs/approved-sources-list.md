@@ -248,68 +248,6 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
-### ripe_dbase_1999 / artifact_listing
-
-- **REQUEST SENT 2026-08-25 by Ivo, to the RIPE NCC. Awaiting a reply; do not send a second.** The ask
-  is the narrow one: derive `(domain, 1999)` pairs only, publish no database text and no personal data,
-  no contact, person or maintainer objects, and accept conditions. Draft kept at
-  `private/access-request-ripe-20260825.md`
-- **if they say yes, this is a parser job and nothing else is blocking it.** No parser exists yet, by
-  design. The file is already on disk, integrity-checked, and the measurement below is current
-- if they say no, or do not answer, the answer is no: the header names prior permission as the remedy,
-  so proceeding without it would be proceeding against a term we have read three times over
-- measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
-  against the live store. A subagent measured 93,857.7 an hour earlier; the gap is the store growing
-  underneath it, not a disagreement
-- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE. Read this before the number.** The file's own
-  header, lines 6 to 15, says: `Restricted rights. Except for agreed Internet operational purposes,
-  no part of this publication may be reproduced, stored in a retrieval system, or transmitted, in any
-  form or by any means, electronic, mechanical, recording, or otherwise, without prior permission of
-  the RIPE NCC on behalf of the copyright holders.` Ingesting is arguably "stored in a retrieval
-  system" and shipping to the reviewer is arguably "transmitted". Against that: we would ship
-  `(domain, 1999)` pairs, not the publication, and bare facts are thin copyright. For it: RIPE NCC is
-  Dutch, so the EU sui generis DATABASE right applies to the extraction of a substantial part, and
-  641,241 rows is substantial by any reading. **This is your call and it is the reason nothing has
-  been ingested.** Your standing rule was "I am paid for this work, so if that makes bulk queries
-  illegal, let's not do it", and this is the same shape of question.
-  **Checked further 2026-08-24 and it got stronger, not weaker.** The restriction is not one file's
-  header: the same paragraph appears verbatim in three sibling files in the same directory,
-  `RIGHTS` (2000-02-22), `COPYRIGHT` (2002-02-03, covering 1992 to 2002) and `README` (2000-02-23),
-  and the README opens `For all database files in this directory the following copyright notice
-  applies`. So it is a directory-wide stated term, restated three times, with **no research
-  exception**: the only carve-out is "agreed Internet operational purposes", which this is not.
-  **The concrete route, if you want the 90,799 EE, is to ask.** RIPE NCC has a research-access
-  process and the text itself says "without prior permission of the RIPE NCC", so permission is
-  the named remedy rather than a hypothetical one. That is a letter, not a workaround
-- what dates one item: the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a
-  `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences
-  1999 and no other year, per rule 6
-- ingest specs: none written. **No parser exists and none will be written until the licence question
-  is answered**, so an approval here cannot be acted on by accident
-- the artifact: `http://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`, 71,919,736 bytes,
-  `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT`
-- **why it exists at all, which is the transferable part**: `ftp.ripe.net`'s own `dbase` is closed in
-  `sources.md` as GDPR-dummified and `ripe/registries/` as empty since 1998. FUNET mirrored RIPE's
-  whole DOCUMENT tree into `/pub/netinfo/`, beside `docs/`, `procedures/` and `minutes/`, then stopped
-  updating. The mirror froze holding the pre-GDPR original. This is the "filed next to its documents"
-  rule that the zone-file closure produced, working on the first try
-- integrity, all three checks pass: `gzip -t` clean, 20,528,780 lines, its own `# 990804 00:07:01` on
-  line 2 and its own `# EOF` terminator, so it is not a partial recovery
-- measured composition: 1,256,414 `*dn:` lines, 21,047 `.arpa` reverse zones excluded, 429 rejected,
-  **1,232,554 distinct registrable names**; 591,313 already dated 1999, 849,540 dated in some year,
-  **383,014 the store has never seen**
-- **volume beats weight here, which is why it nearly got discarded**: net-new by TLD is `de` 411,128,
-  `dk` 73,658, `at` 29,910, `it` 29,685, `nl` 19,753, `cz` 19,314, `no` 15,271, `fr` 12,027, `be`
-  9,433, `il` 6,518. Every one is on the near-worthless list, and 1.2M names at 0.1324 still outruns
-  any high-weight namespace still available to us
-- gross would be 173,359.2 EE. Quoting net-new, as the rule requires
-- robots: `ftp.funet.fi/robots.txt` permits `/pub/netinfo/` (it disallows `/ftp/`, `/incoming/`,
-  `/pub/mirrors/`, `/.m/`, `/cgi-bin/`) and asks `Crawl-delay: 15`. One request was made
-- potential: 99
-
-Decision: pending
-
-
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
@@ -1016,6 +954,89 @@ Decision: pending
 - potential: 3
 
 Decision: pending
+
+### ripe_dbase_1999 / artifact_listing
+
+- **REQUEST SENT 2026-08-25 by Ivo, to the RIPE NCC. Awaiting a reply; do not send a second.** The ask
+  is the narrow one: derive `(domain, 1999)` pairs only, publish no database text and no personal data,
+  no contact, person or maintainer objects, and accept conditions. Draft kept at
+  `private/access-request-ripe-20260825.md`
+- **if they say yes, this is a parser job and nothing else is blocking it.** No parser exists yet, by
+  design. The file is already on disk, integrity-checked, and the measurement below is current
+- if they say no, or do not answer, the answer is no: the header names prior permission as the remedy,
+  so proceeding without it would be proceeding against a term we have read three times over
+- measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
+  against the live store. A subagent measured 93,857.7 an hour earlier; the gap is the store growing
+  underneath it, not a disagreement
+- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE. Read this before the number.** The file's own
+  header, lines 6 to 15, says: `Restricted rights. Except for agreed Internet operational purposes,
+  no part of this publication may be reproduced, stored in a retrieval system, or transmitted, in any
+  form or by any means, electronic, mechanical, recording, or otherwise, without prior permission of
+  the RIPE NCC on behalf of the copyright holders.` Ingesting is arguably "stored in a retrieval
+  system" and shipping to the reviewer is arguably "transmitted". Against that: we would ship
+  `(domain, 1999)` pairs, not the publication, and bare facts are thin copyright. For it: RIPE NCC is
+  Dutch, so the EU sui generis DATABASE right applies to the extraction of a substantial part, and
+  641,241 rows is substantial by any reading. **This is your call and it is the reason nothing has
+  been ingested.** Your standing rule was "I am paid for this work, so if that makes bulk queries
+  illegal, let's not do it", and this is the same shape of question.
+  **Checked further 2026-08-24 and it got stronger, not weaker.** The restriction is not one file's
+  header: the same paragraph appears verbatim in three sibling files in the same directory,
+  `RIGHTS` (2000-02-22), `COPYRIGHT` (2002-02-03, covering 1992 to 2002) and `README` (2000-02-23),
+  and the README opens `For all database files in this directory the following copyright notice
+  applies`. So it is a directory-wide stated term, restated three times, with **no research
+  exception**: the only carve-out is "agreed Internet operational purposes", which this is not.
+  **The concrete route, if you want the 90,799 EE, is to ask.** RIPE NCC has a research-access
+  process and the text itself says "without prior permission of the RIPE NCC", so permission is
+  the named remedy rather than a hypothetical one. That is a letter, not a workaround
+- what dates one item: the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a
+  `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences
+  1999 and no other year, per rule 6
+- ingest specs: none written. **No parser exists and none will be written until the licence question
+  is answered**, so an approval here cannot be acted on by accident
+- the artifact: `http://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`, 71,919,736 bytes,
+  `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT`
+- **why it exists at all, which is the transferable part**: `ftp.ripe.net`'s own `dbase` is closed in
+  `sources.md` as GDPR-dummified and `ripe/registries/` as empty since 1998. FUNET mirrored RIPE's
+  whole DOCUMENT tree into `/pub/netinfo/`, beside `docs/`, `procedures/` and `minutes/`, then stopped
+  updating. The mirror froze holding the pre-GDPR original. This is the "filed next to its documents"
+  rule that the zone-file closure produced, working on the first try
+- integrity, all three checks pass: `gzip -t` clean, 20,528,780 lines, its own `# 990804 00:07:01` on
+  line 2 and its own `# EOF` terminator, so it is not a partial recovery
+- measured composition: 1,256,414 `*dn:` lines, 21,047 `.arpa` reverse zones excluded, 429 rejected,
+  **1,232,554 distinct registrable names**; 591,313 already dated 1999, 849,540 dated in some year,
+  **383,014 the store has never seen**
+- **volume beats weight here, which is why it nearly got discarded**: net-new by TLD is `de` 411,128,
+  `dk` 73,658, `at` 29,910, `it` 29,685, `nl` 19,753, `cz` 19,314, `no` 15,271, `fr` 12,027, `be`
+  9,433, `il` 6,518. Every one is on the near-worthless list, and 1.2M names at 0.1324 still outruns
+  any high-weight namespace still available to us
+- gross would be 173,359.2 EE. Quoting net-new, as the rule requires
+- robots: `ftp.funet.fi/robots.txt` permits `/pub/netinfo/` (it disallows `/ftp/`, `/incoming/`,
+  `/pub/mirrors/`, `/.m/`, `/cgi-bin/`) and asks `Crawl-delay: 15`. One request was made
+- potential: 99
+
+Decision: master
+
+Approved by Ivo 2026-08-26, after RIPE NCC granted the request. The licence question that blocked
+this for two days is answered: Member Services replied that research use of publicly available data
+is fine, and the only condition attached is request volume against the LIVE database, which cannot
+bind a static file already on disk. The full exchange is recorded verbatim in `sources.md`, including
+the honest limit that it is a support-desk reply which does not quote the 1999 notice back.
+
+**The permission constrains the code, so the constraint is in the code.** Ivo's request promised to
+read the domain objects and publish no personal data. `parse_ripe_dbase_1999` matches `*dn:` and
+nothing else, four tests in `tests/test_sources.py` enforce it, and one of them fails on a leak of a
+postal address, a phone number or an e-mail. That matters more than it looks: the file has no
+`person:` objects, which invites the conclusion that there is nothing to protect, and the conclusion
+is wrong. Contact details are inline in the domain objects under `*de`, `*ac`, `*tc` and `*ch`, and
+three of those five codes are not obviously personal from their names.
+
+Measured on the real file at ingest: 20,528,780 lines, 19,272,364 attributes discarded, 1,235,440
+domain objects, 20,974 reverse zones skipped, header year read as 1999 rather than assumed, and
+**zero values emitted that were not bare hostnames**. 1,232,554 distinct registrable names, 68.9%
+already held at some year, **641,038 net-new pairs at 1999 worth 90,770.3 equivalent-English**. That
+is 29 EE below the figure measured on 2026-08-24, the difference being the store growing underneath
+it, not a disagreement.
+
 
 ### us_domain_delegated / artifact_listing
 

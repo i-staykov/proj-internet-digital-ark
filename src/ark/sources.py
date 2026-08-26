@@ -449,6 +449,94 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# The 1999 RIPE database snapshot. **Read the docstring before touching this.**
+# Line 2 of the payload is the file's own stamp, `# 990804 00:07:01`. Two-digit year,
+# so 99 is 1999; anything below 90 would be 20xx, which this file is not.
+_RIPE_STAMP = re.compile(r"^#\s*(\d{2})(\d{2})(\d{2})\s+\d{2}:\d{2}:\d{2}\s*$")
+# The ONLY attribute this parser is permitted to read. Deliberately anchored and
+# deliberately not a general `\*(\w\w):` pattern, so widening it takes a code change
+# and a review rather than a config tweak.
+_RIPE_DOMAIN = re.compile(r"^\*dn:\s*(\S+)\s*$")
+
+
+def parse_ripe_dbase_1999(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per `domain:` object in the 1999-08-04 RIPE database snapshot.
+
+    **This source is used under written permission and the permission constrains the
+    code, so the constraint lives here rather than in a document.** RIPE NCC Member
+    Services answered Ivo's request on 2026-08-26: research use of publicly available
+    data is fine, with the only condition being request volume against the live
+    database, which cannot apply to a static file. The request Ivo made, and therefore
+    the promise this parser has to keep, was to read the domain objects and derive
+    `(domain name, 1999)` pairs and to publish **no personal data at all**.
+
+    **That promise is not free, because the contact data is inline.** The file has no
+    `person:` objects (a census of all 63 attribute codes returns zero for person,
+    address, phone, fax, e-mail, nic-hdl and role), which invites the conclusion that
+    there is no personal data in it. That conclusion is WRONG. Contact details sit
+    inside the domain objects under other codes:
+
+        *dn: TuKKK.FI
+        *de: Rehtorinpellonkatu 3, SF-20500 TURKU, Finland   <- postal address
+        *ac: +358 21 6383105                                 <- phone number
+        *ac: mniemi@abo.fi                                   <- e-mail
+        *ch: ripe-dbm@ripe.net 19920825                      <- e-mail
+
+    So `_RIPE_DOMAIN` matches `*dn:` and nothing else, and every other line is counted
+    and discarded. **Do not widen it.** `*de`, `*ac`, `*tc`, `*zc` and `*ch` are the
+    attributes that would break the promise, and three of the five are not obviously
+    personal from their names.
+
+    **What dates it.** Line 2 of the payload, `# 990804 00:07:01`, is the file stating
+    when it was generated, so a `domain:` object in it is the registry stating its
+    database contents on 4 August 1999. Per rule 6 that evidences **1999 and no other
+    year**: continued registration needs its own record. The stamp is read rather than
+    assumed, and a file without one is refused.
+
+    **Reverse zones are dropped here as well as by the store.** 20,974 of the 1,256,414
+    domain objects are `in-addr.arpa` delegations, which are infrastructure rather than
+    websites. The store has an invariant that would catch them anyway; dropping them
+    here keeps the counted totals honest.
+    """
+    year = None
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+
+            if year is None:
+                stamp = _RIPE_STAMP.match(line.rstrip("\n"))
+                if stamp is not None:
+                    two = int(stamp.group(1))
+                    year = (1900 + two) if two >= 90 else (2000 + two)
+                    stats["header_year"] = year
+                    if year not in YEARS:
+                        stats["stamp_out_of_window"] += 1
+                        return
+                    continue
+                if stats["lines"] > 40:
+                    # The stamp is on line 2. If forty lines in it is still absent,
+                    # this is not the file we think it is, and guessing a year for a
+                    # 20-million-line dump is the worst possible failure mode.
+                    stats["no_header_stamp"] += 1
+                    return
+                continue
+
+            found = _RIPE_DOMAIN.match(line.rstrip("\n"))
+            if found is None:
+                stats["attribute_discarded"] += 1
+                continue
+            value = found.group(1)
+            if value.upper().endswith((".ARPA", ".ARPA.")):
+                stats["reverse_zone_skipped"] += 1
+                continue
+            stats["domain_objects"] += 1
+            yield BulkRecord(
+                raw=value,
+                year=year,
+                evidence_value="ripe_dbase:19990804",
+            )
+
+
 # `squidguard-<category>-<basename>`, written by `collect_squidguard_2001.py`. The
 # category is kept only for the evidence value; the date is what matters.
 _SG_FILE = re.compile(r"^squidguard-([a-z0-9-]+)-(domains|urls)(?:\.(\d{4})(\d{2})(\d{2})\.diff)?$")
@@ -1310,6 +1398,17 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # The 1999 RIPE database snapshot, used under written permission from RIPE NCC
+    # dated 2026-08-26. `artifact_listing`: the file states its own generation instant
+    # and a `domain:` object in it is the registry's database contents at that instant.
+    # Evidences 1999 and no other year, per rule 6. Approved by Ivo 2026-08-26.
+    "ripe_dbase_1999": SourceSpec(
+        key="ripe_dbase_1999",
+        source_name="ripe_dbase_1999",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_database_snapshot",
+        parse=parse_ripe_dbase_1999,
+    ),
     # squidGuard's robot-compiled blacklists, 2001-12 edition. Master-eligible: the
     # header asserts successful fetches, and nobody typed the list. Approved by Ivo
     # 2026-08-26. GPL v2, so licence-clear.
