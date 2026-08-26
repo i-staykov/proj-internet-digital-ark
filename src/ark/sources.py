@@ -9,6 +9,7 @@ import csv
 import gzip
 import json
 import re
+import zipfile
 from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
@@ -449,6 +450,80 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# The CA Domain Registry's approval notices. Records are blocks of aligned
+# `Field:  value` lines, so both patterns are anchored to the line start.
+_CA_SUBDOMAIN = re.compile(r"^Subdomain:\s*(\S+)\s*$", re.M)
+_CA_APPROVED = re.compile(r"^Date-Approved:\s*(\d{4})/(\d{2})/(\d{2})\s*$", re.M)
+
+
+def parse_can_domain_registry_notices(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per `.ca` subdomain the registry approved in window.
+
+    **What this is.** The CA Domain Registry ran its approval process in public,
+    posting a structured record to the `can.domain` newsgroup for every subdomain it
+    approved. 37,782 such records survive in the group's archive, carrying 37,578
+    `Date-Approved:` fields:
+
+        Subdomain:      privacy.ca
+        Date-Received:  1999/06/23
+        Date-Approved:  1999/06/30
+        Date-Modified:  2000/08/23
+
+    **Why the approval field is the registry speaking, which is the ruling this rests
+    on.** The fields are machine-formatted with aligned columns and ISO-style dates, the
+    approval is the registry's own act rather than a description of somebody else's, and
+    this is the registry publishing its own process. So it is `whois_creation`: the
+    registry stating when it created the registration. Ruled by Ivo 2026-08-26. Read as
+    prose instead it would take the corroboration split and be worth about a tenth.
+
+    **Rule 6 governs and it costs most of the file.** An approval date evidences its own
+    year and nothing else, so a name approved in 1997 earns 1997 here and must earn any
+    later year from its own record. Approvals fall 1996: 7,766 / 1997: 9,520 / 1998:
+    15,133 / 1999: 4,473 / 2000: 0 / 2001: 0, because the registry stopped posting after
+    1999, and the many thousands approved before 1996 contribute nothing at all.
+
+    **`Date-Modified:` is deliberately not read.** It looked like free upside, since a
+    record cannot be modified for a name that is not registered, so a 2000 modification
+    would attest 2000. Measured: **nine such records in the whole archive, worth 0.0
+    equivalent-English.** Not worth a second evidence route.
+
+    **A block is bounded by the next `Subdomain:` line**, so an approval date belonging to
+    a neighbouring record can never attach to this one. That is the failure that inflated
+    an earlier source by binding a name to the date beside it.
+    """
+    if path.suffix == ".zip":
+        with zipfile.ZipFile(path) as archive:
+            names = archive.namelist()
+            if not names:
+                stats["empty_archive"] += 1
+                return
+            text = archive.read(names[0]).decode("utf-8", errors="replace")
+    else:
+        text = path.read_text(encoding="utf-8", errors="replace")
+
+    marks = list(_CA_SUBDOMAIN.finditer(text))
+    stats["subdomain_records"] = len(marks)
+    for index, mark in enumerate(marks):
+        stop = marks[index + 1].start() if index + 1 < len(marks) else len(text)
+        block = text[mark.start() : stop]
+        approved = _CA_APPROVED.search(block)
+        if approved is None:
+            stats["no_approval_date"] += 1
+            continue
+        year = int(approved.group(1))
+        if year not in YEARS:
+            stats["approved_out_of_window"] += 1
+            continue
+        stats["approved_in_window"] += 1
+        yield BulkRecord(
+            raw=mark.group(1),
+            year=year,
+            evidence_value=(
+                f"ca_date_approved:{approved.group(1)}{approved.group(2)}{approved.group(3)}"
+            ),
+        )
+
+
 # `NAME<TAB>25-OCT-01`. Oracle-style two-digit year, so the century is inferred: a
 # `01` is 2001, not 1901. The month name is parsed only to prove the field is a date
 # and not something else that happens to have two hyphens.
@@ -1466,6 +1541,16 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # The CA Domain Registry's public approval notices. `whois_creation`: the registry
+    # stating when it created the registration, so rule 6 gives that year and no other.
+    # Approved by Ivo 2026-08-26.
+    "can_domain_registry_notices": SourceSpec(
+        key="can_domain_registry_notices",
+        source_name="can_domain_registry_notices",
+        evidence_type="whois_creation",
+        acquisition_method="registry_approval_notice",
+        parse=parse_can_domain_registry_notices,
+    ),
     # Dotster's expiring-domain auction list, 2001-10-26. `artifact_listing`: a
     # registrar stating which names are registered and about to expire. Per-row dates,
     # so an out-of-window edition is refused row by row. Approved by Ivo 2026-08-26.

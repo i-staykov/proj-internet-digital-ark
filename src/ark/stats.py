@@ -96,6 +96,9 @@ PROVENANCE_LINEAGE = {
     # A registrar printing from its own database. Same authority family as a registry
     # listing: both are the operator of record stating what it holds.
     "namewinner_expiring": "registry",
+    # The .ca registry stating when it approved a registration. Registry authority,
+    # same family as every other registry assertion.
+    "can_domain_registry_notices": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
