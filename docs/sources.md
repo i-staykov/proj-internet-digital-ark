@@ -2986,3 +2986,36 @@ archive hides behind a 208 KB decoy with a better-matching name.
 **Parser note.** A record block is bounded by the next `Subdomain:` line, so an approval date belonging
 to a neighbouring record can never attach to this one. That is exactly the failure that once inflated
 a source by binding a name to the date printed beside it.
+
+---
+
+## SEC EDGAR filings, re-measured: right size, wrong shape, and too slow to help this round
+
+**Not banked. Re-measured 2026-08-26 and left pending**, because the cost is in requests and the
+requests are the problem.
+
+**Two strata against the live store, and they disagree completely.** 1999 QTR1: **389 filings, 496
+domain mentions, 81 distinct pairs, 0 net-new post-split, 0.0000 EE per filing.** 2001 QTR4: **248
+filings, 350 mentions, 94 distinct pairs, 13 net-new, 8.0 EE, 0.0324 EE per filing.**
+
+**The first measurement was mine and it was biased, which is the lesson worth keeping.** I sampled 1999
+about an hour after the RIPE snapshot added 641,038 pairs **at 1999**, making it the most saturated year
+in the store. A prose source tested against the year you have just filled will always measure zero.
+**Stratify by year before concluding anything about a corpus that spans the window.**
+
+**And do not project the good stratum either.** 0.0324 per filing over all 222,232 filings gives 7,203
+EE, which is wrong for the same reason in reverse. The driver is `P(store lacks year Y | domain held)`,
+0.611 for `.com` at 2001 against near zero at 1999. Expect the value to sit almost entirely in the
+2000-2001 filings, roughly 85,000 of them, worth on the order of **2,500 to 4,000 EE**.
+
+**Access, all verified.** `www.sec.gov/robots.txt` is 98 lines, read whole: `Allow: /Archives/edgar/data`
+explicitly, `Disallow: /cgi-bin`, nothing naming Claude. The `full-index/<year>/QTR<n>/form.idx` files
+answer 200 at 11-16 MB each. **The bulk `Feeds/<year>/QTR<n>/` route 404s for 1996, 1999 and 2001**, so
+there is no tarball route before 2002 and it is one request per filing: ~90 hours and ~33 GB for the
+whole corpus, ~35 hours for the 2000-2001 subset that carries the value.
+
+**Verdict: worth collecting as a background job with an absolute deadline, landing in a later round.
+Not worth blocking a submission on.** Two implementation notes for whoever builds it. Filter the index
+to the 2000-2001 quarters and to forms that actually print URLs. And catch
+`http.client.HTTPException`, not just `OSError`: one truncated chunked response killed a whole sampling
+run here, because `IncompleteRead` is not an `OSError`.
