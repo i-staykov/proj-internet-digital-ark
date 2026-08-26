@@ -29,7 +29,6 @@ the English page-language share of its right-most TLD, so `foo.uk` is worth 0.98
 | [docs/approved-sources-list.md](docs/approved-sources-list.md) | which source classes may date a year, one `Decision:` line each, **enforced by `ark ingest`** before it opens the database. Its `## Found, awaiting triage` section is an append-only queue of sources found but not yet priced, and **grows indefinitely by design**: it reaches `key-decisions.md` as one line naming the count, never one entry per source |
 | [docs/ADRs.md](docs/ADRs.md) | architecture decision records: the few structural decisions, with what was measured and what was rejected |
 | [submissions/](submissions/) | what was sent, round by round |
-| [legacy/](legacy/) | retired engines and spent probes, kept for their negative results |
 
 ## Requirements
 
@@ -47,9 +46,11 @@ then `uv sync`. Everything below runs under `uv run`. The optional
 
 Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this repository at all.
 
-**Tier-3 cost figures date from the phase-1 archive and have not been re-measured since.** Measured
-then, a full run took about 20 minutes and returned 99.77% of the pairs with all invariants passing;
-the gap was two sources with no journal to replay.
+**Tier-3 cost figures date from the phase-1 archive and have not been re-measured since.** What tier 3
+cannot re-derive is measured and larger than it used to be: on 2026-08-18, 2,387,824 assignments of
+5,323,465 (44.9%) came from two sources whose inputs cannot ship, one withdrawn by its host and one
+under a licence that forbids redistribution. None of them falls inside this round's additions, and
+tier 2 reproduces all of them from the provenance export. `docs/delivery_readme.md` has the table.
 
 ## Reproduce the results
 
@@ -103,7 +104,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 |---|---|---|
 | memory | `just state` | regenerates [docs/ROUND.md](docs/ROUND.md), the current state, from the programs that own each figure |
 | memory | `just hypo list` | the ledger: what has been proposed, priced, adopted or killed, with status |
-| screen | `just screen --dating typed "..."` | kills a proposal that duplicates one of ~60 closed families, and says whether it was closed on **measurement** or on **availability** |
+| screen | `just screen --dating typed "..."` | kills a proposal that duplicates a closed family, and says whether it was closed on **measurement** or on **availability** |
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | recover | `uv run python scripts/recover_dead_hosts.py` | asks the Wayback Machine for the **data files** of hosts the register wrote off as dead, which is a different question from re-probing the host. Proved twice on 2026-08-16: `nw.com/zone/9701.domains.gz` was recorded unrecoverable and is intact, worth 76,324 pairs; `cybermetrics.wlv.ac.uk` does not resolve and its whole `/database/` tree survives including a 166 MB zip. **It reports and never fetches**, because a file can be available, dated, and 100% already held |
 | probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](docs/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
@@ -151,10 +152,10 @@ just screen --dating typed "1997 conference proceedings with author affiliations
 just screen --list-closed          # the whole closed register, with line numbers
 ```
 
-Two gates, cheapest first. **Does it collide with a family already closed?** Roughly fifty are, each
-with the measurement that killed it, and the register is parsed out of
-[docs/sources.md](docs/sources.md) at run time rather than copied, so it cannot drift from the
-verdicts. A collision prints the verdict, so you argue with the measurement instead of rediscovering
+Two gates, cheapest first. **Does it collide with a family already closed?** Each closed family
+carries the measurement that killed it, and the register is parsed out of
+[docs/sources.md](docs/sources.md) at run time rather than copied, so no count here can drift from it:
+`just screen --list-closed` prints the register and its size. A collision prints the verdict, so you argue with the measurement instead of rediscovering
 it. **And what dates one item?** `self` needs no corroboration split and must not have its extraction
 widened; `typed` takes the split, which is what makes wide extraction safe; `undated` is seed-only.
 It **exits 2 if no dating claim is made**, because that answer decides what the source can ever be.
@@ -485,15 +486,14 @@ increment and line 5 is line 4 divided by line 2.
 ```bash
 uv run python scripts/round_figures.py            # the five fields, plus per-year and per-source
 uv run python scripts/round_figures.py --verify   # re-score with HIS calculator; non-zero exit on disagreement
-uv run python scripts/cdx_execution_notes.py      # the CDX campaign he asks for a section on
+uv run python scripts/cdx_execution_notes.py      # per-collector throughput and failure split
 ```
 
 
 
 `cdx_execution_notes.py` reads the journal directory rather than a list of prefixes, so a collector
 started under a name nobody wrote down is still measured. It reports queries, answered, success rate,
-in-window hit rate and the failure split per collector; `fill_report.py` calls the same function for
-the report's CDX section, so the two cannot disagree.
+in-window hit rate and the failure split per collector.
 
 **Always send with `--verify`.** A record his validator rejects scores zero for him and full weight
 for us, which is a live risk every time a source widens its matching. The figures are only correct
@@ -504,7 +504,7 @@ nothing else, short enough to read on a phone; the method goes in an attached re
 attachment as `.docx`:
 
 ```bash
-just report-docx private/interim-report-20260812.md
+just report-docx docs/report.md
 ```
 
 The drafts under `private/` carry a status block at the top and a `## Notes for Ivo` section at the
@@ -539,7 +539,6 @@ scripts/       collectors, splitters, supervisors, packaging, measurement
 tests/         pytest, network mocked
 docs/          the brief and its amendments, sources, discovery method, design notes, decision log
 submissions/   one folder per round: the report as sent, its checksum and manifest
-legacy/        retired engines and spent probes, kept for their negative results; not linted, not shipped
 ```
 
 Two files under `docs/` are **generated, not written**: `docs/report.md` comes from

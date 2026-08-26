@@ -36,6 +36,15 @@ than discovery, it needs no new licence, and it is where this round's yield actu
   approval notices, a registrar's expiring-domain list. Mean weight is often poor and volume carries it.
 - **Pricing a source before building a collector.** Several candidates died on a measurement that cost
   minutes; one measured 5,884 on the register and 0.0000 per filing in the stratum that mattered.
+- **Generating the names to query instead of discovering them.** Asking RDAP about the 2,395,205
+  undated names already in the pool returned zero in-window creation dates over 602 queries, because
+  73% of that pool answers 404: a name no crawler captured is usually a name that was never much of a
+  site. Four invented populations were priced against each other instead, and sibling names, every
+  held `.com`/`.net`/`.org` label re-suffixed to the other two, returned 14,205 in-window creation
+  dates from 150,000 queries, 59.9 equivalent-English per 1,000. English dictionary words had the
+  best hit rate at 28.0% and the worst ceiling, finite at about 235,000 words and 92.4% already held.
+  Invented two-word compounds returned exactly zero from 859 queries. **A registry can only date a
+  name that survived, so inventing plausible survivors beats enumerating known casualties.**
 
 ## 3. What did not work
 

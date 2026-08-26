@@ -6,8 +6,7 @@ deliberately meta-level: anything a docstring or a comment already says belongs 
 
 Related documents: [SPEC.md](SPEC.md) is the reviewer's brief and [brief_amendments.md](brief_amendments.md)
 is what he has changed since; [sources.md](sources.md) documents each source individually,
-[discovery.md](discovery.md) is the method for pricing a new one, and [notes.md](notes.md) is the dated
-decision log.
+and [discovery.md](discovery.md) is the method for pricing a new one.
 
 ---
 
@@ -39,7 +38,7 @@ evidence-backed. Two bins with a rule between them cannot be tuned.
 
 ## 2. Collectors write journals, not evidence
 
-Every network stage (`ark cdx`, `ark rdap`, `ark download`, `ark lang`) writes a gzipped JSON Lines
+Every network stage (`ark cdx`, `ark rdap`, `ark download`) writes a gzipped JSON Lines
 **journal** of raw responses and touches no database. A later `ark ingest` turns journals into
 evidence.
 
@@ -81,8 +80,8 @@ not the rate. Lowering requests per pair changes the rate.
 ## 4. Two lessons from a retired engine
 
 The page-level English verification engine is gone: the reviewer replaced that standard with the
-equivalent-English metric in August 2026, and the code was removed on 2026-08-23, with the full
-account in `legacy/README.md`. Two of its design rules are general enough to belong here, because they
+equivalent-English metric in August 2026, and the code was removed on 2026-08-23. Two of its
+design rules are general enough to belong here, because they
 apply to anything that asks a service a question and records the answer.
 
 **Unsettled is a first-class outcome.** A verdict, a documented rejection, and "the question did not
@@ -176,8 +175,7 @@ src/ark/          the pipeline package and the `ark` CLI
   cli.py          every command
 scripts/          collectors, splitters, supervisors, packaging, measurement
 tests/            pytest, network mocked
-docs/             the brief and its amendments, sources, discovery, this file, notes, the report
-legacy/           retired engines and spent probes; not linted, not tested, not shipped
+docs/             the brief and its amendments, sources, discovery, this file, the report
 ```
 
 Scripts under `scripts/` are the parts that run unattended for hours. They are shell rather than
@@ -214,7 +212,7 @@ the name came from. The gap pool needs only the first, because a bracketed year 
 nearly always there; the second factor there is how many bracketed years one query
 can fill.
 
-Two mistakes are recorded in `notes.md` because both cost real hours. Ranking by
+Two mistakes cost real hours and are worth stating. Ranking by
 share alone spent 1,709 queries on a TLD scoring 97.2% English for five hits,
 because a high share says what an answer is worth and nothing about whether there
 will be one; and estimating a hit rate from the pool query alone measured it over a

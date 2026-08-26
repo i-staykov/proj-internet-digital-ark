@@ -104,8 +104,9 @@ letters only**.
 - **Model-unmatched valid records** are well-formed hostnames whose TLD has no English row in the
   model. Reported as `model_unmatched_valid_records`.
 
-Measured on `merged260817-2`: 9,990 invalid and 8,042 unmatched across the six files, against
-22,491,418 records, so model coverage of valid records is **99.96%**.
+Measured on `merged260821` with your own program: 9,990 invalid and 8,311 unmatched across the six
+files, against 25,064,981 records, so model coverage of valid records is **99.9668%**. The same run
+reproduces your published total to the digit, 13,362,368.8792.
 
 **The clause that matters is `[a-z]{2,63}`, letters only.** An internationalised TLD in punycode,
 `xn--fiqs8s`, contains digits and hyphens, so it fails his pattern and scores **zero for him**. Our
