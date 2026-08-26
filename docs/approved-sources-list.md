@@ -305,38 +305,6 @@ Decision: pending
 
 Decision: pending
 
-### dartmouth_bfs_seed / cdx_timestamp
-
-- measured: 1419.9 net-new post-split EE over 2,460 pairs, measured 2026-08-24 over the COMPLETE level 0,
-  three of three files and 13.6 MB, not sampled
-- what dates one item: the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with
-  field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split
-- ingest specs: `dartmouth_bfs_seed`
-- collect it: `uv run python scripts/collect_dartmouth_bfs_seed.py`, 3 requests, 13.6 MB
-- the artifact: IA ran a breadth-first crawl seeded with URLs pulled from SEC 10-K filings and deposited
-  it as `Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls`, 204 items and 2,064 GB under
-  `CorporationWebsitesCollection`. **Only BFS level 0, the seed layer, is worth reading.**
-- source: https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls
-- **not the closed ARCS family**: `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` measured exactly zero net-new
-  because every capture in it is of a host on the NBER corporate list whose capture census we had banked.
-  This is a different and much larger seed population, from 10-K filings rather than that list
-- measured composition: 311,543 rows, 58,035 in-window HTTP 200s, 57,878 distinct pairs, 55,418 already
-  held, 2,460 net-new, 104.7 EE per MB. `com` 2,001 of 2,460; **2,377 land in 2001**; 440 of the names
-  the store has never seen
-- **the rest of the family is not worth downloading and this was measured, not assumed**: levels 2 and 3
-  are 92 of the 102 ARC items and three indexes there gave 0.00, 0.00 and 0.59 EE per MB, one level-1
-  index gave 1.93, against level 0's 104.7. A rate sampled from the shallow files overstates the family
-  about six-fold. The 102 `_warc` items are 2012-2019 with zero in-window rows
-- access note: the merged item-level `.cdx.gz` returns HTTP 401 while the per-file `.arc.os.cdx.gz`
-  returns 200. The restriction is on the merged object, not the parts, and `access-restricted-item: true`
-  predicts neither. `archive.org` downloads are a different service from `web.archive.org` replay, so
-  this spends neither archive-client slot
-- lineage: `internet_archive`, so it cannot inflate the independent-corroboration count
-- potential: 74
-
-Decision: pending
-
-
 ### junkfilter_dated_blocklist / dated_directory
 
 - measured: 2189.4 net-new post-split EE over 3,553 pairs, measured 2026-08-25. Verified two ways: my
@@ -582,32 +550,6 @@ Decision: pending
 
 Decision: pending
 
-
-### cctld_register_listing_inbody / artifact_listing
-
-- measured: 2855.6 net-new post-split EE over 12,251 pairs across three registries, each measured twice
-  by independent agents against the live store; **I verified the store side of every figure myself and it
-  reproduces exactly** (`.tw` 43,981 in-window names and 1,283 `idv.tw`, `.lu` 1999 holdings), but I have
-  not re-parsed the artifacts
-- what dates one item: the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's
-  frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at
-  that instant
-- the artifacts, one line each. **TWNIC `.tw` frozen-domain list** `twnic.net.tw/DN/fz1.shtml`, 9,529
-  net-new pairs, **1,275.0 EE** at 0.1338: names whose registration expired between 2001-05-29 and
-  2001-08-26, so every one was in the register during 2001 and the artifact implies nothing about another
-  year. **IDNIC `.id` unpaid list** `idnic.net.id/Info/RekapBelumBayar.html`, 2,162 pairs, **872.6 EE** at
-  0.4036. **RESTENA `.lu` register**, 1,865 pairs, **708.5 EE** at 0.3799
-- potential: 58
-- what makes it worth it: none of it is hand-typed, so no corroboration split, and the novelty is real
-  rather than a re-dating: 8,754 of TWNIC's 9,593 names are absent from the store in every year, because
-  `idv.tw` personal sites had nothing for a crawler to find. Weights are low, which is why 12,251 pairs
-  buy only 2,856 EE
-- **one point a human must rule on**: whether a stated EXPIRY date evidences the registration year. Here
-  it does so with no term-length inference, since every date falls inside 2001. The same reasoning kills
-  `DN/data/eng.tab`, whose expiry dates are 2002: recovering a 2000 registration from a 2002 expiry minus
-  an assumed term would be manufacturing
-
-Decision: pending
 
 ### cctld_register_listing_capture / cdx_timestamp
 
@@ -1242,6 +1184,47 @@ mentions are `irlgov.ie`, `doh.ie`, `entemp.ie`, `welfare.ie`, the authority cor
 position changed under this source's feet: after the IEDR register was banked it holds 55,432 in-window
 `.ie` pairs over 27,067 domains, so saturation is far higher than a week ago.
 
+### dartmouth_bfs_seed / cdx_timestamp
+
+- measured: 1419.9 net-new post-split EE over 2,460 pairs, measured 2026-08-24 over the COMPLETE level 0,
+  three of three files and 13.6 MB, not sampled
+- what dates one item: the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with
+  field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split
+- ingest specs: `dartmouth_bfs_seed`
+- collect it: `uv run python scripts/collect_dartmouth_bfs_seed.py`, 3 requests, 13.6 MB
+- the artifact: IA ran a breadth-first crawl seeded with URLs pulled from SEC 10-K filings and deposited
+  it as `Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls`, 204 items and 2,064 GB under
+  `CorporationWebsitesCollection`. **Only BFS level 0, the seed layer, is worth reading.**
+- source: https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls
+- **not the closed ARCS family**: `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` measured exactly zero net-new
+  because every capture in it is of a host on the NBER corporate list whose capture census we had banked.
+  This is a different and much larger seed population, from 10-K filings rather than that list
+- measured composition: 311,543 rows, 58,035 in-window HTTP 200s, 57,878 distinct pairs, 55,418 already
+  held, 2,460 net-new, 104.7 EE per MB. `com` 2,001 of 2,460; **2,377 land in 2001**; 440 of the names
+  the store has never seen
+- **the rest of the family is not worth downloading and this was measured, not assumed**: levels 2 and 3
+  are 92 of the 102 ARC items and three indexes there gave 0.00, 0.00 and 0.59 EE per MB, one level-1
+  index gave 1.93, against level 0's 104.7. A rate sampled from the shallow files overstates the family
+  about six-fold. The 102 `_warc` items are 2012-2019 with zero in-window rows
+- access note: the merged item-level `.cdx.gz` returns HTTP 401 while the per-file `.arc.os.cdx.gz`
+  returns 200. The restriction is on the merged object, not the parts, and `access-restricted-item: true`
+  predicts neither. `archive.org` downloads are a different service from `web.archive.org` replay, so
+  this spends neither archive-client slot
+- lineage: `internet_archive`, so it cannot inflate the independent-corroboration count
+- potential: 74
+
+Decision: master
+
+Approved by Ivo 2026-08-26. `cdx_timestamp`: field 2 of every CDX row is a 14-digit capture stamp, so
+each row is self-dating and takes no corroboration split, and field 5 is the HTTP status so only
+in-window 200s are read. Same evidence field the CDX engines are admitted on.
+
+Level 0 only, and that is the whole source rather than a sample of it: levels 2 and 3 measured 0.00,
+0.00 and 0.59 EE per MB against level 0's 104.7, and the 102 `_warc` items hold 2012-2019 with zero
+in-window rows. Lineage is `internet_archive`, since this is IA's own crawl indexed by IA, which
+costs a corroboration statistic and is the correct trade.
+
+
 ### content_filter_blacklists / artifact_listing
 
 - the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
@@ -1518,6 +1501,43 @@ not print URLs, which is the density screen failing about as hard as it can. **A
 decision-date field at all**: `created` is the 2024 ingest timestamp on every row, so a `dated_directory`
 reading would have to parse the date out of the opinion text. The measured shard is 1972-77 so it does
 not price the window directly, but the format facts are corpus-wide.
+
+### cctld_register_listing_inbody / artifact_listing
+
+- measured: 2855.6 net-new post-split EE over 12,251 pairs across three registries, each measured twice
+  by independent agents against the live store; **I verified the store side of every figure myself and it
+  reproduces exactly** (`.tw` 43,981 in-window names and 1,283 `idv.tw`, `.lu` 1999 holdings), but I have
+  not re-parsed the artifacts
+- what dates one item: the page's own machine-written timestamp, `更新時間: 2001/8/27 20:0:31` on TWNIC's
+  frozen-domain list and a cron line on RESTENA's, so the registry is stating the register's contents at
+  that instant
+- the artifacts, one line each. **TWNIC `.tw` frozen-domain list** `twnic.net.tw/DN/fz1.shtml`, 9,529
+  net-new pairs, **1,275.0 EE** at 0.1338: names whose registration expired between 2001-05-29 and
+  2001-08-26, so every one was in the register during 2001 and the artifact implies nothing about another
+  year. **IDNIC `.id` unpaid list** `idnic.net.id/Info/RekapBelumBayar.html`, 2,162 pairs, **872.6 EE** at
+  0.4036. **RESTENA `.lu` register**, 1,865 pairs, **708.5 EE** at 0.3799
+- potential: 58
+- what makes it worth it: none of it is hand-typed, so no corroboration split, and the novelty is real
+  rather than a re-dating: 8,754 of TWNIC's 9,593 names are absent from the store in every year, because
+  `idv.tw` personal sites had nothing for a crawler to find. Weights are low, which is why 12,251 pairs
+  buy only 2,856 EE
+- **one point a human must rule on**: whether a stated EXPIRY date evidences the registration year. Here
+  it does so with no term-length inference, since every date falls inside 2001. The same reasoning kills
+  `DN/data/eng.tab`, whose expiry dates are 2002: recovering a 2000 registration from a 2002 expiry minus
+  an assumed term would be manufacturing
+
+Decision: master
+
+Approved by Ivo 2026-08-26. `artifact_listing`: a registry that wrote its register to a static page
+carrying its own machine-written timestamp is stating the register's contents at that instant, which
+is the zone-file argument. Nothing is typed by a person, so no corroboration split.
+
+**Banked at 1,609.6 EE over 10,177 pairs, below the recorded 2,855.6, and two reasons are worth
+separating.** Only two of the three artifacts were retrievable in time: TWNIC 9,318 names and IDNIC
+1,671, with RESTENA `.lu` (708.5 EE) still to fetch. And IDNIC is dated conservatively, from its own
+`Jatuh Tempo` due-date column only, rather than also from the capture stamp; the recorded 2,162 pairs
+for 1,671 names implies the earlier measurement counted both routes. One route per artifact is the
+cleaner claim and it is what shipped.
 
 ### sec_form_adv_part1_2000_2001 / artifact_listing
 
