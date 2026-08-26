@@ -48,13 +48,13 @@ CURRENT_BASELINE_MARKER = "merged260821"
 # its round window are the same fact: the window opens where the shipped release
 # closes. Kept apart, they drift, and a stale window re-reports the previous
 # round's held candidates as this round's, silently and in our favour.
-CURRENT_ROUND_SINCE = "2026-08-17 09:34:55+00"
+CURRENT_ROUND_SINCE = "2026-08-26 22:43:08+00"
 
 # What to call the round now being collected, in Ivo's numbering. The report heading,
 # the cumulative table's last row and the submission directory all take it from here,
 # because they were three separate hardcoded "5"s and one of them was still saying 4
 # a week into the round.
-CURRENT_ROUND_LABEL = "6"
+CURRENT_ROUND_LABEL = "7"
 
 # The same files measured with the reviewer's own `equivalent_english_domains.py`.
 # PAIRS is the RAW record count, not the validator-passing subset: his line 1 tracks
@@ -147,6 +147,11 @@ SUBMITTED_ROUNDS = (
     ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730", Decimal("1.659986")),
     ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", Decimal("10.730988")),
     ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817", Decimal("14.901054")),
+    # Phase 6 went out on 2026-08-27 at 1,929,655 records, 713,481.4198 EE and 5.339483%
+    # against `merged260821`. It is NOT in this tuple yet and must not be added until his
+    # reply gives the accepted figures: phase 5 was credited 130,995 EE below what was
+    # sent, because another contributor's round reached the baseline first, and quoting
+    # the submitted figure here would overstate the cumulative by exactly that overlap.
 )
 
 
