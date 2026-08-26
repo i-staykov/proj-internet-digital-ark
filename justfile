@@ -209,6 +209,7 @@ sources:
     uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
     uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
     uv run ark ingest ripe_dbase_1999   data/raw/ripe_funet/ripe.db.gz
+    uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz
     uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
     uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
     uv run ark ingest cctld_register_listing_inbody data/raw/cctld/*.html

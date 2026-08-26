@@ -3068,3 +3068,48 @@ remaining references, then delete from `evidence`.
 notrenewed, 3,496 EE recorded) have their measurements on record but **not their URLs**, so each has to
 be re-found by CDX search against a throttled archive. A targeted hunt is running with a three-hour
 deadline. **Record the URL next to the measurement**, or the next person pays the search twice.
+
+---
+
+## The audit trail inside a file we already hold: 58,398 EE, and it reaches the thin years
+
+**Found 2026-08-26 by asking what else was in a source already banked, which is the method that has
+paid all week.** Not banked: it needs Ivo's ruling, and the build is complete and waiting.
+
+**Measured: 399,401 net-new pairs, 58,398.0 EE**, by year **1996 18,944 / 1997 67,515 / 1998 312,942**,
+with 1999 contributing **zero** because the snapshot's own date already banked that year. Top TLDs
+`de` 220,606, `dk` 51,034, `nl` 27,662, `it` 24,449. That is four times the gap that was open when it
+was found.
+
+**What it is.** The 1999-08-04 RIPE snapshot was ingested dating every domain object to **1999 alone**.
+But each object carries a `changed:` attribute for every update ever applied to it, 2,045,382 of them
+in this file, and each carries its own date: 1996 73,094, 1997 265,408, 1998 643,441, 1999 973,179 line
+instances. **You cannot modify a registry object that does not exist**, so each line is the registry's
+own dated record that the registration existed then.
+
+**Why this satisfies rule 6 rather than straining it.** Rule 6 says a creation date evidences its own
+year only, and continued registration needs its own record. A `changed:` line **is** its own record for
+its own year. So one object can legitimately attest several years, each on separate evidence, which is
+exactly the shape rule 6 demands and the one thing a creation date can never supply. It is also not
+killer 2: this is not a name appearing in a list, it is an explicit dated transaction on the object.
+
+**The transferable lesson, and it is the same one three times this week.** `ukwa.ds.2` gave up its
+`cdx/` sibling when asked what else was in the directory. `usenet-can` gave up a 14 MB archive when
+asked what the item was named for rather than what the group was called. And this file gave up 58,398
+EE when asked what else the objects said, rather than what the file was dated. **Ask what else the
+artifact you already hold is telling you, before looking for another artifact.**
+
+**Costs nothing new.** No collection, no host, no licence question: the file is on disk and the RIPE
+NCC's permission of 2026-08-26 covers research use of it. This reads one more attribute of the same
+objects.
+
+**The personal-data guard is the whole risk and it is in code.** A `changed:` line is `address SPACE
+date`, so an e-mail address sits on **every line this parser touches**. The pattern captures only the
+trailing 8-digit group; the record carries the date and nothing else. Three tests fail on a leak of an
+address, and one asserts the year inside the evidence value matches the assigned year, which is the
+invariant the ccTLD parser tripped earlier the same day.
+
+**The honest limit.** It inherits the premise the snapshot's own approval rests on, that a RIPE
+`domain:` object is a real registration. If that is wrong the snapshot is wrong too, so this extends an
+existing decision rather than opening a new one. What is genuinely new is only the claim that a dated
+update record evidences existence at its own date.
