@@ -99,6 +99,8 @@ PROVENANCE_LINEAGE = {
     # The .ca registry stating when it approved a registration. Registry authority,
     # same family as every other registry assertion.
     "can_domain_registry_notices": "registry",
+    # A ccTLD registry printing its own register. Registry authority.
+    "cctld_register_listing_inbody": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.

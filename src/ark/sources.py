@@ -450,6 +450,99 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
+# trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
+# on the page, IDNIC's rows carry a due date each.
+_CCTLD_FILE = re.compile(r"^cctld-([a-z0-9]+)-([a-z]{2,3})-(\d{4})(\d{2})(\d{2})\.html?$", re.I)
+# A name paired with a `DD-MON-YYYY` date in the same row, which is how IDNIC's
+# unpaid-fees table is laid out once the tags are collapsed.
+_CCTLD_ROW_DATE = re.compile(
+    r"\|([a-z0-9][a-z0-9.\-]*\.%s)\|+\s*\|*\s*(\d{2})-([A-Za-z]{3})-(\d{4})", re.I
+)
+# Indonesian and English month abbreviations. Only the year is used, so the map
+# exists to prove the field is a date rather than to compute anything.
+_CCTLD_MONTHS = {
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+    "mei",
+    "agu",
+    "okt",
+    "des",
+    "ags",
+    "peb",
+    "nop",
+}
+
+
+def parse_cctld_register_inbody(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per name on a ccTLD register listing that dates itself.
+
+    **The class.** A registry that wrote its register to a static page, where the page
+    carries its own machine-written timestamp. So the registry is stating the contents of
+    its register at a stated instant, which is the zone-file argument, and nothing here was
+    typed by a person, so no corroboration split applies.
+
+    **Two dating routes, and the row wins when it has one.** TWNIC's frozen-domain list
+    stamps the page, `更新時間: 2001/8/27 20:0:31`, and that dates every name on it: the
+    list is names whose registration expired between 2001-05-29 and 2001-08-26, so each was
+    in the register during 2001 and the artifact implies nothing about any other year.
+    IDNIC's unpaid-fees table instead prints a `Jatuh Tempo` due date per row, which is the
+    registry stating the boundary of that registration's paid period, so the row's own year
+    is used in preference to the file's.
+
+    **Only names under the registry's own namespace are read.** The filename declares the
+    TLD and anything else on the page, an ad or a mailto, cannot become evidence.
+
+    **The collector must pin the capture and record the size**, because the CDX `length`
+    column is the compressed WARC record size, not the page size, and a big uniform table
+    compresses hardest. Measured here: TWNIC reads 77,565 in the index and **624,921 bytes
+    on the wire**, IDNIC 23,977 against **251,567**, ratios of 8.1x and 10.5x. Ranking
+    candidate pages by CDX length under-ranks exactly the pages worth having, and the `.id`
+    find was nearly discarded on that basis.
+    """
+    match = _CCTLD_FILE.match(path.name)
+    if match is None:
+        stats["not_a_cctld_listing"] += 1
+        return
+    registry, tld, file_year = match.group(1), match.group(2).lower(), int(match.group(3))
+    if file_year not in YEARS:
+        stats["file_stamp_out_of_window"] += 1
+        return
+
+    raw = path.read_bytes().decode("latin-1", errors="replace")
+    flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", raw))
+
+    dated: dict[str, int] = {}
+    for row in re.finditer(_CCTLD_ROW_DATE.pattern % re.escape(tld), flat, re.I):
+        if row.group(3).lower() not in _CCTLD_MONTHS:
+            continue
+        year = int(row.group(4))
+        if year in YEARS:
+            dated[row.group(1).lower()] = year
+
+    names = set(re.findall(rf"[a-z0-9][a-z0-9.\-]*\.{re.escape(tld)}\b", flat, re.I))
+    stats["names_on_page"] += len(names)
+    stats["rows_with_own_date"] += len(dated)
+    for name in sorted(n.lower() for n in names):
+        year = dated.get(name, file_year)
+        stats["dated_from_row" if name in dated else "dated_from_page"] += 1
+        yield BulkRecord(
+            raw=name,
+            year=year,
+            evidence_value=f"cctld_register:{registry}.{tld}@{match.group(3)}{match.group(4)}{match.group(5)}",
+        )
+
+
 # The CA Domain Registry's approval notices. Records are blocks of aligned
 # `Field:  value` lines, so both patterns are anchored to the line start.
 _CA_SUBDOMAIN = re.compile(r"^Subdomain:\s*(\S+)\s*$", re.M)
@@ -1541,6 +1634,16 @@ SOURCES: dict[str, SourceSpec] = {
     # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
+    # ccTLD register listings that carry their own machine-written timestamp.
+    # `artifact_listing`: the registry stating its register's contents at that instant.
+    # Approved by Ivo 2026-08-26.
+    "cctld_register_listing_inbody": SourceSpec(
+        key="cctld_register_listing_inbody",
+        source_name="cctld_register_listing_inbody",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_register_listing",
+        parse=parse_cctld_register_inbody,
+    ),
     # The CA Domain Registry's public approval notices. `whois_creation`: the registry
     # stating when it created the registration, so rule 6 gives that year and no other.
     # Approved by Ivo 2026-08-26.

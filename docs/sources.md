@@ -3019,3 +3019,38 @@ Not worth blocking a submission on.** Two implementation notes for whoever build
 to the 2000-2001 quarters and to forms that actually print URLs. And catch
 `http.client.HTTPException`, not just `OSError`: one truncated chunked response killed a whole sampling
 run here, because `IncompleteRead` is not an `OSError`.
+
+---
+
+## `dartmouth_bfs_seed` and `cctld_register_listing_inbody`: BANKED 3,018.18 EE
+
+**`dartmouth_bfs_seed`: approved master and banked, 2,442 pairs, 1,408.55 EE.** 311,543 CDX rows read,
+58,035 in-window HTTP 200s, 253,505 rows out of window, 57,877 evidence rows over 18,940 domains.
+`cdx_timestamp` on field 2, self-dating, no split. Level 0 only, which is the whole source and not a
+sample of it: levels 2 and 3 measured 0.00, 0.00 and 0.59 EE per MB against level 0's 104.7. **The
+cheapest EE of the round, because the collector, the spec and the data were already on disk and it
+needed one decision line.**
+
+**`cctld_register_listing_inbody`: approved master and banked, 10,177 pairs, 1,609.63 EE.** Two
+artifacts of the three: TWNIC's `.tw` frozen-domain list (9,318 names) and IDNIC's `.id` unpaid-fees
+table (1,671). RESTENA `.lu` (708.5 EE) is still to fetch.
+
+**Under the recorded 2,855.6, and the reasons are worth separating.** One artifact missing, and IDNIC
+dated conservatively: its rows carry a `Jatuh Tempo` due date each, and only that is used, where the
+recorded 2,162 pairs over 1,671 names implies the earlier measurement also counted the capture stamp.
+**One route per artifact is the cleaner claim.**
+
+**The CDX length trap is confirmed to the byte and it nearly cost both artifacts.** The `length` column
+is the compressed WARC record size, not the page size, and a large uniform table compresses hardest:
+TWNIC reads **77,565 in the index and 624,921 bytes on the wire** (8.1x), IDNIC **23,977 against
+251,567** (10.5x). Ranking candidate pages by CDX length under-ranks exactly the pages worth having.
+
+**Semantics, one line each.** TWNIC's page stamps itself `更新時間: 2001/8/27 20:0:31` and lists names
+whose registration expired between 2001-05-29 and 2001-08-26, so every one was in the register during
+2001 and the artifact implies nothing about another year. IDNIC's due date is the registry stating the
+boundary of that registration's paid period, so the name existed then.
+
+**Still open in this family:** the four `_capture` artifacts (NIC Malta, SaudiNIC, ISOC-IL, `.nu`
+notrenewed, 3,496 EE recorded) have their measurements on record but **not their URLs**, so each has to
+be re-found by CDX search against a throttled archive. A targeted hunt is running with a three-hour
+deadline. **Record the URL next to the measurement**, or the next person pays the search twice.
