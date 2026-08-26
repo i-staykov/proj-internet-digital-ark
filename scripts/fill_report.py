@@ -242,6 +242,80 @@ def admitted_this_round(f: dict) -> str:
     )
 
 
+# Sources admitted in THIS round, with the one-line ground each was admitted on and the
+# receipt a reviewer can open. Everything not listed here was approved in an earlier round
+# and is unchanged, so the report does not re-argue it. Ivo, 2026-08-26: the additions are
+# what has to be verifiable, and nothing else earns space.
+NEW_THIS_ROUND = {
+    "ripe_dbase_1999": (
+        "the file's own generation stamp, `# 990804 00:07:01` on line 2",
+        "ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz",
+    ),
+    "ripe_dbase_changed": (
+        "the date on each object's own `changed:` transaction line",
+        "same file, `*ch:` attribute",
+    ),
+    "us_domain_delegated": (
+        "the edition's tar-preserved mtime, or its capture stamp",
+        "archive.org/details/2015.04.ftp.isc.org and www.isi.edu/in-notes/",
+    ),
+    "squidguard_2001_blacklist": (
+        "the list's own `compiled in ... on 2001.12.18` header, or the diff's filename date",
+        "archive.debian.org/.../squidguard_1.2.0.orig.tar.gz",
+    ),
+    "namewinner_expiring": (
+        "the per-row date `25-OCT-01`, on every line",
+        "web.archive.org/web/20011026120205id_/namewinner.com/whole_list.php?del=tab",
+    ),
+    "can_domain_registry_notices": (
+        "the registry's own `Date-Approved:` field in its public approval notice",
+        "archive.org/download/usenet-can/can.domain.mbox.zip",
+    ),
+    "cctld_register_listing_inbody": (
+        "the register page's own machine-written timestamp, or the row's due date",
+        "twnic.net.tw/DN/fz1.shtml and idnic.net.id/Info/RekapBelumBayar.html",
+    ),
+    "dartmouth_bfs_seed": (
+        "field 2 of each CDX row, a 14-digit capture timestamp",
+        "archive.org, Dartmouth_10KwebURLs_GWB BFS level 0",
+    ),
+    "iedr_register": (
+        "the register page's own `updated automatically at ... 2001` line",
+        "IE Domain Registry register, archived",
+    ),
+    "internic_zone": (
+        "the SOA serial inside the zone payload, `1997041800`",
+        "InterNIC 1997 zone files, nic.mil mirror",
+    ),
+    "ukwa_geoindex": (
+        "the 14-digit capture timestamp on each row",
+        "webarchive.org.uk/datasets/ukwa.ds.2/geo/",
+    ),
+}
+
+
+def new_sources_table(f: dict) -> str:
+    """The additions of this round, with grounds and receipts, so they can be checked."""
+    by_name = {row["source"]: row for row in f["by_source"]}
+    lines = [
+        "| Source | Evidence type | What dates one item | Receipt | Pairs | EE |",
+        "|---|---|---|---|--:|--:|",
+    ]
+    shown = 0
+    for name, (ground, receipt) in NEW_THIS_ROUND.items():
+        row = by_name.get(name)
+        if row is None:
+            continue
+        shown += 1
+        lines.append(
+            f"| `{name}` | `{row['evidence_type']}` | {ground} | {receipt} | "
+            f"{row['pairs']:,} | {row['ee']:,.1f} |"
+        )
+    if not shown:
+        return "No source was admitted for the first time in this round."
+    return "\n".join(lines)
+
+
 def ee_source_table(f: dict) -> str:
     """Per source, ordered by the metric the round is scored on.
 
@@ -389,6 +463,8 @@ def substitutions(f: dict) -> dict[str, str]:
         "EEGROWTH": f"{f['ee_netnew_growth_pct']:.4f}%",
         "EEMEAN": f"{f['ee_mean_weight']:.4f}",
         "EE_SOURCE_TABLE": ee_source_table(f),
+        "NEW_SOURCES_TABLE": new_sources_table(f),
+        "DECISIONS": str(len(NEW_THIS_ROUND.keys() & {r["source"] for r in f["by_source"]})),
         "ADMITTED_THIS_ROUND": admitted_this_round(f),
         "CORROBORATION": corroboration_sentence(f),
         "ADMISSIBLE": admissibility_sentence(f),
@@ -745,7 +821,7 @@ def _cdx_notes(markdown_form: bool) -> str:
 # not a census of every collector prefix we happened to name. Eighteen rows is most
 # of a page in the Word file, so the long tail is folded into one row here and the
 # full per-prefix breakdown ships in `audit/`. TOP_PREFIXES is the cut point.
-TOP_PREFIXES = 6
+TOP_PREFIXES = 3
 
 
 def cdx_table() -> str:
