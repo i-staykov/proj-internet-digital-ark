@@ -987,7 +987,7 @@ involving personal data against the live database. We make none: the artifact is
 disk. A census of all 63 attribute codes returns zero for person, address, phone, fax, e-mail,
 nic-hdl and role. The report attributes the RIPE NCC.
 
-## `ripe_dbase_1999`: BANKED 90,770.29 EE, the largest single source of the round
+## `ripe_dbase_1999`: BANKED 90,770.29 EE, the most PAIRS of any source this round
 
 The 1999-08-04 RIPE database snapshot, 1,232,554 distinct registrable names, at
 `ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`.
