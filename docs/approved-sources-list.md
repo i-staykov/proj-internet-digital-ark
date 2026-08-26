@@ -371,7 +371,22 @@ Decision: pending
 Decision: pending
 
 ### sec_edgar_filings / dated_directory
-- measured: 5884 net-new post-split EE, 2026-08-24
+- measured: 5884 net-new post-split EE, 2026-08-24. **RE-MEASURED 2026-08-26 by sampling, and the
+  figure is right in order of magnitude but wrong in shape: the yield is almost entirely in 2000-2001
+  and is zero in 1999.** Two strata, both against the live store: **1999 QTR1, n=389 filings, 496
+  mentions, 81 distinct pairs, 0 net-new, 0.0000 EE per filing**; **2001 QTR4, n=248, 350 mentions, 94
+  distinct pairs, 13 net-new, 8.0 EE, 0.0324 EE per filing**
+- **do not project the 2001 rate over all six years.** That gives 7,203 EE and is wrong, because 1999
+  measures exactly zero. The driver is `P(store lacks year Y | domain held)`, which is 0.611 for `.com`
+  at 2001 and near zero at 1999 after the RIPE ingest. So the honest expectation is the 2000-2001
+  filings only, roughly 85,000 of the 222,232, worth on the order of **2,500 to 4,000 EE**
+- **collect the 2000-2001 subset only.** That is most of the value for about 40% of the requests, and
+  the requests are the whole cost: the bulk `Feeds` route **404s for every year before 2002**, so it is
+  one request per filing. Full corpus is ~90 hours and ~33 GB; the 2000-2001 subset is ~35 hours
+- a caution on my own first measurement: the 1999 zero was taken an hour after RIPE added 641,038 pairs
+  at 1999, which is the single most saturated year in the store. **Sampling the year you just filled
+  will refute any prose source.** Stratify by year before concluding anything about a corpus that spans
+  the window
 
 - what it is: URLs and e-mail domains printed in SEC 8-K, DEF 14A and 10-KSB filings, 1996-2001
 - what dates one item: the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx`
