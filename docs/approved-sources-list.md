@@ -310,50 +310,6 @@ reach it: the registry was serving that name at that instant.
 Decision: pending
 
 
-### us_domain_delegated / artifact_listing
-
-- measured: 12,775.5 net-new post-split EE over 13,816 pairs, measured 2026-08-25 with the
-  project's own `price_items.py` against the live store, over the union of the 1996, 1999, 2000 and
-  2001 editions. Mean weight 0.9247. By year 1996 2,284 / 1999 4,185 / 2000 3,823 / 2001 3,524. The
-  2001 edition alone is 3,524 pairs and 3,247.3 EE. Gross was 15,270.0 and must not be quoted
-- what it is: `us-domain-delegated.txt`, the US Domain Registry's list of delegated `.us` zones, one
-  per line with the delegate's contact beside it. Six editions, ~2.5 MB, reached two ways: inside the
-  `2015.04.ftp.isc.org.tar` mirror on archive.org at `pub/rfc/`, and at the file's other home
-  `www.isi.edu/in-notes/us-domain-delegated.txt`
-- what dates one item: the artifact asserts the delegation state of the namespace, and the instant is
-  fixed twice. Tar-preserved mtimes 1996-10-09, 1996-11-20 and 1999-03-22 with six rotations whose
-  chain is monotone in both date and size (425,505 to 426,388 bytes over Feb-Mar 1999, continuing
-  monotone into the captures at 433,937 to 435,847); and `cdx_timestamp` on the 2000-08-15,
-  2000-12-06, 2001-04-11 and 2001-06-06 captures. A delegation is the registry serving the name at
-  that instant rather than a description of one, which is why killer 2 does not reach it, exactly as
-  for `internic_zone`
-- the name shapes were checked rather than assumed: the pinned PSL returns None for `K12.AK.US`,
-  `AK.US` and `US`, resolves `ANCHORAGE.AK.US`, and collapses `CI.ANCHORAGE.AK.US` to `anchorage.ak.us`
-- contamination measured and negligible: every line also carries a contact email, and those survive as
-  56 pairs of 13,816. By TLD `us` 13,760, `com` 36, `net` 18, `org` 2
-- caveats: the typo upper bound is **17.8%**, structurally rather than reassuringly, since sibling
-  locality names are one edit apart by construction (`HAINES`/`HEALY`, `NOME`/`TOK`). And 1997 and
-  1998 are unreachable, since no `*.isi.edu` capture predates 2000-08-15 and the ISC tar jumps 1996
-  to 1999
-- access note: `ftp.isc.org/robots.txt` ends `Disallow: /` under `User-agent: *`, so the live host must
-  never be touched. The 2015 mirror inside archive.org is a different host
-- **complete edition list, so a collector does not have to rediscover it.** Three sources, ten editions:
-  inside `2015.04.ftp.isc.org.tar` at `pub/rfc/`, the mtimes 1996-10-09 (`-new` variant), 1996-11-20
-  (`.backup`) and 1999-03-22 plus rotations `.0`-`.5` spanning 1999-02-19 to 1999-03-18; at
-  `www.isi.edu/in-notes/`, captures 2000-08-15, 2000-12-06, 2001-04-11 and 2001-06-06, the last three
-  byte-identical; and at **`ftp.isi.edu/in-notes/`, six rotations `.0`-`.5` all captured 2001-05-01**,
-  which the original survey missed because it only looked at the `www` host
-- the `ftp.isi.edu` rotations are a small addition, not a new year: the 1999 chain differed by about
-  900 bytes across a month, so consecutive rotations are near-duplicates, and these sit between the
-  2001-04-11 and 2001-06-06 editions already counted. Worth fetching for completeness, not for a
-  re-price
-- **1997 and 1998 are confirmed unreachable, checked from both hosts.** `ftp.isi.edu` has no capture of
-  the base filename at all and nothing before 2001-05-01; `www.isi.edu` starts at 2000-08-15; and the
-  ISC tar jumps 1996 to 1999. So the gap is real rather than unexamined
-- potential: 99
-
-Decision: pending
-
 ### squidguard_2001_blacklist / artifact_listing
 
 - measured: 10736.2 net-new post-split EE over 18,588 (domain, 2001) pairs, measured 2026-08-25.
@@ -1098,6 +1054,56 @@ Decision: pending
 - potential: 3
 
 Decision: pending
+
+### us_domain_delegated / artifact_listing
+
+- measured: 12,775.5 net-new post-split EE over 13,816 pairs, measured 2026-08-25 with the
+  project's own `price_items.py` against the live store, over the union of the 1996, 1999, 2000 and
+  2001 editions. Mean weight 0.9247. By year 1996 2,284 / 1999 4,185 / 2000 3,823 / 2001 3,524. The
+  2001 edition alone is 3,524 pairs and 3,247.3 EE. Gross was 15,270.0 and must not be quoted
+- what it is: `us-domain-delegated.txt`, the US Domain Registry's list of delegated `.us` zones, one
+  per line with the delegate's contact beside it. Six editions, ~2.5 MB, reached two ways: inside the
+  `2015.04.ftp.isc.org.tar` mirror on archive.org at `pub/rfc/`, and at the file's other home
+  `www.isi.edu/in-notes/us-domain-delegated.txt`
+- what dates one item: the artifact asserts the delegation state of the namespace, and the instant is
+  fixed twice. Tar-preserved mtimes 1996-10-09, 1996-11-20 and 1999-03-22 with six rotations whose
+  chain is monotone in both date and size (425,505 to 426,388 bytes over Feb-Mar 1999, continuing
+  monotone into the captures at 433,937 to 435,847); and `cdx_timestamp` on the 2000-08-15,
+  2000-12-06, 2001-04-11 and 2001-06-06 captures. A delegation is the registry serving the name at
+  that instant rather than a description of one, which is why killer 2 does not reach it, exactly as
+  for `internic_zone`
+- the name shapes were checked rather than assumed: the pinned PSL returns None for `K12.AK.US`,
+  `AK.US` and `US`, resolves `ANCHORAGE.AK.US`, and collapses `CI.ANCHORAGE.AK.US` to `anchorage.ak.us`
+- contamination measured and negligible: every line also carries a contact email, and those survive as
+  56 pairs of 13,816. By TLD `us` 13,760, `com` 36, `net` 18, `org` 2
+- caveats: the typo upper bound is **17.8%**, structurally rather than reassuringly, since sibling
+  locality names are one edit apart by construction (`HAINES`/`HEALY`, `NOME`/`TOK`). And 1997 and
+  1998 are unreachable, since no `*.isi.edu` capture predates 2000-08-15 and the ISC tar jumps 1996
+  to 1999
+- access note: `ftp.isc.org/robots.txt` ends `Disallow: /` under `User-agent: *`, so the live host must
+  never be touched. The 2015 mirror inside archive.org is a different host
+- **complete edition list, so a collector does not have to rediscover it.** Three sources, ten editions:
+  inside `2015.04.ftp.isc.org.tar` at `pub/rfc/`, the mtimes 1996-10-09 (`-new` variant), 1996-11-20
+  (`.backup`) and 1999-03-22 plus rotations `.0`-`.5` spanning 1999-02-19 to 1999-03-18; at
+  `www.isi.edu/in-notes/`, captures 2000-08-15, 2000-12-06, 2001-04-11 and 2001-06-06, the last three
+  byte-identical; and at **`ftp.isi.edu/in-notes/`, six rotations `.0`-`.5` all captured 2001-05-01**,
+  which the original survey missed because it only looked at the `www` host
+- the `ftp.isi.edu` rotations are a small addition, not a new year: the 1999 chain differed by about
+  900 bytes across a month, so consecutive rotations are near-duplicates, and these sit between the
+  2001-04-11 and 2001-06-06 editions already counted. Worth fetching for completeness, not for a
+  re-price
+- **1997 and 1998 are confirmed unreachable, checked from both hosts.** `ftp.isi.edu` has no capture of
+  the base filename at all and nothing before 2001-05-01; `www.isi.edu` starts at 2000-08-15; and the
+  ISC tar jumps 1996 to 1999. So the gap is real rather than unexamined
+- potential: 99
+
+Decision: master
+
+Approved by Ivo 2026-08-26 after reviewing the artifact and its receipts. The grounds are the
+delegation argument, not overlap: a delegated-zone list is the registry serving those names at the
+instant the edition is stamped, the same instrument as a DNS zone file, which is why killer 2 does
+not reach it. Machine-generated, so no corroboration split. Evidences the edition's own year and no
+other, per rule 6. Column 2 only, so contact mail domains are never read as delegations.
 
 ### iedr_register / artifact_listing
 

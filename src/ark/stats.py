@@ -85,6 +85,10 @@ PROVENANCE_LINEAGE = {
     # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
     "iedr_register": "registry",
+    # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
+    # so it shares the registry lineage rather than earning its own: a pair this and a
+    # zone file both attest is one authority agreeing with itself.
+    "us_domain_delegated": "registry",
     "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
