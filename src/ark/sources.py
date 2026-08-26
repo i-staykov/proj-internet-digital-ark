@@ -450,6 +450,78 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# `*ch: someone@example.com 19980315`. The date is the LAST 8-digit token on the line
+# and the capture group is deliberately narrow: the address before it must never be read.
+_RIPE_CHANGED = re.compile(r"^\*ch:.*?(\d{8})\s*$")
+
+
+def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per dated `changed:` transaction on a RIPE domain object.
+
+    **The claim, which is narrower than it first looks.** A RIPE object carries a
+    `changed:` attribute for every update applied to it. You cannot modify a registry
+    object that does not exist, so a line reading `19980315` is the registry's own dated
+    record that this registration existed on that date. That is not an inference from a
+    listing; it is an explicit transaction record inside the object, which is why killer 2
+    does not reach it.
+
+    **This is what rule 6 asks for and a creation date cannot give.** Rule 6 says a
+    creation date evidences its own year only, and continued registration needs its own
+    record. Each `changed:` line IS its own record for its own year, so one object can
+    legitimately attest several years, each on separate evidence. The 1999-08-04 snapshot
+    was ingested dating every object to 1999 alone; this reads the audit trail underneath
+    it and reaches **1996, 1997 and 1998**, which the snapshot's own date cannot.
+
+    **Personal data must never leave this function, and the regexp is the guard.** A
+    `changed:` line is `address SPACE date`, so the address is on every line this parser
+    touches: 2,045,382 of them. The pattern captures only the trailing 8-digit group and
+    the record carries only the date, so no address can reach evidence. Tests in
+    `tests/test_sources.py` fail on a leak, and the promise Ivo made to the RIPE NCC on
+    2026-08-25 is what they exist to keep.
+
+    **Scope.** `.arpa` reverse zones are skipped as infrastructure, as in the snapshot
+    parser. A date outside 1996-2001 is counted and dropped, which removes the 1990-1995
+    tail (60,000 lines) and anything after the snapshot's own instant.
+
+    **The honest limit.** This inherits the premise Ivo already accepted for the snapshot:
+    that a RIPE `domain:` object is a real registration. If that premise is wrong the
+    snapshot is wrong too, so this extends the existing decision rather than reopening it.
+    """
+    year_of: dict[str, int] = {}
+    current: str | None = None
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            if line.startswith("*dn:"):
+                value = line[4:].strip()
+                current = None if value.upper().endswith((".ARPA", ".ARPA.")) else value
+                if current is None:
+                    stats["reverse_zone_skipped"] += 1
+                continue
+            if current is None:
+                continue
+            found = _RIPE_CHANGED.match(line.rstrip("\n"))
+            if found is None:
+                continue
+            stats["changed_lines"] += 1
+            year = int(found.group(1)[:4])
+            if year not in YEARS:
+                stats["changed_out_of_window"] += 1
+                continue
+            stats["changed_in_window"] += 1
+            # One record per (object, year); a second update in the same year adds nothing.
+            key = f"{current}\t{year}"
+            if key in year_of:
+                stats["same_year_repeat"] += 1
+                continue
+            year_of[key] = year
+            yield BulkRecord(
+                raw=current,
+                year=year,
+                evidence_value=f"ripe_changed:{found.group(1)}",
+            )
+
+
 # Edelman's whois transcriptions. A record begins at a BOLD subject and runs to the
 # next one; the creation date sits inside it as `Registered on: Jun 28, 2001`.
 _ED_SUBJECT = re.compile(r"<b>\s*(?:<a[^>]*>)?\s*([A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,})", re.I)
@@ -1852,6 +1924,16 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="registrar_expiring_listing",
         parse=parse_namewinner_expiring,
+    ),
+    # The audit trail INSIDE the 1999 RIPE snapshot: one record per dated `changed:`
+    # transaction, which reaches 1996-1998 where the snapshot's own date cannot.
+    # `artifact_listing`: the file records a dated transaction on that object.
+    "ripe_dbase_changed": SourceSpec(
+        key="ripe_dbase_changed",
+        source_name="ripe_dbase_changed",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_database_audit_trail",
+        parse=parse_ripe_dbase_changed,
     ),
     # The 1999 RIPE database snapshot, used under written permission from RIPE NCC
     # dated 2026-08-26. `artifact_listing`: the file states its own generation instant

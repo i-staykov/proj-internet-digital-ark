@@ -93,6 +93,9 @@ PROVENANCE_LINEAGE = {
     # other registry assertion, so a pair this and a zone file both attest is one
     # authority agreeing with itself.
     "ripe_dbase_1999": "registry",
+    # The same file's audit trail. Same authority, so a pair this and the snapshot both
+    # attest is one registry agreeing with itself, not two witnesses.
+    "ripe_dbase_changed": "registry",
     # A registrar printing from its own database. Same authority family as a registry
     # listing: both are the operator of record stating what it holds.
     "namewinner_expiring": "registry",

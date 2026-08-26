@@ -20,6 +20,7 @@ from ark.sources import (
     parse_odp,
     parse_rdap_snapshot,
     parse_ripe_dbase_1999,
+    parse_ripe_dbase_changed,
     parse_ukwa_link_source,
     parse_ukwa_link_target,
 )
@@ -1106,3 +1107,63 @@ def test_ripe_refuses_an_out_of_window_stamp(tmp_path: Path) -> None:
     stats: Counter = Counter()
     assert list(parse_ripe_dbase_1999(path, stats)) == []
     assert stats["stamp_out_of_window"] == 1
+
+
+# The `changed:` audit trail reaches 1996-1998, which the snapshot's own date cannot. Every
+# line it touches carries an e-mail address before the date, so these tests are the guard on
+# the promise made to the RIPE NCC: take the date, never the address.
+_RIPE_CHANGED_FIXTURE = """#
+# 990804 00:07:01
+#
+
+*dn: OULU.FI
+*de: Oulu University
+*ch: lk-kr@finou.oulu.fi 19910916
+*ch: dfk@cwi.nl 19970930
+*ch: ripe-dbm@ripe.net 19990711
+*so: RIPE
+
+*dn: TuKKK.FI
+*ch: mniemi@abo.fi 19980825
+*ch: mniemi@abo.fi 19981103
+*so: RIPE
+
+*dn: 231.130.IN-ADDR.ARPA
+*ch: hostmaster@example.net 19980101
+*so: RIPE
+"""
+
+
+def _ripe_changed(tmp_path: Path):
+    path = tmp_path / "ripe.db"
+    path.write_text(_RIPE_CHANGED_FIXTURE)
+    stats: Counter = Counter()
+    return list(parse_ripe_dbase_changed(path, stats)), stats
+
+
+def test_ripe_changed_reaches_the_years_the_snapshot_cannot(tmp_path: Path) -> None:
+    records, stats = _ripe_changed(tmp_path)
+    assert sorted((r.raw, r.year) for r in records) == [
+        ("OULU.FI", 1997),
+        ("OULU.FI", 1999),
+        ("TuKKK.FI", 1998),
+    ]
+    # 1991 is before the window; the second 1998 line on TuKKK adds nothing.
+    assert stats["changed_out_of_window"] == 1
+    assert stats["same_year_repeat"] == 1
+    assert stats["reverse_zone_skipped"] == 1
+
+
+def test_ripe_changed_emits_no_address(tmp_path: Path) -> None:
+    """The promise to RIPE NCC, enforced on the one attribute that always carries an address."""
+    records, _ = _ripe_changed(tmp_path)
+    blob = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
+    for forbidden in ("@", "finou", "cwi.nl", "ripe-dbm", "abo.fi", "mniemi"):
+        assert forbidden not in blob, f"parser leaked {forbidden!r}"
+
+
+def test_ripe_changed_evidence_value_year_matches_its_row(tmp_path: Path) -> None:
+    """`ark check` compares the year inside the value against the assigned year."""
+    records, _ = _ripe_changed(tmp_path)
+    for record in records:
+        assert str(record.year) in record.evidence_value
