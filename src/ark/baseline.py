@@ -128,11 +128,25 @@ ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 # contributors. Quoting the submitted figure would overstate the cumulative by exactly
 # that overlap, and the overlap is only ever visible in his reply.
 SUBMITTED_ROUNDS = (
-    # label, date, records, equivalent-English, baseline accepted against
-    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2"),
-    ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730"),
-    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2"),
-    ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817"),
+    # label, date, records, equivalent-English, baseline accepted against, awarded %
+    #
+    # The last column is the percentage HE awarded, quoted from his feedback, because the
+    # competition score is the direct arithmetic sum of those percentages and not a ratio
+    # anything here can recompute: each was taken against the baseline of the day it
+    # arrived, and those baselines are gone. Sources, in order:
+    # round 1  feedback of 2026-07-27, "adding 1,429,524 records (17.38%)". This one is a
+    #          RECORD percentage: the equivalent-English metric was introduced after it,
+    #          so it is not commensurable with the three below and is reported separately.
+    # round 3  feedback of 2026-08-03, "91,814.6880, equal to 1.659986% of the merged260730
+    #          baseline of 5,531,053.6089".
+    # round 4  feedback of 2026-08-10, "increased by 603,401.7811 ... a 10.730988% increase
+    #          over merged260802-2".
+    # round 5  feedback of 2026-08-18, credited 2,608,322 records and 1,566,229.7613 EE at
+    #          14.901054%, against the 2,838,715 and 1,697,224.86 that were sent.
+    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2", None),
+    ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730", Decimal("1.659986")),
+    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", Decimal("10.730988")),
+    ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817", Decimal("14.901054")),
 )
 
 
