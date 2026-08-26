@@ -2408,7 +2408,7 @@ population. Do not use these to re-price that one.
 
 ## namewinner.com expiring-domain list, 2001-10-26 (PRICED, needs a Decision)
 
-**This prices `domain_aftermarket_listings_1999_2001`, which had sat unmeasured since the aftermarket
+**This prices `namewinner_expiring (formerly domain_aftermarket_listings_1999_2001)`, which had sat unmeasured since the aftermarket
 lens was first opened.** That lens was closed once already, correctly, for the Usenet for-sale groups:
 `alt.domain-names.forsale` and its siblings are ingested at 36,425 rows over ~32,685 domains and were
 measurable for nothing. **What had never been retrieved was the bulk listing half**, and it pays.
@@ -2915,3 +2915,36 @@ several million.
 
 **Attribution.** The report now names the RIPE NCC as the source and states that only the domain name
 is read, which is what Ivo offered them unprompted.
+
+---
+
+## `namewinner_expiring`: BANKED 11,546.26 EE on the master reading
+
+**Approved master by Ivo 2026-08-26 and banked: 18,937 pairs at 2001.** Store 630,532.68 to
+**642,078.94 equivalent-English**, 4.7187% to **4.8051%**. Ingest stats: 20,945 lines, 20,944 data
+rows, 20,943 canonicalised, 18,937 assigned.
+
+**The ruling, and its scope.** The corroboration split does not apply, because this is a dump out of
+a registrar's expiring-domain database rather than a list a person compiled, and being registered is
+the only way onto it. So it dates novel names too, exactly as `iedr_register` and `internic_zone` do,
+which is worth 11,546 against 2,077 on the conservative reading. **The ruling covers the 2001-10-26
+capture only**, which needs no inference because its own per-item date is inside the window.
+
+**The parser reads each row's own date, and that is the load-bearing design choice.** The 2002-04
+capture of the same page holds 52,204 names and would be worth 31,204 EE on the same reading, and it
+is refused **automatically, one row at a time**, because `25-APR-02` is not in `YEARS`. A parser that
+took the date from the filename or the capture would have swallowed it. See the rule 6 objection on
+the `expiring_list_2002_term_inference` row: an expiry date evidences its own year, so a 2002 artifact
+cannot reach 2001 by arithmetic about registration terms.
+
+**Receipts.** `web.archive.org/web/20011026120205id_/http://namewinner.com/whole_list.php?del=tab`,
+581,560 bytes, tab-separated plain text despite the `.php`. The dating was verified by counting:
+**20,945 occurrences of `25-OCT-01` and no other date of that shape in the file.** Dotster's own
+`rule_book.php` (capture `20011027003733`) calls it "our list of soon to be expiring domain names".
+
+**A naming trap worth recording.** The register entry was filed as
+`domain_aftermarket_listings_1999_2001` while the spec was written as `namewinner_expiring`, and the
+approval gate reads the register, so the ingest refused with "awaiting classification" even though the
+`Decision:` line said master. **The gate matches on the entry name, so the spec key and the entry
+heading have to be the same string.** Renamed the entry and left the old slug as a pointer. This is
+the second time in one day: `squidguard_blacklist` against `squidguard_2001_blacklist` did the same.
