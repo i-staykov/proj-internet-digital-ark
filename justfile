@@ -206,6 +206,7 @@ sources:
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
     uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
     uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
+    uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv

@@ -2731,3 +2731,30 @@ and software furniture: `EMAILS.ANS` ANSI menus, `EMAILS.CFG`, `INSTALL.DAT` pay
 `maillist.Z`, and an `emails.gif` inside a clipart ISO. No bulk list among them. Combined with
 `discmaster_by_file_size` already being rejected on the one artifact it did find, **both routes into
 preserved media are now exhausted, by name and by size.** Ten requests were made to that host in total.
+
+**BANKED 2026-08-26: +15,173.22 EE over 16,384 pairs, above the 12,775.5 estimate.** Ivo approved it
+as master on the delegation argument. Five editions ingested so far: 1996-10-09, 1996-11-20,
+1999-03-22, 2000-08-15 and 2001-06-06, giving 31,503 zone rows, 30,837 canonicalised, 666 rejected
+(the `k12.*.us` and bare-locality public suffixes the PSL correctly refuses) and 16,384 assigned
+pairs. It beat the estimate because the priced union used one 1996 edition and this took both.
+
+**Two editions were still downloading when it banked and will fold in on the next pass**, 2000-12-06
+and 2001-04-11, plus a fifth in-window capture the original survey missed at **2001-02-01**
+(`20010201165700`), found by listing every capture rather than the ones already known. Everything
+from `20010815` onward is a 404, which is the `.us` registry handover to NeuStar, so the artifact's
+own lifetime brackets the window neatly.
+
+**The receipts, all re-verified before approval.** The 2001 edition fetched live at 435,846 bytes
+with 6,512 zone rows:
+`web.archive.org/web/20010606153725id_/http://www.isi.edu/in-notes/us-domain-delegated.txt`. Every
+capture and status: the CDX query on `www.isi.edu/in-notes/us-domain-delegated.txt`. The 1996 and
+1999 editions sit at `pub/rfc/` inside `archive.org/details/2015.04.ftp.isc.org`, whose metadata
+confirms the item and the single `.tar`. Six further rotations captured 2001-05-01 live on
+`ftp.isi.edu/in-notes/us-domain-delegated.txt.0` through `.5`.
+
+**One implementation note worth keeping.** The artifact carries no in-body date, so the edition date
+lives in the FILENAME and the parser refuses a file without one rather than guessing. That is the
+weakest link in this source and it is deliberately visible: `_USD_EDITION` skips a file it cannot
+date, and `parse_us_domain_delegated` reads **column 2 only**, so the contact mail address in column
+3 is never read as a delegation. Scanning the whole line instead would have imported 56 third-party
+pairs on this file's authority.

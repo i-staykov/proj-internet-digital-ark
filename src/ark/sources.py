@@ -449,6 +449,68 @@ _IEDR_FOOTER = re.compile(
 # Only a letter page is a register listing. `stalled.html` is PENDING APPLICATIONS, which
 # are names nobody had registered yet, and reading it would manufacture registrations that
 # never happened. `weekly.html` and `dom-list.html` are the registry writing about itself.
+# The US Domain Registry's delegated-zone list. The artifact carries NO in-body date,
+# so the edition date lives in the filename and the collector is what puts it there:
+# `us-domain-delegated.YYYYMMDD.txt`, taken from the tar-preserved mtime for the
+# 1996 and 1999 editions and from the Wayback capture stamp for the 2000 and 2001 ones.
+_USD_EDITION = re.compile(r"us-domain-delegated\.(\d{4})(\d{2})(\d{2})\.txt$", re.I)
+# `AK    K12.AK.US.        postmaster@ns.alaska.edu`. Column 2 only: the contact in
+# column 3 is a mail domain somebody else operates, and this file says nothing about
+# when THAT was registered. Taking it would be reading a `link_target` as a listing.
+_USD_ROW = re.compile(r"^([A-Z]{2})\s+([A-Za-z0-9][A-Za-z0-9.\-]*?\.[Uu][Ss])\.?\s", re.M)
+
+
+def parse_us_domain_delegated(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per delegated `.us` zone in one edition of the ISI list.
+
+    **What dates it.** A delegation list is the registry stating which zones it had
+    delegated at a stated instant, which is the same instrument as a DNS zone file and
+    the reason killer 2 does not reach it: the registry was serving those names, not
+    describing them. Nobody typed the list, so no corroboration split applies, and it
+    says nothing about any other year.
+
+    **The date is in the filename because the artifact has none inside it**, and that is
+    the one weakness of this source, so the collector records where each date came from.
+    Two independent mechanisms agree: the 1996 and 1999 editions carry tar-preserved
+    mtimes whose rotation chain is monotone in both date and size (425,505 to 426,388
+    bytes across Feb-Mar 1999), continuing monotone into the Wayback captures (433,937 to
+    435,847), and the 2000 and 2001 editions carry their own capture stamps. An edition
+    whose filename has no date is skipped rather than guessed at.
+
+    **Column 2 only.** Every row also carries a contact address, and those mail domains
+    are not delegated `.us` zones. Reading them would import third-party domains on this
+    file's authority: measured at 56 pairs of 13,816 when the whole line was scanned.
+
+    **The `k12` and locality zones are handled by the PSL, not here.** `K12.AK.US` is a
+    public suffix in its own right and `to_registrable` returns None for it, which is
+    correct: nobody registered it. `ANCHORAGE.AK.US` resolves, and `CI.ANCHORAGE.AK.US`
+    collapses onto it. So this parser deliberately does not filter by shape.
+    """
+    edition = _USD_EDITION.search(path.name)
+    if edition is None:
+        stats["no_edition_date_in_filename"] += 1
+        return
+    year = int(edition.group(1))
+    stamp = "".join(edition.groups())
+    if year not in YEARS:
+        stats["edition_out_of_window"] += 1
+        return
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for line in text.splitlines():
+        stats["lines"] += 1
+        row = _USD_ROW.match(line + " ")
+        if row is None:
+            stats["not_a_zone_row"] += 1
+            continue
+        stats["zone_rows"] += 1
+        yield BulkRecord(
+            raw=row.group(2),
+            year=year,
+            evidence_value=f"us_domain_delegated:{stamp}",
+        )
+
+
 _IEDR_PAGE = re.compile(r"(?:^|_)(?:0-9|[a-z])-doms\.html$", re.I)
 _IEDR_NAME = re.compile(r"\b([a-z0-9][a-z0-9\-]{0,60}(?:\.[a-z0-9\-]{1,60})*\.ie)\b")
 _IEDR_SELF = ("domainregistry.ie", "iedr.ie")
@@ -1167,6 +1229,16 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="registry_register_listing",
         parse=parse_iedr_register,
+    ),
+    # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
+    # the zone-file argument: a delegation is the registry serving the name, not a
+    # description of one. Approved by Ivo 2026-08-26.
+    "us_domain_delegated": SourceSpec(
+        key="us_domain_delegated",
+        source_name="us_domain_delegated",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_delegation_listing",
+        parse=parse_us_domain_delegated,
     ),
     "isc_survey": SourceSpec(
         key="isc_survey",
