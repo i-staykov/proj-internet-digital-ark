@@ -215,6 +215,7 @@ sources:
     uv run python scripts/split_junkfilter.py --write
     uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
     uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
+    uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
     uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv

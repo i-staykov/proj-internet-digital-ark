@@ -103,6 +103,9 @@ PROVENANCE_LINEAGE = {
     "cctld_register_listing_inbody": "registry",
     # A maintainer's hand-kept spam blocklist. Not a crawl and not a registry: its own
     # family, so a pair it and a crawl both attest counts as two witnesses.
+    # A human transcription of registry whois records. Registry lineage, since the
+    # field being read is the registry's, even though a person copied it.
+    "early_bulk_whois_snapshot": "registry",
     "junkfilter_dated_blocklist": "blocklist",
     "junkfilter_mention": "blocklist",
     # A crawler compiled this list, so it shares the lineage of everything else that
