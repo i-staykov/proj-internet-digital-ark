@@ -9,7 +9,8 @@ Every figure here is measured against the store, not projected, and says what it
 
 ## 1. The reusable technique
 
-**The largest addition of this round came from a file already ingested.** The 1999 RIPE snapshot had
+**The third-largest addition of this round cost nothing, because it came from a file already
+ingested.** The 1999 RIPE snapshot had
 been read for one attribute, the domain name, and dated to the file's own instant. Each object also
 carries a `changed:` line per update applied to it, 2,016,169 of them, each with its own date. An
 object cannot be modified before it exists, so those lines reach 1996, 1997 and 1998, which the
@@ -19,7 +20,7 @@ The same question paid three times in this round:
 
 | asked of | what it gave |
 |---|---|
-| `webarchive.org.uk/datasets/ukwa.ds.2/` "what else is in this directory?" | a per-year CDX index nobody had listed, 13.45 GB in window |
+| `bl.iro.bl.uk` "what else has this repository deposited?" | the UKWA geoindex, 4,591 pairs at 4,493.0 equivalent-English |
 | `archive.org` "what is the item named for, the group or the hierarchy?" | a 14 MB registry archive hiding behind a better-matching 208 KB decoy |
 | `ripe.db.gz` "what else do these objects say?" | 58,398 equivalent-English |
 
@@ -56,7 +57,7 @@ from.
   already held. Both screens must pass and prose rarely passes the second.
 - **Crawl-derived lists, for discovery.** They find few names we lack. But they can still win on
   completeness: a 2000-dated blocklist paid 18 equivalent-English while the 2001 edition of the same
-  list paid 10,736, because its names lacked that year rather than lacking existence.
+  list paid 10,376.9, because its names lacked that year rather than lacking existence.
 - **Closed with measurements this round**, so not worth repeating: academic repositories and DOI
   datasets (five APIs and two registries converge on three artifacts we already hold), national
   web-archive indexes, preserved CD-ROM media by name and by size, trade directories of internet
@@ -66,8 +67,8 @@ from.
 
 Each lesson below cost at least a day to learn.
 
-1. **Quote net-new, never gross.** They differ by more than 10x. One source read 15,270 gross and
-   12,775 net.
+1. **Quote net-new, never gross, and post-split rather than pre-split.** The gap is often an order
+   of magnitude: one registry ruling read 9,551.2 gross against 783.0 after the split.
 2. **Novelty is a cost, not a gain.** A novel name earns no year under the split; the screen is *held
    AND missing this year*. An almost fully-held list still paid because its names lacked its year.
 3. **Compute headroom from the adjacent year only.** Of 9,680 `.us` names missing 2001, 6,948 were last

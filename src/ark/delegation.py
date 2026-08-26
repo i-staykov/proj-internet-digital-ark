@@ -44,3 +44,21 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
         for tld, year in sorted(DELEGATED.items())
     ]
     return "\n      AND ".join(clauses)
+
+
+def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
+    """The rows allowed into a shipped file, for a given table alias.
+
+    Lives here rather than in `export` because `contribution` needs the same predicate
+    and importing it from `export` is a cycle. Built per call site rather than
+    string-replaced: the `.arpa` rule survives a blanket `.replace("domain", "dy.domain")`
+    but the delegation rule also names `assigned_year`, and that replace leaves the year
+    unqualified, which killed three of the four export destinations the first time.
+    """
+    dom = f"{prefix}domain" if prefix else "domain"
+    if not with_year:
+        # The candidate pool claims no year, so "the TLD did not exist yet" cannot apply
+        # to it. Only the `.arpa` rule does, which is about the name rather than a year.
+        return f"{dom} NOT LIKE '%.arpa'"
+    year = f"{prefix}assigned_year" if prefix else "assigned_year"
+    return f"{dom} NOT LIKE '%.arpa'\n      AND {sql_predicate(dom, year)}"

@@ -13,7 +13,7 @@ generated from the evidence store, so no table here can disagree with the files 
 | 4. Equivalent-English increment | **713,481.4198** |
 | 5. Equivalent-English growth rate | **5.3395%** |
 
-The increment covers 1,660,237 distinct domains, of which **666,783 appear in none of the six
+The increment covers 1,660,226 distinct domains, of which **666,779 appear in none of the six
 baseline files in any year**.
 
 | Year | merged260821 | Additions | Merged | Equivalent-English added |
@@ -26,13 +26,14 @@ baseline files in any year**.
 | 2001 | 4,975,393 | 324,049 | 5,299,442 | 208,441.6701 |
 | **Total** | **25,064,981** | **1,929,655** | **26,994,636** | **713,481.4198** |
 
-**Cumulative.** Summing the increases you have awarded, which is how the update log of 2026-08-18 defines the score: 1.659986%, 10.730988%, 14.901054% and this round's 5.3395% give **32.6316%**, with round 1's 1,429,524 records held out because it was awarded at 17.38% on records before the equivalent-English metric existed.
+**Cumulative.** Summing the increases you have awarded, which is how the update log of 2026-08-18 defines the score: 1.659986%, 10.730988%, 14.901054% and this round's 5.3395% give **32.6315%**, with round 1's 1,429,524 records held out because it was awarded at 17.38% on records before the equivalent-English metric existed.
 
 ## 2. What is new in this round, and how to check it
 
-Every source below was admitted for the first time in this round; everything else was approved in an
-earlier round and is unchanged. Each row gives what dates one item and where the artifact is, so any
-of them can be opened and checked.
+Every source below was admitted for the first time in this round. Sources approved in earlier rounds
+are unchanged and still contributing, above all `usenet_announce`; their yields are in
+`audit/source_contribution.csv`, whose `netnew_pairs` column sums to the increment in section 1. Each
+row gives what dates one item and where the artifact is, so any of them can be opened and checked.
 
 | Source | Evidence type | What dates one item | Receipt | Pairs | EE |
 |---|---|---|---|--:|--:|
@@ -44,9 +45,9 @@ of them can be opened and checked.
 | `can_domain_registry_notices` | `whois_creation` | the registry's own `Date-Approved:` field in its public approval notice | archive.org/download/usenet-can/can.domain.mbox.zip | 9,485 | 7,934.2 |
 | `cctld_register_listing_inbody` | `artifact_listing` | the register page's own machine-written timestamp, or the row's due date | twnic.net.tw/DN/fz1.shtml and idnic.net.id/Info/RekapBelumBayar.html | 10,177 | 1,609.6 |
 | `dartmouth_bfs_seed` | `cdx_timestamp` | field 2 of each CDX row, a 14-digit capture timestamp | archive.org, Dartmouth_10KwebURLs_GWB BFS level 0 | 2,442 | 1,408.6 |
-| `iedr_register` | `artifact_listing` | the register page's own `updated automatically at ... 2001` line | IE Domain Registry register, archived | 19,263 | 18,769.9 |
-| `internic_zone` | `artifact_listing` | the SOA serial inside the zone payload, `1997041800` | InterNIC 1997 zone files, nic.mil mirror | 12,503 | 8,993.1 |
-| `ukwa_geoindex` | `cdx_timestamp` | the 14-digit capture timestamp on each row | webarchive.org.uk/datasets/ukwa.ds.2/geo/ | 4,591 | 4,493.0 |
+| `iedr_register` | `artifact_listing` | the page's own footer: `updated automatically at ... 2001` on the 2001 editions, a plain `Last updated 27 Nov 1999` on the two earlier ones, which carry 829 of the pairs | web.archive.org/web/20011221145100id_/http://www.domainregistry.ie/lists/a-doms.html | 19,263 | 18,769.9 |
+| `internic_zone` | `artifact_listing` | the SOA serial inside the zone payload: `1997041800` for 12,320 pairs, `1999111901` for the 183 from the 1999 `gov` zone | nic.mil mirror of ftp.internic.net/domain/, via web.archive.org | 12,503 | 8,993.1 |
+| `ukwa_geoindex` | `cdx_timestamp` | the 14-digit capture timestamp on each row | bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f | 4,591 | 4,493.0 |
 
 **Two of these need a sentence.** `ripe_dbase_1999` is used with the written permission of the RIPE
 NCC, gratefully acknowledged, and only the domain name is read from it: no contact, address or other
@@ -70,7 +71,7 @@ rather than a description of it. **A creation date writes its own year and no ot
 
 Master-eligible classes are `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`, each a machine-written record asserting a state at an
 instant the artifact stamps. Anything a human typed is candidate-only until another source dates that
-domain first, and `link_target` never dates a year. **2,380,575 domains carry no year-specific
+domain first, and `link_target` never dates a year. **2,380,517 domains carry no year-specific
 evidence** and ship as `candidates.txt`, kept out of the annual files.
 
 ## 4. How the discovery ran, and where the human sits
@@ -85,13 +86,15 @@ epoch deadline worked, and kept collecting through a day when the agent could no
 not hold** either, tried once. So the durable pattern is a human-written objective plus processes
 that do not depend on the agent being awake.
 
-**Generating the names to ask about, rather than discovering them.** The candidate pool holds
-2,395,205 names with no in-window year, and asking RDAP about them returns almost nothing: 602
+**Generating the names to ask about, rather than discovering them.** The candidate pool held
+2,395,205 names with no in-window year when this was measured on 24 August, and asking RDAP about them
+returns almost nothing: 602
 queries drawn twice, once from the head and once seeded-random, produced **zero** in-window creation
 dates, because 73% of the pool answers 404 against 21.6% for domains we hold. A name no crawler
 captured is usually a name that was never much of a site. So the question was inverted, from *which
 real names have we not yet dated* to *which names can we invent that a registry will date for us*.
-Four generated populations were priced against each other at equal cost: **sibling names**, every
+Four generated populations were priced against each other in the same unit, equivalent-English per
+1,000 queries: **sibling names**, every
 `.com`/`.net`/`.org` label we hold in window re-suffixed to the other two and filtered to what the
 store lacks, 14,080,169 of them, measured over a first full round of 150,000 queries at 14,205
 in-window creation dates, 9.47%, **59.9 equivalent-English per 1,000 queries**; **English dictionary
@@ -110,13 +113,14 @@ rather than by habit**: `ark ingest` refuses to run for a class with no written 
 it refused twice in this round until the decision existed.
 
 **What that gate is worth, measured.** 11 sources were admitted in this round, each on a
-separate written decision. The candidate pool accumulated 575,417 strings under namespaces that never
-allowed arbitrary registration and **not one reached an annual file**. Twelve invariants run before
+separate written decision. 585,550 strings sit in the candidate pool under `.edu`, `.gov` and
+`.mil`, namespaces no one could register in freely, and **not one of them reached an annual file**
+without independent attestation. Twelve invariants run before
 every commit and again inside the shipped archive; one of them caught a defect in this round, an
 evidence value citing a page's date for a row dated from its own column, which was a wrong citation
 rather than a wrong year.
 
-**Negative results are recorded as first-class.** **251 source families have been searched and recorded**, 44 developed far enough to earn their own section and 207 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
+**Negative results are recorded as first-class.** **249 source families have been searched and recorded**, 44 developed far enough to earn their own section and 205 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 
 ## 5. Limitations, and whether to expand further
 
@@ -127,7 +131,7 @@ status code, which is throttling seen from the other side of the socket.
 
 **Worth expanding, in order.** Bulk dated corpora first. Registry datasets publishing dates second,
 the route that reaches 2001 where the archives are thin. Re-auditing material already on disk third,
-which produced the largest single addition of this round and cost nothing. Fourth and slowest, but
+which produced 399,401 pairs and 58,398 equivalent-English for no new download. Fourth and slowest, but
 still viable indefinitely: keep querying the archives, RDAP and registry databases, which is the one
 route with no supply limit and a measured rate we can plan against.
 
@@ -171,7 +175,7 @@ collectors were querying the Internet Archive at the time.
 
 | | asked for | where it is |
 |---|---|---|
-| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at the commit in `MANIFEST.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command should print |
+| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at the commit in `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command should print |
 | **D2** | experience summary | `experience-summary.md`, distilled from `sources.md`, which carries every rejection with the measurement that closed it |
 | **D3** | merge and dedup code, overlap, reconciliation | section 6, `source/scripts/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your own program vendored unmodified, explained in `metric-explained.md` |

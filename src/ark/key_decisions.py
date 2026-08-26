@@ -2,7 +2,7 @@
 
 **Why this is a module and not a convention.** Ivo's instruction, 2026-08-11:
 "Everything I have to sign-off should be in one place, so I know about it." Before
-that there were three places. `notes.md` entries each ended asking for a sign-off he
+that there were three places. The old decision log's entries each ended asking for a sign-off he
 does not give and does not want; the approvals file accumulated `pending` classes he
 had no reason to open; and the hypothesis ledger surfaced five unfinished leads as
 though they were his to judge, which he had not known existed. **A question raised in

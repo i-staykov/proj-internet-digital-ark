@@ -22,9 +22,10 @@ baseline files in any year**.
 
 ## 2. What is new in this round, and how to check it
 
-Every source below was admitted for the first time in this round; everything else was approved in an
-earlier round and is unchanged. Each row gives what dates one item and where the artifact is, so any
-of them can be opened and checked.
+Every source below was admitted for the first time in this round. Sources approved in earlier rounds
+are unchanged and still contributing, above all `usenet_announce`; their yields are in
+`audit/source_contribution.csv`, whose `netnew_pairs` column sums to the increment in section 1. Each
+row gives what dates one item and where the artifact is, so any of them can be opened and checked.
 
 [NEW_SOURCES_TABLE]
 
@@ -62,13 +63,15 @@ epoch deadline worked, and kept collecting through a day when the agent could no
 not hold** either, tried once. So the durable pattern is a human-written objective plus processes
 that do not depend on the agent being awake.
 
-**Generating the names to ask about, rather than discovering them.** The candidate pool holds
-2,395,205 names with no in-window year, and asking RDAP about them returns almost nothing: 602
+**Generating the names to ask about, rather than discovering them.** The candidate pool held
+2,395,205 names with no in-window year when this was measured on 24 August, and asking RDAP about them
+returns almost nothing: 602
 queries drawn twice, once from the head and once seeded-random, produced **zero** in-window creation
 dates, because 73% of the pool answers 404 against 21.6% for domains we hold. A name no crawler
 captured is usually a name that was never much of a site. So the question was inverted, from *which
 real names have we not yet dated* to *which names can we invent that a registry will date for us*.
-Four generated populations were priced against each other at equal cost: **sibling names**, every
+Four generated populations were priced against each other in the same unit, equivalent-English per
+1,000 queries: **sibling names**, every
 `.com`/`.net`/`.org` label we hold in window re-suffixed to the other two and filtered to what the
 store lacks, 14,080,169 of them, measured over a first full round of 150,000 queries at 14,205
 in-window creation dates, 9.47%, **59.9 equivalent-English per 1,000 queries**; **English dictionary
@@ -87,8 +90,9 @@ rather than by habit**: `ark ingest` refuses to run for a class with no written 
 it refused twice in this round until the decision existed.
 
 **What that gate is worth, measured.** [DECISIONS] sources were admitted in this round, each on a
-separate written decision. The candidate pool accumulated 575,417 strings under namespaces that never
-allowed arbitrary registration and **not one reached an annual file**. Twelve invariants run before
+separate written decision. [POOL_RESTRICTED] strings sit in the candidate pool under `.edu`, `.gov` and
+`.mil`, namespaces no one could register in freely, and **not one of them reached an annual file**
+without independent attestation. Twelve invariants run before
 every commit and again inside the shipped archive; one of them caught a defect in this round, an
 evidence value citing a page's date for a row dated from its own column, which was a wrong citation
 rather than a wrong year.
@@ -104,7 +108,7 @@ status code, which is throttling seen from the other side of the socket.
 
 **Worth expanding, in order.** Bulk dated corpora first. Registry datasets publishing dates second,
 the route that reaches 2001 where the archives are thin. Re-auditing material already on disk third,
-which produced the largest single addition of this round and cost nothing. Fourth and slowest, but
+which produced 399,401 pairs and 58,398 equivalent-English for no new download. Fourth and slowest, but
 still viable indefinitely: keep querying the archives, RDAP and registry databases, which is the one
 route with no supply limit and a measured rate we can plan against.
 
@@ -126,7 +130,7 @@ and this round's net-new records, `candidates.txt` the undated names, `provenanc
 
 | | asked for | where it is |
 |---|---|---|
-| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at the commit in `MANIFEST.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command should print |
+| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at the commit in `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command should print |
 | **D2** | experience summary | `experience-summary.md`, distilled from `sources.md`, which carries every rejection with the measurement that closed it |
 | **D3** | merge and dedup code, overlap, reconciliation | section 6, `source/scripts/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your own program vendored unmodified, explained in `metric-explained.md` |

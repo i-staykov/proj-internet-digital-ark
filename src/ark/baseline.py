@@ -154,7 +154,7 @@ def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
     """The first candidate directory that actually holds `must_contain`.
 
     **Addressing a file by where it happens to sit rather than by what it is has broken
-    this project's own delivery three times.** `docs/notes.md` for 2026-08-17 records the
+    this project's own delivery three times.** The git log for 2026-08-17 records the
     first two: the calculator path hardcoded to `feedback-phase-3/`, then the merged
     baseline one step later. The third was found on 2026-08-18 by auditing the delivery
     against D1, and is the worst of them, because it breaks the reproduction route the

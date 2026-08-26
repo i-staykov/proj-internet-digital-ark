@@ -49,7 +49,7 @@ Named here in his order, because the table above is sorted by path.
 
 | | he asked for | where it is |
 |---|---|---|
-| **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `MANIFEST.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
+| **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `source/COMMIT.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
 | **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` as the full register behind it |
 | **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
 | **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
@@ -165,7 +165,7 @@ The `journals/` copy is what makes the network stages reproduce offline: every i
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
 this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
 it behaved before 2026-08-18. **The RDAP stage is the exception and will replay nothing**, because
-those logs are excluded on size. Its 581,458 assignments are still checkable by tier 2, which is the
+those logs are excluded on size. The 581,458 net-new pairs it contributed are still checkable by tier 2, which is the
 route below, and the logs will be sent on request.
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
@@ -175,23 +175,23 @@ re-measured since, so treat them as indicative.
 **What tier 3 cannot re-derive, stated plainly, because the figure used to be wrong by four orders of
 magnitude.** This paragraph said "the gap is two sources with no journal to replay, whose 840 domains
 return to the candidate pool". That was true of phase 1 and has not been true since phase 5. Measured
-on 2026-08-18:
+on 2026-08-27:
 
 | | assignments | share |
 |---|--:|--:|
-| carrying this project's own evidence | 5,323,465 | |
-| **not re-derivable by tier 3** | **2,387,824** | **44.9%** |
-| of that, falling inside this round's additions | 0 | |
+| carrying this project's own evidence | 7,254,144 | |
+| **not re-derivable by tier 3** | **3,139,263** | **43.3%** |
 
-Two sources account for all of it and neither input can ship. The capture census came from an
-archive.org item that **stopped serving the day after it was downloaded**, so it cannot be re-fetched
-by us or by anyone. The registry creation-date compilation is a Kaggle dataset that needs an account,
-which we may not redistribute. `sources.md` gives the acquisition route for both, and
-`audit/dartmouth_nber_captures_audit.csv` and `audit/domain_creation_bulk_audit.csv` record what each
-contributed.
+Three sources account for all of it. `domain_creation_bulk`, 2,165,506 assignments, is a Kaggle
+dataset that needs an account and may not be redistributed. `dartmouth_nber_captures`, 227,273, came
+from an archive.org item that **stopped serving the day after it was downloaded**, so it cannot be
+re-fetched by us or by anyone. `rdap_snapshot`, 746,484, is the one whose journals exist and are held
+back on size, as the layout table above says; ask and they will be sent. `sources.md` gives the
+acquisition route for all three, and `audit/dartmouth_nber_captures_audit.csv` and
+`audit/domain_creation_bulk_audit.csv` record what the first two contributed.
 
 **Tier 2 reproduces all of it, and that is the check to run.** The provenance export ships the
-evidence row behind every single assignment, including those 2,387,824, which is why `verify.sh`
+evidence row behind every single assignment, including those 3,139,263, which is why `verify.sh`
 check 4 tests that every assignment resolves to an evidence row **in this archive**. Tier 3 proves
 the evidence follows from the source data; tier 2 proves the result follows from the evidence. Only
 the first is limited by what a third party is willing to keep serving.
