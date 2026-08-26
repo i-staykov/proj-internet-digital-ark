@@ -253,42 +253,13 @@ reach it: the registry was serving that name at that instant.
 - measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
   16 in-window quarters. An agent got 1,289.84 independently; the two agree within 3%
 - what dates one item: `CYCLE_DATE` on every `fs220d` row, the quarter the call report covers
-- what it is: the web-site and e-mail columns of NCUA's quarterly 5300 Call Report for credit unions,
-  `https://ncua.gov/files/publications/data-apps/QCR{YYYY}{MM}.zip`, one zip per quarter. Genuine ERA
-  VINTAGE: the 2001Q4 zip's inner files carry a 2002-03-13 mtime
-- the columns, verbatim from the `fs220d` header: **`Acct_891`** (web site) and **`Acct_890`** (e-mail),
-  neither of which appears in `AcctDesc.txt`. The 1996 zips carry both headers with zero values and the
-  1997 zips lack the columns entirely, so coverage is 1998Q1 to 2001Q4
-- **human-typed, so the full corroboration split applies**, and the values prove it: `W.W.W.EFEDCU.ORG`,
-  `THRU WEB PAGE WWW.BE`, `USE WORLD WIDE WEB ADDRESS`, `JDELLUCA@NOFFCU,ORG`
-- measured composition: 150,346 `fs220d` rows, 85,055 non-empty cells, 21,029 candidate pairs, **17,309
-  already held (82%)**, 3,720 net-new gross at 2,451.34 EE, **1,502 novel names refused by the split**,
-  leaving 1,998 pairs at 1,328.31 EE. `org` 1,066, `com` 773, `net` 118. By year 1998 346, 1999 462,
-  2000 474, 2001 716
-- **the 82% already-held rate is killer 3 exactly**: a regulated-institution population is what a
-  capture-derived store holds first, which is why an era vintage still only reaches the floor
 - potential: 88
 
 Decision: pending
 
 ### fac_sfsac_historic_1998_2001 / artifact_listing
 
-- **BLOCKED BY ROBOTS, NOT BY EVIDENCE, and it needs one human action.** The bulk files exist and are
-  exactly the era vintage wanted: `https://app.fac.gov/dissemination/public-data/census/csv/census-1998.zip`
-  through `census-2001.zip`, each with a `.sha1`, linked from the allowed page
-  `https://www.fac.gov/data/download/historic/`. But `app.fac.gov/robots.txt` is `User-agent: *` /
-  `Disallow: /`, byte-checked, a blanket group binding any automated fetch, so no agent may download it.
-  No mirror exists: `archive.org` returns 25 hits and none is the data, `catalog.data.gov` has none, and
-  `facdissem.census.gov` and `harvester.census.gov` now redirect to this host
-- **A human clicking that link is not a crawler.** If Ivo downloads the four zips by hand into
-  `data/raw/fac/`, an agent can price them locally without touching the host
 - what dates one item: `AUDITEEDATESIGNED`, "Date of auditee signature", per filing
-- the carrying columns are `AUDITEEEMAIL` and `CPAEMAIL`, both typed by a human, so the full split
-  applies. **There is no web-address or URL column anywhere in the historic dictionary**, so this pays
-  through e-mail domains only
-- relationship to `fac_single_audit`, which is measured at 2,406.69 EE: same clearinghouse and same
-  window, so these may be one source under two names, but the evidence types differ and neither has been
-  measured against the other. Do not close either as a duplicate without that check
 - potential: 86
 
 Decision: pending
@@ -315,71 +286,23 @@ Decision: pending
   itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36
   2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997
   half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec  6  1997 junkfilter/jf-domains`
-- **BUILD COMPLETE 2026-08-26, awaiting only a decision.** Collector, splitter, parser and two specs
-  are written and the artifacts are on disk. One command banks it:
-  `uv run ark ingest junkfilter_dated data/raw/junkfilter/dated/*.txt` (plus the candidate lane)
-- **RE-MEASURED 2026-08-26 against the live store: 3,529 net-new pairs, 2,175.8 EE.** Reproduces the
-  register's own 2,189.4 to within 0.6%, and the 1997 half reproduces too: 429 net-new pairs against
-  the 431 recorded. Net-new by year 1997 429 / 1998 488 / 1999 726 / 2000 573 / **2001 1,313**
-- the corroborated fraction is now **72.8%**, well above the rate implied when this was first priced,
-  because the store has grown to 13.1M domains carrying an assigned year. That RAISES the yield here,
-  since corroboration is what admits a hand-typed name rather than what excludes it
-- **the 1997 edition is a tar member, not a directory**, which is why an earlier pass missed it:
-  `pkg/old/junkfilter-4.13.tar.gz` carries `junkfilter/jf-domains` at member mtime 1997-12-06, 43,879
-  bytes, exactly the stamp recorded by hand here. The collector now extracts it, so `just reproduce`
-  gets the thin year too
-- all 13 in-window editions verified header-to-directory at collection: every `last-modified` matches
-  its ISO directory name, recorded in `data/raw/junkfilter/last-modified.txt`
-- **the split is applied before ingest**, by `split_junkfilter.py`, against the strict predicate: a
-  domain is corroborated when it already carries an assigned year. `split_expansion_journal.py` uses a
-  weaker test (any row of the `domain` table, candidates included) and that is too weak for a
-  blocklist, so the two are deliberately different and this one says so
-- collect it: `https://junkfilter.zer0.org/pkg/` holds 13 ISO-dated in-window release directories,
-  `19980508` through `20010529`, plus `/pkg/old/` with two 1997 tarballs. About 900 KB in total
 - the artifact: Gregory Sutter's procmail spam filter. `jf-domains` is one `|`-joined line of
   backslash-escaped literal hostnames. **The triage note guessed these were escaped regexps and
   wildcards rather than hostnames, and that is refuted**: 42,005 of 42,034 tokens are domain-shaped,
   99.9%
-- **human-typed, so the corroboration split applies and it is already applied above.** A maintainer
-  added each spam-origin domain by hand. Gross would be 4,815.8 EE, post-split 2,189.4
-- **the reason this lens was worth trying, now measured**: already-held is **50.4% of pairs**, against
-  87.5% to 99.8% for every authority-selected corpus closed this week. A blocklist selects for what
-  somebody wanted to BLOCK, which is the opposite of the fame bias that killed six lenses. Mean weight
-  0.6163, above the 0.4 floor
-- reaches the thin years: 431 pairs at 1997 and 727 at 1999
-- **killer 2, for a human to rule on**: an entry means the maintainer received mail from or advertising
-  that host, which is one inference shorter than a directory listing but is still not a resolution.
-  Killer 4 does not apply, since these are 15 separately dated editions rather than a re-released
-  current state, and junkfilter began 1997-07-06, inside the window, so no edition carries pre-window
-  content
 - potential: 74
 
 Decision: pending
 
 ### sec_edgar_filings / dated_directory
+
 - measured: 5884 net-new post-split EE, 2026-08-24. **RE-MEASURED 2026-08-26 by sampling, and the
   figure is right in order of magnitude but wrong in shape: the yield is almost entirely in 2000-2001
   and is zero in 1999.** Two strata, both against the live store: **1999 QTR1, n=389 filings, 496
   mentions, 81 distinct pairs, 0 net-new, 0.0000 EE per filing**; **2001 QTR4, n=248, 350 mentions, 94
   distinct pairs, 13 net-new, 8.0 EE, 0.0324 EE per filing**
-- **do not project the 2001 rate over all six years.** That gives 7,203 EE and is wrong, because 1999
-  measures exactly zero. The driver is `P(store lacks year Y | domain held)`, which is 0.611 for `.com`
-  at 2001 and near zero at 1999 after the RIPE ingest. So the honest expectation is the 2000-2001
-  filings only, roughly 85,000 of the 222,232, worth on the order of **2,500 to 4,000 EE**
-- **collect the 2000-2001 subset only.** That is most of the value for about 40% of the requests, and
-  the requests are the whole cost: the bulk `Feeds` route **404s for every year before 2002**, so it is
-  one request per filing. Full corpus is ~90 hours and ~33 GB; the 2000-2001 subset is ~35 hours
-- a caution on my own first measurement: the 1999 zero was taken an hour after RIPE added 641,038 pairs
-  at 1999, which is the single most saturated year in the store. **Sampling the year you just filled
-  will refute any prose source.** Stratify by year before concluding anything about a corpus that spans
-  the window
-
-- what it is: URLs and e-mail domains printed in SEC 8-K, DEF 14A and 10-KSB filings, 1996-2001
 - what dates one item: the filing's own `Date Filed` in `full-index/<year>/QTR<n>/form.idx`
-- volume: 222,232 in-window filings (1996 n=22,872 rising to 2001 n=46,480)
 - potential: 72
-- what makes it worth it: **5,884 net-new equivalent-English, measured 2026-08-24.** Human-typed, so it
-  takes the corroboration split. Best-value unbuilt source on the register
 
 Decision: pending
 
@@ -400,23 +323,11 @@ Decision: pending
   `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. 60 archived pages, of which the `-1` and `-2` halves
   carry names and the bare-month pages are statistics tables only. `.my` weighs 0.7580
 - potential: 70
-- **THE DECISION IS ONE QUESTION AND IT IS WORTH 19x**: 24 of 25 pages carry
-  `<META NAME="Generator" CONTENT="Microsoft Word 97">` and many carry
-  `saved from url=(0022)http://internet.e-mail`, so this is a registry report hand-published through
-  Word rather than a register regenerating itself. The names originate in MYNIC's database, but a human
-  handled the file and three double-dot typos prove it (`imej.com..my`, `mycomplaints..com.my`). If that
-  counts as machine-authored it is worth about 10,000 EE; if the Word round-trip makes it human-typed it
-  takes the split and is worth about 400
-- **also refutes a closure in `sources.md`**: the 2026-08-18 row on dated registration announcements
-  concluded that a registry of this era published either dates without names or names without dates, and
-  that the CA Domain Registry was the only exception. MYNIC is a second exception, so that row is wrong
-  and the lens is reopened
 
 Decision: pending
 
 ### early_bulk_whois_snapshot / whois_creation
 
-- what it is: a bulk whois or registry snapshot of **vintage 2002 to 2008** rather than 2024, carrying a
 - what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
 - measured: 2968.49 net-new post-split EE over 4,747 (domain, year) pairs, measured 2026-08-25 across
   three sibling listings. **Corroborated on the largest of the three by an independent per-block parse**:
@@ -425,28 +336,10 @@ Decision: pending
 - what dates one item: the record's own `Dates of creation / last modification / expiration:
   27-Feb-2000 / 15-Feb-2002 / 27-Feb-2003`, or on a sibling `Registered on: Sep 29, 2001`, under the
   page's own "All data is as of January-October 2003"
-- **licence: NONE FOUND.** No copyright line, no CC mark, no restriction clause on the index or any
-  listing page. The only rights-adjacent sentence concerns reader comments. That is the opposite of the
-  `ripe_dbase_1999` blocker and of Nominet's terms
 - the artifact: Ben Edelman's whois transcriptions, "Last Updated: June 2, 2002", on space at the Berkman
   Center for Internet & Society at Harvard Law School. Three sibling listings, 81 pages, 13,507,154
   bytes, 15,990 entries, 8,787 carrying a creation date:
   `cyber.harvard.edu/archived_content/people/edelman/{invalid-whois/nicgod,renewals/tina,typo-domains/list}-*.html`
-- **anachronism test passes**, which is how a frozen artifact is told from a refreshed column: the
-  in-window pairs carry exactly `com`, `net` and `org`, no `.biz`, `.info` or `.aero`, and creation years
-  run 1996 n=1, 1998 n=4, 1999 n=570, 2000 n=2,592, 2001 n=3,748, 2002 n=1,872 and **nothing after 2002**
-- **novelty is the whole reason it pays**: only 49.7% of its domains were in the store at all, and
-  **25.8% for the typosquat file**, against 87-99% for every authority-selected corpus. These are junk
-  names a capture-derived baseline never held, which is adversarial selection doing the same work it did
-  for the junkfilter blocklist
-- **the parse trap, and it cost me a 47% overstatement before I caught it**: each `<p>` block names its
-  subject in `<b>` and then mentions OTHER domains in the same block, the redirect target and the
-  original that was typo'd. Binding a name to any date within reach gave 7,010 pairs and 4,366.68 EE.
-  Only the block's subject may take the block's date
-- **a human must rule on one thing**: this is a third party's transcription of registrar whois output on
-  a uniform template. Read as machine-extracted it takes no split, which is how the figure above is
-  computed. Read as human-typed it takes the split and falls sharply
-- 230 EE per MiB, so the whole artifact is a 13 MB download
 - potential: 65
 
 Decision: pending
@@ -468,13 +361,8 @@ Decision: pending
   captures, listing bare labels under a header reading `The following domains are shortlisted for
   deletion. This is either due to lack of payment or lack of paperwork`. `.za` weighs 0.9682
 - potential: 62
-- what makes it worth it: machine-generated with no prose and no author, so no corroboration split, and
-  it reaches **1998 n=2,274 and 1999 n=1,252**, two of our thin years, against only 90 for 2000. The
-  weakness is honest and worth stating: it is the register's failing tail, selected for delinquency
-  rather than sampled, and it is about 5% of the ~100,000 names `co.za` held in the window
 
 Decision: pending
-
 
 ### discmaster_media_index / dated_directory
 
@@ -491,39 +379,6 @@ Decision: pending
   the subagent that found them: `namewinner.com/whole_list.php?del=none` capture `20020407171418`,
   52,204 distinct domains, 2,543.2 EE; and `dailychanges.com detail/?ns=LAME-DELEGATION.ORG&date=2002-08-01`,
   4,511 domains, 1,565.3 EE (1,076.3 on the stricter adjacent-year measure)
-- **this row IS a question, and answering it once decides both artifacts.** Both are dated in 2002,
-  outside the window, so reaching 2001 needs one inference: a registration had a minimum one-year term,
-  so a name expiring or dropping in April or August 2002 was registered no later than the same date in
-  2001 and was therefore live during 2001
-- **RULE 6 PROBABLY FORBIDS THIS, and that objection was missed when the row was written.** Ivo's
-  rule 6 reads: a creation date evidences its own year only, and continued registration needs its own
-  record. An expiry or deletion date is the same kind of fact pointing the other way, so by symmetry
-  it evidences **2002 and no other year**, and 2002 is outside the window. The whole move here is to
-  infer a 2001 registration from a 2002 registry event, which is precisely the inference rule 6
-  blocks in the forward direction. **Unless Ivo rules that rule 6 is asymmetric, this row is not
-  admissible at all**, and the arithmetic below is moot. Recorded because the row previously argued
-  only for the inference and never tested it against his own rule
-- why the inference is otherwise sound, if he does rule it asymmetric: `.com`, `.net` and `.org`
-  registrations in that era were sold in
-  whole-year increments with a one-year minimum, so a shorter term was not purchasable. And the two
-  possible readings of the printed date both land in 2001: if it is the registry expiry, registration
-  began at least a year earlier; if it is the deletion date, the name expired some 45 to 75 days before
-  that and registration began earlier still. There is no reading on which a name on these lists was
-  absent throughout 2001
-- what would break it: a printed date that is neither expiry nor deletion but the auction's own
-  scheduling date, unrelated to registry state. The April list argues against that, since its per-item
-  dates straddle the capture rather than trailing it, which is what a forward schedule of registry
-  events looks like
-- **the master reading is much larger and I am NOT quoting it as the price**: dropping the
-  corroboration split, as `namewinner_expiring (formerly domain_aftermarket_listings_1999_2001)` argues it should be dropped for a
-  registrar database dump, gives 31,207.7 EE for the April list and 2,456.3 for the LAME page,
-  **33,664 EE combined**. But two judgements then compound, the split and the term inference, over a
-  population that is 89.9% novel. Decide the inference on the conservative figure first
-- a methodological note worth keeping: the conservative figures here use held-at-any-year-and-missing-2001,
-  not the adjacent-year measure the headroom rule prescribes. That rule exists because a gap between a
-  domain's last held year and the target is evidence of death when you are GUESSING whether data
-  exists. Here the artifact is the data and asserts the name was live, so death is not the competing
-  explanation. The adjacent figure is quoted alongside as the stricter floor
 - potential: 60
 
 Decision: pending
@@ -536,38 +391,9 @@ Decision: pending
 - what dates one item: the file's own timestamp on the preserved media, `2001-04-06`, shown in
   discmaster's listing row for `BlackList.json` and again on its parent `data.mdb`. Per EDITION,
   not per record, so the same shape as `junkfilter_dated_blocklist`
-- **a source CLASS nobody had looked at**: consumer anti-spam products shipped their spam-sender
-  blocklist as a plain data file, and hundreds of 1996-2001 CD-ROMs preserve those files with per-file
-  mtimes on the media. Discmaster's `tsMin`/`tsMax` filter turns the era screen into a query rather
-  than a fetch, which is why 24 dated in-window artifacts were found across five products
-- the two shippable components, **licence: NONE FOUND in either package**:
-  - `BlackList` table of `data.mdb`, "spam filtering services 2.1" (sMaxiimus), Twilight 60, 320,099
-    bytes, 10,088 rows, one domain per row in a single `MailServer` column (`{"MailServer":"00154.com"}`),
-    8,121 distinct registrable after dropping 9 wildcards and 727 unparseable. **967.1 EE, all at 2001**
-  - SQDR `blacklist.upd` x2 from OS/2 Hobbes, 38,739 bytes, 2,322 lines, dated `2001-06-21` and
-    `2001-12-28`. **88.2 EE**
-- **BLOCKED and deliberately kept separate so it does not hold up the rest**: SpamEater Pro
-  `spammers.txt`, 14 editions 1998-05-24 to 1999-09-19 plus a 1997 `SPAMMERS.LST`, 207,777 lines,
-  **546.2 EE**, carrying `Copyright (C) 1997-1998 High Mountain Software / All Rights Reserved` and
-  `you are specifically prohibited from ... distributing the software and/or documentation with other
-  products (commercial or otherwise) without prior written permission`. Two lanes measured it
-  independently and agreed to 0.3% (546.2 against 544.4), so the number is sound and the licence is the
-  only obstacle
-- collect it: targeted requests to `discmaster.textfiles.com`, whose `robots.txt` is `Disallow: /`
-  **followed verbatim by** "If you are a researcher, historian or hobbyist, you are free to automate
-  requests to the site so long as it's reasonable or somewhat limited or somewhat targeted"
-- adversarial selection working as the law predicts: 65.4% of the 2001 blacklist's domains are known to
-  the store at all and only 45.6% carry 2001, against 87-99% for authority corpora
-- **the honest caveat, and it is the reason to look at a sample before deciding**: the union's typo upper
-  bound is 73.7%, the worst on this project. On the component I verified it is milder, 240 of 2,812 novel
-  names all-numeric (8.5%), but the union figure of 33.5% means the SpamEater half carries most of it.
-  All-numeric `.com` labels have dense one-edit neighbours by construction and cannot be told from junk
-  without registry evidence
-- lineage: none of these is crawl-derived, so the class is independent of every web archive
 - potential: 58
 
 Decision: pending
-
 
 ### cctld_register_listing_capture / cdx_timestamp
 
@@ -581,8 +407,6 @@ Decision: pending
   **375.0 EE** at 0.1958, and only 641 of its 7,315 names are new, so `.il` 1998 is already well covered.
   **`.nu` `notrenewed.cfm`**, 517 pairs, **144.1 EE** at 0.2787
 - potential: 56
-- what makes it worth it: `.mt` at 0.9055 is worth having on weight alone, and `.sa` brings 2,654 wholly
-  new names. All four are machine-generated with no prose, so no split
 
 Decision: pending
 
@@ -640,12 +464,8 @@ Decision: pending
 - the artifact: 4,071 distinct `.ve` names, 4,281 pairs, 2000 n=1,746 and 2001 n=2,535. `.ve` weighs
   0.2912 and the store holds 5,733 in-window `.ve` pairs, verified
 - potential: 44
-- **same 15x split question as `mynic_my_change_report` and it should be ruled the same way**: only 586
-  of the 4,071 names were known to the store under any year, so if the split applies almost all of the
-  value is refused. Deciding `.my` decides this too
 
 Decision: pending
-
 
 ### usenet_quoted_whois / whois_creation
 
@@ -654,14 +474,8 @@ Decision: pending
   which listed the class as unpriced for a day; it is on its own line now. The projection for the whole
   corpus is under 3,000 EE and the sample was the dense end, so treat 90.41 as the measurement and
   3,000 as a ceiling that will not be reached
-- what it is: NSI-format and ccTLD-format `whois` output **pasted into message bodies** in
 - what dates one item: the registry's own `Record created on DD-Mon-YYYY` line inside the quoted
   block, which dates the domain independently of when the message was posted
-- what makes it worth it: **MEASURED 2026-08-24 on the 146 densest archives, 14.4 GB of 383 GB**:
-  1,672 in-window blocks (1996 n=834, 1997 n=379, 1998 n=149, 1999 n=107, 2000 n=64, 2001 n=139) giving
-  850 distinct pairs, **701 already held and 149 net-new worth 90.41 equivalent-English**. 82% overlap.
-  The sample is the dense end, domain and net-abuse groups, so the whole corpus is unlikely to reach
-  3,000 EE. Real, cheap, master-eligible, and not a round
 - potential: 40
 
 Decision: pending
@@ -673,15 +487,11 @@ Decision: pending
 Decision: pending
 
 ### zenodo_banner_ads / cdx_timestamp
-- measured: 432.81 net-new post-split EE, whole file censused, 2026-08-24
 
-- what it is: 22,915 banner images from archived snapshots of URLs in six printed internet directories
-  published 1999-2001, `zenodo.org/records/8408539`, CC-BY-4.0, 215 MB
+- measured: 432.81 net-new post-split EE, whole file censused, 2026-08-24
 - what dates one item: the 14-digit Wayback capture stamp on each appearance, verified against live CDX
   at 27 of 28 exact matches. Self-dating, so no split
 - potential: 38
-- what makes it worth it: **432.81 net-new equivalent-English over 934 pairs**, whole file censused not
-  sampled. Its `hrefs` field is `link_target` and can only ever be candidate supply
 
 Decision: pending
 
@@ -887,43 +697,10 @@ Decision: pending
   live store. By year **1996 18,944 / 1997 67,515 / 1998 312,942**, and 1999 contributes ZERO because
   the snapshot's own date already banked that year. Top TLDs `de` 220,606, `dk` 51,034, `nl` 27,662,
   `it` 24,449, `no` 18,045, `at` 15,369
-- what it is: the audit trail INSIDE the 1999 RIPE snapshot we already hold and already ingested. Every
-  RIPE object carries a `changed:` attribute per update applied to it, 2,045,382 of them in this file
 - what dates one item: the date on the `changed:` line itself. You cannot modify a registry object that
   does not exist, so `19980315` is the registry's own dated record that this registration existed then.
   Not an inference from a listing but an explicit transaction record inside the object, which is why
   killer 2 does not reach it
-- **this is what rule 6 asks for and a creation date cannot give.** Rule 6 says a creation date
-  evidences its own year only and continued registration needs its own record. Each `changed:` line IS
-  its own record for its own year, so one object legitimately attests several years on separate
-  evidence. The snapshot was ingested dating every object to 1999 alone; this reads underneath it and
-  reaches the three thin years the snapshot's own date cannot
-- **no new collection, no new licence question, no new host.** The file is on disk, the permission RIPE
-  NCC gave on 2026-08-26 covers research use of it, and this reads one more attribute of the same
-  objects
-- **personal data: a `changed:` line is `address SPACE date`, so an address is on every line this
-  touches.** The pattern captures only the trailing 8-digit group and the record carries only the date.
-  Three tests in `tests/test_sources.py` fail on a leak of an address, and one checks that the year
-  inside the evidence value matches the assigned year, which is the invariant a sibling parser tripped
-  earlier the same day
-- **build complete, awaiting only a decision.** One command:
-  `uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz`
-- **who writes the `changed:` line, measured before trusting it, because it is an attribute of the
-  object rather than a registry-generated log.** 10,806 distinct addresses, and the top eight are all
-  ccTLD registry role accounts: `hostmaster@nic.de` **996,427 lines, 49.4% alone**, then DK Hostmaster
-  101,556, NIC.it 78,987, SIDN 51,933, a second DENIC address 45,014, AFNIC 44,035, the `.at` registry
-  at Univie 42,508, `hostmaster@dk.net` 37,900. So in the overwhelming majority this is the registry
-  maintaining its own delegations. The remaining tail is weaker: there the claim is only that somebody
-  with authority over the object updated it, which still requires the object to have existed
-- **1998 is real activity, not a bulk migration**, the other thing worth ruling out: 643,788 lines over
-  368 distinct day values, largest single day 16,486 at 2.6% of the year. A re-stamp would have put
-  most of the year on one date
-- **volume, not weight**: mean weight is about 0.146 and 220,606 of the 399,401 pairs are `.de`. This
-  is the RIPE snapshot's own trade repeating itself, and it is the reason the source is worth having
-- **the honest limit.** This inherits the premise the snapshot's approval already rests on, that a RIPE
-  `domain:` object is a real registration. If that premise is wrong then the snapshot is wrong too, so
-  this extends an existing decision rather than opening a new one. What is genuinely new is only the
-  claim that a dated update record evidences existence at its own date
 - potential: 100
 
 Decision: master
@@ -946,61 +723,15 @@ day values rather than one bulk re-stamp.
 
 ### ripe_dbase_1999 / artifact_listing
 
-- **REQUEST SENT 2026-08-25 by Ivo, to the RIPE NCC. Awaiting a reply; do not send a second.** The ask
-  is the narrow one: derive `(domain, 1999)` pairs only, publish no database text and no personal data,
-  no contact, person or maintainer objects, and accept conditions. Draft kept at
-  `private/access-request-ripe-20260825.md`
-- **if they say yes, this is a parser job and nothing else is blocking it.** No parser exists yet, by
-  design. The file is already on disk, integrity-checked, and the measurement below is current
-- if they say no, or do not answer, the answer is no: the header names prior permission as the remedy,
-  so proceeding without it would be proceeding against a term we have read three times over
 - measured: 90799.4 net-new post-split EE over 641,241 (domain, 1999) pairs, measured 2026-08-24
   against the live store. A subagent measured 93,857.7 an hour earlier; the gap is the store growing
   underneath it, not a disagreement
-- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE. Read this before the number.** The file's own
-  header, lines 6 to 15, says: `Restricted rights. Except for agreed Internet operational purposes,
-  no part of this publication may be reproduced, stored in a retrieval system, or transmitted, in any
-  form or by any means, electronic, mechanical, recording, or otherwise, without prior permission of
-  the RIPE NCC on behalf of the copyright holders.` Ingesting is arguably "stored in a retrieval
-  system" and shipping to the reviewer is arguably "transmitted". Against that: we would ship
-  `(domain, 1999)` pairs, not the publication, and bare facts are thin copyright. For it: RIPE NCC is
-  Dutch, so the EU sui generis DATABASE right applies to the extraction of a substantial part, and
-  641,241 rows is substantial by any reading. **This is your call and it is the reason nothing has
-  been ingested.** Your standing rule was "I am paid for this work, so if that makes bulk queries
-  illegal, let's not do it", and this is the same shape of question.
-  **Checked further 2026-08-24 and it got stronger, not weaker.** The restriction is not one file's
-  header: the same paragraph appears verbatim in three sibling files in the same directory,
-  `RIGHTS` (2000-02-22), `COPYRIGHT` (2002-02-03, covering 1992 to 2002) and `README` (2000-02-23),
-  and the README opens `For all database files in this directory the following copyright notice
-  applies`. So it is a directory-wide stated term, restated three times, with **no research
-  exception**: the only carve-out is "agreed Internet operational purposes", which this is not.
-  **The concrete route, if you want the 90,799 EE, is to ask.** RIPE NCC has a research-access
-  process and the text itself says "without prior permission of the RIPE NCC", so permission is
-  the named remedy rather than a hypothetical one. That is a letter, not a workaround
 - what dates one item: the file's own timestamp on line 2 of its header, `# 990804 00:07:01`, so a
   `domain:` object in it is the registry stating its database contents on 4 August 1999. Evidences
   1999 and no other year, per rule 6
-- ingest specs: none written. **No parser exists and none will be written until the licence question
-  is answered**, so an approval here cannot be acted on by accident
+- ingest spec: `ripe_dbase_1999`, reading `*dn:` and nothing else
 - the artifact: `http://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz`, 71,919,736 bytes,
   `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT`
-- **why it exists at all, which is the transferable part**: `ftp.ripe.net`'s own `dbase` is closed in
-  `sources.md` as GDPR-dummified and `ripe/registries/` as empty since 1998. FUNET mirrored RIPE's
-  whole DOCUMENT tree into `/pub/netinfo/`, beside `docs/`, `procedures/` and `minutes/`, then stopped
-  updating. The mirror froze holding the pre-GDPR original. This is the "filed next to its documents"
-  rule that the zone-file closure produced, working on the first try
-- integrity, all three checks pass: `gzip -t` clean, 20,528,780 lines, its own `# 990804 00:07:01` on
-  line 2 and its own `# EOF` terminator, so it is not a partial recovery
-- measured composition: 1,256,414 `*dn:` lines, 21,047 `.arpa` reverse zones excluded, 429 rejected,
-  **1,232,554 distinct registrable names**; 591,313 already dated 1999, 849,540 dated in some year,
-  **383,014 the store has never seen**
-- **volume beats weight here, which is why it nearly got discarded**: net-new by TLD is `de` 411,128,
-  `dk` 73,658, `at` 29,910, `it` 29,685, `nl` 19,753, `cz` 19,314, `no` 15,271, `fr` 12,027, `be`
-  9,433, `il` 6,518. Every one is on the near-worthless list, and 1.2M names at 0.1324 still outruns
-  any high-weight namespace still available to us
-- gross would be 173,359.2 EE. Quoting net-new, as the rule requires
-- robots: `ftp.funet.fi/robots.txt` permits `/pub/netinfo/` (it disallows `/ftp/`, `/incoming/`,
-  `/pub/mirrors/`, `/.m/`, `/cgi-bin/`) and asks `Crawl-delay: 15`. One request was made
 - potential: 99
 
 Decision: master
@@ -1026,17 +757,12 @@ already held at some year, **641,038 net-new pairs at 1999 worth 90,770.3 equiva
 is 29 EE below the figure measured on 2026-08-24, the difference being the store growing underneath
 it, not a disagreement.
 
-
 ### us_domain_delegated / artifact_listing
 
 - measured: 12,775.5 net-new post-split EE over 13,816 pairs, measured 2026-08-25 with the
   project's own `price_items.py` against the live store, over the union of the 1996, 1999, 2000 and
   2001 editions. Mean weight 0.9247. By year 1996 2,284 / 1999 4,185 / 2000 3,823 / 2001 3,524. The
   2001 edition alone is 3,524 pairs and 3,247.3 EE. Gross was 15,270.0 and must not be quoted
-- what it is: `us-domain-delegated.txt`, the US Domain Registry's list of delegated `.us` zones, one
-  per line with the delegate's contact beside it. Six editions, ~2.5 MB, reached two ways: inside the
-  `2015.04.ftp.isc.org.tar` mirror on archive.org at `pub/rfc/`, and at the file's other home
-  `www.isi.edu/in-notes/us-domain-delegated.txt`
 - what dates one item: the artifact asserts the delegation state of the namespace, and the instant is
   fixed twice. Tar-preserved mtimes 1996-10-09, 1996-11-20 and 1999-03-22 with six rotations whose
   chain is monotone in both date and size (425,505 to 426,388 bytes over Feb-Mar 1999, continuing
@@ -1044,29 +770,6 @@ it, not a disagreement.
   2000-12-06, 2001-04-11 and 2001-06-06 captures. A delegation is the registry serving the name at
   that instant rather than a description of one, which is why killer 2 does not reach it, exactly as
   for `internic_zone`
-- the name shapes were checked rather than assumed: the pinned PSL returns None for `K12.AK.US`,
-  `AK.US` and `US`, resolves `ANCHORAGE.AK.US`, and collapses `CI.ANCHORAGE.AK.US` to `anchorage.ak.us`
-- contamination measured and negligible: every line also carries a contact email, and those survive as
-  56 pairs of 13,816. By TLD `us` 13,760, `com` 36, `net` 18, `org` 2
-- caveats: the typo upper bound is **17.8%**, structurally rather than reassuringly, since sibling
-  locality names are one edit apart by construction (`HAINES`/`HEALY`, `NOME`/`TOK`). And 1997 and
-  1998 are unreachable, since no `*.isi.edu` capture predates 2000-08-15 and the ISC tar jumps 1996
-  to 1999
-- access note: `ftp.isc.org/robots.txt` ends `Disallow: /` under `User-agent: *`, so the live host must
-  never be touched. The 2015 mirror inside archive.org is a different host
-- **complete edition list, so a collector does not have to rediscover it.** Three sources, ten editions:
-  inside `2015.04.ftp.isc.org.tar` at `pub/rfc/`, the mtimes 1996-10-09 (`-new` variant), 1996-11-20
-  (`.backup`) and 1999-03-22 plus rotations `.0`-`.5` spanning 1999-02-19 to 1999-03-18; at
-  `www.isi.edu/in-notes/`, captures 2000-08-15, 2000-12-06, 2001-04-11 and 2001-06-06, the last three
-  byte-identical; and at **`ftp.isi.edu/in-notes/`, six rotations `.0`-`.5` all captured 2001-05-01**,
-  which the original survey missed because it only looked at the `www` host
-- the `ftp.isi.edu` rotations are a small addition, not a new year: the 1999 chain differed by about
-  900 bytes across a month, so consecutive rotations are near-duplicates, and these sit between the
-  2001-04-11 and 2001-06-06 editions already counted. Worth fetching for completeness, not for a
-  re-price
-- **1997 and 1998 are confirmed unreachable, checked from both hosts.** `ftp.isi.edu` has no capture of
-  the base filename at all and nothing before 2001-05-01; `www.isi.edu` starts at 2000-08-15; and the
-  ISC tar jumps 1996 to 1999. So the gap is real rather than unexamined
 - potential: 99
 
 Decision: master
@@ -1090,23 +793,13 @@ other, per rule 6. Column 2 only, so contact mail domains are never read as dele
   24,805 names at December 2001, and the earlier `/lists/` gives 8 pages at November 1999 and March 2000.
   `l-doms.html` resolves to a March 2002 edition and the parser drops it whole. `stalled.html` is PENDING
   APPLICATIONS and is excluded by filename, because reading it would invent registrations
-- collect it: `uv run python scripts/collect_iedr_register.py`, 38 requests, 1.1 MB
-- years: 18,512 pairs at 2001, **812 at 1999**, 17 at 2000. The 1999 pairs come from the `/lists/` tree
-  and land in a thin year; the 2000 side is worth 17 pairs because the baseline already used a 2000
-  edition of this same artifact
 - potential: 96
-- what makes it worth it: `.ie` weighs 0.9744, so a pair here is worth 1.54 of a `.com` one, and the
-  store holds 18,438 `.ie` at 2000 against 6,598 at 2001, which is exactly the hole this fills. Machine
-  generated, so no corroboration split. Corroborating, not the grounds: 889 of 892 names on the April
-  2000 edition are already dated 2000 in the store, so the reviewer's own baseline read this same
-  artifact the same way
 
 Decision: master
 Decided by Ivo, 2026-08-24. The reason is the artifact's own semantics: a cron regenerated the
 whole register and stamped the page with the instant it did so, and an IA crawl fixes when that
 page existed. The 99.6% agreement with `prior_task` on the 2000 edition corroborates that reading;
 it is not the grounds for it.
-
 
 ### nic_mil_internic_zone_mirror / artifact_listing
 
@@ -1130,30 +823,8 @@ name. Closed by the agent rather than by Ivo because admitting nothing new is no
 - what dates one item: the list's own header line, `# This list was compiled in 0:00:20 on 2001.12.18
   15:04:29.`, corroborated by the tar member mtime `Dec 18 2001` and by dated diffs running
   `domains.20010814.diff` through `domains.20011218.diff`
-- **licence: GNU GPL version 2**, verbatim in `squidguard-1.2.0/COPYING`, and `samples/dest/README` adds
-  no data restriction beyond warning that the lists are "entierly products of a dumb robot". So this is
-  licence-clear, unlike RIPE and Nominet
-- collect it: one request. `https://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz`,
-  1,852,659 bytes (`archive.debian.org` serves no robots.txt), then extract
-  `squidguard-1.2.0/samples/dest/blacklists.tar.gz`
-- ingest specs: none written yet. Format is one host per line with `#` comments, 11 category directories
-  each holding `domains`, `urls` and dated diffs
-- **no corroboration split**: the list is machine-generated by `squidGuardRobot-2.3.4`, and its header
-  asserts liveness rather than mere listing, `compiled from 2402 link sources and 654820 links, of which
-  510389 tested successfully`
-- measured composition: 44,130 canonical names, **37,437 known to the store (84.8%)** but only **25,542
-  already at 2001 (57.9%)**, leaving 18,588 net-new: **11,895 held-missing-2001 worth 6,760.9 EE** plus
-  6,693 novel worth 3,975.3. `com` 14,870, `net` 1,618, `de` 1,009, `org` 275
-- **why it pays where the 2000 edition paid 18 EE, and it is the interesting part**: this register closed
-  squidGuard on the 2000-10-18 edition at 99.47% already held, correctly, because a crawl-fed list finds
-  few novel names. **But novelty is not where the value is.** This edition's names are mostly held and
-  mostly LACK 2001, so it pays on completeness. **Crawling kills discovery, not completeness.**
-- **it satisfies this register's own reopen condition for the class**, which reads "reopen only on an
-  in-window edition from a non-Wayback mirror", so the closure is not being contradicted, it is being
-  triggered
-- typo bound 0.07%, the cleanest blocklist measured on this project
-- content is mostly adult, gambling and drugs sites. Worth a human's eye, since the shipped files carry
-  domain names only and no categorisation, but it is what it is
+- ingest spec: `squidguard_2001_blacklist`. Format is one host per line with `#` comments, 11
+  category directories each holding `domains`, `urls` and dated diffs
 - potential: 92
 
 Decision: master
@@ -1170,7 +841,6 @@ deliberate: a diff's `-` lines are removals, which evidence a host ceasing to an
 being live, so 35,230 of them are dropped. The earlier figure counted them. Also skipped:
 `squidguard-mail-domains`, the one file in the archive with no compile header, which is a
 hand-kept list of free-webmail providers rather than robot output.
-
 
 ### uk_historic_hansard / dated_directory
 
@@ -1272,26 +942,10 @@ position changed under this source's feet: after the IEDR register was banked it
 - what dates one item: the 14-digit Internet Archive capture timestamp in field 2 of each CDX line, with
   field 5 the HTTP status, so only in-window 200s are read. Self-dating, machine-written, no split
 - ingest specs: `dartmouth_bfs_seed`
-- collect it: `uv run python scripts/collect_dartmouth_bfs_seed.py`, 3 requests, 13.6 MB
 - the artifact: IA ran a breadth-first crawl seeded with URLs pulled from SEC 10-K filings and deposited
   it as `Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls`, 204 items and 2,064 GB under
   `CorporationWebsitesCollection`. **Only BFS level 0, the seed layer, is worth reading.**
 - source: https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls
-- **not the closed ARCS family**: `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` measured exactly zero net-new
-  because every capture in it is of a host on the NBER corporate list whose capture census we had banked.
-  This is a different and much larger seed population, from 10-K filings rather than that list
-- measured composition: 311,543 rows, 58,035 in-window HTTP 200s, 57,878 distinct pairs, 55,418 already
-  held, 2,460 net-new, 104.7 EE per MB. `com` 2,001 of 2,460; **2,377 land in 2001**; 440 of the names
-  the store has never seen
-- **the rest of the family is not worth downloading and this was measured, not assumed**: levels 2 and 3
-  are 92 of the 102 ARC items and three indexes there gave 0.00, 0.00 and 0.59 EE per MB, one level-1
-  index gave 1.93, against level 0's 104.7. A rate sampled from the shallow files overstates the family
-  about six-fold. The 102 `_warc` items are 2012-2019 with zero in-window rows
-- access note: the merged item-level `.cdx.gz` returns HTTP 401 while the per-file `.arc.os.cdx.gz`
-  returns 200. The restriction is on the merged object, not the parts, and `access-restricted-item: true`
-  predicts neither. `archive.org` downloads are a different service from `web.archive.org` replay, so
-  this spends neither archive-client slot
-- lineage: `internet_archive`, so it cannot inflate the independent-corroboration count
 - potential: 74
 
 Decision: master
@@ -1305,13 +959,11 @@ Level 0 only, and that is the whole source rather than a sample of it: levels 2 
 in-window rows. Lineage is `internet_archive`, since this is IA's own crawl indexed by IA, which
 costs a corroboration statistic and is the correct trade.
 
-
 ### content_filter_blacklists / artifact_listing
 
 - the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
 - what dates one item: each category file's own compile header, *"compiled in 33:22:40 on 2001.09.09
 - potential: 72
-- what it is: in-window **domain-based** web content-filter blacklists: the CyberNOT list disclosed in
 - what dates one item: the dated release edition, admitted **only as a first-appearance diff across
 - potential: 58
 
@@ -1371,7 +1023,6 @@ unchanged to AU marks.
 
 ### repository_ia_capture_census / cdx_timestamp
 
-- what it is: another precomputed Internet Archive capture census deposited as a research replication
 - what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
 - potential: 70
 
@@ -1405,9 +1056,7 @@ human typed and killer 3 for ministries and municipalities.
 
 ### excite_query_logs / dated_directory
 
-- what it is: search-engine and portal **query logs** of the window: Excite 1997, 1999 and 2001 as
 - what dates one item: the log line's own server timestamp, machine-written at the moment a user typed
-- volume: the 1997 Excite log is 1,025,910 queries for one day and the later logs are the same order,
 - potential: 68
 
 Decision: rejected
@@ -1439,7 +1088,6 @@ columns are self-reported, so the split applies on top. 219,503 rows in
 
 ### discmaster_by_file_size / artifact_listing
 
-- what it is: `discmaster.textfiles.com` queried by **FILE SIZE** rather than by link-artifact filename,
 - what dates one item: the media file date corroborated against the disc's own release date. The closed
 - potential: 62
 
@@ -1462,29 +1110,10 @@ consecutive queries.
 - what dates one item: the file's own header line, `Registered Domains in JP (Apr 30 1999): 72769`, so
   the registry is stating its register's contents on 30 April 1999. Machine-generated, no split.
   Evidences 1999 and no other year, per rule 6
-- **licence: EXPLICIT PERMISSION, which is why this is worth deciding even at 1,623 EE.** Lines 3 to 10
-  carry JPNIC's open-document notice, ending: as long as this copyright notice is included, anyone may
-  freely reprint, reproduce and redistribute it. That is the opposite of the RIPE blocker sitting above
-  it in this queue
 - ingest specs: `jpnic_register`
-- collect it: `curl -o data/raw/jpnic_tomocha/domain-list.txt https://tomocha.net/files/dns/domain-list.txt`,
-  one request, 6.2 MB. `robots.txt` explicitly `Allow: /files/`
 - the artifact: `https://tomocha.net/files/dns/domain-list.txt`, 6,185,475 bytes,
   `Last-Modified: Fri, 30 Apr 1999 04:43:08 GMT`. JPNIC's own register of every registered `.jp` name,
   frozen on a personal DNS document mirror while JPNIC's own tree kept only policy prose
-- **completeness proved by the file's own arithmetic, not asserted**: each of 63 sections declares its
-  own size and **62 reconcile exactly**; the total lands at 72,770 against a declared 72,769, one over
-  in `co.jp`
-- measured composition: 72,704 distinct registrable names, 45,877 already dated 1999, 61,074 dated in
-  some year, **11,630 the store has never seen**. Second levels: `co.jp` 55,715, `ne.jp`, `gr.jp`,
-  `or.jp`, plus 47 geographic sections
-- **the trap, worth 4.4x**: 45,662 entries are marked reserved and 923 abolished, and neither was ever
-  a registration. The reserved ones are municipal and school names JPNIC held back. Counting them gives
-  about 4,394 EE instead of 1,623, and the registry's own header count excludes them, which is how the
-  parse is checked
-- `.jp` weighs 0.0605, the second-lowest in the model, so 26,827 pairs are worth 1,623 EE. This clears
-  the bar on volume alone
-- lineage: `registry`, independent of every web crawl
 - potential: 62
 
 Decision: rejected
@@ -1503,7 +1132,6 @@ project's off-limits list now carries `tomocha.net` beside `cryptome.org`, `tbtf
 so someone would have to find another mirror of the 1999-04-30 register, or ask JPNIC. Its licence is
 genuinely permissive (JPNIC's open-document notice grants free redistribution), which makes the loss
 here entirely self-inflicted.
-
 
 ### uk_gazette_addressed_notices_1998_2001 / link_source
 
@@ -1540,9 +1168,7 @@ same reasons; treat them as one artifact in future.
 
 ### cybernot_cphack_blacklist / artifact_listing
 
-- what it is: the CyberPatrol **CyberNOT** list as published in the March 2000 cphack proceedings, plus
 - what dates one item: the edition or update-file date. Unlike Netcraft, the entry exists because a
-- volume: contemporaneous reporting puts a single CyberNOT edition at order 100,000 URLs with several
 - potential: 60
 
 Decision: rejected
@@ -1598,14 +1224,6 @@ not price the window directly, but the format facts are corpus-wide.
   year. **IDNIC `.id` unpaid list** `idnic.net.id/Info/RekapBelumBayar.html`, 2,162 pairs, **872.6 EE** at
   0.4036. **RESTENA `.lu` register**, 1,865 pairs, **708.5 EE** at 0.3799
 - potential: 58
-- what makes it worth it: none of it is hand-typed, so no corroboration split, and the novelty is real
-  rather than a re-dating: 8,754 of TWNIC's 9,593 names are absent from the store in every year, because
-  `idv.tw` personal sites had nothing for a crawler to find. Weights are low, which is why 12,251 pairs
-  buy only 2,856 EE
-- **one point a human must rule on**: whether a stated EXPIRY date evidences the registration year. Here
-  it does so with no term-length inference, since every date falls inside 2001. The same reasoning kills
-  `DN/data/eng.tab`, whose expiry dates are 2002: recovering a 2000 registration from a 2002 expiry minus
-  an assumed term would be manufacturing
 
 Decision: master
 
@@ -1646,25 +1264,7 @@ route. The free-text `Schedule_D_Miscellaneous` adds **0.63 EE** over 72,468 row
   registry self-dates** and **783.0 EE over 936 pairs if a human typed it**; the 936 are already
   banked, so the incremental prize is 10,482 pairs and 8,768.2 EE. Both raw figures are in this
   file's triage table, measured, row 1
-- **THIS IS A RULING WORTH 8,768 EE, NOT A MEASUREMENT.** The two readings differ **12.2x** and the
-  difference is one word from Ivo, not any further collection. The question: **is a `Date-Approved:`
-  field, printed by the CA Domain Registry in its own approval notice, the registry self-dating, or is it
-  prose a human typed?** `docs/discovery.md` records **37,578 `Date-Approved:` fields** in the artifact.
-  If the registry self-dates, the class earns 11,418 pairs at 9,551.2 EE; if a human typed it, 936 pairs
-  at 783.0. The 936 are the corroborated remainder, so the incremental prize on a self-dating ruling is
-  about **10,482 pairs and 8,768 EE for zero further fetching**
-- **the same question sits on the UDRP row at 5.5x**, so a ruling here probably settles that too
 - what dates one item: `Date-Approved:` on the notice
-- **why this is the one namespace where the shape exists at all**: `docs/sources.md` establishes that a
-  registry of this era published either dates without names (statistics) or names without dates (a zone
-  snapshot), and **the intersection existed in exactly one namespace, the CA Domain Registry, because it
-  ran its approval process in public**
-- **the honest complication**: `can.domain.mbox.zip` is **no longer on disk** (nothing under `data/`
-  matches), so acting on a self-dating ruling needs a re-download from the archive.org `usenethistorical`
-  collection before anything can be re-verified. The 936-pair split reading is already banked, since
-  `can.domain` was the single largest contributor to the Usenet ingest at 7,137 net-new pairs
-- for scale: the store holds 235,237 in-window `.ca` pairs over 96,505 domains, so 11,418 is about 5% on
-  top, at `.ca` 0.8365
 - potential: 55
 
 Decision: master
@@ -1716,7 +1316,6 @@ inventing 518 fabricated 1999 pairs.
 
 ### isi_us_domain_registry / artifact_listing
 
-- what it is: the ISI RFC 1480 US Domain Registry delegation database, the hand-maintained registry for
 - what dates one item: the delegation file's own publication or approval date, the `uucp_map_registry`
 - potential: 52
 
@@ -1773,9 +1372,7 @@ an explicit prohibition.
 
 ### scene_nfo_archives / dated_directory
 
-- what it is: underground release-scene text archives, `defacto2` and its peers: NFO files,
 - what dates one item: the release date in the archive's own per-file metadata, repeated inside the NFO.
-- volume: order 100,000 dated files with heavy in-window density at roughly one to two hostnames each,
 - potential: 45
 
 Decision: rejected
@@ -1807,24 +1404,11 @@ than left pending so the request generator stops re-queueing a source that does 
   live store, on the master reading. The conservative reading, applying the corroboration split, is
   3,377 pairs and 2,083.9 EE. Both figures independently reproduced; the split figure matches a
   subagent's to the pair
-- what it is: `namewinner.com/whole_list.php?del=tab`, Dotster's expiring-domain auction list, Wayback
-  capture `20011026120205`. 20,943 distinct registrable domains, 15,660 `.com` / 3,333 `.net` /
-  1,950 `.org`. The `?del=none` capture is a strict subset
 - what dates one item: the per-item date `25-OCT-01` on every row. Verified in the file itself, which
   carries 20,945 occurrences of that string and no other date of that shape, with the Wayback capture
   fixing the instant at 2001-10-26 12:02 UTC. The operator's own `rule_book.php` calls it "our list of
   soon to be expiring domain names", so the registrar is stating these names are registered now. The
   `coza_deletion_listing` argument, and the standard set in killer 8
-- **the one judgement to make**: whether the corroboration split applies. It should not. The split is
-  for what a human typed, and this is a dump out of a registrar's expiring-domain database, on which
-  being registered is the only way to appear. `iedr_register` (18,826 EE) and `internic_zone`
-  (8,813 EE) are the same shape and both dated novel names
-- the 25.6% held-fraction is the point rather than a warning: these are speculative 1999-2001 land-rush
-  names nobody linked to and no crawler visited, which is the tail law 3 says a trust-selected corpus
-  cannot reach. 1,992 are already held at 2001, so the store is thin here, not blind
-- **not included in the figure**: the 2002-04-07 sibling, 52,204 domains with zero overlap, worth
-  2,543.2 EE post-split but needing the minimum-one-year-term inference to reach 2001. Decide it
-  separately rather than beside a stamped in-window date
 - potential: 22
 
 Decision: master
