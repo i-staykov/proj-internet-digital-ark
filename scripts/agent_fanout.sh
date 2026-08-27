@@ -28,6 +28,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 DEADLINE="${1:?usage: agent_fanout.sh <deadline_epoch> [parallel] [hypothesis_file]}"
 PAR="${2:-4}"
+# Seconds a single researcher may run before it is asked to stop.
+RESEARCH_CAP="${RESEARCH_CAP:-2400}"
 HYPO="${3:-private/agent-hypotheses.md}"
 LOG="data/logs/agent_fanout.log"
 LEDGER="data/logs/agent_fanout.tsv"
@@ -65,7 +67,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     SLUGS=""
     while IFS= read -r slug; do
         [ -n "$slug" ] && SLUGS="$SLUGS $slug"
-    done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" 2>/dev/null)
+    done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" --pending-dir "$FIND" 2>/dev/null)
     SLUGS="${SLUGS# }"
     # **An empty queue is a prompt to think, not a reason to stop.** On the night of
     # 2026-08-27 this branch said `break` and the loop sat idle for six and a half hours
@@ -101,7 +103,7 @@ EOG
         SLUGS=""
         while IFS= read -r slug; do
             [ -n "$slug" ] && SLUGS="$SLUGS $slug"
-        done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" 2>/dev/null)
+        done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" --pending-dir "$FIND" 2>/dev/null)
         SLUGS="${SLUGS# }"
         if [ -z "$SLUGS" ]; then
             note "generation produced nothing; retrying next round after a short pause"
@@ -114,6 +116,7 @@ EOG
     note "round ${round}: ${left}s left, launching: ${SLUGS}"
 
     pids=()
+    killers=()
     for slug in $SLUGS; do
         budget=$(( left - 420 ))
         PFILE="data/logs/prompt_${round}_${slug}.txt"
@@ -148,11 +151,19 @@ HARD RULES: do NOT run git. Do NOT edit any file except your own findings file. 
 ingest anything. Do NOT edit docs/. Another process banks your result.
 A measured negative is a RESULT: fill the file either way.
 EOP
+        # **A per-researcher cap, because one hang stalls the whole round.** On
+        # 2026-08-27 a researcher wrote its findings file and then never exited; the
+        # round waited on it for 1h13m while the other three sat finished. macOS ships
+        # no `timeout`, so the cap is a watcher process per researcher.
         ( claude -p "$(cat "$PFILE")" --permission-mode auto --output-format text \
             > "data/logs/fanout_${round}_${slug}.log" 2>&1 < /dev/null ) &
-        pids+=($!)
+        rpid=$!
+        ( sleep "$RESEARCH_CAP"; kill -TERM "$rpid" 2>/dev/null ) &
+        killers+=($!)
+        pids+=($rpid)
     done
     for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null; done
+    for k in "${killers[@]:-}"; do kill "$k" 2>/dev/null; done
     note "round ${round}: researchers done, harvesting"
 
     HFILE="data/logs/prompt_${round}_harvest.txt"
