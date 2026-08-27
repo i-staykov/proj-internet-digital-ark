@@ -312,6 +312,36 @@ Decision: pending
 
 Decision: pending
 
+### cira_ca_rdap / whois_creation
+
+- potential: 70
+- measured: **~25,377 EE ceiling, not a measured yield.** The store holds 103,541 distinct `.ca`
+  domains in window with 376,315 empty year slots between them. At the 29.3% in-window rate measured
+  on Nominet `.uk`, that is about 30,337 pairs at `.ca`'s 0.8365, so ~25,377 EE. A pilot would
+  replace the estimate, and no pilot has been run because of the licence question below
+- what dates one item: the registry's own `registration` event, the same `whois_creation` semantics
+  already approved for `rdap_snapshot`. Verified live on one name: `rita.ca` returns
+  `('registration', '2001-02-01T17:11:06Z')`, in window
+- the artifact: `https://rdap.ca.fury.ca/rdap/domain/<name>`, reached through the IANA bootstrap at
+  `https://data.iana.org/rdap/dns.json`, so `ark rdap` already knows how to get there
+- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE, AND THIS IS THE `.nz` SHAPE.** The record itself
+  carries a Legal Notice: "Use of CIRA's WHOIS service is governed by the Terms of Use in its Legal
+  Notice, available at https://www.cira.ca/en/resources/documents/about/website-terms-use". That page
+  answers **HTTP 403** behind a Cloudflare challenge to an honest User-Agent, so the terms cannot be
+  read, and working around a challenge to read them would be the wrong move twice over. `.nz` cost
+  7,586 EE by stopping at the record and not reading the terms that followed it; this stops at the
+  terms because they cannot be reached at all
+- what I would need from you: either a reading of CIRA's Terms of Use from a browser that clears the
+  challenge, or a short letter to CIRA of the RIPE kind, asking to derive `(domain, year)` pairs only
+  and publish no registrant data. `robots.txt` at `www.cira.ca` is 8 lines and disallows only
+  `/wp-admin/`, `/?s=`, `/page/*/?s=` and `/search/`, naming no agent, so nothing there forbids it;
+  the Terms are the only open question
+- one query was spent on evaluation and nothing else has been sent
+
+Decision: pending
+
+
+
 ### mynic_my_change_report / artifact_listing
 
 - measured: 3091.1 net-new post-split EE pre-split over 4,078 pairs from 25 of 60 pages, or **159.9 EE
