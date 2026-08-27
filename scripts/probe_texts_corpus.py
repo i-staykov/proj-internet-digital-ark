@@ -148,14 +148,36 @@ def search(query: str, rows: int) -> list[dict]:
     return payload["response"]["docs"]
 
 
+def djvu_name(identifier: str) -> str | None:
+    """The item's OCR text file name, read from its metadata.
+
+    `<identifier>_djvu.txt` is only the usual name, not the rule: a magazine scan
+    uploaded as "Internet Magazine 031 [1997-06].pdf" carries
+    "Internet Magazine 031 [1997-06]_djvu.txt" beside it. Guessing the name reported
+    32 of 33 in-window UK magazine issues unreachable on 2026-08-27 when the metadata
+    shows 33 of 33, so every reachable-share this script has printed was a floor.
+    """
+    try:
+        meta = json.loads(fetch(f"https://archive.org/metadata/{identifier}").decode())
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+        return None
+    for entry in meta.get("files", []):
+        if entry.get("format") == "DjVuTXT":
+            return entry.get("name")
+    return None
+
+
 def full_text(identifier: str, cache: Path) -> str | None:
     """The item's OCR text, or None when the item is restricted or has none."""
     path = cache / f"{identifier}.txt.gz"
     if path.exists():
         with gzip.open(path, "rt", errors="replace") as fh:
             return fh.read()
+    name = djvu_name(identifier)
+    if name is None:
+        return None
     try:
-        body = fetch(f"{DOWNLOAD}/{identifier}/{identifier}_djvu.txt")
+        body = fetch(f"{DOWNLOAD}/{identifier}/{urllib.parse.quote(name)}")
     except (urllib.error.HTTPError, urllib.error.URLError, OSError):
         return None
     if len(body) < 2048:

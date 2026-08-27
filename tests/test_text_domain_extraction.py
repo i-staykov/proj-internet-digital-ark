@@ -114,3 +114,33 @@ def test_a_zip_file_is_still_not_a_domain() -> None:
 def test_a_shared_object_and_a_postscript_file_are_not_domains() -> None:
     """`.so` and `.ps` are both real ccTLDs and both common extensions."""
     assert texts.domains_in("lib.so and doc.ps") == set()
+
+
+def test_the_ocr_file_name_comes_from_metadata_not_from_the_identifier() -> None:
+    """`<identifier>_djvu.txt` is the usual name, not the rule.
+
+    A magazine scan uploaded as "Internet Magazine 031 [1997-06].pdf" carries
+    "Internet Magazine 031 [1997-06]_djvu.txt" beside it, and guessing the name called
+    32 of 33 in-window UK issues unreachable on 2026-08-27 where the metadata shows
+    33 of 33. Unreachable and unnamed look identical from the outside, so the reachable
+    share this script prints was a floor on every corpus it has closed.
+    """
+    calls: list[str] = []
+
+    def fake_fetch(url: str) -> bytes:
+        calls.append(url)
+        return (
+            b'{"files": [{"name": "Internet Magazine 031 [1997-06].pdf", "format": "Image '
+            b'Container PDF"}, {"name": "Internet Magazine 031 [1997-06]_djvu.txt", '
+            b'"format": "DjVuTXT"}]}'
+        )
+
+    original = texts.fetch
+    texts.fetch = fake_fetch
+    try:
+        assert texts.djvu_name("internet-magazine-031-1997-06") == (
+            "Internet Magazine 031 [1997-06]_djvu.txt"
+        )
+    finally:
+        texts.fetch = original
+    assert calls == ["https://archive.org/metadata/internet-magazine-031-1997-06"]
