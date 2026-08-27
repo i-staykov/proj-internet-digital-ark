@@ -511,6 +511,50 @@ Decision: pending
 
 Decision: pending
 
+### untroubled_spam_headers / artifact_listing
+
+- measured: **1,288.1 net-new post-split EE over 3,053 (domain, year) pairs**, priced 2026-08-27 by
+  `scripts/price_items.py --all-tlds` against the live store and reproduced by the harvester to the
+  unit. 20,808 dated items yield 29,356 pairs over **26,112 distinct registrable domains**, of which
+  22,031 pairs are already held. 2001 carries 2,794 of the 3,053 pairs (1998 115, 2000 91, 1999 50,
+  1997 3); by TLD com 1,353, jp 245, net 194, kr 193, tw 131, de 102; mean weight of net-new 0.4219.
+  Gross before the split is 7,325 pairs and 3,470.5 EE and must not be quoted
+- adjacent-year check: 1,106.8 EE, **85.9%**, sits on a domain the store already holds at Y-1 or Y+1,
+  so the yield is not the contaminated "held any year, missing Y" shape. Only 181.4 EE jumps two years
+- what dates one item: **the qmail maildir filename is a unix epoch written by the RECEIVING MTA**,
+  for example `2001/12/1008021896.29752_202.txt`, and the last-hop `Received:` line added by that same
+  MTA restates it (`Received: (qmail 3581 invoked from network); 8 Dec 2001 00:46:21 -0000`).
+  **20,007 of 20,010 filename epochs agree with the archive's own directory year.** The spammer's
+  forgeable `Date:` header is ignored entirely. This is the receiving host's own stamp on its own
+  artifact, which is why it is `artifact_listing` and not `link_target`
+- the artifact: `https://untroubled.org/spam/` `1998.7z` `1999.7z` `2000.7z` `2001.7z`, 9,312,329 bytes,
+  plus `1997-1998-headers.tar.bz2` (68,996) and `1997-1998-spam-headers.bz2` (67,270); 9,448,595 bytes
+  expanding to 20,010 messages and 401 header dumps, 136 MB. Bruce Guenter's spam trap.
+  **Licence on the index page: "Permission is hereby granted to use this archive without restriction."**
+  robots.txt is 50 bytes and denies only `/stats/` and `/lists/`
+- which population, because it decides what the parser reads: five were cut out of the same messages
+  and priced separately. Recipient (To/Cc/Bcc/Delivered-To) 10,313 domains at **91.1% held** and mean
+  weight 0.549; sender 15,379 at 82.7%; observed last-hop only 8,999 at 82.6%; asserted
+  From/Return-Path/Message-ID 7,486 at 83.3%; **body advertised URLs 4,820 at 77.3%, the worst**. The
+  figure above is the union of all five. **Forgery does not predict the held fraction**: observed 82.6%
+  against asserted 83.3% is indistinguishable, so the 4.56% remailer figure in the register is a
+  property of nym addresses and not a law about forged headers
+- spot-check: ten random scoring pairs traced to the byte that dates them, all ten confirmed, for
+  example `khuman.com` +2001 from the file above, where the store held it at 2000 only
+- this supersedes a closure: `docs/sources.md` closed these exact bytes on 2026-08-15 at 195.5 EE over
+  4,793 domains. Nothing was MIME-decoded then, and 2001 spam hides its URLs in base64 and
+  quoted-printable HTML. It is the only row in `sources.md` known to understate an artifact 6.6x
+- the family is exhausted, recorded so nobody re-fetches: the `untroubled_spam_archive` item on
+  archive.org is byte-identical file for file; `spamarchive.org` now serves a Syracuse
+  window-replacement business, a proved zero rather than a refusal; Ling-Spam is 481 messages, body-only
+- ingest specs: not written. No parser is registered until this is decided. Normalised streams are
+  staged per population in `price_items.py` input shape and can be re-priced without a refetch
+- potential: 52. Drivers: retrieved, unrestricted licence, self-dating on the receiver's own stamp,
+  86% adjacent-year, 92% of the pairs at 2001 where the headroom is. Held back by size: 1,288 EE is a
+  quarter of the 5,000 the round wants from one source, and there is no second corpus of this shape
+
+Decision: pending
+
 ### reuters_rcv1_newswire / dated_directory
 
 - measured: not fetchable without a human signature, and screened at a few hundred EE either way.
@@ -686,6 +730,47 @@ Decision: pending
 ### cordis_fp4_fp5_project_websites / link_target
 
 - potential: 32
+
+Decision: pending
+
+### bomis_ring_member_lists / dated_directory
+
+- measured: **19.1 net-new post-split EE over 31 (domain, year) pairs, all at 2001**, on a seeded
+  20-ring sample of which 16 returned content, priced 2026-08-27 against the live store. 500 host
+  strings give 396 distinct registrable domains, **392 held at some year (98.99%)**, 361 already held
+  at 2001, **held-and-missing-2001 = 31**, only 4 names never held. Mean weight 0.615, com 28 net 3.
+  Rates: **0.0481 EE per listed domain, 0.95 EE per ring attempted, 24.8 domains per ring**
+- what dates one item: the Wayback capture timestamp of the ring's own `ring_home.fcgi` page, which
+  prints the member's hostname as plain text beside its title, so one archived ring page asserts
+  "Bomis listed this host" at the instant the capture stamps it. Human-curated, so it takes the
+  corroboration split, and that costs nothing here because held-and-missing-2001 is the whole payable
+  set anyway
+- the artifact: `http://web.archive.org/web/20010701000000id_/http://www.bomis.com/ring_home.fcgi?ring=<ring>`,
+  one page per ring, 6 to 8 KB, all 16 captured between 2001-04 and 2001-07. Ring names come from
+  `http://www.bomis.com/tree/<Category>/` at the same pin. In-window archival coverage 16/20 = 80%
+- why it is thin, since it reproduces a figure the register already has: only **7.9%** of held names
+  lack 2001 here against the population average of 61.1% for `.com`, because a curated ring lists the
+  site still worth listing and the store covers those at 2001. 0.0481 EE per name against
+  `WinNetMagCD`'s 0.041 and against 0.386 for a random held `.com`
+- what would decide it, and it is not measured: volume. At 0.95 EE per ring, 1,000 EE needs ~1,050
+  rings and 5,000 EE needs ~5,250. 83 rings sit on the 14 top-level tree pages alone and a BFS of
+  `/tree/` had 164 unvisited category pages queued after 4 fetches, so the inventory is plausibly in
+  the thousands. Two steps in order: crawl `/tree/` to exhaustion at the 20010701 pin for an exact
+  count (~400 pages, cheap, and it decides the whole question), then one `ring_home.fcgi` per ring.
+  `www.bomis.com/rings/<r>/` carries the member count as `max=N` in its frame src, so ring SIZE is
+  readable one request ahead and the queue can be ranked biggest-first, which matters because the
+  yield is concentrated in the few large rings
+- what this reopens, since the method is the reusable part: `docs/sources.md` closed webring member
+  lists on 2026-08-05 because WebRing routes every member through `go.webring.org`. Bomis routes
+  through its own pages too but **prints the bare hostname as text**, so the redirector is irrelevant.
+  **A redirector kill is a claim about one hub, not about a shape**
+- the siblings are closed and are noted so nobody re-tests them: **RingSurf** dies on retrieval, not on
+  shape, with 0 of 16 sampled ring pages archived against a passing control; **LinkExchange** has no
+  2001 surface, closest capture 1999-08-30
+- ingest specs: not written. Nothing was ingested
+- potential: 30. Drivers: self-dating on the capture, permission is not the blocker and IA replay
+  throughput is, and the class is master-eligible. Held back by the rate, which is 8x below a random
+  held `.com`, and by the fact that the payoff is entirely a bet on a ring count nobody has counted
 
 Decision: pending
 
