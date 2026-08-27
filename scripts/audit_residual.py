@@ -145,7 +145,23 @@ ACCOUNTED = {
     "rtfm": "extracted FAQ tree, read by scripts/split_rtfm_faqs.py",
     "maillists": "harvested month files, read by scripts/collect_mailing_lists.py",
     "texts": "trade-press OCR cache, read by scripts/reextract_trade_press.py",
-    "webbase": "rejected on measurement: 99.99% already held",
+    "webbase": "rejected on measurement: 99.99% already held, and re-tested 2026-08-27 "
+    "on the held-and-missing-2001 screen at exactly 0 pairs",
+    # 806 MB that reads as the largest unexplained block on disk and is fully processed
+    # INPUT, checked 2026-08-27. `cdx_suffix_convert.py` collapses these capture rows
+    # into `cdx_snapshot` shape under `data/raw/cdx/cdx_suffix_*.jsonl.gz`, 46 of which
+    # are in the ledger, and the newest converted journal (2026-08-27 02:36) postdates
+    # the newest raw one (2026-08-24 10:51) with no stranded `.part`. So every capture
+    # has been banked. `unreferenced` cannot tell "raw input already converted" from
+    # "bytes nothing reads", which is why this needs saying here rather than being
+    # rediscovered.
+    "cdx_suffix": "raw sweep input; converted to cdx_snapshot journals, all banked",
+    # Deliberately unreachable, and it must stay that way until Ivo rules. Nominet's
+    # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
+    # ... of the contents of the RDAP database", which reaches USE and not only
+    # collection, so these three journals are held where no ingest glob matches them
+    # and `maintain.sh` cannot bank them. See docs/key-decisions.md.
+    "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
     "nypw": "rejected on measurement: 53 net-new domains over 6.28M lines",
     "100hot": "worked in phase 1 to 3,453 hostnames; master-evidence route declined",
     "wwwvl": "page cache for the Virtual Library expansion rounds",
@@ -327,8 +343,13 @@ def check_unreferenced(verbose: bool) -> int:
         if name in targeted or name in ACCOUNTED:
             continue
         if entry.is_dir():
-            nbytes = sum(p.stat().st_size for p in entry.rglob("*") if p.is_file())
-            nfiles = sum(1 for p in entry.rglob("*") if p.is_file())
+            # `is_file()` follows a symlink, and the batch runners stage each batch as
+            # a directory of links into the pools so no bytes move. Counted naively,
+            # `usenet_bare_probe` read as 3,668,938,578 bytes of "downloaded bytes with
+            # no parser" while holding 400 links and no bytes. Skip links.
+            real = [p for p in entry.rglob("*") if p.is_file() and not p.is_symlink()]
+            nbytes = sum(p.stat().st_size for p in real)
+            nfiles = len(real)
         else:
             nbytes, nfiles = entry.stat().st_size, 1
         rows.append((nbytes, nfiles, name))
