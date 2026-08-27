@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback-phase-6/Domain_Data_Collection_Task 2/merged260821")
-CURRENT_BASELINE_MARKER = "merged260821"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task/merged260827")
+CURRENT_BASELINE_MARKER = "merged260827"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,8 +61,8 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 25_064_981
-REVIEWER_BASELINE_EE = Decimal("13362368.8792")
+REVIEWER_BASELINE_PAIRS = 27_152_319
+REVIEWER_BASELINE_EE = Decimal("14169892.8027")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
@@ -76,12 +76,12 @@ REVIEWER_BASELINE_EE = Decimal("13362368.8792")
 # after one interval at 5,129, which is why C-32's caution about a single interval
 # mattered.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("512268.6829"),
-    1997: Decimal("1066466.0153"),
-    1998: Decimal("1387632.0195"),
-    1999: Decimal("2715164.2302"),
-    2000: Decimal("4897483.7308"),
-    2001: Decimal("2783354.2005"),
+    1996: Decimal("556187.3850"),
+    1997: Decimal("1127015.6430"),
+    1998: Decimal("1523167.7315"),
+    1999: Decimal("2923751.4903"),
+    2000: Decimal("5006596.6405"),
+    2001: Decimal("3033173.9124"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -147,12 +147,27 @@ SUBMITTED_ROUNDS = (
     ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730", Decimal("1.659986")),
     ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", Decimal("10.730988")),
     ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817", Decimal("14.901054")),
-    # Phase 6 went out on 2026-08-27 at 1,929,655 records, 713,481.4198 EE and 5.339483%
-    # against `merged260821`. It is NOT in this tuple yet and must not be added until his
-    # reply gives the accepted figures: phase 5 was credited 130,995 EE below what was
-    # sent, because another contributor's round reached the baseline first, and quoting
-    # the submitted figure here would overstate the cumulative by exactly that overlap.
+    # round 6  feedback of 2026-08-27, credited 1,684,903 records and 562,099.5294 EE at
+    #          4.130718% against `merged260826`, from the 1,929,655 and 713,481.4198 that
+    #          were sent against `merged260821`. The 244,752-record difference had already
+    #          entered the newer benchmark through other contributors, which is the third
+    #          round in a row where the accepted figure is below the submitted one.
+    ("6", "2026-08-27", 1_684_903, Decimal("562099.5294"), "merged260826", Decimal("4.130718")),
 )
+
+# The competition RANKING score, which is not the cumulative percentage and is the number
+# that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with
+# `k = 10`, `p_i` the awarded percentage and `t_i` the elapsed days from the release of the
+# benchmark a submission is measured against to its receipt. `S_total` is the sum.
+#
+# **This makes speed worth as much as size, and the arithmetic is brutal.** Round 6 took six
+# days from `merged260821` to receipt and awarded 4.130718%, so `S_6 = 10 * 4.130718 / 6 =
+# 6.88`, which is the figure he quotes back. The same 4.13% delivered in two days would have
+# scored 20.65. Three separate 1.4% rounds at two days each would score 21.0 against the
+# 6.88 one 4.13% round actually earned.
+#
+# So the round length is a scoring decision, not a logistics one, and it belongs to Ivo.
+SUBMISSION_SPEED_K = 10
 
 
 def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
@@ -207,8 +222,8 @@ def calculator_path() -> Path:
                 CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
                 Path("..") / "equivalent_english_domain_calculator",
                 Path("equivalent_english_domain_calculator"),
-                Path("feedback-phase-5") / "equivalent_english_domain_calculator",
-                Path("feedback-phase-3") / "equivalent_english_domain_calculator",
+                Path("feedback/feedback-phase-6/equivalent_english_domain_calculator"),
+                Path("feedback/feedback-phase-3/equivalent_english_domain_calculator"),
             ),
             "equivalent_english_domains.py",
         )
