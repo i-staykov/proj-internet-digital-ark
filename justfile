@@ -277,9 +277,11 @@ journals:
     uv run ark ingest usenet_dated        data/raw/usenet/usenet_dated*.jsonl.gz
     uv run ark ingest usenet_dated        data/raw/usenet_new/usenet_dated*.jsonl.gz
     uv run ark ingest usenet_dated        data/raw/usenet_de/usenet_dated*.jsonl.gz
+    uv run ark ingest usenet_dated        data/staging/usenet_resplit/filtered/usenet_dated_resplit*.jsonl.gz
     uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
     uv run ark ingest usenet_candidates   data/raw/usenet_new/usenet_candidates*.jsonl.gz
     uv run ark ingest usenet_candidates   data/raw/usenet_de/usenet_candidates*.jsonl.gz
+    uv run ark ingest usenet_candidates   data/staging/usenet_resplit/filtered/usenet_candidates_resplit*.jsonl.gz
     uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
     uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
     # `_r2` is the second split of the recovered-address journals, run after the
@@ -287,13 +289,15 @@ journals:
     # disk; the second is a superset, so replaying it alone reconstructs the same
     # evidence. Regenerate with `just usenet-addresses`, which writes the
     # untagged names, then rename.
-    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_r2.jsonl.gz
-    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_r2.jsonl.gz
+    # A glob rather than the one `_r2` file, because every later re-split writes its own
+    # tagged pair and the split is now run on a loop. Named `_r*`, `_addr*` and `_cmp*`.
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_*.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_*.jsonl.gz
     # The machine-written header seam. Same two source keys, because the headers
     # carry the same kind of claim as a typed address and no `usenet_hdr` spec
     # exists. Without these two lines a rebuild is 19,224 evidence rows short.
-    uv run ark ingest usenet_addr_dated      data/raw/usenet_hdr/usenet_hdr_dated.jsonl.gz
-    uv run ark ingest usenet_addr_candidates data/raw/usenet_hdr/usenet_hdr_candidates.jsonl.gz
+    uv run ark ingest usenet_addr_dated      data/raw/usenet_hdr/usenet_hdr_dated*.jsonl.gz
+    uv run ark ingest usenet_addr_candidates data/raw/usenet_hdr/usenet_hdr_candidates*.jsonl.gz
     uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
     uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
     uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
@@ -301,8 +305,20 @@ journals:
     uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
     uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated_reextract.jsonl.gz
     uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
-    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
-    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+    uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated*.jsonl.gz
+    uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates*.jsonl.gz
+    # The promotion tranches, which live under `data/staging/` rather than `data/raw/`.
+    # They were ingested and then unreachable from any documented glob, so a replay
+    # rebuilt a store without them. They are regenerable by re-running
+    # `build_promotion_journals.py`, but a reproduction path should not depend on that.
+    uv run ark ingest enron_dated       data/staging/promotion/enron_dated_promoted_*.jsonl.gz
+    uv run ark ingest maillist_dated    data/staging/promotion/maillist_dated_promoted_*.jsonl.gz
+    uv run ark ingest rtfm_dated        data/staging/promotion/rtfm_dated_promoted_*.jsonl.gz
+    uv run ark ingest tradepress_dated  data/staging/promotion/tradepress_dated_promoted_*.jsonl.gz
+    uv run ark ingest tucows_dated      data/staging/promotion/tucows_dated_promoted_*.jsonl.gz
+    uv run ark ingest usenet_dated      data/staging/promotion/usenet_dated_promoted_*.jsonl.gz
+    uv run ark ingest usenet_addr_dated data/staging/promotion/usenet_addr_dated_promoted_*.jsonl.gz
+    uv run ark ingest usenet_bare_dated data/staging/promotion/usenet_bare_dated_promoted_*.jsonl.gz
     uv run ark ingest attrition_dated     data/raw/attrition/attrition_dated.jsonl.gz
     uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
     uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz

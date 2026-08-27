@@ -46,8 +46,15 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
 
     # the two corpora whose journals hold their own raw recovered rows, so a re-split
     # reconsiders every row rather than only the mention rows already in the store
-    for pair in "usenet_addr:data/raw/usenet_addr" "usenet_bare:data/raw/usenet_bare"; do
-        prefix="${pair%%:*}"; dir="${pair##*:}"
+    # The spec key is per corpus and is NOT the prefix. Getting this wrong files the
+    # bare lane's rows under `usenet_address`, which is a wrong attribution in
+    # `audit/source_contribution.csv` even though the evidence itself is identical.
+    # It happened on pass 1 of 2026-08-27 and cost nothing only because that pass
+    # returned zero new pairs.
+    for triple in "usenet_addr:data/raw/usenet_addr:usenet_addr" \
+                  "usenet_bare:data/raw/usenet_bare:usenet_bare"; do
+        prefix="${triple%%:*}"; rest="${triple#*:}"
+        dir="${rest%%:*}"; key="${rest##*:}"
         [ -d "$dir" ] || continue
         if ! uv run python scripts/split_usenet_addresses.py --in-dir "$dir" \
                 --out-prefix "$prefix" --write >> "$LOG" 2>&1; then
@@ -58,7 +65,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
             f="${dir}/${prefix}_${lane}.jsonl.gz"
             [ -f "$f" ] || continue
             mv "$f" "${dir}/${prefix}_${lane}_${tag}.jsonl.gz"
-            uv run ark ingest "usenet_addr_${lane}" "${dir}/${prefix}_${lane}_${tag}.jsonl.gz" \
+            uv run ark ingest "${key}_${lane}" "${dir}/${prefix}_${lane}_${tag}.jsonl.gz" \
                 >> "$LOG" 2>&1 || note "  ingest ${prefix} ${lane} failed"
         done
     done

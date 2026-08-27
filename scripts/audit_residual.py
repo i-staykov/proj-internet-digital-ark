@@ -273,7 +273,14 @@ def check_glob_too_narrow(ledger: dict[str, set[str]], verbose: bool) -> int:
     by_source: dict[str, set[str]] = defaultdict(set)
     for _key, source_name, pattern in ingest_globs():
         by_source[source_name] |= {p.name for p in ROOT.glob(pattern)}
+    # `data/raw` is not the only place a journal lands: the promotion tranches are
+    # written under `data/staging/`, and scanning only RAW reported all 41 of them as
+    # "absent from disk" when every one was present. An audit that mislabels its own
+    # finding is worse than one that misses it.
     on_disk = {p.name for p in RAW.rglob("*") if p.is_file()}
+    staging = ROOT / "data/staging"
+    if staging.is_dir():
+        on_disk |= {p.name for p in staging.rglob("*") if p.is_file()}
     total, narrow_total, absent_total = 0, 0, 0
     for source_name, reachable in sorted(by_source.items()):
         held = ledger.get(source_name, set())
