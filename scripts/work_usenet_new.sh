@@ -38,10 +38,22 @@ cd "$(dirname "$0")/.." || exit 1
 DEADLINE="${1:-0}"
 BATCH="${2:-250}"
 WORKERS="${3:-6}"
-SRC="data/raw/usenet_new"
+# **The directory is a parameter now, because a second 53 GB pool turned up.**
+# `data/raw/usenet_bulk` holds 9,266 archives with ZERO filename overlap with
+# `usenet_new`, no journals, no progress marker and no script referencing it. It is
+# also far denser: two disjoint samples over 135.1 MB of its non-`alt.sex` stratum
+# gave 231 net-new pairs and 130.63 equivalent-English, a pooled 0.9669 EE per MB
+# against the 0.0088 measured on `usenet_new`, with the two samples 2.9x apart
+# (1.3950 and 0.4842) so the estimate is noisy. The likely reason for the gap is
+# population: `usenet_new` was bit, linux, microsoft and gov, whose domains the
+# store already holds, and this is consumer `alt.*` naming small businesses,
+# fan sites and ISPs it does not.
+#
+#     ARK_USENET_SRC=data/raw/usenet_bulk bash scripts/work_usenet_new.sh <deadline>
+SRC="${ARK_USENET_SRC:-data/raw/usenet_new}"
 JOURNALS="data/raw/usenet"
 DONE="$SRC/.processed"
-LOG="data/logs/usenet_new.log"
+LOG="data/logs/$(basename "$SRC").log"
 
 mkdir -p data/logs "$JOURNALS"
 touch "$DONE"
@@ -76,7 +88,7 @@ while :; do
         break
     fi
 
-    tag="new$(date '+%H%M%S')"
+    tag="$(basename "$SRC" | sed 's/usenet_//')$(date '+%H%M%S')"
     note "batch of ${#pending[@]} as $tag"
     if ! uv run python scripts/split_usenet.py "${pending[@]}" --tag "$tag" \
             --write --workers "$WORKERS" >> "$LOG" 2>&1; then
