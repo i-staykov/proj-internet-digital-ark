@@ -80,6 +80,18 @@ while :; do
     for archive in "$SRC"/*.mbox.zip; do
         [ -e "$archive" ] || continue
         grep -qxF "$(basename "$archive")" "$DONE" && continue
+        # **Size anticorrelates with in-window share, so the biggest archives are the
+        # worst buy.** A group that stayed busy into the 2000s produces a large file
+        # that is mostly outside 1996-2001. Measured on 2026-08-27:
+        # `alt.sex.anal.mbox.zip`, 974.7 MB compressed and 2.18 GB of readable Usenet,
+        # split to **0 records and 0.00 equivalent-English**, its headers showing
+        # `g2news2.google.com` throughout. The 2-60 MB stratum of the same directory
+        # pooled 0.9669 EE per MB over two disjoint samples. `ARK_USENET_MAX_MB` skips
+        # the tail so a deadline is spent on the part that pays.
+        if [ -n "${ARK_USENET_MAX_MB:-}" ]; then
+            mb=$(( $(stat -f%z "$archive" 2>/dev/null || stat -c%s "$archive") / 1048576 ))
+            [ "$mb" -gt "$ARK_USENET_MAX_MB" ] && continue
+        fi
         pending+=("$archive")
         [ "${#pending[@]}" -ge "$BATCH" ] && break
     done
