@@ -296,6 +296,35 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
+### chastity_list_blacklist / dated_directory
+
+- measured: **14,229.0 net-new post-split EE over 24,927 (domain, year) pairs at 2001**, measured
+  2026-08-27 against `merged260827`. 136,743 list lines across 13 categories yield 97,937 distinct
+  registrable domains, of which **92,059 are already held, 94.0%**, and 24,927 are held with no 2001
+  record. **The split costs nothing here by construction**: the corroboration test is "another source
+  already places this domain in `domain_year`", which is exactly what "held" means, so every one of the
+  24,927 pairs sits on a corroborated domain. `.com` carries it at 20,149 pairs and 12,736.2 EE
+- what dates one item: **the tar member header written by tar, `Dec 14 2001`, on every file in the
+  archive**, plus per-date diff filenames inside the window that agree with it, for example
+  `db/ads/domains.20011124.diff` and `db/ads/urls.20011103.diff`. This is the same argument already
+  approved for the 1997 half of `junkfilter_dated_blocklist`, where a tar member header dated the
+  edition. A blocklist entry is a claim that the site is live and serving now
+- the artifact: `chastity-list_0.5.orig.tar.gz`, 720,609 bytes, from
+  `https://archive.debian.org/debian/pool/main/c/chastity-list/`. The chastity project's ACL files for
+  squidGuard, by Roy-Magne Mo. **Licence GNU GPL v2, verbatim in `COPYING`**, and the README carries
+  "Roy-Magne Mo, rmo@sunnmore.net, 2001". Staged at `data/raw/chastity/`
+- how it was found, since the method is the reusable part: `archive.debian.org` has no robots.txt, and
+  ONE request per release for `dists/<rel>/main/binary-i386/Packages.gz` indexes every package and
+  description in that release. Grepping the potato and woody indexes for blocklist-shaped descriptions
+  gave 41 and 81 candidates, and the largest in woody was this one at 701,038 bytes, described as
+  "blacklists for SquidGuard". **This is the `ls-lR` trick applied to a package archive.**
+- the sibling is out of window and is noted so nobody fetches it twice:
+  `chastity-list_0.5.20020928.orig.tar.gz` is stamped `Sep 28 2002`
+- ingest specs: not written. No parser is registered until this is decided
+- potential: 90
+
+Decision: pending
+
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
