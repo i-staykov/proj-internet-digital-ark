@@ -336,6 +336,12 @@ Decision: pending
 
 ### fac_sfsac_historic_1998_2001 / artifact_listing
 
+- measured: SAME CORPUS as `fac_single_audit`, which was priced at 2,406.69 net-new post-split EE on
+  2026-08-24: same filings, same 1998-2001 window, same `AUDITEEDATESIGNED` field. Two class names
+  over one artifact, so the word on `fac_single_audit` decides this row too and there is nothing here
+  to price separately. Deliberately not written as a `- measured:` figure, because the decision sheet
+  sums those and this one would double-count 2,407 EE. The estimate of 6,000-12,000 per YEAR was 15x
+  to 30x high (2026-08-27)
 - what dates one item: `AUDITEEDATESIGNED`, "Date of auditee signature", per filing
 - potential: 86
 
@@ -440,6 +446,12 @@ Decision: pending
 
 ### discmaster_media_index / dated_directory
 
+- measured: 1,055.3 net-new post-split EE, which is the whole yield of the lens rather than a sample:
+  the one artifact it has produced is `antispam_media_blocklist`, and the `.jp` listing beside it was
+  rejected at 185.3. sources.md records the index saturated by filename and by size over nine queries
+  against 1,718,970,121 indexed files. Its robots.txt is `User-agent: * / Disallow: /` with a note
+  exempting researchers making 'somewhat limited or somewhat targeted' requests, so a bulk sweep is
+  out on both counts (2026-08-27)
 - what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
 - what dates one item: the file's own filesystem date on the media, which is the `page_directory` shape,
 - potential: 60
@@ -486,6 +498,8 @@ Decision: pending
 
 ### fac_single_audit / dated_directory
 - measured: 2406.69 net-new post-split EE, 2026-08-24
+- one word here decides `fac_sfsac_historic_1998_2001` as well: that entry is the same corpus under a
+  second class name, established 2026-08-27
 
 - what it is: e-mail domains on Federal Audit Clearinghouse Single Audit filings, 1998-2001
 - what dates one item: that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote
@@ -499,6 +513,13 @@ Decision: pending
 
 ### reuters_rcv1_newswire / dated_directory
 
+- measured: not fetchable without a human signature, and screened at a few hundred EE either way.
+  `trec.nist.gov/data/reuters/reuters.html` distributes it only 'by sending a request to NIST and by
+  signing the agreements'. Two independent bounds on what that signature buys: the corpus spans
+  1996-08-20 to 1997-08-19, so it can date ONLY 1996 and 1997, where the whole store's adjacent
+  headroom is 103,953 pairs against 6.7M at 2000-to-2001; and newswire is formal prose, measured on
+  Hansard at 0.00153 URLs per 1,000 words, which puts 806,791 stories of roughly 186M words at a few
+  hundred URLs, nearly all head names already held (2026-08-27)
 - what it is: Reuters RCV1, 806,791 stories from 1996-08-20 to 1997-08-19, free from NIST under a signed
 - what dates one item: the story's own dateline.
 - potential: 50
@@ -513,6 +534,12 @@ Decision: pending
 
 ### cbd_secretariat_meeting_documents_1996_2001 / link_source
 
+- measured: STILL UNPRICED, and the reason is worth recording because it is not the usual one: the
+  host is alive and permits us. `www.cbd.int/robots.txt` serves an 'Under Construction' HTML page
+  rather than a robots file, so there are no directives to honour, and `/doc/` and `/decisions/cop/`
+  both return real pages. What blocks pricing is enumeration: `/doc/?meeting=COP-04` is a 9,334-byte
+  JavaScript shell with no document links in the HTML, so the in-window document list has to come
+  from the meetings API before anything can be fetched. Requeued as its own task (2026-08-27)
 - potential: 48
 
 Decision: pending
@@ -556,6 +583,11 @@ Decision: pending
 
 ### uspto_tm_marktext / dated_directory
 
+- measured: unretrievable, and now with the reason rather than the symptom. `bulkdata.uspto.gov` no
+  longer resolves in DNS; `data.uspto.gov/ui/datasets/products/files/TRCFECO2/<year>/case_file.csv.zip`
+  returns the 20,666-byte Angular shell instead of the file for 2011, 2022, 2023 and 2024 alike; and
+  `api.uspto.gov/api/v1/datasets/products/...` answers `{"message":"Unauthorized"}` with 401. Reopen
+  condition: a human registers for an ODP API key. Nothing else about the class has changed (2026-08-27)
 - potential: 40
 
 Decision: pending
@@ -630,6 +662,21 @@ since a pending class cannot date a year. Reaches `key-decisions.md` as a count,
 
 ### ia_webdataservices_cctld_extraction / cdx_timestamp
 
+- measured: **0.0 EE on a complete census of the one in-window year I could finish, and the ccTLD
+  arm does not exist.** The family has exactly one ccTLD member, `Poland_pl-ccTLD_2001-12-31`, 19
+  items of about 10.8 GB each, `access-restricted-item: true`, and `.pl` weighs 0.107, so it is
+  refused and worthless in that order. What the family does hold in window is its `earlygovweb`
+  sibling, `USFEDGOV-EXTRACT-1996` through `-2001`, public, with a 0.5 MB `.arc.os.cdx.gz` beside
+  every 100 MB ARC, so a year can be priced without touching a payload. 1996, all 99 parts, 647,995
+  CDX rows every one stamped 1996: 2,660 distinct hosts collapse to 287 registrable domains and all
+  287 are ALREADY HELD at 1996. Zero. 2001, 253 of 5,802 parts, 2,158,981 rows all stamped 2001:
+  11,369 hosts, 735 registrable domains, 633 held at 2001, **102 net-new pairs and 100.2 EE**
+  self-dating, 76.6 after a split it does not need. The domain space saturates hard, 25 parts giving
+  452 domains and 253 giving 735, so the whole 754 GB item is a few hundred EE at the ceiling. This
+  is law 1 measured on a corpus that had every reason to
+  beat it: a 754 GB extraction of the 2001 federal web, dated by the archive's own capture stamp, at
+  0.9825 per pair, and the baseline already holds the names because the baseline came from the same
+  archive (2026-08-27)
 - what it is: the Internet Archive's "Web Data Services" national extraction collections. The measured
 - what dates one item: field 2 of every CDX row, a 14-digit capture timestamp. The same field the
 - potential: 34
@@ -674,6 +721,14 @@ Decision: pending
 
 ### uk_trade_press_extension / dated_directory
 
+- measured: 191.1 net-new post-split EE over 247 pairs, the whole corpus censused on 2026-08-27
+  rather than sampled. All 33 in-window UK issues archive.org holds were read in full: Internet
+  Magazine 16, Practical Internet 14, PC Format 2, Personal Computer World 1, by year 1999 10,
+  2001 8, 2000 6, 1998 5, 1997 4. 11,639 pairs over 9,541 domains, 8,085 already held, 3,554
+  net-new before the split and 247 after, so the raw figure overstates it 14.6x. By TLD `uk` 115,
+  `com` 97, `net` 32, `org` 2, `edu` 1. Typo bound 58.3%, which is what OCR of a 1990s magazine
+  costs. The `_djvu.txt` of these scans is named 'Internet Magazine 031 [1997-06]_djvu.txt', so the
+  probe that assumes `<identifier>_djvu.txt` called 32 of the 33 unreachable (2026-08-27)
 - potential: 22
 
 Decision: pending
@@ -692,6 +747,8 @@ Decision: pending
 
 ### ukwa_ds2_year_cdx / cdx_timestamp
 
+- measured: nothing to measure. The artifact cannot be fetched at all, so this row is not a pricing
+  question but a waiting one, and the answer below is the reason (2026-08-27)
 - **ASKED AND ANSWERED: NO, AND NOT BEFORE AUTUMN 2026. Do not write to them again.** Ivo enquired
   through `openaccess@bl.uk` on 2026-07-22, citing the dataset record at
   `bl.iro.bl.uk/concern/datasets/3c39a755-5e3d-405b-9944-b13e76a87ad8` and the dead download location.
@@ -743,6 +800,10 @@ Decision: pending
 
 ### osbar_bulletin_html_issues_2000_2001 / link_source
 
+- measured: ceiling about 77 EE for the whole run, 3.2 measured per issue over the 24 monthly issues
+  of 2000-2001, and the live host no longer serves any of it: `/publications/bulletin/`,
+  `/publications/bulletin/00jun/` and `/publications/bulletin/archives.html` all return the same
+  32,677-byte 'Site Error' page, so a full run would be Wayback-only (2026-08-27)
 - potential: 6
 
 Decision: pending
@@ -755,6 +816,10 @@ Decision: pending
 
 ### lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source
 
+- measured: ceiling about 130 EE, 2.6 measured per issue over roughly 50 in-window issues, and the
+  live archive does not serve them: `/gazette/issues/` redirects to `/login`, and the PDF path that
+  works for 2026 (`/globalassets/documents/gazette/gazette-pdfs/gazette-2026/july-2026-gazette.pdf`)
+  404s for gazette-2001, gazette-1999 and even gazette-2004. Wayback-only (2026-08-27)
 - potential: 4
 
 Decision: pending
