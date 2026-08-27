@@ -254,29 +254,54 @@ def check_unread(ledger: dict[str, set[str]], verbose: bool) -> int:
 
 
 def check_glob_too_narrow(ledger: dict[str, set[str]], verbose: bool) -> int:
-    """Files the ledger holds that the documented glob does not match.
+    """Ledgered files the reproduction path cannot reach, and why.
 
     Not lost yield. It means `just reproduce` rebuilds a store without them, so
     the reproduction path claims more than it delivers.
+
+    **The two causes need separating, because they have different fixes and the
+    lumped total misleads.** Reported as one number this read 1,798 on 2026-08-27
+    and a hand estimate the same night put it at "about 20": both were describing
+    a real thing and neither was the same thing. Widening a glob fixes one of
+    them; nothing fixes the other, and saying so is the honest claim.
+
+    `narrow`  the file is on disk and no documented glob matches its name.
+    `absent`  the file is not on disk at all, so no glob can reach it and the
+              replay has to come from whatever the journal was derived from.
     """
-    print("\n== glob_too_narrow: ingested, but the documented glob would miss it ==")
+    print("\n== glob_too_narrow: ingested, but the reproduction path cannot reach it ==")
     by_source: dict[str, set[str]] = defaultdict(set)
     for _key, source_name, pattern in ingest_globs():
         by_source[source_name] |= {p.name for p in ROOT.glob(pattern)}
-    total = 0
+    on_disk = {p.name for p in RAW.rglob("*") if p.is_file()}
+    total, narrow_total, absent_total = 0, 0, 0
     for source_name, reachable in sorted(by_source.items()):
         held = ledger.get(source_name, set())
         missed = sorted(held - reachable)
         if not missed:
             continue
+        narrow = [n for n in missed if n in on_disk]
+        absent = [n for n in missed if n not in on_disk]
         total += len(missed)
-        print(f"  {source_name:24} {len(missed):>6,} of {len(held):>6,} ledgered files unreachable")
-        for name in missed if verbose else missed[:4]:
-            print(f"      {name}")
-        if not verbose and len(missed) > 4:
-            print(f"      ... and {len(missed) - 4:,} more, pass --verbose")
+        narrow_total += len(narrow)
+        absent_total += len(absent)
+        print(
+            f"  {source_name:24} {len(missed):>6,} of {len(held):>6,} unreachable"
+            f"   narrow {len(narrow):>5,}  absent from disk {len(absent):>5,}"
+        )
+        for label, names in (("narrow", narrow), ("absent", absent)):
+            shown = names if verbose else names[:2]
+            for name in shown:
+                print(f"      {label}: {name}")
+            if not verbose and len(names) > 2:
+                print(f"      {label}: ... and {len(names) - 2:,} more, pass --verbose")
     if not total:
         print("  nothing: every ledgered file is reachable from a documented glob")
+    else:
+        print(
+            f"  {narrow_total:,} fixable by widening a glob; {absent_total:,} are gone from disk "
+            f"and can only be replayed from what produced them"
+        )
     return total
 
 

@@ -1887,7 +1887,7 @@ SOURCES: dict[str, SourceSpec] = {
     # the zone-file argument: a delegation is the registry serving the name, not a
     # description of one. Approved by Ivo 2026-08-26.
     # Edelman's 2002 whois transcriptions. `whois_creation`, so rule 6 gives the
-    # transcribed creation year and no other. Approved by Ivo 2026-08-26.
+    # transcribed creation year and no other. Approved by Ivo 2026-08-27.
     "early_bulk_whois_snapshot": SourceSpec(
         key="early_bulk_whois_snapshot",
         source_name="early_bulk_whois_snapshot",
@@ -1897,7 +1897,7 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # junkfilter's hand-maintained spam-origin blocklist, thirteen in-window editions.
     # Two lanes: the corroborated half dates a year, the rest parks as candidates.
-    # Approved by Ivo 2026-08-26.
+    # Approved by Ivo 2026-08-27.
     "junkfilter_dated": SourceSpec(
         key="junkfilter_dated",
         source_name="junkfilter_dated_blocklist",
