@@ -39,8 +39,10 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task/merged260827")
-CURRENT_BASELINE_MARKER = "merged260827"
+CURRENT_BASELINE_DIR = Path(
+    "feedback/feedback-phase-7/Domain_Data_Collection_Task 2/merged260827-2"
+)
+CURRENT_BASELINE_MARKER = "merged260827-2"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,8 +63,8 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 27_152_319
-REVIEWER_BASELINE_EE = Decimal("14169892.8027")
+REVIEWER_BASELINE_PAIRS = 27_233_859
+REVIEWER_BASELINE_EE = Decimal("14221942.8996")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
@@ -76,12 +78,12 @@ REVIEWER_BASELINE_EE = Decimal("14169892.8027")
 # after one interval at 5,129, which is why C-32's caution about a single interval
 # mattered.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("556187.3850"),
-    1997: Decimal("1127015.6430"),
-    1998: Decimal("1523167.7315"),
-    1999: Decimal("2923751.4903"),
-    2000: Decimal("5006596.6405"),
-    2001: Decimal("3033173.9124"),
+    1996: Decimal("558200.2794"),
+    1997: Decimal("1156228.7354"),
+    1998: Decimal("1524060.7506"),
+    1999: Decimal("2926863.3998"),
+    2000: Decimal("5012856.8190"),
+    2001: Decimal("3043732.9154"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,

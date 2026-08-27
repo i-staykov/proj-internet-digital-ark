@@ -67,9 +67,48 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         [ -n "$slug" ] && SLUGS="$SLUGS $slug"
     done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" 2>/dev/null)
     SLUGS="${SLUGS# }"
+    # **An empty queue is a prompt to think, not a reason to stop.** On the night of
+    # 2026-08-27 this branch said `break` and the loop sat idle for six and a half hours
+    # while the collectors ran on without it. A research loop that can run out of
+    # hypotheses is a research loop that will.
     if [ -z "$SLUGS" ]; then
-        note "no open hypotheses left in ${HYPO}. Stopping so a human can add more."
-        break
+        note "queue empty: generating more hypotheses rather than stopping"
+        GFILE="data/logs/prompt_${round}_generate.txt"
+        cat > "$GFILE" <<EOG
+Read CLAUDE.md, then docs/discovery.md, then skim the "Evaluated and rejected" table in
+docs/sources.md to see what SHAPES have already been tried.
+
+Append 6 to 10 NEW hypotheses to ${HYPO}, in the existing format:
+  ## <slug_with_underscores> | <one-line title>
+  <a paragraph: what the artifact is, what would date one item, why its held fraction
+  might be high, and the cheapest screen that would kill it>
+
+Rules for a good hypothesis here:
+- Differ in SHAPE, not in host. Ding asks for breadth and grades method.
+- Aim at a year the store lacks. Adjacent-year headroom is largest at 2001 and 2000.
+- Prefer artifacts whose names are ALREADY HELD: novelty is a cost under the split.
+- Do not repeat anything already closed in docs/sources.md. Grep before writing.
+- Name a concrete host or corpus, not a category.
+Ask what kind of artifact nobody has looked for yet. Machine-written records that
+happen to name websites are the seam: registries, blocklists, catalogues, member
+directories, mail logs, package metadata, court and regulatory filings, standards
+documents, bibliographies, award rosters, sponsor and member lists.
+
+Write ONLY to ${HYPO}. Do not run git. Do not ingest. Do not edit docs/.
+EOG
+        claude -p "$(cat "$GFILE")" --permission-mode auto --output-format text \
+            > "data/logs/fanout_${round}_generate.log" 2>&1 < /dev/null
+        SLUGS=""
+        while IFS= read -r slug; do
+            [ -n "$slug" ] && SLUGS="$SLUGS $slug"
+        done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" 2>/dev/null)
+        SLUGS="${SLUGS# }"
+        if [ -z "$SLUGS" ]; then
+            note "generation produced nothing; retrying next round after a short pause"
+            sleep 120
+            continue
+        fi
+        note "generated: ${SLUGS}"
     fi
     started=$(date -u '+%F %T'); before=$(ee_now); before="${before:-0}"
     note "round ${round}: ${left}s left, launching: ${SLUGS}"
@@ -137,12 +176,31 @@ private/findings/ holds one file per hypothesis just tested. For each file:
 
 Be brief in the commit body: what was tested, what each measured, what the method was.
 EOP
+    # Backgrounded so the next round of researchers starts immediately. Only the
+    # harvester touches git and docs/, and researchers touch neither, so the overlap is
+    # safe and it removes the serial harvest gap from the wall clock.
     claude -p "$(cat "$HFILE")" --permission-mode auto --output-format text \
-        > "data/logs/fanout_${round}_harvest.log" 2>&1 < /dev/null
+        > "data/logs/fanout_${round}_harvest.log" 2>&1 < /dev/null &
+    HARVEST_PID=$!
+    # One harvester at a time: wait for the PREVIOUS one before starting the next.
+    if [ -n "${LAST_HARVEST:-}" ]; then wait "$LAST_HARVEST" 2>/dev/null; fi
+    LAST_HARVEST="$HARVEST_PID"
     after=$(ee_now); after="${after:-$before}"
     delta=$(python3 -c "print(f'{float('${after}') - float('${before}'):.4f}')" 2>/dev/null || echo 0)
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$round" "$started" "$(date -u '+%F %T')" "$SLUGS" "$before" "$after" "$delta" >> "$LEDGER"
     note "round ${round} banked: EE delta ${delta}"
+    # A round that produced nothing usually means a rate limit or a transient API
+    # failure, neither of which is a reason to stop for the night.
+    if [ "$(ls -1 "$FIND"/*.md 2>/dev/null | wc -l)" -eq 0 ] && [ "${delta}" = "0.0000" ]; then
+        FAILS=$(( ${FAILS:-0} + 1 ))
+        if [ "$FAILS" -ge 2 ]; then
+            note "two barren rounds: backing off 300s in case this is a rate limit"
+            sleep 300
+            FAILS=0
+        fi
+    else
+        FAILS=0
+    fi
 done
 note "fanout finished after ${round} rounds"
