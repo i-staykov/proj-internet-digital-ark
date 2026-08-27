@@ -19,6 +19,12 @@ Nominet is the only one of the four whose terms prohibit USE as well as collecti
 
 Worth: -118.7 EE if withdrawn. Withdrawing is the reading the terms support; keeping them needs a reason.
 
+### Say whether the tomocha.net refusal covers its zone files too
+
+`jpnic_register` was withdrawn on 2026-08-25 because `tomocha.net` disallows ClaudeBot by name, with the note that its 1,623 EE must not be used. The 1999 InterNIC `edu` and `gov` zones from the same host on the same day were banked, at 179.8 EE. Tomocha mirrors somebody else's register in both cases, so either the refusal covers both or neither.
+
+Worth: 0 EE this round. `internic_zone` at 1999 is 0 pairs net-new against `merged260827`, all already in his baseline, so only the register's wording is at stake.
+
 ### Decide the round length, now that scoring is time-weighted
 
 The brief update of 2026-08-20 scores each submission `S_i = 10 * p_i / t_i`, with `t_i` in days from the benchmark's release to receipt, and he confirmed it by quoting `S_6 = 6.88` for a 4.130718% round that took six days. Round 7 stands at 0.4377% against a benchmark released today, so a submission tomorrow scores about 4.4 and the same work sent in six days scores 0.7.
