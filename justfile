@@ -422,6 +422,17 @@ cdx-pool until batch="1200" workers="8":
 engines:
     bash scripts/engine_status.sh
 
+# Takes a deadline epoch. Each iteration is a fresh `claude -p`, so context cannot
+# degrade across a long run, and every iteration is scored in EE so an idle one is
+# visible rather than deniable.
+# drive the agent to a deadline from outside the agent
+agent-loop until tasks="private/agent-tasks.md":
+    bash scripts/agent_loop.sh {{until}} {{tasks}}
+
+# what the loop actually achieved, per iteration
+agent-loop-log:
+    @column -t -s "$(printf '\t')" data/logs/agent_loop.tsv 2>/dev/null || cat data/logs/agent_loop.tsv
+
 # Takes a deadline epoch, e.g. `just engines-start $(date -u -v+12d +%s)`.
 # start this machine's collector and the ingest loop, both detached
 engines-start until batch="600" workers="8":
