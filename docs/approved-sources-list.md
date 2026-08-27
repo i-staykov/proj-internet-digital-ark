@@ -334,6 +334,56 @@ Decision: pending
 
 Decision: pending
 
+### bbbonline_reliability_roster / artifact_listing
+
+- measured: **1,470.1 net-new post-split EE over 2,376 (domain, 2001) pairs**, measured 2026-08-27 by
+  `scripts/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT DOMAINS and
+  not `domain_year` rows. An independent duckdb year screen gives 2,375 pairs and 1,469.5 EE, so the two
+  readings agree to 0.04%. Under the MASTER reading, with no corroboration split, it is 3,109 pairs and
+  1,919.7 EE. 9,019 distinct registrable domains under a weighted TLD, 8,286 held at some year (91.9%),
+  5,911 already carrying 2001, **2,375 held-and-missing-2001**, mean weight 0.6187, `com` 2,163 / `net`
+  175 / `org` 23, typo upper bound 46.3%, 733 pairs to the candidate pool. Yield 0.163 EE per listed
+  domain, 0.193 per row, 0.00044 EE per byte
+- the payout is adjacent-year and not death-gap: 2,222 of the 2,375 pairs (93.6%) are on domains the
+  store already holds at 2000, which is the figure the headroom law says to quote
+- what dates one item: the letter page is generated live from the seal programme's participant database
+  and carries no in-body date, so the **Wayback capture timestamp in its own URL** fixes the instant the
+  roster was current, and programme participation requires an operating reviewed website, so a row
+  asserts liveness rather than merely that a name exists. The `coza_deletion_listing` shape, and the
+  standard set in killer 8: the grounds are the artifact asserting a state plus a capture fixing when,
+  with the 91.9% overlap cited only as a check afterwards
+- the artifact: BBBOnLine's Reliability participant directory, an alphabetically enumerable 36-page
+  namespace `http://www.bbbonline.org/search/Relresult.asp?letter=<@,0-9,A-Z>` linked from
+  `search/Relbrowse.asp`. **33 letters have a 2001 capture**, 3,574,800 bytes total, 7,605 participant
+  rows, 9,184 distinct hostnames. Largest: `A` at `20010711225502` 347,822 B, `C` at `20010424220215`
+  327,419 B, `T` at `20010711223827` 255,598 B. `L`, `V` and `6` are EXCLUDED and not counted above,
+  because `L` returns nothing from the availability API and `V` and `6` return only 2002-01 captures
+- how it was found, since the method is the reusable part: **a provider-run member index links the member
+  THROUGH the provider and therefore cannot name the member's own domain, measured at 0.0 EE the same day
+  as `free_host_member_indexes`, while a seal or certification roster MUST print the member's own domain,
+  because the domain is what is being certified.** So the same "customer showcase" lens dies on hosts and
+  pays here, and the pre-download question is whether the listing's subject is the customer's SITE or the
+  customer's ACCOUNT. The whole 7,600-row database then comes out in 36 requests and needs no CDX query:
+  `archive.org/wayback/available?url=...&timestamp=YYYYMMDD` finds the capture and
+  `web.archive.org/web/<ts>id_/` returns the original bytes
+- two traps a parser must handle, both paid for here: the availability API returns the CLOSEST capture, so
+  a `20011215` target lands in 2002-01 for a third of the letters and would silently import a 2002 roster
+  as a 2001 observation. **Target `20010901` and reject any timestamp not starting `2001`.** And this
+  template writes `HREF=http://...` UNQUOTED, so a quoted-href regex reports 0 absolute links on a
+  347,822-byte page holding 1,013 of them
+- ingest specs: not written. No parser is registered until this is decided
+- unfetched increments, all cheap, none of them counted in the figure above: the Privacy programme has a
+  separate roster at `search/Pribrowse.asp` on a different membership; `L` alone is on the order of 200
+  rows and needs a capture found by some route other than a single availability probe; and the SAME
+  36-page namespace exists at 1999 and 2000 captures, where the adjacent-year law says price one letter
+  page before fetching 36
+- potential: 87. Drivers: retrieved and licence-clear, self-dating on the capture, 93.6% of the payout
+  adjacent-year, 34 requests for the whole artifact, and a named 2x-to-3x expansion in the Privacy roster
+  and the 1999-2000 editions. Held back from the 90s only because the dating is `cdx_timestamp` on a
+  live-generated page rather than a per-row date field inside the payload
+
+Decision: pending
+
 ### fac_sfsac_historic_1998_2001 / artifact_listing
 
 - measured: SAME CORPUS as `fac_single_audit`, which was priced at 2,406.69 net-new post-split EE on
@@ -493,6 +543,25 @@ Decision: pending
   **375.0 EE** at 0.1958, and only 641 of its 7,315 names are new, so `.il` 1998 is already well covered.
   **`.nu` `notrenewed.cfm`**, 517 pairs, **144.1 EE** at 0.2787
 - potential: 56
+
+Decision: pending
+
+### truste_licensee_roster / artifact_listing
+
+- measured: **115.1 net-new post-split EE over 184 (domain, 2001) pairs**, 2026-08-27 against
+  merged260827 (`scripts/price_items.py` reads 187 pairs and 117.0 EE; quote the lower). 1,522 distinct
+  domains, 99.0% held, 1,323 already carrying 2001
+- what dates one item: the same argument as `bbbonline_reliability_roster` above, on which this row
+  should be decided: a licensee roster generated from the programme's database, dated by the capture
+  timestamp `20010603230742`, and holding a TRUSTe licence requires an operating audited site
+- the artifact: `http://www.truste.org/users/users_lookup.html`, one page, 128,247 B
+- why it is worth a tenth of BBBOnLine on twice the fetch efficiency: **0.076 EE per listed name against
+  BBBOnLine's 0.163, the head-corpus law exactly.** TRUSTe licensed `abc.com`, `about.com` and
+  `expedia.com`, which the store already holds at 2001; BBBOnLine listed air-conditioning contractors and
+  local ISPs, which it does not
+- ingest specs: not written
+- potential: 55. Drivers: one request, clean licence, identical dating argument to the entry above, but
+  head-selected and so an order of magnitude thinner
 
 Decision: pending
 
