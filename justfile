@@ -203,6 +203,7 @@ sources:
     uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
+    uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
     # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
     # the whole recipe with it. Left here, commented, because the artifact is on disk
@@ -229,6 +230,8 @@ sources:
     uv run ark ingest internet_scout    data/raw/scout/scout_oai.xml
     uv run ark ingest odp               data/raw/odp/*.gz
     uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
+    uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv
+    uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv.gz
     uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
     # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
     # is set in docs/approved-sources-list.md, so this line is a no-op until then and
@@ -256,14 +259,27 @@ candidates:
 journals:
     uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz
     uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
+    uv run ark ingest rdap_snapshot data/raw/rdap_gen/rdap_gen_*.jsonl.gz
     uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 1
     uv run ark ingest expansion_directory data/raw/expand/round2/expand_round2.jsonl.gz --round 2
     uv run ark ingest expansion_directory data/raw/expand/wwwvl/expand_wwwvl_corroborated.jsonl.gz --round 3
     uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
     uv run ark ingest expansion_directory data/raw/expand/round4/expand_round4_corroborated.jsonl.gz --round 4
     uv run ark ingest expansion_links     data/raw/expand/round4/expand_round4_unverified.jsonl.gz --round 4
+    # Three directories, not one. The pools were added later and each wrote its
+    # journals beside its own archives, so `data/raw/usenet/` alone reached 186 of
+    # 1,064 ledgered files and the replay silently rebuilt a store without the rest.
+    # The audit called all 1,798 of these "unreachable" and a hand reading of that
+    # called them deleted; 1,759 of them were simply in a sibling directory.
+    # One line per directory, because the residual audit reads the FIRST glob on an
+    # `ark ingest` line and a backslash continuation is invisible to it. A glob it
+    # cannot see is a glob nobody checks.
     uv run ark ingest usenet_dated        data/raw/usenet/usenet_dated*.jsonl.gz
+    uv run ark ingest usenet_dated        data/raw/usenet_new/usenet_dated*.jsonl.gz
+    uv run ark ingest usenet_dated        data/raw/usenet_de/usenet_dated*.jsonl.gz
     uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
+    uv run ark ingest usenet_candidates   data/raw/usenet_new/usenet_candidates*.jsonl.gz
+    uv run ark ingest usenet_candidates   data/raw/usenet_de/usenet_candidates*.jsonl.gz
     uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
     uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
     # `_r2` is the second split of the recovered-address journals, run after the
