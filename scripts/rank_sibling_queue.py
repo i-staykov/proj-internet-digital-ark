@@ -18,22 +18,27 @@ concern, and a going concern of that era defensively registered the other two
 gTLDs, in that era. A label seen in one year only is as likely to be a typo, a
 parked name or a one-page site that never had a sibling at all.
 
-**RANKING LOSES, AND THE MEASUREMENT THAT SAYS SO IS THE POINT OF THIS FILE.**
-Ranking works exactly as designed and still costs more than it earns, because the
-registries price ANSWERS rather than questions. Measured on 2026-08-27 over the same
-engine, same night, same queue:
+**WHETHER RANKING PAYS IS UNRESOLVED, AND THE FIRST ANSWER HERE WAS WRONG.**
+An earlier version of this docstring claimed ranking loses sixtyfold on throughput.
+That claim was confounded and is withdrawn. What the per-minute series in the
+journals actually shows, all times UTC on 2026-08-27:
 
-    order        answered 200   throughput   in-window   EE per 1,000   EE per hour
-    unranked           18.7%      ~50 q/s        1.80%           8.2         ~1,476
-    ranked             74.4%       0.8 q/s       4.02%          28.5            ~72
+    unranked     23:24-23:40   27 69 71 69 64 65 61 65 67 67 64 67 66 67 65 62 60 q/s
+    ranked       23:44-23:50    0 13  0  0  0  0  0
+    interleaved  23:53-23:59    0  0  1  0  1  0  0
+    shuffled     00:02-00:09   15  9  0  0  0  1  0  0
 
-Ranking raised the share of real records from 18.7% to 74.4%, which is the whole
-idea, and throughput fell about sixtyfold. A 404 is cheap to serve and a full RDAP
-record is not, so a queue optimised for hit rate is a queue optimised for the thing
-the rate limiter charges for. **Prefer `--shuffle` unless the limiter is known to
-price questions rather than answers.** The ranking path is kept because the finding
-belongs with the code that produced it, and because a registry with a flat limit
-would invert the conclusion.
+The unranked run held about 65 queries a second FLAT for seventeen minutes, with no
+decay, and then every later run collapsed whatever order it used. The shuffled run
+is the same population as the unranked one and collapsed too, which is what rules
+the ordering explanation out: **Verisign served 64,568 queries at 65 q/s and then
+clamped to near zero for at least the next twenty-five minutes, across three
+restarts.** That is a quota, and the three ordering experiments all ran inside it.
+
+What IS established, because it is a property of the population rather than of the
+limiter: ranking by base-label longevity raises the share of queries answering 200
+from 18.7% to 74.4%, and the in-window creation rate from 1.80% to 4.02%. Whether
+that costs throughput is untested and needs a rested registry to settle.
 
 **Ties do NOT break on TLD weight either, and that mistake is worth recording.** The first
 version sorted `.org` 0.7101 before `.com` 0.6321 before `.net` 0.4530, on the
