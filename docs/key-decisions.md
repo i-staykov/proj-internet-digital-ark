@@ -21,9 +21,9 @@ Raised automatically, because a `pending` line in a file you do not open is not 
 
 **Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
 
-### Triage the newly found sources: 69 found
+### Triage the newly found sources: 40 found
 
-**69 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+**40 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
