@@ -405,6 +405,39 @@ Decision: pending
 
 Decision: pending
 
+### squidguard_contrib_2001_origin / artifact_listing
+
+- measured: **1506.4 net-new post-split EE over 2,553 (domain, 2001) pairs, measured 2026-08-27**
+  against the live store, so the banked December edition's 18,000 pairs are already excluded. Before
+  the split it is 3,292 pairs and 1,960.0 EE. 74 content files, 75,347 distinct hostnames, 42,321
+  registrable domains, of which 39,029 (92.2%) already carry 2001. Typo upper bound 49.1%. TLDs:
+  `com` 2,283, `de` 183, `net` 73, `org` 6, `nl` 3, `ch` 2
+- what dates one item: each category file's own compile header, `# This list was compiled in 79:50:07
+  on 2001.07.03 08:08:29.` and `# This list was compiled in 33:22:40 on 2001.09.09 09:48:47.`, written
+  by `squidGuardRobot-2.2.13` and `-2.3.4`, each naming itself and asserting a successful fetch
+  (`286445 links, of which 230616 tested successfully`). The same grounds Ivo approved for
+  `squidguard_2001_blacklist` on 2026-08-26, so nothing was typed by a person and no split applies.
+  Tar member mtimes agree (2001-07-03 to 2001-07-09, 2001-08-10 to 2001-09-09), and the
+  `newdomains.YYYYMMDD` and `newurls.YYYYMMDD` members carry the date in the filename too.
+  `mail/domains` has no compile header and is skipped, as in the banked edition
+- the artifact: the squidGuard project's OWN contrib blacklist, from the host that compiled it.
+  `web.archive.org/web/20010710215730id_/http://ftp.ost.eltele.no/pub/www/proxy/squidGuard/contrib/blacklists.tar.gz`,
+  403,211 bytes, and the previous edition left on disk as `blacklists.tar.gz~` at capture
+  `20010911061641`, 1,576,754 bytes. Staged at `data/raw/squidguard_contrib_2001/`
+- **the licence needs the human call and the banked entry does not answer it**: both tarballs hold
+  `blacklists/README` and no `COPYING`. GPL v2 covers the squidGuard SOURCE distribution the December
+  sample travelled in; these two are the standalone data drop from the project's FTP host and carry
+  only the README's "entierly products of a dumb robot" warning
+- why it was not found sooner: `content_filter_blacklists` below was rejected in part on an era test
+  run against `ftp.teledanmark.no`, a MIRROR whose earliest capture is 2003-12-11. The origin has two
+  in-window captures. That entry's own surviving bullet quotes one of these headers verbatim
+- content is the same adult, gambling, drugs and warez population Ivo was shown before approving the
+  December edition
+- ingest specs: not written. The banked `squidguard_2001_blacklist` spec reads this exact layout
+- potential: 62
+
+Decision: pending
+
 ### discmaster_media_index / dated_directory
 
 - what it is: `discmaster.textfiles.com`, a searchable index over the **contents** of archived CD-ROM,
@@ -1040,7 +1073,9 @@ and no `blacklist/` path. What does survive is the COPA Commission's mirror of p
 dated in body `8/2/2000` and "as of June 14, 2000". Measured: 497 already held, **51 pairs post-split,
 32.2 EE**, all `.com`. **The whole surviving artifact ceilings at 1,000 x 0.6321 = 632.1 EE, below the
 floor before anything is measured.** The squidGuard half of this entry was already closed on era
-(2026-08-24, artifact is 2003). Reopen condition: a non-Wayback mirror of the decoded cphack blacklist;
+(2026-08-24, artifact is 2003). **That era test was run on a MIRROR and is superseded**: see
+`squidguard_contrib_2001_origin` above, where the origin host `ftp.ost.eltele.no` gives two
+in-window editions worth 1,506.4 EE. Reopen condition: a non-Wayback mirror of the decoded cphack blacklist;
 four searches found none.
 
 ### nominet_whois_port43 / whois_creation
