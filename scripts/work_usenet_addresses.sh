@@ -24,11 +24,20 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-DEADLINE="${1:?usage: work_usenet_addresses.sh <deadline_epoch> [batch] [workers]}"
+DEADLINE="${1:?usage: work_usenet_addresses.sh <deadline_epoch> [batch] [workers] [mode]}"
 BATCH="${2:-400}"
 WORKERS="${3:-5}"
-LOG="data/logs/usenet_addr_work.log"
-mkdir -p data/logs data/raw/usenet_addr
+# `addresses` reads ftp://, mailto: and typed body addresses; `headers` reads the
+# message headers. Both feed usenet_address, both had the empty-directory bug, and
+# both need running over the pools that are still on disk.
+MODE="${4:-addresses}"
+case "$MODE" in
+    addresses) OUT_DIR=data/raw/usenet_addr; PREFIX=usenet_addr ;;
+    headers)   OUT_DIR=data/raw/usenet_hdr;  PREFIX=usenet_hdr ;;
+    *) echo "mode must be addresses or headers" >&2; exit 2 ;;
+esac
+LOG="data/logs/usenet_${MODE}_work.log"
+mkdir -p data/logs "$OUT_DIR"
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
 
 # Split every journal in the directory and ingest both lanes. Separate from the
@@ -37,26 +46,26 @@ bank() {
     local tag="$1"
     note "banking after ${tag}"
     if ! uv run python scripts/split_usenet_addresses.py \
-            --in-dir data/raw/usenet_addr --write >> "$LOG" 2>&1; then
+            --in-dir "$OUT_DIR" --out-prefix "$PREFIX" --write >> "$LOG" 2>&1; then
         note "split failed, nothing banked this time; the journals keep the work"
         return 1
     fi
     local lane src
     for lane in dated candidates; do
-        src="data/raw/usenet_addr/usenet_addr_${lane}.jsonl.gz"
+        src="${OUT_DIR}/${PREFIX}_${lane}.jsonl.gz"
         [ -f "$src" ] || continue
-        mv "$src" "data/raw/usenet_addr/usenet_addr_${lane}_${tag}.jsonl.gz"
+        mv "$src" "${OUT_DIR}/${PREFIX}_${lane}_${tag}.jsonl.gz"
         uv run ark ingest "usenet_addr_${lane}" \
-            "data/raw/usenet_addr/usenet_addr_${lane}_${tag}.jsonl.gz" >> "$LOG" 2>&1 \
+            "${OUT_DIR}/${PREFIX}_${lane}_${tag}.jsonl.gz" >> "$LOG" 2>&1 \
             || note "ingest of ${lane} ${tag} failed"
     done
     note "banked ${tag}"
 }
 
-note "start: until ${DEADLINE}, batch=${BATCH} workers=${WORKERS}"
+note "start: until ${DEADLINE}, batch=${BATCH} workers=${WORKERS} mode=${MODE}"
 round=0
 for SRC in data/raw/usenet_bulk data/raw/usenet_new; do
-    MARK="${SRC}/.addr_processed"
+    MARK="${SRC}/.${MODE}_processed"
     touch "$MARK"
     while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         # what is left in this pool, in a stable order so a restart resumes
@@ -69,13 +78,13 @@ for SRC in data/raw/usenet_bulk data/raw/usenet_new; do
         tag="addr$(date -u +%H%M%S)"
         note "$SRC: batch ${round}, ${n} archives as ${tag}"
         # a staging directory holding only this batch, by symlink so no bytes move
-        stage="data/raw/usenet_addr_stage"
+        stage="data/raw/usenet_${MODE}_stage"
         rm -rf "$stage" && mkdir -p "$stage"
         while IFS= read -r f; do
             [ -n "$f" ] && ln -s "../../../$SRC/$f" "$stage/$f" 2>/dev/null
         done <<< "$left"
         if ! ARK_USENET_SRC="$stage" uv run python scripts/collect_usenet_addresses.py \
-                --mode addresses --workers "$WORKERS" >> "$LOG" 2>&1; then
+                --mode "$MODE" --workers "$WORKERS" >> "$LOG" 2>&1; then
             note "$SRC: extractor failed, stopping this pool"
             break
         fi
@@ -97,6 +106,6 @@ for SRC in data/raw/usenet_bulk data/raw/usenet_new; do
         fi
     done
 done
-rm -rf data/raw/usenet_addr_stage
+rm -rf "data/raw/usenet_${MODE}_stage"
 bank "final$(date -u +%H%M%S)"
 note "exit"
