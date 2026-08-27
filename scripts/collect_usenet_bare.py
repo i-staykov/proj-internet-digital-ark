@@ -34,6 +34,7 @@ Writes a journal, never opens the store, uses no network.
 """
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -53,7 +54,14 @@ from ark.usenet import (  # noqa: E402
     message_year,
 )
 
-USENET = ROOT / "data/raw/usenet"
+# The archives to read. `data/raw/usenet` held the original 411 GB pool and was
+# reclaimed once processed, so it now holds ZERO `.mbox.zip` and this script had
+# silently become a no-op over the two pools that are still on disk:
+# `usenet_bulk` (9,266 archives) and `usenet_new` (7,531). That is the same
+# one-word directory mismatch `work_usenet_new.sh` was written to fix, in a
+# different script, found on 2026-08-27 by listing archives per directory rather
+# than trusting the constant.
+USENET = ROOT / os.environ.get("ARK_USENET_SRC", "data/raw/usenet")
 OUT_DIR = ROOT / "data/raw/usenet_bare"
 YEARS = range(1996, 2002)
 
