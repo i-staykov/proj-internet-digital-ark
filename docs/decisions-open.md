@@ -19,16 +19,14 @@ collected without asking. Only the master-eligible classes below are blocked on 
 | `expiring_list_2002_term_inference` | `artifact_listing` | NOT STATED | 3,620 |
 | `cctld_register_listing_capture` | `cdx_timestamp` | the Wayback capture stamp, since these editions carry no in-body date, and a register listing is the registry stating what stood in it when the crawler took the page | 3,496 |
 | `mynic_my_change_report` | `artifact_listing` | the per-day heading above each entry, `2 April 2001`, with `New` or `Delete` beside the name, so the registry is stating that this name entered or left the register that day | 3,091 |
-| `early_bulk_whois_snapshot` | `whois_creation` | the registry creation date in the row, the same semantics `domain_creation_bulk` | 2,968 |
 | `coza_deletion_listing` | `cdx_timestamp` | the Wayback capture stamp on the page, since the listing carries no in-body date at all, and a name shortlisted for deletion is one the registry is stating is registered right now | 2,721 |
 | `fac_single_audit` | `dated_directory` | that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down | 2,407 |
-| `junkfilter_dated_blocklist` | `dated_directory` | three independent machine-written stamps agreeing. The HTTP header on the file itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36 2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997 half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec 6 1997 junkfilter/jf-domains` | 2,189 |
 | `ncua_5300_call_report_webaddr` | `artifact_listing` | `CYCLE_DATE` on every `fs220d` row, the quarter the call report covers | 1,328 |
 | `nic_ve_cartelera` | `artifact_listing` | the notice's own publication date on NIC Venezuela's `cartelera`, the registry's public notice board of names entering the register | 1,131 |
 | `antispam_media_blocklist` | `artifact_listing` | the file's own timestamp on the preserved media, `2001-04-06`, shown in discmaster's listing row for `BlackList.json` and again on its parent `data.mdb`. Per EDITION, not per record, so the same shape as `junkfilter_dated_blocklist` | 1,055 |
 | `zenodo_banner_ads` | `cdx_timestamp` | the 14-digit Wayback capture stamp on each appearance, verified against live CDX at 27 of 28 exact matches. Self-dating, so no split | 433 |
 | `usenet_quoted_whois` | `whois_creation` | the registry's own `Record created on DD-Mon-YYYY` line inside the quoted block, which dates the domain independently of when the message was posted | 90 |
 
-**13 rows, 30,414 equivalent-English waiting on a word.**
+**11 rows, 25,256 equivalent-English waiting on a word.**
 
 10 further master-eligible classes are pending with **no measured figure**, so they are not rows above and this sheet is not the whole queue. Price one before deciding it, or read its verdict in `docs/sources.md`: `cbd_secretariat_meeting_documents_1996_2001 / link_source`, `discmaster_media_index / dated_directory`, `fac_sfsac_historic_1998_2001 / artifact_listing`, `ia_webdataservices_cctld_extraction / cdx_timestamp`, `lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source`, `osbar_bulletin_html_issues_2000_2001 / link_source`, `reuters_rcv1_newswire / dated_directory`, `uk_trade_press_extension / dated_directory`, `ukwa_ds2_year_cdx / cdx_timestamp`, `uspto_tm_marktext / dated_directory`.
