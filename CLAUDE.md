@@ -8,6 +8,15 @@ each `(domain, year)` counts its TLD's English share. `.uk` 0.9813, `.com` 0.632
 Round 6 crossed the 5% gate on 2026-08-26. The task does not end at a gate: keep collecting until the
 discoverable sources are exhausted, and submit early, because percentages add and the denominator grows.
 
+## What the score is a proxy for
+
+**EE and speed are the PROXY. The deliverable is demonstrated research capability**:
+autonomous, creative, intelligent discovery (Ivo, 2026-08-27). So a measured negative with
+a reason is a result, the METHOD that found a source outranks the source, and breadth of
+hypothesis beats grinding one shape. Run independent hypotheses in parallel; keep what
+works, document what does not, move to the next. This does not soften the 5% target: it
+decides what to do with the hours that do not find an outlier.
+
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
