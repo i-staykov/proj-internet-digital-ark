@@ -166,11 +166,12 @@ what survives the split we already hold. Ask whether the lister held the databas
   survive did so because a commercial or university operation kept paying, and mirror operators are
   exactly the population now adding blanket or Claude-named `Disallow: /`. Five of seven live large
   mirrors in one sweep refused; the two that allowed crawling carried only current distro trees.
-- **A rate limiter that prices ANSWERS makes a denser queue a slower one.** Ranking the RDAP sibling
-  queue by base-label longevity raised the in-window hit rate from 1.80% to 4.02% and cut throughput
-  from ~50 q/s to 0.8, because the share answering 200 went 18.7% to 74.4% and a 404 is cheap to serve.
-  1,476 EE/hour became 72. Measure EE PER HOUR, never per query, and prefer a shuffled queue unless the
-  limiter is known to charge for questions.
+- **Verisign RDAP is a QUOTA, not a rate.** It served 64,568 queries at a flat 65 q/s for seventeen
+  minutes, then clamped to about 1 q/s for at least twenty-five minutes across three restarts. Restarting
+  does not clear it; only resting might. Budget a night's Verisign work as one block of ~65,000 queries.
+- **A collapse after a change is not evidence the change caused it.** Three queue orderings were compared
+  inside that clamp and all read as catastrophic, which produced a confident and wrong law about ranking.
+  Get a per-minute series out of the journals before attributing a rate change to anything.
 - **Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it is
   closed three times over wastes the run and teaches the agent to distrust the brief.
 
