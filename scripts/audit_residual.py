@@ -162,6 +162,11 @@ ACCOUNTED = {
     # collection, so these three journals are held where no ingest glob matches them
     # and `maintain.sh` cannot bank them. See docs/key-decisions.md.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
+    # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
+    # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
+    # that pool's `.processed` ledger, so the announce, address, header and bare
+    # extractors have each already read them.
+    "usenet_msft": "3 byte-identical duplicates of processed data/raw/usenet_new files",
     "nypw": "rejected on measurement: 53 net-new domains over 6.28M lines",
     "100hot": "worked in phase 1 to 3,453 hostnames; master-evidence route declined",
     "wwwvl": "page cache for the Virtual Library expansion rounds",
