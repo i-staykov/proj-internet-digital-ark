@@ -32,8 +32,8 @@ WORKERS="${3:-5}"
 # both need running over the pools that are still on disk.
 MODE="${4:-addresses}"
 case "$MODE" in
-    addresses) OUT_DIR=data/raw/usenet_addr; PREFIX=usenet_addr ;;
-    headers)   OUT_DIR=data/raw/usenet_hdr;  PREFIX=usenet_hdr ;;
+    addresses) OUT_DIR=data/raw/usenet_addr; PREFIX=usenet_addr; MARK_NAME=addr ;;
+    headers)   OUT_DIR=data/raw/usenet_hdr;  PREFIX=usenet_hdr;  MARK_NAME=hdr ;;
     *) echo "mode must be addresses or headers" >&2; exit 2 ;;
 esac
 LOG="data/logs/usenet_${MODE}_work.log"
@@ -65,7 +65,10 @@ bank() {
 note "start: until ${DEADLINE}, batch=${BATCH} workers=${WORKERS} mode=${MODE}"
 round=0
 for SRC in data/raw/usenet_bulk data/raw/usenet_new; do
-    MARK="${SRC}/.${MODE}_processed"
+    # The marker is per MODE, and headers uses `.hdr_processed` rather than
+        # `.headers_processed` because that is the name already on disk from the first
+        # header run. A marker rename silently redoes the whole pool.
+        MARK="${SRC}/.${MARK_NAME}_processed"
     touch "$MARK"
     while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         # what is left in this pool, in a stable order so a restart resumes
