@@ -129,6 +129,54 @@ Decision: master
 
 - ingest specs: `rdap_snapshot`
 - authority: phase 4, merged and credited 2026-08-10; SPEC III.6 allows a creation date for the year it falls in
+- **the evidential question was settled in phase 4 and the TERMS question was never asked, and on
+  2026-08-27 it was.** All four registries this class has queried publish a terms notice inside the
+  RDAP response itself, so it has been on disk the whole time. Read from our own journals and, for
+  Verisign, from the page its notice links to:
+  - **Verisign (`.com`, `.net`)**, `verisign.com/legal-center/rdap-terms/`: you will not use the data
+    to "(2) enable high volume, automated, electronic processes that send queries or data to the
+    systems of Verisign or an ICANN-accredited registrar, except as reasonably necessary to register
+    domain names or modify existing registrations"
+  - **PIR (`.org`)**: the same clause with the same registration-only carve-out, plus "Abuse of the
+    RDAP system through data mining is mitigated by detecting and limiting bulk query access"
+  - **Nominet (`.uk`)**: the same clause **with no carve-out at all**, and a second one that goes
+    further than any of the others: "You are explicitly prohibited from extracting, copying and/or
+    using or re-using in any form and by any means (electronically or not) all or part (quantitatively
+    or qualitatively) of the contents of the RDAP database without prior and explicit permission from
+    the Registry Operator"
+  - **CIRA (`.ca`)**: rejected on the same clause this morning, before any of this was checked
+- **so the rule this project already had, applied consistently, closes the class**: trap 8 in
+  `CLAUDE.md` says to read past the record because the terms follow the data, names `.nz` as having
+  cost 7,586 EE that way, and says in as many words that **`.uk` says the same thing**. The engine was
+  pointed at Nominet on 2026-08-24 with the commit message "needing no approval", which was true of
+  the evidence class and false of the terms
+- **both engines were stopped on 2026-08-27 at 07:47 and 07:51** and no RDAP query has been sent since
+- exposure, measured against `merged260827`: the class holds **748,099 pairs and 459,792.0 EE**
+  (Verisign 711,894 / 433,749.9, PIR 20,917 / 14,853.2, CIRA 7,092 / 5,932.5, Nominet 4,714 / 4,625.8,
+  other registries 3,482 / 630.6). **All but 1,615 pairs and 851.0 EE of it is already submitted and
+  merged into his baseline**, so the withdrawable part is 851.0 EE: Verisign 600.9, PIR 131.4,
+  Nominet 118.7. The cost of stopping is the route's future, not a restatement of the past
+- the `.ca` pairs are the sharpest part of it. The `cira_ca_rdap` entry below says "one query was spent
+  on evaluation", and that is wrong: **7,092 `.ca` pairs were already banked** through the
+  `rdap.org` redirector, which 302s to the authoritative server, so a per-TLD decision was never
+  reached because the sweep never asked per TLD
+- **the decision stays `master`, and that is deliberate rather than convenient.** What Verisign and PIR
+  prohibit is *sending* the queries, and every pair already in the store came from a response already
+  received: replaying a stored journal sends nothing. Setting the class to `pending` would also break
+  `just journals`, which is the reproduction path the shipped archive tells a reviewer to run, and it
+  would withdraw 458,941 EE the reviewer has already merged on a reading the terms do not support
+- **what is closed is COLLECTION, and it is closed in code rather than in a note.** `ark rdap` now
+  refuses every registry whose terms have been read and prohibit it, and needs
+  `ARK_RDAP_TERMS_OVERRIDE=1` plus a named authority to send a single query. A comment in a docstring
+  is what allowed the Nominet engine to start three days after `CLAUDE.md` recorded that `.uk` says
+  the same thing
+- **Nominet is the one slice where USE is prohibited too**, by the extraction clause, and that is Ivo's
+  call rather than mine: 4,714 pairs and 4,625.8 EE in total, of which 121 pairs and 118.7 EE are
+  net-new and unshipped. The rest is already in his baseline
+- **what needs Ivo's ruling.** (1) Whether to send a permission letter of the RIPE kind to Verisign,
+  PIR or Nominet, which is the only thing that reopens the route. (2) Whether the 118.7 EE of unshipped
+  Nominet pairs are withdrawn from this round. The other 732.3 EE of unshipped RDAP pairs are not in
+  question
 
 Decision: master
 
@@ -276,24 +324,6 @@ Decision: pending
 
 Decision: pending
 
-### junkfilter_dated_blocklist / dated_directory
-
-- measured: 2189.4 net-new post-split EE over 3,553 pairs, measured 2026-08-25. Verified two ways: my
-  own run over the 13 in-window `jf-domains` editions gave 3,122 pairs and 1,924.1 EE, and the
-  difference is exactly the 431 pairs at 1997 that live in the two tarballs I did not open, so the two
-  measurements agree to the pair
-- what dates one item: three independent machine-written stamps agreeing. The HTTP header on the file
-  itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36
-  2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997
-  half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec  6  1997 junkfilter/jf-domains`
-- the artifact: Gregory Sutter's procmail spam filter. `jf-domains` is one `|`-joined line of
-  backslash-escaped literal hostnames. **The triage note guessed these were escaped regexps and
-  wildcards rather than hostnames, and that is refuted**: 42,005 of 42,034 tokens are domain-shaped,
-  99.9%
-- potential: 74
-
-Decision: pending
-
 ### sec_edgar_filings / dated_directory
 
 - measured: 5884 net-new post-split EE, 2026-08-24. **RE-MEASURED 2026-08-26 by sampling, and the
@@ -312,36 +342,6 @@ Decision: pending
 
 Decision: pending
 
-### cira_ca_rdap / whois_creation
-
-- potential: 70
-- measured: **~25,377 EE ceiling, not a measured yield.** The store holds 103,541 distinct `.ca`
-  domains in window with 376,315 empty year slots between them. At the 29.3% in-window rate measured
-  on Nominet `.uk`, that is about 30,337 pairs at `.ca`'s 0.8365, so ~25,377 EE. A pilot would
-  replace the estimate, and no pilot has been run because of the licence question below
-- what dates one item: the registry's own `registration` event, the same `whois_creation` semantics
-  already approved for `rdap_snapshot`. Verified live on one name: `rita.ca` returns
-  `('registration', '2001-02-01T17:11:06Z')`, in window
-- the artifact: `https://rdap.ca.fury.ca/rdap/domain/<name>`, reached through the IANA bootstrap at
-  `https://data.iana.org/rdap/dns.json`, so `ark rdap` already knows how to get there
-- **BLOCKED ON A LICENCE QUESTION, NOT ON EVIDENCE, AND THIS IS THE `.nz` SHAPE.** The record itself
-  carries a Legal Notice: "Use of CIRA's WHOIS service is governed by the Terms of Use in its Legal
-  Notice, available at https://www.cira.ca/en/resources/documents/about/website-terms-use". That page
-  answers **HTTP 403** behind a Cloudflare challenge to an honest User-Agent, so the terms cannot be
-  read, and working around a challenge to read them would be the wrong move twice over. `.nz` cost
-  7,586 EE by stopping at the record and not reading the terms that followed it; this stops at the
-  terms because they cannot be reached at all
-- what I would need from you: either a reading of CIRA's Terms of Use from a browser that clears the
-  challenge, or a short letter to CIRA of the RIPE kind, asking to derive `(domain, year)` pairs only
-  and publish no registrant data. `robots.txt` at `www.cira.ca` is 8 lines and disallows only
-  `/wp-admin/`, `/?s=`, `/page/*/?s=` and `/search/`, naming no agent, so nothing there forbids it;
-  the Terms are the only open question
-- one query was spent on evaluation and nothing else has been sent
-
-Decision: pending
-
-
-
 ### mynic_my_change_report / artifact_listing
 
 - measured: 3091.1 net-new post-split EE pre-split over 4,078 pairs from 25 of 60 pages, or **159.9 EE
@@ -353,24 +353,6 @@ Decision: pending
   `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. 60 archived pages, of which the `-1` and `-2` halves
   carry names and the bare-month pages are statistics tables only. `.my` weighs 0.7580
 - potential: 70
-
-Decision: pending
-
-### early_bulk_whois_snapshot / whois_creation
-
-- what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
-- measured: 2968.49 net-new post-split EE over 4,747 (domain, year) pairs, measured 2026-08-25 across
-  three sibling listings. **Corroborated on the largest of the three by an independent per-block parse**:
-  8,718 record blocks, 5,239 carrying a creation date, 4,228 in-window pairs, 3,491 net-new, 2,195.92 EE,
-  with novelty at 23.9% against the agent's 25.8%. Both the block count and the dated count match exactly
-- what dates one item: the record's own `Dates of creation / last modification / expiration:
-  27-Feb-2000 / 15-Feb-2002 / 27-Feb-2003`, or on a sibling `Registered on: Sep 29, 2001`, under the
-  page's own "All data is as of January-October 2003"
-- the artifact: Ben Edelman's whois transcriptions, "Last Updated: June 2, 2002", on space at the Berkman
-  Center for Internet & Society at Harvard Law School. Three sibling listings, 81 pages, 13,507,154
-  bytes, 15,990 entries, 8,787 carrying a creation date:
-  `cyber.harvard.edu/archived_content/people/edelman/{invalid-whois/nicgod,renewals/tina,typo-domains/list}-*.html`
-- potential: 65
 
 Decision: pending
 
@@ -989,6 +971,27 @@ Level 0 only, and that is the whole source rather than a sample of it: levels 2 
 in-window rows. Lineage is `internet_archive`, since this is IA's own crawl indexed by IA, which
 costs a corroboration statistic and is the correct trade.
 
+### junkfilter_dated_blocklist / dated_directory
+
+- measured: 2189.4 net-new post-split EE over 3,553 pairs, measured 2026-08-25. Verified two ways: my
+  own run over the 13 in-window `jf-domains` editions gave 3,122 pairs and 1,924.1 EE, and the
+  difference is exactly the 431 pairs at 1997 that live in the two tarballs I did not open, so the two
+  measurements agree to the pair
+- what dates one item: three independent machine-written stamps agreeing. The HTTP header on the file
+  itself, `last-modified: Tue, 29 May 2001 07:10:09 GMT`; the in-body `$Id: junkfilter,v 2.36
+  2001/05/28 20:00:08 gsutter Exp $` and `JFVERSION=20010528` in the same release; and for the 1997
+  half a tar member header, `-rw-r--r-- 0 gsutter staff 43879 Dec  6  1997 junkfilter/jf-domains`
+- the artifact: Gregory Sutter's procmail spam filter. `jf-domains` is one `|`-joined line of
+  backslash-escaped literal hostnames. **The triage note guessed these were escaped regexps and
+  wildcards rather than hostnames, and that is refuted**: 42,005 of 42,034 tokens are domain-shaped,
+  99.9%
+- potential: 74
+
+- **approved by Ivo, 2026-08-27**: "junkfilter_dated_blocklist and early_bulk_whois_snapshot
+  can be ingested."
+
+Decision: master
+
 ### content_filter_blacklists / artifact_listing
 
 - the artifact: `squidGuard`'s robot-compiled blacklist, of which exactly two editions survive, both
@@ -1051,6 +1054,48 @@ the corroboration split, which cost MYNIC 19x and junkfilter 2.2x, and this regi
 USPTO version on authority selection plus the intent-to-use dating defect. Both objections apply
 unchanged to AU marks.
 
+### cira_ca_rdap / whois_creation
+
+- potential: 70
+- measured: **~25,377 EE ceiling, not a measured yield.** The store holds 103,541 distinct `.ca`
+  domains in window with 376,315 empty year slots between them. At the 29.3% in-window rate measured
+  on Nominet `.uk`, that is about 30,337 pairs at `.ca`'s 0.8365, so ~25,377 EE. A pilot would
+  replace the estimate, and no pilot has been run because of the licence question below
+- what dates one item: the registry's own `registration` event, the same `whois_creation` semantics
+  already approved for `rdap_snapshot`. Verified live on one name: `rita.ca` returns
+  `('registration', '2001-02-01T17:11:06Z')`, in window
+- the artifact: `https://rdap.ca.fury.ca/rdap/domain/<name>`, reached through the IANA bootstrap at
+  `https://data.iana.org/rdap/dns.json`, so `ark rdap` already knows how to get there
+- **THE TERMS WERE READ ON 2026-08-27 AND THEY FORBID IT, ON FOUR SEPARATE GROUNDS.** The page answers
+  HTTP 403 behind a Cloudflare challenge to an honest User-Agent, so Ivo fetched it from a browser and
+  left the text at `private/cira.c-terms-of-use`. The record's Legal Notice binds use of the service to
+  it, and it says:
+  - s.10(c): "use any robot, spider, site search/retrieval application, or other device to retrieve or
+    index any portion of the Website to collect information about other users **or domain names**". That
+    clause names our exact purpose
+  - s.11: WHOIS may be used "solely" to query availability, identify a holder, or contact a holder.
+    Building an annual domain census is none of the three, and "you may not use the WHOIS information
+    for any other purpose"
+  - s.11, prohibited uses: "unauthorised aggregation or collection of information from the WHOIS
+    database". A bulk creation-date harvest is aggregation by definition
+  - s.11: "You may not use automated processes that send multiple queries ... except as reasonably
+    necessary to register domain names or modify existing registrations"
+  - s.4 grants a content licence for "non-commercial purposes" only, and this work is paid
+- so this is the `.nz` shape and it ends the same way. `.nz` cost 7,586 EE by reading past the record
+  to the terms; `.ca` costs the ~25,377 EE ceiling for the same reason, and the cost is the correct
+  price of the rule. `robots.txt` was never the obstacle: it is 8 lines, names no agent and disallows
+  only `/wp-admin/`, `/?s=`, `/page/*/?s=` and `/search/`
+- **it can only be reopened by CIRA's written permission**, of the kind RIPE gave, asking to derive
+  `(domain, year)` pairs only and publish no registrant data. Nothing else changes the reading
+- one query was spent on evaluation and nothing further will be sent
+
+- **rejected on the Terms of Use read 2026-08-27**, not on evidence. Reopen only on written
+  CIRA permission of the RIPE kind
+
+Decision: rejected
+
+
+
 ### repository_ia_capture_census / cdx_timestamp
 
 - what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
@@ -1101,6 +1146,27 @@ every novel name takes the split and earns no year; and killer 3 from the demand
 volume concentrates on popular sites, which is the population the store is already saturated on.
 **Reopen cheaply if Ivo wants to spend one e-mail**: ask for `Excite_1997_large` and `Excite_2001` only,
 and price before requesting the rest.
+
+### early_bulk_whois_snapshot / whois_creation
+
+- what dates one item: the registry creation date in the row, the same semantics `domain_creation_bulk`
+- measured: 2968.49 net-new post-split EE over 4,747 (domain, year) pairs, measured 2026-08-25 across
+  three sibling listings. **Corroborated on the largest of the three by an independent per-block parse**:
+  8,718 record blocks, 5,239 carrying a creation date, 4,228 in-window pairs, 3,491 net-new, 2,195.92 EE,
+  with novelty at 23.9% against the agent's 25.8%. Both the block count and the dated count match exactly
+- what dates one item: the record's own `Dates of creation / last modification / expiration:
+  27-Feb-2000 / 15-Feb-2002 / 27-Feb-2003`, or on a sibling `Registered on: Sep 29, 2001`, under the
+  page's own "All data is as of January-October 2003"
+- the artifact: Ben Edelman's whois transcriptions, "Last Updated: June 2, 2002", on space at the Berkman
+  Center for Internet & Society at Harvard Law School. Three sibling listings, 81 pages, 13,507,154
+  bytes, 15,990 entries, 8,787 carrying a creation date:
+  `cyber.harvard.edu/archived_content/people/edelman/{invalid-whois/nicgod,renewals/tina,typo-domains/list}-*.html`
+- potential: 65
+
+- **approved by Ivo, 2026-08-27**: "junkfilter_dated_blocklist and early_bulk_whois_snapshot
+  can be ingested."
+
+Decision: master
 
 ### sbir_sttr_award_pi_email_2000_2001 / dated_directory
 
