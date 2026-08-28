@@ -56,6 +56,22 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         prefix="${triple%%:*}"; rest="${triple#*:}"
         dir="${rest%%:*}"; key="${rest##*:}"
         [ -d "$dir" ] || continue
+        # **Sweep the orphans of earlier passes BEFORE making more.**
+        # Each pass renames its output to a per-pass `_cmp<tag>` name and then ingests it,
+        # and nothing here ever revisited a tagged file whose ingest did not happen. The
+        # watchdog replaced this loop at 04:21 on 2026-08-28, so the instance it replaced
+        # died between the rename and the ingest, and 38 dated journals plus 38 candidate
+        # journals, 443 MB written from 2026-08-27 09:03 onward, were invisible to every
+        # later pass. `audit_residual.py --check unread` found them; this makes the loop
+        # able to find them itself. An ingest of an already-ingested file is a cheap
+        # no-op, so sweeping unconditionally costs nothing and needs no state of its own.
+        for lane in dated candidates; do
+            for orphan in "${dir}/${prefix}_${lane}_cmp"*.jsonl.gz; do
+                [ -f "$orphan" ] || continue
+                uv run ark ingest "${key}_${lane}" "$orphan" >> "$LOG" 2>&1 \
+                    || note "  sweep of $(basename "$orphan") failed"
+            done
+        done
         if ! uv run python scripts/split_usenet_addresses.py --in-dir "$dir" \
                 --out-prefix "$prefix" --write >> "$LOG" 2>&1; then
             note "  ${prefix} split failed this pass"
