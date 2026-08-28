@@ -802,6 +802,58 @@ Decision: pending
 
 Decision: pending
 
+### fdncenter_grantmaker_web_sites / dated_directory
+
+- measured: **202.2 net-new post-split EE over 289 (domain, year) pairs, every one of them at 2001**,
+  priced 2026-08-28 with `scripts/price_items.py --all-tlds` against merged260827 over 19 dated pages,
+  601,956 B. 1,843 distinct pairs over 1,843 domains, 1,523 already held AT 2001 (82.6%), only 29 names
+  never held anywhere (98.43% held). Pre-split 320 pairs and 223.6 EE, which overstates by 1.11x and must
+  not be quoted. Mean weight 0.6996, org 257 / com 29 / net 3, typo upper bound 37.8%. **279 of the 289
+  gain domains (96.5%) are held at 2000**, so this is adjacent-year headroom and not a death gap
+- independently reproduced: a duckdb screen sampling DISTINCT DOMAINS over the three `fdncenter` `_list`
+  pages agrees to 0.36%. 1,648 listed distinct, 1,619 held (98.240%), 1,349 already carrying 2001
+  (81.857%), held-and-missing-2001 = 268 at 187.43 EE against `price_items`' 269 at 188.1
+- what dates one item: the Wayback capture instant of the portal's own roster page. The artifact asserts
+  the organisation's web address at the instant the capture stamps, and no page in the family carries a
+  usable self-date, so the capture is the only defensible dating and **the corroboration split is taken**
+  (it is applied in the 202.2 figure above). A creation date is not claimed and no year outside 2001 is
+  evidenced by any of these pages
+- the artifact: 7 paying pages, all fetched as `https://web.archive.org/web/<ts>id_/...`.
+  `fdncenter.org/funders/grantmaker/gws_pubch/pubch_list.html` at 20011102033013 (109,219 B, 740 domains),
+  `gws_priv/priv_list.html` at 20011024182703 (94,984 B, 548), `gws_priv/priv2.html` at 20011004165617
+  (110,244 B, 546, a Netscape-4 duplicate of priv_list and the check that priv_list is complete),
+  `gws_corp/corp_list.html` at 20010806091046 (60,358 B, 376), `www.interaction.org/members/` at
+  20011101195341 (64,657 B, 149), `www.foundations.org/grantmakers.html` at 20011015131123 (13,829 B, 99),
+  `www.igc.org/igc/gateway/index.html` at 20011011002103 (19,167 B, 36). priv_list and pubch_list carry
+  260 of the 289 pairs
+- per-arm attribution, and it is the reason to read the entry rather than the total: the yield spreads
+  10.1x inside one directory. priv_list 548 listed / 532 held / 375 carrying 2001 / 157 gain / 109.98 EE
+  = **0.2007 EE per listed name**; pubch_list 740 / 728 / 625 / 103 / 72.08 = 0.0974; interaction
+  149 / 149 / 134 / 15 / 10.65 = 0.0715; foundations.org 99 / 99 / 94 / 5 / 3.47 = 0.0351; **corp_list
+  376 / 373 / 362 / 11 / 7.50 = 0.0199**, because corporate giving programs live at `abbott.com`,
+  `aetna.com`, `adobe.com` and 97.05% of the held ones already carry 2001, while private foundations live
+  on their own small `.org` domains and only 70.5% do
+- why it is small, stated so the reviewer is not surprised by the number: 0.1097 EE per listed domain and
+  10.6 EE per page fetched, so 1,000 EE would need 9,116 listed domains in this shape. Only 15.93% of held
+  names here lack 2001 (289/1,814) against the `.org` population's 69.15%, a 4.34x head-selection penalty
+- there is no expansion, and this is measured rather than assumed: the family is closed at 202.2 EE.
+  `gws_comm` was never captured (`comm_list.html`, `comm1.html`, `comm.html` all 404 against a passing
+  control), the A-Z letter pages are the same names annotated, and every large 2001 nonprofit portal put
+  its records behind a search form (GuideStar ~640,000 orgs and Idealist ~20,000 are one record per
+  request; CharityChoice's own meta description claims 7,000 entries and only the FORM is archived).
+  `advancedsearch.php` finds no bulk item for the family in window
+- licence: Wayback replay of pages whose publishers are defunct. No robots refusal was met on any host
+  fetched, and the whole run was done at ~1 q/s
+- ingest specs: not written. **Nothing was ingested.** No parser is registered until this is decided
+- potential: 32. Drivers: retrieved in full and already in hand at 7 pages, self-dating on the capture,
+  96.5% of the payout adjacent-year, and independently reproduced to 0.36% by a second method. Held back
+  hard by size, because 202.2 EE is the whole family and there is no next increment to buy with an
+  approval, and by the dating being `cdx_timestamp` on a live-generated page rather than a per-row date
+  inside the payload
+
+Decision: pending
+
+
 ### bomis_ring_member_lists / dated_directory
 
 - measured: **19.1 net-new post-split EE over 31 (domain, year) pairs, all at 2001**, on a seeded
