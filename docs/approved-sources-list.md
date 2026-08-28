@@ -681,6 +681,43 @@ Decision: pending
 
 Decision: pending
 
+### ffa_link_pages / dated_directory
+
+- measured: **25.2 net-new post-split EE over 41 (domain, 2001) pairs**, measured 2026-08-28 by
+  `scripts/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT
+  DOMAINS. 9 pages, 178,235 B, 522 distinct pairs over 484 domains, 451 already held. Pre-split is
+  71 pairs / 43.4 EE and overstates 1.7x, do not quote. Mean weight 0.6146, `com` 37 / `net` 4,
+  typo upper bound 40.8%. **All 41 paying names are held at 2000**, so the adjacent-year figure
+  equals the raw one and none of the yield is the contaminated "held any year" shape
+- **the year is the whole result, and it is the squidGuard split again**: the 2001 captures pay
+  25.1997 EE on 347 distinct domains (317 held, 91.35%, 276 already carrying 2001), and the 2000
+  captures pay **0.0000** on 175 distinct domains, 175 of 175 held and all 175 already carrying
+  2000. A 2000-dated FFA page is worthless
+- what dates one item: the Wayback capture instant of a member FFA page, which displays the posted
+  link as live text at the instant the capture stamps it. **NOT a per-entry date**: the hypothesis
+  said the script appends a timestamp beside each URL and that is refuted, 813 links across the two
+  genuine FFA pages carrying 1 date literal between them. And a submitter types their own URL, so
+  the corroboration split applies and only ALREADY-HELD names gain a year
+- the artifact: `web.archive.org/web/<ts>id_/http://pages.ffanet.com:80/links/<member>.htm`, one page
+  per network member, 71,305 B at 20010307072648 (`iwv2000.htm`, 506 links) and 47,810 B at
+  20000706234213 (`bds.htm`, 307 links). The roster of 110 member pages is
+  `ffanet.com:80/links/list.pl?` at 20010304021731 forms, 14,590 B. Plus `freeforall.net`,
+  `linkstoyou.com`, `ffanet.com`, `ffanetwork.com`, `freeffa.com`, `ffapages.com`, `1-2-free.com`
+- rate and headroom: **0.0726 EE per listed distinct domain**, against webring's 0.0481 and the
+  curated-directory floor of 0.013 to 0.024 pairs per listed domain, and effectively all of it comes
+  from ONE 2001 page, so the unit is **~25 EE per 2001-captured member page**. 1,000 EE needs ~40
+  such pages and 5,000 EE needs ~200. One `list.pl` capture names 110 members and 17 of 18 sampled
+  are archived in window, so the inventory exists; the economics are entirely in discarding the 2000
+  captures before replaying anything
+- rights: `list.pl` carries "This list is the sole intellectual property of FFA NET", which
+  constrains republishing the ROSTER; member pages carry only a normal copyright line. Measurement is
+  unaffected either way. `web.archive.org` serves no robots.txt (404, verified)
+- ingest specs: not written. No parser is registered until this is decided
+- potential: 40 (rate beats the curated floor and the inventory is enumerable, but the unit is one
+  request per ~25 EE and only 2001 captures pay)
+
+Decision: pending
+
 ### usenet_quoted_whois / whois_creation
 
 - measured: 90.41 net-new EE over 149 pairs, measured 2026-08-24 on the 146 densest archives, 14.4 GB
