@@ -27,9 +27,17 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 DEADLINE="${1:?usage: agent_fanout.sh <deadline_epoch> [parallel] [hypothesis_file]}"
-PAR="${2:-4}"
+# **Two, not four, and the reason is not throughput.** Four concurrent researchers plus an
+# 8-worker CDX collector plus DuckDB ingests against a 23 GB store filled 5.4 GB of a 7 GB
+# swap on the night of 2026-08-27, on a machine somebody else is also using. Ivo asked
+# afterwards whether the run had killed his editor and his chat client, and the honest
+# answer was that it could not be ruled out. A research loop that squeezes its operator
+# out of his own desktop is not worth the extra hypothesis per hour.
+PAR="${2:-2}"
 # Seconds a single researcher may run before it is asked to stop.
 RESEARCH_CAP="${RESEARCH_CAP:-2400}"
+# Do not start a round when the machine is this tight.
+MIN_FREE_PCT="${MIN_FREE_PCT:-25}"
 HYPO="${3:-private/agent-hypotheses.md}"
 LOG="data/logs/agent_fanout.log"
 LEDGER="data/logs/agent_fanout.tsv"
@@ -47,6 +55,26 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 printf '%s\n' "$$" > "$LOCK/pid"
 trap 'rm -rf "$LOCK"; note "fanout exit"' EXIT
+
+# Free memory as a percentage, from the same source Activity Monitor reads.
+free_pct() {
+    memory_pressure 2>/dev/null \
+        | sed -n 's/^System-wide memory free percentage: *\([0-9]*\)%.*/\1/p' | head -1
+}
+
+# Wait until the machine has room. Called before every round, so a heavy DuckDB ingest or
+# a browser the operator just opened delays research rather than competing with it.
+wait_for_memory() {
+    local waited=0 pct
+    while :; do
+        pct=$(free_pct); pct="${pct:-100}"
+        [ "$pct" -ge "$MIN_FREE_PCT" ] && break
+        [ "$waited" -ge 900 ] && { note "memory still at ${pct}% free after 15m, proceeding anyway"; break; }
+        note "only ${pct}% memory free, waiting 60s before the next round"
+        sleep 60
+        waited=$((waited + 60))
+    done
+}
 
 ee_now() {
     uv run python scripts/round_figures.py 2>/dev/null \
@@ -80,6 +108,25 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
 Read CLAUDE.md, then docs/discovery.md, then skim the "Evaluated and rejected" table in
 docs/sources.md to see what SHAPES have already been tried.
 
+Then read the LAST 15 \`result:\` lines in ${HYPO}. Those are the hypotheses that just
+died and the reason each one died. You are being asked for hypotheses that do not die the
+same way.
+
+**THE ROSTER LAW, and it forbids a whole class of proposal.** 37 hypotheses were priced
+on the night of 2026-08-27 and nearly every one died on the same unit: an artifact whose
+row is "one organisation with a homepage URL" prices at 0.0069 to 0.1097 EE per listed
+domain, so 1,000 EE needs about 20,000 listed rows and the largest in-window roster found
+was 1,550. Do NOT propose another seal roster, member list, exhibitor database, trade
+directory, entity register, supplier profile, publisher roster or store registry. A high
+fill rate does not rescue it: several passed the year screen at 100% and still died,
+because 100% of 41 pairs is 41 pairs.
+
+**Propose a different UNIT.** Ask what ONE ROW of the artifact is. A row that is a
+machine's own observation of a name at an instant is what has paid every time: a registry
+event, a blocklist entry, a crawl fetch, a mail header, a zone delegation, a package
+index. Every five-figure source this project holds has that shape. If you cannot name
+what machine wrote the row and when, do not propose it.
+
 Append 6 to 10 NEW hypotheses to ${HYPO}, in the existing format:
   ## <slug_with_underscores> | <one-line title>
   <a paragraph: what the artifact is, what would date one item, why its held fraction
@@ -112,6 +159,7 @@ EOG
         fi
         note "generated: ${SLUGS}"
     fi
+    wait_for_memory
     started=$(date -u '+%F %T'); before=$(ee_now); before="${before:-0}"
     note "round ${round}: ${left}s left, launching: ${SLUGS}"
 

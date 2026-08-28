@@ -332,3 +332,31 @@ The generating and the pricing run as code, not by hand: `scripts/discover_cycle
 Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
 act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
 section 1 can reject cheaply.
+
+## The roster law, measured over 37 hypotheses in one night (2026-08-28)
+
+**Any artifact whose unit is "one organisation per row, with a homepage URL" prices at
+0.0069 to 0.1097 net-new post-split equivalent-English per listed domain.** That is the
+whole seam, not one artifact: seal rosters, trade-association member lists, exhibitor
+databases, comparison-engine store registries, newspaper directories, PICS label
+registries, marketplace supplier profiles, ad-network publisher rosters, statutory
+tourism registers, broadcast and press registers, charity and school registers, and
+government entity registers were each priced separately and each landed in that band.
+
+The arithmetic that follows is why the seam is closed rather than merely thin. At a
+median of about 0.05 EE per listed domain, **1,000 EE needs roughly 20,000 listed
+domains in one artifact and 5% needs fourteen million.** In-window rosters of that size
+do not exist: the largest found all night was COMDEX Fall 2001 at 1,550 exhibitor rows.
+This is the same wall as the curated-directory floor of 0.013 to 0.024 net-new pairs per
+listed domain, reached from the other side and now with a per-domain figure attached.
+
+**So the screen is the UNIT, and it can be applied before a byte is fetched.** Ask what
+one row of the artifact IS. One organisation with a URL is dead on arrival. What is not
+dead is a row that is a machine's own observation of a name at an instant: a registry
+event, a blocklist entry, a crawl fetch, a mail header, a zone delegation. Those are the
+shapes that have paid, and every one of this project's five-figure sources has that
+shape.
+
+A corollary worth keeping: **a high fill rate does not rescue a bad unit.** Several of
+the 37 passed the held-and-missing-2001 screen at 100% and still died, because passing a
+fill screen on 41 pairs is still 41 pairs.
