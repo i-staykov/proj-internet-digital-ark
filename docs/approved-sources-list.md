@@ -277,6 +277,33 @@ Decision: master
 
 Decision: master
 
+### usenet_whois_paste / whois_creation
+
+- measured 2026-08-30 against the live store, before the ingest: 769 in-window (domain, creation
+  year) pairs read out of the 16,849 on-disk archives, 636 on domains another source already
+  attests, **100.0% of those domains held and 92.1% of the pairs held already**, leaving **50
+  net-new pairs and 30.4 net-new post-split EE** (`com` 38, `net` 6, `org` 5, `it` 1; by year
+  1996 1, 1997 6, 1998 13, 1999 18, 2000 8, 2001 4). The 133 names seen only here take the
+  corroboration split and go to the candidate pool as `link_target`, dating nothing
+- what dates one item: the registry's own line inside the pasted block, `Record created on
+  20-Jul-2000.` from InterNIC, written by the registry and not by the poster, so it fixes the
+  registration year whatever year the post carries. Rule 6 applies: it evidences that year alone.
+  The ingest puts the stamp first in the evidence value, `record created 2000-03-02 pasted in
+  alt.comp.issues.spam <message-id>`, so `ark check`'s year test reads the registry date rather
+  than incidental digits in a group name
+- the artifact: the Usenet mbox archives already on disk under `data/raw/usenet_{bulk,new,probe,probe5,msft}`,
+  16,849 files, read offline at zero network cost. `archive.org/robots.txt` was read in full when
+  they were collected: 12 lines, 238 B, `Disallow: /control/` and `/report/` only
+- the NAME is what the split guards, not the date: a person chose which record to paste and
+  reflowed it, and `scripts/collect_usenet_whois.py` caps the look-back at 40 lines and normalises
+  `&nbsp;` and quote prefixes before either pattern runs, because an HTML-escaped second copy of a
+  block once bound `openssl.org`'s creation date to `engelschall.com`
+- ingest specs: `usenet_whois_dated` and `usenet_whois_candidates`. Journals at
+  `data/raw/usenet_whois/usenet_whois_{dated,candidates}.jsonl.gz`, regenerable with `just usenet-whois`
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
 ## Pending requests
 
 
@@ -1054,6 +1081,30 @@ Decision: pending
 
 ### cog2002_gid_school_systems_weburl / link_target
 
+- potential: 20
+
+Decision: pending
+
+### udrp_decision_creation_date / whois_creation
+
+- what dates one item: the panel's recitation of the registrar's verification answer inside the
+  decision text, for example `The Whois record of the domain MUSICWEB was created on January 10, 1995`
+  (WIPO D2000-0001) and `Respondent registered the disputed domain name on July 3, 2001` (NAF 101268).
+  The date originates with the registrar, but **the sentence in the artifact was typed by a panellist**,
+  which is what stops it here
+- measured 2026-08-29 against the live store, census incomplete at 1,125 WIPO and 550 NAF decisions
+  fetched: WIPO 284 pairs over 284 domains, 100% attested, 73.6% already held, **46.2 net-new
+  post-split EE**; NAF 70 pairs, 75.7% already held, **10.4 EE**. Both arms take the split and lose
+  nothing to it, since a disputed name is always already known
+- the artifact: `https://www.wipo.int/amc/en/domains/decisions/html/<year>/d<case>.html` and
+  `https://www.adrforum.com/domaindecisions/<claim>.htm`. WIPO robots.txt read in full, 134 lines and
+  one `User-agent: *` group, which disallows `/amc/en/domains/decisions/word` and permits the `html`
+  path used here
+- **failed condition 2 of the standing rule of 2026-08-29**: what dates the item is not a
+  machine-written stamp inside the artifact but a human recitation of one. **The NAF arm additionally
+  fails condition 3**: `adrforum.com/robots.txt` answers with an HTTP redirect body rather than the
+  file, so its terms were never actually read
+- ingest specs: not written. No parser is registered until this is decided
 - potential: 20
 
 Decision: pending

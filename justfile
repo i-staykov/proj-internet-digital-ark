@@ -307,6 +307,11 @@ journals:
     uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
     uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated*.jsonl.gz
     uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates*.jsonl.gz
+    # Registry whois records pasted into the bodies. The registry's own creation
+    # line dates the row, not the post, so this is `whois_creation` and rule 6
+    # gives that year alone. Regenerate with `just usenet-whois`.
+    uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated*.jsonl.gz
+    uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates*.jsonl.gz
     # The promotion tranches, which live under `data/staging/` rather than `data/raw/`.
     # They were ingested and then unreachable from any documented glob, so a replay
     # rebuilt a store without them. They are regenerable by re-running
@@ -566,6 +571,23 @@ usenet-bare workers="8":
     uv run python scripts/split_usenet_addresses.py --in-dir data/raw/usenet_bare --out-prefix usenet_bare --write
     uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
     uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
+
+# Reads every archive in all five pools, so it takes about forty minutes of CPU
+# at 8 workers and sends no request. `ARK_USENET_SRC` picks the pool, because the
+# archives were downloaded into five directories and the default constant names
+# only the first, which is now empty.
+# whois records pasted into the bodies, read for the registry's own creation date
+usenet-whois workers="8":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pool in usenet_bulk usenet_new usenet_probe usenet_probe5 usenet_msft; do
+        [ -d "data/raw/$pool" ] || continue
+        ARK_USENET_SRC="data/raw/$pool" uv run python scripts/collect_usenet_whois.py \
+            --workers {{workers}} --tag "$pool"
+    done
+    uv run python scripts/split_usenet_whois.py --write
+    uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated.jsonl.gz
+    uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates.jsonl.gz
 
 # Pass a tag on any re-run: it imports `probe_texts_corpus.domains_in`, so it
 # inherits that extractor's fixes, and the ledger refuses a rewritten journal.
