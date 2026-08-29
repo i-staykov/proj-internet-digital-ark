@@ -169,8 +169,9 @@ what survives the split we already hold. Ask whether the lister held the databas
   `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
   Refusing us by name: `cryptome.org`, `tbtf.com`, `www.openpgp.net`, `ftp.nluug.nl`, `tomocha.net`,
   `mirror.aarnet.edu.au`, `ftp.aarnet.edu.au`, `www.potaroo.net`, `ftp.sunet.se`, `ftp.surfnet.nl`,
-  `www.math.upenn.edu`, `ftp.cc.uoc.gr`
-  (the last two name Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot together).
+  `www.math.upenn.edu`, `ftp.cc.uoc.gr`, `ftp.acc.umu.se`
+  (the last three name Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot together;
+  umu.se puts them at lines 115-119 of a 6,238 B file whose FIRST group is a permissive `User-agent: *`).
 - **Host survival and robots refusal are correlated, so this will keep happening.** The old mirrors that
   survive did so because a commercial or university operation kept paying, and mirror operators are
   exactly the population now adding blanket or Claude-named `Disallow: /`. Five of seven live large
