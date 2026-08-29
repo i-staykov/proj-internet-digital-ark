@@ -881,7 +881,7 @@ since a pending class cannot date a year. Reaches `key-decisions.md` as a count,
 | 45 | winsite_cica_dated_shareware_index | per-file mtime | typed | 0 | 0.0 | MEASURED | pending |
 | 46 | pmc_oa_subset_fulltext_1998_2001 | the JATS pub-date | link_source | 0 | 0.0 | MEASURED | pending |
 | 47 | aminet_index_uploader_readme | nothing, age in weeks saturates | typed | cannot date a year | unpriced | none | pending |
-| 48 | educause_edu_whois_activation | registry activation date | whois_creation | ~280 | unpriced | MEASURED | rejected |
+| 48 | educause_edu_whois_activation | registry activation date | whois_creation | ~280 | 0 banked, 400 to 1,400 priced | MEASURED | rejected |
 | 49 | nlm_medline_affiliation_email_1996_2001 | the citation's PubDate | link_source | 0 post-split | 0.0 | MEASURED | rejected |
 | 50 | ffiec_call_report_webaddr | quarter-end date, never published | artifact_listing | 0 | 0.0 | MEASURED | rejected |
 | 51 | wikipedia_externallinks | the 14-digit IA capture timestamp embedded in each `web.archive.org/web/<ts>/` citation | cdx_timestamp | unpriced | unpriced | SCREENED, NOT MEASURED: law 1 predicts near-zero | pending |
@@ -1376,6 +1376,14 @@ finding, do not collect the corpus.
 - potential: 78
 
 Decision: rejected
+**Another entry whose `- measured:` line was lost in the 2026-08-23 compaction; measured for good on
+2026-08-29 and now recorded in `docs/sources.md`.** BLOCKED on terms at **0 EE banked**. The banner
+PRECEDING every record at `whois.educause.edu:43` prohibits harvesting except as needed to register or
+modify a name, so one query was made and no more; `.edu` has no RDAP and the web front end is the same
+database behind a Cloudflare challenge. Priced anyway from a third-party name list, touching no term:
+of 2,448 live `.edu` names, **51.39% already hold all six in-window years at P(missing) 0.0000**, so a
+creation date pays nothing there, and 23,680 of the store's 25,400 `.edu` names are not in the live
+register at all. Band is **400 to 1,400 EE** with permission, under the floor and not worth a letter.
 
 ### ucsf_industry_documents / dated_directory
 
