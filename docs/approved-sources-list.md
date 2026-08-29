@@ -1117,6 +1117,19 @@ Decision: pending, but externally blocked. Nothing for Ivo to do here.
 
 Decision: pending
 
+### edelman_cipa_blocked_sites_2001 / artifact_listing
+
+- measured: 134.1 net-new post-split EE, 2026-08-29, over 4,898 distinct domains (99.4% held any
+  year, 94.7% already carrying 2001, 228 held-and-missing-2001 all adjacent)
+- what dates one item: the vendor classifier's own observation column,
+  `Blocked On (dates) (all dates are in 2001)`
+- BLOCKED on condition 3 of the standing rule, terms: the host page states "The data contained here
+  is not intended for use for other purposes, and it should not be used for other purposes without
+  first contacting the author". Not to be ingested unless Edelman answers.
+- potential: 6. Drivers: measured small and blocked on terms, so it cannot be worked without a reply
+
+Decision: pending
+
 ### osbar_bulletin_html_issues_2000_2001 / link_source
 
 - measured: ceiling about 77 EE for the whole run, 3.2 measured per issue over the 24 monthly issues
@@ -1984,3 +1997,4 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
