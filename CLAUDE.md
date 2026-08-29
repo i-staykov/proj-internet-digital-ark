@@ -17,6 +17,31 @@ hypothesis beats grinding one shape. Run independent hypotheses in parallel; kee
 works, document what does not, move to the next. This does not soften the 5% target: it
 decides what to do with the hours that do not find an outlier.
 
+## The standing approval rule (Ivo, 2026-08-29)
+
+**The loop may admit a source without asking, when ALL of these hold**, writing the
+`Decision:` line itself and citing this rule:
+
+1. the evidence type is already master-eligible, so no new class is being invented;
+2. what dates one item is a **machine-written stamp inside the artifact**, quoted in the entry;
+3. the terms permit it, read in full before the first request;
+4. `ark check` passes after the ingest.
+
+Anything failing one of the four still parks as `pending`. Ivo's reasoning: he has never
+once denied a source, so the per-class gate was filtering nothing and blocking all banking.
+**This moves the gate, it does not lower it.** The evidence standard is unchanged, and
+rule 6 and the corroboration split still apply.
+
+**Broaden what gets tried, not what counts as evidence.** Small is not a reason to reject:
+a 25 EE source is admitted and simply gets one line. Ugly, awkward or hard to parse is not
+a reason either; park it candidate-only if unsure. **Undated is still fatal, and so are
+terms we do not hold.** The RDAP episode cost the biggest route precisely because nobody
+read the terms, and time pressure does not reopen that.
+
+**Write-up length scales with yield.** Under 5,000 EE gets ONE line in `sources.md`: the
+link, the sentence saying what dates one item, the figure. The report lists them in a
+single table pointing there. Over 5,000 EE earns the full treatment.
+
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
