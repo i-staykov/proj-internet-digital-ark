@@ -418,3 +418,27 @@ was alive at Y, and it is still the WRONG screen for projecting fillable headroo
 the adjacent-year rule stands unchanged. Consequence: **re-price every parked artifact
 dated 1999, `.uk` first.**
 
+
+## The sampling-unit law (2026-08-29)
+
+**A corpus is unselected precisely because it is indexed by something other than the name.
+Selection and naming are the same act.** Every corpus killed under law 3 was selected BY NAME,
+a directory, a register, a citation list, and that is exactly why it carries names. The
+instrument that defeats law 3 pays for it by losing the name: to be proportional to the web you
+must sample the address space, and the address space is not the name space. OCLC's Web
+Characterization Project defines its unit outright, "Web Site: Identified by an IP address that
+returns a response code of 200", and an HTTP/1.0 `GET /` to a bare IP sends no `Host` header, so
+the server is never asked to name itself. Measured over the whole family, 54 artifacts: the IOS
+Counter reports 1,465,124 host observations for April 1999 and emits 0 host names, RIPE's April
+2000 table reports 4,965,839 hosts under `.de` alone and emits 0, and 2.1 EE came out of the
+surrounding prose. The only bridge from address to name is reverse DNS, which is the
+already-measured visitor-log killer at 98.4% and 99.6% held, and the Internet Auditing Project
+took that bridge explicitly, so it inherits that death whether or not its results file survives.
+**Pre-download screen, one question and no requests: what is the unit of observation keyed on?
+Keyed on an address, it cannot pay however large or however well dated.** This is the monitor
+closure read from the other side: there the machine wrote the LABEL and not the name, here it
+writes no name at all. Two cheap transferables from the same run. **Read the whole result file,
+not its header**: the IOS Counter's `r.9904.*.txt` look like pure aggregate tables for 25 lines
+and carry 16 hostnames from line 27, which cost one `sed` against asserting a zero off a head.
+And `Memento-Datetime` again earned its keep, since an `id_` replay URL returned HTTP 200 with no
+redirect and served a 2020 capture. Do not re-test any address-keyed census on any screen.
