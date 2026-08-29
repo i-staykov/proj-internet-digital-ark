@@ -38,6 +38,11 @@ PAR="${2:-2}"
 RESEARCH_CAP="${RESEARCH_CAP:-2400}"
 # Do not start a round when the machine is this tight.
 MIN_FREE_PCT="${MIN_FREE_PCT:-25}"
+# Seconds to idle between rounds. This is a TOKEN budget, not politeness: a 56-hour
+# weekend at back-to-back rounds is roughly 300 headless invocations. The collectors
+# carry equivalent-English growth meanwhile, so a paused researcher slot costs nothing
+# that matters.
+ROUND_PAUSE="${ROUND_PAUSE:-1800}"
 HYPO="${3:-private/agent-hypotheses.md}"
 LOG="data/logs/agent_fanout.log"
 LEDGER="data/logs/agent_fanout.tsv"
@@ -90,6 +95,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     left=$(( DEADLINE - $(date +%s) ))
     # Not enough time to research AND harvest is not enough time. Stop cleanly.
     if [ "$left" -lt 600 ]; then note "under 10 minutes left, not starting another round"; break; fi
+    if [ "$round" -gt 1 ]; then note "pausing ${ROUND_PAUSE}s between rounds"; sleep "$ROUND_PAUSE"; fi
 
     # Open hypotheses: a `## slug | title` heading whose block has no `result:` line yet.
     SLUGS=""
@@ -223,9 +229,15 @@ private/findings/ holds one file per hypothesis just tested. For each file:
    verdict, its numbers and its method, so nobody re-tests it. Positive or negative.
 2. Record the outcome on that hypothesis's block in ${HYPO} as a single
    "result: <verdict>, <figure>, <one clause why>" line.
-3. If a verdict is FIND and the class is master-eligible, write an approval request into
-   docs/approved-sources-list.md with the measurement and a "- potential:" score, and
-   leave "Decision: pending". Do NOT ingest it.
+3. If a verdict is FIND, apply THE STANDING APPROVAL RULE in CLAUDE.md. When all four
+   conditions hold, write the entry into docs/approved-sources-list.md, quote the
+   machine-written stamp, add "- admitted under the standing rule of 2026-08-29 (Ivo)",
+   set "Decision: master", register an ingest spec if one is needed, ingest it, and
+   confirm ark check still passes. If ANY condition fails, leave "Decision: pending" with
+   the measurement and a "- potential:" score, and name the condition that failed.
+   Never invent a new evidence class to fit a source.
+3b. Keep it SHORT for small sources. Under 5,000 EE gets ONE line in docs/sources.md:
+   the link, the sentence saying what dates one item, and the figure. Nothing else.
 4. Then: uv run python scripts/rank_triage.py
 5. Gate, never through a pipe:
    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
