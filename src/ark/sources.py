@@ -149,6 +149,52 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
+# A `collect_usenet_whois.py` journal, after the corroboration split: one JSON
+# object per (domain, creation year), carrying the registry date string that
+# dated it and the Message-ID of the post the record was pasted into.
+#
+# **Why this does not reuse `_parse_usenet_journal`**, which is otherwise the
+# same shape. `whois_creation` rows are checked by `evidence_year_matches_its_value`:
+# `ark check` reads the first four-digit run out of the evidence value and
+# requires it to equal the year the row was filed under. The Usenet value is
+# `"<group> <message_id>"`, and both halves carry incidental digits, so
+# `microsoft.public.win2000.dns` would be read as the year 2000 on every row.
+# Putting the registry's own date first makes the check test what it means to
+# test, and it puts the quoted stamp in front of a reviewer.
+def _parse_usenet_whois_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            domain, year = record.get("domain"), record.get("year")
+            if not domain or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            created = record.get("created") or f"{year}"
+            if not created.startswith(str(year)):
+                # the stamp and the filed year must agree, or the row is not
+                # evidence of anything the check could verify
+                stats["created_year_mismatch"] += 1
+                continue
+            group = record.get("group", "usenet")
+            yield BulkRecord(
+                raw=domain,
+                year=year,
+                evidence_value=(
+                    f"record created {created} pasted in {group} {record.get('message_id', '')}"
+                ).strip(),
+                evidence_url=record.get("url")
+                or f"https://archive.org/details/usenet-{group.split('.')[0]}",
+            )
+
+
 # The consolidated ICANN list of UDRP proceedings. Every row is one dispute over a
 # registered domain, carrying an explicit commencement date and the disputed name in
 # its own column, across all five providers that heard cases in the window.
@@ -2267,6 +2313,27 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="usenet_post_bare_host_mention",
         parse=_parse_usenet_journal,
+    ),
+    # Registry whois records people pasted whole into Usenet posts. The date is
+    # the registry's own `Record created on 20-Jul-2000.`, not the poster's, so
+    # this is `whois_creation` and rule 6 gives that year and no other. The NAME
+    # is what the corroboration split guards, since a person chose and reflowed
+    # the block. See `scripts/collect_usenet_whois.py` for the binding rule that
+    # keeps one record's creation line off the next record's name.
+    # Approved under the standing rule of 2026-08-29.
+    "usenet_whois_dated": SourceSpec(
+        key="usenet_whois_dated",
+        source_name="usenet_whois_paste",
+        evidence_type="whois_creation",
+        acquisition_method="transcribed_whois_record",
+        parse=_parse_usenet_whois_journal,
+    ),
+    "usenet_whois_candidates": SourceSpec(
+        key="usenet_whois_candidates",
+        source_name="usenet_whois_paste_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_post_whois_mention",
+        parse=_parse_usenet_whois_journal,
     ),
     # The FERC-released Enron corpus: ~517,000 dated 1999-2002 business emails.
     # A dated message naming a domain attests it, exactly as a dated Usenet post

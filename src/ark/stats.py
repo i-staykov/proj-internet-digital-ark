@@ -178,6 +178,11 @@ PROVENANCE_LINEAGE = {
     # lineage: three readings of one artifact are one observation, not three.
     "usenet_bare": "usenet",
     "usenet_bare_mention": "usenet",
+    # A registry whois record pasted into one of the same posts. The DATE comes
+    # from the registry, not from the post, but the post is still the artifact we
+    # read, so a fourth reading of one message stays one observation.
+    "usenet_whois_paste": "usenet",
+    "usenet_whois_paste_mention": "usenet",
     # Corporate email is its own body of observation, independent of every crawl,
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
