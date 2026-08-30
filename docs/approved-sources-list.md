@@ -1467,6 +1467,54 @@ whole register and stamped the page with the instant it did so, and an IA crawl 
 page existed. The 99.6% agreement with `prior_task` on the 2000 edition corroborates that reading;
 it is not the grounds for it.
 
+### ripe_dbase_split_2004 / artifact_listing
+
+- measured: **916.6 net-new EE over 1,514 pairs** against the live store on 2026-08-31, full
+  enumeration rather than a sample; **banked 913.84 EE over 1,510 pairs**, the 4-pair gap being the
+  store growing between the pricing and the ingest. By year 1998 4 / 1999 253 / **2000 792** /
+  **2001 461**, so 800 EE of it is the two years the store is thinnest in. By TLD `gm` 558 pairs,
+  `mc` 314, `sm` 248, `bg` 246, `no` 45, `il` 36, `lv` 26. **No corroboration split**, on the identical ruling `ripe_dbase_changed`
+  carries: nothing here is typed by a person, the transaction date is written by the database. For
+  the record, `price_items.py` applies its split unconditionally and reports 271 pairs / 78.5 EE, and
+  that figure is the floor if the ruling of 2026-08-26 is ever reversed
+- what dates one item: the object's own `changed:` line, verbatim from the file,
+  `changed:      ovema@a.sol.no 19971128` under `domain:      hasselblad.gm`. The date is the
+  RIPE database's record of a transaction applied to that object, and you cannot modify an object
+  that does not exist. Rule 6 gives that year alone; a second year needs its own `changed:` line
+- the artifact: `https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz`, **5,452,546
+  bytes**, `Last-Modified: Tue, 09 Nov 2004 23:31:00 GMT`, 2,060,522 lines, 162,408 `domain:`
+  objects, 192,835 `changed:` lines. `ftp.funet.fi` has no robots.txt (404, 355 B)
+- terms: the directory's own `RIGHTS` notice, reproduced in the file header, is the same RIPE NCC
+  "Restricted rights" text as the 1999 file, and RIPE NCC Member Services cleared exactly that notice
+  on 2026-08-26. The one condition is request volume against the LIVE database, which a static
+  mirrored file does not touch
+- ingest spec: `ripe_dbase_split_2004`, reading `domain:` and the trailing date of `changed:` and
+  nothing else. Two tests in `tests/test_sources.py` fail on an address leak
+- potential: 96
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+**Why a second edition of one database is not a duplicate.** FUNET's whole-database `ripe.db.gz`
+froze on 1999-08-03 and the `split/` directory beside it froze on 2004-11-09. A 1999 file cannot
+carry a transaction that had not happened yet, so the 16,536 `changed:` lines dated 2000 and the
+21,507 dated 2001 exist only in the later edition. That is the whole find.
+
+**It pays hundreds and not thousands because RIPE deleted the forward objects in between.** The 1999
+file holds 1.23M forward names; this one holds 6,160, the other 96.2% being `in-addr.arpa` and
+`ip6.arpa`, which killer 3 already priced at nothing. `.gm` (Gambia, weight 0.9969) was administered
+out of Norway and is the highest-weight population in the file, worth more than `.bg` and `.mc`
+together, so a regional registry's forward names need histogramming by TLD rather than assuming
+the region.
+
+**Staleness control, because a projection against an export is how a source gets overstated.** Of the
+1999 file's names carrying a 1998 `changed:` line, 100.00% are held at 1998, which proves the banked
+`ripe_dbase_changed` is fully reflected; of the alive-in-1998 names carrying no 1998 line, 55.88%.
+So the residual behind the pricing is real and not an export artefact.
+
+**One correction to `docs/sources.md`**: FUNET's `split/` was recorded there as "15 same-1999-edition
+subsets" and it is a 2004-11-09 edition, and the sentence saying the 2000-and-2001 `changed:` route
+does not exist was wrong.
 ### nic_mil_internic_zone_mirror / artifact_listing
 
 - what it is: the Defense Data Network NIC at `nic.mil` mirrored InterNIC's zone-file distribution over
@@ -2200,5 +2248,6 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
 
 

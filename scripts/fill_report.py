@@ -113,6 +113,10 @@ NEW_THIS_ROUND = {
         "the date on each object's own `changed:` transaction line",
         "same file, `*ch:` attribute",
     ),
+    "ripe_dbase_split_2004": (
+        "the date on each object's own `changed:` transaction line",
+        "ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz, `changed:` attribute",
+    ),
     "us_domain_delegated": (
         "the edition's tar-preserved mtime, or its capture stamp",
         "archive.org/details/2015.04.ftp.isc.org and www.isi.edu/in-notes/",
