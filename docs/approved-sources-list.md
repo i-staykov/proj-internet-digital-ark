@@ -226,6 +226,9 @@ Decision: master
 
 - ingest specs: `usenet_bare_dated`
 - authority: phase 4, merged and credited 2026-08-10, and takes the corroboration split
+- 2026-08-30, re-priced by the whole-spool census: the 9,050 archives this collector has never
+  run over are worth a few hundred EE at most, since the same names already carry the year
+  (`docs/discovery.md`, the re-selection law). Not worth the CPU.
 
 Decision: master
 
