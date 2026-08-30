@@ -13,6 +13,10 @@ Every registry this project has queried by RDAP publishes terms inside the respo
 
 Worth: the route's future. Stopping costs 851.0 EE of unshipped pairs and nothing already credited; `approved-sources-list.md` has the quotes and the per-registry figures.
 
+Sharpened 2026-08-30 by the registry-permission screen in `sources.md`: ask Nominet not for RDAP relief but for a two-column extract, domain name and registration date, for `.uk` names registered before 1 January 2002. No registrant data, so the ask falls outside their Data Release Policy, which is personal-data-only; send it through `registrars.nominet.uk`, not `data-release@nominet.uk`. Nominet holds the whole window (`demon.co.uk` dated 1996-05-05, nineteen days before Nominet existed, so the Naming Committee register was inherited with its dates).
+
+Worth: 63,921 EE for creation dates alone, 702,229 EE if they can supply registration history. Do not write to auDA (never held the window) and write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
+
 ### Rule on the 118.7 EE of unshipped Nominet pairs
 
 Nominet is the only one of the four whose terms prohibit USE as well as collection: "explicitly prohibited from extracting, copying and/or using or re-using ... all or part". The store holds 4,714 `.uk` RDAP pairs and 4,625.8 EE, of which 121 pairs and 118.7 EE are net-new and not yet sent. The rest is already in his baseline and cannot be recalled.
