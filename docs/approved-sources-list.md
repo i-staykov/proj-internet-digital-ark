@@ -326,6 +326,67 @@ reach it: the registry was serving that name at that instant.
 
 ## Found, awaiting triage
 
+### wayback_availability_2001 / cdx_timestamp
+
+- measured: 99.52 net-new post-split EE already in hand from 1,798 probe requests, over 415 capture
+  pairs on 335 domains sampled as DOMAINS and not as `domain_year` rows; 251 were already held
+  because those journals are ingested, 164 were net-new and every one of them was at 2001. No split
+  applies: a capture stamp is master evidence. The engine measures at **0.3459 net-new EE per query
+  and 1,494 EE/hour**, over a queue of **6,568,275 domains held at 2000 and missing 2001**, of which
+  **4,137,392 are com/net/org/uk** (re-measured against the store here; the first pass said 4,256,799)
+  and worth about 1.43M EE gross. 240 such domains sampled by hash order at one query pinned to
+  `20010701` returned 132 captures, 55.0%, which is 55.0% +/- 6.3% at 95%
+- what dates one item: `archived_snapshots.closest.timestamp`, the 14-digit capture stamp the Wayback
+  index wrote when its crawler fetched the page, returned inside the JSON body of
+  `https://archive.org/wayback/available?url=<domain>&timestamp=YYYYMMDD`. It is the same fact
+  `cdx_timestamp` already records, read from a second endpoint of the same archive, so no new
+  evidence class is being invented. **A parser must take `archived_snapshots.closest.timestamp` and
+  not the last `"timestamp"` in the document, which is the caller's own input echoed back and makes
+  every probe report a perfect hit.** Accuracy was graded against cdx ground truth already on disk
+  with no new cdx requests: 204 cdx year-pairs over 150 domains, 187 recovered, 91.7% recall and
+  94.3% at 2001, and 40 of 40 cdx-negative domains came back empty, so it does not invent years.
+  Two defects make every zero a lower bound and never a false year: it returns only status-200
+  captures, and it canonicalises `www.` away
+- terms: `archive.org/robots.txt` is 238 B and 12 lines, read whole before the first request. One
+  `User-agent: *` group disallowing `/control/` and `/report/` only, and no Claude-named group.
+  1,798 requests were made, 1,786 completed 200 and 12 returned `429` and were honoured with a wait
+- potential: 92. Drivers: the largest live opportunity in the register at 1,494 net-new EE/hour and a
+  4.1M-domain queue, retrieved end to end in measurement so no unknowns remain, licence-clear, and
+  machine-stamped with a zero-false-positive control. Discounted from higher because it is a
+  completeness engine competing with the cdx collectors for the same headroom rather than adding to
+  it, and because the whole thing turns on one count that only Ivo can move
+
+Decision: pending
+
+**The standing rule of 2026-08-29 does NOT admit this, and the condition that fails is the fourth:
+`ark check` cannot pass after the ingest because there is no ingest.** The 1,798 responses were
+measured and discarded, nothing was journalled to `data/raw/`, and producing an artifact to ingest
+means standing a **third bulk archive client** against the rule in CLAUDE.md that caps them at two.
+That cap is a count, not an evidence standard, so only Ivo can move it. Conditions 1, 2 and 3 all
+hold: the class is `cdx_timestamp` and already master-eligible, the stamp is machine-written and
+quoted above, and the terms were read in full before the first request.
+
+**The cost of the ruling is measured, so it does not need to be argued.** One availability client
+runs at 1.27 q/s with 0.67% of requests throttled, measured in the same minutes both cdx collectors
+were running and being throttled 27.3% of the time at 0.308 q/s each, off `cdx_gtail`'s own log at
+600 queries per 32.5-minute batch. But rate is the wrong statistic in both directions. In gross
+in-window pairs per hour cdx wins, because it returns a whole year set per query: 1.583 pairs per
+query against availability's one pinned year, 3,511 per hour against 2,515. Priced in net-new EE the
+order reverses. 1,200 `cdx_gtail` queries out of the 10:33 and 11:05 journals, neither ingested at
+the time of measurement so this is a genuine pre-ingest snapshot, gave 1,900 in-window pairs of which
+1,386 were already held: **514 net-new pairs, 324.90 EE, 0.2707 net-new EE per query, 600 net-new
+EE/hour for both cdx collectors combined.** Availability wins per query as well as per second,
+because its queue guarantees a hit is net-new while cdx's does not. **So retiring one cdx collector
+costs 300 EE/hour and buys 1,494**, and the two honest options are to raise the cap to three or to
+make that trade.
+
+If it runs: queue `held at 2000 AND missing 2001 AND tld in (com, net, org, uk)` ranked by English
+weight, one query each at `timestamp=20010701`, 2 workers and no delay, `429` honoured with the
+returned `Retry-After` or 30 s. Journal `{"domain", "timestamp", "year"}` as `cdx_timestamp`. Six-year
+enumeration is the worse shape at 0.208 pairs per query and is not the unit. **Do NOT re-aim it at the
+2,410,144 undated pool**: that arm is measured and closed at 114 EE/hour, because 98.4% of the pool is
+`usenet_address_mention`, `usenet_mention` and `usenet_bare_mention` extraction and 600 sampled domains
+hit 5.17% against 97.5% on interleaved controls.
 ### chastity_list_blacklist / dated_directory
 
 - measured: **14,229.0 net-new post-split EE over 24,927 (domain, year) pairs at 2001**, measured
@@ -2059,4 +2120,5 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
 
