@@ -1000,6 +1000,48 @@ since a pending class cannot date a year. Reaches `key-decisions.md` as a count,
 
 Decision: pending
 
+### store_url_listing_pages / artifact_listing
+
+- measured 2026-08-30 against the live store: **157.8 net-new post-split EE over 250 (domain, 2001)
+  pairs** from eleven pages (`scripts/price_items.py` re-read 159.4 EE over 252 pairs at harvest;
+  quote the lower). 1,245 distinct domains sampled AS DOMAINS, 148 already held at 2001, 1,097
+  net-new before the split and 688.8 EE, which overstates the source 4.4x and must not be quoted.
+  Mean weight 0.6311, `com` 230 / `org` 13 / `net` 7, typo upper bound 46.4%, 847 pairs to the
+  candidate pool
+- what dates one item: the 14-digit Wayback capture stamp in the page's own URL, `20011023104545`
+  over `www.domainsww.com/Domain_Listing.htm`, fixing the instant the listing was served. The
+  listing carries no in-body date and whoever kept the page typed the names, so every name takes
+  the corroboration split and only the names another source already dates earn 2001
+- the artifact: eleven pages, 261,007 B, all fetched as `web.archive.org/web/<ts>id_/`. Largest
+  `http://www.domainsww.com/Domain_Listing.htm` @20011023104545 53,245 B,
+  `http://promoone.com/Domain_Listing.html` @20011211231904 52,907 B,
+  `http://www.registrars.com/static/frontpage/reg_domain_list.shtml` @20010203234600 38,225 B
+- **how it was found is the part worth keeping, and it cost no requests**: `data/raw/webbase/webbase-2001.urls.gz`,
+  118,142,155 URLs already on disk, matched on the PATH only. The host-inclusive regex is 375x
+  noisier (117,912 hits, almost all `www.export.nl` and `gopher.csv.warwick.ac.uk` style host noise)
+  against 314 distinct URLs from the path-only domain signature list. 24 were screened through
+  `archive.org/wayback/available?timestamp=20010901`, never CDX; 17 had a capture, 15 in 2001, and
+  rejecting any stamp not starting `2001` caught 2 that would have imported a 2002 page as a 2001
+  observation
+- **failed condition 2 of the standing rule of 2026-08-29**: what dates the item is the capture
+  stamp rather than a machine-written stamp inside the artifact, the same reason
+  `coza_deletion_listing` and `cctld_register_listing_capture` sit in this section
+- the held fraction is the ceiling, and it is a pre-download discriminator: **398 of 1,245 names
+  (32.0%) are held in any year**, against the 87-99% of an authority corpus, because a for-sale or
+  registrar listing prints speculator inventory that never resolved. The 250 that pay are 62.8% of
+  the held names, which matches the population `com` 2001 threshold of 0.611, so the pages carry no
+  year advantage of their own. Aim the same regex at hosts listing CUSTOMERS rather than INVENTORY
+  (`w-link.com/Clients/domain_list.shtml` is the right shape, `promoone.com/Domain_Listing.html`
+  the wrong one)
+- ingest specs: not written
+- potential: 34. Drivers: cheap and licence-clear, and the finder behind it is reusable over four
+  more on-disk URL corpora (`early_web`, `ukwa`, `ccgraph`, `cdx_suffix`) at zero request cost, with
+  290 of the 314 WebBase candidates still unscreened and worth roughly 1,900 EE at the measured
+  rate. Held down by the 32% held fraction, which caps the per-page yield near 14 EE, and by the
+  condition-2 failure
+
+Decision: pending
+
 ### cordis_fp4_fp5_project_websites / link_target
 
 - potential: 32
@@ -1120,6 +1162,44 @@ Decision: pending
 ### govuk_domain_name_register_council_seeds / link_target
 
 - potential: 22
+
+Decision: pending
+
+### mailman_public_roster / cdx_timestamp
+
+- measured 2026-08-30 against the live store: **89.4 net-new post-split EE over 179 pairs**, by year
+  {2000: 1, 2001: 178}, `com` 70 / `net` 33 / `org` 23 / `de` 11 / `hu` 4 / `fr` 3, mean weight
+  0.4996, typo upper bound 67.3%. Re-priced at harvest and identical. Before the split it is 254
+  pairs and 128.5 EE, which must not be quoted. 2,358 distinct registrable domains sampled AS
+  DOMAINS, **2,283 held (96.8%)**, 2,102 of the held already carrying 2001, so the payout is exactly
+  the 181 held-and-missing-2001 names; adjacent-year (held 2000, missing 2001) is 170. The 75
+  never-held names take the split and go to the candidate pool, 42 of them new to it
+- what dates one item: the Wayback capture timestamp on a Mailman-generated `/mailman/roster/<list>`
+  page, `20010717203344` over the 1,430-member `mailman-users` roster. The table itself is written
+  by Mailman out of the membership database with nothing typed by a person, but **the page carries
+  no internal date stamp of any kind**
+- **failed condition 2 of the standing rule of 2026-08-29**: the dating is the capture stamp alone,
+  not a machine-written stamp inside the artifact
+- the artifact: 5 public in-window rosters, 322,905 B, all `web.archive.org/web/<ts>id_/`:
+  `otc.isu.edu:80/mailman/roster/herbal-rx` @20001001121841, `mail.python.org:80/mailman/roster/mailman-announce`
+  @20010302182443, `.../xml-sig` @20010430163722, `.../mailman-users` @20010717203344,
+  `scipy.net:80/mailman/roster/scipy-user` @20011214121348. `web.archive.org/robots.txt` is a 404,
+  so no host rule applies; enumeration used `archive.org/wayback/available`, never `/cdx`
+- **a roster is a discovery loss and a year win**, which is the squidGuard 2001-12-18 result again:
+  the subscriber population reads 96.8% held, the authority-corpus figure rather than the ~50% of a
+  blocklist, and only the 7.7% held-and-missing-2001 slice pays
+- unit economics, and they are the reason this is small: **0.0379 EE per listed subscriber domain**,
+  17.9 EE per public in-window roster page, at a 1.1% conversion (5 usable of 454 probed roster
+  URLs). 5,000 EE needs ~280 more public in-window rosters over ~25,000 candidate roster URLs, and
+  saturation is already visible at n=5, since the per-page counts sum to 2,921 against a union of
+  2,358, 19.3% duplication, with 3 of the 5 pages on one host
+- law 6 does not reach it: Mailman obscures addresses as `user__at__domain.tld` and `user at
+  domain.tld`, and both keep the domain intact
+- ingest specs: not written
+- potential: 22. Drivers: licence-clear, fully retrieved, and the URL generator behind it is free
+  (every Mailman footer prints `/mailman/listinfo/<list>`, so 868 MB of on-disk list archives gave
+  463 host/list pairs at no network cost). Held down hard by the fixed ~18 EE per page, the 1.1%
+  conversion, visible saturation at n=5, and the condition-2 failure
 
 Decision: pending
 
