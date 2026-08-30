@@ -142,12 +142,33 @@ Rules for a good hypothesis here:
 - Differ in SHAPE, not in host. Ding asks for breadth and grades method.
 - Aim at a year the store lacks. Adjacent-year headroom is largest at 2001 and 2000.
 - Prefer artifacts whose names are ALREADY HELD: novelty is a cost under the split.
-- Do not repeat anything already closed in docs/sources.md. Grep before writing.
 - Name a concrete host or corpus, not a category.
-Ask what kind of artifact nobody has looked for yet. Machine-written records that
-happen to name websites are the seam: registries, blocklists, catalogues, member
-directories, mail logs, package metadata, court and regulatory filings, standards
-documents, bibliographies, award rosters, sponsor and member lists.
+
+**MEASURED QUALITY BAR, from 85 hypotheses actually run.** Their median was 3.5 net-new
+EE and their sum was 7,499, against a single artifact found by the same loop that paid
+14,229. Small is admitted, but proposing small is a waste of a slot. So every block you
+write MUST carry these three lines, and you must drop any candidate that cannot fill them:
+
+  floor: <why this could plausibly clear 1,000 EE. Roughly: expected rows x expected
+         held-fraction x P(store lacks that year | held) x TLD weight. Show the product.
+         P(lacks 2001 | held) is 0.611 com, 0.653 net, 0.568 org, 0.309 uk.>
+  nearest closed: <the closest family in docs/sources.md and the ONE property that makes
+         this different. Grep sources.md BEFORE writing the block, not after.>
+  kill screen: <the single cheapest observation that would end it, costing one request>
+
+**Twelve of those 85 runs discovered mid-flight that the family was already closed.**
+That is a seventh of the budget spent re-testing, and it is your job to prevent, not the
+researcher's to discover. If you cannot name the nearest closed family, you have not
+grepped.
+
+**Bias hard toward the two shapes that have actually paid five figures here.** First, a
+SECOND ATTRIBUTE of an artifact already on disk: the RIPE snapshot was read once for the
+domain name and re-read for its per-object `changed:` lines, which paid 58,398 EE with no
+new download and no new permission. Ask what else the files in data/raw/ say. Second, a
+machine-written bulk list with a per-item stamp and a high held-fraction: the 2001
+blocklists paid 14,229 and 10,377 because 94% of their names were already held and simply
+lacked that year. Both shapes beat any directory of hand-typed links by two orders of
+magnitude.
 
 Write ONLY to ${HYPO}. Do not run git. Do not ingest. Do not edit docs/.
 EOG
@@ -187,14 +208,31 @@ Test it:
 2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
    Do NOT touch web.archive.org/cdx: two collectors are metering against it. Other
    archive.org services and other hosts are fine.
-3. Price it against the live store: distinct domains, fraction ALREADY HELD, and the
-   pairs that are held AND missing the artifact's own year. Quote net-new post-split EE
-   against merged260827. Sample distinct domains, never domain_year rows.
+3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece, one page or one
+   file, and measure three numbers on it: distinct registrable domains, the fraction
+   ALREADY HELD, and the fraction held AND missing the artifact's own year. Extrapolate
+   to the whole artifact and write that estimate down.
+   Then decide, and say which branch you took:
+   - projected under 200 EE: STOP. Report it as CLOSED with the probe numbers. Do not
+     fetch the rest. A small source is worth admitting when we already hold it, never
+     worth an hour of fetching to confirm it is small.
+   - projected 200 to 1,000 EE: take it only if the remaining fetch is cheap, minutes
+     rather than an hour.
+   - projected over 1,000 EE: do the full measurement carefully, this is the case that
+     matters.
+   **The probe is the deliverable even when the answer is no.** Across 85 prior runs the
+   median was 3.5 EE and the mean fetch was far larger than that justified.
+4. Price the full artifact only if the probe cleared. Quote net-new post-split EE against
+   merged260827-2. Sample distinct domains, never domain_year rows.
+5. If the artifact is on disk already under data/raw/, there is no fetch and no probe
+   budget to save: read it properly. Those have been the highest-paying runs.
 
 Write your result to private/findings/${slug}.md, in this shape and nothing else:
   # ${slug}
   verdict: FIND | CLOSED | BLOCKED
   ee: <net-new post-split EE, a number, 0 if none>
+  probe: <the smallest piece measured, its domains, held fraction, held-and-missing-year
+         fraction, and the projection to the whole artifact>
   what dates one item: <one line, or "nothing" if it cannot date a year>
   artifact: <URL and byte size, or why unreachable>
   measurement: <the numbers, including what you sampled>
