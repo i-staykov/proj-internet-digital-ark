@@ -499,6 +499,10 @@ _IEDR_FOOTER = re.compile(
 # `*ch: someone@example.com 19980315`. The date is the LAST 8-digit token on the line
 # and the capture group is deliberately narrow: the address before it must never be read.
 _RIPE_CHANGED = re.compile(r"^\*ch:.*?(\d{8})\s*$")
+# The same attribute spelled in full. FUNET's whole-database file uses the abbreviated
+# keys, its `split/` files use the long ones, so both spellings are needed to read the
+# same audit trail out of two editions of one database.
+_RIPE_CHANGED_LONG = re.compile(r"^changed:.*?(\d{8})\s*$")
 
 
 def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]:
@@ -550,20 +554,27 @@ def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]
     that a RIPE `domain:` object is a real registration. If that premise is wrong the
     snapshot is wrong too, so this extends the existing decision rather than reopening it.
     """
+    yield from _ripe_changed_records(path, stats, "*dn:", _RIPE_CHANGED)
+
+
+def _ripe_changed_records(
+    path: Path, stats: Counter, name_key: str, changed: re.Pattern[str]
+) -> Iterator[BulkRecord]:
+    """The reading itself, over whichever spelling of the two keys an edition uses."""
     year_of: dict[str, int] = {}
     current: str | None = None
     with _open_text(path) as fh:
         for line in fh:
             stats["lines"] += 1
-            if line.startswith("*dn:"):
-                value = line[4:].strip()
+            if line.startswith(name_key):
+                value = line[len(name_key) :].strip()
                 current = None if value.upper().endswith((".ARPA", ".ARPA.")) else value
                 if current is None:
                     stats["reverse_zone_skipped"] += 1
                 continue
             if current is None:
                 continue
-            found = _RIPE_CHANGED.match(line.rstrip("\n"))
+            found = changed.match(line.rstrip("\n"))
             if found is None:
                 continue
             stats["changed_lines"] += 1
@@ -583,6 +594,33 @@ def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]
                 year=year,
                 evidence_value=f"ripe_changed:{found.group(1)}",
             )
+
+
+def parse_ripe_dbase_split_2004(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """The same `changed:` audit trail, read out of FUNET's 2004-11-09 `split/` edition.
+
+    **Why a second edition of one database is not a duplicate.** FUNET's whole-database
+    `ripe.db.gz` froze on 1999-08-03 and the `split/` directory in the same folder froze on
+    2004-11-09, five years apart. The 1999 file cannot carry a transaction that had not
+    happened yet, so 2000 and 2001 `changed:` lines exist only in the later edition: 16,536
+    dated 2000 and 21,507 dated 2001. Those two years are where the value is, and they are
+    the two years the store is thinnest in.
+
+    **The file is small because it is 96.2% reverse DNS.** Of 162,408 `domain:` objects only
+    6,160 are forward names; the rest are `in-addr.arpa` and `ip6.arpa`, which killer 3 and
+    the ARIN result already priced at nothing and which the shared reader skips. Between the
+    two editions RIPE deleted the forward ccTLD objects, so this edition holds 6,160 forward
+    names where the 1999 one holds 1.23M. That is why it pays hundreds and not thousands.
+
+    **The highest-weight population in it is not European.** `.gm` (Gambia, weight 0.9969)
+    was administered out of Norway and its 672 objects are worth more than the `.bg` and
+    `.mc` objects combined, so the region a regional registry covers is not the region its
+    forward names sit in.
+
+    The claim, the personal-data guard and the rule 6 reading are `parse_ripe_dbase_changed`'s
+    unchanged; only the two key spellings differ.
+    """
+    yield from _ripe_changed_records(path, stats, "domain:", _RIPE_CHANGED_LONG)
 
 
 # Edelman's whois transcriptions. A record begins at a BOLD subject and runs to the
@@ -1997,6 +2035,16 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="artifact_listing",
         acquisition_method="registry_database_audit_trail",
         parse=parse_ripe_dbase_changed,
+    ),
+    # The same audit trail in FUNET's 2004-11-09 `split/` edition, which is the only
+    # reachable RIPE file carrying 2000 and 2001 `changed:` lines. Same class, same
+    # reading, same permission; admitted under the standing rule of 2026-08-29.
+    "ripe_dbase_split_2004": SourceSpec(
+        key="ripe_dbase_split_2004",
+        source_name="ripe_dbase_split_2004",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_database_audit_trail",
+        parse=parse_ripe_dbase_split_2004,
     ),
     # The 1999 RIPE database snapshot, used under written permission from RIPE NCC
     # dated 2026-08-26. `artifact_listing`: the file states its own generation instant
