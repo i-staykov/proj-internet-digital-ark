@@ -442,3 +442,28 @@ not its header**: the IOS Counter's `r.9904.*.txt` look like pure aggregate tabl
 and carry 16 hostnames from line 27, which cost one `sed` against asserting a zero off a head.
 And `Memento-Datetime` again earned its keep, since an `id_` replay URL returned HTTP 200 with no
 redirect and served a 2020 capture. Do not re-test any address-keyed census on any screen.
+
+## The re-selection law (2026-08-30)
+
+**Before re-extracting a corpus we have already ingested, measure P(store lacks year Y | domain
+attested) on the artifact's own names. Under about 0.05 against the store-wide `com` figure of
+0.611, the corpus is spent and no new signature over it can pay, whatever the signature is.**
+A new SELECTION over an already-read corpus recovers only what the old patterns missed, and the
+names they missed sit beside names they caught, in the same posts and the same years, so the year
+is already there. Measured by census, not sample, over the whole 456.82 GB on-disk Usenet spool,
+178,700,605 messages: of 45,147 domains named at 2001 that the store already dates, 682 lack 2001,
+P = 0.0151, a 40x shortfall, and on `.com` pairs 109 of 130,260 = 0.0008, 764x. It holds in every
+year of the window, 0.0051 to 0.0151, so it is not a 2001 artefact. One query settles every
+candidate signature at once: 65,101 posting families, host-dense and recurring, priced as a union,
+came to 2,207 net-new post-split pairs and 780.1 EE at mean weight 0.3535, below the 0.4 floor,
+with 62.7% of the net-new names one edit from a name already held. **This bounds a class rather
+than sampling it, which is what makes the closure safe**: 0 of 65,101 families reach 10,000
+distinct in-window domains, so no further extraction hypothesis over that spool can beat 780 EE.
+Three transferables. A whole-spool census is affordable if no message is ever copied out of the
+buffer: pass the start and end offsets to `bytes.find` and `bytes.count`, and a dot count that
+costs a microsecond removes 27.4% of messages before the host regex runs, giving 1.6 GB/s over 11
+cores. Census recurrence without a per-subject dictionary by counting `hash((From, Subject))` into
+a fixed 4M-slot `array("i")` in pass 1 and re-keying on the true strings in pass 2, since bucket
+collisions can only add candidates. And dedup on `Message-ID` before counting anything: 12.8% of
+qualifying rows were the same post in a second group's archive, and a crosspost triples a family's
+apparent size.
