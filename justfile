@@ -235,6 +235,12 @@ sources:
     uv run python scripts/split_granitecanyon.py --write
     uv run ark ingest granitecanyon_dated      data/raw/granitecanyon/granitecanyon-dated.*.txt
     uv run ark ingest granitecanyon_candidates data/raw/granitecanyon/granitecanyon-cand.*.txt
+    # Approved by Ivo on 2026-08-31: the capture-dated ccTLD listings at 2,450.2 EE,
+    # repriced from the bytes against a source register that claimed 3,496.0.
+    uv run python scripts/collect_cctld_capture.py
+    uv run python scripts/split_cctld_capture.py --write
+    uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
+    uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above

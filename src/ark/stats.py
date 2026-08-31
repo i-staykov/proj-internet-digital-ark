@@ -124,6 +124,10 @@ PROVENANCE_LINEAGE = {
     # the capture only fixes when the file existed, it did not produce the names.
     "granitecanyon_zone_rejects": "hosted_dns",
     "granitecanyon_zone_mention": "hosted_dns",
+    # A registry reading out its own register, so the lineage is the registry, not the
+    # capture that happens to fix the instant. Same family as the in-body sibling.
+    "cctld_register_listing_capture": "registry",
+    "cctld_register_listing_mention": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
