@@ -119,6 +119,11 @@ PROVENANCE_LINEAGE = {
     # both take the corroboration split: a person typed the name.
     "chastity_list_blacklist": "blocklist",
     "chastity_list_mention": "blocklist",
+    # Granite Canyon is a free-DNS operator reading out its own BIND configuration,
+    # so the lineage is the nameserver, not a crawl and not the Internet Archive:
+    # the capture only fixes when the file existed, it did not produce the names.
+    "granitecanyon_zone_rejects": "hosted_dns",
+    "granitecanyon_zone_mention": "hosted_dns",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.

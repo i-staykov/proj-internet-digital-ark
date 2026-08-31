@@ -1297,3 +1297,77 @@ in that release**, which is the `ls-lR` trick applied to a package archive and t
 distribution into an offline grep. Grepping the potato and woody indexes for blocklist-shaped
 descriptions gave 41 and 81 candidates; the largest in woody was this one, 701,038 bytes, described
 as "blacklists for SquidGuard".
+
+---
+
+## `granitecanyon_zone_rejects`: BANKED on a nightly error log the operator never meant as a customer list
+
+**The links.** Seven objects, 1,567,653 bytes, refetched 2026-08-31 by
+`scripts/collect_granitecanyon.py` and each one matching its 2026-08-29 byte count exactly:
+
+- `https://web.archive.org/web/20010601000000id_/http://soa.granitecanyon.com/stale_30Nov1999.txt`
+  (205,787 B, 14,522 zone names, the 1999 prune list)
+- `https://web.archive.org/web/20010223195457id_/http://soa.granitecanyon.com/ZoneRejects/` (193,389 B)
+  and the same path at `20010508024101` (212,935 B), `20010611192639` (215,340 B),
+  `20010626115208` (222,405 B), `20010901062251` (245,087 B) and `20011204210150` (272,710 B)
+
+**Why it meets the standard.** What dates one item is a stamp the operator's own program wrote
+inside the artifact: each reject edition prints `Rejected Zone List:  <D-Mon-YYYY HH:MM GMT>` in its
+own bytes, and all six in-window editions were verified on refetch to stamp themselves **23-Feb,
+7-May, 11-Jun, 26-Jun, 31-Aug and 4-Dec 2001**, every one agreeing with its capture timestamp. The
+1999 prune list is dated by `status.shtml`'s "29 November 1999 ... here is the list of pruned zones"
+and by its own filename. So one row is Granite Canyon's nameserver holding that zone in its BIND
+configuration at the instant the file was generated, which is a machine's configuration record
+rather than anyone's description of one. Class `artifact_listing`, master-eligible, already
+approved. Killer 8 order is respected: the grounds are the self-stamp plus the capture, and the
+overlap with the store is cited afterwards as a check, never as the argument.
+
+**The split is applied.** The zone name was typed by a customer into a submission form, so the
+corroboration split applies and only already-held names earn a year.
+`scripts/split_granitecanyon.py` writes one lane pair per edition, so the year always comes from
+the artifact and never from a default. Refetched and re-split on 2026-08-31 against the live store:
+prune list **13,199 zones, 7,970 dated (60.4% held)**, reject editions 46.5% to 52.1% held,
+**17,424 dated rows and 15,114 candidate rows** in total. `to_registrable` drops the
+`.in-addr.arpa` reverse zones and the malformed rows on its own, which matters because `.arpa`
+carries the highest weight in the model and `ark check` refuses it outright.
+
+**Measurement**: 1,732.9 net-new post-split EE over 3,059 pairs, 0.102 EE per listed name, by year
+{1999: 2,001, 2001: 1,058}, mean weight 0.5665. Pre-split is 10,272 pairs and 5,813.2 EE and
+**overstates by 3.4x, so do not quote it**. The 1999 list alone is 1,125.5 EE and the 2001 reject
+union alone 607.3 EE, so a held name in a 2001 edition is worth 2.3x the same name in a 1999 one.
+
+**The held-fraction is the finding, and it is the transferable part.** 60.4% and 46.8% held,
+against 87 to 99% for authority corpora, ~50% for blocklists, 98.4 to 99.6% for visitor logs and
+~5% for forged-header spam corpora. A zone is not a page, so no crawler reaches it through a link
+and the artifact is not head-selected: these are people who had a domain and no server. The
+population also does not collapse on the 2001 threshold, P(lacks 2001 | held) measuring com
+**0.5745**, net 0.6174, org 0.5113 against the store-wide law's 0.611 / 0.653 / 0.568.
+
+**Method, in three parts.** (1) **A free-DNS operator's CUSTOMER population is the tail and its
+OPERATOR population is not**, and the two look identical until you ask who typed the name: the
+zone-file-RHS closure measured nameserver operators at 99.3% held, and the same service read from
+the other end measures 46.8%. The discriminator is whether the selection predicate is "runs a
+nameserver" or "asked somebody else to run one". (2) **When a service hides its inventory behind a
+login, look for its ERROR LOG.** All four other operators refused to publish a customer list
+(secondary.com behind `/auth/`, zoneedit.com behind `login.html`, xname.org behind a per-zone
+password, freedns.com an empty index); the one that published a nightly list of the zones its BIND
+could not load gave away 4,369 names it never meant to. Reject lists, prune lists, lame-delegation
+reports and stale-zone reports are machine-generated, self-stamped and regenerated on a schedule,
+so every capture is a fresh dated edition and nobody thinks of them as a customer list. (3)
+**Enumerate a dead site's list files from its own dated changelog, not from an index**: four
+captures of `status.shtml` named every list file the site ever served and dated each, which a CDX
+prefix query would have cost many more requests to establish.
+
+**Exhaustion, so nobody re-probes it**: six ZoneRejects editions exist in 2001 and no more,
+fourteen probes across 2001-01 to 2002-04 collapsing onto those six timestamps. A seventh edition
+dated 26-May-2002 is **out of window and cannot date a year**, and the collector deliberately does
+not fetch it. The predecessor `zoneRejects.txt` is 9 names at 2000-03-03 and HTTP 403 at every later
+capture.
+
+**A collection trap worth recording, because it cost a wasted pass.** The first refetch built the
+replay URL as `{stamp}id_{host}` with no slash after `id_`, and web.archive.org answered every one
+of the seven with the same 154,263-byte "Wayback Machine" interstitial. A size floor set at half the
+expected bytes passed all seven, because the interstitial is larger than half of 193,389, so the run
+reported success and wrote seven near-identical files. **A size floor is not a content check**: the
+collector now rejects any body whose first bytes are an HTML5 document, and the correct form is
+`{stamp}id_/{host}`.

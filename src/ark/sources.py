@@ -828,6 +828,55 @@ def parse_chastity_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         yield BulkRecord(raw=name, year=year, evidence_value=f"chastity-list:{stamp}")
 
 
+# `granitecanyon-(dated|cand).<YYYYMMDD>.txt`, written by `split_granitecanyon.py`.
+# One canonical zone name per line; the lane is in the name and so is the edition.
+_GC_FILE = re.compile(r"^granitecanyon-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$")
+
+
+def parse_granitecanyon_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per zone in one lane of one Granite Canyon edition.
+
+    **What dates one item, and it is a stamp the operator's own program wrote.** Each
+    reject edition prints its generation instant in its own bytes, `Rejected Zone List:
+    7-May-2001 22:11 GMT`, and the Wayback capture fixes when the file existed. The six
+    in-window editions stamp themselves 23-Feb, 7-May, 11-Jun, 26-Jun, 31-Aug and 4-Dec
+    2001, every one agreeing with its capture timestamp. The 1999 prune list is dated by
+    `status.shtml`'s "29 November 1999 ... here is the list of pruned zones" and by its own
+    filename. So a row is Granite Canyon's nameserver holding that zone in its BIND
+    configuration at that instant, which is a machine's configuration record rather than
+    anyone's description of one.
+
+    **`artifact_listing` for the corroborated lane, `link_target` for the other**, because
+    the zone name was typed by a customer into a submission form. `split_granitecanyon.py`
+    applies the split before ingest against the strict predicate, so this parser reads
+    whichever lane it is pointed at and never decides.
+
+    **Killer 8 order, and it matters here.** The grounds are the self-stamp plus the
+    capture. The 60.4% and 46.8% agreement with the store is cited afterwards as a check on
+    that argument, never as the argument.
+
+    **Why the population is unusual and worth having.** 60.4% and 46.8% held, against 87 to
+    99% for authority corpora and 98.4 to 99.6% for visitor logs. A zone is not a page, so
+    no crawler reaches it through a link and the artifact is not head-selected: these are
+    people who had a domain and no server of their own.
+    """
+    match = _GC_FILE.match(path.name)
+    if match is None:
+        stats["not_a_granitecanyon_lane"] += 1
+        return
+    year = int(match.group(2))
+    if year not in YEARS:
+        stats["edition_out_of_window"] += 1
+        return
+    stamp = "".join(match.groups()[1:])
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        name = line.strip()
+        if not name:
+            continue
+        stats["zones"] += 1
+        yield BulkRecord(raw=name, year=year, evidence_value=f"granitecanyon:{stamp}")
+
+
 # `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
 # trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
 # on the page, IDNIC's rows carry a due date each.
@@ -2063,6 +2112,23 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="dated_blocklist_release",
         parse=parse_chastity_split,
+    ),
+    # Granite Canyon's free-secondary-DNS reject and prune lists, seven editions.
+    # Two lanes: the corroborated half dates the edition's own stamped year, the rest
+    # parks as candidates. Approved by Ivo 2026-08-31.
+    "granitecanyon_dated": SourceSpec(
+        key="granitecanyon_dated",
+        source_name="granitecanyon_zone_rejects",
+        evidence_type="artifact_listing",
+        acquisition_method="hosted_zone_inventory",
+        parse=parse_granitecanyon_split,
+    ),
+    "granitecanyon_candidates": SourceSpec(
+        key="granitecanyon_candidates",
+        source_name="granitecanyon_zone_mention",
+        evidence_type="link_target",
+        acquisition_method="hosted_zone_inventory",
+        parse=parse_granitecanyon_split,
     ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.
