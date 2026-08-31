@@ -307,6 +307,66 @@ Decision: master
 
 Decision: master
 
+### nypw_timemaps / cdx_timestamp
+
+- ingest specs: `nypw_timemaps`
+- measured: **4,084.3 EE net-new post-split over 10,072 pairs**, read back out of the store after
+  the ingest of 2026-09-01 rather than projected. Nothing in a TimeMap row was typed by a human, so
+  pre-split equals post-split. Per part, `year_rows`: `2000/..._deeplinks_part00o` 3,566,
+  `2000/..._rootURLs_part02r` 6,500, `2001/..._deeplinks_part00o` 6. Mean weight 0.4055; TLDs
+  `com` 4,818, `de` 1,001, `org` 641, `net` 377, `co.jp` 320, `it` 284. **10,070 of the 10,072 land
+  at 2001**, which is the adjacent-year screen paying exactly as the aim-at-2001 law predicts.
+  The pre-ingest pricing said 6,424 pairs and 4,146.8 EE at mean weight 0.6455, so the store took
+  57% more pairs for 1.5% less EE: the head the pricing counted had been covered in the days
+  between, and what was actually left is the ccTLD tail. **Price and banked figure are not the same
+  number and the banked one is the one to quote**
+- what dates one item: field 3 of a TimeMap row is Wayback's own 14-digit capture timestamp, written
+  by the crawler at the instant of the capture. One row entire, from `2000/TM_other/TM_x00o2000_10000.txt`
+  inside the first tarball:
+
+      https://4free.net/mousepads.shtml net,4free)/mousepads.shtml 20010124104200
+      http://www.4free.net:80/mousepads.shtml text/html 200 NT5S4OFZGCGRFF3TKTOCLK7IYFJKQKP6 4009
+
+  `20010124104200` is the stamp and it evidences 2001 for `4free.net` and no other year, which is
+  rule 6 satisfied by the row's own shape rather than by an argument about it
+- the artifacts, linked before ingest so the bytes stay refetchable:
+  `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part00o.tar.gz`
+  (31,659,131 B), `.../2000/nypw_timemaps2000_rootURLs_part02r.tar.gz` (119,945,969 B),
+  `.../2001/nypw_timemaps2001_deeplinks_part00o.tar.gz` (148,848,304 B)
+- terms, read in full before the first request: CC BY 4.0, stated in the item's own
+  `nypw_timemaps_readme.txt`, "You are free to share and adapt the material, provided that
+  appropriate credit is given". `archive.org/robots.txt` is 238 bytes whole and disallows only
+  `/control/` and `/report/`, with no Claude or Anthropic group; the host the download redirect
+  lands on, `ia800601.us.archive.org`, serves no robots.txt at all
+- **why the sibling above being rejected does not decide this one.** The first-capture index holds
+  one row per URL and so can only offer a domain its FIRST year, which an IA-derived baseline holds
+  by construction. A TimeMap holds every capture of that URL, so it offers years for domains our
+  metered per-domain collector never queried. The 2026-08-24 closure of this item at 14.2 EE tested
+  the 1996 folder only, and folder year is the year of FIRST capture: folder Y can add only years
+  Y+1..2001, so 1996 is the saturated head and 2001 is held by construction at 108,863 of 108,870
+  pairs. The paying folders are 1997 to 2000
+- potential: 72
+
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+Conditions checked one at a time. (1) `cdx_timestamp` is already master-eligible and is the type the
+rejected sibling above already carries, so no class is being invented: the row shape is identical and
+only the row COUNT per URL differs. (2) The stamp is Wayback's own 14-digit capture timestamp,
+machine-written by the crawler, quoted above out of the bytes now on disk rather than from the
+published example, which drops the leading queried-URI field and so reads as classic CDX when it is
+not. (3) CC BY 4.0 in the item's own readme, `archive.org/robots.txt` 238 B read whole with no
+Claude or Anthropic group, and no robots.txt at all on the download host the redirect lands on.
+(4) `ark check` after the ingest.
+
+One correction the finding needed and the register should carry, because it is the kind of thing
+that silently ingests nothing: a TimeMap row has EIGHT fields, not seven, the first being the URI
+that was queried. Written to classic-CDX offsets the collector read 1,503,591 rows and kept zero,
+and only an assertion that a part MUST yield in-window rows caught it before the empty file was
+renamed and skipped as finished on the next pass. `scripts/collect_nypw_timemaps.py` now fails the
+part rather than writing it.
+
 ### urlmerchant_inventory / artifact_listing
 
 - measured 2026-08-31 against the live store, before the ingest, over the 244 listing pages on
@@ -612,6 +672,60 @@ Decision: pending
 - potential: 71
 
 Decision: pending
+
+### repository_ia_capture_census / cdx_timestamp
+
+- what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
+- potential: 70
+
+Decision: pending
+**Reopened 2026-09-01 on the unsubmitted parts 01 and 02, and on nothing else.** The rejection below
+stands for what it tested and is left verbatim underneath. Three things it recorded are now known to
+be wrong or retired, from the reviewer's own accept ledger rather than from a re-fetch:
+
+- It rests on the NOVELTY screen, retired 2026-08-25, and it sampled PAIRS rather than distinct
+  domains, which is the exact error CLAUDE.md names. 226,171 rows out of an 80.36 GB corpus.
+- Killer 1 was invoked and does not hold for this artifact. Our baseline is homepage-level captures
+  and this is the LINK GRAPH, whose column 2 holds targets never themselves captured.
+- The reviewer ACCEPTED 4,068,061 records from parts 03-16 of this same deposit, submitted by
+  another contributor on 2026-08-14, with 297 already in baseline. That is in
+  `merge_audit_umn_drum_0814.json`, which names the submission directory outright:
+  `UMN_DRUM_part03-16_..._0814`, baseline `merged260812`.
+- The access note is wrong: `conservancy.umn.edu` 403s on `/handle/` behind a WAF JS challenge and
+  answers `/server/api/` normally. robots.txt read whole, 3,502 B, no Claude or Anthropic group,
+  `/server/api/` not mentioned. That is CLAUDE.md's own "a 403 wall is not always a refusal" trap.
+
+- the untouched slice: `EARLYWEB_1996_2000_part01.tar` (418,764,800 B) and
+  `EARLYWEB_1996_2000_part02.tar` (3,305,492,480 B) were never submitted by anybody. 3.72 GB of
+  80.36 GB, 4.63% by bytes
+- what would date one item: column 3 of a row is the crawl date `YYYYMMDD` written by the extraction
+  script, per the deposit's own README.txt: `1 Source URL (only SLD) 2 Target URL 3 Date (YYYYMMDD)
+  4 Sum of content length 5 # of links`. Column 1 with column 3 is `link_source` and is
+  master-eligible. **Column 2 is `link_target` and never dates a year**, so roughly half of what the
+  reviewer accepted from the other contributor is inadmissible here
+- projected, not measured: ~103,000 EE gross pro-rata on bytes, halved to **~50,000 EE** for the
+  source column alone. Order of magnitude only: part sizes run 138 MB to 9.19 GB, so the parts are
+  not uniform and nothing has been fetched. The corpus is collected 1996-01-01 to 2000-12-31 and
+  cannot serve 2001, which is where our headroom is
+
+**Parked, not admitted, and the standing rule fails on two of its four conditions.** Condition 2:
+nothing has been fetched, so no machine-written stamp has been quoted out of bytes we hold, and
+there is no measurement at all, only a projection off another contributor's accepted record count.
+Condition 3: the licence is **Attribution-NonCommercial-ShareAlike 3.0 US** and the NC term has
+never been read against our use. Fetch part01 first, the cheapest of the sixteen at 418 MB, read
+column 1 and column 3 only, and price with `scripts/price_items.py` sampling DISTINCT DOMAINS.
+
+The rejection this reopens, kept as written:
+**Not unpriced, mis-filed: the fourth entry today whose `- measured:` line was lost in the 2026-08-23
+compaction.** Measured 2026-08-18 and recorded in `docs/sources.md`: UMN DRUM `10.13020/D62684`, "Link
+Lists for Websites Tracking the Development of the Early Web from 1996 to 2000", 74.83 GB in 16 tar
+parts, and **45,130 of 45,130 sampled pairs already held, 1 net-new pair worth 0.63 EE over 226,171 real
+rows**, with 97,904 of 97,905 source-side pairs already dated that exact year. Payload presence is
+established by that read, which is the test the payload-less UKWA CDX sibling failed. Licence is
+Attribution-NonCommercial-ShareAlike 3.0 US. Killer 1 in its documented-exception form, and **the
+exception did not fire**: this census is a projection of the same index our baseline was built from.
+Access note for anyone returning: `conservancy.umn.edu` 403s an honest User-Agent behind Azure WAF, and
+`api.datacite.org` answers the DOI in full.
 
 ### usco_bulk_registrations / typed
 
@@ -1920,23 +2034,6 @@ Decision: rejected
 - approved by Ivo on 2026-08-31, after the split test and the truncation screen
 
 Decision: master
-
-### repository_ia_capture_census / cdx_timestamp
-
-- what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
-- potential: 70
-
-Decision: rejected
-**Not unpriced, mis-filed: the fourth entry today whose `- measured:` line was lost in the 2026-08-23
-compaction.** Measured 2026-08-18 and recorded in `docs/sources.md`: UMN DRUM `10.13020/D62684`, "Link
-Lists for Websites Tracking the Development of the Early Web from 1996 to 2000", 74.83 GB in 16 tar
-parts, and **45,130 of 45,130 sampled pairs already held, 1 net-new pair worth 0.63 EE over 226,171 real
-rows**, with 97,904 of 97,905 source-side pairs already dated that exact year. Payload presence is
-established by that read, which is the test the payload-less UKWA CDX sibling failed. Licence is
-Attribution-NonCommercial-ShareAlike 3.0 US. Killer 1 in its documented-exception form, and **the
-exception did not fire**: this census is a projection of the same index our baseline was built from.
-Access note for anyone returning: `conservancy.umn.edu` 403s an honest User-Agent behind Azure WAF, and
-`api.datacite.org` answers the DOI in full.
 
 ### ted_ojs_notices_1996_2001 / link_source
 
