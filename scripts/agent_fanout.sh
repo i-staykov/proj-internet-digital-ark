@@ -33,16 +33,52 @@ DEADLINE="${1:?usage: agent_fanout.sh <deadline_epoch> [parallel] [hypothesis_fi
 # afterwards whether the run had killed his editor and his chat client, and the honest
 # answer was that it could not be ruled out. A research loop that squeezes its operator
 # out of his own desktop is not worth the extra hypothesis per hour.
-PAR="${2:-2}"
+#
+# **Revised to 3 on 2026-08-31**, after Ding asked for parallelism explicitly and confirmed
+# the 5% trigger is firm. Three, not four, because the swap incident above was real and the
+# machine is still shared; the extra slot is paid for by moving the harvest off Opus rather
+# than by spending more. MIN_FREE_PCT still refuses a round when memory is tight.
+PAR="${2:-3}"
 # Seconds a single researcher may run before it is asked to stop.
 RESEARCH_CAP="${RESEARCH_CAP:-2400}"
 # Do not start a round when the machine is this tight.
 MIN_FREE_PCT="${MIN_FREE_PCT:-25}"
-# Seconds to idle between rounds. This is a TOKEN budget, not politeness: a 56-hour
-# weekend at back-to-back rounds is roughly 300 headless invocations. The collectors
-# carry equivalent-English growth meanwhile, so a paused researcher slot costs nothing
-# that matters.
-ROUND_PAUSE="${ROUND_PAUSE:-1800}"
+# Seconds to idle between rounds. This is a TOKEN budget, not politeness. 1800 was set for
+# an unattended 56-hour weekend; 900 is for a supervised daytime window, where the operator
+# is watching and wall-clock matters more. The collectors carry equivalent-English growth
+# meanwhile at ZERO token cost, so a paused researcher slot is never idle time overall.
+ROUND_PAUSE="${ROUND_PAUSE:-900}"
+
+# **Model and effort per ROLE, and this is a token-efficiency decision, not a cosmetic one**
+# (Ivo, 2026-08-31: "maximize speed and token-efficiency of domain acquisition ... if we use
+# my whole weekly limit, we were too fast and should have been more efficient instead").
+#
+# The roles are not equally worth an expensive model:
+#
+#   researcher  CREATIVE. Forms a hypothesis, finds an artifact nobody has looked for, and
+#               judges evidence. This is where the outlier comes from and where the whole
+#               return sits, so it gets the best model at high effort. Never economise here.
+#   scribe      MECHANICAL and runs EVERY round: append a row per finding, record a result
+#               line, re-sort the queue, gate, commit. No judgement, no new code, and it is
+#               append-only. Sonnet at low effort does this correctly and much cheaper.
+#   admitter    RARE and EXPENSIVE TO GET WRONG: applies the standing approval rule, writes
+#               an ingest spec, ingests, and must leave `ark check` passing. It only runs
+#               when a researcher reported a FIND, which most rounds do not, so paying for
+#               a strong model on the uncommon path costs little and a bad ingest costs a
+#               lot. Opus at medium effort.
+#   generator   CREATIVE but infrequent: proposes hypotheses when the queue empties.
+#
+# The collectors and the watchdog use NO model at all, which is why they are the most
+# token-efficient equivalent-English in the project and should never be throttled to make
+# room for an agent.
+RESEARCH_MODEL="${RESEARCH_MODEL:-opus}"
+RESEARCH_EFFORT="${RESEARCH_EFFORT:-high}"
+SCRIBE_MODEL="${SCRIBE_MODEL:-sonnet}"
+SCRIBE_EFFORT="${SCRIBE_EFFORT:-low}"
+ADMIT_MODEL="${ADMIT_MODEL:-opus}"
+ADMIT_EFFORT="${ADMIT_EFFORT:-medium}"
+GEN_MODEL="${GEN_MODEL:-opus}"
+GEN_EFFORT="${GEN_EFFORT:-high}"
 HYPO="${3:-private/agent-hypotheses.md}"
 LOG="data/logs/agent_fanout.log"
 LEDGER="data/logs/agent_fanout.tsv"
@@ -88,6 +124,9 @@ ee_now() {
 
 [ -f "$LEDGER" ] || printf 'round\tstarted\tended\tslugs\tee_before\tee_after\tdelta\n' > "$LEDGER"
 note "start: until $(date -r "$DEADLINE" '+%F %T' 2>/dev/null || echo "$DEADLINE"), parallel=${PAR}"
+# Log the model tiering, so a later reading of the ledger can attribute token spend to a
+# configuration rather than guessing which run was the expensive one.
+note "models: research=${RESEARCH_MODEL}/${RESEARCH_EFFORT} scribe=${SCRIBE_MODEL}/${SCRIBE_EFFORT} admit=${ADMIT_MODEL}/${ADMIT_EFFORT} gen=${GEN_MODEL}/${GEN_EFFORT} pause=${ROUND_PAUSE}s"
 
 round=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
@@ -173,6 +212,7 @@ magnitude.
 Write ONLY to ${HYPO}. Do not run git. Do not ingest. Do not edit docs/.
 EOG
         claude -p "$(cat "$GFILE")" --permission-mode auto --output-format text \
+            --model "$GEN_MODEL" --effort "$GEN_EFFORT" \
             > "data/logs/fanout_${round}_generate.log" 2>&1 < /dev/null
         SLUGS=""
         while IFS= read -r slug; do
@@ -204,7 +244,10 @@ Read CLAUDE.md first, it is binding. Your hypothesis is the block headed
 
 Test it:
 1. Grep docs/sources.md for the family FIRST. If it is already closed there, say so and
-   stop; that is a complete and useful result.
+   stop; that is a complete and useful result. **GREP it, never read it whole: it is over
+   600 KB and reading it costs more than most hypotheses are worth.** The same goes for
+   docs/approved-sources-list.md at ~150 KB. Read CLAUDE.md and your own hypothesis block
+   in full; grep everything else.
 2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
    Do NOT touch web.archive.org/cdx: two collectors are metering against it. Other
    archive.org services and other hosts are fine.
@@ -248,6 +291,7 @@ EOP
         # round waited on it for 1h13m while the other three sat finished. macOS ships
         # no `timeout`, so the cap is a watcher process per researcher.
         ( claude -p "$(cat "$PFILE")" --permission-mode auto --output-format text \
+            --model "$RESEARCH_MODEL" --effort "$RESEARCH_EFFORT" \
             > "data/logs/fanout_${round}_${slug}.log" 2>&1 < /dev/null ) &
         rpid=$!
         ( sleep "$RESEARCH_CAP"; kill -TERM "$rpid" 2>/dev/null ) &
@@ -258,42 +302,90 @@ EOP
     for k in "${killers[@]:-}"; do kill "$k" 2>/dev/null; done
     note "round ${round}: researchers done, harvesting"
 
-    HFILE="data/logs/prompt_${round}_harvest.txt"
-    cat > "$HFILE" <<EOP
-You are the harvester for one parallel research round. Read CLAUDE.md first.
+    # **The harvest is split in two, and the split is a token decision.** Banking a round
+    # is two different jobs wearing one hat. Appending a row per finding, recording a
+    # result line, re-sorting the queue, gating and committing is MECHANICAL, append-only,
+    # and happens every single round. Admitting a source is RARE, needs the standing rule
+    # applied to real evidence, may need an ingest spec written, and must leave `ark check`
+    # passing. Paying Opus for the first job every round to be ready for the second job
+    # occasionally is the most expensive habit this loop had.
+    #
+    # So: a cheap SCRIBE always runs, and an expensive ADMITTER runs only when some
+    # findings file actually says FIND. Most rounds never wake the admitter.
+    grep -rlE '^\s*verdict:\s*(FIND|find)' "$FIND"/*.md >/dev/null 2>&1 && FOUND=1 || FOUND=0
+
+    SFILE="data/logs/prompt_${round}_scribe.txt"
+    cat > "$SFILE" <<EOP
+You are the scribe for one research round. This is bookkeeping, not judgement: do exactly
+these steps and nothing more. Do NOT ingest anything, do NOT write an ingest spec, and do
+NOT edit docs/approved-sources-list.md.
+
+Read CLAUDE.md for the commit rules only. **Do not read docs/sources.md whole: it is over
+600 KB. Append to it, and grep it if you need to check something.**
 
 private/findings/ holds one file per hypothesis just tested. For each file:
-1. Add a row to the "Evaluated and rejected" table in docs/sources.md carrying its
+1. Append a row to the "Evaluated and rejected" table in docs/sources.md carrying its
    verdict, its numbers and its method, so nobody re-tests it. Positive or negative.
+   Under 5,000 EE gets ONE line: the link, the sentence saying what dates one item, the
+   figure. Nothing else.
 2. Record the outcome on that hypothesis's block in ${HYPO} as a single
    "result: <verdict>, <figure>, <one clause why>" line.
-3. If a verdict is FIND, apply THE STANDING APPROVAL RULE in CLAUDE.md. When all four
-   conditions hold, write the entry into docs/approved-sources-list.md, quote the
-   machine-written stamp, add "- admitted under the standing rule of 2026-08-29 (Ivo)",
-   set "Decision: master", register an ingest spec if one is needed, ingest it, and
-   confirm ark check still passes. If ANY condition fails, leave "Decision: pending" with
-   the measurement and a "- potential:" score, and name the condition that failed.
-   Never invent a new evidence class to fit a source.
-3b. Keep it SHORT for small sources. Under 5,000 EE gets ONE line in docs/sources.md:
-   the link, the sentence saying what dates one item, and the figure. Nothing else.
-4. Then: uv run python scripts/rank_triage.py
-5. Gate, never through a pipe:
+3. uv run python scripts/rank_triage.py
+4. Gate, never through a pipe:
    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
    then uv run ark export && uv run ark check
-6. Commit on the current branch. Never push. No AI attribution. No em-dashes or en-dashes.
-7. Move the harvested files to private/findings/banked/ so the next round starts clean.
-
-Be brief in the commit body: what was tested, what each measured, what the method was.
+5. Commit on the current branch. Never push. No AI attribution. No em-dashes or en-dashes.
+   Be brief in the body: what was tested, what each measured, what the method was.
+6. Move the harvested files to private/findings/banked/ so the next round starts clean.
 EOP
-    # Backgrounded so the next round of researchers starts immediately. Only the
-    # harvester touches git and docs/, and researchers touch neither, so the overlap is
+    # Backgrounded so the next round of researchers starts immediately. Only the scribe and
+    # the admitter touch git and docs/, and researchers touch neither, so the overlap is
     # safe and it removes the serial harvest gap from the wall clock.
-    claude -p "$(cat "$HFILE")" --permission-mode auto --output-format text \
-        > "data/logs/fanout_${round}_harvest.log" 2>&1 < /dev/null &
-    HARVEST_PID=$!
-    # One harvester at a time: wait for the PREVIOUS one before starting the next.
+    # **Exactly one writer at a time, and the previous ordering did not guarantee it.**
+    # This block used to start the new harvester and only THEN wait for the previous one,
+    # so two `claude -p` processes could be committing to the same branch at once. The
+    # comment claimed "one harvester at a time" and the code did not deliver it. Waiting
+    # first costs nothing in practice, because the previous scribe has had a whole round to
+    # finish, and it still overlaps the scribe with the NEXT round's researchers.
     if [ -n "${LAST_HARVEST:-}" ]; then wait "$LAST_HARVEST" 2>/dev/null; fi
-    LAST_HARVEST="$HARVEST_PID"
+
+    if [ "$FOUND" -eq 1 ]; then
+        note "round ${round}: a findings file reports FIND, waking the admitter (${ADMIT_MODEL}/${ADMIT_EFFORT})"
+        AFILE="data/logs/prompt_${round}_admit.txt"
+        cat > "$AFILE" <<EOP
+You are the admitter. One or more files in private/findings/ report a FIND. Read CLAUDE.md
+first, it is binding, and read THE STANDING APPROVAL RULE in it carefully.
+
+For each findings file whose verdict is FIND, and only those:
+1. Re-check the four conditions of the standing rule against what the file actually says.
+   When all four hold: write the entry into docs/approved-sources-list.md, QUOTE the
+   machine-written stamp that dates one item, add
+   "- admitted under the standing rule of 2026-08-29 (Ivo)", set "Decision: master",
+   register an ingest spec if one is needed, ingest it, and confirm ark check still passes.
+2. If ANY condition fails, leave "Decision: pending" with the measurement and a
+   "- potential:" score, and name the condition that failed. Never invent a new evidence
+   class to fit a source, and never widen what counts as evidence to make a source fit.
+3. Every source gets its LINK into docs/sources.md before it is ingested, next to the
+   sentence saying what dates one item. Two approved sources became unrefetchable because
+   only their bytes were kept.
+4. Quote net-new POST-SPLIT equivalent-English, never gross. They differ by more than 10x.
+5. Then gate, never through a pipe:
+   uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+   then uv run ark export && uv run ark check
+6. Commit on the current branch. Never push. No AI attribution. No dashes.
+
+The scribe handles the register rows and the result lines for every finding, so do not
+duplicate that work. Your job is only the admission and the ingest.
+EOP
+        claude -p "$(cat "$AFILE")" --permission-mode auto --output-format text \
+            --model "$ADMIT_MODEL" --effort "$ADMIT_EFFORT" \
+            > "data/logs/fanout_${round}_admit.log" 2>&1 < /dev/null
+    fi
+    claude -p "$(cat "$SFILE")" --permission-mode auto --output-format text \
+        --model "$SCRIBE_MODEL" --effort "$SCRIBE_EFFORT" \
+        > "data/logs/fanout_${round}_scribe.log" 2>&1 < /dev/null &
+    LAST_HARVEST=$!
+    note "round ${round}: scribe running (${SCRIBE_MODEL}/${SCRIBE_EFFORT})"
     after=$(ee_now); after="${after:-$before}"
     delta=$(python3 -c "print(f'{float('${after}') - float('${before}'):.4f}')" 2>/dev/null || echo 0)
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
