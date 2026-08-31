@@ -45,6 +45,15 @@ DEADLINE="${1:?usage: agent_fanout.sh <deadline_epoch> [parallel] [hypothesis_fi
 PAR="${2:-4}"
 # Seconds a single researcher may run before it is asked to stop.
 RESEARCH_CAP="${RESEARCH_CAP:-2400}"
+# **Every lane needs a cap, and only the researchers had one.** On 2026-08-31 the
+# generator sat for 24 minutes on 4.7 seconds of CPU and 0% load with six open sockets:
+# blocked on the network, producing nothing, and holding the whole loop because it runs
+# synchronously. The researchers survive that because a watcher kills them; the generator,
+# scribe and admitter did not. A stalled generator costs the entire night, so it gets the
+# tightest cap of the three.
+GEN_CAP="${GEN_CAP:-900}"
+SCRIBE_CAP="${SCRIBE_CAP:-1200}"
+ADMIT_CAP="${ADMIT_CAP:-1800}"
 # Do not start a round when the machine is this tight.
 MIN_FREE_PCT="${MIN_FREE_PCT:-20}"
 # Seconds to idle between rounds. This is a TOKEN budget, not politeness. 1800 was set for
@@ -104,6 +113,20 @@ LEDGER="data/logs/agent_fanout.tsv"
 FIND=private/findings
 mkdir -p data/logs "$FIND"
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
+
+# Run one `claude -p` with a hard wall-clock cap. macOS ships no `timeout`, so the cap is
+# a watcher process, the same shape the researchers already used.
+#   capped <seconds> <logfile> <model> <effort> <promptfile>
+capped() {
+    local cap="$1" out="$2" model="$3" effort="$4" pfile="$5"
+    ( claude -p "$(cat "$pfile")" --permission-mode auto --output-format text \
+        --model "$model" --effort "$effort" > "$out" 2>&1 < /dev/null ) &
+    local pid=$!
+    ( sleep "$cap"; kill -TERM "$pid" 2>/dev/null ) &
+    local killer=$!
+    wait "$pid" 2>/dev/null
+    kill "$killer" 2>/dev/null
+}
 
 LOCK="data/logs/agent_fanout.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
@@ -174,9 +197,21 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     if [ -z "$SLUGS" ]; then
         note "queue empty: generating more hypotheses rather than stopping"
         GFILE="data/logs/prompt_${round}_generate.txt"
+        # **Precompute the closed register instead of asking for it to be read.** The
+        # prompt used to say "skim the Evaluated and rejected table in docs/sources.md".
+        # That file is over 600 KB and its rows are single lines of five to ten KB, so
+        # skimming it means reading it, and on 2026-08-31 the generator hung for 24
+        # minutes doing exactly that. `--list-closed` is 35 KB for all 360 leads.
+        uv run python scripts/screen_hypothesis.py --list-closed \
+            > data/logs/closed_register.txt 2>/dev/null
         cat > "$GFILE" <<EOG
-Read CLAUDE.md, then docs/discovery.md, then skim the "Evaluated and rejected" table in
-docs/sources.md to see what SHAPES have already been tried.
+Read CLAUDE.md, then docs/discovery.md. Both are short and both are binding.
+
+**Do NOT read docs/sources.md. It is over 600 KB and reading it is how this lane hung
+for 24 minutes.** Every closed lead is already listed, title and line number, in
+data/logs/closed_register.txt, which is 35 KB. Read THAT. If one title looks close to
+something you want to propose, grep that ONE line number out of docs/sources.md with
+sed -n '<N>p' and read only it.
 
 Then read the LAST 15 \`result:\` lines in ${HYPO}. Those are the hypotheses that just
 died and the reason each one died. You are being asked for hypotheses that do not die the
@@ -241,9 +276,8 @@ magnitude.
 
 Write ONLY to ${HYPO}. Do not run git. Do not ingest. Do not edit docs/.
 EOG
-        claude -p "$(cat "$GFILE")" --permission-mode auto --output-format text \
-            --model "$GEN_MODEL" --effort "$GEN_EFFORT" \
-            > "data/logs/fanout_${round}_generate.log" 2>&1 < /dev/null
+        capped "$GEN_CAP" "data/logs/fanout_${round}_generate.log" \
+            "$GEN_MODEL" "$GEN_EFFORT" "$GFILE"
         SLUGS=""
         while IFS= read -r slug; do
             [ -n "$slug" ] && SLUGS="$SLUGS $slug"
@@ -462,13 +496,11 @@ For each findings file whose verdict is FIND, and only those:
 The scribe handles the register rows and the result lines for every finding, so do not
 duplicate that work. Your job is only the admission and the ingest.
 EOP
-        claude -p "$(cat "$AFILE")" --permission-mode auto --output-format text \
-            --model "$ADMIT_MODEL" --effort "$ADMIT_EFFORT" \
-            > "data/logs/fanout_${round}_admit.log" 2>&1 < /dev/null
+        capped "$ADMIT_CAP" "data/logs/fanout_${round}_admit.log" \
+            "$ADMIT_MODEL" "$ADMIT_EFFORT" "$AFILE"
     fi
-    claude -p "$(cat "$SFILE")" --permission-mode auto --output-format text \
-        --model "$SCRIBE_MODEL" --effort "$SCRIBE_EFFORT" \
-        > "data/logs/fanout_${round}_scribe.log" 2>&1 < /dev/null &
+    capped "$SCRIBE_CAP" "data/logs/fanout_${round}_scribe.log" \
+        "$SCRIBE_MODEL" "$SCRIBE_EFFORT" "$SFILE" &
     LAST_HARVEST=$!
     note "round ${round}: scribe running (${SCRIBE_MODEL}/${SCRIBE_EFFORT})"
     after=$(ee_now); after="${after:-$before}"
