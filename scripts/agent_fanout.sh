@@ -38,16 +38,23 @@ DEADLINE="${1:?usage: agent_fanout.sh <deadline_epoch> [parallel] [hypothesis_fi
 # the 5% trigger is firm. Three, not four, because the swap incident above was real and the
 # machine is still shared; the extra slot is paid for by moving the harvest off Opus rather
 # than by spending more. MIN_FREE_PCT still refuses a round when memory is tight.
-PAR="${2:-3}"
+# **Revised to 4 on 2026-08-31 night.** Ivo: "I used little tokens today", and the
+# researcher lane is the one with the return, so the extra slot goes there. The swap
+# incident above is still real, so MIN_FREE_PCT drops only to 20 and still refuses a
+# round when the machine is tight.
+PAR="${2:-4}"
 # Seconds a single researcher may run before it is asked to stop.
 RESEARCH_CAP="${RESEARCH_CAP:-2400}"
 # Do not start a round when the machine is this tight.
-MIN_FREE_PCT="${MIN_FREE_PCT:-25}"
+MIN_FREE_PCT="${MIN_FREE_PCT:-20}"
 # Seconds to idle between rounds. This is a TOKEN budget, not politeness. 1800 was set for
 # an unattended 56-hour weekend; 900 is for a supervised daytime window, where the operator
 # is watching and wall-clock matters more. The collectors carry equivalent-English growth
 # meanwhile at ZERO token cost, so a paused researcher slot is never idle time overall.
-ROUND_PAUSE="${ROUND_PAUSE:-900}"
+# 300 for a supervised overnight window where the operator has explicitly asked for the
+# tokens to be spent. Each researcher now works a QUEUE rather than one hypothesis, so a
+# round is longer and denser and the pause matters less than it did.
+ROUND_PAUSE="${ROUND_PAUSE:-300}"
 
 # **Model and effort per ROLE, and this is a token-efficiency decision, not a cosmetic one**
 # (Ivo, 2026-08-31: "maximize speed and token-efficiency of domain acquisition ... if we use
@@ -79,6 +86,18 @@ ADMIT_MODEL="${ADMIT_MODEL:-opus}"
 ADMIT_EFFORT="${ADMIT_EFFORT:-medium}"
 GEN_MODEL="${GEN_MODEL:-opus}"
 GEN_EFFORT="${GEN_EFFORT:-high}"
+# **The re-opener, and it is an EXPERIMENT on fable.** Two families have already been
+# reopened by noticing that the screen which closed them had since been retired, and one
+# of those, a 2001-dated blocklist, paid 10,376 EE against 18 for the 2000 edition of the
+# same list. That is a reading task over verdicts already written rather than a creative
+# one, so it is the right place to try a model we have not measured here. Its yield is in
+# the ledger beside everyone else's, so if fable is wrong for this the ledger says so.
+REOPEN_MODEL="${REOPEN_MODEL:-fable}"
+REOPEN_EFFORT="${REOPEN_EFFORT:-medium}"
+# Hypotheses handed to ONE researcher. The per-round cap is 2,400 s and a probe settles
+# most hypotheses in a tenth of that, so a single-hypothesis slot spent most of the round
+# finished. Three amortises the fixed cost of reading CLAUDE.md over three tests.
+PER_RESEARCHER="${PER_RESEARCHER:-3}"
 HYPO="${3:-private/agent-hypotheses.md}"
 LOG="data/logs/agent_fanout.log"
 LEDGER="data/logs/agent_fanout.tsv"
@@ -140,8 +159,14 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     SLUGS=""
     while IFS= read -r slug; do
         [ -n "$slug" ] && SLUGS="$SLUGS $slug"
-    done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" --pending-dir "$FIND" 2>/dev/null)
+    done < <(uv run python scripts/pick_hypotheses.py "$HYPO" $((PAR * PER_RESEARCHER)) --pending-dir "$FIND" 2>/dev/null)
     SLUGS="${SLUGS# }"
+    # **A THIN queue counts as empty.** Asking for PAR x PER_RESEARCHER and receiving
+    # four means every researcher gets one hypothesis and finishes early, which is the
+    # shape this change exists to remove. So generate whenever the queue cannot fill
+    # even half the slots, not only when it is bare.
+    HAVE=$(printf '%s\n' $SLUGS | grep -c . || true)
+    if [ "${HAVE:-0}" -lt "$PAR" ]; then SLUGS=""; fi
     # **An empty queue is a prompt to think, not a reason to stop.** On the night of
     # 2026-08-27 this branch said `break` and the loop sat idle for six and a half hours
     # while the collectors ran on without it. A research loop that can run out of
@@ -172,7 +197,12 @@ event, a blocklist entry, a crawl fetch, a mail header, a zone delegation, a pac
 index. Every five-figure source this project holds has that shape. If you cannot name
 what machine wrote the row and when, do not propose it.
 
-Append 6 to 10 NEW hypotheses to ${HYPO}, in the existing format:
+**A separate lane already re-reads closed verdicts for retired screens, so do NOT
+propose "re-test family X because the novelty screen was retired". That is the
+re-opener's job and duplicating it wastes both slots. Propose things nobody has looked
+at.**
+
+Append 9 to 14 NEW hypotheses to ${HYPO}, in the existing format:
   ## <slug_with_underscores> | <one-line title>
   <a paragraph: what the artifact is, what would date one item, why its held fraction
   might be high, and the cheapest screen that would kill it>
@@ -217,7 +247,7 @@ EOG
         SLUGS=""
         while IFS= read -r slug; do
             [ -n "$slug" ] && SLUGS="$SLUGS $slug"
-        done < <(uv run python scripts/pick_hypotheses.py "$HYPO" "$PAR" --pending-dir "$FIND" 2>/dev/null)
+        done < <(uv run python scripts/pick_hypotheses.py "$HYPO" $((PAR * PER_RESEARCHER)) --pending-dir "$FIND" 2>/dev/null)
         SLUGS="${SLUGS# }"
         if [ -z "$SLUGS" ]; then
             note "generation produced nothing; retrying next round after a short pause"
@@ -232,72 +262,114 @@ EOG
 
     pids=()
     killers=()
-    for slug in $SLUGS; do
+    # **Deal the slugs round-robin, not in blocks.** `pick_hypotheses.py` returns them
+    # best first, so slicing the list into contiguous chunks would give researcher 1 the
+    # three best and researcher 4 the three worst. Dealing means every researcher opens
+    # on a good one, and the weak hypotheses are what gets dropped when budgets run out.
+    set -- $SLUGS
+    total=$#
+    for idx in $(seq 0 $((PAR - 1))); do
+        QUEUE=""
+        pos=$((idx + 1))
+        while [ "$pos" -le "$total" ]; do
+            eval "slug=\${$pos}"
+            QUEUE="${QUEUE:+$QUEUE,}$slug"
+            pos=$((pos + PAR))
+        done
+        [ -z "$QUEUE" ] && continue
+        lead="${QUEUE%%,*}"
         budget=$(( left - 420 ))
-        PFILE="data/logs/prompt_${round}_${slug}.txt"
-        cat > "$PFILE" <<EOP
-You are ONE researcher in a parallel fan-out. Budget: about ${budget} seconds. Nobody
-reads a status update; your output is a file.
-
-Read CLAUDE.md first, it is binding. Your hypothesis is the block headed
-"## ${slug} |" in ${HYPO}. Read that block and only that block.
-
-Test it:
-1. Grep docs/sources.md for the family FIRST. If it is already closed there, say so and
-   stop; that is a complete and useful result. **GREP it, never read it whole: it is over
-   600 KB and reading it costs more than most hypotheses are worth.** The same goes for
-   docs/approved-sources-list.md at ~150 KB. Read CLAUDE.md and your own hypothesis block
-   in full; grep everything else.
-2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
-   Do NOT touch web.archive.org/cdx: two collectors are metering against it. Other
-   archive.org services and other hosts are fine.
-3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece, one page or one
-   file, and measure three numbers on it: distinct registrable domains, the fraction
-   ALREADY HELD, and the fraction held AND missing the artifact's own year. Extrapolate
-   to the whole artifact and write that estimate down.
-   Then decide, and say which branch you took:
-   - projected under 200 EE: STOP. Report it as CLOSED with the probe numbers. Do not
-     fetch the rest. A small source is worth admitting when we already hold it, never
-     worth an hour of fetching to confirm it is small.
-   - projected 200 to 1,000 EE: take it only if the remaining fetch is cheap, minutes
-     rather than an hour.
-   - projected over 1,000 EE: do the full measurement carefully, this is the case that
-     matters.
-   **The probe is the deliverable even when the answer is no.** Across 85 prior runs the
-   median was 3.5 EE and the mean fetch was far larger than that justified.
-4. Price the full artifact only if the probe cleared. Quote net-new post-split EE against
-   merged260827-2. Sample distinct domains, never domain_year rows.
-5. If the artifact is on disk already under data/raw/, there is no fetch and no probe
-   budget to save: read it properly. Those have been the highest-paying runs.
-
-Write your result to private/findings/${slug}.md, in this shape and nothing else:
-  # ${slug}
-  verdict: FIND | CLOSED | BLOCKED
-  ee: <net-new post-split EE, a number, 0 if none>
-  probe: <the smallest piece measured, its domains, held fraction, held-and-missing-year
-         fraction, and the projection to the whole artifact>
-  what dates one item: <one line, or "nothing" if it cannot date a year>
-  artifact: <URL and byte size, or why unreachable>
-  measurement: <the numbers, including what you sampled>
-  method: <the reusable part, if any>
-  next: <what you would do with more time, or "closed">
-
-HARD RULES: do NOT run git. Do NOT edit any file except your own findings file. Do NOT
-ingest anything. Do NOT edit docs/. Another process banks your result.
-A measured negative is a RESULT: fill the file either way.
-EOP
+        [ "$budget" -gt "$RESEARCH_CAP" ] && budget="$RESEARCH_CAP"
+        PFILE="data/logs/prompt_${round}_${lead}.txt"
+        # The brief is BUILT, not written here: it carries each hypothesis block together
+        # with the closed-register collisions for it, so the agent starts knowing the
+        # nearest verdict instead of spending tokens grepping a 600 KB file to find it.
+        # It also keeps the prompt out of a heredoc, which has silently eaten a backtick
+        # pair in this file once already.
+        if ! uv run python scripts/researcher_brief.py \
+                --hypotheses "$HYPO" --slugs "$QUEUE" --budget "$budget" --out "$PFILE" \
+                >/dev/null 2>&1; then
+            note "round ${round}: could not build a brief for ${QUEUE}, skipping that slot"
+            continue
+        fi
+        note "round ${round}: researcher $((idx + 1)) queue = ${QUEUE}"
         # **A per-researcher cap, because one hang stalls the whole round.** On
         # 2026-08-27 a researcher wrote its findings file and then never exited; the
         # round waited on it for 1h13m while the other three sat finished. macOS ships
         # no `timeout`, so the cap is a watcher process per researcher.
         ( claude -p "$(cat "$PFILE")" --permission-mode auto --output-format text \
             --model "$RESEARCH_MODEL" --effort "$RESEARCH_EFFORT" \
-            > "data/logs/fanout_${round}_${slug}.log" 2>&1 < /dev/null ) &
+            > "data/logs/fanout_${round}_${lead}.log" 2>&1 < /dev/null ) &
         rpid=$!
         ( sleep "$RESEARCH_CAP"; kill -TERM "$rpid" 2>/dev/null ) &
         killers+=($!)
         pids+=($rpid)
     done
+
+    # **The re-opener, one per round, beside the researchers.** It reads verdicts rather
+    # than fetching corpora, so it competes for no bandwidth and little memory, and the
+    # question it asks is the one no researcher asks about a family that is not in its
+    # own queue: was this closed on a screen we have since retired?
+    RFILE="data/logs/prompt_${round}_reopen.txt"
+    cat > "$RFILE" <<EOR
+You are the RE-OPENER. You propose nothing new. Your whole job is to find verdicts in
+docs/sources.md that were correct when written and are wrong now.
+
+Read CLAUDE.md first, it is binding.
+
+**The mechanism, and it has already paid twice.** A source is closed against the screen
+in use that day. When a screen is retired, every verdict that rested on it becomes
+unsafe, and nobody goes back to re-read them.
+
+  - The NOVELTY screen was retired on 2026-08-25. It asked "how many of these names are
+    new to us" and rejected corpora that were mostly already held. The 2001 screen asks
+    the OPPOSITE: an already-held name is GOOD, and what matters is whether it lacks the
+    artifact's own YEAR. Any verdict whose reasoning is "N% already held", "not novel"
+    or "mostly known to us" was decided on the retired screen.
+  - A blocklist family was closed for being crawl-derived. Re-tested by year, the
+    2001-12-18 edition paid 10,376 EE while the 2000-10-18 edition of the SAME list
+    paid 18, because the names were held but lacked 2001.
+
+**Your method, and it costs almost no requests.**
+
+1. Run: uv run python scripts/screen_hypothesis.py --list-closed
+   That is the whole register. Read the verdicts, not the titles.
+2. Select the ones whose stated reason is a RETIRED screen. Rank by how many names the
+   artifact held, since a big already-held corpus is now an ASSET and was then a defect.
+3. For your best 2 or 3, re-price on the CURRENT screen. The question is always:
+   how many of its names does the store hold AND lack at the artifact's own year?
+   Use scripts/price_items.py. P(store lacks 2001 | held) is 0.611 com, 0.653 net,
+   0.568 org, 0.309 uk, so a 2001-dated artifact is worth far more than a 1999 one.
+4. Also run: uv run python scripts/reprobe_closed.py --limit 40
+   Anything closed on AVAILABILITY that now answers 200 is interesting by construction.
+
+Write ONE file, private/findings/reopen_${round}.md:
+  # reopen_${round}
+  verdict: FIND | CLOSED | BLOCKED
+  ee: <net-new post-split EE across everything you repriced, 0 if none>
+  reviewed: <how many closed verdicts you read, and how many rested on a retired screen>
+  repriced: <one line per family: name, the screen that closed it, the new figure>
+  probe: <the sample you measured and against what>
+  what dates one item: <for the best candidate>
+  artifact: <URL and bytes, or why unreachable>
+  measurement: <the numbers>
+  method: <the reusable part>
+  next: <what you would reprice with more time>
+
+If every verdict you read still holds on the current screen, say so with the count. That
+is a real result and it retires this lane for a while, which is worth knowing.
+
+HARD RULES: do NOT run git. Do NOT edit any file except your own findings file. Do NOT
+ingest anything. Do NOT edit docs/.
+EOR
+    ( claude -p "$(cat "$RFILE")" --permission-mode auto --output-format text \
+        --model "$REOPEN_MODEL" --effort "$REOPEN_EFFORT" \
+        > "data/logs/fanout_${round}_reopen.log" 2>&1 < /dev/null ) &
+    rpid=$!
+    ( sleep "$RESEARCH_CAP"; kill -TERM "$rpid" 2>/dev/null ) &
+    killers+=($!)
+    pids+=($rpid)
+    note "round ${round}: re-opener running (${REOPEN_MODEL}/${REOPEN_EFFORT})"
     for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null; done
     for k in "${killers[@]:-}"; do kill "$k" 2>/dev/null; done
     note "round ${round}: researchers done, harvesting"
