@@ -927,6 +927,126 @@ def parse_cctld_capture_split(path: Path, stats: Counter) -> Iterator[BulkRecord
         yield BulkRecord(raw=name, year=year, evidence_value=f"cctld_capture:{slug}:{year}")
 
 
+# MYNIC's fortnightly `Domain Name Listing`, one page per half-month, as fetched.
+# A day heading, then tab-separated `New` or `Delete` rows under it.
+_MYNIC_MONTHS = (
+    "january|february|march|april|may|june|july|august|september|october|november|december"
+    "|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec"
+)
+_MYNIC_DAY = re.compile(rf"(\d{{1,2}})\s+({_MYNIC_MONTHS})\s+(\d{{4}})", re.I)
+_MYNIC_ROW = re.compile(r"^(New|Delete)\t+([a-z0-9][a-z0-9.\-]*\.my)\s*$", re.I | re.M)
+
+
+def parse_mynic_listing(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per `New` or `Delete` row of one MYNIC listing page.
+
+    **What dates one item**: the per-day heading above the row, `15 March 2001`, with `New` or
+    `Delete` printed beside the name, so MYNIC is stating that this name entered or left its
+    register on that day. The year is carried forward from the most recent heading before the
+    row, which is why the file is walked in order rather than scanned for names.
+
+    **Both actions date the year, and only that year.** A name deleted on 15 March 2001 was in
+    the register until that day, so it existed in 2001; a name added that day entered in 2001.
+    Neither implies anything about another year, which is rule 6 respected.
+
+    **No corroboration split, and this was settled on a test rather than a judgement.** MYNIC
+    also published a monthly statistics table of per-day, per-TLD New and Delete counts, with
+    the note "Please click on the date to get daily New and Delete domain name listings". If
+    the listing is a complete enumeration out of the register then its rows must reproduce
+    those counts, and for March 2001 the statistics give **New 850 / Delete 166** against
+    **New 850 / Delete 165** parsed from the two listing halves. A hand-compiled list cannot
+    match a registry's own published counts 850/850, so this is the registry stating its own
+    register, exactly as the approved TWNIC, IDNIC and RESTENA listings do.
+
+    **Alphabetical ordering is NOT the argument**, though it looks like one. Sorting within a
+    day and TLD group holds in only 75.2% of 472 groups, because `Delete` rows come out
+    unsorted. Ordering is a hint; reproducing the publisher's own counts is a test.
+
+    Only the `-1` and `-2` half-month pages carry names. The bare-month pages are the
+    statistics tables and yield nothing, so they are counted and skipped rather than parsed.
+    """
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    if "domain name listing" not in raw.lower():
+        stats["not_a_listing_page"] += 1
+        return
+    headings = [(m.start(), int(m.group(3))) for m in _MYNIC_DAY.finditer(raw)]
+    for row in _MYNIC_ROW.finditer(raw):
+        year = None
+        for position, heading_year in headings:
+            if position < row.start():
+                year = heading_year
+            else:
+                break
+        if year is None:
+            stats["row_before_any_day_heading"] += 1
+            continue
+        if year not in YEARS:
+            stats["row_out_of_window"] += 1
+            continue
+        stats[row.group(1).lower()] += 1
+        yield BulkRecord(raw=row.group(2).lower(), year=year, evidence_value=f"mynic:{path.stem}")
+
+
+# `<host>-<warnsh|todelsh>-<YYYYMMDDHHMMSS>.html`, written by the CO.ZA collector.
+_COZA_FILE = re.compile(r"^([a-z_]+)-(warnsh|todelsh)-(\d{4})\d{10}\.html$")
+# The registry's CGI links each label to its own whois lookup.
+_COZA_LABEL = re.compile(r'<A HREF="[^"]*Domain=([^"&]+)"', re.I)
+# The label is truncated to the column width, so anything this long may be a fragment.
+COZA_TRUNCATION_WIDTH = 16
+
+
+def parse_coza_queue(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per label in one capture of a CO.ZA suspension or deletion queue.
+
+    **What dates one item**: the Wayback capture stamp, carried in the filename, because
+    neither page carries an in-body date. `todel.sh` is headed "Domains in CO.ZA to be deleted
+    ... The following domains are shortlisted for deletion. This is due to lack of payment",
+    and `warn.sh` is the separate suspension queue, "shortlisted for or have been suspended.
+    Within a couple of invoice runs they will move to the Deletion queue". Either way the
+    registry is asserting the name is in its register at the instant the crawler took the page.
+
+    **No corroboration split**: these are shell CGI reading the register, so this is the
+    registry stating its own register, the same grounds as MYNIC and SaudiNIC.
+
+    **640 labels are dropped, and the defect is in the artifact rather than in this parse.**
+    The CGI prints bare labels in fixed 16-character columns and truncates the name to fit
+    **in the `href` as well as the anchor text**, so `sahomeimprovement` is served as
+    `sahomeimprovemen`, and `museum-of-freedom`, `cruisesinternational` and
+    `australianimmigration` are all cut the same way. The label-length histogram shows it
+    plainly: 303 labels of 15 characters against a spike of 640 at exactly 16. Admitting a
+    truncated label would mint a well-formed domain that never existed, and no invariant in
+    `ark check` could catch it, because the result looks like a perfectly ordinary name. So
+    every label of exactly the column width is refused, which loses the handful of real
+    16-character names as the price of admitting no fabricated ones.
+    """
+    match = _COZA_FILE.match(path.name)
+    if match is None:
+        stats["not_a_coza_capture"] += 1
+        return
+    year = int(match.group(3))
+    if year not in YEARS:
+        stats["capture_out_of_window"] += 1
+        return
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    if "shortlisted for" not in raw.lower():
+        stats["not_a_queue_page"] += 1
+        return
+    for found in _COZA_LABEL.finditer(raw):
+        label = found.group(1).strip().lower()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", label):
+            stats["label_malformed"] += 1
+            continue
+        if len(label) >= COZA_TRUNCATION_WIDTH:
+            stats["label_possibly_truncated"] += 1
+            continue
+        stats["labels"] += 1
+        yield BulkRecord(
+            raw=f"{label}.co.za",
+            year=year,
+            evidence_value=f"coza:{match.group(2)}:{path.stem.rsplit('-', 1)[1]}",
+        )
+
+
 # `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
 # trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
 # on the page, IDNIC's rows carry a due date each.
@@ -2195,6 +2315,24 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="registry_listing_capture",
         parse=parse_cctld_capture_split,
+    ),
+    # MYNIC's fortnightly register change report. No split: the listing reproduces the
+    # registry's own published per-day counts. Approved by Ivo 2026-08-31.
+    "mynic_change_report": SourceSpec(
+        key="mynic_change_report",
+        source_name="mynic_my_change_report",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_change_report",
+        parse=parse_mynic_listing,
+    ),
+    # The CO.ZA registry's own suspension and deletion queues, 22 captures over two
+    # hostnames. No split: shell CGI reading the register. Approved by Ivo 2026-08-31.
+    "coza_deletion_queue": SourceSpec(
+        key="coza_deletion_queue",
+        source_name="coza_deletion_listing",
+        evidence_type="cdx_timestamp",
+        acquisition_method="registry_listing_capture",
+        parse=parse_coza_queue,
     ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.

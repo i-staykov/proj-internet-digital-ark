@@ -241,6 +241,11 @@ sources:
     uv run python scripts/split_cctld_capture.py --write
     uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
     uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
+    # Approved by Ivo on 2026-08-31: MYNIC at 6,883.1 EE and CO.ZA at 3,704.3. Neither
+    # takes the split, since both are a registry reading out its own register.
+    uv run python scripts/collect_mynic_coza.py
+    uv run ark ingest mynic_change_report data/raw/mynic/*.htm
+    uv run ark ingest coza_deletion_queue data/raw/coza/*.html
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above

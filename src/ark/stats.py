@@ -128,6 +128,10 @@ PROVENANCE_LINEAGE = {
     # capture that happens to fix the instant. Same family as the in-body sibling.
     "cctld_register_listing_capture": "registry",
     "cctld_register_listing_mention": "registry",
+    # Two more registries reading out their own registers, so the same lineage: the
+    # capture or the day heading only fixes when, it did not produce the names.
+    "mynic_my_change_report": "registry",
+    "coza_deletion_listing": "registry",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
