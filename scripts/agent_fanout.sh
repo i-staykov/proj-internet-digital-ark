@@ -145,7 +145,7 @@ ee_now() {
 note "start: until $(date -r "$DEADLINE" '+%F %T' 2>/dev/null || echo "$DEADLINE"), parallel=${PAR}"
 # Log the model tiering, so a later reading of the ledger can attribute token spend to a
 # configuration rather than guessing which run was the expensive one.
-note "models: research=${RESEARCH_MODEL}/${RESEARCH_EFFORT} scribe=${SCRIBE_MODEL}/${SCRIBE_EFFORT} admit=${ADMIT_MODEL}/${ADMIT_EFFORT} gen=${GEN_MODEL}/${GEN_EFFORT} pause=${ROUND_PAUSE}s"
+note "models: research=${RESEARCH_MODEL}/${RESEARCH_EFFORT} scribe=${SCRIBE_MODEL}/${SCRIBE_EFFORT} admit=${ADMIT_MODEL}/${ADMIT_EFFORT} gen=${GEN_MODEL}/${GEN_EFFORT} reopen=${REOPEN_MODEL}/${REOPEN_EFFORT} pause=${ROUND_PAUSE}s"
 
 round=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
@@ -386,6 +386,13 @@ EOR
     # findings file actually says FIND. Most rounds never wake the admitter.
     grep -rlE '^\s*verdict:\s*(FIND|find)' "$FIND"/*.md >/dev/null 2>&1 && FOUND=1 || FOUND=0
 
+    if [ "$FOUND" -eq 1 ]; then
+        EXPORT_STEP="then uv run ark export && uv run ark check"
+    else
+        EXPORT_STEP="No source was ingested this round, so skip ark export and ark check:
+   neither can change unless something was ingested, and both cost minutes of CPU on a
+   machine somebody else is using. ruff and pytest above are the whole gate."
+    fi
     SFILE="data/logs/prompt_${round}_scribe.txt"
     cat > "$SFILE" <<EOP
 You are the scribe for one research round. This is bookkeeping, not judgement: do exactly
@@ -405,7 +412,7 @@ private/findings/ holds one file per hypothesis just tested. For each file:
 3. uv run python scripts/rank_triage.py
 4. Gate, never through a pipe:
    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-   then uv run ark export && uv run ark check
+   ${EXPORT_STEP}
 5. Commit on the current branch. Never push. No AI attribution. No em-dashes or en-dashes.
    Be brief in the body: what was tested, what each measured, what the method was.
 6. Move the harvested files to private/findings/banked/ so the next round starts clean.
