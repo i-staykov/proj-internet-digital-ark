@@ -202,7 +202,7 @@ grepped.
 
 **Bias hard toward the two shapes that have actually paid five figures here.** First, a
 SECOND ATTRIBUTE of an artifact already on disk: the RIPE snapshot was read once for the
-domain name and re-read for its per-object `changed:` lines, which paid 58,398 EE with no
+domain name and re-read for its per-object \`changed:\` lines, which paid 58,398 EE with no
 new download and no new permission. Ask what else the files in data/raw/ say. Second, a
 machine-written bulk list with a per-item stamp and a high held-fraction: the 2001
 blocklists paid 14,229 and 10,377 because 94% of their names were already held and simply
@@ -369,6 +369,12 @@ For each findings file whose verdict is FIND, and only those:
    sentence saying what dates one item. Two approved sources became unrefetchable because
    only their bytes were kept.
 4. Quote net-new POST-SPLIT equivalent-English, never gross. They differ by more than 10x.
+4b. **If you register a new SourceSpec, three other places need it in the same commit, and
+   the suite fails without them.** Add every new source_name to PROVENANCE_LINEAGE in
+   src/ark/stats.py, reusing an existing bucket unless the channel is genuinely new, and add
+   an \`ark ingest\` line for each master-eligible key to the reproduction recipe in the
+   justfile, pointing at the files you actually ingested. On 2026-08-31 two sources were
+   admitted and ingested correctly and left the suite red on both counts.
 5. Then gate, never through a pipe:
    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
    then uv run ark export && uv run ark check

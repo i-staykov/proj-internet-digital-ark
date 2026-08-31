@@ -33,6 +33,35 @@ DELEGATED: dict[str, int] = {
 }
 
 
+# **The eight gTLDs that existed for the whole window.** Everything else with a label of
+# three or more characters was delegated in 2001 or later, so a 1996-2001 pair under it is
+# impossible. Two-letter labels are ccTLDs, which existed throughout except for the handful
+# listed in DELEGATED above.
+WINDOW_GTLDS = ("com", "net", "org", "edu", "gov", "mil", "int", "arpa")
+
+
+def existed_predicate(column: str = "domain", year_column: str = "assigned_year") -> str:
+    """True only for pairs whose TLD could have existed in that year.
+
+    **Why an allowlist and not a longer DELEGATED table.** `DELEGATED` names sixteen TLDs and
+    stops at 2012, so it could not see the 2013 new-gTLD programme, which delegated roughly
+    1,200 more. Text extraction then banks any English word that later became a gTLD, and
+    measured 2026-08-31 the shipped files carried **749 such pairs and 423.9 EE across 131
+    TLDs**: `.you`, `.here`, `.now`, `.sucks`, `.box`, `.world`, `.earth`. Several of those
+    carry weight 1.0000, the maximum in the model, so they cost more per pair than almost
+    anything real. Enumerating 1,200 delegations would go stale the same way; enumerating
+    what DID exist does not, because that set is closed and in the past.
+
+    Kept beside `sql_predicate` rather than replacing it: that one encodes real delegation
+    years for TLDs that arrived DURING or just after the window, which this rule cannot
+    express, and both are applied.
+    """
+    allowed = ", ".join(f"'{g}'" for g in sorted(WINDOW_GTLDS))
+    tld = f"lower(split_part({column}, '.', -1))"
+    # A two-letter label is a ccTLD; DELEGATED still constrains the few that arrived late.
+    return f"(length({tld}) = 2 OR {tld} IN ({allowed}))"
+
+
 def sql_predicate(column: str = "domain", year_column: str = "assigned_year") -> str:
     """A SQL predicate that is true only for pairs whose TLD already existed that year.
 
@@ -57,8 +86,13 @@ def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
     """
     dom = f"{prefix}domain" if prefix else "domain"
     if not with_year:
-        # The candidate pool claims no year, so "the TLD did not exist yet" cannot apply
-        # to it. Only the `.arpa` rule does, which is about the name rather than a year.
-        return f"{dom} NOT LIKE '%.arpa'"
+        # The candidate pool claims no year, so "the TLD did not exist YET" cannot apply to
+        # it. But "the TLD never existed in the window at all" still can: a candidate under
+        # `.sucks` can never be dated 1996-2001, so it is noise wherever it sits.
+        return f"{dom} NOT LIKE '%.arpa'\n      AND {existed_predicate(dom)}"
     year = f"{prefix}assigned_year" if prefix else "assigned_year"
-    return f"{dom} NOT LIKE '%.arpa'\n      AND {sql_predicate(dom, year)}"
+    return (
+        f"{dom} NOT LIKE '%.arpa'"
+        f"\n      AND {existed_predicate(dom, year)}"
+        f"\n      AND {sql_predicate(dom, year)}"
+    )

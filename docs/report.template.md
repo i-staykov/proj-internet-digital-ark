@@ -95,7 +95,7 @@ it refused twice in this round until the decision existed.
 **What that gate is worth, measured.** [DECISIONS] sources were admitted in this round, each on a
 separate written decision. [POOL_RESTRICTED] strings sit in the candidate pool under `.edu`, `.gov` and
 `.mil`, namespaces no one could register in freely, and **not one of them reached an annual file**
-without independent attestation. Twelve invariants run before
+without independent attestation. thirteen invariants run before
 every commit and again inside the shipped archive; one of them caught a defect in this round, an
 evidence value citing a page's date for a row dated from its own column, which was a wrong citation
 rather than a wrong year.
