@@ -193,6 +193,9 @@ what survives the split we already hold. Ask whether the lister held the databas
 - **On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a reader
   that stops at the last field reports "no licence" on a source that explicitly prohibits bulk access.
   `.nz` cost 7,586 EE that way; `.uk` says the same thing.
+- **A landing page's robots.txt does not govern the host its downloads sit on.** `www.fac.gov` is
+  `Disallow:` and permits everything; every Federal Audit Clearinghouse data file it links is on
+  `app.fac.gov`, which is `Disallow: /`. Read the robots.txt of the host in the download URL.
 - **A 403 wall is not always a refusal. Test it before recording one.** `.info` RDAP returned 403 on
   record 199 and on all 394 after it, unbroken, with `awselb/2.0`, 118 bytes and no `Retry-After`.
   After ~12 minutes idle the SAME User-Agent got a genuine 404: it throttles above ~3 q/s and answers
@@ -202,7 +205,7 @@ what survives the split we already hold. Ask whether the lister held the databas
   `tomocha.net` disallows ClaudeBot at line 51 of 61; reading ten lines cost a breach and 1,623 EE.
   Refusing us by name: `cryptome.org`, `tbtf.com`, `www.openpgp.net`, `ftp.nluug.nl`, `tomocha.net`,
   `mirror.aarnet.edu.au`, `ftp.aarnet.edu.au`, `www.potaroo.net`, `ftp.sunet.se`, `ftp.surfnet.nl`,
-  `www.math.upenn.edu`, `ftp.cc.uoc.gr`, `ftp.acc.umu.se`, `www.floodgap.com`, `gopher.floodgap.com`, `leb.net`
+  `www.math.upenn.edu`, `ftp.cc.uoc.gr`, `ftp.acc.umu.se`, `www.floodgap.com`, `gopher.floodgap.com`, `leb.net`, `app.fac.gov`
   (upenn, uoc and umu name Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot together;
   umu.se puts them at lines 115-119 of a 6,238 B file whose FIRST group is a permissive `User-agent: *`;
   both floodgap hosts are `Disallow: /` for ClaudeBot and www.floodgap.com also names `anthropic-ai`,
