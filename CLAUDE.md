@@ -183,6 +183,15 @@ what survives the split we already hold. Ask whether the lister held the databas
 - A running collector is not a working one. Presence, progress and yield are three questions.
 - Rank a queue by TLD weight alone and 2013 gTLDs lead it. Volume floor first.
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
+- **Watch for anti-spam address munging when extracting from anything people typed.** Usenet and
+  mailing-list posters wrote `user@nospam.bigfoot.com` and `user@bigfoot.com.invalid` to defeat
+  harvesters, and an extractor turns those into `nospam.bigfoot.com` and `bigfoot.com.invalid`.
+  Measured 2026-08-31: `nospambigfoot.com`, `nospam.ac.uk`, `deletethis.com` and
+  `btnospaminternet.com` all carry dated years, and `prior_task` holds MORE such names than our
+  own sources do, so it is not unique to us. **The standard does not change**: a munged-looking
+  name that genuinely earns multi-source corroboration could be a real registration and stays.
+  Just do not let one extractor's artifact corroborate another's, which is the circularity trap
+  below.
 - Look for the existing tool before writing one.
 - **A size floor is not a content check.** A replay URL built as `{stamp}id_{host}`, missing the
   slash in `id_/`, made web.archive.org answer seven different objects with the same 154,263-byte
@@ -225,6 +234,11 @@ what survives the split we already hold. Ask whether the lister held the databas
 - **A collapse after a change is not evidence the change caused it.** Three queue orderings were compared
   inside that clamp and all read as catastrophic, which produced a confident and wrong law about ranking.
   Get a per-minute series out of the journals before attributing a rate change to anything.
+- **A corroboration split is only as independent as its partner source.** When the partner is a
+  class this project has already swept at scale, the split validates nothing and the failure is
+  invisible in the headline: the same Usenet bytes and the same parse priced 22,838 EE against
+  the current baseline and 252 EE against `merged260810`, a 91x spread. Price a source against
+  a reviewer cut from BEFORE our own collector last ran in that channel.
 - **Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it is
   closed three times over wastes the run and teaches the agent to distrust the brief.
 

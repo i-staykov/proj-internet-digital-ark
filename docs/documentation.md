@@ -137,7 +137,7 @@ else did, including a crash on step three of the documented tier-2 path.
 
 ## 7. The integrity gate
 
-`ark check` runs twelve invariants over the store and exits non-zero on any failure. They are not
+`ark check` runs thirteen invariants over the store and exits non-zero on any failure. They are not
 tests of the code; they are tests of the data, and the two fail differently. `just check` runs both,
 deliberately, because giving either one the bare name invites running one and believing the other
 passed.
@@ -171,7 +171,7 @@ src/ark/          the pipeline package and the `ark` CLI
   db.py           schema, migrations, the store
   baseline.py     which reviewer release is current, and its totals
   english_share.py  the scoring metric's weight table
-  checks.py       the twelve data invariants
+  checks.py       the thirteen data invariants
   cli.py          every command
 scripts/          collectors, splitters, supervisors, packaging, measurement
 tests/            pytest, network mocked
