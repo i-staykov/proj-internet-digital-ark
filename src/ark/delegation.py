@@ -30,6 +30,27 @@ DELEGATED: dict[str, int] = {
     "post": 2012,
     "tel": 2007,
     "travel": 2005,
+    # **Two-letter ccTLDs delegated AFTER the window.** `existed_predicate` waves through
+    # anything two characters long, on the reasoning that ccTLDs existed throughout, and
+    # these are the exceptions it therefore could not see. Measured 2026-08-31 the shipped
+    # files carried 79 pairs under three of them and every one is a Usenet extraction
+    # artifact: `eat.me`, `blow.me`, `byte.me`, `dontemail.me`, `e-mail.me`, `find.me`,
+    # `call.me`, `contact.me`, joke and anti-harvester addresses typed into From: headers
+    # years before `.me` existed. **Not one carries registry evidence**, which is what
+    # separates them from the 138 suffix-shaped names that DO (`name.ca` has the Canadian
+    # registry's own approval notice, `plc.nu` is in the .nu registry's expiry list, and
+    # eleven more sit in RIPE or RDAP). Those are real registrations and stay.
+    "ax": 2006,
+    "bl": 2007,
+    "bq": 2010,
+    "cw": 2010,
+    "me": 2007,
+    "mf": 2007,
+    "rs": 2007,
+    "ss": 2011,
+    "sx": 2010,
+    "tl": 2005,
+    "xk": 2016,
 }
 
 
