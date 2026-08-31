@@ -1047,6 +1047,63 @@ def parse_coza_queue(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         )
 
 
+# `fac-(dated|cand).<YYYY>.tsv`, written by `split_fac.py`. `<domain>\t<year>` per line,
+# where the year is the filing's own signature date and NOT its `AUDITYEAR`.
+_FAC_FILE = re.compile(r"^fac-(dated|cand)\.(\d{4})\.tsv$")
+
+
+def parse_fac_filings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per (domain, signature year) in one lane of one FAC filing year.
+
+    **What dates one item.** The signature date on that filing row, `AUDITEEDATESIGNED` "Date
+    of auditee signature" or `CPADATESIGNED` "Date of CPA signature", both documented in GSA's
+    own historic data dictionary and both written `mm/dd/yyyy`. The address beside it is the
+    auditee's or the audit firm's own e-mail, so the row asserts that domain was in use on the
+    day the certifying official signed.
+
+    **The signature date is the only usable date, and the file's own `AUDITYEAR` is a trap.**
+    The two do not agree: 1998 filings are routinely signed in 1999 and FY2001 audits in 2002.
+    Screening on the signature date drops **18,979 of the 75,311 e-mail fields, 25.2%**, and
+    dating on `AUDITYEAR` would have imported every one of them silently. The register's
+    earlier pass reported 18,698 on the same screen, so the two agree to 1.5%.
+
+    **The corroboration split applies, because a person typed the address into a form**, and
+    the novel names show it earning its place: `campell.edu` for Campbell, `clakamas.or.us` for
+    Clackamas, `staate.oh.us`, `selfsuffciency.com`, and `kl2.ca.us` where the letter `l` was
+    typed for the digit `1` in `k12`. A further 18.0% of novel names are a character prepended
+    to a name the store already dates, `aarthurandersen.com` for arthurandersen.com and
+    `aattglobal.net` for attglobal.net, which is an import defect rather than honest typing.
+
+    **The split's cost is recorded rather than assumed.** The same sample holds names that are
+    plainly real and are exactly the long tail nothing else reaches: `isler-eugene.com` is a
+    real Eugene accountancy firm and `sau38.k12.nh.us` a real New Hampshire School
+    Administrative Unit. The measured typo upper bound is 69.7%, the highest in the register,
+    but it is an upper bound and the sample puts the true rate nearer a third, so the
+    uncorroborated lane parks as `link_target` and can be raised later without refetching.
+
+    **Provenance, because it is unusual for this project.** `app.fac.gov`, which hosts every
+    data file, serves `User-agent: *` / `Disallow: /`, so the ZIPs were downloaded by hand by
+    Ivo on 2026-08-31 and all four SHA1s verified against GSA's published `.sha1` files. No
+    automated client fetched them, and the archives carry no licence or README of their own:
+    the terms are the landing page's "provided as-is for historical research" and US federal
+    public domain.
+    """
+    match = _FAC_FILE.match(path.name)
+    if match is None:
+        stats["not_a_fac_lane"] += 1
+        return
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        domain, _, year_text = line.partition("\t")
+        if not domain or not year_text:
+            continue
+        year = int(year_text)
+        if year not in YEARS:
+            stats["signature_out_of_window"] += 1
+            continue
+        stats["filings"] += 1
+        yield BulkRecord(raw=domain, year=year, evidence_value=f"fac_signature:{year}")
+
+
 # `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
 # trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
 # on the page, IDNIC's rows carry a due date each.
@@ -2333,6 +2390,23 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="cdx_timestamp",
         acquisition_method="registry_listing_capture",
         parse=parse_coza_queue,
+    ),
+    # Federal Audit Clearinghouse Single Audit filings 1998-2001, dated by each row's own
+    # signature date. Two lanes: the corroborated half dates a year, the rest parks.
+    # Bytes downloaded by hand by Ivo 2026-08-31, since app.fac.gov is Disallow: /.
+    "fac_dated": SourceSpec(
+        key="fac_dated",
+        source_name="fac_single_audit",
+        evidence_type="dated_directory",
+        acquisition_method="federal_filing_dataset",
+        parse=parse_fac_filings,
+    ),
+    "fac_candidates": SourceSpec(
+        key="fac_candidates",
+        source_name="fac_single_audit_mention",
+        evidence_type="link_target",
+        acquisition_method="federal_filing_dataset",
+        parse=parse_fac_filings,
     ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.

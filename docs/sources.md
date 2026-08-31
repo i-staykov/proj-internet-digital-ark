@@ -1548,3 +1548,76 @@ research and `www.fac.gov` invites exactly that use, so a request for a copy or 
 retrieve the four in-window ZIPs is the correct next step, and it joins the letters already open on
 the Edelman CIPA terms. Do not re-probe `app.fac.gov`, `harvester.census.gov`, data.gov or
 archive.org for this corpus.
+
+---
+
+## `fac_single_audit`: BANKED at 1,403.2 EE, on bytes a human downloaded because the host refuses robots
+
+**The links, and the provenance, which is unusual for this project and is the point.** Landing page
+`https://www.fac.gov/data/download/historic/`; the four in-window files are
+`https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`
+(15 / 16 / 16 / 20 MB) with a `.sha1` beside each. **`app.fac.gov/robots.txt` is `User-agent: *` /
+`Disallow: /`**, so no automated client of ours may fetch them, and the route was recorded closed on
+2026-08-31. **Ivo downloaded all four by hand the same day**, which robots.txt does not govern
+because it governs robots, and **all four SHA1s verify** against GSA's published digests
+(`7037c86d…`, `d03838ed…`, `94f7fadf…`, `5de0abcd…`). Staged at `data/raw/fac/`. The archives carry
+**no licence or README of their own**, only CSVs, so the terms are the landing page's "provided
+as-is for historical research" plus US federal public domain. `www.fac.gov` itself is
+`Disallow:` and permits everything, which is how the dictionary was read.
+
+**Why it meets the standard.** One item is one e-mail address field on one Single Audit filing row,
+dated by that row's own signature date: `AUDITEEDATESIGNED` "Date of auditee signature" or
+`CPADATESIGNED`, both documented in GSA's historic data dictionary and both present in
+`ELECAUDITHEADER.csv` for every year in the window (columns 24/25 and 37/38 of 95). The address is
+the auditee's or the audit firm's own, so the row asserts the domain was in use on the day a
+certifying official signed. Class `dated_directory`, master-eligible. Rule 6 holds: a signature
+dates its own year only.
+
+**`AUDITYEAR` is a trap and this is the transferable part.** Every row also carries the audit year
+and the two do not agree, because 1998 filings are routinely signed in 1999 and FY2001 audits in
+2002. Screening on the signature date drops **18,979 of the 75,311 e-mail fields, 25.2%**, and
+dating on `AUDITYEAR` would have imported every one silently. The register's 2026-08-24 pass
+reported 18,698 on the same screen, so the two agree to 1.5% and the discipline reproduces on
+independently obtained bytes. **When a dated corpus carries two plausible date columns, measure how
+far apart they are before choosing.**
+
+**Measured, 2026-08-31, against the live store**: 139,978 filing rows, 75,311 e-mail fields, 55,563
+in-window items over 17,208 distinct pairs and 9,952 domains, **13,796 pairs already held (80.2%)**.
+**Post-split 2,081 pairs and 1,403.2 EE**, mean weight 0.6743, by year {1997: 1, 1998: 165, 1999:
+505, 2000: 559, 2001: 851} and by TLD {com 1,278, org 461, us 228, net 99, edu 9, cc 3}. Unsplit
+would be 3,412 pairs and 2,320.5 EE. The register's 2,406.69 has decayed to 1,403.2 in seven days,
+almost entirely against this project's own ingests of the same morning, which is the standing
+warning that an unbanked source decays as the store grows.
+
+**The population is `.com`, not `.edu`, and the earlier expectation was wrong.** This corpus was
+expected to die to the split the way ERIC did, where 184 `.edu` pairs yielded one survivor. It does
+not, because auditees and audit firms filed with commercial addresses: of 55,563 in-window items the
+TLD mix is `com` 33,819, `net` 9,201, `us` 5,683, `org` 4,362 and `edu` only 1,826 with `gov` 572.
+**A "federal dataset" is not the same population as a "federal institutional corpus", and the
+address column decides which it is.**
+
+**The split applies and earns its place, with the cost recorded rather than assumed.** A person
+typed each address into a form, so novel names take the split. A random sample of the 1,147 novel
+names shows why: `campell.edu` for Campbell, `clakamas.or.us` for Clackamas, `staate.oh.us`,
+`selfsuffciency.com`, and `kl2.ca.us`, where the letter `l` was typed for the digit `1` in `k12`.
+Separately, **18.0% of novel names are a character prepended to a name the store already dates**,
+`aarthurandersen.com` for arthurandersen.com, `aattglobal.net` for attglobal.net, `1mc.edu` for
+mc.edu, which is an import defect rather than anyone's honest typing. **But the split is not
+costless**: the same sample holds `isler-eugene.com`, a real Eugene accountancy firm, and
+`sau38.k12.nh.us`, a real New Hampshire School Administrative Unit, neither of which any crawler
+reaches. The measured typo upper bound is **69.7%, the highest in the register**, and it is an
+UPPER bound: the sample puts the true rate nearer a third. So 1,444 uncorroborated rows park as
+`link_target` and the 917.3 EE difference between the split and unsplit readings can be recovered
+later on a human ruling, without refetching anything.
+
+**A method note on the sampling, because it produced a wrong reading first.** Inspecting novel names
+in alphabetical order made the prepended-character defect look like the whole story, since those
+cases cluster at `1`, `9` and `a`. A random sample put it at 18.0% and revealed the ordinary typos
+and the real long-tail names underneath. **Sample randomly, never off the head of a sorted list.**
+
+**Loose ends, so nobody re-probes them.** The historic dataset begins at **1998**, so 1996 and 1997
+are unreachable through it. `harvester.census.gov`, the Census host that ran the FAC until 2023, now
+302s to a maintenance page. No open mirror exists: `catalog.data.gov`'s package API answers 404 and
+archive.org holds only the application's source code, `GithubArchiveOf_GSA_GSA-TTS_FAC`. The other
+seven CSVs in each ZIP were not used: `ELECAUDITS.csv` is the largest by far (48-62 MB) and is the
+per-award detail, carrying no address column.

@@ -584,34 +584,6 @@ Decision: pending
 
 Decision: pending
 
-### fac_single_audit / dated_directory
-- measured: **CLOSED ON ACCESS, not on evidence, 2026-08-31.** The primary source is
-  `https://www.fac.gov/data/download/historic/` and the four in-window files are
-  `https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`.
-  **`https://app.fac.gov/robots.txt` is exactly `User-agent: *` / `Disallow: /`**, so every data file
-  is behind a blanket refusal; only the landing page and dictionary sit on `www.fac.gov`, which permits
-  everything. `harvester.census.gov` now 302s to a maintenance page. No open mirror: data.gov's package
-  API 404s and archive.org holds only the application's source code
-- the claim is structurally correct and the dictionary confirms it: `AUDITEEEMAIL` "Auditee Email
-  address, 60 characters max" and `AUDITEEDATESIGNED` "Date of auditee signature, mm/dd/yyyy", across
-  every form revision in the window. The dataset also **begins at 1998**, so 1996 and 1997 are
-  unreachable through it regardless
-- the 2,406.69 EE of 2026-08-24 is not reproducible by us: nothing under `data/raw` or `private/` holds
-  the bytes, and the only route to them breaches the `Disallow: /`. One route remains and it is a
-  letter to GSA, not a fetch
-- one word here decides `fac_sfsac_historic_1998_2001` as well: that entry is the same corpus under a
-  second class name, established 2026-08-27
-
-- what it is: e-mail domains on Federal Audit Clearinghouse Single Audit filings, 1998-2001
-- what dates one item: that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote
-  the address down
-- potential: 54
-- what makes it worth it: **2,406.69 net-new equivalent-English, measured 2026-08-24.** 18,698 rows were
-  dropped for falling outside the window, mostly FY2001 audits signed in 2002: taking the audit year
-  instead would have imported all of them silently
-
-Decision: pending
-
 ### untroubled_spam_headers / artifact_listing
 
 - measured: **1,288.1 net-new post-split EE over 3,053 (domain, year) pairs**, priced 2026-08-27 by
@@ -2146,6 +2118,37 @@ filed for a name before it is used, so the filing date evidences an intention ra
 Both objections were re-confirmed this weekend when the same reasoning closed the Australian equivalent
 `ipgod_au_marktext`, whose mark text is applicant-typed and therefore takes the corroboration split as
 well. Nothing new to measure.
+
+### fac_single_audit / dated_directory
+- measured: **CLOSED ON ACCESS, not on evidence, 2026-08-31.** The primary source is
+  `https://www.fac.gov/data/download/historic/` and the four in-window files are
+  `https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`.
+  **`https://app.fac.gov/robots.txt` is exactly `User-agent: *` / `Disallow: /`**, so every data file
+  is behind a blanket refusal; only the landing page and dictionary sit on `www.fac.gov`, which permits
+  everything. `harvester.census.gov` now 302s to a maintenance page. No open mirror: data.gov's package
+  API 404s and archive.org holds only the application's source code
+- the claim is structurally correct and the dictionary confirms it: `AUDITEEEMAIL` "Auditee Email
+  address, 60 characters max" and `AUDITEEDATESIGNED` "Date of auditee signature, mm/dd/yyyy", across
+  every form revision in the window. The dataset also **begins at 1998**, so 1996 and 1997 are
+  unreachable through it regardless
+- the 2,406.69 EE of 2026-08-24 is not reproducible by us: nothing under `data/raw` or `private/` holds
+  the bytes, and the only route to them breaches the `Disallow: /`. One route remains and it is a
+  letter to GSA, not a fetch
+- one word here decides `fac_sfsac_historic_1998_2001` as well: that entry is the same corpus under a
+  second class name, established 2026-08-27
+
+- what it is: e-mail domains on Federal Audit Clearinghouse Single Audit filings, 1998-2001
+- what dates one item: that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote
+  the address down
+- potential: 54
+- what makes it worth it: **2,406.69 net-new equivalent-English, measured 2026-08-24.** 18,698 rows were
+  dropped for falling outside the window, mostly FY2001 audits signed in 2002: taking the audit year
+  instead would have imported all of them silently
+
+- approved by Ivo on 2026-08-31, who downloaded the four ZIPs by hand because app.fac.gov
+  refuses all robots; all four SHA1s verified. Banked post-split at 1,403.2 EE
+
+Decision: master
 
 ### dnsrf_dap_udrp_multiprovider / artifact_listing
 

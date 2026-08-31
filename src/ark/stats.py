@@ -132,6 +132,10 @@ PROVENANCE_LINEAGE = {
     # capture or the day heading only fixes when, it did not produce the names.
     "mynic_my_change_report": "registry",
     "coza_deletion_listing": "registry",
+    # A federal filing dataset is its own lineage: the address was typed on a form by
+    # the auditee or the audit firm, not observed by anyone crawling or resolving it.
+    "fac_single_audit": "federal_filing",
+    "fac_single_audit_mention": "federal_filing",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
