@@ -310,16 +310,40 @@ Decision: master
 ### nypw_timemaps / cdx_timestamp
 
 - ingest specs: `nypw_timemaps`
-- measured: **4,084.3 EE net-new post-split over 10,072 pairs**, read back out of the store after
-  the ingest of 2026-09-01 rather than projected. Nothing in a TimeMap row was typed by a human, so
-  pre-split equals post-split. Per part, `year_rows`: `2000/..._deeplinks_part00o` 3,566,
-  `2000/..._rootURLs_part02r` 6,500, `2001/..._deeplinks_part00o` 6. Mean weight 0.4055; TLDs
-  `com` 4,818, `de` 1,001, `org` 641, `net` 377, `co.jp` 320, `it` 284. **10,070 of the 10,072 land
-  at 2001**, which is the adjacent-year screen paying exactly as the aim-at-2001 law predicts.
-  The pre-ingest pricing said 6,424 pairs and 4,146.8 EE at mean weight 0.6455, so the store took
-  57% more pairs for 1.5% less EE: the head the pricing counted had been covered in the days
-  between, and what was actually left is the ccTLD tail. **Price and banked figure are not the same
-  number and the banked one is the one to quote**
+- measured: **87,905.0 EE net-new post-split over 197,938 pairs**, over the twenty-seven
+  partitions now in the store, read back out of `output/netnew/evidence_manifest.csv` (export of
+  2026-09-01 01:22) and priced with `ark.english_share.weight_of` rather than projected. Nothing in
+  a TimeMap row was typed by a human, so pre-split equals post-split. Mean weight 0.4441. By
+  assigned year: 1997 1, 1998 137, 1999 1,743, 2000 2,629, **2001 193,428**, so 97.7% of the yield
+  is a 2001 year, which is the adjacent-year screen paying exactly as the aim-at-2001 law predicts.
+  **This supersedes both the 4,084.3 EE over 10,072 pairs first recorded and the 63,969.6 over
+  144,118 that replaced it**: each was correct for the partitions ingested at the time and was
+  overtaken within the hour. The pre-ingest pricing of the first three parts said 6,424 pairs and
+  4,146.8 EE at mean weight 0.6455, so the store took far more pairs at a lower weight: the head the
+  pricing counted had been covered in the days between, and what was left is the ccTLD tail.
+  **Price and banked figure are not the same number and the banked one is the one to quote**
+- **net-new attributed per partition, which is what says where to aim next.** Every one of the
+  197,938 pairs matched exactly one ingested partition on its `evidence_url`, with none left
+  unattributed, so this is a census and not a sample. By folder, which is the year of FIRST capture:
+
+      folder   partitions   net-new EE   mean per partition
+      1997              2        651.3                325.7
+      1998             11     23,284.0              2,116.7
+      1999              5     19,807.8              3,961.6
+      2000              8     44,159.3              5,519.9
+      2001              1          2.5                  2.5
+
+  **The payload rises monotonically from 1997 to 2000 and then collapses by three orders of
+  magnitude at 2001, and that collapse is structural rather than luck.** A domain in the 2001 folder
+  was first captured in 2001, so it has no earlier year to give and its 2001 year is already held by
+  an IA-derived baseline by construction. The 2001 years that pay come from 1997 to 2000 folder
+  TimeMaps, which carry the later captures of domains first seen earlier. **A reading that takes
+  "97.7% of net-new is dated 2001" and concludes "download the 2001 folder" inverts the source**, by
+  confusing the year of the CAPTURE with the year of the FOLDER; the collector docstring already had
+  this right and was not changed. Within a folder, `rootURLs` outpays `deeplinks` **3.9x per
+  partition** (77,912.2 EE over 18 against 9,992.7 over 9), so the queue order that maximises yield
+  is 2000 and 1999 `rootURLs` first. The single best partition is
+  `2000/rootURLs_part04r` at **18,775.3 EE**, the worst is `2001/deeplinks_part00o` at **2.5 EE**
 - what dates one item: field 3 of a TimeMap row is Wayback's own 14-digit capture timestamp, written
   by the crawler at the instant of the capture. One row entire, from `2000/TM_other/TM_x00o2000_10000.txt`
   inside the first tarball:
@@ -329,10 +353,41 @@ Decision: master
 
   `20010124104200` is the stamp and it evidences 2001 for `4free.net` and no other year, which is
   rule 6 satisfied by the row's own shape rather than by an argument about it
-- the artifacts, linked before ingest so the bytes stay refetchable:
-  `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part00o.tar.gz`
-  (31,659,131 B), `.../2000/nypw_timemaps2000_rootURLs_part02r.tar.gz` (119,945,969 B),
-  `.../2001/nypw_timemaps2001_deeplinks_part00o.tar.gz` (148,848,304 B)
+- the artifacts, linked so the bytes stay refetchable. All twenty-seven are under
+  `https://archive.org/download/nypw_timemaps/`, sizes as logged by the fetcher in
+  `data/logs/nypw_pull.log`:
+
+      1999/nypw_timemaps1999_deeplinks_part00o.tar.gz     81,558,295 B
+      1999/nypw_timemaps1999_rootURLs_part01r.tar.gz     548,991,394 B
+      1999/nypw_timemaps1999_rootURLs_part02r.tar.gz     147,027,083 B
+      1999/nypw_timemaps1999_rootURLs_part03r.tar.gz     150,725,864 B
+      1999/nypw_timemaps1999_rootURLs_part04r.tar.gz     210,555,238 B
+      2000/nypw_timemaps2000_deeplinks_part00o.tar.gz     31,659,131 B
+      2000/nypw_timemaps2000_deeplinks_part01o.tar.gz     31,397,597 B
+      2000/nypw_timemaps2000_deeplinks_part02o.tar.gz     56,689,031 B
+      2000/nypw_timemaps2000_rootURLs_part01r.tar.gz     228,359,937 B
+      2000/nypw_timemaps2000_rootURLs_part02r.tar.gz     119,945,969 B
+      2000/nypw_timemaps2000_rootURLs_part03r.tar.gz     119,365,472 B
+      2000/nypw_timemaps2000_rootURLs_part04r.tar.gz     825,494,346 B
+      2000/nypw_timemaps2000_rootURLs_part05r.tar.gz     406,711,686 B
+      2001/nypw_timemaps2001_deeplinks_part00o.tar.gz    148,848,304 B
+      1997/nypw_timemaps1997_deeplinks_part00o.tar.gz     30,569,952 B
+      1997/nypw_timemaps1997_rootURLs_part01r.tar.gz     137,487,874 B
+      1998/nypw_timemaps1998_deeplinks_part00o.tar.gz     17,958,107 B
+      1998/nypw_timemaps1998_deeplinks_part01o.tar.gz     13,698,867 B
+      1998/nypw_timemaps1998_deeplinks_part02o.tar.gz     19,014,371 B
+      1998/nypw_timemaps1998_rootURLs_part00r.tar.gz     617,413,931 B
+      1998/nypw_timemaps1998_rootURLs_part01r.tar.gz     708,524,984 B
+      1998/nypw_timemaps1998_rootURLs_part03r.tar.gz     449,293,008 B
+      1998/nypw_timemaps1998_rootURLs_part04r.tar.gz     325,150,887 B
+      1998/nypw_timemaps1998_rootURLs_part05r.tar.gz     726,115,622 B
+      1998/nypw_timemaps1998_rootURLs_part06r.tar.gz      83,518,037 B
+      1998/nypw_timemaps1998_rootURLs_part07r.tar.gz     521,097,923 B
+      1998/nypw_timemaps1998_rootURLs_part08r.tar.gz     425,797,234 B
+
+  **Only three of these were recorded when the entry was first written, while eleven were already in
+  the store.** The tarballs are deleted after conversion to `.cdx.gz`, so an unrecorded partition is
+  an unrefetchable one, which is the exact failure the link rule exists to stop
 - terms, read in full before the first request: CC BY 4.0, stated in the item's own
   `nypw_timemaps_readme.txt`, "You are free to share and adapt the material, provided that
   appropriate credit is given". `archive.org/robots.txt` is 238 bytes whole and disallows only
