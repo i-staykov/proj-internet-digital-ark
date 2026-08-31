@@ -61,6 +61,10 @@ single table pointing there. Over 5,000 EE earns the full treatment.
 - A master-eligible class needs a human `Decision:` line in `docs/approved-sources-list.md`.
   Candidate-only needs nothing.
 - **Quote net-new post-split EE, never gross.** They differ by more than 10x.
+- **Every source gets a LINK in `docs/sources.md` before it is ingested** (Ivo, 2026-08-31),
+  next to the sentence saying what dates one item and why it clears the bar. Two approved
+  sources had their bytes fetched to a temp dir that was later reclaimed, and only the URL
+  made them refetchable.
 
 ## Method, and when to change it
 
@@ -175,6 +179,10 @@ what survives the split we already hold. Ask whether the lister held the databas
 - Rank a queue by TLD weight alone and 2013 gTLDs lead it. Volume floor first.
 - Any name-shape filter over-catches: `bl.uk` is the British Library, `x.com` is real.
 - Look for the existing tool before writing one.
+- **A size floor is not a content check.** A replay URL built as `{stamp}id_{host}`, missing the
+  slash in `id_/`, made web.archive.org answer seven different objects with the same 154,263-byte
+  interstitial, and a floor set at half the expected bytes passed all seven. Assert on what the
+  artifact must CONTAIN, and read identical sizes across different objects as a failed fetch.
 - **archive.org's `services/search/v1/scrape` LIES under load. Use `advancedsearch.php` for any zero.**
   Caught twice on 2026-08-19: it returned the same 6 items for five different collections, and an identical
   bogus `total=28330` for five different queries, producing six false zeros in one batch. It also
