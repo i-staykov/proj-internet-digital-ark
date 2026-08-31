@@ -113,6 +113,12 @@ PROVENANCE_LINEAGE = {
     "early_bulk_whois_snapshot": "registry",
     "junkfilter_dated_blocklist": "blocklist",
     "junkfilter_mention": "blocklist",
+    # chastity-list is a squidGuard blacklist compiled by hand from the maintainer's
+    # own browsing, not from a crawl, so it is its own lineage rather than the
+    # Internet Archive's. It shares the family with junkfilter for the same reason
+    # both take the corroboration split: a person typed the name.
+    "chastity_list_blacklist": "blocklist",
+    "chastity_list_mention": "blocklist",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.

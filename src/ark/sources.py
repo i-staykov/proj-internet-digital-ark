@@ -777,6 +777,57 @@ def parse_junkfilter_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         yield BulkRecord(raw=name, year=year, evidence_value=f"junkfilter:{stamp}")
 
 
+# `chastity-(dated|cand).<YYYYMMDD>.txt`, written by `split_chastity.py`. One
+# canonical domain per line; the lane is in the name and so is the edition date.
+_CHASTITY_FILE = re.compile(r"^chastity-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$")
+
+
+def parse_chastity_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per name in one lane of the chastity-list edition.
+
+    **What dates the edition, and it is a stamp a program wrote.** The tar member header
+    `Dec 14 2001` on every one of the 258 members of `chastity-list_0.5.orig.tar.gz`,
+    corroborated from inside the artifact by 209 per-date diff filenames running
+    `domains.20010813.diff` through `domains.20011201.diff`, all in window and monotone.
+    This is the same argument already approved for the 1997 half of
+    `junkfilter_dated_blocklist`, where a tar member header dated the edition.
+
+    **`dated_directory` for the corroborated lane, `link_target` for the other**, because
+    the list is hand-maintained: the date is a machine's and the name is a person's. The
+    split is applied by `split_chastity.py` before ingest, against the strict predicate
+    (the domain already carries an assigned year), so this parser reads whichever lane it is
+    pointed at and never decides. 94.0% of the population is corroborated, which is why the
+    split costs this source almost nothing.
+
+    **The edition evidences 2001 and nothing else.** The project measured chastity's whole
+    SourceForge release history at three releases, all December 2001, so there is no earlier
+    edition and no pre-window content. Pricing it at 1999 or 2000 would overstate the
+    headroom 141x and 39x respectively, because a blacklist's population was registered in
+    the years just before its compile: the store's gap at those years is non-existence, not
+    missing data.
+
+    **What a listing means, and it is the honest weak point.** An entry means the maintainer
+    judged the host to be serving the category's content, which is a claim it was live and
+    reachable when he wrote it down. That is not a resolution, which is why the
+    uncorroborated lane exists at all.
+    """
+    match = _CHASTITY_FILE.match(path.name)
+    if match is None:
+        stats["not_a_chastity_lane"] += 1
+        return
+    year = int(match.group(2))
+    if year not in YEARS:
+        stats["edition_out_of_window"] += 1
+        return
+    stamp = "".join(match.groups()[1:])
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        name = line.strip()
+        if not name:
+            continue
+        stats["names"] += 1
+        yield BulkRecord(raw=name, year=year, evidence_value=f"chastity-list:{stamp}")
+
+
 # `cctld-<registry>-<tld>-<YYYYMMDD>.html`, written by the ccTLD collector. The
 # trailing date is the artifact's own stamp: TWNIC prints `更新時間: 2001/8/27 20:0:31`
 # on the page, IDNIC's rows carry a due date each.
@@ -1995,6 +2046,23 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="dated_blocklist_release",
         parse=parse_junkfilter_split,
+    ),
+    # chastity-list, a hand-maintained squidGuard blacklist, one December 2001 edition.
+    # Two lanes: the corroborated 94.0% dates 2001, the rest parks as candidates.
+    # Approved by Ivo 2026-08-31.
+    "chastity_dated": SourceSpec(
+        key="chastity_dated",
+        source_name="chastity_list_blacklist",
+        evidence_type="dated_directory",
+        acquisition_method="dated_blocklist_release",
+        parse=parse_chastity_split,
+    ),
+    "chastity_candidates": SourceSpec(
+        key="chastity_candidates",
+        source_name="chastity_list_mention",
+        evidence_type="link_target",
+        acquisition_method="dated_blocklist_release",
+        parse=parse_chastity_split,
     ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.
