@@ -101,6 +101,14 @@ PROVENANCE_LINEAGE = {
     # A registrar printing from its own database. Same authority family as a registry
     # listing: both are the operator of record stating what it holds.
     "namewinner_expiring": "registry",
+    # A BROKER printing from its own database, which is deliberately NOT the registry
+    # family that `namewinner_expiring` sits in: a registrar is the operator of record,
+    # a marketplace knows a name only because its owner submitted it for sale. So a
+    # pair a broker listing and a zone file both attest is two witnesses, not one
+    # authority agreeing with itself, and filing it under `registry` would understate
+    # genuine cross-lineage corroboration.
+    "urlmerchant_inventory": "broker_inventory",
+    "urlmerchant_inventory_mention": "broker_inventory",
     # The .ca registry stating when it approved a registration. Registry authority,
     # same family as every other registry assertion.
     "can_domain_registry_notices": "registry",
@@ -212,6 +220,13 @@ PROVENANCE_LINEAGE = {
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
+    # A governor's released mailbox is the same body of observation as Enron's: a
+    # correspondent's own mail client named the host, and the export was released
+    # whole. Filing it as its own family would let two mailbox corpora corroborate
+    # each other as if independently collected, which is the failure this table
+    # exists to prevent. It is genuinely independent of every crawl and registry.
+    "jeb_bush_gubernatorial_email": "corporate_email",
+    "jeb_bush_gubernatorial_email_mention": "corporate_email",
     # Public pipermail list archives. Its own family, and the claim is only safe
     # because the collector skips the newsgroup-gatewayed lists: a gatewayed list
     # carries the same messages the Usenet corpus already holds, so counting it

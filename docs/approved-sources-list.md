@@ -307,6 +307,143 @@ Decision: master
 
 Decision: master
 
+### urlmerchant_inventory / artifact_listing
+
+- measured 2026-08-31 against the live store, before the ingest, over the 244 listing pages on
+  disk at the time of the split (the page collector outlives the session and a later batch takes
+  its own `--tag`): 240 pages in window and stamped, 24,000 name slots, **23,875 distinct
+  registrable domains**, letter pages effectively disjoint. **3,383 domains corroborated (14.2%)**,
+  and the number that makes a 14% held-fraction pay is the second factor: **2,557 of those 3,383
+  are held-and-missing-2001, 75.6% of held**. So **net-new post-split 2,557 pairs / 1,591.9 EE**,
+  all at 2001, mean weight 0.6225, `com` / `net` / `org`. Gross pre-split is 5,655 EE over 9,153
+  pairs on the 95-page probe and scales with the corpus; **do not quote it, it overstates by 9.3x**.
+  The 20,492 names seen only here take the split and go to the candidate pool, dating nothing, at a
+  measured typo upper bound of 44.8%
+- what dates one item: the page's own machine-written generator stamp,
+  `<META NAME="UPDATED" CONTENT="Tuesday, Jul 17 2001 1:19:41 AM">`, written by the program that
+  printed the table out of URLMerchant's own listings database, with the Wayback capture fixing
+  when the archive saw that table. The broker is asserting the name is registered and for sale at
+  that instant, and `statistics.html` says they "routinely remove names that have been deleted by
+  the registrar and are freely available". **The stamp is read per page and never inferred from the
+  capture**: 4 of the 244 pages carry 2002 stamps and are dropped whole, which is also why 7 pages
+  served from 2002 captures are harmless. Rule 6 gives 2001 and nothing else; the site's
+  "Copyright (c) 1998-2001" implies 1999 and 2000 captures of the same namespace, and those are
+  separate artifacts with their own stamps
+- the artifact: `http://www.urlmerchant.com/domains/domain_<a-z|0-9>[_<n>].html` replayed as
+  `https://web.archive.org/web/20010901000000id_/http://www.urlmerchant.com:80/domains/domain_a.html`,
+  ~40 KB and 100 names per page; counts page `http://www.urlmerchant.com/statistics.html` at capture
+  `20011231002753`, 18,452 B, stating "Total Domain Names Listed: 156,122". Pages and mementos under
+  `data/raw/urlmerchant/`. **Verified as 244 distinct objects, not one interstitial repeated**: 244
+  distinct sha256 over 244 files, every one carrying its own `META UPDATED` stamp and its own
+  100-name table, which is the content assertion the `id_/` replay trap of 2026-08-19 demands
+- terms: the download host is `web.archive.org`, whose `/robots.txt` is 404 (nginx, 146 B);
+  `archive.org/robots.txt` was read in full first, 238 B, `Disallow: /control/` and `/report/` only,
+  no ClaudeBot group. The origin `urlmerchant.com` serves nothing. Same route as the already-banked
+  `namewinner_expiring`, `iedr_register`, `internic_zone` and `cctld_register_listing_capture`
+- the NAME is what the split guards, not the date: an owner submitted each name to the broker by
+  hand, so the date is a machine's and the name is a person's typing
+- ingest specs: `urlmerchant_dated` and `urlmerchant_candidates`. Journals at
+  `data/raw/urlmerchant/urlmerchant_{dated,candidates}_b1.jsonl.gz`, regenerable with
+  `uv run python scripts/split_urlmerchant.py --tag b1 --write`
+- **banked 2026-08-31**: the loader assigned `year_rows: 2557` out of 3,383 evidence rows, which
+  is the split's net-new count to the pair, so **1,591.9 EE** is what this ingest added and not an
+  estimate. `ark check` all 13 PASS afterwards
+- potential: 32
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+Conditions checked one at a time. (1) `artifact_listing` is already master-eligible and is the type
+the ISC survey carries on the same argument, so no class is being invented. (2) The stamp is
+machine-written and inside the artifact, quoted above and verified in the bytes on disk. (3) The
+terms are `web.archive.org`'s and were read before the first request. (4) `ark check` passes after
+the ingest.
+
+**Why a 14.2% held-fraction was worth fetching at all**, since the pre-download screen would
+normally kill it: the value of a list is `held x P(missing the artifact's year)`, and a broker's
+inventory is tail names the store only ever saw once, so the second factor came in at 75.6% against
+the population average of 0.611 for `com`. **Screen on the product, not on held alone.** The
+for-sale held-fraction band is now measured three times and is narrow: 0.99% (hand-typed hobbyist
+inventory), 14.2% (this), 32.0% (domainsww).
+
+### jeb_bush_gubernatorial_email / dated_directory
+
+- measured 2026-08-31 against the live store, before the ingest, and independently reproduced by the
+  split to within one pair: 472,949 message-lane rows over **505,927 in-window messages** (1996 26,
+  1997 52, 1998 96, 1999 40,390, 2000 187,380, 2001 245,005), 57,934 distinct registrable domains,
+  73,546 (domain, year) rows, **distinct-domain held fraction 90.8% (52,625)**. **Net-new post-split
+  5,692 pairs / 3,546.1 EE**, by year 1996 10 / 1997 9 / 1998 10 / 1999 216 / 2000 942 / **2001
+  4,505**, mean weight 0.6231, `com` 3,978 pairs 2,514.5 EE, `org` 778 / 552.5, `net` 519 / 235.1,
+  then `us`, `gov`, `edu`, `uk`, `ca`, `cc`, `au`. The wide-pattern reading gives 3,746.9 EE;
+  **quote 3,546.1, not that**, and the 200.8 EE difference is fabrication, not caution, see below.
+  Adjacent-year check as CLAUDE.md requires: **4,734 of 5,692 pairs (83.2%) sit on a domain already
+  held at Y-1 or Y+1**, 77.1% at Y-1 specifically, so this is not the contaminated held-any-year
+  shape. 0.00701 EE per in-window message, against 0.0067 for Enron: **the two mailbox shapes pay
+  the same order per message and there is no inbound premium**
+- what dates one item: the message block's own unindented `Sent:` line, `Sent:\tMonday, December 4,
+  2000 12:38 AM` immediately under `From:\tGloria Rinaman <gloria@rinaman.com>`, written by the
+  sending mail client into the export and not typed by a correspondent. Identical basis and identical
+  evidence type to the banked `enron_email`. Rule 6: each row carries its own message's year, so a
+  domain seen in 1999 and 2001 earns both and a domain seen once earns one
+- the artifact: `https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z`, 411,928,998
+  bytes, sha256 `821e796f7d9dcd0a5bcb08eaf70760d50f5296481f2175ac4ed45b3301f41f75`, one solid LZMA
+  block, 626 files, 3,614,550,412 B uncompressed. Item `JebBushEmails`, publicdate 2015-08-16. Only
+  the 154 files named `1999*`, `2000*`, `2001*` matter: they hold 504,439 of the 505,927 in-window
+  messages, and the other 472 contribute 1,488 between them
+- terms: **the item carries no licence statement**, `licenseurl` and `rights` both absent from its
+  metadata, which is on disk at `data/raw/jeb_bush/item_metadata.json`. `archive.org/robots.txt` was
+  read in full before the first request, 238 B, `Disallow: /control/` and `/report/` only, no
+  ClaudeBot group, and is kept beside it; the two `ia*.us.archive.org` download hosts and the
+  `dn760104.eu` redirect target all 404 for robots.txt. The underlying records are Florida public
+  records the officeholder released himself in 2015
+- the NAME is what the split guards, not the date: a person typed most of these addresses, at a
+  measured typo upper bound of 56.1% over 1,500 sampled net-new names, and
+  `%20fh@fredomhouse.org` in `2001a_Jan-Jun_GovernF-NRN2.txt#L35425` is a real scoring row. It
+  cannot happen in `From:`, which the sending client wrote
+- **only the host is stored, never the mailbox.** These are public records naming private citizens,
+  the local part is of no use to the score, and the extractor's capture group is the host alone
+- ingest specs: `jeb_mail_dated` and `jeb_mail_candidates`. Journals at
+  `data/raw/jeb_bush/jeb_mail_{dated,candidates}.jsonl.gz`, regenerable from the artifact with
+  `scripts/parse_jeb_mail.py` then `scripts/split_jeb_mail.py --write`
+- **banked 2026-08-31**: the loader assigned `year_rows: 5692` out of 67,972 evidence rows over
+  52,625 domains, which is the split's net-new count to the pair, so **3,546.1 EE** is what this
+  ingest added and not an estimate. `ark check` all 13 PASS afterwards
+- potential: 71
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+Conditions checked one at a time. (1) `dated_directory` is already master-eligible and
+`enron_email` holds it for a released mailbox dated on its own `Sent:` line, so no class is being
+invented and no reading is widened. (2) The stamp is machine-written by the sending client and
+inside the artifact, quoted above. (4) `ark check` passes after the ingest.
+
+**(3) is the condition worth writing down, because the finding parked on it.** The item has no
+licence and no rights field, and the question is whether "the terms permit it" can be satisfied by
+an absence. It is satisfied here by the terms that do exist and were read in full first, namely
+`archive.org`'s, and the repo has already answered this twice on the same host: `scene_nfo_archives`
+was fetched, priced and rejected **on yield alone** with its licence recorded as "none found", and
+the banked Usenet family sits on items whose `licenseurl` and `rights` are both null. Absence of a
+per-item licence is not a prohibition, which is the distinction the `.nz` and `.uk` port-43 episodes
+turn on: there the terms said no, in the registry's own words, and were missed by a reader that
+stopped early. **One line reverses this if Ivo reads condition 3 more strictly**, and the ingest is
+a re-run of two named scripts.
+
+**The hypothesis behind this source is refuted with the sign reversed, and that is the transferable
+result.** The claim was that inbound public mail beats outbound official mail, the correspondents
+being "citizens, small businesses, schools and local associations". Measured on the same 505,927
+messages, `From:` pays **1,235.4 EE against 1,410.3 EE for `To:`/`Cc:`, 12.4% less**. The mechanism
+is that **the public does not own domains**: over 480,657 `From:` occurrences the top twelve
+registrable domains are 62.2% of the traffic and nine are consumer ISPs, aol.com alone 25.37%,
+while the `To:`/`Cc:` top twelve is 67.8% and institutional (fl.us 17.31%, myflorida.com 13.31%,
+senate.gov 5.40%). A citizen mailing the governor contributes a mailbox at AOL, not a host. So the
+screen for any mailbox corpus is one grep: **count address occurrences by registrable domain and
+read the top-twelve share before pricing anything.**
+
+**A week unbanked cost 264 EE.** The same corpus measured 4,011 EE on 2026-08-24 and 3,746.9 EE
+today on the comparable wide basis, 6.6% absorbed by the store's own growth, and no URL was recorded
+either time. That is Ivo's link rule of 2026-08-31 paid for in cash.
+
 ## Pending requests
 
 
