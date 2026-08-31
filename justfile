@@ -246,6 +246,13 @@ sources:
     uv run python scripts/collect_mynic_coza.py
     uv run ark ingest mynic_change_report data/raw/mynic/*.htm
     uv run ark ingest coza_deletion_queue data/raw/coza/*.html
+    # Approved by Ivo on 2026-08-31 at 1,403.2 EE post-split. NOT reproducible by a
+    # collector: app.fac.gov is `User-agent: * / Disallow: /`, so the four census-<year>.zip
+    # files must be downloaded BY HAND from https://www.fac.gov/data/download/historic/
+    # and ELECAUDITHEADER.csv unpacked to data/raw/fac/header-<year>.csv.
+    uv run python scripts/split_fac.py --write
+    uv run ark ingest fac_dated      data/raw/fac/fac-dated.*.tsv
+    uv run ark ingest fac_candidates data/raw/fac/fac-cand.*.tsv
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
