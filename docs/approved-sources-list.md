@@ -446,19 +446,6 @@ Decision: pending
 
 Decision: pending
 
-### fac_sfsac_historic_1998_2001 / artifact_listing
-
-- measured: SAME CORPUS as `fac_single_audit`, which was priced at 2,406.69 net-new post-split EE on
-  2026-08-24: same filings, same 1998-2001 window, same `AUDITEEDATESIGNED` field. Two class names
-  over one artifact, so the word on `fac_single_audit` decides this row too and there is nothing here
-  to price separately. Deliberately not written as a `- measured:` figure, because the decision sheet
-  sums those and this one would double-count 2,407 EE. The estimate of 6,000-12,000 per YEAR was 15x
-  to 30x high (2026-08-27)
-- what dates one item: `AUDITEEDATESIGNED`, "Date of auditee signature", per filing
-- potential: 86
-
-Decision: pending
-
 ### gias_england_school_website_domains / link_target
 
 - potential: 82
@@ -1501,6 +1488,25 @@ Decision: master
 - approved by Ivo on 2026-08-31, with `sec_edgar_filings` moved to the back of the queue
 
 Decision: master
+
+### fac_sfsac_historic_1998_2001 / artifact_listing
+
+- measured: SAME CORPUS as `fac_single_audit`, which was priced at 2,406.69 net-new post-split EE on
+  2026-08-24: same filings, same 1998-2001 window, same `AUDITEEDATESIGNED` field. Two class names
+  over one artifact, so the word on `fac_single_audit` decides this row too and there is nothing here
+  to price separately. Deliberately not written as a `- measured:` figure, because the decision sheet
+  sums those and this one would double-count 2,407 EE. The estimate of 6,000-12,000 per YEAR was 15x
+  to 30x high (2026-08-27)
+- what dates one item: `AUDITEEDATESIGNED`, "Date of auditee signature", per filing
+- potential: 86
+
+- **RESOLVED 2026-08-31 as a duplicate, and it must not be counted.** This is the same corpus as
+  `fac_single_audit`, which was banked on 2026-08-31 at 1,403.2 net-new post-split EE from bytes Ivo
+  downloaded by hand. Same filings, same window, same `AUDITEEDATESIGNED` field. Two class names over
+  one artifact, so there is nothing here to admit separately and the 2,407 must not be added to any
+  queue total
+
+Decision: rejected
 
 ### uk_historic_hansard / dated_directory
 
