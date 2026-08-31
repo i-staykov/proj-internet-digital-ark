@@ -489,54 +489,9 @@ Decision: pending
 
 Decision: pending
 
-### mynic_my_change_report / artifact_listing
-
-- measured: **6,883.1 net-new EE over 9,081 pairs, whole tree, measured 2026-08-31** against the live
-  store from 34 of the 35 in-window pages (`dec2001-1` has only a 318-byte empty capture). 12,118 rows,
-  10,322 `New` and 1,796 `Delete`, years {2000: 3,716, 2001: 8,402}, 11,690 distinct pairs over 11,564
-  domains, 2,609 already held, mean weight 0.7579, typo bound 26.6%. Post-split would be 1,180.8 EE
-- **the split does NOT apply, settled on a test rather than a judgement**: MYNIC's own monthly
-  statistics table gives March 2001 as New 850 / Delete 166, and parsing the two listing halves gives
-  **New 850 / Delete 165**, so the listing is a complete enumeration out of the same database and this
-  is the registry stating its own register, as TWNIC, IDNIC, RESTENA and SaudiNIC all are. The earlier
-  "3091.1 pre-split / 159.9 post-split from 25 pages, whole tree near 10,000 and 400" was 1.45x high on
-  the unsplit reading and 3x low on the split one
-- what dates one item: the per-day heading above each entry, `2 April 2001`, with `New` or `Delete`
-  beside the name, so the registry is stating that this name entered or left the register that day
-- ingest specs: not yet written; the parser is measured but no spec is registered until this is decided
-- the artifact: MYNIC published a fortnightly `Domain Name Listing` at
-  `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. 60 archived pages, of which the `-1` and `-2` halves
-  carry names and the bare-month pages are statistics tables only. `.my` weighs 0.7580
-- potential: 70
-
-Decision: pending
-
 ### usco_bulk_registrations / typed
 
 - potential: 63
-
-Decision: pending
-
-### coza_deletion_listing / cdx_timestamp
-
-- measured: **3,704.3 net-new EE over 3,826 pairs, wider tree VERIFIED 2026-08-31**. 22 captures return
-  HTTP 200 across `co.za`, `posix.co.za` and `www.posix.co.za` against the 11 previously verified, and
-  the `posix` half is not duplicate: its earliest editions are 1997-12-21 and 1998-01-17, earlier than
-  any `co.za` capture. 12,404 rows, years {1997: 1,656, 1998: 5,551, 1999: 3,074, 2000: 2,123}, 5,439
-  distinct pairs over 4,360 domains, 1,613 held, mean weight 0.9682. The agent's 4,462 EE was 1.2x high.
-  No split: shell CGI reading the register. Post-split would be 1,211.2 EE
-- **640 rows must be dropped and it is a defect in the artifact**: the CGI prints bare labels in fixed
-  16-character columns and truncates the name to fit, in the `href` as well as the anchor text, so
-  `sahomeimprovement` is served as `sahomeimprovemen`. 303 labels are 15 characters against a spike of
-  640 at exactly 16, and admitting them would mint well-formed domains that never existed
-- **the years are the caveat**: captures run 1997-12 to 2000-08 with nothing in 2001, and 1,018 of the
-  1,251 post-split pairs land at 1998, the thin end of the window
-- what dates one item: the Wayback capture stamp on the page, since the listing carries no in-body date
-  at all, and a name shortlisted for deletion is one the registry is stating is registered right now
-- the artifact: the CO.ZA registry's own `cgi-bin/warn.sh` and `cgi-bin/todel.sh`, 11 in-window
-  captures, listing bare labels under a header reading `The following domains are shortlisted for
-  deletion. This is either due to lack of payment or lack of paperwork`. `.za` weighs 0.9682
-- potential: 62
 
 Decision: pending
 
@@ -1827,6 +1782,30 @@ Decision: rejected
 
 
 
+### mynic_my_change_report / artifact_listing
+
+- measured: **6,883.1 net-new EE over 9,081 pairs, whole tree, measured 2026-08-31** against the live
+  store from 34 of the 35 in-window pages (`dec2001-1` has only a 318-byte empty capture). 12,118 rows,
+  10,322 `New` and 1,796 `Delete`, years {2000: 3,716, 2001: 8,402}, 11,690 distinct pairs over 11,564
+  domains, 2,609 already held, mean weight 0.7579, typo bound 26.6%. Post-split would be 1,180.8 EE
+- **the split does NOT apply, settled on a test rather than a judgement**: MYNIC's own monthly
+  statistics table gives March 2001 as New 850 / Delete 166, and parsing the two listing halves gives
+  **New 850 / Delete 165**, so the listing is a complete enumeration out of the same database and this
+  is the registry stating its own register, as TWNIC, IDNIC, RESTENA and SaudiNIC all are. The earlier
+  "3091.1 pre-split / 159.9 post-split from 25 pages, whole tree near 10,000 and 400" was 1.45x high on
+  the unsplit reading and 3x low on the split one
+- what dates one item: the per-day heading above each entry, `2 April 2001`, with `New` or `Delete`
+  beside the name, so the registry is stating that this name entered or left the register that day
+- ingest specs: not yet written; the parser is measured but no spec is registered until this is decided
+- the artifact: MYNIC published a fortnightly `Domain Name Listing` at
+  `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. 60 archived pages, of which the `-1` and `-2` halves
+  carry names and the bare-month pages are statistics tables only. `.my` weighs 0.7580
+- potential: 70
+
+- approved by Ivo on 2026-08-31, after the split test and the truncation screen
+
+Decision: master
+
 ### repository_ia_capture_census / cdx_timestamp
 
 - what dates one item: a 14-digit capture timestamp per row, identical semantics to the approved source.
@@ -1912,6 +1891,31 @@ of 10,189 in-window rows whose `Company Website` canonicalises, **89 carry a TLD
 columns are self-reported, so the split applies on top. 219,503 rows in
 `data.www.sbir.gov/mod_awarddatapublic_no_abstract/award_data_no_abstract.csv`, 29,922 in window, and
 3,502 of 5,017 candidate pairs already held.
+
+### coza_deletion_listing / cdx_timestamp
+
+- measured: **3,704.3 net-new EE over 3,826 pairs, wider tree VERIFIED 2026-08-31**. 22 captures return
+  HTTP 200 across `co.za`, `posix.co.za` and `www.posix.co.za` against the 11 previously verified, and
+  the `posix` half is not duplicate: its earliest editions are 1997-12-21 and 1998-01-17, earlier than
+  any `co.za` capture. 12,404 rows, years {1997: 1,656, 1998: 5,551, 1999: 3,074, 2000: 2,123}, 5,439
+  distinct pairs over 4,360 domains, 1,613 held, mean weight 0.9682. The agent's 4,462 EE was 1.2x high.
+  No split: shell CGI reading the register. Post-split would be 1,211.2 EE
+- **640 rows must be dropped and it is a defect in the artifact**: the CGI prints bare labels in fixed
+  16-character columns and truncates the name to fit, in the `href` as well as the anchor text, so
+  `sahomeimprovement` is served as `sahomeimprovemen`. 303 labels are 15 characters against a spike of
+  640 at exactly 16, and admitting them would mint well-formed domains that never existed
+- **the years are the caveat**: captures run 1997-12 to 2000-08 with nothing in 2001, and 1,018 of the
+  1,251 post-split pairs land at 1998, the thin end of the window
+- what dates one item: the Wayback capture stamp on the page, since the listing carries no in-body date
+  at all, and a name shortlisted for deletion is one the registry is stating is registered right now
+- the artifact: the CO.ZA registry's own `cgi-bin/warn.sh` and `cgi-bin/todel.sh`, 11 in-window
+  captures, listing bare labels under a header reading `The following domains are shortlisted for
+  deletion. This is either due to lack of payment or lack of paperwork`. `.za` weighs 0.9682
+- potential: 62
+
+- approved by Ivo on 2026-08-31, after the split test and the truncation screen
+
+Decision: master
 
 ### discmaster_by_file_size / artifact_listing
 
