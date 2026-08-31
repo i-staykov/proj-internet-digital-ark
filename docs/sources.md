@@ -339,7 +339,50 @@ Kept only so its 11 rows stay attributable. Superseded by the collapsed six-year
 IA's "Not Your Parents' Web" first-capture index (`https://archive.org/details/nypw_urls_CDXfirstentry`)
 yields **60 net-new pairs over 53 net-new domains** from 2,413,003 in-window pairs, 99.998% overlap
 with the same IA CDX the baseline drains. The 19.35 GB `nypw_timemaps` sibling samples that URL
-universe too.
+universe too, and it is a separate source with a separate verdict: see below.
+
+## `nypw_timemaps`: NYPW TimeMaps, master
+
+Item: `https://archive.org/details/nypw_timemaps`. The three parts priced and ingested on
+2026-09-01, each linked so the bytes can be pulled again:
+
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part00o.tar.gz`, 31,659,131 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part02r.tar.gz`, 119,945,969 B
+- `https://archive.org/download/nypw_timemaps/2001/nypw_timemaps2001_deeplinks_part00o.tar.gz`, 148,848,304 B
+
+**What dates one item:** field 3 of a TimeMap row is Wayback's own 14-digit capture timestamp,
+written by the crawler at the moment of the capture, so the row evidences that year and no other.
+A row entire, from `2000/TM_other/TM_x00o2000_10000.txt` inside the first tarball:
+
+    https://4free.net/mousepads.shtml net,4free)/mousepads.shtml 20010124104200
+    http://www.4free.net:80/mousepads.shtml text/html 200 NT5S4OFZGCGRFF3TKTOCLK7IYFJKQKP6 4009
+
+Class `cdx_timestamp`, already master-eligible, and nothing in the row was typed by a human, so
+pre-split equals post-split. Terms: CC BY 4.0, stated in the item's own `nypw_timemaps_readme.txt`.
+
+**Why the sibling's rejection does not carry over, and why the 2026-08-24 closure of this item was
+wrong.** The first-capture index gives one row per URL, so it can only ever offer a domain its
+FIRST year, which the IA-derived baseline holds by construction. A TimeMap gives every capture of
+that URL. The folder year is the year of first capture, not of the content, so folder Y can only
+add years Y+1..2001: the 1996 folder the old test used is the saturated head, and the 2001 folder
+is held by construction at 108,863 of 108,870 pairs. The paying folders are 1997 to 2000.
+
+**Banked, net-new post-split, read back out of the store after the ingest:** 10,072 pairs and
+**4,084.3 EE**, mean weight 0.4055, TLDs `com` 4,818, `de` 1,001, `org` 641, `net` 377, `co.jp` 320,
+`it` 284. **10,070 of the 10,072 land at 2001.** Per part, `year_rows`: 2000 deeplinks part00o 3,566,
+2000 rootURLs part02r 6,500, 2001 deeplinks part00o 6.
+
+The pre-ingest pricing said 6,424 pairs at 4,146.8 EE and mean weight 0.6455, so the store took 57%
+more pairs for 1.5% less EE. The head the pricing counted got covered in the days between and what
+was left is the ccTLD tail. Worth carrying forward for any source priced more than a day before it
+is banked: the pair count and the EE move in opposite directions, so a price that still looks right
+in EE can be right for the wrong reason.
+
+**What is left.** In-window folders are 19,350,762,163 B across 47 tarballs and the rootURLs lane is
+about 90% of the bytes and was never opened before. At the measured 21 to 51 EE per MB the rest of
+the 2000 folder alone projects five figures before saturation, which has to be re-measured as
+banking proceeds. Take 1999 next: it has holes at both 2000 and 2001. Skip 1996 and 2001, both
+measured dead.
 
 ## Australian Web Archive: rejected, endpoint correction kept
 

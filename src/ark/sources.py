@@ -72,18 +72,19 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# The Internet Archive's "Not Your Parents' Web" first-capture index. Eight
-# space-delimited fields per line:
-#   normalised-url  SURT  timestamp  original-url  mime  status  digest  length
-# One line per URL, holding only that URL's EARLIEST Wayback capture, so a row
-# evidences exactly the year it names and no other. That is a narrower claim
-# than a full CDX file makes and it is exactly what III.7 wants: no inference
-# from a first appearance to any later year.
+# The Internet Archive's "Not Your Parents' Web" rows. Eight space-delimited
+# fields per line:
+#   queried-url  SURT  timestamp  original-url  mime  status  digest  length
+# Two sources share this layout because IA wrote both with the same tool. The
+# first-capture index holds only each URL's EARLIEST Wayback capture; a TimeMap
+# holds every capture of one URL, one per line. Either way field 3 is the
+# crawler's own 14-digit stamp and a row evidences exactly the year it names and
+# no other, which is III.7: no inference from one capture to any other year.
 _NYPW_FIELDS = 6
 
 
-def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield one record per in-window HTTP-200 first capture."""
+def _parse_nypw(path: Path, stats: Counter, label: str) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 capture row."""
     with _open_text(path) as fh:
         for line in fh:
             stats["lines"] += 1
@@ -105,9 +106,25 @@ def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(
                 raw=original,
                 year=year,
-                evidence_value=f"nypw first capture {timestamp}",
+                evidence_value=f"{label} {timestamp}",
                 evidence_url=f"https://web.archive.org/web/{timestamp}/{original}",
             )
+
+
+def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 first capture."""
+    yield from _parse_nypw(path, stats, "nypw first capture")
+
+
+def parse_nypw_timemap(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window HTTP-200 capture listed in a TimeMap.
+
+    Same rows as the first-capture index, except that a URL appears once per
+    capture rather than once in total. That is the whole reason this source is
+    worth more than its sibling: it can carry a year for a domain the store
+    already holds in some other year, which is where the headroom is.
+    """
+    yield from _parse_nypw(path, stats, "nypw timemap capture")
 
 
 # A `split_usenet.py` journal: one JSON object per (domain, year), carrying the
@@ -2851,6 +2868,22 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="cdx_timestamp",
         acquisition_method="nypw_first_capture_index",
         parse=parse_nypw_firstcdx,
+    ),
+    # The TimeMap sibling of the index above, and unlike it, it pays. The index
+    # gives one row per URL and so can only ever offer a domain its FIRST year,
+    # which the IA-derived baseline already holds; a TimeMap gives every capture,
+    # so it offers years for domains the collector never happened to query.
+    #
+    # Folder year is the year of first capture, not of the content, so folder Y
+    # can only add years Y+1..2001. That is why the 1996 folder measured 14.2 EE
+    # and closed the family on 2026-08-24, and why the 2000 folder measured
+    # 4,144.2 EE on two parts: aim it at the years adjacent to the hole.
+    "nypw_timemaps": SourceSpec(
+        key="nypw_timemaps",
+        source_name="nypw_timemaps",
+        evidence_type="cdx_timestamp",
+        acquisition_method="nypw_timemap",
+        parse=parse_nypw_timemap,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

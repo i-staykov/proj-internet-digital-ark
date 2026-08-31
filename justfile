@@ -205,6 +205,11 @@ sources:
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
+    # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
+    # 4,146.8 EE post-split, 6,423 of its 6,424 pairs at 2001. The collector fetches
+    # the three priced parts and flattens each tarball into one file:
+    #   uv run python scripts/collect_nypw_timemaps.py
+    uv run ark ingest nypw_timemaps      data/raw/nypw_timemaps/*.cdx.gz
     # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
     # the whole recipe with it. Left here, commented, because the artifact is on disk
     # and the next reader should see why it is not ingested rather than wonder.
