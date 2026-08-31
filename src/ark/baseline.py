@@ -39,10 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path(
-    "feedback/feedback-phase-7/Domain_Data_Collection_Task 2/merged260827-2"
-)
-CURRENT_BASELINE_MARKER = "merged260827-2"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 3/merged260830")
+CURRENT_BASELINE_MARKER = "merged260830"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -63,8 +61,8 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 27_233_859
-REVIEWER_BASELINE_EE = Decimal("14221942.8996")
+REVIEWER_BASELINE_PAIRS = 27_880_151
+REVIEWER_BASELINE_EE = Decimal("14531454.0269")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
@@ -72,18 +70,23 @@ REVIEWER_BASELINE_EE = Decimal("14221942.8996")
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **2000 is where this release moved**: 3,977,564 to 4,897,483 EE in one day, which is
-# 94% of the whole 977,561 EE increase. A contributor landed 1.99 million records in
-# that single year. The threshold's recession therefore went back to 48,878 EE/day
-# after one interval at 5,129, which is why C-32's caution about a single interval
-# mattered.
+# **2001 is where `merged260830` moved, and it is the year we had just aimed at.** The
+# release adds 646,292 pairs and 309,511 EE over `merged260827-2`, and 210,704 EE of that
+# lands at 2001 alone, with 1999 and 2000 taking 41,084 and 56,652. Only 3,845 EE of the
+# 2001 growth is ours by overlap, so roughly 207,000 EE at 2001 came from elsewhere. The
+# file mtimes agree: 1996-1998 are dated 2026-08-29 and 1999-2001 2026-08-30.
+#
+# **The denominator moved against us faster than overlap did.** We lost only 6,523 pairs
+# and 3,894 EE to this release, 2.1% of the increment, against 244,752 records lost to the
+# previous one. But 5% of the corpus rose from 711,097 to 726,573 EE, so the gap to the
+# trigger grew from 524,926 to 544,738 EE despite our banking all day.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("558200.2794"),
-    1997: Decimal("1156228.7354"),
-    1998: Decimal("1524060.7506"),
-    1999: Decimal("2926863.3998"),
-    2000: Decimal("5012856.8190"),
-    2001: Decimal("3043732.9154"),
+    1996: Decimal("558670.7937"),
+    1997: Decimal("1156766.3818"),
+    1998: Decimal("1524123.5397"),
+    1999: Decimal("2967947.2618"),
+    2000: Decimal("5069509.0517"),
+    2001: Decimal("3254436.9982"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
