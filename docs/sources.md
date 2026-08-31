@@ -343,12 +343,53 @@ universe too, and it is a separate source with a separate verdict: see below.
 
 ## `nypw_timemaps`: NYPW TimeMaps, master
 
-Item: `https://archive.org/details/nypw_timemaps`. The three parts priced and ingested on
-2026-09-01, each linked so the bytes can be pulled again:
+Item: `https://archive.org/details/nypw_timemaps`. The TWENTY-SEVEN parts ingested on 2026-09-01,
+each linked so the bytes can be pulled again. The entry first listed only three of these while
+eleven were already in the store, and the tarballs are deleted once converted to `.cdx.gz`, so the
+missing links were the difference between a refetchable partition and a lost one:
 
+- `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_deeplinks_part00o.tar.gz`, 81,558,295 B
+- `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_rootURLs_part01r.tar.gz`, 548,991,394 B
+- `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_rootURLs_part02r.tar.gz`, 147,027,083 B
+- `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_rootURLs_part03r.tar.gz`, 150,725,864 B
+- `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_rootURLs_part04r.tar.gz`, 210,555,238 B
 - `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part00o.tar.gz`, 31,659,131 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part01o.tar.gz`, 31,397,597 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_deeplinks_part02o.tar.gz`, 56,689,031 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part01r.tar.gz`, 228,359,937 B
 - `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part02r.tar.gz`, 119,945,969 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part03r.tar.gz`, 119,365,472 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part04r.tar.gz`, 825,494,346 B
+- `https://archive.org/download/nypw_timemaps/2000/nypw_timemaps2000_rootURLs_part05r.tar.gz`, 406,711,686 B
 - `https://archive.org/download/nypw_timemaps/2001/nypw_timemaps2001_deeplinks_part00o.tar.gz`, 148,848,304 B
+- `https://archive.org/download/nypw_timemaps/1997/nypw_timemaps1997_deeplinks_part00o.tar.gz`, 30,569,952 B
+- `https://archive.org/download/nypw_timemaps/1997/nypw_timemaps1997_rootURLs_part01r.tar.gz`, 137,487,874 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_deeplinks_part00o.tar.gz`, 17,958,107 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_deeplinks_part01o.tar.gz`, 13,698,867 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_deeplinks_part02o.tar.gz`, 19,014,371 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part00r.tar.gz`, 617,413,931 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part01r.tar.gz`, 708,524,984 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part03r.tar.gz`, 449,293,008 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part04r.tar.gz`, 325,150,887 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part05r.tar.gz`, 726,115,622 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part06r.tar.gz`, 83,518,037 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part07r.tar.gz`, 521,097,923 B
+- `https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_rootURLs_part08r.tar.gz`, 425,797,234 B
+
+Banked, read out of the 2026-09-01 01:22 export rather than projected: **87,905.0 EE net-new
+post-split over 197,938 pairs**, mean weight 0.4441, of which 193,428 pairs carry a 2001 year.
+
+**Which folder to pull next, measured as a census over all 197,938 pairs rather than sampled.**
+Attributing each pair to the partition whose row supplied its `evidence_url` leaves nothing
+unattributed and gives, per folder: 1997 651.3 EE over 2 parts, 1998 23,284.0 over 11, 1999
+19,807.8 over 5, 2000 44,159.3 over 8, and **2001 just 2.5 EE over 1**. The yield rises from 1997
+to 2000 and collapses at 2001, because folder year is the year of FIRST capture: a 2001-folder
+domain has no earlier year to offer and its 2001 year is held by an IA-derived baseline by
+construction. **So "97.7% of the net-new is dated 2001" is not a reason to pull the 2001 folder,
+and reading it that way inverts the source.** `rootURLs` parts outpay `deeplinks` 3.9x per part
+(77,912.2 EE over 18 against 9,992.7 over 9), so the remaining 1999 and 2000 `rootURLs` parts are
+the queue. The 1997 and 1998 folders had been projected at "under 100 EE combined" and in fact
+paid **23,935.4 EE**, the projection having been made on the same folder-versus-capture confusion.
 
 **What dates one item:** field 3 of a TimeMap row is Wayback's own 14-digit capture timestamp,
 written by the crawler at the moment of the capture, so the row evidences that year and no other.
