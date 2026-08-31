@@ -192,6 +192,22 @@ what survives the split we already hold. Ask whether the lister held the databas
   name that genuinely earns multi-source corroboration could be a real registration and stays.
   Just do not let one extractor's artifact corroborate another's, which is the circularity trap
   below.
+- **A partitioned corpus must be measured per partition, never reasoned about.** `nypw_timemaps`
+  was closed at 14.2 EE on its 1996 folder, reopened on 1999 and 2000 for **+87,905 EE**, and one
+  run then argued from a plausible mechanism that the 2001 folder was the real seam. `ark ingest`
+  reports `year_rows` per file: the 2001 part wrote **6**, against 94,695 for one 2000 part. The
+  ledger is free, needs no store lock, and settles any claim about what a partition paid. Read it
+  before acting on a partition recommendation, including your own.
+- **CDX tier costs, remeasured 2026-09-01 over 1,179 journals, because the old figures were from
+  the scan-first era and are 16x wrong.** Seconds per query by tier: `by_host` hit 2.78 to 4.93,
+  `scan` 3.65 to 7.58 (so **1.26x a host query, not 33 s**), `by_root` 11.84 to 46.00. The cost
+  outlier is `by_root` at 32.9% of collector seconds for 15.3% of years, and the two zero-yield
+  classes burn 31.9% of the clock. Recovering this needs no requests: journal filename stamp gives
+  the start, file mtime the end, per-tier record counts the design matrix.
+- **Watch a collector's hit rate, not its query rate.** The pool population went barren overnight:
+  1,114 of 1,200 queries returned no capture, ~0.03 year-records per query, while the gap queue on
+  the other machine returned 1,647 years per 1,200. Same code, same hour, 45x apart. `just engines`
+  prints both; a queue whose head has already been asked is a queue that has quietly expired.
 - Look for the existing tool before writing one.
 - **A size floor is not a content check.** A replay URL built as `{stamp}id_{host}`, missing the
   slash in `id_/`, made web.archive.org answer seven different objects with the same 154,263-byte
