@@ -229,6 +229,12 @@ sources:
     uv run python scripts/split_chastity.py --write
     uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
     uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
+    # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
+    # The collector runs first because the bytes are not kept in git.
+    uv run python scripts/collect_granitecanyon.py
+    uv run python scripts/split_granitecanyon.py --write
+    uv run ark ingest granitecanyon_dated      data/raw/granitecanyon/granitecanyon-dated.*.txt
+    uv run ark ingest granitecanyon_candidates data/raw/granitecanyon/granitecanyon-cand.*.txt
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
