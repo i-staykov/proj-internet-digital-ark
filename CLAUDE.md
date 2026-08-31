@@ -45,7 +45,12 @@ single table pointing there. Over 5,000 EE earns the full treatment.
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Hunt a bulk dated corpus.** This is the job. Querying alone adds ~3,000 EE/hour.
+2. **Hunt a bulk dated corpus. This is the job, and the arithmetic now forces it.**
+   Querying is measured at **255 EE/hour** (400 pairs/hour over a 16.9-hour window,
+   2026-08-31, at 0.638 EE/pair). The older ~3,000 EE/hour figure was the RDAP era and is
+   dead with it. Ding confirmed 5% is a hard trigger, so the gap is **530,535 EE**, which
+   is 87 days of pure querying. **Only a large bulk corpus can close it**: the whole
+   priced approval queue is 27,386 EE, or 5.2% of the gap. Spend the hours accordingly.
 3. Price what you find: net-new EE against the store, dates inside 1996-2001, before proposing anything.
 4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
 5. Log the result in `docs/sources.md` whatever the answer, so nobody re-tests it.
