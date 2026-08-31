@@ -1430,3 +1430,121 @@ registry's listing may not be on the registry's host.** NIC Malta's directory sa
 has never seen, and `.nu` at 0.2787 still beats `.il` at 0.1958. The register had this component
 at 144.1 EE, 6.7x low, because it priced it on the capture stamp and never read the per-row date
 column that makes the whole list datable.
+
+---
+
+## MYNIC's fortnightly Domain Name Listing: SETTLED, the split does not apply, 6,883.1 EE
+
+**The link.** `http://www.mynic.net.my/my/stats/<month><year>-{1,2}.htm`, 55 distinct pages of which
+the `-1` and `-2` halves carry names and the bare-month pages are statistics tables. **34 of the 35
+in-window name-bearing halves were fetched and parsed**; `dec2001-1.htm` has only a 318-byte empty
+capture, and `feb2002-1` / `feb2003-1` are out of window. Staged at `data/raw/mynic/`.
+
+**What dates one item**: the per-day heading above each block, `15 March 2001`, with `New` or
+`Delete` beside the name, so MYNIC is stating that this name entered or left its register that day.
+Both actions date the year and only that year: a name deleted on 15 March 2001 was in the register
+until then. Class `artifact_listing`.
+
+**The question this entry settles is the corroboration split, and the answer is that it does not
+apply, on a test rather than on a judgement.** MYNIC also published a monthly statistics table
+giving per-day, per-TLD New and Delete counts, with the note "Please click on the date to get daily
+New and Delete domain name listings". If the listing is a complete enumeration out of the register,
+its rows must reproduce those counts. For March 2001 the statistics table gives **New 850, Delete
+166**; parsing the two listing halves gives **New 850, Delete 165**. An exact match on New and one
+row short on Delete. **A hand-compiled list cannot reproduce a registry's own published counts
+850/850**, so the listing and the statistics table are two views of one database, and this is the
+registry stating its own register exactly as SaudiNIC's `AllSA` and the already-approved TWNIC,
+IDNIC and RESTENA listings do, all of which are ingested with no split step.
+
+**Measured whole-tree, against the live store on 2026-08-31**: 12,118 rows (10,322 `New`, 1,796
+`Delete`) over years {2000: 3,716, 2001: 8,402}, giving 11,690 distinct pairs over 11,564 domains,
+2,609 already held. **Unsplit 9,081 pairs and 6,883.1 EE**; post-split 1,558 pairs and 1,180.8 EE.
+Mean weight 0.7579, `.my` at 0.7580. Net-new by year {2000: 1,202, 2001: 356}, typo upper bound
+26.6%. The source register estimated "near 10,000 and 400" for the whole tree, so it was **1.45x
+high on the unsplit reading and 3x LOW on the split one**, which is why the whole tree was measured
+rather than scaled from 25 pages.
+
+**A weaker signal that was nearly used as the argument, recorded so it is not trusted next time.**
+Alphabetical ordering within a day and TLD group looks like a database `ORDER BY` and was the first
+argument reached for, but it holds in only **75.2% of 472 groups**: `New` rows are sorted and
+`Delete` rows are not, and a day-heading regex that misses some headings merges two days and makes
+sorted runs look unsorted. **Ordering is a hint; reproducing the publisher's own counts is a test.**
+
+---
+
+## CO.ZA suspension and deletion queues, the wider tree VERIFIED at 3,704.3 EE, and a 16-character truncation
+
+**The links.** The CO.ZA registry's own CGI, on **two hostnames**, which is what the wider tree
+amounts to: `http://co.za/cgi-bin/{warn.sh,todel.sh}` and the same paths on `posix.co.za` and
+`www.posix.co.za`, the host of the company that administered CO.ZA. **22 captures return HTTP 200**
+against the 11 the register had verified on `co.za` alone, and the `posix` half is not a duplicate:
+its earliest editions are **1997-12-21 and 1998-01-17, earlier than any `co.za` capture**. Staged
+at `data/raw/coza/`, 22 objects.
+
+**What dates one item**: the Wayback capture stamp, since neither page carries an in-body date.
+`todel.sh` is headed "Domains in CO.ZA to be deleted ... The following domains are shortlisted for
+deletion. This is due to lack of payment", and `warn.sh` is a separate list, "Domains in CO.ZA to be
+or on Suspension ... shortlisted for or have been suspended. Within a couple of invoice runs they
+will move to the Deletion queue". Both assert the name is in the register at that instant.
+`cdx_timestamp`. **No split**: these are shell CGI reading the register, so it is the registry
+stating its own register, the same grounds as MYNIC and SaudiNIC.
+
+**Measured, 2026-08-31, truncated labels excluded**: 12,404 rows over years {1997: 1,656, 1998:
+5,551, 1999: 3,074, 2000: 2,123}, 5,439 distinct pairs over 4,360 domains, 1,613 already held.
+**Unsplit 3,826 pairs and 3,704.3 EE**; post-split 1,251 pairs and 1,211.2 EE. Mean weight 0.9682,
+all `.za`. So the agent's unverified wider-tree figure of 4,462 EE was **1.2x high**, and the
+register's verified 2,720.6 sat between the two because it read ten captures of one host.
+
+**The reason to exclude 640 rows, and it is a defect in the artifact rather than in the parse.**
+The registry's CGI prints bare labels in **fixed 16-character columns and truncates the name to
+fit, in the `href` as well as the anchor text**, so `sahomeimprovement` is served as
+`sahomeimprovemen`, and `museum-of-freedom`, `cruisesinternational`, `australianimmigration` and
+`thevirtualprinter` are all cut the same way. The label-length histogram shows the damage plainly:
+303 labels of 15 characters against a spike of **640 at exactly 16**. Every 16-character label is
+therefore a possible fragment, and admitting them would mint well-formed domains that never
+existed, which no invariant in `ark check` would catch. All 640 are dropped.
+
+**Note the years before pricing this against the queue.** The captures run 1997-12 to 2000-08 with
+**nothing in 2001**, and 1,018 of the 1,251 post-split pairs land at 1998. Measured headroom at
+1996-to-1997 is 103,953 pairs against 6,708,320 at 2000-to-2001, so this source is high weight in
+the thin years rather than in the year that pays.
+
+---
+
+## Federal Audit Clearinghouse Single Audit filings: CLOSED ON ACCESS, and the primary source is a blanket robots refusal
+
+**The primary source, which is what was asked for and had never been recorded.** The landing page
+is `https://www.fac.gov/data/download/historic/`, "Data from 1998-2015 ... Single Audit submissions
+collected by the Census FAC from 1998 to 2015 ... provided as-is for historical research and is not
+included in our web-based search or API". The per-year files it links are
+`https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`, with a
+`.sha1` beside each, and a combined `census-1998-2015.zip` of 413 MB.
+
+**The claim is structurally correct, and the data dictionary confirms it.**
+`https://www.fac.gov/data/download/historic-dictionary/` documents **`AUDITEEEMAIL`, "Auditee Email
+address, 60 characters max"** and **`AUDITEEDATESIGNED`, "Date of auditee signature, mm/dd/yyyy"**,
+plus `CPAEMAIL` and `CPADATESIGNED`, present across every form revision covering our window. So one
+item really is one e-mail field on one filing row dated by that row's own signature date.
+
+**But the route is closed, and this is decided before the human-typed question is even reached.**
+`https://app.fac.gov/robots.txt` is exactly `User-agent: *` / `Disallow: /`. Every data file is on
+that host; only the landing page and the dictionary are on `www.fac.gov`, whose robots.txt is
+`User-agent: *` / `Disallow:` and permits everything. `harvester.census.gov`, the Census Bureau host
+that ran the FAC until 2023, now 302s to `outage.census.gov/maintenance.html` and serves no data.
+**No open mirror exists**: `catalog.data.gov`'s package API answers HTTP 404 for the search, and
+archive.org's `advancedsearch.php` returns 46 items for "federal audit clearinghouse" of which the
+only FAC-related ones, `GithubArchiveOf_GSA_GSA-TTS_FAC` and `...FAC-Frontend`, are the
+application's **source code and not its data**.
+
+**Two further facts worth recording.** The historic dataset **begins at 1998**, so 1996 and 1997 are
+unreachable through it whatever happens. And the 2,406.69 EE figure of 2026-08-24 was measured with
+a specificity that implies the bytes were genuinely read, including 18,698 e-mail rows dropped for
+signature dates outside the window, mostly FY2001 audits signed in 2002. **Nothing under `data/raw`
+or `private/` holds those bytes now, and the only route to them breaches a `Disallow: /`**, so that
+measurement is neither reproducible nor repeatable by us. It is recorded here, unbanked.
+
+**One route remains and it is a letter, not a fetch.** GSA publishes the dataset for historical
+research and `www.fac.gov` invites exactly that use, so a request for a copy or for permission to
+retrieve the four in-window ZIPs is the correct next step, and it joins the letters already open on
+the Edelman CIPA terms. Do not re-probe `app.fac.gov`, `harvester.census.gov`, data.gov or
+archive.org for this corpus.

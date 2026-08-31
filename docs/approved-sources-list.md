@@ -491,8 +491,16 @@ Decision: pending
 
 ### mynic_my_change_report / artifact_listing
 
-- measured: 3091.1 net-new post-split EE pre-split over 4,078 pairs from 25 of 60 pages, or **159.9 EE
-  over 211 pairs if the corroboration split applies**; whole-tree figures land near 10,000 and 400
+- measured: **6,883.1 net-new EE over 9,081 pairs, whole tree, measured 2026-08-31** against the live
+  store from 34 of the 35 in-window pages (`dec2001-1` has only a 318-byte empty capture). 12,118 rows,
+  10,322 `New` and 1,796 `Delete`, years {2000: 3,716, 2001: 8,402}, 11,690 distinct pairs over 11,564
+  domains, 2,609 already held, mean weight 0.7579, typo bound 26.6%. Post-split would be 1,180.8 EE
+- **the split does NOT apply, settled on a test rather than a judgement**: MYNIC's own monthly
+  statistics table gives March 2001 as New 850 / Delete 166, and parsing the two listing halves gives
+  **New 850 / Delete 165**, so the listing is a complete enumeration out of the same database and this
+  is the registry stating its own register, as TWNIC, IDNIC, RESTENA and SaudiNIC all are. The earlier
+  "3091.1 pre-split / 159.9 post-split from 25 pages, whole tree near 10,000 and 400" was 1.45x high on
+  the unsplit reading and 3x low on the split one
 - what dates one item: the per-day heading above each entry, `2 April 2001`, with `New` or `Delete`
   beside the name, so the registry is stating that this name entered or left the register that day
 - ingest specs: not yet written; the parser is measured but no spec is registered until this is decided
@@ -511,9 +519,18 @@ Decision: pending
 
 ### coza_deletion_listing / cdx_timestamp
 
-- measured: 2720.6 net-new post-split EE over 2,810 pairs, counted 2026-08-24 over 10 of the 11 archived
-  captures on `co.za`; an agent measured a wider tree including `posix.co.za` at 4,462 EE and I have not
-  verified that half
+- measured: **3,704.3 net-new EE over 3,826 pairs, wider tree VERIFIED 2026-08-31**. 22 captures return
+  HTTP 200 across `co.za`, `posix.co.za` and `www.posix.co.za` against the 11 previously verified, and
+  the `posix` half is not duplicate: its earliest editions are 1997-12-21 and 1998-01-17, earlier than
+  any `co.za` capture. 12,404 rows, years {1997: 1,656, 1998: 5,551, 1999: 3,074, 2000: 2,123}, 5,439
+  distinct pairs over 4,360 domains, 1,613 held, mean weight 0.9682. The agent's 4,462 EE was 1.2x high.
+  No split: shell CGI reading the register. Post-split would be 1,211.2 EE
+- **640 rows must be dropped and it is a defect in the artifact**: the CGI prints bare labels in fixed
+  16-character columns and truncates the name to fit, in the `href` as well as the anchor text, so
+  `sahomeimprovement` is served as `sahomeimprovemen`. 303 labels are 15 characters against a spike of
+  640 at exactly 16, and admitting them would mint well-formed domains that never existed
+- **the years are the caveat**: captures run 1997-12 to 2000-08 with nothing in 2001, and 1,018 of the
+  1,251 post-split pairs land at 1998, the thin end of the window
 - what dates one item: the Wayback capture stamp on the page, since the listing carries no in-body date
   at all, and a name shortlisted for deletion is one the registry is stating is registered right now
 - the artifact: the CO.ZA registry's own `cgi-bin/warn.sh` and `cgi-bin/todel.sh`, 11 in-window
@@ -613,7 +630,20 @@ Decision: pending
 Decision: pending
 
 ### fac_single_audit / dated_directory
-- measured: 2406.69 net-new post-split EE, 2026-08-24
+- measured: **CLOSED ON ACCESS, not on evidence, 2026-08-31.** The primary source is
+  `https://www.fac.gov/data/download/historic/` and the four in-window files are
+  `https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`.
+  **`https://app.fac.gov/robots.txt` is exactly `User-agent: *` / `Disallow: /`**, so every data file
+  is behind a blanket refusal; only the landing page and dictionary sit on `www.fac.gov`, which permits
+  everything. `harvester.census.gov` now 302s to a maintenance page. No open mirror: data.gov's package
+  API 404s and archive.org holds only the application's source code
+- the claim is structurally correct and the dictionary confirms it: `AUDITEEEMAIL` "Auditee Email
+  address, 60 characters max" and `AUDITEEDATESIGNED` "Date of auditee signature, mm/dd/yyyy", across
+  every form revision in the window. The dataset also **begins at 1998**, so 1996 and 1997 are
+  unreachable through it regardless
+- the 2,406.69 EE of 2026-08-24 is not reproducible by us: nothing under `data/raw` or `private/` holds
+  the bytes, and the only route to them breaches the `Disallow: /`. One route remains and it is a
+  letter to GSA, not a fetch
 - one word here decides `fac_sfsac_historic_1998_2001` as well: that entry is the same corpus under a
   second class name, established 2026-08-27
 
