@@ -2859,4 +2859,52 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="ia_cdx_collapsed_query",
         parse=parse_cdx_snapshot,
     ),
+    # URLMerchant's whole for-sale inventory, printed as static A-Z listing pages and
+    # captured by Wayback. `artifact_listing` on the same argument the ISC survey
+    # carries: each page is a table the generator printed out of the broker's own
+    # listings database, and it stamps the instant it did so in its own
+    # `<META NAME="UPDATED" CONTENT="Tuesday, Jul 17 2001 1:19:41 AM">`.
+    #
+    # Two lanes, because an owner submitted each name by hand: the date is a
+    # machine's and the name is a person's typing, at a 44.8% typo upper bound on the
+    # novel half. Split by `scripts/split_urlmerchant.py` before ingest.
+    # Admitted under the standing rule of 2026-08-29.
+    "urlmerchant_dated": SourceSpec(
+        key="urlmerchant_dated",
+        source_name="urlmerchant_inventory",
+        evidence_type="artifact_listing",
+        acquisition_method="broker_inventory_listing",
+        parse=_parse_usenet_journal,
+    ),
+    "urlmerchant_candidates": SourceSpec(
+        key="urlmerchant_candidates",
+        source_name="urlmerchant_inventory_mention",
+        evidence_type="link_target",
+        acquisition_method="broker_inventory_listing",
+        parse=_parse_usenet_journal,
+    ),
+    # Jeb Bush's gubernatorial mail, released by him in 2015 as Florida public records.
+    # `dated_directory` and the corroboration split, exactly as `enron_email` carries:
+    # what dates a message is its own unindented `Sent:` line, written by the sending
+    # mail client, and what names the host is a person typing an address.
+    #
+    # Hosts are anchored on an `@`, a scheme or a `www.` label by
+    # `scripts/parse_jeb_mail.py`, because a missing space after a full stop forges a
+    # domain under a high-weight TLD out of prose: `Candace Rice.To tell the truth`
+    # reads as `rice.to`, and the wide pattern cost 200.8 EE of fabrication.
+    # Admitted under the standing rule of 2026-08-29.
+    "jeb_mail_dated": SourceSpec(
+        key="jeb_mail_dated",
+        source_name="jeb_bush_gubernatorial_email",
+        evidence_type="dated_directory",
+        acquisition_method="released_mailbox_sent_date",
+        parse=_parse_usenet_journal,
+    ),
+    "jeb_mail_candidates": SourceSpec(
+        key="jeb_mail_candidates",
+        source_name="jeb_bush_gubernatorial_email_mention",
+        evidence_type="link_target",
+        acquisition_method="released_mailbox_mention",
+        parse=_parse_usenet_journal,
+    ),
 }

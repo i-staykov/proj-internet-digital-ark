@@ -5,7 +5,7 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (twelve integrity invariants over
+# On naming: `ark check` validates the DATA (thirteen integrity invariants over
 # the store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: twelve invariants over the store, non-zero exit on any failure
+# the integrity gate: thirteen invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 
@@ -253,6 +253,29 @@ sources:
     uv run python scripts/split_fac.py --write
     uv run ark ingest fac_dated      data/raw/fac/fac-dated.*.tsv
     uv run ark ingest fac_candidates data/raw/fac/fac-cand.*.tsv
+    # Admitted by the loop on 2026-08-31 under the standing rule: the released Jeb Bush
+    # gubernatorial mailbox at 3,546.1 EE (4,505 of its 5,692 pairs land at 2001) and a
+    # domain broker inventory at 1,591.9 EE, all of it at 2001.
+    uv run ark ingest jeb_mail_dated       data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+    uv run ark ingest jeb_mail_candidates  data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
+    uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b*.jsonl.gz
+    uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b*.jsonl.gz
+    # Admitted under the standing rule of 2026-08-29: URLMerchant's for-sale inventory
+    # at 1,591.9 EE post-split over 244 listing pages. The page collector outlives a
+    # session, so a later batch takes its own `--tag` and its own pair of ingest lines.
+    uv run python scripts/split_urlmerchant.py --tag b1 --write
+    uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b1.jsonl.gz
+    uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b1.jsonl.gz
+    # Admitted under the standing rule of 2026-08-29: Jeb Bush's gubernatorial mailbox
+    # at 3,546.1 EE post-split. The extractor runs over the files unpacked from
+    # JebBushEmails-Text.7z, which is 412 MB and not kept in git:
+    #   curl -O https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z
+    #   7z x JebBushEmails-Text.7z -o<dir> 'Redacted/*'
+    #   uv run python scripts/parse_jeb_mail.py --out-prefix data/raw/jeb_bush/jeb_bush \
+    #       <dir>/Redacted/*.txt
+    uv run python scripts/split_jeb_mail.py --write
+    uv run ark ingest jeb_mail_dated      data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+    uv run ark ingest jeb_mail_candidates data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
@@ -782,7 +805,7 @@ ship round="":
     until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
     echo "== exporting =="
     uv run ark export
-    echo "== twelve invariants =="
+    echo "== thirteen invariants =="
     uv run ark check
     # `package_delivery.sh` regenerates the report and refuses if it changed, so a
     # human reviews the diff. Doing it here instead makes `ship` a single pass: the

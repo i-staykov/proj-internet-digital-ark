@@ -1665,3 +1665,35 @@ against the current baseline and 252 EE against `merged260810`, a 91x spread, an
 revealed it was a grep over `feedback/*/merged*` and over our own journals, both in minutes.
 **Price a Usenet-lineage source against a reviewer cut from before our own collector last ran in
 that channel.**
+
+## `urlmerchant_inventory`: BANKED, a broker's whole for-sale inventory printed as static A-Z pages
+
+`https://web.archive.org/web/20010901000000id_/http://www.urlmerchant.com:80/domains/domain_a.html`
+(the letter series `domain_<a-z|0-9>[_<n>].html`, ~40 KB and 100 names a page; counts page
+`http://www.urlmerchant.com/statistics.html` at capture `20011231002753` states "Total Domain Names
+Listed: 156,122"). **What dates one page is its own generator stamp,
+`<META NAME="UPDATED" CONTENT="Tuesday, Jul 17 2001 1:19:41 AM">`, written by the program that
+printed the table out of URLMerchant's listings database, with the Wayback capture fixing when the
+archive saw it; the stamp is read per page and never inferred from the capture, so the 4 pages
+stamped 2002 are dropped whole.** Names are owner-submitted, so the corroboration split applies:
+**1,591.9 net-new post-split EE over 2,557 pairs, all 2001**, from 244 pages, 23,875 distinct
+domains and 14.2% held, the 20,492 novel names parking as candidates. **Why a 14% held-fraction
+paid: 75.6% of the held names were missing 2001**, because a broker's inventory is tail names the
+store only ever saw once. Screen on `held x P(missing the artifact's year)`, not on held alone.
+
+## `jeb_bush_gubernatorial_email`: BANKED at 3,546.1 EE, and the URL this row exists to record
+
+`https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z`, 411,928,998 bytes, sha256
+`821e796f7d9dcd0a5bcb08eaf70760d50f5296481f2175ac4ed45b3301f41f75`, 626 files, **505,927 messages
+dated inside the window** out of 2.4M. **What dates one item is the message block's own unindented
+`Sent:` line, `Sent:\tMonday, December 4, 2000 12:38 AM`, written by the sending mail client into
+the export, the same basis and the same evidence type as the banked `enron_email`.** The
+corroboration split applies, a person having typed most of the addresses: **3,546.1 net-new
+post-split EE over 5,692 pairs**, 90.8% of 57,934 distinct domains already held, 83.2% of the pairs
+adjacent-year corroborated, 2001 4,505 of them. Hosts are anchored on an `@`, a scheme or a `www.`
+label, because the wide pattern turns `Candace Rice.To tell the truth` into `rice.to` and cost
+200.8 EE of fabricated high-weight pairs. **This is the row the 2026-08-24 measurement at line 703
+should have carried and did not**: seven days unbanked with no URL recorded cost 264 EE to the
+store's own growth, and the hypothesis that inbound public mail beats outbound official mail is
+refuted with the sign reversed, `From:` 1,235.4 EE against `To:`/`Cc:` 1,410.3 EE, because the
+public writes in from AOL rather than from a domain it owns.
