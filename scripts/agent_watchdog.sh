@@ -16,8 +16,13 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 DEADLINE="${1:?usage: agent_watchdog.sh <deadline_epoch> [parallel]}"
-PAR="${2:-4}"
-COLLECTOR_DEADLINE="${3:-1787979600}"   # collectors outlive the agent, as always
+PAR="${2:-3}"
+# **Collectors outlive the agent, but never on a hardcoded epoch.** This default was the
+# literal 1787979600, which is 2026-08-29 07:00: by 2026-08-31 it was in the PAST, so any
+# restart that omitted the third argument would launch collectors that exited immediately
+# and look like a working collection. Derive it instead, so it cannot go stale: one hour
+# past the agent deadline, which lets a batch in flight finish and bank.
+COLLECTOR_DEADLINE="${3:-$((DEADLINE + 3600))}"
 LOG="data/logs/agent_watchdog.log"
 mkdir -p data/logs
 note() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
