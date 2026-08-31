@@ -224,6 +224,11 @@ sources:
     uv run python scripts/split_junkfilter.py --write
     uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
     uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
+    # Approved by Ivo on 2026-08-31: chastity-list at 14,229.0 EE, the largest single
+    # source in the triage queue. Same shape as junkfilter, so the split runs first.
+    uv run python scripts/split_chastity.py --write
+    uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
+    uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
     uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
     uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
     # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above

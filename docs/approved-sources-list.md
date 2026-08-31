@@ -387,111 +387,6 @@ enumeration is the worse shape at 0.208 pairs per query and is not the unit. **D
 2,410,144 undated pool**: that arm is measured and closed at 114 EE/hour, because 98.4% of the pool is
 `usenet_address_mention`, `usenet_mention` and `usenet_bare_mention` extraction and 600 sampled domains
 hit 5.17% against 97.5% on interleaved controls.
-### chastity_list_blacklist / dated_directory
-
-- measured: **14,229.0 net-new post-split EE over 24,927 (domain, year) pairs at 2001**, measured
-  2026-08-27 against `merged260827`. 136,743 list lines across 13 categories yield 97,937 distinct
-  registrable domains, of which **92,059 are already held, 94.0%**, and 24,927 are held with no 2001
-  record. **The split costs nothing here by construction**: the corroboration test is "another source
-  already places this domain in `domain_year`", which is exactly what "held" means, so every one of the
-  24,927 pairs sits on a corroborated domain. `.com` carries it at 20,149 pairs and 12,736.2 EE
-- what dates one item: **the tar member header written by tar, `Dec 14 2001`, on every file in the
-  archive**, plus per-date diff filenames inside the window that agree with it, for example
-  `db/ads/domains.20011124.diff` and `db/ads/urls.20011103.diff`. This is the same argument already
-  approved for the 1997 half of `junkfilter_dated_blocklist`, where a tar member header dated the
-  edition. A blocklist entry is a claim that the site is live and serving now
-- the artifact: `chastity-list_0.5.orig.tar.gz`, 720,609 bytes, from
-  `https://archive.debian.org/debian/pool/main/c/chastity-list/`. The chastity project's ACL files for
-  squidGuard, by Roy-Magne Mo. **Licence GNU GPL v2, verbatim in `COPYING`**, and the README carries
-  "Roy-Magne Mo, rmo@sunnmore.net, 2001". Staged at `data/raw/chastity/`
-- how it was found, since the method is the reusable part: `archive.debian.org` has no robots.txt, and
-  ONE request per release for `dists/<rel>/main/binary-i386/Packages.gz` indexes every package and
-  description in that release. Grepping the potato and woody indexes for blocklist-shaped descriptions
-  gave 41 and 81 candidates, and the largest in woody was this one at 701,038 bytes, described as
-  "blacklists for SquidGuard". **This is the `ls-lR` trick applied to a package archive.**
-- the sibling is out of window and is noted so nobody fetches it twice:
-  `chastity-list_0.5.20020928.orig.tar.gz` is stamped `Sep 28 2002`
-- ingest specs: not written. No parser is registered until this is decided
-- potential: 90
-
-Decision: pending
-
-### granitecanyon_zone_rejects / artifact_listing
-
-- measured: **1,732.9 net-new post-split EE over 3,059 (domain, year) pairs**, measured 2026-08-29 by
-  `scripts/price_items.py --all-tlds` against the live store (merged260827). 18,797 listed items give
-  17,049 distinct pairs over 16,979 domains, 6,777 already held, mean weight 0.5665, by year
-  {1999: 2,001, 2001: 1,058}, by TLD {com 1,613, net 407, org 300, ch 58, de 51, nu 49}, 7,213 pairs
-  and 6,828 names to the candidate pool, typo upper bound 57.1% (856 of 1,500). Pre-split is 10,272
-  pairs and 5,813.2 EE and **overstates by 3.4x, do not quote it**. An independent duckdb screen
-  sampling DISTINCT DOMAINS and not `domain_year` rows agrees to about 1%: stale_30Nov1999 13,199
-  distinct domains, 7,969 held-any (60.4%), 5,943 held at 1999, 2,026 held-and-missing-1999 against
-  price_items' 2,001; the 2001 ZoneRejects union 4,092 domains, 1,916 held-any (46.8%), 845 held at
-  2001, 1,071 held-and-missing-2001 against 1,058. The gap between the two routes is the TLDs with no
-  English weight. Split by edition: the 1999 list alone is 1,125.5 EE, the 2001 reject union alone
-  607.3 EE
-- the population does not collapse on the 2001 threshold, which is the reason to want it: P(lacks 2001
-  | held) measured here is com **0.5745**, net 0.6174, org 0.5113 against the store-wide law's 0.611 /
-  0.653 / 0.568, so within 6%, and yield per held name at 2001 is 607.3 / 1,916 = **0.317 EE** against
-  the 0.386 the law predicts for a held `com`. At 1999 the same names give com 0.2539, net 0.2273, org
-  0.2401, so a held name in a 2001 edition is worth 2.3x the same name in a 1999 edition
-- held-fraction, the pre-download discriminator: **60.4% and 46.8% held-any**, against 87 to 99% for
-  authority corpora, ~50% for blocklists, 98.4 to 99.6% for visitor logs and ~5% for forged-header
-  spam corpora. A zone is not a page, so no crawler reaches it through a link, and the artifact is not
-  head-selected: it is people who had a domain and no server
-- what dates one item: the list stamps its own generation instant in its bytes, `Rejected Zone List:
-  7-May-2001 22:11 GMT` on each ZoneRejects edition and status.shtml's "29 November 1999 ... here is
-  the list of pruned zones" for the prune file, and the IA capture fixes when the file existed. So one
-  row is Granite Canyon's nameserver holding that zone in its BIND configuration at that instant,
-  which is a machine's configuration record rather than a description of one. **The zone name was
-  typed by the customer into a submission form, so the corroboration split applies and only
-  already-held domains earn a year**, and the 1,732.9 above is already post-split. Killer 8 order: the
-  grounds are the self-stamp plus the capture, with the 60.4% / 46.8% overlap cited only afterwards as
-  a check
-- the artifact: seven objects, 1,567,653 B, **all already downloaded and nothing ingested**.
-  `https://web.archive.org/web/20010601000000id_/http://soa.granitecanyon.com/stale_30Nov1999.txt`
-  (205,787 B, 14,522 zone names) plus six in-window editions of
-  `https://web.archive.org/web/{20010223195457,20010508024101,20010611192639,20010626115208,20010901062251,20011204210150}id_/http://soa.granitecanyon.com/ZoneRejects/`
-  (193,389 / 212,935 / 215,340 / 222,405 / 245,087 / 272,710 B, 2,948 to 4,097 forward zone names each)
-- exhaustion, so nobody re-probes it: six ZoneRejects editions exist in 2001 and no more, fourteen
-  probes across 2001-01 to 2002-04 collapsing onto those six timestamps. A seventh edition dated
-  26-May-2002 (3,834 names) is **out of window and cannot date a year**. The predecessor
-  `zoneRejects.txt` is 9 names at 2000-03-03 and HTTP 403 at every later capture. Cost was 40
-  archive.org fetches, no other host touched, zero queries against web.archive.org/cdx
-- not a by-construction zero: no `granitecanyon` directory exists under `data/raw`, `docs/sources.md`
-  records no ingest of it, and what already dates the held names on a 400-domain sample is
-  `prior_task` 196, `usenet_announce` 48, `domain_creation_bulk` 33, `isc_survey` 33, `rdap_snapshot`
-  26. Prior art: `docs/sources.md` recorded "Granite Canyon secondary-DNS artifacts 1,881.1 EE
-  post-split against a 5,000 bar" on 2026-08-24 and kept no bytes and no URL, so it was not
-  reproducible. This request names the artifacts; 1,732.9 is that figure decayed by five days of
-  ingest since
-- how it was found, since the method is the reusable part: **when a service hides its inventory behind
-  a login, look for its ERROR LOG instead.** All four free-DNS operators refused to publish a customer
-  list (secondary.com 2001-05-16 behind `/auth/`, zoneedit.com 2001-06-04 behind `login.html`,
-  xname.org 2001-10-27 behind a per-zone password, freedns.com an empty Apache index); the one that
-  published a nightly list of the zones its BIND could not load gave away 4,369 names it never meant
-  to. Reject lists, prune lists, lame-delegation reports and stale-zone reports are machine-generated,
-  self-stamped and regenerated on a schedule, so every capture is a fresh dated edition. And the list
-  files were enumerated from `status.shtml`, the site's own dated changelog, at four captures spanning
-  1999 to 2002, rather than from a CDX prefix query
-- density per LISTED name, for the pre-download screen: **0.102 EE combined, 0.148 at 2001, 0.085 at
-  1999**, against the curated-directory floor of 0.005 to 0.017. So this class is 6x to 30x denser per
-  listed name than a human-curated directory, and the ~83,000-name floor that class demands becomes
-  about 7,000 to 12,000 names here
-- ingest specs: not written. No parser is registered until this is decided
-- unfetched increments, none of them counted above and neither of them this family: registry-scale
-  lame-delegation and stale-zone reports, the same artifact shape at 100x the population
-  (dailychanges.com's `LAME-DELEGATION.ORG` page paid 1,548 EE on this shape); and
-  `news.granitecanyon.com/soa.help`, a support newsgroup whose articles name the poster's own zone,
-  dated per article and on this same 46.8%-held population
-- potential: 88. Drivers: retrieved in full so no further network is needed, self-dating inside the
-  payload rather than on the capture alone, two independent measurement routes agreeing to 1%, and a
-  held-fraction and 2001 threshold that both land where the laws want them. Held below the 90s because
-  the family is closed at seven objects with no in-family expansion, 65% of the payout is the 1999
-  edition at 2.3x lower yield per name, and the split is load-bearing here rather than free
-
-Decision: pending
-
 ### ncua_5300_call_report_webaddr / artifact_listing
 
 - measured: 1328.31 net-new post-split EE over 1,998 (domain, year) pairs, measured 2026-08-25 over all
@@ -1555,6 +1450,115 @@ deliberate: a diff's `-` lines are removals, which evidence a host ceasing to an
 being live, so 35,230 of them are dropped. The earlier figure counted them. Also skipped:
 `squidguard-mail-domains`, the one file in the archive with no compile header, which is a
 hand-kept list of free-webmail providers rather than robot output.
+
+### chastity_list_blacklist / dated_directory
+
+- measured: **14,229.0 net-new post-split EE over 24,927 (domain, year) pairs at 2001**, measured
+  2026-08-27 against `merged260827`. 136,743 list lines across 13 categories yield 97,937 distinct
+  registrable domains, of which **92,059 are already held, 94.0%**, and 24,927 are held with no 2001
+  record. **The split costs nothing here by construction**: the corroboration test is "another source
+  already places this domain in `domain_year`", which is exactly what "held" means, so every one of the
+  24,927 pairs sits on a corroborated domain. `.com` carries it at 20,149 pairs and 12,736.2 EE
+- what dates one item: **the tar member header written by tar, `Dec 14 2001`, on every file in the
+  archive**, plus per-date diff filenames inside the window that agree with it, for example
+  `db/ads/domains.20011124.diff` and `db/ads/urls.20011103.diff`. This is the same argument already
+  approved for the 1997 half of `junkfilter_dated_blocklist`, where a tar member header dated the
+  edition. A blocklist entry is a claim that the site is live and serving now
+- the artifact: `chastity-list_0.5.orig.tar.gz`, 720,609 bytes, from
+  `https://archive.debian.org/debian/pool/main/c/chastity-list/`. The chastity project's ACL files for
+  squidGuard, by Roy-Magne Mo. **Licence GNU GPL v2, verbatim in `COPYING`**, and the README carries
+  "Roy-Magne Mo, rmo@sunnmore.net, 2001". Staged at `data/raw/chastity/`
+- how it was found, since the method is the reusable part: `archive.debian.org` has no robots.txt, and
+  ONE request per release for `dists/<rel>/main/binary-i386/Packages.gz` indexes every package and
+  description in that release. Grepping the potato and woody indexes for blocklist-shaped descriptions
+  gave 41 and 81 candidates, and the largest in woody was this one at 701,038 bytes, described as
+  "blacklists for SquidGuard". **This is the `ls-lR` trick applied to a package archive.**
+- the sibling is out of window and is noted so nobody fetches it twice:
+  `chastity-list_0.5.20020928.orig.tar.gz` is stamped `Sep 28 2002`
+- ingest specs: not written. No parser is registered until this is decided
+- potential: 90
+
+- approved by Ivo on 2026-08-31, with `sec_edgar_filings` moved to the back of the queue
+
+Decision: master
+
+### granitecanyon_zone_rejects / artifact_listing
+
+- measured: **1,732.9 net-new post-split EE over 3,059 (domain, year) pairs**, measured 2026-08-29 by
+  `scripts/price_items.py --all-tlds` against the live store (merged260827). 18,797 listed items give
+  17,049 distinct pairs over 16,979 domains, 6,777 already held, mean weight 0.5665, by year
+  {1999: 2,001, 2001: 1,058}, by TLD {com 1,613, net 407, org 300, ch 58, de 51, nu 49}, 7,213 pairs
+  and 6,828 names to the candidate pool, typo upper bound 57.1% (856 of 1,500). Pre-split is 10,272
+  pairs and 5,813.2 EE and **overstates by 3.4x, do not quote it**. An independent duckdb screen
+  sampling DISTINCT DOMAINS and not `domain_year` rows agrees to about 1%: stale_30Nov1999 13,199
+  distinct domains, 7,969 held-any (60.4%), 5,943 held at 1999, 2,026 held-and-missing-1999 against
+  price_items' 2,001; the 2001 ZoneRejects union 4,092 domains, 1,916 held-any (46.8%), 845 held at
+  2001, 1,071 held-and-missing-2001 against 1,058. The gap between the two routes is the TLDs with no
+  English weight. Split by edition: the 1999 list alone is 1,125.5 EE, the 2001 reject union alone
+  607.3 EE
+- the population does not collapse on the 2001 threshold, which is the reason to want it: P(lacks 2001
+  | held) measured here is com **0.5745**, net 0.6174, org 0.5113 against the store-wide law's 0.611 /
+  0.653 / 0.568, so within 6%, and yield per held name at 2001 is 607.3 / 1,916 = **0.317 EE** against
+  the 0.386 the law predicts for a held `com`. At 1999 the same names give com 0.2539, net 0.2273, org
+  0.2401, so a held name in a 2001 edition is worth 2.3x the same name in a 1999 edition
+- held-fraction, the pre-download discriminator: **60.4% and 46.8% held-any**, against 87 to 99% for
+  authority corpora, ~50% for blocklists, 98.4 to 99.6% for visitor logs and ~5% for forged-header
+  spam corpora. A zone is not a page, so no crawler reaches it through a link, and the artifact is not
+  head-selected: it is people who had a domain and no server
+- what dates one item: the list stamps its own generation instant in its bytes, `Rejected Zone List:
+  7-May-2001 22:11 GMT` on each ZoneRejects edition and status.shtml's "29 November 1999 ... here is
+  the list of pruned zones" for the prune file, and the IA capture fixes when the file existed. So one
+  row is Granite Canyon's nameserver holding that zone in its BIND configuration at that instant,
+  which is a machine's configuration record rather than a description of one. **The zone name was
+  typed by the customer into a submission form, so the corroboration split applies and only
+  already-held domains earn a year**, and the 1,732.9 above is already post-split. Killer 8 order: the
+  grounds are the self-stamp plus the capture, with the 60.4% / 46.8% overlap cited only afterwards as
+  a check
+- the artifact: seven objects, 1,567,653 B, **all already downloaded and nothing ingested**.
+  `https://web.archive.org/web/20010601000000id_/http://soa.granitecanyon.com/stale_30Nov1999.txt`
+  (205,787 B, 14,522 zone names) plus six in-window editions of
+  `https://web.archive.org/web/{20010223195457,20010508024101,20010611192639,20010626115208,20010901062251,20011204210150}id_/http://soa.granitecanyon.com/ZoneRejects/`
+  (193,389 / 212,935 / 215,340 / 222,405 / 245,087 / 272,710 B, 2,948 to 4,097 forward zone names each)
+- exhaustion, so nobody re-probes it: six ZoneRejects editions exist in 2001 and no more, fourteen
+  probes across 2001-01 to 2002-04 collapsing onto those six timestamps. A seventh edition dated
+  26-May-2002 (3,834 names) is **out of window and cannot date a year**. The predecessor
+  `zoneRejects.txt` is 9 names at 2000-03-03 and HTTP 403 at every later capture. Cost was 40
+  archive.org fetches, no other host touched, zero queries against web.archive.org/cdx
+- not a by-construction zero: no `granitecanyon` directory exists under `data/raw`, `docs/sources.md`
+  records no ingest of it, and what already dates the held names on a 400-domain sample is
+  `prior_task` 196, `usenet_announce` 48, `domain_creation_bulk` 33, `isc_survey` 33, `rdap_snapshot`
+  26. Prior art: `docs/sources.md` recorded "Granite Canyon secondary-DNS artifacts 1,881.1 EE
+  post-split against a 5,000 bar" on 2026-08-24 and kept no bytes and no URL, so it was not
+  reproducible. This request names the artifacts; 1,732.9 is that figure decayed by five days of
+  ingest since
+- how it was found, since the method is the reusable part: **when a service hides its inventory behind
+  a login, look for its ERROR LOG instead.** All four free-DNS operators refused to publish a customer
+  list (secondary.com 2001-05-16 behind `/auth/`, zoneedit.com 2001-06-04 behind `login.html`,
+  xname.org 2001-10-27 behind a per-zone password, freedns.com an empty Apache index); the one that
+  published a nightly list of the zones its BIND could not load gave away 4,369 names it never meant
+  to. Reject lists, prune lists, lame-delegation reports and stale-zone reports are machine-generated,
+  self-stamped and regenerated on a schedule, so every capture is a fresh dated edition. And the list
+  files were enumerated from `status.shtml`, the site's own dated changelog, at four captures spanning
+  1999 to 2002, rather than from a CDX prefix query
+- density per LISTED name, for the pre-download screen: **0.102 EE combined, 0.148 at 2001, 0.085 at
+  1999**, against the curated-directory floor of 0.005 to 0.017. So this class is 6x to 30x denser per
+  listed name than a human-curated directory, and the ~83,000-name floor that class demands becomes
+  about 7,000 to 12,000 names here
+- ingest specs: not written. No parser is registered until this is decided
+- unfetched increments, none of them counted above and neither of them this family: registry-scale
+  lame-delegation and stale-zone reports, the same artifact shape at 100x the population
+  (dailychanges.com's `LAME-DELEGATION.ORG` page paid 1,548 EE on this shape); and
+  `news.granitecanyon.com/soa.help`, a support newsgroup whose articles name the poster's own zone,
+  dated per article and on this same 46.8%-held population
+- potential: 88. Drivers: retrieved in full so no further network is needed, self-dating inside the
+  payload rather than on the capture alone, two independent measurement routes agreeing to 1%, and a
+  held-fraction and 2001 threshold that both land where the laws want them. Held below the 90s because
+  the family is closed at seven objects with no in-family expansion, 65% of the payout is the 1999
+  edition at 2.3x lower yield per name, and the split is load-bearing here rather than free
+
+- approved by Ivo on 2026-08-31, with `sec_edgar_filings` moved to the back of the queue
+
+Decision: master
 
 ### uk_historic_hansard / dated_directory
 

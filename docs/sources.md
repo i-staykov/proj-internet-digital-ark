@@ -1249,3 +1249,51 @@ defacement date falls outside 1996-2001), and four US federal registers whose we
 are current-state rather than dated, `fac_single_audit_candidates`, `fac_cpa_firm_candidates`,
 `imls_library_survey_candidates` and `ncua_call_report_candidates`. **A current-state snapshot cannot
 evidence a past year**, which is why all four are pools and not sources.
+
+---
+
+## `chastity_list_blacklist`: BANKED on a tar member header, ranked first in the triage queue
+
+**The link, and the terms.** `https://archive.debian.org/debian/pool/main/c/chastity-list/chastity-list_0.5.orig.tar.gz`,
+720,609 bytes, staged at `data/raw/chastity/`. The chastity project's category ACL files for
+squidGuard, by Roy-Magne Mo. **Licence GNU GPL v2, verbatim in `COPYING`**, so redistribution and
+derivative use are granted outright; `archive.debian.org` serves no robots.txt (HTTP 404), and the
+file was fetched with one request against a host that publishes no restriction.
+
+**Why it meets the standard.** What dates one item is a stamp a program wrote inside the artifact:
+**the tar member header `Dec 14 2001`, carried by every one of the 258 members of the orig tarball**,
+corroborated from inside by 209 per-date diff filenames running `domains.20010813.diff` through
+`domains.20011201.diff`, monotone and all in window. That is the identical argument already approved
+for the 1997 half of `junkfilter_dated_blocklist`, so no new evidence class is invented. Class
+`dated_directory`, master-eligible. A blocklist entry is a claim the host was live and serving when
+the maintainer wrote it down, which is an assertion about a state at an instant the artifact stamps
+itself, and rule 6 is respected because the edition evidences 2001 and no other year.
+
+**The split is applied and costs almost nothing here, by construction.** The list is hand-maintained,
+so the name is a person's typing and takes the corroboration split. `scripts/split_chastity.py`
+applies the strict predicate, that the domain already carries an assigned year in `domain_year`, and
+writes two lanes: **92,068 of 97,937 distinct registrable domains are corroborated, 94.0%**, and the
+remaining 5,869 park as `link_target` candidates that date nothing. The measured yield sits on the
+corroborated lane because "held" and "corroborated" are the same test.
+
+**Measurement**: 136,885 base list lines across 13 categories yield 97,937 distinct registrable
+domains, of which 24,927 are held with no 2001 record, **14,229.0 net-new post-split EE at 2001**,
+`.com` carrying it at 20,149 pairs and 12,736.2 EE. Reproduced on 2026-08-31 against the live store
+at 97,937 / 92,068 / 94.0% against the 2026-08-27 reading of 97,937 / 92,059 / 94.0%, the nine-domain
+drift being five days of ingest.
+
+**Do not re-price this population at an earlier year.** The same names read naively at
+held-in-any-year-and-missing-Y give 45,506 at 1999 and 12,699 at 2000, against 323 and 329 on the
+adjacent screen: the naive figure overstates 1999 headroom **141x** and 2000 headroom **39x**, because
+a blacklist's population was registered in the two years before its compile, so the store's gap at
+those years is non-existence rather than missing data. squidGuard reproduced the same effect
+independently at 167x. The out-of-window sibling `chastity-list_0.5.20020928.orig.tar.gz` is stamped
+`Sep 28 2002` and cannot date a year; the whole SourceForge release history is three December 2001
+releases, so no earlier edition exists to find.
+
+**How it was found, since the method outranks the source.** **ONE request per Debian release for
+`dists/<rel>/main/binary-i386/Packages.gz` indexes every package name, version, size and description
+in that release**, which is the `ls-lR` trick applied to a package archive and turns a whole
+distribution into an offline grep. Grepping the potato and woody indexes for blocklist-shaped
+descriptions gave 41 and 81 candidates; the largest in woody was this one, 701,038 bytes, described
+as "blacklists for SquidGuard".
