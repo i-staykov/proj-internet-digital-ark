@@ -593,21 +593,6 @@ Decision: pending
 
 Decision: pending
 
-### cctld_register_listing_capture / cdx_timestamp
-
-- measured: 3496.0 net-new post-split EE over 6,996 pairs across four registries, same provenance and
-  same caveat as the entry above
-- what dates one item: the Wayback capture stamp, since these editions carry no in-body date, and a
-  register listing is the registry stating what stood in it when the crawler took the page
-- the artifacts, one line each. **NIC Malta `.mt` register**, 1,624 pairs, **1,470.5 EE** at 0.9055, the
-  highest weight in this batch. **SaudiNIC `AllSA`**, 2,944 pairs, **1,506.4 EE** at 0.5117, of which
-  2,654 names are absent from the store in every year. **ISOC-IL `.il` 1998 register**, 1,915 pairs,
-  **375.0 EE** at 0.1958, and only 641 of its 7,315 names are new, so `.il` 1998 is already well covered.
-  **`.nu` `notrenewed.cfm`**, 517 pairs, **144.1 EE** at 0.2787
-- potential: 56
-
-Decision: pending
-
 ### truste_licensee_roster / artifact_listing
 
 - measured: **115.1 net-new post-split EE over 184 (domain, 2001) pairs**, 2026-08-27 against
@@ -2068,6 +2053,23 @@ months of 72 and everything before was paper that was never digitised. Density i
 pairs per filing, which beats the 0.042 prose ceiling. The monthly IAPD compilation series that covers
 more advisers starts at **June 2006** and is a current-state snapshot, so killer 4 closes the reopen
 route. The free-text `Schedule_D_Miscellaneous` adds **0.63 EE** over 72,468 rows.
+
+### cctld_register_listing_capture / cdx_timestamp
+
+- measured: 3496.0 net-new post-split EE over 6,996 pairs across four registries, same provenance and
+  same caveat as the entry above
+- what dates one item: the Wayback capture stamp, since these editions carry no in-body date, and a
+  register listing is the registry stating what stood in it when the crawler took the page
+- the artifacts, one line each. **NIC Malta `.mt` register**, 1,624 pairs, **1,470.5 EE** at 0.9055, the
+  highest weight in this batch. **SaudiNIC `AllSA`**, 2,944 pairs, **1,506.4 EE** at 0.5117, of which
+  2,654 names are absent from the store in every year. **ISOC-IL `.il` 1998 register**, 1,915 pairs,
+  **375.0 EE** at 0.1958, and only 641 of its 7,315 names are new, so `.il` 1998 is already well covered.
+  **`.nu` `notrenewed.cfm`**, 517 pairs, **144.1 EE** at 0.2787
+- potential: 56
+
+- approved by Ivo on 2026-08-31; refetched and repriced from the bytes at 2,450.2 EE
+
+Decision: master
 
 ### can_domain_registry_notices / whois_creation
 
