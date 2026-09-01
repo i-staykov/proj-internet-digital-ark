@@ -29,7 +29,10 @@ while IFS= read -r parent; do
     fi
     echo "=== $parent ==="
     uv run python "$SWEEP" "$parent" --deadline "$DEADLINE" --delay 2.0 || {
+        # a refused or throttled parent is queued again rather than lost; walk
+        # the retry file once the queue is done
         echo "$parent: sweep exited non-zero, moving on"
+        echo "$parent" >> data/raw/cdx/platform_retry.txt
     }
 done < "$PARENTS"
 echo "queue walked"
