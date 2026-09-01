@@ -137,6 +137,12 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     : "${ARK_VPS:?set ARK_VPS}"
     rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
     uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
+    # the platform sweep's raw capture journals become hostname records (the second
+    # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
+    # through cdx_suffix_convert.py by hand when a sweep completes, not per bank,
+    # because the converter re-emits everything under a fresh tag on every run.
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
     # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
     uv run ark export >/dev/null && uv run ark check | tail -1
     rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"

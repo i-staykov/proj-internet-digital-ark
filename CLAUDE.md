@@ -4,6 +4,16 @@ Rebuild the list of domains that existed 1996-2001 for Prof. Ding. Scored on **e
 each `(domain, year)` counts its TLD's English share. `.uk` 0.9813, `.com` 0.6321, `.net` 0.4530,
 `.de` 0.1324. Non-English ccTLDs are worthless.
 
+**Two output units since 2026-09-01, when Ding accepted the hostname question**: registrable
+domains stay the PRIORITIZED unit ("valuable high-coverage query seeds", his words), and every
+distinct evidence-backed VALID hostname beneath a held registrable is retained too, shipped as
+separate `NNNN_hostnames.txt` files he merges or discards. Same evidence wall: `hostname_year`
+foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals
+(`{url, timestamp}` lines), and two checks gate it. His calculator counts hostnames at full
+TLD weight. The platform sweep (`scripts/engines/platform_sweep.sh` on the VPS, pause flag
+`/tmp/ark-pause-sweeps`) walks `matchType=domain` over the parents ranked by
+`rank_platform_parents.py`; it holds the second archive-client slot, gaploc stood down.
+
 **Where the round stands is in `docs/ROUND.md`, which is generated. Never state it here.**
 Round 6 crossed the 5% gate on 2026-08-26. The task does not end at a gate: keep collecting until the
 discoverable sources are exhausted, and submit early, because percentages add and the denominator grows.

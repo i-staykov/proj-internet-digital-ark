@@ -220,6 +220,32 @@ def ingest_cmd(
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
 
 
+@app.command(name="ingest-hostnames")
+def ingest_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Raw capture journals ({url, timestamp} lines) or directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year from raw CDX capture journals (second output unit).
+
+    Accepted by the reviewer 2026-09-01: hostnames are annual records beside
+    registrables. Evidence class is the approved cdx_timestamp; a hostname that is
+    its own registrable is refused here because it belongs to domain_year.
+    Idempotent per file. Example: ark ingest-hostnames data/raw/cdx_suffix/
+    """
+    from ark.hostnames import ingest_hostname_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        ingest_hostname_dir(conn, path)
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
