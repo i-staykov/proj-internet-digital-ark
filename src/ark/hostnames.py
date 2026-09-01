@@ -235,3 +235,164 @@ def ingest_hostname_dir(
     totals["files_seen"] = len(files)
     logger.info(f"hostnames: {dict(totals)}")
     return dict(totals)
+
+
+# The second hostname corpus inside an InterNIC zone file: the nameserver a delegation
+# points AT. `parse_internic_zone` reads only the owner of an NS record and discards
+# the target on purpose, because at registrable grain the target collapses to its
+# operator, which the store already holds (register, 2026-08-29: 14,573 domains,
+# 99.28% held at 1997). At hostname grain the same right-hand sides are 90% absent:
+# `ns1.`/`ns2.` hosts are exactly what a web crawler never fetches. Same bytes, same
+# SOA serial, same `artifact_listing` class Ivo decided master on 2026-08-24.
+ZONE_SOURCE_NAME = "internic_zone_hostnames"
+ZONE_METHOD = "internic_zone_ns_target"
+# The Wayback capture that fixes when each 1997 file existed; the SOA serial inside the
+# payload is what dates the records, the capture only says the file was there two days
+# later. Files without a recorded capture get no URL, exactly as `internic_zone` rows do.
+ZONE_CAPTURE_URLS = {
+    "org.zone.gz": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz",
+    "edu.zone.gz": "https://web.archive.org/web/19970420112952id_/http://nic.mil/oroot.html/edu.zone.gz",
+    "gov.zone.gz": "https://web.archive.org/web/19970420113002id_/http://nic.mil/oroot.html/gov.zone.gz",
+}
+
+
+def zone_ns_targets(path: Path, counts: Counter[str]) -> dict[str, str]:
+    """hostname -> parent registrable for every NS target in one zone file.
+
+    Indexed by the `NS` type token rather than by column, because a continuation line
+    carries no owner and its first token is the TTL. Targets that are themselves
+    registrables belong to `domain_year` and are counted, not kept.
+    """
+    from ark.sources import _open_text
+
+    parents: dict[str, str] = {}
+    with _open_text(path) as fh:
+        for line in fh:
+            tokens = line.split()
+            idx = next((i for i in range(1, min(5, len(tokens))) if tokens[i] == "NS"), None)
+            if idx is None or idx + 1 >= len(tokens):
+                continue
+            counts["ns_records"] += 1
+            host = tokens[idx + 1].rstrip(".").lower()
+            if host in parents:
+                continue
+            if not _VALID_HOST.match(host):
+                counts["rejected_host"] += 1
+                continue
+            reg = to_registrable(host)
+            if reg is None:
+                counts["rejected_host"] += 1
+            elif reg == host:
+                counts["registrable_row"] += 1
+            else:
+                parents[host] = reg
+    return parents
+
+
+def ingest_zone_hostnames(
+    conn: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, int | str | bool]:
+    """One InterNIC zone file's NS targets into hostname_year, idempotently."""
+    from ark import approvals
+    from ark.sources import _internic_zone_header, _serial_of
+
+    stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    already = conn.execute(
+        "SELECT count(*) FROM ingested_file WHERE source_name LIKE ? AND file_name = ?",
+        [ZONE_SOURCE_NAME + "%", path.name],
+    ).fetchone()[0]
+    if already:
+        stats["skipped"] = True
+        logger.info(f"{path.name}: already ingested, skipping")
+        return stats
+    header = _internic_zone_header(path)
+    if header is None or header[1] not in YEARS:
+        stats["out_of_window_file"] = 1
+        logger.info(f"{path.name}: no in-window SOA serial, skipping")
+        return stats
+    apex, year = header
+    # One source row per zone year, because the two lanes stand on different terms: the
+    # 1997 files are the nic.mil captures Ivo decided on, the 1999 files came off a
+    # mirror whose refusal is still unresolved in the register, so they wait for their
+    # own Decision line and the 1997 approval cannot be borrowed for them.
+    source_name = ZONE_SOURCE_NAME if year == 1997 else f"{ZONE_SOURCE_NAME}_{year}"
+    approvals.check(source_name, "artifact_listing")
+    zone = apex.lower() or "root"
+    serial = _serial_of(path)
+    counts: Counter[str] = Counter()
+    parents = zone_ns_targets(path, counts)
+    rows = [(host, parents[host], year) for host in sorted(parents)]
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    if rows:
+        source_id = ensure_source(conn, source_name, "timestamped")
+        prefix = f"internic {zone} zone serial {serial} NS "
+        conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS zonehost (hostname TEXT, parent TEXT, year INTEGER)"
+        )
+        conn.execute("DELETE FROM zonehost")
+        conn.executemany("INSERT INTO zonehost VALUES (?, ?, ?)", rows)
+        conn.execute(
+            r"""
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+            FROM zonehost
+            """,
+            [source_id],
+        )
+        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                  evidence_value, evidence_url, acquisition_method)
+            SELECT z.parent, ?, z.year, 'artifact_listing', ? || z.hostname, ?, ?
+            FROM zonehost z
+            LEFT JOIN hostname_year hy
+              ON hy.hostname = z.hostname AND hy.assigned_year = z.year
+            WHERE hy.hostname IS NULL
+            """,
+            [source_id, prefix, ZONE_CAPTURE_URLS.get(path.name), ZONE_METHOD],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hostname_year
+                (hostname, parent_domain, assigned_year, evidence_id)
+            SELECT z.hostname, z.parent, z.year, e.evidence_id
+            FROM zonehost z
+            JOIN evidence e
+              ON e.domain = z.parent AND e.evidence_year = z.year
+             AND e.evidence_value = ? || z.hostname
+            """,
+            [prefix],
+        )
+        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        stats["hostname_year_rows"] = after - before
+        # The registry serving `ns1.foo.com` for a delegation is also its statement
+        # that foo.com existed that day, the same class at registrable grain, so the
+        # parent earns its year from the same row (the check `nothing_earned_is_left_
+        # unassigned` requires it). Almost all are already held; the rest are the 63
+        # pairs the 2026-08-29 registrable-grain measurement found and closed on yield.
+        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+            SELECT e.domain, e.evidence_year, min(e.evidence_id)
+            FROM evidence e
+            JOIN zonehost z ON e.domain = z.parent AND e.evidence_year = z.year
+             AND e.evidence_value = ? || z.hostname
+            GROUP BY e.domain, e.evidence_year
+            """,
+            [prefix],
+        )
+        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        stats["parent_year_rows"] = dy_after - dy_before
+        conn.execute("DELETE FROM zonehost")
+    else:
+        stats["hostname_year_rows"] = 0
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?)",
+        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats

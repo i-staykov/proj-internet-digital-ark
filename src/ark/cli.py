@@ -246,6 +246,29 @@ def ingest_hostnames_cmd(
         ingest_hostname_dir(conn, path)
 
 
+@app.command(name="ingest-zone-hostnames")
+def ingest_zone_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(help="InterNIC zone files (`*.zone.gz`).", exists=True, readable=True),
+    ],
+) -> None:
+    """Fill hostname_year with the nameserver TARGETS of an InterNIC zone file.
+
+    `ark ingest internic_zone` records the delegated names; this records the hosts
+    they point at, which a web crawl never fetches. Dated by the zone's own SOA
+    serial, class artifact_listing, idempotent per file. Admitted 2026-09-02 under
+    the standing rule. Example: ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz
+    """
+    from ark.hostnames import ingest_zone_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        stats = ingest_zone_hostnames(conn, path)
+        typer.echo(str(stats))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

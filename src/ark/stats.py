@@ -90,6 +90,10 @@ PROVENANCE_LINEAGE = {
     # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
     # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
+    # The NS targets of the same zone files, at hostname grain (2026-09-02). Same
+    # registry statement read one column to the right, so the same lineage.
+    "internic_zone_hostnames": "registry",
+    "internic_zone_hostnames_1999": "registry",
     "iedr_register": "registry",
     # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
     # so it shares the registry lineage rather than earning its own: a pair this and a
