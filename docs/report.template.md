@@ -29,11 +29,18 @@ row gives what dates one item and where the artifact is, so any of them can be o
 
 [NEW_SOURCES_TABLE]
 
-**Two of these need a sentence.** `ripe_dbase_1999` is used with the written permission of the RIPE
-NCC, gratefully acknowledged, and only the domain name is read from it: no contact, address or other
-personal data. `ripe_dbase_changed` reads a second attribute of that same file, the dated `changed:`
-line each object carries per update; an object cannot be modified before it exists, so the line
-evidences that year and no other, which is what rule 6 asks for and a creation date cannot give.
+**One of these needs a story, because the method is the finding.** `nypw_timemaps` (the Internet
+Archive's "Not Your Parents' Web" TimeMaps, CC BY 4.0) had been REJECTED in an earlier round at
+14.2 equivalent-English, measured on its 1996 folder. A dedicated review lane, whose whole job is
+re-reading closed verdicts whenever a measurement screen is retired, noticed that the folder year is
+the year of FIRST capture, so the 1996 folder is precisely the corpus's most saturated slice. Re-tested
+at the other end of the partition and then measured folder by folder from the ingest ledger's own
+per-file counts, the source paid ~88,000 equivalent-English across 34 parts: year rows per million
+records run 2000 ~24,000, 1999 ~10,000, 1997 ~1,500, 1996 ~640, 2001 exactly 4. Both the original
+rejection and the reopening were correct about their own slice, which is the transferable lesson: a
+partitioned corpus is measured per partition, never argued about. The same discipline caught an
+agent's later claim that the 2001 folder was the real seam, wrong by four orders of magnitude
+against the ledger, before it cost a single download.
 
 `sources.md` ships beside this report and carries every source, admitted and rejected, with the
 argument that dates its items. The rules deciding what counts as one valid, non-duplicated addition
@@ -58,6 +65,23 @@ evidence** and ship as `candidates.txt`, kept out of the annual files.
 
 The system runs unattended for hours at a time and **never assigns a year on its own judgement**.
 That split is the design, and it is what makes the output checkable.
+
+**New this round: the loop left the laptop.** Research now runs as scheduled workflows on a
+self-hosted CI runner on a small always-on machine: researcher waves twice daily (several
+hypotheses per agent, dealt best-first), a re-opener lane that re-reads closed verdicts whenever a
+measurement screen is retired (it found this round's largest source on its first run), and a weekly
+one-page digest. Every agent invocation passes one shared boundary that enforces what a print-mode
+agent cannot be trusted to remember: a hard timeout, session-scheduling tools disabled, a fallback
+verdict when no findings file appears, and per-run token telemetry feeding a budget governor that
+skips waves above a set share of the weekly window. The mechanical half of banking, register rows
+and result lines, is now deterministic code rather than a model; a model is spent only where
+judgement pays: proposing, testing, and admitting under the standing rule. The human's remaining
+touchpoints are deliberate: a `bank` command on the machine that holds the evidence store, approval
+of anything the standing rule cannot cover, and submissions. Two proofs the contract holds from its
+first unattended day: an agent census-priced a 26.6 GB Usenet hierarchy from 0.4% of its bytes and
+closed it at 2.59 equivalent-English, and another read a national web archive's terms of use and
+refused to send a single probe, which is exactly the failure mode that once cost this project 7,586
+equivalent-English on `.nz` WHOIS.
 
 **What worked and what did not.** One clear written objective from the supervisor, then unattended
 running, worked: it is how this round's sources were found. Detached collectors holding an absolute

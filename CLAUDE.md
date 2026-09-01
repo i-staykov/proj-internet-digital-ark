@@ -179,6 +179,9 @@ what survives the split we already hold. Ask whether the lister held the databas
   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
 - `ark export` before `ark check`. Never edit `docs/SPEC.md`, `docs/report.md`, frozen `submissions/`.
 - `private/` never ships. **Big data must never reach git.**
+- **The report is drafted as findings land, never reconstructed later**: a five-figure
+  source banks together with its paragraph in `docs/report.template.md`. `README.md`
+  stays a one-screen front page; the runbook lives in `docs/operations.md`.
 - Two archive clients maximum. Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
 - Collectors take an absolute deadline and outlive the session. Restart a loop after editing what it imports.
 
