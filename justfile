@@ -128,9 +128,15 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     git push -q origin live
     (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
     mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
-    # 5. Refresh the VPS pricing snapshot so the next wave prices against today.
+    # 5. Bring the VPS collectors' journals home and bank them: this replaced the
+    # continuous pull loop when the laptop's role became episodic (fleet plan, D3).
     ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
-    rsync -a output/netnew/ "${ARK_VPS:?set ARK_VPS}":/projects/ark-data/netnew/ && echo "ark-data refreshed"
+    : "${ARK_VPS:?set ARK_VPS}"
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
+    # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
+    uv run ark export >/dev/null && uv run ark check | tail -1
+    rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
 
 cycle *args:
