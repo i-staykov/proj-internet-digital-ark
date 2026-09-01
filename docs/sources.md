@@ -209,10 +209,17 @@ Decision block in `docs/approved-sources-list.md`.
 
 Any corpus of raw capture rows this project already holds re-prices under the hostname
 unit, because the registrable ingest collapsed the host and the hostname ingest keeps it.
-First two: the 180 suffix-sweep journals (banked 2026-09-01, 338,865 records), and the
-NYPW TimeMap parts (`scripts/sources/nypw/nypw_hostgrain.py` converts the CDX rows to
-capture lines; same artifact, same link, same `cdx_timestamp` class as the registrable
-NYPW entries below). Figures land in the register when measured.
+Measured 2026-09-01, all against the merged260901 baseline files and scored with the
+reviewer's own calculator (zero invalid records): the 180 suffix-sweep journals of
+August wrote 384,700 hostname rows; the NYPW TimeMap parts at hostname grain
+(`scripts/sources/nypw/nypw_hostgrain.py`, same artifact and link as the registrable
+NYPW entries below) wrote **4,223,217 rows, the largest single reprice this project has
+made**; the first night of platform sweeps (cjb.net 882k capture rows, demon.co.uk 56.6 MB,
+freeserve.co.uk and onward per `data/raw/cdx/platform_queue_{a,b}.txt`) wrote 725,337.
+Shipped together: **4,872,448 net-new hostname records, 2,749,488.7901 EE**, 93.6% of them
+`www.` forms of held registrables, disclosed as such. privatedances.co.uk closed at 0 CDX
+captures in one probe; cjb.net stopped on HTTP 400 after 20 pages (882,229 rows) and is not
+marked done, so a later pass re-verifies whether the namespace is exhausted.
 
 ## `ia_cdx_bulk`: Wayback CDX verification engine
 
