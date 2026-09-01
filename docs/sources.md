@@ -205,6 +205,15 @@ change repriced bytes already on disk. Exports: `output/netnew/NNNN_hostnames.tx
 plus `hostnames_evidence_manifest.csv`. Admitted under the standing rule of 2026-08-29;
 Decision block in `docs/approved-sources-list.md`.
 
+### The same journals at hostname grain
+
+Any corpus of raw capture rows this project already holds re-prices under the hostname
+unit, because the registrable ingest collapsed the host and the hostname ingest keeps it.
+First two: the 180 suffix-sweep journals (banked 2026-09-01, 338,865 records), and the
+NYPW TimeMap parts (`scripts/sources/nypw/nypw_hostgrain.py` converts the CDX rows to
+capture lines; same artifact, same link, same `cdx_timestamp` class as the registrable
+NYPW entries below). Figures land in the register when measured.
+
 ## `ia_cdx_bulk`: Wayback CDX verification engine
 
 A query engine, not a file: one collapsed CDX query per domain covering all six years, run against domains missing a year they are bracketed by. Endpoint <https://web.archive.org/cdx/search/cdx>; the response journals ship under `journals/`, so ingest replays offline.

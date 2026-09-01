@@ -279,11 +279,22 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 #
 # One expression for the copy and for the count guard at the bottom, so the two cannot
 # disagree about what should be present.
+# **Four more size exclusions, same argument as the RDAP logs (2026-09-01).** The Usenet
+# extraction journals (usenet_addr 8.4 GB, usenet_bare 1.8 GB) are our own extractors'
+# output over archive.org mboxes the register links, so they re-derive offline; the raw
+# platform-sweep journals (cdx_suffix, 0.8 GB) and the NYPW hostname-grain conversions
+# (0.3 GB) re-derive the same way. Together they pushed the archive from 1.9 GB to
+# 13 GB. Every assignment they back is in the provenance Parquet (tier 2), which
+# `verify.sh` tests. Available on request.
 journal_paths() {
     find data/raw -name '*.jsonl.gz' \
         -not -path '*/superseded/*' \
         -not -path 'data/raw/rdap/*' \
-        -not -path 'data/raw/rdap_pool/*' "$@"
+        -not -path 'data/raw/rdap_pool/*' \
+        -not -path 'data/raw/usenet_addr/*' \
+        -not -path 'data/raw/usenet_bare/*' \
+        -not -path 'data/raw/cdx_suffix/*' \
+        -not -path 'data/raw/nypw_hostgrain/*' "$@"
 }
 if [ -z "${ARK_SLIM:-}" ]; then
     journal_paths -print0 \
