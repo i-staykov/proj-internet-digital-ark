@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 _SPEC = importlib.util.spec_from_file_location(
-    "probe_source", Path(__file__).resolve().parents[1] / "scripts" / "probe_source.py"
+    "probe_source", Path(__file__).resolve().parents[1] / "scripts/pricing/probe_source.py"
 )
 probe = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(probe)

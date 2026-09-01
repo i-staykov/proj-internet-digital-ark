@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # invoked by a script rather than by the justfile. Each needs a reason, because an empty
 # allowance list is the only version of this test worth having and every entry weakens it.
 ALLOWED_UNDOCUMENTED = {
-    # Written by `scripts/build_promotion_journals.py --write`, which is documented in
+    # Written by `scripts/engines/build_promotion_journals.py --write`, which is documented in
     # README.md under its own row and takes a `--tag` rather than a fixed path.
     "promotion",
     # Measured and REJECTED on 2026-08-01: 6,281,952 lines for 60 net-new pairs, a

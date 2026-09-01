@@ -25,7 +25,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "probe_texts_corpus",
-    Path(__file__).resolve().parent.parent / "scripts" / "probe_texts_corpus.py",
+    Path(__file__).resolve().parent.parent / "scripts/pricing/probe_texts_corpus.py",
 )
 texts = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(texts)

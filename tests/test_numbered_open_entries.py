@@ -11,7 +11,7 @@ import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("dc", ROOT / "scripts" / "discover_cycle.py")
+spec = importlib.util.spec_from_file_location("dc", ROOT / "scripts/harness/discover_cycle.py")
 dc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dc)
 

@@ -19,7 +19,7 @@ from ark.db import connect, init_db
 
 _SPEC = importlib.util.spec_from_file_location(
     "audit_residual",
-    Path(__file__).resolve().parents[1] / "scripts" / "audit_residual.py",
+    Path(__file__).resolve().parents[1] / "scripts/harness/audit_residual.py",
 )
 audit_residual = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(audit_residual)

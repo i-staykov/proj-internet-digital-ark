@@ -5,7 +5,7 @@ master-eligible class with no `master` line here cannot date a year; the gate ex
 `pending` (nobody has looked), `master` (may date a year), `candidate-only` (collect, never dates a
 year), `rejected` (binds, and the request generator refuses to re-open it).
 
-Generate a request with `scripts/request_approval.py <spec> --journal <journal>`: it builds a
+Generate a request with `scripts/harness/request_approval.py <spec> --journal <journal>`: it builds a
 seeded-random sample with live links and the measured figures, so a reviewer checks external evidence
 rather than an agent's argument.
 
@@ -298,7 +298,7 @@ Decision: master
   16,849 files, read offline at zero network cost. `archive.org/robots.txt` was read in full when
   they were collected: 12 lines, 238 B, `Disallow: /control/` and `/report/` only
 - the NAME is what the split guards, not the date: a person chose which record to paste and
-  reflowed it, and `scripts/collect_usenet_whois.py` caps the look-back at 40 lines and normalises
+  reflowed it, and `scripts/sources/usenet/collect_usenet_whois.py` caps the look-back at 40 lines and normalises
   `&nbsp;` and quote prefixes before either pattern runs, because an HTML-escaped second copy of a
   block once bound `openssl.org`'s creation date to `engelschall.com`
 - ingest specs: `usenet_whois_dated` and `usenet_whois_candidates`. Journals at
@@ -419,7 +419,7 @@ One correction the finding needed and the register should carry, because it is t
 that silently ingests nothing: a TimeMap row has EIGHT fields, not seven, the first being the URI
 that was queried. Written to classic-CDX offsets the collector read 1,503,591 rows and kept zero,
 and only an assertion that a part MUST yield in-window rows caught it before the empty file was
-renamed and skipped as finished on the next pass. `scripts/collect_nypw_timemaps.py` now fails the
+renamed and skipped as finished on the next pass. `scripts/sources/nypw/collect_nypw_timemaps.py` now fails the
 part rather than writing it.
 
 ### urlmerchant_inventory / artifact_listing
@@ -459,7 +459,7 @@ part rather than writing it.
   hand, so the date is a machine's and the name is a person's typing
 - ingest specs: `urlmerchant_dated` and `urlmerchant_candidates`. Journals at
   `data/raw/urlmerchant/urlmerchant_{dated,candidates}_b1.jsonl.gz`, regenerable with
-  `uv run python scripts/split_urlmerchant.py --tag b1 --write`
+  `uv run python scripts/sources/directories/split_urlmerchant.py --tag b1 --write`
 - **banked 2026-08-31**: the loader assigned `year_rows: 2557` out of 3,383 evidence rows, which
   is the split's net-new count to the pair, so **1,591.9 EE** is what this ingest added and not an
   estimate. `ark check` all 13 PASS afterwards
@@ -519,7 +519,7 @@ inventory), 14.2% (this), 32.0% (domainsww).
   the local part is of no use to the score, and the extractor's capture group is the host alone
 - ingest specs: `jeb_mail_dated` and `jeb_mail_candidates`. Journals at
   `data/raw/jeb_bush/jeb_mail_{dated,candidates}.jsonl.gz`, regenerable from the artifact with
-  `scripts/parse_jeb_mail.py` then `scripts/split_jeb_mail.py --write`
+  `scripts/sources/mail_corpora/parse_jeb_mail.py` then `scripts/sources/mail_corpora/split_jeb_mail.py --write`
 - **banked 2026-08-31**: the loader assigned `year_rows: 5692` out of 67,972 evidence rows over
   52,625 domains, which is the split's net-new count to the pair, so **3,546.1 EE** is what this
   ingest added and not an estimate. `ark check` all 13 PASS afterwards
@@ -651,7 +651,7 @@ Decision: pending
 ### bbbonline_reliability_roster / artifact_listing
 
 - measured: **1,470.1 net-new post-split EE over 2,376 (domain, 2001) pairs**, measured 2026-08-27 by
-  `scripts/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT DOMAINS and
+  `scripts/pricing/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT DOMAINS and
   not `domain_year` rows. An independent duckdb year screen gives 2,375 pairs and 1,469.5 EE, so the two
   readings agree to 0.04%. Under the MASTER reading, with no corroboration split, it is 3,109 pairs and
   1,919.7 EE. 9,019 distinct registrable domains under a weighted TLD, 8,286 held at some year (91.9%),
@@ -768,7 +768,7 @@ nothing has been fetched, so no machine-written stamp has been quoted out of byt
 there is no measurement at all, only a projection off another contributor's accepted record count.
 Condition 3: the licence is **Attribution-NonCommercial-ShareAlike 3.0 US** and the NC term has
 never been read against our use. Fetch part01 first, the cheapest of the sixteen at 418 MB, read
-column 1 and column 3 only, and price with `scripts/price_items.py` sampling DISTINCT DOMAINS.
+column 1 and column 3 only, and price with `scripts/pricing/price_items.py` sampling DISTINCT DOMAINS.
 
 The rejection this reopens, kept as written:
 **Not unpriced, mis-filed: the fourth entry today whose `- measured:` line was lost in the 2026-08-23
@@ -861,7 +861,7 @@ Decision: pending
 ### truste_licensee_roster / artifact_listing
 
 - measured: **115.1 net-new post-split EE over 184 (domain, 2001) pairs**, 2026-08-27 against
-  merged260827 (`scripts/price_items.py` reads 187 pairs and 117.0 EE; quote the lower). 1,522 distinct
+  merged260827 (`scripts/pricing/price_items.py` reads 187 pairs and 117.0 EE; quote the lower). 1,522 distinct
   domains, 99.0% held, 1,323 already carrying 2001
 - what dates one item: the same argument as `bbbonline_reliability_roster` above, on which this row
   should be decided: a licensee roster generated from the programme's database, dated by the capture
@@ -880,7 +880,7 @@ Decision: pending
 ### untroubled_spam_headers / artifact_listing
 
 - measured: **1,288.1 net-new post-split EE over 3,053 (domain, year) pairs**, priced 2026-08-27 by
-  `scripts/price_items.py --all-tlds` against the live store and reproduced by the harvester to the
+  `scripts/pricing/price_items.py --all-tlds` against the live store and reproduced by the harvester to the
   unit. 20,808 dated items yield 29,356 pairs over **26,112 distinct registrable domains**, of which
   22,031 pairs are already held. 2001 carries 2,794 of the 3,053 pairs (1998 115, 2000 91, 1999 50,
   1997 3); by TLD com 1,353, jp 245, net 194, kr 193, tw 131, de 102; mean weight of net-new 0.4219.
@@ -981,7 +981,7 @@ Decision: pending
 ### ffa_link_pages / dated_directory
 
 - measured: **25.2 net-new post-split EE over 41 (domain, 2001) pairs**, measured 2026-08-28 by
-  `scripts/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT
+  `scripts/pricing/price_items.py --all-tlds` against the live store (merged260827), sampling DISTINCT
   DOMAINS. 9 pages, 178,235 B, 522 distinct pairs over 484 domains, 451 already held. Pre-split is
   71 pairs / 43.4 EE and overstates 1.7x, do not quote. Mean weight 0.6146, `com` 37 / `net` 4,
   typo upper bound 40.8%. **All 41 paying names are held at 2000**, so the adjacent-year figure
@@ -1133,7 +1133,7 @@ Decision: pending
 ### store_url_listing_pages / artifact_listing
 
 - measured 2026-08-30 against the live store: **157.8 net-new post-split EE over 250 (domain, 2001)
-  pairs** from eleven pages (`scripts/price_items.py` re-read 159.4 EE over 252 pairs at harvest;
+  pairs** from eleven pages (`scripts/pricing/price_items.py` re-read 159.4 EE over 252 pairs at harvest;
   quote the lower). 1,245 distinct domains sampled AS DOMAINS, 148 already held at 2001, 1,097
   net-new before the split and 688.8 EE, which overstates the source 4.4x and must not be quoted.
   Mean weight 0.6311, `com` 230 / `org` 13 / `net` 7, typo upper bound 46.4%, 847 pairs to the
@@ -1181,7 +1181,7 @@ Decision: pending
 ### fdncenter_grantmaker_web_sites / dated_directory
 
 - measured: **202.2 net-new post-split EE over 289 (domain, year) pairs, every one of them at 2001**,
-  priced 2026-08-28 with `scripts/price_items.py --all-tlds` against merged260827 over 19 dated pages,
+  priced 2026-08-28 with `scripts/pricing/price_items.py --all-tlds` against merged260827 over 19 dated pages,
   601,956 B. 1,843 distinct pairs over 1,843 domains, 1,523 already held AT 2001 (82.6%), only 29 names
   never held anywhere (98.43% held). Pre-split 320 pairs and 223.6 EE, which overstates by 1.11x and must
   not be quoted. Mean weight 0.6996, org 257 / com 29 / net 3, typo upper bound 37.8%. **279 of the 289
@@ -1286,7 +1286,7 @@ Decision: pending
 ### whatsnew_register_tree_capture / dated_directory
 
 - measured: **235.0 net-new post-split EE over 399 (domain, 2001) pairs**, priced 2026-09-01 by
-  `scripts/price_items.py --all-tlds` against the live store, sampling DISTINCT DOMAINS. One capture
+  `scripts/pricing/price_items.py --all-tlds` against the live store, sampling DISTINCT DOMAINS. One capture
   of the Nerd World "What's New" tree, `whatsnew.html` plus the 62 category pages `wn<N>.html` it
   links: 3,716 host mentions, 2,059 distinct registrable domains, 1,660 already held at 2001 (80.6%),
   399 held-or-corroborated and MISSING 2001 (19.4%). Mean weight 0.5889, all 399 at 2001, by TLD
@@ -1861,7 +1861,7 @@ Decision: master
 ### granitecanyon_zone_rejects / artifact_listing
 
 - measured: **1,732.9 net-new post-split EE over 3,059 (domain, year) pairs**, measured 2026-08-29 by
-  `scripts/price_items.py --all-tlds` against the live store (merged260827). 18,797 listed items give
+  `scripts/pricing/price_items.py --all-tlds` against the live store (merged260827). 18,797 listed items give
   17,049 distinct pairs over 16,979 domains, 6,777 already held, mean weight 0.5665, by year
   {1999: 2,001, 2001: 1,058}, by TLD {com 1,613, net 407, org 300, ch 58, de 51, nu 49}, 7,213 pairs
   and 6,828 names to the candidate pool, typo upper bound 57.1% (856 of 1,500). Pre-split is 10,272

@@ -18,7 +18,7 @@ keep re-testing old sources that may have become available or cheaper.**
   domain. Self-dating records take no split. The split does not check whether a hostname was ever real.
 - **A master-eligible class needs a human `Decision:` line** in `docs/approved-sources-list.md` before it
   can date a year; `ark ingest` refuses otherwise. Generate the request with
-  `scripts/request_approval.py`. Candidate-only evidence needs no approval.
+  `scripts/harness/request_approval.py`. Candidate-only evidence needs no approval.
 - **Quote net-new post-split equivalent-English, never gross.** Gross and net differ by more than 10x.
 
 ## Before pricing anything
@@ -45,7 +45,7 @@ have wasted days.
 ```bash
 just cycle                                       # health: collectors, yields, unbanked journals, approvals
 uv run ark export && uv run ark check            # export first; one invariant reads the export
-uv run python scripts/round_figures.py --verify   # re-score with HIS calculator before any send
+uv run python scripts/round/round_figures.py --verify   # re-score with HIS calculator before any send
 just ship-approved                               # bank, report, export, gate, package, verify
 ```
 

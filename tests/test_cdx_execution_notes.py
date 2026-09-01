@@ -19,7 +19,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent.parent
 _SPEC = importlib.util.spec_from_file_location(
-    "cdx_execution_notes", _HERE / "scripts" / "cdx_execution_notes.py"
+    "cdx_execution_notes", _HERE / "scripts/engines/cdx_execution_notes.py"
 )
 notes = importlib.util.module_from_spec(_SPEC)
 # Registered before exec because the module defines a dataclass, and `@dataclass`
