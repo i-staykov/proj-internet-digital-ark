@@ -109,3 +109,20 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
    and a URL-lookup service first. SEC EDGAR filings measure 2,500 to 4,000 equivalent-English
    concentrated in 2000-2001 but need one request per filing, roughly 35 hours, because the bulk feed
    route does not exist before 2002.
+
+## Round 8 additions
+
+- **Re-read closed verdicts whenever a measurement screen retires.** A source rejected at
+  14.2 equivalent-English on its most saturated partition paid ~88,000 when the retired
+  novelty screen was replaced and the other end of the partition was measured. A
+  dedicated re-opener lane now does this on a schedule.
+- **A partitioned corpus is measured per partition, never argued about.** The ingest
+  ledger's per-file year counts are free and settled a four-orders-of-magnitude wrong
+  claim before it cost bandwidth.
+- **Agents in CI print mode need a structural contract**, not advice: hard timeout,
+  scheduling tools disabled, fallback verdict, telemetry. A backgrounded sort plus a
+  scheduled wake-up silently cost one run its whole budget before the contract existed.
+- **Spend models only where judgement pays.** Booking results is deterministic code now;
+  models propose, test and admit. Cadence is earned from a per-run ledger of
+  equivalent-English per token, under a hard weekly budget ceiling.
+
