@@ -219,6 +219,11 @@ what survives the split we already hold. Ask whether the lister held the databas
   the other machine returned 1,647 years per 1,200. Same code, same hour, 45x apart. `just engines`
   prints both; a queue whose head has already been asked is a queue that has quietly expired.
 - Look for the existing tool before writing one.
+- **A dated mail or Usenet corpus contains the era's worms as message content.** That is
+  corpus fidelity, not compromise (Defender flagged Klez.H inside a newsgroup zip,
+  2026-09-01, verified inert in `private/security/`). Parse archives in-stream, never
+  extract attachments, delete probe bytes after measurement, and match an AV alert's
+  hashes against the file before acting on it.
 - **A size floor is not a content check.** A replay URL built as `{stamp}id_{host}`, missing the
   slash in `id_/`, made web.archive.org answer seven different objects with the same 154,263-byte
   interstitial, and a floor set at half the expected bytes passed all seven. Assert on what the
