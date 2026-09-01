@@ -869,8 +869,11 @@ ship round="":
     # first rehearsal of this recipe failed at the report guard and left ingestion
     # dead; it was noticed only because somebody was watching, and on the evening a
     # round ships nobody is.
-    restore() { pgrep -f 'maintain[.]sh' >/dev/null || \
-        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted =="); }
+    # The continuous laptop loop retired when the fleet took over (2026-09-01):
+    # restart it on exit ONLY if it was running when ship began.
+    WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
+    restore() { [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null && \
+        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted ==") || true; }
     trap restore EXIT
     set -e
     echo "== pausing the ingest loop so the store stops moving =="
