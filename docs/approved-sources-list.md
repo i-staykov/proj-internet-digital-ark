@@ -559,6 +559,84 @@ read the top-twelve share before pricing anything.**
 today on the comparable wide basis, 6.6% absorbed by the store's own growth, and no URL was recorded
 either time. That is Ivo's link rule of 2026-08-31 paid for in cash.
 
+### nypw_timemaps_nonok / cdx_timestamp
+
+The non-200 lane of the THIRTY-FOUR `nypw_timemaps` partitions already in the store. Since it was
+written, `_parse_nypw` has counted every row whose status is not 200 into `stats["non_200"]` and
+thrown it away, so **no measurement in this project had ever looked at one**. The lane is
+**6,374,276 in-window rows, 12.8% of the corpus**, and reading it costs no archive request: the
+`.cdx.gz` files are on disk at `data/raw/nypw_timemaps/`.
+
+- artifact and LINK: item `https://archive.org/details/nypw_timemaps`, the same thirty-four
+  partitions already linked one by one in the `nypw_timemaps` entry above and in
+  `docs/sources.md`. No new bytes were fetched for this; the flattened `.cdx.gz` are the same
+  files `ark ingest nypw_timemaps` read
+- **what dates one item: field 3 of the CDX row, the crawler's own 14-digit capture stamp.**
+  Verbatim, from `data/raw/nypw_timemaps/nypw_timemaps1998_rootURLs_part06r.cdx.gz`:
+
+      https://hmcfunding.com/ com,hmcfunding)/ 20010309022603 http://www.hmcfunding.com:80/ text/html 302 YSRUTJQPTYE6V4XUYSDKZYOE7SGNOZCU 384
+
+  `20010309022603` is written by IA's crawler, not by a person, and it is inside the artifact.
+  The store held `hmcfunding.com` at 1998, 1999 and 2000 and lacked 2001, so this row is the
+  adjacent-year screen paying in one line
+- **why a 302 dates the year as well as a 200 does, which is the only real question here.** The
+  status field records what the crawler received. A three-digit HTTP code means the hostname
+  resolved, a TCP connection was accepted and a server returned a status line at the stamped
+  instant, and that chain requires the name delegated in its zone. The code describes the
+  RESOURCE, not the registration, so a 302 on a host is exactly as much proof of delegation as a
+  200 on it. **This is the same evidence class on the same bytes, not a widened reading**: no new
+  class is invented and `cdx_timestamp` is unchanged. Checked rather than assumed: every status in
+  all 34 partitions is a three-digit code, with no `-` or `0` placeholder rows, so there is no
+  no-response row in the corpus that could sneak in. The parser guards for one anyway
+- **measured net-new post-split against the LIVE STORE, 2026-09-01, not projected:** 6,374,276
+  non-200 rows collapse to 444,308 distinct (registrable domain, year) pairs, of which 431,031 are
+  already held and **13,277 are net-new, worth 6,679.7 EE**. Nothing in a CDX row was typed by a
+  human, so pre-split equals post-split. By assigned year: 1998 6, 1999 111, 2000 360,
+  **2001 12,800**, so 96.4% of the yield is a 2001 year. Top TLDs by pair: `com` 7,757, `de` 896,
+  `org` 717, `net` 564, `br` 297. The fleet probe on two 1998 partitions projected 6,540 to 7,276
+  and the full corpus came in at 6,680, inside that interval
+- **the 2001-threshold law reproducing itself inside a new dimension.** A non-200 row adds nothing
+  in a year the store already covers and adds real pairs at 2001, which is why 96.4% of the yield
+  sits there. The transferable method is the other half: **to test "we filtered X away", re-parse
+  an artifact already ingested rather than querying anything.** Ingesting the 200 lane first makes
+  the store the control group, so every pair the relaxed parser finds is attributable to the
+  relaxation alone
+- terms, read in full before the first request: unchanged from the `nypw_timemaps` entry above,
+  CC BY 4.0 stated in the item's own `nypw_timemaps_readme.txt`. `archive.org/robots.txt` is 238
+  bytes whole and disallows only `/control/` and `/report/`, with no Claude or Anthropic group.
+  This ingest makes no request at all
+- ingest specs: `nypw_timemaps_nonok`, over `data/raw/nypw_timemaps/*.cdx.gz`. Ledgered under its
+  own `source_name`, so the same files ingest again without disturbing the 200 lane's rows
+- **banked 2026-09-01**: the loader assigned `year_rows` totalling **13,277** over the 34 files,
+  out of 6,374,276 records and 444,308 evidence rows, so **6,679.7 EE** at mean weight 0.5031 is
+  what this ingest added and not an estimate. `ark check` PASSED afterwards. **The pre-ingest
+  price and the banked figure agree to the pair here**, which is unusual and only because nothing
+  else ingested in the four minutes between them; the `nypw_timemaps` entry above is the standard
+  case, where the store moved underneath three successive readings
+- **per-partition `year_rows` straight out of the ledger, read before believing anything about a
+  partition, as the 2001-folder episode demands.** The folder law reproduces exactly: `2000` 6,962
+  over 9 parts, `1999` 3,407 over 6, `1998` 2,292 over 11, `1997` 337 over 3, `1996` 279 over 4,
+  and the **2001 folder 0**, alongside 0 for `1996_deeplinks_part00o`. The 24 `rootURLs` parts pay
+  13,211 of the 13,277; all ten `deeplinks` parts together pay 66. Biggest single partitions:
+  `2000_rootURLs_part00r` 3,500, `1999_rootURLs_part00r` 1,931, `2000_rootURLs_part04r` 1,721
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+Conditions checked one at a time. (1) `cdx_timestamp` is already master-eligible and this is the
+same class on the same corpus, so nothing is invented. (2) The stamp is IA's crawler's own 14-digit
+timestamp, machine-written, inside the artifact, quoted verbatim above. (3) CC BY 4.0, read in full
+when the item was first taken, and this ingest fetches nothing. (4) `ark check` passes after the
+ingest.
+
+**The remaining open question, recorded rather than hidden.** A wildcard DNS record above a name
+could in principle answer for a name nobody registered, which would make a 302 prove less than
+claimed. It does not bite here: no registry wildcard existed in `.com`, `.net` or `.org` inside
+1996-2001, and those three carry 68.5% of the net-new pairs. Where it could bite is a ccTLD that
+wildcarded its zone, and that risk is identical for the 200 lane already banked, since a wildcard
+answering 200 is no better evidence than one answering 302. **If Ivo judges the residual too high,
+one line reverses this and the ingest is one `ark ingest` re-run.**
+
 ## Pending requests
 
 

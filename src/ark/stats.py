@@ -64,6 +64,9 @@ PROVENANCE_LINEAGE = {
     # The TimeMap sibling reads the same IA index through the same tool, so it
     # joins the same family. It corroborates nothing our own Wayback queries say.
     "nypw_timemaps": "internet_archive",
+    # The non-200 lane of the same partitions. Same bytes, same index, so it
+    # cannot corroborate a Wayback query of ours any more than its sibling can.
+    "nypw_timemaps_nonok": "internet_archive",
     # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
     # shares the lineage for the same reason NYPW does.
     "dartmouth_bfs_seed": "internet_archive",
