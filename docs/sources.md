@@ -343,7 +343,7 @@ universe too, and it is a separate source with a separate verdict: see below.
 
 ## `nypw_timemaps`: NYPW TimeMaps, master
 
-Item: `https://archive.org/details/nypw_timemaps`. The TWENTY-SEVEN parts ingested on 2026-09-01,
+Item: `https://archive.org/details/nypw_timemaps`. The THIRTY-FOUR parts ingested on 2026-09-01,
 each linked so the bytes can be pulled again. The entry first listed only three of these while
 eleven were already in the store, and the tarballs are deleted once converted to `.cdx.gz`, so the
 missing links were the difference between a refetchable partition and a lost one:
@@ -378,6 +378,29 @@ missing links were the difference between a refetchable partition and a lost one
 
 Banked, read out of the 2026-09-01 01:22 export rather than projected: **87,905.0 EE net-new
 post-split over 197,938 pairs**, mean weight 0.4441, of which 193,428 pairs carry a 2001 year.
+
+**Seven further parts were pulled and ingested by the operator after that reading, taking the
+item to THIRTY-FOUR parts and closing every in-window folder.** They are, with their year rows
+straight out of `ark ingest`, which is the cheapest honest per-partition figure this project has:
+
+- `.../1999/nypw_timemaps1999_rootURLs_part00r.tar.gz`, 1,434,653,466 B, **47,229 year rows**
+- `.../1997/nypw_timemaps1997_rootURLs_part00r.tar.gz`, 3,477,105 records, **5,222 year rows**
+- `.../2000/nypw_timemaps2000_rootURLs_part00r.tar.gz`, 3,945,494 records, **94,695 year rows**
+- `.../1996/nypw_timemaps1996_deeplinks_part00o.tar.gz` + `rootURLs_part00r` + `part01r`,
+  9,897,209 lines together, **4,512 year rows between all three**
+- `.../1996/nypw_timemaps1996_rootURLs_part02r.tar.gz`, 291,061,385 B, **761 year rows**
+
+**The per-folder verdict, now that every in-window folder has been measured rather than argued
+about.** Year rows per million records: 2000 about 24,000, 1999 about 10,000, 1997 about 1,500,
+1996 about 640, 2001 **4**. So the payload is 1999 and 2000, 1997 is thin but real, 1996 is the
+saturated head exactly as the original 2026-08-24 closure found, and the 2001 folder is dead
+because a domain first captured in 2001 carries only a 2001 pair and the IA-derived baseline holds
+that by construction. The whole round moved from 1.2567% to **2.3318%** on this item.
+
+**Do not re-price this item by argument.** One run on 2026-09-01 reasoned from a plausible
+mechanism that the 2001 folder was the real seam and recommended redirecting the download queue
+there; the ledger says that partition wrote six year rows. See the correction on that row in the
+evaluated table below.
 
 **Which folder to pull next, measured as a census over all 197,938 pairs rather than sampled.**
 Attributing each pair to the partition whose row supplied its `evidence_url` leaves nothing
