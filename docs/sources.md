@@ -672,6 +672,23 @@ nobody had registered.
 ---
 
 
+## Closed by the reviewer himself, 0901 update
+
+Ding's update of 2026-09-01 (Update_Log, 11:31:59 UTC+8) publishes his own negative
+results: families "recorded as high-overlap, low-yield, noisy, incomplete, or otherwise
+unsuitable for further work in their current form". They are register-closures of the
+strongest kind, since the reviewer cannot be scooped by himself. Do not re-propose any of
+them; where we hold our own verdict on the same family, both are cited.
+
+| His closure | Our own verdict, where one exists |
+|---|---|
+| Internet Archive early-web language annotations | never tried here; CLOSED on his word |
+| New Riders WWW Yellow Pages CD-ROM | never tried here; the curated-directory floor (0.013-0.024 pairs/listed domain) predicted this class dead, and his reading agrees |
+| LAW / WebGraph WebBase-2001 | CLOSED here twice: novelty screen 2026-08-08, re-tested on the current screen 2026-09-01 at exactly 0 EE (all 603,245 registrable domains held AT 2001; SPEC names WebBase as an original-project source) |
+| Dated Usenet archive copies | our Usenet channel is banked and its seams measured to saturation (bare-hostname arm projects 514-1,007 EE over all remaining archives); his "high-overlap" reading matches |
+| Sampled scanned magazines | `trade_press` banked small here; prose-density ceiling 0.042 pairs/item documented 2026-08-2x |
+| Specific raw ISC archive copies | `isc_survey` banked and closed for good here 2026-08-1x |
+
 ## Evaluated and rejected
 
 | Source | Verdict |

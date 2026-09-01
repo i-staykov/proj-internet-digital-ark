@@ -80,6 +80,59 @@ residual *args:
 # the only step that leaves the machine.
 #
 # check the round once and report what needs judgement
+# Drain the fleet's findings, admit any FIND, book everything, gate, push `live`, and
+# refresh the VPS pricing snapshot. The one deliberate human-adjacent step of the loop
+# (fleet plan, D3): run it whenever the laptop is open.
+bank fleet="~/Documents/GitHub/ark-fleet":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FLEET=$(eval echo {{fleet}})
+    IN=data/fleet_findings/incoming
+    mkdir -p "$IN" data/fleet_findings/banked data/logs
+    PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
+    command -v gh >/dev/null || { echo "needs gh"; exit 1; }
+    # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
+    gh run list --repo i-staykov/ark-fleet --limit 50 --status completed \
+        --json databaseId --jq '.[].databaseId' | while read -r RID; do
+        grep -qx "$RID" "$PROCESSED" && continue
+        gh run download "$RID" --repo i-staykov/ark-fleet \
+            --dir "$IN/run_$RID" >/dev/null 2>&1 || true
+        echo "$RID" >> "$PROCESSED"
+    done
+    # Flatten: findings artifacts hold findings/*.md plus telemetry.json.
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    find "$IN" -mindepth 2 -name '*.md' -exec mv -n {} "$IN/" \;
+    # 2. The ledger row per telemetry file, then tidy.
+    find "$IN" -mindepth 2 -name 'telemetry.json' | while read -r T; do
+        python3 -c "import json,sys;d=json.load(open('$T'));print('$LABEL', d.get('tokens_in_plus_out',0), d.get('seven_day_pct','?'), sep='\t')" \
+            >> data/logs/fleet_ledger.tsv || true
+        rm -f "$T"
+    done
+    find "$IN" -mindepth 1 -type d -empty -delete
+    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
+    # 3. A FIND wakes the admitter (a model, locally, where the store is).
+    if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
+        echo "FIND present: waking the admitter (opus/medium)"
+        claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
+            --model opus --effort medium --output-format text \
+            > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
+        tail -3 "data/logs/admit_$LABEL.log"
+    fi
+    # 4. The deterministic scribe, then the gate, then one push.
+    uv run python scripts/harness/bank_findings.py "$IN" \
+        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
+    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+    uv run ark export && uv run ark check
+    git add docs/ src/ justfile 2>/dev/null || true
+    git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
+    git push -q origin live
+    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+    mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+    # 5. Refresh the VPS pricing snapshot so the next wave prices against today.
+    ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
+    rsync -a output/netnew/ "${ARK_VPS:?set ARK_VPS}":/projects/ark-data/netnew/ && echo "ark-data refreshed"
+    uv run python scripts/round/round_figures.py | sed -n '5,7p'
+
 cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
 

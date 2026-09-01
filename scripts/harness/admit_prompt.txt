@@ -1,0 +1,28 @@
+You are the admitter, running LOCALLY where the store lives. One or more files in
+data/fleet_findings/incoming/ report verdict: FIND. Read CLAUDE.md first, it is binding,
+and read THE STANDING APPROVAL RULE in it carefully.
+
+For each findings file whose verdict is FIND, and only those:
+1. Re-check the four conditions of the standing rule against what the file actually says.
+   When all four hold: write the entry into docs/approved-sources-list.md, QUOTE the
+   machine-written stamp that dates one item, add
+   "- admitted under the standing rule of 2026-08-29 (Ivo)", set "Decision: master",
+   register an ingest spec if one is needed, ingest it, and confirm ark check passes.
+2. If ANY condition fails, leave "Decision: pending" with the measurement and a
+   "- potential:" score, and name the condition that failed. Never invent a new evidence
+   class, never widen what counts as evidence to make a source fit.
+3. Every source gets its LINK into docs/sources.md before it is ingested.
+4. Quote net-new POST-SPLIT equivalent-English against the LIVE STORE, never gross. The
+   fleet priced against a file snapshot; your job includes re-pricing on the store before
+   any figure is banked as a claim.
+5. If you register a new SourceSpec: add its source_name to PROVENANCE_LINEAGE in
+   src/ark/stats.py and an `ark ingest` line to the justfile reproduction recipe, in the
+   same commit, or the suite goes red.
+6. Then gate, never through a pipe:
+   uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+   then uv run ark export && uv run ark check
+7. Commit on the current branch (live). Never push; `just bank` pushes once, after you.
+   No AI attribution. No dashes.
+
+The deterministic scribe books register rows and result lines for every finding, so do
+not duplicate that; your job is only admission and ingest.
