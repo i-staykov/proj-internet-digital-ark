@@ -275,6 +275,10 @@ sources:
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
+    # The nameserver TARGETS of the 1997 zones at hostname grain, admitted 2026-09-02
+    # under the standing rule (11,860.7 EE). The 1999 tomocha files are deliberately
+    # not listed: their terms are parked, see docs/approved-sources-list.md.
+    uv run ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz data/raw/internic_zones/edu.zone.gz data/raw/internic_zones/gov.zone.gz data/raw/internic_zones/mil.zone.gz data/raw/internic_zones/root.zone.gz data/raw/internic_zones/arpa.zone.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
     # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
     # 4,146.8 EE post-split, 6,423 of its 6,424 pairs at 2001. The collector fetches

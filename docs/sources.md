@@ -1991,3 +1991,26 @@ should have carried and did not**: seven days unbanked with no URL recorded cost
 store's own growth, and the hypothesis that inbound public mail beats outbound official mail is
 refuted with the sign reversed, `From:` 1,235.4 EE against `To:`/`Cc:` 1,410.3 EE, because the
 public writes in from AOL rather than from a domain it owns.
+
+## `internic_zone_hostnames`: BANKED at 11,860.7 EE, the column the zone parser threw away
+
+`https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz` (1,317,986 B),
+`.../19970420112952id_/http://nic.mil/oroot.html/edu.zone.gz` (111,076 B) and
+`.../19970420113002id_/http://nic.mil/oroot.html/gov.zone.gz` (15,972 B), plus the `mil`, `root` and
+`arpa` files from the same crawl, all on disk as `data/raw/internic_zones/*.zone.gz` since 2026-08-18.
+**What dates one item is the zone's own SOA serial on line 2 of the payload, `1997041800`, the same
+stamp and the same `artifact_listing` class Ivo decided master for these exact bytes on 2026-08-24.**
+A registry zone file is TWO hostname corpora and `parse_internic_zone` reads only the left one: the
+owner of an NS record is the delegation, the right-hand side is the nameserver that serves it. At
+registrable grain the right-hand side is worthless, measured and closed at 63 pairs on 2026-08-29
+(line 881), because `ns1.psi.net` collapses to an operator every crawl already holds. At the hostname
+grain the reviewer accepted on 2026-09-01 the same 21,498 hosts are 90% absent: **19,211 (hostname,
+1997) records and 11,860.7 EE net-new against the live store AND the reviewer's own 1997 file**, no
+split, com 4,713.6 EE, net 2,245.5, edu 1,979.4, org 1,502.6. Admitted by the loop under the
+standing rule and ingested as `internic_zone_hostnames` (`ark ingest-zone-hostnames`). **The lens this
+opens: nameservers, mail exchangers and FTP mirrors are exactly the hosts a web crawler never fetches,
+so any DNS-side or mail-side artifact over held registrables is the hostname unit's natural prey even
+where its registrables are saturated.** Two lanes parked in `approved-sources-list.md` with figures:
+the 1999 tomocha zones at **4,678.2 EE** (terms, condition 3) and the fleet's Usenet server-header
+census at a fleet-measured 2,368 EE on one probe (conditions 1 and 4, and the reviewer's own 0901
+closure of dated Usenet copies).

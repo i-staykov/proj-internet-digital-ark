@@ -268,6 +268,40 @@ Decision: master
 ## Decided, with the request that was reviewed
 
 
+### internic_zone_hostnames / artifact_listing
+
+- ingest: `ark ingest-zone-hostnames` over the six 1997 zone files (`data/raw/internic_zones/{org,edu,gov,mil,root,arpa}.zone.gz`,
+  the exact bytes `internic_zone` was decided on); it records the nameserver TARGET of every NS
+  record at hostname grain, the column `parse_internic_zone` discards on purpose
+- source: https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz,
+  https://web.archive.org/web/19970420112952id_/http://nic.mil/oroot.html/edu.zone.gz,
+  https://web.archive.org/web/19970420113002id_/http://nic.mil/oroot.html/gov.zone.gz
+- measured: **11,860.7 net-new EE over 19,211 (hostname, 1997) records**, re-priced 2026-09-02 on
+  the live store: 21,498 distinct proper hostnames named as NS targets across the six zones,
+  663 already in `hostname_year` at 1997, 1,958 already in the reviewer's own `merged260901`
+  1997 file, 21,390 (99.5%) with their parent registrable held at 1997. No split: nothing here
+  was typed by a person. By TLD: com 7,457 records 4,713.6 EE, net 4,957 / 2,245.5, edu 2,037 /
+  1,979.4, org 2,116 / 1,502.6, gov 296 / 290.8, uk 241 / 236.5, ca 269 / 225.0. Largest parent
+  `mit.edu` with 24 hosts, so not a platform. The fleet's snapshot figure (19,186 records, 11,862.5
+  EE, org+edu+gov only) reproduces within 0.2%
+- what dates one item: the zone's own SOA serial on line 2 of the payload, `1997041800` in
+  `ORG. IN SOA A.ROOT-SERVERS.NET. hostmaster.INTERNIC.NET. ( 1997041800 ;serial`, quoted in every
+  evidence value as `internic org zone serial 1997041800 NS <hostname>`; the IA captures of
+  1997-04-20 fix when the file existed. An NS right-hand side is the registry's machine-written
+  record that this host served that delegation at that instant
+- the registrable lane of the same column was measured and closed on yield on 2026-08-29
+  (register line 881: 14,573 domains, 99.28% held at 1997, 63 net-new pairs). That closure was at
+  registrable grain and stands; the hostname unit did not exist until the reviewer accepted it on
+  2026-09-01. The 85 parents not held at 1997 earn their year from the same rows, as the check
+  `nothing_earned_is_left_unassigned` requires, which is those 63 pairs plus baseline drift
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, decided
+  master for these exact bytes on 2026-08-24; the stamp is the SOA serial inside the artifact,
+  quoted above; the terms are the ones read for `internic_zone` (IA replay of a nic.mil capture,
+  `archive.org/robots.txt` read whole, only `/control/` and `/report/` disallowed); `ark check`
+  passes after the ingest with both hostname-wall checks
+
+Decision: master
+
 ### udrp_proceedings / artifact_listing
 
 - ingest spec: `udrp_proceedings`
@@ -657,6 +691,56 @@ answering 200 is no better evidence than one answering 302. **If Ivo judges the 
 one line reverses this and the ingest is one `ark ingest` re-run.**
 
 ## Pending requests
+
+
+### internic_zone_hostnames_1999 / artifact_listing
+
+- the same census over the two 1999 zones already on disk, `data/raw/internic_zones/edu.zone.19991120.gz`
+  (SOA serial `1999112000`) and `gov.zone.19991119.gz` (serial `1999111901`), fetched 2026-08-25 from
+  `https://tomocha.net/files/dns/` and ingested at registrable grain as `internic_zone` (179.8 EE)
+- measured: 4,678.2 net-new EE over 6,650 (hostname, 1999) records, on the live store 2026-09-02:
+  7,252 distinct hostnames, 257 already in `hostname_year` at 1999, 478 in the reviewer's 1999 file,
+  7,131 (98.3%) with the parent held at 1999. edu 2,330 / 2,264.1 EE, com 1,460 / 922.9, net 1,814 /
+  821.7, gov 315 / 309.5. Largest parent `pair.com` with 21 hosts
+- what dates one item: the SOA serial inside each file, `EDU. IN SOA A.ROOT-SERVERS.NET.
+  hostmaster.internic.net. ( 1999112000 ;serial`, the same argument as the 1997 lane
+- **condition 3 of the standing rule fails, terms.** Two facts, both already in the register and
+  neither decided: `tomocha.net/robots.txt` names ClaudeBot `Disallow: /` (lines 51-52 of 61) and
+  register line 935 records the refusal as applied to `jpnic_register` but not to these two files,
+  "raised for Ivo rather than decided"; and the 1999 `edu` file itself opens with Network Solutions'
+  own notice that use of its zone data "is subject to the restrictions described in the access
+  Agreement with Network Solutions", which this project does not hold. The 1997 files carry no such
+  clause. Nothing is fetched by deciding either way, the bytes are on disk; the code refuses these
+  files under the 1997 approval by design (`ingest_zone_hostnames` gates each zone year by name)
+- potential: 4678
+
+Decision: pending
+
+### usenet_header_fqdn_hostnames / link_source
+
+- the fleet's probe (2026-09-02, `usenet_header_fqdn_census`): server-written header fields in the
+  archive.org Usenet mbox exports, `X-Trace:` trailing customer host, `NNTP-Posting-Host:` and the
+  final `Path:` hop, read at hostname grain. Artifacts https://archive.org/download/usenet-demon/
+  (58 zips) and https://archive.org/download/usenet-uk/ (495 zips), both already on the VPS under
+  `data/raw/usenet_*`
+- measured by the fleet, NOT re-priced here: **2,368 EE over 2,413 demon.co.uk customer host-years
+  1996-2001** from two demon.* groups (28 MB), 99.1% absent from the CDX demon.co.uk sweep in the
+  same year; projection 20,000 to 25,000 EE for demon.* and six figures spool-wide, unmeasured. The
+  probe's per-message table was deleted with the run and the bytes are not on this machine, so the
+  live-store figure is not available and the fleet's must not be banked as a claim
+- what dates one item: the message's own `Date:` header, with the hostname written by the
+  injecting server, `X-Trace: mail2news.demon.co.uk 894324354 19133 faqs pcserv.demon.co.uk`
+- **conditions 1 and 4 fail.** Condition 1: no master-eligible class covers a server-written
+  Usenet header hostname; the banked Usenet classes (`maillist_dated`, `enron_dated`, the whois
+  paste) are `link_source` taken WITH the corroboration split, and the fleet's reading that the
+  split does not apply because a server wrote the field is a new reading Ivo has not made. Condition
+  4: no journal exists, the census is a whole-spool pass on the VPS that has not run, so no ingest
+  can be checked. And the reviewer's own 2026-09-01 update lists "dated Usenet archive copies"
+  among sources unsuitable for further work (register line 781); the fleet recommends putting the
+  hostname-grain figure to Ding before any spool-wide pass, and that is his call, not the loop's
+- potential: 2368
+
+Decision: pending
 
 
 ### internic_zone / artifact_listing
