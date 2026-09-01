@@ -221,9 +221,12 @@ Shipped together: **4,872,448 net-new hostname records, 2,749,488.7901 EE**, 93.
 `ia_cdx_hostnames` source row and are told apart by `acquisition_method`, which the shipped
 manifest carries: `nypw_timemap_hostgrain` 4,039,562 records, 2,097,954.68 EE;
 `ia_cdx_domain_sweep` (August suffix sweeps plus the platform night) 832,886 records,
-651,534.11 EE. The report's attribution table is generated from that column. privatedances.co.uk closed at 0 CDX
-captures in one probe; cjb.net stopped on HTTP 400 after 20 pages (882,229 rows) and is not
-marked done, so a later pass re-verifies whether the namespace is exhausted.
+651,534.11 EE. The report's top-sources table is generated from that column. privatedances.co.uk read 0
+captures in a first probe and 158,734 rows in the queued sweep an hour later, so a single
+probe never closes a parent; cjb.net stopped on HTTP 400 after 20 pages (882,229 rows,
+next page 45 in its state file) and is not marked done, so a later pass re-verifies whether
+the namespace is exhausted. Queues c and d (ranks 61-250 of `rank_platform_parents.py
+--top 250`, 190 parents) were chained behind a and b on 2026-09-02.
 
 ## `ia_cdx_bulk`: Wayback CDX verification engine
 
