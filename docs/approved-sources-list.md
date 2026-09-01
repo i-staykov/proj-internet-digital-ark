@@ -1283,6 +1283,88 @@ Decision: pending
 
 Decision: pending
 
+### whatsnew_register_tree_capture / dated_directory
+
+- measured: **235.0 net-new post-split EE over 399 (domain, 2001) pairs**, priced 2026-09-01 by
+  `scripts/price_items.py --all-tlds` against the live store, sampling DISTINCT DOMAINS. One capture
+  of the Nerd World "What's New" tree, `whatsnew.html` plus the 62 category pages `wn<N>.html` it
+  links: 3,716 host mentions, 2,059 distinct registrable domains, 1,660 already held at 2001 (80.6%),
+  399 held-or-corroborated and MISSING 2001 (19.4%). Mean weight 0.5889, all 399 at 2001, by TLD
+  `com` 310, `net` 22, `org` 12, `de` 7, `au` 5, `uk` 4 and a low-weight tail. **Post-split and gross
+  coincide at 235.0 here, and the split was applied rather than skipped**: 0 of the 2,059 names were
+  new to the candidate pool, so every net-new name was already corroborated and the split cost
+  nothing. 63 fetches in about 4 minutes, so 3.73 EE per fetch and roughly 3,300 EE/hour against the
+  measured 255 EE/hour querying rate
+- **the same tree at a 2000 capture pays ZERO, and this is the fourth reproduction of the
+  2001-threshold law.** `20001207050300`, 39 of the 62 pages, 1,919 host mentions, 1,217 distinct
+  domains, 1,217 of 1,217 already held AT 2000, net-new 0 pairs, 0.0 EE. Same host, same pages, same
+  parser, same hour: 235.0 against 0.0, decided only by which year the capture stamps. squidGuard was
+  10,736 EE at 2001 against 18 EE at 2000 on the same reading. Do not spend a request on any 1999 or
+  2000 capture of this tree, they are measured at zero
+- the artifact: `http://www.nerdworld.com/whatsnew.html` and the 62 `wn<N>.html` it links, fetched as
+  `https://web.archive.org/web/20011030063818id_/`, 974,702 B over 62 pages. Also captured in window
+  at 19990429, 7 dates in 2000, and 5 dates in 2001: 20010209, 20010413, 20010803, 20011030,
+  20011224. The bytes were not kept, so an ingest would refetch from those URLs
+- what dates one item: the crawler-stamped Wayback capture timestamp of the category page,
+  `20011030063818`, fixing the instant the listing was served. The pages carry no in-body date of any
+  kind, and a submission-queue listing is a directory stating what it had accepted when the crawler
+  took the page. Same `dated_directory` grounds `page_directory` and `ncsa_whats_new` already run on
+- **failed condition 2 of the standing rule of 2026-08-29**: what dates the item is the capture stamp
+  rather than a machine-written stamp inside the artifact, the same reason `store_url_listing_pages`,
+  `mailman_public_roster`, `coza_deletion_listing` and `cctld_register_listing_capture` were written
+  into this section
+- **the arm that PASSES condition 2 is worth nothing, and that is the finding worth keeping.** NU2 /
+  What's New Too!, `https://web.archive.org/web/20000622033521id_/http://newtoo.com/`, 11,852 B, is
+  the machine-generated submission queue itself and stamps every row from its own database,
+  `<dd><i>21 Jun 2000</i>`, inside the artifact. One day page: 25 rows, 18 distinct domains, 18 of 18
+  held AND 18 of 18 already carrying 2000, **0.0 EE**; 22 in-window captures at 25 rows each projects
+  the whole run at 0 to 20 EE. It collapses to free-host parents (`angelfire.com`, `members.aol.com`,
+  `topcities.com`, `profiles.yahoo.com`, `*.baweb.com`) that already carry every year we could date
+  them to. **A submission feed dates its rows perfectly and its rows are the wrong population.**
+  Closed, not parked
+- **the discriminator inside the family is rows per fetch, not evidence quality**, and the method is
+  the reusable part: fetch a directory's what's-new TREE at one capture timestamp, not its front page.
+  The front page is 5 to 25 rows and is the editorially chosen head; the category pages one level down
+  are 40 to 190 rows each and are the submission queue. It costs no CDX at all, since the index page
+  enumerates the tree by href
+- this reopens nothing that was closed. `docs/sources.md:756` closed award galleries and
+  pick-of-the-day archives at 3.5 EE on the current 2001 screen, and its own last line deferred "the
+  REGISTER variant rather than the pick variant, a 1999-2001 successor to NCSA What's New listing all
+  newly launched sites". That is what was measured here, at 67x the pick variant per capture.
+  `ncsa_whats_new` is banked for 1996 only and does not reach 1999-2001
+- **Yahoo is measured and closed as not retrievable**: the surviving `www.yahoo.com/new/` index is the
+  Daily Picks page, 4 non-Yahoo external domains at 20010504032229 and 22 hosts at 19970110014756. The
+  real register exists and IA never crawled it. The 1997 index links `www.yahoo.com/new/970602/`
+  annotated "1042" new sites for one day and the 2001 index links
+  `dir.yahoo.com/new_additions/20010122/`, and the daily pages have 0 mementos under every form
+  probed. Same failure as the dmoz RDF dumps. Dead on probe, 0 mementos: `newtoo.manifest.com`,
+  `www.whatsnew.com`, `home.netscape.com/home/whats-new.html`, `www.galaxy.com/info/new.html`,
+  `www.stpt.com/whatsnew.html`, `www.linkstar.com`, `www.bizweb.com`, `www.ukdirectory.com/whatsnew.htm`
+- ceiling, so nobody scopes this as a project: the honest projection is 5 in-window 2001 captures
+  times rotation, **250 to 350 EE for Nerd World**, and a few thousand EE for the whole family. The
+  untested part is the other second-tier directories that still had a category-level what's new in
+  2001, LookSmart, NBCi and Snap, none of them probed
+- ingest specs: not written
+- potential: 30. Drivers: the highest EE per fetch this round at 3.73, 13x the querying rate, on a
+  method that needs no CDX and no store lock. Held down by the condition-2 failure and by a family
+  ceiling of a few thousand EE, not tens of thousands
+
+Decision: pending
+
+**Held under the standing rule of 2026-08-29, on condition 2.** Condition 1 holds: `dated_directory`
+is master-eligible and no new class is proposed. Condition 2 fails: the Nerd World category pages
+carry no internal date, so the whole 235.0 EE rests on a Wayback capture stamp, which is machine
+written but is not inside the artifact. The register has parked that exact argument four times and
+none of the standing-rule admissions rests on it, so admitting this row would settle the class by the
+back door, which is what "this moves the gate, it does not lower it" forbids. Condition 3 was not
+established for the origin host and only `web.archive.org` was ever requested. Condition 4 was never
+reached: nothing was ingested and the bytes were not kept.
+
+**The cheapest thing Ivo can do here is rule on the capture-stamp class once**, since it now gates
+`store_url_listing_pages`, `mailman_public_roster` and this row together. If it is ruled master, this
+one follows on the same reading and costs one line and 63 refetches.
+
+
 ### dotgov_real_names / link_target
 
 - potential: 22
