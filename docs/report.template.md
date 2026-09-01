@@ -105,20 +105,23 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
 - Two clients at most, honest User-Agent, two seconds between requests, backoff on 429/503/504,
   `Retry-After` honoured. Collectors take an absolute deadline and outlive the session.
 - Per-domain queries over bracketed gaps and the candidate pool: [CDXBULK] registrable pairs.
-  Domain-wide sweeps at 200 rows a page write raw `{url, timestamp}` journals, so the same bytes
-  can be re-read under a new rule, which is what paid this round.
-- Errors met and handled: HTTP 400 past the last page ends a sweep cleanly; a page-count timeout on
-  `cjb.net` left that parent ledgered incomplete and resumable; transport failures retry with a
-  widening delay.
+  Domain-wide sweeps write raw `{url, timestamp}` journals, so the same bytes can be re-read
+  under a new rule, which is what paid this round.
+- Measured on `co.uk`: a CDX page costs about the same at 200 index blocks as at 10,000 (11 to
+  42 s against 110 s), so the sweep now walks 10,000-block pages and asks the page count up
+  front. An archive outage refused thirteen parents on their control probe; they were requeued,
+  and a failed page is retried rather than skipped.
 
 ## 6. Limitations, and what is worth expanding
 
 A capture proves presence, never absence: a year without one is unevidenced, not empty. The
 hostname unit rewards platforms with many sub-hosts, so it is concentrated in 2000 and 2001.
 
-Worth expanding, in order: the remaining ranked platforms, resumable from the ledger; every held
-capture-bearing artifact re-read at hostname grain; registrable discovery by generated sibling
-names and bracketed-gap CDX queries at its measured rate. Not worth more time, measured: prose
+Worth expanding, in order: the remaining ranked platforms, resumable from the ledger; the
+second-level suffix namespaces at hostname grain (`co.uk` alone is 3.39M index blocks and 1.2%
+walked, `com.au`, `co.nz`, `org.uk`, `gov.uk`, `gc.ca` queued behind it); every held
+capture-bearing artifact re-read at hostname grain; registrable discovery by bracketed-gap CDX
+queries at its measured rate. Not worth more time, measured: prose
 corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
 
 ## 7. Merge, overlap and reconciliation (D3)
