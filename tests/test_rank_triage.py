@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 _SPEC = importlib.util.spec_from_file_location(
-    "rank_triage", Path(__file__).resolve().parents[1] / "scripts" / "rank_triage.py"
+    "rank_triage", Path(__file__).resolve().parents[1] / "scripts/harness/rank_triage.py"
 )
 rank_triage = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(rank_triage)

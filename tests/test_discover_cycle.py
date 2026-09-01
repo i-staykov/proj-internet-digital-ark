@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
-    "discover_cycle", Path(__file__).resolve().parents[1] / "scripts" / "discover_cycle.py"
+    "discover_cycle", Path(__file__).resolve().parents[1] / "scripts/harness/discover_cycle.py"
 )
 cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cycle)
@@ -177,7 +177,7 @@ def test_the_cycle_no_longer_knows_how_to_restart_a_collector() -> None:
     down a healthy one mid-batch on 11 August.
     """
     assert not hasattr(cycle, "repoint_pool_engine")
-    source = (Path(__file__).resolve().parents[1] / "scripts" / "discover_cycle.py").read_text(
+    source = (Path(__file__).resolve().parents[1] / "scripts/harness/discover_cycle.py").read_text(
         encoding="utf-8"
     )
     # The quoted form is how it would appear as a command argument, `run(["pkill", ...])`.

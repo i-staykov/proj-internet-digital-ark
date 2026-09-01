@@ -9,7 +9,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "collect_attrition",
-    Path(__file__).resolve().parents[1] / "scripts" / "collect_attrition.py",
+    Path(__file__).resolve().parents[1] / "scripts/sources/directories/collect_attrition.py",
 )
 collect_attrition = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(collect_attrition)

@@ -22,9 +22,9 @@ it first. The merge needs only the shipped files; `--verify` additionally needs 
 which this archive does **not** ship, so rebuild it from the provenance Parquet:
 
     tar -xzf source/source.tar.gz -C source/ && cd source && uv sync
-    uv run python scripts/merge_against_baseline.py     # merge, overlap, increment, reconciliation
+    uv run python scripts/round/merge_against_baseline.py     # merge, overlap, increment, reconciliation
     uv run ark rebuild ../provenance                    # the store, from the Parquet
-    uv run python scripts/round_figures.py --verify     # re-scores with HIS program; non-zero exit on disagreement
+    uv run python scripts/round/round_figures.py --verify     # re-scores with HIS program; non-zero exit on disagreement
 
 `--verify` is the command that refuses a round on his validator's terms rather than ours, so it is
 worth the rebuild. It is what caught the seventeen internationalised-TLD records described in
@@ -120,7 +120,7 @@ dedicated integrity invariant, `no_idn_tld_in_window`, fails the build if one ev
 Produced by `merge_against_baseline.py`, which scores each baseline file and each merged file with
 his program and reports the difference. Regenerate with:
 
-    cd source && uv run python scripts/merge_against_baseline.py --stamp <YYYYMMDD>
+    cd source && uv run python scripts/round/merge_against_baseline.py --stamp <YYYYMMDD>
 
 The current figures are in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json` beside
 this document, in the column names of his own audit so the two can be diffed directly. The audit

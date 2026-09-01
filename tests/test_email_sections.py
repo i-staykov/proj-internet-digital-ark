@@ -10,7 +10,7 @@ import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-_SPEC = importlib.util.spec_from_file_location("fill_report", ROOT / "scripts" / "fill_report.py")
+_SPEC = importlib.util.spec_from_file_location("fill_report", ROOT / "scripts/round/fill_report.py")
 fill_report = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(fill_report)
 

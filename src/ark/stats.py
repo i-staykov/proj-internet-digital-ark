@@ -61,6 +61,9 @@ PROVENANCE_LINEAGE = {
     # it here rather than as its own family keeps the independent-corroboration
     # count honest, which is the whole point of that measure.
     "nypw_firstcdx": "internet_archive",
+    # The TimeMap sibling reads the same IA index through the same tool, so it
+    # joins the same family. It corroborates nothing our own Wayback queries say.
+    "nypw_timemaps": "internet_archive",
     # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
     # shares the lineage for the same reason NYPW does.
     "dartmouth_bfs_seed": "internet_archive",
@@ -96,9 +99,19 @@ PROVENANCE_LINEAGE = {
     # The same file's audit trail. Same authority, so a pair this and the snapshot both
     # attest is one registry agreeing with itself, not two witnesses.
     "ripe_dbase_changed": "registry",
+    # The same audit trail in the 2004 split edition. Same registry, same authority.
+    "ripe_dbase_split_2004": "registry",
     # A registrar printing from its own database. Same authority family as a registry
     # listing: both are the operator of record stating what it holds.
     "namewinner_expiring": "registry",
+    # A BROKER printing from its own database, which is deliberately NOT the registry
+    # family that `namewinner_expiring` sits in: a registrar is the operator of record,
+    # a marketplace knows a name only because its owner submitted it for sale. So a
+    # pair a broker listing and a zone file both attest is two witnesses, not one
+    # authority agreeing with itself, and filing it under `registry` would understate
+    # genuine cross-lineage corroboration.
+    "urlmerchant_inventory": "broker_inventory",
+    "urlmerchant_inventory_mention": "broker_inventory",
     # The .ca registry stating when it approved a registration. Registry authority,
     # same family as every other registry assertion.
     "can_domain_registry_notices": "registry",
@@ -111,6 +124,29 @@ PROVENANCE_LINEAGE = {
     "early_bulk_whois_snapshot": "registry",
     "junkfilter_dated_blocklist": "blocklist",
     "junkfilter_mention": "blocklist",
+    # chastity-list is a squidGuard blacklist compiled by hand from the maintainer's
+    # own browsing, not from a crawl, so it is its own lineage rather than the
+    # Internet Archive's. It shares the family with junkfilter for the same reason
+    # both take the corroboration split: a person typed the name.
+    "chastity_list_blacklist": "blocklist",
+    "chastity_list_mention": "blocklist",
+    # Granite Canyon is a free-DNS operator reading out its own BIND configuration,
+    # so the lineage is the nameserver, not a crawl and not the Internet Archive:
+    # the capture only fixes when the file existed, it did not produce the names.
+    "granitecanyon_zone_rejects": "hosted_dns",
+    "granitecanyon_zone_mention": "hosted_dns",
+    # A registry reading out its own register, so the lineage is the registry, not the
+    # capture that happens to fix the instant. Same family as the in-body sibling.
+    "cctld_register_listing_capture": "registry",
+    "cctld_register_listing_mention": "registry",
+    # Two more registries reading out their own registers, so the same lineage: the
+    # capture or the day heading only fixes when, it did not produce the names.
+    "mynic_my_change_report": "registry",
+    "coza_deletion_listing": "registry",
+    # A federal filing dataset is its own lineage: the address was typed on a form by
+    # the auditee or the audit firm, not observed by anyone crawling or resolving it.
+    "fac_single_audit": "federal_filing",
+    "fac_single_audit_mention": "federal_filing",
     # A crawler compiled this list, so it shares the lineage of everything else that
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
@@ -178,10 +214,22 @@ PROVENANCE_LINEAGE = {
     # lineage: three readings of one artifact are one observation, not three.
     "usenet_bare": "usenet",
     "usenet_bare_mention": "usenet",
+    # A registry whois record pasted into one of the same posts. The DATE comes
+    # from the registry, not from the post, but the post is still the artifact we
+    # read, so a fourth reading of one message stays one observation.
+    "usenet_whois_paste": "usenet",
+    "usenet_whois_paste_mention": "usenet",
     # Corporate email is its own body of observation, independent of every crawl,
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
+    # A governor's released mailbox is the same body of observation as Enron's: a
+    # correspondent's own mail client named the host, and the export was released
+    # whole. Filing it as its own family would let two mailbox corpora corroborate
+    # each other as if independently collected, which is the failure this table
+    # exists to prevent. It is genuinely independent of every crawl and registry.
+    "jeb_bush_gubernatorial_email": "corporate_email",
+    "jeb_bush_gubernatorial_email_mention": "corporate_email",
     # Public pipermail list archives. Its own family, and the claim is only safe
     # because the collector skips the newsgroup-gatewayed lists: a gatewayed list
     # carries the same messages the Usenet corpus already holds, so counting it

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 _SPEC = importlib.util.spec_from_file_location(
-    "decision_sheet", ROOT / "scripts" / "decision_sheet.py"
+    "decision_sheet", ROOT / "scripts/harness/decision_sheet.py"
 )
 decision_sheet = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(decision_sheet)

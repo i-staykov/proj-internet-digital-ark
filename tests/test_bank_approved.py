@@ -12,7 +12,7 @@ import importlib.util
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
-    "bank_approved", Path(__file__).resolve().parent.parent / "scripts" / "bank_approved.py"
+    "bank_approved", Path(__file__).resolve().parent.parent / "scripts/harness/bank_approved.py"
 )
 bank = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(bank)

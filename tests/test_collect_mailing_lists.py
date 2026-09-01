@@ -6,7 +6,8 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "collect_mailing_lists",
-    Path(__file__).resolve().parent.parent / "scripts" / "collect_mailing_lists.py",
+    Path(__file__).resolve().parent.parent
+    / "scripts/sources/mail_corpora/collect_mailing_lists.py",
 )
 assert _SPEC and _SPEC.loader
 maillists = importlib.util.module_from_spec(_SPEC)

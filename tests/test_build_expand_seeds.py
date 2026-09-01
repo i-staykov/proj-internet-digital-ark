@@ -13,7 +13,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "build_expand_seeds",
-    Path(__file__).resolve().parents[1] / "scripts" / "build_expand_seeds.py",
+    Path(__file__).resolve().parents[1] / "scripts/engines/build_expand_seeds.py",
 )
 build_expand_seeds = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(build_expand_seeds)

@@ -62,6 +62,8 @@ __all__ = [
     "RDAP_REDIRECTOR",
     "Router",
     "attested_years",
+    "TERMS_CLOSED",
+    "terms_closed",
     "creation_year",
     "journal_path",
     "load_registries",
@@ -96,6 +98,55 @@ _THROTTLE_STATUSES = frozenset({0, 403, 429, 503, 504})
 
 JOURNAL_DIR = Path("data/raw/rdap")
 JOURNAL_PREFIX = "rdap"
+
+# Registries whose own terms of service prohibit what this command does, keyed by
+# TLD and quoted from the source that binds us.
+#
+# **Every RDAP response carries its terms in a `notices` entry, so these were on
+# disk since 2026-08-17 and nobody read them.** `.ca` was rejected on this exact
+# clause on the morning of 2026-08-27 while engines were querying `.com`, `.net`,
+# `.org` and `.uk` under the same one, and `CLAUDE.md` had already recorded that
+# `.uk` "says the same thing". A docstring comment saying so did not stop an engine
+# being pointed at Nominet three days later, so the rule lives in code instead.
+#
+# **This gates COLLECTION only.** A journal already on disk replays freely: what is
+# prohibited is sending the query, and a stored response sends nothing.
+#
+# Nominet is the one that goes further than query volume, and the second sentence is
+# why its already-collected pairs are a separate question from the others'.
+TERMS_CLOSED: dict[str, str] = {
+    "com": "Verisign RDAP terms of use, verisign.com/legal-center/rdap-terms/: you will not "
+    '"enable high volume, automated, electronic processes that send queries or data to the '
+    "systems of Verisign or an ICANN-accredited registrar, except as reasonably necessary to "
+    'register domain names or modify existing registrations"',
+    "net": "as .com, the same Verisign terms",
+    "org": "PIR RDAP terms, in the response notices: the same high-volume clause with the same "
+    'registration-only carve-out, plus "Abuse of the RDAP system through data mining is '
+    'mitigated by detecting and limiting bulk query access from single sources"',
+    "uk": "Nominet RDAP terms, nominet.uk/rdap-tos, in the response notices: the same "
+    'high-volume clause with NO carve-out, and separately "You are explicitly prohibited from '
+    "extracting, copying and/or using or re-using in any form and by any means (electronically "
+    "or not) all or part (quantitatively or qualitatively) of the contents of the RDAP database "
+    'without prior and explicit permission from the Registry Operator"',
+    "ca": "CIRA Terms of Use s.10(c) and s.11, read 2026-08-27: no robot may retrieve the site "
+    '"to collect information about other users or domain names", WHOIS may be used "solely" to '
+    'check availability or identify or contact a holder, and "unauthorised aggregation or '
+    'collection of information from the WHOIS database" is prohibited',
+    "nz": "InternetNZ port-43 terms, closed 2026-08-19 at a cost of 7,586 EE: the terms follow "
+    "the record and prohibit bulk access",
+}
+
+# The one way past it, and it takes a named authority rather than a flag: set
+# ARK_RDAP_TERMS_OVERRIDE to the permission that allows the query, the way the RIPE
+# database is used under a written grant.
+TERMS_OVERRIDE_ENV = "ARK_RDAP_TERMS_OVERRIDE"
+
+
+def terms_closed(domain: str) -> str | None:
+    """Why this domain must not be queried, or None if nothing forbids it."""
+    tld = domain.rsplit(".", 1)[-1].lower() if "." in domain else ""
+    return TERMS_CLOSED.get(tld)
+
 
 # IANA's registry of registries: every delegated TLD mapped to the base URL of
 # the RDAP service authoritative for it. It changes at the pace of the root

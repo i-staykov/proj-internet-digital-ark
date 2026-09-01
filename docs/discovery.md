@@ -326,9 +326,144 @@ first. Reading it is the cheapest step in the process.
 
 ## 6. Where this is automated
 
-The generating and the pricing run as code, not by hand: `scripts/discover_cycle.py` proposes,
-`scripts/screen_hypothesis.py` kills anything colliding with the closed register above, and
-`scripts/price_items.py` measures a sample against the live store before a collector is written.
+The generating and the pricing run as code, not by hand: `scripts/harness/discover_cycle.py` proposes,
+`scripts/harness/screen_hypothesis.py` kills anything colliding with the closed register above, and
+`scripts/pricing/price_items.py` measures a sample against the live store before a collector is written.
 Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
 act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
 section 1 can reject cheaply.
+
+## The roster law, measured over 37 hypotheses in one night (2026-08-28)
+
+**Any artifact whose unit is "one organisation per row, with a homepage URL" prices at
+0.0069 to 0.1097 net-new post-split equivalent-English per listed domain.** That is the
+whole seam, not one artifact: seal rosters, trade-association member lists, exhibitor
+databases, comparison-engine store registries, newspaper directories, PICS label
+registries, marketplace supplier profiles, ad-network publisher rosters, statutory
+tourism registers, broadcast and press registers, charity and school registers, and
+government entity registers were each priced separately and each landed in that band.
+
+The arithmetic that follows is why the seam is closed rather than merely thin. At a
+median of about 0.05 EE per listed domain, **1,000 EE needs roughly 20,000 listed
+domains in one artifact and 5% needs fourteen million.** In-window rosters of that size
+do not exist: the largest found all night was COMDEX Fall 2001 at 1,550 exhibitor rows.
+This is the same wall as the curated-directory floor of 0.013 to 0.024 net-new pairs per
+listed domain, reached from the other side and now with a per-domain figure attached.
+
+**So the screen is the UNIT, and it can be applied before a byte is fetched.** Ask what
+one row of the artifact IS. One organisation with a URL is dead on arrival. What is not
+dead is a row that is a machine's own observation of a name at an instant: a registry
+event, a blocklist entry, a crawl fetch, a mail header, a zone delegation. Those are the
+shapes that have paid, and every one of this project's five-figure sources has that
+shape.
+
+A corollary worth keeping: **a high fill rate does not rescue a bad unit.** Several of
+the 37 passed the held-and-missing-2001 screen at 100% and still died, because passing a
+fill screen on 41 pairs is still 41 pairs.
+
+## Three measurements from 2026-08-29
+
+**The fetch-endpoint law. A build recipe names the host it FETCHED FROM, and a host that
+serves downloads to a whole operating system's user base is the authority head by
+construction, so it is already dated in every year we hold.** Measured on 22 dated
+checkouts of the FreeBSD, NetBSD and OpenBSD ports trees: 4,044 distinct third-party
+domains, 99.16% held in some year, **94.91% already held at 2001**, and on the
+adjacent-year screen only 106 of 3,822 names held at 2000 are missing 2001 (2.77%,
+against the population's 61.1% in `.com`). 40.8 net-new post-split EE. The volume
+premise was right and the population premise was wrong: the arm's own kill threshold of
+3,000 hosts was cleared and did not save it. This is the visitor-log result read from the
+other end, and it predicts the same failure for **Debian `watch` files, Gentoo ebuild
+`SRC_URI`, CPAN and CTAN mirror lists**. The screen to apply is not the host count but the
+expected fraction held AT the artifact's own year, and a distribution's fetch endpoint
+sits at 95%. Route worth keeping even though the source died: `gh api
+"repos/<o>/<r>/commits?until=<date>T23:59:59Z&per_page=1"` gives the SHA, and
+`codeload.github.com/<o>/<r>/tar.gz/<sha>` gives the whole tree at that instant in one
+request. Neither `codeload` nor `api.github.com` serves a robots.txt, while `github.com`
+forbids the archive paths and the projects' own FTP hosts refuse `*.gz` by extension, so
+the API route is the only permitted one and also the cheapest.
+
+**The form-endpoint law, measured on 5 hosts. An archived GET-form lookup site leaves
+exactly ONE in-window artifact per endpoint, the bare parameterless CGI**, because period
+crawlers followed the `FORM ACTION` as an ordinary link but did not fill the form. That
+page renders an error or an empty result and carries zero records. The parameter space
+gets crawled only from about 2004, and by then the page renders an index stamped outside
+1996-2001, so it is wrong twice over, wrong stamp and wrong population. **So for any
+archived lookup form, ask WHEN the parameter space was crawled, not whether captures
+exist. A POST form is dead on sight.** Screening it costs one request per candidate:
+`archive.org/wayback/available` is an exact-match existence oracle that respects query
+strings, verified here against a known positive, a known negative and two absent controls,
+so a dead CGI's whole parameter space can be swept without touching `web.archive.org/cdx`.
+That is the tool to reach for whenever CDX is metered by another collector. Note that
+**`arquivo.pt`, the obvious non-IA CDX substitute, is barred**: its 35,470 B robots.txt
+opens with a permissive-looking `User-agent: *` at line 15 whose Disallow block sits at
+lines 744-753 and covers `/wayback`, `/cdxj`, `/services` and `/datasets`.
+
+**Store headroom by year is U-shaped and 2000 is the trough.** P(store lacks year given
+the domain is held), measured against merged260827 with two independent SQL formulations
+agreeing to 4 dp, and the EE that buys per already-held name:
+
+    tld  P(miss99) P(miss00) P(miss01)   EE99   EE00   EE01
+    com    0.644     0.340     0.639    0.4071 0.2149 0.4039
+    net    0.769     0.531     0.765    0.3484 0.2405 0.3465
+    org    0.715     0.470     0.691    0.5077 0.3337 0.4907
+    uk     0.769     0.454     0.382    0.7546 0.4455 0.3749
+    de     0.457     0.259     0.866    0.0605 0.0343 0.1147
+    au     0.637     0.399     0.502    0.6309 0.3952 0.4972
+    ca     0.630     0.491     0.606    0.5270 0.4107 0.5069
+
+A **1999**-dated artifact prices at or above a 2001-dated one in every TLD except `.de`,
+and for `.uk` it is worth **2.01x** (0.7546 against 0.3749). A 2000-dated artifact is worth
+about half either. This is the right screen for an artifact that itself attests the domain
+was alive at Y, and it is still the WRONG screen for projecting fillable headroom, where
+the adjacent-year rule stands unchanged. Consequence: **re-price every parked artifact
+dated 1999, `.uk` first.**
+
+
+## The sampling-unit law (2026-08-29)
+
+**A corpus is unselected precisely because it is indexed by something other than the name.
+Selection and naming are the same act.** Every corpus killed under law 3 was selected BY NAME,
+a directory, a register, a citation list, and that is exactly why it carries names. The
+instrument that defeats law 3 pays for it by losing the name: to be proportional to the web you
+must sample the address space, and the address space is not the name space. OCLC's Web
+Characterization Project defines its unit outright, "Web Site: Identified by an IP address that
+returns a response code of 200", and an HTTP/1.0 `GET /` to a bare IP sends no `Host` header, so
+the server is never asked to name itself. Measured over the whole family, 54 artifacts: the IOS
+Counter reports 1,465,124 host observations for April 1999 and emits 0 host names, RIPE's April
+2000 table reports 4,965,839 hosts under `.de` alone and emits 0, and 2.1 EE came out of the
+surrounding prose. The only bridge from address to name is reverse DNS, which is the
+already-measured visitor-log killer at 98.4% and 99.6% held, and the Internet Auditing Project
+took that bridge explicitly, so it inherits that death whether or not its results file survives.
+**Pre-download screen, one question and no requests: what is the unit of observation keyed on?
+Keyed on an address, it cannot pay however large or however well dated.** This is the monitor
+closure read from the other side: there the machine wrote the LABEL and not the name, here it
+writes no name at all. Two cheap transferables from the same run. **Read the whole result file,
+not its header**: the IOS Counter's `r.9904.*.txt` look like pure aggregate tables for 25 lines
+and carry 16 hostnames from line 27, which cost one `sed` against asserting a zero off a head.
+And `Memento-Datetime` again earned its keep, since an `id_` replay URL returned HTTP 200 with no
+redirect and served a 2020 capture. Do not re-test any address-keyed census on any screen.
+
+## The re-selection law (2026-08-30)
+
+**Before re-extracting a corpus we have already ingested, measure P(store lacks year Y | domain
+attested) on the artifact's own names. Under about 0.05 against the store-wide `com` figure of
+0.611, the corpus is spent and no new signature over it can pay, whatever the signature is.**
+A new SELECTION over an already-read corpus recovers only what the old patterns missed, and the
+names they missed sit beside names they caught, in the same posts and the same years, so the year
+is already there. Measured by census, not sample, over the whole 456.82 GB on-disk Usenet spool,
+178,700,605 messages: of 45,147 domains named at 2001 that the store already dates, 682 lack 2001,
+P = 0.0151, a 40x shortfall, and on `.com` pairs 109 of 130,260 = 0.0008, 764x. It holds in every
+year of the window, 0.0051 to 0.0151, so it is not a 2001 artefact. One query settles every
+candidate signature at once: 65,101 posting families, host-dense and recurring, priced as a union,
+came to 2,207 net-new post-split pairs and 780.1 EE at mean weight 0.3535, below the 0.4 floor,
+with 62.7% of the net-new names one edit from a name already held. **This bounds a class rather
+than sampling it, which is what makes the closure safe**: 0 of 65,101 families reach 10,000
+distinct in-window domains, so no further extraction hypothesis over that spool can beat 780 EE.
+Three transferables. A whole-spool census is affordable if no message is ever copied out of the
+buffer: pass the start and end offsets to `bytes.find` and `bytes.count`, and a dot count that
+costs a microsecond removes 27.4% of messages before the host regex runs, giving 1.6 GB/s over 11
+cores. Census recurrence without a per-subject dictionary by counting `hash((From, Subject))` into
+a fixed 4M-slot `array("i")` in pass 1 and re-keying on the true strings in pass 2, since bucket
+collisions can only add candidates. And dedup on `Message-ID` before counting anything: 12.8% of
+qualifying rows were the same post in a second group's archive, and a crosspost triples a family's
+apparent size.

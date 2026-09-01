@@ -13,7 +13,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "seed_pandora_titles",
-    Path(__file__).resolve().parents[1] / "scripts" / "seed_pandora_titles.py",
+    Path(__file__).resolve().parents[1] / "scripts/sources/directories/seed_pandora_titles.py",
 )
 seeder = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(seeder)

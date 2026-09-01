@@ -21,6 +21,7 @@ from ark.sources import (
     parse_rdap_snapshot,
     parse_ripe_dbase_1999,
     parse_ripe_dbase_changed,
+    parse_ripe_dbase_split_2004,
     parse_ukwa_link_source,
     parse_ukwa_link_target,
 )
@@ -1167,3 +1168,54 @@ def test_ripe_changed_evidence_value_year_matches_its_row(tmp_path: Path) -> Non
     records, _ = _ripe_changed(tmp_path)
     for record in records:
         assert str(record.year) in record.evidence_value
+
+
+# FUNET's `split/` edition spells both keys in full and froze in 2004, so it is the only
+# reachable RIPE file carrying 2000 and 2001 transactions. Same reading, same guard.
+_RIPE_SPLIT_FIXTURE = """#
+#       Restricted rights.
+#
+
+domain:       hasselblad.gm
+descr:        Victor Hasselblad AB
+nserver:      ns.domain.se
+changed:      ovema@a.sol.no 19971128
+source:       RIPE
+
+domain:       example.bg
+changed:      hostmaster@example.bg 20001114
+changed:      hostmaster@example.bg 20010302
+changed:      hostmaster@example.bg 20030506
+source:       RIPE
+
+domain:       200.193.193.in-addr.arpa
+changed:      mx@lucky.net 20010716
+source:       RIPE
+"""
+
+
+def _ripe_split(tmp_path: Path):
+    path = tmp_path / "ripe.db.domain"
+    path.write_text(_RIPE_SPLIT_FIXTURE)
+    stats: Counter = Counter()
+    return list(parse_ripe_dbase_split_2004(path, stats)), stats
+
+
+def test_ripe_split_reads_the_long_keys_and_reaches_2000_and_2001(tmp_path: Path) -> None:
+    records, stats = _ripe_split(tmp_path)
+    assert sorted((r.raw, r.year) for r in records) == [
+        ("example.bg", 2000),
+        ("example.bg", 2001),
+        ("hasselblad.gm", 1997),
+    ]
+    # 2003 is after the window and the reverse zone never becomes current.
+    assert stats["changed_out_of_window"] == 1
+    assert stats["reverse_zone_skipped"] == 1
+
+
+def test_ripe_split_emits_no_address(tmp_path: Path) -> None:
+    """The same promise to RIPE NCC, on the same attribute, in the other spelling."""
+    records, _ = _ripe_split(tmp_path)
+    blob = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
+    for forbidden in ("@", "ovema", "a.sol.no", "lucky.net", "hostmaster"):
+        assert forbidden not in blob, f"parser leaked {forbidden!r}"
