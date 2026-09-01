@@ -272,6 +272,10 @@ sources:
     # the three priced parts and flattens each tarball into one file:
     #   uv run python scripts/sources/nypw/collect_nypw_timemaps.py
     uv run ark ingest nypw_timemaps      data/raw/nypw_timemaps/*.cdx.gz
+    # The non-200 lane of the same 34 files, admitted by the loop on 2026-09-01
+    # under the standing rule. Ingest it AFTER the 200 lane above: that ordering
+    # is what makes the store the control group for the relaxation.
+    uv run ark ingest nypw_timemaps_nonok data/raw/nypw_timemaps/*.cdx.gz
     # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
     # the whole recipe with it. Left here, commented, because the artifact is on disk
     # and the next reader should see why it is not ingested rather than wonder.
