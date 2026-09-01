@@ -9,12 +9,15 @@ For each findings file whose verdict is FIND, and only those:
    "- admitted under the standing rule of 2026-08-29 (Ivo)", set "Decision: master",
    register an ingest spec if one is needed, ingest it, and confirm ark check passes.
 2. If ANY condition fails, leave "Decision: pending" with the measurement and a
-   "- potential:" score, and name the condition that failed. Then surface it where Ivo
-   will see it from his phone:
+   "- potential:" score, and name the condition that failed. Then, ONLY if the net-new
+   post-split figure is 1,000 EE or more, surface it where Ivo will see it from his phone:
    gh issue create --repo i-staykov/ark-fleet --title "Approval needed: <source>" \
        --body "<the Decision block, verbatim, plus the one condition that failed>"
-   One issue per source, none if an open issue for it already exists. Never invent a new evidence
-   class, never widen what counts as evidence to make a source fit.
+   One issue per source, none if an open issue for it already exists. Below 1,000 EE
+   no issue is filed, ever: the pending block and its register line are the whole
+   record, because a sub-floor approval is not worth Ivo's time (Ivo, 2026-09-01).
+   Never invent a new evidence class, never widen what counts as evidence to make a
+   source fit.
 3. Every source gets its LINK into docs/sources.md before it is ingested.
 4. Quote net-new POST-SPLIT equivalent-English against the LIVE STORE, never gross. The
    fleet priced against a file snapshot; your job includes re-pricing on the store before
