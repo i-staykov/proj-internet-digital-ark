@@ -113,7 +113,12 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     done
     find "$IN" -mindepth 1 -type d -empty -delete
     if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
-    # 3. A FIND wakes the admitter (a model, locally, where the store is).
+    # 3. Result lines first and pushed at once: a wave that picks while the admitter
+    #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
+    uv run python scripts/harness/bank_findings.py "$IN" \
+        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
+    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+    #    A FIND wakes the admitter (a model, locally, where the store is).
     if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
         echo "FIND present: waking the admitter (fable 5.1/medium)"
         claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
