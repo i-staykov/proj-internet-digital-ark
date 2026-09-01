@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback-phase-6/Domain_Data_Collection_Task 2/Update_Log.docx` |
-| sha256 | `6c6db17be09de4e45f8e9e3476ccbe3fe9a16d7d3d89fbdb53d09ea51c357d54` |
-| delivered in | `feedback-phase-6/Domain_Data_Collection_Task 2/`, from feedback-phase-6/Domain_Data_Collection_Task 2/ (2026-08-21) |
-| transcribed | 2026-08-21 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/Update_Log.docx` |
+| sha256 | `390efe135959cf9331e23c9332ecfef4fc224b77831fb4757fb030a47d576ab6` |
+| delivered in | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
+| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
@@ -135,3 +135,91 @@ Update topic: Time-weighted competition scoring based on verified Equivalent-Eng
 ## Practical Effect
 
 The scoring system now recognizes both verified Equivalent-English Domain growth and the speed of producing a complete, traceable, reproducible submission. Cumulative official percentage increases remain visible as a contribution record, while final competition ranking uses the sum of time-weighted submission scores.
+
+# Update Record
+
+Timestamp: 2026-08-25 (UTC+8)
+
+Related document: Internal discovery-method record
+
+Update topic: Evidence-dated source discovery and adaptive candidate generation
+
+# Reusable Methods and Experience
+
+This update records reusable methods and experience only; it does not report contributor-specific identities, submissions, increments, or growth figures.
+
+Maintain undated candidate pools separately, then concentrate effort on locating source artifacts that carry explicit in-window timestamps or other annual evidence. Candidates without qualifying 1996-2001 evidence remain outside the official annual files.
+
+Reusable source patterns include dated registry registers, zone-file payload serials, and timestamped web-archive dataset indexes. Each source remains subject to final evidence review and must retain its provenance and target-year basis.
+
+Novelty relative to the current annual files is a useful discovery signal, but novelty alone is not annual evidence. Each accepted domain-year must retain its target year, source file, original URL, record location, and evidence type.
+
+An adaptive autonomous-discovery method is also worth preserving: generate candidate populations, measure the fraction with registry-supported in-window creation dates, and allocate further discovery effort to higher-yield populations. These exploratory yield measurements do not prove later-year continuity.
+
+# Practical Effect
+
+Continue to combine automated source discovery, evidence-led temporal dating, and yield-driven candidate generation. Undated candidates remain an opportunity for targeted archive, historical WHOIS, DNS, CDX, and other year-specific evidence searches; they must not be backfilled into annual files solely from current registry observations.
+
+# Update Record
+
+Timestamp: 2026-08-26 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0820_Update_v2.docx
+
+Update topic: Evidence-linked directory harvesting, resilient CDX acquisition, source-saturation learning, and hostname-quality controls
+
+# Changes in This Update
+
+Historical directories, portals, navigation sites, and yellow-page sources are recorded as a reusable discovery pattern when extracted domains are backed by CDX snapshots in the target year. The University of Minnesota DRUM 1996 link-list part recovered from a Wayback capture is recorded as a practical example, provided its item-level date and provenance are retained.
+
+The task brief now records a patient CDX acquisition pattern: rate-limited single-worker retrieval, retries for transient errors, source-level logs, and a rule that distinguishes stalled sources from slow-but-responsive sources. Source yield, not speed alone, should guide retention in the queue.
+
+The task brief now treats repeated zero baseline-external yield as useful learning. Contributors must record coverage, overlap, effort, and failure or saturation reason, then use the result to redirect automated hypothesis generation and source discovery rather than treating a saturated source family as a reason to stop.
+
+A hostname-structure gate is now explicit for annual master files and Equivalent-English scoring. Paths, ports, query strings, percent-encoded or HTML fragments, malformed labels, and malformed TLDs are excluded from annual files because they are not reliable hostnames and cannot be correctly assigned a right-most TLD weight. Potentially recoverable strings are retained separately for normalization review.
+
+Candidate-pool handling is clarified: candidate sources are unioned and deduplicated; valid undated candidates remain separate from annual files; names already present in any accepted annual file are removed from the active candidate pool; and format-unparsed candidates may be retained in a separate auxiliary file.
+
+# Practical Effect
+
+The project gains a repeatable, evidence-led discovery loop that preserves both successful yields and negative results, prevents malformed strings from inflating annual counts or Equivalent-English estimates, and keeps unresolved candidate assets available for later year-specific verification.
+
+# Update Record
+
+Timestamp: 2026-09-01 11:31:59 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0831_Update.docx
+
+Update topic: High-density platform-hostname discovery and source-saturation learning
+
+## Changes in This Update
+
+- A platform-hostname discovery workflow is added: identify high-density subdomain platforms from the current benchmark, generate platform-query hypotheses, then run domain-wide archive queries separately for every target year.
+
+- Root-capture-oriented archive filters and per-year URL-key collapse are recorded as a way to prioritize distinct hostname discovery and avoid multi-year collapse undercount. Path fragments remain ineligible as hostname records.
+
+- The task brief now requires a shared source-saturation ledger. It records source version, coverage, overlap, quality limitations, effort, and the reason to retain, deprioritize, or revisit a source family.
+
+- Evaluated versions of Internet Archive early-web language annotations, New Riders WWW Yellow Pages CD-ROM, LAW/WebGraph WebBase-2001, dated Usenet archive copies, sampled scanned magazines, and specific raw ISC archive copies are recorded as high-overlap, low-yield, noisy, incomplete, or otherwise unsuitable for further work in their current form. This is reusable negative knowledge, not a reason to stop discovery.
+
+- The evidence-led use of UK Web Archive host/link graphs, UMN DRUM, Arquivo.pt, and preserved archival copies is clarified. Final annual records require item-level evidence fields: target year, source file, original or recovery URL, record location, evidence type, and extraction method.
+
+## Practical Effect
+
+The autonomous discovery loop can now prioritize high-yield hostname structures while recording saturation and failure evidence that narrows later searches. It preserves strict year-specific provenance and keeps unexplored or incompletely queried platforms available for resumable follow-up.
+
+# Update Record
+
+Timestamp: 2026-09-01 16:06:48 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0901_Update.docx
+
+Update topic: Mandatory submission archive filename convention
+
+## Changes in This Update
+
+- A mandatory archive naming convention is added for complete submissions: DomainDataCollectionTask\_{SubmissionTime}\_{Name}. {SubmissionTime} denotes the complete submission time, and {Name} denotes the submitting contributor.
+
+## Practical Effect
+
+Submitted packages can be identified, ordered, and attributed consistently during intake, review, merge, and scoring.
