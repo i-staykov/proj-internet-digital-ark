@@ -83,6 +83,16 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
 - **Admission without a human, under a standing rule.** A source banks when its evidence class is
   already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
   in full, and the invariants pass. Anything else parks until a written decision.
+- **The first find admitted under that rule is a column this project had discarded on purpose.**
+  A registry zone file is two hostname corpora: the owner of an NS record is the delegation, the
+  right-hand side is the nameserver serving it. At registrable grain the right-hand side was
+  measured and closed at 63 pairs, because `ns1.psi.net` collapses to an operator every crawl
+  holds. At hostname grain the same 21,498 hosts in the 1997 InterNIC `org`, `edu`, `gov`, `mil`,
+  `root` and `arpa` zones are 90% absent from both the store and your own 1997 file:
+  **19,211 records and 11,860.7 EE**, dated by the SOA serial `1997041800` inside the payload, no
+  new request. The lens it opens: nameservers, mail exchangers and mirrors are the hosts a web
+  crawler never fetches, so DNS-side and mail-side artifacts over held registrables are the
+  hostname unit's natural source even where their registrables are saturated.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
