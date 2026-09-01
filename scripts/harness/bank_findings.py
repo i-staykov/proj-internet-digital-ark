@@ -121,6 +121,11 @@ def main() -> int:
     ap.add_argument("--hypotheses", type=Path, required=True)
     ap.add_argument("--run-label", default="run")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--results-only",
+        action="store_true",
+        help="only the result lines, so the next pick sees them before the admitter runs",
+    )
     args = ap.parse_args()
 
     files = sorted(args.incoming.glob("*.md"))
@@ -131,6 +136,10 @@ def main() -> int:
     rows = [register_row(f, args.run_label) for f in findings]
     if args.dry_run:
         print("\n".join(rows))
+        return 0
+    if args.results_only:
+        wrote = write_result_lines(args.hypotheses, findings)
+        print(f"{wrote} result lines written to {args.hypotheses}")
         return 0
     append_rows(rows)
     wrote = write_result_lines(args.hypotheses, findings)
