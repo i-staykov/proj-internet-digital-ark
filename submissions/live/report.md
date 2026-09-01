@@ -116,7 +116,7 @@ with a widening delay. Collectors take an absolute deadline and outlive the sess
   another source dates that domain first, and `link_target` never dates a year.
 - **Saturation ledger**, as your 2026-08-31 update asks: `audit/source_saturation_ledger.csv`,
   one row per source family and version, with coverage, what dates one item, limitations and
-  the decision. **465 source families have been searched and recorded**, 60 developed far enough to earn their own section and 405 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
+  the decision. Over the whole project, **465 source families have been searched and recorded**, 60 developed far enough to earn their own section and 405 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 - **2,419,546 domains carry no year evidence** and ship as `candidates.txt`, none in an
   annual file; 588,087 of them are under `.edu`, `.gov` or `.mil`.
 
@@ -162,11 +162,14 @@ round was measured against. Each is listed with its verdict in
 `README.md` in the archive gives the order. `masters/` and `additions/` hold the merged annual lists
 and the registrable increment, `hostnames/` the hostname increment, `candidates.txt` the undated
 names, `provenance/*.parquet` every assignment joined to its evidence row, and `logs/` the
-collectors' logs. A fresh copy of this archive was extracted and put through the route above before sending. Every check in
-`verify.sh` passes, `trace.py` resolves, and the tier-2 rebuild from `provenance/` returns
-every per-year count exactly, with all twelve invariants passing and all thirteen result files
-byte-identical to the ones shipped here. Tier 3 was not run: it is a roughly 50 GB download, and one
-collector's journals are held out of this archive on size, so it would replay every source but that one.
+collectors' logs. A fresh copy of this archive was extracted and put through the route above before sending. Every one of
+the ten checks in `verify.sh` passes, and the tier-2 rebuild from `provenance/` returns every per-year
+count exactly, with all fifteen invariants passing and all twenty-one result files (six annual additions,
+six hostname files, six masters, two evidence manifests, the candidate list) byte-identical to the ones
+shipped here. The first rehearsal of this build caught a defect: run from inside the archive, the
+hostname export resolved the baseline through a repository-only path and rebuilt every hostname as
+net-new; it was fixed and the rehearsal rerun. Tier 3 was not run: it is a roughly 50 GB download, and
+five journal sets are held out of this archive on size, so it would replay every source but those.
 
 | | asked for | where it is |
 |----|------------------|------------------------------------------|
