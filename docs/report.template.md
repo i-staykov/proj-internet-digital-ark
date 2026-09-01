@@ -29,6 +29,24 @@ row gives what dates one item and where the artifact is, so any of them can be o
 
 [NEW_SOURCES_TABLE]
 
+**The second output unit, and the day it repriced bytes already on disk.** On 2026-09-01 you
+accepted valid hostnames as annual records beside registrable domains, with registrables still
+prioritized. The pipeline gained `hostname_year` the same day, behind the same evidence wall:
+every hostname row foreign-keys the evidence observation whose own 14-digit capture timestamp
+dates it, two integrity checks gate the relation (`hostname_wall_intact`,
+`hostname_is_below_its_parent`), and the hostnames ship as separate `NNNN_hostnames.txt` files
+beside the annual masters, with their own `hostnames_evidence_manifest.csv`, so they can be
+merged or discarded independently. The first corpus in was one this project had already paid
+for and written off: 180 raw CDX domain-sweep journals from 2026-08-21..24, 46.8 million
+capture rows, recorded then as "worth exactly 0" because the registrable unit collapsed every
+`www.foo.co.uk` onto a `foo.co.uk` the store already held. Under the hostname unit the same
+bytes carry **338,865 net-new hostname records, 301,650 equivalent-English**, most of it at
+2001. A unit definition, not a new download, moved the round by a third of the trigger; the
+same lesson as the NYPW partitions, one level up: reprice held artifacts whenever the measure
+changes. A live collector (`platform_sweep.sh`) now walks the subdomain platforms your own
+benchmark proves dense, ranked by `rank_platform_parents.py` (cjb.net leads at 157,790
+sub-hosts in your files against ~336,000 measured in the CDX index).
+
 **One of these needs a story, because the method is the finding.** `nypw_timemaps` (the Internet
 Archive's "Not Your Parents' Web" TimeMaps, CC BY 4.0) had been REJECTED in an earlier round at
 14.2 equivalent-English, measured on its 1996 folder. A dedicated review lane, whose whole job is
