@@ -9,9 +9,9 @@ figure is generated from the evidence store when the archive is built.
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 33,848,926 |
 | 2. Equivalent-English total | 17,770,588.9026 |
-| 3. Increment | **6,020,366** records |
-| 4. Equivalent-English increment | **3,427,607.1175** |
-| 5. Equivalent-English growth rate | **19.2881%** |
+| 3. Increment | **6,051,283** records |
+| 4. Equivalent-English increment | **3,447,310.6672** |
+| 5. Equivalent-English growth rate | **19.3990%** |
 
 Two units, both at your calculator's counting unit (one distinct valid hostname per year at its
 TLD's English share), disjoint, both absent from the baseline, no record rejected by your validator:
@@ -19,19 +19,19 @@ TLD's English share), disjoint, both absent from the baseline, no record rejecte
 | Unit | Files | Records | Equivalent-English | Growth |
 |------------------------------|-------------------|---------:|-------------:|-------:|
 | registrable domains, the prioritized unit | `additions/NNNN.txt` | 623,920 | 328,764.8318 | 1.8501% |
-| valid hostnames beneath registrables, accepted 2026-09-01 | `hostnames/NNNN_hostnames.txt` | 5,396,446 | 3,098,842.2857 | 17.4380% |
+| valid hostnames beneath registrables, accepted 2026-09-01 | `hostnames/NNNN_hostnames.txt` | 5,427,363 | 3,118,545.8354 | 17.5489% |
 
 | Year | merged260901 | Registrables | Hostnames | Merged | Equivalent-English added |
 |------|------------:|-----------:|-----------:|------------:|--------------:|
 | 1996 | 979,994 | 8,864 | 79,145 | 1,068,003 | 52,642.0965 |
-| 1997 | 2,161,231 | 18,104 | 175,626 | 2,354,961 | 113,128.7747 |
-| 1998 | 3,119,897 | 22,997 | 523,957 | 3,666,851 | 313,548.7414 |
-| 1999 | 6,345,942 | 46,194 | 841,100 | 7,233,236 | 507,443.2189 |
-| 2000 | 10,705,102 | 27,486 | 1,532,153 | 12,264,741 | 859,744.1483 |
-| 2001 | 10,536,760 | 500,275 | 2,244,465 | 13,281,500 | 1,581,100.1377 |
-| **Total** | **33,848,926** | **623,920** | **5,396,446** | **39,869,292** | **3,427,607.1175** |
+| 1997 | 2,161,231 | 18,104 | 175,651 | 2,354,986 | 113,146.5272 |
+| 1998 | 3,119,897 | 22,997 | 524,705 | 3,667,599 | 314,079.8962 |
+| 1999 | 6,345,942 | 46,194 | 843,036 | 7,235,172 | 508,766.1805 |
+| 2000 | 10,705,102 | 27,486 | 1,536,042 | 12,268,630 | 862,203.2432 |
+| 2001 | 10,536,760 | 500,275 | 2,268,784 | 13,305,819 | 1,596,472.7236 |
+| **Total** | **33,848,926** | **623,920** | **5,427,363** | **39,900,209** | **3,447,310.6672** |
 
-**Cumulative score 50.7108%**: the sum of the increases you awarded (1.659986%, 10.730988%, 14.901054%, 4.130718%) plus this round's 19.2881%, as your update log of 2026-08-18 defines it. Round 1 is held out: awarded on records, before the equivalent-English metric.
+**Cumulative score 50.8217%**: the sum of the increases you awarded (1.659986%, 10.730988%, 14.901054%, 4.130718%) plus this round's 19.3990%, as your update log of 2026-08-18 defines it. Round 1 is held out: awarded on records, before the equivalent-English metric.
 
 ## 2. What the increment is
 
@@ -42,7 +42,7 @@ Three things, largest first:
    registrable, so the NYPW TimeMaps (34 parts, CC BY 4.0) stood recorded as spent and 180
    domain-wide CDX journals as worth 0. The same bytes, re-read under the new unit, are the
    largest source of the round, with no new request.
-2. **Domain-wide CDX sweeps over subdomain platforms: 989,027 EE, 1,337,673
+2. **Domain-wide CDX sweeps over subdomain platforms: 1,008,731 EE, 1,368,590
    records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
    (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
    `freeserve.co.uk`). This is the workflow your 0901 update describes; each parent is resumable
@@ -56,13 +56,13 @@ Three things, largest first:
 | Source | Unit | What dates one record | Records | EE |
 |------------------------|------|----------------------------|--------:|-------:|
 | `nypw_timemap_hostgrain` | hostname | the row's own 14-digit capture timestamp | 4,039,562 | 2,097,955 |
-| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 1,337,673 | 989,027 |
+| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 1,368,590 | 1,008,731 |
 | `nypw_timemaps` | registrable | the row's own 14-digit capture timestamp | 329,667 | 143,789 |
 | `ia_cdx_bulk` | registrable | the capture timestamp of a URL on that host | 92,479 | 66,566 |
 | `usenet_address` | registrable | the post's `Date:` header, corroborated by a second source | 67,145 | 39,232 |
 | `usenet_announce` | registrable | the post's `Date:` header, corroborated by a second source | 36,486 | 18,569 |
 | 24 further sources | registrable | one row each in `sources.md` and `audit/source_contribution.csv` | 117,354 | 72,470 |
-| **Total** | | | **6,020,366** | **3,427,607** |
+| **Total** | | | **6,051,283** | **3,447,311** |
 
 Every source has its own entry in `sources.md`: link, acquisition route, what dates one item, yield,
 and for closed families the measurement that closed them. Per-source figures with files and
@@ -146,10 +146,10 @@ corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260901` | 33,848,926 | 17,770,588.9026 |
-| **accepted increment** | **6,020,366** | **3,427,607.1175** |
-| post-merge total | 39,869,292 | 21,198,196.0201 |
+| **accepted increment** | **6,051,283** | **3,447,310.6672** |
+| post-merge total | 39,900,209 | 21,217,899.5698 |
 
-- Overlap with the baseline: **0 records**, so all 6,020,366 submitted count once; the two unit files are disjoint in every year.
+- Overlap with the baseline: **0 records**, so all 6,051,283 submitted count once; the two unit files are disjoint in every year.
 - **28 of 28 reconciliation checks pass** (per-year `baseline_unique + accepted_new == merged_unique`, unit files disjoint and summing to the submitted count, per-year increments summing to the headline, baseline re-measured). Verdicts in `audit/merge_audit_ark_*.json`, per-year form in `audit/merge_stats_ark_*.csv` in your column names.
 - Method: `merge_against_baseline.py` unions both units into the baseline, deduplicated on the lowercased line within each year, and scores every file with your own calculator.
 
