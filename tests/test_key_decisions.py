@@ -24,7 +24,7 @@ from ark.key_decisions import is_open, open_titles, raise_open, refresh_open
 # the mirror would then have failed to find it and raised a SECOND copy on the next
 # cycle. One definition, one failure, and it fails in the right place.
 _SPEC = importlib.util.spec_from_file_location(
-    "discover_cycle", Path(__file__).resolve().parents[1] / "scripts" / "discover_cycle.py"
+    "discover_cycle", Path(__file__).resolve().parents[1] / "scripts/harness/discover_cycle.py"
 )
 _discover_cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_discover_cycle)

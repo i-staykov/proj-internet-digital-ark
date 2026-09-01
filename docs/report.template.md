@@ -95,7 +95,7 @@ it refused twice in this round until the decision existed.
 **What that gate is worth, measured.** [DECISIONS] sources were admitted in this round, each on a
 separate written decision. [POOL_RESTRICTED] strings sit in the candidate pool under `.edu`, `.gov` and
 `.mil`, namespaces no one could register in freely, and **not one of them reached an annual file**
-without independent attestation. Twelve invariants run before
+without independent attestation. thirteen invariants run before
 every commit and again inside the shipped archive; one of them caught a defect in this round, an
 evidence value citing a page's date for a row dated from its own column, which was a wrong citation
 rather than a wrong year.
@@ -135,7 +135,7 @@ and this round's net-new records, `candidates.txt` the undated names, `provenanc
 |---|---|---|
 | **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at the commit in `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command should print |
 | **D2** | experience summary | `experience-summary.md`, distilled from `sources.md`, which carries every rejection with the measurement that closed it |
-| **D3** | merge and dedup code, overlap, reconciliation | section 6, `source/scripts/merge_against_baseline.py`, output in `audit/` |
+| **D3** | merge and dedup code, overlap, reconciliation | section 6, `source/scripts/round/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your own program vendored unmodified, explained in `metric-explained.md` |
 
 `verify.sh` checks all four inside a fresh extraction, so none can ship unmet.

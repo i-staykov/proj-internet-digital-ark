@@ -173,6 +173,26 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "no_tld_that_never_existed_in_the_window",
+        "no exported annual line sits under a TLD that did not exist AT ALL in 1996-2001. "
+        "`DELEGATED` names sixteen TLDs and stops at 2012, so it could not see the 2013 "
+        "new-gTLD programme and its ~1,200 delegations, and text extraction banks any English "
+        "word that later became one: measured 2026-08-31 the shipped files carried 749 such "
+        "pairs and 423.9 EE across 131 TLDs, led by `.you`, `.here`, `.now` and `.sucks`, "
+        "several of which carry weight 1.0000. Enumerating what DID exist is closed and cannot "
+        "go stale; enumerating delegations would",
+        """
+        SELECT count(*)
+        FROM read_csv(
+            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+        )
+        WHERE NOT """
+        + __import__("ark.delegation", fromlist=["existed_predicate"]).existed_predicate("domain")
+        + """
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",

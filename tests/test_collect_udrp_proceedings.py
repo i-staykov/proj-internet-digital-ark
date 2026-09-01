@@ -13,7 +13,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "collect_udrp_proceedings",
-    Path(__file__).resolve().parents[1] / "scripts" / "collect_udrp_proceedings.py",
+    Path(__file__).resolve().parents[1] / "scripts/sources/directories/collect_udrp_proceedings.py",
 )
 udrp = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(udrp)

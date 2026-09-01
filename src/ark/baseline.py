@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback-phase-6/Domain_Data_Collection_Task 2/merged260821")
-CURRENT_BASELINE_MARKER = "merged260821"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 3/merged260830")
+CURRENT_BASELINE_MARKER = "merged260830"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -48,21 +48,21 @@ CURRENT_BASELINE_MARKER = "merged260821"
 # its round window are the same fact: the window opens where the shipped release
 # closes. Kept apart, they drift, and a stale window re-reports the previous
 # round's held candidates as this round's, silently and in our favour.
-CURRENT_ROUND_SINCE = "2026-08-17 09:34:55+00"
+CURRENT_ROUND_SINCE = "2026-08-26 22:43:08+00"
 
 # What to call the round now being collected, in Ivo's numbering. The report heading,
 # the cumulative table's last row and the submission directory all take it from here,
 # because they were three separate hardcoded "5"s and one of them was still saying 4
 # a week into the round.
-CURRENT_ROUND_LABEL = "6"
+CURRENT_ROUND_LABEL = "7"
 
 # The same files measured with the reviewer's own `equivalent_english_domains.py`.
 # PAIRS is the RAW record count, not the validator-passing subset: his line 1 tracks
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 25_064_981
-REVIEWER_BASELINE_EE = Decimal("13362368.8792")
+REVIEWER_BASELINE_PAIRS = 27_880_151
+REVIEWER_BASELINE_EE = Decimal("14531454.0269")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
@@ -70,18 +70,23 @@ REVIEWER_BASELINE_EE = Decimal("13362368.8792")
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **2000 is where this release moved**: 3,977,564 to 4,897,483 EE in one day, which is
-# 94% of the whole 977,561 EE increase. A contributor landed 1.99 million records in
-# that single year. The threshold's recession therefore went back to 48,878 EE/day
-# after one interval at 5,129, which is why C-32's caution about a single interval
-# mattered.
+# **2001 is where `merged260830` moved, and it is the year we had just aimed at.** The
+# release adds 646,292 pairs and 309,511 EE over `merged260827-2`, and 210,704 EE of that
+# lands at 2001 alone, with 1999 and 2000 taking 41,084 and 56,652. Only 3,845 EE of the
+# 2001 growth is ours by overlap, so roughly 207,000 EE at 2001 came from elsewhere. The
+# file mtimes agree: 1996-1998 are dated 2026-08-29 and 1999-2001 2026-08-30.
+#
+# **The denominator moved against us faster than overlap did.** We lost only 6,523 pairs
+# and 3,894 EE to this release, 2.1% of the increment, against 244,752 records lost to the
+# previous one. But 5% of the corpus rose from 711,097 to 726,573 EE, so the gap to the
+# trigger grew from 524,926 to 544,738 EE despite our banking all day.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("512268.6829"),
-    1997: Decimal("1066466.0153"),
-    1998: Decimal("1387632.0195"),
-    1999: Decimal("2715164.2302"),
-    2000: Decimal("4897483.7308"),
-    2001: Decimal("2783354.2005"),
+    1996: Decimal("558670.7937"),
+    1997: Decimal("1156766.3818"),
+    1998: Decimal("1524123.5397"),
+    1999: Decimal("2967947.2618"),
+    2000: Decimal("5069509.0517"),
+    2001: Decimal("3254436.9982"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -147,7 +152,27 @@ SUBMITTED_ROUNDS = (
     ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730", Decimal("1.659986")),
     ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", Decimal("10.730988")),
     ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817", Decimal("14.901054")),
+    # round 6  feedback of 2026-08-27, credited 1,684,903 records and 562,099.5294 EE at
+    #          4.130718% against `merged260826`, from the 1,929,655 and 713,481.4198 that
+    #          were sent against `merged260821`. The 244,752-record difference had already
+    #          entered the newer benchmark through other contributors, which is the third
+    #          round in a row where the accepted figure is below the submitted one.
+    ("6", "2026-08-27", 1_684_903, Decimal("562099.5294"), "merged260826", Decimal("4.130718")),
 )
+
+# The competition RANKING score, which is not the cumulative percentage and is the number
+# that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with
+# `k = 10`, `p_i` the awarded percentage and `t_i` the elapsed days from the release of the
+# benchmark a submission is measured against to its receipt. `S_total` is the sum.
+#
+# **This makes speed worth as much as size, and the arithmetic is brutal.** Round 6 took six
+# days from `merged260821` to receipt and awarded 4.130718%, so `S_6 = 10 * 4.130718 / 6 =
+# 6.88`, which is the figure he quotes back. The same 4.13% delivered in two days would have
+# scored 20.65. Three separate 1.4% rounds at two days each would score 21.0 against the
+# 6.88 one 4.13% round actually earned.
+#
+# So the round length is a scoring decision, not a logistics one, and it belongs to Ivo.
+SUBMISSION_SPEED_K = 10
 
 
 def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
@@ -202,8 +227,8 @@ def calculator_path() -> Path:
                 CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
                 Path("..") / "equivalent_english_domain_calculator",
                 Path("equivalent_english_domain_calculator"),
-                Path("feedback-phase-5") / "equivalent_english_domain_calculator",
-                Path("feedback-phase-3") / "equivalent_english_domain_calculator",
+                Path("feedback/feedback-phase-6/equivalent_english_domain_calculator"),
+                Path("feedback/feedback-phase-3/equivalent_english_domain_calculator"),
             ),
             "equivalent_english_domains.py",
         )

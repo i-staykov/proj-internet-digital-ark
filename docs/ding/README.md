@@ -17,7 +17,7 @@ the ones the whole evidence model in this repository implements, and they are th
 
 **Do not edit these files.** They are generated:
 
-    uv run python scripts/extract_ding_docs.py --package feedback-phase-6
+    uv run python scripts/round/extract_ding_docs.py --package feedback-phase-6
 
 The body of each is pandoc's conversion of his original, never retyped, and the header
 carries the source file's sha256 so a reader can prove the transcription belongs to that

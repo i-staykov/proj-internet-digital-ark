@@ -42,7 +42,7 @@ Three consequences that are easy to get wrong:
 The weight table is vendored at `src/ark/data/tld_english_share.json` and read through
 `src/ark/english_share.py`. His own calculator lives at
 `feedback-phase-3/equivalent_english_domain_calculator/` and is a **live dependency**:
-`scripts/round_figures.py --verify` runs it over our increment and refuses the numbers if his total
+`scripts/round/round_figures.py --verify` runs it over our increment and refuses the numbers if his total
 differs from ours or if his validator rejects a record we counted. No figure goes to him without
 passing that gate.
 
@@ -167,7 +167,7 @@ Two things follow, and the second is the uncomfortable one.
   earned 603,401.78 EE against a smaller corpus; 5% of `merged260810` is 311,319.32 EE against a corpus
   that phase 4 itself enlarged, after phase 4 consumed the cheap sources.
 - **The target is not assumed anywhere in the code, and must not be.**
-  `scripts/build_query_queue.py` used to size the queue against a tenth of the baseline and no longer
+  `scripts/engines/build_query_queue.py` used to size the queue against a tenth of the baseline and no longer
   does, because carrying a met goal forward silently retargets a fraction of a baseline that has itself
   grown. A target belongs in the report and in the allocation argument, never in a queue length.
 
