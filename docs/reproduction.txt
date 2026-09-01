@@ -1,8 +1,1 @@
-A fresh copy of this archive was extracted and put through the route above before sending. Every one of
-the ten checks in `verify.sh` passes, and the tier-2 rebuild from `provenance/` returns every per-year
-count exactly, with all fifteen invariants passing and all twenty-one result files (six annual additions,
-six hostname files, six masters, two evidence manifests, the candidate list) byte-identical to the ones
-shipped here. The first rehearsal of this build caught a defect: run from inside the archive, the
-hostname export resolved the baseline through a repository-only path and rebuilt every hostname as
-net-new; it was fixed and the rehearsal rerun. Tier 3 was not run: it is a roughly 50 GB download, and
-five journal sets are held out of this archive on size, so it would replay every source but those.
+Before sending, a fresh copy of this archive was extracted and put through that route: all ten `verify.sh` checks pass; the tier-2 rebuild from `provenance/` reproduces every per-year count, passes all fifteen invariants, and returns all twenty-one result files (six annual additions, six hostname files, six masters, two evidence manifests, the candidate list) byte-identical to the ones shipped. The first rehearsal caught a defect (the hostname export resolved the baseline through a repository-only path when run inside the archive); it was fixed and the rehearsal rerun clean. Tier 3, the full replay, was not run: it is a roughly 50 GB download and five journal sets are held out of the archive on size.

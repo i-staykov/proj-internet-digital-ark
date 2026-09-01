@@ -334,6 +334,79 @@ def accepted_totals() -> dict | None:
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
+ATTRIBUTION_TOP_ROWS = 6
+
+
+def attribution_rows(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> list[tuple]:
+    """Both units as (name, unit, what, dates, records, EE), ranked by EE."""
+    rows = []
+    for r in f["by_source"]:
+        what, dates = GROUNDS.get(
+            r["source"],
+            ("see `sources.md`", CLASS_GROUNDS.get(r["evidence_type"], r["evidence_type"])),
+        )
+        rows.append((r["source"], "registrable", what, dates, r["pairs"], Decimal(str(r["ee"]))))
+    for method, (n, ee) in hosts.items():
+        what, dates = GROUNDS.get(method, ("see `sources.md`", "a Wayback capture timestamp"))
+        rows.append((method, "hostname", what, dates, n, ee))
+    rows.sort(key=lambda r: r[5], reverse=True)
+    return rows
+
+
+def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
+    """The few sources that carry the round, one row each; the long tail is one row
+    pointing at the register. Ivo, 2026-09-02: the full table cost a page of the
+    report and belongs in `sources.md` and `audit/source_contribution.csv`."""
+    rows = attribution_rows(f, hosts)
+    shown, rest = rows[:ATTRIBUTION_TOP_ROWS], rows[ATTRIBUTION_TOP_ROWS:]
+    lines = [
+        "| Source | Unit | What dates one record | Records | EE |",
+        "|------------------------|------|----------------------------|--------:|-------:|",
+    ]
+    for name, unit, _what, dates, n, ee in shown:
+        lines.append(f"| `{name}` | {unit} | {dates} | {n:,} | {ee:,.0f} |")
+    if rest:
+        n = sum(r[4] for r in rest)
+        ee = sum((r[5] for r in rest), Decimal(0))
+        lines.append(
+            f"| {len(rest)} further sources | registrable | one row each in `sources.md` "
+            f"and `audit/source_contribution.csv` | {n:,} | {ee:,.0f} |"
+        )
+    total_n = sum(r[4] for r in rows)
+    total_ee = sum((r[5] for r in rows), Decimal(0))
+    lines.append(f"| **Total** | | | **{total_n:,}** | **{total_ee:,.0f}** |")
+    return "\n".join(lines)
+
+
+def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]:
+    """Section 2's three-item story, summed from the same rows as the table so the
+    prose cannot drift from it."""
+    by = {r["source"]: (r["pairs"], Decimal(str(r["ee"]))) for r in f["by_source"]}
+
+    def total(names: list[str]) -> tuple[int, Decimal]:
+        n = sum(by.get(x, (0, Decimal(0)))[0] for x in names)
+        ee = sum((by.get(x, (0, Decimal(0)))[1] for x in names), Decimal(0))
+        return n, ee
+
+    nypw = ["nypw_timemaps", "nypw_timemaps_nonok"]
+    cdx = ["ia_cdx_bulk"]
+    usenet = ["usenet_address", "usenet_announce", "usenet_bare"]
+    other = [x for x in by if x not in nypw + cdx + usenet]
+    h_nypw = hosts.get("nypw_timemap_hostgrain", (0, Decimal(0)))
+    h_sweep = hosts.get("ia_cdx_domain_sweep", (0, Decimal(0)))
+    return {
+        "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
+        "HOST_NYPW_N": f"{h_nypw[0]:,}",
+        "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
+        "HOST_SWEEP_N": f"{h_sweep[0]:,}",
+        "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
+        "REG_CDX_EE": f"{total(cdx)[1]:,.0f}",
+        "REG_USENET_EE": f"{total(usenet)[1]:,.0f}",
+        "REG_OTHER_EE": f"{total(other)[1]:,.0f}",
+        "REG_OTHER_N": f"{len(other)}",
+    }
+
+
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
     hosts, www_share = hostname_breakdown()
@@ -405,6 +478,8 @@ def substitutions(f: dict) -> dict[str, str]:
         "ROUND": CURRENT_ROUND_LABEL,
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
+        "ATTRIBUTION_TOP": attribution_top(f, hosts),
+        **grouped_ee(f, hosts),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
@@ -456,11 +531,10 @@ def cumulative(f: dict, growth: Decimal) -> str:
     awarded = ", ".join(f"{r[5]}%" for r in scored)
     unscored = [r for r in SUBMITTED_ROUNDS if r[5] is None]
     return (
-        f"**Cumulative.** Summing the increases you have awarded, which is how the update log "
-        f"of 2026-08-18 defines the score: {awarded} and this round's {this:.4f}% give "
-        f"**{total:.4f}%**, with round {unscored[0][0]}'s {unscored[0][2]:,} records held out "
-        f"because it was awarded at 17.38% on records before the equivalent-English metric "
-        f"existed."
+        f"**Cumulative score {total:.4f}%**: the sum of the increases you awarded "
+        f"({awarded}) plus this round's {this:.4f}%, as your update log of 2026-08-18 "
+        f"defines it. Round {unscored[0][0]} is held out: awarded on records, before the "
+        "equivalent-English metric."
     )
 
 
@@ -495,25 +569,19 @@ def merge_reconciliation() -> str:
     ]
     return "\n".join(
         [
-            "`merge_against_baseline.py` unions both units into the current baseline,",
-            "deduplicated on the lowercased line within each year, and scores every file with your",
-            "own calculator. Per-year form in `audit/merge_stats_ark_*.csv`, in your column names",
-            "so the two audits diff directly.",
-            "",
             *rows,
             "",
-            f"**Overlap with the baseline is "
-            f"{int(t['already_in_baseline_records']):,} records**, so all "
-            f"{int(t['submitted_records']):,} submitted are accepted and nothing counts twice; "
-            f"the registrable and hostname files are disjoint in every year.",
-            "",
-            f"**{passed} of {len(checks)} reconciliation checks pass.** All are arithmetic",
-            "identities, so a failure would be a defect rather than a finding: per year that",
-            "`baseline_unique + accepted_new == merged_unique` and that the two unit files are",
-            "disjoint and sum to the submitted count, that the per-year increments sum",
-            "to the headline, and that a freshly measured baseline reproduces the totals this",
-            "round was measured against. Each is listed with its verdict in",
-            "`audit/merge_audit_ark_*.json`.",
+            f"- Overlap with the baseline: **{int(t['already_in_baseline_records']):,} "
+            f"records**, so all {int(t['submitted_records']):,} submitted count once; the two "
+            "unit files are disjoint in every year.",
+            f"- **{passed} of {len(checks)} reconciliation checks pass** (per-year "
+            "`baseline_unique + accepted_new == merged_unique`, unit files disjoint and summing "
+            "to the submitted count, per-year increments summing to the headline, baseline "
+            "re-measured). Verdicts in `audit/merge_audit_ark_*.json`, per-year form in "
+            "`audit/merge_stats_ark_*.csv` in your column names.",
+            "- Method: `merge_against_baseline.py` unions both units into the baseline, "
+            "deduplicated on the lowercased line within each year, and scores every file with "
+            "your own calculator.",
         ]
     )
 
@@ -609,11 +677,9 @@ def datasets_searched() -> str:
     # 26 developed families inline cost most of a page and told him nothing the file
     # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
     return (
-        f"**{len(developed) + rejected} source families have been searched and recorded**, "
-        f"{len(developed)} developed far enough to earn their own section and {rejected} "
-        "evaluated and closed, each with the measurement that closed it, so negative results "
-        "stay visible and the same ground is not broken twice. `sources.md` ships beside this "
-        "report and names every one, with its acquisition route, date semantics and yield."
+        f"**{len(developed) + rejected} source families searched and recorded** in "
+        f"`sources.md`: {len(developed)} developed, {rejected} evaluated and closed with the "
+        "measurement that closed them, so the same ground is not broken twice."
     )
 
 
