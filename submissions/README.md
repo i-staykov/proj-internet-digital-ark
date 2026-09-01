@@ -69,3 +69,4 @@ Brazil, China, Poland, the Czech Republic, Korea, Latin America, Australia, Sout
 and Europe, plus the non-English ODP/DMOZ World branch. This project's phase 2 was **17,418 net-new
 pairs** (2026-07-28/29) and was never shipped as a scored round; it was rolled into
 phase 3's 151,949. Never add that step to a cumulative total.
+| live (round 8) | DomainDataCollectionTask_202609011852_IvayloStaykov.tar.gz | 2026-09-01 | 623,835 registrable pairs (328,715 EE, 1.85%) + 4,872,448 hostname records (2,749,489 EE, first round of the second unit) | sha256 b77ae8c3... |
