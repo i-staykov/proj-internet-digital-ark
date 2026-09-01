@@ -87,7 +87,7 @@ with a widening delay. Collectors take an absolute deadline and outlive the sess
   another source dates that domain first, and `link_target` never dates a year.
 - **Saturation ledger**, as your 2026-08-31 update asks: `audit/source_saturation_ledger.csv`,
   one row per source family and version, with coverage, what dates one item, limitations and
-  the decision. [DATASETS_SEARCHED]
+  the decision. Over the whole project, [DATASETS_SEARCHED]
 - **[CANDIDATES] domains carry no year evidence** and ship as `candidates.txt`, none in an
   annual file; [POOL_RESTRICTED] of them are under `.edu`, `.gov` or `.mil`.
 
