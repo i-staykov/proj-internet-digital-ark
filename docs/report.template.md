@@ -13,6 +13,11 @@ generated from the evidence store, so no table here can disagree with the files 
 | 4. Equivalent-English increment | **[EE]** |
 | 5. Equivalent-English growth rate | **[EEGROWTH]** |
 
+Separately, this round ships **[HOSTPAIRS] hostname records ([HOSTEE] equivalent-English)** in
+`hostnames/`, one file per year: the second output unit you accepted on 2026-09-01, kept out of
+the five fields above so line 5 stays comparable with earlier rounds. Scored at the
+calculator's own unit, the combined growth rate is **[COMBINEDGROWTH]**.
+
 The increment covers [UNIQUE] distinct domains, of which **[NEWDOMAINS] appear in none of the six
 baseline files in any year**.
 

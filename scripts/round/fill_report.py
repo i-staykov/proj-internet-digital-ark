@@ -214,6 +214,29 @@ def accepted_totals() -> dict | None:
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
+def hostname_figures() -> tuple[int, Decimal]:
+    """Records and equivalent-English of the shipped hostname files (second unit)."""
+    repo = Path(__file__).resolve().parents[2]
+    raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
+    weights = {
+        str(t).lower(): Decimal(str(p)) / 100
+        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
+        if t and lang == "eng"
+    }
+    pairs, ee = 0, Decimal(0)
+    for year in range(1996, 2002):
+        path = repo / f"output/netnew/{year}_hostnames.txt"
+        if not path.exists():
+            continue
+        with path.open() as fh:
+            for line in fh:
+                host = line.strip()
+                if host:
+                    pairs += 1
+                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+    return pairs, ee
+
+
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
     # Fall back to the store only when no merge has been run, so a missing audit
@@ -252,7 +275,15 @@ def substitutions(f: dict) -> dict[str, str]:
         else Decimal(str(f["ee_netnew_growth_pct"]))
     )
 
+    h_pairs, h_ee = hostname_figures()
+    baseline_ee = Decimal(str(f.get("ee_baseline", 0))) or None
+    combined = ""
+    if baseline_ee:
+        combined = f"{(ee_total + h_ee) / baseline_ee * 100:.4f}%"
     subs: dict[str, str] = {
+        "HOSTPAIRS": f"{h_pairs:,}",
+        "HOSTEE": f"{h_ee:,.4f}",
+        "COMBINEDGROWTH": combined or "[COMBINEDGROWTH]",
         "TOTAL": f"{total:,}",
         "UNIQUE": f"{f['netnew_unique_domains']:,}",
         "NEWDOMAINS": f"{f['netnew_domains_absent_from_baseline']:,}",
