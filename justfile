@@ -115,9 +115,9 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
     # 3. A FIND wakes the admitter (a model, locally, where the store is).
     if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
-        echo "FIND present: waking the admitter (opus/medium)"
+        echo "FIND present: waking the admitter (fable 5.1/medium)"
         claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
-            --model opus --effort medium --output-format text \
+            --model claude-fable-5-1 --effort medium --output-format text \
             > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
         tail -3 "data/logs/admit_$LABEL.log"
     fi
@@ -141,7 +141,10 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
     # through cdx_suffix_convert.py by hand when a sweep completes, not per bank,
     # because the converter re-emits everything under a fresh tag on every run.
-    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    # skip the journals a sweep still holds open: a half-copied one was once
+    # ledgered at a third of its rows and had to be re-ingested by hand
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done' 2>/dev/null | sort -u)
+    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
     # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
     uv run ark export >/dev/null && uv run ark check | tail -1
@@ -827,7 +830,10 @@ submit-prep:
     #!/usr/bin/env bash
     set -euo pipefail
     source local.env
-    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    # skip the journals a sweep still holds open: a half-copied one was once
+    # ledgered at a third of its rows and had to be re-ingested by hand
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done' 2>/dev/null | sort -u)
+    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
     uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
