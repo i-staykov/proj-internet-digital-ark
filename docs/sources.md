@@ -454,6 +454,61 @@ the 2000 folder alone projects five figures before saturation, which has to be r
 banking proceeds. Take 1999 next: it has holes at both 2000 and 2001. Skip 1996 and 2001, both
 measured dead.
 
+## `nypw_timemaps_nonok`: the non-200 lane of the same partitions, master
+
+**Same bytes, same LINKS, no new request.** Item `https://archive.org/details/nypw_timemaps`; the
+thirty-four partition URLs are listed one by one in the `nypw_timemaps` section above and are the
+only download links this source needs, because it reads the `.cdx.gz` already at
+`data/raw/nypw_timemaps/`. Terms unchanged: CC BY 4.0 from the item's own
+`nypw_timemaps_readme.txt`; `archive.org/robots.txt` is 238 bytes and disallows only `/control/`
+and `/report/`.
+
+**What dates one item:** field 3 of the CDX row, the crawler's own 14-digit capture stamp, exactly
+as for the 200 lane. A row entire, from
+`data/raw/nypw_timemaps/nypw_timemaps1998_rootURLs_part06r.cdx.gz`:
+
+    https://hmcfunding.com/ com,hmcfunding)/ 20010309022603 http://www.hmcfunding.com:80/
+    text/html 302 YSRUTJQPTYE6V4XUYSDKZYOE7SGNOZCU 384
+
+The store held `hmcfunding.com` at 1998, 1999 and 2000 and lacked 2001. A 302 means the hostname
+resolved, a server accepted the connection and answered at `20010309022603`, which requires the
+name delegated at that instant. **The status describes the resource, not the registration**, so
+this is `cdx_timestamp` unchanged rather than a new class.
+
+**Measured net-new post-split against the live store on 2026-09-01: 6,679.7 EE over 13,277 pairs**,
+out of 6,374,276 non-200 in-window rows that collapse to 444,308 distinct pairs, 97.0% of which
+were already held. By year: 1998 6, 1999 111, 2000 360, **2001 12,800**. Approval entry and the
+banked `year_rows` are in `docs/approved-sources-list.md`.
+
+**The method is worth more than the source.** `_parse_nypw` had discarded every non-200 row since
+it was written, counting them into `stats["non_200"]` and moving on, so the size of the lane was
+recoverable from past ingest journals with no fetch at all. **To test "we filtered X away",
+re-parse an artifact already ingested rather than querying anything**: ingesting the 200 lane first
+turns the store into the control group, and every pair the relaxed parser finds that the store
+lacks is attributable to the relaxation alone. Cost: no requests, one parser.
+
+**`parse_arquivo_cdxj` (`src/ark/sources.py`) throws non-200 rows away the same way and is the
+obvious next application, but it cannot be refetched**: `arquivo.pt/robots.txt`, 35,470 B read
+whole, carries `Disallow: /wayback`, `Disallow: /cdxj` AND `Disallow: /datasets` in its
+`User-agent: *` group, roughly 720 lines of `Allow:` exceptions in. That closes both the CDX API
+and the CDXJ bulk files, and it also means the `curl` of
+`https://arquivo.pt/datasets/cdxj/IA.cdxj` recorded earlier in this file would be disallowed today.
+Only bytes still on a collector machine can be re-parsed.
+
+**Every substitute pywb/CDX archive was checked and is closed**, so the live-query version of this
+idea is dead and the bulk re-parse is the only route: `web.archive.org.au/robots.txt` is 26 B of
+`User-agent: *` / `Disallow: /`; `webarchive.nationalarchives.gov.uk` is `Disallow: /` for `*` and
+`Allow: /` for Oncrawl only; `www.webarchive.org.uk` serves an identical 159 B "400 Redirect" stub
+to `/robots.txt` and to every `/wayback/archive/cdx?...` path, which is the identical-bytes-across-
+different-objects signature of a failed fetch, and separately its TLS chain omits the DigiCert
+Global G2 intermediate, which appending that intermediate from `cacerts.digicert.com` to the CA
+bundle fixes for any future `.uk` work; `web.archive.bibalex.org` connect-times-out at 20 s;
+`webarchive.loc.gov` 403s behind a Cloudflare JS challenge; `wayback.vefsafn.is` has a certificate
+name mismatch. Also empty:
+`archive.org/advancedsearch.php?q=format:(CDX) AND year:[1996 TO 2001]` returns 66,670 items that
+are all scanned books on a loose token match, and Zenodo's "Webarchive CDX summary" is a 366 KB
+conference PDF rather than data.
+
 ## Australian Web Archive: rejected, endpoint correction kept
 
 `https://webarchive.nla.gov.au/awa/cdx` returns an Anubis challenge, but

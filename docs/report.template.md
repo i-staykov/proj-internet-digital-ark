@@ -42,6 +42,19 @@ partitioned corpus is measured per partition, never argued about. The same disci
 agent's later claim that the 2001 folder was the real seam, wrong by four orders of magnitude
 against the ledger, before it cost a single download.
 
+**The same item then paid a second time, from a filter nobody had questioned.** The parser reading
+those TimeMaps had, since the day it was written, discarded every row whose stored HTTP status was
+not 200, counting them into a statistic and moving on. That lane is 6.37 million in-window rows,
+12.8% of the corpus. A 302 or 404 row means the Archive's crawler resolved the hostname and a server
+answered it at the stamped instant, which requires the name delegated exactly as a 200 does: the
+status describes the resource, not the registration. Re-parsing the same thirty-four files with the
+filter removed paid a further ~6,700 equivalent-English over 13,277 pairs, 96.4% of them dated 2001,
+**for zero new requests**: the bytes were already on disk. The transferable method is the shape of
+the test. **To check whether a filter threw away something valuable, re-parse an artifact already
+ingested rather than querying anything**, because ingesting the unfiltered lane first turns the
+store itself into the control group and every pair the relaxed parser finds is attributable to the
+relaxation alone. Cost: four minutes and one parser.
+
 `sources.md` ships beside this report and carries every source, admitted and rejected, with the
 argument that dates its items. The rules deciding what counts as one valid, non-duplicated addition
 of ours are in `source/src/ark/canonical.py`, with their tests, and apply to our additions only.
