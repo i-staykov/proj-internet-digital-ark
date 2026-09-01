@@ -190,6 +190,21 @@ archive, so its 2.28M evidence rows serve as corroboration.
 ---
 
 
+## `ia_cdx_hostnames`: hostname records from Wayback CDX domain sweeps
+
+The second output unit, accepted by the reviewer on 2026-09-01 (his reply, verbatim, in
+`private/personal-context.md`): hostnames are annual records beside registrables, which
+stay prioritized. Same endpoint as `ia_cdx_bulk`, <https://web.archive.org/cdx/search/cdx>,
+queried with `matchType=domain` per platform parent by `scripts/engines/cdx_suffix_sweep.py`;
+what dates one item is the row's own 14-digit capture timestamp (`cdx_timestamp`), quoted in
+the evidence value beside the hostname. `ark ingest-hostnames` fills `hostname_year`; the
+registrable half of the same journal enters via `cdx_suffix_convert.py` as before. The 180
+raw suffix journals of 2026-08-21..24 (`data/raw/cdx_suffix/`, 46.8M capture rows), recorded
+then as "worth exactly 0" under the registrable unit, are the first corpus in: the unit
+change repriced bytes already on disk. Exports: `output/netnew/NNNN_hostnames.txt` per year
+plus `hostnames_evidence_manifest.csv`. Admitted under the standing rule of 2026-08-29;
+Decision block in `docs/approved-sources-list.md`.
+
 ## `ia_cdx_bulk`: Wayback CDX verification engine
 
 A query engine, not a file: one collapsed CDX query per domain covering all six years, run against domains missing a year they are bracketed by. Endpoint <https://web.archive.org/cdx/search/cdx>; the response journals ship under `journals/`, so ingest replays offline.
@@ -748,6 +763,7 @@ them; where we hold our own verdict on the same family, both are cited.
 
 | Source | Verdict |
 |---|---|
+| **cdx_nonzero_status_rows (2026-09-01, fleet 20260901T1557Z)** | **FIND at 33.35 EE, against the ark-data sync.** What dates one item: the CDX capture timestamp of a non-200 response.. Artifact: <https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_deeplinks_part01o.tar.gz>. TWO already-ingested `nypw_timemaps` parts, chosen so that every HTTP-200 row is guaranteed already banked and any net-new pair MUST come from a dropped non-200 row. |
 | **cdx_year_probe_root_key (2026-09-01, fleet 20260901T1400Z)** | **BLOCKED at 0 EE, against the ark-data sync.** What dates one item: nothing, and nothing was expected to.. The kill screen this hypothesis specifies (200 domains, both probe shapes, timed, same hour, same |
 | **gap_queue_high_weight_tld_tail (2026-09-01, fleet 20260901T1400Z)** | **FIND at 0 EE, against the ark-data sync.** What dates one item: nothing.. no probe and no fetch, because the whole hypothesis is one query over the store, which |
 | **parked_approval_queue_reprice (2026-09-01, fleet 20260901T1400Z)** | **FIND at 12024 EE, against the ark-data sync.** What dates one item: nothing new is dated here.. the kill screen was five parked sources. |

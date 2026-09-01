@@ -45,6 +45,10 @@ from pathlib import Path
 UA = "InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 BASE = "https://web.archive.org/cdx/search/cdx"
 OUT = Path("data/raw/cdx_suffix")
+# Researcher waves need the archive unthrottled; the fleet touches this flag before
+# dispatching agents and removes it after, and the sweep idles while it exists. A
+# flag file rather than systemctl, because the sweep runs as a plain user process.
+PAUSE_FLAG = Path("/tmp/ark-pause-sweeps")
 
 
 def fetch(params: dict, timeout: int) -> tuple[str, list[str]]:
@@ -90,6 +94,8 @@ def main() -> None:
     written = pages = empty_run = 0
     with gzip.open(journal, "wt") as fh:
         while time.time() < args.deadline:
+            while PAUSE_FLAG.exists() and time.time() < args.deadline:
+                time.sleep(30)
             status, rows = fetch(
                 {
                     "url": args.suffix,
@@ -121,6 +127,7 @@ def main() -> None:
                 empty_run += 1
                 if empty_run > 50:
                     print(f"  {empty_run} consecutive empty pages, assuming the end")
+                    (OUT / f"suffix_{safe}.done").touch()
                     break
             else:
                 empty_run = 0

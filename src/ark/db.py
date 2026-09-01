@@ -63,6 +63,21 @@ CREATE TABLE IF NOT EXISTS domain_year (
     PRIMARY KEY (domain, assigned_year)
 );
 
+-- Hostname records, admitted 2026-09-01 when the reviewer accepted "both registrable
+-- domains and valid hostnames as annual database records" (his reply, verbatim, in
+-- private/personal-context.md). Same evidence wall as domain_year: every row points at
+-- one evidence observation, and the checks enforce that the hostname reduces to
+-- parent_domain and is not itself a bare registrable (those stay in domain_year).
+-- Registrables remain the prioritized unit; hostnames ship as separate per-year files.
+CREATE TABLE IF NOT EXISTS hostname_year (
+    hostname      TEXT    NOT NULL,
+    parent_domain TEXT    NOT NULL REFERENCES domain(domain),
+    assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
+    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (hostname, assigned_year)
+);
+
 CREATE TABLE IF NOT EXISTS ingested_file (
     source_name TEXT NOT NULL,
     file_name   TEXT NOT NULL,
