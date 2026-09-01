@@ -1,0 +1,9 @@
+round        live
+built        2026-09-01T18:54:49Z
+commit       bc7add3584b8b018a9ecc2825f006c062b16bf88
+baseline     merged260901
+archive      DomainDataCollectionTask_202609011852_IvayloStaykov.tar.gz
+sha256       b77ae8c30c4c0c486cd5d0e8db42f3b521f64152434ec08986bad90a1bab3d95
+bytes        4002304775
+files        3778
+netnew_pairs 623835

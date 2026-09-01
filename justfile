@@ -903,7 +903,10 @@ ship round="":
     # run from this repository: the fourth rehearsal built a valid 1.4 GB archive and
     # then reported "additions/1996.txt is missing", because it had verified the
     # scripts/ directory rather than the delivery.
-    bash scripts/round/verify_delivery.sh output/internet-digital-ark-1996-2001
+    # The stage name carries the mandatory submission stamp since 2026-09-01, so
+    # resolve the newest one rather than hardcoding (a hardcoded path once verified
+    # the PREVIOUS round's stage and reported its figures as this round's).
+    bash scripts/round/verify_delivery.sh "$(ls -dt output/DomainDataCollectionTask_*_IvayloStaykov | head -1)"
 
 # Install the git hooks. The pre-commit hook runs the CODE gate and refuses a red
 # commit, because the rule "never commit through a red gate" was written in
