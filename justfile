@@ -91,6 +91,9 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     mkdir -p "$IN" data/fleet_findings/banked data/logs
     PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
+    # Anything still waiting on Ivo, first, so a bank never buries a decision.
+    gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
+        --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
     # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
     gh run list --repo i-staykov/ark-fleet --limit 50 --status completed \
         --json databaseId --jq '.[].databaseId' | while read -r RID; do
