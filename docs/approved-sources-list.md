@@ -1487,6 +1487,59 @@ Decision: pending
 
 Decision: pending
 
+### whois_server_and_tld_tables / artifact_listing
+
+- measured: **9.7 net-new post-split EE over 22 (domain, 2001) pairs**, priced 2026-09-01 with
+  `--all-tlds` against the live store. The whole in-window family was read, not sampled: four
+  discmaster filename censuses (`whois.conf`, `whois-servers`, `tld_serv_list`, `whois.txt`) put the
+  population at about 20 files and the 14 carrying text were fetched outright. 470 distinct
+  registrable domains, 463 held (98.5%), held and missing 2001 24; 880 pairs over 468 domains, 849
+  already held. Gross before the split is 31 pairs / 15.6 EE and must not be quoted. Mean weight of
+  the net-new 0.4396, TLDs `cf`, `by`, `uz`, `mg`, `af`, `ci` and siblings. Per-year held over the
+  470: 1996 310, 1997 370, 1998 409, 1999 439, 2000 455, 2001 439
+- the artifact: `https://discmaster.textfiles.com/search?q={whois.conf,whois-servers,tld_serv_list,whois.txt}&qfields=name&mode=deep&tsMin=19960101&tsMax=20011231&limit=1000&dedup=1`,
+  then 15 `/view/` fetches at 1.4 s spacing. Largest: `whois-servers.list` 2000-03-09 28,011 B and
+  1997-12-01 22,720 B, `whois-servers.gopher-links` 23,858 B and 16,998 B, `whois-servers.dat`
+  2001-06-27 18,454 B, `tld_serv_list` 2001-05-04 11,156 B and 2001-01-16 10,924 B, `jwhois.conf`
+  2000-08-15 7,118 B, `Whois.conf` 1998-06-11 4,568 B, four `xwhois.servers` 253 to 1,558 B
+- what dates one item: the per-file media mtime that discmaster records for the file inside the
+  CD-ROM or disk image, as rendered in its listing row. This is the same dating argument as
+  `antispam_media_blocklist` and `discmaster_media_index` above
+- the typo bound, which the finding raised itself: **23 of 29 sampled net-new names (79.3%) are one
+  edit from a name already held**, which is what a hand-copied config tail looks like when
+  `whois.nic.cf` sits beside a held `whois.nic.cd`. So 9.7 EE is an upper bound and the true figure
+  could be materially lower
+- why the family is finished whatever is decided here: **a registry-host table is an INDEX of
+  registries and its row count is bounded by the number of TLDs, about 250, forever.** 250 rows x
+  0.6 mean weight x the best imaginable missing-year fraction is a few hundred EE at absolute
+  maximum. Do not re-census `whois.conf`, `whois-servers`, `tld_serv_list` or `xwhois.servers` on
+  discmaster: the in-window population is about 20 files and 14 have now been read in full
+- ingest specs: not written
+- potential: 3
+
+Decision: pending
+
+**Held under the standing rule of 2026-08-29, on condition 2, which is the one it fails.** The rule
+admits a source without asking only when what dates one item is a machine-written stamp INSIDE the
+artifact. A media filesystem mtime is not inside the file's bytes; it is metadata on the image,
+transcribed by a third-party index. That is a real difference from every stamp the approved lanes
+rest on: untroubled's qmail maildir filename epoch written by the receiving MTA, chastity's tar
+member header, JPNIC's own `Registered Domains in JP (Apr 30 1999)` line. All three are the
+producing machine writing into the object it produced.
+
+**And the register shows this exact argument twice left open by the human gate**, at
+`antispam_media_blocklist` (1,055.3 EE, pending) and `discmaster_media_index` (pending). None of the
+50 master rows rests on a discmaster media mtime. Admitting a 9.7 EE row on that argument would
+settle by the back door a class a 1,055 EE row is still waiting on, which is what "this moves the
+gate, it does not lower it" forbids. So the correct move is to park it and let the larger row decide
+the class first: if `antispam_media_blocklist` is ever ruled master, this one follows on the same
+reading and costs one line.
+
+Condition 1 holds: `artifact_listing` is master-eligible and no new class is proposed. Condition 3 is
+marginal rather than clean: discmaster's robots.txt is `User-agent: * / Disallow: /` with a prose
+carve-out for researchers making limited, targeted requests, and 19 requests plausibly sits inside
+it, but a prose exemption read favourably is not the same as terms that plainly permit. Condition 4
+was never reached, and the bytes were not kept, so an ingest would need the refetch above.
 ### ripe_dbase_changed / artifact_listing
 
 - measured: 58,398.0 net-new post-split EE over **399,401 pairs**, measured 2026-08-26 against the
@@ -2586,6 +2639,7 @@ Decision: rejected
 - potential: 2
 
 Decision: rejected
+
 
 
 
