@@ -417,6 +417,36 @@ year-records on its disk and absent from the store, because nothing here ever lo
 lists any remote journal missing locally and prints the `rsync` that fetches it, and it now reports
 **UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
 
+### The namespace sweep, which feeds the hostname unit
+
+`matchType=domain` on one parent returns every capture under it, so one request walks
+thousands of hosts. `scripts/engines/platform_sweep.sh <deadline> <queue>` walks a queue
+of parents through `cdx_suffix_sweep.py`, one at a time, writing raw `{url, timestamp}`
+journals to `data/raw/cdx_suffix/`; `ark ingest-hostnames` turns them into hostname
+records and `cdx_suffix_convert.py` into the registrable half. It holds the second
+archive slot, so the vedge engine stays stopped while it runs; `touch
+/tmp/ark-pause-sweeps` idles it between pages.
+
+Three facts decide how it is run, all measured on `co.uk` on 2026-09-02:
+
+- **A page is a count of index blocks and costs about the same at any size**: 200 blocks
+  took 11 to 42 s, 10,000 took 110 s. The default is 10,000, which walks `co.uk`
+  (3,387,186 blocks) in 339 requests instead of 16,936.
+- **The page count is asked up front** (`showNumPages`, without `fl`, which turns the
+  count into dashes), so a walk ends where the index ends and writes `suffix_<parent>.done`.
+  The state file records the page size; a resume at another size converts its position.
+- **A failed page is retried, not skipped.** The August sweep advanced past any non-200
+  page, and one archive outage refused thirteen parents on their control probe in three
+  minutes. Both are now retried; a parent that still fails lands in
+  `data/raw/cdx/platform_retry.txt` for the next walk.
+
+Queues: `platform_queue_*.txt` are parents from `rank_platform_parents.py`,
+`suffix_queue_s1/s2.txt` are the English-heavy second-level suffixes (`co.uk`, `com.au`,
+`co.nz`, `org.uk`, `gov.uk`, `co.za`, `gc.ca`, the `.us` states) that the bare TLDs, which
+answer 403, cannot give. `sweep_chain.sh <pid> <queue>...` runs queues back to back behind
+a running sweep so a slot never idles. `just bank` brings finished journals home and skips
+any a sweep still holds open.
+
 ### The per-source collectors
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
