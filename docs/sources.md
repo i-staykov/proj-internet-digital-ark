@@ -228,6 +228,33 @@ next page 45 in its state file) and is not marked done, so a later pass re-verif
 the namespace is exhausted. Queues c and d (ranks 61-250 of `rank_platform_parents.py
 --top 250`, 190 parents) were chained behind a and b on 2026-09-02.
 
+### The suffix namespaces reopened at hostname grain (2026-09-02)
+
+C-39 to C-41 closed the public-suffix sweep on 2026-08-21 at registrable grain, and the
+2026-08-24 line below prices its raw journals at "worth exactly 0". Both were right for
+their unit and both were measured on 1.2% of the index: `co.uk` is 3,387,186 index blocks,
+16,936 pages at the 200-block size the August sweep used, and 208 were walked (`ac.uk`
+120 of 1,386). At hostname grain those 208 pages hold 59,418 hostname rows, about 286 a
+page, so the whole namespace projects to millions of hostname rows, and `com.au` (20,491
+pages), `co.nz` (4,462), `org.uk`, `gov.uk`, `co.za`, `gc.ca` and the `.us` states are
+queued behind it (`data/raw/cdx/suffix_queue_s1.txt`, `s2.txt`). What made it affordable
+is a page-size law measured on `co.uk` the same night: one page costs about the same at
+any block count (200 blocks 11 to 42 s, 1,000 blocks 77 s, 3,000 blocks 70 s, 10,000
+blocks 110 s), and the smaller pages were verified as exact subsets of the 10,000-block
+page, so `cdx_suffix_sweep.py` now defaults to 10,000 and walks `co.uk` in 339 requests.
+`showNumPages` answers with dashes when `fl` is in the query, which is why the August
+walks never knew where the index ended. The platform queues stay ahead of the suffixes
+because they pay more per client-hour (`listbot.com` 1,415,340 capture rows in two pages,
+`homepage.com` 67,871 rows in 752 s, against ~286 hostname rows per 200-block `co.uk`
+page). Two accounting notes for the ledger: thirteen parents were refused on their control
+probe during an archive outage on 2026-09-01 (HTTP 503 and 504 between 19:42 and 22:01
+UTC) and are requeued as `platform_queue_r1.txt` and `r2.txt`; and the old sweep advanced
+past any non-200 page, so `cjb.net` (24 of 26 pages) and `yourmd.com` (ended on 21
+transport errors) are re-walked in queues c and d, where the ingest dedups whatever the
+first pass already wrote. Screen it teaches: **a closure at one unit says nothing about
+another, and a closure on 1% of an index says nothing about the index.** Bare TLDs still
+answer 403, so `.com` remains unreachable this way (C-39 stands).
+
 ## `ia_cdx_bulk`: Wayback CDX verification engine
 
 A query engine, not a file: one collapsed CDX query per domain covering all six years, run against domains missing a year they are bracketed by. Endpoint <https://web.archive.org/cdx/search/cdx>; the response journals ship under `journals/`, so ingest replays offline.
