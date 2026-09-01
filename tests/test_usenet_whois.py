@@ -18,7 +18,7 @@ from ark.sources import SOURCES, _parse_usenet_whois_journal
 
 _SPEC = importlib.util.spec_from_file_location(
     "collect_usenet_whois",
-    Path(__file__).resolve().parent.parent / "scripts" / "collect_usenet_whois.py",
+    Path(__file__).resolve().parent.parent / "scripts/sources/usenet/collect_usenet_whois.py",
 )
 assert _SPEC and _SPEC.loader
 collect_usenet_whois = importlib.util.module_from_spec(_SPEC)

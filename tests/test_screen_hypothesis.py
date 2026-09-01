@@ -14,7 +14,7 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "screen_hypothesis",
-    Path(__file__).resolve().parents[1] / "scripts" / "screen_hypothesis.py",
+    Path(__file__).resolve().parents[1] / "scripts/harness/screen_hypothesis.py",
 )
 screen = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(screen)

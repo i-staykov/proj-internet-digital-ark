@@ -17,7 +17,7 @@ import importlib.util
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
-    "price_items", Path(__file__).resolve().parent.parent / "scripts" / "price_items.py"
+    "price_items", Path(__file__).resolve().parent.parent / "scripts/pricing/price_items.py"
 )
 price_items = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(price_items)

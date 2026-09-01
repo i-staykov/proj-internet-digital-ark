@@ -89,7 +89,7 @@ WAL checkpoint behaviour on an 8 GB store, and interaction with the ingest loop 
 Two findings, and the first supersedes the "cause is unidentified" section above.
 
 **Measured: the write lock is held 89% of the time, and almost all of it is the ingest loop skipping
-files it has already banked.** Sampled 18 times over 90 seconds: held 16, free 2. `scripts/maintain.sh`
+files it has already banked.** Sampled 18 times over 90 seconds: held 16, free 2. `scripts/harness/maintain.sh`
 runs one `uv run ark ingest` **per journal file**, over 400-plus files, every 900 seconds. Each
 invocation opens the store read-write, reads the ledger, finds the file already ingested, and closes:
 7,646 `already ingested, skipping` lines across 6,156 invocations. So the contention this ADR set out to
@@ -286,7 +286,7 @@ code and adds no schema.
 
 ### What makes a request decidable in two minutes
 
-The reader does not trust the agent's prose, and should not. So `scripts/request_approval.py` builds a
+The reader does not trust the agent's prose, and should not. So `scripts/harness/request_approval.py` builds a
 request almost entirely from checkable things:
 
 - **a seeded-random sample of real records, each with a live link.** Seeded, and the seed printed, so the
@@ -358,7 +358,7 @@ It is "I must write 186 lines before I can find out whether this is worth 186 li
 
 **Two paths, split on whether the output can date a year.**
 
-1. **A declarative probe**, `scripts/probe_source.py`, driven by a TOML file: a URL, an extraction kind,
+1. **A declarative probe**, `scripts/pricing/probe_source.py`, driven by a TOML file: a URL, an extraction kind,
    which field or column carries the hostname, which carries the date, and what a row must have to be
    kept. It writes a journal of `{item, domain, year, text, url}` that `price_items.py` already reads, so
    a source goes from a URL to a measured net-new figure with **no Python written at all**. It uses

@@ -326,9 +326,9 @@ first. Reading it is the cheapest step in the process.
 
 ## 6. Where this is automated
 
-The generating and the pricing run as code, not by hand: `scripts/discover_cycle.py` proposes,
-`scripts/screen_hypothesis.py` kills anything colliding with the closed register above, and
-`scripts/price_items.py` measures a sample against the live store before a collector is written.
+The generating and the pricing run as code, not by hand: `scripts/harness/discover_cycle.py` proposes,
+`scripts/harness/screen_hypothesis.py` kills anything colliding with the closed register above, and
+`scripts/pricing/price_items.py` measures a sample against the live store before a collector is written.
 Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
 act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
 section 1 can reject cheaply.

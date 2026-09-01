@@ -17,7 +17,7 @@ from ark.sources import SOURCES
 
 _ROOT = Path(__file__).resolve().parent.parent
 _SPEC = importlib.util.spec_from_file_location(
-    "build_promotion_journals", _ROOT / "scripts" / "build_promotion_journals.py"
+    "build_promotion_journals", _ROOT / "scripts/engines/build_promotion_journals.py"
 )
 promo = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(promo)

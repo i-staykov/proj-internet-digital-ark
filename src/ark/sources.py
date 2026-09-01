@@ -1901,7 +1901,7 @@ def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window capture row of the BL geoindex extract.
 
-    Input is the filtered output of `scripts/ukwa_geoindex_pull.sh`, not the 11.2 GB
+    Input is the filtered output of `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, not the 11.2 GB
     original: the extraction and the parse are separate because the extraction has to
     stream 9 GB over HTTP and count shard boundaries, and repeating that on every
     ingest would be absurd.
@@ -2795,7 +2795,7 @@ SOURCES: dict[str, SourceSpec] = {
     # the registry's own `Record created on 20-Jul-2000.`, not the poster's, so
     # this is `whois_creation` and rule 6 gives that year and no other. The NAME
     # is what the corroboration split guards, since a person chose and reflowed
-    # the block. See `scripts/collect_usenet_whois.py` for the binding rule that
+    # the block. See `scripts/sources/usenet/collect_usenet_whois.py` for the binding rule that
     # keeps one record's creation line off the next record's name.
     # Approved under the standing rule of 2026-08-29.
     "usenet_whois_dated": SourceSpec(
@@ -2833,7 +2833,7 @@ SOURCES: dict[str, SourceSpec] = {
     # Public pipermail mailing-list archives, one month file per list per month,
     # each message dated by its own `Date:` header. Same shape as a dated Usenet
     # post and the same corroboration split. Newsgroup-gatewayed lists are left
-    # out at collection time, see `scripts/collect_mailing_lists.py`.
+    # out at collection time, see `scripts/sources/mail_corpora/collect_mailing_lists.py`.
     "maillist_dated": SourceSpec(
         key="maillist_dated",
         source_name="maillist_archive",
@@ -2900,7 +2900,7 @@ SOURCES: dict[str, SourceSpec] = {
     #
     # Two lanes, because an owner submitted each name by hand: the date is a
     # machine's and the name is a person's typing, at a 44.8% typo upper bound on the
-    # novel half. Split by `scripts/split_urlmerchant.py` before ingest.
+    # novel half. Split by `scripts/sources/directories/split_urlmerchant.py` before ingest.
     # Admitted under the standing rule of 2026-08-29.
     "urlmerchant_dated": SourceSpec(
         key="urlmerchant_dated",
@@ -2922,9 +2922,10 @@ SOURCES: dict[str, SourceSpec] = {
     # mail client, and what names the host is a person typing an address.
     #
     # Hosts are anchored on an `@`, a scheme or a `www.` label by
-    # `scripts/parse_jeb_mail.py`, because a missing space after a full stop forges a
-    # domain under a high-weight TLD out of prose: `Candace Rice.To tell the truth`
-    # reads as `rice.to`, and the wide pattern cost 200.8 EE of fabrication.
+    # `parse_jeb_mail.py` (scripts/sources/mail_corpora/), because a missing space
+    # after a full stop forges a domain under a high-weight TLD out of prose:
+    # `Candace Rice.To tell the truth` reads as `rice.to`, and the wide pattern
+    # cost 200.8 EE of fabrication.
     # Admitted under the standing rule of 2026-08-29.
     "jeb_mail_dated": SourceSpec(
         key="jeb_mail_dated",

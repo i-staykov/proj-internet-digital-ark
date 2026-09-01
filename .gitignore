@@ -76,3 +76,6 @@ Domain_Data_Collection_Task_update/
 
 # Word lock files, left behind when the .docx is open while it is rebuilt.
 ~$*
+
+# Machine-local settings: the VPS address and anything else that must not be public.
+local.env

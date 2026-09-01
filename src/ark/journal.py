@@ -130,7 +130,7 @@ def journal_writer(path: Path) -> Iterator[IO[str]]:
 def write_journal_line(fh: IO[str], record: dict) -> None:
     """Append one record and push it to disk.
 
-    The flush is not belt-and-braces, it is load-bearing. `scripts/supervise_cdx_pool.sh`
+    The flush is not belt-and-braces, it is load-bearing. `scripts/engines/supervise_cdx_pool.sh`
     decides whether a run has stalled by watching the journal's size on disk, and
     gzip emits nothing until zlib fills a block. At normal speed the first block
     lands inside the watchdog's window; on 3 August, with the archive answering in
