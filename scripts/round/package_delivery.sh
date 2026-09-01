@@ -266,12 +266,10 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
 #
 # **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
-# else.** They are 387 files and 3.67 GB against 1.18 GB for every other source combined,
-# and shipping them makes the archive 6.5 GB against the 1.86 GB the reviewer received last
-# round. State the cost honestly rather than dressing it up: `rdap_snapshot` is the round's
-# second-largest source at 581,458 net-new pairs, so this is the one source whose tier-3
-# replay the archive cannot offer. Tier 2 is unaffected and covers every one of those pairs,
-# which is what `verify.sh` check 4 tests. Available on request. Ivo, 2026-08-26.
+# else.** 6.5 GB of walks that the registries' terms do not let us re-run, so tier 3 cannot
+# replay `rdap_snapshot`; tier 2 covers every pair it backs, which is what `verify.sh`
+# tests. Available on request. Ivo, 2026-08-26. The journals README below names all five
+# excluded sets with their sizes, so the archive states its own limitation.
 #
 # ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
 # tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
@@ -301,15 +299,19 @@ if [ -z "${ARK_SLIM:-}" ]; then
         | tar -cf - --null -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
     cat > "$STAGE/journals/README.txt" <<'EXCL'
-One collector's raw logs are deliberately not here: the RDAP walks, under rdap/ and
-rdap_pool/. The reason is size and nothing else. They are 3.67 GB against 1.18 GB for every
-other source combined, and including them would triple this archive.
+Five raw-journal sets are deliberately not here, on size and nothing else: the RDAP walks
+(rdap/, rdap_pool/, 6.5 GB), the Usenet extraction journals (usenet_addr/ 8.4 GB,
+usenet_bare/ 1.8 GB), the raw platform-sweep capture journals (cdx_suffix/, 0.9 GB) and the
+NYPW hostname-grain conversions (nypw_hostgrain/, 0.3 GB). Together they are about 18 GB
+against under 2 GB for everything else, and including them would make the archive ten
+times larger.
 
-Stated plainly, because it is a real limitation: rdap_snapshot is this round's second-largest
-source at 581,458 net-new pairs, so it is the one source whose tier-3 replay this archive
-cannot offer. Everything it evidenced still ships and is still checkable: each (domain, year)
-resolves to its evidence row in provenance/, which is what verify.sh check 4 tests over every
-assignment, and the target queues are under seeds/. Ask and the logs will be sent separately.
+Every assignment they back still ships and is still checkable: each (domain, year) and
+(hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
+over every assignment. Each set re-derives from a linked public source named in sources.md
+(archive.org mboxes for the Usenet sets, the NYPW TimeMap item for nypw_hostgrain, the IA
+CDX API for cdx_suffix), so tier 3 can rebuild them; the RDAP logs cannot be re-walked
+under the registries' terms and will be sent on request.
 EXCL
 fi
 

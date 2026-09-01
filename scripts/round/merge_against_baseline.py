@@ -87,6 +87,20 @@ ADDITIONS = _first_holding(
     "2001.txt",
 )
 
+# The second output unit, accepted on 2026-09-01: valid hostnames beneath held
+# registrables, one file per year beside the registrable one. His calculator scores a
+# distinct hostname at full weight, so the submitted set per year is the union of both
+# files. `ark export` writes them next to the registrable files; the archive stages them
+# under `hostnames/`.
+HOSTNAMES = _first_holding(
+    (
+        Path("output/netnew"),
+        Path("hostnames"),
+        Path("../hostnames"),
+    ),
+    "2001_hostnames.txt",
+)
+
 
 def score(path: Path, work: Path) -> dict:
     """Run the reviewer's calculator over one file and return its summary verbatim."""
@@ -100,43 +114,59 @@ def score(path: Path, work: Path) -> dict:
 
 
 def merge_year(
-    conn: duckdb.DuckDBPyConnection, baseline: Path, additions: Path, target: Path
+    conn: duckdb.DuckDBPyConnection,
+    baseline: Path,
+    additions: Path,
+    hostnames: Path | None,
+    target: Path,
 ) -> dict:
     """Union one year, deduplicated on the lowercased line, and count the overlap.
 
     DuckDB rather than Python sets because 2000.txt alone is 7.7M lines and the whole
     corpus is 22.5M: a set of that many short strings costs gigabytes for an operation
     that is a hash join. The connection is in-memory, so this takes no lock on the store.
+
+    The submitted set is the registrable file plus the hostname file, when there is one.
+    Both are counted separately as well, so the audit says how much of the increment is
+    each unit and proves the two files are disjoint.
     """
-    conn.execute("DROP TABLE IF EXISTS b; DROP TABLE IF EXISTS a")
+    conn.execute("DROP TABLE IF EXISTS b; DROP TABLE IF EXISTS a; DROP TABLE IF EXISTS h")
     conn.execute(
         "CREATE TABLE b AS SELECT DISTINCT lower(trim(col0)) AS d "
         "FROM read_csv(?, header=false, columns={'col0':'VARCHAR'}, quote='', delim=?) "
         "WHERE trim(col0) <> ''",
         [str(baseline), "\x07"],
     )
-    if additions.is_file():
-        conn.execute(
-            "CREATE TABLE a AS SELECT DISTINCT lower(trim(col0)) AS d "
-            "FROM read_csv(?, header=false, columns={'col0':'VARCHAR'}, quote='', delim=?) "
-            "WHERE trim(col0) <> ''",
-            [str(additions), "\x07"],
-        )
-    else:
-        # A year with no additions is normal, not an error: the round may not have
-        # reached it. It must still appear in the audit with zeros, because a missing
-        # row reads as an omission rather than as nothing found.
-        conn.execute("CREATE TABLE a (d VARCHAR)")
+    for table, path in (("a", additions), ("h", hostnames)):
+        if path is not None and path.is_file():
+            conn.execute(
+                f"CREATE TABLE {table} AS SELECT DISTINCT lower(trim(col0)) AS d "
+                "FROM read_csv(?, header=false, columns={'col0':'VARCHAR'}, quote='', delim=?) "
+                "WHERE trim(col0) <> ''",
+                [str(path), "\x07"],
+            )
+        else:
+            # A year with no additions is normal, not an error: the round may not have
+            # reached it. It must still appear in the audit with zeros, because a missing
+            # row reads as an omission rather than as nothing found.
+            conn.execute(f"CREATE TABLE {table} (d VARCHAR)")
 
+    submitted_registrable = conn.execute("SELECT count(*) FROM a").fetchone()[0]
+    submitted_hostnames = conn.execute("SELECT count(*) FROM h").fetchone()[0]
+    units_overlap = conn.execute("SELECT count(*) FROM h WHERE d IN (SELECT d FROM a)").fetchone()[
+        0
+    ]
+    conn.execute("CREATE TABLE s AS SELECT d FROM a UNION SELECT d FROM h")
     baseline_unique = conn.execute("SELECT count(*) FROM b").fetchone()[0]
-    submitted_unique = conn.execute("SELECT count(*) FROM a").fetchone()[0]
-    already = conn.execute("SELECT count(*) FROM a WHERE d IN (SELECT d FROM b)").fetchone()[0]
+    submitted_unique = conn.execute("SELECT count(*) FROM s").fetchone()[0]
+    already = conn.execute("SELECT count(*) FROM s WHERE d IN (SELECT d FROM b)").fetchone()[0]
 
     target.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(
-        "COPY (SELECT d FROM b UNION SELECT d FROM a ORDER BY d) TO ? (HEADER false, DELIMITER ?)",
+        "COPY (SELECT d FROM b UNION SELECT d FROM s ORDER BY d) TO ? (HEADER false, DELIMITER ?)",
         [str(target), "\x07"],
     )
+    conn.execute("DROP TABLE s")
     merged_unique = sum(1 for _ in target.open(encoding="utf-8"))
     return {
         "baseline_unique": baseline_unique,
@@ -144,6 +174,9 @@ def merge_year(
         "already_in_baseline": already,
         "accepted_new": submitted_unique - already,
         "merged_unique": merged_unique,
+        "submitted_registrable": submitted_registrable,
+        "submitted_hostnames": submitted_hostnames,
+        "units_overlap": units_overlap,
     }
 
 
@@ -171,6 +204,13 @@ def reconcile(rows: list[dict], totals: dict) -> list[dict]:
             f"{y}: already_in_baseline + accepted_new == submitted_unique",
             r["already_in_baseline"] + r["accepted_new"] == r["submitted_unique"],
             f"{r['already_in_baseline']} + {r['accepted_new']} vs {r['submitted_unique']}",
+        )
+        add(
+            f"{y}: registrable and hostname files are disjoint and sum to submitted_unique",
+            r["units_overlap"] == 0
+            and r["submitted_registrable"] + r["submitted_hostnames"] == r["submitted_unique"],
+            f"{r['submitted_registrable']} + {r['submitted_hostnames']} vs "
+            f"{r['submitted_unique']}, overlap {r['units_overlap']}",
         )
 
     per_year_sum = sum((Decimal(r["equivalent_english_increment"]) for r in rows), Decimal(0))
@@ -215,6 +255,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--baseline", type=Path, default=baseline_dir())
     ap.add_argument("--additions", type=Path, default=ADDITIONS)
+    ap.add_argument("--hostnames", type=Path, default=HOSTNAMES)
     ap.add_argument("--out", type=Path, default=Path("output/merge"))
     ap.add_argument("--stamp", default="", help="suffix for the audit filenames, e.g. 20260818")
     ap.add_argument("--keep-merged", action="store_true", help="keep the merged annual files")
@@ -238,8 +279,9 @@ def main() -> None:
     for year in YEARS:
         b = args.baseline / f"{year}.txt"
         a = args.additions / f"{year}.txt"
+        h = args.hostnames / f"{year}_hostnames.txt" if args.hostnames else None
         m = merged_dir / f"{year}.txt"
-        counts = merge_year(conn, b, a, m)
+        counts = merge_year(conn, b, a, h, m)
 
         b_summary = score(b, work)
         m_summary = score(m, work)
@@ -283,6 +325,8 @@ def main() -> None:
         "accepted_new_records": sum(r["accepted_new"] for r in rows),
         "already_in_baseline_records": sum(r["already_in_baseline"] for r in rows),
         "submitted_records": sum(r["submitted_unique"] for r in rows),
+        "submitted_registrable_records": sum(r["submitted_registrable"] for r in rows),
+        "submitted_hostname_records": sum(r["submitted_hostnames"] for r in rows),
         "baseline_equivalent_english_total": f"{baseline_ee:.4f}",
         "post_merge_equivalent_english_total": f"{post_ee:.4f}",
         "equivalent_english_increment": f"{(post_ee - baseline_ee):.4f}",

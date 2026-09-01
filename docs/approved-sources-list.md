@@ -78,7 +78,11 @@ Decision: master
 
 ### ia_cdx_hostnames / cdx_timestamp
 
-- ingest specs: `ark ingest-hostnames` over raw capture journals ({url, timestamp} lines)
+- ingest specs: `ark ingest-hostnames` over raw capture journals ({url, timestamp} lines);
+  two acquisition methods under the one source row, `ia_cdx_domain_sweep` for the
+  `matchType=domain` CDX sweeps and `nypw_timemap_hostgrain` for the NYPW TimeMap parts
+  (https://archive.org/download/nypw_timemaps/, CC BY 4.0, the `nypw_timemaps` artifact
+  above) re-emitted at hostname grain by `scripts/sources/nypw/nypw_hostgrain.py`
 - what dates one item: the row's own 14-digit capture timestamp, quoted in the evidence
   value beside the hostname it dates
 - unit: the reviewer accepted hostnames as annual records on 2026-09-01 (his reply,
