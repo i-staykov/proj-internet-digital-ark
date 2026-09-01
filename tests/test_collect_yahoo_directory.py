@@ -5,7 +5,8 @@ from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
     "collect_yahoo_directory",
-    Path(__file__).resolve().parent.parent / "scripts" / "collect_yahoo_directory.py",
+    Path(__file__).resolve().parent.parent
+    / "scripts/sources/directories/collect_yahoo_directory.py",
 )
 assert _SPEC and _SPEC.loader
 yahoo = importlib.util.module_from_spec(_SPEC)

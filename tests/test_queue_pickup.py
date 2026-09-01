@@ -18,13 +18,13 @@ import subprocess
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
-    "discover_cycle", Path(__file__).resolve().parent.parent / "scripts" / "discover_cycle.py"
+    "discover_cycle", Path(__file__).resolve().parent.parent / "scripts/harness/discover_cycle.py"
 )
 cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cycle)
 
 RUNNING = (
-    "bash scripts/supervise_cdx_pool.sh 1787068800 600 8 900\n"
+    "bash scripts/engines/supervise_cdx_pool.sh 1787068800 600 8 900\n"
     "uv run ark cdx data/raw/cdx/queue_pool_20260818c.txt -n 600 --workers 8\n"
     "uv run ark rdap data/raw/rdap/pool_targets_20260818.txt -n 5000\n"
 )
@@ -63,5 +63,5 @@ def test_an_rdap_target_list_is_not_a_cdx_collector(monkeypatch) -> None:
 
 
 def test_no_collectors_at_all_reads_as_none(monkeypatch) -> None:
-    fake_ps(monkeypatch, "bash scripts/maintain.sh\n")
+    fake_ps(monkeypatch, "bash scripts/harness/maintain.sh\n")
     assert cycle.collector_reading("data/raw/cdx/queue_pool_local.txt") is None

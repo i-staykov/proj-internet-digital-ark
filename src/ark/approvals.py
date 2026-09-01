@@ -146,7 +146,7 @@ def check(
             f"{source_name} / {evidence_type} has no entry in {path}.\n"
             f"This evidence type can date a year, so a human must classify it first.\n"
             f"Write the request with:\n"
-            f"  uv run python scripts/request_approval.py {source_name} --journal <journal>\n"
+            f"  uv run scripts/harness/request_approval.py {source_name} --journal <journal>\n"
             f"then set its `Decision:` line to master, candidate-only or rejected."
         )
     if approval.decision == "pending":

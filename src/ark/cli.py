@@ -1,5 +1,6 @@
 """Command-line entry point for the ark pipeline."""
 
+import os
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -39,9 +40,11 @@ from ark.rdap import (
     JOURNAL_PREFIX as RDAP_JOURNAL_PREFIX,
 )
 from ark.rdap import (
+    TERMS_OVERRIDE_ENV,
     Router,
     load_registries,
     lookup,
+    terms_closed,
 )
 from ark.rdap import (
     answered as rdap_answered,
@@ -519,6 +522,13 @@ def rdap(
     stats: Counter = Counter()
 
     targets: list[str] = []
+    closed_reasons: dict[str, str] = {}
+    override = bool(os.environ.get(TERMS_OVERRIDE_ENV))
+    if override:
+        logger.warning(
+            f"rdap: {TERMS_OVERRIDE_ENV}={os.environ[TERMS_OVERRIDE_ENV]!r}, "
+            f"so the registry terms gate is off for this run"
+        )
     with candidates.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             raw = line.strip()
@@ -528,6 +538,14 @@ def rdap(
             if domain is None:
                 stats["rejected"] += 1
                 continue
+            # Terms before the resume check, deliberately: a queue that is entirely
+            # already-journalled would otherwise pass the gate in silence and teach
+            # the next reader that the TLD is open.
+            reason = None if override else terms_closed(domain)
+            if reason is not None:
+                stats["terms_closed"] += 1
+                closed_reasons.setdefault(domain.rsplit(".", 1)[-1].lower(), reason)
+                continue
             if domain in already:
                 stats["skipped_journalled"] += 1
                 continue
@@ -535,6 +553,18 @@ def rdap(
             targets.append(domain)
             if len(targets) >= limit:
                 break
+
+    # Refusing loudly, because a silently emptied queue is indistinguishable from an
+    # exhausted one, and that ambiguity is how the last two engines were misread.
+    for tld, reason in sorted(closed_reasons.items()):
+        logger.warning(f"rdap: .{tld} skipped, terms forbid it. {reason}")
+    if closed_reasons and not targets:
+        logger.error(
+            f"rdap: every target is under a registry whose terms forbid this. "
+            f"Nothing was queried. To send anyway, set {TERMS_OVERRIDE_ENV} to the written "
+            f"permission that allows it."
+        )
+        raise typer.Exit(code=2)
 
     registries = load_registries() if direct else {}
     router = Router(registries, delay=delay, min_delay=min_delay, max_delay=max_delay)

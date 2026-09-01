@@ -19,7 +19,7 @@ from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, 
 
 _SPEC = importlib.util.spec_from_file_location(
     "build_query_queue",
-    Path(__file__).resolve().parents[1] / "scripts" / "build_query_queue.py",
+    Path(__file__).resolve().parents[1] / "scripts/engines/build_query_queue.py",
 )
 build_query_queue = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(build_query_queue)
@@ -29,7 +29,7 @@ _SPEC.loader.exec_module(build_query_queue)
 # inside `journal_outcomes` and has to be addressed where it is defined.
 _POOL_SPEC = importlib.util.spec_from_file_location(
     "build_pool_candidates",
-    Path(__file__).resolve().parents[1] / "scripts" / "build_pool_candidates.py",
+    Path(__file__).resolve().parents[1] / "scripts/engines/build_pool_candidates.py",
 )
 build_pool_candidates = importlib.util.module_from_spec(_POOL_SPEC)
 _POOL_SPEC.loader.exec_module(build_pool_candidates)

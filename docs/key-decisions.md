@@ -7,6 +7,34 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
+
+Every registry this project has queried by RDAP publishes terms inside the response, and all four read so far prohibit high-volume automated querying: Verisign, PIR and CIRA with a registration-only carve-out, Nominet with none plus a ban on using the extracted contents at all. Both engines were stopped on 2026-08-27 and `ark rdap` now refuses those TLDs in code. The route was half of phase 6's equivalent-English, so a written permission of the RIPE kind is the only thing that reopens it.
+
+Worth: the route's future. Stopping costs 851.0 EE of unshipped pairs and nothing already credited; `approved-sources-list.md` has the quotes and the per-registry figures.
+
+Sharpened 2026-08-30 by the registry-permission screen in `sources.md`: ask Nominet not for RDAP relief but for a two-column extract, domain name and registration date, for `.uk` names registered before 1 January 2002. No registrant data, so the ask falls outside their Data Release Policy, which is personal-data-only; send it through `registrars.nominet.uk`, not `data-release@nominet.uk`. Nominet holds the whole window (`demon.co.uk` dated 1996-05-05, nineteen days before Nominet existed, so the Naming Committee register was inherited with its dates).
+
+Worth: 63,921 EE for creation dates alone, 702,229 EE if they can supply registration history. Do not write to auDA (never held the window) and write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
+
+### Rule on the 118.7 EE of unshipped Nominet pairs
+
+Nominet is the only one of the four whose terms prohibit USE as well as collection: "explicitly prohibited from extracting, copying and/or using or re-using ... all or part". The store holds 4,714 `.uk` RDAP pairs and 4,625.8 EE, of which 121 pairs and 118.7 EE are net-new and not yet sent. The rest is already in his baseline and cannot be recalled.
+
+Worth: -118.7 EE if withdrawn. Withdrawing is the reading the terms support; keeping them needs a reason.
+
+### Say whether the tomocha.net refusal covers its zone files too
+
+`jpnic_register` was withdrawn on 2026-08-25 because `tomocha.net` disallows ClaudeBot by name, with the note that its 1,623 EE must not be used. The 1999 InterNIC `edu` and `gov` zones from the same host on the same day were banked, at 179.8 EE. Tomocha mirrors somebody else's register in both cases, so either the refusal covers both or neither.
+
+Worth: 0 EE this round. `internic_zone` at 1999 is 0 pairs net-new against `merged260827`, all already in his baseline, so only the register's wording is at stake.
+
+### Decide the round length, now that scoring is time-weighted
+
+The brief update of 2026-08-20 scores each submission `S_i = 10 * p_i / t_i`, with `t_i` in days from the benchmark's release to receipt, and he confirmed it by quoting `S_6 = 6.88` for a 4.130718% round that took six days. Round 7 stands at 0.4377% against a benchmark released today, so a submission tomorrow scores about 4.4 and the same work sent in six days scores 0.7.
+
+Worth: the ranking, not the increment. Frequent small rounds dominate; the 5% trigger and this rule pull opposite ways and only you can choose.
+
 ### Approve, refuse or downgrade internic_zone / artifact_listing
 
 `approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
@@ -21,9 +49,9 @@ Raised automatically, because a `pending` line in a file you do not open is not 
 
 **Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
 
-### Triage the newly found sources: 69 found
+### Triage the newly found sources: 40 found
 
-**69 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+**40 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
@@ -35,8 +63,12 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 | **C-48** | 2026-08-24 | O5 answered no, and it binds RDAP too: this is paid work, so no bulk Nominet querying. The `.uk` engine started that morning at 118.8 EE per 1,000 queries was stopped the same day |
 | **C-47** | 2026-08-24 | O4 closed as unnecessary. The in-session cron runs the cycle hourly, so Full Disk Access for `/bin/bash` buys nothing |
 | **C-46** | 2026-08-24 | O2 answered: the VPN goes up when convenient. **The VPS is a standalone autonomous helper reached from time to time, not a regularly driven machine**, so its collectors take deadlines measured in days |
+| **C-47** | 2026-08-27 | The loop belongs outside the agent: a stop hook cannot tell work from sleep |
+| **C-46** | 2026-08-27 | Debian's per-release package index is a blocklist seam, worth 14,229 EE in five requests |
 | **C-45** | 2026-08-24 | O1 and O3 moved off this surface into the source triage queue, where they are two rows of `decisions-open.md` rather than two asks of their own |
 | **C-44** | 2026-08-24 | O7 answered: `afnic_fr` does **not** breach rule 6. Ding has already ingested and approved these pairs into the baseline, and AFNIC is a documented one-off exception to the creation-year rule: its *Technical Integration Guide* v3.0 states `crDate` is "the last creation date of the domain name", so `crDate = max(last creation, last transmission)` and the interval `[crDate, deletion-or-now]` is continuous by construction. Cited in `sources.md` |
+| **C-45** | 2026-08-27 | The RDAP terms were in every response all along, and all four registries forbid this |
+| **C-44** | 2026-08-27 | `merged260827` ingested: 27,152,319 pairs and 14,169,892.8027 EE, reproducing his arithmetic to the digit |
 | **C-43** | 2026-08-21 | RDAP is the fast channel, and both of my first two target lists were wrong |
 | **C-42** | 2026-08-21 | Page 0 of a CDX namespace is about twice as dense as the namespace |
 | **C-41** | 2026-08-21 | The suffix sweep is exhausted, and the complete accounting of what remains |

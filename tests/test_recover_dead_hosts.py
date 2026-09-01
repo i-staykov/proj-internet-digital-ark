@@ -17,7 +17,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent.parent
 _SPEC = importlib.util.spec_from_file_location(
-    "recover_dead_hosts", _HERE / "scripts" / "recover_dead_hosts.py"
+    "recover_dead_hosts", _HERE / "scripts/engines/recover_dead_hosts.py"
 )
 recover = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(recover)
