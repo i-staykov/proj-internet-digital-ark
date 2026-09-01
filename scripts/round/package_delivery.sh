@@ -152,7 +152,10 @@ fi
 
 # The unpacked folder is named for what it holds, so a reviewer who extracts it
 # among other downloads can still tell what it is.
-RELEASE="internet-digital-ark-1996-2001"
+# The reviewer's 0901 update makes the archive name mandatory:
+# DomainDataCollectionTask_{SubmissionTime}_{Name}. SubmissionTime is stamped at
+# packaging (UTC, to the minute); the contributor name is fixed.
+RELEASE="DomainDataCollectionTask_$(date -u +%Y%m%d%H%M)_IvayloStaykov"
 STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.tar.gz"
 mkdir -p "$ROUND_DIR"
@@ -200,6 +203,13 @@ cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
+# The second output unit (his acceptance of 2026-09-01): hostname records per year,
+# separate files he can merge or discard, with their own evidence manifest.
+mkdir -p "$STAGE/hostnames"
+cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
+cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# The source-saturation ledger his 0901 update requires, regenerated at packaging.
+uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`

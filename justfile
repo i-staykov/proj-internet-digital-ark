@@ -819,6 +819,25 @@ triage-rank *args:
 # so running this before a decision arrives changes nothing and still exercises
 # every later step. That property is the point: the evening a round ships is the
 # worst time to discover the packaging path is broken.
+# Drain the platform sweeps into the store and stage the round for approval:
+# pull journals from the VPS, ingest both output units, convert this month's
+# sweeps' registrable half, export, gate, refresh the merge audit, print the
+# figures. Ivo reviews, then `just ship-approved` packages and verifies.
+submit-prep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source local.env
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
+    uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
+    uv run ark export | tail -1
+    uv run ark check | tail -1
+    uv run python scripts/round/merge_against_baseline.py | tail -3
+    uv run python scripts/round/round_figures.py | head -13
+
 ship-approved round="":
     #!/usr/bin/env bash
     set -euo pipefail

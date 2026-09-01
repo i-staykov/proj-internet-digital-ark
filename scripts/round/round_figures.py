@@ -32,7 +32,8 @@ import time
 from decimal import Decimal
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
@@ -84,6 +85,10 @@ LAST_EE = Decimal("603401.7811")
 
 # A pair the shared baseline already holds is not ours to report. `prior_reused` is
 # the evidence type recording that a pair arrived with the baseline.
+from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
+
+SHIPPED = _shipping_filter("y.")
+
 NOT_BASELINE = """
     NOT EXISTS (
         SELECT 1 FROM evidence p
@@ -113,7 +118,7 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
         FROM domain_year y
         JOIN evidence e ON e.evidence_id = y.evidence_id
         JOIN source s ON s.source_id = e.source_id
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
         GROUP BY 1, 2, 3
     """).fetchall()
 
@@ -128,7 +133,7 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
 
     domains = conn.execute(f"""
         SELECT count(DISTINCT y.domain) FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
     """).fetchone()[0]
 
     # Dated by one source but not yet corroborated, so not in an annual file. Same
@@ -178,7 +183,7 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
         raise SystemExit(f"calculator not found at {CALCULATOR}")
     rows = conn.execute(f"""
         SELECT y.assigned_year, y.domain FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
         ORDER BY 1, 2
     """).fetchall()
     per_year: dict[int, list[str]] = {}
@@ -214,6 +219,28 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     return totals
 
 
+def hostname_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped hostname files, priced with his weight model."""
+    raw = json.loads((REPO / "src/ark/data/tld_english_share.json").read_text())
+    weights = {
+        str(t).lower(): Decimal(str(p)) / 100
+        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
+        if t and lang == "eng"
+    }
+    pairs, ee = 0, Decimal(0)
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        if not path.exists():
+            continue
+        with path.open() as fh:
+            for line in fh:
+                host = line.strip()
+                if host:
+                    pairs += 1
+                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+    return pairs, ee
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -241,6 +268,16 @@ def main() -> None:
     print(f"3. Increment                                  : {pairs:,} records")
     print(f"4. Equivalent-English increment               : {ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
+
+    # The second output unit (his acceptance of 2026-09-01), quoted beside the
+    # registrable round and NEVER folded into the five fields above, so line 5
+    # stays comparable with every earlier round. His calculator counts these at
+    # full weight; the combined line shows what the round is worth if he does.
+    h_pairs, h_ee = hostname_increment()
+    if h_pairs:
+        print(f"\nhostname records (separate files)  : {h_pairs:,} records")
+        print(f"hostname equivalent-English        : {h_ee:,.4f}")
+        print(f"combined growth rate if credited   : {(ee + h_ee) / BASELINE_EE * 100:.6f}%")
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS
