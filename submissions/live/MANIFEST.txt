@@ -1,9 +1,9 @@
 round        live
-built        2026-09-01T21:09:46Z
-commit       413bd8899d3c7fd910fd9c017acba947976888e3
+built        2026-09-01T21:27:15Z
+commit       bacd596ebd5c2e96c0813887356323dd6e613024
 baseline     merged260901
-archive      DomainDataCollectionTask_202609012107_IvayloStaykov.tar.gz
-sha256       ba7821f52e16f2f49580ce03ea6df5111a62eb06fbd483c6ecf9fc5046fc47ab
-bytes        4002607123
+archive      DomainDataCollectionTask_202609012125_IvayloStaykov.tar.gz
+sha256       d98a76620d9f36d3acb881272d602c1e1f31fca3753adc7c0479fd09299e16ea
+bytes        4002634372
 files        3778
 netnew_pairs 623835
