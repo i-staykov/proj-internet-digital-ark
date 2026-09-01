@@ -102,14 +102,18 @@ def main() -> None:
     # An archive outage of a few minutes once cost thirteen parents in one walk,
     # each refused on its first probe; a probe that fails is retried before the
     # parent is given up on.
-    for attempt in range(6):
+    # An outage is waited out, not given up on: a bounded retry drained a queue into
+    # `platform_retry.txt` one parent per six minutes while the archive was down.
+    attempt = 0
+    while True:
         status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
         if status == "200":
             break
-        print(f"  control probe {attempt + 1}: {status}, waiting", flush=True)
-        time.sleep(60)
-    else:
-        sys.exit(f"control failed ({status}); refusing to sweep")
+        attempt += 1
+        if time.time() > args.deadline:
+            sys.exit(f"control failed ({status}) at the deadline; refusing to sweep")
+        print(f"  control probe {attempt}: {status}, waiting", flush=True)
+        time.sleep(min(60 * attempt, 300))
 
     base = {
         "url": args.suffix,
