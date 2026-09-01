@@ -10,7 +10,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
-from ark.baseline import CURRENT_BASELINE_DIR
+from ark.baseline import baseline_dir
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.ingest import YEARS
@@ -127,9 +127,12 @@ def export_all(
     # registrable exactly as his rule III.8 specifies. A hostname is net-new against
     # the baseline FILES, not against store membership, because the store collapsed
     # the baseline to registrables at ingest and so cannot answer "is alice.cjb.net
-    # itself already a benchmark record".
+    # itself already a benchmark record". The directory is resolved, not hardcoded:
+    # inside a delivery the files sit at ../baseline/<marker>/, and the repository path
+    # alone silently exported every hostname as net-new in the tier-2 rehearsal.
+    baseline_files = baseline_dir()
     for year in YEARS:
-        baseline_file = CURRENT_BASELINE_DIR / f"{year}.txt"
+        baseline_file = baseline_files / f"{year}.txt"
         if baseline_file.exists():
             anti_join = f"""
                 AND hy.hostname NOT IN (
@@ -139,6 +142,7 @@ def export_all(
                 )
             """
         else:
+            logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
             anti_join = ""
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
