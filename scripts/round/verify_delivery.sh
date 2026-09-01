@@ -5,10 +5,11 @@
 # dependencies live inside source/ and are not available until a reviewer has
 # already decided to trust the contents.
 #
-# Eight checks, each printed with its own verdict (D3 prints two):
+# Ten checks, each printed with its own verdict (D3 prints two):
 #   1. every file matches SHA256SUMS
 #   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
+#   2b, 3b. the same two for the hostname files, plus that they repeat no registrable line
 #   4. every assignment in the provenance export cites evidence shipped beside it
 #   5. the code snapshot carries its dependency manifest and lockfile          (D1)
 #   6. the experience summary is here and covers what he asked it to cover     (D2)
@@ -83,6 +84,46 @@ if missing:
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
 
+# The second output unit (accepted 2026-09-01): hostnames/NNNN_hostnames.txt, each line a
+# valid hostname beneath a registrable, each traced to its own capture in the hostname
+# manifest, and none of them repeating a line of the registrable file for that year.
+hostnames = {}
+for year in years:
+    path = Path("hostnames") / f"{year}_hostnames.txt"
+    hostnames[year] = (
+        {line.strip() for line in path.read_text().splitlines() if line.strip()}
+        if path.exists()
+        else set()
+    )
+h_total = sum(len(v) for v in hostnames.values())
+if h_total:
+    per_year = ", ".join(f"{y}:{len(hostnames[y]):,}" for y in years)
+    overlap = sum(len(hostnames[y] & additions[y]) for y in years)
+    if overlap:
+        print(f"{'hostname additions':<46} FAIL  {overlap:,} lines repeat the registrable file")
+        sys.exit(1)
+    print(f"{'hostname additions':<46} PASS  {h_total:,} records ({per_year}), disjoint from additions/")
+    h_manifest = Path("hostnames/hostnames_evidence_manifest.csv")
+    if not h_manifest.exists():
+        print(f"{'evidence for every hostname':<46} FAIL  hostname manifest is missing")
+        sys.exit(1)
+    h_covered = set()
+    with h_manifest.open(newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            try:
+                h_covered.add((row["hostname"], int(row["assigned_year"])))
+            except (KeyError, ValueError, TypeError):
+                continue
+    h_claimed = {(d, y) for y, names in hostnames.items() for d in names}
+    h_missing = h_claimed - h_covered
+    if h_missing:
+        sample = ", ".join(f"{d} ({y})" for d, y in sorted(h_missing)[:3])
+        print(f"{'evidence for every hostname':<46} FAIL  {len(h_missing):,} unsupported, e.g. {sample}")
+        sys.exit(1)
+    print(f"{'evidence for every hostname':<46} PASS  all {len(h_claimed):,} traced to a capture")
+else:
+    print(f"{'hostname additions':<46} SKIP  no hostnames/ in this archive")
+
 PY
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
@@ -101,14 +142,22 @@ if [ -f provenance/evidence.parquet ] && [ -f provenance/domain_year.parquet ]; 
         orphans=$(uv run --with duckdb --no-project python -c "
 import duckdb
 c = duckdb.connect()
-print(c.execute('''
+import os
+n = c.execute('''
     SELECT count(*) FROM read_parquet('provenance/domain_year.parquet') dy
     WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
                       WHERE e.evidence_id = dy.evidence_id)
-''').fetchone()[0])
+''').fetchone()[0]
+if os.path.exists('provenance/hostname_year.parquet'):
+    n += c.execute('''
+        SELECT count(*) FROM read_parquet('provenance/hostname_year.parquet') hy
+        WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
+                          WHERE e.evidence_id = hy.evidence_id)
+    ''').fetchone()[0]
+print(n)
 " 2>/dev/null | tail -1)
         case "$orphans" in
-            0)   say "evidence wall intact" "PASS  every assignment resolves to a shipped evidence row" ;;
+            0)   say "evidence wall intact" "PASS  every domain and hostname assignment resolves to a shipped evidence row" ;;
             ''|*[!0-9]*) say "evidence wall intact" "SKIP  could not read the provenance export" ;;
             *)   say "evidence wall intact" "FAIL  $orphans assignments cite evidence not in this archive"; fail=1 ;;
         esac
@@ -226,14 +275,17 @@ else:
         # or the audit describes a different round than the one in the box.
         shipped = 0
         for year in range(1996, 2002):
-            path = Path("additions") / f"{year}.txt"
-            if path.is_file():
-                shipped += len({x.strip() for x in path.read_text().splitlines() if x.strip()})
+            for path in (
+                Path("additions") / f"{year}.txt",
+                Path("hostnames") / f"{year}_hostnames.txt",
+            ):
+                if path.is_file():
+                    shipped += len({x.strip() for x in path.read_text().splitlines() if x.strip()})
         claimed = int(totals["submitted_records"])
         if shipped != claimed:
             say(
                 "D3 audit agrees with the shipped files",
-                f"FAIL  audit says {claimed:,} submitted, additions/ holds {shipped:,}",
+                f"FAIL  audit says {claimed:,} submitted, additions/ and hostnames/ hold {shipped:,}",
             )
             fail = True
         else:

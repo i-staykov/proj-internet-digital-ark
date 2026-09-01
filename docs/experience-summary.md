@@ -9,35 +9,28 @@ Every figure here is measured against the store, not projected, and says what it
 
 ## 1. The reusable technique
 
-**Half of this round's equivalent-English came from one route, and the reason is weight rather
-than volume: 357,755 of 713,481 are RDAP creation dates, at a mean weight of 0.6153 over 581,458
-pairs, while the source with the MOST pairs, 641,034, paid 90,769 because it is mostly `.de` at
-0.1324. Rank a source by pairs and you will pick the wrong one.**
+**Re-price what is already on disk whenever the unit or a screen changes.** This round's
+increment is 3,078,204 equivalent-English, and about 2.5 million of it came from bytes the
+project already held and had written off, with no new request:
 
-**The cheapest addition came from a file already ingested.** The 1999 RIPE snapshot had
-been read for one attribute, the domain name, and dated to the file's own instant. Each object also
-carries a `changed:` line per update applied to it, 2,016,169 of them, each with its own date. An
-object cannot be modified before it exists, so those lines reach 1996, 1997 and 1998, which the
-snapshot's own date cannot: **399,401 further pairs, 58,398 equivalent-English, no new download.**
+| held artifact | what changed | what it paid |
+|---|---|--:|
+| NYPW TimeMaps, closed at 14.2 EE on the 1996 folder | the novelty screen retired; the 1999 and 2000 folders were measured from the ingest ledger instead of argued about | ~88,000 EE registrable |
+| the same 34 parts | the reviewer accepted hostnames as records; the parts were re-emitted at hostname grain | 2,097,955 EE |
+| 180 domain-wide CDX sweep journals, logged as worth 0 | same unit change: `www.foo.co.uk` no longer collapses onto a held `foo.co.uk` | 301,650 EE |
+| the same 34 parts again | the parser had discarded every non-200 row; a 302 or 404 still needs the name delegated | 6,680 EE |
 
-The same question paid three times in this round:
-
-| asked of | what it gave |
-|---|---|
-| `bl.iro.bl.uk` "what else has this repository deposited?" | the UKWA geoindex, 4,591 pairs at 4,493.0 equivalent-English |
-| `archive.org` "what is the item named for, the group or the hierarchy?" | a 14 MB registry archive hiding behind a better-matching 208 KB decoy |
-| `ripe.db.gz` "what else do these objects say?" | 58,398 equivalent-English |
-
-**So the reusable technique is: exhaust the artifact you already hold before looking for another one.**
-It is cheaper than discovery, it needs no new licence, and it is where this round's yield actually came
-from.
+Earlier rounds found the same shape: the 1999 RIPE snapshot re-read for its `changed:` lines paid
+58,398 EE, and the RDAP sibling-name generation paid 357,755 by asking about names invented rather
+than found. **Exhaust the artifact you already hold before looking for another one.** It needs no
+new licence, it is measured against the store as a control group, and it is where the yield came from.
 
 ## 2. What worked
 
-- **One clear written objective, then unattended running.** This is how the round's sources were found.
+- **One clear written objective, then unattended running.** Research runs as scheduled fleet lanes on a self-hosted runner (generator, researcher waves, re-opener, improver); the round's largest source was a generator proposal.
 - **Detached collectors holding an absolute epoch deadline**, so they outlive the session. They kept
   collecting through a day when the agent could not be reached.
-- **Registry-generated artifacts over anything a person wrote.** Every large addition this round is a
+- **Registry-generated artifacts over anything a person wrote.** Every large registrable addition in round 7 was a
   registry or registrar printing its own database: RIPE, the US Domain delegation list, the `.ca`
   approval notices, a registrar's expiring-domain list. Mean weight is often poor and volume carries it.
 - **Pricing a source before building a collector.** Several candidates died on a measurement that cost
@@ -62,7 +55,7 @@ from.
 - **Crawl-derived lists, for discovery.** They find few names we lack. But they can still win on
   completeness: a 2000-dated blocklist paid 18 equivalent-English while the 2001 edition of the same
   list paid 10,376.9, because its names lacked that year rather than lacking existence.
-- **Closed with measurements this round**, so not worth repeating: academic repositories and DOI
+- **Closed with measurements**, so not worth repeating: academic repositories and DOI
   datasets (five APIs and two registries converge on three artifacts we already hold), national
   web-archive indexes, preserved CD-ROM media by name and by size, trade directories of internet
   businesses, and FTP-mirror archive listings (6.16M entries, 143,338 genuinely dated 2001, zero lists).
@@ -101,8 +94,8 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 1. **Bulk dated corpora**, still the best yield per megabyte by two orders of magnitude over prose.
 2. **Registry datasets that publish dates**, the only route that reaches 2001, where the archives are
    thin: `P(store lacks 2001 | domain held)` is 0.611 for `.com` against near zero for 1999.
-3. **Re-auditing material already on disk**, which produced 58,398 equivalent-English this round
-   for no new download.
+3. **Re-auditing material already on disk**, which produced most of this round for no new download
+   (section 1), and the remaining capture-bearing artifacts have not yet been re-read at hostname grain.
 4. **Two sources are blocked on access rather than evidence.** The JISC UK per-year CDX index, 13.45 GB
    in window over the highest-weight TLD, is preserved but unservable: the UK Web Archive has been
    offline since the October 2023 British Library cyber-attack, with restoration targeted at Autumn 2026
@@ -110,7 +103,7 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
    concentrated in 2000-2001 but need one request per filing, roughly 35 hours, because the bulk feed
    route does not exist before 2002.
 
-## Round 8 additions
+## Lessons added this round
 
 - **Re-read closed verdicts whenever a measurement screen retires.** A source rejected at
   14.2 equivalent-English on its most saturated partition paid ~88,000 when the retired
@@ -125,4 +118,10 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 - **Spend models only where judgement pays.** Booking results is deterministic code now;
   models propose, test and admit. Cadence is earned from a per-run ledger of
   equivalent-English per token, under a hard weekly budget ceiling.
+- **Keep the raw rows.** A sweep that writes `{url, timestamp}` lines and a separate
+  ingest that decides what a row is worth cost nothing extra on the day and paid the
+  whole hostname unit later. A collector that canonicalises on write destroys that option.
+- **Write the report from the data, never the other way.** Every figure in the report is a
+  token filled from the store and the merge audit, and the attribution table is generated
+  from the shipped files, so the numbers cannot drift from the archive between builds.
 

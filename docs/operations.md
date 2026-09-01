@@ -29,7 +29,7 @@ same command again. Each run appends to a log in `data/logs/`.
 just setup       # uv sync
 just hooks       # install the pre-commit gate, which refuses a red commit
 just reproduce   # all six stages below, offline
-just check       # lint + format-check + tests, then the thirteen data invariants
+just check       # lint + format-check + tests, then the fifteen data invariants
 ```
 
 `just check-data` runs the data invariants and `just verify-repo` runs the code checks; `just check`
@@ -77,7 +77,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | recover | `uv run python scripts/engines/recover_dead_hosts.py` | asks the Wayback Machine for the **data files** of hosts the register wrote off as dead, which is a different question from re-probing the host. Proved twice on 2026-08-16: `nw.com/zone/9701.domains.gz` was recorded unrecoverable and is intact, worth 76,324 pairs; `cybermetrics.wlv.ac.uk` does not resolve and its whole `/database/` tree survives including a 166 MB zip. **It reports and never fetches**, because a file can be available, dated, and 100% already held |
 | probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
-| ship it | `just ship-approved` | banks every class a human has newly moved to `master`, then exports, runs the thirteen invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, and builds the `.docx`. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step |
+| ship it | `just ship-approved` | banks every class a human has newly moved to `master`, then exports, runs the fifteen invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, and builds the `.docx`. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step |
 | approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | rank | `just triage-rank` | sorts the triage queue in [docs/approved-sources-list.md](approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
@@ -113,7 +113,7 @@ store, it was never written to it**, which is stronger than any flag.
 
 **Why this is safe to run unattended**, which is the part that makes it more than a scheduler:
 `domain_year.evidence_id` is `NOT NULL` and foreign-keyed, `assign_year` refuses candidate-only
-evidence, the corroboration split gates anything a human typed, and thirteen invariants run on every pass.
+evidence, the corroboration split gates anything a human typed, and fifteen invariants run on every pass.
 **An unattended agent physically cannot write an unevidenced year here.** It has latitude about what
 to try and none at all about what counts as proof.
 
@@ -226,7 +226,7 @@ ships is the wrong time to find that out. Measured on 2026-08-13: export wrote 1
 read 170,787 from the store minutes later.
 
 ```bash
-just ship            # quiesce ingestion, export, run the thirteen invariants, package, verify
+just ship            # quiesce ingestion, export, run the fifteen invariants, package, verify
 ```
 
 Only the **ingest** loop pauses. Collectors writing journals do not move the store, so they keep running

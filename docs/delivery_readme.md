@@ -13,8 +13,11 @@ Two things to know before opening anything:
 - **The reference baseline is the one in `baseline/`, named for the reviewer release it came from,
   and `baseline/README.txt` says which.** Additions are counted against it, so a figure quoted
   against any earlier release is not comparable.
-- **`additions/` is the deliverable and `candidates.txt` is separate.** A name in `candidates.txt`
-  has been seen but has not earned a year, and is never mixed into the annual lists.
+- **`additions/` and `hostnames/` are the deliverable and `candidates.txt` is separate.** The
+  first holds registrable domains, the second valid hostnames beneath them (the unit the
+  reviewer accepted on 2026-09-01), disjoint per year and each backed by its own evidence
+  manifest. A name in `candidates.txt` has been seen but has not earned a year, and is never
+  mixed into the annual lists.
 
 ## What is in here
 
@@ -24,13 +27,15 @@ Two things to know before opening anything:
 | `masters/<year>.txt` | **Final annual lists**: the reference baseline normalized to registered domains, plus the additions. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains; `audit/year_growth.csv` reconciles it exactly |
 | `additions/<year>.txt` | **Additions only**, against the reference baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
+| `hostnames/<year>_hostnames.txt` | **Hostname additions**, the second output unit: valid hostnames beneath held registrables, disjoint from `additions/` |
+| `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
 | `baseline/<release>/` | **The reference the additions are counted against**, the reviewer's own reissued corpus shipped back so the archive is checkable on its own. See `baseline/README.txt` |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
-| `audit/` | Normalization and salvage audits, the per-source contribution table, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
-| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **One collector is excluded on size**, the RDAP walks: 3.67 GB against 1.18 GB for everything else. It is this round's second-largest source, so that is a real limitation and `journals/README.txt` states it; the pairs remain checkable through `provenance/`, and the logs are available on request |
+| `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
+| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Five journal sets are excluded on size** (about 18 GB against under 2 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from |
@@ -129,9 +134,11 @@ Everything comes back byte-identical:
 ```
 for y in 1996 1997 1998 1999 2000 2001; do
     cmp output/netnew/$y.txt            ../additions/$y.txt
+    cmp output/netnew/${y}_hostnames.txt ../hostnames/${y}_hostnames.txt
     cmp data/exports/$y.txt             ../masters/$y.txt
 done
 cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
+cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
 cmp output/candidate_unverified.txt      ../candidates.txt
 ```
 
@@ -141,6 +148,8 @@ The archive renames things, so here is the map:
 |---|---|
 | `output/netnew/<year>.txt` | `additions/<year>.txt` |
 | `output/netnew/evidence_manifest.csv` | `additions/evidence_manifest.csv` |
+| `output/netnew/<year>_hostnames.txt` | `hostnames/<year>_hostnames.txt` |
+| `output/netnew/hostnames_evidence_manifest.csv` | `hostnames/hostnames_evidence_manifest.csv` |
 | `output/candidate_unverified.txt` | `candidates.txt` |
 | `data/exports/<year>.txt` | `masters/<year>.txt` |
 | `output/provenance/` | `provenance/` |
@@ -164,9 +173,9 @@ just reproduce
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
 this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
-it behaved before 2026-08-18. **The RDAP stage is the exception and will replay nothing**, because
-those logs are excluded on size. The 581,458 net-new pairs it contributed are still checkable by tier 2, which is the
-route below, and the logs will be sent on request.
+it behaved before 2026-08-18. **The five excluded journal sets will replay nothing** until they are restored: the RDAP
+logs on request, the other four by re-deriving them from the public sources `sources.md` links.
+Every assignment they back is checkable by tier 2, which is the route below.
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
 about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been

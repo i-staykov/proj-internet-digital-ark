@@ -68,13 +68,13 @@ DOCUMENTS = (
 def per_year_table(f: dict) -> str:
     """Volume and equivalent-English per year, read from the shipped merge audit.
 
-    **Read from the audit rather than from the store, because the two disagree by 12
+    **Read from the audit rather than from the store, because the two disagree by a few
     records and the report used to print both.** The store counts a canonicalised
     (domain, year); the audit counts what survives export into the annual files and is
     then scored by the reviewer's own calculator, so a name his validator refuses is in
     the first and not the second. His figure is the one that matters and it is the one
-    the headline quotes, so the table now comes from the same file: the columns satisfy
-    `baseline_unique + accepted_new == merged_unique` per year, which he can check
+    the headline quotes, so the table comes from the same file: per year,
+    `baseline_unique + registrables + hostnames == merged_unique`, which he can check
     against `audit/merge_stats_ark_*.csv` line by line.
     """
     merge_dir = Path(__file__).resolve().parents[2] / "output/merge"
@@ -83,100 +83,220 @@ def per_year_table(f: dict) -> str:
         return "_No merge audit in this build; `merge_against_baseline.py` produces it._"
     audit = json.loads(newest.read_text(encoding="utf-8"))
     lines = [
-        f"| Year | {BASELINE} | Additions | Merged | Equivalent-English added |",
-        "|---|--:|--:|--:|--:|",
+        f"| Year | {BASELINE} | Registrables | Hostnames | Merged | Equivalent-English added |",
+        "|------|------------:|-----------:|-----------:|------------:|--------------:|",
     ]
     for row in audit["years"]:
+        reg = row.get("submitted_registrable", row["accepted_new"])
+        host = row.get("submitted_hostnames", 0)
         lines.append(
-            f"| {row['year']} | {row['baseline_unique']:,} | {row['accepted_new']:,} | "
+            f"| {row['year']} | {row['baseline_unique']:,} | {reg:,} | {host:,} | "
             f"{row['merged_unique']:,} | {Decimal(row['equivalent_english_increment']):,.4f} |"
         )
     t = audit["totals"]
+    reg = int(t.get("submitted_registrable_records", t["accepted_new_records"]))
+    host = int(t.get("submitted_hostname_records", 0))
     lines.append(
-        f"| **Total** | **{int(t['baseline_records']):,}** | "
-        f"**{int(t['accepted_new_records']):,}** | **{int(t['post_merge_records']):,}** | "
+        f"| **Total** | **{int(t['baseline_records']):,}** | **{reg:,}** | **{host:,}** | "
+        f"**{int(t['post_merge_records']):,}** | "
         f"**{Decimal(t['equivalent_english_increment']):,.4f}** |"
     )
     return "\n".join(lines)
 
 
-# Sources admitted in THIS round, with the one-line ground each was admitted on and the
-# receipt a reviewer can open. Everything not listed here was approved in an earlier round
-# and is unchanged, so the report does not re-argue it. Ivo, 2026-08-26: the additions are
-# what has to be verifiable, and nothing else earns space.
-NEW_THIS_ROUND = {
-    "ripe_dbase_1999": (
-        "the file's own generation stamp, `# 990804 00:07:01` on line 2",
-        "ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz",
+# One line per source saying what dates a record and how the artifact was obtained, for
+# the attribution table in section 2. The FIGURES beside them are read from the store and
+# the shipped files; only these two phrases are typed, and a source missing here still
+# appears, described by its evidence class, so the table can never silently drop a row.
+# Hostname sources are keyed by acquisition method because both live under one source row.
+GROUNDS: dict[str, tuple[str, str]] = {
+    "nypw_timemap_hostgrain": (
+        "NYPW TimeMaps (IA, CC BY 4.0), 34 parts held since round 6, re-read at hostname grain",
+        "the row's own 14-digit capture timestamp",
     ),
-    "ripe_dbase_changed": (
-        "the date on each object's own `changed:` transaction line",
-        "same file, `*ch:` attribute",
+    "ia_cdx_domain_sweep": (
+        "IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "nypw_timemaps": (
+        "NYPW TimeMaps, 34 parts, reopened after a 14 EE closure on the 1996 folder",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "nypw_timemaps_nonok": (
+        "same files, rows with a non-200 status the parser used to discard",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "ia_cdx_bulk": (
+        "IA CDX per-domain queries over bracketed gaps and the candidate pool",
+        "the capture timestamp of a URL on that host",
+    ),
+    "usenet_address": (
+        "Usenet archives (IA), sender and body addresses",
+        "the post's `Date:` header, corroborated by a second source",
+    ),
+    "usenet_announce": (
+        "Usenet site announcements (IA)",
+        "the post's `Date:` header, corroborated by a second source",
+    ),
+    "usenet_bare": (
+        "Usenet archives (IA), bare hostnames in bodies",
+        "the post's `Date:` header, corroborated by a second source",
+    ),
+    "chastity_list_blacklist": (
+        "Chastity filter blacklist tarball, 2001",
+        "tar member headers `Dec 14 2001` and dated diff filenames",
+    ),
+    "mynic_my_change_report": (
+        "MYNIC `.my` fortnightly change reports (IA)",
+        "the per-day heading over each `New`/`Delete` entry",
+    ),
+    "coza_deletion_listing": (
+        "CO.ZA registry deletion shortlists (IA)",
+        "the capture stamp on a registry page naming live names",
+    ),
+    "jeb_bush_gubernatorial_email": (
+        "Florida governor's office e-mail export",
+        "the mail client's own `Sent:` line",
+    ),
+    "early_bulk_whois_snapshot": (
+        "early bulk whois transcriptions (Berkman)",
+        "the registry creation date in the record, that year only",
+    ),
+    "cctld_register_listing_capture": (
+        "ccTLD register listings `.mt`, `.sa` and others (IA)",
+        "the capture stamp on the registry's own register page",
+    ),
+    "junkfilter_dated_blocklist": (
+        "junkfilter blocklist releases 1997-2001",
+        "`Last-Modified`, in-body `$Id` and tar member stamps agreeing",
+    ),
+    "granitecanyon_zone_rejects": (
+        "Granite Canyon public DNS rejected-zone lists (IA)",
+        "the list's own generation stamp, e.g. `7-May-2001 22:11 GMT`",
+    ),
+    "urlmerchant_inventory": (
+        "URLMerchant domain broker inventory (IA)",
+        "the page's own `META UPDATED` generator stamp",
+    ),
+    "fac_single_audit": (
+        "Federal Audit Clearinghouse single-audit data",
+        "the row's `AUDITEEDATESIGNED`, corroborated by a second source",
     ),
     "ripe_dbase_split_2004": (
-        "the date on each object's own `changed:` transaction line",
-        "ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz, `changed:` attribute",
+        "RIPE database split dump (ftp.funet.fi)",
+        "the object's own `changed:` line, that year only",
     ),
-    "us_domain_delegated": (
-        "the edition's tar-preserved mtime, or its capture stamp",
-        "archive.org/details/2015.04.ftp.isc.org and www.isi.edu/in-notes/",
+    "rdap_snapshot": (
+        "registry RDAP over generated sibling names",
+        "the registry's creation date, that year only",
     ),
-    "squidguard_2001_blacklist": (
-        "the list's own `compiled in ... on 2001.12.18` header, or the diff's filename date",
-        "archive.debian.org/.../squidguard_1.2.0.orig.tar.gz",
+    "rtfm_faq": (
+        "MIT rtfm FAQ archive",
+        "the FAQ's own `Last-modified:` line, corroborated by a second source",
     ),
-    "namewinner_expiring": (
-        "the per-row date `25-OCT-01`, on every line",
-        "web.archive.org/web/20011026120205id_/namewinner.com/whole_list.php?del=tab",
-    ),
-    "can_domain_registry_notices": (
-        "the registry's own `Date-Approved:` field in its public approval notice",
-        "archive.org/download/usenet-can/can.domain.mbox.zip",
-    ),
-    "cctld_register_listing_inbody": (
-        "the register page's own machine-written timestamp, or the row's due date",
-        "twnic.net.tw/DN/fz1.shtml and idnic.net.id/Info/RekapBelumBayar.html",
-    ),
-    "dartmouth_bfs_seed": (
-        "field 2 of each CDX row, a 14-digit capture timestamp",
-        "archive.org, Dartmouth_10KwebURLs_GWB BFS level 0",
-    ),
-    "iedr_register": (
-        "the page's own footer: `updated automatically at ... 2001` on the 2001 editions, "
-        "a plain `Last updated 27 Nov 1999` on the two earlier ones, which carry 829 of the pairs",
-        "web.archive.org/web/20011221145100id_/http://www.domainregistry.ie/lists/a-doms.html",
-    ),
-    "internic_zone": (
-        "the SOA serial inside the zone payload: `1997041800` for 12,320 pairs, "
-        "`1999111901` for the 183 from the 1999 `gov` zone",
-        "nic.mil mirror of ftp.internic.net/domain/, via web.archive.org",
-    ),
-    "ukwa_geoindex": (
-        "the 14-digit capture timestamp on each row",
-        "bl.iro.bl.uk/downloads/090bbffa-d82c-4641-ba72-0089e8ef885f",
+    "usenet_whois_paste": (
+        "whois output pasted into Usenet posts",
+        "the registry's `Record created on` line inside the paste",
     ),
 }
 
+# What the table says about a source nobody described above, by evidence class.
+CLASS_GROUNDS = {
+    "cdx_timestamp": "a Wayback capture timestamp",
+    "dated_directory": "the dated artifact's own stamp",
+    "artifact_listing": "the artifact's own machine-written stamp",
+    "whois_creation": "the registry's creation date, that year only",
+    "link_source": "the crawl date on the link record",
+}
 
-def new_sources_table(f: dict) -> str:
-    """The additions of this round, with grounds and receipts, so they can be checked."""
-    by_name = {row["source"]: row for row in f["by_source"]}
-    lines = [
-        "| Source | Evidence type | What dates one item | Receipt | Pairs | EE |",
-        "|---|---|---|---|--:|--:|",
+# Rows below this share of the increment collapse into one line; the full per-source
+# figures ship in `audit/source_contribution.csv` and the collapsed line says so.
+ATTRIBUTION_FLOOR_EE = Decimal("1000")
+
+
+def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
+    """(records, EE) per acquisition method over the SHIPPED hostname files, and the
+    share of them that are `www.` forms of a registrable.
+
+    Joined against the shipped manifest rather than the store, so the table describes
+    the files in the archive: the store holds hostname rows the export filters out.
+    """
+    import duckdb
+
+    repo = Path(__file__).resolve().parents[2]
+    netnew = repo / "output/netnew"
+    manifest = netnew / "hostnames_evidence_manifest.csv"
+    files = sorted(netnew.glob("*_hostnames.txt"))
+    if not manifest.is_file() or not files:
+        return {}, Decimal(0)
+    raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
+    weights = [
+        (str(t).lower(), float(p) / 100)
+        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
+        if t and lang == "eng"
     ]
-    shown = 0
-    for name, (ground, receipt) in NEW_THIS_ROUND.items():
-        row = by_name.get(name)
-        if row is None:
-            continue
-        shown += 1
-        lines.append(
-            f"| `{name}` | `{row['evidence_type']}` | {ground} | {receipt} | "
-            f"{row['pairs']:,} | {row['ee']:,.1f} |"
+    conn = duckdb.connect()
+    conn.execute("CREATE TABLE w(tld VARCHAR, weight DOUBLE)")
+    conn.executemany("INSERT INTO w VALUES (?, ?)", weights)
+    conn.execute("CREATE TABLE h(hostname VARCHAR, assigned_year INTEGER)")
+    for path in files:
+        year = int(path.name.split("_")[0])
+        conn.execute(
+            f"INSERT INTO h SELECT lower(trim(column0)), {year} FROM read_csv(?, header=false, "
+            "delim='\x01', columns={'column0': 'VARCHAR'})",
+            [str(path)],
         )
-    if not shown:
-        return "No source was admitted for the first time in this round."
+    rows = conn.execute(
+        """
+        SELECT m.acquisition_method, count(*), sum(coalesce(w.weight, 0))
+        FROM h
+        JOIN read_csv_auto(?, header=true) m USING (hostname, assigned_year)
+        LEFT JOIN w ON w.tld = regexp_extract(h.hostname, '([a-z0-9-]+)$', 1)
+        GROUP BY 1
+        """,
+        [str(manifest)],
+    ).fetchall()
+    www = conn.execute(
+        "SELECT sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*) FROM h"
+    ).fetchone()[0]
+    conn.close()
+    return {m: (int(n), Decimal(str(round(ee, 4)))) for m, n, ee in rows}, Decimal(str(www))
+
+
+def attribution_table(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
+    """Section 2's table over BOTH units, ranked by equivalent-English."""
+    rows = []
+    for r in f["by_source"]:
+        what, dates = GROUNDS.get(
+            r["source"],
+            ("see `sources.md`", CLASS_GROUNDS.get(r["evidence_type"], r["evidence_type"])),
+        )
+        rows.append((r["source"], "registrable", what, dates, r["pairs"], Decimal(str(r["ee"]))))
+    for method, (n, ee) in hosts.items():
+        what, dates = GROUNDS.get(method, ("see `sources.md`", "a Wayback capture timestamp"))
+        rows.append((method, "hostname", what, dates, n, ee))
+    rows.sort(key=lambda r: r[5], reverse=True)
+    shown = [r for r in rows if r[5] >= ATTRIBUTION_FLOOR_EE]
+    rest = [r for r in rows if r[5] < ATTRIBUTION_FLOOR_EE]
+    # Separator dash counts set the docx column widths when a line exceeds pandoc's
+    # width, which every row here does; the two prose columns get the room.
+    lines = [
+        "| Source, unit | Artifact, and how it was obtained | What dates one record "
+        "| Records | EE |",
+        "|--------------|--------------------------|----------------------|--------:|-------:|",
+    ]
+    for name, unit, what, dates, n, ee in shown:
+        lines.append(f"| `{name}`, {unit} | {what} | {dates} | {n:,} | {ee:,.0f} |")
+    if rest:
+        n = sum(r[4] for r in rest)
+        ee = sum((r[5] for r in rest), Decimal(0))
+        lines.append(
+            f"| {len(rest)} further sources | each under {ATTRIBUTION_FLOOR_EE:,.0f} EE, "
+            f"listed in `audit/source_contribution.csv` | | {n:,} | {ee:,.0f} |"
+        )
+    total_n = sum(r[4] for r in rows)
+    total_ee = sum((r[5] for r in rows), Decimal(0))
+    lines.append(f"| **Total** | | | **{total_n:,}** | **{total_ee:,.0f}** |")
     return "\n".join(lines)
 
 
@@ -214,45 +334,30 @@ def accepted_totals() -> dict | None:
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
-def hostname_figures() -> tuple[int, Decimal]:
-    """Records and equivalent-English of the shipped hostname files (second unit)."""
-    repo = Path(__file__).resolve().parents[2]
-    raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
-    weights = {
-        str(t).lower(): Decimal(str(p)) / 100
-        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if t and lang == "eng"
-    }
-    pairs, ee = 0, Decimal(0)
-    for year in range(1996, 2002):
-        path = repo / f"output/netnew/{year}_hostnames.txt"
-        if not path.exists():
-            continue
-        with path.open() as fh:
-            for line in fh:
-                host = line.strip()
-                if host:
-                    pairs += 1
-                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
-    return pairs, ee
-
-
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
+    hosts, www_share = hostname_breakdown()
+    h_pairs = sum(n for n, _ in hosts.values())
+    h_ee = sum((ee for _, ee in hosts.values()), Decimal(0))
     # Fall back to the store only when no merge has been run, so a missing audit
     # produces a slightly different number rather than an empty placeholder.
-    total = int(accepted["accepted_new_records"]) if accepted else f["netnew_pairs"]
+    total = int(accepted["accepted_new_records"]) if accepted else f["netnew_pairs"] + h_pairs
     ee_total = (
-        Decimal(accepted["equivalent_english_increment"]) if accepted else Decimal(f["ee_netnew"])
+        Decimal(accepted["equivalent_english_increment"])
+        if accepted
+        else Decimal(f["ee_netnew"]) + h_ee
     )
+    reg_pairs = int(accepted["submitted_registrable_records"]) if accepted else f["netnew_pairs"]
     # **The headline increment comes from the MERGE AUDIT and the growth rate from the
     # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5.** Caught on
     # 2026-08-26 with the audit reading 769,438 records and 488,722 EE beside a live
     # 5.3344% that implies 712,801. Both numbers were individually right and the table was
     # nonsense. Re-run `merge_against_baseline.py` after the last ingest of a round; this
-    # refuses to fill rather than shipping a self-contradicting table.
+    # refuses to fill rather than shipping a self-contradicting table. The audit scores
+    # both units, so the store side of the comparison is registrables plus hostnames.
     if accepted:
-        drift = abs(Decimal(f["ee_netnew"]) - ee_total)
+        store_ee = Decimal(f["ee_netnew"]) + h_ee
+        drift = abs(store_ee - ee_total)
         # Relative, because a running collector moves the store by a few pairs while the
         # merge is scoring files. 0.05% catches a stale ROUND (488,722 against 712,801 is
         # 31%) while tolerating the handful of pairs a live ingest adds mid-run. For a
@@ -261,7 +366,7 @@ def substitutions(f: dict) -> dict[str, str]:
             raise SystemExit(
                 "merge audit is stale: it reports "
                 f"{ee_total:,.4f} equivalent-English over {total:,} records, but the store "
-                f"holds {Decimal(f['ee_netnew']):,.4f} over {f['netnew_pairs']:,}. "
+                f"and hostname files hold {store_ee:,.4f} over {f['netnew_pairs'] + h_pairs:,}. "
                 "Run `uv run python scripts/round/merge_against_baseline.py` and refill."
             )
 
@@ -274,30 +379,32 @@ def substitutions(f: dict) -> dict[str, str]:
         if accepted and accepted.get("equivalent_english_growth_rate_pct") is not None
         else Decimal(str(f["ee_netnew_growth_pct"]))
     )
-
-    h_pairs, h_ee = hostname_figures()
-    baseline_ee = Decimal(str(f.get("ee_baseline", 0))) or None
-    combined = ""
-    if baseline_ee:
-        combined = f"{(ee_total + h_ee) / baseline_ee * 100:.4f}%"
+    baseline_ee = Decimal(str(f["ee_baseline"]))
+    reg_ee = ee_total - h_ee
+    by_source = {r["source"]: r for r in f["by_source"]}
+    cdx_bulk = by_source.get("ia_cdx_bulk", {}).get("pairs", 0)
     subs: dict[str, str] = {
+        "TOTAL": f"{total:,}",
+        # Four decimals, because that is the precision the reviewer reports back in
+        # and a rounded total reads to him as a different number than the one he
+        # computed with his own calculator.
+        "EE": f"{ee_total:,.4f}",
+        "EEGROWTH": f"{growth:.4f}%",
+        "REGPAIRS": f"{reg_pairs:,}",
+        "REGEE": f"{reg_ee:,.4f}",
+        "REGGROWTH": f"{reg_ee / baseline_ee * 100:.4f}%",
         "HOSTPAIRS": f"{h_pairs:,}",
         "HOSTEE": f"{h_ee:,.4f}",
-        "COMBINEDGROWTH": combined or "[COMBINEDGROWTH]",
-        "TOTAL": f"{total:,}",
+        "HOSTGROWTH": f"{h_ee / baseline_ee * 100:.4f}%",
+        "WWWSHARE": f"{www_share * 100:.1f}%",
+        "CDXBULK": f"{cdx_bulk:,}",
         "UNIQUE": f"{f['netnew_unique_domains']:,}",
         "NEWDOMAINS": f"{f['netnew_domains_absent_from_baseline']:,}",
         "CANDIDATES": f"{f['candidate_pool']:,}",
         "BASELINE": BASELINE,
         "ROUND": CURRENT_ROUND_LABEL,
-        # Four decimals, because that is the precision the reviewer reports back in
-        # and a rounded total reads to him as a different number than the one he
-        # computed with his own calculator.
-        "EE": f"{ee_total:,.4f}",
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
-        "EEGROWTH": f"{growth:.4f}%",
-        "NEW_SOURCES_TABLE": new_sources_table(f),
-        "DECISIONS": str(len(NEW_THIS_ROUND.keys() & {r["source"] for r in f["by_source"]})),
+        "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
@@ -306,7 +413,6 @@ def substitutions(f: dict) -> dict[str, str]:
         "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
-        "ROUTES_TABLE": routes_table(f),
     }
     # The REVIEWER'S raw record count, not the store's. These differ by 1.6 million,
     # because the store canonicalises to registrable domains and he counts lines, and
@@ -316,54 +422,6 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
 
     return subs
-
-
-# The routes section 2 describes, in the order a reader should meet them. Only the
-# prose lives here; every figure beside it is read from the store, because the section
-# opens by claiming no number in this report is typed and a hand-copied pair count in
-# the summary table would make that false the first time a collector banked anything.
-# It did: round 5's four were written on 2026-08-17 and were stale within a day.
-#
-# RESET AT THE START OF EVERY ROUND, which is why it is empty now. Carrying the
-# previous round's routes forward is not a small error: each row would keep its own
-# heading while `by_source` quietly filled it with THIS round's pairs for a source
-# that is no longer what the round is about.
-ROUTES: tuple[tuple[str, str, str], ...] = (
-    (
-        "ia_cdx_bulk",
-        "the two archive engines, a bracketed-gap population and the candidate pool",
-        "the Wayback capture timestamp, per domain and year",
-    ),
-    (
-        "rdap_snapshot",
-        "the RDAP sweep over generated sibling names and over `.uk` we already hold",
-        "the registry's own creation date, which dates that year and no other",
-    ),
-)
-
-
-def routes_table(f: dict) -> str:
-    """Section 2's summary of where the round came from, figures read from the store."""
-    if not ROUTES:
-        # Deliberately a token, so `fill` refuses the document rather than shipping a
-        # report whose central section is a blank table. `ark.baseline` names the round;
-        # this names what the round was made of, and only a human can write that.
-        return "[ROUTES_NOT_NAMED_FOR_THIS_ROUND]"
-    by_source = {row["source"]: row for row in f["by_source"]}
-    # Equivalent-English beside the pairs, because the two rank sources differently and
-    # only the second is scored: the source with the most pairs this round paid a fifth
-    # of what this table's second row did, being mostly `.de` at 0.1324.
-    lines = [
-        "| Route | What dates a year | Net-new pairs | Equivalent-English |",
-        "|---|---|--:|--:|",
-    ]
-    for key, what, dates in ROUTES:
-        row = by_source.get(key)
-        if row is None:
-            lines.append(f"| {what} | {dates} | _not in this round_ | |")
-            continue
-        lines.append(f"| {what} | {dates} | {row['pairs']:,} | {row['ee']:,.1f} |")
-    return "\n".join(lines)
 
 
 def reproduction_result() -> str:
@@ -437,7 +495,7 @@ def merge_reconciliation() -> str:
     ]
     return "\n".join(
         [
-            "`merge_against_baseline.py` unions these additions into the current baseline,",
+            "`merge_against_baseline.py` unions both units into the current baseline,",
             "deduplicated on the lowercased line within each year, and scores every file with your",
             "own calculator. Per-year form in `audit/merge_stats_ark_*.csv`, in your column names",
             "so the two audits diff directly.",
@@ -446,11 +504,13 @@ def merge_reconciliation() -> str:
             "",
             f"**Overlap with the baseline is "
             f"{int(t['already_in_baseline_records']):,} records**, so all "
-            f"{int(t['submitted_records']):,} submitted are accepted and nothing counts twice.",
+            f"{int(t['submitted_records']):,} submitted are accepted and nothing counts twice; "
+            f"the registrable and hostname files are disjoint in every year.",
             "",
             f"**{passed} of {len(checks)} reconciliation checks pass.** All are arithmetic",
             "identities, so a failure would be a defect rather than a finding: per year that",
-            "`baseline_unique + accepted_new == merged_unique`, that the per-year increments sum",
+            "`baseline_unique + accepted_new == merged_unique` and that the two unit files are",
+            "disjoint and sum to the submitted count, that the per-year increments sum",
             "to the headline, and that a freshly measured baseline reproduces the totals this",
             "round was measured against. Each is listed with its verdict in",
             "`audit/merge_audit_ark_*.json`.",
