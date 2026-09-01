@@ -143,7 +143,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     # because the converter re-emits everything under a fresh tag on every run.
     # skip the journals a sweep still holds open: a half-copied one was once
     # ledgered at a third of its rows and had to be re-ingested by hand
-    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done' 2>/dev/null | sort -u)
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
     rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
     # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
@@ -836,7 +836,7 @@ submit-prep:
     source local.env
     # skip the journals a sweep still holds open: a half-copied one was once
     # ledgered at a third of its rows and had to be re-ingested by hand
-    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done' 2>/dev/null | sort -u)
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
     rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
