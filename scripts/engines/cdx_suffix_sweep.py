@@ -87,11 +87,19 @@ def main() -> None:
             pass
     print(f"{args.suffix}: starting at page {page:,}, journal {journal.name}")
 
-    status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
-    if status != "200":
+    # An archive outage of a few minutes once cost thirteen parents in one walk,
+    # each refused on its first probe; a probe that fails is retried before the
+    # parent is given up on.
+    for attempt in range(6):
+        status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
+        if status == "200":
+            break
+        print(f"  control probe {attempt + 1}: {status}, waiting", flush=True)
+        time.sleep(60)
+    else:
         sys.exit(f"control failed ({status}); refusing to sweep")
 
-    written = pages = empty_run = 0
+    written = pages = empty_run = same_page_fails = throttled = 0
     with gzip.open(journal, "wt") as fh:
         while time.time() < args.deadline:
             while PAUSE_FLAG.exists() and time.time() < args.deadline:
@@ -110,18 +118,31 @@ def main() -> None:
                 args.timeout,
             )
             if status in ("HTTP429", "HTTP503"):
-                print(f"  page {page}: {status}, stopping rather than hammering")
-                break
+                # Rest and retry the same page a few times; only a persistent
+                # throttle ends the parent, and the state file resumes it later.
+                throttled += 1
+                if throttled > 5:
+                    print(f"  page {page}: {status} five times, stopping rather than hammering")
+                    break
+                print(f"  page {page}: {status}, resting", flush=True)
+                time.sleep(120)
+                continue
             if status != "200":
                 # A transient error should not end a multi-day sweep, but a run of
                 # them should: the difference is whether the next page answers.
+                # The same page is asked three times before it is skipped, so one
+                # 504 does not silently drop 200 blocks of captures.
                 empty_run += 1
                 if empty_run > 20:
                     print(f"  {empty_run} consecutive failures ending {status}, stopping")
                     break
-                page += 1
+                same_page_fails += 1
+                if same_page_fails >= 3:
+                    same_page_fails = 0
+                    page += 1
                 time.sleep(args.delay * 3)
                 continue
+            throttled = same_page_fails = 0
 
             if not rows:
                 empty_run += 1
