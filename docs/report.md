@@ -116,7 +116,7 @@ with a widening delay. Collectors take an absolute deadline and outlive the sess
   another source dates that domain first, and `link_target` never dates a year.
 - **Saturation ledger**, as your 2026-08-31 update asks: `audit/source_saturation_ledger.csv`,
   one row per source family and version, with coverage, what dates one item, limitations and
-  the decision. **465 source families have been searched and recorded**, 60 developed far enough to earn their own section and 405 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
+  the decision. Over the whole project, **465 source families have been searched and recorded**, 60 developed far enough to earn their own section and 405 evaluated and closed, each with the measurement that closed it, so negative results stay visible and the same ground is not broken twice. `sources.md` ships beside this report and names every one, with its acquisition route, date semantics and yield.
 - **2,419,546 domains carry no year evidence** and ship as `candidates.txt`, none in an
   annual file; 588,087 of them are under `.edu`, `.gov` or `.mil`.
 
