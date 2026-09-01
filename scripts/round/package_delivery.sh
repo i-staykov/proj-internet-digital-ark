@@ -461,6 +461,16 @@ done
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
+# The research loop itself: workflows, prompts, policy and the hypothesis register from
+# the fleet repo, when it sits beside this one. Section 4 of the report describes it, and
+# a description of an unattended loop is weaker than the loop's own files. Tracked files
+# only, so no secret can ride along (the workflows name theirs by reference).
+FLEET="${ARK_FLEET:-$(dirname "$PWD")/ark-fleet}"
+if [ -d "$FLEET/.git" ]; then
+    git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
+    git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
+fi
+
 # Every journal on disk must be in the archive. Naming source directories by hand
 # has now failed twice: once a ledgered CDX journal sat one directory down and
 # matched neither the packaging glob nor the ingest glob, and once Usenet, Tucows

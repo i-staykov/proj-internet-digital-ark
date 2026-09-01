@@ -158,7 +158,7 @@ Before sending, a fresh copy of this archive was extracted and put through that 
 
 | | asked for | where it is |
 |----|------------------|------------------------------------------|
-| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command prints |
+| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command prints. The research loop of section 4 is `source/fleet.tar.gz`: workflows, prompts, policy and the hypothesis register with every verdict |
 | **D2** | experience summary | `experience-summary.md`, distilled from `sources.md` |
 | **D3** | merge and dedup code, overlap, reconciliation | section 7, `source/scripts/round/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your program vendored unmodified, explained in `metric-explained.md` |

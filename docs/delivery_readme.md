@@ -38,7 +38,7 @@ Two things to know before opening anything:
 | `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Five journal sets are excluded on size** (about 18 GB against under 2 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
-| `source/` | The code that produced everything here, plus the commit it was built from |
+| `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
 | `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
 | `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` beside it is the full register this distils |
 | `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
