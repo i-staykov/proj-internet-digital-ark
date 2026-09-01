@@ -40,9 +40,10 @@ def test_clean_store_passes_all_checks() -> None:
     # reverse-DNS zones shipping in all six annual files at weight 1.0000, the delegation
     # check, and `no_tld_that_never_existed_in_the_window` added 2026-08-31 after 749
     # shipped pairs were found under 131 TLDs from the 2013 new-gTLD programme.
+    # The two hostname-wall checks were added 2026-09-01 with the second output unit.
     # Pinned, not counted loosely: a check silently dropped
     # from the gate is the failure this assertion exists to catch.
-    assert len(results) == 13, [r["name"] for r in results]
+    assert len(results) == 15, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
 

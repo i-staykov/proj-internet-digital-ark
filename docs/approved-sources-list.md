@@ -76,6 +76,21 @@ Decision: master
 
 Decision: master
 
+### ia_cdx_hostnames / cdx_timestamp
+
+- ingest specs: `ark ingest-hostnames` over raw capture journals ({url, timestamp} lines)
+- what dates one item: the row's own 14-digit capture timestamp, quoted in the evidence
+  value beside the hostname it dates
+- unit: the reviewer accepted hostnames as annual records on 2026-09-01 (his reply,
+  verbatim, in private/personal-context.md); registrables stay prioritized, hostnames
+  ship as separate per-year files he can merge or discard
+- admitted under the standing rule of 2026-08-29 (Ivo): the class (cdx_timestamp on the
+  IA CDX API) is master-eligible and approved twice above, the stamp is machine-written
+  inside the artifact, the terms are the ones the collectors already honour, and
+  `ark check` gates the ingest with two hostname-wall checks
+
+Decision: master
+
 ### internet_scout / dated_directory
 
 - ingest specs: `internet_scout`
