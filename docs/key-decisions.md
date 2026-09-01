@@ -59,6 +59,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-50** | 2026-09-01 | The vedge engine queue replaced with the fleet-measured high-weight 2001 gap tail: 167,870 uk/au/edu/ca names held at 2000 and missing 2001, journal-deduped, 0.91 EE/pair against the old head 0.63. Old queue kept as gap_ranked_vps.txt.pre-hiweight |
 | **C-49** | 2026-08-24 | O9 answered: purge the 575,417 impossible `.mil`/`.gov`/`.edu` candidates. No yield either way, wasted queries only |
 | **C-48** | 2026-08-24 | O5 answered no, and it binds RDAP too: this is paid work, so no bulk Nominet querying. The `.uk` engine started that morning at 118.8 EE per 1,000 queries was stopped the same day |
 | **C-47** | 2026-08-24 | O4 closed as unnecessary. The in-session cron runs the cycle hourly, so Full Disk Access for `/bin/bash` buys nothing |
