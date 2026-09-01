@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 3/merged260830")
-CURRENT_BASELINE_MARKER = "merged260830"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 4/merged260901")
+CURRENT_BASELINE_MARKER = "merged260901"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,32 +61,31 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 27_880_151
-REVIEWER_BASELINE_EE = Decimal("14531454.0269")
+REVIEWER_BASELINE_PAIRS = 33_848_926
+REVIEWER_BASELINE_EE = Decimal("17770588.9026")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260821` file
+# by running his own `equivalent_english_domains.py` over each `merged260901` file
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **2001 is where `merged260830` moved, and it is the year we had just aimed at.** The
-# release adds 646,292 pairs and 309,511 EE over `merged260827-2`, and 210,704 EE of that
-# lands at 2001 alone, with 1999 and 2000 taking 41,084 and 56,652. Only 3,845 EE of the
-# 2001 growth is ours by overlap, so roughly 207,000 EE at 2001 came from elsewhere. The
-# file mtimes agree: 1996-1998 are dated 2026-08-29 and 1999-2001 2026-08-30.
-#
-# **The denominator moved against us faster than overlap did.** We lost only 6,523 pairs
-# and 3,894 EE to this release, 2.1% of the increment, against 244,752 records lost to the
-# previous one. But 5% of the corpus rose from 711,097 to 726,573 EE, so the gap to the
-# trigger grew from 524,926 to 544,738 EE despite our banking all day.
+# **`merged260901` is the platform-hostname release, and it changed the game's scale.**
+# One day after `merged260830` it adds +4,690,367 records at 2001 alone (5.85M to
+# 10.54M), +740,322 at 2000 and +320,801 at 1999, almost entirely third-level hostnames
+# under mass-hosting platforms: the very workflow Ding's 0901 update added to the brief.
+# Overlap with our unsubmitted round is tiny, 26,667 of 513,758 net-new 2001 pairs
+# (5.2%), because we collect registrable domains and this wave collects hostnames. So
+# the denominator grew +3,239,135 EE (+22.3%) while barely touching our increment, and
+# the 5% trigger moved from 726,573 to 888,529 EE. Figures from his own calculator run
+# over each file of the release.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("558670.7937"),
-    1997: Decimal("1156766.3818"),
-    1998: Decimal("1524123.5397"),
-    1999: Decimal("2967947.2618"),
-    2000: Decimal("5069509.0517"),
-    2001: Decimal("3254436.9982"),
+    1996: Decimal("566864.3516"),
+    1997: Decimal("1191421.9175"),
+    1998: Decimal("1599996.5265"),
+    1999: Decimal("3164484.0222"),
+    2000: Decimal("5496037.6154"),
+    2001: Decimal("5751784.4694"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
