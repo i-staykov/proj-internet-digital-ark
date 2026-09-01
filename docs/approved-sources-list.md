@@ -1310,9 +1310,13 @@ Decision: pending
   kind, and a submission-queue listing is a directory stating what it had accepted when the crawler
   took the page. Same `dated_directory` grounds `page_directory` and `ncsa_whats_new` already run on
 - **failed condition 2 of the standing rule of 2026-08-29**: what dates the item is the capture stamp
-  rather than a machine-written stamp inside the artifact, the same reason `store_url_listing_pages`,
-  `mailman_public_roster`, `coza_deletion_listing` and `cctld_register_listing_capture` were written
-  into this section
+  rather than a machine-written stamp inside the artifact, the same reason `store_url_listing_pages`
+  and `mailman_public_roster` sit in this section. **`coza_deletion_listing` and
+  `cctld_register_listing_capture` rest on the identical reading and are `master`, and that is the
+  argument FOR parking rather than against it**: both say "the Wayback capture stamp, since these
+  editions carry no in-body date", and both carry "approved by Ivo on 2026-08-31" rather than a
+  standing-rule line. A human ruled on them one at a time. The capture-stamp reading has therefore
+  never once self-admitted, which is exactly what this row would do
 - **the arm that PASSES condition 2 is worth nothing, and that is the finding worth keeping.** NU2 /
   What's New Too!, `https://web.archive.org/web/20000622033521id_/http://newtoo.com/`, 11,852 B, is
   the machine-generated submission queue itself and stamps every row from its own database,
@@ -1354,9 +1358,11 @@ Decision: pending
 **Held under the standing rule of 2026-08-29, on condition 2.** Condition 1 holds: `dated_directory`
 is master-eligible and no new class is proposed. Condition 2 fails: the Nerd World category pages
 carry no internal date, so the whole 235.0 EE rests on a Wayback capture stamp, which is machine
-written but is not inside the artifact. The register has parked that exact argument four times and
-none of the standing-rule admissions rests on it, so admitting this row would settle the class by the
-back door, which is what "this moves the gate, it does not lower it" forbids. Condition 3 was not
+written but is not inside the artifact. No standing-rule admission rests on it: the one that
+looks closest, `nypw_timemaps`, is `cdx_timestamp` on a stamp that is genuinely INSIDE the bytes,
+field 3 of a TimeMap row, `20010124104200`, and the Nerd World HTML carries no date of any kind. So
+admitting this row would settle the class by the back door, which is what "this moves the gate, it
+does not lower it" forbids. Condition 3 was not
 established for the origin host and only `web.archive.org` was ever requested. Condition 4 was never
 reached: nothing was ingested and the bytes were not kept.
 
