@@ -9,16 +9,16 @@ generated from the evidence store, so no table here can disagree with the files 
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 33,848,926 |
 | 2. Equivalent-English total | 17,770,588.9026 |
-| 3. Increment | **623,758** records |
-| 4. Equivalent-English increment | **328,641.8759** |
-| 5. Equivalent-English growth rate | **1.8494%** |
+| 3. Increment | **623,835** records |
+| 4. Equivalent-English increment | **328,715.1485** |
+| 5. Equivalent-English growth rate | **1.8498%** |
 
-Separately, this round ships **338,865 hostname records (301,649.9813 equivalent-English)** in
+Separately, this round ships **4,872,448 hostname records (2,749,488.7901 equivalent-English)** in
 `hostnames/`, one file per year: the second output unit you accepted on 2026-09-01, kept out of
 the five fields above so line 5 stays comparable with earlier rounds. Scored at the
-calculator's own unit, the combined growth rate is **3.5468%**.
+calculator's own unit, the combined growth rate is **17.3219%**.
 
-The increment covers 593,919 distinct domains, of which **46,115 appear in none of the six
+The increment covers 593,996 distinct domains, of which **46,116 appear in none of the six
 baseline files in any year**.
 
 | Year | merged260901 | Additions | Merged | Equivalent-English added |
@@ -28,10 +28,10 @@ baseline files in any year**.
 | 1998 | 3,119,897 | 22,997 | 3,142,894 | 14,378.7366 |
 | 1999 | 6,345,942 | 46,194 | 6,392,136 | 29,486.3458 |
 | 2000 | 10,705,102 | 27,486 | 10,732,588 | 16,246.1986 |
-| 2001 | 10,536,760 | 500,198 | 11,036,958 | 251,928.4504 |
-| **Total** | **33,848,926** | **623,758** | **34,472,684** | **328,641.8759** |
+| 2001 | 10,536,760 | 500,275 | 11,037,035 | 252,001.7230 |
+| **Total** | **33,848,926** | **623,835** | **34,472,761** | **328,715.1485** |
 
-**Cumulative.** Summing the increases you have awarded, which is how the update log of 2026-08-18 defines the score: 1.659986%, 10.730988%, 14.901054%, 4.130718% and this round's 1.8494% give **33.2721%**, with round 1's 1,429,524 records held out because it was awarded at 17.38% on records before the equivalent-English metric existed.
+**Cumulative.** Summing the increases you have awarded, which is how the update log of 2026-08-18 defines the score: 1.659986%, 10.730988%, 14.901054%, 4.130718% and this round's 1.8498% give **33.2725%**, with round 1's 1,429,524 records held out because it was awarded at 17.38% on records before the equivalent-English metric existed.
 
 ## 2. What is new in this round, and how to check it
 
@@ -98,7 +98,7 @@ of ours are in `source/src/ark/canonical.py`, with their tests, and apply to our
 
 | Route | What dates a year | Net-new pairs | Equivalent-English |
 |---|---|--:|--:|
-| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 92,408 | 66,496.3 |
+| the two archive engines, a bracketed-gap population and the candidate pool | the Wayback capture timestamp, per domain and year | 92,479 | 66,565.9 |
 | the RDAP sweep over generated sibling names and over `.uk` we already hold | the registry's own creation date, which dates that year and no other | 1,683 | 891.5 |
 
 **Both routes are self-dating and take no corroboration split**, being records of the thing itself
@@ -205,10 +205,10 @@ so the two audits diff directly.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260901` | 33,848,926 | 17,770,588.9026 |
-| **accepted increment** | **623,758** | **328,641.8759** |
-| post-merge total | 34,472,684 | 18,099,230.7785 |
+| **accepted increment** | **623,835** | **328,715.1485** |
+| post-merge total | 34,472,761 | 18,099,304.0511 |
 
-**Overlap with the baseline is 0 records**, so all 623,758 submitted are accepted and nothing counts twice.
+**Overlap with the baseline is 0 records**, so all 623,835 submitted are accepted and nothing counts twice.
 
 **22 of 22 reconciliation checks pass.** All are arithmetic
 identities, so a failure would be a defect rather than a finding: per year that
