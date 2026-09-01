@@ -196,8 +196,16 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
         "invalid": 0,
         "records": 0,
         "by_year": {},
-        "overlap": already_in_his_files(per_year),
+        "overlap": 0,
     }
+    # The hostname files are scored by the same program, so a hostname his validator
+    # refuses is caught here and not by him.
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        if path.exists():
+            hosts = [h.strip() for h in path.read_text().splitlines() if h.strip()]
+            per_year.setdefault(year, []).extend(hosts)
+    totals["overlap"] = already_in_his_files(per_year)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for year, domains in sorted(per_year.items()):
@@ -260,24 +268,24 @@ def main() -> None:
     pairs, ee = m["pairs"], m["ee"]
     if not pairs:
         raise SystemExit("nothing added since the submission: nothing to report")
-    growth = ee / BASELINE_EE * 100
+    # Both output units count in the five fields since 2026-09-01: he accepted valid
+    # hostnames as annual records and his calculator scores one distinct hostname per
+    # year at full weight, so the increment is the union of the registrable files and
+    # the hostname files. The split is printed beneath, registrables first, because he
+    # still asks for those to be prioritized.
+    h_pairs, h_ee = hostname_increment()
+    all_pairs, all_ee = pairs + h_pairs, ee + h_ee
+    growth = all_ee / BASELINE_EE * 100
 
     print("The five fields, in his order\n")
     print(f"1. Total number of original domains 1996-2001 : {BASELINE_PAIRS:,}")
     print(f"2. Equivalent-English total                   : {BASELINE_EE:,.4f}")
-    print(f"3. Increment                                  : {pairs:,} records")
-    print(f"4. Equivalent-English increment               : {ee:,.4f}")
+    print(f"3. Increment                                  : {all_pairs:,} records")
+    print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
-
-    # The second output unit (his acceptance of 2026-09-01), quoted beside the
-    # registrable round and NEVER folded into the five fields above, so line 5
-    # stays comparable with every earlier round. His calculator counts these at
-    # full weight; the combined line shows what the round is worth if he does.
-    h_pairs, h_ee = hostname_increment()
-    if h_pairs:
-        print(f"\nhostname records (separate files)  : {h_pairs:,} records")
-        print(f"hostname equivalent-English        : {h_ee:,.4f}")
-        print(f"combined growth rate if credited   : {(ee + h_ee) / BASELINE_EE * 100:.6f}%")
+    print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
+    print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
+    print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS
@@ -309,8 +317,8 @@ def main() -> None:
     print(f"  rejected by his validator : {his['invalid']:,}")
     print(f"  already in his merged files: {his['overlap']:,}")
     print(f"  his equivalent-English    : {his['ee']:,.4f}")
-    print(f"  ours                      : {ee:,.4f}")
-    difference = his["ee"] - ee
+    print(f"  ours                      : {all_ee:,.4f}")
+    difference = his["ee"] - all_ee
     print(f"  difference                : {difference:,.4f}")
     if difference != 0 or his["invalid"] or his["overlap"]:
         raise SystemExit(

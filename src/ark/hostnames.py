@@ -39,6 +39,20 @@ from ark.ingest import ensure_source
 logger = logging.getLogger(__name__)
 
 SOURCE_NAME = "ia_cdx_hostnames"
+# One source row, two acquisition methods: the NYPW TimeMap parts re-emitted at hostname
+# grain are the approved `nypw_timemaps` artifact read one level down, and the method
+# column is what lets the shipped contribution table say which artifact a hostname came from.
+NYPW_METHOD = "nypw_timemap_hostgrain"
+SWEEP_METHOD = "ia_cdx_domain_sweep"
+
+
+def source_for(path: Path) -> tuple[str, str]:
+    """(source name, acquisition method) for one journal, from its filename family."""
+    if path.name.startswith("nypw_"):
+        return SOURCE_NAME, NYPW_METHOD
+    return SOURCE_NAME, SWEEP_METHOD
+
+
 # The reviewer accepts "valid hostnames": RFC 1123 letters, digits and hyphens only.
 # The era's archives carry underscore NT-server names; those are refused here and the
 # capture still evidences the parent registrable through the registrable path.
@@ -68,9 +82,10 @@ def ingest_hostname_journal(
 ) -> dict[str, int | str | bool]:
     """One journal of raw capture rows into hostname_year, idempotently."""
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    source_name, method = source_for(path)
     already = conn.execute(
         "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
-        [SOURCE_NAME, path.name],
+        [source_name, path.name],
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
@@ -131,7 +146,7 @@ def ingest_hostname_journal(
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
     if rows:
-        source_id = ensure_source(conn, SOURCE_NAME, "timestamped")
+        source_id = ensure_source(conn, source_name, "timestamped")
         conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS hostage "
             "(hostname TEXT, parent TEXT, year INTEGER, ts TEXT)"
@@ -154,13 +169,13 @@ def ingest_hostname_journal(
             SELECT h.parent, ?, h.year, 'cdx_timestamp',
                    'cdx capture ' || h.ts || ' ' || h.hostname,
                    'https://web.archive.org/web/' || h.ts || '/http://' || h.hostname || '/',
-                   'ia_cdx_domain_sweep'
+                   ?
             FROM hostage h
             LEFT JOIN hostname_year hy
               ON hy.hostname = h.hostname AND hy.assigned_year = h.year
             WHERE hy.hostname IS NULL
             """,
-            [source_id],
+            [source_id, method],
         )
         conn.execute(
             """
@@ -198,7 +213,7 @@ def ingest_hostname_journal(
     conn.execute(
         "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
         "VALUES (?, ?, ?, ?)",
-        [SOURCE_NAME, path.name, _sha256(path), stats["hostname_year_rows"]],
+        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
     )
     logger.info(str(stats))
     return stats

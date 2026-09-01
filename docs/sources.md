@@ -217,7 +217,11 @@ NYPW entries below) wrote **4,223,217 rows, the largest single reprice this proj
 made**; the first night of platform sweeps (cjb.net 882k capture rows, demon.co.uk 56.6 MB,
 freeserve.co.uk and onward per `data/raw/cdx/platform_queue_{a,b}.txt`) wrote 725,337.
 Shipped together: **4,872,448 net-new hostname records, 2,749,488.7901 EE**, 93.6% of them
-`www.` forms of held registrables, disclosed as such. privatedances.co.uk closed at 0 CDX
+`www.` forms of held registrables, disclosed as such. The two lanes sit under the one
+`ia_cdx_hostnames` source row and are told apart by `acquisition_method`, which the shipped
+manifest carries: `nypw_timemap_hostgrain` 4,039,562 records, 2,097,954.68 EE;
+`ia_cdx_domain_sweep` (August suffix sweeps plus the platform night) 832,886 records,
+651,534.11 EE. The report's attribution table is generated from that column. privatedances.co.uk closed at 0 CDX
 captures in one probe; cjb.net stopped on HTTP 400 after 20 pages (882,229 rows) and is not
 marked done, so a later pass re-verifies whether the namespace is exhausted.
 
