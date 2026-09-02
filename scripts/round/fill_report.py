@@ -22,9 +22,9 @@ import argparse
 import json
 import re
 import sys
-from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 from ark.db import connect_read_only_patiently
 
@@ -36,11 +36,12 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
-    SUBMISSION_SPEED_K,
     SUBMITTED_ROUNDS,
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.figures import cumulative as score_total  # noqa: E402
+from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -553,27 +554,46 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def _days(released: str, received: str) -> Decimal:
-    """t_i, the elapsed days the time-weighted score divides by."""
-    a = date.fromisoformat(released)
-    b = date.fromisoformat(received)
-    return Decimal((b - a).days)
+class ScoreRow(NamedTuple):
+    """One round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
+
+    label: str
+    p: Decimal
+    t: int
+    s: Decimal
+    scored: bool
 
 
-def score_rows(growth: Decimal) -> list[tuple[str, Decimal, Decimal, Decimal]]:
-    """(label, p_i, t_i, S_i) for every submitted round and for this one.
+def score_rows(growth: Decimal) -> list[ScoreRow]:
+    """Every submitted round and this one, priced by `ark.figures`.
 
-    `S_i = 10 * p_i / t_i` from the brief update of 2026-08-20. The awarded percentages
-    and both timestamps are quoted in `ark.baseline.SUBMITTED_ROUNDS`; this only divides.
-    This round uses its own unverified growth and today as the receipt date.
+    The awarded percentages and both timestamps are quoted in
+    `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
+    it. This round uses its own unverified growth and this minute as its receipt, and is
+    never marked scored, because he has not seen it.
     """
     rows = []
     for r in SUBMITTED_ROUNDS:
-        t = _days(r[6], r[7])
-        rows.append((r[0], r[5], t, SUBMISSION_SPEED_K * r[5] / t))
-    t_now = max(_days(CURRENT_BASELINE_RELEASED, date.today().isoformat()), Decimal(1))
-    rows.append(("7 (this round)", growth, t_now, SUBMISSION_SPEED_K * growth / t_now))
+        t = t_days(r[6], r[7])
+        rows.append(ScoreRow(r[0], r[5], t, score(r[5], t), scored_under_rule(r[7])))
+    t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
+    rows.append(
+        ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
+    )
     return rows
+
+
+def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow], list[ScoreRow]]:
+    """Cumulative percentage, his S_total, the rounds he scored and the ones before the rule."""
+    pct = sum((r.p for r in rows), Decimal(0))
+    scored = [r for r in rows if r.scored]
+    early = [r for r in rows[:-1] if not r.scored]
+    return pct, score_total(r.s for r in scored), scored, early
+
+
+def _per_round(rows: list[ScoreRow]) -> str:
+    """`label: p / t = S`, p at the six places he awards so the division checks by hand."""
+    return "; ".join(f"{r.label.split()[0]}: {r.p:.6f}% / {r.t}d = {r.s:.6f}" for r in rows)
 
 
 def cumulative(f: dict, growth: Decimal) -> str:
@@ -581,22 +601,23 @@ def cumulative(f: dict, growth: Decimal) -> str:
 
     The percentage record is the direct arithmetic sum of what he awarded, round 1
     included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
-    The ranking score is the sum of `10 * p_i / t_i`. Neither is derivable from the
-    store, so every input is quoted rather than computed, and the block says the
-    reconstruction of the timestamps is his to confirm.
+    The score record is the sum of S_i over the rounds he has scored, which his rule
+    only covers from its 2026-08-20 update: earlier rounds get their would-be S in a
+    clause of their own, and this round its prediction, labelled as such.
     """
     rows = score_rows(growth)
-    pct = sum((p for _, p, _, _ in rows), Decimal(0))
-    total = sum((s for _, _, _, s in rows), Decimal(0))
-    per_round = "; ".join(
-        f"{label.split()[0]}: {p:.4f}% / {t}d = {s:.2f}" for label, p, t, s in rows
-    )
+    pct, total, scored, early = _score_parts(rows)
+    this = rows[-1]
+    early_labels = ", ".join(r.label for r in early[:-1]) + f" and {early[-1].label}"
     return (
         f"**Score, by both rules in your brief.** Cumulative verified percentage "
-        f"**{pct:.4f}%**, time-weighted **S = {total:.2f}** at `10 p/t`, this round counted "
-        f"at its own unverified {growth:.4f}%. Per round ({per_round}), round 1 on records. "
-        "The elapsed days are reconstructed from your release and receipt timestamps: they "
-        "reproduce the S = 6.88 you quoted for round 6, but the set is yours to confirm."
+        f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
+        f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
+        f"({_per_round(scored)}), with t_i the elapsed time from the release of the package "
+        "a round is measured against to receipt, rounded up to whole days in your clock, "
+        "which reproduces the 6.88 and 6.302372 you quoted. This round would add "
+        f"{this.s:.6f} at t = {this.t} if received now. Rounds {early_labels} predate the "
+        f"rule; under it they would have scored {_per_round(early)}."
     )
 
 
@@ -647,14 +668,14 @@ def merge_reconciliation() -> str:
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
     """The same two records, as one sentence for the email."""
     rows = score_rows(growth)
-    pct = sum((p for _, p, _, _ in rows), Decimal(0))
-    total = sum((s for _, _, _, s in rows), Decimal(0))
+    pct, total, scored, _ = _score_parts(rows)
+    this = rows[-1]
     return (
         f"Counting this round at its own figure, my cumulative verified percentage is "
-        f"{pct:.4f}% (round 1 included, although it was awarded on records) and my "
-        f"time-weighted score is {total:.2f} by the S_i = 10 p_i / t_i rule. The elapsed "
-        "days are reconstructed from your release and receipt timestamps, so both numbers "
-        "are subject to your confirmation."
+        f"{pct:.4f}% (round 1 included, although it was awarded on records), and my "
+        f"time-weighted score over the rounds you have scored is {total:.6f} "
+        f"({' + '.join(f'{r.s:.6f}' for r in scored)}), to which this round would add "
+        f"{this.s:.6f} at t = {this.t} if received now."
     )
 
 
