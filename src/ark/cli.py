@@ -326,6 +326,33 @@ def ingest_ripe_nserver_hostnames_cmd(
         typer.echo(str(ingest_ripe_nserver_hostnames(conn, path)))
 
 
+@app.command(name="ingest-isc-hostnames")
+def ingest_isc_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="ISC survey per-TLD host files (`data/raw/isc_survey/wb_nw_*_<tld>.gz`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts the ISC Internet Domain Survey lists.
+
+    `ark ingest isc_survey` collapses every `IP hostname` line to its registrable;
+    this keeps the host itself, dated by the same `YYMM` survey code, class
+    artifact_listing. `.domains` files are skipped by name. Admitted 2026-09-02
+    under the standing rule. Idempotent per file.
+    Example: ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*.gz
+    """
+    from ark.hostnames import ingest_isc_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_isc_hostnames(conn, path)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
