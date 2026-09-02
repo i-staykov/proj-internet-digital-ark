@@ -36,7 +36,6 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
-    ROUND_ONE_IS_RECORD_BASED,
     SUBMISSION_SPEED_K,
     SUBMITTED_ROUNDS,
 )
@@ -86,23 +85,25 @@ def per_year_table(f: dict) -> str:
     if newest is None:
         return "_No merge audit in this build; `merge_against_baseline.py` produces it._"
     audit = json.loads(newest.read_text(encoding="utf-8"))
+    # Four columns, not six: the baseline and post-merge columns are one subtraction
+    # apart and each was wrapping to three lines in his Word rendering, which cost more
+    # of his attention than it bought. Both remain in `audit/merge_stats_ark_*.csv`.
     lines = [
-        f"| Year | {BASELINE} | Registrables | Hostnames | Merged | Equivalent-English added |",
-        "|------|------------:|-----------:|-----------:|------------:|--------------:|",
+        "| Year | Registrables | Hostnames | Equivalent-English added |",
+        "|------|-----------:|-----------:|--------------:|",
     ]
     for row in audit["years"]:
         reg = row.get("submitted_registrable", row["accepted_new"])
         host = row.get("submitted_hostnames", 0)
         lines.append(
-            f"| {row['year']} | {row['baseline_unique']:,} | {reg:,} | {host:,} | "
-            f"{row['merged_unique']:,} | {Decimal(row['equivalent_english_increment']):,.4f} |"
+            f"| {row['year']} | {reg:,} | {host:,} | "
+            f"{Decimal(row['equivalent_english_increment']):,.4f} |"
         )
     t = audit["totals"]
     reg = int(t.get("submitted_registrable_records", t["accepted_new_records"]))
     host = int(t.get("submitted_hostname_records", 0))
     lines.append(
-        f"| **Total** | **{int(t['baseline_records']):,}** | **{reg:,}** | **{host:,}** | "
-        f"**{int(t['post_merge_records']):,}** | "
+        f"| **Total** | **{reg:,}** | **{host:,}** | "
         f"**{Decimal(t['equivalent_english_increment']):,.4f}** |"
     )
     return "\n".join(lines)
@@ -615,23 +616,17 @@ def cumulative(f: dict, growth: Decimal) -> str:
     reconstruction of the timestamps is his to confirm.
     """
     rows = score_rows(growth)
-    lines = [
-        "| round | verified % | days | time-weighted |",
-        "|---|--:|--:|--:|",
-    ]
-    for label, p, t, s in rows:
-        note = " (on records)" if label == ROUND_ONE_IS_RECORD_BASED else ""
-        lines.append(f"| {label}{note} | {p:.4f} | {t} | {s:.2f} |")
     pct = sum((p for _, p, _, _ in rows), Decimal(0))
     total = sum((s for _, _, _, s in rows), Decimal(0))
-    lines.append(f"| **cumulative** | **{pct:.4f}%** | | **{total:.2f}** |")
-    return "\n".join(lines) + (
-        f"\n\nCumulative verified percentage **{pct:.4f}%** and time-weighted score "
-        f"**{total:.2f}**, by the two rules in your brief update, this round included at "
-        f"its own unverified {growth:.4f}%. Round 1 is in the percentage sum although it "
-        "was awarded on records. The days are reconstructed from your own release and "
-        "receipt timestamps and reproduce the S = 6.88 you quoted for round 6, but the "
-        "whole set is subject to your confirmation."
+    per_round = "; ".join(
+        f"{label.split()[0]}: {p:.4f}% / {t}d = {s:.2f}" for label, p, t, s in rows
+    )
+    return (
+        f"**Score, by both rules in your brief.** Cumulative verified percentage "
+        f"**{pct:.4f}%**, time-weighted **S = {total:.2f}** at `10 p/t`, this round counted "
+        f"at its own unverified {growth:.4f}%. Per round ({per_round}), round 1 on records. "
+        "The elapsed days are reconstructed from your release and receipt timestamps: they "
+        "reproduce the S = 6.88 you quoted for round 6, but the set is yours to confirm."
     )
 
 
@@ -668,17 +663,13 @@ def merge_reconciliation() -> str:
         [
             *rows,
             "",
-            f"- Overlap with the baseline: **{int(t['already_in_baseline_records']):,} "
-            f"records**, so all {int(t['submitted_records']):,} submitted count once; the two "
-            "unit files are disjoint in every year.",
-            f"- **{passed} of {len(checks)} reconciliation checks pass** (per-year "
-            "`baseline_unique + accepted_new == merged_unique`, unit files disjoint and summing "
-            "to the submitted count, per-year increments summing to the headline, baseline "
-            "re-measured). Verdicts in `audit/merge_audit_ark_*.json`, per-year form in "
-            "`audit/merge_stats_ark_*.csv` in your column names.",
-            "- Method: `merge_against_baseline.py` unions both units into the baseline, "
-            "deduplicated on the lowercased line within each year, and scores every file with "
-            "your own calculator.",
+            f"Overlap with the baseline is **{int(t['already_in_baseline_records']):,} records**, "
+            f"so all {int(t['submitted_records']):,} submitted count once, and "
+            f"**{passed} of {len(checks)} reconciliation checks pass**. "
+            "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
+            "lowercased line within each year and scores every file with your own calculator; the "
+            "per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in "
+            "`audit/merge_stats_ark_*.csv`, in your column names.",
         ]
     )
 
