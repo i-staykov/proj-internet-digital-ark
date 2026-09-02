@@ -229,12 +229,7 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
 
 def hostname_increment() -> tuple[int, Decimal]:
     """Records and EE of the shipped hostname files, priced with his weight model."""
-    raw = json.loads((REPO / "src/ark/data/tld_english_share.json").read_text())
-    weights = {
-        str(t).lower(): Decimal(str(p)) / 100
-        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if t and lang == "eng"
-    }
+    weights = english_weights()
     pairs, ee = 0, Decimal(0)
     for year in range(1996, 2002):
         path = REPO / f"output/netnew/{year}_hostnames.txt"

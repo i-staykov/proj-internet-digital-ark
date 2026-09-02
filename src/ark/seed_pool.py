@@ -1,5 +1,9 @@
 """The auxiliary seed pool: hostnames and URLs, not registered domains.
 
+Backs `ark seed-pool`. Not to be confused with `ark.seed`, which reads a list of
+candidate domains INTO the store and queues them for verification; this module
+writes download seeds OUT of evidence already held.
+
 Brief III.8 fixes the registered domain as the counting unit, so `foo.com`,
 `www.foo.com` and `shop.foo.com` are one line in the annual files. That is the
 right unit for counting and the wrong unit for downloading: a crawler handed

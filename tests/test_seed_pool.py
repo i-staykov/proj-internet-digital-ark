@@ -7,7 +7,7 @@ from pathlib import Path
 import duckdb
 
 from ark.bulk import BulkRecord, SourceSpec
-from ark.seeds import combine_parts, write_source_part
+from ark.seed_pool import combine_parts, write_source_part
 
 
 def _spec(key: str, records: list[BulkRecord]) -> SourceSpec:

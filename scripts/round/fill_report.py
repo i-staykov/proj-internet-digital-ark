@@ -39,6 +39,7 @@ from ark.baseline import (  # noqa: E402
     SUBMISSION_SPEED_K,
     SUBMITTED_ROUNDS,
 )
+from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 
 DB = Path("data/ark.duckdb")
@@ -255,12 +256,7 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
     files = sorted(netnew.glob("*_hostnames.txt"))
     if not manifest.is_file() or not files:
         return {}, Decimal(0)
-    raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
-    weights = [
-        (str(t).lower(), float(p) / 100)
-        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if t and lang == "eng"
-    ]
+    weights = [(tld, float(share)) for tld, share in english_weights().items()]
     conn = duckdb.connect()
     conn.execute("CREATE TABLE w(tld VARCHAR, weight DOUBLE)")
     conn.executemany("INSERT INTO w VALUES (?, ?)", weights)
