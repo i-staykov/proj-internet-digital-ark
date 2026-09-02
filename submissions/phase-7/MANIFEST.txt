@@ -1,10 +1,10 @@
-round        live
-built        2026-09-02T06:58:06Z
-commit       597afe9f195bc4ad3b710221709ea83eeb72462b
+round        phase-7
+built        2026-09-02T08:28:15Z
+commit       e44511306df31cb0db9f1e404133dbaa75f8cdf4
 baseline     merged260901
-archive      DomainDataCollectionTask_202609020655_IvayloStaykov.tar.gz
-sha256       bd23971ead08cb7ab72b110fc941421dc54188718121a8c4b05089579a0db760
-bytes        4847598517
-files        4017
+archive      DomainDataCollectionTask_202609020825_IvayloStaykov.tar.gz
+sha256       3c9885a048600e6ac1024be66a0f85075da456d89e629da09f38bb6f216c2e86
+bytes        4094115222
+files        1839
 netnew_pairs 625385
 netnew_hostnames 25598889
