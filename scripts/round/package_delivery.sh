@@ -22,6 +22,14 @@ if [ "$ROUND" = "HEAD" ] || [ -z "$ROUND" ]; then
     echo "  bash scripts/round/package_delivery.sh phase-4" >&2
     exit 1
 fi
+# The fleet's own branch is called `live` and is never a round name: every build of
+# every round landed in one `submissions/live/` folder, which by the end of a night
+# held three superseded tarballs beside the one that mattered. On that branch the
+# label comes from the round the store is working on instead.
+if [ "$ROUND" = live ]; then
+    ROUND="phase-$(uv run python -c 'from ark.baseline import CURRENT_ROUND_LABEL
+print(CURRENT_ROUND_LABEL)')"
+fi
 ROUND_DIR="submissions/$ROUND"
 
 # The source snapshot below comes from `git archive HEAD`, so an uncommitted or
