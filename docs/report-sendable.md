@@ -1,25 +1,23 @@
 # Internet Digital Ark: round 7
 
 Increment to the 1996-2001 annual lists against `merged260901`, scored with your calculator. Every
-figure is generated from the evidence store when the archive is built.
+figure is generated from the evidence store when the archive is built. This is the summary; the
+receipts sit in the archive, one document per purpose, named here where relevant.
 
 ## 1. Results
 
 | | |
 |---|--:|
-| 1. Total original domain-year records 1996-2001 | 33,848,926 |
-| 2. Equivalent-English total | 17,770,588.9026 |
-| 3. Increment | **26,224,274** records |
-| 4. Equivalent-English increment | **13,670,342.8300** |
-| 5. Equivalent-English growth rate | **76.9268%** |
+| Total original domain-year records 1996-2001 | 33,848,926 |
+| Equivalent-English total | 17,770,588.9026 |
+| Increment | **26,224,274** records |
+| Equivalent-English increment | **13,670,342.8300** |
+| Equivalent-English growth rate | **76.9268%** |
 
-Two units, both at your calculator's counting unit (one distinct valid hostname per year at its
-TLD's English share), disjoint, both absent from the baseline, no record rejected by your validator:
-
-| Unit | Files | Records | Equivalent-English | Growth |
-|------------------------------|-------------------|---------:|-------------:|-------:|
-| registrable domains, the prioritized unit | `additions/NNNN.txt` | 625,385 | 329,397.2492 | 1.8536% |
-| valid hostnames beneath registrables, accepted 2026-09-01 | `hostnames/NNNN_hostnames.txt` | 25,598,889 | 13,340,945.5808 | 75.0732% |
+Two disjoint units, neither present in the baseline and none rejected by your validator:
+625,385 records (329,397.2492 EE) are registrable domains in `additions/NNNN.txt`, the unit you asked
+me to prioritize, and 25,598,889 (13,340,945.5808 EE) are valid hostnames beneath them in
+`hostnames/NNNN_hostnames.txt`, so the second set can be merged or discarded as a block.
 
 | Year | merged260901 | Registrables | Hostnames | Merged | Equivalent-English added |
 |------|------------:|-----------:|-----------:|------------:|--------------:|
@@ -31,146 +29,108 @@ TLD's English share), disjoint, both absent from the baseline, no record rejecte
 | 2001 | 10,536,760 | 500,969 | 2,955,872 | 13,993,601 | 1,911,223.8810 |
 | **Total** | **33,848,926** | **625,385** | **25,598,889** | **60,073,200** | **13,670,342.8300** |
 
-**Cumulative score 108.3495%**: the sum of the increases you awarded (1.659986%, 10.730988%, 14.901054%, 4.130718%) plus this round's 76.9268%, as your update log of 2026-08-18 defines it. Round 1 is held out: awarded on records, before the equivalent-English metric.
+| round | verified % | days | time-weighted |
+|---|--:|--:|--:|
+| 1 (on records) | 17.3800 | 5 | 34.76 |
+| 3 | 1.6600 | 1 | 16.60 |
+| 4 | 10.7310 | 6 | 17.88 |
+| 5 | 14.9011 | 2 | 74.51 |
+| 6 | 4.1307 | 6 | 6.88 |
+| 7 (this round) | 76.9268 | 1 | 769.27 |
+| **cumulative** | **125.7295%** | | **919.90** |
 
-## 2. What the increment is
+Cumulative verified percentage **125.7295%** and time-weighted score **919.90**, by the two rules in your brief update, this round included at its own unverified 76.9268%. Round 1 is in the percentage sum although it was awarded on records. The days are reconstructed from your own release and receipt timestamps and reproduce the S = 6.88 you quoted for round 6, but the whole set is subject to your confirmation.
 
-Four things, largest first. All four are re-readings of bytes already on disk under the unit you
-accepted on 1 September; none of them is a new download.
+## 2. What counts as one record
 
-1. **The ISC Internet Domain Survey's per-TLD host files, read one level below the registrable:
-   9,167,369 EE, 18,117,395 records at 1996 and 1997.** Banked in July for the registrables
-   they imply and closed as complete, these files are a reverse-DNS walk: every line is
-   `IP hostname`, the host itself, which the registrable ingest discarded. **The disclosure that
-   decides what this is worth: 65% of the records are dialup or numbered
-   workstation names** (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`). They are real hosts that
-   answered in DNS in the month the survey stamps, and they satisfy your validity rule, but they
-   are not sites. They ship in the hostname files with everything else so you can drop them as a
-   block if you do not want them; `hostnames/hostnames_evidence_manifest.csv` names the source of
-   every record.
-2. **Capture corpora already on disk, re-read at hostname grain: 2,097,955 EE,
-   4,039,562 records from the NYPW TimeMaps and 631,148 EE, 1,163,616
-   records from IA's Early Web index.** The NYPW TimeMaps (34 parts, CC BY 4.0), the 224 Early Web
-   CDX parts and 180 domain-wide CDX journals stood recorded as spent or worth 0 at registrable
-   grain. A second disclosure, on the Early Web half: nearly all of its records are `www.` forms of
-   a registrable you already hold in that year, because your own files carry the non-`www.` hosts
-   by name and almost no `www.` ones. A third IA index, the six USFEDGOV-EXTRACT merged CDX files
-   for 1996-2001, adds 39,340 EE over 40,260 federal host-years from six
-   bulk downloads and no API request.
-3. **Domain-wide CDX sweeps over subdomain platforms: 1,378,051 EE, 2,161,296
-   records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
-   (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
-   `freeserve.co.uk`). This is the workflow your 0901 update describes; each parent is resumable
-   from the saturation ledger.
-4. **Registrable domains, the prioritized unit: 329,397.2492 EE, 625,385 records.** NYPW TimeMaps
-   reopened and measured partition by partition (150,468 EE, after a 14 EE closure on the
-   1996 folder), per-domain CDX queries over bracketed gaps (66,566), three Usenet lanes
-   (71,388) and 24 small dated artifacts (40,975). 46,773 of
-   these domains appear in none of your six files in any year.
+- **Registrable domains**: extracted with a vendored Public Suffix List snapshot, so `bbc.co.uk` is
+  registrable and `co.uk` is not, identically on any machine. Lowercased, IDN punycoded, ports and
+  trailing dots dropped.
+- **Hostnames**: RFC 1123 valid (letters, digits, hyphens; no leading or trailing hyphen in a label;
+  at least two labels), sitting strictly beneath **a registrable this project holds for that same
+  year**, which is enforced as a foreign key and not as a naming convention, and carrying their own
+  machine-written observation in that year. A bare registrable is never a hostname record and no
+  name is counted in both units.
+- **Dropped, not salvaged**: underscore names (era NT servers), IP literals, names whose TLD did not
+  exist that year, `in-addr.arpa` forms. Refused at ingest and counted in `audit/`.
+- 2,419,436 domains carry no in-window year evidence, ship as `candidates.txt` and appear in no
+  annual file; 588,081 of them are under `.edu`, `.gov` or `.mil`.
 
-| Source | Unit | What dates one record | Records | EE |
-|------------------------|------|----------------------------|--------:|-------:|
-| `isc_survey_host_list` | hostname | the survey's own YYMM edition code in the artifact's path | 18,117,395 | 9,167,369 |
-| `nypw_timemap_hostgrain` | hostname | the row's own 14-digit capture timestamp | 4,039,562 | 2,097,955 |
-| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 2,161,296 | 1,378,051 |
-| `early_web_hostgrain` | hostname | the row's own 14-digit capture timestamp | 1,163,616 | 631,148 |
-| `nypw_timemaps` | registrable | the row's own 14-digit capture timestamp | 329,667 | 143,789 |
-| `ia_cdx_bulk` | registrable | the capture timestamp of a URL on that host | 92,479 | 66,566 |
-| 34 further sources | both | one row each in `sources.md` and `audit/source_contribution.csv` | 320,259 | 185,465 |
-| **Total** | | | **26,224,274** | **13,670,343** |
+## 3. What is new, and why it is admissible
 
-Every source has its own entry in `sources.md`: link, acquisition route, what dates one item, yield,
-and for closed families the measurement that closed them. Per-source figures with files and
-evidence rows are in `audit/source_contribution.csv`.
+One idea applied six times: **when the counting unit changed, the payload was a column of an
+artifact already on disk that the old unit had discarded.** Four of the six needed no new request.
 
-**Composition.** 26.1% of the hostnames are `www.` forms of a registrable. They are distinct
-valid hostnames under your rule and sit in their own files, so they merge or drop as a block.
+| Source | Records | EE | What dates one record |
+|---------------------------|--------:|-------:|-----------------------------------|
+| ISC Internet Domain Survey per-TLD host files | 18,117,395 | 9,167,369 | the survey's own `YYMM` edition code in the artifact path |
+| NYPW TimeMaps at hostname grain | 4,039,562 | 2,097,955 | the row's own 14-digit capture timestamp |
+| IA domain-wide CDX sweeps over subdomain platforms | 2,161,296 | 1,378,051 | the row's own 14-digit capture timestamp |
+| IA Early Web index at hostname grain | 1,163,616 | 631,148 | the row's own 14-digit capture timestamp |
+| USFEDGOV merged CDX indexes, 1996-2001 | 40,260 | 39,340 | the row's own 14-digit capture timestamp |
+| RIPE `domain:` objects, their `nserver:` hosts | 49,841 | 11,780 | the dump's generation stamp and each object's `changed:` line |
+| registrable domains, all lanes | 625,385 | 329,397.2492 | as `additions/evidence_manifest.csv` states per record |
 
-## 3. Evidentiary standard
+Every row rests on the same three grounds: the stamp that dates an item is machine-written and sits
+**inside** the artifact, so no human judgement dates a year; the class was already master-eligible
+for those exact bytes; the terms were read in full before the first request. On the survey you ruled
+in writing on 2026-07-24 that a dated DNS survey may enter the annual files directly. Route,
+licence, per-year and per-TLD yield are in `sources.md` and `audit/source_contribution.csv`.
 
-- One record is one machine-written observation of that name in that year. For capture-backed
-  sources it is the Internet Archive's 14-digit timestamp of a capture on that exact host, quoted
-  with its replay URL in `additions/evidence_manifest.csv` and
-  `hostnames/hostnames_evidence_manifest.csv`, so any line can be opened.
-- `domain_year.evidence_id` and `hostname_year.evidence_id` are `NOT NULL` foreign keys: no year
-  without an observation. Fifteen invariants check this before every commit and inside the archive.
-- Master-eligible classes: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. `link_target` never dates a year. Anything a human typed
-  needs a second source to date that domain first. A creation date attests its own year only.
-- A hostname must sit beneath a held registrable, be RFC 1123 valid, and its parent earns the same
-  year from the same capture.
-- **2,419,436 domains carry no year evidence** and ship as `candidates.txt`, none in an annual
-  file; 588,081 of them are under `.edu`, `.gov` or `.mil`.
+**Two disclosures decide what the hostname half is worth**, each a single filter on
+`hostnames/hostnames_evidence_manifest.csv`: 65% of the largest source's records
+are dialup or numbered workstation names (`pc50.btbcs.bt.co.uk`), which answered its reverse-DNS
+walk in the month it stamps and pass your validity rule but are not sites; and 26.1% of all
+hostnames are `www.` forms of registrables you already hold, worth full weight under the rule as
+written and nothing if your calculator normalises `www.` away.
 
-## 4. Autonomous research this round
+## 4. Evidentiary standard
 
-**The loop runs unattended.** Scheduled workflows on a self-hosted runner: a generator proposes
-hypotheses, researcher waves test them in parallel and price each against the store, a re-opener
-re-reads closed verdicts whenever a screen changes, an improver tunes one prompt or model knob per
-pull request. **494 source families searched and recorded** in `sources.md`: 66 developed, 428 evaluated and closed with the measurement that closed them, so the same ground is not broken twice. The code is `source/fleet.tar.gz`.
+Unchanged. One record is one machine-written observation of that name in that year, quoted with its
+replay URL or artifact identifier in the evidence manifests so any line can be opened; `evidence_id`
+is a `NOT NULL` foreign key on both units and fifteen invariants enforce it before every commit and
+again inside the archive. Master-eligible classes: `artifact_listing`, `cdx_timestamp`, `dated_directory`, `link_source`, `whois_creation`. `link_target` never dates a year,
+anything a human typed needs a second source to date that domain first, and a creation date attests
+its own year only. `metric-explained.md` states the counting unit and the weights.
 
-**Six sources were admitted without a human**, under a rule fixed in advance: the evidence class is
-already master-eligible, a machine-written stamp inside the artifact dates each item, the terms were
-read in full, and the invariants pass. Anything failing one of the four parks until a written
-decision, and two sources did park this round. Each row below is a column of an artifact this
-project had already banked and closed at registrable grain:
+## 5. What was built since round 6
 
-| admitted by the loop | records | EE | the column that had been discarded |
-|---------------------------------|--------:|-------:|--------------------------------------|
-| ISC survey host files | 18,117,395 | 9,167,369 | the host in each `IP hostname` line, not its parent |
-| IA Early Web index | 1,163,616 | 631,148 | the captured host, not its registrable |
-| USFEDGOV merged indexes, six years | 40,260 | 39,340 | the captured host, not its registrable |
-| 1997 InterNIC zones | 19,211 | 11,860.7 | the nameserver an NS record points at, not the delegation |
-| RIPE `domain:` objects | 49,841 | 11,780 | the `nserver:` attribute both parsers dropped |
-| two squidGuard blocklists | 7,708 | 3,441.8 | the host each line names, not its registrable |
+Round 6 proposed sources and a person judged each one. This round the loop closes.
 
-**The lens that produced all six**, and the round's transferable result: when the counting unit
-changes, the payload is a column of an artifact already on disk, not a new corpus. Its natural home
-is DNS-side and mail-side records, because nameservers, mail exchangers and mirrors are hosts a web
-crawler never fetches, so they are absent from a capture-fed benchmark by construction even where
-their registrables are saturated. Zero new requests were needed for four of the six.
+- **Five scheduled workflows on a self-hosted runner**: a generator writes hypotheses, each with a
+  yield floor and a kill screen; researcher waves test them in parallel against a read-only copy of
+  the store; a re-opener re-reads closed verdicts when a screen changes; an improver changes one
+  prompt or model knob per pull request so effects stay attributable. **494 source families searched and recorded** in `sources.md`: 66 developed, 428 evaluated and closed with the measurement that closed them, so the same ground is not broken twice.
+- **Admission without a human, under a rule fixed in advance**: a source banks only if its class is
+  already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
+  in full and the invariants pass. Six banked that way; two parked for a written decision, one on
+  terms and one on a class question. No agent can write the store: an admitter re-derives every
+  figure locally first.
+- **The re-opener paid for itself**: it recovered the NYPW TimeMaps from a 14 EE closure by measuring
+  the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999 ~10,000, 2001 exactly 4),
+  worth ~88,000 EE that a human closure had written off.
+- **CDX execution**, per your standing request: two clients at most, honest User-Agent, two seconds
+  between requests, `Retry-After` honoured, backoff on 429/503/504, absolute deadlines that outlive
+  a session. Sweeps write raw `{url, timestamp}` journals, which is why the same bytes could be
+  re-read under the new unit. A page costs about the same at 200 index blocks as at 10,000, so the
+  sweep now walks 10,000-block pages; one outage refused thirteen parents and they were requeued,
+  not skipped. Per-domain gap queries contributed 92,479 registrable pairs.
 
-**A closure is a hypothesis, not a fact.** The re-opener recovered the NYPW TimeMaps from a 14 EE
-closure by measuring the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999
-~10,000, 2001 exactly 4) for ~88,000 EE, after one run had argued the opposite from a plausible
-mechanism.
+Code, prompts, policy and the hypothesis register with every verdict ship as `source/fleet.tar.gz`.
 
-**Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or the
-authority screen; academic repositories closed by enumeration through five APIs and two registries;
-CD-ROM media, FTP mirrors and trade directories at the curated-directory floor (0.013-0.024 net-new
-pairs per listed name). Each with its figure in `sources.md`, and the saturation ledger your 0831
-update asks for is `audit/source_saturation_ledger.csv`, one row per source family and version.
+## 6. Limitations, and where the room is
 
-## 5. CDX execution notes
+**A hostname is not a site**: a reverse-DNS walk resolves dialup ports as readily as web servers,
+and that is where most of this round's records come from, quoted per source so it can be cut. **A
+capture proves presence, never absence**: a year without one is unevidenced, not empty. **The units
+are disjoint**, so discarding the hostname files leaves the registrable round intact at 329,397.2492 EE.
 
-- Two clients at most, honest User-Agent, two seconds between requests, backoff on 429/503/504,
-  `Retry-After` honoured. Collectors take an absolute deadline and outlive the session.
-- Per-domain queries over bracketed gaps and the candidate pool: 92,479 registrable pairs.
-  Domain-wide sweeps write raw `{url, timestamp}` journals, so the same bytes can be re-read
-  under a new rule, which is what paid this round.
-- Measured on `co.uk`: a CDX page costs about the same at 200 index blocks as at 10,000 (11 to
-  42 s against 110 s), so the sweep now walks 10,000-block pages and asks the page count up
-  front. An archive outage refused thirteen parents on their control probe; they were requeued,
-  and a failed page is retried rather than skipped.
-
-## 6. Limitations, and what is worth expanding
-
-Three limits, in the order they affect the figure:
-
-- **A hostname is not a site.** Under your rule a valid distinct hostname counts, and a
-  reverse-DNS walk resolves dialup ports and workstations as readily as web servers. That is
-  where most of this round's records come from and it is quoted per source, so a cut is one
-  filter on the manifest rather than a re-derivation.
-- **A capture proves presence, never absence.** A year without one is unevidenced, not empty.
-- **The two units are counted disjointly and shipped separately**, so discarding the hostname
-  files leaves the registrable round intact at 329,397.2492 EE.
-
-Worth expanding, in order: the same one-level-down reading of every other banked artifact that
-names hosts (DNS, mail and mirror rosters are the natural seam, since a web crawler never fetched
-them); the second-level suffix namespaces at hostname grain (`co.uk` alone is 3.39M index blocks
-and 1.2% walked, `com.au`, `co.nz`, `org.uk`, `gov.uk`, `gc.ca` queued behind it); the remaining
-ranked subdomain platforms, resumable from the ledger; registrable discovery by bracketed-gap CDX
-queries at its measured rate. Not worth more time, measured: prose corpora, academic repositories,
-CD-ROM media, FTP mirrors, trade directories.
+Worth expanding, in order: the same one-level-down reading of every other banked artifact that names
+hosts, since DNS, mail and mirror rosters hold hosts a web crawler never fetched; the second-level
+suffix namespaces at hostname grain, where `co.uk` alone is 3.39M index blocks and 1.2% walked; the
+ranked subdomain platforms still queued, resumable from `audit/source_saturation_ledger.csv`.
+Measured and closed: prose corpora, academic repositories, CD-ROM media, FTP mirrors, trade
+directories, with the figures in `experience-summary.md`.
 
 ## 7. Merge, overlap and reconciliation (D3)
 
@@ -184,17 +144,14 @@ CD-ROM media, FTP mirrors, trade directories.
 - **28 of 28 reconciliation checks pass** (per-year `baseline_unique + accepted_new == merged_unique`, unit files disjoint and summing to the submitted count, per-year increments summing to the headline, baseline re-measured). Verdicts in `audit/merge_audit_ark_*.json`, per-year form in `audit/merge_stats_ark_*.csv` in your column names.
 - Method: `merge_against_baseline.py` unions both units into the baseline, deduplicated on the lowercased line within each year, and scores every file with your own calculator.
 
-## 8. Reproduction and the four requested artifacts
+## 8. Reproduction, and the four requested artifacts
 
-`README.md` in the archive gives the order: `masters/`, `additions/`, `hostnames/`,
-`candidates.txt`, `provenance/*.parquet` (every assignment joined to its evidence row), `logs/`.
+`README.md` in the archive gives the route and the file map; this is the result of running it.
 Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with five journal sets held out of the archive on size.
 
 | | asked for | where it is |
 |----|------------------|------------------------------------------|
-| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; its `README.md` names what every command prints. The research loop of section 4 is `source/fleet.tar.gz`: workflows, prompts, policy and the hypothesis register with every verdict |
-| **D2** | experience summary | `experience-summary.md`, distilled from `sources.md` |
+| **D1** | runnable code, dependencies, instructions | `source/source.tar.gz` at `source/COMMIT.txt`, with `pyproject.toml` and `uv.lock`; the loop of section 5 is `source/fleet.tar.gz` |
+| **D2** | experience summary | `experience-summary.md` |
 | **D3** | merge and dedup code, overlap, reconciliation | section 7, `source/scripts/round/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your program vendored unmodified, explained in `metric-explained.md` |
-
-`verify.sh` runs eleven checks inside a fresh extraction, including all four.
