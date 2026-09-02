@@ -131,33 +131,40 @@ def export_all(
     # inside a delivery the files sit at ../baseline/<marker>/, and the repository path
     # alone silently exported every hostname as net-new in the tier-2 rehearsal.
     baseline_files = baseline_dir()
+    conn.execute("CREATE OR REPLACE TEMP TABLE baseline_hostname (hostname VARCHAR, year INTEGER)")
     for year in YEARS:
         baseline_file = baseline_files / f"{year}.txt"
         if baseline_file.exists():
-            anti_join = f"""
-                AND hy.hostname NOT IN (
-                    SELECT lower(trim(column0))
-                    FROM read_csv('{baseline_file}', header=false, delim='\\x01',
-                                  columns={{'column0': 'VARCHAR'}})
-                )
-            """
+            conn.execute(f"""
+                INSERT INTO baseline_hostname
+                SELECT lower(trim(column0)), {year}
+                FROM read_csv('{baseline_file}', header=false, delim='\\x01',
+                              columns={{'column0': 'VARCHAR'}})
+            """)
         else:
             logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
-            anti_join = ""
+    not_in_baseline = """
+        NOT EXISTS (SELECT 1 FROM baseline_hostname b
+                    WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
+    """
+    for year in YEARS:
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE hy.assigned_year = {year} {anti_join}
+            WHERE hy.assigned_year = {year} AND {not_in_baseline}
             ORDER BY hy.hostname
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
         stats[f"netnew_hostnames_{year}"] = count
 
-    hostname_manifest_query = """
+    # The manifest carries the same rows as the shipped files: a row for a hostname
+    # the benchmark already lists would read as an addition it is not.
+    hostname_manifest_query = f"""
         SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type,
                e.evidence_value, s.name AS source, e.acquisition_method, e.evidence_url
         FROM hostname_year hy
         JOIN evidence e ON hy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
+        WHERE {not_in_baseline}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
