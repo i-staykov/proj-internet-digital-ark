@@ -28,3 +28,6 @@ docs/email-sections.md export-ignore
 # Questions put to the reviewer, written to him in the second person. Same class as the
 # email prose: read by the ship step, never delivered.
 docs/questions.md export-ignore
+# The rounds ledger: sent against credited figures and the ranking arithmetic, with the
+# reviewer's mail stamps. Bookkeeping about him, not a deliverable.
+docs/rounds.md export-ignore
