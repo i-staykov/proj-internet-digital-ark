@@ -39,36 +39,41 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 5/merged260902")
-CURRENT_BASELINE_MARKER = "merged260902"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-8/Domain_Data_Collection_Task/merged260902-3")
+CURRENT_BASELINE_MARKER = "merged260902-3"
 
 # The first moment anything in the current round could have been written, which is
-# when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
-# `built 2026-08-17T09:34:55Z`). It lives beside the marker because a release and
+# when the previous round's archive was cut (`submissions/phase-7/MANIFEST.txt`,
+# `built 2026-09-02T12:14:46Z`). It lives beside the marker because a release and
 # its round window are the same fact: the window opens where the shipped release
 # closes. Kept apart, they drift, and a stale window re-reports the previous
 # round's held candidates as this round's, silently and in our favour.
-CURRENT_ROUND_SINCE = "2026-08-26 22:43:08+00"
+CURRENT_ROUND_SINCE = "2026-09-02 12:14:46+00"
 
 # What to call the round now being collected, in Ivo's numbering. The report heading,
 # the cumulative table's last row and the submission directory all take it from here,
 # because they were three separate hardcoded "5"s and one of them was still saying 4
 # a week into the round.
-CURRENT_ROUND_LABEL = "7"
+CURRENT_ROUND_LABEL = "8"
 
 # The same files measured with the reviewer's own `equivalent_english_domains.py`.
 # PAIRS is the RAW record count, not the validator-passing subset: his line 1 tracks
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 36_672_403
-REVIEWER_BASELINE_EE = Decimal("19239935.8548")
+REVIEWER_BASELINE_PAIRS = 39_237_288
+REVIEWER_BASELINE_EE = Decimal("20714526.9732")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260902` file
+# by running his own `equivalent_english_domains.py` over each `merged260902-3` file
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
+#
+# **`merged260902-3` is `merged260902-2` plus our accepted phase 7**: 36,698,388 +
+# 2,538,900 = 39,237,288 records, verified line by line on 2026-09-02, and its EE of
+# 20,714,526.9732 is his 19,258,068.8703 plus our 1,456,458.1029 to the digit.
+# `merged260902-2` itself was never released; its totals exist only in his mail.
 #
 # **`merged260902` followed one day later with +2,823,477 records and +1,469,347 EE**, of
 # which 2001 alone took +1,249,752 EE (12.89M records): the same platform-hostname wave,
@@ -85,12 +90,12 @@ REVIEWER_BASELINE_EE = Decimal("19239935.8548")
 # the 5% trigger moved from 726,573 to 888,529 EE. Figures from his own calculator run
 # over each file of the release.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("567250.0378"),
-    1997: Decimal("1197682.2794"),
-    1998: Decimal("1617052.4931"),
-    1999: Decimal("3219353.6388"),
-    2000: Decimal("5637061.3711"),
-    2001: Decimal("7001536.0346"),
+    1996: Decimal("583717.4598"),
+    1997: Decimal("1229302.1248"),
+    1998: Decimal("1703250.1788"),
+    1999: Decimal("3383015.2270"),
+    2000: Decimal("5856084.1034"),
+    2001: Decimal("7959157.8794"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -105,7 +110,7 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
 ORIGINAL_BASELINE_PAIRS = 8_224_963
 ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 
-# The rounds this project has SHIPPED, numbered as Ivo numbers them: 1, 3, 4, 5.
+# The rounds this project has SHIPPED, numbered as Ivo numbers them: 1, 3, 4, 5, 6, 7.
 # This is the repository's own phase numbering, and the gap at 2 is real. Phase 2 was
 # 17,418 pairs, was never sent as a scored round, and was rolled into phase 3.
 #
@@ -156,6 +161,9 @@ SUBMITTED_ROUNDS = (
     # round 6  feedback of 2026-08-27, credited 1,684,903 records and 562,099.5294 EE at
     #          4.130718% against `merged260826`, from the 1,929,655 and 713,481.4198 that
     #          were sent against `merged260821`.
+    # round 7  feedback of 2026-09-02, credited 2,538,900 records and 1,456,458.1029 EE at
+    #          7.562846% against `merged260902-2`, from the 2,541,429 and 1,458,263.2088 that
+    #          were sent; S_7 = 6.302372, so t_7 = 12 days, from the 2026-08-21 release.
     #
     # Columns 7 and 8 are the two timestamps the time-weighted score needs, reconstructed
     # on 2026-09-02 from the mail archive in `private/personal-context.md`: the date of the
@@ -216,6 +224,16 @@ SUBMITTED_ROUNDS = (
         "2026-08-20",
         "2026-08-26",
     ),
+    (
+        "7",
+        "2026-09-02",
+        2_538_900,
+        Decimal("1456458.1029"),
+        "merged260902-2",
+        Decimal("7.562846"),
+        "2026-08-21",
+        "2026-09-02",
+    ),
 )
 
 # Round 1's percentage was awarded on records, so it is not commensurable with the
@@ -224,7 +242,7 @@ SUBMITTED_ROUNDS = (
 ROUND_ONE_IS_RECORD_BASED = "1"
 
 # The current round's own two timestamps, for the same arithmetic. The release date is
-# his mail of 2026-09-02 carrying `merged260902` (`..._0902_Update.zip`); the receipt
+# his mail of 2026-09-02 carrying `merged260902-3` (the phase-7 feedback zip); the receipt
 # date is filled at send time and defaults to today, so an unsent round reads as if it
 # went out now rather than silently scoring itself faster than it will be.
 CURRENT_BASELINE_RELEASED = "2026-09-02"
