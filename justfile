@@ -913,7 +913,7 @@ ship round="":
     until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
     echo "== exporting =="
     uv run ark export
-    echo "== fifteen invariants =="
+    echo "== seventeen invariants =="
     uv run ark check
     # `package_delivery.sh` regenerates the report and refuses if it changed, so a
     # human reviews the diff. Doing it here instead makes `ship` a single pass: the
