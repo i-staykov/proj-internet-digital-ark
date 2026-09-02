@@ -75,24 +75,23 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   hypotheses, researcher waves test them in parallel and price each against the store, a re-opener
   re-reads closed verdicts whenever a screen changes, and an improver tunes one prompt or model
   knob per pull request from per-run telemetry.
-- **Two of the round's finds are the loop's.** The hostname-grain re-read (item 1 above) was among
-  the generator's first seven proposals. The re-opener recovered the NYPW TimeMaps from a 14 EE
-  closure by measuring the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999
-  ~10,000, 2001 exactly 4), for ~88,000 EE. Rule learned: a partitioned corpus is measured per
-  partition, never argued about.
+- **Three of the round's finds are the loop's.** The hostname-grain re-read (item 1 above) was
+  among the generator's first seven proposals. The re-opener recovered the NYPW TimeMaps from a
+  14 EE closure by measuring the ingest ledger per folder (year rows per million: 2000 ~24,000,
+  1999 ~10,000, 2001 exactly 4), for ~88,000 EE. A researcher wave found the first source admitted
+  without a human, below.
 - **Admission without a human, under a standing rule.** A source banks when its evidence class is
   already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
   in full, and the invariants pass. Anything else parks until a written decision.
-- **The first find admitted under that rule is a column this project had discarded on purpose.**
-  A registry zone file is two hostname corpora: the owner of an NS record is the delegation, the
-  right-hand side is the nameserver serving it. At registrable grain the right-hand side was
-  measured and closed at 63 pairs, because `ns1.psi.net` collapses to an operator every crawl
-  holds. At hostname grain the same 21,498 hosts in the 1997 InterNIC `org`, `edu`, `gov`, `mil`,
-  `root` and `arpa` zones are 90% absent from both the store and your own 1997 file:
-  **19,211 records and 11,860.7 EE**, dated by the SOA serial `1997041800` inside the payload, no
-  new request. The lens it opens: nameservers, mail exchangers and mirrors are the hosts a web
-  crawler never fetches, so DNS-side and mail-side artifacts over held registrables are the
-  hostname unit's natural source even where their registrables are saturated.
+- **The first such admission is a column this project had discarded on purpose.** A zone file's
+  NS records name two hosts: the delegation and the nameserver serving it. At registrable grain the
+  nameserver side closed at 63 pairs (`ns1.psi.net` collapses to an operator every crawl holds).
+  At hostname grain, 21,498 nameservers in the 1997 InterNIC `org`, `edu`, `gov`, `mil`, `root`
+  and `arpa` zones are 90% absent from both the store and your 1997 file: **19,211 records,
+  11,860.7 EE**, dated by the SOA serial `1997041800` in the payload, no new request. The lens it
+  opens: nameservers, mail exchangers and mirrors are hosts a web crawler never fetches, so
+  DNS-side and mail-side artifacts are the hostname unit's natural source even where their
+  registrables are saturated.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
