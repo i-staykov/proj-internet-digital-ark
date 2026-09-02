@@ -2133,9 +2133,11 @@ exactly this stamp. Ingested by `ark ingest-isc-hostnames`, one ledger row per f
 the shipped manifest: **18,117,395 records and 9,167,369.2 EE**, 1996 7,581,259 / 4,055,578.8 and
 1997 10,536,136 / 5,111,790.5; largest TLDs `au` 1,361,609, `mil` 1,278,383, `ca` 1,153,457, `us`
 1,003,058, `gov` 840,040, `org` 883,273, `uk` 604,234, `net` 1,249,300. **The disclosure that decides
-what it is worth: 67.1% of the records have a dialup or numbered-workstation shape**
-(`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one file), measured
-by first-label pattern over the shipped files. They are real hosts the walk resolved, they satisfy
+what it is worth: 65% of the records have a dialup or numbered-workstation shape**
+(`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one file), the
+figure the report quotes, measured over the shipped files by `DIALUP_SHAPE` in
+`scripts/round/fill_report.py`; a cruder first-label test gives 67.1%, so read it as about
+two thirds either way. They are real hosts the walk resolved, they satisfy
 the reviewer's validity rule and they carry the edition's stamp, and he discards at merge what he
 does not want, which is his stated procedure; the share is quoted in the report and in the report's
 limitations so the cut is one filter on the manifest. Admitted by the loop under the standing rule.
