@@ -139,18 +139,20 @@ def test_ingest_writes_rows_for_both_editions_and_is_idempotent(tmp_path: Path) 
     init_db(conn)
     snapshot = write(tmp_path, SNAPSHOT, "ripe.db.gz")
     split = write(tmp_path, SPLIT, "ripe.db.domain.gz")
-    assert ingest_ripe_nserver_hostnames(conn, snapshot)["hostname_year_rows"] == 4
-    assert ingest_ripe_nserver_hostnames(conn, split)["hostname_year_rows"] == 3
+    # An `nserver:` attribute observes a nameserver, not a site, so since 2026-09-02
+    # the lane writes evidence and the parent's year but no hostname record.
+    assert ingest_ripe_nserver_hostnames(conn, snapshot)["hostname_year_candidates"] == 4
+    assert ingest_ripe_nserver_hostnames(conn, split)["hostname_year_candidates"] == 3
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 0
     rows = conn.execute(
         """
-        SELECT hy.hostname, hy.assigned_year, e.evidence_type, e.acquisition_method, e.evidence_url
-        FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
-        WHERE hy.hostname = 'ns.lucky.net'
+        SELECT e.domain, e.evidence_year, e.evidence_type, e.acquisition_method, e.evidence_url
+        FROM evidence e WHERE e.evidence_value LIKE '%ns.lucky.net%'
         """
     ).fetchall()
     assert rows == [
         (
-            "ns.lucky.net",
+            "lucky.net",
             2001,
             "artifact_listing",
             "ripe_changed_nserver",
@@ -160,12 +162,12 @@ def test_ingest_writes_rows_for_both_editions_and_is_idempotent(tmp_path: Path) 
     # every parent earns its year from the same row, once per (parent, year)
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 7
     assert ingest_ripe_nserver_hostnames(conn, snapshot)["skipped"] is True
-    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 7
+    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 7
     assert (
         conn.execute(
             "SELECT sum(record_rows) FROM ingested_file WHERE source_name = ?", [RIPE_NS_SOURCE]
         ).fetchone()[0]
-        == 7
+        == 0
     )
 
 
