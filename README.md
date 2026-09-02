@@ -52,7 +52,7 @@ uv run ark check                            # fifteen store invariants (needs th
 
 The full reproduction recipe, from raw sources to shipped files, is `just reproduce`;
 see [docs/operations.md](docs/operations.md). A delivery archive verifies itself:
-`bash verify.sh` inside a fresh extraction runs ten checks over the shipped files,
+`bash verify.sh` inside a fresh extraction runs eleven checks over the shipped files,
 including the four requested artifacts D1-D4.
 
 ## Status
