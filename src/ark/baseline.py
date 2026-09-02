@@ -143,7 +143,7 @@ ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 # that overlap, and the overlap is only ever visible in his reply.
 SUBMITTED_ROUNDS = (
     # label, date, records, equivalent-English, baseline accepted against, awarded %,
-    # benchmark released (his clock), submission received (his clock)
+    # benchmark released, submission received (both "YYYY-MM-DD HH:MM" in his clock)
     #
     # Column 6 is the percentage HE awarded, quoted from his feedback, because the
     # cumulative record is the direct arithmetic sum of those percentages and not a ratio
@@ -165,15 +165,16 @@ SUBMITTED_ROUNDS = (
     #          7.562846% against `merged260902-2`, from the 2,541,429 and 1,458,263.2088 that
     #          were sent; S_7 = 6.302372, so t_7 = 12 days, from the 2026-08-21 release.
     #
-    # Columns 7 and 8 are the two timestamps the time-weighted score needs, reconstructed
-    # on 2026-09-02 from the mail archive in `private/personal-context.md`: the date of the
-    # transfernow link by which he released a benchmark package, and the date his own client
-    # stamps on the mail carrying the submission. Both in HIS clock, because the brief
-    # requires one timestamp record and one zone for all participants. THE RECONSTRUCTION IS
-    # CHECKABLE AGAINST HIM ON ONE ROUND: he quotes S_6 = 6.88, and 10 * 4.130718 / 6 = 6.88
-    # holds only for release 2026-08-20 (link `20260820Q634KdPr`) and receipt 2026-08-26,
-    # which is what these two columns say. Every other row is the same rule applied, and the
-    # report labels the whole set as subject to his confirmation.
+    # Columns 7 and 8 are the two timestamps the time-weighted score divides by, to the
+    # minute and in HIS clock, US Pacific, because the brief requires one zone for all
+    # participants: when his mail released the benchmark package a round was measured
+    # against, and when his client stamped the mail carrying the submission. Reconstructed
+    # on 2026-09-02 from the mail archive and checked against this repository's commit times
+    # on five rounds. `ark.figures` turns them into t_i as the elapsed time rounded UP to
+    # whole days, the one rule that reproduces both scores he has quoted: round 6 ran 5.19
+    # days from the 2026-08-21 11:19 release and he quotes 6.88 (t = 6); round 7 ran 11.77
+    # days from the same release and he quotes 6.302372 (t = 12). Rounds 1 to 5 predate the
+    # rule and carry their stamps for the record only.
     (
         "1",
         "2026-07-26",
@@ -181,8 +182,8 @@ SUBMITTED_ROUNDS = (
         Decimal("756559.2864"),
         "merged260715-2",
         Decimal("17.38"),
-        "2026-07-21",
-        "2026-07-26",
+        "2026-07-21 12:24",
+        "2026-07-26 18:30",
     ),
     (
         "3",
@@ -191,8 +192,8 @@ SUBMITTED_ROUNDS = (
         Decimal("91814.6880"),
         "merged260730",
         Decimal("1.659986"),
-        "2026-07-31",
-        "2026-08-01",
+        "2026-07-31 17:25",
+        "2026-08-01 19:42",
     ),
     (
         "4",
@@ -201,8 +202,8 @@ SUBMITTED_ROUNDS = (
         Decimal("603401.7811"),
         "merged260802-2",
         Decimal("10.730988"),
-        "2026-08-03",
-        "2026-08-09",
+        "2026-08-03 05:36",
+        "2026-08-09 07:58",
     ),
     (
         "5",
@@ -211,8 +212,8 @@ SUBMITTED_ROUNDS = (
         Decimal("1566229.7613"),
         "merged260817",
         Decimal("14.901054"),
-        "2026-08-15",
-        "2026-08-17",
+        "2026-08-15 10:27",
+        "2026-08-17 03:03",
     ),
     (
         "6",
@@ -221,8 +222,8 @@ SUBMITTED_ROUNDS = (
         Decimal("562099.5294"),
         "merged260826",
         Decimal("4.130718"),
-        "2026-08-20",
-        "2026-08-26",
+        "2026-08-21 11:19",
+        "2026-08-26 15:51",
     ),
     (
         "7",
@@ -231,8 +232,8 @@ SUBMITTED_ROUNDS = (
         Decimal("1456458.1029"),
         "merged260902-2",
         Decimal("7.562846"),
-        "2026-08-21",
-        "2026-09-02",
+        "2026-08-21 11:19",
+        "2026-09-02 05:50",
     ),
 )
 
@@ -241,11 +242,11 @@ SUBMITTED_ROUNDS = (
 # on Ivo's instruction of 2026-09-02, and every place that prints the sum says so.
 ROUND_ONE_IS_RECORD_BASED = "1"
 
-# The current round's own two timestamps, for the same arithmetic. The release date is
-# his mail of 2026-09-02 carrying `merged260902-3` (the phase-7 feedback zip); the receipt
-# date is filled at send time and defaults to today, so an unsent round reads as if it
-# went out now rather than silently scoring itself faster than it will be.
-CURRENT_BASELINE_RELEASED = "2026-09-02"
+# The current round's release stamp, for the same arithmetic: his mail of 2026-09-02
+# carrying `merged260902-3` (the phase-7 feedback zip), in his clock like the rows above.
+# The receipt stamp is filled at send time and defaults to now in his clock, so an unsent
+# round reads as if it went out this minute rather than scoring itself faster than it will.
+CURRENT_BASELINE_RELEASED = "2026-09-02 10:31"
 
 # The competition RANKING score, which is not the cumulative percentage and is the number
 # that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with
