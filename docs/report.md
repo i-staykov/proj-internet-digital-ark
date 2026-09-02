@@ -9,9 +9,9 @@ figure is generated from the evidence store when the archive is built.
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 33,848,926 |
 | 2. Equivalent-English total | 17,770,588.9026 |
-| 3. Increment | **25,811,931** records |
-| 4. Equivalent-English increment | **13,512,552.2294** |
-| 5. Equivalent-English growth rate | **76.0389%** |
+| 3. Increment | **26,224,274** records |
+| 4. Equivalent-English increment | **13,670,342.8300** |
+| 5. Equivalent-English growth rate | **76.9268%** |
 
 Two units, both at your calculator's counting unit (one distinct valid hostname per year at its
 TLD's English share), disjoint, both absent from the baseline, no record rejected by your validator:
@@ -19,19 +19,19 @@ TLD's English share), disjoint, both absent from the baseline, no record rejecte
 | Unit | Files | Records | Equivalent-English | Growth |
 |------------------------------|-------------------|---------:|-------------:|-------:|
 | registrable domains, the prioritized unit | `additions/NNNN.txt` | 625,385 | 329,397.2492 | 1.8536% |
-| valid hostnames beneath registrables, accepted 2026-09-01 | `hostnames/NNNN_hostnames.txt` | 25,186,546 | 13,183,154.9802 | 74.1852% |
+| valid hostnames beneath registrables, accepted 2026-09-01 | `hostnames/NNNN_hostnames.txt` | 25,598,889 | 13,340,945.5808 | 75.0732% |
 
 | Year | merged260901 | Registrables | Hostnames | Merged | Equivalent-English added |
 |------|------------:|-----------:|-----------:|------------:|--------------:|
 | 1996 | 979,994 | 8,869 | 7,742,554 | 8,731,417 | 4,156,305.3362 |
-| 1997 | 2,161,231 | 18,116 | 10,781,638 | 12,960,985 | 5,263,432.5480 |
-| 1998 | 3,119,897 | 23,025 | 999,025 | 4,141,947 | 573,718.9687 |
-| 1999 | 6,345,942 | 46,776 | 1,451,843 | 7,844,561 | 824,290.9369 |
-| 2000 | 10,705,102 | 27,630 | 1,623,085 | 12,355,817 | 914,329.9294 |
-| 2001 | 10,536,760 | 500,969 | 2,588,401 | 13,626,130 | 1,780,474.5102 |
-| **Total** | **33,848,926** | **625,385** | **25,186,546** | **59,660,857** | **13,512,552.2294** |
+| 1997 | 2,161,231 | 18,116 | 10,781,639 | 12,960,986 | 5,263,433.0010 |
+| 1998 | 3,119,897 | 23,025 | 999,412 | 4,142,334 | 574,071.3613 |
+| 1999 | 6,345,942 | 46,776 | 1,458,019 | 7,850,737 | 828,029.6155 |
+| 2000 | 10,705,102 | 27,630 | 1,661,393 | 12,394,125 | 937,279.6350 |
+| 2001 | 10,536,760 | 500,969 | 2,955,872 | 13,993,601 | 1,911,223.8810 |
+| **Total** | **33,848,926** | **625,385** | **25,598,889** | **60,073,200** | **13,670,342.8300** |
 
-**Cumulative score 107.4616%**: the sum of the increases you awarded (1.659986%, 10.730988%, 14.901054%, 4.130718%) plus this round's 76.0389%, as your update log of 2026-08-18 defines it. Round 1 is held out: awarded on records, before the equivalent-English metric.
+**Cumulative score 108.3495%**: the sum of the increases you awarded (1.659986%, 10.730988%, 14.901054%, 4.130718%) plus this round's 76.9268%, as your update log of 2026-08-18 defines it. Round 1 is held out: awarded on records, before the equivalent-English metric.
 
 ## 2. What the increment is
 
@@ -57,7 +57,7 @@ accepted on 1 September; none of them is a new download.
    by name and almost no `www.` ones. A third IA index, the six USFEDGOV-EXTRACT merged CDX files
    for 1996-2001, adds 39,340 EE over 40,260 federal host-years from six
    bulk downloads and no API request.
-3. **Domain-wide CDX sweeps over subdomain platforms: 1,220,260 EE, 1,748,953
+3. **Domain-wide CDX sweeps over subdomain platforms: 1,378,051 EE, 2,161,296
    records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
    (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
    `freeserve.co.uk`). This is the workflow your 0901 update describes; each parent is resumable
@@ -72,18 +72,18 @@ accepted on 1 September; none of them is a new download.
 |------------------------|------|----------------------------|--------:|-------:|
 | `isc_survey_host_list` | hostname | the survey's own YYMM edition code in the artifact's path | 18,117,395 | 9,167,369 |
 | `nypw_timemap_hostgrain` | hostname | the row's own 14-digit capture timestamp | 4,039,562 | 2,097,955 |
-| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 1,748,953 | 1,220,260 |
+| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 2,161,296 | 1,378,051 |
 | `early_web_hostgrain` | hostname | the row's own 14-digit capture timestamp | 1,163,616 | 631,148 |
 | `nypw_timemaps` | registrable | the row's own 14-digit capture timestamp | 329,667 | 143,789 |
 | `ia_cdx_bulk` | registrable | the capture timestamp of a URL on that host | 92,479 | 66,566 |
 | 34 further sources | both | one row each in `sources.md` and `audit/source_contribution.csv` | 320,259 | 185,465 |
-| **Total** | | | **25,811,931** | **13,512,552** |
+| **Total** | | | **26,224,274** | **13,670,343** |
 
 Every source has its own entry in `sources.md`: link, acquisition route, what dates one item, yield,
 and for closed families the measurement that closed them. Per-source figures with files and
 evidence rows are in `audit/source_contribution.csv`.
 
-**Composition.** 25.4% of the hostnames are `www.` forms of a registrable. They are distinct
+**Composition.** 26.1% of the hostnames are `www.` forms of a registrable. They are distinct
 valid hostnames under your rule and sit in their own files, so they merge or drop as a block.
 
 ## 3. Evidentiary standard
@@ -134,7 +134,7 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   admission of the round and reached the same way: a column of a banked artifact that the
   registrable unit threw away.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
-  per source family and version. **493 source families searched and recorded** in `sources.md`: 65 developed, 428 evaluated and closed with the measurement that closed them, so the same ground is not broken twice.
+  per source family and version. **494 source families searched and recorded** in `sources.md`: 66 developed, 428 evaluated and closed with the measurement that closed them, so the same ground is not broken twice.
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
   the authority screen; academic repositories closed by enumeration through five APIs and two
   registries; CD-ROM media, FTP mirrors and trade directories at the curated-directory floor
@@ -177,10 +177,10 @@ CD-ROM media, FTP mirrors, trade directories.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260901` | 33,848,926 | 17,770,588.9026 |
-| **accepted increment** | **25,811,931** | **13,512,552.2294** |
-| post-merge total | 59,660,857 | 31,283,141.1320 |
+| **accepted increment** | **26,224,274** | **13,670,342.8300** |
+| post-merge total | 60,073,200 | 31,440,931.7326 |
 
-- Overlap with the baseline: **0 records**, so all 25,811,931 submitted count once; the two unit files are disjoint in every year.
+- Overlap with the baseline: **0 records**, so all 26,224,274 submitted count once; the two unit files are disjoint in every year.
 - **28 of 28 reconciliation checks pass** (per-year `baseline_unique + accepted_new == merged_unique`, unit files disjoint and summing to the submitted count, per-year increments summing to the headline, baseline re-measured). Verdicts in `audit/merge_audit_ark_*.json`, per-year form in `audit/merge_stats_ark_*.csv` in your column names.
 - Method: `merge_against_baseline.py` unions both units into the baseline, deduplicated on the lowercased line within each year, and scores every file with your own calculator.
 
