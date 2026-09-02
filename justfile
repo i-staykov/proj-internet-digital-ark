@@ -1005,3 +1005,15 @@ unschedule:
     launchctl unload "$plist" 2>/dev/null || true
     rm -f "$plist"
     echo "removed com.ark.cycle"
+
+# What filled the agent's context, read from the session transcript rather than a
+# new log: the ten largest tool results with their tool, result bytes by tool,
+# assistant text bytes and walls of text, and how often the session compacted.
+# Records are deduplicated by uuid because resumed sessions copy earlier records
+# into the new file. Newest transcript by default; give a path, or --all for one
+# summary over every session. A diagnostic that may break on a harness upgrade,
+# never a gate.
+#
+# measure what fills an agent's context from the newest transcript
+context-report *args:
+    uv run python scripts/agents/context_report.py {{args}}
