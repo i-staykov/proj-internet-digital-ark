@@ -37,6 +37,8 @@ export-ignored and stay out of the delivery archive.
 |---|---|---|
 | [sources.md](sources.md) | Every source tried, admitted or closed, with what dates one item and its link; grep it, never read it whole | before proposing, pricing or briefing anything |
 | [approved-sources-list.md](approved-sources-list.md) | One `Decision:` line per (source, evidence type); `ark ingest` enforces it | before an ingest, and when writing a `Decision:` line |
+| [sources-closed.md](sources-closed.md) | One row per source measured and closed, with the date, the figure and the reason; grep it before proposing | before proposing or briefing a lens |
+| [hypotheses-pending.md](hypotheses-pending.md) | The open triage entries, verbatim, still `pending` until a `Decision:` line lands | when picking a hypothesis or writing a `Decision:` line |
 | [hypotheses.tsv](hypotheses.tsv) | The hypothesis ledger (*generated*: appended by `scripts/harness/hypothesis_ledger.py`) | when opening or closing a hypothesis |
 | [releases.md](releases.md) | Every reviewer release: date, whether received, per-year line counts, sha256 of his zip or of our zstd copy (`just releases` fills it) | before deleting or trusting a release tree |
 | [retention.md](retention.md) | One row per local data entry with its class, checksum digest and refetch route (*generated* by `scripts/round/verify_raw.py`); a path with no row is not deletable | before deleting anything under `data/`, `output/` or `feedback/` |

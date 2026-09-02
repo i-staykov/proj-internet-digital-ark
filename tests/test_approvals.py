@@ -169,3 +169,42 @@ def test_the_live_file_parses_and_its_triage_section_is_recognised() -> None:
     assert found, "the live approvals file parsed to nothing"
     assert TRIAGE_SECTION == "Found, awaiting triage"
     assert any(a.decision == "master" for a in found.values())
+
+
+def test_the_live_triage_section_holds_only_open_entries() -> None:
+    """Since 2026-09-03 a decision taken in triage is filed by `scripts/round/split_triage.py`:
+    master blocks move to Decided, rejected ones to `sources-closed.md` behind a stub. A
+    decided block left in triage means the split has not run, and the harness says so."""
+    found = load(Path("docs/approved-sources-list.md"))
+    decided = sorted(
+        f"{a.source_name} / {a.evidence_type}"
+        for a in found.values()
+        if a.is_triage and a.decision != "pending"
+    )
+    assert not decided, f"decided entries still in triage, run split_triage.py: {decided}"
+
+
+# The two ingest recipes whose class a reviewer refused. They stay registered so the gate
+# has something to refuse, and the justfile keeps their lines commented out.
+REJECTED_RECIPES = {"jpnic_register", "nypw_firstcdx"}
+
+
+def test_every_master_eligible_recipe_is_approved_master() -> None:
+    """A recipe in `SOURCES` is something the loop can run, so its class must be decided,
+    and decided in its favour unless it is one of the named rejections. A `pending` here
+    would stop an unattended ingest; a `rejected` not on the list would mean a refused
+    recipe is still offered."""
+    from ark.evidence_types import MASTER_TYPES
+    from ark.sources import SOURCES
+
+    recorded = load(Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md")
+    wrong = {}
+    for key, spec in SOURCES.items():
+        if spec.evidence_type not in MASTER_TYPES:
+            continue
+        approval = recorded.get((spec.source_name, spec.evidence_type))
+        decision = approval.decision if approval else None
+        expected = "rejected" if key in REJECTED_RECIPES else "master"
+        if decision != expected:
+            wrong[key] = decision
+    assert not wrong, f"master-eligible recipes whose class is not decided as expected: {wrong}"
