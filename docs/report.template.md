@@ -30,10 +30,16 @@ TLD's English share), disjoint, both absent from the baseline, no record rejecte
 Three things, largest first:
 
 1. **Capture corpora already on disk, re-read at hostname grain: [HOST_NYPW_EE] EE,
-   [HOST_NYPW_N] records.** Until you accepted hostnames the pipeline collapsed every host to its
-   registrable, so the NYPW TimeMaps (34 parts, CC BY 4.0) stood recorded as spent and 180
-   domain-wide CDX journals as worth 0. The same bytes, re-read under the new unit, are the
-   largest source of the round, with no new request.
+   [HOST_NYPW_N] records from the NYPW TimeMaps and [HOST_EARLYWEB_EE] EE, [HOST_EARLYWEB_N]
+   records from IA's Early Web index.** Until you accepted hostnames the pipeline collapsed every
+   host to its registrable, so the NYPW TimeMaps (34 parts, CC BY 4.0), the 224 Early Web CDX
+   parts and 180 domain-wide CDX journals stood recorded as spent or worth 0. The same bytes,
+   re-read under the new unit, are the largest source of the round, with no new request. One
+   disclosure decides what the Early Web half is worth: nearly all of its records are `www.`
+   forms of a registrable you already hold in that year, because your own files carry the
+   non-`www.` hosts by name and almost no `www.` ones. A third IA index, the USFEDGOV-EXTRACT-2001
+   merged CDX, adds [HOST_USFEDGOV_EE] EE over [HOST_USFEDGOV_N] federal hosts at 2001 from one
+   bulk download.
 2. **Domain-wide CDX sweeps over subdomain platforms: [HOST_SWEEP_EE] EE, [HOST_SWEEP_N]
    records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
    (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
@@ -93,7 +99,11 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   DNS-side and mail-side artifacts are the hostname unit's natural source even where their
   registrables are saturated. The second such admission is smaller and cheaper still: the two
   banked squidGuard blocklists read one level down, keeping the host each line names instead of
-  its registrable, 7,708 records and 3,441.8 EE at 2001, zero requests (`sources.md`).
+  its registrable, 7,708 records and 3,441.8 EE at 2001, zero requests (`sources.md`). The
+  third is the same lens on a registry database: the nameservers RIPE `domain:` objects point at,
+  in the two FUNET editions already banked for their delegated names, [HOST_RIPE_N] records and
+  [HOST_RIPE_EE] EE across 1996-2001, dated by the dump's own generation stamp and each object's
+  latest `changed:` line, under the RIPE NCC's written permission.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
