@@ -282,14 +282,18 @@ def collect_checks(
                 }
             )
             continue
-        except duckdb.BinderException:
+        except (duckdb.BinderException, duckdb.InternalException) as exc:
             # Every matching file is empty, so `read_csv` infers no columns and
             # the query cannot bind. That is a real state, not a fault: a round
             # that has added nothing yet exports six empty annual files, and an
             # empty additions set trivially satisfies an invariant about what the
             # additions may contain. Reported as skipped rather than passed, for
             # the same reason an absent export is: a check that examined nothing
-            # should not read as one that found nothing wrong.
+            # should not read as one that found nothing wrong. DuckDB 1.5 raises
+            # this as an InternalException worded "must return at least one
+            # column"; any other internal error is a fault and is re-raised.
+            if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
+                raise
             results.append(
                 {
                     "name": name,

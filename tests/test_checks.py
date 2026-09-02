@@ -178,6 +178,21 @@ def test_missing_export_is_skipped_not_silently_passed(tmp_path: Path) -> None:
     assert "ark export" in result["additions_not_double_counted"]["skipped"]
 
 
+def test_empty_export_is_skipped_not_an_internal_error(tmp_path: Path) -> None:
+    """The day a new baseline lands, every annual file exports empty.
+
+    DuckDB 1.5 reports a `read_csv` over files with no rows as an internal error
+    ("must return at least one column"), which is the same state the older
+    binder error described. Both read as skipped, never as a crash and never as
+    a pass.
+    """
+    for year in range(1996, 2002):
+        (tmp_path / f"{year}.txt").write_text("", encoding="utf-8")
+    result = _results_by_name(_clean_store(), tmp_path)["additions_not_double_counted"]
+    assert result["skipped"]
+    assert "empty" in result["skipped"]
+
+
 def test_detects_master_evidence_left_unassigned() -> None:
     conn = _clean_store()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
