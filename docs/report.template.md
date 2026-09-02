@@ -27,25 +27,34 @@ TLD's English share), disjoint, both absent from the baseline, no record rejecte
 
 ## 2. What the increment is
 
-Three things, largest first:
+Four things, largest first. All four are re-readings of bytes already on disk under the unit you
+accepted on 1 September; none of them is a new download.
 
-1. **Capture corpora already on disk, re-read at hostname grain: [HOST_NYPW_EE] EE,
+1. **The ISC Internet Domain Survey's per-TLD host files, read one level below the registrable:
+   [HOST_ISC_EE] EE, [HOST_ISC_N] records at 1996 and 1997.** Banked in July for the registrables
+   they imply and closed as complete, these files are a reverse-DNS walk: every line is
+   `IP hostname`, the host itself, which the registrable ingest discarded. **The disclosure that
+   decides what this is worth: [HOST_ISC_DIALUP_PCT]% of the records are dialup or numbered
+   workstation names** (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`). They are real hosts that
+   answered in DNS in the month the survey stamps, and they satisfy your validity rule, but they
+   are not sites. They ship in the hostname files with everything else so you can drop them as a
+   block if you do not want them; `hostnames/hostnames_evidence_manifest.csv` names the source of
+   every record.
+2. **Capture corpora already on disk, re-read at hostname grain: [HOST_NYPW_EE] EE,
    [HOST_NYPW_N] records from the NYPW TimeMaps and [HOST_EARLYWEB_EE] EE, [HOST_EARLYWEB_N]
-   records from IA's Early Web index.** Until you accepted hostnames the pipeline collapsed every
-   host to its registrable, so the NYPW TimeMaps (34 parts, CC BY 4.0), the 224 Early Web CDX
-   parts and 180 domain-wide CDX journals stood recorded as spent or worth 0. The same bytes,
-   re-read under the new unit, are the largest source of the round, with no new request. One
-   disclosure decides what the Early Web half is worth: nearly all of its records are `www.`
-   forms of a registrable you already hold in that year, because your own files carry the
-   non-`www.` hosts by name and almost no `www.` ones. A third IA index, the six USFEDGOV-EXTRACT
-   merged CDX files for 1996-2001, adds [HOST_USFEDGOV_EE] EE over [HOST_USFEDGOV_N] federal
-   host-years from six bulk downloads and no API request.
-2. **Domain-wide CDX sweeps over subdomain platforms: [HOST_SWEEP_EE] EE, [HOST_SWEEP_N]
+   records from IA's Early Web index.** The NYPW TimeMaps (34 parts, CC BY 4.0), the 224 Early Web
+   CDX parts and 180 domain-wide CDX journals stood recorded as spent or worth 0 at registrable
+   grain. A second disclosure, on the Early Web half: nearly all of its records are `www.` forms of
+   a registrable you already hold in that year, because your own files carry the non-`www.` hosts
+   by name and almost no `www.` ones. A third IA index, the six USFEDGOV-EXTRACT merged CDX files
+   for 1996-2001, adds [HOST_USFEDGOV_EE] EE over [HOST_USFEDGOV_N] federal host-years from six
+   bulk downloads and no API request.
+3. **Domain-wide CDX sweeps over subdomain platforms: [HOST_SWEEP_EE] EE, [HOST_SWEEP_N]
    records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
    (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
    `freeserve.co.uk`). This is the workflow your 0901 update describes; each parent is resumable
    from the saturation ledger.
-3. **Registrable domains, the prioritized unit: [REGEE] EE, [REGPAIRS] records.** NYPW TimeMaps
+4. **Registrable domains, the prioritized unit: [REGEE] EE, [REGPAIRS] records.** NYPW TimeMaps
    reopened and measured partition by partition ([REG_NYPW_EE] EE, after a 14 EE closure on the
    1996 folder), per-domain CDX queries over bracketed gaps ([REG_CDX_EE]), three Usenet lanes
    ([REG_USENET_EE]) and [REG_OTHER_N] small dated artifacts ([REG_OTHER_EE]). [NEWDOMAINS] of
@@ -104,13 +113,9 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   in the two FUNET editions already banked for their delegated names, [HOST_RIPE_N] records and
   [HOST_RIPE_EE] EE across 1996-2001, dated by the dump's own generation stamp and each object's
   latest `changed:` line, under the RIPE NCC's written permission.
-  The fourth is the largest single admission of the round: the ISC Internet Domain Survey's
-  per-TLD host files, banked in July for their registrables and closed as "complete and fully
-  held", read one level down for the host each `IP hostname` line names, [HOST_ISC_N] records
-  and [HOST_ISC_EE] EE at 1996-1997, dated by the survey's own edition code. The disclosure that
-  decides its worth: [HOST_ISC_DIALUP_PCT]% of those records are dialup or numbered workstation
-  shapes (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`), real hosts the walk resolved that month,
-  shipped so you can discard them at merge if you do not want them.
+  The fourth is item 1 of section 2, the ISC survey host files, which is the largest single
+  admission of the round and reached the same way: a column of a banked artifact that the
+  registrable unit threw away.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
@@ -132,15 +137,23 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
 
 ## 6. Limitations, and what is worth expanding
 
-A capture proves presence, never absence: a year without one is unevidenced, not empty. The
-hostname unit rewards platforms with many sub-hosts, so it is concentrated in 2000 and 2001.
+Three limits, in the order they affect the figure:
 
-Worth expanding, in order: the remaining ranked platforms, resumable from the ledger; the
-second-level suffix namespaces at hostname grain (`co.uk` alone is 3.39M index blocks and 1.2%
-walked, `com.au`, `co.nz`, `org.uk`, `gov.uk`, `gc.ca` queued behind it); every held
-capture-bearing artifact re-read at hostname grain; registrable discovery by bracketed-gap CDX
-queries at its measured rate. Not worth more time, measured: prose
-corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
+- **A hostname is not a site.** Under your rule a valid distinct hostname counts, and a
+  reverse-DNS walk resolves dialup ports and workstations as readily as web servers. That is
+  where most of this round's records come from and it is quoted per source, so a cut is one
+  filter on the manifest rather than a re-derivation.
+- **A capture proves presence, never absence.** A year without one is unevidenced, not empty.
+- **The two units are counted disjointly and shipped separately**, so discarding the hostname
+  files leaves the registrable round intact at [REGEE] EE.
+
+Worth expanding, in order: the same one-level-down reading of every other banked artifact that
+names hosts (DNS, mail and mirror rosters are the natural seam, since a web crawler never fetched
+them); the second-level suffix namespaces at hostname grain (`co.uk` alone is 3.39M index blocks
+and 1.2% walked, `com.au`, `co.nz`, `org.uk`, `gov.uk`, `gc.ca` queued behind it); the remaining
+ranked subdomain platforms, resumable from the ledger; registrable discovery by bracketed-gap CDX
+queries at its measured rate. Not worth more time, measured: prose corpora, academic repositories,
+CD-ROM media, FTP mirrors, trade directories.
 
 ## 7. Merge, overlap and reconciliation (D3)
 
