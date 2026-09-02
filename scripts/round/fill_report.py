@@ -239,19 +239,10 @@ CLASS_GROUNDS = {
 ATTRIBUTION_FLOOR_EE = Decimal("1000")
 
 
-# A dialup or numbered-workstation shape: a leading label with two digits or more, or a
-# pool word (`ppp`, `dyn`, `modem`, ...) as a label. The disclosure the ISC survey
-# admission promises the reviewer; conservative in the sense that it over-catches.
-DIALUP_SHAPE = (
-    r"^([a-z0-9-]*\d[a-z0-9-]*\d[a-z0-9-]*\.)|"
-    r"(^|\.)(ppp|pool|dial|dialup|dyn|dynamic|modem|slip|pm|port|term|tty|async|line|node|"
-    r"ip|ras|cust|host|user|dhcp)[a-z0-9-]*\."
-)
-
-
-def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[str, Decimal]]:
-    """(records, EE) per acquisition method over the SHIPPED hostname files, the share
-    of them that are `www.` forms of a registrable, and the dialup-shape share per method.
+def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
+    """(records, EE) per acquisition method over the SHIPPED hostname files, and the
+    share of them that are `www.` forms below a registrable (`www.<parent>` itself is
+    refused at ingest, so what remains is `www.sub.parent`).
 
     Joined against the shipped manifest rather than the store, so the table describes
     the files in the archive: the store holds hostname rows the export filters out.
@@ -263,7 +254,7 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[
     manifest = netnew / "hostnames_evidence_manifest.csv"
     files = sorted(netnew.glob("*_hostnames.txt"))
     if not manifest.is_file() or not files:
-        return {}, Decimal(0), {}
+        return {}, Decimal(0)
     raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
     weights = [
         (str(t).lower(), float(p) / 100)
@@ -294,20 +285,10 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[
     www = conn.execute(
         "SELECT sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*) FROM h"
     ).fetchone()[0]
-    dialup = conn.execute(
-        """
-        SELECT m.acquisition_method,
-               sum(CASE WHEN regexp_matches(h.hostname, ?) THEN 1 ELSE 0 END) / count(*)
-        FROM h JOIN read_csv_auto(?, header=true) m USING (hostname, assigned_year)
-        GROUP BY 1
-        """,
-        [DIALUP_SHAPE, str(manifest)],
-    ).fetchall()
     conn.close()
     return (
         {m: (int(n), Decimal(str(round(ee, 4)))) for m, n, ee in rows},
         Decimal(str(www)),
-        {m: Decimal(str(share)) for m, share in dialup},
     )
 
 
@@ -428,13 +409,10 @@ def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     return "\n".join(lines)
 
 
-def grouped_ee(
-    f: dict, hosts: dict[str, tuple[int, Decimal]], dialup: dict[str, Decimal] | None = None
-) -> dict[str, str]:
-    """Section 2's three-item story, summed from the same rows as the table so the
+def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]:
+    """Section 3's per-lane figures, summed from the same rows as the table so the
     prose cannot drift from it."""
     by = {r["source"]: (r["pairs"], Decimal(str(r["ee"]))) for r in f["by_source"]}
-    dialup = dialup or {}
 
     def total(names: list[str]) -> tuple[int, Decimal]:
         n = sum(by.get(x, (0, Decimal(0)))[0] for x in names)
@@ -449,10 +427,9 @@ def grouped_ee(
     h_sweep = hosts.get("ia_cdx_domain_sweep", (0, Decimal(0)))
     h_ew = hosts.get("early_web_hostgrain", (0, Decimal(0)))
     h_fg = hosts.get("usfedgov_extract_hostgrain", (0, Decimal(0)))
-    h_isc = hosts.get("isc_survey_host_list", (0, Decimal(0)))
-    ripe_methods = ("ripe_snapshot_nserver", "ripe_changed_nserver")
-    ripe = [hosts.get(m, (0, Decimal(0))) for m in ripe_methods]
-    h_ripe = (sum(r[0] for r in ripe), sum((r[1] for r in ripe), Decimal(0)))
+    list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
+    lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
+    h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
@@ -460,11 +437,8 @@ def grouped_ee(
         "HOST_EARLYWEB_N": f"{h_ew[0]:,}",
         "HOST_USFEDGOV_EE": f"{h_fg[1]:,.0f}",
         "HOST_USFEDGOV_N": f"{h_fg[0]:,}",
-        "HOST_ISC_EE": f"{h_isc[1]:,.0f}",
-        "HOST_ISC_N": f"{h_isc[0]:,}",
-        "HOST_ISC_DIALUP_PCT": f"{dialup.get('isc_survey_host_list', Decimal(0)) * 100:.0f}",
-        "HOST_RIPE_EE": f"{h_ripe[1]:,.0f}",
-        "HOST_RIPE_N": f"{h_ripe[0]:,}",
+        "HOST_BLOCKLIST_EE": f"{h_list[1]:,.0f}",
+        "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
@@ -477,7 +451,7 @@ def grouped_ee(
 
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
-    hosts, www_share, dialup = hostname_breakdown()
+    hosts, www_share = hostname_breakdown()
     h_pairs = sum(n for n, _ in hosts.values())
     h_ee = sum((ee for _, ee in hosts.values()), Decimal(0))
     # Fall back to the store only when no merge has been run, so a missing audit
@@ -547,7 +521,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
-        **grouped_ee(f, hosts, dialup),
+        **grouped_ee(f, hosts),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),

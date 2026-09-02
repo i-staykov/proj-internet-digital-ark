@@ -177,10 +177,13 @@ mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance
 # repointed every round, and the round it was not repointed shipped the previous
 # round's figures beside this round's data.
 REPORT="docs/report.md"
-if command -v pandoc >/dev/null 2>&1; then
-    pandoc "$REPORT" -o "$STAGE/report.docx" --standalone
+# The .docx is built once, by build_report_docx.py with the reference document that
+# sets 10pt body and 0.75in margins. Rebuilding it here with bare pandoc shipped a
+# 12pt four-page copy of the same three-page report, so the built file is copied.
+if [ -f docs/report.docx ]; then
+    cp docs/report.docx "$STAGE/report.docx"
 else
-    echo "warning: pandoc not installed, shipping the report as markdown only" >&2
+    echo "warning: docs/report.docx missing, run: just report-docx docs/report.md" >&2
 fi
 cp "$REPORT" "$STAGE/report.md"
 # the reviewer's own check, runnable from inside the unpacked folder
