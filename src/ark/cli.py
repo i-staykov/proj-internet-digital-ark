@@ -53,7 +53,7 @@ from ark.rdap import (
     http_fetch as rdap_http_fetch,
 )
 from ark.seed import seed_from_file
-from ark.seeds import combine_parts, write_source_part
+from ark.seed_pool import combine_parts, write_source_part
 from ark.sources import SOURCES
 from ark.stats import collect_stats, format_stats
 from ark.work_queue import DEFAULT_QUEUE_PATH, connect_queue

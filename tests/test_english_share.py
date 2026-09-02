@@ -20,6 +20,7 @@ formally issued for all comparisons". So the pin below is a requirement, not tid
 
 import hashlib
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -30,6 +31,24 @@ from ark.english_share import english_weights
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDORED = ROOT / "src" / "ark" / "data" / "tld_english_share.json"
+
+# The files allowed to hold a share by any route other than `english_weights()`.
+# Anything else that needs a weight imports it, so one edit to the table cannot
+# leave a second copy behind. A new entry needs a reason as good as these.
+SHARE_HOLDERS = {
+    "src/ark/english_share.py": "the one reader of the vendored table",
+    "tests/test_english_share.py": "spells the quoted figures in order to check them",
+    "scripts/output_unit_pack/registrable_unit.py": "ships standalone beside his model file",
+    "scripts/pricing/measure_host_unit.py": "reads HIS file on purpose, to separate the weight "
+    "question from the unit question",
+}
+# A TLD key followed by a share, however the value is wrapped: `"com": 0.6321`,
+# `"com": "0.6321"`, `"com": Decimal("0.6321")`.
+_SHARE_ENTRY = re.compile(
+    r"""["'](?P<tld>[a-z]{2,})["']\s*:\s*(?:Decimal\()?["']?(?P<share>0\.\d+)"""
+)
+# The column name of his model: its presence means a file parses the JSON itself.
+_MODEL_COLUMN = "perc_of_tld"
 
 # The frozen table, by content. If this changes, either the reviewer has formally reissued
 # the standard, in which case update it and say so in `docs/brief_amendments.md`, or
@@ -97,3 +116,25 @@ def test_our_table_agrees_with_his_model_on_every_tld() -> None:
     )
     disagree = {t: (his[t], ours[t]) for t in his if his[t] != ours[t]}
     assert not disagree, f"the two implementations weight these differently: {disagree}"
+
+
+def test_no_second_copy_of_the_table_exists() -> None:
+    """Every weight in code comes from `english_weights()`, or the pin above guards nothing.
+
+    Two copies are caught: a literal that maps a TLD to its share, and a private parse of
+    his JSON, which is how `build_pool_candidates.py` carried its own table until 2026-09.
+    """
+    weights = english_weights()
+    copies: list[str] = []
+    for top in ("src", "scripts", "tests", "probes", "hooks"):
+        for path in sorted((ROOT / top).rglob("*.py")):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in SHARE_HOLDERS:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if _MODEL_COLUMN in text:
+                copies.append(f"{rel} parses the model itself")
+            for hit in _SHARE_ENTRY.finditer(text):
+                if weights.get(hit["tld"]) == Decimal(hit["share"]):
+                    copies.append(f"{rel} spells .{hit['tld']} = {hit['share']}")
+    assert not copies, "import english_weights instead: " + "; ".join(copies)
