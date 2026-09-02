@@ -38,6 +38,10 @@ export-ignored and stay out of the delivery archive.
 | [sources.md](sources.md) | Every source tried, admitted or closed, with what dates one item and its link; grep it, never read it whole | before proposing, pricing or briefing anything |
 | [approved-sources-list.md](approved-sources-list.md) | One `Decision:` line per (source, evidence type); `ark ingest` enforces it | before an ingest, and when writing a `Decision:` line |
 | [hypotheses.tsv](hypotheses.tsv) | The hypothesis ledger (*generated*: appended by `scripts/harness/hypothesis_ledger.py`) | when opening or closing a hypothesis |
+| [releases.md](releases.md) | Every reviewer release: date, whether received, per-year line counts, sha256 of his zip or of our zstd copy (`just releases` fills it) | before deleting or trusting a release tree |
+| [retention.md](retention.md) | One row per local data entry with its class, checksum digest and refetch route (*generated* by `scripts/round/verify_raw.py`); a path with no row is not deletable | before deleting anything under `data/`, `output/` or `feedback/` |
+| [rounds.md](rounds.md) | Sent against credited figures per round, and the ranking score from the two mail stamps (*not shipped*) | when a round's score or credit is quoted |
+| [questions.md](questions.md) | Questions put to the reviewer, with his answers as they come; `just ship` copies the open rows (*not shipped*) | before drafting a round email |
 
 ## Round output
 
@@ -59,3 +63,4 @@ export-ignored and stay out of the delivery archive.
 | Page | What it is | Read it when |
 |---|---|---|
 | [runbook.md](runbook.md) | What to run and what each command should print | when running anything for the first time |
+| [security.md](security.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |

@@ -280,7 +280,9 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
         [str(manifest)],
     ).fetchall()
     www = conn.execute(
-        "SELECT sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*) FROM h"
+        # coalesce: the files exist but are empty at the start of a round
+        "SELECT coalesce(sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*), 0) "
+        "FROM h"
     ).fetchone()[0]
     conn.close()
     return (

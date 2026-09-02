@@ -23,21 +23,21 @@ off-site copy is verified against these hashes.
 | marker | released | received | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 | artifact | sha256 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `merged260715-2` | 2026-07-15 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260727` | 2026-07-27 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260730` | 2026-07-30 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260802-2` | 2026-08-02 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260810` | 2026-08-10 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260815` | 2026-08-15 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
+| `merged260727` | 2026-07-27 | yes | 721,671 | 1,354,970 | 1,226,197 | 1,939,757 | 1,497,895 | 2,913,997 | pending | pending |
+| `merged260730` | 2026-07-30 | yes | 722,785 | 1,360,891 | 1,241,155 | 2,007,588 | 1,710,945 | 3,220,268 | pending | pending |
+| `merged260802-2` | 2026-08-02 | yes | 734,323 | 1,381,002 | 1,279,247 | 2,038,912 | 1,743,022 | 3,239,262 | pending | pending |
+| `merged260810` | 2026-08-10 | yes | 759,624 | 1,440,158 | 1,456,208 | 2,299,385 | 1,994,624 | 3,412,035 | pending | pending |
+| `merged260815` | 2026-08-15 | yes | 761,196 | 1,458,027 | 1,672,543 | 3,250,749 | 4,873,520 | 3,412,472 | pending | pending |
 | `merged260817` | 2026-08-17 | not received: totals from the reviewer's mail of 2026-08-18, superseded by `merged260817-2` | none | none | none | none | none | none | none | none |
-| `merged260817-2` | 2026-08-17 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260820` | 2026-08-20 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260821` | 2026-08-21 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
+| `merged260817-2` | 2026-08-17 | yes | 866,106 | 1,891,288 | 2,542,320 | 5,118,082 | 7,678,002 | 4,395,620 | Domain_Data_Collection_Task_0817_Update.zip | 7dd564e5a499679480671c2306074a704483f8f3b296a6d5f16cd4e0c422eceb |
+| `merged260820` | 2026-08-20 | yes | 866,121 | 1,891,385 | 2,542,524 | 5,118,493 | 7,680,197 | 4,916,847 | Domain_Data_Collection_Task_0820_Update_v2.zip | d09ba50b3ab239506af4535a85a1d35a5cf3b8f88012178037829dd3c9f864d0 |
+| `merged260821` | 2026-08-21 | yes | 866,121 | 1,891,386 | 2,542,561 | 5,118,649 | 9,670,871 | 4,975,393 | Domain_Data_Collection_Task_0821_Update.zip | bc5d8e244dfe9a5945f49d3b040d9151d307d9f4b6a7b8e1e67121d086a032f9 |
 | `merged260826` | 2026-08-26 | not received: totals from the reviewer's mail of 2026-08-27, superseded by `merged260827` | none | none | none | none | none | none | none | none |
-| `merged260827` | 2026-08-27 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260827-2` | 2026-08-27 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260830` | 2026-08-30 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260901` | 2026-09-01 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260902` | 2026-09-02 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
+| `merged260827` | 2026-08-27 | yes | 964,009 | 2,040,555 | 2,997,600 | 5,946,477 | 9,837,612 | 5,366,066 | Domain_Data_Collection_Task_0827_Update.zip | db3451260defeedc06ff4091aaf5c4bcd4cef4beea9c1f5299bc054d1bab5b2f |
+| `merged260827-2` | 2026-08-27 | yes | 966,755 | 2,077,481 | 2,999,788 | 5,953,365 | 9,852,923 | 5,383,547 | Domain_Data_Collection_Task_0827_UpdateV2.zip | 3f1853a1f7e8bdf3ba02f48d498e4b753d2778c51728a560befc09f40fd8ab00 |
+| `merged260830` | 2026-08-30 | yes | 966,768 | 2,077,499 | 2,999,816 | 6,025,141 | 9,964,780 | 5,846,393 | Domain_Data_Collection_Task_0831_UpdateV2.zip | c29a7d8c58bf2c9ca57c4f399a47d99f18d6a5d263aea1f6bd3e4c6380d25347 |
+| `merged260901` | 2026-09-01 | yes | 979,994 | 2,161,231 | 3,119,897 | 6,345,942 | 10,705,102 | 10,536,760 | Domain_Data_Collection_Task_0901_UpdateV2.zip | cef4252c942127920d7ad414da46179aeb12bfa9adc9db6e6cfeea4068b526a0 |
+| `merged260902` | 2026-09-02 | yes | 980,829 | 2,176,285 | 3,158,358 | 6,469,427 | 10,993,896 | 12,893,608 | Domain_Data_Collection_Task_0902_Update.zip | 2abac74044921880e888681f5e451d4d57fff62fb125fa79b2fef6883802ba13 |
 | `merged260902-2` | 2026-09-02 | not received: totals from the reviewer's mail of 2026-09-02, superseded by `merged260902-3` | none | none | none | none | none | none | none | none |
-| `merged260902-3` | 2026-09-02 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
+| `merged260902-3` | 2026-09-02 | yes | 1,005,048 | 2,225,880 | 3,291,631 | 6,717,097 | 11,328,087 | 14,669,545 | Domain_Data_Collection_Task_0902_UpdateV3.zip | 1add3cf239812259c152ebeb77bb1936f520ce83c9d4ae4ea6efab20be1532f9 |
 <!-- /releases:table -->
