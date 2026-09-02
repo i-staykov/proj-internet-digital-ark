@@ -35,6 +35,17 @@ def _tree(where: Path) -> Path:
     return where
 
 
+def _blank_page() -> str:
+    """The tracked page's prose around a table nobody has filled yet.
+
+    The tracked table is filled from the real feedback/ tree, so a test that started from
+    it would read those cells instead of its own layout's.
+    """
+    head, _, tail = releases.split_page((ROOT / "docs/releases.md").read_text())
+    table = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])
+    return head + releases.BEGIN + "\n" + table + "\n" + releases.END + tail
+
+
 def _layout(tmp_path: Path) -> tuple[Path, Path, Path]:
     """One release with his zip beside it, one extracted with the zip gone."""
     feedback = tmp_path / "feedback"
@@ -46,7 +57,7 @@ def _layout(tmp_path: Path) -> tuple[Path, Path, Path]:
     (feedback / "feedback-phase-7/note.docx").write_bytes(b"not a release")
     zipless = _tree(feedback / "feedback-phase-4/merged260810")
     page = tmp_path / "releases.md"
-    page.write_text((ROOT / "docs/releases.md").read_text())
+    page.write_text(_blank_page())
     return feedback, zip_path, zipless
 
 
@@ -125,7 +136,7 @@ def test_filled_cells_survive_the_zip_leaving(monkeypatch, capsys, tmp_path):
 
 def test_absent_directories_print_and_leave_the_page(monkeypatch, capsys, tmp_path):
     page = tmp_path / "releases.md"
-    page.write_text((ROOT / "docs/releases.md").read_text())
+    page.write_text(_blank_page())
     stamp = page.stat().st_mtime_ns
     out = _run(monkeypatch, capsys, tmp_path)
     assert "feedback/ not found: would scan" in out
