@@ -142,7 +142,7 @@ Overlap with the baseline is **0 records**, so all 2,541,429 submitted count onc
 
 ## 7. Reproduction, and the four artifacts
 
-`README.md` in the archive gives the route and the file map. Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size.
+`README.md` in the archive gives the route and the file map. Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the seventeen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size.
 
 **D1** runnable code, dependencies and instructions: `source/source.tar.gz` at `source/COMMIT.txt`,
 with the research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`.
