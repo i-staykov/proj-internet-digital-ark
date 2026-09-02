@@ -299,6 +299,33 @@ def ingest_blocklist_hostnames_cmd(
     typer.echo(str(dict(totals)))
 
 
+@app.command(name="ingest-ripe-nserver-hostnames")
+def ingest_ripe_nserver_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="FUNET's `ripe.db.gz` (1999 snapshot) and `split/ripe.db.domain.gz` (2004).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the nameservers RIPE `domain:` objects point at.
+
+    `ark ingest ripe_dbase_1999` and `ripe_dbase_split_2004` record the delegated
+    names; this records the `*ns:` / `nserver:` hosts they name, dated by the same
+    stamps (the snapshot's header, the object's latest `changed:` line). Class
+    artifact_listing, under the RIPE NCC permission of 2026-08-26. Admitted 2026-09-02
+    under the standing rule. Idempotent per file.
+    """
+    from ark.hostnames import ingest_ripe_nserver_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_ripe_nserver_hostnames(conn, path)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

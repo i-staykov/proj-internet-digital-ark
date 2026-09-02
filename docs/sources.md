@@ -2073,3 +2073,80 @@ EE; chastity 10,929 hosts, 46 parked by the split, 5,615 net-new, 2,381.9 EE. **
 header and extraction loses it). The reusable point: **every banked list-shaped source that named
 hosts and was collapsed to registrables is a hostname-grain reopen at zero requests**; junkfilter,
 SpamEater and the hosts file are mail-sender lists and name registrables, so they are not.
+
+## `early_web_cdx_hostnames`: BANKED at 631,148.1 EE, and 99.9997% of it is the `www.` seam
+
+`https://archive.org/details/early-web_cdx-lang-cdxa`, 224 `*.cdx.gz` (184,858,264 B), on disk as
+`data/raw/early_web/` since July and banked then at registrable grain (line 173). **What dates one
+item is unchanged: the row's own 14-digit capture timestamp, field 2 of the classic CDX line,
+`uk,co,bucksnet,homepages)/ 19981202041041 http://homepages.bucksnet.co.uk:80/ text/html 200`,
+class `cdx_timestamp`, quoted in every evidence value.** `scripts/sources/early_web/early_web_hostgrain.py`
+re-emits each part as a `{url, timestamp}` journal (HTTP 200 rows, as the registrable ingest read
+them) and `ark ingest-hostnames data/raw/early_web_hostgrain/` fills `hostname_year`. Re-priced on
+the live store after the ingest, against both `hostname_year` and the reviewer's own `merged260901`
+files: 1,763,562 rows written, 599,946 verbatim in his file for that year and excluded, **1,163,616
+(hostname, year) records and 631,148.1 EE net-new, 1996-1999 only** (1996 47,933.4, 1997 38,094.5,
+1998 256,111.1, 1999 289,009.0; com 424,850.2, uk 49,027.7, org 37,508.9, net 28,872.9). The fleet's
+snapshot census (`early_web_cdx_hostname_grain`) reproduces to 0.01%. **The disclosure that decides
+what this is worth: 1,163,612 of the 1,163,616 records are `www.<held registrable>`.** His files
+carry Early Web's non-`www.` hosts by name (`ei.haygroup.com`, `frontpage.helicon.net` sit verbatim
+in his 1999 file, 1,489,119 non-`www.` multi-label names in that one file against 385 `www.` ones),
+so the baseline holds 99.9994% of the non-`www.` hostnames and the corpus is IA-derived (law 1)
+everywhere except the `www.` seam. Under the unit already shipped (the NYPW re-read was 93.6% `www.`
+forms) the figure stands; if his calculator strips `www.` it is 0, and the same answer reprices the
+4.2M NYPW `www.` records already delivered. Both readings go in the report, and the question goes to
+him with the delivery. Admitted by the loop under the standing rule. **The transferable point: any
+classic or NYPW-shaped CDX corpus on disk is a hostname-grain reopen at zero requests, and the
+first thing to measure is the `www.` share of what survives the baseline.**
+
+## `usfedgov_extract_hostnames`: BANKED at 21,925.9 EE, one bulk file instead of 48 million API rows
+
+`https://archive.org/download/USFEDGOV-EXTRACT-2001/USFEDGOV-EXTRACT-2001.cdx.gz`, 1,364,737,799 B,
+asserted byte-exact against `archive.org/metadata/USFEDGOV-EXTRACT-2001` before anything was read
+(collections earlygovweb / webdataservices / web, `access-restricted` unset, `archive.org/robots.txt`
+read whole, only `/control/` and `/report/` disallowed). A ZipNum merged index: concatenated gzip
+members under one `CDX N b a m s k r M S V g` header, 48,110,426 rows, every timestamp 2001, 33,631
+distinct hosts. **What dates one item is the capture timestamp on the row, `20011128173757`-form,
+written by the crawler at fetch time, class `cdx_timestamp`**, quoted in every evidence value with
+the Wayback replay of that capture as the URL. `scripts/sources/usfedgov/usfedgov_hostgrain.py`
+keeps one capture per (host, year), the earliest 200 or else the earliest of any status (a 4xx is
+still a dated answer from that host), and writes the journal `ark ingest-hostnames` reads. Re-priced
+on the live store after the ingest, against `hostname_year` and the reviewer's 2001 file: 31,218
+proper hostnames written, 8,801 verbatim in his file and excluded, **22,417 (hostname, 2001) records
+and 21,925.9 EE net-new**, gov 21,620.9; largest parents `lanl.gov` 10,110, `nist.gov` 4,126,
+`nasa.gov` 3,267, many of them workstation names captured as embed or link targets, which pass his
+validity rule and carry their own stamp, and which he discards at merge if he wants. The 176 parents
+not held at 2001 earn their year from the same rows (152.5 EE), which is the whole registrable-grain
+yield and confirms the two saturation closures at that grain (lines 1065, 1174). The 1996-2000
+sibling indexes (27.8 MB to 1.08 GB, same path, none access-restricted) are the same lane and
+unmeasured except 1996 at a ~475 EE ceiling. **Method worth keeping: for any `webdataservices` or
+`earlygovweb` item, pull the one merged `<item>.cdx.gz` and census it offline; the 1.7 MB
+`.cdx.idx` alone lists block-leading SURT keys, a free lower bound on distinct hosts before any
+large fetch.** Admitted by the loop under the standing rule.
+
+## `ripe_nserver_hostnames`: BANKED at 11,780.1 EE, the attribute both RIPE parsers skip
+
+`https://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz` (71,919,736 B, `Last-Modified: Tue, 03 Aug
+1999 21:27:00 GMT`) and `https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz`
+(5,452,546 B), both on disk and both banked for their delegated names (`ripe_dbase_1999`,
+`ripe_dbase_changed`, `ripe_dbase_split_2004`). **What dates one item is the same stamp each lane
+was decided on: the dump's own generation line `# 990804 00:07:01` for the snapshot (1999 only, rule
+6), and the object's latest `changed:` line, `changed: mx@lucky.net 20010716`, for the split
+edition, read as the registry stating that the object's nserver set stood as written in that
+year. Class `artifact_listing`, no split: a machine wrote it, the same instrument as the NS
+right-hand side of a zone file.** `*ns:` at registrable grain was closed on yield (line 916, 70.4
+EE) and the fleet's reprice reproduces that at 254 EE: 98% of the nameserver operators are held.
+That was the kill under the old unit and is the enabling condition under the new one.
+`ark ingest-ripe-nserver-hostnames` reads only the nameserver value, the object key and the trailing
+date of `changed:`, under the RIPE NCC's written permission of 2026-08-26, and
+`tests/test_ripe_nserver_hostnames.py` fails on a personal-data leak exactly as the registrable
+lanes' tests do; reverse-zone objects are kept because their nameservers are hosts the registry
+stated on the same day. Re-priced on the live store after the ingest, against `hostname_year` and
+the reviewer's files: snapshot arm 40,065 rows, 1,133 excluded, **38,932 (hostname, 1999) records,
+8,552.5 EE**; split arm 11,216 rows over 1996-2001, 307 excluded, **10,909 records, 3,227.6 EE**, of
+which 2000 and 2001 carry 2,573.6. Together **49,841 records, 11,780.1 EE**, net 2,647.8, com
+2,520.8, de 1,460.2, uk 686.9, it 675.5; largest parents `cnr.it` 127, `pair.com` 114, `uu.net` 64.
+The 1,232 parents not yet held earn their year from the same rows (442.9 EE), the fleet's
+registrable-unit figure. Admitted by the loop under the standing rule. **The reusable rule: when a
+file already banked on one attribute carries a second machine-written attribute naming
+infrastructure, reprice that attribute under the hostname unit before hunting a new file.**
