@@ -9,16 +9,20 @@ Every figure here is measured against the store, not projected, and says what it
 
 ## 1. The reusable technique
 
-**Re-price what is already on disk whenever the unit or a screen changes.** This round's
-increment is 3,078,204 equivalent-English, and about 2.5 million of it came from bytes the
-project already held and had written off, with no new request:
+**Re-price what is already on disk whenever the unit or a screen changes.** This round's increment
+is 13,670,343 equivalent-English, and 11.96 million of it, 87.5%, came from bytes the project
+already held and had written off, with no new request. The pattern is narrower than "re-read the
+artifact": in every case the payload was **a column the old counting unit discarded**.
 
-| held artifact | what changed | what it paid |
+| held artifact | the column that was being discarded | what it paid |
 |---|---|--:|
-| NYPW TimeMaps, closed at 14.2 EE on the 1996 folder | the novelty screen retired; the 1999 and 2000 folders were measured from the ingest ledger instead of argued about | ~88,000 EE registrable |
-| the same 34 parts | the reviewer accepted hostnames as records; the parts were re-emitted at hostname grain | 2,097,955 EE |
-| 180 domain-wide CDX sweep journals, logged as worth 0 | same unit change: `www.foo.co.uk` no longer collapses onto a held `foo.co.uk` | 301,650 EE |
-| the same 34 parts again | the parser had discarded every non-200 row; a 302 or 404 still needs the name delegated | 6,680 EE |
+| ISC Internet Domain Survey per-TLD host files, closed as "complete and fully held" at registrable grain | the host in each `IP hostname` line, not its parent | 9,167,369 EE |
+| NYPW TimeMaps, closed at 14.2 EE on the 1996 folder | first the other partitions, measured from the ingest ledger instead of argued about, then the captured host itself | ~88,000 EE registrable, then 2,097,955 EE |
+| IA Early Web CDX, banked in July for its registrables | the captured host, which is almost always a `www.` form | 631,148 EE |
+| six USFEDGOV merged CDX indexes | the captured host, one capture per host, read offline from bulk files | 39,340 EE |
+| 1997 InterNIC zone files, closed at 63 pairs on the nameserver side | the nameserver an NS record points at, distinct from the delegation | 11,861 EE |
+| the 1999 RIPE database snapshot, banked for its delegated names | the `nserver:` attribute both registrable parsers dropped | 11,780 EE |
+| two squidGuard blocklists, banked at registrable grain | the host each line names | 3,442 EE |
 
 Earlier rounds found the same shape: the 1999 RIPE snapshot re-read for its `changed:` lines paid
 58,398 EE, and the RDAP sibling-name generation paid 357,755 by asking about names invented rather
@@ -27,7 +31,15 @@ new licence, it is measured against the store as a control group, and it is wher
 
 ## 2. What worked
 
-- **One clear written objective, then unattended running.** Research runs as scheduled fleet lanes on a self-hosted runner (generator, researcher waves, re-opener, improver); the round's largest source was a generator proposal.
+- **One clear written objective, then unattended running.** Research runs as scheduled lanes on a
+  self-hosted runner (generator, researcher waves, re-opener, improver). The round's largest source
+  was a generator proposal, and six sources were admitted with no human in the loop under a rule
+  fixed in advance: class already master-eligible, machine stamp inside the artifact, terms read in
+  full, invariants pass. Two parked for a written decision, which is the rule working rather than
+  failing.
+- **Separating the agent that measures from the code that writes.** A researcher lane can never
+  touch the store; a separate admitter re-derives every figure locally before anything is banked.
+  Two agent-reported figures this round differed from the re-derivation, and the local number won.
 - **Detached collectors holding an absolute epoch deadline**, so they outlive the session. They kept
   collecting through a day when the agent could not be reached.
 - **Registry-generated artifacts over anything a person wrote.** Every large registrable addition in round 7 was a
@@ -47,8 +59,12 @@ new licence, it is measured against the store as a control group, and it is wher
 
 ## 3. What did not work
 
-- **Scheduled wake-ups.** The agent answered only some firings, so unattended progress was not reliable.
-- **A self-scheduling loop.** Tried once and it did not hold.
+- **Self-scheduled wake-ups inside one agent session.** Firings were answered unreliably, and the
+  fix was structural rather than better prompting: the schedule moved out to the runner's cron, and
+  the session-bound loop was retired.
+- **Letting a research wave and the banking step overlap.** A wave that picked its hypotheses while
+  the admitter was still writing verdicts re-tested six settled ones. Ordering, not effort: result
+  lines are now written and published before the admitter runs.
 - **Prose corpora, comprehensively.** Formal prose yields almost no URLs (5 in 3.26M words in one
   parliamentary corpus); grey literature yields 221x that rate and then fails on saturation at 93.0%
   already held. Both screens must pass and prose rarely passes the second.
@@ -84,6 +100,11 @@ Both dating routes err toward **under-claiming**. A capture proves presence and 
 year with no capture is unevidenced rather than empty; a creation date attests one year only. Neither
 can invent a year, so the mistake they make is omission.
 
+The one place the error could run the other way is the counting unit itself. A hostname is a valid
+record under the accepted rule and a reverse-DNS walk resolves dialup ports as readily as web
+servers, so a large part of this round is hosts that existed without being sites. That is disclosed
+per source rather than argued about, and it is the reviewer's call, not ours.
+
 A material share of archive requests fail at transport level rather than with a status code, which is
 throttling seen from the other side of the socket. And host survival correlates with refusal: the old
 mirrors that still run do so because an institution kept paying, and those operators are the population
@@ -118,6 +139,13 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 - **Spend models only where judgement pays.** Booking results is deterministic code now;
   models propose, test and admit. Cadence is earned from a per-run ledger of
   equivalent-English per token, under a hard weekly budget ceiling.
+- **Disclose the shape of what a unit change admits, in the same breath as the figure.** The
+  survey lane is real under the rule as written and two thirds of it is dialup and workstation
+  names; the Early Web lane is almost entirely `www.` forms. Both are quoted per source in the
+  evidence manifest so the reviewer can cut either with one filter, which is cheaper for him than
+  a defence would be.
+- **A closure is a hypothesis about a screen, not a fact about an artifact.** Of the seven rows in
+  section 1, six had a written closure against them. The re-opener exists because of that ratio.
 - **Keep the raw rows.** A sweep that writes `{url, timestamp}` lines and a separate
   ingest that decides what a row is worth cost nothing extra on the day and paid the
   whole hostname unit later. A collector that canonicalises on write destroys that option.

@@ -13,7 +13,7 @@ the English page-language share of its right-most TLD (`foo.uk` 0.9813, `foo.de`
 ```
 GitHub Actions fleet (private repo, self-hosted runner on a small VPS)
    generator, on a schedule ........ proposes hypotheses from the register and the store
-   researcher waves, twice daily ... screen and price them; findings land as artifacts
+   researcher waves, four times daily  screen and price them; findings land as artifacts
    re-opener, daily ................ re-reads closed verdicts when a measurement screen retires
    improver ........................ tunes prompts and model choice from per-run telemetry
    weekly digest ................... one page of yield, cost and recommendations
