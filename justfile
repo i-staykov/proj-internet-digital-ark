@@ -331,6 +331,10 @@ sources:
     uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
     uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
     uv run ark ingest-hostnames data/raw/usfedgov_hostgrain/ | tail -1 || true
+    # Two more admitted 2026-09-02: the USFEDGOV-EXTRACT 1996-2000 sibling indexes go
+    # through the same hostgrain script into the same journal directory, and the ISC
+    # survey per-TLD host files are read one level below the registrable `isc_survey` took.
+    uv run ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz | tail -1 || true
     # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
     # The collector runs first because the bytes are not kept in git.
     uv run python scripts/sources/registries/collect_granitecanyon.py

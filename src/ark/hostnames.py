@@ -890,3 +890,177 @@ def ingest_ripe_nserver_hostnames(
     )
     logger.info(str(stats))
     return stats
+
+
+# The fifth hostname corpus: the per-TLD host lists of the Network Wizards / ISC
+# Internet Domain Survey, banked at registrable grain since July as `isc_survey`
+# (14,956 EE, the best 1996-1997 source in the project) and "complete and fully held"
+# at that grain (register, 2026-08-25). Every line is `IP hostname`, the PTR walk's
+# own record of a host that answered in DNS during the survey month, and the
+# registrable collapse threw away 98% of the rows: the fleet's census of five 9607
+# files (2026-09-02) found 100% of parents held at 1996 and 98.2% of the hosts absent
+# from both the store and the reviewer's own 1996 file. Same bytes, same `YYMM`
+# survey stamp, same `artifact_listing` class the reviewer confirmed in writing on
+# 2026-07-24. The `.domains` lists hold registrables only and belong to `isc_survey`.
+ISC_SOURCE_NAME = "isc_survey_hostnames"
+ISC_METHOD = "isc_survey_host_list"
+_ISC_HOST_FILE = re.compile(r"^wb_nw_(9\d{3})_([a-z0-9-]+)\.gz$")
+
+
+def isc_survey_hosts(path: Path, counts: Counter[str]) -> dict[str, str]:
+    """hostname -> parent registrable for every host one survey file lists.
+
+    The last whitespace token is the host, as `parse_isc_survey` reads it. Underscore
+    NT names and other non-RFC-1123 shapes are refused, exactly as the journal ingest
+    refuses them; a host that IS its own registrable is `isc_survey`'s row, not ours.
+    """
+    from ark.sources import _open_text
+
+    parents: dict[str, str] = {}
+    with _open_text(path) as fh:
+        for line in fh:
+            tokens = line.split()
+            if not tokens:
+                continue
+            counts["lines"] += 1
+            host = tokens[-1].rstrip(".").lower()
+            if host in parents:
+                counts["duplicate_line"] += 1
+                continue
+            if not _VALID_HOST.match(host):
+                counts["rejected_host"] += 1
+                continue
+            reg = to_registrable(host)
+            if reg is None:
+                counts["rejected_host"] += 1
+            elif reg == host:
+                counts["registrable_row"] += 1
+            else:
+                parents[host] = reg
+    return parents
+
+
+def ingest_isc_hostnames(
+    conn: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, int | str | bool]:
+    """One ISC survey host file's sub-registrable hosts into hostname_year, idempotently."""
+    from ark import approvals
+    from ark.sources import _isc_survey_date
+
+    stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    match = _ISC_HOST_FILE.match(path.name)
+    if match is None:
+        stats["not_a_host_file"] = 1
+        logger.info(f"{path.name}: not a per-TLD host file, skipping")
+        return stats
+    already = conn.execute(
+        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
+        [ISC_SOURCE_NAME, path.name],
+    ).fetchone()[0]
+    if already:
+        stats["skipped"] = True
+        logger.info(f"{path.name}: already ingested, skipping")
+        return stats
+    dated = _isc_survey_date(path.name)
+    if dated is None or dated[0] not in YEARS:
+        stats["out_of_window_file"] = 1
+        logger.info(f"{path.name}: survey month outside the window, skipping")
+        return stats
+    year, survey = dated
+    approvals.check(ISC_SOURCE_NAME, "artifact_listing")
+    code, tld = match.group(1), match.group(2)
+    # The artifact's own published address; the bytes on disk are its Wayback copy and
+    # `scripts/sources/directories/fetch_nw_host_files.py` records how they were taken.
+    artifact_url = f"http://nw.com/zone/{code}.hosts/{tld}.gz"
+    counts: Counter[str] = Counter()
+    parents = isc_survey_hosts(path, counts)
+    prefix = f"isc survey {survey} host "
+    rows = [(host, parents[host], year, prefix + host) for host in sorted(parents)]
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    if rows:
+        source_id = ensure_source(conn, ISC_SOURCE_NAME, "timestamped")
+        conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS ischost "
+            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
+        )
+        conn.execute("DELETE FROM ischost")
+        # A survey file runs to 1.3 million hosts, so the rows go in as one relation
+        # rather than one prepared statement each.
+        conn.register("ischost_rows", _as_arrow(rows))
+        conn.execute("INSERT INTO ischost SELECT * FROM ischost_rows")
+        conn.unregister("ischost_rows")
+        conn.execute(
+            r"""
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+            FROM ischost
+            """,
+            [source_id],
+        )
+        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                  evidence_value, evidence_url, acquisition_method)
+            SELECT i.parent, ?, i.year, 'artifact_listing', i.value, ?, ?
+            FROM ischost i
+            LEFT JOIN hostname_year hy
+              ON hy.hostname = i.hostname AND hy.assigned_year = i.year
+            WHERE hy.hostname IS NULL
+            """,
+            [source_id, artifact_url, ISC_METHOD],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hostname_year
+                (hostname, parent_domain, assigned_year, evidence_id)
+            SELECT i.hostname, i.parent, i.year, e.evidence_id
+            FROM ischost i
+            JOIN evidence e
+              ON e.domain = i.parent AND e.evidence_year = i.year
+             AND e.evidence_value = i.value
+            """,
+        )
+        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        stats["hostname_year_rows"] = after - before
+        # The survey answering for `pc50.foo.co.uk` that month is the same observation
+        # of foo.co.uk, so the parent earns its year from the same row, as the check
+        # `nothing_earned_is_left_unassigned` requires. Every parent is already held
+        # at registrable grain by construction: `isc_survey` read these same lines.
+        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+            SELECT e.domain, e.evidence_year, min(e.evidence_id)
+            FROM evidence e
+            JOIN ischost i ON e.domain = i.parent AND e.evidence_year = i.year
+             AND e.evidence_value = i.value
+            GROUP BY e.domain, e.evidence_year
+            """,
+        )
+        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        stats["parent_year_rows"] = dy_after - dy_before
+        conn.execute("DELETE FROM ischost")
+    else:
+        stats["hostname_year_rows"] = 0
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?)",
+        [ISC_SOURCE_NAME, path.name, _sha256(path), stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats
+
+
+def _as_arrow(rows: list[tuple[str, str, int, str]]):  # noqa: ANN202 - pyarrow.Table
+    import pyarrow as pa
+
+    return pa.table(
+        {
+            "hostname": [r[0] for r in rows],
+            "parent": [r[1] for r in rows],
+            "year": pa.array([r[2] for r in rows], type=pa.int32()),
+            "value": [r[3] for r in rows],
+        }
+    )

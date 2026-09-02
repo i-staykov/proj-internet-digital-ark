@@ -343,6 +343,44 @@ Decision: master
 
 Decision: master
 
+### isc_survey_hostnames / artifact_listing
+
+- ingest: `ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz`, the per-TLD host files
+  of the Network Wizards / ISC Internet Domain Survey, the exact bytes `isc_survey` was banked on
+  in July (584 files on disk, 9607, 9701 and 9707 editions), read one level below the registrable:
+  every line is `IP hostname`, the PTR walk's record of a host answering in DNS that month, and
+  the registrable ingest kept only the host's parent. `.domains` lists are skipped by name
+- source: http://nw.com/zone/9607.hosts/uk.gz and siblings, through the 1996-1997 Wayback
+  captures of `nw.com` (`scripts/sources/directories/fetch_nw_host_files.py` lists them from one
+  CDX prefix query and fetches each `id_` replay; the fleet reached the same files through
+  `archive.org/wayback/available`, e.g.
+  `http://web.archive.org/web/19970529075101id_/http://nw.com.:80/zone/9607.hosts/uk.gz`,
+  4,105,718 B, byte-identical to `wb_nw_9607_uk.gz` on disk)
+- measured: see the re-pricing below, written after the ingest
+- what dates one item: the survey's own `YYMM` edition code, `9607` in the artifact's path
+  `/zone/9607.hosts/uk.gz` and in every file of the edition, quoted in every evidence value as
+  `isc survey 1996-07 host <hostname>`; the reviewer confirmed in writing on 2026-07-24 that a
+  dated DNS survey enters the annual files directly on exactly this stamp, and the Wayback capture
+  stamp (`19970529075101`) fixes that the file existed then. Same evidence, same class, same
+  decision the registrable lane stands on; the hostname unit did not exist until 2026-09-01
+- the registrable lane was closed as "complete and fully held" (register line 1144, 14,956.4
+  EE banked, 0 parents missing at their year); the fleet's census (`isc_survey_host_files_hostname_grain`,
+  2026-09-02) read five 9607 files whole and found 100% of parents held at 1996 and 98.2% of the
+  valid hosts absent from both the store and the reviewer's 1996 file: 818,952 EE on the clean
+  shapes alone, 2,352,584 EE with the dialup and numbered-label shapes. The disclosure that
+  decides what this is worth: a large share of the hosts are per-customer dialup and workstation
+  names (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one
+  file). They are real hosts the walk resolved, pass the reviewer's validity rule and carry the
+  edition's stamp, and he discards at merge what he does not want, which is his stated
+  procedure; the shape split is quoted in the report so he can do that by eye
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, master
+  for these exact bytes since July; the stamp is the survey edition code the artifact carries in
+  its own path and the reviewer accepted in writing, quoted above; the terms are the Wayback
+  public replay of a site the survey published openly, already read for the registrable lane;
+  `ark check` passes after the ingest with both hostname-wall checks
+
+Decision: master
+
 ### ripe_nserver_hostnames / artifact_listing
 
 - ingest: `ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz
@@ -873,6 +911,77 @@ one line reverses this and the ingest is one `ark ingest` re-run.**
 
 ## Pending requests
 
+### arin_inaddr_ns_hostnames / artifact_listing
+
+- the fleet's probe (2026-09-02, `inaddr_reverse_tree_ns_hostnames_1997_1999`): APNIC's tar of
+  its own BIND slave directory holding ARIN's twelve in-addr.arpa /8 zones,
+  https://ftp.apnic.net/apnic/arin/arin.zones.tar.gz (405,696 B, directory mtime 1999-02-03,
+  `ftp.apnic.net/robots.txt` is a 404), read whole: 194,400 NS records, 8,805 distinct
+  nameserver hostnames, all valid, under 5,591 registrables of which 5,412 (96.8%) are held at 1999
+- measured by the fleet against the ark-data sync of 2026-09-02 01:09:45, NOT re-priced on the
+  live store (the bytes were deleted with the run): **7,232 novel (hostname, 1999) records absent
+  from the store and the reviewer's 1999 file, 4,543.3 EE, plus 179 unheld parents at registrable
+  grain, 112.2 EE: 4,655.5 EE**. By TLD com 2,008.8, net 914.2, ca 519.5, edu 357.6, us 201.9. The
+  names are the operator estate (`ns1.`, `dns.`, `gw.` hosts of every organisation delegated a
+  reverse block), only 6.7% verbatim in his 1999 file because a web crawl never fetches a
+  nameserver. Re-priced at 1998 on the SOA serial instead: 7,499 novel, 4,679.2 EE, an alternative
+  reading and never both. The 1997 InterNIC remainder (`mil`, `root`, `arpa` zones) adds 2.9 EE
+  over `zone_ns_glue_hostnames` and is closed
+- what dates one item: BIND 8's own transfer comment at the head of each zone member,
+  `; from 192.149.252.21   at Thu Jan  7 12:18:51 1999`, written by `named` when the AXFR
+  completed (eleven stamps, all 1999-01-07 12:18 to 12:37), with SOA serial `1998111700` in every
+  zone and tar member mtimes 1999-02-02: the nameserver named in the zone was delegated-to on that
+  day, year 1999, class `artifact_listing`, the class decided master for zone bytes on 2026-08-24
+- **condition 3 of the standing rule fails: the terms are not held.** The tarball is ARIN's data on
+  APNIC's host and carries no notice of its own; APNIC's bulk-access AUP (register line 904 read it
+  as permitting "Internet research and analysis") covers `/apnic/whois/`, not `/apnic/arin/`, and
+  two guesses at APNIC's website terms URL were 404. Conditions 1, 2 and 4 would hold: the class is
+  master for zone files, the stamp is quoted above, and the ingest is one `{url, timestamp}`-shaped
+  journal away from `ark ingest-hostnames`. Register line 904 closed the same file at 99.7 EE on the
+  registrable grain and left the terms unread because that figure did not justify it; 4,655 EE
+  does. What settles it is one mail to the APNIC helpdesk, or ARIN's own position on
+  redistribution of historical in-addr zone data (ARIN publishes the current zones openly). Nothing
+  else on that host: the directory has been frozen since 1999, one file
+- potential: 4656
+
+Decision: pending
+
+### usenet_body_pasted_hostnames / link_source
+
+- the fleet's probe (2026-09-02, `usenet_pasted_machine_blocks_hostname_grain`): FQDNs inside the
+  BODY of archive.org Usenet mbox exports, headers skipped, in `dig` and `nslookup` answers, zone
+  and config snippets, signatures and log excerpts, at hostname grain. Artifacts
+  https://archive.org/download/usenet-comp/comp.protocols.dns.bind.mbox.zip (67,183,510 B, 103,050
+  messages, 45,344 in window) and `comp.dcom.sys.cisco.mbox.zip` (108,989,162 B, 34,231 in window,
+  with a 1997-1999 hole in the copy); `archive.org/robots.txt` read whole
+- measured by the fleet against the ark-data sync of 2026-09-02 01:09:45, NOT re-priced on the
+  live store (zips deleted with the run): bind group, 19,711 (host, year) rows over 7,835 distinct
+  registrables, 81.6% of parents held at the post year, 15,165 rows with the parent held AND the
+  hostname absent from the store and the reviewer's file, 8,939.0 EE gross; a placeholder-label
+  screen (example, domain, foo, acme, bogus and kin) removes 2,844 rows, leaving 12,321 rows and
+  7,157.4 EE, and a 60-name sample of the survivors still holds ~13% fictitious config examples
+  (`foohost.foobar.com`, `mail.bogus.com`, `ns-2.domainb.net`), so **the quotable figure is ~6,200
+  EE for the one group**, of which the machine-answer lane (`dig`/`nslookup` output, 6,744 rows)
+  is 2,477.0 EE and the human-pasted lane (config, signatures, logs) 4,651.1 EE. The cisco group
+  paid 300.1 EE gross: yield is group-specific by 22x and follows the density of `IN (NS|A|MX)`
+  lines. The traceroute lane the hypothesis led with is under 30 EE per group
+- what dates one item: the post's own `Date:` header, the stamp the approved Usenet body classes
+  use, with the hostname riding the corroboration split on its held parent
+- **condition 1 of the standing rule fails: no master-eligible class covers a human-pasted hostname
+  at hostname grain.** The banked Usenet body classes (`usenet_address`, `usenet_announce`,
+  `usenet_bare`) date REGISTRABLES a human typed, and there the corroboration split is what guards
+  against fiction and typos: a name nobody else has dated earns no year. At hostname grain the
+  split cannot do that job, because `mail.bogus.com` passes on `bogus.com` being held while
+  `mail.bogus.com` never existed, and the fleet measured ~13% such names among the survivors of
+  its screen. Reading the split as satisfied by the parent is a new reading Ivo has not made, and
+  the reviewer's 2026-09-01 update lists dated Usenet copies among sources unsuitable for further
+  work. Condition 4 also fails: no journal exists. The `dig`/`nslookup` lane is machine-written
+  output a human pasted, and could be put to him separately at 2,477 EE if he rules the body
+  lane out
+- potential: 6200
+
+Decision: pending
+
 ### dartmouth_nber_arcs_hostnames / cdx_timestamp
 
 - the fleet's probe (2026-09-02, `dartmouth_captures_hostname_grain`): the 282 public per-item
@@ -966,6 +1075,16 @@ Decision: pending
   The second probe does not move either condition: it widens the ask to two rulings, whether a
   server-written header host is split-free `link_source`, and separately whether a client-written
   `Message-ID` host is evidence at all. Issue 2 on ark-fleet carries the block
+- third fleet probe, 2026-09-02 (`usenet_uk_and_edu_header_fqdns`), on a second ISP population:
+  `uk.comp.os.win95.mbox.zip` and `uk.comp.misc.mbox.zip` from https://archive.org/download/usenet-uk/
+  (27.7 and 28.0 MB, 121,038 messages), headers only, against the ark-data sync of 2026-09-02:
+  **3,662 novel stable server-written (hostname, year) pairs, 2,537.3 EE** as a union of the two
+  groups (uk 1,265.9, com 583.4, net 394.1; 2001 1,033.8), the second group retaining 73% of the
+  first's yield; Message-ID priced separately at 134 and 293 EE and excluded. A tighter pool-shape
+  filter would shrink the stable figure 10 to 15%. The `.edu` lane (`comp.sys.sun.wanted`) is
+  1,433.2 EE of which only 216.7 is `.edu`, mostly news server names that saturate within tens of
+  groups. Honest band for the 495-zip uk.* hierarchy 50,000 to 150,000 EE, a labelled guess. Same
+  two conditions still fail; not re-priced on the live store; no new issue, issue 2 stands
 - potential: 6877
 
 Decision: pending
