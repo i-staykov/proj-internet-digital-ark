@@ -93,17 +93,18 @@ bash verify.sh
 ```
 
 It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure.
-**Eight checks.** The first four are the result and the evidence behind it: every file against
+**Eleven checks.** The first six are the result and the evidence behind it: every file against
 `SHA256SUMS`, the annual addition files and their counts, every added pair present in
-`additions/evidence_manifest.csv`, and every assignment in the Parquet provenance resolving to an
-evidence row shipped beside it. Checks 5 to 8 are the four artifacts of the section above, D1 to D4:
-that the code snapshot carries its dependency manifest and lockfile, that the experience summary
-covers every topic asked for, that every reconciliation check in the merge audit passed and that the
-audit agrees with `additions/` on the record count, and that **the reviewer's own calculator, run
-from inside this archive, reproduces the audit's baseline figure**.
+`additions/evidence_manifest.csv`, the hostname files and their counts (disjoint from
+`additions/`), every hostname traced to a capture, and every assignment in the Parquet provenance
+resolving to an evidence row shipped beside it. Checks 7 to 11 are the four artifacts of the
+section above, D1 to D4: that the code snapshot carries its dependency manifest and lockfile, that
+the experience summary covers every topic asked for, that every reconciliation check in the merge
+audit passed and that the audit agrees with the shipped files on the record count, and that **the
+reviewer's own calculator, run from inside this archive, reproduces the audit's baseline figure**.
 
-It prints SKIP where the thing a check examines is not in the archive, and says which of the eight
-failed rather than only that something did. Check 8 needs a writable extraction, because it runs the
+It prints SKIP where the thing a check examines is not in the archive, and says which of the eleven
+failed rather than only that something did. The last check needs a writable extraction, because it runs the
 calculator into `audit/` and cleans up after itself.
 
 To look up why a single domain is in a given year, no database needed, only

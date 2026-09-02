@@ -152,4 +152,4 @@ corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
 | **D3** | merge and dedup code, overlap, reconciliation | section 7, `source/scripts/round/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your program vendored unmodified, explained in `metric-explained.md` |
 
-`verify.sh` runs ten checks inside a fresh extraction, including all four.
+`verify.sh` runs eleven checks inside a fresh extraction, including all four.
