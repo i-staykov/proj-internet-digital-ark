@@ -158,7 +158,7 @@ corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
 
 `README.md` in the archive gives the order: `masters/`, `additions/`, `hostnames/`,
 `candidates.txt`, `provenance/*.parquet` (every assignment joined to its evidence row), `logs/`.
-Before sending, a fresh copy of this archive was extracted and put through that route: all ten `verify.sh` checks pass; the tier-2 rebuild from `provenance/` reproduces every per-year count, passes all fifteen invariants, and returns all twenty-one result files (six annual additions, six hostname files, six masters, two evidence manifests, the candidate list) byte-identical to the ones shipped. The first rehearsal caught a defect (the hostname export resolved the baseline through a repository-only path when run inside the archive); it was fixed and the rehearsal rerun clean. Tier 3, the full replay, was not run: it is a roughly 50 GB download and five journal sets are held out of the archive on size.
+Before sending, a fresh extraction of this archive was put through that route: all ten `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with five journal sets held out of the archive on size.
 
 | | asked for | where it is |
 |----|------------------|------------------------------------------|
