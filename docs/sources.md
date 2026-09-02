@@ -190,6 +190,35 @@ archive, so its 2.28M evidence rows serve as corroboration.
 ---
 
 
+## The hostname purpose rule, 2026-09-02
+
+The reviewer's acceptance of hostnames (2026-09-01) says why he wants them: "our downstream objective
+is to retrieve historical webpages as completely as possible", a domain-wide CDX query "can expose
+many subdomain websites", and his three examples are sites. A first build counted every valid
+hostname with a dated observation and 67% of its EE was names that pass that letter and serve the
+purpose nothing. Two conditions were added, enforced at ingest and by the invariants
+`hostname_observed_serving_web` and `hostname_is_not_the_parent_www`:
+
+- **the observation must show the host serving web content**: a capture of a URL on it or a URL
+  listing naming it. Lanes: `ia_cdx_hostnames`, `early_web_cdx_hostnames`,
+  `usfedgov_extract_hostnames`, `squidguard_2001_hostnames`, `chastity_list_hostnames`. A DNS listing
+  (ISC reverse walk, RIPE `nserver:`, InterNIC NS target) dates the parent and writes no hostname row;
+- **`www.<parent>` is not a record**: it is the registrable's own site and its capture dates the
+  registrable, which the ingest already did.
+
+`scripts/round/apply_hostname_purpose_rule.py` applied both to the store as first built: 28,069,111
+hostname rows, 23,381,935 removed (18,219,285 DNS-listed across the three lanes, 5,162,650
+`www.<parent>` across five), 4,687,176 kept, evidence untouched. The corresponding shipped figures
+before the rule were 25,598,889 hostname records and 13,340,945.6 EE against `merged260901`; after
+it, and against `merged260902`, the round ships 1,917,606 hostname records and 1,129,415.6336 EE
+(IA domain sweeps 956,099; NYPW 70,937; Early Web 65,026; USFEDGOV 34,726; the two URL blocklists
+2,628), beside 623,823 registrables and 328,847.5752 EE.
+
+The reviewer's 0902 brief, received the same day, says that a domain-wide query may return the base
+hostname and every qualifying subdomain and that overlap is removed downstream. The `www.<parent>`
+hold-out is therefore narrower than his text, disclosed as such in the report, and the rows are
+recoverable from the kept evidence with one filter.
+
 ## `ia_cdx_hostnames`: hostname records from Wayback CDX domain sweeps
 
 The second output unit, accepted by the reviewer on 2026-09-01 (his reply, verbatim, in
@@ -2043,7 +2072,10 @@ store's own growth, and the hypothesis that inbound public mail beats outbound o
 refuted with the sign reversed, `From:` 1,235.4 EE against `To:`/`Cc:` 1,410.3 EE, because the
 public writes in from AOL rather than from a domain it owns.
 
-## `internic_zone_hostnames`: BANKED at 11,860.7 EE, the column the zone parser threw away
+## `internic_zone_hostnames`: HELD OUT at hostname grain 2026-09-02 (had exported as 11,860.7 EE), the column the zone parser threw away
+
+**Status.** An NS target observes a nameserver, not a site: 20,835 hostname rows removed under the
+purpose rule, parents still dated. Entry kept as written at admission.
 
 `https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz` (1,317,986 B),
 `.../19970420112952id_/http://nic.mil/oroot.html/edu.zone.gz` (111,076 B) and
@@ -2115,7 +2147,13 @@ him with the delivery. Admitted by the loop under the standing rule. **The trans
 classic or NYPW-shaped CDX corpus on disk is a hostname-grain reopen at zero requests, and the
 first thing to measure is the `www.` share of what survives the baseline.**
 
-## `isc_survey_hostnames`: BANKED at 9,167,369.2 EE, the column the registrable unit threw away
+## `isc_survey_hostnames`: HELD OUT at hostname grain 2026-09-02 (had exported as 9,167,369.2 EE), the column the registrable unit threw away
+
+**Status.** Ingested and then removed from `hostname_year` under the purpose rule below: a reverse-DNS
+walk observes a machine answering, not a site, and 65% of these names are dialup or workstation
+shapes for which no archived page can exist. The 18,147,169 rows still date their parents; the lane
+is one line (`WEB_FACING_HOST_SOURCES`) to restore if the reviewer rules DNS listings count. The
+entry below is kept as written at admission.
 
 `http://nw.com/zone/9607.hosts/uk.gz` and its siblings, through the 1996-1997 Wayback captures of
 `nw.com` (for example
@@ -2173,7 +2211,10 @@ recomputed from the shipped manifest. **Method worth keeping: for any `webdatase
 `.cdx.idx` alone lists block-leading SURT keys, a free lower bound on distinct hosts before any
 large fetch.** Admitted by the loop under the standing rule.
 
-## `ripe_nserver_hostnames`: BANKED at 11,780.1 EE, the attribute both RIPE parsers skip
+## `ripe_nserver_hostnames`: HELD OUT at hostname grain 2026-09-02 (had exported as 11,780.1 EE), the attribute both RIPE parsers skip
+
+**Status.** An `nserver:` attribute observes a nameserver, not a site: 51,281 hostname rows removed
+under the purpose rule, parents still dated. Entry kept as written at admission.
 
 `https://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz` (71,919,736 B, `Last-Modified: Tue, 03 Aug
 1999 21:27:00 GMT`) and `https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz`

@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 4/merged260901")
-CURRENT_BASELINE_MARKER = "merged260901"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 5/merged260902")
+CURRENT_BASELINE_MARKER = "merged260902"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,16 +61,21 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 33_848_926
-REVIEWER_BASELINE_EE = Decimal("17770588.9026")
+REVIEWER_BASELINE_PAIRS = 36_672_403
+REVIEWER_BASELINE_EE = Decimal("19239935.8548")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260901` file
+# by running his own `equivalent_english_domains.py` over each `merged260902` file
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **`merged260901` is the platform-hostname release, and it changed the game's scale.**
+# **`merged260902` followed one day later with +2,823,477 records and +1,469,347 EE**, of
+# which 2001 alone took +1,249,752 EE (12.89M records): the same platform-hostname wave,
+# still landing. The 5% trigger is now 961,996.8 EE. The paragraph below describes the
+# 0901 step and stays because it is what changed the scale.
+#
+# **`merged260901` was the platform-hostname release, and it changed the game's scale.**
 # One day after `merged260830` it adds +4,690,367 records at 2001 alone (5.85M to
 # 10.54M), +740,322 at 2000 and +320,801 at 1999, almost entirely third-level hostnames
 # under mass-hosting platforms: the very workflow Ding's 0901 update added to the brief.
@@ -80,12 +85,12 @@ REVIEWER_BASELINE_EE = Decimal("17770588.9026")
 # the 5% trigger moved from 726,573 to 888,529 EE. Figures from his own calculator run
 # over each file of the release.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("566864.3516"),
-    1997: Decimal("1191421.9175"),
-    1998: Decimal("1599996.5265"),
-    1999: Decimal("3164484.0222"),
-    2000: Decimal("5496037.6154"),
-    2001: Decimal("5751784.4694"),
+    1996: Decimal("567250.0378"),
+    1997: Decimal("1197682.2794"),
+    1998: Decimal("1617052.4931"),
+    1999: Decimal("3219353.6388"),
+    2000: Decimal("5637061.3711"),
+    2001: Decimal("7001536.0346"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -219,10 +224,10 @@ SUBMITTED_ROUNDS = (
 ROUND_ONE_IS_RECORD_BASED = "1"
 
 # The current round's own two timestamps, for the same arithmetic. The release date is
-# his mail of 2026-09-01 carrying `merged260901` (link `202609016r5migxo`); the receipt
+# his mail of 2026-09-02 carrying `merged260902` (`..._0902_Update.zip`); the receipt
 # date is filled at send time and defaults to today, so an unsent round reads as if it
 # went out now rather than silently scoring itself faster than it will be.
-CURRENT_BASELINE_RELEASED = "2026-09-01"
+CURRENT_BASELINE_RELEASED = "2026-09-02"
 
 # The competition RANKING score, which is not the cumulative percentage and is the number
 # that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with

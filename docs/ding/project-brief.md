@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/Internet_Digital_Ark_Project_0901_Update.docx` |
-| sha256 | `19e53f6110679e6aaa68b48dc6d1b798c2477b651b7508c3545779e9d6570b1a` |
-| delivered in | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
-| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/feedback-phase-7/Domain_Data_Collection_Task 5/Internet_Digital_Ark_Project_0901_Update.docx` |
+| sha256 | `a4fee12fea5d55dbcde249756ee0f11f7adb54a098aa76a016e922b14b4f51bf` |
+| delivered in | `feedback/feedback-phase-7/Domain_Data_Collection_Task 5/`, from Domain_Data_Collection_Task_0902_Update.zip (2026-09-02) |
+| transcribed | 2026-09-02 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
@@ -96,7 +96,7 @@ The following rules have the highest priority. All subsequent methods must compl
 
 7.  The annual files are not limited to the year in which a domain first appeared. If factual evidence or a year-specific acquisition method independently demonstrates that a domain actually existed, was in use, or was active in multiple target years, the domain must appear in every annual file for which that status has been established. Cross-year duplication is therefore permitted and necessary. Deduplication is required within each year, not across different years. Every annual inclusion must have evidence for that year; the date of first appearance alone must not be used to infer presence in later years.
 
-8.  Counting and output unit: The annual master files use the normalized valid hostname, consistent with the fixed hostname regex and the supplied benchmark. A registrable-domain roll-up may be delivered as an optional secondary analysis, but it must not replace evidence-backed hostnames in the annual master files. A hostname such as foo.example.com may be included when that specific hostname has qualifying annual evidence. Paths, user identifiers embedded in URLs, ports, and other non-hostname fragments are never annual records.
+8.  Counting and output unit: The annual master files use the normalized valid hostname, consistent with the fixed hostname regex and the supplied benchmark. No distinction is made between a registrable domain and a qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records when each specific hostname has qualifying annual evidence. A registrable-domain roll-up may be delivered as an optional secondary analysis, but it must not replace evidence-backed hostnames in the annual master files. Paths, user identifiers embedded in URLs, ports, and other non-hostname fragments are never annual records.
 
 9.  An existing filename such as `1996.txt` represents the domains obtained to date for which there is evidence of actual existence, use, or activity during the period from 00:00:00 on January 1, 1996, through 23:59:59 on December 31, 1996. The same standard applies to every other annual file.
 
@@ -216,9 +216,11 @@ The final delivery must include more than several TXT files. It must document ho
 
 **VIII. High-Density Platform Hostname Discovery and Source-Saturation Learning**
 
-- Platform-hostname discovery is a reusable intelligent discovery method for sources in which many distinct sites are represented as subdomains. Start from the current annual benchmark, identify registrable platform domains with high distinct-hostname density, and prioritize those domains as query seeds. This is a hypothesis-generation step: measured hostname density is used to prioritize the next discovery actions rather than to infer that any hostname existed in a target year.
+- Platform-hostname discovery is a reusable intelligent discovery method for sources in which many distinct sites are represented as subdomains. Continue to prioritize discovery of previously unseen registrable domains and platform domains as high-value query seeds, while retaining every distinct qualifying hostname discovered under them. Measured hostname density is used to prioritize the next discovery actions rather than to infer that any hostname existed in a target year.
 
 - For an archive CDX source, query each selected platform separately for each target year using a domain-wide hostname query. Apply a root-capture-oriented filter where supported so that result capacity is spent discovering distinct hosts instead of repeated deep paths on a small number of hosts. Per-year queries are required: a multi-year query with URL-key collapse can undercount later-year presence. A returned hostname may enter only the annual file corresponding to the year of its retained capture.
+
+- Completeness before capture-level deduplication: A domain-wide CDX query is permitted to return the base hostname and all qualifying subdomain hostnames so that historical pages are not missed. Queries or captures may overlap when an individual hostname is also queried separately. Preserve distinct evidence-backed hostnames in the annual master files, then remove redundant downloaded pages during later processing using normalized extracted text and a reproducible content-deduplication method.
 
 - This method is appropriate for subdomain-based community and hosting platforms. It is not a shortcut for path-based services: strings such as /~user/ are paths rather than hostnames and cannot be promoted to annual records merely because they appear in an archived URL.
 
