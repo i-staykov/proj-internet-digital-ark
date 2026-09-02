@@ -106,7 +106,6 @@ def test_every_script_has_a_caller() -> None:
 
 
 @needs_git
-@pytest.mark.xfail(strict=True, reason="lifted by E4.1")
 def test_every_docs_page_is_in_the_index() -> None:
     """Every tracked `docs/*.md` is named in `docs/index.md`."""
     index = ROOT / "docs" / "index.md"

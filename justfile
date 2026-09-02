@@ -59,6 +59,13 @@ check-data:
 state *args:
     uv run python scripts/round/build_round_state.py {{args}}
 
+# Where the round stands in thirty lines, read from the snapshot that `just state`
+# (so also `just cycle` and `just bank`) leaves in data/brief.json, plus
+# private/handoff.md when the last session wrote one. Never opens the store or
+# runs ssh, so a session-start hook can call it inside its timeout.
+brief:
+    uv run python scripts/agents/brief.py
+
 # The reviewer's first priority in one command: unprocessed files, globs that
 # match too little, downloaded bytes with no parser, and derived lists a newer
 # baseline has invalidated. Read-only, no network, and NOT a gate: it reports and
@@ -155,6 +162,8 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     uv run ark export >/dev/null && uv run ark check | tail -1
     rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
+    # 7. Refresh the brief snapshot; a failed refresh must not fail the bank.
+    uv run python scripts/round/build_round_state.py | tail -1 || true
 
 cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
@@ -540,6 +549,25 @@ reproduce: baseline sources candidates journals seeds deliver
 rebuild dir="output/provenance":
     uv run ark rebuild {{dir}}
     uv run ark check
+
+# --- retention ---------------------------------------------------------------
+
+# Fill docs/releases.md from what is on disk: per-year line counts of every extracted
+# release tree under feedback/, the sha256 of the reviewer's zip where one exists and
+# of our data/archive/<marker>.tar.zst where it does not. Writes only the cells it can
+# compute, so a hash outlives the zip leaving the machine. `just releases --zstd`
+# packs the zip-less trees first; `--refresh` recounts and rehashes everything.
+releases *args:
+    uv run python scripts/round/releases.py {{args}}
+
+# Checksum every local data entry and regenerate docs/retention.md. Writes
+# data/raw/<entry>/SHA256SUMS (untracked) plus a .stat sidecar, so a second run
+# hashes only files whose size or mtime moved; Usenet zips named in
+# usenet_catalog.json take IA's sha1 into SHA1SUMS instead of a rehash. A path
+# with no row in the table is not deletable. `just verify-raw --dry-run` says what
+# a run would hash and write; `just verify-raw --entry wwwvl` does one entry.
+verify-raw *args:
+    uv run python scripts/round/verify_raw.py {{args}}
 
 # --- collecting more (network) -----------------------------------------------
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
