@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Surfaces that describe the pipeline as it is now. Anything append-only or dated is out.
 LIVE_DOCS = (
     "README.md",
-    "docs/operations.md",
+    "docs/runbook.md",
     "CLAUDE.md",
     "justfile",
     "docs/documentation.md",

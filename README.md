@@ -38,7 +38,7 @@ the measurement that closed it.
 | [scripts/](scripts/) | by role: `harness/` (research loop), `engines/` (collectors), `pricing/`, `round/`, `sources/<family>/` |
 | [docs/sources.md](docs/sources.md) | the register: every source, every rejection, with measurements |
 | [docs/documentation.md](docs/documentation.md) | why the pipeline is shaped this way |
-| [docs/operations.md](docs/operations.md) | the full runbook: every command and what it should print |
+| [docs/runbook.md](docs/runbook.md) | the full runbook: every command and what it should print |
 | [docs/ding/](docs/ding/) | the reviewer's own brief, transcribed verbatim |
 | [tests/](tests/) | the suite, including drift tests that pin documentation to code |
 
@@ -51,7 +51,7 @@ uv run ark check                            # seventeen store invariants (needs 
 ```
 
 The full reproduction recipe, from raw sources to shipped files, is `just reproduce`;
-see [docs/operations.md](docs/operations.md). A delivery archive verifies itself:
+see [docs/runbook.md](docs/runbook.md). A delivery archive verifies itself:
 `bash verify.sh` inside a fresh extraction runs eleven checks over the shipped files,
 including the four requested artifacts D1-D4.
 
