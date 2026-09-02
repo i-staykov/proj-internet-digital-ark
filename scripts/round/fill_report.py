@@ -22,6 +22,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -32,8 +33,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_figures import BASELINE, figures  # noqa: E402
 
 from ark.baseline import (  # noqa: E402
+    CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
+    ROUND_ONE_IS_RECORD_BASED,
+    SUBMISSION_SPEED_K,
     SUBMITTED_ROUNDS,
 )
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
@@ -578,26 +582,56 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def cumulative(f: dict, growth: Decimal) -> str:
-    """The competition score, which is the sum of the percentages he awarded.
+def _days(released: str, received: str) -> Decimal:
+    """t_i, the elapsed days the time-weighted score divides by."""
+    a = date.fromisoformat(released)
+    b = date.fromisoformat(received)
+    return Decimal((b - a).days)
 
-    Not a ratio and not derivable from the store. His update log of 2026-08-18 defines
-    it as "the direct arithmetic sum of all official percentage increases awarded", each
-    taken against the baseline of the day that round arrived. So the per-round figures
-    are quoted from his feedback in `ark.baseline.SUBMITTED_ROUNDS` and only the addition
-    happens here. Round 1 is held out of the sum: it was awarded on records, before the
-    equivalent-English metric existed, so adding it would mix two units.
+
+def score_rows(growth: Decimal) -> list[tuple[str, Decimal, Decimal, Decimal]]:
+    """(label, p_i, t_i, S_i) for every submitted round and for this one.
+
+    `S_i = 10 * p_i / t_i` from the brief update of 2026-08-20. The awarded percentages
+    and both timestamps are quoted in `ark.baseline.SUBMITTED_ROUNDS`; this only divides.
+    This round uses its own unverified growth and today as the receipt date.
     """
-    scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
-    this = Decimal(str(growth))
-    total = sum((r[5] for r in scored), Decimal(0)) + this
-    awarded = ", ".join(f"{r[5]}%" for r in scored)
-    unscored = [r for r in SUBMITTED_ROUNDS if r[5] is None]
-    return (
-        f"**Cumulative score {total:.4f}%**: the sum of the increases you awarded "
-        f"({awarded}) plus this round's {this:.4f}%, as your update log of 2026-08-18 "
-        f"defines it. Round {unscored[0][0]} is held out: awarded on records, before the "
-        "equivalent-English metric."
+    rows = []
+    for r in SUBMITTED_ROUNDS:
+        t = _days(r[6], r[7])
+        rows.append((r[0], r[5], t, SUBMISSION_SPEED_K * r[5] / t))
+    t_now = max(_days(CURRENT_BASELINE_RELEASED, date.today().isoformat()), Decimal(1))
+    rows.append(("7 (this round)", growth, t_now, SUBMISSION_SPEED_K * growth / t_now))
+    return rows
+
+
+def cumulative(f: dict, growth: Decimal) -> str:
+    """Both official records: the cumulative percentage and the time-weighted score.
+
+    The percentage record is the direct arithmetic sum of what he awarded, round 1
+    included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
+    The ranking score is the sum of `10 * p_i / t_i`. Neither is derivable from the
+    store, so every input is quoted rather than computed, and the block says the
+    reconstruction of the timestamps is his to confirm.
+    """
+    rows = score_rows(growth)
+    lines = [
+        "| round | verified % | days | time-weighted |",
+        "|---|--:|--:|--:|",
+    ]
+    for label, p, t, s in rows:
+        note = " (on records)" if label == ROUND_ONE_IS_RECORD_BASED else ""
+        lines.append(f"| {label}{note} | {p:.4f} | {t} | {s:.2f} |")
+    pct = sum((p for _, p, _, _ in rows), Decimal(0))
+    total = sum((s for _, _, _, s in rows), Decimal(0))
+    lines.append(f"| **cumulative** | **{pct:.4f}%** | | **{total:.2f}** |")
+    return "\n".join(lines) + (
+        f"\n\nCumulative verified percentage **{pct:.4f}%** and time-weighted score "
+        f"**{total:.2f}**, by the two rules in your brief update, this round included at "
+        f"its own unverified {growth:.4f}%. Round 1 is in the percentage sum although it "
+        "was awarded on records. The days are reconstructed from your own release and "
+        "receipt timestamps and reproduce the S = 6.88 you quoted for round 6, but the "
+        "whole set is subject to your confirmation."
     )
 
 
@@ -650,15 +684,16 @@ def merge_reconciliation() -> str:
 
 
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The same sum as `cumulative`, as one sentence for the email."""
-    scored = [r for r in SUBMITTED_ROUNDS if r[5] is not None]
-    this = Decimal(str(growth))
-    total = sum((r[5] for r in scored), Decimal(0)) + this
+    """The same two records, as one sentence for the email."""
+    rows = score_rows(growth)
+    pct = sum((p for _, p, _, _ in rows), Decimal(0))
+    total = sum((s for _, _, _, s in rows), Decimal(0))
     return (
-        f"Cumulative, as the direct sum of the percentages you have awarded: "
-        f"{' + '.join(str(r[5]) for r in scored)} + {this:.4f} = {total:.4f}%. Round 1 is "
-        "not in that sum because it was awarded on records, at 17.38%, before the "
-        "equivalent-English metric existed."
+        f"Counting this round at its own figure, my cumulative verified percentage is "
+        f"{pct:.4f}% (round 1 included, although it was awarded on records) and my "
+        f"time-weighted score is {total:.2f} by the S_i = 10 p_i / t_i rule. The elapsed "
+        "days are reconstructed from your release and receipt timestamps, so both numbers "
+        "are subject to your confirmation."
     )
 
 
