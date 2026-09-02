@@ -318,6 +318,11 @@ sources:
     uv run python scripts/sources/blocklists/split_chastity.py --write
     uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
     uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
+    # Admitted by the loop on 2026-09-02 under the standing rule: the same two blocklists
+    # read one level down, at hostname grain, 3,410.4 EE net-new. chastity's stamp is the
+    # tar member header, so that lane reads the orig tarball rather than the unpacked tree.
+    uv run ark ingest-blocklist-hostnames data/raw/squidguard/*
+    uv run ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz
     # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
     # The collector runs first because the bytes are not kept in git.
     uv run python scripts/sources/registries/collect_granitecanyon.py

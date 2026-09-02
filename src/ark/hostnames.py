@@ -396,3 +396,254 @@ def ingest_zone_hostnames(
     )
     logger.info(str(stats))
     return stats
+
+
+# The third hostname corpus: the sub-registrable hosts inside two blocklists already
+# banked at registrable grain, squidGuard 1.2.0's robot-compiled 2001-12 lists and
+# chastity-list 0.5's hand-kept 2001-12 edition. At registrable grain both are settled
+# (10,376.9 and 14,229.0 EE). The lists name the offending HOST, `members.tripod.com/x`
+# collapses to `tripod.com`, and every such collapse threw away a hostname the crawl
+# rarely fetched: measured 2026-09-02 on the live store, 7,653 (hostname, 2001) records
+# and 3,410.4 EE absent from both the store and the reviewer's own 2001 file. Same
+# bytes, same stamps, same classes Ivo decided master on 2026-08-26 and 2026-08-31.
+SQUIDGUARD_HOST_SOURCE = "squidguard_2001_hostnames"
+SQUIDGUARD_HOST_URL = (
+    "http://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz"
+)
+CHASTITY_HOST_SOURCE = "chastity_list_hostnames"
+CHASTITY_HOST_URL = (
+    "https://archive.debian.org/debian/pool/main/c/chastity-list/chastity-list_0.5.orig.tar.gz"
+)
+# chastity's stamp is the tar member header, so the lane reads the tarball itself and
+# takes each member's own mtime; an unpacked copy has lost that header to the extraction.
+_CHASTITY_MEMBER = re.compile(
+    r"^[^/]+/db/([a-z0-9-]+)/(domains|urls)(?:\.(\d{4})(\d{2})(\d{2})\.diff)?$"
+)
+_IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
+# The free-webmail providers list, hand-kept in both families and never dated.
+_SKIPPED_CATEGORY = "mail"
+
+
+def _list_hosts(text: str, is_diff: bool, counts: Counter[str]) -> dict[str, str]:
+    """hostname -> parent registrable for the hosts one blocklist file names.
+
+    The same reading `parse_squidguard_blacklist` applies at registrable grain: `#`
+    comments skipped, a diff's `+` lines kept and its `-` removals dropped, a URL's path
+    stripped. IP addresses and bare registrables are counted and not kept.
+    """
+    parents: dict[str, str] = {}
+    for line in text.splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        if is_diff:
+            if not entry.startswith("+"):
+                counts["diff_removal_or_context"] += 1
+                continue
+            entry = entry[1:].strip()
+        host = entry.split("/", 1)[0].split(":", 1)[0].lower().rstrip(".")
+        if not host or _IPV4.match(host):
+            counts["ip_or_empty"] += 1
+            continue
+        if host in parents:
+            continue
+        if not _VALID_HOST.match(host):
+            counts["rejected_host"] += 1
+            continue
+        reg = to_registrable(host)
+        if reg is None:
+            counts["rejected_host"] += 1
+        elif reg == host:
+            counts["registrable_row"] += 1
+        else:
+            parents[host] = reg
+    return parents
+
+
+def _squidguard_members(path: Path, counts: Counter[str]) -> list[tuple[str, int, dict[str, str]]]:
+    """[(evidence prefix, year, hosts)] for one flattened squidGuard list file."""
+    from ark.sources import _SG_FILE, _SG_STAMP
+
+    match = _SG_FILE.match(path.name)
+    if match is None:
+        counts["not_a_blacklist_file"] += 1
+        return []
+    category, kind = match.group(1), match.group(2)
+    if category == _SKIPPED_CATEGORY:
+        counts["mail_list_skipped"] += 1
+        return []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    is_diff = match.group(3) is not None
+    if is_diff:
+        year, stamp = int(match.group(3)), "".join(match.groups()[2:])
+    else:
+        found = _SG_STAMP.search(text)
+        if found is None:
+            counts["no_compile_stamp"] += 1
+            return []
+        year, stamp = int(found.group(1)), "".join(found.groups())
+    if year not in YEARS:
+        counts["out_of_window_edition"] += 1
+        return []
+    return [(f"squidguard:{category}/{kind}@{stamp}", year, _list_hosts(text, is_diff, counts))]
+
+
+def _chastity_members(path: Path, counts: Counter[str]) -> list[tuple[str, int, dict[str, str]]]:
+    """[(evidence prefix, year, hosts)] per list member of the chastity orig tarball."""
+    import tarfile
+    from datetime import UTC, datetime
+
+    out: list[tuple[str, int, dict[str, str]]] = []
+    with tarfile.open(path, "r:gz") as tar:
+        for member in tar:
+            match = _CHASTITY_MEMBER.match(member.name)
+            if match is None or not member.isfile():
+                continue
+            category, kind = match.group(1), match.group(2)
+            if category == _SKIPPED_CATEGORY:
+                counts["mail_list_skipped"] += 1
+                continue
+            stamped = datetime.fromtimestamp(member.mtime, tz=UTC)
+            if stamped.year not in YEARS:
+                counts["out_of_window_member"] += 1
+                continue
+            fh = tar.extractfile(member)
+            if fh is None:
+                continue
+            text = fh.read().decode("utf-8", errors="replace")
+            is_diff = match.group(3) is not None
+            prefix = f"chastity-list:{stamped:%Y%m%d} {category}/{kind}"
+            out.append((prefix, stamped.year, _list_hosts(text, is_diff, counts)))
+    return out
+
+
+def ingest_blocklist_hostnames(
+    conn: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, int | str | bool]:
+    """One blocklist file's sub-registrable hosts into hostname_year, idempotently.
+
+    A `squidguard-*` file is the robot's own output, `artifact_listing`, no split. The
+    chastity orig tarball is hand-kept, `dated_directory`, and takes the corroboration
+    split exactly as `split_chastity.py` states it: a host counts only when its parent
+    registrable already carries an assigned year; the rest is counted as parked.
+    """
+    from ark import approvals
+
+    stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    counts: Counter[str] = Counter()
+    if path.name.startswith("squidguard-"):
+        source_name, etype, method, url = (
+            SQUIDGUARD_HOST_SOURCE,
+            "artifact_listing",
+            "robot_compiled_blocklist",
+            SQUIDGUARD_HOST_URL,
+        )
+        members = _squidguard_members(path, counts)
+        split = False
+    elif path.name.startswith("chastity-list") and path.name.endswith(".tar.gz"):
+        source_name, etype, method, url = (
+            CHASTITY_HOST_SOURCE,
+            "dated_directory",
+            "dated_blocklist_release",
+            CHASTITY_HOST_URL,
+        )
+        members = _chastity_members(path, counts)
+        split = True
+    else:
+        stats["not_a_blacklist_file"] = 1
+        return stats
+    already = conn.execute(
+        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
+        [source_name, path.name],
+    ).fetchone()[0]
+    if already:
+        stats["skipped"] = True
+        logger.info(f"{path.name}: already ingested, skipping")
+        return stats
+    approvals.check(source_name, etype)
+
+    rows: list[tuple[str, str, int, str]] = []
+    seen: set[tuple[str, int]] = set()
+    for prefix, year, parents in members:
+        for host, parent in sorted(parents.items()):
+            if (host, year) not in seen:
+                seen.add((host, year))
+                rows.append((host, parent, year, f"{prefix} host {host}"))
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    stats["hostname_year_rows"] = 0
+    if rows:
+        source_id = ensure_source(conn, source_name, "timestamped")
+        conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS listhost "
+            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
+        )
+        conn.execute("DELETE FROM listhost")
+        conn.executemany("INSERT INTO listhost VALUES (?, ?, ?, ?)", rows)
+        if split:
+            parked = conn.execute(
+                "SELECT count(*) FROM listhost l WHERE NOT EXISTS "
+                "(SELECT 1 FROM domain_year d WHERE d.domain = l.parent)"
+            ).fetchone()[0]
+            stats["split_parked"] = parked
+            conn.execute(
+                "DELETE FROM listhost WHERE parent NOT IN (SELECT domain FROM domain_year)"
+            )
+        conn.execute(
+            r"""
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+            FROM listhost
+            """,
+            [source_id],
+        )
+        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                  evidence_value, evidence_url, acquisition_method)
+            SELECT l.parent, ?, l.year, ?, l.value, ?, ?
+            FROM listhost l
+            LEFT JOIN hostname_year hy
+              ON hy.hostname = l.hostname AND hy.assigned_year = l.year
+            WHERE hy.hostname IS NULL
+            """,
+            [source_id, etype, url, method],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hostname_year
+                (hostname, parent_domain, assigned_year, evidence_id)
+            SELECT l.hostname, l.parent, l.year, e.evidence_id
+            FROM listhost l
+            JOIN evidence e
+              ON e.domain = l.parent AND e.evidence_year = l.year
+             AND e.evidence_value = l.value
+            """,
+        )
+        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        stats["hostname_year_rows"] = after - before
+        # The list naming `x.foo.com` as live is the same claim about foo.com in that
+        # year, so the parent earns its year from the same row, as the check
+        # `nothing_earned_is_left_unassigned` requires. Nearly all are already held.
+        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+            SELECT e.domain, e.evidence_year, min(e.evidence_id)
+            FROM evidence e
+            JOIN listhost l ON e.domain = l.parent AND e.evidence_year = l.year
+             AND e.evidence_value = l.value
+            GROUP BY e.domain, e.evidence_year
+            """,
+        )
+        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        stats["parent_year_rows"] = dy_after - dy_before
+        conn.execute("DELETE FROM listhost")
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?)",
+        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats

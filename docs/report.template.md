@@ -91,7 +91,9 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   11,860.7 EE**, dated by the SOA serial `1997041800` in the payload, no new request. The lens it
   opens: nameservers, mail exchangers and mirrors are hosts a web crawler never fetches, so
   DNS-side and mail-side artifacts are the hostname unit's natural source even where their
-  registrables are saturated.
+  registrables are saturated. The second such admission is smaller and cheaper still: the two
+  banked squidGuard blocklists read one level down, keeping the host each line names instead of
+  its registrable, 7,708 records and 3,441.8 EE at 2001, zero requests (`sources.md`).
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or

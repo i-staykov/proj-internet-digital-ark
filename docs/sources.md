@@ -2047,3 +2047,27 @@ where its registrables are saturated.** Two lanes parked in `approved-sources-li
 the 1999 tomocha zones at **4,678.2 EE** (terms, condition 3) and the fleet's Usenet server-header
 census at a fleet-measured 2,368 EE on one probe (conditions 1 and 4, and the reviewer's own 0901
 closure of dated Usenet copies).
+
+## `squidguard_2001_hostnames` and `chastity_list_hostnames`: BANKED at 3,441.8 EE, the blocklists read one level down
+
+`http://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz` (1,852,659 B,
+member `samples/dest/blacklists.tar.gz`) and
+`https://archive.debian.org/debian/pool/main/c/chastity-list/chastity-list_0.5.orig.tar.gz`
+(720,609 B), both on disk since August. **What dates one item is unchanged from the banked registrable
+lanes**: squidGuard's own compile header, `# This list was compiled in 0:00:20 on 2001.12.18 15:04:29.`
+(`artifact_listing`, master 2026-08-26, no split, the robot tested the links), and chastity's tar member
+header `Dec 14 2001` on every file (`dated_directory`, master 2026-08-31, hand-kept, so the split
+applies: a host counts only beneath a parent that already carries a year). A blocklist names the
+offending HOST, and `parse_squidguard_blacklist` collapsed `members.tripod.com/x` to `tripod.com`, which
+is why the fleet's `banked_lists_hostname_grain` probe (line 816, first priced at 836 EE on the
+`domains` lane alone) found a residue. Density is low and predictable: a `domains` file is ~50% IPv4
+addresses, ~45% bare registrables, 4-7% sub-hosts. Re-priced on the live store 2026-09-02 from the
+bytes, `domains`, `urls` and dated diff lanes together, parent held at 2001 and hostname absent from
+both `hostname_year` and the reviewer's own 2001 file: squidGuard 4,323 hosts, 2,093 net-new, 1,059.8
+EE; chastity 10,929 hosts, 46 parked by the split, 5,615 net-new, 2,381.9 EE. **Banked 7,708 (hostname,
+2001) records, 3,441.8 EE**, by TLD on the pre-ingest union com 1,997.4 EE, net 723.9, org 159.1, fr 154.2; largest parents `free.fr` 1,311,
+`fsn.net` 677, `multimania.com` 289, `cjb.net` 233. Admitted by the loop under the standing rule
+(`ark ingest-blocklist-hostnames`; the chastity lane reads the TARBALL, because the stamp is the tar
+header and extraction loses it). The reusable point: **every banked list-shaped source that named
+hosts and was collapsed to registrables is a hostname-grain reopen at zero requests**; junkfilter,
+SpamEater and the hosts file are mail-sender lists and name registrables, so they are not.

@@ -136,6 +136,7 @@ PROVENANCE_LINEAGE = {
     # Internet Archive's. It shares the family with junkfilter for the same reason
     # both take the corroboration split: a person typed the name.
     "chastity_list_blacklist": "blocklist",
+    "chastity_list_hostnames": "blocklist",
     "chastity_list_mention": "blocklist",
     # Granite Canyon is a free-DNS operator reading out its own BIND configuration,
     # so the lineage is the nameserver, not a crawl and not the Internet Archive:
@@ -158,6 +159,7 @@ PROVENANCE_LINEAGE = {
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
     "squidguard_2001_blacklist": "crawl",
+    "squidguard_2001_hostnames": "crawl",
     "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",

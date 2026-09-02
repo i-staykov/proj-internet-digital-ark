@@ -269,6 +269,36 @@ def ingest_zone_hostnames_cmd(
         typer.echo(str(stats))
 
 
+@app.command(name="ingest-blocklist-hostnames")
+def ingest_blocklist_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Flattened `squidguard-*` list files, or the chastity orig tarball.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the sub-registrable hosts two banked blocklists name.
+
+    `ark ingest squidguard_2001_blacklist` and `chastity_dated` collapse every listed
+    host to its registrable; this keeps the host. Dated by the same stamps, squidGuard's
+    compile header and chastity's tar member header, so the tarball is what it reads.
+    Admitted 2026-09-02 under the standing rule. Idempotent per file.
+    """
+    from ark.hostnames import ingest_blocklist_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    totals: Counter = Counter()
+    for path in paths:
+        for key, value in ingest_blocklist_hostnames(conn, path).items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                totals[key] += value
+    typer.echo(str(dict(totals)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
