@@ -37,9 +37,9 @@ Three things, largest first:
    re-read under the new unit, are the largest source of the round, with no new request. One
    disclosure decides what the Early Web half is worth: nearly all of its records are `www.`
    forms of a registrable you already hold in that year, because your own files carry the
-   non-`www.` hosts by name and almost no `www.` ones. A third IA index, the USFEDGOV-EXTRACT-2001
-   merged CDX, adds [HOST_USFEDGOV_EE] EE over [HOST_USFEDGOV_N] federal hosts at 2001 from one
-   bulk download.
+   non-`www.` hosts by name and almost no `www.` ones. A third IA index, the six USFEDGOV-EXTRACT
+   merged CDX files for 1996-2001, adds [HOST_USFEDGOV_EE] EE over [HOST_USFEDGOV_N] federal
+   host-years from six bulk downloads and no API request.
 2. **Domain-wide CDX sweeps over subdomain platforms: [HOST_SWEEP_EE] EE, [HOST_SWEEP_N]
    records.** `matchType=domain`, 1996-2001, over the parents your own benchmark proves dense
    (`rank_platform_parents.py`: `cjb.net` leads at 157,790 sub-hosts held, then `demon.co.uk`,
@@ -104,6 +104,13 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
   in the two FUNET editions already banked for their delegated names, [HOST_RIPE_N] records and
   [HOST_RIPE_EE] EE across 1996-2001, dated by the dump's own generation stamp and each object's
   latest `changed:` line, under the RIPE NCC's written permission.
+  The fourth is the largest single admission of the round: the ISC Internet Domain Survey's
+  per-TLD host files, banked in July for their registrables and closed as "complete and fully
+  held", read one level down for the host each `IP hostname` line names, [HOST_ISC_N] records
+  and [HOST_ISC_EE] EE at 1996-1997, dated by the survey's own edition code. The disclosure that
+  decides its worth: [HOST_ISC_DIALUP_PCT]% of those records are dialup or numbered workstation
+  shapes (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`), real hosts the walk resolved that month,
+  shipped so you can discard them at merge if you do not want them.
 - **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
   per source family and version. [DATASETS_SEARCHED]
 - **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or

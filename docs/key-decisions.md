@@ -22,11 +22,23 @@ two more Range offsets on items 00333 and 02693 first to rule out a band artifac
 
 Worth: ~180,000 EE projected across the window, under 100 EE measured. A collector decision, not an approval.
 
+### Settle the terms for arin_inaddr_ns_hostnames / artifact_listing
+
+ARIN's twelve 1999 in-addr.arpa zones in APNIC's tar (`ftp.apnic.net/apnic/arin/arin.zones.tar.gz`), nameserver hostnames at hostname grain, fleet-measured at **4,655.5 EE** (7,232 novel host-years at 1999 plus 179 parents), dated by BIND's own AXFR stamp `at Thu Jan  7 12:18:51 1999`. Parks on condition 3 only: APNIC's bulk AUP covers `/apnic/whois/`, this directory carries no notice, and ARIN's position on historical zone redistribution is unread. One mail to APNIC or ARIN settles it. Issue on ark-fleet carries the block.
+
+Worth: 4,655.5 EE measured by the fleet, not yet re-priced on the live store. Directory frozen since 1999, so this is the whole family.
+
+### Approve, refuse or downgrade usenet_body_pasted_hostnames / link_source
+
+Hostnames inside Usenet post BODIES (`dig` answers, config snippets, logs) at hostname grain, fleet-measured at **~6,200 EE on one group** (`comp.protocols.dns.bind`, 67 MB) after a placeholder screen, with ~13% fictitious config examples still among the survivors. Parks on condition 1: the banked Usenet body classes date registrables under the corroboration split, and at hostname grain the split does not guard against `mail.bogus.com` beneath a held `bogus.com`. The machine-output lane alone is 2,477 EE if the human-pasted lane is refused. Issue on ark-fleet carries the block.
+
+Worth: ~6,200 EE on one group; yield is group-specific by 22x, so the spool-wide figure is unknown. Ding's 0901 update lists dated Usenet copies as unsuitable.
+
 ### Approve, refuse or downgrade usenet_header_fqdn_hostnames / link_source
 
 Server-written Usenet header hostnames (`X-Trace`, `NNTP-Posting-Host`, final `Path` hop) at hostname grain, fleet-measured at **2,368 EE on one 28 MB demon.* probe**, not re-priced on the live store because the probe table was deleted and the bytes are on the VPS. Parks on conditions 1 and 4: no master-eligible class covers a server-written header hostname without the split the banked Usenet classes take, and no journal exists to ingest. Ding's 2026-09-01 update lists dated Usenet copies as unsuitable, so the fleet recommends asking him first. Issue 2 on ark-fleet carries the block.
 
-Worth: 6,877 EE on the second probe (55 MB, 2026-09-02), of which 2,823 rests on server-written fields and 4,054 on the client-written `Message-ID` host, which needs its own ruling; 20,000 to 60,000 EE projected for demon.* alone, unmeasured.
+Worth: 6,877 EE on the second probe (55 MB, 2026-09-02), of which 2,823 rests on server-written fields and 4,054 on the client-written `Message-ID` host, which needs its own ruling; 20,000 to 60,000 EE projected for demon.* alone, unmeasured. A third probe on two uk.* groups adds 2,537 EE (server-written fields only, 73% retained across groups), so the 495-zip uk.* hierarchy is a labelled 50,000 to 150,000 EE guess on top.
 
 ### Approve, refuse or downgrade internic_zone_hostnames_1999 / artifact_listing
 

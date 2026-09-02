@@ -79,6 +79,9 @@ PROVENANCE_LINEAGE = {
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",
+    # The same survey files read one level down, at hostname grain (2026-09-02):
+    # the PTR walk naming a host is the walk naming its parent, one lineage.
+    "isc_survey_hostnames": "dns_survey",
     "afnic_fr": "registry",
     # Registry creation dates in bulk. Same lineage as our live RDAP sweeps by
     # construction: both ask a registry when it created a name, so a pair they both
