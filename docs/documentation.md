@@ -19,6 +19,12 @@ that supports it. Everything else follows from taking that literally.
 no code path that writes a year assignment without one, because the schema will not accept it. This is
 the **evidence wall**: it makes the property structural rather than a convention that erodes.
 
+Every evidence row also names how its observation was obtained: `evidence.acquisition_method`, the
+**extraction method** in the reviewer's terms. The baseline loader stamps `prior_task`; a bulk source
+stamps the method its `SourceSpec` declares, such as `bulk_cdx_file` or `registry_register_listing`.
+Both writers set it unconditionally, so it ships non-empty for every row in `provenance/evidence.parquet`
+and in `additions/evidence_manifest.csv`, next to the evidence type, value and URL.
+
 Evidence types are split in two:
 
 - **master-eligible**, meaning the observation fixes a year: an archive capture timestamp, a dated
