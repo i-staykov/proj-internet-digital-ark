@@ -1,6 +1,6 @@
-name: Open the live-to-main squash PR
-# D7: `live` is the working truth the fleet reads; `main` receives squash-merged
-# snapshots that Ivo approves. This job only OPENS or refreshes the PR; a human merges.
+name: Open the live-to-main snapshot PR
+# D7: `live` is the working truth the fleet reads; `main` receives snapshots of it as
+# merge commits that Ivo approves. This job only OPENS or refreshes the PR; a human merges.
 # It runs on GitHub-hosted runners on purpose: the public repo must never touch the
 # self-hosted runner, and this needs no secrets beyond the workflow's own token.
 on:
@@ -33,4 +33,4 @@ jobs:
           fi
           gh pr create --base main --head live \
             --title "Snapshot: live to main, $(date -u +%F)" \
-            --body "Squash-merge snapshot of the working branch. Contents: the banked register and code changes since the last snapshot. After merging, the laptop resets live onto main."
+            --body "Snapshot of the working branch. Contents: the banked register and code changes since the last snapshot. Merge it as a merge commit, not a squash: live keeps its history and carries on as the working branch."
