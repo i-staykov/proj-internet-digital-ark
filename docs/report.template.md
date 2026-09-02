@@ -128,7 +128,9 @@ directories. The figures behind each verdict are in `experience-summary.md`.
 
 ## 7. Reproduction, and the four artifacts
 
-`README.md` in the archive gives the route and the file map. [REPRODUCTION_RESULT]
+`README.md` in the archive gives the route and the file map. Every evidence row names its source, evidence
+type, dated value, URL and `acquisition_method`, the item's extraction method; `additions/evidence_manifest.csv`
+repeats those columns for this round's records. [REPRODUCTION_RESULT]
 
 **D1** runnable code, dependencies and instructions: `source/source.tar.gz` at `source/COMMIT.txt`,
 with the research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`.
