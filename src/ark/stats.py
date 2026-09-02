@@ -94,6 +94,16 @@ PROVENANCE_LINEAGE = {
     # registry statement read one column to the right, so the same lineage.
     "internic_zone_hostnames": "registry",
     "internic_zone_hostnames_1999": "registry",
+    # The NS targets of RIPE domain objects, at hostname grain (2026-09-02). The same
+    # registry database read one attribute further, so the same lineage as its two
+    # registrable lanes below.
+    "ripe_nserver_hostnames": "registry",
+    # The hostname unit's capture lanes all read the Internet Archive's own index, the
+    # live CDX API or its bulk CDX files, so they share that lineage: a hostname this
+    # confirms beside an Early Web row is IA agreeing with itself.
+    "ia_cdx_hostnames": "internet_archive",
+    "early_web_cdx_hostnames": "internet_archive",
+    "usfedgov_extract_hostnames": "internet_archive",
     "iedr_register": "registry",
     # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
     # so it shares the registry lineage rather than earning its own: a pair this and a

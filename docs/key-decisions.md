@@ -7,6 +7,21 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
+
+Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot
+be evaluated because nothing has been ingested. The fleet sampled 57 of the 282 public
+DARTMOUTH-NBER ARCS aggregate CDX indexes at one Range slice each and found 120 novel hosts
+beneath held parents at 2001 out of 235 proper hosts (0.453 per registrable-year), projecting
+~88,700 EE at 2001 and ~92,000 at 1996-2000 from one alphabetic band per item. The measured
+sample is worth under 100 EE and no issue is filed. What it needs is a collector on the VPS
+(scout ~40 candidate items, pull the in-window per-ARC indexes, `ark ingest-hostnames`), and
+two more Range offsets on items 00333 and 02693 first to rule out a band artifact. Entry in
+`approved-sources-list.md` under Pending requests; the fleet finding is
+`dartmouth_captures_hostname_grain`, 2026-09-02.
+
+Worth: ~180,000 EE projected across the window, under 100 EE measured. A collector decision, not an approval.
+
 ### Approve, refuse or downgrade usenet_header_fqdn_hostnames / link_source
 
 Server-written Usenet header hostnames (`X-Trace`, `NNTP-Posting-Host`, final `Path` hop) at hostname grain, fleet-measured at **2,368 EE on one 28 MB demon.* probe**, not re-priced on the live store because the probe table was deleted and the bytes are on the VPS. Parks on conditions 1 and 4: no master-eligible class covers a server-written header hostname without the split the banked Usenet classes take, and no journal exists to ingest. Ding's 2026-09-01 update lists dated Usenet copies as unsuitable, so the fleet recommends asking him first. Issue 2 on ark-fleet carries the block.

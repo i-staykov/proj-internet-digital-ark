@@ -118,6 +118,22 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals",
         "the row's own 14-digit capture timestamp",
     ),
+    "early_web_hostgrain": (
+        "IA Early Web CDX index, 224 parts held since July, re-read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usfedgov_extract_hostgrain": (
+        "IA USFEDGOV-EXTRACT-2001 merged CDX index, one capture per host, bulk download",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "ripe_snapshot_nserver": (
+        "RIPE database snapshot of 1999-08-04 (FUNET mirror), nameservers of its domain objects",
+        "the dump's own generation stamp on line 2 of the payload",
+    ),
+    "ripe_changed_nserver": (
+        "RIPE 2004 split edition, each object's nameserver set at its latest `changed:` date",
+        "the object's latest machine-stamped `changed:` line",
+    ),
     "nypw_timemaps": (
         "NYPW TimeMaps, 34 parts, reopened after a 14 EE closure on the 1996 folder",
         "the row's own 14-digit capture timestamp",
@@ -396,9 +412,20 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
     other = [x for x in by if x not in nypw + cdx + usenet]
     h_nypw = hosts.get("nypw_timemap_hostgrain", (0, Decimal(0)))
     h_sweep = hosts.get("ia_cdx_domain_sweep", (0, Decimal(0)))
+    h_ew = hosts.get("early_web_hostgrain", (0, Decimal(0)))
+    h_fg = hosts.get("usfedgov_extract_hostgrain", (0, Decimal(0)))
+    ripe_methods = ("ripe_snapshot_nserver", "ripe_changed_nserver")
+    ripe = [hosts.get(m, (0, Decimal(0))) for m in ripe_methods]
+    h_ripe = (sum(r[0] for r in ripe), sum((r[1] for r in ripe), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
+        "HOST_EARLYWEB_EE": f"{h_ew[1]:,.0f}",
+        "HOST_EARLYWEB_N": f"{h_ew[0]:,}",
+        "HOST_USFEDGOV_EE": f"{h_fg[1]:,.0f}",
+        "HOST_USFEDGOV_N": f"{h_fg[0]:,}",
+        "HOST_RIPE_EE": f"{h_ripe[1]:,.0f}",
+        "HOST_RIPE_N": f"{h_ripe[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",

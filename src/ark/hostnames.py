@@ -44,12 +44,24 @@ SOURCE_NAME = "ia_cdx_hostnames"
 # column is what lets the shipped contribution table say which artifact a hostname came from.
 NYPW_METHOD = "nypw_timemap_hostgrain"
 SWEEP_METHOD = "ia_cdx_domain_sweep"
+# Two bulk CDX artifacts re-emitted the same way, each under its own source row because
+# the approval, the lineage note and the contribution table name them separately:
+# IA's Early Web index (banked at registrable grain as `early_web_cdx`, admitted at
+# hostname grain 2026-09-02) and the USFEDGOV-EXTRACT-2001 merged ZipNum index.
+EARLY_WEB_SOURCE = "early_web_cdx_hostnames"
+EARLY_WEB_METHOD = "early_web_hostgrain"
+USFEDGOV_SOURCE = "usfedgov_extract_hostnames"
+USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
 
 
 def source_for(path: Path) -> tuple[str, str]:
     """(source name, acquisition method) for one journal, from its filename family."""
     if path.name.startswith("nypw_"):
         return SOURCE_NAME, NYPW_METHOD
+    if path.name.startswith("early_web_"):
+        return EARLY_WEB_SOURCE, EARLY_WEB_METHOD
+    if path.name.startswith("usfedgov_"):
+        return USFEDGOV_SOURCE, USFEDGOV_METHOD
     return SOURCE_NAME, SWEEP_METHOD
 
 
@@ -81,6 +93,8 @@ def ingest_hostname_journal(
     conn: duckdb.DuckDBPyConnection, path: Path
 ) -> dict[str, int | str | bool]:
     """One journal of raw capture rows into hostname_year, idempotently."""
+    from ark import approvals
+
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     source_name, method = source_for(path)
     already = conn.execute(
@@ -91,6 +105,9 @@ def ingest_hostname_journal(
         stats["skipped"] = True
         logger.info(f"{path.name}: already ingested, skipping")
         return stats
+    # The same gate every other master-eligible ingest passes: a journal family with no
+    # `Decision: master` line behind its source row is refused before anything is read.
+    approvals.check(source_name, "cdx_timestamp")
 
     counts: Counter[str] = Counter()
     # first seen capture per (host, year); the earliest stamp is the quoted evidence
@@ -644,6 +661,232 @@ def ingest_blocklist_hostnames(
         "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
         "VALUES (?, ?, ?, ?)",
         [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats
+
+
+# The fourth hostname corpus: the nameservers a RIPE `domain:` object points AT. The
+# banked RIPE lanes read `*dn:` (the delegated name, 1999) and `changed:` (the audit
+# trail, 1996-2001) and never looked at `*ns:`, because at registrable grain an NS
+# right-hand side collapses to an operator the store holds (register line 916, 70.4 EE,
+# and the fleet's 2026-09-02 reprice at 254 EE agrees). At hostname grain the same
+# column is 93% absent: measured 2026-09-02 on the live store, 38,189 (hostname, 1999)
+# records from the 1999 snapshot and 11,895 more from the 2004 split edition's objects
+# dated by their latest `changed:` line, about 11,400 EE together. Same files, same
+# stamps, same `artifact_listing` class, same written RIPE NCC permission of 2026-08-26.
+#
+# The permission constrains the code exactly as it does `parse_ripe_dbase_1999`: only
+# `*ns:` / `nserver:` values, the object key, and the trailing date of `changed:` are
+# read; `*de`, `*ac`, `*tc`, `*zc`, `*ch` and the address half of `changed:` are never
+# touched, and a nameserver hostname is infrastructure, not a person.
+RIPE_NS_SOURCE = "ripe_nserver_hostnames"
+RIPE_NS_SNAPSHOT_METHOD = "ripe_snapshot_nserver"
+RIPE_NS_CHANGED_METHOD = "ripe_changed_nserver"
+RIPE_NS_URLS = {
+    "ripe.db.gz": "https://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz",
+    "ripe.db.domain.gz": "https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz",
+}
+
+
+def _ns_host(token: str, counts: Counter[str]) -> tuple[str, str] | None:
+    """(hostname, parent) for one nameserver token, or None with the reason counted."""
+    host = token.strip().lower().rstrip(".")
+    if not host or _IPV4.match(host):
+        counts["glue_or_empty"] += 1
+        return None
+    if not _VALID_HOST.match(host):
+        counts["rejected_host"] += 1
+        return None
+    reg = to_registrable(host)
+    if reg is None:
+        counts["rejected_host"] += 1
+        return None
+    if reg == host:
+        counts["registrable_row"] += 1
+        return None
+    return host, reg
+
+
+def ripe_snapshot_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str]]:
+    """[(hostname, parent, 1999, value)] for every `*ns:` value in the 1999 snapshot.
+
+    The year is the file's own generation stamp on line 2, read the way the banked
+    parser reads it and refused if absent or out of window. Reverse-zone objects are
+    kept: their nameservers are hosts the registry stated on the same day.
+    """
+    from ark.sources import _RIPE_STAMP, _open_text
+
+    year: int | None = None
+    stamp_text = ""
+    hosts: dict[str, tuple[str, str]] = {}
+    with _open_text(path) as fh:
+        for number, line in enumerate(fh, 1):
+            if year is None:
+                stamp = _RIPE_STAMP.match(line.rstrip("\n"))
+                if stamp is not None:
+                    two = int(stamp.group(1))
+                    year = (1900 + two) if two >= 90 else (2000 + two)
+                    if year not in YEARS:
+                        counts["stamp_out_of_window"] += 1
+                        return []
+                    stamp_text = "".join(stamp.groups())
+                    continue
+                if number > 40:
+                    counts["no_header_stamp"] += 1
+                    return []
+                continue
+            if not line.startswith("*ns:"):
+                continue
+            counts["ns_lines"] += 1
+            for token in line[4:].split():
+                found = _ns_host(token, counts)
+                if found is not None and found[0] not in hosts:
+                    hosts[found[0]] = (found[1], f"ripe_dbase:19{stamp_text} ns {found[0]}")
+    if year is None:
+        counts["no_header_stamp"] += 1
+        return []
+    return [(host, parent, year, value) for host, (parent, value) in sorted(hosts.items())]
+
+
+def ripe_changed_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str]]:
+    """[(hostname, parent, year, value)] for the `nserver:` set of each `domain:` object.
+
+    An object whose LATEST `changed:` line falls in year Y is the registry stating that
+    its nserver set stood as written in Y, and rule 6 keeps the record to that year. An
+    object last changed outside the window contributes nothing.
+    """
+    from ark.sources import _RIPE_CHANGED_LONG, _open_text
+
+    out: dict[tuple[str, int], tuple[str, str]] = {}
+    nservers: list[str] = []
+    latest: str | None = None
+    in_object = False
+
+    def flush() -> None:
+        if not in_object or latest is None:
+            return
+        year = int(latest[:4])
+        if year not in YEARS:
+            counts["object_out_of_window"] += 1
+            return
+        counts["objects_in_window"] += 1
+        for token in nservers:
+            found = _ns_host(token, counts)
+            if found is not None and (found[0], year) not in out:
+                out[(found[0], year)] = (found[1], f"ripe_changed:{latest} nserver {found[0]}")
+
+    with _open_text(path) as fh:
+        for line in fh:
+            if line.startswith("domain:"):
+                flush()
+                in_object, nservers, latest = True, [], None
+                counts["domain_objects"] += 1
+            elif not in_object:
+                continue
+            elif line.startswith("nserver:"):
+                counts["ns_lines"] += 1
+                tokens = line[8:].split()
+                if tokens:
+                    nservers.append(tokens[0])
+            else:
+                found = _RIPE_CHANGED_LONG.match(line.rstrip("\n"))
+                if found is not None and (latest is None or found.group(1) > latest):
+                    latest = found.group(1)
+    flush()
+    return [(host, parent, year, value) for (host, year), (parent, value) in sorted(out.items())]
+
+
+def ingest_ripe_nserver_hostnames(
+    conn: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, int | str | bool]:
+    """One RIPE database file's nameserver hosts into hostname_year, idempotently."""
+    from ark import approvals
+
+    stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    if path.name not in RIPE_NS_URLS:
+        stats["not_a_ripe_file"] = 1
+        return stats
+    already = conn.execute(
+        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
+        [RIPE_NS_SOURCE, path.name],
+    ).fetchone()[0]
+    if already:
+        stats["skipped"] = True
+        logger.info(f"{path.name}: already ingested, skipping")
+        return stats
+    approvals.check(RIPE_NS_SOURCE, "artifact_listing")
+    counts: Counter[str] = Counter()
+    if path.name == "ripe.db.gz":
+        method, rows = RIPE_NS_SNAPSHOT_METHOD, ripe_snapshot_nservers(path, counts)
+    else:
+        method, rows = RIPE_NS_CHANGED_METHOD, ripe_changed_nservers(path, counts)
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    stats["hostname_year_rows"] = 0
+    if rows:
+        source_id = ensure_source(conn, RIPE_NS_SOURCE, "timestamped")
+        conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS ripehost "
+            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
+        )
+        conn.execute("DELETE FROM ripehost")
+        conn.executemany("INSERT INTO ripehost VALUES (?, ?, ?, ?)", rows)
+        conn.execute(
+            r"""
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+            FROM ripehost
+            """,
+            [source_id],
+        )
+        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                  evidence_value, evidence_url, acquisition_method)
+            SELECT r.parent, ?, r.year, 'artifact_listing', r.value, ?, ?
+            FROM ripehost r
+            LEFT JOIN hostname_year hy
+              ON hy.hostname = r.hostname AND hy.assigned_year = r.year
+            WHERE hy.hostname IS NULL
+            """,
+            [source_id, RIPE_NS_URLS[path.name], method],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hostname_year
+                (hostname, parent_domain, assigned_year, evidence_id)
+            SELECT r.hostname, r.parent, r.year, e.evidence_id
+            FROM ripehost r
+            JOIN evidence e
+              ON e.domain = r.parent AND e.evidence_year = r.year
+             AND e.evidence_value = r.value
+            """,
+        )
+        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        stats["hostname_year_rows"] = after - before
+        # The registry naming `ns.foo.net` as serving a delegation that day is the same
+        # statement about foo.net, so the parent earns its year from the same row, as
+        # the check `nothing_earned_is_left_unassigned` requires. 98% are already held.
+        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+            SELECT e.domain, e.evidence_year, min(e.evidence_id)
+            FROM evidence e
+            JOIN ripehost r ON e.domain = r.parent AND e.evidence_year = r.year
+             AND e.evidence_value = r.value
+            GROUP BY e.domain, e.evidence_year
+            """,
+        )
+        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        stats["parent_year_rows"] = dy_after - dy_before
+        conn.execute("DELETE FROM ripehost")
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?)",
+        [RIPE_NS_SOURCE, path.name, _sha256(path), stats["hostname_year_rows"]],
     )
     logger.info(str(stats))
     return stats

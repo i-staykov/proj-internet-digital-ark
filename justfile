@@ -323,6 +323,14 @@ sources:
     # tar member header, so that lane reads the orig tarball rather than the unpacked tree.
     uv run ark ingest-blocklist-hostnames data/raw/squidguard/*
     uv run ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz
+    # Three more hostname-grain lanes admitted 2026-09-02 under the standing rule: the
+    # nameservers RIPE domain objects point at (both FUNET editions), IA's Early Web index
+    # re-emitted as capture journals, and the USFEDGOV-EXTRACT-2001 merged index reduced
+    # to one capture per host (`scripts/sources/early_web/early_web_hostgrain.py`,
+    # `scripts/sources/usfedgov/usfedgov_hostgrain.py`).
+    uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+    uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
+    uv run ark ingest-hostnames data/raw/usfedgov_hostgrain/ | tail -1 || true
     # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
     # The collector runs first because the bytes are not kept in git.
     uv run python scripts/sources/registries/collect_granitecanyon.py
