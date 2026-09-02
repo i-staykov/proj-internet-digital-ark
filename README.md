@@ -60,4 +60,4 @@ including the four requested artifacts D1-D4.
 Where the round stands is generated into `docs/ROUND.md` by `just state` (not tracked:
 it embeds figures that move daily). Orchestration lives in a separate private repo so
 this one stays free of secrets and runner exposure; results land here on the `live`
-branch and reach `main` as squash-merged snapshots.
+branch and reach `main` as merge-commit snapshots, so `live` keeps its history.

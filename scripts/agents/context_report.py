@@ -6,9 +6,10 @@ results were largest, how many bytes each tool returned in total, how much the a
 wrote, how often it wrote a wall of text, and how many times the conversation was compacted.
 
 Transcripts are JSONL under `~/.claude/projects/<cwd slug>/*.jsonl`, the slug being the
-repository path with `/` replaced by `-`. A record carries `uuid`, `type` and
-`message.content`, a list of blocks; `tool_use` blocks name the tool and carry an `id`,
-`tool_result` blocks point back with `tool_use_id`. Resumed sessions copy earlier records
+repository path with every character outside [A-Za-z0-9] replaced by `-`. A record
+carries `uuid`, `type` and `message.content`, a list of blocks; `tool_use` blocks name the
+tool and carry an `id`, `tool_result` blocks point back with `tool_use_id`. Resumed
+sessions copy earlier records
 into the new file, so records are deduplicated by `uuid` (58,348 duplicates across 724
 files when this was written). A compaction is a `system` record with `subtype`
 `compact_boundary`.
@@ -23,13 +24,17 @@ finds and prints nothing from any record but a tool name and a byte count.
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
 # Keyed on the working directory, which is how the harness names the folder.
-TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / str(Path.cwd()).replace("/", "-")
+# the slug turns every character outside [A-Za-z0-9] into "-", so a dot in a path
+# component becomes a dash too
+_SLUG = re.sub(r"[^A-Za-z0-9]", "-", str(Path.cwd()))
+TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / _SLUG
 TOP_N = 10
 TOP_TOOLS = 12
 LONG_TEXT_CHARS = 1500
