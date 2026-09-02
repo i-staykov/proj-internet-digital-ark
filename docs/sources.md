@@ -2115,7 +2115,35 @@ him with the delivery. Admitted by the loop under the standing rule. **The trans
 classic or NYPW-shaped CDX corpus on disk is a hostname-grain reopen at zero requests, and the
 first thing to measure is the `www.` share of what survives the baseline.**
 
-## `usfedgov_extract_hostnames`: BANKED at 21,925.9 EE, one bulk file instead of 48 million API rows
+## `isc_survey_hostnames`: BANKED at 9,167,369.2 EE, the column the registrable unit threw away
+
+`http://nw.com/zone/9607.hosts/uk.gz` and its siblings, through the 1996-1997 Wayback captures of
+`nw.com` (for example
+<http://web.archive.org/web/19970529075101id_/http://nw.com.:80/zone/9607.hosts/uk.gz>, 4,105,718 B,
+byte-identical to `wb_nw_9607_uk.gz` already on disk): the per-TLD host files of the Network Wizards
+/ ISC Internet Domain Survey, the exact bytes `isc_survey` was banked on in July, 579 files across
+the 9607, 9701 and 9707 editions. Every line is `IP hostname`, the survey's record of a host
+answering the reverse-DNS walk that month, and the registrable ingest kept only the parent, which is
+why the family read as complete and fully held (line 1144, 14,956.4 EE, 0 parents missing).
+**What dates one item is the survey's own `YYMM` edition code, carried in the artifact's path
+(`/zone/9607.hosts/uk.gz` = July 1996), class `artifact_listing`**, the same stamp and the same
+decision the registrable lane stands on, with the Wayback capture fixing that the file existed then;
+the reviewer confirmed in writing on 2026-07-24 that a dated DNS survey enters the annual files on
+exactly this stamp. Ingested by `ark ingest-isc-hostnames`, one ledger row per file. Recomputed from
+the shipped manifest: **18,117,395 records and 9,167,369.2 EE**, 1996 7,581,259 / 4,055,578.8 and
+1997 10,536,136 / 5,111,790.5; largest TLDs `au` 1,361,609, `mil` 1,278,383, `ca` 1,153,457, `us`
+1,003,058, `gov` 840,040, `org` 883,273, `uk` 604,234, `net` 1,249,300. **The disclosure that decides
+what it is worth: 67.1% of the records have a dialup or numbered-workstation shape**
+(`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one file), measured
+by first-label pattern over the shipped files. They are real hosts the walk resolved, they satisfy
+the reviewer's validity rule and they carry the edition's stamp, and he discards at merge what he
+does not want, which is his stated procedure; the share is quoted in the report and in the report's
+limitations so the cut is one filter on the manifest. Admitted by the loop under the standing rule.
+**The transferable point, and it is the same one the zone-NS and blocklist reopens made: when the
+counting unit changes, the first place to look is a column of an artifact already banked, not a new
+artifact.** This one had been closed twice at registrable grain.
+
+## `usfedgov_extract_hostnames`: BANKED at 39,340.0 EE over six merged indexes, 1996-2001
 
 `https://archive.org/download/USFEDGOV-EXTRACT-2001/USFEDGOV-EXTRACT-2001.cdx.gz`, 1,364,737,799 B,
 asserted byte-exact against `archive.org/metadata/USFEDGOV-EXTRACT-2001` before anything was read
@@ -2133,9 +2161,12 @@ and 21,925.9 EE net-new**, gov 21,620.9; largest parents `lanl.gov` 10,110, `nis
 `nasa.gov` 3,267, many of them workstation names captured as embed or link targets, which pass his
 validity rule and carry their own stamp, and which he discards at merge if he wants. The 176 parents
 not held at 2001 earn their year from the same rows (152.5 EE), which is the whole registrable-grain
-yield and confirms the two saturation closures at that grain (lines 1065, 1174). The 1996-2000
-sibling indexes (27.8 MB to 1.08 GB, same path, none access-restricted) are the same lane and
-unmeasured except 1996 at a ~475 EE ceiling. **Method worth keeping: for any `webdataservices` or
+yield and confirms the two saturation closures at that grain (lines 1065, 1174). The five sibling indexes for 1996-2000 (27,817,540 /
+253,426,221 / 137,976,602 / 394,804,120 / 1,076,439,217 B, same path, none access-restricted, each
+byte-checked the same way) were fetched and read whole on 2026-09-02 and ingested through the same
+converter: 1996 104 records / 101.8 EE, 1997 293 / 280.9, 1998 2,738 / 2,681.2, 1999 6,712 / 6,577.7,
+2000 7,996 / 7,772.5, so the family stands at **40,260 records and 39,340.0 EE** across the six years,
+recomputed from the shipped manifest. **Method worth keeping: for any `webdataservices` or
 `earlygovweb` item, pull the one merged `<item>.cdx.gz` and census it offline; the 1.7 MB
 `.cdx.idx` alone lists block-leading SURT keys, a free lower bound on distinct hosts before any
 large fetch.** Admitted by the loop under the standing rule.
