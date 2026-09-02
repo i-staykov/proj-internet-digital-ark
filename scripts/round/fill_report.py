@@ -368,8 +368,10 @@ def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     if rest:
         n = sum(r[4] for r in rest)
         ee = sum((r[5] for r in rest), Decimal(0))
+        units = sorted({r[1] for r in rest})
+        unit = units[0] if len(units) == 1 else "both"
         lines.append(
-            f"| {len(rest)} further sources | registrable | one row each in `sources.md` "
+            f"| {len(rest)} further sources | {unit} | one row each in `sources.md` "
             f"and `audit/source_contribution.csv` | {n:,} | {ee:,.0f} |"
         )
     total_n = sum(r[4] for r in rows)
