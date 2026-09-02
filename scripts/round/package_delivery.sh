@@ -572,5 +572,5 @@ Delivery archive ready, in $ROUND_DIR/
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
 Tracked beside it: report.md, sources.md, MANIFEST.txt, and the .sha256.
-The tarball itself is git-ignored. Add a row to submissions/README.md.
+The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
 EOF
