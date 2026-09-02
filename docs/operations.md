@@ -248,8 +248,8 @@ because the failure it catches has happened.
 The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
 explicitly with `just package phase-5`. The tarball is git-ignored; the report, the source
 documentation, the checksum and `MANIFEST.txt` stay in git, which is enough to say later exactly what
-was claimed and to prove a rebuilt archive matches. **Add a row to `submissions/README.md` after each
-send.**
+was claimed and to prove a rebuilt archive matches. **Add the round's row to `docs/rounds.md` after
+each send.**
 
 ## Collecting more evidence (needs the network)
 
