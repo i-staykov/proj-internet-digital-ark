@@ -3,12 +3,14 @@
 What was actually sent, round by round. `feedback-phase-*/` holds what came back; this holds what
 went out, so the two can be read against each other.
 
-`bash scripts/package_delivery.sh [round]` writes into `submissions/<round>/`, defaulting the round
-to the current git branch. Each folder holds:
+`bash scripts/round/package_delivery.sh [round]` writes into `submissions/<round>/`, defaulting the
+round to the current git branch, except on the fleet's `live` branch, where it uses
+`phase-<current round>` so repeated builds of one round do not pile up in a shared folder. One
+folder per round, each holding:
 
 | File | |
 |---|---|
-| `internet-digital-ark-1996-2001.tar.gz` | the delivery archive. **Git-ignored**, gigabytes |
+| `DomainDataCollectionTask_<stamp>_IvayloStaykov.tar.gz` | the delivery archive, in the name his 0901 update mandates. **Git-ignored**, gigabytes. Earlier rounds carry the older `internet-digital-ark-1996-2001.tar.gz` name |
 | `.tar.gz.sha256` | proves a recovered tarball is the one that was sent |
 | `report.md` | the round report exactly as sent |
 | `sources.md` | the source documentation exactly as sent |
@@ -28,7 +30,7 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 | phase-4 | 2026-08-09 | `merged260802-2` | 946,266 | 603,401.78 | **10.7310%** | **accepted in full 2026-08-10, reissued as `merged260810`** | Usenet bare-domain forms, registry creation dates over the candidate pool, UUCP registry maps, Enron and mailing-list corpora, rtfm FAQs, American trade press |
 | phase-5 | 2026-08-17 | `merged260815` | 2,838,715 | 1,697,224.86 | **20.3337%** | **accepted 2026-08-17 with nothing rejected, recalculated to 2,608,322 / 1,566,229.7613 / 14.901054% against `merged260817`, reissued as `merged260817-2`** | the archive's own capture census, bulk registry creation dates, a UKWA parser reading 6.76% of its file, the recovered January 1997 domain survey |
 | phase-6 | **built, not sent** | `merged260821` | 1,929,655 | 713,481.4198 | 5.339483% | **rebuilt 2026-08-26, above the 5% threshold** | eleven new sources, the largest a second attribute of a file already on disk; generated RDAP target populations measured against each other; the RDAP query logs excluded from the archive on size |
-| live (round 7) | built 2026-09-02, not yet sent | `merged260901` | 26,224,274 (625,385 registrable + 25,598,889 hostname) | 13,670,342.8300 | **76.9268%** | archive `DomainDataCollectionTask_202609020655_IvayloStaykov.tar.gz`, sha256 in `live/`; `verify.sh` (eleven checks) and the tier-2 rebuild pass from a fresh extraction | first round scored at the calculator's own unit: hostnames beneath held registrables ship as a second file per year, every large source a column of an artifact already banked and closed at registrable grain (ISC survey host files, Early Web, USFEDGOV, InterNIC and RIPE nameservers, blocklists); six of them admitted by the unattended loop under the standing rule. Two disclosures decide the figure: 65% of the largest source is dialup or workstation shapes, 26.1% of all hostnames are `www.` forms |
+| phase-7 | built 2026-09-02, not yet sent | `merged260901` | 26,224,274 (625,385 registrable + 25,598,889 hostname) | 13,670,342.8300 | **76.9268%** | archive `DomainDataCollectionTask_202609020655_IvayloStaykov.tar.gz`, sha256 in `phase-7/`; `verify.sh` (eleven checks) and the tier-2 rebuild pass from a fresh extraction | first round scored at the calculator's own unit: hostnames beneath held registrables ship as a second file per year, every large source a column of an artifact already banked and closed at registrable grain (ISC survey host files, Early Web, USFEDGOV, InterNIC and RIPE nameservers, blocklists); six of them admitted by the unattended loop under the standing rule. Two disclosures decide the figure: 65% of the largest source is dialup or workstation shapes, 26.1% of all hostnames are `www.` forms |
 
 Growth is always quoted against the baseline in the same row, which is the reviewer's convention. The
 same 603,401.78 equivalent-English is 9.69% against `merged260810`, so a percentage lifted out of this
