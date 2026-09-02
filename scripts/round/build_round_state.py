@@ -28,15 +28,23 @@ machine-readable state line, and `--check` recomputes those counts and exits 1 i
 the store has moved since the file was written. That is the honest guarantee: not
 "this is current" but "you can tell in one command whether it is".
 
+The same run writes `data/brief.json`, the snapshot `just brief` reads. That
+reader must never touch the store (900 s lock wait) or ssh, since it runs from a
+session-start hook, so everything it needs is copied out here while the store is
+open anyway. The VPS address stays out of it: the collectors are keyed by role.
+
     uv run python scripts/round/build_round_state.py           # write docs/ROUND.md
     uv run python scripts/round/build_round_state.py --check    # exit 1 if it is stale
 """
 
 import argparse
+import json
 import re
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +55,7 @@ import duckdb  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
+    CURRENT_ROUND_LABEL,
     CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
@@ -55,8 +64,12 @@ from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
+BRIEF = ROOT / "data/brief.json"
 DECISIONS = ROOT / "docs/key-decisions.md"
+AMENDMENTS = ROOT / "docs/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
+SECTION_RE = re.compile(r"^== (.*?) ==$", re.MULTILINE)
+GATE_PCT = Decimal(5)
 
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
@@ -113,7 +126,64 @@ def open_decisions() -> list[str]:
     return open_titles(DECISIONS)
 
 
-def build() -> tuple[str, dict]:
+def collector_lines(engines: str) -> dict[str, str]:
+    """One line per machine out of `engine_status.sh`: the first line under its
+    `local` and `VPS (...)` sections, which is `up ...`, `NOT RUNNING` or
+    `unreachable`. Keyed by role so the address never enters the brief. A run that
+    produced no sections (timed out, no output) leaves both UNKNOWN, which is the
+    honest reading: not asked is not idle."""
+    lines = {"local": "UNKNOWN", "vps": "UNKNOWN"}
+    heads = list(SECTION_RE.finditer(engines))
+    for i, head in enumerate(heads):
+        role = "vps" if head.group(1).startswith("VPS") else head.group(1)
+        if role not in lines:
+            continue
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(engines)
+        body = [ln.strip() for ln in engines[head.end() : end].splitlines() if ln.strip()]
+        if body:
+            lines[role] = body[0][:120]
+    return lines
+
+
+def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
+    """Rows of the amendments ledger with a cell still reading `pending`: a brief
+    change intake transcribed that nobody has classified or landed yet."""
+    path = path or AMENDMENTS
+    rows = []
+    if not path.exists():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if any(c.lower() == "pending" for c in cells):
+            rows.append({"date": cells[0], "text": cells[1][:120] if len(cells) > 1 else ""})
+    return rows
+
+
+def brief(head: dict, engines: str, approvals: int, decisions: int) -> dict:
+    """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
+    injected into every session start, and thirty lines is the budget."""
+    stats = head["_stats"]
+    ee = stats["ee_netnew"]
+    gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
+    return {
+        "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "baseline": CURRENT_BASELINE_MARKER,
+        "round": CURRENT_ROUND_LABEL,
+        "netnew_pairs": head["pairs"],
+        "netnew_domains": head["domains"],
+        "netnew_ee": round(float(ee), 4),
+        "percent": round(float(stats["ee_netnew_growth_pct"]), 4),
+        "gate_pct": float(GATE_PCT),
+        "distance_to_gate_ee": round(float(gate_ee - ee), 4),
+        "collectors": collector_lines(engines),
+        "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
+        "pending_amendments": pending_amendments(),
+    }
+
+
+def build() -> tuple[str, dict, dict]:
     conn = read_only_store()
     try:
         head = headline(conn)
@@ -205,7 +275,7 @@ def build() -> tuple[str, dict]:
         f"ee={head['ee']} evidence={head['evidence']} -->",
         "",
     ]
-    return "\n".join(parts), head
+    return "\n".join(parts), head, brief(head, engines, len(waiting), len(decisions))
 
 
 def parse_state(text: str) -> dict[str, str] | None:
@@ -247,8 +317,10 @@ def main() -> None:
         print(f"docs/ROUND.md is current: {head['pairs']:,} pairs, {head['ee']} EE")
         return
 
-    body, head = build()
+    body, head, snapshot = build()
     OUT.write_text(body, encoding="utf-8")
+    BRIEF.parent.mkdir(parents=True, exist_ok=True)
+    BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
     print(
         f"wrote {OUT.relative_to(ROOT)}: {head['pairs']:,} net-new pairs, "
         f"{head['domains']:,} net-new domains, {head['ee']} equivalent-English"
