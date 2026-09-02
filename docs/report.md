@@ -168,7 +168,7 @@ corpora, academic repositories, CD-ROM media, FTP mirrors, trade directories.
 
 `README.md` in the archive gives the order: `masters/`, `additions/`, `hostnames/`,
 `candidates.txt`, `provenance/*.parquet` (every assignment joined to its evidence row), `logs/`.
-Before sending, a fresh extraction of this archive was put through that route: all ten `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with five journal sets held out of the archive on size.
+Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with five journal sets held out of the archive on size.
 
 | | asked for | where it is |
 |----|------------------|------------------------------------------|
@@ -177,4 +177,4 @@ Before sending, a fresh extraction of this archive was put through that route: a
 | **D3** | merge and dedup code, overlap, reconciliation | section 7, `source/scripts/round/merge_against_baseline.py`, output in `audit/` |
 | **D4** | runnable metric code and its explanation | `equivalent_english_domain_calculator/`, your program vendored unmodified, explained in `metric-explained.md` |
 
-`verify.sh` runs ten checks inside a fresh extraction, including all four.
+`verify.sh` runs eleven checks inside a fresh extraction, including all four.
