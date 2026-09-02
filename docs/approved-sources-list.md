@@ -302,6 +302,66 @@ Decision: master
 
 Decision: master
 
+### squidguard_2001_hostnames / artifact_listing
+
+- ingest: `ark ingest-blocklist-hostnames data/raw/squidguard/*`, the exact flattened files
+  `squidguard_2001_blacklist` was decided on; it keeps the sub-registrable HOST each list line
+  names, the column the registrable parser collapses onto its parent (`mail` skipped as before)
+- source: http://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz
+  (1,852,659 B, member `samples/dest/blacklists.tar.gz`)
+- measured: **1,059.8 net-new EE over 2,093 (hostname, 2001) records**, re-priced 2026-09-02 on the
+  live store from the bytes: 4,323 distinct proper hostnames across the `domains`, `urls` and dated
+  diff lanes, every parent held at 2001, 432 already in `hostname_year`, 2,175 already in the
+  reviewer's own `merged260901` 2001 file. No split: the robot wrote the list. By TLD com 1,123
+  records 709.8 EE, net 417 / 188.9, org 57 / 40.5, nu 82 / 22.9. Largest parents `fsn.net` 135,
+  `free.fr` 78, `majorhost.com` 51. The fleet's snapshot figure on the `domains` lane alone was
+  866.0 EE; the `urls` lane, equally the robot's output, adds the rest. **Banked 2026-09-02: 3,891
+  store rows, of which 2,093 ship at 1,059.8 EE**, the rest being hosts the reviewer's file has
+- what dates one item: the list's own compile header, `# This list was compiled in 0:00:20 on
+  2001.12.18 15:04:29.` from `squidGuardRobot-2.3.4`, or the diff's filename date; quoted in every
+  evidence value as `squidguard:<category>/<kind>@20011218 host <hostname>`. The header asserts the
+  links `tested successfully`, so the host answered at that instant
+- the registrable lane of the same bytes was banked at 10,376.9 EE on 2026-08-26 and the hostname
+  grain measured 2026-09-02 (register line 816, fleet `banked_lists_hostname_grain`) is a
+  unit-change reopen, not a re-test
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, decided
+  master for these exact bytes on 2026-08-26; the stamp is the compile header inside the artifact,
+  quoted above; the terms are GPL v2, read at approval; `ark check` passes after the ingest with
+  both hostname-wall checks
+
+Decision: master
+
+### chastity_list_hostnames / dated_directory
+
+- ingest: `ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz`. It reads
+  the TARBALL, not the unpacked tree, because the stamp is the tar member header and extraction
+  loses it; every `db/<category>/{domains,urls,*.diff}` member except `mail`
+- source: https://archive.debian.org/debian/pool/main/c/chastity-list/chastity-list_0.5.orig.tar.gz
+  (720,609 B)
+- measured: **2,801.5 net-new EE over 6,520 (hostname, 2001) records**, re-priced 2026-09-02 on the
+  live store from the bytes: 10,929 distinct proper hostnames, 10,883 (99.6%) beneath a parent
+  that already carries an assigned year, 874 already in `hostname_year`, 4,077 already in the
+  reviewer's own 2001 file. By TLD com 2,408 records 1,522.1 EE, net 1,460 / 661.4, fr 1,489 /
+  152.0, org 194 / 137.8, uk 64 / 62.8. Largest parents `free.fr` 1,292, `fsn.net` 664,
+  `multimania.com` 288, `cjb.net` 227. Union with the squidGuard lane above: **7,653 records,
+  3,410.4 EE**, 1,678 hostnames shared between the two lists. **Banked 2026-09-02: 8,225 store rows,
+  of which 5,615 ship at 2,381.9 EE**; with the squidGuard lane the family ships **7,708 records,
+  3,441.8 EE**, the 55 records above the pre-ingest union being hosts whose parent earned 2001 from
+  the same row
+- **the corroboration split applies and costs 46 hosts**: the list is hand-kept, so a host counts
+  only when its parent registrable already carries an assigned year, the predicate
+  `split_chastity.py` states; the 46 beneath a novel parent are counted as parked and not written
+- what dates one item: the tar member header tar wrote on every member, `-rw-r----- rkrusty rkrusty
+  4729 Dec 14 2001 chastity-list-0.5/db/ads/domains`, read from the tarball at ingest and quoted in
+  every evidence value as `chastity-list:20011214 <category>/<kind> host <hostname>`; the same
+  argument approved for the registrable lane on 2026-08-31
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `dated_directory`, decided
+  master for these exact bytes on 2026-08-31; the stamp is the tar member header inside the
+  artifact, quoted above; the terms are GPL v2, verbatim in `COPYING`, read at approval; `ark
+  check` passes after the ingest with both hostname-wall checks
+
+Decision: master
+
 ### udrp_proceedings / artifact_listing
 
 - ingest spec: `udrp_proceedings`
@@ -728,6 +788,17 @@ Decision: pending
   same year; projection 20,000 to 25,000 EE for demon.* and six figures spool-wide, unmeasured. The
   probe's per-message table was deleted with the run and the bytes are not on this machine, so the
   live-store figure is not available and the fleet's must not be banked as a claim
+- second fleet probe, 2026-09-02, over 55.3 MB (`demon.ip.support.pc` and `.newuser`, 72,172
+  messages), against the ark-data sync of 2026-09-01: **6,877 EE over 7,186 stable hostname-years**,
+  `uk` 6,671.8 of it, of which **2,823 EE is bounded by the three server-written fields** (X-Trace
+  2,394.4, Path hop 220.5, NNTP-Posting-Host 208.4) and **4,054 EE more comes from the `Message-ID`
+  host**, which Turnpike and Demon's clients stamp from the configured nodename, so it is
+  client-written and needs its own class reading before it counts at all. Ephemeral pool shapes
+  are 6.9% of the novel rows and were excluded. The seam is 1996-1998 (2,658 / 1,111 / 1,557 `uk`
+  hosts), not 2001: the baseline's Demon hostnames are the crawled `www.*` population, the Usenet
+  nodenames are a different population under the same registrable. Honest band for demon.* is
+  20,000 to 60,000 EE, the uk.* hierarchy unmeasured on top. Also not re-priced on the live store,
+  same reason
 - what dates one item: the message's own `Date:` header, with the hostname written by the
   injecting server, `X-Trace: mail2news.demon.co.uk 894324354 19133 faqs pcserv.demon.co.uk`
 - **conditions 1 and 4 fail.** Condition 1: no master-eligible class covers a server-written
@@ -737,8 +808,11 @@ Decision: pending
   4: no journal exists, the census is a whole-spool pass on the VPS that has not run, so no ingest
   can be checked. And the reviewer's own 2026-09-01 update lists "dated Usenet archive copies"
   among sources unsuitable for further work (register line 781); the fleet recommends putting the
-  hostname-grain figure to Ding before any spool-wide pass, and that is his call, not the loop's
-- potential: 2368
+  hostname-grain figure to Ding before any spool-wide pass, and that is his call, not the loop's.
+  The second probe does not move either condition: it widens the ask to two rulings, whether a
+  server-written header host is split-free `link_source`, and separately whether a client-written
+  `Message-ID` host is evidence at all. Issue 2 on ark-fleet carries the block
+- potential: 6877
 
 Decision: pending
 
