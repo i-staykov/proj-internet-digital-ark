@@ -83,7 +83,7 @@ his own calculator, run here, reproduces the audit's baseline figure.
 The `.sha256` sidecar is delivered **beside** the `.tar.gz`, not inside it:
 
 ```
-shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
+shasum -a 256 -c [ARCHIVE].tar.gz.sha256
 ```
 
 Then from inside this folder:
