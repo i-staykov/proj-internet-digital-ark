@@ -28,6 +28,11 @@ OUT = REPO / "data/raw/usfedgov_hostgrain"
 # archive.org/metadata/<item> `size` for each merged index; a byte-exact match is the
 # fetch check, and an unknown file is refused rather than trusted.
 EXPECTED_BYTES = {
+    "USFEDGOV-EXTRACT-1996.cdx.gz": 27_817_540,
+    "USFEDGOV-EXTRACT-1997.cdx.gz": 253_426_221,
+    "USFEDGOV-EXTRACT-1998.cdx.gz": 137_976_602,
+    "USFEDGOV-EXTRACT-1999.cdx.gz": 394_804_120,
+    "USFEDGOV-EXTRACT-2000.cdx.gz": 1_076_439_217,
     "USFEDGOV-EXTRACT-2001.cdx.gz": 1_364_737_799,
 }
 
