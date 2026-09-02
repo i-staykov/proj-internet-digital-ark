@@ -189,7 +189,9 @@ cp "$REPORT" "$STAGE/report.md"
 # the reviewer's own check, runnable from inside the unpacked folder
 cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
-cp docs/delivery_readme.md "$STAGE/README.md"
+# The archive name carries the packaging minute, so the README's checksum command
+# is filled in here; a hard-coded name went stale the round the name changed.
+sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
