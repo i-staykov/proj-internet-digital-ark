@@ -813,6 +813,15 @@ them; where we hold our own verdict on the same family, both are cited.
 
 | Source | Verdict |
 |---|---|
+| **dartmouth_arcs_cdx_hostname_grain (2026-09-02, fleet 20260902T0232Z)** | **CLOSED at 0 EE, against the ark-data sync.** What dates one item: the CDX row's own capture timestamp (field 2, `20130417064224`), class `cdx_timestamp`, master-eligible;. Artifact: <https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-03557-03568/…PART-03557-000006.arc.os.cdx.gz>. four per-ARC index members from three items, 2,948,168 B total: PART-03557-000006/7/8 (item 03557-03568) = 26,592 rows, ALL stamped 2013; |
+| **inaddr_reverse_tree_ns_hostnames_1997_1999 (2026-09-02, fleet 20260902T0232Z)** | **FIND at 4655.5 EE, against the ark-data sync.** What dates one item: ARIN arm: BIND 8's transfer comment at the head of each zone member, `;. Artifact: <https://ftp.apnic.net/apnic/arin/arin.zones.tar.gz>. both arms read whole, no sampling. |
+| **isc_survey_host_files_hostname_grain (2026-09-02, fleet 20260902T0232Z)** | **FIND at 818952 EE, against the ark-data sync.** What dates one item: the survey `YYMM` in the artifact path (`9607.hosts/` = July 1996 PTR walk), class `artifact_listing`, already master for `isc_survey`;. Artifact: <http://web.archive.org/web/19970529075101id_/http://nw.com.:80/zone/9607.hosts/uk.gz>. `9607.hosts/uk.gz` (4,105,718 B via Wayback replay, gzip -t OK), 652,649 lines, 647,589 distinct hosts, 615,247 valid non-registrable hostnames beneath a `.uk` registrable. |
+| **loc_elections2000_cdx_hostname_grain (2026-09-02, fleet 20260902T0232Z)** | **CLOSED at 0 EE, against the ark-data sync.** What dates one item: the row's 14-digit capture timestamp written by the MINERVA crawler (`cdx_timestamp`, master).. Artifact: <https://data.labs.loc.gov/us-elections/by-year/2000/manifest.txt>. 12 of 3,521 files (8 spread across the April 2001 block by SURT position, 4 from the June 2001 tail), 1.16 MB of 1,971,201,167 B (0.06% of bytes), 40,989 CDX rows. |
+| **netscape_bookmark_add_date_on_media (2026-09-02, fleet 20260902T0232Z)** | **CLOSED at 6 EE, against the ark-data sync.** What dates one item: Netscape's `ADD_DATE="<epoch>"` attribute per bookmark, machine-written, sound as a stamp.. Artifact: <https://discmaster.textfiles.com/search?q=bookmark.htm&qfields=name&mode=deep&tsMin=1996-01-01&tsMax=2001-12-31>. one discmaster filename search, `q=bookmark.htm&qfields=name&mode=deep&tsMin=1996-01-01&tsMax=2001-12-31`, returns 15,547 matches (first page 99 rows, media years 1996: 54, 1997: 16, 1998: 14, 1999: 14, 2000: 13, 2001: 41), so the 200-file  |
+| **public_inbox_received_fqdns (2026-09-02, fleet 20260902T0232Z)** | **BLOCKED at 0 EE, against the ark-data sync.** What dates one item: the MTA's own `Received: from <fqdn> (<fqdn> [ip]) by <fqdn> ...;. Artifact: <https://inbox.sourceware.org/gcc/0>. none of the three named hosts yielded an in-window `Received:` line under terms we hold. |
+| **usenet_pasted_machine_blocks_hostname_grain (2026-09-02, fleet 20260902T0232Z)** | **FIND at 6200 EE, against the ark-data sync.** What dates one item: the post's own `Date:` header (`Date: 1999/12/30` in the old Google form, RFC 822 in the rest), the same stamp the approved Usenet body classes already use;. Artifact: <https://archive.org/download/usenet-comp/comp.protocols.dns.bind.mbox.zip>. two whole groups from `archive.org/download/usenet-comp/`, not a sample. |
+| **usenet_uk_and_edu_header_fqdns (2026-09-02, fleet 20260902T0232Z)** | **FIND at 2537 EE, against the ark-data sync.** What dates one item: the message's own `Date:` header (fallback: the X-Trace epoch the injecting server wrote), and the hostname is written by the NNTP server, not the poster: `X-Tr. Artifact: <https://archive.org/download/usenet-uk/uk.comp.os.win95.mbox.zip>. `uk.comp.os.win95.mbox.zip` (27,709,004 B, 60,588 messages, ~42,000 in window 1996-2001) parsed headers-only in-stream. |
+| **usfedgov_extract_1996_2000_hostname_grain (2026-09-02, fleet 20260902T0232Z)** | **FIND at 18702.8 EE, against the ark-data sync.** What dates one item: the 14-digit CDX capture timestamp on the row itself (`20000508164730`-form), written by the crawler at fetch time;. Artifact: <https://archive.org/download/USFEDGOV-EXTRACT-<year>/USFEDGOV-EXTRACT-<year>.cdx.gz>. no probe needed after the first item: every one of the five merged indexes was fetched whole (1,890,463,700 B, each byte-exact against `archive.org/metadata/USFEDGOV-EXTRACT-<year>` `size`) and read whole, so these are measurements, not pro |
 | **banked_registers_beyond_registrable (2026-09-02, fleet 20260902T0034Z)** | **BLOCKED at 0 EE, against the ark-data sync.** What dates one item: unchanged from the banked classes: the UUCP map's own `#W` stamp, the `.us` delegation edition stamp, attrition's per-defacement mirror date.. none run. |
 | **dartmouth_captures_hostname_grain (2026-09-02, fleet 20260902T0034Z)** | **FIND at 0 EE, against the ark-data sync.** What dates one item: field 2 of the CDX row, the 14-digit capture timestamp written by the archive (`cdx_timestamp`), identical to what dates the banked `dartmouth_nber_captures` ro. Artifact: <https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-metadata/domain-year-captures.txt>. ARM 1 (`domain-year-captures.txt`): two disjoint Range slices, bytes 0-4194303 and 120000000-122097151, 277,011 rows. |
 | **early_web_cdx_hostname_grain (2026-09-02, fleet 20260902T0034Z)** | **FIND at 631215.8 EE, against the ark-data sync.** What dates one item: the row's own 14-digit capture timestamp, field 2 of the classic CDX line, class `cdx_timestamp`, quoted beside the hostname exactly as the NYPW reprice did (e.. Artifact: <https://archive.org/details/early-web_cdx-lang-cdxa>. no probe needed, the whole artifact is 177 MB and was read whole (224 files, 4,383,611 rows, 4,210,462 in-window HTTP-200 captures, years 1996-1999 only, none dated 2000 or 2001). |
@@ -2106,7 +2115,37 @@ him with the delivery. Admitted by the loop under the standing rule. **The trans
 classic or NYPW-shaped CDX corpus on disk is a hostname-grain reopen at zero requests, and the
 first thing to measure is the `www.` share of what survives the baseline.**
 
-## `usfedgov_extract_hostnames`: BANKED at 21,925.9 EE, one bulk file instead of 48 million API rows
+## `isc_survey_hostnames`: BANKED at 9,167,369.2 EE, the column the registrable unit threw away
+
+`http://nw.com/zone/9607.hosts/uk.gz` and its siblings, through the 1996-1997 Wayback captures of
+`nw.com` (for example
+<http://web.archive.org/web/19970529075101id_/http://nw.com.:80/zone/9607.hosts/uk.gz>, 4,105,718 B,
+byte-identical to `wb_nw_9607_uk.gz` already on disk): the per-TLD host files of the Network Wizards
+/ ISC Internet Domain Survey, the exact bytes `isc_survey` was banked on in July, 579 files across
+the 9607, 9701 and 9707 editions. Every line is `IP hostname`, the survey's record of a host
+answering the reverse-DNS walk that month, and the registrable ingest kept only the parent, which is
+why the family read as complete and fully held (line 1144, 14,956.4 EE, 0 parents missing).
+**What dates one item is the survey's own `YYMM` edition code, carried in the artifact's path
+(`/zone/9607.hosts/uk.gz` = July 1996), class `artifact_listing`**, the same stamp and the same
+decision the registrable lane stands on, with the Wayback capture fixing that the file existed then;
+the reviewer confirmed in writing on 2026-07-24 that a dated DNS survey enters the annual files on
+exactly this stamp. Ingested by `ark ingest-isc-hostnames`, one ledger row per file. Recomputed from
+the shipped manifest: **18,117,395 records and 9,167,369.2 EE**, 1996 7,581,259 / 4,055,578.8 and
+1997 10,536,136 / 5,111,790.5; largest TLDs `au` 1,361,609, `mil` 1,278,383, `ca` 1,153,457, `us`
+1,003,058, `gov` 840,040, `org` 883,273, `uk` 604,234, `net` 1,249,300. **The disclosure that decides
+what it is worth: 65% of the records have a dialup or numbered-workstation shape**
+(`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one file), the
+figure the report quotes, measured over the shipped files by `DIALUP_SHAPE` in
+`scripts/round/fill_report.py`; a cruder first-label test gives 67.1%, so read it as about
+two thirds either way. They are real hosts the walk resolved, they satisfy
+the reviewer's validity rule and they carry the edition's stamp, and he discards at merge what he
+does not want, which is his stated procedure; the share is quoted in the report and in the report's
+limitations so the cut is one filter on the manifest. Admitted by the loop under the standing rule.
+**The transferable point, and it is the same one the zone-NS and blocklist reopens made: when the
+counting unit changes, the first place to look is a column of an artifact already banked, not a new
+artifact.** This one had been closed twice at registrable grain.
+
+## `usfedgov_extract_hostnames`: BANKED at 39,340.0 EE over six merged indexes, 1996-2001
 
 `https://archive.org/download/USFEDGOV-EXTRACT-2001/USFEDGOV-EXTRACT-2001.cdx.gz`, 1,364,737,799 B,
 asserted byte-exact against `archive.org/metadata/USFEDGOV-EXTRACT-2001` before anything was read
@@ -2124,9 +2163,12 @@ and 21,925.9 EE net-new**, gov 21,620.9; largest parents `lanl.gov` 10,110, `nis
 `nasa.gov` 3,267, many of them workstation names captured as embed or link targets, which pass his
 validity rule and carry their own stamp, and which he discards at merge if he wants. The 176 parents
 not held at 2001 earn their year from the same rows (152.5 EE), which is the whole registrable-grain
-yield and confirms the two saturation closures at that grain (lines 1065, 1174). The 1996-2000
-sibling indexes (27.8 MB to 1.08 GB, same path, none access-restricted) are the same lane and
-unmeasured except 1996 at a ~475 EE ceiling. **Method worth keeping: for any `webdataservices` or
+yield and confirms the two saturation closures at that grain (lines 1065, 1174). The five sibling indexes for 1996-2000 (27,817,540 /
+253,426,221 / 137,976,602 / 394,804,120 / 1,076,439,217 B, same path, none access-restricted, each
+byte-checked the same way) were fetched and read whole on 2026-09-02 and ingested through the same
+converter: 1996 104 records / 101.8 EE, 1997 293 / 280.9, 1998 2,738 / 2,681.2, 1999 6,712 / 6,577.7,
+2000 7,996 / 7,772.5, so the family stands at **40,260 records and 39,340.0 EE** across the six years,
+recomputed from the shipped manifest. **Method worth keeping: for any `webdataservices` or
 `earlygovweb` item, pull the one merged `<item>.cdx.gz` and census it offline; the 1.7 MB
 `.cdx.idx` alone lists block-leading SURT keys, a free lower bound on distinct hosts before any
 large fetch.** Admitted by the loop under the standing rule.

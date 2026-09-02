@@ -531,6 +531,9 @@ cp docs/sources.md "$ROUND_DIR/sources.md"
     echo "bytes        $(wc -c < "$ARCHIVE" | tr -d ' ')"
     echo "files        $(find "$STAGE" -type f | wc -l | tr -d ' ')"
     echo "netnew_pairs $STORED"
+    # The second output unit ships in its own files, so the manifest names it too:
+    # netnew_pairs alone reads as the whole round and has not been since 2026-09-01.
+    echo "netnew_hostnames $(cat "$STAGE"/hostnames/*_hostnames.txt 2>/dev/null | wc -l | tr -d ' ')"
 } > "$ROUND_DIR/MANIFEST.txt"
 
 # Everything needed to hand the archive over by link, in one block to copy.
