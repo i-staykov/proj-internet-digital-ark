@@ -378,6 +378,12 @@ Decision: master
   its own path and the reviewer accepted in writing, quoted above; the terms are the Wayback
   public replay of a site the survey published openly, already read for the registrable lane;
   `ark check` passes after the ingest with both hostname-wall checks
+- **amended 2026-09-02 (Ivo): at hostname grain this lane is candidate-only.** The reviewer's
+  purpose for the unit is retrieving archived pages, and a reverse-DNS walk observes a machine
+  answering, not a site (65% of these names are dialup or workstation shapes). The evidence
+  class stays master: the same row still dates the parent registrable, and the 18,147,169
+  hostname rows it had written were removed by `scripts/round/apply_hostname_purpose_rule.py`.
+  Re-admissible by adding the source to `WEB_FACING_HOST_SOURCES` if he rules DNS listings count
 
 Decision: master
 
@@ -422,6 +428,9 @@ Decision: master
   master for these exact bytes on 2026-08-26 and under the standing rule for the split edition;
   the stamps are machine-written inside the artifacts, quoted above; the terms are the written
   RIPE NCC permission; `ark check` passes after the ingest with both hostname-wall checks
+- **amended 2026-09-02 (Ivo): at hostname grain this lane is candidate-only.** An `nserver:`
+  attribute observes a nameserver, not a site; the class stays master for the parent's year and
+  the 51,281 hostname rows were removed by `scripts/round/apply_hostname_purpose_rule.py`
 
 Decision: master
 
@@ -458,6 +467,9 @@ Decision: master
   quoted above; the terms are the ones read for `internic_zone` (IA replay of a nic.mil capture,
   `archive.org/robots.txt` read whole, only `/control/` and `/report/` disallowed); `ark check`
   passes after the ingest with both hostname-wall checks
+- **amended 2026-09-02 (Ivo): at hostname grain this lane is candidate-only.** An NS target
+  observes a nameserver, not a site; the class stays master for the parent's year and the
+  20,835 hostname rows were removed by `scripts/round/apply_hostname_purpose_rule.py`
 
 Decision: master
 

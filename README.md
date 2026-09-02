@@ -26,7 +26,7 @@ Laptop (episodic, human-supervised)
 
 The store enforces the core rule structurally: **no year without an observation**
 (`domain_year.evidence_id` and `hostname_year.evidence_id` are NOT NULL onto `evidence`),
-fifteen invariants checked on every export, and every source class gated behind a written
+seventeen invariants checked on every export, and every source class gated behind a written
 decision before it may date a year. Negative results are first-class: the register records every family tried, with
 the measurement that closed it.
 
@@ -47,7 +47,7 @@ the measurement that closed it.
 ```bash
 uv sync
 uv run ruff check . && uv run pytest -q     # the suite
-uv run ark check                            # fifteen store invariants (needs the store)
+uv run ark check                            # seventeen store invariants (needs the store)
 ```
 
 The full reproduction recipe, from raw sources to shipped files, is `just reproduce`;
