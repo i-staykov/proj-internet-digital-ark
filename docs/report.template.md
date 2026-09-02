@@ -86,42 +86,42 @@ valid hostnames under your rule and sit in their own files, so they merge or dro
 
 ## 4. Autonomous research this round
 
-- **The loop runs unattended.** Scheduled workflows on a self-hosted runner: a generator proposes
-  hypotheses, researcher waves test them in parallel and price each against the store, a re-opener
-  re-reads closed verdicts whenever a screen changes, and an improver tunes one prompt or model
-  knob per pull request from per-run telemetry.
-- **Three of the round's finds are the loop's.** The hostname-grain re-read (item 1 above) was
-  among the generator's first seven proposals. The re-opener recovered the NYPW TimeMaps from a
-  14 EE closure by measuring the ingest ledger per folder (year rows per million: 2000 ~24,000,
-  1999 ~10,000, 2001 exactly 4), for ~88,000 EE. A researcher wave found the first source admitted
-  without a human, below.
-- **Admission without a human, under a standing rule.** A source banks when its evidence class is
-  already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
-  in full, and the invariants pass. Anything else parks until a written decision.
-- **The first such admission is a column this project had discarded on purpose.** A zone file's
-  NS records name two hosts: the delegation and the nameserver serving it. At registrable grain the
-  nameserver side closed at 63 pairs (`ns1.psi.net` collapses to an operator every crawl holds).
-  At hostname grain, 21,498 nameservers in the 1997 InterNIC `org`, `edu`, `gov`, `mil`, `root`
-  and `arpa` zones are 90% absent from both the store and your 1997 file: **19,211 records,
-  11,860.7 EE**, dated by the SOA serial `1997041800` in the payload, no new request. The lens it
-  opens: nameservers, mail exchangers and mirrors are hosts a web crawler never fetches, so
-  DNS-side and mail-side artifacts are the hostname unit's natural source even where their
-  registrables are saturated. The second such admission is smaller and cheaper still: the two
-  banked squidGuard blocklists read one level down, keeping the host each line names instead of
-  its registrable, 7,708 records and 3,441.8 EE at 2001, zero requests (`sources.md`). The
-  third is the same lens on a registry database: the nameservers RIPE `domain:` objects point at,
-  in the two FUNET editions already banked for their delegated names, [HOST_RIPE_N] records and
-  [HOST_RIPE_EE] EE across 1996-2001, dated by the dump's own generation stamp and each object's
-  latest `changed:` line, under the RIPE NCC's written permission.
-  The fourth is item 1 of section 2, the ISC survey host files, which is the largest single
-  admission of the round and reached the same way: a column of a banked artifact that the
-  registrable unit threw away.
-- **Saturation ledger**, as your 0831 update asks: `audit/source_saturation_ledger.csv`, one row
-  per source family and version. [DATASETS_SEARCHED]
-- **Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or
-  the authority screen; academic repositories closed by enumeration through five APIs and two
-  registries; CD-ROM media, FTP mirrors and trade directories at the curated-directory floor
-  (0.013-0.024 net-new pairs per listed name). Each with its figure in `sources.md`.
+**The loop runs unattended.** Scheduled workflows on a self-hosted runner: a generator proposes
+hypotheses, researcher waves test them in parallel and price each against the store, a re-opener
+re-reads closed verdicts whenever a screen changes, an improver tunes one prompt or model knob per
+pull request. [DATASETS_SEARCHED] The code is `source/fleet.tar.gz`.
+
+**Six sources were admitted without a human**, under a rule fixed in advance: the evidence class is
+already master-eligible, a machine-written stamp inside the artifact dates each item, the terms were
+read in full, and the invariants pass. Anything failing one of the four parks until a written
+decision, and two sources did park this round. Each row below is a column of an artifact this
+project had already banked and closed at registrable grain:
+
+| admitted by the loop | records | EE | the column that had been discarded |
+|---------------------------------|--------:|-------:|--------------------------------------|
+| ISC survey host files | [HOST_ISC_N] | [HOST_ISC_EE] | the host in each `IP hostname` line, not its parent |
+| IA Early Web index | [HOST_EARLYWEB_N] | [HOST_EARLYWEB_EE] | the captured host, not its registrable |
+| USFEDGOV merged indexes, six years | [HOST_USFEDGOV_N] | [HOST_USFEDGOV_EE] | the captured host, not its registrable |
+| 1997 InterNIC zones | 19,211 | 11,860.7 | the nameserver an NS record points at, not the delegation |
+| RIPE `domain:` objects | [HOST_RIPE_N] | [HOST_RIPE_EE] | the `nserver:` attribute both parsers dropped |
+| two squidGuard blocklists | 7,708 | 3,441.8 | the host each line names, not its registrable |
+
+**The lens that produced all six**, and the round's transferable result: when the counting unit
+changes, the payload is a column of an artifact already on disk, not a new corpus. Its natural home
+is DNS-side and mail-side records, because nameservers, mail exchangers and mirrors are hosts a web
+crawler never fetches, so they are absent from a capture-fed benchmark by construction even where
+their registrables are saturated. Zero new requests were needed for four of the six.
+
+**A closure is a hypothesis, not a fact.** The re-opener recovered the NYPW TimeMaps from a 14 EE
+closure by measuring the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999
+~10,000, 2001 exactly 4) for ~88,000 EE, after one run had argued the opposite from a plausible
+mechanism.
+
+**Measured negatives that steer the next cycle**: prose corpora fail either the URL-density or the
+authority screen; academic repositories closed by enumeration through five APIs and two registries;
+CD-ROM media, FTP mirrors and trade directories at the curated-directory floor (0.013-0.024 net-new
+pairs per listed name). Each with its figure in `sources.md`, and the saturation ledger your 0831
+update asks for is `audit/source_saturation_ledger.csv`, one row per source family and version.
 
 ## 5. CDX execution notes
 
