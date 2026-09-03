@@ -28,8 +28,11 @@ _SPEC = importlib.util.spec_from_file_location("intake", ROOT / "scripts/round/i
 intake = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(intake)
 
-MARKER = "merged260903"
-STAMP = (2026, 9, 3, 10, 31, 0)
+# A date no real release has used, because the marker's digits are parsed as YYMMDD and
+# the fixture shared `merged260903` with his own merged260903-3, so a substring
+# assertion about the fixture started reading the real page's row.
+MARKER = "merged261231"
+STAMP = (2026, 12, 31, 10, 31, 0)
 
 # Two EE per line, so 1996 is 6 and 2001 is 2,468 against test_releases' LINES.
 CALCULATOR = """
@@ -134,7 +137,7 @@ def test_a_release_and_a_verdict_go_in_with_one_command(monkeypatch, capsys, tmp
     current = written["current"]
     assert current["marker"] == MARKER
     assert current["directory"].endswith(f"Domain_Data_Collection_Task/{MARKER}")
-    assert current["released_at"] == "2026-09-03 10:31"
+    assert current["released_at"] == "2026-12-31 10:31"
     assert current["reviewer_pairs"] == sum(LINES.values())
     assert current["reviewer_ee_by_year"]["2001"] == "2468.0000"
     assert current["reviewer_ee"] == f"{2 * sum(LINES.values())}.0000"
@@ -210,9 +213,9 @@ def test_dry_run_writes_nothing(monkeypatch, capsys, tmp_path):
 def test_the_release_stamp_falls_back_to_the_marker_date(tmp_path):
     """A zip stamped on another day dates the release only to the day."""
     bench = _bench(tmp_path)
-    assert intake.released_at(bench["zip"], MARKER, None) == "2026-09-03 10:31"
+    assert intake.released_at(bench["zip"], MARKER, None) == "2026-12-31 10:31"
     assert intake.released_at(bench["zip"], "merged260830", None) == "2026-08-30 00:00"
-    assert intake.released_at(bench["zip"], MARKER, "2026-09-03 09:04") == "2026-09-03 09:04"
+    assert intake.released_at(bench["zip"], MARKER, "2026-12-31 09:04") == "2026-12-31 09:04"
 
 
 def test_the_tracked_json_survives_a_rewrite_unchanged():
