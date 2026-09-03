@@ -39,8 +39,9 @@ Two things to know before opening anything:
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
-| `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
-| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` beside it is the full register this distils |
+| `sources.md` | Per-source detail, including **the commands to download each**, and one row per source evaluated |
+| `sources-closed.md` | The other half of that register: one row per family closed on a measurement, with the figure and the reason |
+| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full register this distils |
 | `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
 | `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
 | `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
@@ -55,7 +56,7 @@ Named here in his order, because the table above is sorted by path.
 | | he asked for | where it is |
 |---|---|---|
 | **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `source/COMMIT.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
-| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` as the full register behind it |
+| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` and `sources-closed.md` as the full register behind it |
 | **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/round/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
 | **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
 

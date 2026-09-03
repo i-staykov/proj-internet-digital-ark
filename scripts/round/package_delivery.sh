@@ -193,13 +193,16 @@ chmod +x "$STAGE/verify.sh"
 # is filled in here; a hard-coded name went stale the round the name changed.
 sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
+# The register is two pages: closed families moved to sources-closed.md and shipping
+# sources.md alone would hand him an incomplete register.
+cp docs/sources-closed.md "$STAGE/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
 # explanation of the metric, and a document a reader has to untar first is neither.
-# `sources.md` above is the full register those two distil; both are needed, because
-# 91 rejected families with their measurements is the evidence and two pages is the
-# summary.
+# The two register pages above are the full register those two distil; both are
+# needed, because the rejected families with their measurements are the evidence and
+# two pages are the summary.
 cp docs/experience-summary.md "$STAGE/experience-summary.md"
 cp docs/metric-explained.md "$STAGE/metric-explained.md"
 
@@ -545,6 +548,7 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # `just deliver && just package`.
 cp docs/report.md "$ROUND_DIR/report.md"
 cp docs/sources.md "$ROUND_DIR/sources.md"
+cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -571,6 +575,6 @@ Delivery archive ready, in $ROUND_DIR/
   sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
-Tracked beside it: report.md, sources.md, MANIFEST.txt, and the .sha256.
+Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
 The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
 EOF

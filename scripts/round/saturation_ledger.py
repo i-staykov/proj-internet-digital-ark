@@ -2,11 +2,18 @@
 
 His schema: "source version, coverage, overlap, quality limitations, effort, and the
 reason to retain, deprioritize, or revisit a source family." This project has kept
-exactly that, per family, in `docs/sources.md` since phase 1: active sources in prose
-sections, closed families as register rows whose second cell opens with the verdict
-and figure and closes with what would reopen it. So the ledger is GENERATED from the
-register at packaging time, never hand-maintained, and each row points back at the
-register entry that carries the full measurement.
+exactly that, per family, in the register since phase 1, so the ledger is GENERATED
+from the register at packaging time, never hand-maintained, and each row points back
+at the register entry that carries the full measurement.
+
+Read by COLUMN HEADER, over both register pages, since `convert_register.py` gave
+every entry one row of named columns and moved closed families to
+`docs/sources-closed.md`. Two consequences worth stating: every entry reaches the
+ledger now, 470 rows against 202, not only those that carried a bold heading, and an entry's
+`## Detail` block is read with its row, because the reopen clause is prose and the
+row is only a projection of it.
+
+The eight columns are unchanged. E4.3 owns adding `retrieval_method`.
 
     uv run python scripts/round/saturation_ledger.py --out audit/source_saturation_ledger.csv
 """
@@ -20,13 +27,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-HEAD_RE = re.compile(r"\*\*(.+?)\s*\((\d{4}-\d{2}-\d{2})[^)]*\)\*\*")
-VERDICT_RE = re.compile(
-    r"\*\*\s*(CLOSED|FIND|BLOCKED|REOPENED|Worth|CLOSED,)?[^0-9]*?"
-    r"([\d,]+(?:\.\d+)?)\s*(?:net-new\s+)?(?:post-split\s+)?EE",
-    re.IGNORECASE,
-)
+DAY_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 DATES_RE = re.compile(r"[Ww]hat dates one item[:\s]*([^.|]{0,160})")
+EE_RE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
+ANCHOR_RE = re.compile(r"\[detail\]\(#([^)]+)\)")
+# The register's own verdict words, in the priority the old parser used.
+VERDICTS = ("BLOCKED", "REOPENED", "FIND", "CLOSED")
 
 
 def _clean(text: str) -> str:
@@ -34,27 +40,58 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def rows_from_register(sources_md: str) -> list[dict[str, str]]:
+def _cells(line: str) -> list[str]:
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def detail_blocks(text: str) -> dict[str, str]:
+    """The `## Detail` appendix of one page, by anchor."""
+    blocks: dict[str, list[str]] = {}
+    anchor = ""
+    for line in text.splitlines():
+        if line.startswith("### "):
+            anchor = line[4:].strip()
+            blocks[anchor] = []
+        elif line.startswith("## "):
+            anchor = ""
+        elif anchor:
+            blocks[anchor].append(line)
+    return {key: " ".join(value) for key, value in blocks.items()}
+
+
+def rows_from_register(sources_md: str, page: str = "docs/sources.md") -> list[dict[str, str]]:
+    """One ledger row per register row, whatever the page's column set is."""
     rows: list[dict[str, str]] = []
+    details = detail_blocks(sources_md)
+    header: list[str] = []
     for line in sources_md.splitlines():
-        if not line.startswith("| **"):
+        if not line.startswith("|"):
+            if line.startswith("#"):
+                header = []
             continue
-        cells = [c.strip() for c in line.strip("|").split(" | ")]
-        if len(cells) < 2:
+        cells = _cells(line)
+        if cells[0].lower() == "source":
+            header = [c.lower() for c in cells]
             continue
-        head = HEAD_RE.search(cells[0])
-        if not head:
+        if not header or not (set(cells[0]) - set("-: ")):
             continue
-        family, day = head.group(1), head.group(2)
-        body = " | ".join(cells[1:])
-        verdict = "closed"
-        for token in ("BLOCKED", "REOPENED", "FIND", "CLOSED"):
-            if token in body[:120].upper():
-                verdict = token.lower()
-                break
-        ee = VERDICT_RE.search(body)
-        dates = DATES_RE.search(body)
-        first_sentence = _clean(body.split(". ", 1)[0])[:300]
+        row = dict(zip(header, cells, strict=False))
+        family = _clean(cells[0])
+        version = row.get("version or date") or row.get("date") or ""
+        day = DAY_RE.search(version)
+        body = " ".join(cells[1:])
+        for anchor in ANCHOR_RE.findall(line):
+            body = f"{body} {details.get(anchor, '')}"
+        said = row.get("verdict", body[:120]).upper()
+        verdict = next((token.lower() for token in VERDICTS if token in said), "closed")
+        ee = EE_RE.search(row.get("net-new ee (date)") or row.get("measured") or body)
+        quality = _clean(row.get("quality issues") or row.get("reason") or body)[:300]
+        # The closed page's five columns have no dating column, so it is read out of
+        # the row's prose and its detail block, which is where the clause still is.
+        dates = row.get("what dates one item", "")
+        if dates in ("", "n/a"):
+            clause = DATES_RE.search(body)
+            dates = clause.group(1) if clause else ""
         reopen = ""
         lower = body.lower()
         for marker in ("reopen", "do not re-test", "revisit", "retire"):
@@ -65,13 +102,13 @@ def rows_from_register(sources_md: str) -> list[dict[str, str]]:
         rows.append(
             {
                 "source_family": family,
-                "version_or_date": day,
+                "version_or_date": day.group(1) if day else _clean(version),
                 "status": verdict,
-                "coverage_ee": ee.group(2).replace(",", "") if ee else "",
-                "what_dates_one_item": _clean(dates.group(1)) if dates else "",
-                "quality_limitations": first_sentence,
+                "coverage_ee": ee.group(1).replace(",", "") if ee else "",
+                "what_dates_one_item": _clean(dates),
+                "quality_limitations": quality,
                 "decision": reopen or "closed on measurement; see register entry",
-                "reference": "docs/sources.md register row of " + day,
+                "reference": f"{page} register row of {day.group(1) if day else 'no date'}",
             }
         )
     return rows
@@ -103,6 +140,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--sources", type=Path, default=REPO / "docs/sources.md")
+    parser.add_argument("--closed", type=Path, default=REPO / "docs/sources-closed.md")
     parser.add_argument(
         "--contribution",
         type=Path,
@@ -111,7 +149,10 @@ def main() -> int:
     args = parser.parse_args()
 
     rows = rows_from_contribution(args.contribution)
-    rows += rows_from_register(args.sources.read_text(encoding="utf-8"))
+    for path in (args.sources, args.closed):
+        if path.is_file():
+            page = f"docs/{path.name}"
+            rows += rows_from_register(path.read_text(encoding="utf-8"), page)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     fields = [
         "source_family",

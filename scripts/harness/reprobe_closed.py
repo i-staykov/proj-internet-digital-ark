@@ -214,6 +214,12 @@ class Probe:
     changed: bool = False
     predicted: str = ""
     parked: bool = False
+    # Which register page `line` is in: the register is two pages since E4.2.
+    page: str = "docs/sources.md"
+
+    @property
+    def where(self) -> str:
+        return f"{self.page}:{self.line}"
 
 
 # A 200 is only news if the verdict did not already expect one. `ircache.net`
@@ -293,6 +299,11 @@ class Lead:
     line: int
     verdict: str
     urls: list[str] = field(default_factory=list)
+    page: str = "docs/sources.md"
+
+    @property
+    def where(self) -> str:
+        return f"{self.page}:{self.line}"
 
 
 def targets_in(entry) -> list[str]:
@@ -407,7 +418,7 @@ def main() -> None:
 
     register = screen.closed_leads()
     leads = [
-        Lead(e.name, e.line, e.verdict, targets_in(e))
+        Lead(e.name, e.line, e.verdict, targets_in(e), e.page)
         for e in register
         if e.closed_on == "availability"
     ]
@@ -432,12 +443,12 @@ def main() -> None:
         print("  host was DOWN wants a host added, and a lead closed because the artefact")
         print("  NEVER EXISTED has nothing to probe and should say so in its verdict.")
         for lead in uncovered:
-            print(f"    sources.md:{lead.line}  {lead.name[:74]}")
+            print(f"    {lead.where}  {lead.name[:74]}")
         print()
 
     results: list[Probe] = []
     for lead in leads:
-        print(f"-- {lead.name[:84]}  (sources.md:{lead.line})")
+        print(f"-- {lead.name[:84]}  ({lead.where})")
         for url in lead.urls:
             status, detail, parked = ask(url)
             answers = status.startswith("2") or status in {"301", "302", "303", "307", "308"}
@@ -456,6 +467,7 @@ def main() -> None:
                 changed=answers and not foretold and not parked,
                 predicted=predicted[:200],
                 parked=parked,
+                page=lead.page,
             )
             results.append(probe)
             if answers and parked:
@@ -480,7 +492,7 @@ def main() -> None:
         print("\n  Answering today, and their verdict did NOT expect that. Worth PRICING,")
         print("  which is not the same as worth adopting.")
         for probe in revived:
-            print(f"    sources.md:{probe.line}  {probe.url[:74]}")
+            print(f"    {probe.where}  {probe.url[:74]}")
             print(f"      {probe.lead[:84]}")
         expected = [p for p in results if p.status.startswith("2") and not p.changed]
     else:

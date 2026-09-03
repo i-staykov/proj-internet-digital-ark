@@ -146,7 +146,8 @@ just screen --list-closed          # the whole closed register, with line number
 
 Two gates, cheapest first. **Does it collide with a family already closed?** Each closed family
 carries the measurement that killed it, and the register is parsed out of
-[docs/sources.md](sources.md) at run time rather than copied, so no count here can drift from it:
+[docs/sources.md](sources.md) and [docs/sources-closed.md](sources-closed.md) at run time rather
+than copied, so no count here can drift from it:
 `just screen --list-closed` prints the register and its size. A collision prints the verdict, so you argue with the measurement instead of rediscovering
 it. **And what dates one item?** `self` needs no corroboration split and must not have its extraction
 widened; `typed` takes the split, which is what makes wide extraction safe; `undated` is seed-only.

@@ -704,8 +704,27 @@ def pool_restricted() -> str:
     return f"{n:,}"
 
 
-def datasets_searched() -> str:
-    """The register of families searched, read from `sources.md` rather than retyped.
+def _register_rows(text: str, heading: str) -> int:
+    """Rows of one register table, by the heading it sits under.
+
+    Rows the register itself labels "Not a source" are notes about our own queue,
+    not families searched, and counting them overstated the headline by two.
+    """
+    if heading not in text:
+        return 0
+    section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+    return sum(
+        1
+        for line in section.splitlines()
+        if line.startswith("|")
+        and not line.startswith("|--")
+        and not line.lower().startswith("| source")
+        and "not a source" not in line.lower()
+    )
+
+
+def datasets_searched(docs: Path | None = None) -> str:
+    """The register of families searched, read from the register rather than retyped.
 
     The reviewer asks for every external dataset and repository searched. That list
     only stays true if it is derived from the register itself: a hand-written copy
@@ -716,12 +735,20 @@ def datasets_searched() -> str:
     first draft of this section. Developed sources get a `## ` heading each;
     families evaluated and rejected are one table row each under a single heading.
     Both are searches, and the second half is much the larger.
+
+    **Both files are counted.** The rejected half lives in two documents since
+    `convert_register.py` moved closed families to `sources-closed.md`, and counting
+    `sources.md` alone dropped the figure from 495 to 129, which would have
+    understated our own work to the reviewer fourfold.
     """
-    path = Path(__file__).resolve().parents[2] / "docs" / "sources.md"
+    docs = docs or Path(__file__).resolve().parents[2] / "docs"
+    path = docs / "sources.md"
     if not path.is_file():
         return "_`sources.md` not found beside this report._"
 
     text = path.read_text(encoding="utf-8")
+    closed = docs / "sources-closed.md"
+    closed_text = closed.read_text(encoding="utf-8") if closed.is_file() else ""
 
     # Headings at this level that are prose about the file rather than a source.
     skip = {
@@ -729,6 +756,8 @@ def datasets_searched() -> str:
         "Source names that are not separate sources",
         "Evaluated and rejected",
         "Measured, and each blocked on something other than work",
+        # the appendix `convert_register.py` writes: one `### ` block per row above
+        "Detail",
     }
     developed = [
         line[3:].strip()
@@ -736,19 +765,9 @@ def datasets_searched() -> str:
         if line.startswith("## ") and line[3:].strip() not in skip
     ]
 
-    rejected = 0
-    if "## Evaluated and rejected" in text:
-        section = text.split("## Evaluated and rejected", 1)[1].split("\n## ", 1)[0]
-        # Rows the register itself labels "Not a source" are notes about our own queue,
-        # not families searched, and counting them overstated the headline by two.
-        rejected = sum(
-            1
-            for line in section.splitlines()
-            if line.startswith("|")
-            and not line.startswith("|--")
-            and not line.lower().startswith("| source")
-            and "not a source" not in line.lower()
-        )
+    rejected = _register_rows(text, "## Evaluated and rejected") + _register_rows(
+        closed_text, "## Closed families, converted from the register"
+    )
 
     if not developed and not rejected:
         return "_No families recorded._"
@@ -760,8 +779,8 @@ def datasets_searched() -> str:
     # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
     return (
         f"**{len(developed) + rejected} source families searched and recorded** in "
-        f"`sources.md`: {len(developed)} developed, {rejected} evaluated and closed with the "
-        "measurement that closed them, so the same ground is not broken twice."
+        f"`sources.md` and `sources-closed.md`: {len(developed)} developed, {rejected} evaluated "
+        "and closed with the measurement that closed them, so the same ground is not broken twice."
     )
 
 
