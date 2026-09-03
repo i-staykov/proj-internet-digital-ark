@@ -26,7 +26,7 @@ help:
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
     echo "  just schedule <what>    install remove"
     echo "  just ship <stage>       all prep build package verify calculator docx draft"
-    echo "  just verify <what>      raw trees delivery"
+    echo "  just verify <what>      raw trees delivery offsite"
 
 # --- the environment ----------------------------------------------------------
 
@@ -104,8 +104,15 @@ check what="all":
 #   delivery  check a built delivery the way a reviewer would: checksums, pair counts,
 #             and that every shipped pair traces to an observation. Takes the
 #             directory; `just ship` passes the newest stage rather than this default.
+#   offsite   the off-site copy of what nothing else could bring back: our own
+#             journals, the reviewer releases, the live inputs with no refetch route
+#             and every unpriced corpus except the two Usenet ones archive.org serves
+#             again. `--manifest` prices it and writes data/offsite-manifest.tsv,
+#             `--upload` prints the rclone commands and `--upload --yes` runs them,
+#             `--verify` compares the remote by hash without downloading and names
+#             the entries safe to delete. Never deletes anything, either side.
 #
-# prove what is on disk: raw trees delivery
+# prove what is on disk: raw trees delivery offsite
 verify what="" *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -114,7 +121,8 @@ verify what="" *args:
     raw) uv run python scripts/round/verify_raw.py "$@" ;;
     trees) uv run python scripts/round/releases.py --verify-trees ;;
     delivery) bash scripts/round/verify_delivery.sh "${1:-output/internet-digital-ark-1996-2001}" ;;
-    *) echo "verify: raw trees delivery" >&2; exit 2 ;;
+    offsite) uv run python scripts/round/offsite.py "$@" ;;
+    *) echo "verify: raw trees delivery offsite" >&2; exit 2 ;;
     esac
 
 # --- where the round stands ---------------------------------------------------
