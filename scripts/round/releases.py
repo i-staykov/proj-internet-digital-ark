@@ -92,6 +92,14 @@ def release_date(marker: str) -> str:
     return f"20{d[:2]}-{d[2:4]}-{d[4:]}"
 
 
+def marker_key(marker: str) -> tuple[str, int]:
+    """Release order: the marker's date, then the suffix that separates same-day releases."""
+    m = MARKER.fullmatch(marker)
+    if not m:
+        raise ValueError(f"not a release marker: {marker}")
+    return release_date(marker), int(m.group(2)[1:]) if m.group(2) else 1
+
+
 def received_text(marker: str) -> str:
     if marker not in NOT_RECEIVED:
         return "yes"
@@ -389,12 +397,15 @@ def main() -> None:
 
     head, rows, tail = split_page(args.page.read_text())
     by_marker = {r["marker"]: r for r in rows}
-    rows = [by_marker.get(m) or blank_row(m) for m in RELEASES]
+    # A row already on the page is kept even when RELEASES does not name it, so an
+    # intake can add the release it has just taken without editing this list first.
+    markers = sorted(set(RELEASES) | set(by_marker), key=marker_key)
+    rows = [by_marker.get(m) or blank_row(m) for m in markers]
 
     trees = find_trees(args.feedback, {"merged260715-2": args.legacy})
     zips = find_zips(args.feedback)
     for stray in sorted(set(trees) | set(zips)):
-        if stray not in RELEASES:
+        if stray not in markers:
             print(f"on disk but not in RELEASES: {stray}")
 
     for row in rows:
