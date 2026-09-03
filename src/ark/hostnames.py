@@ -36,17 +36,15 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
-import logging
 import re
 from collections import Counter
 from pathlib import Path
 
 import duckdb
+from loguru import logger
 
 from ark.canonical import to_registrable
 from ark.ingest import ensure_source
-
-logger = logging.getLogger(__name__)
 
 SOURCE_NAME = "ia_cdx_hostnames"
 # One source row, two acquisition methods: the NYPW TimeMap parts re-emitted at hostname
