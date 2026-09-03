@@ -23,11 +23,11 @@ off-site copy is verified against these hashes.
 | marker | released | received | 1996 | 1997 | 1998 | 1999 | 2000 | 2001 | artifact | sha256 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `merged260715-2` | 2026-07-15 | yes | pending | pending | pending | pending | pending | pending | pending | pending |
-| `merged260727` | 2026-07-27 | yes | 721,671 | 1,354,970 | 1,226,197 | 1,939,757 | 1,497,895 | 2,913,997 | pending | pending |
-| `merged260730` | 2026-07-30 | yes | 722,785 | 1,360,891 | 1,241,155 | 2,007,588 | 1,710,945 | 3,220,268 | pending | pending |
-| `merged260802-2` | 2026-08-02 | yes | 734,323 | 1,381,002 | 1,279,247 | 2,038,912 | 1,743,022 | 3,239,262 | pending | pending |
-| `merged260810` | 2026-08-10 | yes | 759,624 | 1,440,158 | 1,456,208 | 2,299,385 | 1,994,624 | 3,412,035 | pending | pending |
-| `merged260815` | 2026-08-15 | yes | 761,196 | 1,458,027 | 1,672,543 | 3,250,749 | 4,873,520 | 3,412,472 | pending | pending |
+| `merged260727` | 2026-07-27 | yes | 721,671 | 1,354,970 | 1,226,197 | 1,939,757 | 1,497,895 | 2,913,997 | merged260727.tar.zst | 97238aa30230f507f19b0a23426db49602cfd2f29058c9fe4a952e376ca29ddd |
+| `merged260730` | 2026-07-30 | yes | 722,785 | 1,360,891 | 1,241,155 | 2,007,588 | 1,710,945 | 3,220,268 | merged260730.tar.zst | be45b092c703d1964ce20901a93b9c03fab4134360b81394e2b31a93a15ea4ce |
+| `merged260802-2` | 2026-08-02 | yes | 734,323 | 1,381,002 | 1,279,247 | 2,038,912 | 1,743,022 | 3,239,262 | merged260802-2.tar.zst | d3afc4a2892d02b02c67cde9d21b44cd7c66f1669198f9c33c7841d53941011e |
+| `merged260810` | 2026-08-10 | yes | 759,624 | 1,440,158 | 1,456,208 | 2,299,385 | 1,994,624 | 3,412,035 | merged260810.tar.zst | 6631e5184b42dfc539bb9c37c81e731d183aea4878c03b42f7da33fd02aebb3e |
+| `merged260815` | 2026-08-15 | yes | 761,196 | 1,458,027 | 1,672,543 | 3,250,749 | 4,873,520 | 3,412,472 | merged260815.tar.zst | 9357831a7bddf52743a3e285581029defce86c5a8aa8660be307b6e80245e445 |
 | `merged260817` | 2026-08-17 | not received: totals from the reviewer's mail of 2026-08-18, superseded by `merged260817-2` | none | none | none | none | none | none | none | none |
 | `merged260817-2` | 2026-08-17 | yes | 866,106 | 1,891,288 | 2,542,320 | 5,118,082 | 7,678,002 | 4,395,620 | Domain_Data_Collection_Task_0817_Update.zip | 7dd564e5a499679480671c2306074a704483f8f3b296a6d5f16cd4e0c422eceb |
 | `merged260820` | 2026-08-20 | yes | 866,121 | 1,891,385 | 2,542,524 | 5,118,493 | 7,680,197 | 4,916,847 | Domain_Data_Collection_Task_0820_Update_v2.zip | d09ba50b3ab239506af4535a85a1d35a5cf3b8f88012178037829dd3c9f864d0 |
