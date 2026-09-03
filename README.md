@@ -1,63 +1,41 @@
 # Internet Digital Ark
 
-A reproducible pipeline that collects historical **domain names for 1996-2001**, each
-record backed by **item-level, per-year evidence**, and ships them as verifiable
-additions to a baseline the reviewer supplies, in two units: registrable domains and,
-since 2026-09-01, the valid hostnames beneath them. Built for the Internet Digital Ark
-research project (Prof. Xiaowei Ding): autonomous, evidence-led discovery of the early
-web, scored in **equivalent-English domains**, where each `(domain, year)` record counts
-the English page-language share of its right-most TLD (`foo.uk` 0.9813, `foo.de` 0.1324).
+A reproducible pipeline that collects historical **domain names for 1996-2001**, each record backed
+by **item-level, per-year evidence**, and ships them as verifiable additions to a baseline the
+reviewer supplies. Built for the Internet Digital Ark research project (Prof. Xiaowei Ding), it
+ships two units, registrable domains and the valid hostnames beneath them, scored in
+**equivalent-English domains**, where each `(domain, year)` record counts the English page-language
+share of its right-most TLD (`foo.uk` 0.9813, `foo.de` 0.1324).
 
-## How it runs
+The core rule is structural rather than editorial: **no year without an observation**
+(`domain_year.evidence_id` and `hostname_year.evidence_id` are NOT NULL onto `evidence`), checked on
+every export, and no source class may date a year until a human has written the decision that admits
+it. Negative results are first-class: the register keeps every family tried and the measurement that
+closed it.
 
-```
-GitHub Actions fleet (private repo, self-hosted runner on a small VPS)
-   generator, on a schedule ........ proposes hypotheses from the register and the store
-   researcher waves, four times daily  screen and price them; findings land as artifacts
-   re-opener, daily ................ re-reads closed verdicts when a measurement screen retires
-   improver ........................ tunes prompts and model choice from per-run telemetry
-   weekly digest ................... one page of yield, cost and recommendations
-VPS (always on)
-   two archive collectors under systemd, querying capture indexes at zero token cost
-Laptop (episodic, human-supervised)
-   `just bank` ..................... drains fleet findings, admits, ingests into the
-                                     evidence store, gates, pushes; packaging and reports
+## Reproduce it
+
+```bash
+just setup       # uv sync, once per clone
+just reproduce   # every stage, offline, from the raw sources to the shipped files
+just check       # lint, format, tests, then the store invariants
 ```
 
-The store enforces the core rule structurally: **no year without an observation**
-(`domain_year.evidence_id` and `hostname_year.evidence_id` are NOT NULL onto `evidence`),
-fifteen invariants checked on every export, and every source class gated behind a written
-decision before it may date a year. Negative results are first-class: the register records every family tried, with
-the measurement that closed it.
+A delivery archive verifies itself without this repository: `bash verify.sh` inside a fresh
+extraction. The other two reproduction tiers, and what each command should print, are in the
+runbook.
 
-## The repo in one minute
+## Where the round stands
+
+In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
+and untracked, because the figures move daily and the page names the machine that collects them.
+This page states no round figure, so it cannot go stale.
+
+## Where to read next
 
 | | |
 |---|---|
-| [src/ark/](src/ark/) | the pipeline: ingest, evidence store, checks, export |
-| [scripts/](scripts/) | by role: `harness/` (research loop), `engines/` (collectors), `pricing/`, `round/`, `sources/<family>/` |
-| [docs/sources.md](docs/sources.md) | the register: every source, every rejection, with measurements |
-| [docs/documentation.md](docs/documentation.md) | why the pipeline is shaped this way |
-| [docs/operations.md](docs/operations.md) | the full runbook: every command and what it should print |
-| [docs/ding/](docs/ding/) | the reviewer's own brief, transcribed verbatim |
-| [tests/](tests/) | the suite, including drift tests that pin documentation to code |
-
-## Verify it
-
-```bash
-uv sync
-uv run ruff check . && uv run pytest -q     # the suite
-uv run ark check                            # fifteen store invariants (needs the store)
-```
-
-The full reproduction recipe, from raw sources to shipped files, is `just reproduce`;
-see [docs/operations.md](docs/operations.md). A delivery archive verifies itself:
-`bash verify.sh` inside a fresh extraction runs eleven checks over the shipped files,
-including the four requested artifacts D1-D4.
-
-## Status
-
-Where the round stands is generated into `docs/ROUND.md` by `just state` (not tracked:
-it embeds figures that move daily). Orchestration lives in a separate private repo so
-this one stays free of secrets and runner exposure; results land here on the `live`
-branch and reach `main` as squash-merged snapshots.
+| [CLAUDE.md](CLAUDE.md) | the standing rules, and the order to work in |
+| [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
+| [docs/runbook.md](docs/runbook.md) | every command, what it prints, and how the machines are arranged |
+| [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

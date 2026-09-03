@@ -7,6 +7,35 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Does `www.<a name already held that year>` count as a hostname record? 201,767.94 EE of this round turns on it
+
+The ingest refuses `www.<parent registrable>` because it is the parent's own site under the name
+every crawler tries first (our own tightening, 2026-09-02, not his instruction). Nothing refuses
+the same alias where the bare name is a hostname or registrable already dated for that year, and
+measured 2026-09-03 that is **61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE**:
+the round claims 346,668.36 EE and 1.673552% growth, or 144,900.42 EE and 0.699511% without it.
+His words admit them ("every distinct evidence-backed hostname beneath them is retained"); our own
+stated principle refuses them. Two E9.5 corpora were held out rather than ingested on it (`ukwa`
+20,916.90 EE at 99.5% alias, `nypw_firstcdx` 7,074.09 EE at 100.0%), and `round_figures.py` now
+prints the split so no round can quote the hostname half without it.
+
+Worth: 201,767.94 EE of the current claim, plus whether the next hostname corpus is worth reading. If they count, nothing changes; if they do not, the refusal moves into `hostnames.py` under an ADR and the round is restated.
+
+### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 65,280 EE measured
+
+Hosts of explicit `http`, `https` and `ftp` URLs in Usenet post BODIES, at hostname grain, over
+both pools already on disk read WHOLE and priced as one union: 110 GB, 173.7M posts, 71.2M in
+window, 88,564.4995 EE gross, **65,279.6605 EE after the ADR-007 alias seam and a sampled 6.25%
+fiction rate (Wilson 95% CI 2.7% to 13.8%, so 60,022 to 67,752)**. No projection anywhere in it.
+Beside it, needing no hostname decision, 42,625 registrable-years worth 24,172.0540 EE before the
+corroboration split, which is known to be brutal on this class. It parks on condition 1 only: no
+master-eligible class covers a host a human typed at hostname grain. In place of the split, the
+fiction rate is 6.25% here against ~13% for the `dig`-output request beneath it, and the fakes are
+typos of real hosts rather than examples, which is the argument for answering the two differently.
+The first pass of this figure was wrong by a one-character regex and is written up in `sources.md`.
+
+Worth: 65,280 EE measured, the largest single lane found in phase 8 and 6.3% of the gate. Bytes are on disk; journals rebuild in about 25 minutes a pool.
+
 ### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
 
 Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot
@@ -86,7 +115,8 @@ Raised automatically, because a `pending` line in a file you do not open is not 
 
 Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
 
-**Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
+**Gate 668,118 EE. The measured sources awaiting one word each are the `Decision: pending` blocks
+of `docs/approved-sources-list.md`.**
 
 ### Triage the newly found sources: 40 found
 
@@ -98,7 +128,19 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
-| **C-54** | 2026-09-02 | Public-suffix namespaces (`co.uk` first, then `com.au`, `co.nz`, `org.uk`, `gov.uk`, `co.za`, `gc.ca`, the `.us` states) reopened at hostname grain and queued behind the platform parents: C-39 to C-41 closed them at registrable grain on 1.2% of the index. Page size raised to 10,000 blocks after a flat cost-per-page measurement; failed pages retried, not skipped; page count asked up front. Details in `sources.md`, runbook in `operations.md` |
+| **C-55** | 2026-09-02 | Ivo: the hostname rule is read by its purpose (retrieving archived pages), two conditions beyond its letter. A hostname record needs an observation of the host serving web content, so DNS listings (ISC survey, RIPE `nserver:`, InterNIC NS targets) date the parent only and write no hostname row; and `www.<parent>` is the registrable's own site, not a second record. Source-level allowlist in `hostnames.py`, two invariants in `checks.py`, `apply_hostname_purpose_rule.py` removed 23,381,935 rows from the store (18.2M DNS-listed, 5.2M `www.`), evidence kept. One line to restore if Ding rules otherwise |
+| **C-66** | 2026-09-03 | Two OAuth tokens, and the choice is NOT automatic. The new account's token is primary and every workflow uses it; the older one is an explicit opt-in switch for an emergency, never a default and never picked by logic. No headroom comparison: always the primary while its weekly window has room, otherwise the wave skips. Ivo, 2026-09-03. Primary expires 2027-09 |
+| **C-65** | 2026-09-03 | All three models, and fable used sparingly because it is inefficient per token: generator fable-5-1/high, reopen fable-5-1/medium, researcher opus-5/high, digest sonnet-5/high. Any lane on fable demotes to opus-5 when the fable-specific window is exhausted and the general one is not; lanes not on fable have no demotion and skip at the ceiling as before. Supersedes the 2026-09-01 all-fable matrix. Ivo, 2026-09-03 |
+| **C-64** | 2026-09-03 | Full Disk Access declined (Ivo, 2026-09-03), so `just context-report` reads only the transcripts already reachable and the sweep over the 724 past sessions is dropped rather than deferred. The recipe stays useful on the current session directory; nothing else in E5 depended on it |
+| **C-63** | 2026-09-03 | `AUTO_SHIP` stays off: a cleared gate prepares the package, the mail draft and the gate issue, and stops. Ivo sends. Packaging and sending stay under his control, one action per round. Ivo, 2026-09-03 |
+| **C-62** | 2026-09-03 | `private/` is not backed up off-site: it never ships, it is not a reproduction input, and losing it would cost the research nothing. Ivo, 2026-09-03 |
+| **C-61** | 2026-09-03 | Deletions are approved ONCE, as a single reviewed table covering E3.2 and E9.2 together, each row carrying class, bytes, checksum record and refetch route; no row without all four reaches the table. Replaces batch-by-batch approval, on the grounds that the retention table and the off-site copy are what make a deletion safe, not the number of approvals. Ivo, 2026-09-03 |
+| **C-60** | 2026-09-03 | Pushing opens up: any branch except `main` may be pushed by any session, and `main` is reached only through a PR, which Ivo's new branch protection enforces. Supersedes the 2026-09-01 amendment that reserved pushing to the fleet's bank job. What does not change: `origin` is public, so no commit message carries a host, an address, a mail body or personal context |
+| **C-59** | 2026-09-03 | The Overhaul ships as ONE review. Every ticket lands as a commit on `live`, no branch and no PR per ticket; when the last one is in, a single PR from `live` into `main` named after the project closes all of its issues, and that PR is what Ivo reviews. Agents still never push: he pushes `live` and opens it. Ivo, 2026-09-03 |
+| **C-58** | 2026-09-03 | The scoring clock counts WHOLE days since the day the current baseline is named after, partial days rounded up (Ivo, 2026-09-03). Measured against his two quoted scores, only the variant started at the release TIMESTAMP reproduces both: from 2026-08-21 11:19, round 6 is 5.19 days -> 6 and round 7 is 11.77 -> 12, giving 6.884530 and 6.302372. From midnight the same day round 7 becomes 12.24 -> 13 and its score is wrong. `figures.py` already implements the timestamp form; the question stays open with Ding for confirmation |
+| **C-57** | 2026-09-03 | Rules 3 and 4 of the hostname standard hold as applied (a hostname needs its own observation of the host serving web content, so DNS listings date the parent only; `www.<parent>` is never a second record). Ivo's interim ruling, to be confirmed with Ding in the phase-8 mail. C-55 stands and stays one line to restore |
+| **C-56** | 2026-09-02 | `merged260902` ingested: 36,672,403 records and 19,239,935.8548 EE, reproducing his calculator to the digit. The 5% trigger is 961,996.8 EE; the round is scored from the release date 2026-09-02 |
+| **C-54** | 2026-09-02 | Public-suffix namespaces (`co.uk` first, then `com.au`, `co.nz`, `org.uk`, `gov.uk`, `co.za`, `gc.ca`, the `.us` states) reopened at hostname grain and queued behind the platform parents: C-39 to C-41 closed them at registrable grain on 1.2% of the index. Page size raised to 10,000 blocks after a flat cost-per-page measurement; failed pages retried, not skipped; page count asked up front. Details in `sources.md`, runbook in `runbook.md` |
 | **C-52** | 2026-09-01 | Ding accepted hostnames as annual records (registrables still prioritized). Built same day per the plan trigger: hostname_year + ingest-hostnames + per-year hostname exports + two wall checks; the 180 raw suffix journals repriced from 0 to 338,865 net-new hostname records (301,650 EE); platform sweep took the second client slot, gaploc stood down |
 | **C-53** | 2026-09-01 | Headline metric is the combined increment at the calculator's unit (registrables + hostnames), because Ding accepted hostnames explicitly and scores other participants that way; the registrable-only figures are quoted beneath it. Report rewritten to the phase-6 shape Ding called exceptionally well documented: one generated attribution table over both units, short prose, D1-D4. Ivo, 2026-09-01 |
 | **C-51** | 2026-09-01 | Ivo: one month left, speed first. Rung 2 (4 waves/day), self-improvement lane added (policy.json + prompts/ tuned one knob per PR behind an evidence gate), approval issues only at 1,000+ EE, model matrix set per lane, runner sudo scoped to the collector units |

@@ -92,6 +92,69 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
     assert not missed, f"test_export_all must redirect these: {sorted(missed)}"
 
 
+def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
+    """ADR-007: 61.0% of the hostname half was `www.<a name already held that year>`.
+
+    The ingest refuses `www.<parent registrable>`; this is the same alias one level down,
+    where the bare name is dated for the same year by the store or by his files. Three
+    holders count, and a year apart does not: `www.x` in 1999 is a real record when the
+    only `x` we hold is 1998's.
+    """
+    conn = connect(":memory:")
+    init_db(conn)
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "held.com", cdx)
+    eid = record_evidence(conn, "held.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+    assign_year(conn, eid)
+    # the two parents the impossible hostnames hang off; `add_candidate` refuses `.arpa`
+    # at the funnel, so that one goes in directly, exactly as the store's old rows did
+    add_candidate(conn, "web.site", cdx)
+    conn.execute(
+        "INSERT INTO domain (domain, tld, discovered_source) VALUES ('1.in-addr.arpa', 'arpa', ?)",
+        [cdx],
+    )
+    rows = [
+        # www. of a hostname the store holds for that year: refused
+        ("www.deep.held.com", "held.com", 1999),
+        ("deep.held.com", "held.com", 1999),
+        # www. of a registrable the store dates that year: refused
+        ("www.held.com", "held.com", 1999),
+        # www. of a name held only in another year: ships
+        ("www.deep.held.com", "held.com", 2000),
+        # not a www. form at all: ships
+        ("mail.held.com", "held.com", 1999),
+        # the hostname half applied neither the .arpa nor the delegation rule until
+        # 2026-09-03, so 198 rows like these were shipping
+        ("bust.web.site", "web.site", 1996),
+        ("host.1.in-addr.arpa", "1.in-addr.arpa", 1999),
+    ]
+    for hostname, parent, year in rows:
+        conn.execute(
+            "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+            "VALUES (?, ?, ?, ?)",
+            [hostname, parent, year, eid],
+        )
+
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+    )
+    shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
+    assert shipped_1999 == ["deep.held.com", "mail.held.com"]
+    assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
+    # `.site` was delegated in 2015 and `.arpa` is never a website
+    assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
+    # the manifest carries the same rows as the files, or it reads as an addition it is not
+    manifest = (tmp_path / "netnew" / "hostnames_evidence_manifest.csv").read_text()
+    assert "www.held.com" not in manifest
+    assert "deep.held.com" in manifest
+    conn.close()
+
+
 def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> None:
     """Packaging compares these two, so a mismatch refuses a current export forever.
 

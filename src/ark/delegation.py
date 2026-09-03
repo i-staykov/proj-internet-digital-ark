@@ -96,6 +96,21 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
     return "\n      AND ".join(clauses)
 
 
+def shipping_filter_for(column: str, year_column: str) -> str:
+    """The same rule for a table whose name column is not called `domain`.
+
+    `hostname_year` is the case that needed it. A hostname under a TLD that did not exist in
+    its year is the same error as a domain under one, and until 2026-09-03 the hostname half
+    of the export applied neither this nor the `.arpa` rule: `bust.web.site` at 1996 and
+    `comp.domaine.name` at 2000 were shipping, 198 rows of them.
+    """
+    return (
+        f"{column} NOT LIKE '%.arpa'"
+        f"\n      AND {existed_predicate(column, year_column)}"
+        f"\n      AND {sql_predicate(column, year_column)}"
+    )
+
+
 def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
     """The rows allowed into a shipped file, for a given table alias.
 

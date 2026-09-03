@@ -4,9 +4,9 @@ Loaded by path, like the other script tests: `scripts/` is not a package.
 
 This exists because the query was once written `TIMESTAMPTZ ?`, which DuckDB's
 parser rejects, and nothing ran it until a queue was needed. The builder is the
-only consumer, so a parse error there disables `just query-queue` and
-`just query-queue-preview` together and leaves the shards on disk as the newest
-ones anybody can have.
+only consumer, so a parse error there disables `just query-queue` and its
+`--dry-run` together and leaves the shards on disk as the newest ones anybody
+can have.
 """
 
 import importlib.util

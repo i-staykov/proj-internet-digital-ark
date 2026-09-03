@@ -93,13 +93,16 @@ def test_no_shipped_file_is_addressed_to_a_person() -> None:
 
 
 @needs_git
-def test_the_three_known_offenders_stay_withheld() -> None:
+def test_the_known_offenders_stay_withheld() -> None:
     """Pinned by name as well as by shape, because these are the proof."""
     names = _archive_names()
     for path in (
         "submissions/phase-5/email-draft.md",
         "docs/report-sendable.md",
         "docs/phase6-plan.md",
+        # the two pages written about or to the reviewer, added 2026-09-02
+        "docs/questions.md",
+        "docs/rounds.md",
     ):
         assert path not in names, f"{path} is shipping again"
 

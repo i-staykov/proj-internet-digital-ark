@@ -25,3 +25,22 @@ docs/key-decisions.md export-ignore
 handoff-*.md export-ignore
 # The round email prose, read by fill_report. Working document, not a deliverable.
 docs/email-sections.md export-ignore
+# Questions put to the reviewer, written to him in the second person. Same class as the
+# email prose: read by the ship step, never delivered.
+docs/questions.md export-ignore
+# The rounds ledger: sent against credited figures and the ranking arithmetic, with the
+# reviewer's mail stamps. Bookkeeping about him, not a deliverable.
+docs/rounds.md export-ignore
+# The agent harness: settings and the hunt workflows. They configure the fleet from a clone
+# of this branch, and say nothing about the domains, so they are working apparatus not delivery.
+.claude/settings.json export-ignore
+.claude/workflows/ export-ignore
+# The compaction handoff: what the next context needs, written from a transcript. Working
+# note about a session, not a deliverable.
+private/handoff.md export-ignore
+# The harness's skills, subagents, path-scoped rules and output style: they configure a
+# session, say nothing about the domains, and belong with settings.json above.
+.claude/skills/ export-ignore
+.claude/agents/ export-ignore
+.claude/rules/ export-ignore
+.claude/output-styles/ export-ignore

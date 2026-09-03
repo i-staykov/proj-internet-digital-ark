@@ -9,11 +9,11 @@ likely to be skipped, so this does it mechanically.
 Two gates, in the order that costs least:
 
 **1. Does it collide with something already closed?** The register is parsed out of
-`docs/sources.md` at run time and never copied, because a hand-kept second copy of
-those verdicts is how they come to disagree: a snapshot table in that same file
-once omitted the round's largest contributor entirely. A collision prints the
-verdict that closed it, so the proposer can argue with the measurement rather than
-rediscover it.
+`docs/sources.md` and `docs/sources-closed.md` at run time and never copied, because
+a hand-kept second copy of those verdicts is how they come to disagree: a snapshot
+table in that same file once omitted the round's largest contributor entirely. A
+collision prints the verdict that closed it, so the proposer can argue with the
+measurement rather than rediscover it.
 
 **2. Does each item carry its own date?** This is the fastest filter available and
 it decides what the source can ever be, not just how good it is:
@@ -44,6 +44,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES_MD = ROOT / "docs" / "sources.md"
+CLOSED_MD = ROOT / "docs" / "sources-closed.md"
+REGISTERS = (SOURCES_MD, CLOSED_MD)
+
+# `[detail](#anchor)` in a row's link column, beside the source URL.
+ANCHOR_RE = re.compile(r"\[detail\]\(#([^)]+)\)")
+
+# The two headings that open a register table. They describe the table under them,
+# so neither is a lead of its own.
+REGISTER_HEADINGS = ("evaluated and rejected", "closed families, converted from the register")
+
+
+def _is_register_heading(heading: str) -> bool:
+    return heading.lower().startswith(REGISTER_HEADINGS)
+
 
 DATING = {
     "self": (
@@ -236,6 +250,14 @@ class Closed:
     name: str
     verdict: str
     line: int
+    # Which register page the row is on. Two pages carry the register since
+    # `convert_register.py` split it, so a bare line number cites nothing.
+    page: str = "docs/sources.md"
+
+    @property
+    def where(self) -> str:
+        """`page:line`, the citation every consumer of this prints."""
+        return f"{self.page}:{self.line}"
 
     def tokens(self) -> set[str]:
         return _tokens(self.name)
@@ -284,42 +306,82 @@ def _tokens(text: str) -> set[str]:
     return {w for w in kept if w and w not in STOP and not _NUMERIC.match(w)}
 
 
-def closed_leads(path: Path = SOURCES_MD) -> list[Closed]:
-    """Parse the register out of `docs/sources.md`, never a second copy of it.
+def _detail_blocks(lines: list[str]) -> dict[str, str]:
+    """The `## Detail` appendix, by anchor.
 
-    Three shapes carry a verdict in that file and all three are read: rows of the
-    `Evaluated and rejected` table, `## ` sections whose heading says rejected,
-    and an inline `**Verdict: REJECT ...**` inside any section.
+    A converted row is a projection of its entry and the entry itself is in that
+    appendix, so the body match reads it: without this the screen would only ever
+    see the trimmed cells, and a collision the entry names once would stop firing.
     """
-    lines = path.read_text(encoding="utf-8").splitlines()
+    blocks: dict[str, list[str]] = {}
+    anchor = ""
+    for line in lines:
+        if line.startswith("### "):
+            anchor = line[4:].strip()
+            blocks[anchor] = []
+        elif line.startswith("## "):
+            anchor = ""
+        elif anchor:
+            blocks[anchor].append(line)
+    return {key: " ".join(value) for key, value in blocks.items()}
+
+
+def _row_verdict(cells: list[str], details: dict[str, str]) -> str:
+    """Everything the row says about the family, plus its detail block if it has one."""
+    verdict = " ".join(cell for cell in cells[1:] if cell and cell != "n/a")
+    for anchor in ANCHOR_RE.findall(" ".join(cells)):
+        verdict = f"{verdict} {details.get(anchor, '')}"
+    return verdict.strip()
+
+
+def closed_leads(*paths: Path) -> list[Closed]:
+    """Parse the register out of the two register pages, never a second copy of it.
+
+    Four shapes carry a verdict and all four are read: rows of a register table,
+    which is any table whose first column is `source`, the `## Detail` block a row
+    points at, `## ` sections whose heading says rejected, and an inline
+    `**Verdict: REJECT ...**` inside any section.
+
+    Both pages, because `convert_register.py` moved closed families to
+    `sources-closed.md`: reading `sources.md` alone would leave the fleet's
+    generator and reopen lanes without a collision screen over most of the register.
+    """
     out: list[Closed] = []
     seen: set[str] = set()
 
-    def add(name: str, verdict: str, number: int) -> None:
+    def add(name: str, verdict: str, number: int, page: str) -> None:
         # One lead, one entry. NYPW carries both a heading and an inline verdict,
         # and reporting it twice makes a single collision look like two.
         if name and name not in seen:
             seen.add(name)
-            out.append(Closed(name, verdict, number))
+            out.append(Closed(name, verdict, number, page))
 
-    in_table = False
-    section = ""
-    for number, line in enumerate(lines, start=1):
-        if line.startswith("## "):
-            section = line[3:].strip()
-            in_table = section.lower().startswith("evaluated and rejected")
-            # the container heading is not itself a lead
-            if "reject" in section.lower() and not in_table:
-                add(section, "section heading records a rejection", number)
+    for path in paths or REGISTERS:
+        if not path.is_file():
             continue
-        if in_table and line.startswith("|") and line.count("|") >= 3:
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) < 2 or cells[0] in {"Source", "---"} or set(cells[0]) <= {"-"}:
+        page = f"docs/{path.name}"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        details = _detail_blocks(lines)
+        in_table = False
+        section = ""
+        for number, line in enumerate(lines, start=1):
+            if line.startswith("#"):
+                in_table = False
+                if line.startswith("## "):
+                    section = line[3:].strip()
+                    # the container heading is not itself a lead
+                    if "reject" in section.lower() and not _is_register_heading(section):
+                        add(section, "section heading records a rejection", number, page)
                 continue
-            add(cells[0], cells[1], number)
-            continue
-        if "Verdict: REJECT" in line:
-            add(section or line.strip(), line.strip(" -*"), number)
+            if line.startswith("|"):
+                cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                if cells[0].lower() == "source":
+                    in_table = True
+                elif in_table and cells[0] and set(cells[0]) - set("-: "):
+                    add(cells[0], _row_verdict(cells, details), number, page)
+                continue
+            if "Verdict: REJECT" in line:
+                add(section or line.strip(), line.strip(" -*"), number, page)
     return out
 
 
@@ -379,9 +441,10 @@ def main() -> None:
 
     register = closed_leads()
     if args.list_closed:
-        print(f"{len(register)} closed leads in {SOURCES_MD.relative_to(ROOT)}\n")
+        pages = ", ".join(p.relative_to(ROOT).as_posix() for p in REGISTERS)
+        print(f"{len(register)} closed leads in {pages}\n")
         for entry in register:
-            print(f"  L{entry.line:<5} {entry.name}")
+            print(f"  {entry.where:<28} {entry.name}")
         return
 
     proposal = " ".join(args.proposal).strip()
@@ -396,7 +459,7 @@ def main() -> None:
         for shared, entry in hits[:5]:
             kind = entry.closed_on
             both = kind == "availability" and entry.also_measured
-            print(f"\n  COLLIDES ({shared} shared terms) with docs/sources.md:{entry.line}")
+            print(f"\n  COLLIDES ({shared} shared terms) with {entry.where}")
             print(f"    {entry.name}")
             label = "AVAILABILITY, AND IT ALSO CARRIES A MEASUREMENT" if both else kind.upper()
             print(f"    closed on: {label}")
