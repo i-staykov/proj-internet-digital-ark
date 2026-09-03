@@ -74,15 +74,36 @@ def first_clause(text: str, limit: int = 240) -> str:
 
 
 def register_row(f: dict, run_label: str) -> str:
+    """One row in the register's columns, under 500 characters like every other.
+
+    The columns are the reviewer's ledger fields. A field the finding does not
+    carry reads `n/a`: this books what was reported and infers nothing.
+    """
     day = dt.date.today().isoformat()
-    dates = first_clause(f["fields"].get("what dates one item", ""), 160) or "not stated"
-    probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""))
+    dates = first_clause(f["fields"].get("what dates one item", ""), 130) or "n/a"
+    probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 200)
+    method = first_clause(f["fields"].get("method", ""), 80) or "n/a"
     url = _URL.search(f["fields"].get("artifact", ""))
-    link = f" Artifact: <{url.group(0)}>." if url else ""
-    return (
-        f"| **{f['slug']} ({day}, fleet {run_label})** | **{f['verdict']} at {f['ee']} EE, "
-        f"against the ark-data sync.** What dates one item: {dates}.{link} {probe} |"
-    )
+    verdict = "parked" if f["verdict"] == "FIND" else "closed"
+    cells = [
+        f["slug"],
+        f"{day} fleet {run_label}",
+        "n/a",
+        method,
+        dates,
+        "n/a",
+        f"{f['ee']} ({day})",
+        f"**{f['verdict']}**: {probe}" if probe else f"**{f['verdict']}**",
+        "n/a",
+        verdict,
+        f"<{url.group(0)}>" if url else "n/a",
+    ]
+    row = "| " + " | ".join(cells) + " |"
+    if len(row) > 500:
+        keep = max(len(cells[7]) - (len(row) - 500), 0)
+        cells[7] = cells[7][:keep].rstrip() or "n/a"
+        row = "| " + " | ".join(cells) + " |"
+    return row
 
 
 def append_rows(rows: list[str]) -> None:
