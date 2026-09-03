@@ -86,7 +86,8 @@ Raised automatically, because a `pending` line in a file you do not open is not 
 
 Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
 
-**Gate 668,118 EE. Sheet of measured sources awaiting one word each: `docs/decisions-open.md`.**
+**Gate 668,118 EE. The measured sources awaiting one word each are the `Decision: pending` blocks
+of `docs/approved-sources-list.md`.**
 
 ### Triage the newly found sources: 40 found
 

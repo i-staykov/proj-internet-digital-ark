@@ -38,7 +38,6 @@ VENDORED = ROOT / "src" / "ark" / "data" / "tld_english_share.json"
 SHARE_HOLDERS = {
     "src/ark/english_share.py": "the one reader of the vendored table",
     "tests/test_english_share.py": "spells the quoted figures in order to check them",
-    "scripts/output_unit_pack/registrable_unit.py": "ships standalone beside his model file",
     "scripts/pricing/measure_host_unit.py": "reads HIS file on purpose, to separate the weight "
     "question from the unit question",
 }
