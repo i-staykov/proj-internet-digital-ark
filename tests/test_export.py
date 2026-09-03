@@ -106,6 +106,13 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
     add_candidate(conn, "held.com", cdx)
     eid = record_evidence(conn, "held.com", cdx, 1999, "cdx_timestamp", "19990101000000")
     assign_year(conn, eid)
+    # the two parents the impossible hostnames hang off; `add_candidate` refuses `.arpa`
+    # at the funnel, so that one goes in directly, exactly as the store's old rows did
+    add_candidate(conn, "web.site", cdx)
+    conn.execute(
+        "INSERT INTO domain (domain, tld, discovered_source) VALUES ('1.in-addr.arpa', 'arpa', ?)",
+        [cdx],
+    )
     rows = [
         # www. of a hostname the store holds for that year: refused
         ("www.deep.held.com", "held.com", 1999),
@@ -116,6 +123,10 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
         ("www.deep.held.com", "held.com", 2000),
         # not a www. form at all: ships
         ("mail.held.com", "held.com", 1999),
+        # the hostname half applied neither the .arpa nor the delegation rule until
+        # 2026-09-03, so 198 rows like these were shipping
+        ("bust.web.site", "web.site", 1996),
+        ("host.1.in-addr.arpa", "1.in-addr.arpa", 1999),
     ]
     for hostname, parent, year in rows:
         conn.execute(
@@ -135,6 +146,8 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
     assert shipped_1999 == ["deep.held.com", "mail.held.com"]
     assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
+    # `.site` was delegated in 2015 and `.arpa` is never a website
+    assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
     # the manifest carries the same rows as the files, or it reads as an addition it is not
     manifest = (tmp_path / "netnew" / "hostnames_evidence_manifest.csv").read_text()
     assert "www.held.com" not in manifest

@@ -21,6 +21,7 @@ Two input shapes, the same ones the rest of the project already emits:
 
     uv run python scripts/pricing/price_hostnames.py data/raw/<x>_hostgrain/   # {url, timestamp}
     uv run python scripts/pricing/price_hostnames.py --items items.jsonl.gz    # {item, year, text}
+    uv run python scripts/pricing/price_hostnames.py --items poolA/ poolB/     # priced as one union
     uv run python scripts/pricing/price_hostnames.py <dir> --head 200000 --sample-of 2413003
 
 In `--items` mode `text` is one URL or hostname, or whitespace-separated several. The
@@ -45,6 +46,7 @@ sys.path.insert(0, str(REPO / "src"))
 from ark.baseline import baseline_dir  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
+from ark.delegation import shipping_filter_for  # noqa: E402
 from ark.english_share import english_weights, weight_of  # noqa: E402
 from ark.hostnames import YEARS, _host_of  # noqa: E402
 
@@ -126,25 +128,40 @@ def read_rows(
     return seen, counts
 
 
-def funnel(seen: dict[tuple[str, int], str], counts: Counter[str]) -> list[tuple[str, str, int]]:
-    """(hostname, parent, year) for the rows that could become hostname records."""
+def funnel(
+    seen: dict[tuple[str, int], str], counts: Counter[str]
+) -> tuple[list[tuple[str, str, int]], list[tuple[str, int]]]:
+    """The hostname rows, and the (registrable, year) pairs the SAME rows assert.
+
+    Both halves are returned because both are real value and only one of them used to be
+    counted. A host that IS its registrable, and `www.<registrable>`, write no hostname
+    record: the ingest dates the parent from that capture instead. Priced at hostname grain
+    alone they read as drops, which understated two Usenet pools by about 26,000 EE.
+    """
     parents: dict[str, str] = {}
+    registrable_of: dict[str, str] = {}
     for host in {h for h, _ in seen}:
         reg = to_registrable(host)
         if reg is None:
             counts["rejected_host"] += 1
-        elif reg == host:
+            continue
+        registrable_of[host] = reg
+        if reg == host:
             counts["registrable_row"] += 1
         elif host == f"www.{reg}":
             counts["www_of_parent"] += 1
         else:
             parents[host] = reg
     counts["distinct_host_years"] = len(seen)
-    return [(h, parents[h], y) for (h, y) in sorted(seen) if h in parents]
+    rows = [(h, parents[h], y) for (h, y) in sorted(seen) if h in parents]
+    pairs = sorted({(registrable_of[h], y) for (h, y) in seen if h in registrable_of})
+    return rows, pairs
 
 
-def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict:  # noqa: ANN001
-    """Difference the candidate rows against the store and the baseline files, read-only."""
+def price(  # noqa: ANN001
+    conn, rows: list[tuple[str, str, int]], pairs: list[tuple[str, int]], baseline: Path | None
+) -> dict:
+    """Difference both halves against the store and the baseline files, read-only."""
     weights = english_weights()
     conn.execute("CREATE TEMP TABLE cand (hostname TEXT, parent TEXT, year INTEGER, bare TEXT)")
     # `bare` is the name under a leading `www.`, so the seam below can be measured: the
@@ -154,8 +171,13 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
         "INSERT INTO cand VALUES (?, ?, ?, ?)",
         [(h, p, y, h[4:] if h.startswith("www.") else None) for h, p, y in rows],
     )
+    # The registrable half the same capture rows assert. Diffed against `domain_year` AND
+    # his own files, because a registrable he already lists for that year is not ours to
+    # report any more than a hostname is.
+    conn.execute("CREATE TEMP TABLE reg_cand (domain TEXT, year INTEGER)")
+    conn.executemany("INSERT INTO reg_cand VALUES (?, ?)", pairs)
     conn.execute("CREATE TEMP TABLE baseline_host (hostname TEXT, year INTEGER)")
-    years = sorted({y for _, _, y in rows})
+    years = sorted({y for _, _, y in rows} | {y for _, y in pairs})
     baseline_years = []
     for year in years:
         path = (baseline / f"{year}.txt") if baseline else None
@@ -170,11 +192,17 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
                 WHERE lower(trim(column0)) IN (
                     SELECT hostname FROM cand WHERE year = {year}
                     UNION SELECT bare FROM cand WHERE year = {year} AND bare IS NOT NULL
+                    UNION SELECT domain FROM reg_cand WHERE year = {year}
                 )
                 """
             )
+    # Price what could ship: a hostname under `.arpa` or under a TLD that did not exist in
+    # its year never reaches a file, so counting it inflates the price of a corpus. The
+    # hostname export applied neither rule until 2026-09-03.
+    shipped_host = shipping_filter_for("c.hostname", "c.year")
+    shipped_reg = shipping_filter_for("p.domain", "p.year")
     netnew = conn.execute(
-        """
+        f"""
         SELECT c.hostname, c.parent, c.year,
                hy.hostname IS NOT NULL AS in_store,
                b.hostname IS NOT NULL AS in_baseline,
@@ -188,18 +216,21 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
         LEFT JOIN baseline_host bb ON bb.hostname = c.bare AND bb.year = c.year
         LEFT JOIN hostname_year bh ON bh.hostname = c.bare AND bh.assigned_year = c.year
         LEFT JOIN domain_year bd ON bd.domain = c.bare AND bd.assigned_year = c.year
+        WHERE {shipped_host}
         """
     ).fetchall()
     parent_new = conn.execute(
-        """
-        SELECT DISTINCT c.parent, c.year FROM cand c
-        LEFT JOIN domain_year dy ON dy.domain = c.parent AND dy.assigned_year = c.year
-        WHERE dy.domain IS NULL
+        f"""
+        SELECT p.domain, p.year FROM reg_cand p
+        LEFT JOIN domain_year dy ON dy.domain = p.domain AND dy.assigned_year = p.year
+        LEFT JOIN baseline_host b ON b.hostname = p.domain AND b.year = p.year
+        WHERE dy.domain IS NULL AND b.hostname IS NULL AND {shipped_reg}
         """
     ).fetchall()
 
     out: dict = {
         "candidates": len(rows),
+        "registrable_candidates": len(pairs),
         "in_store": sum(1 for r in netnew if r[3]),
         "in_baseline_only": sum(1 for r in netnew if r[4] and not r[3]),
         "parent_held_share": (sum(1 for r in netnew if r[5]) / len(rows)) if rows else 0.0,
@@ -293,8 +324,10 @@ def report(label: str, counts: Counter[str], priced: dict, sample_of: int | None
             "    top TLDs: " + ", ".join(f"{t} {Decimal(v):,.1f}" for t, v in priced["top_tlds"])
         )
     lines.append(
-        f"parent (registrable, year) pairs net-new beside: {priced['parent_pairs_netnew']:,}  "
-        f"{priced['parent_pairs_netnew_ee']:,.4f} EE"
+        "registrable (domain, year) pairs net-new beside, from all "
+        f"{priced['registrable_candidates']:,} the same rows assert: "
+        f"{priced['parent_pairs_netnew']:,}  {priced['parent_pairs_netnew_ee']:,.4f} EE "
+        "(no hostname decision needed)"
     )
     if sample_of and counts["lines"]:
         factor = Decimal(sample_of) / Decimal(counts["lines"])
@@ -308,7 +341,13 @@ def report(label: str, counts: Counter[str], priced: dict, sample_of: int | None
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("paths", nargs="*", type=Path, help="journal files or dirs of {url, timestamp}")
-    ap.add_argument("--items", type=Path, help="JSONL(.gz) of {item, year|date, text} instead")
+    ap.add_argument(
+        "--items",
+        type=Path,
+        nargs="+",
+        help="JSONL(.gz) files or dirs of {item, year|date, text} instead; several are"
+        " priced as one union, which is what two corpora of the same class need",
+    )
     ap.add_argument("--head", type=int, help="read at most this many lines per file")
     ap.add_argument("--sample-of", type=int, help="lines in the whole corpus, for the projection")
     ap.add_argument("--label", default="")
@@ -324,16 +363,16 @@ def main() -> int:
 
     # a directory of shards is the shape a parallel extraction writes, so both inputs
     # take a file or a directory
-    files = journal_files([args.items] if args.items else args.paths)
+    files = journal_files(args.items if args.items else args.paths)
     seen, counts = read_rows(files, items=bool(args.items), head=args.head)
-    rows = funnel(seen, counts)
+    rows, pairs = funnel(seen, counts)
     conn = connect_read_only_patiently()
     try:
         # several of these run side by side when a batch of corpora is priced, and
         # DuckDB's default is most of the machine per process
         conn.execute("SET memory_limit = '3GB'")
         conn.execute("SET threads = 2")
-        priced = price(conn, rows, baseline_dir())
+        priced = price(conn, rows, pairs, baseline_dir())
     finally:
         conn.close()
     print(report(args.label, counts, priced, args.sample_of))

@@ -13,6 +13,7 @@ from loguru import logger
 from ark.baseline import baseline_dir
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
+from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -101,6 +102,11 @@ NOT_IN_BASELINE_HOSTNAME = """
     NOT EXISTS (SELECT 1 FROM baseline_hostname b
                 WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
 """
+
+# The registrable half has refused `.arpa` and a pair predating its own TLD since 2026-08-18,
+# and the hostname half refused neither until 2026-09-03: `bust.web.site` at 1996 and
+# `comp.domaine.name` at 2000 were shipping. Same rule, same module, different column name.
+HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year")
 
 
 def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
@@ -193,6 +199,7 @@ def export_all(
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
             WHERE hy.assigned_year = {year} AND {not_in_baseline} AND {not_www_alias}
+              AND {HOSTNAME_SHIPPING_FILTER}
             ORDER BY hy.hostname
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
@@ -206,7 +213,7 @@ def export_all(
         FROM hostname_year hy
         JOIN evidence e ON hy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
-        WHERE {not_in_baseline} AND {not_www_alias}
+        WHERE {not_in_baseline} AND {not_www_alias} AND {HOSTNAME_SHIPPING_FILTER}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
