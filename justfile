@@ -354,6 +354,17 @@ probe spec *args:
 price *args:
     uv run python scripts/pricing/price_items.py {{args}}
 
+# The same question at the second accepted unit. `price` collapses every name to its
+# registrable, which priced 180 suffix journals at 0 that were worth 301,650 EE in
+# hostnames. This runs the ingest's own funnel over {url, timestamp} journals or
+# --items JSONL and differences against hostname_year AND his baseline files, on a
+# read-only connection, so a keep-until-priced corpus gets its number without the
+# write lock.
+#
+# price a corpus at hostname grain against the live store, writing nothing
+price-hosts *args:
+    uv run python scripts/pricing/price_hostnames.py {{args}}
+
 # A source class may not date a year until a human classifies it, and `ark ingest`
 # enforces that rather than trusting anyone to remember. This writes the request:
 # a seeded-random sample of real records with live links, the measured figures, and
