@@ -1577,16 +1577,20 @@ Decision: rejected
 - source: https://archive.org/details/usenet-alt and
   https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip; `archive.org/robots.txt` read
   whole, only `/control/` and `/report/` disallowed
-- measured 2026-09-03 on the live store against `merged260902-3`, **both pools read whole and
-  priced as one union, no sample and no projection**: 173,738,432 posts, 71,209,294 dated inside
-  1996-2001, 24,308,602 carrying a body URL, 316,847 candidates after the funnel, **151,977
-  net-new hostname years and 88,564.4995 EE gross**. Three measured screens: the ADR-007 `www.`
-  alias seam is 29,884 rows and 18,932.8616 EE (21.4%), leaving 69,631.6379 EE; the `.arpa` and
-  TLD-delegation rules take 510 rows; and a sampled fiction rate of **6.25%, Wilson 95% CI 2.7%
-  to 13.8%**, giving **65,279.6605 EE central, 60,022 to 67,752**. By year 1996 8,179.2 EE
-  rising to 2000 22,729.8 EE; by TLD com 32,938.7, edu 13,718.5, net 10,183.9, uk 8,316.5
-- beside it, needing no hostname decision at all: **42,625 net-new (registrable, year) pairs,
-  24,172.0540 EE**, BEFORE the corroboration split every typed-name class takes. The split is
+- measured 2026-09-03 and 2026-09-04 on the live store, **three pools read whole, no sample and
+  no projection anywhere**: `usenet_new` and `usenet_bulk` priced as one union (173,738,432
+  posts, 71,209,294 dated inside 1996-2001, 151,977 net-new hostname years, 88,564.4995 EE
+  gross) and `usenet_uk` beside them (25,943,465 posts, 9,295,674 dated in window, 21,968
+  net-new hostname years, 15,552.5896 EE gross). **Together 173,945 net-new hostname years and
+  104,117.0891 EE gross.** Three measured screens: the ADR-007 `www.` alias seam takes 21.4% of
+  the pools and 33.9% of uk, leaving **79,919.0270 EE**; the `.arpa` and TLD-delegation rules
+  take 510 rows; and a sampled fiction rate of **6.25%, Wilson 95% CI 2.7% to 13.8%**, giving
+  **74,924.0878 EE central, 68,870 to 77,779**. By TLD com 36,596.0, uk 15,651.7, edu 14,933.1,
+  net 11,592.3. **uk is the densest pool at 1,152 EE per GB gross against 851 for the other
+  two**, which is the `.uk` weight of 0.9813 showing up where the weight table says it should
+- beside it, needing no hostname decision at all: **48,691 net-new (registrable, year) pairs,
+  28,341.1243 EE** across the three pools, BEFORE the corroboration split every typed-name class
+  takes. The split is
   known to be brutal on this class (the recorded registrable pass over `usenet_new` measured
   35.8 EE post-split), so treat that as an upper bound and not a second find
 - what dates one item: the post's own `Date:` header, the same stamp the banked Usenet body
@@ -1611,7 +1615,7 @@ Decision: rejected
   fiction rate above is offered in its place. Conditions 2, 3 and 4 hold: the stamp is
   machine-written and quoted, the terms are archive.org's, and the journals rebuild in about
   25 minutes per pool at four workers
-- potential: 65280
+- potential: 74924
 
 Decision: pending
 

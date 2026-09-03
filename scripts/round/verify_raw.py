@@ -75,7 +75,9 @@ KEEP_UNTIL_PRICED: dict[str, str | None] = {
 KEEP_UNTIL_DECIDED: dict[str, str] = {
     "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "usenet_bulk": "https://archive.org/details/usenet-alt",
+    "usenet_comp": IA_USENET,
     "usenet_new": IA_USENET,
+    "usenet_uk": IA_USENET,
 }
 
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:

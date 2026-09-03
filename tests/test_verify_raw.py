@@ -279,7 +279,13 @@ def test_every_class_name_is_one_of_six() -> None:
     # the E9.5 batch priced 24 of the audit's 26; these two wait on terms, not on value
     assert set(vr.KEEP_UNTIL_PRICED) == {"antispam_media", "internic_zones"}
     # priced and not spent: the bytes a yes would be ingested from
-    assert set(vr.KEEP_UNTIL_DECIDED) == {"ukwa", "usenet_bulk", "usenet_new"}
+    assert set(vr.KEEP_UNTIL_DECIDED) == {
+        "ukwa",
+        "usenet_bulk",
+        "usenet_comp",
+        "usenet_new",
+        "usenet_uk",
+    }
     assert not set(vr.KEEP_UNTIL_DECIDED) & set(vr.REFERENCE)
     assert vr.classify("data/raw/never_heard_of") is None
     assert vr.classify("data/ark.duckdb") is None
