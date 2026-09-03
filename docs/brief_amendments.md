@@ -303,3 +303,20 @@ master-eligible class may not date a year until a human has classified it. A fas
 to widen what we look at, never a reason to lower what counts as proof: a rejected record costs the
 round twice, once in the pairs withdrawn and once in the reviewer's confidence, and he has now accepted
 two consecutive rounds with nothing rejected.
+
+---
+
+## 7. The ledger, from intake on
+
+Sections 1 to 6 are the amendments read and landed by hand. Intake appends one row here per changed
+paragraph of his brief, so that a change cannot be read and then forgotten. Columns: the date on his
+document, his words quoted, the category (scoring, evidence, format or method hint), what changed
+here, and where it landed, meaning a rule page, a code path or a ledger.
+
+A row may say `pending` while it waits on a human, but not silently. `tests/test_amendments.py`
+fails unless a pending row either quotes words that also stand in [questions.md](questions.md), so
+the ambiguity is on its way back to him, or names a file that exists, so the change already has a
+home.
+
+| date | his words | category | what changed here | landed in |
+|---|---|---|---|---|

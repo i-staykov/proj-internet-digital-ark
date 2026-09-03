@@ -2,8 +2,8 @@
 
 **Mistakes this project has already paid for, one paragraph each.** Read before trusting a
 number, running a collector, or sending a first request to a host. Cut from `CLAUDE.md` on
-2026-09-02; the measured laws of pricing are in [laws.md](laws.md), the rules in
-[rules.md](rules.md).
+2026-09-02 and from `.github/copilot-instructions.md` on 2026-09-03, which is now a pointer;
+the measured laws of pricing are in [laws.md](laws.md), the rules in [rules.md](rules.md).
 
 ## Numbers and negatives
 
@@ -13,6 +13,13 @@ number, running a collector, or sending a first request to a host. Cut from `CLA
 
 **An already-ingested journal shows 0 net-new by construction.** Measure against a pre-ingest
 snapshot.
+
+**Measure a rate over a trailing window, not a lifetime, and never across a backfill.** A
+lifetime average hides the hour that stopped paying, and a backfill inside the window inflates
+every rate computed over it.
+
+**Check the dates before counting the contents.** Real hostname counts on files dated 1990 to
+1992 have wasted days: nothing outside 1996-2001 can evidence a year, however many names it holds.
 
 **A partitioned corpus must be measured per partition, never reasoned about.** `nypw_timemaps`
 was closed at 14.2 EE on its 1996 folder, reopened on 1999 and 2000 for **+87,905 EE**, and one
@@ -34,7 +41,9 @@ reviewer cut from BEFORE our own collector last ran in that channel.
 
 ## Collectors and queues
 
-**A running collector is not a working one.** Presence, progress and yield are three questions.
+**A running collector is not a working one.** Presence, progress and yield are three questions,
+and a supervisor's guess at why a batch stopped is not evidence for any of them. `just cycle`
+checks yield.
 
 **Watch a collector's hit rate, not its query rate.** The pool population went barren
 overnight: 1,114 of 1,200 queries returned no capture, ~0.03 year-records per query, while the
@@ -56,7 +65,8 @@ seventeen minutes, then clamped to about 1 q/s for at least twenty-five minutes 
 restarts. Restarting does not clear it; only resting might. Budget a night's Verisign work as
 one block of ~65,000 queries.
 
-**Look for the existing tool before writing one.**
+**Look for the existing tool before writing one.** A worse reimplementation of
+`build_promotion_journals.py` overstated a source 20x.
 
 ## Extraction and content
 
@@ -130,3 +140,7 @@ distro trees.
 
 **Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it
 is closed three times over wastes the run and teaches the agent to distrust the brief.
+
+**Grep does not reach the highest authority.** The reviewer's own words arrive in
+`feedback-phase-*/` and `private/personal-context.md`, both git-ignored, so a repository-wide
+search misses them; only the transcriptions in [ding/](ding/) are tracked.

@@ -11,7 +11,7 @@ A hand-written count is a fact about the code stored somewhere the code cannot r
 is the same shape as a hardcoded path or a retyped figure. This is the cheapest available
 enforcement: it does not generate the prose, it just refuses to let it drift.
 
-Dated log entries are exempt. `docs/notes.md` and the `CLOSED` section of
+Dated log entries are exempt. `docs/releases.md` and the `CLOSED` section of
 `docs/key-decisions.md` record what was true on a date, and rewriting them would falsify
 history rather than correct it.
 """

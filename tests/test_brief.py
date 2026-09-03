@@ -129,6 +129,31 @@ def test_collector_lines_take_the_first_line_per_machine_and_drop_the_address():
     }
 
 
+def test_the_status_probe_fragment_never_reaches_the_printed_line():
+    """The VPS section is produced by `bash -c '... pgrep -f supervise_cdx_pool.sh
+    ...'` over ssh, so the remote `ps` matches the question and the snapshot stores
+    its shell text. The fixture is that output; none of it may be printed."""
+    engines = (ROOT / "tests/fixtures/engine_status_probe.txt").read_text(encoding="utf-8")
+    collectors = build_round_state.collector_lines(engines)
+    assert "pgrep" in collectors["vps"], "fixture no longer holds the shell fragment"
+    out = brief.render(fresh_snapshot(collectors=collectors), None, NOW)
+    for fragment in ("pgrep", "bash -c", "/projects", "||", "/dev/null"):
+        assert fragment not in out, f"{fragment!r} reached the brief"
+    assert "collector vps: unclear: the status probe matched itself" in out
+    assert "collector local: NOT RUNNING" in out
+
+
+def test_collector_state_keeps_the_status_and_drops_the_command():
+    assert brief.collector_state("NOT RUNNING") == "NOT RUNNING"
+    assert brief.collector_state("unreachable (VPN down?)") == "unreachable"
+    assert brief.collector_state("") == "UNKNOWN"
+    assert (
+        brief.collector_state("up 2-03:14:22 bash scripts/engines/supervise_cdx_pool.sh 1 2 900")
+        == "up 2-03:14:22 supervise_cdx_pool.sh"
+    )
+    assert brief.collector_state("up 04:11 python3 something_else.py") == "up 04:11"
+
+
 def test_pending_amendments_are_the_rows_with_a_pending_cell(tmp_path):
     ledger = tmp_path / "brief_amendments.md"
     ledger.write_text(

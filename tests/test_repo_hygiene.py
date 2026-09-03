@@ -95,7 +95,6 @@ def test_every_docs_page_is_in_the_index() -> None:
 
 
 @needs_git
-@pytest.mark.xfail(strict=True, reason="lifted by E4.5")
 def test_every_docs_reference_resolves() -> None:
     """Every `docs/<x>.md` string in tracked code and prose names a file that exists."""
     dangling: dict[str, list[str]] = {}
