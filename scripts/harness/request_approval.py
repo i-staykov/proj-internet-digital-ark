@@ -135,7 +135,7 @@ def nearest_closed(source_name: str) -> str:
         return "nothing in the closed register resembles this by name."
     shared, entry = hits[0]
     return (
-        f"closest closed family, {shared} shared terms, `docs/sources.md:{entry.line}`: "
+        f"closest closed family, {shared} shared terms, `{entry.where}`: "
         f"**{entry.name}**, closed on {entry.closed_on}."
     )
 
