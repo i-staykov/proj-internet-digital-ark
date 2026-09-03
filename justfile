@@ -183,6 +183,13 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     mkdir -p "$IN" data/fleet_findings/banked data/logs
     PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
+    # 0. Refuse a dirty or diverged clone before anything is fetched, then take the
+    #    approvals merged from a phone as a fast-forward and bank what they approved.
+    #    An ingest changes the store and no tracked file, so it is exported here and
+    #    needs no commit.
+    uv run python scripts/harness/bank_hygiene.py preflight
+    BANKED=$(uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr | grep -c '^== uv run ark ingest' || true)
+    if [ "$BANKED" -gt 0 ]; then uv run ark export >/dev/null && uv run ark check | tail -1; fi
     # Anything still waiting on Ivo, first, so a bank never buries a decision.
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
@@ -203,7 +210,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
             >> data/logs/fleet_ledger.tsv || true
         rm -f "$T"
     done
-    find "$IN" -mindepth 1 -type d -empty -delete
+    uv run python scripts/harness/bank_hygiene.py prune --write
     if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
     # 3. Result lines first and pushed at once: a wave that picks while the admitter
     #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
@@ -249,6 +256,8 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
     # 7. Refresh the brief snapshot; a failed refresh must not fail the bank.
     uv run python scripts/round/build_round_state.py | tail -1 || true
+    # 8. The gate issue, once per crossing, read off the brief just written.
+    uv run python scripts/harness/bank_hygiene.py gate --write || true
 
 # The only route into the four register pages, and the cheap one: the deny in
 # `.claude/settings.json` covers a `grep` or a `sed` on `docs/sources*.md`, and the two
