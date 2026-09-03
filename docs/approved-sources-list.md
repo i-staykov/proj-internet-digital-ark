@@ -1566,6 +1566,45 @@ Decision: rejected
 
 ## Pending requests
 
+### usenet_body_url_hostnames / link_source
+
+- ingest would be: `ark ingest-hostnames` over `{item, year, text}` journals rebuilt from
+  `data/raw/usenet_new/` (7,531 mbox zips, 53,539,826,439 B) and `data/raw/usenet_bulk/` (9,266
+  mbox zips, 56,026,437,278 B), both already on disk, both banked at registrable grain. The
+  extractor takes the host authority of an explicit `http://`, `https://` or `ftp://` URL in the
+  post BODY only: a `Path`, `Xref`, `NNTP-Posting-Host`, `Message-ID` or `From` host is a news
+  relay or a mailbox and never a host serving web content
+- source: https://archive.org/details/usenet-alt and
+  https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip; `archive.org/robots.txt` read
+  whole, only `/control/` and `/report/` disallowed
+- measured 2026-09-03 on the live store against `merged260902-3`, **both pools read whole, no
+  sample and no projection**: 86,891,548 posts, 35,603,878 dated inside 1996-2001, 17,609,550
+  carrying a body URL, 341,870 candidates after the funnel, **150,223 net-new hostname years and
+  88,119.8145 EE gross**. Two measured screens: the `www.<a name already held that year>` alias
+  seam is 35,646 rows and 22,836.4219 EE (25.9%), and RFC 2606 reserved plus idiomatic-fake names
+  a further 713 rows and 442.9966 EE, so **the quotable figure is 64,840.3960 EE over 113,864
+  hostname records**, plus **2,695 net-new parent registrable-years worth 1,495.2270 EE** which
+  need no hostname decision at all. Split: `usenet_new` 22,377.7690 EE, `usenet_bulk` 42,462.6270
+  EE. By year 1996 6,984.8 EE rising to 2000 23,611.9 EE; by TLD com 32,441.9, edu 13,635.9,
+  net 10,439.3, uk 8,743.4
+- what dates one item: the post's own `Date:` header, the same stamp the banked Usenet body
+  classes use, quoted per record; the hostname rides its held parent, and parent held is 100.0%
+- **why this is not the pending `usenet_body_pasted_hostnames` request**: that one is hostnames
+  inside `dig` answers and config snippets, and it parks because a 60-name sample of its
+  survivors was ~13% invented (`mail.bogus.com` beneath a held `bogus.com`). Measured here on
+  URL-vouched hosts the same class of error is **1.43% in `usenet_new` and 0.28% in
+  `usenet_bulk`**, because a host inside a URL a human typed is a host they visited or
+  advertised. The two asks can be answered differently
+- condition 1 of the standing rule fails, which is why this is pending rather than banked: no
+  master-eligible class covers a human-typed URL's host at hostname grain, and the reviewer's
+  2026-09-01 update lists dated Usenet copies among sources unsuitable for further work. The
+  corroboration split guards the registrable half and cannot guard this half, so the fiction rate
+  above is offered in its place. Conditions 2, 3 and 4 hold: the stamp is machine-written and
+  quoted, the terms are archive.org's, and the journals rebuild in about 40 minutes per pool
+- potential: 64840
+
+Decision: pending
+
 ### arin_inaddr_ns_hostnames / artifact_listing
 
 - the fleet's probe (2026-09-02, `inaddr_reverse_tree_ns_hostnames_1997_1999`): APNIC's tar of

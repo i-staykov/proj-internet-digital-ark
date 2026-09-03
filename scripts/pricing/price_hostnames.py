@@ -225,6 +225,7 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
     out["www_of_held_name_ee"] = seam_ee
     out["netnew_ee_eligible"] = total - seam_ee
     out["netnew_hostname_years"] = len(new_rows)
+    out["netnew_rows"] = [(r[0], r[2], bool(r[6])) for r in new_rows]
     out["netnew_by_year"] = dict(sorted(by_year.items()))
     out["netnew_ee_by_year"] = {y: str(v) for y, v in sorted(ee_by_year.items())}
     out["netnew_ee"] = total
@@ -260,8 +261,17 @@ def report(label: str, counts: Counter[str], priced: dict, sample_of: int | None
         f"already in store {priced['in_store']:,}  in his baseline only "
         f"{priced['in_baseline_only']:,}  parent held {priced['parent_held_share']:.1%}"
     )
+    # Per year, not once: a single missing year file passed silently and inflated that
+    # year, which the E9.5 adjudication caught while checking a 7,074 EE claim.
+    missing = [y for y in priced["netnew_by_year"] if y not in priced["baseline_years_checked"]]
     if not priced["baseline_years_checked"]:
         lines.append("WARNING: no baseline files found, every hostname counts as net-new")
+    elif missing:
+        lines.append(
+            "WARNING: no baseline file for "
+            + ", ".join(str(y) for y in missing)
+            + ", so those years count every hostname as net-new"
+        )
     lines.append(
         f"NET-NEW hostname years {priced['netnew_hostname_years']:,}  "
         f"{priced['netnew_ee']:,.4f} EE   (quote this)"
@@ -303,11 +313,18 @@ def main() -> int:
     ap.add_argument("--sample-of", type=int, help="lines in the whole corpus, for the projection")
     ap.add_argument("--label", default="")
     ap.add_argument("--json", type=Path, help="also write the figures here")
+    ap.add_argument(
+        "--dump-netnew",
+        type=Path,
+        help="write the net-new rows as hostname/year/www-alias TSV, for a screen or a sample",
+    )
     args = ap.parse_args()
     if bool(args.items) == bool(args.paths):
         ap.error("give journal paths or --items, not both and not neither")
 
-    files = [args.items] if args.items else journal_files(args.paths)
+    # a directory of shards is the shape a parallel extraction writes, so both inputs
+    # take a file or a directory
+    files = journal_files([args.items] if args.items else args.paths)
     seen, counts = read_rows(files, items=bool(args.items), head=args.head)
     rows = funnel(seen, counts)
     conn = connect_read_only_patiently()
@@ -320,8 +337,16 @@ def main() -> int:
     finally:
         conn.close()
     print(report(args.label, counts, priced, args.sample_of))
+    if args.dump_netnew:
+        args.dump_netnew.write_text(
+            "".join(f"{h}\t{y}\t{int(alias)}\n" for h, y, alias in priced["netnew_rows"])
+        )
     if args.json:
-        payload = {**priced, "counts": dict(counts), "label": args.label}
+        payload = {
+            **{k: v for k, v in priced.items() if k != "netnew_rows"},
+            "counts": dict(counts),
+            "label": args.label,
+        }
         args.json.write_text(json.dumps(payload, indent=2, default=str) + "\n")
     return 0
 
