@@ -21,6 +21,19 @@ prints the split so no round can quote the hostname half without it.
 
 Worth: 201,767.94 EE of the current claim, plus whether the next hostname corpus is worth reading. If they count, nothing changes; if they do not, the refusal moves into `hostnames.py` under an ADR and the round is restated.
 
+### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 64,840.4 EE measured
+
+Hosts of explicit `http`, `https` and `ftp` URLs in Usenet post BODIES, at hostname grain, over
+both pools already on disk read WHOLE: 110 GB, 86.9M posts, 35.6M in window, **64,840.3960 EE over
+113,864 hostname records after the alias seam and a fiction screen**, plus 1,495.2270 EE of parent
+registrable-years that need no hostname decision. No projection anywhere in that figure. It parks
+on condition 1 only: no master-eligible class covers a host a human typed at hostname grain, and
+the corroboration split cannot guard this half. In its place, the measured fiction rate is 1.43%
+and 0.28%, against ~13% for the `dig`-output request beneath it, which is the argument for
+answering the two differently. Block in `approved-sources-list.md` under Pending requests.
+
+Worth: 64,840.4 EE measured, the largest single lane found in phase 8 and 6.3% of the gate. Bytes are on disk; journals rebuild in about 40 minutes a pool.
+
 ### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
 
 Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot
