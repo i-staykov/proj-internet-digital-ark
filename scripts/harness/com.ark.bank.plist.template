@@ -3,19 +3,14 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.ark.cycle</string>
+  <string>com.ark.bank</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>ARK_ROOT/scripts/harness/scheduled_cycle.sh</string>
+    <string>ARK_ROOT/scripts/harness/scheduled_bank.sh</string>
   </array>
   <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
-  </array>
+  <dict><key>Minute</key><integer>5</integer></dict>
   <key>WorkingDirectory</key>
   <string>ARK_ROOT</string>
   <key>EnvironmentVariables</key>
@@ -26,6 +21,6 @@
     <string>ARK_HOME</string>
   </dict>
   <key>StandardErrorPath</key>
-  <string>ARK_ROOT/data/logs/scheduled_cycle.err</string>
+  <string>ARK_ROOT/data/logs/scheduled_bank.err</string>
 </dict>
 </plist>

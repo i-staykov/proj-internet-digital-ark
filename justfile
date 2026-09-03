@@ -1208,53 +1208,73 @@ ship stage="all" *args:
 
 # --- unattended ---------------------------------------------------------------
 
-# Point macOS at the health check four times a day, so a day nobody is watching
-# still leaves a record of what the collectors did and what needed judgement. It
-# reports and does not act: the header of scripts/harness/scheduled_cycle.sh says why a
-# restarting watchdog is the wrong shape here, and extend_engines.sh says it again.
+# Two launchd jobs. com.ark.bank runs `just bank` at five past every hour, so the
+# round moves without a session open, and reads the `ship-now` label (the header of
+# scripts/harness/scheduled_bank.sh). com.ark.cycle runs the health check four times
+# a day; it reports and does not act, and scheduled_cycle.sh says why a restarting
+# watchdog is the wrong shape here.
 #
 # **This needs Full Disk Access and will fail silently without it.** The repository
 # lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
 # grant from the terminal that installed it. The first install exited 126 four times
-# a day while `launchctl list` looked normal, so `install` runs the job once and
-# reports the exit status rather than trusting the load.
+# a day while `launchctl list` looked normal, so `install` runs the cycle job once as
+# the probe and reports its exit status rather than trusting the load. launchd also
+# starts with a bare PATH, which is why the templates carry one that finds just, uv,
+# gh and claude: the second install exited 127 the same silent way.
 #
-# the launchd job that runs the health check unattended: install remove
+# the launchd jobs that bank and health-check unattended: install remove status
 schedule what="install":
     #!/usr/bin/env bash
     set -uo pipefail
-    plist="$HOME/Library/LaunchAgents/com.ark.cycle.plist"
+    JOBS="com.ark.bank com.ark.cycle"
     case "{{what}}" in
     install)
         set -euo pipefail
         mkdir -p "$HOME/Library/LaunchAgents" data/logs
-        sed "s|ARK_ROOT|{{justfile_directory()}}|g" scripts/harness/com.ark.cycle.plist.template > "$plist"
-        launchctl unload "$plist" 2>/dev/null || true
-        launchctl load "$plist"
-        echo "loaded com.ark.cycle; running it once to find out whether it can actually run"
+        for job in $JOBS; do
+            plist="$HOME/Library/LaunchAgents/$job.plist"
+            sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
+                "scripts/harness/$job.plist.template" > "$plist"
+            launchctl unload "$plist" 2>/dev/null || true
+            launchctl load "$plist"
+            echo "loaded $job"
+        done
+        echo "running com.ark.cycle once to find out whether launchd can reach this directory"
         launchctl kickstart -k "gui/$(id -u)/com.ark.cycle" 2>/dev/null || true
         sleep 20
         status=$(launchctl list | awk '$3 == "com.ark.cycle" { print $2 }')
         if [ "${status:-0}" = "0" ]; then
-            echo "OK: exited 0. It appends to data/logs/scheduled_cycle.log"
+            echo "OK: exited 0. com.ark.bank runs at :05 every hour and appends to data/logs/scheduled_bank.log"
         else
             echo "FAILED: last exit status $status"
             echo
             echo "  126 or 1 here is almost always macOS TCC: this repository is under"
             echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
             echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
-            echo "  /bin/bash. Then run 'just schedule' again."
+            echo "  /bin/bash. Then run 'just schedule' again. 127 means a tool is not on"
+            echo "  the PATH the template sets."
             echo
-            echo "  Until then an hourly 'just cycle' covers"
-            echo "  the same ground, because it inherits the grant of the terminal that"
-            echo "  started it. Check it is running before relying on this."
+            echo "  Until then a terminal that runs 'just bank' hourly covers the same"
+            echo "  ground, because it inherits the grant of the terminal that started it."
             tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
         fi
         ;;
-    remove)
-        launchctl unload "$plist" 2>/dev/null || true
-        rm -f "$plist"
-        echo "removed com.ark.cycle"
+    status)
+        for job in $JOBS; do
+            line=$(launchctl list | awk -v j="$job" '$3 == j { print "pid " $1 ", last exit " $2 }')
+            echo "$job: ${line:-not loaded}"
+        done
+        for log in scheduled_bank scheduled_cycle; do
+            [ -f "data/logs/$log.log" ] && { echo "--- data/logs/$log.log"; grep '^===== scheduled' "data/logs/$log.log" | tail -2; }
+        done
         ;;
-    *) echo "schedule: install remove" >&2; exit 2 ;;
+    remove)
+        for job in $JOBS; do
+            plist="$HOME/Library/LaunchAgents/$job.plist"
+            launchctl unload "$plist" 2>/dev/null || true
+            rm -f "$plist"
+            echo "removed $job"
+        done
+        ;;
+    *) echo "schedule: install remove status" >&2; exit 2 ;;
     esac
