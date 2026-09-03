@@ -283,6 +283,10 @@ def main() -> int:
     rows = funnel(seen, counts)
     conn = connect_read_only_patiently()
     try:
+        # several of these run side by side when a batch of corpora is priced, and
+        # DuckDB's default is most of the machine per process
+        conn.execute("SET memory_limit = '3GB'")
+        conn.execute("SET threads = 2")
         priced = price(conn, rows, baseline_dir())
     finally:
         conn.close()
