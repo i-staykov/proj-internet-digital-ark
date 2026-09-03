@@ -47,6 +47,11 @@ output/
 # because losing the claim is worse than losing the bytes, and the bytes are
 # regenerable from the commit named in MANIFEST.txt.
 submissions/**/*.tar.gz
+# `just verify raw` checksums the frozen phase directories into a manifest at the root,
+# untracked like every other manifest it writes.
+submissions/SHA256SUMS
+submissions/SHA256SUMS.stat
+submissions/SHA1SUMS
 
 
 # Email drafts and personal correspondence: never ship inside the delivery
