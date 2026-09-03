@@ -311,15 +311,13 @@ def main() -> None:
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
     print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
-    if h_ee:
-        share = seam_ee / h_ee * 100
+    if seam_rows:
+        # These are OUT of the figures above, so the share is of what the two readings
+        # differ by, and the alternative growth rate is printed rather than implied.
+        with_seam = (all_ee + seam_ee) / BASELINE_EE * 100
         print(
-            f"    of which www.<held that year>   : {seam_rows:,} records  {seam_ee:,.4f}"
-            f"  ({share:.1f}% of the hostname half)"
-        )
-        print(
-            f"  increment without that seam       : {all_pairs - seam_rows:,} records  "
-            f"{all_ee - seam_ee:,.4f}  ({(all_ee - seam_ee) / BASELINE_EE * 100:.6f}%)"
+            f"    excluded, www.<held that year>  : {seam_rows:,} records  {seam_ee:,.4f}"
+            f"  (ADR-007; {with_seam:.6f}% if the reviewer counts them)"
         )
     print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 
