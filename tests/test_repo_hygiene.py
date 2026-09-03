@@ -127,14 +127,12 @@ def test_justfile_has_at_most_forty_recipes() -> None:
     assert len(recipes) <= 40, f"{len(recipes)} recipes: {' '.join(recipes)}"
 
 
-@pytest.mark.xfail(strict=True, reason="lifted by E4.2")
 def test_register_lines_stay_under_500_chars() -> None:
     """No line in `docs/sources.md` or `docs/sources-closed.md` is longer than 500 characters."""
     over: dict[str, int] = {}
     for name in ("sources.md", "sources-closed.md"):
         path = ROOT / "docs" / name
-        if not path.is_file():  # sources-closed.md arrives with E4.2
-            continue
+        assert path.is_file(), f"docs/{name} does not exist"
         lines = path.read_text(encoding="utf-8").splitlines()
         count = sum(1 for line in lines if len(line) > 500)
         if count:

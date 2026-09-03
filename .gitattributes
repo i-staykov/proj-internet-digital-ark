@@ -38,3 +38,9 @@ docs/rounds.md export-ignore
 # The compaction handoff: what the next context needs, written from a transcript. Working
 # note about a session, not a deliverable.
 private/handoff.md export-ignore
+# The harness's skills, subagents, path-scoped rules and output style: they configure a
+# session, say nothing about the domains, and belong with settings.json above.
+.claude/skills/ export-ignore
+.claude/agents/ export-ignore
+.claude/rules/ export-ignore
+.claude/output-styles/ export-ignore
