@@ -1,7 +1,13 @@
-# Security
+# Security posture
 
 What can go wrong while collecting dated corpora for a public repository, and what to do when it does.
 The detail behind any incident (hashes, hostnames, paths) lives in `private/security/` and never ships.
+
+**Deliberately not called `SECURITY.md`** (Ivo, 2026-09-03). GitHub treats a file of that name in
+the root, `docs/` or `.github/` as the repository's security policy and advertises it on the public
+front page and in the Security tab. This page is an operating note for whoever is collecting, not a
+vulnerability-disclosure policy, and the incident table below says where to look for what leaked. It
+stays public; it just stops being the thing GitHub puts a banner on.
 
 ## Threat model
 

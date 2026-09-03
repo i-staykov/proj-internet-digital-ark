@@ -17,4 +17,4 @@ paths:
 - A journal is written first and priced afterwards; collectors write no evidence and so never
   hold the store's write lock.
 - An AV alert on a dated mail or Usenet corpus is corpus fidelity, not compromise. The handling
-  is in `docs/security.md`.
+  is in `docs/security-posture.md`.
