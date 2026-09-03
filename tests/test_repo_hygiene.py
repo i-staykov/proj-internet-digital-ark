@@ -186,3 +186,27 @@ def test_the_tracked_tree_passes_the_security_scan() -> None:
     """No tracked file holds a secret, an address or a local path. The last gate before a push."""
     found = [str(f) for f in scan(tracked_files(ROOT))]
     assert not found, f"security scan findings: {found}"
+
+
+def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
+    """The shape that reached published history: a login against a non-routable address.
+
+    The address rule fires only on globally routable addresses and the collector host is
+    in private space, so this line passed every guard and was published in seven files
+    (docs/security.md, 2026-09-03). A documentation-range address is still allowed,
+    because a fixture that has to look like a host uses one.
+    """
+    from ark import hygiene
+
+    # Assembled, not written out: this file is scanned too, and a literal here would
+    # make the test fail on itself. That is the rule working, so keep it that way.
+    login = "someone" + "@" + "10.1.0.6"
+    probe = tmp_path / "probe.sh"
+    probe.write_text(f'VPS="${{ARK_VPS:-{login}}}"\n')
+    rules = {f.rule for f in hygiene.scan([probe])}
+    assert "host login" in rules, "a login against a private address must be refused"
+
+    fixture_login = "ark" + "@" + "203.0.113.7"
+    allowed = tmp_path / "fixture.py"
+    allowed.write_text(f'STATUS = "== VPS ({fixture_login}) =="\n')
+    assert not hygiene.scan([allowed]), "a documentation-range address is a legitimate fixture"
