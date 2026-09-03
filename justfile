@@ -588,6 +588,28 @@ verify-trees:
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
+# Take one reviewer release: verify the zip's sha256 and record it, extract it beside the
+# other releases, count the year files, remeasure them with his own calculator, point
+# data/baseline.json at the new marker and refresh docs/releases.md. With --mail it also
+# writes the round's row in docs/rounds.md. Every figure comes from the extracted files,
+# never from his mail. Every step prints its wall time; a second run on the same zip
+# changes nothing; --dry-run says what it would do; a marker already recorded under a
+# different sha256 stops the run. It does NOT load the release into the store: that stays
+# a separate deliberate `ark ingest-legacy` step.
+intake *args:
+    uv run python scripts/round/intake.py {{args}}
+
+# What the retention table says could be deleted, grouped by the conjunction that
+# makes it safe, and what everything else is missing. Deletes nothing: no flag does.
+prune *args:
+    uv run python scripts/round/prune.py {{args}}
+
+# The PreCompact hook writes private/handoff.md by itself. This is the same
+# note by hand, from a transcript path, for a session being closed on purpose.
+handoff transcript:
+    printf '{"transcript_path": "%s", "trigger": "manual"}' '{{transcript}}' \
+        | uv run python scripts/agents/handoff.py
+
 # --- collecting more (network) -----------------------------------------------
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
 # never hold the store's write lock and can run concurrently with each other.

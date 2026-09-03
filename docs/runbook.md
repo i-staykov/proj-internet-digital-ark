@@ -4,6 +4,26 @@
 give.** `README.md` is the short front page; this file is the long form. It was named
 `operations.md` until 2026-09-02.
 
+## Where it runs
+
+```
+GitHub Actions fleet (private repo, self-hosted runner on a small VPS)
+   generator, on a schedule ........ proposes hypotheses from the register and the store
+   researcher waves, four times daily  screen and price them; findings land as artifacts
+   re-opener, daily ................ re-reads closed verdicts when a measurement screen retires
+   improver ........................ tunes prompts and model choice from per-run telemetry
+   weekly digest ................... one page of yield, cost and recommendations
+VPS (always on)
+   two archive collectors under systemd, querying capture indexes at zero token cost
+Laptop (episodic, human-supervised)
+   `just bank` ..................... drains fleet findings, admits, ingests into the
+                                     evidence store, gates, pushes; packaging and reports
+```
+
+Orchestration lives in that separate private repo so this one stays free of secrets and runner
+exposure. Results land here on the `live` branch and reach `main` as merge-commit snapshots, so
+`live` keeps its history.
+
 ## Three ways to check this work
 
 | Tier | What it proves | Cost | How |

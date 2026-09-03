@@ -1,13 +1,13 @@
 # Rules
 
-**The standing rules, one line each, grouped by family.** The reasoning behind a rule is in [key-decisions.md](key-decisions.md) and [ADRs.md](ADRs.md); the measured laws are in [laws.md](laws.md) and the mistakes in [traps.md](traps.md). Cut from `CLAUDE.md` on 2026-09-02.
+**The standing rules, one line each, grouped by family.** The reasoning behind a rule is in [key-decisions.md](key-decisions.md) and [ADRs.md](ADRs.md); the measured laws are in [laws.md](laws.md) and the mistakes in [traps.md](traps.md). Cut from `CLAUDE.md` on 2026-09-02, and from `.github/copilot-instructions.md` on 2026-09-03, which is now a pointer.
 
 ## Evidence standard
 
 - Per-item dates inside 1996-2001: check the dates before counting the contents.
 - `domain_year.evidence_id` is `NOT NULL` and foreign-keys `evidence`; no year without an observation.
 - Master-eligible classes: `prior_reused`, `cdx_timestamp`, `artifact_listing`, `link_source`, `dated_directory`, `whois_creation`; `link_target` never dates a year.
-- Corroboration split: anything a human typed needs another source to date that domain first.
+- Corroboration split: anything a human typed needs another source to date that domain first. A self-dating record takes no split, and the split tests dating only, never whether the name was ever real.
 - A creation date evidences its own year only; continued registration needs its own record (rule 6).
 - Undated is fatal, and so are terms we do not hold; small, ugly or hard to parse is not a reason to reject, and a 25 EE source is admitted and gets one line.
 - Hostnames stand behind the same wall: `hostname_year` foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals, and two checks gate it.
