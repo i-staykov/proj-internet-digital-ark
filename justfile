@@ -211,30 +211,33 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         rm -f "$T"
     done
     uv run python scripts/harness/bank_hygiene.py prune --write
-    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
-    # 3. Result lines first and pushed at once: a wave that picks while the admitter
-    #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
-    uv run python scripts/harness/bank_findings.py "$IN" \
-        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
-    #    A FIND wakes the admitter (a model, locally, where the store is).
-    if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
-        echo "FIND present: waking the admitter (fable 5.1/medium)"
-        claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
-            --model claude-fable-5-1 --effort medium --output-format text \
-            > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
-        tail -3 "data/logs/admit_$LABEL.log"
+    # Steps 3 and 4 need findings; 5 to 8 run on every bank, because the collectors
+    # fill journals and the round can cross the gate with no fleet finding at all.
+    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; else
+        # 3. Result lines first and pushed at once: a wave that picks while the admitter
+        #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
+        uv run python scripts/harness/bank_findings.py "$IN" \
+            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
+        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+        #    A FIND wakes the admitter (a model, locally, where the store is).
+        if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
+            echo "FIND present: waking the admitter (fable 5.1/medium)"
+            claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
+                --model claude-fable-5-1 --effort medium --output-format text \
+                > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
+            tail -3 "data/logs/admit_$LABEL.log"
+        fi
+        # 4. The deterministic scribe, then the gate, then one push.
+        uv run python scripts/harness/bank_findings.py "$IN" \
+            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
+        uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+        uv run ark export && uv run ark check
+        git add docs/ src/ justfile 2>/dev/null || true
+        git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
+        git push -q origin live
+        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+        mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
     fi
-    # 4. The deterministic scribe, then the gate, then one push.
-    uv run python scripts/harness/bank_findings.py "$IN" \
-        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
-    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-    uv run ark export && uv run ark check
-    git add docs/ src/ justfile 2>/dev/null || true
-    git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
-    git push -q origin live
-    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
-    mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
     # 5. Bring the VPS collectors' journals home and bank them: this replaced the
     # continuous pull loop when the laptop's role became episodic (fleet plan, D3).
     ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
