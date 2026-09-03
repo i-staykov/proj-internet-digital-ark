@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/feedback-phase-7/Domain_Data_Collection_Task 5/Update_Log.docx` |
-| sha256 | `390efe135959cf9331e23c9332ecfef4fc224b77831fb4757fb030a47d576ab6` |
-| delivered in | `feedback/feedback-phase-7/Domain_Data_Collection_Task 5/`, from Domain_Data_Collection_Task_0902_Update.zip (2026-09-02) |
-| transcribed | 2026-09-02 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/Update_Log.docx` |
+| sha256 | `0108e860a6b4636eb1331eddad1b21f893796bcf3fd3ac3a90a3af4f9863ff40` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
+| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
@@ -126,9 +126,9 @@ Update topic: Time-weighted competition scoring based on verified Equivalent-Eng
 
 - The organizer-verified Equivalent-English Domain percentage increase remains the underlying increment measure, and each participant must continue tracking the direct cumulative sum of all official percentage increases as a separate contribution record.
 
-- Submission speed is now an explicit competition-scoring factor. For submission i, the elapsed time t_i is measured in actual days from formal release of the applicable latest benchmark package to receipt of the complete submission; fractional days are retained and official timestamps use a consistent time zone.
+- Submission speed is now an explicit competition-scoring factor. For submission i, t_i is the absolute task-assignment interval in whole calendar days: t_i = max(1, receipt_date_i - task_assignment_date_member). The clock begins when that participant first receives the task and does not reset after later benchmark releases or submissions. Official assignment and complete-receipt dates must use a consistent time zone.
 
-- The time-weighted score for each accepted submission is S_i = k x (p_i / t_i), where k = 10 and p_i is the organizer-verified Equivalent-English Domain percentage increase expressed as the percentage value. The participant's overall ranking score is S_total = sum_i S_i.
+- The time-weighted score for each accepted submission is S_i = k x (p_i / t_i), where k = 10, p_i is the organizer-verified Equivalent-English Domain percentage increase expressed as the percentage value, and t_i is the absolute task-assignment interval defined above. The participant's overall ranking score is S_total = sum_i S_i.
 
 - With the same verified increment percentage, a faster complete submission produces a higher time-weighted score. Chronological benchmark updating continues to apply, so each submission is first deduplicated against the benchmark current at its receipt position.
 
@@ -223,3 +223,23 @@ Update topic: Mandatory submission archive filename convention
 ## Practical Effect
 
 Submitted packages can be identified, ordered, and attributed consistently during intake, review, merge, and scoring.
+
+# Update Record
+
+Timestamp: 2026-09-03 15:37:16 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0901_Update.docx
+
+Update topic: Absolute task-assignment interval for time-weighted scoring
+
+## Changes in This Update
+
+- The definition of t_i is revised throughout the task brief and this log. For every submission, t_i = max(1, receipt_date_i - task_assignment_date_member), measured in whole calendar days.
+
+- The clock starts on the date the participant first receives the task. It does not reset when a new benchmark is released or when the participant makes a later submission.
+
+- The formula remains S_i = 10 x (p_i / t_i). p_i is the organizer-verified Equivalent-English Domain percentage increase expressed as a percentage value.
+
+## Practical Effect
+
+All participants are scored using one stable, participant-specific time origin. The chronological benchmark still determines the benchmark used to verify p_i, while the absolute task-assignment interval determines the time component of the score.
