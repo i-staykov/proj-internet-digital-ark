@@ -7,7 +7,9 @@ of the submission. Timestamps are in HIS clock (US Pacific), read from his mail 
 quote lines his replies carry; the two known scores fit exactly one reading of t_i, whole days rounded
 up from the release stamp (round 6: 5.19 days, t = 6; round 7: 11.77 days, t = 12). Calendar days
 give round 6 t = 5 and S = 8.26, which he did not quote. Seeded by hand on 2026-09-02 from the mail
-archive; E6.2 appends future rows from the feedback mail. Not shipped.
+archive; `just rounds --mail <file> --round N --received "..."` writes every later row from his
+verdict mail, computing S and t from the stamps instead of reading the score he quotes, and printing
+a warning when the two disagree. Not shipped.
 
 | round | sent records | sent EE | sent % | credited records | credited EE | awarded p_i | against | released | received | days | t_i | S_i computed | S_i quoted | note |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -25,8 +27,8 @@ record percentage: 140.288752. Rounds 1 to 5 predate the rule and he has
 quoted no score for them; their S_i above is what the rule would give and is not a claim on him.
 
 Figures come from the sent mails and his feedback, quoted as numbers only. Round 5 sent figures are
-the sent mail's; the comment in `src/ark/baseline.py` says 2,838,715 records and 1,697,224.86 EE, 17
-records and 0.31 EE apart, and E3.6 retires that comment. Round 1 sent 1,429,524 records and he awarded
+the sent mail's, and the older figures that had them 17 records and 0.31 EE lower are retired.
+Round 1 sent 1,429,524 records and he awarded
 17.38% on records, so its p_i is not commensurable with the others; it is summed on Ivo's instruction of
 2026-09-02 and flagged wherever the sum is printed. Whether he confirms the whole-day reading of t_i is
 open in `docs/questions.md`.
@@ -35,5 +37,27 @@ A round can be accepted in full and still be credited less than it was sent for:
 whatever baseline is current when he reaches the submission, and in round 5 230,393 of ours had already
 arrived in his interim `merged260817` through another contributor. `merged260727` to `merged260730` is
 +609,145 records from an external contributor (`feedback-external-phase-2/`), not this project's round
-2. Round 1's EE (756,559.2864, in `src/ark/baseline.py`) is the difference between his two releases
-under the unchanged weight model, computed 2026-08-17, and was never quoted by him.
+2, and must never be added to this table. Round 1's EE (756,559.2864) is the difference between his two
+releases under the unchanged weight model, computed 2026-08-17, and was never quoted by him.
+
+## Where each awarded percentage is quoted from
+
+His feedback mails, one per round: 2026-07-27 ("adding 1,429,524 records (17.38%)", a record
+percentage, since the equivalent-English metric came after it), 2026-08-03 ("91,814.6880, equal to
+1.659986% of the merged260730 baseline of 5,531,053.6089"), 2026-08-10 ("increased by 603,401.7811 ...
+a 10.730988% increase over merged260802-2"), 2026-08-18, 2026-08-27 and 2026-09-02. Each was taken
+against the baseline of the day it arrived, and those baselines are gone, so the cumulative record is
+the direct sum of the percentages and not a ratio anything here can recompute.
+
+Only shipped rounds have a row. Three interim reports went out between them, on 2026-08-05, 08-06 and
+08-12, each measured against the same baseline as the shipped round that followed, so each is already
+inside one of these rows. Ivo's instruction of 2026-08-17 is not to mention them; listing them would in
+any case invite the double count the table exists to prevent.
+
+## What the ranking score does to round length
+
+`S_i = 10 x p_i / t_i` makes speed worth as much as size, and the arithmetic is brutal. Round 6 took
+six days and awarded 4.130718%, so it scored 6.88. The same 4.13% delivered in two days would have
+scored 20.65, and three separate 1.4% rounds at two days each would score 21.0 against the 6.88 that
+one 4.13% round actually earned. So the round length is a scoring decision, not a logistics one, and it
+belongs to Ivo.

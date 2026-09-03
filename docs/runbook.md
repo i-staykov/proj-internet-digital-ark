@@ -365,17 +365,13 @@ ones whose path looks like a list of links. That query replaces the two the firs
 domain: IA folds `http://www.x.com/` and `http://x.com/` onto the same key, so seeding both fetched the
 same page twice for the same harvest. `--roots-only` reproduces the old behaviour for comparison.
 
-### The registries, which compete with nothing
+### The registries, retired
 
-`ark rdap` goes straight to the authoritative RDAP server for each TLD, resolved from the IANA
-bootstrap file, with `rdap.org` kept only as a fallback. Measured: **75 queries a second with no
-refusals**, against 0.83 q/s and 18.8% refused through the redirector. It talks to registries rather
-than to `web.archive.org`, so it is free capacity while the CDX engines are saturated.
-
-```bash
-just rdap-pool com,net          # build the list, sweep it, ingest the journals
-just rdap-batch                 # or: creation years for domains adjacent to a held year
-```
+`ark rdap` queried the authoritative RDAP server for each TLD and is gone; see
+[retired.md](retired.md). It was fast (75 queries a second against 0.83 through the redirector)
+and it is closed anyway: the registries' terms forbid the bulk access, and Verisign answers a
+quota rather than a rate. The journals it wrote are still ingested, by the `ark ingest
+rdap_snapshot` lines in the justfile, and `attested_years` still reads them.
 
 Probe a registry before spending a night on it: 150 queries is enough. Each of the ones tried failed
 differently and each failure is recorded in `docs/sources.md`, including one that blocks with 403

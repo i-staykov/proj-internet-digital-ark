@@ -14,6 +14,7 @@ export-ignored and stay out of the delivery archive.
 | [laws.md](laws.md) | The measured laws of source pricing, with every figure | before pricing or proposing a source |
 | [traps.md](traps.md) | Mistakes already paid for, one paragraph each | before trusting a number or sending a first request |
 | [discovery.md](discovery.md) | How to find and price a new source, the long form | when a lens is new to you |
+| [retired.md](retired.md) | Capabilities deleted from the tree, one line each with the commit that removed them | before rebuilding something that was retired on purpose |
 | [key-decisions.md](key-decisions.md) | Open and closed asks to Ivo, two lines each (*not shipped*) | when something needs a human decision |
 | [decisions-open.md](decisions-open.md) | The open `pending` approvals (*generated* by `scripts/harness/decision_sheet.py`) | at the start of a session, to see what waits on Ivo |
 | [ADRs.md](ADRs.md) | Architecture decision records, structural changes only | before changing the schema, the gate or the evidence classes |

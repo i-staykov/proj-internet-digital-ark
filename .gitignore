@@ -31,7 +31,10 @@ merged*/
 # NEVER commit (GitHub rejects >100MB files); big input/intermediate/output data:
 feedback/
 legacy-data/
-/data/
+# `/data/*` rather than `/data/`, because git never descends into an excluded directory
+# and the one tracked file under it could not be re-included otherwise.
+/data/*
+!/data/baseline.json
 output/
 *.duckdb
 *.duckdb.wal
@@ -79,3 +82,18 @@ Domain_Data_Collection_Task_update/
 
 # Machine-local settings: the VPS address and anything else that must not be public.
 local.env
+
+# The agent harness. `.claude/settings.json` and `.claude/workflows/` are tracked, because
+# the fleet runs from a clone of this branch and reads them there. Everything below is
+# either machine-local or runtime scratch: `settings.local.json` holds the allow rules that
+# name a host, and the rest is written by the running harness.
+# The negation undoes a blanket `.claude/` in a local exclude or excludesFile, which would
+# otherwise hide the whole directory and every rule below it. It is inert without one.
+!.claude/
+.claude/settings.local.json
+.claude/.cc-writes/
+.claude/*.lock
+.claude/worktrees/
+.claude/scheduled_tasks.json
+.claude/checkpoints/
+.claude/mailbox/
