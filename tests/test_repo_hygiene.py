@@ -192,7 +192,7 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
 
     The address rule fires only on globally routable addresses and the collector host is
     in private space, so this line passed every guard and was published in seven files
-    (docs/security.md, 2026-09-03). A documentation-range address is still allowed,
+    (docs/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
     because a fixture that has to look like a host uses one.
     """
     from ark import hygiene

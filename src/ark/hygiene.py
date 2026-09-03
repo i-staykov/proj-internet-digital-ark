@@ -74,7 +74,7 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     # A login against a bare address, in ANY range. The address check below fires only on
     # globally routable addresses, and the collector host sits in private space, so a
     # shell default of that shape passed every guard and reached published history in
-    # seven files (docs/security.md, 2026-09-03). The rule it broke is about that host, so
+    # seven files (docs/security-posture.md, 2026-09-03). The rule it broke is about that host, so
     # the class of the address is irrelevant and the shape is what must be refused.
     # No literal example here: this file is scanned too.
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
