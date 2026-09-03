@@ -23,6 +23,11 @@ from pathlib import Path
 # like 1.2.3.4.5 does not read as an address.
 IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 
+# RFC 5737 reserves these three ranges for documentation and examples. A fixture that has
+# to look like a host uses one, which is exactly what they are for, so the host-login rule
+# skips them instead of growing an allowlist entry per fixture.
+DOCUMENTATION_RANGES = ("192.0.2.", "198.51.100.", "203.0.113.")
+
 # Globally routable addresses already in the tree, each read in context: a host a source
 # note says a name resolves to, a root server or public resolver, or a test fixture. A new
 # one fails until somebody reads it and adds it here, which is the point of the rule.
@@ -66,6 +71,13 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     # site.com/home/whats-new/ out of it; the same segment standing alone is still a hit.
     ("home path", re.compile(r"(?<![A-Za-z0-9._-])/(?:Users|home)/[A-Za-z0-9._-]+/"), False),
     ("ssh target", re.compile(r"\bssh\s+[A-Za-z0-9._-]+@[A-Za-z0-9.-]+"), False),
+    # A login against a bare address, in ANY range. The address check below fires only on
+    # globally routable addresses, and the collector host sits in private space, so a
+    # shell default of that shape passed every guard and reached published history in
+    # seven files (docs/security.md, 2026-09-03). The rule it broke is about that host, so
+    # the class of the address is irrelevant and the shape is what must be refused.
+    # No literal example here: this file is scanned too.
+    ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
 )
 
 # Every pattern above is written so that its own source line does not match it, which is
@@ -104,6 +116,8 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
             for rule, pattern, may_print in _RULES:
                 for match in pattern.finditer(line):
                     hit = match.group(0)
+                    if rule == "host login" and any(r in hit for r in DOCUMENTATION_RANGES):
+                        continue
                     detail = hit[:120] if may_print else f"{len(hit)} chars, not printed"
                     findings.append(Finding(Path(path), number, rule, detail))
             for hit in dict.fromkeys(IPV4.findall(line)):
