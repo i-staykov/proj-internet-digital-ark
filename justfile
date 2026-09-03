@@ -604,6 +604,27 @@ intake *args:
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 
+# The only route into the four register pages, and the cheap one: the deny in
+# `.claude/settings.json` covers a `grep` or a `sed` on `docs/sources*.md`, and the two
+# pages are 347 KB and 546 KB, so reading one spends the session's context on prose it
+# never asked for. Every page is streamed a line at a time and one truncated line is
+# printed per hit: page and line, source key, verdict, net-new EE, which shape the term
+# sat in (row, detail, head, header, prose), and the matching text. A row is a projection
+# of its entry, so a `detail` hit says the row does not carry what you asked about, and
+# `--detail` is the only way to get that entry whole. Nothing prints over 40 lines
+# without `--all`, and the suppressed count is stated. Exit 1 is "not in the register",
+# exit 2 is "the search did not run", which are different answers.
+#
+# `just` splits recipe arguments, so a multi-word term goes to the script directly:
+#     uv run python scripts/round/find.py "ftp listing"
+#
+#   just find iedr                            every hit, over all four pages
+#   just find iedr_register --detail          that entry whole, capped at 40 lines
+#   just find blocklist squidguard            hits under one source key
+#   just find sources#ukwa_geoindex --detail  when one key names two entries
+find *args:
+    @uv run python scripts/round/find.py {{args}}
+
 # The PreCompact hook writes private/handoff.md by itself. This is the same
 # note by hand, from a transcript path, for a session being closed on purpose.
 handoff transcript:
