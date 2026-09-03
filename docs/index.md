@@ -64,5 +64,6 @@ export-ignored and stay out of the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
+| [how-the-work-runs.md](how-the-work-runs.md) | Who does what, where each artifact lands, and what only Ivo can do | when the shape of the process is unclear |
 | [runbook.md](runbook.md) | What to run and what each command should print | when running anything for the first time |
 | [security-posture.md](security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |
