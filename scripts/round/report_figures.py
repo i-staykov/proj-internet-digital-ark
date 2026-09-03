@@ -117,7 +117,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         FROM domain_year dy
         JOIN evidence e ON e.evidence_id = dy.evidence_id
         JOIN source s ON s.source_id = e.source_id
-        WHERE {NOT_BASELINE}
+        WHERE {NOT_BASELINE} AND {SHIPPED}
         GROUP BY 1, 2
     """).fetchall():
         ee_by_source[name] = ee_by_source.get(name, Decimal(0)) + weights.get(tld, Decimal(0)) * n
@@ -141,7 +141,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
             FROM domain_year dy
             JOIN evidence e ON e.evidence_id = dy.evidence_id
             JOIN source s ON s.source_id = e.source_id
-            WHERE {NOT_BASELINE}
+            WHERE {NOT_BASELINE} AND {SHIPPED}
             GROUP BY 1, 2, 3 ORDER BY 4 DESC
         """).fetchall()
     ]

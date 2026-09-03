@@ -193,6 +193,29 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "hostname_wall_intact",
+        "every hostname record points at an evidence row for its parent domain and year "
+        "(second output unit, accepted by the reviewer 2026-09-01)",
+        """
+        SELECT count(*) FROM hostname_year hy
+        LEFT JOIN evidence e ON e.evidence_id = hy.evidence_id
+        WHERE e.evidence_id IS NULL
+           OR e.domain <> hy.parent_domain
+           OR e.evidence_year <> hy.assigned_year
+        """,
+    ),
+    (
+        "hostname_is_below_its_parent",
+        "every hostname is a strict subname of its parent registrable and is itself a "
+        "valid name; a bare registrable belongs in domain_year, never here",
+        f"""
+        SELECT count(*) FROM hostname_year
+        WHERE hostname = parent_domain
+           OR hostname NOT LIKE '%.' || parent_domain
+           OR NOT regexp_matches(hostname, '{_DOMAIN_RE}')
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",

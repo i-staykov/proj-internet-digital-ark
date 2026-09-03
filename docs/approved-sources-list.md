@@ -76,6 +76,25 @@ Decision: master
 
 Decision: master
 
+### ia_cdx_hostnames / cdx_timestamp
+
+- ingest specs: `ark ingest-hostnames` over raw capture journals ({url, timestamp} lines);
+  two acquisition methods under the one source row, `ia_cdx_domain_sweep` for the
+  `matchType=domain` CDX sweeps and `nypw_timemap_hostgrain` for the NYPW TimeMap parts
+  (https://archive.org/download/nypw_timemaps/, CC BY 4.0, the `nypw_timemaps` artifact
+  above) re-emitted at hostname grain by `scripts/sources/nypw/nypw_hostgrain.py`
+- what dates one item: the row's own 14-digit capture timestamp, quoted in the evidence
+  value beside the hostname it dates
+- unit: the reviewer accepted hostnames as annual records on 2026-09-01 (his reply,
+  verbatim, in private/personal-context.md); registrables stay prioritized, hostnames
+  ship as separate per-year files he can merge or discard
+- admitted under the standing rule of 2026-08-29 (Ivo): the class (cdx_timestamp on the
+  IA CDX API) is master-eligible and approved twice above, the stamp is machine-written
+  inside the artifact, the terms are the ones the collectors already honour, and
+  `ark check` gates the ingest with two hostname-wall checks
+
+Decision: master
+
 ### internet_scout / dated_directory
 
 - ingest specs: `internet_scout`
@@ -248,6 +267,259 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### early_web_cdx_hostnames / cdx_timestamp
+
+- ingest: `ark ingest-hostnames data/raw/early_web_hostgrain/`, the 224 Early Web CDX parts
+  (`data/raw/early_web/*.cdx.gz`, the exact bytes `early_web_cdx` was banked on in July)
+  re-emitted as `{url, timestamp}` capture journals by
+  `scripts/sources/early_web/early_web_hostgrain.py`, HTTP 200 rows only, as the registrable
+  ingest read them; one journal per part so the ledger stays idempotent per part
+- source: https://archive.org/details/early-web_cdx-lang-cdxa (224 `*.cdx.gz`, 184,858,264 B;
+  `archive.org/robots.txt` read whole, only `/control/` and `/report/` disallowed)
+- measured: **631,148.1 net-new EE over 1,163,616 (hostname, year) records, 1996-1999**, re-priced
+  2026-09-02 on the live store after the ingest, against both `hostname_year` and the reviewer's own
+  `merged260901` files: 1,763,562 rows written, 599,946 of them verbatim in his file for that year
+  and so excluded, none dated 2000 or 2001. By year 1996 47,933.4 EE, 1997 38,094.5, 1998 256,111.1,
+  1999 289,009.0; by TLD com 424,850.2, uk 49,027.7, org 37,508.9, net 28,872.9, au 14,649.0, edu
+  10,378.7, de 9,235.0. Every parent was already held in that year (0 parent registrable-years
+  earned). The fleet's snapshot figure (1,163,758 records, 631,215.8 EE) reproduces to 0.01%
+- what dates one item: the row's own 14-digit capture timestamp, field 2 of the classic CDX
+  line, `uk,co,bucksnet,homepages)/ 19981202041041 http://homepages.bucksnet.co.uk:80/ text/html
+  200 ...`, quoted in every evidence value as `cdx capture 19981202041041 homepages.bucksnet.co.uk`
+- the disclosure that decides what this is worth: **1,163,612 of the 1,163,616 net-new records are `www.<held registrable>`
+  forms** (the four others sit beneath `archive.org` and two `*archive.org` names). The reviewer's
+  `merged260901` files hold Early Web's non-`www.` hosts by name (`ei.haygroup.com`,
+  `frontpage.helicon.net` sit verbatim in his 1999 file; 1,489,119 non-`www.` multi-label names in
+  that file against 385 `www.` ones), so at hostname grain this corpus is IA-derived everywhere
+  except the `www.` seam, and his files evidently normalise `www.` away. The figure is real under
+  the unit already shipped (the NYPW re-read was 93.6% `www.` forms, disclosed in the report) and
+  is worth 0 if his calculator strips `www.`; both readings are quoted in the report and the
+  question is put to him with the delivery
+- the registrable lane of the same bytes was banked in July (register line 173); the hostname
+  unit did not exist until the reviewer accepted it on 2026-09-01, and the fleet's census
+  (`early_web_cdx_hostname_grain`, 2026-09-02) is the first reading of the column
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `cdx_timestamp`, master
+  for these exact bytes since July; the stamp is the capture timestamp inside the artifact,
+  quoted above; the terms are archive.org's public download, robots.txt read whole; `ark check`
+  passes after the ingest with both hostname-wall checks
+
+Decision: master
+
+### usfedgov_extract_hostnames / cdx_timestamp
+
+- ingest: `ark ingest-hostnames data/raw/usfedgov_hostgrain/`, a `{url, timestamp}` journal
+  with one capture per distinct host (the earliest HTTP 200 capture, else the earliest of any
+  status) written by `scripts/sources/usfedgov/usfedgov_hostgrain.py` from the item's merged
+  ZipNum index, read whole, no CDX API request
+- source: https://archive.org/download/USFEDGOV-EXTRACT-2001/USFEDGOV-EXTRACT-2001.cdx.gz
+  (1,364,737,799 B, asserted byte-exact against `archive.org/metadata/USFEDGOV-EXTRACT-2001`;
+  collections earlygovweb / webdataservices / web, `access-restricted` unset; `archive.org/robots.txt`
+  read whole, only `/control/` and `/report/` disallowed)
+- measured: **21,925.9 net-new EE over 22,417 (hostname, 2001) records**, re-priced 2026-09-02 on
+  the live store after the ingest, against both `hostname_year` and the reviewer's 2001 file: 33,631
+  distinct hosts in the index (48,110,426 rows read whole), 31,218 proper hostnames written, 8,801
+  verbatim in his 2001 file and excluded. By TLD gov 21,620.9 EE, edu 79.7, com 76.5, us 63.0, org
+  62.5; largest parents `lanl.gov` 10,110 hosts, `nist.gov` 4,126, `nasa.gov` 3,267. The parents
+  not yet held at 2001 earn their year from the same rows: 176 registrable-years, 152.5 EE. 3,596 of
+  the net-new records are `www.` forms. The fleet's snapshot figure (21,713 hostname EE plus 165
+  registrable EE) reproduces within 1%
+- what dates one item: the CDX capture timestamp on the row itself, `20011128173757`-form,
+  written by the crawler at fetch time, quoted in every evidence value as
+  `cdx capture 20011128173757 <hostname>`; the evidence URL is the Wayback replay of that
+  capture, as the platform sweep writes it
+- the registrable lane was closed twice on saturation (register lines 1065 and 1174, 56.2 and
+  100.2 EE); the fleet's census (`usfedgov_extract_hostname_grain`, 2026-09-02) confirms 204
+  novel registrables in the whole item and shows the hosts do not saturate. Many novel hosts are
+  workstation names beneath big labs (`pn960848.lanl.gov`), captured as embed or link targets;
+  they pass the reviewer's validity rule and carry their own capture stamp, and he discards at
+  merge what he does not want, which is his stated procedure
+- the sibling merged indexes for 1996-2000 (27.8 MB to 1.08 GB, same path pattern, none
+  access-restricted) are the same lane and are not part of this admission; 1996 measured a
+  ceiling of ~475 EE, 1997-2000 are unmeasured
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `cdx_timestamp`, master
+  for IA bulk CDX files since July; the stamp is the capture timestamp inside the artifact,
+  quoted above; the terms are archive.org's public download, robots.txt read whole; `ark check`
+  passes after the ingest with both hostname-wall checks
+
+Decision: master
+
+### isc_survey_hostnames / artifact_listing
+
+- ingest: `ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz`, the per-TLD host files
+  of the Network Wizards / ISC Internet Domain Survey, the exact bytes `isc_survey` was banked on
+  in July (584 files on disk, 9607, 9701 and 9707 editions), read one level below the registrable:
+  every line is `IP hostname`, the PTR walk's record of a host answering in DNS that month, and
+  the registrable ingest kept only the host's parent. `.domains` lists are skipped by name
+- source: http://nw.com/zone/9607.hosts/uk.gz and siblings, through the 1996-1997 Wayback
+  captures of `nw.com` (`scripts/sources/directories/fetch_nw_host_files.py` lists them from one
+  CDX prefix query and fetches each `id_` replay; the fleet reached the same files through
+  `archive.org/wayback/available`, e.g.
+  `http://web.archive.org/web/19970529075101id_/http://nw.com.:80/zone/9607.hosts/uk.gz`,
+  4,105,718 B, byte-identical to `wb_nw_9607_uk.gz` on disk)
+- measured: see the re-pricing below, written after the ingest
+- what dates one item: the survey's own `YYMM` edition code, `9607` in the artifact's path
+  `/zone/9607.hosts/uk.gz` and in every file of the edition, quoted in every evidence value as
+  `isc survey 1996-07 host <hostname>`; the reviewer confirmed in writing on 2026-07-24 that a
+  dated DNS survey enters the annual files directly on exactly this stamp, and the Wayback capture
+  stamp (`19970529075101`) fixes that the file existed then. Same evidence, same class, same
+  decision the registrable lane stands on; the hostname unit did not exist until 2026-09-01
+- the registrable lane was closed as "complete and fully held" (register line 1144, 14,956.4
+  EE banked, 0 parents missing at their year); the fleet's census (`isc_survey_host_files_hostname_grain`,
+  2026-09-02) read five 9607 files whole and found 100% of parents held at 1996 and 98.2% of the
+  valid hosts absent from both the store and the reviewer's 1996 file: 818,952 EE on the clean
+  shapes alone, 2,352,584 EE with the dialup and numbered-label shapes. The disclosure that
+  decides what this is worth: a large share of the hosts are per-customer dialup and workstation
+  names (`pc50.btbcs.bt.co.uk`, `dynws2.mdx.ac.uk`, 62,374 `x.demon.co.uk` nodenames in one
+  file). They are real hosts the walk resolved, pass the reviewer's validity rule and carry the
+  edition's stamp, and he discards at merge what he does not want, which is his stated
+  procedure; the shape split is quoted in the report so he can do that by eye
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, master
+  for these exact bytes since July; the stamp is the survey edition code the artifact carries in
+  its own path and the reviewer accepted in writing, quoted above; the terms are the Wayback
+  public replay of a site the survey published openly, already read for the registrable lane;
+  `ark check` passes after the ingest with both hostname-wall checks
+
+Decision: master
+
+### ripe_nserver_hostnames / artifact_listing
+
+- ingest: `ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz
+  data/raw/ripe_funet_split/ripe.db.domain.gz`, the exact bytes `ripe_dbase_1999` and
+  `ripe_dbase_split_2004` were decided on; it records the `*ns:` / `nserver:` HOSTS a `domain:`
+  object points at, the attribute both registrable parsers discard. Reverse-zone objects are kept
+  here: their nameservers are hosts the registry stated on the same day, and the store's
+  reverse-DNS invariant concerns the delegated name, not the server
+- source: https://ftp.funet.fi/pub/netinfo/RIPE/dbase/ripe.db.gz (71,919,736 B,
+  `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT`) and
+  https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz (5,452,546 B); the host has
+  no robots.txt
+- measured: **11,780.1 net-new EE over 49,841 hostname records**, re-priced 2026-09-02 on the live
+  store after the ingest, against both `hostname_year` and the reviewer's files: the snapshot arm
+  40,065 (hostname, 1999) rows written, 1,133 verbatim in his 1999 file and excluded, **38,932
+  records, 8,552.5 EE**; the split-edition arm 11,216 rows across 1996-2001, 307 excluded, **10,909
+  records, 3,227.6 EE** (1996 48.4, 1997 117.0, 1998 332.3, 1999 156.3, 2000 1,105.6, 2001
+  1,468.0). By TLD net 2,647.8 EE, com 2,520.8, de 1,460.2, uk 686.9, it 675.5, ro 433.2, at 366.4,
+  fr 315.6. Largest parents `cnr.it` 127 hosts, `pair.com` 114, `uu.net` 64, so no platform. The
+  parents not yet held earn their year from the same rows: 1,232 registrable-years, 442.9 EE, which
+  is the fleet's registrable-unit figure of ~470 and the L916 closure again. The fleet's hostname
+  figure (~11,400 EE) reproduces within 3%
+- what dates one item: for the snapshot, the dump's own generation stamp on line 2 of the
+  payload, `# 990804 00:07:01`, the same stamp `ripe_dbase_1999` was approved on, quoted in every
+  evidence value as `ripe_dbase:19990804 ns <hostname>`, 1999 only (rule 6); for the split
+  edition, the object's LATEST `changed:` line, `changed: mx@lucky.net 20010716`, the reading
+  `ripe_dbase_split_2004` banked, quoted as `ripe_changed:20010716 nserver <hostname>`: an object
+  last changed in year Y is the registry stating its nserver set stood as written in Y. A `*ns:`
+  line is the registry's record of which host served that delegation, the same instrument as the
+  NS right-hand side in a zone file (`internic_zone_hostnames`). No split: a machine wrote it
+- permission: RIPE NCC's reply of 2026-08-26 covers the files as a whole; the promise it binds
+  the code to is "publish no personal data", so the readers touch only the nameserver value, the
+  object key and the trailing date of `changed:`, and `tests/test_ripe_nserver_hostnames.py`
+  fails on a leak exactly as the registrable lanes' tests do
+- the registrable lane of the same attribute was closed on yield (register line 916, 70.4 EE) and
+  the fleet's reprice reproduces that closure at 254 EE, so the registrable unit stays closed; the
+  hostname unit did not exist until 2026-09-01
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, decided
+  master for these exact bytes on 2026-08-26 and under the standing rule for the split edition;
+  the stamps are machine-written inside the artifacts, quoted above; the terms are the written
+  RIPE NCC permission; `ark check` passes after the ingest with both hostname-wall checks
+
+Decision: master
+
+
+
+### internic_zone_hostnames / artifact_listing
+
+- ingest: `ark ingest-zone-hostnames` over the six 1997 zone files (`data/raw/internic_zones/{org,edu,gov,mil,root,arpa}.zone.gz`,
+  the exact bytes `internic_zone` was decided on); it records the nameserver TARGET of every NS
+  record at hostname grain, the column `parse_internic_zone` discards on purpose
+- source: https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/org.zone.gz,
+  https://web.archive.org/web/19970420112952id_/http://nic.mil/oroot.html/edu.zone.gz,
+  https://web.archive.org/web/19970420113002id_/http://nic.mil/oroot.html/gov.zone.gz
+- measured: **11,860.7 net-new EE over 19,211 (hostname, 1997) records**, re-priced 2026-09-02 on
+  the live store: 21,498 distinct proper hostnames named as NS targets across the six zones,
+  663 already in `hostname_year` at 1997, 1,958 already in the reviewer's own `merged260901`
+  1997 file, 21,390 (99.5%) with their parent registrable held at 1997. No split: nothing here
+  was typed by a person. By TLD: com 7,457 records 4,713.6 EE, net 4,957 / 2,245.5, edu 2,037 /
+  1,979.4, org 2,116 / 1,502.6, gov 296 / 290.8, uk 241 / 236.5, ca 269 / 225.0. Largest parent
+  `mit.edu` with 24 hosts, so not a platform. The fleet's snapshot figure (19,186 records, 11,862.5
+  EE, org+edu+gov only) reproduces within 0.2%
+- what dates one item: the zone's own SOA serial on line 2 of the payload, `1997041800` in
+  `ORG. IN SOA A.ROOT-SERVERS.NET. hostmaster.INTERNIC.NET. ( 1997041800 ;serial`, quoted in every
+  evidence value as `internic org zone serial 1997041800 NS <hostname>`; the IA captures of
+  1997-04-20 fix when the file existed. An NS right-hand side is the registry's machine-written
+  record that this host served that delegation at that instant
+- the registrable lane of the same column was measured and closed on yield on 2026-08-29
+  (register line 881: 14,573 domains, 99.28% held at 1997, 63 net-new pairs). That closure was at
+  registrable grain and stands; the hostname unit did not exist until the reviewer accepted it on
+  2026-09-01. The 85 parents not held at 1997 earn their year from the same rows, as the check
+  `nothing_earned_is_left_unassigned` requires, which is those 63 pairs plus baseline drift
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, decided
+  master for these exact bytes on 2026-08-24; the stamp is the SOA serial inside the artifact,
+  quoted above; the terms are the ones read for `internic_zone` (IA replay of a nic.mil capture,
+  `archive.org/robots.txt` read whole, only `/control/` and `/report/` disallowed); `ark check`
+  passes after the ingest with both hostname-wall checks
+
+Decision: master
+
+### squidguard_2001_hostnames / artifact_listing
+
+- ingest: `ark ingest-blocklist-hostnames data/raw/squidguard/*`, the exact flattened files
+  `squidguard_2001_blacklist` was decided on; it keeps the sub-registrable HOST each list line
+  names, the column the registrable parser collapses onto its parent (`mail` skipped as before)
+- source: http://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz
+  (1,852,659 B, member `samples/dest/blacklists.tar.gz`)
+- measured: **1,059.8 net-new EE over 2,093 (hostname, 2001) records**, re-priced 2026-09-02 on the
+  live store from the bytes: 4,323 distinct proper hostnames across the `domains`, `urls` and dated
+  diff lanes, every parent held at 2001, 432 already in `hostname_year`, 2,175 already in the
+  reviewer's own `merged260901` 2001 file. No split: the robot wrote the list. By TLD com 1,123
+  records 709.8 EE, net 417 / 188.9, org 57 / 40.5, nu 82 / 22.9. Largest parents `fsn.net` 135,
+  `free.fr` 78, `majorhost.com` 51. The fleet's snapshot figure on the `domains` lane alone was
+  866.0 EE; the `urls` lane, equally the robot's output, adds the rest. **Banked 2026-09-02: 3,891
+  store rows, of which 2,093 ship at 1,059.8 EE**, the rest being hosts the reviewer's file has
+- what dates one item: the list's own compile header, `# This list was compiled in 0:00:20 on
+  2001.12.18 15:04:29.` from `squidGuardRobot-2.3.4`, or the diff's filename date; quoted in every
+  evidence value as `squidguard:<category>/<kind>@20011218 host <hostname>`. The header asserts the
+  links `tested successfully`, so the host answered at that instant
+- the registrable lane of the same bytes was banked at 10,376.9 EE on 2026-08-26 and the hostname
+  grain measured 2026-09-02 (register line 816, fleet `banked_lists_hostname_grain`) is a
+  unit-change reopen, not a re-test
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `artifact_listing`, decided
+  master for these exact bytes on 2026-08-26; the stamp is the compile header inside the artifact,
+  quoted above; the terms are GPL v2, read at approval; `ark check` passes after the ingest with
+  both hostname-wall checks
+
+Decision: master
+
+### chastity_list_hostnames / dated_directory
+
+- ingest: `ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz`. It reads
+  the TARBALL, not the unpacked tree, because the stamp is the tar member header and extraction
+  loses it; every `db/<category>/{domains,urls,*.diff}` member except `mail`
+- source: https://archive.debian.org/debian/pool/main/c/chastity-list/chastity-list_0.5.orig.tar.gz
+  (720,609 B)
+- measured: **2,801.5 net-new EE over 6,520 (hostname, 2001) records**, re-priced 2026-09-02 on the
+  live store from the bytes: 10,929 distinct proper hostnames, 10,883 (99.6%) beneath a parent
+  that already carries an assigned year, 874 already in `hostname_year`, 4,077 already in the
+  reviewer's own 2001 file. By TLD com 2,408 records 1,522.1 EE, net 1,460 / 661.4, fr 1,489 /
+  152.0, org 194 / 137.8, uk 64 / 62.8. Largest parents `free.fr` 1,292, `fsn.net` 664,
+  `multimania.com` 288, `cjb.net` 227. Union with the squidGuard lane above: **7,653 records,
+  3,410.4 EE**, 1,678 hostnames shared between the two lists. **Banked 2026-09-02: 8,225 store rows,
+  of which 5,615 ship at 2,381.9 EE**; with the squidGuard lane the family ships **7,708 records,
+  3,441.8 EE**, the 55 records above the pre-ingest union being hosts whose parent earned 2001 from
+  the same row
+- **the corroboration split applies and costs 46 hosts**: the list is hand-kept, so a host counts
+  only when its parent registrable already carries an assigned year, the predicate
+  `split_chastity.py` states; the 46 beneath a novel parent are counted as parked and not written
+- what dates one item: the tar member header tar wrote on every member, `-rw-r----- rkrusty rkrusty
+  4729 Dec 14 2001 chastity-list-0.5/db/ads/domains`, read from the tarball at ingest and quoted in
+  every evidence value as `chastity-list:20011214 <category>/<kind> host <hostname>`; the same
+  argument approved for the registrable lane on 2026-08-31
+- admitted under the standing rule of 2026-08-29 (Ivo): the class is `dated_directory`, decided
+  master for these exact bytes on 2026-08-31; the stamp is the tar member header inside the
+  artifact, quoted above; the terms are GPL v2, verbatim in `COPYING`, read at approval; `ark
+  check` passes after the ingest with both hostname-wall checks
+
+Decision: master
 
 ### udrp_proceedings / artifact_listing
 
@@ -559,7 +831,263 @@ read the top-twelve share before pricing anything.**
 today on the comparable wide basis, 6.6% absorbed by the store's own growth, and no URL was recorded
 either time. That is Ivo's link rule of 2026-08-31 paid for in cash.
 
+### nypw_timemaps_nonok / cdx_timestamp
+
+The non-200 lane of the THIRTY-FOUR `nypw_timemaps` partitions already in the store. Since it was
+written, `_parse_nypw` has counted every row whose status is not 200 into `stats["non_200"]` and
+thrown it away, so **no measurement in this project had ever looked at one**. The lane is
+**6,374,276 in-window rows, 12.8% of the corpus**, and reading it costs no archive request: the
+`.cdx.gz` files are on disk at `data/raw/nypw_timemaps/`.
+
+- artifact and LINK: item `https://archive.org/details/nypw_timemaps`, the same thirty-four
+  partitions already linked one by one in the `nypw_timemaps` entry above and in
+  `docs/sources.md`. No new bytes were fetched for this; the flattened `.cdx.gz` are the same
+  files `ark ingest nypw_timemaps` read
+- **what dates one item: field 3 of the CDX row, the crawler's own 14-digit capture stamp.**
+  Verbatim, from `data/raw/nypw_timemaps/nypw_timemaps1998_rootURLs_part06r.cdx.gz`:
+
+      https://hmcfunding.com/ com,hmcfunding)/ 20010309022603 http://www.hmcfunding.com:80/ text/html 302 YSRUTJQPTYE6V4XUYSDKZYOE7SGNOZCU 384
+
+  `20010309022603` is written by IA's crawler, not by a person, and it is inside the artifact.
+  The store held `hmcfunding.com` at 1998, 1999 and 2000 and lacked 2001, so this row is the
+  adjacent-year screen paying in one line
+- **why a 302 dates the year as well as a 200 does, which is the only real question here.** The
+  status field records what the crawler received. A three-digit HTTP code means the hostname
+  resolved, a TCP connection was accepted and a server returned a status line at the stamped
+  instant, and that chain requires the name delegated in its zone. The code describes the
+  RESOURCE, not the registration, so a 302 on a host is exactly as much proof of delegation as a
+  200 on it. **This is the same evidence class on the same bytes, not a widened reading**: no new
+  class is invented and `cdx_timestamp` is unchanged. Checked rather than assumed: every status in
+  all 34 partitions is a three-digit code, with no `-` or `0` placeholder rows, so there is no
+  no-response row in the corpus that could sneak in. The parser guards for one anyway
+- **measured net-new post-split against the LIVE STORE, 2026-09-01, not projected:** 6,374,276
+  non-200 rows collapse to 444,308 distinct (registrable domain, year) pairs, of which 431,031 are
+  already held and **13,277 are net-new, worth 6,679.7 EE**. Nothing in a CDX row was typed by a
+  human, so pre-split equals post-split. By assigned year: 1998 6, 1999 111, 2000 360,
+  **2001 12,800**, so 96.4% of the yield is a 2001 year. Top TLDs by pair: `com` 7,757, `de` 896,
+  `org` 717, `net` 564, `br` 297. The fleet probe on two 1998 partitions projected 6,540 to 7,276
+  and the full corpus came in at 6,680, inside that interval
+- **the 2001-threshold law reproducing itself inside a new dimension.** A non-200 row adds nothing
+  in a year the store already covers and adds real pairs at 2001, which is why 96.4% of the yield
+  sits there. The transferable method is the other half: **to test "we filtered X away", re-parse
+  an artifact already ingested rather than querying anything.** Ingesting the 200 lane first makes
+  the store the control group, so every pair the relaxed parser finds is attributable to the
+  relaxation alone
+- terms, read in full before the first request: unchanged from the `nypw_timemaps` entry above,
+  CC BY 4.0 stated in the item's own `nypw_timemaps_readme.txt`. `archive.org/robots.txt` is 238
+  bytes whole and disallows only `/control/` and `/report/`, with no Claude or Anthropic group.
+  This ingest makes no request at all
+- ingest specs: `nypw_timemaps_nonok`, over `data/raw/nypw_timemaps/*.cdx.gz`. Ledgered under its
+  own `source_name`, so the same files ingest again without disturbing the 200 lane's rows
+- **banked 2026-09-01**: the loader assigned `year_rows` totalling **13,277** over the 34 files,
+  out of 6,374,276 records and 444,308 evidence rows, so **6,679.7 EE** at mean weight 0.5031 is
+  what this ingest added and not an estimate. `ark check` PASSED afterwards. **The pre-ingest
+  price and the banked figure agree to the pair here**, which is unusual and only because nothing
+  else ingested in the four minutes between them; the `nypw_timemaps` entry above is the standard
+  case, where the store moved underneath three successive readings
+- **per-partition `year_rows` straight out of the ledger, read before believing anything about a
+  partition, as the 2001-folder episode demands.** The folder law reproduces exactly: `2000` 6,962
+  over 9 parts, `1999` 3,407 over 6, `1998` 2,292 over 11, `1997` 337 over 3, `1996` 279 over 4,
+  and the **2001 folder 0**, alongside 0 for `1996_deeplinks_part00o`. The 24 `rootURLs` parts pay
+  13,211 of the 13,277; all ten `deeplinks` parts together pay 66. Biggest single partitions:
+  `2000_rootURLs_part00r` 3,500, `1999_rootURLs_part00r` 1,931, `2000_rootURLs_part04r` 1,721
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
+Conditions checked one at a time. (1) `cdx_timestamp` is already master-eligible and this is the
+same class on the same corpus, so nothing is invented. (2) The stamp is IA's crawler's own 14-digit
+timestamp, machine-written, inside the artifact, quoted verbatim above. (3) CC BY 4.0, read in full
+when the item was first taken, and this ingest fetches nothing. (4) `ark check` passes after the
+ingest.
+
+**The remaining open question, recorded rather than hidden.** A wildcard DNS record above a name
+could in principle answer for a name nobody registered, which would make a 302 prove less than
+claimed. It does not bite here: no registry wildcard existed in `.com`, `.net` or `.org` inside
+1996-2001, and those three carry 68.5% of the net-new pairs. Where it could bite is a ccTLD that
+wildcarded its zone, and that risk is identical for the 200 lane already banked, since a wildcard
+answering 200 is no better evidence than one answering 302. **If Ivo judges the residual too high,
+one line reverses this and the ingest is one `ark ingest` re-run.**
+
 ## Pending requests
+
+### arin_inaddr_ns_hostnames / artifact_listing
+
+- the fleet's probe (2026-09-02, `inaddr_reverse_tree_ns_hostnames_1997_1999`): APNIC's tar of
+  its own BIND slave directory holding ARIN's twelve in-addr.arpa /8 zones,
+  https://ftp.apnic.net/apnic/arin/arin.zones.tar.gz (405,696 B, directory mtime 1999-02-03,
+  `ftp.apnic.net/robots.txt` is a 404), read whole: 194,400 NS records, 8,805 distinct
+  nameserver hostnames, all valid, under 5,591 registrables of which 5,412 (96.8%) are held at 1999
+- measured by the fleet against the ark-data sync of 2026-09-02 01:09:45, NOT re-priced on the
+  live store (the bytes were deleted with the run): **7,232 novel (hostname, 1999) records absent
+  from the store and the reviewer's 1999 file, 4,543.3 EE, plus 179 unheld parents at registrable
+  grain, 112.2 EE: 4,655.5 EE**. By TLD com 2,008.8, net 914.2, ca 519.5, edu 357.6, us 201.9. The
+  names are the operator estate (`ns1.`, `dns.`, `gw.` hosts of every organisation delegated a
+  reverse block), only 6.7% verbatim in his 1999 file because a web crawl never fetches a
+  nameserver. Re-priced at 1998 on the SOA serial instead: 7,499 novel, 4,679.2 EE, an alternative
+  reading and never both. The 1997 InterNIC remainder (`mil`, `root`, `arpa` zones) adds 2.9 EE
+  over `zone_ns_glue_hostnames` and is closed
+- what dates one item: BIND 8's own transfer comment at the head of each zone member,
+  `; from 192.149.252.21   at Thu Jan  7 12:18:51 1999`, written by `named` when the AXFR
+  completed (eleven stamps, all 1999-01-07 12:18 to 12:37), with SOA serial `1998111700` in every
+  zone and tar member mtimes 1999-02-02: the nameserver named in the zone was delegated-to on that
+  day, year 1999, class `artifact_listing`, the class decided master for zone bytes on 2026-08-24
+- **condition 3 of the standing rule fails: the terms are not held.** The tarball is ARIN's data on
+  APNIC's host and carries no notice of its own; APNIC's bulk-access AUP (register line 904 read it
+  as permitting "Internet research and analysis") covers `/apnic/whois/`, not `/apnic/arin/`, and
+  two guesses at APNIC's website terms URL were 404. Conditions 1, 2 and 4 would hold: the class is
+  master for zone files, the stamp is quoted above, and the ingest is one `{url, timestamp}`-shaped
+  journal away from `ark ingest-hostnames`. Register line 904 closed the same file at 99.7 EE on the
+  registrable grain and left the terms unread because that figure did not justify it; 4,655 EE
+  does. What settles it is one mail to the APNIC helpdesk, or ARIN's own position on
+  redistribution of historical in-addr zone data (ARIN publishes the current zones openly). Nothing
+  else on that host: the directory has been frozen since 1999, one file
+- potential: 4656
+
+Decision: pending
+
+### usenet_body_pasted_hostnames / link_source
+
+- the fleet's probe (2026-09-02, `usenet_pasted_machine_blocks_hostname_grain`): FQDNs inside the
+  BODY of archive.org Usenet mbox exports, headers skipped, in `dig` and `nslookup` answers, zone
+  and config snippets, signatures and log excerpts, at hostname grain. Artifacts
+  https://archive.org/download/usenet-comp/comp.protocols.dns.bind.mbox.zip (67,183,510 B, 103,050
+  messages, 45,344 in window) and `comp.dcom.sys.cisco.mbox.zip` (108,989,162 B, 34,231 in window,
+  with a 1997-1999 hole in the copy); `archive.org/robots.txt` read whole
+- measured by the fleet against the ark-data sync of 2026-09-02 01:09:45, NOT re-priced on the
+  live store (zips deleted with the run): bind group, 19,711 (host, year) rows over 7,835 distinct
+  registrables, 81.6% of parents held at the post year, 15,165 rows with the parent held AND the
+  hostname absent from the store and the reviewer's file, 8,939.0 EE gross; a placeholder-label
+  screen (example, domain, foo, acme, bogus and kin) removes 2,844 rows, leaving 12,321 rows and
+  7,157.4 EE, and a 60-name sample of the survivors still holds ~13% fictitious config examples
+  (`foohost.foobar.com`, `mail.bogus.com`, `ns-2.domainb.net`), so **the quotable figure is ~6,200
+  EE for the one group**, of which the machine-answer lane (`dig`/`nslookup` output, 6,744 rows)
+  is 2,477.0 EE and the human-pasted lane (config, signatures, logs) 4,651.1 EE. The cisco group
+  paid 300.1 EE gross: yield is group-specific by 22x and follows the density of `IN (NS|A|MX)`
+  lines. The traceroute lane the hypothesis led with is under 30 EE per group
+- what dates one item: the post's own `Date:` header, the stamp the approved Usenet body classes
+  use, with the hostname riding the corroboration split on its held parent
+- **condition 1 of the standing rule fails: no master-eligible class covers a human-pasted hostname
+  at hostname grain.** The banked Usenet body classes (`usenet_address`, `usenet_announce`,
+  `usenet_bare`) date REGISTRABLES a human typed, and there the corroboration split is what guards
+  against fiction and typos: a name nobody else has dated earns no year. At hostname grain the
+  split cannot do that job, because `mail.bogus.com` passes on `bogus.com` being held while
+  `mail.bogus.com` never existed, and the fleet measured ~13% such names among the survivors of
+  its screen. Reading the split as satisfied by the parent is a new reading Ivo has not made, and
+  the reviewer's 2026-09-01 update lists dated Usenet copies among sources unsuitable for further
+  work. Condition 4 also fails: no journal exists. The `dig`/`nslookup` lane is machine-written
+  output a human pasted, and could be put to him separately at 2,477 EE if he rules the body
+  lane out
+- potential: 6200
+
+Decision: pending
+
+### dartmouth_nber_arcs_hostnames / cdx_timestamp
+
+- the fleet's probe (2026-09-02, `dartmouth_captures_hostname_grain`): the 282 public per-item
+  aggregate ZipNum indexes `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*.cdx.gz` (~105-120 MB each, 30 GB
+  together) and their ~105 per-ARC `*.arc.os.cdx.gz` members, read at hostname grain. The
+  registrable-grain census (`dartmouth_nber_captures`, `domain-year-captures.txt`) is fully
+  banked and has no hostname column: 0 of 277,011 sampled rows begin `www.`, so arm 1 is zero by
+  construction
+- measured by the fleet, NOT banked: 57 items sampled at one 256 KB Range slice each (15 MB for
+  30 GB), 4,809 in-window rows, 467 host-years; at 2001, 120 novel hosts beneath held parents out
+  of 235 proper hosts (0.453 per registrable-year), all `.com`; 1998-2000 pooled 40 novel out of
+  108 (0.32). Projection from the banked census's 309,721 registrable-years at 2001 and 455,473
+  at 1996-2000: ~88,700 EE at 2001, ~92,000 at 1996-2000, labelled a small-sample projection
+  from one alphabetic band per item (the aggregates are URL-key sorted). The measured sample
+  itself is worth under 100 EE and its bytes were deleted with the run
+- what dates one item: field 2 of the CDX row, the archive's own 14-digit capture timestamp,
+  `cdx_timestamp`, identical to what dates the banked `dartmouth_nber_captures` rows
+- artifact: https://archive.org/details/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00333-00333
+  and siblings; the single 25.6 GB `arcs-cdx.tar` and every `.arc.gz` payload return 401, every
+  `<item>.cdx.idx` is `private: true`, and the WARC half is 2011-2017 only
+- **condition 4 of the standing rule cannot be evaluated: nothing has been ingested.** Conditions
+  1 to 3 hold (approved class, machine stamp, archive.org public download with robots.txt read
+  whole), but the admission needs a collector on the VPS first: scout ~40 candidate items with one
+  per-ARC index each, pull the in-window ARC indexes whole (~2,000 of 26,095, ~2-3 GB), write
+  `{url, timestamp}` journals, then `ark ingest-hostnames`. Re-sample two more offsets on items
+  00333 and 02693 before committing the collector, to rule out an alphabetic-band artifact. No
+  approval issue is filed: the measured figure is under 1,000 EE and the projection needs a
+  collector, not a decision
+- potential: 88700
+
+Decision: pending
+
+
+
+### internic_zone_hostnames_1999 / artifact_listing
+
+- the same census over the two 1999 zones already on disk, `data/raw/internic_zones/edu.zone.19991120.gz`
+  (SOA serial `1999112000`) and `gov.zone.19991119.gz` (serial `1999111901`), fetched 2026-08-25 from
+  `https://tomocha.net/files/dns/` and ingested at registrable grain as `internic_zone` (179.8 EE)
+- measured: 4,678.2 net-new EE over 6,650 (hostname, 1999) records, on the live store 2026-09-02:
+  7,252 distinct hostnames, 257 already in `hostname_year` at 1999, 478 in the reviewer's 1999 file,
+  7,131 (98.3%) with the parent held at 1999. edu 2,330 / 2,264.1 EE, com 1,460 / 922.9, net 1,814 /
+  821.7, gov 315 / 309.5. Largest parent `pair.com` with 21 hosts
+- what dates one item: the SOA serial inside each file, `EDU. IN SOA A.ROOT-SERVERS.NET.
+  hostmaster.internic.net. ( 1999112000 ;serial`, the same argument as the 1997 lane
+- **condition 3 of the standing rule fails, terms.** Two facts, both already in the register and
+  neither decided: `tomocha.net/robots.txt` names ClaudeBot `Disallow: /` (lines 51-52 of 61) and
+  register line 935 records the refusal as applied to `jpnic_register` but not to these two files,
+  "raised for Ivo rather than decided"; and the 1999 `edu` file itself opens with Network Solutions'
+  own notice that use of its zone data "is subject to the restrictions described in the access
+  Agreement with Network Solutions", which this project does not hold. The 1997 files carry no such
+  clause. Nothing is fetched by deciding either way, the bytes are on disk; the code refuses these
+  files under the 1997 approval by design (`ingest_zone_hostnames` gates each zone year by name)
+- potential: 4678
+
+Decision: pending
+
+### usenet_header_fqdn_hostnames / link_source
+
+- the fleet's probe (2026-09-02, `usenet_header_fqdn_census`): server-written header fields in the
+  archive.org Usenet mbox exports, `X-Trace:` trailing customer host, `NNTP-Posting-Host:` and the
+  final `Path:` hop, read at hostname grain. Artifacts https://archive.org/download/usenet-demon/
+  (58 zips) and https://archive.org/download/usenet-uk/ (495 zips), both already on the VPS under
+  `data/raw/usenet_*`
+- measured by the fleet, NOT re-priced here: **2,368 EE over 2,413 demon.co.uk customer host-years
+  1996-2001** from two demon.* groups (28 MB), 99.1% absent from the CDX demon.co.uk sweep in the
+  same year; projection 20,000 to 25,000 EE for demon.* and six figures spool-wide, unmeasured. The
+  probe's per-message table was deleted with the run and the bytes are not on this machine, so the
+  live-store figure is not available and the fleet's must not be banked as a claim
+- second fleet probe, 2026-09-02, over 55.3 MB (`demon.ip.support.pc` and `.newuser`, 72,172
+  messages), against the ark-data sync of 2026-09-01: **6,877 EE over 7,186 stable hostname-years**,
+  `uk` 6,671.8 of it, of which **2,823 EE is bounded by the three server-written fields** (X-Trace
+  2,394.4, Path hop 220.5, NNTP-Posting-Host 208.4) and **4,054 EE more comes from the `Message-ID`
+  host**, which Turnpike and Demon's clients stamp from the configured nodename, so it is
+  client-written and needs its own class reading before it counts at all. Ephemeral pool shapes
+  are 6.9% of the novel rows and were excluded. The seam is 1996-1998 (2,658 / 1,111 / 1,557 `uk`
+  hosts), not 2001: the baseline's Demon hostnames are the crawled `www.*` population, the Usenet
+  nodenames are a different population under the same registrable. Honest band for demon.* is
+  20,000 to 60,000 EE, the uk.* hierarchy unmeasured on top. Also not re-priced on the live store,
+  same reason
+- what dates one item: the message's own `Date:` header, with the hostname written by the
+  injecting server, `X-Trace: mail2news.demon.co.uk 894324354 19133 faqs pcserv.demon.co.uk`
+- **conditions 1 and 4 fail.** Condition 1: no master-eligible class covers a server-written
+  Usenet header hostname; the banked Usenet classes (`maillist_dated`, `enron_dated`, the whois
+  paste) are `link_source` taken WITH the corroboration split, and the fleet's reading that the
+  split does not apply because a server wrote the field is a new reading Ivo has not made. Condition
+  4: no journal exists, the census is a whole-spool pass on the VPS that has not run, so no ingest
+  can be checked. And the reviewer's own 2026-09-01 update lists "dated Usenet archive copies"
+  among sources unsuitable for further work (register line 781); the fleet recommends putting the
+  hostname-grain figure to Ding before any spool-wide pass, and that is his call, not the loop's.
+  The second probe does not move either condition: it widens the ask to two rulings, whether a
+  server-written header host is split-free `link_source`, and separately whether a client-written
+  `Message-ID` host is evidence at all. Issue 2 on ark-fleet carries the block
+- third fleet probe, 2026-09-02 (`usenet_uk_and_edu_header_fqdns`), on a second ISP population:
+  `uk.comp.os.win95.mbox.zip` and `uk.comp.misc.mbox.zip` from https://archive.org/download/usenet-uk/
+  (27.7 and 28.0 MB, 121,038 messages), headers only, against the ark-data sync of 2026-09-02:
+  **3,662 novel stable server-written (hostname, year) pairs, 2,537.3 EE** as a union of the two
+  groups (uk 1,265.9, com 583.4, net 394.1; 2001 1,033.8), the second group retaining 73% of the
+  first's yield; Message-ID priced separately at 134 and 293 EE and excluded. A tighter pool-shape
+  filter would shrink the stable figure 10 to 15%. The `.edu` lane (`comp.sys.sun.wanted`) is
+  1,433.2 EE of which only 216.7 is `.edu`, mostly news server names that saturate within tens of
+  groups. Honest band for the 495-zip uk.* hierarchy 50,000 to 150,000 EE, a labelled guess. Same
+  two conditions still fail; not re-priced on the live store; no new issue, issue 2 stands
+- potential: 6877
+
+Decision: pending
 
 
 ### internic_zone / artifact_listing

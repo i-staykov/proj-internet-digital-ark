@@ -32,7 +32,8 @@ import time
 from decimal import Decimal
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
@@ -84,6 +85,10 @@ LAST_EE = Decimal("603401.7811")
 
 # A pair the shared baseline already holds is not ours to report. `prior_reused` is
 # the evidence type recording that a pair arrived with the baseline.
+from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
+
+SHIPPED = _shipping_filter("y.")
+
 NOT_BASELINE = """
     NOT EXISTS (
         SELECT 1 FROM evidence p
@@ -113,7 +118,7 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
         FROM domain_year y
         JOIN evidence e ON e.evidence_id = y.evidence_id
         JOIN source s ON s.source_id = e.source_id
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
         GROUP BY 1, 2, 3
     """).fetchall()
 
@@ -128,7 +133,7 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
 
     domains = conn.execute(f"""
         SELECT count(DISTINCT y.domain) FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
     """).fetchone()[0]
 
     # Dated by one source but not yet corroborated, so not in an annual file. Same
@@ -178,7 +183,7 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
         raise SystemExit(f"calculator not found at {CALCULATOR}")
     rows = conn.execute(f"""
         SELECT y.assigned_year, y.domain FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE}
+        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
         ORDER BY 1, 2
     """).fetchall()
     per_year: dict[int, list[str]] = {}
@@ -191,8 +196,16 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
         "invalid": 0,
         "records": 0,
         "by_year": {},
-        "overlap": already_in_his_files(per_year),
+        "overlap": 0,
     }
+    # The hostname files are scored by the same program, so a hostname his validator
+    # refuses is caught here and not by him.
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        if path.exists():
+            hosts = [h.strip() for h in path.read_text().splitlines() if h.strip()]
+            per_year.setdefault(year, []).extend(hosts)
+    totals["overlap"] = already_in_his_files(per_year)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for year, domains in sorted(per_year.items()):
@@ -214,6 +227,28 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     return totals
 
 
+def hostname_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped hostname files, priced with his weight model."""
+    raw = json.loads((REPO / "src/ark/data/tld_english_share.json").read_text())
+    weights = {
+        str(t).lower(): Decimal(str(p)) / 100
+        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
+        if t and lang == "eng"
+    }
+    pairs, ee = 0, Decimal(0)
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        if not path.exists():
+            continue
+        with path.open() as fh:
+            for line in fh:
+                host = line.strip()
+                if host:
+                    pairs += 1
+                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+    return pairs, ee
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -233,14 +268,24 @@ def main() -> None:
     pairs, ee = m["pairs"], m["ee"]
     if not pairs:
         raise SystemExit("nothing added since the submission: nothing to report")
-    growth = ee / BASELINE_EE * 100
+    # Both output units count in the five fields since 2026-09-01: he accepted valid
+    # hostnames as annual records and his calculator scores one distinct hostname per
+    # year at full weight, so the increment is the union of the registrable files and
+    # the hostname files. The split is printed beneath, registrables first, because he
+    # still asks for those to be prioritized.
+    h_pairs, h_ee = hostname_increment()
+    all_pairs, all_ee = pairs + h_pairs, ee + h_ee
+    growth = all_ee / BASELINE_EE * 100
 
     print("The five fields, in his order\n")
     print(f"1. Total number of original domains 1996-2001 : {BASELINE_PAIRS:,}")
     print(f"2. Equivalent-English total                   : {BASELINE_EE:,.4f}")
-    print(f"3. Increment                                  : {pairs:,} records")
-    print(f"4. Equivalent-English increment               : {ee:,.4f}")
+    print(f"3. Increment                                  : {all_pairs:,} records")
+    print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
+    print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
+    print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
+    print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS
@@ -272,8 +317,8 @@ def main() -> None:
     print(f"  rejected by his validator : {his['invalid']:,}")
     print(f"  already in his merged files: {his['overlap']:,}")
     print(f"  his equivalent-English    : {his['ee']:,.4f}")
-    print(f"  ours                      : {ee:,.4f}")
-    difference = his["ee"] - ee
+    print(f"  ours                      : {all_ee:,.4f}")
+    difference = his["ee"] - all_ee
     print(f"  difference                : {difference:,.4f}")
     if difference != 0 or his["invalid"] or his["overlap"]:
         raise SystemExit(

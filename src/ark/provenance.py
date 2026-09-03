@@ -40,12 +40,15 @@ CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 # load in both directions: an export from before the standard existed has no such
 # file, and one from after it was retired need not either, so neither may raise
 # FileNotFoundError.
-OPTIONAL_TABLES = ("domain_language",)
+# `hostname_year` is last on purpose: it references both `domain` and `evidence`,
+# and the rebuild drops in reverse order, so it must go before either of them.
+OPTIONAL_TABLES = ("domain_language", "hostname_year")
 
 TABLES = CORE_TABLES + OPTIONAL_TABLES
 
-LOAD_SQL = """-- Six tables: the five that make up the evidence graph, plus the language
--- verdicts. For the DuckDB command-line tool, run from INSIDE this folder:
+LOAD_SQL = """-- Seven tables: the five that make up the evidence graph, the language
+-- verdicts, and the hostname records (the second output unit, accepted 2026-09-01).
+-- For the DuckDB command-line tool, run from INSIDE this folder:
 --     duckdb -init LOAD.sql
 -- The paths below are relative, so a different working directory will fail.
 --
@@ -63,6 +66,10 @@ CREATE TABLE ingested_file AS SELECT * FROM read_parquet('ingested_file.parquet'
 -- From a standard retired in August 2026, kept so a round that shipped them stays
 -- rebuildable. Absent from exports written before it existed.
 CREATE TABLE domain_language AS SELECT * FROM read_parquet('domain_language.parquet');
+
+-- Hostname records beneath held registrables, each pointing at the evidence row
+-- whose capture timestamp dates it. Absent from exports written before 2026-09-01.
+CREATE TABLE hostname_year AS SELECT * FROM read_parquet('hostname_year.parquet');
 
 -- Why is a domain in a given annual file? One row per supporting observation.
 -- Replace the domain and year with any line from additions/ or masters/.

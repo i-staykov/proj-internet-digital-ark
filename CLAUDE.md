@@ -4,6 +4,16 @@ Rebuild the list of domains that existed 1996-2001 for Prof. Ding. Scored on **e
 each `(domain, year)` counts its TLD's English share. `.uk` 0.9813, `.com` 0.6321, `.net` 0.4530,
 `.de` 0.1324. Non-English ccTLDs are worthless.
 
+**Two output units since 2026-09-01, when Ding accepted the hostname question**: registrable
+domains stay the PRIORITIZED unit ("valuable high-coverage query seeds", his words), and every
+distinct evidence-backed VALID hostname beneath a held registrable is retained too, shipped as
+separate `NNNN_hostnames.txt` files he merges or discards. Same evidence wall: `hostname_year`
+foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals
+(`{url, timestamp}` lines), and two checks gate it. His calculator counts hostnames at full
+TLD weight. The platform sweep (`scripts/engines/platform_sweep.sh` on the VPS, pause flag
+`/tmp/ark-pause-sweeps`) walks `matchType=domain` over the parents ranked by
+`rank_platform_parents.py`; it holds the second archive-client slot, gaploc stood down.
+
 **Where the round stands is in `docs/ROUND.md`, which is generated. Never state it here.**
 Round 6 crossed the 5% gate on 2026-08-26. The task does not end at a gate: keep collecting until the
 discoverable sources are exhausted, and submit early, because percentages add and the denominator grows.
@@ -179,6 +189,9 @@ what survives the split we already hold. Ask whether the lister held the databas
   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
 - `ark export` before `ark check`. Never edit `docs/SPEC.md`, `docs/report.md`, frozen `submissions/`.
 - `private/` never ships. **Big data must never reach git.**
+- **The report is drafted as findings land, never reconstructed later**: a five-figure
+  source banks together with its paragraph in `docs/report.template.md`. `README.md`
+  stays a one-screen front page; the runbook lives in `docs/operations.md`.
 - Two archive clients maximum. Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
 - Collectors take an absolute deadline and outlive the session. Restart a loop after editing what it imports.
 
@@ -216,6 +229,11 @@ what survives the split we already hold. Ask whether the lister held the databas
   the other machine returned 1,647 years per 1,200. Same code, same hour, 45x apart. `just engines`
   prints both; a queue whose head has already been asked is a queue that has quietly expired.
 - Look for the existing tool before writing one.
+- **A dated mail or Usenet corpus contains the era's worms as message content.** That is
+  corpus fidelity, not compromise (Defender flagged Klez.H inside a newsgroup zip,
+  2026-09-01, verified inert in `private/security/`). Parse archives in-stream, never
+  extract attachments, delete probe bytes after measurement, and match an AV alert's
+  hashes against the file before acting on it.
 - **A size floor is not a content check.** A replay URL built as `{stamp}id_{host}`, missing the
   slash in `id_/`, made web.archive.org answer seven different objects with the same 154,263-byte
   interstitial, and a floor set at half the expected bytes passed all seven. Assert on what the
