@@ -22,7 +22,7 @@ from pathlib import Path
 # the others, so a reviewer listing the tables was told the archive held five
 # when it held six, and the English verdicts looked absent.
 TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
-OPTIONAL_TABLES = ("domain_language",)
+OPTIONAL_TABLES = ("domain_language", "hostname_year")
 
 
 def load(directory: Path):

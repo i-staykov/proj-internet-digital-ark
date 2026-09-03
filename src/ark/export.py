@@ -10,6 +10,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark.baseline import baseline_dir
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.ingest import YEARS
@@ -120,6 +121,55 @@ def export_all(
             WHERE assigned_year = {year} AND {_NOT_REVERSE_DNS} ORDER BY domain
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
+
+    # The second output unit, accepted by the reviewer on 2026-09-01: hostnames ship
+    # as separate per-year files he can merge or discard, and the annual masters stay
+    # registrable exactly as his rule III.8 specifies. A hostname is net-new against
+    # the baseline FILES, not against store membership, because the store collapsed
+    # the baseline to registrables at ingest and so cannot answer "is alice.cjb.net
+    # itself already a benchmark record". The directory is resolved, not hardcoded:
+    # inside a delivery the files sit at ../baseline/<marker>/, and the repository path
+    # alone silently exported every hostname as net-new in the tier-2 rehearsal.
+    baseline_files = baseline_dir()
+    conn.execute("CREATE OR REPLACE TEMP TABLE baseline_hostname (hostname VARCHAR, year INTEGER)")
+    for year in YEARS:
+        baseline_file = baseline_files / f"{year}.txt"
+        if baseline_file.exists():
+            conn.execute(f"""
+                INSERT INTO baseline_hostname
+                SELECT lower(trim(column0)), {year}
+                FROM read_csv('{baseline_file}', header=false, delim='\\x01',
+                              columns={{'column0': 'VARCHAR'}})
+            """)
+        else:
+            logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
+    not_in_baseline = """
+        NOT EXISTS (SELECT 1 FROM baseline_hostname b
+                    WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
+    """
+    for year in YEARS:
+        hostname_query = f"""
+            SELECT DISTINCT hy.hostname FROM hostname_year hy
+            WHERE hy.assigned_year = {year} AND {not_in_baseline}
+            ORDER BY hy.hostname
+        """
+        count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
+        stats[f"netnew_hostnames_{year}"] = count
+
+    # The manifest carries the same rows as the shipped files: a row for a hostname
+    # the benchmark already lists would read as an addition it is not.
+    hostname_manifest_query = f"""
+        SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type,
+               e.evidence_value, s.name AS source, e.acquisition_method, e.evidence_url
+        FROM hostname_year hy
+        JOIN evidence e ON hy.evidence_id = e.evidence_id
+        JOIN source s ON e.source_id = s.source_id
+        WHERE {not_in_baseline}
+        ORDER BY hy.hostname, hy.assigned_year
+    """
+    hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
+    hostname_manifest.parent.mkdir(parents=True, exist_ok=True)
+    conn.execute(f"COPY ({hostname_manifest_query}) TO '{hostname_manifest}' (HEADER true)")
 
     manifest_query = f"""
         SELECT dy.domain, dy.assigned_year, e.evidence_type, e.evidence_value,

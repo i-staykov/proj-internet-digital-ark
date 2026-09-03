@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback-phase-6/Domain_Data_Collection_Task 2/Internet_Digital_Ark_Project_0820_Update_v2.docx` |
-| sha256 | `e538e17e4a691339690616e6fde3bdd5e081d2a38cc0031a36aee9c9028ff508` |
-| delivered in | `feedback-phase-6/Domain_Data_Collection_Task 2/`, from feedback-phase-6/Domain_Data_Collection_Task 2/ (2026-08-21) |
-| transcribed | 2026-08-21 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/Internet_Digital_Ark_Project_0901_Update.docx` |
+| sha256 | `19e53f6110679e6aaa68b48dc6d1b798c2477b651b7508c3545779e9d6570b1a` |
+| delivered in | `feedback/feedback-phase-7/Domain_Data_Collection_Task 4/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
+| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
 transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
@@ -22,7 +22,7 @@ diff against everything under the rule.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-08-20 17:02:26 (UTC+8)
+Update time: 2026-09-01 11:37:58(UTC+8)
 
 **I. Task Background**
 
@@ -96,7 +96,7 @@ The following rules have the highest priority. All subsequent methods must compl
 
 7.  The annual files are not limited to the year in which a domain first appeared. If factual evidence or a year-specific acquisition method independently demonstrates that a domain actually existed, was in use, or was active in multiple target years, the domain must appear in every annual file for which that status has been established. Cross-year duplication is therefore permitted and necessary. Deduplication is required within each year, not across different years. Every annual inclusion must have evidence for that year; the date of first appearance alone must not be used to infer presence in later years.
 
-8.  By default, the final domain files should use registered domains as the output unit rather than full hostnames or user paths on hosting platforms. Unless otherwise explicitly required, output should therefore favor registered domains rather than `www.example.com`, `foo.example.com`, or specific user paths on platforms such as GeoCities or Tripod.
+8.  Counting and output unit: The annual master files use the normalized valid hostname, consistent with the fixed hostname regex and the supplied benchmark. A registrable-domain roll-up may be delivered as an optional secondary analysis, but it must not replace evidence-backed hostnames in the annual master files. A hostname such as foo.example.com may be included when that specific hostname has qualifying annual evidence. Paths, user identifiers embedded in URLs, ports, and other non-hostname fragments are never annual records.
 
 9.  An existing filename such as `1996.txt` represents the domains obtained to date for which there is evidence of actual existence, use, or activity during the period from 00:00:00 on January 1, 1996, through 23:59:59 on December 31, 1996. The same standard applies to every other annual file.
 
@@ -119,6 +119,22 @@ ISC / Network Wizards survey records may enter the corresponding annual files di
 Arquivo.pt capture indexes may also serve as direct annual evidence.
 
 UK Web Archive host/link graph records may serve as direct annual evidence when their year association is explicit and documented.
+
+Operational example - evidence-linked directory and research-dataset harvesting
+
+- Historical directory, portal, navigation, and yellow-page sites may be harvested as discovery sources and then validated through CDX snapshots whose timestamps fall in the target calendar year. The reusable workflow is: identify dated or historically relevant source pages; extract and normalize hostnames; retrieve CDX evidence using cautious rate limits and retries; retain only the year-specific verified results in annual files; and keep unresolved names in the candidate pool.
+
+- The UMN DRUM early-web link-list dataset remains a high-value example. In particular, its 1996 part may be recovered from a Wayback capture when the live repository prevents automated access, provided that the item-level YYYYMMDD capture date is retained as the year-evidence field. The recovery path, original archive URL, record location, date field, and extraction code must all be documented.
+
+- CDX acquisition should be resilient rather than aggressively concurrent. A single-worker, rate-limited retrieval process with retries for transient failures, source-level logs, and an explicit stalled-source rule can reduce avoidable 429/504 and connection errors. Slow but responsive sources should not be discarded merely because they are slow; their measured yield should determine whether they remain in the queue.
+
+- Source saturation is a useful discovery result. When a defined source family repeatedly produces no baseline-external, year-verified domains, record the tested sources, coverage, overlap, elapsed effort, and failure or saturation reason; then redirect the autonomous search toward a different source family. Zero yield is feedback for the next hypothesis-generation cycle, not an instruction to stop domain discovery.
+
+- Hostname structure must be checked before any annual record is accepted or scored. A valid annual hostname must have dot-separated labels, use letters, digits, and interior hyphens only, and end in an alphabetic TLD label. URL paths, ports, query strings, percent-encoded fragments, HTML fragments, empty labels, leading or trailing hyphens, and malformed TLDs must be excluded from annual files and retained, when useful, in a separately labelled raw or normalization-review pool. This check is necessary both for data integrity and for correct TLD-based Equivalent-English calculation.
+
+- Candidate-pool operations must be explicit: union and deduplicate candidate sources; keep valid but undated candidates separate from annual master files; remove candidates already accepted in any annual file; and retain format-unparsed raw strings in a separate auxiliary file when they may be recoverable. Candidate status is not annual evidence.
+
+- 
 
 **VI. Methods to Prioritize for Further Expansion**
 
@@ -176,9 +192,11 @@ The final delivery must include more than several TXT files. It must document ho
 
 **Code package and experience summary:** Every submission must include the complete runnable code, scripts, configurations, dependency or environment instructions, and execution commands used for discovery, acquisition, extraction, normalization, validation, evidence generation, and result export. It must also include a concise experience summary describing successful and unsuccessful approaches, measured source yield, important limitations, lessons learned, reusable techniques, and recommended directions for continued expansion.
 
-**Baseline merge and deduplication method:** Every submission must include both the code and a clear explanation for comparing the submitted annual files with the latest supplied baseline, normalizing the counting unit, removing duplicates within each year, identifying the true baseline-external increment, and producing or verifying the merged annual result. The baseline version, exact comparison rules, overlap counts, accepted increment, and reconciliation checks must be stated explicitly so that an independent reviewer can reproduce the result.
+- Submission archive filename: Every complete submission must be supplied in one compressed archive named **<span class="mark">DomainDataCollectionTask\_{SubmissionTime}\_{Name}</span>**. {SubmissionTime} denotes the complete submission time, and {Name} denotes the submitting contributor.
 
-**Equivalent-English Domain calculation method:** Every submission must include the runnable calculation code and an explanation of the formula, fixed Common Crawl-derived TLD English-share weights, model/version used, treatment of invalid or unmatched domains, and per-year aggregation. The report must separately state the latest baseline Equivalent-English total, the post-merge Equivalent-English total, the Equivalent-English increment, and the growth rate calculated after merging and within-year deduplication.
+  **Baseline merge and deduplication method:** Every submission must include both the code and a clear explanation for comparing the submitted annual files with the latest supplied baseline, normalizing the counting unit, removing duplicates within each year, identifying the true baseline-external increment, and producing or verifying the merged annual result. The baseline version, exact comparison rules, overlap counts, accepted increment, and reconciliation checks must be stated explicitly so that an independent reviewer can reproduce the result.
+
+  **Equivalent-English Domain calculation method:** Every submission must include the runnable calculation code and an explanation of the formula, fixed Common Crawl-derived TLD English-share weights, model/version used, treatment of invalid or unmatched domains, and per-year aggregation. The report must separately state the latest baseline Equivalent-English total, the post-merge Equivalent-English total, the Equivalent-English increment, and the growth rate calculated after merging and within-year deduplication.
 
 **The final results submitted for this task must meet the following standards:**
 
@@ -195,3 +213,23 @@ The final delivery must include more than several TXT files. It must document ho
 6.  Submission growth and the 5% threshold have been calculated from the Equivalent-English Domain total after merging the complete accumulated submission with the latest supplied baseline and deduplicating within each year. Equivalent-English Domain increment = merged submission Equivalent-English Domain total - latest baseline Equivalent-English Domain total. Cumulative growth rate = Equivalent-English Domain increment / latest baseline Equivalent-English Domain total x 100%. Submit when this cumulative growth rate is at least 5%. The unfiltered domain-year record increase must be reported separately and is not the acceptance or submission-threshold metric. Meeting this threshold authorizes a submission batch but does not indicate completion; participants must continue contributing until their discoverable sources and methods have been systematically tested and reasonably exhausted under the internal competition requirements. Competition scoring additionally incorporates submission speed: for each accepted submission, S_i = 10 x (p_i / t_i), where p_i is its organizer-verified Equivalent-English Domain percentage increase and t_i is the elapsed number of days from release of the applicable benchmark to receipt of the complete submission. Overall ranking uses the sum of these time-weighted submission scores, while official percentage increases continue to be accumulated and reported separately.
 
 7.  The submission demonstrates progress toward an Automated/Autonomous/Intelligent Scientific Knowledge Discovery and Deep Research System: it uses creative intelligent methods, preserves reproducible evidence, evaluates source yield and failures, and supports an iterative or autonomous feedback loop for continued domain discovery.
+
+**VIII. High-Density Platform Hostname Discovery and Source-Saturation Learning**
+
+- Platform-hostname discovery is a reusable intelligent discovery method for sources in which many distinct sites are represented as subdomains. Start from the current annual benchmark, identify registrable platform domains with high distinct-hostname density, and prioritize those domains as query seeds. This is a hypothesis-generation step: measured hostname density is used to prioritize the next discovery actions rather than to infer that any hostname existed in a target year.
+
+- For an archive CDX source, query each selected platform separately for each target year using a domain-wide hostname query. Apply a root-capture-oriented filter where supported so that result capacity is spent discovering distinct hosts instead of repeated deep paths on a small number of hosts. Per-year queries are required: a multi-year query with URL-key collapse can undercount later-year presence. A returned hostname may enter only the annual file corresponding to the year of its retained capture.
+
+- This method is appropriate for subdomain-based community and hosting platforms. It is not a shortcut for path-based services: strings such as /~user/ are paths rather than hostnames and cannot be promoted to annual records merely because they appear in an archived URL.
+
+- For every platform query, preserve the platform seed, target year, complete query URL or request template, source response location, retained timestamp, normalization rule, and record count. Use resumable worklists, cautious rate limits, retries, and source-level failure logs. Failed or incomplete platform queries remain scheduled work rather than being treated as negative evidence.
+
+**Source-saturation ledger**
+
+- Maintain a shared source-saturation ledger with the source name and version, coverage period, retrieval method, baseline overlap, quality issues, effort, and the reason for retaining, deprioritizing, or revisiting the source. High overlap, corruption, or OCR noise is useful evidence for redirecting autonomous discovery; it is not evidence that no new source can exist.
+
+- The following source families have already been measured as high-overlap, low-yield, noisy, incomplete, or otherwise unsuitable in their evaluated versions: Internet Archive early-web language annotations; the New Riders WWW Yellow Pages CD-ROM; LAW/WebGraph WebBase-2001; dated Usenet archive copies; sampled scanned magazine runs; and specific raw ISC survey archive copies. Record the exact version and limitation. Revisit only when a different version, coverage period, extraction method, or item-level evidence basis is available.
+
+- UK Web Archive host-link graph records, UMN DRUM link-list records, and Arquivo.pt indexes remain valid direct-evidence patterns when the record itself carries an explicit target-year association and retrievable provenance. When a live endpoint is unavailable, recovery from a preserved archival capture is acceptable only if the recovery URL, file identity, and year-bearing field are retained in the evidence ledger.
+
+- Every final annual record must be traceable through an item-level evidence ledger containing the target year, source file, original or recovery URL, record location, evidence type, and extraction method. A source-level description alone is not a substitute for this ledger.

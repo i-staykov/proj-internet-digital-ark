@@ -22,6 +22,14 @@ if [ "$ROUND" = "HEAD" ] || [ -z "$ROUND" ]; then
     echo "  bash scripts/round/package_delivery.sh phase-4" >&2
     exit 1
 fi
+# The fleet's own branch is called `live` and is never a round name: every build of
+# every round landed in one `submissions/live/` folder, which by the end of a night
+# held three superseded tarballs beside the one that mattered. On that branch the
+# label comes from the round the store is working on instead.
+if [ "$ROUND" = live ]; then
+    ROUND="phase-$(uv run python -c 'from ark.baseline import CURRENT_ROUND_LABEL
+print(CURRENT_ROUND_LABEL)')"
+fi
 ROUND_DIR="submissions/$ROUND"
 
 # The source snapshot below comes from `git archive HEAD`, so an uncommitted or
@@ -152,7 +160,10 @@ fi
 
 # The unpacked folder is named for what it holds, so a reviewer who extracts it
 # among other downloads can still tell what it is.
-RELEASE="internet-digital-ark-1996-2001"
+# The reviewer's 0901 update makes the archive name mandatory:
+# DomainDataCollectionTask_{SubmissionTime}_{Name}. SubmissionTime is stamped at
+# packaging (UTC, to the minute); the contributor name is fixed.
+RELEASE="DomainDataCollectionTask_$(date -u +%Y%m%d%H%M)_IvayloStaykov"
 STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.tar.gz"
 mkdir -p "$ROUND_DIR"
@@ -200,6 +211,13 @@ cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
+# The second output unit (his acceptance of 2026-09-01): hostname records per year,
+# separate files he can merge or discard, with their own evidence manifest.
+mkdir -p "$STAGE/hostnames"
+cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
+cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# The source-saturation ledger his 0901 update requires, regenerated at packaging.
+uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
@@ -256,12 +274,10 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
 #
 # **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
-# else.** They are 387 files and 3.67 GB against 1.18 GB for every other source combined,
-# and shipping them makes the archive 6.5 GB against the 1.86 GB the reviewer received last
-# round. State the cost honestly rather than dressing it up: `rdap_snapshot` is the round's
-# second-largest source at 581,458 net-new pairs, so this is the one source whose tier-3
-# replay the archive cannot offer. Tier 2 is unaffected and covers every one of those pairs,
-# which is what `verify.sh` check 4 tests. Available on request. Ivo, 2026-08-26.
+# else.** 6.5 GB of walks that the registries' terms do not let us re-run, so tier 3 cannot
+# replay `rdap_snapshot`; tier 2 covers every pair it backs, which is what `verify.sh`
+# tests. Available on request. Ivo, 2026-08-26. The journals README below names all five
+# excluded sets with their sizes, so the archive states its own limitation.
 #
 # ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
 # tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
@@ -269,26 +285,52 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 #
 # One expression for the copy and for the count guard at the bottom, so the two cannot
 # disagree about what should be present.
+# **Four more size exclusions, same argument as the RDAP logs (2026-09-01).** The Usenet
+# extraction journals (usenet_addr 8.4 GB, usenet_bare 1.8 GB) are our own extractors'
+# output over archive.org mboxes the register links, so they re-derive offline; the raw
+# platform-sweep journals (cdx_suffix, 0.8 GB) and the NYPW hostname-grain conversions
+# (0.3 GB) re-derive the same way. Together they pushed the archive from 1.9 GB to
+# 13 GB. Every assignment they back is in the provenance Parquet (tier 2), which
+# `verify.sh` tests. Available on request.
+#
+# **Three more, on the same measured argument (Ivo, 2026-09-02).** The three remaining
+# Usenet journal sets (usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB) were
+# 0.86 GB of a 4.5 GB archive, 19% of it, for sources banked in earlier rounds and shipped
+# with those archives. The same three-part test as above decides it: the assignments are in
+# the provenance Parquet, the mboxes they parse are linked in the register, and the parser
+# ships in `source/`, so they re-derive offline and only a tier-3 replay of those older
+# sources needs them.
 journal_paths() {
     find data/raw -name '*.jsonl.gz' \
         -not -path '*/superseded/*' \
         -not -path 'data/raw/rdap/*' \
-        -not -path 'data/raw/rdap_pool/*' "$@"
+        -not -path 'data/raw/rdap_pool/*' \
+        -not -path 'data/raw/usenet_addr/*' \
+        -not -path 'data/raw/usenet_bare/*' \
+        -not -path 'data/raw/cdx_suffix/*' \
+        -not -path 'data/raw/nypw_hostgrain/*' \
+        -not -path 'data/raw/usenet/*' \
+        -not -path 'data/raw/usenet_hdr/*' \
+        -not -path 'data/raw/usenet_new/*' "$@"
 }
 if [ -z "${ARK_SLIM:-}" ]; then
     journal_paths -print0 \
         | tar -cf - --null -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
     cat > "$STAGE/journals/README.txt" <<'EXCL'
-One collector's raw logs are deliberately not here: the RDAP walks, under rdap/ and
-rdap_pool/. The reason is size and nothing else. They are 3.67 GB against 1.18 GB for every
-other source combined, and including them would triple this archive.
+Eight raw-journal sets are deliberately not here, on size and nothing else: the RDAP walks
+(rdap/, rdap_pool/, 6.5 GB), the Usenet extraction and posting journals (usenet_addr/
+8.4 GB, usenet_bare/ 1.8 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB), the
+raw platform-sweep capture journals (cdx_suffix/, 0.9 GB) and the NYPW hostname-grain
+conversions (nypw_hostgrain/, 0.3 GB). Together they are about 19 GB against under 2 GB for
+everything else.
 
-Stated plainly, because it is a real limitation: rdap_snapshot is this round's second-largest
-source at 581,458 net-new pairs, so it is the one source whose tier-3 replay this archive
-cannot offer. Everything it evidenced still ships and is still checkable: each (domain, year)
-resolves to its evidence row in provenance/, which is what verify.sh check 4 tests over every
-assignment, and the target queues are under seeds/. Ask and the logs will be sent separately.
+Every assignment they back still ships and is still checkable: each (domain, year) and
+(hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
+over every assignment. Each set re-derives from a linked public source named in sources.md
+(archive.org mboxes for the Usenet sets, the NYPW TimeMap item for nypw_hostgrain, the IA
+CDX API for cdx_suffix) with the parser in source/, so tier 3 can rebuild them; the RDAP
+logs cannot be re-walked under the registries' terms and will be sent on request.
 EXCL
 fi
 
@@ -438,6 +480,16 @@ done
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
+# The research loop itself: workflows, prompts, policy and the hypothesis register from
+# the fleet repo, when it sits beside this one. Section 4 of the report describes it, and
+# a description of an unattended loop is weaker than the loop's own files. Tracked files
+# only, so no secret can ride along (the workflows name theirs by reference).
+FLEET="${ARK_FLEET:-$(dirname "$PWD")/ark-fleet}"
+if [ -d "$FLEET/.git" ]; then
+    git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
+    git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
+fi
+
 # Every journal on disk must be in the archive. Naming source directories by hand
 # has now failed twice: once a ledgered CDX journal sat one directory down and
 # matched neither the packaging glob nor the ingest glob, and once Usenet, Tucows
@@ -498,6 +550,9 @@ cp docs/sources.md "$ROUND_DIR/sources.md"
     echo "bytes        $(wc -c < "$ARCHIVE" | tr -d ' ')"
     echo "files        $(find "$STAGE" -type f | wc -l | tr -d ' ')"
     echo "netnew_pairs $STORED"
+    # The second output unit ships in its own files, so the manifest names it too:
+    # netnew_pairs alone reads as the whole round and has not been since 2026-09-01.
+    echo "netnew_hostnames $(cat "$STAGE"/hostnames/*_hostnames.txt 2>/dev/null | wc -l | tr -d ' ')"
 } > "$ROUND_DIR/MANIFEST.txt"
 
 # Everything needed to hand the archive over by link, in one block to copy.

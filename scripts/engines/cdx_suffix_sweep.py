@@ -29,6 +29,15 @@ the project and a contact, a hard stop on 429 or 503 rather than a backoff that
 keeps hammering, and an absolute deadline. The Internet Archive has refused this
 project three times and this route is worth protecting.
 
+**Page size, measured 2026-09-02 on `co.uk`.** A page is a count of index blocks
+and the server's cost per request is nearly flat in it: 200 blocks took 11 to 42 s,
+1,000 took 77 s, 3,000 took 70 s and 10,000 took 110 s, with the smaller pages
+verified as exact subsets of the larger one. So the default is 10,000 blocks, which
+walks the 3,387,186-block `co.uk` namespace in 339 requests instead of 16,936. The
+page count comes from `showNumPages` up front, so a sweep ends where the index
+ends rather than on a run of failures, and the state file records the page size
+so a resume at another size converts its position.
+
     uv run python scripts/engines/cdx_suffix_sweep.py co.uk --deadline <epoch>
 """
 
@@ -45,6 +54,10 @@ from pathlib import Path
 UA = "InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 BASE = "https://web.archive.org/cdx/search/cdx"
 OUT = Path("data/raw/cdx_suffix")
+# Researcher waves need the archive unthrottled; the fleet touches this flag before
+# dispatching agents and removes it after, and the sweep idles while it exists. A
+# flag file rather than systemctl, because the sweep runs as a plain user process.
+PAUSE_FLAG = Path("/tmp/ark-pause-sweeps")
 
 
 def fetch(params: dict, timeout: int) -> tuple[str, list[str]]:
@@ -63,10 +76,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("suffix")
     ap.add_argument("--deadline", type=int, required=True, help="absolute epoch to stop at")
-    ap.add_argument("--page-size", type=int, default=200)
+    ap.add_argument("--page-size", type=int, default=10000)
     ap.add_argument("--start-page", type=int, default=0)
     ap.add_argument("--delay", type=float, default=2.0)
-    ap.add_argument("--timeout", type=int, default=300)
+    ap.add_argument("--timeout", type=int, default=900)
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -78,49 +91,96 @@ def main() -> None:
     page = args.start_page
     if state.exists():
         try:
-            page = max(page, json.loads(state.read_text()).get("next_page", 0))
+            saved = json.loads(state.read_text())
+            saved_size = saved.get("page_size", 200)
+            # a position saved at another page size is a block offset in disguise
+            page = max(page, saved.get("next_page", 0) * saved_size // args.page_size)
         except Exception:
             pass
     print(f"{args.suffix}: starting at page {page:,}, journal {journal.name}")
 
-    status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
-    if status != "200":
-        sys.exit(f"control failed ({status}); refusing to sweep")
+    # An archive outage of a few minutes once cost thirteen parents in one walk,
+    # each refused on its first probe; a probe that fails is retried before the
+    # parent is given up on.
+    # An outage is waited out, not given up on: a bounded retry drained a queue into
+    # `platform_retry.txt` one parent per six minutes while the archive was down.
+    attempt = 0
+    while True:
+        status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
+        if status == "200":
+            break
+        attempt += 1
+        if time.time() > args.deadline:
+            sys.exit(f"control failed ({status}) at the deadline; refusing to sweep")
+        print(f"  control probe {attempt}: {status}, waiting", flush=True)
+        time.sleep(min(60 * attempt, 300))
 
-    written = pages = empty_run = 0
+    base = {
+        "url": args.suffix,
+        "matchType": "domain",
+        "fl": "original,timestamp",
+        "from": "1996",
+        "to": "2001",
+        "filter": "statuscode:200",
+        "pageSize": args.page_size,
+    }
+    num_pages = None
+    # `fl` turns the count into a row of dashes, so it is left out of this one query
+    count_q = {k: v for k, v in base.items() if k != "fl"}
+    status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
+    if status == "200" and rows and rows[0].strip().isdigit():
+        num_pages = int(rows[0])
+        print(f"  {num_pages:,} pages of {args.page_size:,} blocks", flush=True)
+    if num_pages is not None and page >= num_pages:
+        print(f"{args.suffix}: already walked to page {page:,} of {num_pages:,}")
+        (OUT / f"suffix_{safe}.done").touch()
+        return
+
+    written = pages = empty_run = same_page_fails = throttled = 0
     with gzip.open(journal, "wt") as fh:
         while time.time() < args.deadline:
-            status, rows = fetch(
-                {
-                    "url": args.suffix,
-                    "matchType": "domain",
-                    "fl": "original,timestamp",
-                    "from": "1996",
-                    "to": "2001",
-                    "filter": "statuscode:200",
-                    "pageSize": args.page_size,
-                    "page": page,
-                },
-                args.timeout,
-            )
-            if status in ("HTTP429", "HTTP503"):
-                print(f"  page {page}: {status}, stopping rather than hammering")
+            while PAUSE_FLAG.exists() and time.time() < args.deadline:
+                time.sleep(30)
+            if num_pages is not None and page >= num_pages:
+                print(f"  page {page:,} is the end of the index")
+                (OUT / f"suffix_{safe}.done").touch()
                 break
+            status, rows = fetch({**base, "page": page}, args.timeout)
+            if status in ("HTTP429", "HTTP503"):
+                # Rest and retry the same page a few times; only a persistent
+                # throttle ends the parent, and the state file resumes it later.
+                throttled += 1
+                if throttled > 5:
+                    print(f"  page {page}: {status} five times, stopping rather than hammering")
+                    break
+                print(f"  page {page}: {status}, resting", flush=True)
+                time.sleep(120)
+                continue
             if status != "200":
                 # A transient error should not end a multi-day sweep, but a run of
                 # them should: the difference is whether the next page answers.
+                # The same page is asked three times before it is skipped, so one
+                # 504 does not silently drop 200 blocks of captures.
                 empty_run += 1
                 if empty_run > 20:
                     print(f"  {empty_run} consecutive failures ending {status}, stopping")
                     break
-                page += 1
+                same_page_fails += 1
+                if same_page_fails >= 3:
+                    same_page_fails = 0
+                    page += 1
                 time.sleep(args.delay * 3)
                 continue
+            throttled = same_page_fails = 0
 
             if not rows:
+                # an empty page is a slice of the index with no in-window capture;
+                # only when the page count is unknown does a long run of them end
+                # the walk
                 empty_run += 1
-                if empty_run > 50:
+                if num_pages is None and empty_run > 50:
                     print(f"  {empty_run} consecutive empty pages, assuming the end")
+                    (OUT / f"suffix_{safe}.done").touch()
                     break
             else:
                 empty_run = 0
@@ -132,13 +192,17 @@ def main() -> None:
 
             pages += 1
             page += 1
-            if pages % 25 == 0:
-                fh.flush()
-                state.write_text(json.dumps({"next_page": page, "written": written}))
+            fh.flush()
+            state.write_text(
+                json.dumps({"next_page": page, "written": written, "page_size": args.page_size})
+            )
+            if pages % 5 == 0:
                 print(f"  page {page:,}: {written:,} rows written", flush=True)
             time.sleep(args.delay)
 
-    state.write_text(json.dumps({"next_page": page, "written": written}))
+    state.write_text(
+        json.dumps({"next_page": page, "written": written, "page_size": args.page_size})
+    )
     print(f"{args.suffix}: {pages:,} pages, {written:,} rows -> {journal}")
 
 

@@ -127,6 +127,52 @@ def parse_nypw_timemap(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     yield from _parse_nypw(path, stats, "nypw timemap capture")
 
 
+def parse_nypw_timemap_nonok(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield one record per in-window capture whose stored status is NOT 200.
+
+    The lane `_parse_nypw` throws away. A CDX row carries the status the
+    crawler received, and every status in this corpus is a three-digit HTTP
+    code, so a 302, 404 or 500 row says a server accepted the connection and
+    answered at the stamped instant, which needs the name delegated exactly as
+    a 200 does. The status describes the resource, not the registration, so
+    this is the same evidence class on the same bytes rather than a new one.
+
+    Kept as a separate spec rather than a relaxation of the parser above so
+    the 200 lane stays the control group: every pair this finds that the store
+    lacks is attributable to the relaxation alone.
+    """
+    with _open_text(path) as fh:
+        for line in fh:
+            stats["lines"] += 1
+            parts = line.split()
+            if len(parts) < _NYPW_FIELDS:
+                stats["malformed"] += 1
+                continue
+            timestamp, original, status = parts[2], parts[3], parts[5]
+            if len(timestamp) != 14 or not timestamp.isdigit():
+                stats["malformed"] += 1
+                continue
+            year = int(timestamp[:4])
+            if year not in YEARS:
+                stats["out_of_window"] += 1
+                continue
+            # a status that is not a three-digit HTTP code is not a server
+            # answering, so it evidences nothing; none appear in the corpus as
+            # ingested, and the guard keeps a future partition honest
+            if len(status) != 3 or not status.isdigit():
+                stats["no_response"] += 1
+                continue
+            if status == "200":
+                stats["ok_lane"] += 1
+                continue
+            yield BulkRecord(
+                raw=original,
+                year=year,
+                evidence_value=f"nypw timemap capture status {status} {timestamp}",
+                evidence_url=f"https://web.archive.org/web/{timestamp}/{original}",
+            )
+
+
 # A `split_usenet.py` journal: one JSON object per (domain, year), carrying the
 # Message-ID of the post that dated it. Two specs read the same format because
 # the split has already decided which half is which; the evidence type is the
@@ -2884,6 +2930,19 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="cdx_timestamp",
         acquisition_method="nypw_timemap",
         parse=parse_nypw_timemap,
+    ),
+    # The same 34 partitions read again with the status filter off. `_parse_nypw`
+    # has discarded every non-200 row since it was written, so no measurement in
+    # this project had ever looked at one; the lane is 6.37M rows, 12.8% of the
+    # corpus, and needs no archive request because the bytes are already on disk.
+    # Its yield is a 2001 effect, like its sibling's: a non-200 row adds nothing
+    # in a year the store already covers.
+    "nypw_timemaps_nonok": SourceSpec(
+        key="nypw_timemaps_nonok",
+        source_name="nypw_timemaps_nonok",
+        evidence_type="cdx_timestamp",
+        acquisition_method="nypw_timemap_non_200",
+        parse=parse_nypw_timemap_nonok,
     ),
     "cdx_snapshot": SourceSpec(
         key="cdx_snapshot",

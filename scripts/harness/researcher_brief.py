@@ -94,7 +94,11 @@ def collisions(proposal: str) -> str:
 HEADER = """You are ONE researcher in a parallel fan-out. Budget: about {budget} seconds for
 ALL of the hypotheses below. Nobody reads a status update; your output is files.
 
-Read CLAUDE.md first, it is binding. Then work the QUEUE below, in order, and STOP
+Read CLAUDE.md first, it is binding. Then read docs/ding/update-log.md: it is the
+reviewer's own instruction log and outranks every local heuristic. A direction or
+worked example he names there (or in docs/ding/project-brief.md) is the strongest
+prior you have: follow it before your own ideas, and treat his recorded negative
+knowledge as closed. Then work the QUEUE below, in order, and STOP
 when your budget is spent. Most hypotheses die on the probe in minutes; a queue means
 that when one dies you move to the next instead of finishing early.
 

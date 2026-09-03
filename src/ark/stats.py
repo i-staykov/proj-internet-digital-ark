@@ -64,6 +64,9 @@ PROVENANCE_LINEAGE = {
     # The TimeMap sibling reads the same IA index through the same tool, so it
     # joins the same family. It corroborates nothing our own Wayback queries say.
     "nypw_timemaps": "internet_archive",
+    # The non-200 lane of the same partitions. Same bytes, same index, so it
+    # cannot corroborate a Wayback query of ours any more than its sibling can.
+    "nypw_timemaps_nonok": "internet_archive",
     # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
     # shares the lineage for the same reason NYPW does.
     "dartmouth_bfs_seed": "internet_archive",
@@ -76,6 +79,9 @@ PROVENANCE_LINEAGE = {
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",
+    # The same survey files read one level down, at hostname grain (2026-09-02):
+    # the PTR walk naming a host is the walk naming its parent, one lineage.
+    "isc_survey_hostnames": "dns_survey",
     "afnic_fr": "registry",
     # Registry creation dates in bulk. Same lineage as our live RDAP sweeps by
     # construction: both ask a registry when it created a name, so a pair they both
@@ -87,6 +93,20 @@ PROVENANCE_LINEAGE = {
     # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
     # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
+    # The NS targets of the same zone files, at hostname grain (2026-09-02). Same
+    # registry statement read one column to the right, so the same lineage.
+    "internic_zone_hostnames": "registry",
+    "internic_zone_hostnames_1999": "registry",
+    # The NS targets of RIPE domain objects, at hostname grain (2026-09-02). The same
+    # registry database read one attribute further, so the same lineage as its two
+    # registrable lanes below.
+    "ripe_nserver_hostnames": "registry",
+    # The hostname unit's capture lanes all read the Internet Archive's own index, the
+    # live CDX API or its bulk CDX files, so they share that lineage: a hostname this
+    # confirms beside an Early Web row is IA agreeing with itself.
+    "ia_cdx_hostnames": "internet_archive",
+    "early_web_cdx_hostnames": "internet_archive",
+    "usfedgov_extract_hostnames": "internet_archive",
     "iedr_register": "registry",
     # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
     # so it shares the registry lineage rather than earning its own: a pair this and a
@@ -129,6 +149,7 @@ PROVENANCE_LINEAGE = {
     # Internet Archive's. It shares the family with junkfilter for the same reason
     # both take the corroboration split: a person typed the name.
     "chastity_list_blacklist": "blocklist",
+    "chastity_list_hostnames": "blocklist",
     "chastity_list_mention": "blocklist",
     # Granite Canyon is a free-DNS operator reading out its own BIND configuration,
     # so the lineage is the nameserver, not a crawl and not the Internet Archive:
@@ -151,6 +172,7 @@ PROVENANCE_LINEAGE = {
     # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
     # fetching in 2001 and owes the archive nothing.
     "squidguard_2001_blacklist": "crawl",
+    "squidguard_2001_hostnames": "crawl",
     "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
