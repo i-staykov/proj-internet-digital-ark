@@ -49,11 +49,17 @@ same command again. Each run appends to a log in `data/logs/`.
 just setup       # uv sync
 just hooks       # install the pre-commit gate, which refuses a red commit
 just reproduce   # all six stages below, offline
-just check       # lint + format-check + tests, then the seventeen data invariants
+just check       # lint + format-check + tests, then the data invariants
 ```
 
-`just check-data` runs the data invariants and `just verify-repo` runs the code checks; `just check`
-runs both. They fail differently, which is why neither gets the bare name.
+`just check data` runs the data invariants and `just check code` runs the code checks; the bare
+`just check` runs both. They fail differently, which is why neither answers to the bare name.
+`lint`, `fmt`, `test` and `scan` are the same dispatcher's other words.
+
+**Eight recipes take a word instead of having one name each**, which is what keeps the set under
+forty: `check`, `collect`, `engines`, `expand`, `reproduce`, `schedule`, `ship` and `verify`. Each
+prints its own choices when handed a word it does not know, `just collect` with no source lists the
+collectors, and `just` alone lists everything with the choices underneath.
 
 ### What is unexhausted, in one command
 
@@ -97,21 +103,19 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | recover | `uv run python scripts/engines/recover_dead_hosts.py` | asks the Wayback Machine for the **data files** of hosts the register wrote off as dead, which is a different question from re-probing the host. Proved twice on 2026-08-16: `nw.com/zone/9701.domains.gz` was recorded unrecoverable and is intact, worth 76,324 pairs; `cybermetrics.wlv.ac.uk` does not resolve and its whole `/database/` tree survives including a 166 MB zip. **It reports and never fetches**, because a file can be available, dated, and 100% already held |
 | probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
-| ship it | `just ship-approved` | banks every class a human has newly moved to `master`, then exports, runs the seventeen invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, and builds the `.docx`. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step |
+| ship it | `just ship` | banks every class a human has newly moved to `master`, then exports, runs the data invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, builds the `.docx`, writes the mail draft and closes the gate issue. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
 | approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | rank | `just triage-rank` | sorts the triage queue in [docs/approved-sources-list.md](approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
 | brief | `uv run python scripts/round/extract_ding_docs.py --package feedback-phase-N` | transcribes the reviewer's `.docx` into [docs/ding/](ding/) with pandoc, adding only a provenance header carrying the source file's sha256. Run it when a new task package arrives. The body is never retyped: a paraphrase of the brief is the one document here that must not exist |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
-| schedule | `just schedule` / `just unschedule` | loads a launchd job that runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **It needs Full Disk Access and says so**: this repository sits under `~/Documents`, which macOS TCC protects, and a launchd agent inherits nothing from the terminal that installed it, so without the grant it exits 126 four times a day while `launchctl list` looks perfectly normal. The recipe therefore runs the job once and reports its exit status rather than trusting the load. **It reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
-| overnight | `just hunt-overnight <epoch>` | the unattended half of *discovery*, on its own absolute deadline. Loops `reprobe_closed.py` and `just cycle`, which are the two steps that need judgement neither to generate their input nor to decide whether an answer is interesting: a host closed on availability that now answers 200 is interesting by construction. It also probes the one lead blocked on a server rather than a measurement, per the row below. It fetches no payload, ingests nothing, and can promote nothing, because the approval gate is exactly what bounds an unattended agent. Safe beside both collectors because the reprobe excludes `web.archive.org` in its own `SKIP_HOSTS`. Holds a lock, so a second copy refuses to start. Log: `data/logs/overnight_hunt.log` |
+| schedule | `just schedule install` / `just schedule remove` | loads a launchd job that runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **It needs Full Disk Access and says so**: this repository sits under `~/Documents`, which macOS TCC protects, and a launchd agent inherits nothing from the terminal that installed it, so without the grant it exits 126 four times a day while `launchctl list` looks perfectly normal. The recipe therefore runs the job once and reports its exit status rather than trusting the load. **It reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
 | re-split | `bash scripts/engines/compound_splits.sh <epoch>` | **the largest single lever measured in round 7, and it reads nothing new.** The corroboration split promotes a mention to a dated record only when some other source already places that domain in a year, and that test is re-evaluated every time the split runs, so the same journals are worth more as the store grows. On 2026-08-27 re-splitting the address journals paid 30,645.6 equivalent-English against roughly 700 pairs from the 60 new archives that triggered it, and the bare journals paid 11,447.7 against 128.17 for their 400 new archives: ratios of about 40:1 and 90:1 in favour of re-splitting over reading. Loops the promotion tranche and both corpora to a deadline, and skips a pass rather than queueing when the store's single writer is busy |
 | usenet seams | `bash scripts/sources/usenet/work_usenet_addresses.sh <epoch> [batch] [workers] [addresses\|headers]`, `bash scripts/sources/usenet/work_usenet_bare.sh <epoch>` | the three extractors that read what `usenet_announce` does not: `ftp://` and `mailto:` and typed body addresses, the message headers, and the bare `foo.com` written in prose. **All three read `data/raw/usenet`, which was reclaimed once processed and now holds zero archives, so all three had silently become no-ops** over the 16,797 archives that are on disk in `usenet_bulk` and `usenet_new`. Pass a deadline; they batch, stage each batch as symlinks so no bytes move, and bank every eighth batch because the split is O(all journals) while the extraction is O(this batch). Worth 38,639 and 13,955 equivalent-English respectively in round 7 |
 | pool queue | `uv run python scripts/engines/build_multisrc_queue.py` | ranks the candidate pool by **how many independent sources name each string**, which is a filter the modelled hit rate cannot express. It exists because the modelled ranking put fabricated names first: on 2026-08-27 a rebuild took the local engine from 1.15-1.66 years per query to 0.014, with 18,184 of the queue's first 20,000 lines `.ca` strings like `afakeaddress.ca`. 86.32% of the pool is named by exactly one source; the multi-source slice is 325,127 names worth 209,036 equivalent-English. **Unmeasured against the gap population and not switched into a running engine**, because a gap target is a name already held and so cannot be fabricated |
-| run to a deadline | `just agent-loop <epoch>` | **drives the agent from OUTSIDE the agent**, because a `/goal` stop hook cannot tell an hour of work from an hour of `sleep`: it fires only when the agent tries to stop. Measured on 2026-08-27, a nine-hour goal-driven session still produced an idle hour. Each iteration is a fresh `claude -p` with one task from `private/agent-tasks.md`, so a long run cannot degrade as its context fills, which is the real cause of late-session idling: the agent deciding how hard to work is the same agent running out of room to think. Every iteration is scored in net-new equivalent-English before and after, and one that moves under 0.01 EE with no commit is logged `NOOP`; three in a row stops the loop so a human sees an empty queue rather than a spinning agent. `just agent-loop-log` prints the ledger. This is the same discipline the collectors get: absolute epoch deadline, progress marker on disk, journal per batch |
 | hunt | `Workflow` with `hunt-new-sources` | the standing work of every wake that finds the engines healthy: five independent lenses propose named sources, a sceptic per lens collides each against the closed register and probes whether the data is actually retrievable in 2026, and the survivors are written into the triage queue. **Never stop looking** is a rule in `CLAUDE.md`, not a preference |
 
 **The boundary, stated plainly.** A cycle can notice that a collector died, **that a collector is alive
@@ -179,24 +183,24 @@ cd data/raw && shasum -a 256 -c checksums.sha256   # expect 234 OK, plus one kno
 
 The manifest pins 235 files and one of them, `arquivo/IA.cdxj`, was **deliberately deleted** at 47 GB
 once its evidence was in the store. So the expected result is 234 OK lines and one missing-file error
-for that path. `just sources` skips it for the same reason and says so.
+for that path. `just reproduce sources` skips it for the same reason and says so.
 
 **The network journals ship with the delivery**, under `journals/`. They hold the raw responses of
 every query ever made, so Part 2 replays every network stage offline.
 
 ### Part 2: rebuild the result
 
-Six stages, all offline. `just reproduce` runs them in order; the recipes are the authoritative list
-of what gets ingested, and `just --list` names them.
+Six stages, all offline, one recipe. `just reproduce` runs them in order and `just reproduce <stage>`
+runs one; the stage bodies are the authoritative list of what gets ingested.
 
 | Stage | Recipe | What it does, and what to look for |
 |---|---|---|
-| 1 | `just baseline` | `ark init`, then loads the current release, writes the exclusion droplist, writes the normalization audit. Expect **6 files ingested, 0 skipped**. `6 skipped` means the marker namespace already exists, which is the silent no-op described below |
-| 2 | `just sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph both ways, NCSA What's New |
-| 3 | `just candidates` | Grows the candidate pool from the year-unlabelled host lists |
-| 4 | `just journals` | Replays every stored network response: CDX, RDAP, page expansion, Usenet and its three re-read seams, UUCP, rtfm, Enron, mailing lists, trade press |
-| 5 | `just seeds` | Rebuilds the auxiliary hostname and URL pool, the granularity the registered-domain unit drops |
-| 6 | `just deliver` | `ark export`, then `ark stats`, then `ark check`. **Export must precede check**, see below |
+| 1 | `just reproduce baseline` | `ark init`, then loads the current release, writes the exclusion droplist, writes the normalization audit. Expect **6 files ingested, 0 skipped**. `6 skipped` means the marker namespace already exists, which is the silent no-op described below |
+| 2 | `just reproduce sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph both ways, NCSA What's New |
+| 3 | `just reproduce candidates` | Grows the candidate pool from the year-unlabelled host lists |
+| 4 | `just reproduce journals` | Replays every stored network response: CDX, RDAP, page expansion, Usenet and its three re-read seams, UUCP, rtfm, Enron, mailing lists, trade press |
+| 5 | `just reproduce seeds` | Rebuilds the auxiliary hostname and URL pool, the granularity the registered-domain unit drops |
+| 6 | `just reproduce deliver` | `ark export`, then `ark stats`, then `ark check`. **Export must precede check**, see below |
 
 Stages 2 and 3 are order-independent. Stage 4 must follow them, because a replayed query is evidence
 about a domain the bulk sources introduced, and the corroboration split in stage 4 is judged against
@@ -209,8 +213,8 @@ wc -l output/netnew/*.txt   # equals the net-new pair count from `ark stats`
 **`ark check` must run after `ark export`, not before.** One invariant,
 `additions_not_double_counted`, reads the exported annual files and asserts that no domain in them
 carries baseline evidence for that year. Run it against a store whose baseline has moved since the
-last export and it correctly reports every already-credited pair as a violation. `just deliver` has
-the order right.
+last export and it correctly reports every already-credited pair as a violation.
+`just reproduce deliver` has the order right.
 
 ### Loading a new reviewer release
 
@@ -222,7 +226,7 @@ cp data/ark.duckdb data/ark.duckdb.pre-<release>.bak   # there is no unload comm
 # edit src/ark/baseline.py: CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER,
 # CURRENT_ROUND_SINCE, REVIEWER_BASELINE_PAIRS, REVIEWER_BASELINE_EE, ..._BY_YEAR
 uv run ark ingest-legacy    # expect: 6 files ingested, 0 skipped
-just deliver                # export, stats, check, in that order
+just reproduce deliver      # export, stats, check, in that order
 uv run python scripts/round/round_figures.py --verify
 ```
 
@@ -240,25 +244,31 @@ Its overlap guard reading zero is also the proof that the new release actually l
 
 ### Package the delivery archive
 
-**Use `just ship` rather than packaging by hand.** `package` refuses unless `output/` matches the store
-**exactly**, and the store moves every time the ingest loop banks a journal, which is every few minutes. So
-a hand-run `ark export` followed by `just package` races the loop and refuses, and the evening a round
-ships is the wrong time to find that out. Measured on 2026-08-13: export wrote 170,186 pairs and packaging
-read 170,787 from the store minutes later.
+**Use `just ship` rather than packaging by hand.** The packaging stage refuses unless `output/` matches
+the store **exactly**, and the store moves every time the ingest loop banks a journal, which is every few
+minutes. So a hand-run `ark export` followed by `just ship package` races the loop and refuses, and the
+evening a round ships is the wrong time to find that out. Measured on 2026-08-13: export wrote 170,186
+pairs and packaging read 170,787 from the store minutes later.
 
 ```bash
-just ship            # quiesce ingestion, export, run the seventeen invariants, package, verify
+just ship --help     # the whole chain, printed, nothing run
+just ship            # bank the approved, export, gate, package, verify, draft the mail
 ```
+
+`just ship` ends by writing the mail draft under `private/emails/drafts/`, carrying the figures
+`fill_report.py` filled, the cumulative record from [rounds.md](rounds.md) and one line per open row of
+[questions.md](questions.md) that is due for a reminder, and it closes the gate issue on a verified
+delivery. `just ship draft` prints that mail and writes nothing.
 
 Only the **ingest** loop pauses. Collectors writing journals do not move the store, so they keep running
 and their work banks afterwards; journals are ledgered by content hash, so re-offering an ingested one is
-skipped in milliseconds. The recipe prints the command to restart the loop when it finishes.
+skipped in milliseconds. The recipe restarts the loop on exit if it was running when ship began.
 
 ```bash
 uv run ark export                       # refresh output/ from the store first
 uv run python scripts/round/fill_report.py    # substitutes every figure into docs/report.md
-just package                            # tar.gz plus its SHA256, into submissions/<round>/
-just verify-delivery                    # run the archive's own checks from outside
+just ship package                       # tar.gz plus its SHA256, into submissions/<round>/
+just verify delivery                    # run the archive's own checks from outside
 ```
 
 Packaging refuses to build from a modified working tree, from an `output/` older than the store, from
@@ -267,7 +277,7 @@ the figures are measured against is not on disk to ship alongside them. Each of 
 because the failure it catches has happened.
 
 The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
-explicitly with `just package phase-5`. The tarball is git-ignored; the report, the source
+explicitly with `just ship package phase-5`. The tarball is git-ignored; the report, the source
 documentation, the checksum and `MANIFEST.txt` stay in git, which is enough to say later exactly what
 was claimed and to prove a rebuilt archive matches. **Add a row to `submissions/README.md` after each
 send.**
@@ -300,7 +310,7 @@ The rate is a ceiling and a pilot is what settles it. See ADR-006; nothing point
 because that allocation is a `key-decisions.md` question.
 
 ```bash
-just query-queue-preview            # what it would return, writes nothing
+just query-queue --dry-run          # what it would return, writes nothing
 just query-queue                    # -> queue_shard0.txt, queue_shard1.txt, queue_manifest.tsv.gz
 
 # one population at a time, for one machine
@@ -320,13 +330,13 @@ than the crawl closes it, so a queue written before a release lands is structura
 ### Running the engines
 
 ```bash
-just engines-start $(date -u -v+12d +%s)   # collector and ingest loop, both detached
+just engines start $(date -u -v+12d +%s)   # collector and ingest loop, both detached
 just engines                                # what both machines are doing
-just engines-stop                           # without losing the batch in flight
+just engines stop                           # without losing the batch in flight
 just maintain                                # fold finished collector output in, on a loop
 ```
 
-`engines-stop` sends TERM to the supervisor, which runs its trap, asks the batch to stop, and lets it
+`just engines stop` sends TERM to the supervisor, which runs its trap, asks the batch to stop, and lets it
 publish what it already has. A stopped batch still writes its journal, so the only thing lost is the
 queries it had not made yet. **Never `kill -9` a collector**: that strands the `.part`, and since the
 ingest ledger keys on the finished name, the work inside it becomes unreachable.
@@ -419,7 +429,7 @@ against the VPS's 262, and an even split leaves the fast machine grinding its ow
 expensive head of the other half goes untouched.
 
 ```bash
-just query-queue 78,22                       # weights, measured speeds
+just query-queue --weights 78,22 --rates 916,262   # shares, measured speeds
 bash scripts/engines/make_vps_bundle.sh              # ship share 1 and the repo
 bash scripts/engines/vps_bootstrap.sh                # then, on that machine
 ```
@@ -470,19 +480,26 @@ Each is a collect-then-split pair: the collector writes a journal and touches no
 sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
 and residual headroom for every one are in [docs/sources.md](sources.md).
 
+One recipe, the source as its argument. `just collect` with no source lists them.
+
 ```bash
-just usenet-ingest        # split and ingest whatever has finished downloading
-just usenet-bare          # bare `foo.com` in the message bodies, no request sent
-just usenet-addresses     # ftp://, mailto: and typed addresses the parser never read
-just uucp-maps            # a .CA registry dump that travelled over Usenet
-just rtfm-faqs <tag>      # the Usenet FAQ mirror, dated by revision header
-just trade-press          # scanned computer magazines, dated by issue
-just trade-press-reextract
-just attrition            # the defacement mirror index, no request sent
-just enron                # the FERC corpus, dated per message
-just maillists            # public pipermail archives, dated per message
-just tucows               # software release dates plus the vendor's home page
-just expand-round <seeds> <n>   # archived page expansion, the outbound-link route
+just collect usenet-ingest        # split and ingest whatever has finished downloading
+just collect usenet-bare          # bare `foo.com` in the message bodies, no request sent
+just collect usenet-addresses     # ftp://, mailto: and typed addresses the parser never read
+just collect usenet-whois         # whois records pasted into the bodies
+just collect usenet-measure <archives>   # yield against the store, before ingesting
+just collect uucp-maps            # a .CA registry dump that travelled over Usenet
+just collect rtfm-faqs <tag>      # the Usenet FAQ mirror, dated by revision header
+just collect trade-press          # scanned computer magazines, dated by issue
+just collect trade-press-reextract
+just collect trade-press-american <journal>
+just collect attrition            # the defacement mirror index, no request sent
+just collect enron                # the FERC corpus, dated per message
+just collect maillists            # public pipermail archives, dated per message
+just collect tucows               # software release dates plus the vendor's home page
+just collect pandora-seed         # the PANDORA title index into the candidate pool
+just expand round <seeds> <n>     # archived page expansion, the outbound-link route
+just expand loop                  # the closed loop: engine hits become the next seeds
 ```
 
 Three rules that came out of these, all of them expensive to learn:
@@ -523,7 +540,7 @@ nothing else, short enough to read on a phone; the method goes in an attached re
 attachment as `.docx`:
 
 ```bash
-just report-docx docs/report.md
+just ship docx docs/report.md
 ```
 
 The drafts under `private/` carry a status block at the top and a `## Notes for Ivo` section at the

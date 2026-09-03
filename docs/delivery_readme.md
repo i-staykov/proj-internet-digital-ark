@@ -175,7 +175,7 @@ just reproduce
 
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
-this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
+this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing, which is how
 it behaved before 2026-08-18. **The five excluded journal sets will replay nothing** until they are restored: the RDAP
 logs on request, the other four by re-deriving them from the public sources `sources.md` links.
 Every assignment they back is checkable by tier 2, which is the route below.

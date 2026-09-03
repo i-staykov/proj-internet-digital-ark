@@ -117,7 +117,6 @@ def test_claude_md_stays_short() -> None:
 
 
 @pytest.mark.skipif(shutil.which("just") is None, reason="just not on PATH")
-@pytest.mark.xfail(strict=True, reason="lifted by E3.7")
 def test_justfile_has_at_most_forty_recipes() -> None:
     """`just --summary` lists at most 40 recipes."""
     out = subprocess.run(

@@ -183,7 +183,7 @@ REPORT="docs/report.md"
 if [ -f docs/report.docx ]; then
     cp docs/report.docx "$STAGE/report.docx"
 else
-    echo "warning: docs/report.docx missing, run: just report-docx docs/report.md" >&2
+    echo "warning: docs/report.docx missing, run: just ship docx docs/report.md" >&2
 fi
 cp "$REPORT" "$STAGE/report.md"
 # the reviewer's own check, runnable from inside the unpacked folder
@@ -272,7 +272,7 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # are verdicts from earlier engine versions and they must not sit beside the
 # current ones.
 # **Structure preserved, not flattened.** This copied every journal into one flat
-# directory, and `just journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
+# directory, and `just reproduce journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
 # `data/raw/expand/round2/...`, `data/raw/usenet/...`. So tier 3's replay stage matched
 # nothing for every source while the archive README claimed "this is what tier 3 replays,
 # so every network stage reproduces offline". Found 2026-08-18 by running the layout
@@ -545,7 +545,7 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # enough to say later exactly what was claimed in a given round and to prove a
 # recovered tarball is the one that was sent, without keeping gigabytes in the
 # repository. Rebuilding a superseded round is `git checkout <commit>` then
-# `just deliver && just package`.
+# `just reproduce deliver && just ship package`.
 cp docs/report.md "$ROUND_DIR/report.md"
 cp docs/sources.md "$ROUND_DIR/sources.md"
 cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"

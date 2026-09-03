@@ -18,7 +18,7 @@ The evidence bar and the standing approval rule are in `docs/rules.md`; the comm
    `uv run ark check`, in that order.
 5. A five-figure source banks together with its paragraph in `docs/report.template.md`.
 
-`just ship-approved` runs step 3 to 4 as the first stage of shipping, so a rehearsal before any
+`just ship` runs step 3 to 4 as the first stage of shipping, so a rehearsal before any
 decision arrives exercises every later step and changes nothing.
 
 Traps worth re-reading in `docs/traps.md`: an already-ingested journal shows zero net-new by

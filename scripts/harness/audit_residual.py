@@ -7,7 +7,7 @@ no network and no write lock, so it can run before every collection decision.
 
 **It exists because the answer was worth 14,956 equivalent-English on 2026-08-10.**
 496 per-TLD ISC survey shards had been on disk since 5 August, matched by a glob
-`just sources` already documented, and no ingest had ever read them. Nothing here
+`just reproduce sources` already documented, and no ingest had ever read them. Nothing here
 searched for a new source; it diffed disk against the ingest ledger. Every
 measurement the project takes starts from the store, so every one of them was
 blind to those files.
