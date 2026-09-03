@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ark import key_decisions  # noqa: E402
+from ark.approvals import load as load_approvals  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.yield_check import (  # noqa: E402
     Collector,
@@ -510,6 +511,18 @@ def check_approvals() -> tuple[list[str], list[str]]:
     priced = [a for a in waiting if not a.is_triage]
     if not waiting:
         findings.append("approvals: nothing pending")
+    # Since 2026-09-03 the triage section holds only open entries: a decision taken there
+    # is filed by `scripts/round/split_triage.py`, which moves master blocks to Decided and
+    # rejected ones to `sources-closed.md` behind a stub. Ivo decides in place, so the split
+    # runs after him; a decided block still sitting in triage means it has not run yet.
+    decided_in_triage = [
+        a for a in load_approvals(APPROVALS).values() if a.is_triage and a.decision != "pending"
+    ]
+    if decided_in_triage:
+        findings.append(
+            f"approvals: {len(decided_in_triage)} decided entr(ies) still in the triage section, "
+            f"run `uv run python scripts/round/split_triage.py`"
+        )
     if priced:
         findings.append(f"approvals: {len(priced)} priced class(es) awaiting classification")
         attention.append(

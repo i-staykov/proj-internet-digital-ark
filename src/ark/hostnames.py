@@ -16,6 +16,16 @@ The evidence wall is the one the registrable unit uses, unchanged:
   `to_registrable` funnel every registrable passed, and a hostname that IS its own
   registrable is refused here, because that record belongs to `domain_year`.
 
+Two conditions come from the PURPOSE he gave for the unit, retrieving archived pages
+as completely as possible, rather than from its letter (tightened 2026-09-02):
+
+- the observation must show the host serving web content: a capture of a URL on it,
+  or a URL listing naming it. A DNS listing (a reverse-walk survey, an `nserver:`
+  attribute, an NS target in a zone) proves a machine answered, not a site, so those
+  lanes keep dating the parent registrable and write no hostname year;
+- `www.<parent>` is the parent's own site under the name every crawler tries first, so
+  it is not a separate record; the capture dates the registrable instead.
+
 The registrable half of the same journal is NOT this module's job:
 `cdx_suffix_convert.py` already collapses capture rows into per-domain year sets for
 the approved `cdx_snapshot` ingest, and both halves can be run over one journal.
@@ -26,17 +36,15 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
-import logging
 import re
 from collections import Counter
 from pathlib import Path
 
 import duckdb
+from loguru import logger
 
 from ark.canonical import to_registrable
 from ark.ingest import ensure_source
-
-logger = logging.getLogger(__name__)
 
 SOURCE_NAME = "ia_cdx_hostnames"
 # One source row, two acquisition methods: the NYPW TimeMap parts re-emitted at hostname
@@ -63,6 +71,27 @@ def source_for(path: Path) -> tuple[str, str]:
     if path.name.startswith("usfedgov_"):
         return USFEDGOV_SOURCE, USFEDGOV_METHOD
     return SOURCE_NAME, SWEEP_METHOD
+
+
+# The lanes whose observation shows the host serving web content. Only these write
+# hostname_year; a lane missing here still runs and still dates the parent registrable
+# from the same row, so nothing is lost if the reviewer later rules DNS listings count.
+WEB_FACING_HOST_SOURCES = frozenset(
+    {
+        SOURCE_NAME,
+        EARLY_WEB_SOURCE,
+        USFEDGOV_SOURCE,
+        "squidguard_2001_hostnames",
+        "chastity_list_hostnames",
+    }
+)
+# `www.<parent>` is the parent's own site, so the SQL every hostname_year insert carries.
+NOT_WWW_OF_PARENT = "{h}.hostname <> 'www.' || {h}.parent"
+
+
+def writes_hostname_years(source_name: str) -> bool:
+    """Whether a lane's observation is web-facing and so may write hostname records."""
+    return source_name in WEB_FACING_HOST_SOURCES
 
 
 # The reviewer accepts "valid hostnames": RFC 1123 letters, digits and hyphens only.
@@ -203,6 +232,9 @@ def ingest_hostname_journal(
             JOIN evidence e
               ON e.domain = h.parent AND e.evidence_year = h.year
              AND e.evidence_value = 'cdx capture ' || h.ts || ' ' || h.hostname
+            WHERE """
+            + NOT_WWW_OF_PARENT.format(h="h")
+            + """
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
@@ -370,18 +402,19 @@ def ingest_zone_hostnames(
             """,
             [source_id, prefix, ZONE_CAPTURE_URLS.get(path.name), ZONE_METHOD],
         )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT z.hostname, z.parent, z.year, e.evidence_id
-            FROM zonehost z
-            JOIN evidence e
-              ON e.domain = z.parent AND e.evidence_year = z.year
-             AND e.evidence_value = ? || z.hostname
-            """,
-            [prefix],
-        )
+        if writes_hostname_years(source_name):
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO hostname_year
+                    (hostname, parent_domain, assigned_year, evidence_id)
+                SELECT z.hostname, z.parent, z.year, e.evidence_id
+                FROM zonehost z
+                JOIN evidence e
+                  ON e.domain = z.parent AND e.evidence_year = z.year
+                 AND e.evidence_value = ? || z.hostname
+                """,
+                [prefix],
+            )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
         stats["hostname_year_rows"] = after - before
         # The registry serving `ns1.foo.com` for a delegation is also its statement
@@ -636,6 +669,9 @@ def ingest_blocklist_hostnames(
             JOIN evidence e
               ON e.domain = l.parent AND e.evidence_year = l.year
              AND e.evidence_value = l.value
+            WHERE """
+            + NOT_WWW_OF_PARENT.format(h="l")
+            + """
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
@@ -853,17 +889,18 @@ def ingest_ripe_nserver_hostnames(
             """,
             [source_id, RIPE_NS_URLS[path.name], method],
         )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT r.hostname, r.parent, r.year, e.evidence_id
-            FROM ripehost r
-            JOIN evidence e
-              ON e.domain = r.parent AND e.evidence_year = r.year
-             AND e.evidence_value = r.value
-            """,
-        )
+        if writes_hostname_years(RIPE_NS_SOURCE):
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO hostname_year
+                    (hostname, parent_domain, assigned_year, evidence_id)
+                SELECT r.hostname, r.parent, r.year, e.evidence_id
+                FROM ripehost r
+                JOIN evidence e
+                  ON e.domain = r.parent AND e.evidence_year = r.year
+                 AND e.evidence_value = r.value
+                """,
+            )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
         stats["hostname_year_rows"] = after - before
         # The registry naming `ns.foo.net` as serving a delegation that day is the same
@@ -1011,17 +1048,18 @@ def ingest_isc_hostnames(
             """,
             [source_id, artifact_url, ISC_METHOD],
         )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT i.hostname, i.parent, i.year, e.evidence_id
-            FROM ischost i
-            JOIN evidence e
-              ON e.domain = i.parent AND e.evidence_year = i.year
-             AND e.evidence_value = i.value
-            """,
-        )
+        if writes_hostname_years(ISC_SOURCE_NAME):
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO hostname_year
+                    (hostname, parent_domain, assigned_year, evidence_id)
+                SELECT i.hostname, i.parent, i.year, e.evidence_id
+                FROM ischost i
+                JOIN evidence e
+                  ON e.domain = i.parent AND e.evidence_year = i.year
+                 AND e.evidence_value = i.value
+                """,
+            )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
         stats["hostname_year_rows"] = after - before
         # The survey answering for `pc50.foo.co.uk` that month is the same observation

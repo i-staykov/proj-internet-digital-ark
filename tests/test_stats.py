@@ -147,6 +147,35 @@ def test_netnew_pair_survives_unrelated_baseline_year() -> None:
     assert stats["netnew_domains"] == 0
 
 
+def test_scoreboard_counts_only_what_ships() -> None:
+    """The brief once quoted 866 pairs that `ark export` drops, 479.4256 EE no round could
+    be credited for. The scoreboard applies the shipping filter the export applies."""
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    add_candidate(conn, "real.com", cdx)
+    _assign(conn, "real.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    # .info was delegated in 2001, so a 1996 pair predates its own TLD
+    add_candidate(conn, "early.info", cdx)
+    _assign(conn, "early.info", cdx, 1996, "cdx_timestamp", "19960101000000")
+    # the reverse-DNS tree never ships
+    add_candidate(conn, "x.arpa", cdx)
+    _assign(conn, "x.arpa", cdx, 1999, "cdx_timestamp", "19990101000000")
+    # a candidate under a TLD that did not exist in the window
+    add_candidate(conn, "never.sucks", cdx)
+    add_candidate(conn, "maybe.org", cdx)
+
+    stats = collect_stats(conn)
+    assert stats["netnew_pairs_by_year"] == {1998: 1}
+    assert stats["netnew_domains"] == 1
+    assert stats["discovery_pairs"] == 1
+    assert stats["ee_netnew"] == stats["ee_discovery_pairs"] == stats["ee_netnew_domains"]
+    assert stats["ee_assigned"] == stats["ee_netnew"]
+    assert stats["candidate_pool"] == 1
+    # the store still holds every row; only the scored figures narrow
+    assert stats["total_pairs"] == 3
+    assert stats["total_domains"] == 5
+
+
 def test_format_stats_renders() -> None:
     out = format_stats(collect_stats(_populated_db()))
     assert "net-new domains" in out

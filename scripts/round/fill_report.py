@@ -22,9 +22,9 @@ import argparse
 import json
 import re
 import sys
-from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 from ark.db import connect_read_only_patiently
 
@@ -36,10 +36,12 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
-    SUBMISSION_SPEED_K,
     SUBMITTED_ROUNDS,
 )
+from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.figures import cumulative as score_total  # noqa: E402
+from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -239,19 +241,10 @@ CLASS_GROUNDS = {
 ATTRIBUTION_FLOOR_EE = Decimal("1000")
 
 
-# A dialup or numbered-workstation shape: a leading label with two digits or more, or a
-# pool word (`ppp`, `dyn`, `modem`, ...) as a label. The disclosure the ISC survey
-# admission promises the reviewer; conservative in the sense that it over-catches.
-DIALUP_SHAPE = (
-    r"^([a-z0-9-]*\d[a-z0-9-]*\d[a-z0-9-]*\.)|"
-    r"(^|\.)(ppp|pool|dial|dialup|dyn|dynamic|modem|slip|pm|port|term|tty|async|line|node|"
-    r"ip|ras|cust|host|user|dhcp)[a-z0-9-]*\."
-)
-
-
-def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[str, Decimal]]:
-    """(records, EE) per acquisition method over the SHIPPED hostname files, the share
-    of them that are `www.` forms of a registrable, and the dialup-shape share per method.
+def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
+    """(records, EE) per acquisition method over the SHIPPED hostname files, and the
+    share of them that are `www.` forms below a registrable (`www.<parent>` itself is
+    refused at ingest, so what remains is `www.sub.parent`).
 
     Joined against the shipped manifest rather than the store, so the table describes
     the files in the archive: the store holds hostname rows the export filters out.
@@ -263,13 +256,8 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[
     manifest = netnew / "hostnames_evidence_manifest.csv"
     files = sorted(netnew.glob("*_hostnames.txt"))
     if not manifest.is_file() or not files:
-        return {}, Decimal(0), {}
-    raw = json.loads((repo / "src/ark/data/tld_english_share.json").read_text())
-    weights = [
-        (str(t).lower(), float(p) / 100)
-        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if t and lang == "eng"
-    ]
+        return {}, Decimal(0)
+    weights = [(tld, float(share)) for tld, share in english_weights().items()]
     conn = duckdb.connect()
     conn.execute("CREATE TABLE w(tld VARCHAR, weight DOUBLE)")
     conn.executemany("INSERT INTO w VALUES (?, ?)", weights)
@@ -292,22 +280,14 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal, dict[
         [str(manifest)],
     ).fetchall()
     www = conn.execute(
-        "SELECT sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*) FROM h"
+        # coalesce: the files exist but are empty at the start of a round
+        "SELECT coalesce(sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*), 0) "
+        "FROM h"
     ).fetchone()[0]
-    dialup = conn.execute(
-        """
-        SELECT m.acquisition_method,
-               sum(CASE WHEN regexp_matches(h.hostname, ?) THEN 1 ELSE 0 END) / count(*)
-        FROM h JOIN read_csv_auto(?, header=true) m USING (hostname, assigned_year)
-        GROUP BY 1
-        """,
-        [DIALUP_SHAPE, str(manifest)],
-    ).fetchall()
     conn.close()
     return (
         {m: (int(n), Decimal(str(round(ee, 4)))) for m, n, ee in rows},
         Decimal(str(www)),
-        {m: Decimal(str(share)) for m, share in dialup},
     )
 
 
@@ -428,13 +408,10 @@ def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     return "\n".join(lines)
 
 
-def grouped_ee(
-    f: dict, hosts: dict[str, tuple[int, Decimal]], dialup: dict[str, Decimal] | None = None
-) -> dict[str, str]:
-    """Section 2's three-item story, summed from the same rows as the table so the
+def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]:
+    """Section 3's per-lane figures, summed from the same rows as the table so the
     prose cannot drift from it."""
     by = {r["source"]: (r["pairs"], Decimal(str(r["ee"]))) for r in f["by_source"]}
-    dialup = dialup or {}
 
     def total(names: list[str]) -> tuple[int, Decimal]:
         n = sum(by.get(x, (0, Decimal(0)))[0] for x in names)
@@ -449,10 +426,9 @@ def grouped_ee(
     h_sweep = hosts.get("ia_cdx_domain_sweep", (0, Decimal(0)))
     h_ew = hosts.get("early_web_hostgrain", (0, Decimal(0)))
     h_fg = hosts.get("usfedgov_extract_hostgrain", (0, Decimal(0)))
-    h_isc = hosts.get("isc_survey_host_list", (0, Decimal(0)))
-    ripe_methods = ("ripe_snapshot_nserver", "ripe_changed_nserver")
-    ripe = [hosts.get(m, (0, Decimal(0))) for m in ripe_methods]
-    h_ripe = (sum(r[0] for r in ripe), sum((r[1] for r in ripe), Decimal(0)))
+    list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
+    lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
+    h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
@@ -460,11 +436,8 @@ def grouped_ee(
         "HOST_EARLYWEB_N": f"{h_ew[0]:,}",
         "HOST_USFEDGOV_EE": f"{h_fg[1]:,.0f}",
         "HOST_USFEDGOV_N": f"{h_fg[0]:,}",
-        "HOST_ISC_EE": f"{h_isc[1]:,.0f}",
-        "HOST_ISC_N": f"{h_isc[0]:,}",
-        "HOST_ISC_DIALUP_PCT": f"{dialup.get('isc_survey_host_list', Decimal(0)) * 100:.0f}",
-        "HOST_RIPE_EE": f"{h_ripe[1]:,.0f}",
-        "HOST_RIPE_N": f"{h_ripe[0]:,}",
+        "HOST_BLOCKLIST_EE": f"{h_list[1]:,.0f}",
+        "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
@@ -477,7 +450,7 @@ def grouped_ee(
 
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
-    hosts, www_share, dialup = hostname_breakdown()
+    hosts, www_share = hostname_breakdown()
     h_pairs = sum(n for n, _ in hosts.values())
     h_ee = sum((ee for _, ee in hosts.values()), Decimal(0))
     # Fall back to the store only when no merge has been run, so a missing audit
@@ -547,7 +520,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
-        **grouped_ee(f, hosts, dialup),
+        **grouped_ee(f, hosts),
         "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
@@ -583,27 +556,46 @@ def reproduction_result() -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def _days(released: str, received: str) -> Decimal:
-    """t_i, the elapsed days the time-weighted score divides by."""
-    a = date.fromisoformat(released)
-    b = date.fromisoformat(received)
-    return Decimal((b - a).days)
+class ScoreRow(NamedTuple):
+    """One round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
+
+    label: str
+    p: Decimal
+    t: int
+    s: Decimal
+    scored: bool
 
 
-def score_rows(growth: Decimal) -> list[tuple[str, Decimal, Decimal, Decimal]]:
-    """(label, p_i, t_i, S_i) for every submitted round and for this one.
+def score_rows(growth: Decimal) -> list[ScoreRow]:
+    """Every submitted round and this one, priced by `ark.figures`.
 
-    `S_i = 10 * p_i / t_i` from the brief update of 2026-08-20. The awarded percentages
-    and both timestamps are quoted in `ark.baseline.SUBMITTED_ROUNDS`; this only divides.
-    This round uses its own unverified growth and today as the receipt date.
+    The awarded percentages and both timestamps are quoted in
+    `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
+    it. This round uses its own unverified growth and this minute as its receipt, and is
+    never marked scored, because he has not seen it.
     """
     rows = []
     for r in SUBMITTED_ROUNDS:
-        t = _days(r[6], r[7])
-        rows.append((r[0], r[5], t, SUBMISSION_SPEED_K * r[5] / t))
-    t_now = max(_days(CURRENT_BASELINE_RELEASED, date.today().isoformat()), Decimal(1))
-    rows.append(("7 (this round)", growth, t_now, SUBMISSION_SPEED_K * growth / t_now))
+        t = t_days(r[6], r[7])
+        rows.append(ScoreRow(r[0], r[5], t, score(r[5], t), scored_under_rule(r[7])))
+    t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
+    rows.append(
+        ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
+    )
     return rows
+
+
+def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow], list[ScoreRow]]:
+    """Cumulative percentage, his S_total, the rounds he scored and the ones before the rule."""
+    pct = sum((r.p for r in rows), Decimal(0))
+    scored = [r for r in rows if r.scored]
+    early = [r for r in rows[:-1] if not r.scored]
+    return pct, score_total(r.s for r in scored), scored, early
+
+
+def _per_round(rows: list[ScoreRow]) -> str:
+    """`label: p / t = S`, p at the six places he awards so the division checks by hand."""
+    return "; ".join(f"{r.label.split()[0]}: {r.p:.6f}% / {r.t}d = {r.s:.6f}" for r in rows)
 
 
 def cumulative(f: dict, growth: Decimal) -> str:
@@ -611,22 +603,23 @@ def cumulative(f: dict, growth: Decimal) -> str:
 
     The percentage record is the direct arithmetic sum of what he awarded, round 1
     included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
-    The ranking score is the sum of `10 * p_i / t_i`. Neither is derivable from the
-    store, so every input is quoted rather than computed, and the block says the
-    reconstruction of the timestamps is his to confirm.
+    The score record is the sum of S_i over the rounds he has scored, which his rule
+    only covers from its 2026-08-20 update: earlier rounds get their would-be S in a
+    clause of their own, and this round its prediction, labelled as such.
     """
     rows = score_rows(growth)
-    pct = sum((p for _, p, _, _ in rows), Decimal(0))
-    total = sum((s for _, _, _, s in rows), Decimal(0))
-    per_round = "; ".join(
-        f"{label.split()[0]}: {p:.4f}% / {t}d = {s:.2f}" for label, p, t, s in rows
-    )
+    pct, total, scored, early = _score_parts(rows)
+    this = rows[-1]
+    early_labels = ", ".join(r.label for r in early[:-1]) + f" and {early[-1].label}"
     return (
         f"**Score, by both rules in your brief.** Cumulative verified percentage "
-        f"**{pct:.4f}%**, time-weighted **S = {total:.2f}** at `10 p/t`, this round counted "
-        f"at its own unverified {growth:.4f}%. Per round ({per_round}), round 1 on records. "
-        "The elapsed days are reconstructed from your release and receipt timestamps: they "
-        "reproduce the S = 6.88 you quoted for round 6, but the set is yours to confirm."
+        f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
+        f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
+        f"({_per_round(scored)}), with t_i the elapsed time from the release of the package "
+        "a round is measured against to receipt, rounded up to whole days in your clock, "
+        "which reproduces the 6.88 and 6.302372 you quoted. This round would add "
+        f"{this.s:.6f} at t = {this.t} if received now. Rounds {early_labels} predate the "
+        f"rule; under it they would have scored {_per_round(early)}."
     )
 
 
@@ -677,14 +670,14 @@ def merge_reconciliation() -> str:
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
     """The same two records, as one sentence for the email."""
     rows = score_rows(growth)
-    pct = sum((p for _, p, _, _ in rows), Decimal(0))
-    total = sum((s for _, _, _, s in rows), Decimal(0))
+    pct, total, scored, _ = _score_parts(rows)
+    this = rows[-1]
     return (
         f"Counting this round at its own figure, my cumulative verified percentage is "
-        f"{pct:.4f}% (round 1 included, although it was awarded on records) and my "
-        f"time-weighted score is {total:.2f} by the S_i = 10 p_i / t_i rule. The elapsed "
-        "days are reconstructed from your release and receipt timestamps, so both numbers "
-        "are subject to your confirmation."
+        f"{pct:.4f}% (round 1 included, although it was awarded on records), and my "
+        f"time-weighted score over the rounds you have scored is {total:.6f} "
+        f"({' + '.join(f'{r.s:.6f}' for r in scored)}), to which this round would add "
+        f"{this.s:.6f} at t = {this.t} if received now."
     )
 
 
@@ -711,8 +704,27 @@ def pool_restricted() -> str:
     return f"{n:,}"
 
 
-def datasets_searched() -> str:
-    """The register of families searched, read from `sources.md` rather than retyped.
+def _register_rows(text: str, heading: str) -> int:
+    """Rows of one register table, by the heading it sits under.
+
+    Rows the register itself labels "Not a source" are notes about our own queue,
+    not families searched, and counting them overstated the headline by two.
+    """
+    if heading not in text:
+        return 0
+    section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+    return sum(
+        1
+        for line in section.splitlines()
+        if line.startswith("|")
+        and not line.startswith("|--")
+        and not line.lower().startswith("| source")
+        and "not a source" not in line.lower()
+    )
+
+
+def datasets_searched(docs: Path | None = None) -> str:
+    """The register of families searched, read from the register rather than retyped.
 
     The reviewer asks for every external dataset and repository searched. That list
     only stays true if it is derived from the register itself: a hand-written copy
@@ -723,12 +735,20 @@ def datasets_searched() -> str:
     first draft of this section. Developed sources get a `## ` heading each;
     families evaluated and rejected are one table row each under a single heading.
     Both are searches, and the second half is much the larger.
+
+    **Both files are counted.** The rejected half lives in two documents since
+    `convert_register.py` moved closed families to `sources-closed.md`, and counting
+    `sources.md` alone dropped the figure from 495 to 129, which would have
+    understated our own work to the reviewer fourfold.
     """
-    path = Path(__file__).resolve().parents[2] / "docs" / "sources.md"
+    docs = docs or Path(__file__).resolve().parents[2] / "docs"
+    path = docs / "sources.md"
     if not path.is_file():
         return "_`sources.md` not found beside this report._"
 
     text = path.read_text(encoding="utf-8")
+    closed = docs / "sources-closed.md"
+    closed_text = closed.read_text(encoding="utf-8") if closed.is_file() else ""
 
     # Headings at this level that are prose about the file rather than a source.
     skip = {
@@ -736,6 +756,8 @@ def datasets_searched() -> str:
         "Source names that are not separate sources",
         "Evaluated and rejected",
         "Measured, and each blocked on something other than work",
+        # the appendix `convert_register.py` writes: one `### ` block per row above
+        "Detail",
     }
     developed = [
         line[3:].strip()
@@ -743,19 +765,9 @@ def datasets_searched() -> str:
         if line.startswith("## ") and line[3:].strip() not in skip
     ]
 
-    rejected = 0
-    if "## Evaluated and rejected" in text:
-        section = text.split("## Evaluated and rejected", 1)[1].split("\n## ", 1)[0]
-        # Rows the register itself labels "Not a source" are notes about our own queue,
-        # not families searched, and counting them overstated the headline by two.
-        rejected = sum(
-            1
-            for line in section.splitlines()
-            if line.startswith("|")
-            and not line.startswith("|--")
-            and not line.lower().startswith("| source")
-            and "not a source" not in line.lower()
-        )
+    rejected = _register_rows(text, "## Evaluated and rejected") + _register_rows(
+        closed_text, "## Closed families, converted from the register"
+    )
 
     if not developed and not rejected:
         return "_No families recorded._"
@@ -767,8 +779,8 @@ def datasets_searched() -> str:
     # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
     return (
         f"**{len(developed) + rejected} source families searched and recorded** in "
-        f"`sources.md`: {len(developed)} developed, {rejected} evaluated and closed with the "
-        "measurement that closed them, so the same ground is not broken twice."
+        f"`sources.md` and `sources-closed.md`: {len(developed)} developed, {rejected} evaluated "
+        "and closed with the measurement that closed them, so the same ground is not broken twice."
     )
 
 

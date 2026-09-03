@@ -1,0 +1,25 @@
+{
+ "written_at": "2026-09-02T09:15:00+00:00",
+ "baseline": "merged260830",
+ "round": "7",
+ "netnew_pairs": 312456,
+ "netnew_domains": 98765,
+ "netnew_ee": 182034.5678,
+ "percent": 1.2527,
+ "gate_pct": 5.0,
+ "distance_to_gate_ee": 544538.1335,
+ "collectors": {
+  "local": "up 2-03:14:22 bash scripts/engines/supervise_cdx_pool.sh 1757900000 600 8 900",
+  "vps": "NOT RUNNING"
+ },
+ "waiting_on_human": {
+  "approvals": 2,
+  "open_decisions": 3
+ },
+ "pending_amendments": [
+  {
+   "date": "2026-09-01",
+   "text": "\"Hostnames are retained as a second output unit.\""
+  }
+ ]
+}

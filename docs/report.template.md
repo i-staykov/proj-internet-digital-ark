@@ -26,46 +26,56 @@ second set can be merged or discarded as a block.
 
 ## 2. What one hostname record is
 
-Three conditions, all enforced in code (`source/src/ark/hostnames.py`, `checks.py`), not by
-convention:
+Four conditions, all enforced in code (`source/src/ark/hostnames.py`, `checks.py`), not by
+convention. The first two are your rule; the last two are its purpose, retrieving archived pages,
+applied on 2026-09-02 after a first build had counted names that pass the letter and serve it nothing:
 
 1. **RFC 1123 valid**: letters, digits and hyphens only, no leading or trailing hyphen in a label,
    at least two labels. Underscore names, IP literals and `in-addr.arpa` forms are refused.
-2. **Strictly beneath a registrable this project already holds for that same year.** The parent is
-   a foreign key, so a hostname cannot exist here without its registrable existing there, and a
-   bare registrable is never a hostname record. No name is counted in both units.
-3. **Its own machine-written observation in that year**, on that exact host.
+2. **Strictly beneath a registrable this project holds for that same year.** The parent is a
+   foreign key, so a hostname cannot exist here without its registrable existing there, and a bare
+   registrable is never a hostname record. No name is counted in both units.
+3. **Its own machine-written observation in that year, showing the host serving web content**: a
+   capture of a URL on it, or a URL listing naming it. A DNS listing proves a machine answered, not
+   a site, so it dates the parent registrable and writes no hostname record.
+4. **Not `www.<parent>`.** That is the registrable's own site under the name every crawler tries
+   first; the capture dates the registrable, and counting it again would be the same site twice.
 
 ## 3. What is new this round, and why it is admissible
 
-One idea, applied to seven artifact families: **when you accepted hostnames, the payload was a
-column of an artifact already on disk that the registrable unit had discarded.** Five of the seven
+One idea, applied to five artifact families: **when you accepted hostnames, the payload was a
+column of an artifact already on disk that the registrable unit had discarded.** Four of the five
 needed no new request, and most carried a written closure from an earlier round.
 
 | Source | What dates one record | Records | EE |
 |-----------------------------|--------------------------------------------------|--------:|-------:|
-| ISC Internet Domain Survey host files | the survey's `YYMM` edition code in the artifact path | [HOST_ISC_N] | [HOST_ISC_EE] |
-| NYPW TimeMaps | the row's 14-digit capture timestamp | [HOST_NYPW_N] | [HOST_NYPW_EE] |
 | IA domain-wide CDX sweeps | the row's 14-digit capture timestamp | [HOST_SWEEP_N] | [HOST_SWEEP_EE] |
 | IA Early Web index | the row's 14-digit capture timestamp | [HOST_EARLYWEB_N] | [HOST_EARLYWEB_EE] |
+| NYPW TimeMaps | the row's 14-digit capture timestamp | [HOST_NYPW_N] | [HOST_NYPW_EE] |
 | USFEDGOV merged indexes | the row's 14-digit capture timestamp | [HOST_USFEDGOV_N] | [HOST_USFEDGOV_EE] |
-| RIPE `nserver:` hosts | the dump's generation stamp and each object's `changed:` line | [HOST_RIPE_N] | [HOST_RIPE_EE] |
+| squidGuard and chastity URL blocklists | the robot's compile stamp; the tar member's mtime | [HOST_BLOCKLIST_N] | [HOST_BLOCKLIST_EE] |
 | registrable domains, all lanes | per record in `additions/evidence_manifest.csv` | [REGPAIRS] | [REGEE] |
 
 Every stamp above is machine-written and inside the artifact, so no human judgement dates a year;
 each class was already master-eligible for those exact bytes; the terms were read in full before
-each fetch. On the survey you ruled in writing on 2026-07-24 that a dated DNS survey may enter the
-annual files directly. Route, licence and per-TLD yield per source are in `sources.md`.
+each fetch. Route, licence and per-TLD yield per source are in `sources.md`.
 
-**Two disclosures decide what the hostname half is worth**, each one filter on
-`hostnames/hostnames_evidence_manifest.csv`: [HOST_ISC_DIALUP_PCT]% of the largest source's records
-are dialup or numbered workstation names (`pc50.btbcs.bt.co.uk`), which answered its reverse-DNS
-walk in the month it stamps and pass your validity rule but are not sites; and [WWWSHARE] of all
-hostnames are `www.` forms of registrables you already hold, full weight under the rule as written
-and nothing if your calculator normalises `www.` away.
+**Two things your rule admits and this round does not count.** The same one-level-down reading
+of three DNS artifacts (the ISC Internet Domain Survey host files, RIPE `nserver:` attributes,
+InterNIC zone NS targets) had written 18,219,285 dated hostname rows, the survey alone exporting as
+9.17M EE, that pass conditions 1 and 2 and fail 3: two thirds of the survey's names are dialup
+ports and numbered workstations (`pc50.btbcs.bt.co.uk`), for which no archived page can exist. They
+are held out, their rows still date the parents, and the lane is one line to re-enable if you rule
+that DNS listings count. And 5,162,650 `www.<parent>` rows, valid and captured, fail condition 4;
+their captures date the registrables instead. Your 0902 brief says a domain-wide query may return
+the base hostname and every qualifying subdomain and that overlap is removed downstream, so this
+is the one place the round is deliberately narrower than your text: a `www.` capture is here read
+as the registrable's own page, and the rows are recoverable from the evidence with one filter if
+you want them as records. Both counts are store rows reported by
+`apply_hostname_purpose_rule.py` on the store as first built.
 
 The evidentiary standard is unchanged: one record is one machine-written observation of that name in
-that year, `evidence_id` is a `NOT NULL` foreign key on both units, fifteen invariants enforce it
+that year, `evidence_id` is a `NOT NULL` foreign key on both units, seventeen invariants enforce it
 before every commit and inside the archive, `link_target` never dates a year, human-typed names take
 the corroboration split, and a creation date attests its own year only. [CANDIDATES] domains carry
 no in-window evidence, ship as `candidates.txt` and reach no annual file.
@@ -82,10 +92,11 @@ its code, prompts, policy and full hypothesis register with every verdict ship a
   effects stay attributable. [DATASETS_SEARCHED]
 - **Admission without a human, under a rule fixed in advance**: a source banks only if its class is
   already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
-  in full and the invariants pass. Eight sources banked that way this round; two parked for a
-  written decision, one on terms and one on a class question. No agent may write the store: a
-  separate admitter re-derives every figure locally first, and two agent-reported figures lost to
-  that check.
+  in full and the invariants pass. Eight sources banked that way this round and two parked for a
+  written decision. No agent may write the store: a separate admitter re-derives every figure
+  locally first, and two agent-reported figures lost to that check. The rule admits on the
+  letter of your standard; the purpose reading in section 2 was a human decision over the result,
+  which is the division of labour intended.
 - **The re-opener earned its lane**: it recovered the NYPW TimeMaps from a 14 EE closure by
   measuring the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999 ~10,000, 2001
   exactly 4), ~88,000 EE that a human closure had written off.
@@ -99,13 +110,13 @@ its code, prompts, policy and full hypothesis register with every verdict ship a
 ## 5. Limitations, and where the room is
 
 A capture proves presence and never absence, so a year without one is unevidenced rather than empty,
-and both dating routes therefore err toward omission. The exception is the counting unit itself: a
-hostname is valid under your rule and a reverse-DNS walk resolves dialup ports as readily as web
-servers, which is disclosed per source above rather than argued about. The units ship separately, so
-dropping the hostname files leaves the registrable round intact at [REGEE] EE.
+and both dating routes err toward omission; the purpose reading in section 2 adds a third omission
+by design, the DNS-listed hosts held out above. The units ship separately, so dropping the hostname
+files leaves the registrable round intact at [REGEE] EE.
 
-Worth expanding, in order: the same one-level-down reading of every other banked artifact that names
-hosts, since DNS, mail and mirror rosters hold hosts a web crawler never fetched; the second-level
+Worth expanding, in order: the same one-level-down reading of every other capture-bearing or
+URL-listing artifact already on disk, since a URL list names hosts a domain sweep never reached
+(the DARTMOUTH-NBER ARCS indexes are sampled and priced in `key-decisions.md`); the second-level
 suffix namespaces at hostname grain, where `co.uk` alone is 3.39M index blocks and 1.2% walked; the
 ranked subdomain platforms still queued, resumable from `audit/source_saturation_ledger.csv`.
 Measured and closed: prose corpora, academic repositories, CD-ROM media, FTP mirrors, trade
@@ -117,7 +128,9 @@ directories. The figures behind each verdict are in `experience-summary.md`.
 
 ## 7. Reproduction, and the four artifacts
 
-`README.md` in the archive gives the route and the file map. [REPRODUCTION_RESULT]
+`README.md` in the archive gives the route and the file map. Every evidence row names its source, evidence
+type, dated value, URL and `acquisition_method`, the item's extraction method; `additions/evidence_manifest.csv`
+repeats those columns for this round's records. [REPRODUCTION_RESULT]
 
 **D1** runnable code, dependencies and instructions: `source/source.tar.gz` at `source/COMMIT.txt`,
 with the research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`.

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "BASH_MAX_OUTPUT_LENGTH": "12000",
+    "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "8000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(just *)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)"
+    ],
+    "deny": [
+      "Read(./docs/sources*.md)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && uv run python scripts/agents/brief.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && uv run python scripts/agents/handoff.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

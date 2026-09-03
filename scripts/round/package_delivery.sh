@@ -177,24 +177,32 @@ mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance
 # repointed every round, and the round it was not repointed shipped the previous
 # round's figures beside this round's data.
 REPORT="docs/report.md"
-if command -v pandoc >/dev/null 2>&1; then
-    pandoc "$REPORT" -o "$STAGE/report.docx" --standalone
+# The .docx is built once, by build_report_docx.py with the reference document that
+# sets 10pt body and 0.75in margins. Rebuilding it here with bare pandoc shipped a
+# 12pt four-page copy of the same three-page report, so the built file is copied.
+if [ -f docs/report.docx ]; then
+    cp docs/report.docx "$STAGE/report.docx"
 else
-    echo "warning: pandoc not installed, shipping the report as markdown only" >&2
+    echo "warning: docs/report.docx missing, run: just ship docx docs/report.md" >&2
 fi
 cp "$REPORT" "$STAGE/report.md"
 # the reviewer's own check, runnable from inside the unpacked folder
 cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
-cp docs/delivery_readme.md "$STAGE/README.md"
+# The archive name carries the packaging minute, so the README's checksum command
+# is filled in here; a hard-coded name went stale the round the name changed.
+sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
 cp docs/sources.md "$STAGE/sources.md"
+# The register is two pages: closed families moved to sources-closed.md and shipping
+# sources.md alone would hand him an incomplete register.
+cp docs/sources-closed.md "$STAGE/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
 # explanation of the metric, and a document a reader has to untar first is neither.
-# `sources.md` above is the full register those two distil; both are needed, because
-# 91 rejected families with their measurements is the evidence and two pages is the
-# summary.
+# The two register pages above are the full register those two distil; both are
+# needed, because the rejected families with their measurements are the evidence and
+# two pages are the summary.
 cp docs/experience-summary.md "$STAGE/experience-summary.md"
 cp docs/metric-explained.md "$STAGE/metric-explained.md"
 
@@ -264,7 +272,7 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # are verdicts from earlier engine versions and they must not sit beside the
 # current ones.
 # **Structure preserved, not flattened.** This copied every journal into one flat
-# directory, and `just journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
+# directory, and `just reproduce journals` addresses them by nested path: `data/raw/cdx/cdx_*`,
 # `data/raw/expand/round2/...`, `data/raw/usenet/...`. So tier 3's replay stage matched
 # nothing for every source while the archive README claimed "this is what tier 3 replays,
 # so every network stage reproduces offline". Found 2026-08-18 by running the layout
@@ -537,9 +545,10 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # enough to say later exactly what was claimed in a given round and to prove a
 # recovered tarball is the one that was sent, without keeping gigabytes in the
 # repository. Rebuilding a superseded round is `git checkout <commit>` then
-# `just deliver && just package`.
+# `just reproduce deliver && just ship package`.
 cp docs/report.md "$ROUND_DIR/report.md"
 cp docs/sources.md "$ROUND_DIR/sources.md"
+cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -566,6 +575,6 @@ Delivery archive ready, in $ROUND_DIR/
   sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
-Tracked beside it: report.md, sources.md, MANIFEST.txt, and the .sha256.
-The tarball itself is git-ignored. Add a row to submissions/README.md.
+Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
+The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
 EOF

@@ -1,0 +1,20 @@
+
+== clocks (both machines, so log timestamps can be compared at all) ==
+   local 2026-09-02 22:06:41 CEST   |   20:06:41Z
+   VPS   2026-09-02 20:06:44 UTC   |   20:06:44Z
+
+== local ==
+   NOT RUNNING
+   last finished batch:
+     cdx: {"batch": 41, "queries": 1200, "years": 1647}
+
+== VPS (ark@vps.example) ==
+   up       00:00 bash -c  cd '/projects/proj-internet-digital-ark' || exit 1 if pgrep -f supervise_cdx_pool.sh > /dev/null
+   journal cdx_q1_20260902T1900Z.jsonl.gz.part
+   last finished batch:
+
+== journals on the VPS not yet copied here ==
+   none, everything is home
+
+== power ==
+   AC, 100%

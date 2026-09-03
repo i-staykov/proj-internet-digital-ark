@@ -1,0 +1,4 @@
+# Scripts ark-fleet runs from its own clone of `live`. Nothing in this repository calls them,
+# so the hygiene test would otherwise report them as orphans. One tracked path per line.
+scripts/harness/pick_hypotheses.py
+scripts/harness/researcher_brief.py

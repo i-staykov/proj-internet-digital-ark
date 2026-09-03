@@ -25,6 +25,7 @@ mistake is starting work on something already closed.
 import argparse
 import datetime as dt
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -96,7 +97,7 @@ def cmd_add(args: argparse.Namespace) -> None:
     verdict_bits = []
     for shared, entry in hits[:3]:
         kind = entry.closed_on
-        print(f"  COLLIDES ({shared} terms, closed on {kind.upper()}) sources.md:{entry.line}")
+        print(f"  COLLIDES ({shared} terms, closed on {kind.upper()}) {entry.where}")
         print(f"    {entry.name}")
         verdict_bits.append(f"collides with {entry.name} [{kind}]")
     if not hits:
@@ -185,10 +186,22 @@ def cmd_close(args: argparse.Namespace) -> None:
         if row.get("cost"):
             bits.append(f"cost {row['cost']}")
         measured = ", ".join(bits) if bits else "not priced"
-        print(
-            f"| {row['title']} ({row['updated']}) | **{row.get('status', '').title()}: "
-            f"{measured}.** {row.get('verdict', '')} |"
-        )
+        # The eleven columns of the converted register. Cells the ledger does not
+        # hold read `n/a` rather than being guessed at here.
+        cells = [
+            row["title"],
+            row["updated"],
+            "n/a",
+            "n/a",
+            row.get("dating", "n/a") or "n/a",
+            "n/a",
+            f"{row.get('ee', 'n/a') or 'n/a'} EE ({row['updated']})",
+            f"{measured}. {row.get('verdict', '')}".strip(),
+            row.get("cost", "n/a") or "n/a",
+            row.get("status", "n/a") or "n/a",
+            "n/a",
+        ]
+        print("| " + " | ".join(re.sub(r"\s+", " ", c).strip() for c in cells) + " |")
         return
     raise SystemExit(f"no such hypothesis: {args.id}")
 

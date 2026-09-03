@@ -35,12 +35,14 @@ Two things to know before opening anything:
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
+| `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header, never hand-maintained. **Thirteen columns since 2026-09-03**: the eight of phase 7 in their old order, plus `coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link`, so every field of the requested schema reaches the CSV rather than only the register page. A cell reading `n/a` is the register saying the entry does not say; an empty cell means that page has no such column |
 | `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Eight journal sets are excluded on size** (about 19 GB against under 2 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
-| `sources.md` | Per-source detail, including **the commands to download each** and what was rejected |
-| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` beside it is the full register this distils |
+| `sources.md` | Per-source detail, including **the commands to download each**, and one row per source evaluated |
+| `sources-closed.md` | The other half of that register: one row per family closed on a measurement, with the figure and the reason |
+| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full register this distils |
 | `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
 | `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
 | `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
@@ -55,7 +57,7 @@ Named here in his order, because the table above is sorted by path.
 | | he asked for | where it is |
 |---|---|---|
 | **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `source/COMMIT.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
-| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` as the full register behind it |
+| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` and `sources-closed.md` as the full register behind it |
 | **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/round/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
 | **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
 
@@ -83,7 +85,7 @@ his own calculator, run here, reproduces the audit's baseline figure.
 The `.sha256` sidecar is delivered **beside** the `.tar.gz`, not inside it:
 
 ```
-shasum -a 256 -c internet-digital-ark-1996-2001.tar.gz.sha256
+shasum -a 256 -c [ARCHIVE].tar.gz.sha256
 ```
 
 Then from inside this folder:
@@ -173,7 +175,7 @@ just reproduce
 
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
-this one command restores it. Without it `just journals` runs clean and ingests nothing, which is how
+this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing, which is how
 it behaved before 2026-08-18. **The five excluded journal sets will replay nothing** until they are restored: the RDAP
 logs on request, the other four by re-deriving them from the public sources `sources.md` links.
 Every assignment they back is checkable by tier 2, which is the route below.

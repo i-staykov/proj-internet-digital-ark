@@ -14,6 +14,7 @@ from pathlib import Path
 import duckdb
 
 from ark.evidence_types import CANDIDATE_ONLY_TYPES
+from ark.hostnames import WEB_FACING_HOST_SOURCES
 
 _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
@@ -40,6 +41,7 @@ _SPAN_SOURCES = "'afnic_fr'"
 # a stored domain is a lowercase registrable name: strict first label, then one
 # or more suffix labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot
 _DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+_WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
 
 # name, human description, SQL returning a single count of offending rows (0 = pass)
 CHECKS: list[tuple[str, str, str]] = [
@@ -216,6 +218,27 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "hostname_observed_serving_web",
+        "every hostname record comes from a lane whose observation shows the host serving "
+        "web content, a capture or a URL listing; DNS listings date the parent only, because "
+        "the reviewer's purpose for the unit is retrieving archived pages (rule of 2026-09-02)",
+        f"""
+        SELECT count(*) FROM hostname_year hy
+        JOIN evidence e ON e.evidence_id = hy.evidence_id
+        JOIN source s ON s.source_id = e.source_id
+        WHERE s.name NOT IN ({_WEB_FACING_LIST})
+        """,
+    ),
+    (
+        "hostname_is_not_the_parent_www",
+        "no hostname record is `www.<parent>`: that is the registrable's own site and the "
+        "capture dates the registrable, so counting it again would be the same site twice",
+        """
+        SELECT count(*) FROM hostname_year
+        WHERE hostname = 'www.' || parent_domain
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year",
@@ -259,14 +282,18 @@ def collect_checks(
                 }
             )
             continue
-        except duckdb.BinderException:
+        except (duckdb.BinderException, duckdb.InternalException) as exc:
             # Every matching file is empty, so `read_csv` infers no columns and
             # the query cannot bind. That is a real state, not a fault: a round
             # that has added nothing yet exports six empty annual files, and an
             # empty additions set trivially satisfies an invariant about what the
             # additions may contain. Reported as skipped rather than passed, for
             # the same reason an absent export is: a check that examined nothing
-            # should not read as one that found nothing wrong.
+            # should not read as one that found nothing wrong. DuckDB 1.5 raises
+            # this as an InternalException worded "must return at least one
+            # column"; any other internal error is a fault and is re-raised.
+            if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
+                raise
             results.append(
                 {
                     "name": name,

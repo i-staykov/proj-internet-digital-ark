@@ -37,6 +37,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import export  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
@@ -229,12 +230,7 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
 
 def hostname_increment() -> tuple[int, Decimal]:
     """Records and EE of the shipped hostname files, priced with his weight model."""
-    raw = json.loads((REPO / "src/ark/data/tld_english_share.json").read_text())
-    weights = {
-        str(t).lower(): Decimal(str(p)) / 100
-        for t, lang, p in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if t and lang == "eng"
-    }
+    weights = english_weights()
     pairs, ee = 0, Decimal(0)
     for year in range(1996, 2002):
         path = REPO / f"output/netnew/{year}_hostnames.txt"
@@ -249,6 +245,35 @@ def hostname_increment() -> tuple[int, Decimal]:
     return pairs, ee
 
 
+def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
+    """What ADR-007 keeps OUT of the hostname files: `www.<a name held that same year>`.
+
+    The rows are net-new against the reviewer's files and would have shipped before
+    2026-09-03, when 364,524 of them carried 201,767.94 EE, 61.0% of the hostname half.
+    Reported every round rather than left in a commit message, because the reviewer has
+    not yet ruled on the alias and both readings have to stay visible: a CDX corpus
+    re-read at hostname grain is almost nothing else, while a corpus of URLs people typed
+    keeps three quarters of its figure. The predicate is imported from the export, so this
+    figure cannot drift from the rule that produced it.
+    """
+    weights = english_weights()
+    export.load_baseline_hostnames(conn)
+    rows, ee = 0, Decimal(0)
+    for year in range(1996, 2002):
+        excluded = conn.execute(
+            f"""
+            SELECT DISTINCT hy.hostname FROM hostname_year hy
+            WHERE hy.assigned_year = {year}
+              AND {export.NOT_IN_BASELINE_HOSTNAME}
+              AND NOT {export.NOT_WWW_ALIAS}
+            """
+        ).fetchall()
+        rows += len(excluded)
+        for (host,) in excluded:
+            ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+    return rows, ee
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -261,6 +286,7 @@ def main() -> None:
     conn = open_store()
     try:
         m = increment(conn)
+        seam_rows, seam_ee = www_alias_seam(conn)
         his = verify_with_his_calculator(conn) if args.verify else None
     finally:
         conn.close()
@@ -285,6 +311,14 @@ def main() -> None:
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
     print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
+    if seam_rows:
+        # These are OUT of the figures above, so the share is of what the two readings
+        # differ by, and the alternative growth rate is printed rather than implied.
+        with_seam = (all_ee + seam_ee) / BASELINE_EE * 100
+        print(
+            f"    excluded, www.<held that year>  : {seam_rows:,} records  {seam_ee:,.4f}"
+            f"  (ADR-007; {with_seam:.6f}% if the reviewer counts them)"
+        )
     print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 
     mean = ee / pairs

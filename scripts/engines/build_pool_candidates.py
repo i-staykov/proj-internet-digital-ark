@@ -13,14 +13,14 @@ equivalent-English metric: its per-domain English weight is higher and every hit
 is a new name rather than a new year on an old one. So this list exists
 separately from `gap_candidates.txt` and is never merged into it.
 
-Ordering is by the English share of the domain's TLD, taken from the reviewer's
-own `q2_tld_top_langs.json` under exactly his rule: right-most label, `lang ==
-'eng'`, share as a fraction, zero when the model does not know the TLD. Ordering
-by it means a run that never finishes the pool has still spent its requests where
-the metric pays most. Inside one share tier the order is a content hash rather
-than alphabetical, because alphabetical clusters the numeric-prefix junk
-("0171.com", "1-800-...") that was never archived, and a truncated run would then
-badly understate the real hit rate.
+Ordering is by the English share of the domain's TLD, read through
+`ark.english_share`, which vendors the reviewer's own `q2_tld_top_langs.json`
+under exactly his rule: right-most label, `lang == 'eng'`, share as a fraction,
+zero when the model does not know the TLD. Ordering by it means a run that never
+finishes the pool has still spent its requests where the metric pays most. Inside
+one share tier the order is a content hash rather than alphabetical, because
+alphabetical clusters the numeric-prefix junk ("0171.com", "1-800-...") that was
+never archived, and a truncated run would then badly understate the real hit rate.
 
 Share alone is not enough, and the first version of this list proved it twice.
 
@@ -97,10 +97,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import duckdb  # noqa: E402
 
 from ark.cdx import answered as cdx_answered  # noqa: E402
+from ark.english_share import english_weights  # noqa: E402
 from ark.journal import open_journal, queried_domains  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
-MODEL = Path("feedback-phase-3/equivalent_english_domain_calculator/q2_tld_top_langs.json")
 JOURNAL_DIR = Path("data/raw/cdx")
 OUT = Path("data/raw/cdx/pool_candidates.txt")
 
@@ -163,16 +163,6 @@ SELECT split_part(domain, '.', -1) AS tld, count(DISTINCT domain) AS dated
 FROM domain_year
 GROUP BY tld
 """
-
-
-def english_weights(path: Path) -> dict[str, Decimal]:
-    """TLD -> English primary-page-language share, the reviewer's own table."""
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    return {
-        str(tld).lower(): Decimal(str(share)) / Decimal("100")
-        for tld, lang, share in zip(raw["tld"], raw["lang"], raw["perc_of_tld"], strict=True)
-        if tld and lang == "eng"
-    }
 
 
 def read_only_store(path: Path, attempts: int = 20) -> duckdb.DuckDBPyConnection:
@@ -376,7 +366,7 @@ def expected_hit_rate(
 
 
 def main() -> None:
-    weights = english_weights(MODEL)
+    weights = english_weights()
     outcomes = journal_outcomes(JOURNAL_DIR)
     conn = read_only_store(STORE)
     try:

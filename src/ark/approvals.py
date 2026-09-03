@@ -100,11 +100,17 @@ def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
     path = Path(path) if path is not None else DEFAULT_APPROVALS_PATH
     if not path.exists():
         return {}
+    return parse(path.read_text(encoding="utf-8"))
+
+
+def parse(text: str) -> dict[tuple[str, str], Approval]:
+    """The parser behind `load`, on text, so a rewrite of the file can be checked before
+    it is written through the same code the gate runs."""
     out: dict[tuple[str, str], Approval] = {}
     key: tuple[str, str] | None = None
     heading_line = 0
     section = ""
-    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for number, raw in enumerate(text.splitlines(), start=1):
         heading = _SECTION_RE.match(raw)
         if heading:
             section = heading.group("title")

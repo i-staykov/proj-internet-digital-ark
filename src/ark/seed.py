@@ -1,5 +1,8 @@
 """Load candidate domains from a seed file and queue the ones still unproven.
 
+Backs `ark seed`. The other seed module, `ark.seed_pool`, goes the opposite way:
+it writes the hostname and URL download seeds out of evidence already held.
+
 Seeding never verifies anything: it canonicalizes, registers candidates, and
 enqueues work. Verification happens in its own stage so each can be rerun and
 resumed independently.

@@ -3,9 +3,8 @@
 The reviewer reissues the merged 1996-2001 corpus after each round he accepts, and
 every one of those releases has to be loaded under its own marker namespace, because
 the ingest ledger keys on the file name alone and a second `1996.txt` would otherwise
-be skipped as already seen. Eight are now layered in the store: the originals,
-`merged260727`, `merged260730`, `merged260802`, `merged260802-2`, `merged260810`,
-`merged260815` and `merged260817-2`.
+be skipped as already seen. Several are now layered in the store; `docs/releases.md`
+is the table of every release he has named.
 
 `merged260815` is the one that shows why this file matters. It arrived mid-round
 carrying another contributor's UMN DRUM delivery, 4,063,995 records concentrated in
@@ -16,76 +15,87 @@ wrong, and only the second is the one the reviewer accepts against.
 
 `merged260817-2` did the same thing twice over, and it is why a round's ACCEPTED
 figures have to be recorded separately from the ones it was submitted with. Between
-`merged260815` and the unshipped `merged260817` the corpus grew from 15,428,507 to
-19,883,096 records on other contributors' work, and 230,393 of ours arrived inside that
-growth. So phase 5 was submitted as 2,838,715 records and 1,697,224.86 EE, and accepted
-as 2,608,322 and 1,566,229.7613. Both are true; only the second is credited.
+`merged260815` and the unshipped `merged260817` the corpus grew on other contributors'
+work while ours arrived inside that growth, so a round was submitted with one pair of
+figures and credited with another. Both are true; only the second is credited.
 
 Keeping the current one here rather than as a default spelled out at each call site
 is not tidiness. Loading a round against a stale baseline is not an error anyone sees:
 it silently reports as net-new a body of work the reviewer already holds, and it is
 only caught when he merges and the numbers disagree. That happened once, between
 2 and 7 August 2026, when `merged260802` sat unread on disk for five days while
-`ark stats` overstated net-new by the 151,949 records he had already credited.
+`ark stats` overstated net-new by the records he had already credited.
 
-Point `CURRENT_*` at the new release when one arrives and every command follows.
-Two flags are mandatory when loading a release before this file names it, because
-`--marker-prefix` defaults to the marker below: `ark ingest-legacy` with only
-`--legacy-dir` composes a marker that already exists and skips all six files behind
-six reassuring "already ingested" lines.
+**The figures themselves live in `data/baseline.json` and this module only loads them.**
+A hand-edited constant block is the one place an intake can be silently wrong, and it
+was one release behind on the day that was written. Point the JSON at the new release
+and every command follows. Two flags are mandatory when loading a release before the
+JSON names it, because `--marker-prefix` defaults to the marker below: `ark ingest-legacy`
+with only `--legacy-dir` composes a marker that already exists and skips all six files
+behind six reassuring "already ingested" lines.
 """
 
+import json
 from decimal import Decimal
 from pathlib import Path
 
+# Resolved from this file, never from the working directory: the delivery unpacks the
+# repository tree into `source/`, so the JSON sits beside `src/` there exactly as here.
+_DATA = json.loads(
+    (Path(__file__).resolve().parents[2] / "data" / "baseline.json").read_text(encoding="utf-8")
+)
+_CURRENT = _DATA["current"]
+
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 4/merged260901")
-CURRENT_BASELINE_MARKER = "merged260901"
+CURRENT_BASELINE_DIR = Path(_CURRENT["directory"])
+CURRENT_BASELINE_MARKER = _CURRENT["marker"]
 
 # The first moment anything in the current round could have been written, which is
-# when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
-# `built 2026-08-17T09:34:55Z`). It lives beside the marker because a release and
-# its round window are the same fact: the window opens where the shipped release
-# closes. Kept apart, they drift, and a stale window re-reports the previous
+# when the previous round's archive was cut. It lives beside the marker because a
+# release and its round window are the same fact: the window opens where the shipped
+# release closes. Kept apart, they drift, and a stale window re-reports the previous
 # round's held candidates as this round's, silently and in our favour.
-CURRENT_ROUND_SINCE = "2026-08-26 22:43:08+00"
+CURRENT_ROUND_SINCE = _CURRENT["round_since"]
 
 # What to call the round now being collected, in Ivo's numbering. The report heading,
 # the cumulative table's last row and the submission directory all take it from here,
-# because they were three separate hardcoded "5"s and one of them was still saying 4
-# a week into the round.
-CURRENT_ROUND_LABEL = "7"
+# because they were three separate hardcoded round numbers and one of them was still a
+# round behind a week into the round.
+CURRENT_ROUND_LABEL = _CURRENT["round_label"]
+
+# The current release's stamp, for the time-weighted score: the mail that carried it,
+# in his clock like the round rows. The receipt stamp is filled at send time and
+# defaults to now in his clock, so an unsent round reads as if it went out this minute
+# rather than scoring itself faster than it will.
+CURRENT_BASELINE_RELEASED = _CURRENT["released_at"]
 
 # The same files measured with the reviewer's own `equivalent_english_domains.py`.
 # PAIRS is the RAW record count, not the validator-passing subset: his line 1 tracks
 # the raw count, and quoting the valid one reads to him as records lost since his
-# previous message. For `merged260802-2` the split was 10,415,768 raw against
-# 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 33_848_926
-REVIEWER_BASELINE_EE = Decimal("17770588.9026")
+# previous message. For one release the split was 10,415,768 raw against 10,404,200
+# valid, the difference being embedded ports and underscore labels.
+REVIEWER_BASELINE_PAIRS = _CURRENT["reviewer_pairs"]
+REVIEWER_BASELINE_EE = Decimal(_CURRENT["reviewer_ee"])
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260901` file
+# by running his own `equivalent_english_domains.py` over each file of the release
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **`merged260901` is the platform-hostname release, and it changed the game's scale.**
-# One day after `merged260830` it adds +4,690,367 records at 2001 alone (5.85M to
-# 10.54M), +740,322 at 2000 and +320,801 at 1999, almost entirely third-level hostnames
-# under mass-hosting platforms: the very workflow Ding's 0901 update added to the brief.
-# Overlap with our unsubmitted round is tiny, 26,667 of 513,758 net-new 2001 pairs
-# (5.2%), because we collect registrable domains and this wave collects hostnames. So
-# the denominator grew +3,239,135 EE (+22.3%) while barely touching our increment, and
-# the 5% trigger moved from 726,573 to 888,529 EE. Figures from his own calculator run
-# over each file of the release.
+# The current release was checked line by line on 2026-09-02 as the previous one plus our
+# accepted round: 36,698,388 + 2,538,900 = 39,237,288 records, and its 20,714,526.9732 EE
+# is his 19,258,068.8703 plus our 1,456,458.1029 to the digit. That previous merge was
+# never released; its totals exist only in his mail, which is why the check is recorded.
+#
+# The scale moved under us at the end of August 2026: the platform-hostname releases
+# added millions of third-level hostnames under mass-hosting platforms at 2001, which
+# is the workflow the reviewer's own brief update had just described. Overlap with our
+# unsubmitted round was tiny, because we collect registrable domains and that wave
+# collects hostnames, so the denominator grew while our increment barely moved and the
+# 5% trigger jumped with it. `docs/releases.md` carries the per-release counts.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("566864.3516"),
-    1997: Decimal("1191421.9175"),
-    1998: Decimal("1599996.5265"),
-    1999: Decimal("3164484.0222"),
-    2000: Decimal("5496037.6154"),
-    2001: Decimal("5751784.4694"),
+    int(year): Decimal(value) for year, value in _CURRENT["reviewer_ee_by_year"].items()
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -97,146 +107,48 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
 # cumulative contribution against the CURRENT corpus, `REVIEWER_BASELINE_EE`, which is
 # the number he is scored on. Kept because it is the only release predating every
 # contribution and is what makes phase 1's measured increment checkable.
-ORIGINAL_BASELINE_PAIRS = 8_224_963
-ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
+ORIGINAL_BASELINE_PAIRS = _DATA["original"]["pairs"]
+ORIGINAL_BASELINE_EE = Decimal(_DATA["original"]["ee"])
 
-# The rounds this project has SHIPPED, numbered as Ivo numbers them: 1, 3, 4, 5.
-# This is the repository's own phase numbering, and the gap at 2 is real. Phase 2 was
-# 17,418 pairs, was never sent as a scored round, and was rolled into phase 3.
+# The rounds this project has SHIPPED, each row carrying the reviewer's ACCEPTED
+# figures rather than the ones it was submitted with. Ordered as the JSON lists them:
+# label, date, records, equivalent-English, baseline accepted against, awarded %,
+# benchmark released, submission received (the last two "YYYY-MM-DD HH:MM" in his
+# clock, US Pacific, which `ark.figures` turns into t_i).
 #
-# Only shipped rounds appear. Three interim reports were sent between them, on
-# 2026-08-05, 08-06 and 08-12, and each was measured against the same baseline as the
-# shipped round that followed, so each is already contained in one of these four rows.
-# Ivo's instruction of 2026-08-17 is not to mention them; listing them would in any
-# case invite the double-count this tuple exists to prevent.
-#
-# A cumulative claim is the one figure the store cannot regenerate: a round the
-# reviewer has merged stops being net-new the moment he merges it.
-#
-# Round 1 carries a MEASURED equivalent-English rather than a quoted one, because the
-# metric did not exist in July. Its record count is the reviewer's own confirmed
-# figure ("the six yearly files grew from 8,224,963 to 9,654,487 records, adding
-# 1,429,524 records (17.38%)", feedback of 2026-07-27), and the weight beside it is
-# the difference between those same two releases under the fixed model. The two were
-# computed independently and the record delta lands on his figure exactly, which is
-# what makes the weight trustworthy.
-#
-# The merged260727 -> merged260730 step is NOT here and must never be added. Those
-# 609,145 records are an external contributor's round, filed under
-# `feedback-external-phase-2/`, and its feedback describes regional directory
-# harvesting across eleven non-English countries, which is not this project's work.
-# Every row carries the reviewer's ACCEPTED figures, which are not always the ones the
-# round was submitted with. Phase 5 went out at 2,838,715 records and 1,697,224.86 EE
-# against `merged260815`, and he credited 2,608,322 and 1,566,229.7613 because 230,393
-# of those records had already reached the unshipped `merged260817` through other
-# contributors. Quoting the submitted figure would overstate the cumulative by exactly
-# that overlap, and the overlap is only ever visible in his reply.
-SUBMITTED_ROUNDS = (
-    # label, date, records, equivalent-English, baseline accepted against, awarded %,
-    # benchmark released (his clock), submission received (his clock)
-    #
-    # Column 6 is the percentage HE awarded, quoted from his feedback, because the
-    # cumulative record is the direct arithmetic sum of those percentages and not a ratio
-    # anything here can recompute: each was taken against the baseline of the day it
-    # arrived, and those baselines are gone. Sources, in order:
-    # round 1  feedback of 2026-07-27, "adding 1,429,524 records (17.38%)". A RECORD
-    #          percentage: the equivalent-English metric came after it. Ivo's decision of
-    #          2026-09-02 is to carry it in the cumulative record anyway, flagged as such.
-    # round 3  feedback of 2026-08-03, "91,814.6880, equal to 1.659986% of the merged260730
-    #          baseline of 5,531,053.6089".
-    # round 4  feedback of 2026-08-10, "increased by 603,401.7811 ... a 10.730988% increase
-    #          over merged260802-2".
-    # round 5  feedback of 2026-08-18, credited 2,608,322 records and 1,566,229.7613 EE at
-    #          14.901054%, against the 2,838,715 and 1,697,224.86 that were sent.
-    # round 6  feedback of 2026-08-27, credited 1,684,903 records and 562,099.5294 EE at
-    #          4.130718% against `merged260826`, from the 1,929,655 and 713,481.4198 that
-    #          were sent against `merged260821`.
-    #
-    # Columns 7 and 8 are the two timestamps the time-weighted score needs, reconstructed
-    # on 2026-09-02 from the mail archive in `private/personal-context.md`: the date of the
-    # transfernow link by which he released a benchmark package, and the date his own client
-    # stamps on the mail carrying the submission. Both in HIS clock, because the brief
-    # requires one timestamp record and one zone for all participants. THE RECONSTRUCTION IS
-    # CHECKABLE AGAINST HIM ON ONE ROUND: he quotes S_6 = 6.88, and 10 * 4.130718 / 6 = 6.88
-    # holds only for release 2026-08-20 (link `20260820Q634KdPr`) and receipt 2026-08-26,
-    # which is what these two columns say. Every other row is the same rule applied, and the
-    # report labels the whole set as subject to his confirmation.
+# `docs/rounds.md` is the ledger: which rounds exist and why, where each awarded
+# percentage is quoted from, what must never be added to it, and the whole-day reading
+# of t_i that reproduces both scores he has quoted. A cumulative claim is the one
+# figure the store cannot regenerate, because a round the reviewer has merged stops
+# being net-new the moment he merges it, so the rows are read and never recomputed.
+SUBMITTED_ROUNDS = tuple(
     (
-        "1",
-        "2026-07-26",
-        1_429_524,
-        Decimal("756559.2864"),
-        "merged260715-2",
-        Decimal("17.38"),
-        "2026-07-21",
-        "2026-07-26",
-    ),
-    (
-        "3",
-        "2026-08-02",
-        151_949,
-        Decimal("91814.6880"),
-        "merged260730",
-        Decimal("1.659986"),
-        "2026-07-31",
-        "2026-08-01",
-    ),
-    (
-        "4",
-        "2026-08-09",
-        946_266,
-        Decimal("603401.7811"),
-        "merged260802-2",
-        Decimal("10.730988"),
-        "2026-08-03",
-        "2026-08-09",
-    ),
-    (
-        "5",
-        "2026-08-17",
-        2_608_322,
-        Decimal("1566229.7613"),
-        "merged260817",
-        Decimal("14.901054"),
-        "2026-08-15",
-        "2026-08-17",
-    ),
-    (
-        "6",
-        "2026-08-27",
-        1_684_903,
-        Decimal("562099.5294"),
-        "merged260826",
-        Decimal("4.130718"),
-        "2026-08-20",
-        "2026-08-26",
-    ),
+        row["label"],
+        row["date"],
+        row["records"],
+        Decimal(row["equivalent_english"]),
+        row["baseline"],
+        Decimal(row["awarded_percent"]),
+        row["benchmark_released"],
+        row["submission_received"],
+    )
+    for row in _DATA["rounds"]
 )
 
-# Round 1's percentage was awarded on records, so it is not commensurable with the
-# equivalent-English percentages of every later round. It is summed with them anyway,
-# on Ivo's instruction of 2026-09-02, and every place that prints the sum says so.
-ROUND_ONE_IS_RECORD_BASED = "1"
+# The round whose percentage was awarded on records, so it is not commensurable with
+# the equivalent-English percentages of every later round. It is summed with them
+# anyway, on Ivo's instruction of 2026-09-02, and every place that prints the sum says so.
+ROUND_ONE_IS_RECORD_BASED = _DATA["round_one_is_record_based"]
 
-# The current round's own two timestamps, for the same arithmetic. The release date is
-# his mail of 2026-09-01 carrying `merged260901` (link `202609016r5migxo`); the receipt
-# date is filled at send time and defaults to today, so an unsent round reads as if it
-# went out now rather than silently scoring itself faster than it will be.
-CURRENT_BASELINE_RELEASED = "2026-09-01"
+# `k` in the competition RANKING score `S_i = k * (p_i / t_i)`, which is not the
+# cumulative percentage and is the number that decides positions. From the brief update
+# of 2026-08-20. It makes speed worth as much as size; `docs/rounds.md` works the
+# arithmetic through and says why the round length is Ivo's decision, not a logistics one.
+SUBMISSION_SPEED_K = _DATA["speed_k"]
 
-# The competition RANKING score, which is not the cumulative percentage and is the number
-# that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with
-# `k = 10`, `p_i` the awarded percentage and `t_i` the elapsed days from the release of the
-# benchmark a submission is measured against to its receipt. `S_total` is the sum.
-#
-# **This makes speed worth as much as size, and the arithmetic is brutal.** Round 6 took six
-# days from `merged260821` to receipt and awarded 4.130718%, so `S_6 = 10 * 4.130718 / 6 =
-# 6.88`, which is the figure he quotes back. The same 4.13% delivered in two days would have
-# scored 20.65. Three separate 1.4% rounds at two days each would score 21.0 against the
-# 6.88 one 4.13% round actually earned.
-#
-# So the round length is a scoring decision, not a logistics one, and it belongs to Ivo.
-SUBMISSION_SPEED_K = 10
+# The annual file every candidate directory must hold to be the baseline: the earliest
+# year the reviewer's corpus covers, so the probe follows the JSON rather than a literal.
+_EARLIEST_YEAR_FILE = f"{min(REVIEWER_BASELINE_EE_BY_YEAR)}.txt"
 
 
 def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
@@ -275,7 +187,7 @@ def baseline_dir() -> Path:
             Path("..") / "baseline" / CURRENT_BASELINE_DIR.name,
             Path("baseline") / CURRENT_BASELINE_DIR.name,
         ),
-        "1996.txt",
+        _EARLIEST_YEAR_FILE,
     )
 
 

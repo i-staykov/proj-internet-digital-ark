@@ -74,23 +74,38 @@ def first_clause(text: str, limit: int = 240) -> str:
 
 
 def register_row(f: dict, run_label: str) -> str:
+    """One row in the eleven columns `convert_register.py` gave the register.
+
+    Cells the finding does not carry read `n/a`. The row is the whole entry: a
+    finding that needs more than this writes a `## Detail` section for it by hand.
+    """
     day = dt.date.today().isoformat()
-    dates = first_clause(f["fields"].get("what dates one item", ""), 160) or "not stated"
-    probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""))
+    dates = first_clause(f["fields"].get("what dates one item", ""), 140) or "n/a"
+    probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 200)
     url = _URL.search(f["fields"].get("artifact", ""))
-    link = f" Artifact: <{url.group(0)}>." if url else ""
-    return (
-        f"| **{f['slug']} ({day}, fleet {run_label})** | **{f['verdict']} at {f['ee']} EE, "
-        f"against the ark-data sync.** What dates one item: {dates}.{link} {probe} |"
-    )
+    cells = [
+        f["slug"],
+        f"{day}, fleet {run_label}",
+        "n/a",
+        f["fields"].get("method", "n/a") or "n/a",
+        dates,
+        "n/a",
+        f"{f['ee']} EE ({day})",
+        probe or "n/a",
+        "n/a",
+        f["verdict"],
+        f"<{url.group(0)}>" if url else "n/a",
+    ]
+    tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
+    return "| " + " | ".join(tidy) + " |"
 
 
 def append_rows(rows: list[str]) -> None:
     text = REGISTER.read_text(encoding="utf-8")
     at = text.index(TABLE_HEADING)
-    # The table starts two lines under the heading; insert right after the header row
-    # separator so newest entries lead, matching how the scribe wrote them.
-    sep = text.index("|---|---|", at)
+    # The table starts under the heading and its intro; insert right after the header
+    # row separator so newest entries lead, matching how the scribe wrote them.
+    sep = text.index("|---|", at)
     line_end = text.index("\n", sep) + 1
     REGISTER.write_text(text[:line_end] + "\n".join(rows) + "\n" + text[line_end:], "utf-8")
 

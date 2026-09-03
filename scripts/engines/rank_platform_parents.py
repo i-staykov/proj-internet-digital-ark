@@ -18,7 +18,6 @@ a public suffix).
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from collections import Counter
 from pathlib import Path
@@ -28,14 +27,10 @@ sys.path.insert(0, str(REPO / "src"))
 
 from ark.baseline import CURRENT_BASELINE_DIR  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
+from ark.english_share import english_weights  # noqa: E402
 
-# the calculator's own columnar shape: {tld: [...], lang: [...], perc_of_tld: [...]}
-_RAW = json.loads((REPO / "src/ark/data/tld_english_share.json").read_text())
-WEIGHTS = {
-    str(tld).lower(): float(pct) / 100.0
-    for tld, lang, pct in zip(_RAW["tld"], _RAW["lang"], _RAW["perc_of_tld"], strict=True)
-    if tld and lang == "eng"
-}
+# floats are enough for a ranking; the exact Decimal table stays in english_share
+WEIGHTS = {tld: float(share) for tld, share in english_weights().items()}
 
 
 def weight_of(parent: str) -> float:

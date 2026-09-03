@@ -18,6 +18,13 @@
   </array>
   <key>WorkingDirectory</key>
   <string>ARK_ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:ARK_HOME/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>ARK_HOME</string>
+  </dict>
   <key>StandardErrorPath</key>
   <string>ARK_ROOT/data/logs/scheduled_cycle.err</string>
 </dict>

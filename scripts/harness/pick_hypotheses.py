@@ -4,9 +4,9 @@ A hypothesis is a block in the hypothesis file headed `## <slug> | <title>`. It 
 until its block carries a `result:` line with something after the colon, which is what the
 harvester writes, AND has no unharvested findings file (see `--pending-dir`).
 
-Kept as its own script rather than inline in `agent_fanout.sh` because
-macOS ships bash 3.2, which has no `mapfile`, and a heredoc inside a process substitution
-inside a loop is how that script first failed to parse.
+Kept as its own script rather than inline in the shell that calls it, because macOS ships
+bash 3.2, which has no `mapfile`, and a heredoc inside a process substitution inside a loop
+is how the caller first failed to parse.
 """
 
 import argparse
