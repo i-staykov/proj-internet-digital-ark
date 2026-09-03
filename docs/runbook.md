@@ -160,6 +160,41 @@ evidence, the corroboration split gates anything a human typed, and seventeen in
 **An unattended agent physically cannot write an unevidenced year here.** It has latitude about what
 to try and none at all about what counts as proof.
 
+### Banking an approval that was merged somewhere else
+
+An approval arrives as a pull request against `live` adding the `Decision:` line, so it can be merged
+from a phone. What makes the merge bank something is three machine-readable lines in the request block,
+which `request_approval.py` writes and `bank_approved.py` parses:
+
+```
+- ingest spec: `some_spec`
+- journal: `data/raw/some/some.jsonl.gz`
+- refetch: https://host/path (then `uv run ark ingest some_spec data/raw/some/some.jsonl.gz`)
+```
+
+The journal is the file the approved figures were measured from. The refetch URL is the way back to
+those bytes, needed whenever they were priced on another machine or deleted after their rows landed:
+`bank_approved.py --write` downloads it to the journal path, refuses a response that is a page rather
+than the artifact, and reports a throttle with its `Retry-After` instead of sleeping through it. A block
+that is approved and cannot bank prints under an `APPROVED AND NOT BANKED` banner naming what it lacked;
+`--strict` turns that into a non-zero exit for a rehearsal.
+
+The bank's own hygiene is three commands, and the `bank` recipe runs them in this order, with
+`bank_approved.py --write` straight after the pull so a merged approval banks on the next bank:
+
+```bash
+uv run python scripts/harness/bank_hygiene.py preflight     # first: refuse dirty, fast-forward
+uv run python scripts/harness/bank_hygiene.py prune --write # once the run dirs are drained
+uv run python scripts/harness/bank_hygiene.py gate --write  # last, off the brief just refreshed
+```
+
+`preflight` refuses `main`, refuses uncommitted tracked edits and untracked files under the paths the
+recipe stages wholesale (`git add docs/` is how a 1.3 GB copy once reached history), and then pulls
+`--ff-only`. It never merges or force-pushes: a diverged clone is reported and reconciled by hand with
+`git pull --rebase origin live`. `gate` opens the gate issue once per crossing, latched by both
+`data/logs/gate_notified.tsv` and the open-issue query; a brief measured against a superseded release
+opens nothing and is reported as stale.
+
 ### Screening a source before it costs a request
 
 ```bash

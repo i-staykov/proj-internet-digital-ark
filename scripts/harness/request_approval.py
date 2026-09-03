@@ -145,6 +145,9 @@ def main() -> None:
     ap.add_argument("source", help="the spec key, e.g. udrp_proceedings")
     ap.add_argument("--journal", type=Path, required=True, help="the collected journal")
     ap.add_argument("--source-url", default="", help="where a reader can see the source itself")
+    ap.add_argument(
+        "--refetch", default="", help="direct URL of the artifact, when the source page is not it"
+    )
     ap.add_argument("--dating", default="", help="one sentence: what dates ONE item")
     ap.add_argument(
         "--seed", type=int, default=20260811, help="sample seed, printed in the request"
@@ -227,6 +230,15 @@ def main() -> None:
     sample = rng.sample(records, min(SAMPLE_SIZE, len(records)))
 
     shown_journal = args.journal.relative_to(ROOT) if args.journal.is_absolute() else args.journal
+    # The way back to the bytes. `bank_approved.py` reads this line when the journal
+    # is not on the machine that banks, which is every source priced elsewhere and
+    # every journal deleted after its rows were ingested.
+    artifact_url = args.refetch or args.source_url
+    refetch = (
+        f"{artifact_url} (then `uv run ark ingest {args.source} {shown_journal}`)"
+        if artifact_url
+        else "NOT GIVEN, so an approval merged where the bytes are not banks nothing"
+    )
     by_year = Counter(y for _d, y in netnew)
     lines = [
         f"### {spec.source_name} / {spec.evidence_type}",
@@ -234,6 +246,7 @@ def main() -> None:
         f"- ingest spec: `{args.source}`",
         f"- source: {args.source_url or 'NOT GIVEN, which is itself a reason to refuse'}",
         f"- journal: `{shown_journal}`",
+        f"- refetch: {refetch}",
         f"- agent's dating claim: {args.dating or 'NOT STATED, which is a reason to refuse'}",
         f"- {nearest_closed(spec.source_name)}",
         "",
