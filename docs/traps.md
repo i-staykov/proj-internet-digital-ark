@@ -55,6 +55,18 @@ nothing refuses `www.<held hostname>`, so a crawler's default alias of a name we
 counts as a new record. `just price-hosts` prints the share, `round_figures.py` prints it for the
 round, and a hostname number quoted without it is not comparable to one quoted with it.
 
+**A skeptic that re-runs the same code confirms the defect.** The first Usenet body-URL figure was
+reproduced to the digit by a verifier that re-priced the same shards, and it was wrong: the post
+boundary `^From (\d+|\S+@\S+)` cannot match the negative signed ids Google Groups exports use, so
+**50.019% of posts were never recognised** and every unrecognised post's header block was appended
+to the previous post's body. 14.02% of extracted hosts then came from header lines, `Organization:`
+alone 12.65%, which is the news-relay class the write-up promised to exclude, and the post totals
+were understated 2x. **A verifier has to read the extractor against the raw bytes.** The same round
+found two more of the same shape: two corpora of one class priced separately and **added**, double
+counting 12,387 shared keys, and a fiction screen made of a word list when the surviving fakes are
+**typos of real hosts** (`mmembers.aol.com`, `home.mci20000.com`), which no list catches and only a
+hand-judged sample rates.
+
 **Extracting hosts from a Usenet or mail document with a bare dotted-token regex prices the
 transport, not the web.** `rtfm` measured 20,049.42 EE that way and 3,719.91 EE when only
 explicit `http://`, `https://` and `ftp://` URLs in the body counted, an 81.45% error. The header

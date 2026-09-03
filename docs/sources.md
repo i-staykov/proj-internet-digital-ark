@@ -913,6 +913,53 @@ invented, and a host inside a URL a human typed is not. Waiting on the same word
 `usenet_new_hostgrain`; nothing is ingested. **Two pools together: 64,840.4 EE eligible over
 113,864 hostname records, measured over 110 GB with no projection.**
 
+## `usenet_body_url_hostnames`: FIND at 65,280 EE, and the two entries above it were wrong
+
+**This supersedes `usenet_new_hostgrain` and `usenet_bulk_hostgrain`, written earlier the same
+day.** Those entries stand as the record of what was measured then; four independent verifiers
+attacked the figure and three of them landed, so the numbers here are the ones to quote.
+
+**What was wrong, and it was the method rather than the arithmetic.** The extractor's post
+boundary was `^From (\d+|\S+@\S+)`, and Google Groups exports separate posts with
+`From <signed 64-bit id>` where about half the ids are negative. So **50.019% of posts were
+never recognised**, and every unrecognised post's header block was appended to the previous
+post's body: 14.02% of extracted host mentions came from a header line, `Organization:` alone
+12.65%, which is the news-provider class the entry promised to exclude. `ftp://` was claimed
+and never implemented. The two pools were also priced separately and **added**, double counting
+12,387 shared (host, year) keys. And the pricer counted only the subdomain rows, discarding the
+registrable-year pairs the same captures assert.
+
+**The corrected measurement**, both pools read whole with `-?\d+` and priced as one union
+(`just price-hosts --items <pool> <pool>`): 173,738,432 posts, **71,209,294 dated inside
+1996-2001**, 24,308,602 carrying a body URL, 1,111,076 distinct host-years, 316,847 candidates,
+99,318 already in the store and 65,032 in his files alone. **151,977 net-new hostname years and
+88,564.4995 EE gross.** Then three screens, each measured: the ADR-007 `www.` alias seam is
+29,884 rows and 18,932.8616 EE (21.4%), leaving **69,631.6379 EE**; the `.arpa` and
+TLD-delegation rules the hostname export had never applied take 510 rows; and fiction, which is
+the one screen that cannot be mechanical, because the surviving fakes are **typos of real
+hosts** (`mmembers.aol.com`, `www3.per.sypatico.ca`, `home.mci20000.com`) rather than
+`foo.com`. Hand-judged over 80 random eligible rows across two seeds: 5 implausible, so
+**6.25%, Wilson 95% CI 2.7% to 13.8%**, giving **65,279.6605 EE central, 60,022 to 67,752**.
+A word list finds only 949 of them, which is why the rate is sampled and quoted with an interval.
+
+**The registrable half is separate and needs no hostname decision: 42,625 net-new (registrable,
+year) pairs, 24,172.0540 EE**, from the 775,507 pairs the same rows assert. That figure is
+BEFORE the corroboration split every typed-name class takes, and the split is known to be
+brutal here: the recorded registrable pass over `usenet_new` measured 35.8 EE post-split. So it
+is an upper bound on that half, not a second find.
+
+**What dates one item** is unchanged and survived its own verifier intact: each post's own
+machine-written `Date:` header, zero wrong-year assignments in 135,695 dated posts. One warning
+for anyone who tries to harden it: **38.02% of the dated posts use the Google Groups
+`YYYY/MM/DD` form, which `email.utils.parsedate_to_datetime` cannot parse**, so the
+four-digit-year regex is deliberate and a strict RFC 822 parse would silently discard 51,584 of
+135,695 sampled posts.
+
+Nothing is ingested. The request is `usenet_body_url_hostnames / link_source` in
+`approved-sources-list.md`; **the transferable point is that a one-character regex defect
+survived a skeptic that reproduced every figure to the digit, because it re-ran the same code:
+a verifier has to read the extractor against the raw bytes, not re-price the same output.**
+
 ## Detail`
 section, which holds the entry as it was written.
 

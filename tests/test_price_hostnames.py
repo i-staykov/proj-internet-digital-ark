@@ -56,7 +56,7 @@ def test_funnel_matches_the_ingest(tmp_path: Path) -> None:
         ],
     )
     seen, counts = ph.read_rows([journal], items=False, head=None)
-    rows = ph.funnel(seen, counts)
+    rows, pairs = ph.funnel(seen, counts)
     assert counts["out_of_window"] == 1 and counts["no_host"] == 1
     assert counts["registrable_row"] == 1 and counts["www_of_parent"] == 1
     assert rows == [
@@ -64,18 +64,22 @@ def test_funnel_matches_the_ingest(tmp_path: Path) -> None:
         ("new.held.com", "held.com", 1999),
         ("old.held.com", "held.com", 1999),
     ]
+    # the registrable half the same rows assert, including the two that write no
+    # hostname record: `held.com` itself and `www.held.com`, which date the parent
+    assert pairs == [("fresh.org", 2001), ("held.com", 1999)]
 
     baseline = tmp_path / "baseline"
     baseline.mkdir()
     (baseline / "2001.txt").write_text("a.fresh.org\n")  # his file already lists it
-    priced = ph.price(_store(), rows, baseline)
+    priced = ph.price(_store(), rows, pairs, baseline)
     assert priced["candidates"] == 3
+    assert priced["registrable_candidates"] == 2
     assert priced["in_store"] == 1
     assert priced["in_baseline_only"] == 1
     assert priced["netnew_hostname_years"] == 1
     assert priced["netnew_by_year"] == {1999: 1}
     assert priced["netnew_ee"] > 0
-    # fresh.org/2001 is a parent pair the ingest would assign; held.com/1999 is held
+    # fresh.org/2001 is a registrable-year the ingest would assign; held.com/1999 is held
     assert priced["parent_pairs_netnew"] == 1
 
 
