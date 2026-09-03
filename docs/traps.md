@@ -39,6 +39,13 @@ invisible in the headline: the same Usenet bytes and the same parse priced 22,83
 current baseline and 252 EE against `merged260810`, a 91x spread. Price a source against a
 reviewer cut from BEFORE our own collector last ran in that channel.
 
+**A figure that does not come from the shipped files is not the round's figure.** The
+scoreboard and the export each computed net-new from the store, and only the export applied the
+shipping filter, so on 2026-09-03 the brief quoted 17,638 pairs against 16,772 in the files: 866
+pairs and 479.4256 EE under `.arpa` or dated before their TLD existed, which no round could be
+credited for. `ark.delegation.shipping_filter` is the one predicate; every count that claims to
+be what ships takes it, and a new counter that does not is wrong by construction.
+
 ## Collectors and queues
 
 **A running collector is not a working one.** Presence, progress and yield are three questions,

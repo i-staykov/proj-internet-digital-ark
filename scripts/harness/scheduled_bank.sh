@@ -56,8 +56,9 @@ ship_now() {
 
 {
     printf '\n===== scheduled bank %s =====\n' "$(date -u '+%F %T UTC')"
-    # the per-file skip lines of an idempotent ingest would fill the whole log
-    just bank 2>&1 | grep -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]'
+    # the per-file skip lines of an idempotent ingest would fill the whole log; line
+    # buffering so a reader mid-run sees where the bank is, not a stale block
+    just bank 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]'
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
 } >> "$LOG"
