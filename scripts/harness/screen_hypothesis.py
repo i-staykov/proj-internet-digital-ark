@@ -44,6 +44,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES_MD = ROOT / "docs" / "sources.md"
+CLOSED_MD = ROOT / "docs" / "sources-closed.md"
 
 DATING = {
     "self": (
@@ -284,14 +285,36 @@ def _tokens(text: str) -> set[str]:
     return {w for w in kept if w and w not in STOP and not _NUMERIC.match(w)}
 
 
-def closed_leads(path: Path = SOURCES_MD) -> list[Closed]:
-    """Parse the register out of `docs/sources.md`, never a second copy of it.
+def _detail_blocks(lines: list[str]) -> dict[str, str]:
+    """The `## Detail` prose, by anchor, so a row keeps the words it points at.
 
-    Three shapes carry a verdict in that file and all three are read: rows of the
+    Rows are capped at 500 characters and the rest of the verdict sits under an
+    anchor below. Reading the row alone would drop most of what the body match
+    and the availability/measurement split are looking at.
+    """
+    blocks: dict[str, list[str]] = {}
+    anchor = ""
+    for line in lines:
+        if line.startswith("### "):
+            anchor = line[4:].strip()
+            blocks[anchor] = []
+        elif line.startswith("## "):
+            anchor = ""
+        elif anchor:
+            blocks[anchor].append(line)
+    return {key: " ".join(value) for key, value in blocks.items()}
+
+
+def closed_leads(*paths: Path) -> list[Closed]:
+    """Parse the register out of the documents that hold it, never a copy of them.
+
+    Since the 2026-09-03 row conversion the register is two files, one row per
+    source: `docs/sources.md` keeps the open rows and `docs/sources-closed.md`
+    the closed ones. Four shapes carry a verdict and all four are read: rows of a
+    table whose first column is `source`, rows of the older two-column
     `Evaluated and rejected` table, `## ` sections whose heading says rejected,
     and an inline `**Verdict: REJECT ...**` inside any section.
     """
-    lines = path.read_text(encoding="utf-8").splitlines()
     out: list[Closed] = []
     seen: set[str] = set()
 
@@ -302,24 +325,36 @@ def closed_leads(path: Path = SOURCES_MD) -> list[Closed]:
             seen.add(name)
             out.append(Closed(name, verdict, number))
 
-    in_table = False
-    section = ""
-    for number, line in enumerate(lines, start=1):
-        if line.startswith("## "):
-            section = line[3:].strip()
-            in_table = section.lower().startswith("evaluated and rejected")
-            # the container heading is not itself a lead
-            if "reject" in section.lower() and not in_table:
-                add(section, "section heading records a rejection", number)
+    for path in paths or (SOURCES_MD, CLOSED_MD):
+        if not path.is_file():
             continue
-        if in_table and line.startswith("|") and line.count("|") >= 3:
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) < 2 or cells[0] in {"Source", "---"} or set(cells[0]) <= {"-"}:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        detail = _detail_blocks(lines)
+        in_table = False
+        section = ""
+        for number, line in enumerate(lines, start=1):
+            if line.startswith("## "):
+                section = line[3:].strip()
+                in_table = section.lower().startswith("evaluated and rejected")
+                # the container heading is not itself a lead
+                if "reject" in section.lower() and not in_table:
+                    add(section, "section heading records a rejection", number)
                 continue
-            add(cells[0], cells[1], number)
-            continue
-        if "Verdict: REJECT" in line:
-            add(section or line.strip(), line.strip(" -*"), number)
+            if line.startswith("|") and line.count("|") >= 3:
+                cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                if cells and cells[0].lower() == "source":
+                    in_table = True
+                    continue
+                if not in_table or len(cells) < 2 or set("".join(cells)) <= {"-", " "}:
+                    continue
+                verdict = " | ".join(cells[1:])
+                pointer = re.search(r"\(#([^)]+)\)", line)
+                if pointer:
+                    verdict = f"{verdict} {detail.get(pointer.group(1), '')}"
+                add(cells[0], verdict, number)
+                continue
+            if "Verdict: REJECT" in line:
+                add(section or line.strip(), line.strip(" -*"), number)
     return out
 
 
