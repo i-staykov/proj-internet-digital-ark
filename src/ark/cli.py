@@ -220,6 +220,139 @@ def ingest_cmd(
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
 
 
+@app.command(name="ingest-hostnames")
+def ingest_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Raw capture journals ({url, timestamp} lines) or directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year from raw CDX capture journals (second output unit).
+
+    Accepted by the reviewer 2026-09-01: hostnames are annual records beside
+    registrables. Evidence class is the approved cdx_timestamp; a hostname that is
+    its own registrable is refused here because it belongs to domain_year.
+    Idempotent per file. Example: ark ingest-hostnames data/raw/cdx_suffix/
+    """
+    from ark.hostnames import ingest_hostname_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        ingest_hostname_dir(conn, path)
+
+
+@app.command(name="ingest-zone-hostnames")
+def ingest_zone_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(help="InterNIC zone files (`*.zone.gz`).", exists=True, readable=True),
+    ],
+) -> None:
+    """Fill hostname_year with the nameserver TARGETS of an InterNIC zone file.
+
+    `ark ingest internic_zone` records the delegated names; this records the hosts
+    they point at, which a web crawl never fetches. Dated by the zone's own SOA
+    serial, class artifact_listing, idempotent per file. Admitted 2026-09-02 under
+    the standing rule. Example: ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz
+    """
+    from ark.hostnames import ingest_zone_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        stats = ingest_zone_hostnames(conn, path)
+        typer.echo(str(stats))
+
+
+@app.command(name="ingest-blocklist-hostnames")
+def ingest_blocklist_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Flattened `squidguard-*` list files, or the chastity orig tarball.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the sub-registrable hosts two banked blocklists name.
+
+    `ark ingest squidguard_2001_blacklist` and `chastity_dated` collapse every listed
+    host to its registrable; this keeps the host. Dated by the same stamps, squidGuard's
+    compile header and chastity's tar member header, so the tarball is what it reads.
+    Admitted 2026-09-02 under the standing rule. Idempotent per file.
+    """
+    from ark.hostnames import ingest_blocklist_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    totals: Counter = Counter()
+    for path in paths:
+        for key, value in ingest_blocklist_hostnames(conn, path).items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                totals[key] += value
+    typer.echo(str(dict(totals)))
+
+
+@app.command(name="ingest-ripe-nserver-hostnames")
+def ingest_ripe_nserver_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="FUNET's `ripe.db.gz` (1999 snapshot) and `split/ripe.db.domain.gz` (2004).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the nameservers RIPE `domain:` objects point at.
+
+    `ark ingest ripe_dbase_1999` and `ripe_dbase_split_2004` record the delegated
+    names; this records the `*ns:` / `nserver:` hosts they name, dated by the same
+    stamps (the snapshot's header, the object's latest `changed:` line). Class
+    artifact_listing, under the RIPE NCC permission of 2026-08-26. Admitted 2026-09-02
+    under the standing rule. Idempotent per file.
+    """
+    from ark.hostnames import ingest_ripe_nserver_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_ripe_nserver_hostnames(conn, path)))
+
+
+@app.command(name="ingest-isc-hostnames")
+def ingest_isc_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="ISC survey per-TLD host files (`data/raw/isc_survey/wb_nw_*_<tld>.gz`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts the ISC Internet Domain Survey lists.
+
+    `ark ingest isc_survey` collapses every `IP hostname` line to its registrable;
+    this keeps the host itself, dated by the same `YYMM` survey code, class
+    artifact_listing. `.domains` files are skipped by name. Admitted 2026-09-02
+    under the standing rule. Idempotent per file.
+    Example: ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*.gz
+    """
+    from ark.hostnames import ingest_isc_hostnames
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_isc_hostnames(conn, path)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

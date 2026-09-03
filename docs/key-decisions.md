@@ -7,6 +7,45 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
+
+Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot
+be evaluated because nothing has been ingested. The fleet sampled 57 of the 282 public
+DARTMOUTH-NBER ARCS aggregate CDX indexes at one Range slice each and found 120 novel hosts
+beneath held parents at 2001 out of 235 proper hosts (0.453 per registrable-year), projecting
+~88,700 EE at 2001 and ~92,000 at 1996-2000 from one alphabetic band per item. The measured
+sample is worth under 100 EE and no issue is filed. What it needs is a collector on the VPS
+(scout ~40 candidate items, pull the in-window per-ARC indexes, `ark ingest-hostnames`), and
+two more Range offsets on items 00333 and 02693 first to rule out a band artifact. Entry in
+`approved-sources-list.md` under Pending requests; the fleet finding is
+`dartmouth_captures_hostname_grain`, 2026-09-02.
+
+Worth: ~180,000 EE projected across the window, under 100 EE measured. A collector decision, not an approval.
+
+### Settle the terms for arin_inaddr_ns_hostnames / artifact_listing
+
+ARIN's twelve 1999 in-addr.arpa zones in APNIC's tar (`ftp.apnic.net/apnic/arin/arin.zones.tar.gz`), nameserver hostnames at hostname grain, fleet-measured at **4,655.5 EE** (7,232 novel host-years at 1999 plus 179 parents), dated by BIND's own AXFR stamp `at Thu Jan  7 12:18:51 1999`. Parks on condition 3 only: APNIC's bulk AUP covers `/apnic/whois/`, this directory carries no notice, and ARIN's position on historical zone redistribution is unread. One mail to APNIC or ARIN settles it. Issue on ark-fleet carries the block.
+
+Worth: 4,655.5 EE measured by the fleet, not yet re-priced on the live store. Directory frozen since 1999, so this is the whole family.
+
+### Approve, refuse or downgrade usenet_body_pasted_hostnames / link_source
+
+Hostnames inside Usenet post BODIES (`dig` answers, config snippets, logs) at hostname grain, fleet-measured at **~6,200 EE on one group** (`comp.protocols.dns.bind`, 67 MB) after a placeholder screen, with ~13% fictitious config examples still among the survivors. Parks on condition 1: the banked Usenet body classes date registrables under the corroboration split, and at hostname grain the split does not guard against `mail.bogus.com` beneath a held `bogus.com`. The machine-output lane alone is 2,477 EE if the human-pasted lane is refused. Issue on ark-fleet carries the block.
+
+Worth: ~6,200 EE on one group; yield is group-specific by 22x, so the spool-wide figure is unknown. Ding's 0901 update lists dated Usenet copies as unsuitable.
+
+### Approve, refuse or downgrade usenet_header_fqdn_hostnames / link_source
+
+Server-written Usenet header hostnames (`X-Trace`, `NNTP-Posting-Host`, final `Path` hop) at hostname grain, fleet-measured at **2,368 EE on one 28 MB demon.* probe**, not re-priced on the live store because the probe table was deleted and the bytes are on the VPS. Parks on conditions 1 and 4: no master-eligible class covers a server-written header hostname without the split the banked Usenet classes take, and no journal exists to ingest. Ding's 2026-09-01 update lists dated Usenet copies as unsuitable, so the fleet recommends asking him first. Issue 2 on ark-fleet carries the block.
+
+Worth: 6,877 EE on the second probe (55 MB, 2026-09-02), of which 2,823 rests on server-written fields and 4,054 on the client-written `Message-ID` host, which needs its own ruling; 20,000 to 60,000 EE projected for demon.* alone, unmeasured. A third probe on two uk.* groups adds 2,537 EE (server-written fields only, 73% retained across groups), so the 495-zip uk.* hierarchy is a labelled 50,000 to 150,000 EE guess on top.
+
+### Approve, refuse or downgrade internic_zone_hostnames_1999 / artifact_listing
+
+The nameserver targets of the 1999 `edu` and `gov` zones at hostname grain, the lane banked today for 1997 at 11,860.7 EE. Priced on the live store 2026-09-02 at **4,678.2 EE over 6,650 (hostname, 1999) records**. It parks on condition 3 of the standing rule, terms: the files came off `tomocha.net`, whose ClaudeBot refusal is the open question above, and the 1999 `edu` file itself opens with Network Solutions' access-agreement notice. The bytes are on disk, nothing is fetched by deciding. `approved-sources-list.md` has the block; issue 1 on ark-fleet carries it.
+
+Worth: 4,678.2 EE. This sharpens the tomocha question from 0 EE to a figure.
+
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
 Every registry this project has queried by RDAP publishes terms inside the response, and all four read so far prohibit high-volume automated querying: Verisign, PIR and CIRA with a registration-only carve-out, Nominet with none plus a ban on using the extracted contents at all. Both engines were stopped on 2026-08-27 and `ark rdap` now refuses those TLDs in code. The route was half of phase 6's equivalent-English, so a written permission of the RIPE kind is the only thing that reopens it.
@@ -59,6 +98,11 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-54** | 2026-09-02 | Public-suffix namespaces (`co.uk` first, then `com.au`, `co.nz`, `org.uk`, `gov.uk`, `co.za`, `gc.ca`, the `.us` states) reopened at hostname grain and queued behind the platform parents: C-39 to C-41 closed them at registrable grain on 1.2% of the index. Page size raised to 10,000 blocks after a flat cost-per-page measurement; failed pages retried, not skipped; page count asked up front. Details in `sources.md`, runbook in `operations.md` |
+| **C-52** | 2026-09-01 | Ding accepted hostnames as annual records (registrables still prioritized). Built same day per the plan trigger: hostname_year + ingest-hostnames + per-year hostname exports + two wall checks; the 180 raw suffix journals repriced from 0 to 338,865 net-new hostname records (301,650 EE); platform sweep took the second client slot, gaploc stood down |
+| **C-53** | 2026-09-01 | Headline metric is the combined increment at the calculator's unit (registrables + hostnames), because Ding accepted hostnames explicitly and scores other participants that way; the registrable-only figures are quoted beneath it. Report rewritten to the phase-6 shape Ding called exceptionally well documented: one generated attribution table over both units, short prose, D1-D4. Ivo, 2026-09-01 |
+| **C-51** | 2026-09-01 | Ivo: one month left, speed first. Rung 2 (4 waves/day), self-improvement lane added (policy.json + prompts/ tuned one knob per PR behind an evidence gate), approval issues only at 1,000+ EE, model matrix set per lane, runner sudo scoped to the collector units |
+| **C-50** | 2026-09-01 | The vedge engine queue replaced with the fleet-measured high-weight 2001 gap tail: 167,870 uk/au/edu/ca names held at 2000 and missing 2001, journal-deduped, 0.91 EE/pair against the old head 0.63. Old queue kept as gap_ranked_vps.txt.pre-hiweight |
 | **C-49** | 2026-08-24 | O9 answered: purge the 575,417 impossible `.mil`/`.gov`/`.edu` candidates. No yield either way, wasted queries only |
 | **C-48** | 2026-08-24 | O5 answered no, and it binds RDAP too: this is paid work, so no bulk Nominet querying. The `.uk` engine started that morning at 118.8 EE per 1,000 queries was stopped the same day |
 | **C-47** | 2026-08-24 | O4 closed as unnecessary. The in-session cron runs the cycle hourly, so Full Disk Access for `/bin/bash` buys nothing |

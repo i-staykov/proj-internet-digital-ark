@@ -39,8 +39,8 @@ from decimal import Decimal
 from pathlib import Path
 
 # The release the store's baseline is defined against.
-CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 3/merged260830")
-CURRENT_BASELINE_MARKER = "merged260830"
+CURRENT_BASELINE_DIR = Path("feedback/feedback-phase-7/Domain_Data_Collection_Task 4/merged260901")
+CURRENT_BASELINE_MARKER = "merged260901"
 
 # The first moment anything in the current round could have been written, which is
 # when the previous round's archive was cut (`submissions/phase-5/MANIFEST.txt`,
@@ -61,32 +61,31 @@ CURRENT_ROUND_LABEL = "7"
 # the raw count, and quoting the valid one reads to him as records lost since his
 # previous message. For `merged260802-2` the split was 10,415,768 raw against
 # 10,404,200 valid, the difference being embedded ports and underscore labels.
-REVIEWER_BASELINE_PAIRS = 27_880_151
-REVIEWER_BASELINE_EE = Decimal("14531454.0269")
+REVIEWER_BASELINE_PAIRS = 33_848_926
+REVIEWER_BASELINE_EE = Decimal("17770588.9026")
 
 # Per-year equivalent-English of the same files, since the completion standard is
 # stated against each year's own baseline rather than the whole-corpus total. Measured
-# by running his own `equivalent_english_domains.py` over each `merged260821` file
+# by running his own `equivalent_english_domains.py` over each `merged260901` file
 # rather than by carrying reported increments forward, because a release absorbs
 # several contributors' rounds and no per-year statement of ours covers it.
 #
-# **2001 is where `merged260830` moved, and it is the year we had just aimed at.** The
-# release adds 646,292 pairs and 309,511 EE over `merged260827-2`, and 210,704 EE of that
-# lands at 2001 alone, with 1999 and 2000 taking 41,084 and 56,652. Only 3,845 EE of the
-# 2001 growth is ours by overlap, so roughly 207,000 EE at 2001 came from elsewhere. The
-# file mtimes agree: 1996-1998 are dated 2026-08-29 and 1999-2001 2026-08-30.
-#
-# **The denominator moved against us faster than overlap did.** We lost only 6,523 pairs
-# and 3,894 EE to this release, 2.1% of the increment, against 244,752 records lost to the
-# previous one. But 5% of the corpus rose from 711,097 to 726,573 EE, so the gap to the
-# trigger grew from 524,926 to 544,738 EE despite our banking all day.
+# **`merged260901` is the platform-hostname release, and it changed the game's scale.**
+# One day after `merged260830` it adds +4,690,367 records at 2001 alone (5.85M to
+# 10.54M), +740,322 at 2000 and +320,801 at 1999, almost entirely third-level hostnames
+# under mass-hosting platforms: the very workflow Ding's 0901 update added to the brief.
+# Overlap with our unsubmitted round is tiny, 26,667 of 513,758 net-new 2001 pairs
+# (5.2%), because we collect registrable domains and this wave collects hostnames. So
+# the denominator grew +3,239,135 EE (+22.3%) while barely touching our increment, and
+# the 5% trigger moved from 726,573 to 888,529 EE. Figures from his own calculator run
+# over each file of the release.
 REVIEWER_BASELINE_EE_BY_YEAR = {
-    1996: Decimal("558670.7937"),
-    1997: Decimal("1156766.3818"),
-    1998: Decimal("1524123.5397"),
-    1999: Decimal("2967947.2618"),
-    2000: Decimal("5069509.0517"),
-    2001: Decimal("3254436.9982"),
+    1996: Decimal("566864.3516"),
+    1997: Decimal("1191421.9175"),
+    1998: Decimal("1599996.5265"),
+    1999: Decimal("3164484.0222"),
+    2000: Decimal("5496037.6154"),
+    2001: Decimal("5751784.4694"),
 }
 
 # The corpus as it stood before this project's FIRST submission: `merged260715-2`,
@@ -133,32 +132,97 @@ ORIGINAL_BASELINE_EE = Decimal("4553314.7637")
 # contributors. Quoting the submitted figure would overstate the cumulative by exactly
 # that overlap, and the overlap is only ever visible in his reply.
 SUBMITTED_ROUNDS = (
-    # label, date, records, equivalent-English, baseline accepted against, awarded %
+    # label, date, records, equivalent-English, baseline accepted against, awarded %,
+    # benchmark released (his clock), submission received (his clock)
     #
-    # The last column is the percentage HE awarded, quoted from his feedback, because the
-    # competition score is the direct arithmetic sum of those percentages and not a ratio
+    # Column 6 is the percentage HE awarded, quoted from his feedback, because the
+    # cumulative record is the direct arithmetic sum of those percentages and not a ratio
     # anything here can recompute: each was taken against the baseline of the day it
     # arrived, and those baselines are gone. Sources, in order:
-    # round 1  feedback of 2026-07-27, "adding 1,429,524 records (17.38%)". This one is a
-    #          RECORD percentage: the equivalent-English metric was introduced after it,
-    #          so it is not commensurable with the three below and is reported separately.
+    # round 1  feedback of 2026-07-27, "adding 1,429,524 records (17.38%)". A RECORD
+    #          percentage: the equivalent-English metric came after it. Ivo's decision of
+    #          2026-09-02 is to carry it in the cumulative record anyway, flagged as such.
     # round 3  feedback of 2026-08-03, "91,814.6880, equal to 1.659986% of the merged260730
     #          baseline of 5,531,053.6089".
     # round 4  feedback of 2026-08-10, "increased by 603,401.7811 ... a 10.730988% increase
     #          over merged260802-2".
     # round 5  feedback of 2026-08-18, credited 2,608,322 records and 1,566,229.7613 EE at
     #          14.901054%, against the 2,838,715 and 1,697,224.86 that were sent.
-    ("1", "2026-07-26", 1_429_524, Decimal("756559.2864"), "merged260715-2", None),
-    ("3", "2026-08-02", 151_949, Decimal("91814.6880"), "merged260730", Decimal("1.659986")),
-    ("4", "2026-08-09", 946_266, Decimal("603401.7811"), "merged260802-2", Decimal("10.730988")),
-    ("5", "2026-08-17", 2_608_322, Decimal("1566229.7613"), "merged260817", Decimal("14.901054")),
     # round 6  feedback of 2026-08-27, credited 1,684,903 records and 562,099.5294 EE at
     #          4.130718% against `merged260826`, from the 1,929,655 and 713,481.4198 that
-    #          were sent against `merged260821`. The 244,752-record difference had already
-    #          entered the newer benchmark through other contributors, which is the third
-    #          round in a row where the accepted figure is below the submitted one.
-    ("6", "2026-08-27", 1_684_903, Decimal("562099.5294"), "merged260826", Decimal("4.130718")),
+    #          were sent against `merged260821`.
+    #
+    # Columns 7 and 8 are the two timestamps the time-weighted score needs, reconstructed
+    # on 2026-09-02 from the mail archive in `private/personal-context.md`: the date of the
+    # transfernow link by which he released a benchmark package, and the date his own client
+    # stamps on the mail carrying the submission. Both in HIS clock, because the brief
+    # requires one timestamp record and one zone for all participants. THE RECONSTRUCTION IS
+    # CHECKABLE AGAINST HIM ON ONE ROUND: he quotes S_6 = 6.88, and 10 * 4.130718 / 6 = 6.88
+    # holds only for release 2026-08-20 (link `20260820Q634KdPr`) and receipt 2026-08-26,
+    # which is what these two columns say. Every other row is the same rule applied, and the
+    # report labels the whole set as subject to his confirmation.
+    (
+        "1",
+        "2026-07-26",
+        1_429_524,
+        Decimal("756559.2864"),
+        "merged260715-2",
+        Decimal("17.38"),
+        "2026-07-21",
+        "2026-07-26",
+    ),
+    (
+        "3",
+        "2026-08-02",
+        151_949,
+        Decimal("91814.6880"),
+        "merged260730",
+        Decimal("1.659986"),
+        "2026-07-31",
+        "2026-08-01",
+    ),
+    (
+        "4",
+        "2026-08-09",
+        946_266,
+        Decimal("603401.7811"),
+        "merged260802-2",
+        Decimal("10.730988"),
+        "2026-08-03",
+        "2026-08-09",
+    ),
+    (
+        "5",
+        "2026-08-17",
+        2_608_322,
+        Decimal("1566229.7613"),
+        "merged260817",
+        Decimal("14.901054"),
+        "2026-08-15",
+        "2026-08-17",
+    ),
+    (
+        "6",
+        "2026-08-27",
+        1_684_903,
+        Decimal("562099.5294"),
+        "merged260826",
+        Decimal("4.130718"),
+        "2026-08-20",
+        "2026-08-26",
+    ),
 )
+
+# Round 1's percentage was awarded on records, so it is not commensurable with the
+# equivalent-English percentages of every later round. It is summed with them anyway,
+# on Ivo's instruction of 2026-09-02, and every place that prints the sum says so.
+ROUND_ONE_IS_RECORD_BASED = "1"
+
+# The current round's own two timestamps, for the same arithmetic. The release date is
+# his mail of 2026-09-01 carrying `merged260901` (link `202609016r5migxo`); the receipt
+# date is filled at send time and defaults to today, so an unsent round reads as if it
+# went out now rather than silently scoring itself faster than it will be.
+CURRENT_BASELINE_RELEASED = "2026-09-01"
 
 # The competition RANKING score, which is not the cumulative percentage and is the number
 # that decides positions. From the brief update of 2026-08-20: `S_i = k * (p_i / t_i)` with

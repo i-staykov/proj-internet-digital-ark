@@ -625,6 +625,51 @@ def test_nypw_evidences_only_the_year_it_names(tmp_path):
     assert [r.year for r in records] == [1999]
 
 
+def test_nypw_nonok_takes_exactly_the_lane_the_200_parser_drops(tmp_path):
+    """The two specs must partition the in-window rows, never overlap them: the
+    200 lane is the control group for the relaxation and an overlap would make
+    a pair look net-new when the sibling had already banked it."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(
+        _nypw_line("20070717010807", "http://late.com/", status="404")
+        + _nypw_line("19980101000000", "http://redirect.com/", status="302")
+        + _nypw_line("20010101000000", "http://gone.com/", status="404")
+        + _nypw_line("19980101000000", "http://good.com/")
+    )
+    stats = Counter()
+    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, stats))
+    assert [r.raw for r in records] == ["http://redirect.com/", "http://gone.com/"]
+    assert [r.year for r in records] == [1998, 2001]
+    assert stats["out_of_window"] == 1
+    assert stats["ok_lane"] == 1
+
+
+def test_nypw_nonok_keeps_the_status_in_the_evidence_value(tmp_path):
+    """What the row proves is that a server answered, so the code it answered
+    with belongs in the evidence rather than only in the parser."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(_nypw_line("20010305101500", "http://hmcfunding.com:80/", status="302"))
+    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, Counter()))
+    assert records[0].evidence_value == "nypw timemap capture status 302 20010305101500"
+    assert records[0].evidence_url == (
+        "https://web.archive.org/web/20010305101500/http://hmcfunding.com:80/"
+    )
+
+
+def test_nypw_nonok_drops_a_status_that_is_not_a_server_answering(tmp_path):
+    """A CDX row can carry `-` where no response was received. That evidences
+    no delegation and so no year, which is the whole basis of this lane."""
+    path = tmp_path / "nypw.txt"
+    path.write_text(
+        _nypw_line("19990101000000", "http://nothing.com/", status="-")
+        + _nypw_line("19990101000000", "http://answered.com/", status="500")
+    )
+    stats = Counter()
+    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, stats))
+    assert [r.raw for r in records] == ["http://answered.com/"]
+    assert stats["no_response"] == 1
+
+
 # --- Usenet announcement archives --------------------------------------------
 
 

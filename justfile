@@ -5,7 +5,7 @@
 # installed; these recipes exist so the order is hard to get wrong, not to hide
 # what runs. `just --list` shows everything.
 #
-# On naming: `ark check` validates the DATA (thirteen integrity invariants over
+# On naming: `ark check` validates the DATA (fifteen integrity invariants over
 # the store) while the test suite validates the CODE. Naming either one plain
 # "check" invites running one and believing the other passed, so they are
 # `check-data` and `verify-repo` here, and `just check` runs BOTH.
@@ -44,7 +44,7 @@ verify-repo:
 
 # --- validating the data -----------------------------------------------------
 
-# the integrity gate: thirteen invariants over the store, non-zero exit on any failure
+# the integrity gate: fifteen invariants over the store, non-zero exit on any failure
 check-data:
     uv run ark check
 
@@ -80,6 +80,82 @@ residual *args:
 # the only step that leaves the machine.
 #
 # check the round once and report what needs judgement
+# Drain the fleet's findings, admit any FIND, book everything, gate, push `live`, and
+# refresh the VPS pricing snapshot. The one deliberate human-adjacent step of the loop
+# (fleet plan, D3): run it whenever the laptop is open.
+bank fleet="~/Documents/GitHub/ark-fleet":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FLEET=$(eval echo {{fleet}})
+    IN=data/fleet_findings/incoming
+    mkdir -p "$IN" data/fleet_findings/banked data/logs
+    PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
+    command -v gh >/dev/null || { echo "needs gh"; exit 1; }
+    # Anything still waiting on Ivo, first, so a bank never buries a decision.
+    gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
+        --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
+    # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
+    gh run list --repo i-staykov/ark-fleet --limit 50 --status completed \
+        --json databaseId --jq '.[].databaseId' | while read -r RID; do
+        grep -qx "$RID" "$PROCESSED" && continue
+        gh run download "$RID" --repo i-staykov/ark-fleet \
+            --dir "$IN/run_$RID" >/dev/null 2>&1 || true
+        echo "$RID" >> "$PROCESSED"
+    done
+    # Flatten: findings artifacts hold findings/*.md plus telemetry.json.
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    find "$IN" -mindepth 2 -name '*.md' -exec mv -n {} "$IN/" \;
+    # 2. The ledger row per telemetry file, then tidy.
+    find "$IN" -mindepth 2 -name 'telemetry.json' | while read -r T; do
+        python3 -c "import json,sys;d=json.load(open('$T'));print('$LABEL', d.get('tokens_in_plus_out',0), d.get('seven_day_pct','?'), sep='\t')" \
+            >> data/logs/fleet_ledger.tsv || true
+        rm -f "$T"
+    done
+    find "$IN" -mindepth 1 -type d -empty -delete
+    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; exit 0; fi
+    # 3. Result lines first and pushed at once: a wave that picks while the admitter
+    #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
+    uv run python scripts/harness/bank_findings.py "$IN" \
+        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
+    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+    #    A FIND wakes the admitter (a model, locally, where the store is).
+    if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
+        echo "FIND present: waking the admitter (fable 5.1/medium)"
+        claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
+            --model claude-fable-5-1 --effort medium --output-format text \
+            > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
+        tail -3 "data/logs/admit_$LABEL.log"
+    fi
+    # 4. The deterministic scribe, then the gate, then one push.
+    uv run python scripts/harness/bank_findings.py "$IN" \
+        --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
+    uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+    uv run ark export && uv run ark check
+    git add docs/ src/ justfile 2>/dev/null || true
+    git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
+    git push -q origin live
+    (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+    mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+    # 5. Bring the VPS collectors' journals home and bank them: this replaced the
+    # continuous pull loop when the laptop's role became episodic (fleet plan, D3).
+    ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
+    : "${ARK_VPS:?set ARK_VPS}"
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
+    # the platform sweep's raw capture journals become hostname records (the second
+    # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
+    # through cdx_suffix_convert.py by hand when a sweep completes, not per bank,
+    # because the converter re-emits everything under a fresh tag on every run.
+    # skip the journals a sweep still holds open: a half-copied one was once
+    # ledgered at a third of its rows and had to be re-ingested by hand
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
+    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
+    # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
+    uv run ark export >/dev/null && uv run ark check | tail -1
+    rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"
+    uv run python scripts/round/round_figures.py | sed -n '5,7p'
+
 cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
 
@@ -204,12 +280,20 @@ sources:
     uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
     uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
+    # The nameserver TARGETS of the 1997 zones at hostname grain, admitted 2026-09-02
+    # under the standing rule (11,860.7 EE). The 1999 tomocha files are deliberately
+    # not listed: their terms are parked, see docs/approved-sources-list.md.
+    uv run ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz data/raw/internic_zones/edu.zone.gz data/raw/internic_zones/gov.zone.gz data/raw/internic_zones/mil.zone.gz data/raw/internic_zones/root.zone.gz data/raw/internic_zones/arpa.zone.gz
     uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
     # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
     # 4,146.8 EE post-split, 6,423 of its 6,424 pairs at 2001. The collector fetches
     # the three priced parts and flattens each tarball into one file:
     #   uv run python scripts/sources/nypw/collect_nypw_timemaps.py
     uv run ark ingest nypw_timemaps      data/raw/nypw_timemaps/*.cdx.gz
+    # The non-200 lane of the same 34 files, admitted by the loop on 2026-09-01
+    # under the standing rule. Ingest it AFTER the 200 lane above: that ordering
+    # is what makes the store the control group for the relaxation.
+    uv run ark ingest nypw_timemaps_nonok data/raw/nypw_timemaps/*.cdx.gz
     # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
     # the whole recipe with it. Left here, commented, because the artifact is on disk
     # and the next reader should see why it is not ingested rather than wonder.
@@ -234,6 +318,23 @@ sources:
     uv run python scripts/sources/blocklists/split_chastity.py --write
     uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
     uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
+    # Admitted by the loop on 2026-09-02 under the standing rule: the same two blocklists
+    # read one level down, at hostname grain, 3,410.4 EE net-new. chastity's stamp is the
+    # tar member header, so that lane reads the orig tarball rather than the unpacked tree.
+    uv run ark ingest-blocklist-hostnames data/raw/squidguard/*
+    uv run ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz
+    # Three more hostname-grain lanes admitted 2026-09-02 under the standing rule: the
+    # nameservers RIPE domain objects point at (both FUNET editions), IA's Early Web index
+    # re-emitted as capture journals, and the USFEDGOV-EXTRACT-2001 merged index reduced
+    # to one capture per host (`scripts/sources/early_web/early_web_hostgrain.py`,
+    # `scripts/sources/usfedgov/usfedgov_hostgrain.py`).
+    uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+    uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
+    uv run ark ingest-hostnames data/raw/usfedgov_hostgrain/ | tail -1 || true
+    # Two more admitted 2026-09-02: the USFEDGOV-EXTRACT 1996-2000 sibling indexes go
+    # through the same hostgrain script into the same journal directory, and the ISC
+    # survey per-TLD host files are read one level below the registrable `isc_survey` took.
+    uv run ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz | tail -1 || true
     # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
     # The collector runs first because the bytes are not kept in git.
     uv run python scripts/sources/registries/collect_granitecanyon.py
@@ -747,6 +848,28 @@ triage-rank *args:
 # so running this before a decision arrives changes nothing and still exercises
 # every later step. That property is the point: the evening a round ships is the
 # worst time to discover the packaging path is broken.
+# Drain the platform sweeps into the store and stage the round for approval:
+# pull journals from the VPS, ingest both output units, convert this month's
+# sweeps' registrable half, export, gate, refresh the merge audit, print the
+# figures. Ivo reviews, then `just ship-approved` packages and verifies.
+submit-prep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source local.env
+    # skip the journals a sweep still holds open: a half-copied one was once
+    # ledgered at a third of its rows and had to be re-ingested by hand
+    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
+    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
+    uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
+    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
+    uv run ark export | tail -1
+    uv run ark check | tail -1
+    uv run python scripts/round/merge_against_baseline.py | tail -3
+    uv run python scripts/round/round_figures.py | head -13
+
 ship-approved round="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -778,8 +901,11 @@ ship round="":
     # first rehearsal of this recipe failed at the report guard and left ingestion
     # dead; it was noticed only because somebody was watching, and on the evening a
     # round ships nobody is.
-    restore() { pgrep -f 'maintain[.]sh' >/dev/null || \
-        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted =="); }
+    # The continuous laptop loop retired when the fleet took over (2026-09-01):
+    # restart it on exit ONLY if it was running when ship began.
+    WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
+    restore() { [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null && \
+        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted ==") || true; }
     trap restore EXIT
     set -e
     echo "== pausing the ingest loop so the store stops moving =="
@@ -787,7 +913,7 @@ ship round="":
     until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
     echo "== exporting =="
     uv run ark export
-    echo "== thirteen invariants =="
+    echo "== fifteen invariants =="
     uv run ark check
     # `package_delivery.sh` regenerates the report and refuses if it changed, so a
     # human reviews the diff. Doing it here instead makes `ship` a single pass: the
@@ -809,7 +935,10 @@ ship round="":
     # run from this repository: the fourth rehearsal built a valid 1.4 GB archive and
     # then reported "additions/1996.txt is missing", because it had verified the
     # scripts/ directory rather than the delivery.
-    bash scripts/round/verify_delivery.sh output/internet-digital-ark-1996-2001
+    # The stage name carries the mandatory submission stamp since 2026-09-01, so
+    # resolve the newest one rather than hardcoding (a hardcoded path once verified
+    # the PREVIOUS round's stage and reported its figures as this round's).
+    bash scripts/round/verify_delivery.sh "$(ls -dt output/DomainDataCollectionTask_*_IvayloStaykov | head -1)"
 
 # Install the git hooks. The pre-commit hook runs the CODE gate and refuses a red
 # commit, because the rule "never commit through a red gate" was written in

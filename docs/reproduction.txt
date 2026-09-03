@@ -1,5 +1,1 @@
-A fresh copy of this archive was extracted and put through the route above before sending. Every check in
-`verify.sh` passes, `trace.py` resolves, and the tier-2 rebuild from `provenance/` returns
-every per-year count exactly, with all twelve invariants passing and all thirteen result files
-byte-identical to the ones shipped here. Tier 3 was not run: it is a roughly 50 GB download, and one
-collector's journals are held out of this archive on size, so it would replay every source but that one.
+Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the fifteen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size.
