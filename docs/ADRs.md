@@ -585,3 +585,49 @@ tests pin them. **Nothing points an engine at the new queue.**
 were wrong in ways that looked rigorous, and both failures are cheap to avoid next time: prefer a small
 sample of the real population to a large sample of a proxy, and freeze the denominator before measuring
 against it.
+
+## ADR-007. `www.<a name already held that year>` is not a hostname record
+
+**Date** 2026-09-03. **Status** Accepted (Ivo, 2026-09-03), with the reviewer to be asked at the next
+submission. Measured before it was decided; the figure is what forced the question.
+
+### The question
+
+The hostname unit refuses `www.<parent registrable>` because it is "the parent's own site under the
+name every crawler tries first" (`hostnames.py`, tightened 2026-09-02). Nothing refused the same alias
+one level down, where the bare name is a hostname or a registrable already dated for that same year:
+`www.aca.ntu.edu.tw` shipped as a new record while `aca.ntu.edu.tw` sat in the reviewer's own 2001
+file. The reviewer's words admit it ("every distinct evidence-backed hostname beneath them is
+retained"); the module's own stated principle refuses it. The question could not stay open because it
+is not a rounding error.
+
+### What was measured
+
+Over the shipped files on 2026-09-03: **364,524 of 623,617 hostname records and 201,767.94 of
+330,577.84 EE, 61.0% of the hostname half**, are `www.<a name already held in that same year>`. The
+round claims 346,668.36 EE and 1.673552% growth with them, 144,900.42 EE and 0.699511% without.
+
+The share separates artifact types cleanly, which is the transferable part. A bulk CDX index re-read at
+hostname grain is almost nothing else: `nypw_firstcdx` 100.0% of 7,074.09 EE and `ukwa` 99.5% of
+20,916.90 EE, which is why both were held out rather than banked. A corpus of URLs people typed keeps
+most of its figure: `usenet_new` 29.3%, `usenet_bulk` 24.0%, `rtfm` FAQs 32.8%.
+
+### The decision
+
+**Exclude them from what ships.** The rule lives where the shipping filter lives, in the export, not in
+the ingest: the evidence rows are real observations and stay in the store, and "already held that year"
+is a property of the baseline and the store at export time rather than of the capture. Excluding at
+ingest would also make the answer depend on ingest order, since the row that arrives first would decide
+which of two names is the alias.
+
+A hostname is refused when it begins `www.` and the name beneath it is dated for the same year by any
+of three: the reviewer's baseline file, `hostname_year`, or `domain_year`.
+
+### Consequence
+
+`ark export` drops those rows from the per-year hostname files and from the hostname evidence manifest;
+`round_figures.py` prints what the rule removed, so the two readings stay visible in every round; the
+pricer prints the same share per corpus, so a hostname-grain source is never priced without it. The
+round's claim falls to 144,900.42 EE and 0.699511% growth, and the gate is further away by exactly the
+amount that was never ours to claim. If the reviewer rules the other way at the next submission, the
+rows are still in the store and one predicate turns them back on.
