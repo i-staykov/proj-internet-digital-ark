@@ -39,7 +39,10 @@ if [ ${#HIERARCHIES[@]} -eq 0 ]; then
     HIERARCHIES=(microsoft linux bit free us mailing fa lucky borland macromedia ott gov)
 fi
 
-DEST="data/raw/usenet_new"
+# Overridable so a new pool can be measured on its own rather than mixed into the one
+# already priced: `ARK_USENET_DEST=data/raw/usenet_uk ... uk` keeps the uk hierarchy
+# separate, which is what makes a whole-pool figure quotable without a projection.
+DEST="${ARK_USENET_DEST:-data/raw/usenet_new}"
 LOG="data/logs/usenet_fetch.log"
 UA="InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 mkdir -p "$DEST" data/logs
