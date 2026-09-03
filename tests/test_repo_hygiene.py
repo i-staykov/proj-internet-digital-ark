@@ -60,7 +60,6 @@ def test_fleet_invoked_paths_are_tracked() -> None:
 
 
 @needs_git
-@pytest.mark.xfail(strict=True, reason="lifted by E3.2")
 def test_every_script_has_a_caller() -> None:
     """A `scripts/` module is named in the justfile, a docs page, another file or the fleet list."""
     tracked = _tracked()
