@@ -58,6 +58,10 @@
 ## Pushing and commits
 
 - Gate before every commit, never through a pipe: `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`.
+- A clone with no `data/ark.duckdb` can run only the code half. `ark export` and `ark check` raise
+  `CatalogException: Table with name domain_year does not exist` there, and that is the store being
+  absent rather than an invariant failing: big data never reaches git, so a fresh clone never has one
+  (measured in the fresh-session test, 2026-09-03).
 - Any branch except `main` may be pushed, and `main` is reached only by a PR; `main` is never pushed by any agent, and branch protection enforces it (Ivo, 2026-09-03).
 - `origin` is public, so a commit message names no hosts, no IP addresses, no email bodies and no personal context.
 - No AI attribution in commits.
