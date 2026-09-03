@@ -13,38 +13,16 @@ from pathlib import Path
 
 import pytest
 
+from ark.hygiene import IPV4, KNOWN_ADDRESSES, scan, tracked_files
+
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
 DOCS_PAGE = re.compile(r"docs/[^/]+\.md")
 DOC_REF = re.compile(r"docs/[a-z_-]+\.md")
-IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 
-# Globally routable addresses already in the tree, each read in context: a host a source
-# note says a name resolves to, a root server or public resolver, or a test fixture. A new
-# one fails until somebody reads it and adds it here, which is the point of the rule.
-KNOWN_ADDRESSES = frozenset(
-    {
-        # fixture rows in tests/test_isc_hostnames.py and tests/test_ripe_nserver_hostnames.py
-        "1.0.0.2",
-        "1.125.2.7",
-        "1.125.2.8",
-        "1.3.3.1",
-        "1.3.3.2",
-        "1.3.3.3",
-        "128.214.4.29",
-        "1.2.3.4",
-        "8.8.8.8",
-        "66.199.183.26",
-        "78.47.242.83",
-        "130.217.250.15",
-        "192.149.252.21",
-        "193.166.0.0",
-        "193.166.255.255",
-        "198.41.0.4",
-        "204.96.208.1",
-        "207.36.205.194",
-    }
-)
+# Split so this file does not trip the scan it is testing.
+PLANTED_ADDRESS = "9.8.7" + ".6"
+PLANTED_TOKEN = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
 
 needs_git = pytest.mark.skipif(
     shutil.which("git") is None or not (ROOT / ".git").exists(),
@@ -133,6 +111,12 @@ def test_every_docs_reference_resolves() -> None:
     assert not dangling, f"docs references with no file behind them: {dangling}"
 
 
+def test_claude_md_stays_short() -> None:
+    """`CLAUDE.md` is under 80 lines: every session reads it, and the lore lives in docs/."""
+    lines = (ROOT / "CLAUDE.md").read_text(encoding="utf-8").splitlines()
+    assert len(lines) < 80, f"CLAUDE.md is {len(lines)} lines; the lore belongs in docs/"
+
+
 @pytest.mark.skipif(shutil.which("just") is None, reason="just not on PATH")
 @pytest.mark.xfail(strict=True, reason="lifted by E3.7")
 def test_justfile_has_at_most_forty_recipes() -> None:
@@ -160,7 +144,6 @@ def test_register_lines_stay_under_500_chars() -> None:
 
 
 @needs_git
-@pytest.mark.xfail(strict=True, reason="lifted by E3.8")
 def test_local_settings_are_gitignored() -> None:
     """`.claude/settings.local.json` is ignored by `.gitignore`, not by a local exclude file."""
     proc = subprocess.run(
@@ -176,21 +159,34 @@ def test_local_settings_are_gitignored() -> None:
     assert Path(source).name == ".gitignore", f"matched by {source}, not .gitignore"
 
 
+def test_every_known_address_is_one_the_regex_would_catch() -> None:
+    """The allowlist holds well-formed globally routable addresses and nothing else."""
+    for entry in KNOWN_ADDRESSES:
+        assert IPV4.fullmatch(entry), f"{entry} is not the shape the scan looks for"
+        assert ipaddress.IPv4Address(entry).is_global, (
+            f"{entry} is not routable, so it is not needed"
+        )
+
+
+def test_the_scan_catches_a_planted_address_and_a_planted_token(tmp_path: Path) -> None:
+    """A file carrying either shape is reported, which is what the hook and CI rely on."""
+    planted = tmp_path / "leak.txt"
+    # Assembled rather than written out, or the line would be a finding in this file.
+    planted.write_text("host " + PLANTED_ADDRESS + "\nexport GH_TOKEN=" + PLANTED_TOKEN + "\n")
+    rules = {f.rule for f in scan([planted])}
+    assert "address" in rules, "the planted address was not found"
+    assert "github token" in rules, "the planted token was not found"
+
+
 @needs_git
 def test_no_tracked_file_leaks_an_address() -> None:
     """No tracked text file holds a globally routable IPv4 address outside the known list."""
-    found: dict[str, list[str]] = {}
-    for path in _tracked():
-        if path.startswith("submissions/"):
-            continue
-        text = _text(path)
-        if text is None:
-            continue
-        for hit in set(IPV4.findall(text)):
-            try:
-                addr = ipaddress.IPv4Address(hit)
-            except ValueError:  # 300.1.2.3 is not an address
-                continue
-            if addr.is_global and hit not in KNOWN_ADDRESSES:
-                found.setdefault(hit, []).append(path)
+    found = [str(f) for f in scan(tracked_files(ROOT)) if f.rule == "address"]
     assert not found, f"addresses not on the known list: {found}"
+
+
+@needs_git
+def test_the_tracked_tree_passes_the_security_scan() -> None:
+    """No tracked file holds a secret, an address or a local path. The last gate before a push."""
+    found = [str(f) for f in scan(tracked_files(ROOT))]
+    assert not found, f"security scan findings: {found}"

@@ -14,6 +14,12 @@ and leaves the page alone, which is what a checkout without data gets.
     uv run python scripts/round/releases.py
     uv run python scripts/round/releases.py --zstd      # also pack the zip-less trees
     uv run python scripts/round/releases.py --refresh   # recount and rehash everything
+    uv run python scripts/round/releases.py --verify-trees   # tree against its zip, writes nothing
+
+`--verify-trees` answers the question that has to be settled before an extracted tree is
+deleted: does the artifact beside it hold the same bytes? It compares every zip member
+under the marker against the file on disk by size and CRC-32, which the zip carries, so
+nothing is extracted. It writes nothing, not even the page.
 
 Zips are matched to markers by content, not by name: his zips are called
 `Domain_Data_Collection_Task_0831_UpdateV2.zip` and the marker inside is
@@ -27,6 +33,7 @@ import shlex
 import subprocess
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 
 PAGE = Path("docs/releases.md")
@@ -175,6 +182,93 @@ def run_zstd(tree: Path, target: Path) -> None:
         raise RuntimeError(f"zstd of {tree} failed")
 
 
+def crc32(path: Path) -> int:
+    """The same checksum the zip stores per member, over the file on disk."""
+    crc = 0
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            crc = zlib.crc32(chunk, crc)
+    return crc
+
+
+def zip_members(zip_path: Path, marker: str) -> dict[str, zipfile.ZipInfo]:
+    """Members under the marker's directory, keyed by their path below it.
+
+    His zips wrap the tree in a task directory, so the marker segment is the anchor
+    and everything after it is what the extracted tree holds.
+    """
+    members: dict[str, zipfile.ZipInfo] = {}
+    with zipfile.ZipFile(zip_path) as zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            parts = info.filename.split("/")
+            if marker not in parts:
+                continue
+            rel = "/".join(parts[parts.index(marker) + 1 :])
+            if rel:
+                members[rel] = info
+    return members
+
+
+def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int], list[str]]:
+    """Compare an extracted tree against its zip by size and CRC-32. Reads, never writes."""
+    members = zip_members(zip_path, marker)
+    counts = {"members": len(members), "matched": 0, "mismatched": 0, "missing": 0, "extra": 0}
+    problems: list[str] = []
+    for rel, info in sorted(members.items()):
+        on_disk = tree / rel
+        if not on_disk.is_file():
+            counts["missing"] += 1
+            problems.append(f"  missing on disk: {rel}")
+            continue
+        size = on_disk.stat().st_size
+        if size != info.file_size:
+            counts["mismatched"] += 1
+            problems.append(f"  size differs: {rel} ({size} on disk, {info.file_size} in zip)")
+            continue
+        if crc32(on_disk) != info.CRC:
+            counts["mismatched"] += 1
+            problems.append(f"  crc differs: {rel}")
+            continue
+        counts["matched"] += 1
+    for p in sorted(tree.rglob("*")):
+        if p.is_file() and str(p.relative_to(tree)) not in members:
+            counts["extra"] += 1
+            problems.append(f"  extra on disk: {p.relative_to(tree)}")
+    return counts, problems
+
+
+def verify_trees(
+    trees: dict[str, list[Path]], zips: dict[str, list[Path]], limit: int = 10
+) -> None:
+    """Report every marker holding both a tree and a zip, then the verified ones."""
+    verified: list[Path] = []
+    checked = 0
+    for marker in RELEASES:
+        tree_list, zip_list = trees.get(marker, []), zips.get(marker, [])
+        if not tree_list or not zip_list:
+            continue
+        checked += 1
+        tree, zip_path = tree_list[0], zip_list[0]
+        counts, problems = verify_tree(tree, zip_path, marker)
+        print(f"{marker}: {tree} against {zip_path.name}")
+        print(
+            "  {members} members, {matched} matched, {mismatched} mismatched,"
+            " {missing} missing on disk, {extra} extra on disk".format(**counts)
+        )
+        for line in problems[:limit]:
+            print(line)
+        if len(problems) > limit:
+            print(f"  and {len(problems) - limit} more")
+        if counts["members"] and counts["matched"] == counts["members"]:
+            verified.append(tree)
+    if not checked:
+        print("no marker has both an extracted tree and a zip")
+    names = ", ".join(str(t) for t in verified) if verified else "none"
+    print(f"byte-verified against their zips, deletable once the off-site copy exists: {names}")
+
+
 def split_page(text: str) -> tuple[str, list[dict[str, str]], str]:
     """The prose before the table, the rows keyed by column, the prose after."""
     try:
@@ -276,7 +370,17 @@ def main() -> None:
     ap.add_argument("--legacy", type=Path, default=TREE_ALIASES["merged260715-2"])
     ap.add_argument("--zstd", action="store_true", help="pack every zip-less tree into --archive")
     ap.add_argument("--refresh", action="store_true", help="recount and rehash filled cells too")
+    ap.add_argument(
+        "--verify-trees",
+        action="store_true",
+        help="compare each extracted tree with its zip and write nothing",
+    )
     args = ap.parse_args()
+
+    if args.verify_trees:
+        aliases = {"merged260715-2": args.legacy}
+        verify_trees(find_trees(args.feedback, aliases), find_zips(args.feedback))
+        return
 
     if not args.feedback.is_dir():
         print(f"{args.feedback}/ not found: would scan it for merged*/ trees and *.zip files")

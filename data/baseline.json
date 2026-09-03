@@ -1,0 +1,87 @@
+{
+  "current": {
+    "marker": "merged260902-3",
+    "directory": "feedback/feedback-phase-8/Domain_Data_Collection_Task/merged260902-3",
+    "released_at": "2026-09-02 10:31",
+    "round_since": "2026-09-02 12:14:46+00",
+    "round_label": "8",
+    "reviewer_pairs": 39237288,
+    "reviewer_ee": "20714526.9732",
+    "reviewer_ee_by_year": {
+      "1996": "583717.4598",
+      "1997": "1229302.1248",
+      "1998": "1703250.1788",
+      "1999": "3383015.2270",
+      "2000": "5856084.1034",
+      "2001": "7959157.8794"
+    }
+  },
+  "original": {
+    "pairs": 8224963,
+    "ee": "4553314.7637"
+  },
+  "rounds": [
+    {
+      "label": "1",
+      "date": "2026-07-26",
+      "records": 1429524,
+      "equivalent_english": "756559.2864",
+      "baseline": "merged260715-2",
+      "awarded_percent": "17.38",
+      "benchmark_released": "2026-07-21 12:24",
+      "submission_received": "2026-07-26 18:30"
+    },
+    {
+      "label": "3",
+      "date": "2026-08-02",
+      "records": 151949,
+      "equivalent_english": "91814.6880",
+      "baseline": "merged260730",
+      "awarded_percent": "1.659986",
+      "benchmark_released": "2026-07-31 17:25",
+      "submission_received": "2026-08-01 19:42"
+    },
+    {
+      "label": "4",
+      "date": "2026-08-09",
+      "records": 946266,
+      "equivalent_english": "603401.7811",
+      "baseline": "merged260802-2",
+      "awarded_percent": "10.730988",
+      "benchmark_released": "2026-08-03 05:36",
+      "submission_received": "2026-08-09 07:58"
+    },
+    {
+      "label": "5",
+      "date": "2026-08-17",
+      "records": 2608322,
+      "equivalent_english": "1566229.7613",
+      "baseline": "merged260817",
+      "awarded_percent": "14.901054",
+      "benchmark_released": "2026-08-15 10:27",
+      "submission_received": "2026-08-17 03:03"
+    },
+    {
+      "label": "6",
+      "date": "2026-08-27",
+      "records": 1684903,
+      "equivalent_english": "562099.5294",
+      "baseline": "merged260826",
+      "awarded_percent": "4.130718",
+      "benchmark_released": "2026-08-21 11:19",
+      "submission_received": "2026-08-26 15:51"
+    },
+    {
+      "label": "7",
+      "date": "2026-09-02",
+      "records": 2538900,
+      "equivalent_english": "1456458.1029",
+      "baseline": "merged260902-2",
+      "awarded_percent": "7.562846",
+      "benchmark_released": "2026-08-21 11:19",
+      "submission_received": "2026-09-02 05:50"
+    }
+  ],
+  "round_one_is_record_based": "1",
+  "speed_k": 10
+}

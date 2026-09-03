@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ark.sources import (
     SOURCES,
+    attested_years,
     parse_afnic_fr,
     parse_arquivo_cdxj,
     parse_cdx_snapshot,
@@ -386,6 +387,20 @@ def _journal(tmp_path: Path, records: list[dict], name: str = _JOURNAL_NAME) -> 
     else:
         path.write_text(body, encoding="utf-8")
     return path
+
+
+def test_attested_years_is_the_creation_year_alone() -> None:
+    # brief III.6: the creation date attests its own year and no later one
+    assert attested_years(1998) == (1998,)
+    assert attested_years(1996) == (1996,)
+    assert attested_years(2001) == (2001,)
+
+
+def test_attested_years_empty_outside_the_window() -> None:
+    # created before the window: existed by then, but no single year is attested
+    assert attested_years(1995) == ()
+    assert attested_years(1970) == ()
+    assert attested_years(2004) == ()
 
 
 def test_rdap_snapshot_yields_only_the_creation_year(tmp_path) -> None:

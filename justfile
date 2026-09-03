@@ -36,6 +36,11 @@ lint:
 fmt:
     uv run ruff format .
 
+# the last gate before tracked bytes are world-readable: secrets, routable
+# addresses, local paths. The pre-commit hook and CI run the same command.
+security-scan:
+    uv run python -m ark.hygiene
+
 # exactly what CI runs: lint + format-check + tests
 verify-repo:
     uv run ruff check .
@@ -569,6 +574,20 @@ releases *args:
 verify-raw *args:
     uv run python scripts/round/verify_raw.py {{args}}
 
+# Prove an extracted release tree is recoverable from the artifact beside it: every zip
+# member compared to the file on disk by size and CRC-32, without extracting anything.
+# A tree it names byte-verified may be deleted once the off-site copy exists.
+verify-trees:
+    uv run python scripts/round/releases.py --verify-trees
+
+# Write a round's row in docs/rounds.md from the reviewer's verdict mail: his five
+# figures parsed, S and t computed from the two stamps rather than read off the mail,
+# and a benchmark he never sent marked not received. Pass the mail, the round label
+# and the receipt stamp in his clock, e.g.
+# `just rounds --mail private/mail/verdict7.txt --round 7 --received "2026-09-02 05:50"`.
+rounds *args:
+    uv run python scripts/round/rounds.py {{args}}
+
 # --- collecting more (network) -----------------------------------------------
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
 # never hold the store's write lock and can run concurrently with each other.
@@ -644,11 +663,6 @@ engines-stop:
     echo "stopped; nothing left running:"
     ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]|ar[k] cdx" || echo "  confirmed idle"
     ls data/raw/cdx/*.part 2>/dev/null && echo "WARNING: a .part was stranded" || echo "  no stranded .part files"
-
-# one registry-date batch: creation year for domains adjacent to a held year
-rdap-batch n="2500":
-    uv run ark gaps --creation --out data/raw/rdap/creation_candidates.txt
-    uv run ark rdap data/raw/rdap/creation_candidates.txt -n {{n}}
 
 # one page-expansion round (brief section VII). Pass a seed list and a round
 # number, e.g. `just expand-round seeds/expansion/seeds_round4.txt 5`. The split

@@ -1,6 +1,5 @@
 """Command-line entry point for the ark pipeline."""
 
-import os
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -33,25 +32,6 @@ from ark.journal import journal_path, journal_writer, queried_domains, write_jou
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
 from ark.provenance import PROVENANCE_DIR, load_provenance
-from ark.rdap import (
-    JOURNAL_DIR as RDAP_JOURNAL_DIR,
-)
-from ark.rdap import (
-    JOURNAL_PREFIX as RDAP_JOURNAL_PREFIX,
-)
-from ark.rdap import (
-    TERMS_OVERRIDE_ENV,
-    Router,
-    load_registries,
-    lookup,
-    terms_closed,
-)
-from ark.rdap import (
-    answered as rdap_answered,
-)
-from ark.rdap import (
-    http_fetch as rdap_http_fetch,
-)
 from ark.seed import seed_from_file
 from ark.seed_pool import combine_parts, write_source_part
 from ark.sources import SOURCES
@@ -584,171 +564,6 @@ def stats() -> None:
 
 
 @app.command()
-def rdap(
-    candidates: Annotated[
-        Path,
-        typer.Argument(
-            help="File with one candidate domain or URL per line.", exists=True, readable=True
-        ),
-    ],
-    limit: Annotated[
-        int, typer.Option("--limit", "-n", help="Query at most this many not-yet-queried domains.")
-    ] = 1000,
-    workers: Annotated[
-        int,
-        typer.Option(
-            "--workers",
-            help="Concurrent requests, paced per registry. Measured 2026-08-08 against "
-            "Verisign: 8 workers held 25.6 q/s with no refusals at all, so the ceiling "
-            "is well above this default.",
-        ),
-    ] = 8,
-    delay: Annotated[
-        float,
-        typer.Option("--delay", help="Starting seconds between queries to one registry (adapts)."),
-    ] = 0.15,
-    min_delay: Annotated[
-        float,
-        typer.Option("--min-delay", help="Floor the per-registry pace may not ease below."),
-    ] = 0.01,
-    max_delay: Annotated[
-        float,
-        typer.Option("--max-delay", help="Ceiling on the adaptive per-registry pace."),
-    ] = 5.0,
-    timeout: Annotated[
-        float, typer.Option("--timeout", help="Seconds to wait per request before giving up.")
-    ] = 20.0,
-    direct: Annotated[
-        bool,
-        typer.Option(
-            "--direct/--redirector",
-            help="Query the authoritative registry from the IANA bootstrap file, falling back "
-            "to rdap.org per TLD. --redirector forces every query through rdap.org, which is "
-            "how journals before 2026-08-08 were collected and is rate-limited far harder.",
-        ),
-    ] = True,
-    out: Annotated[
-        Path | None,
-        typer.Option("--out", help="Journal to write (default data/raw/rdap/rdap_<UTC>.jsonl.gz)."),
-    ] = None,
-) -> None:
-    """Query RDAP for candidate domains and write a per-run journal file.
-
-    Collection only: writes no evidence and never opens the store, so it runs
-    alongside other stages. Turn a journal into evidence with
-    `ark ingest rdap_snapshot <journal>`, which hashes it into the file ledger
-    like any other source. Keeping whole responses means a later change of
-    evidence standard is a re-parse, not a migration.
-
-    Queries go straight to the registry that is authoritative for each TLD, and
-    each registry is paced by its own adaptive governor, so a refusal from one
-    never slows the others. Resumable: any domain already ANSWERED in a journal
-    in the same folder is skipped, so an interrupted run is finished by running
-    the command again.
-    """
-    path = out or journal_path(RDAP_JOURNAL_DIR, RDAP_JOURNAL_PREFIX)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # only a 200 or a 404 settles a domain: a 429 or a transport failure means the
-    # question never landed, and skipping those would drop them from every later run
-    already = queried_domains(path.parent, RDAP_JOURNAL_PREFIX, answered=rdap_answered)
-    logger.info(f"rdap: {len(already):,} domains already journalled; writing {path}")
-    stats: Counter = Counter()
-
-    targets: list[str] = []
-    closed_reasons: dict[str, str] = {}
-    override = bool(os.environ.get(TERMS_OVERRIDE_ENV))
-    if override:
-        logger.warning(
-            f"rdap: {TERMS_OVERRIDE_ENV}={os.environ[TERMS_OVERRIDE_ENV]!r}, "
-            f"so the registry terms gate is off for this run"
-        )
-    with candidates.open(encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            raw = line.strip()
-            if not raw:
-                continue
-            domain = to_registrable(raw)
-            if domain is None:
-                stats["rejected"] += 1
-                continue
-            # Terms before the resume check, deliberately: a queue that is entirely
-            # already-journalled would otherwise pass the gate in silence and teach
-            # the next reader that the TLD is open.
-            reason = None if override else terms_closed(domain)
-            if reason is not None:
-                stats["terms_closed"] += 1
-                closed_reasons.setdefault(domain.rsplit(".", 1)[-1].lower(), reason)
-                continue
-            if domain in already:
-                stats["skipped_journalled"] += 1
-                continue
-            already.add(domain)
-            targets.append(domain)
-            if len(targets) >= limit:
-                break
-
-    # Refusing loudly, because a silently emptied queue is indistinguishable from an
-    # exhausted one, and that ambiguity is how the last two engines were misread.
-    for tld, reason in sorted(closed_reasons.items()):
-        logger.warning(f"rdap: .{tld} skipped, terms forbid it. {reason}")
-    if closed_reasons and not targets:
-        logger.error(
-            f"rdap: every target is under a registry whose terms forbid this. "
-            f"Nothing was queried. To send anyway, set {TERMS_OVERRIDE_ENV} to the written "
-            f"permission that allows it."
-        )
-        raise typer.Exit(code=2)
-
-    registries = load_registries() if direct else {}
-    router = Router(registries, delay=delay, min_delay=min_delay, max_delay=max_delay)
-    stats["registries_known"] = len(registries)
-    fetch = rdap_http_fetch(timeout)
-    queried = 0
-    if targets:
-        with journal_writer(path) as journal, _abortable_pool(workers) as pool:
-            futures = {
-                pool.submit(lookup, domain, fetch, router=router): domain for domain in targets
-            }
-            for future in tqdm(as_completed(futures), total=len(futures), unit="domain"):
-                try:
-                    record = future.result()
-                except Exception as exc:  # noqa: BLE001 (one bad domain must not end the run)
-                    logger.warning(f"{futures[future]}: {exc}")
-                    stats["errored"] += 1
-                    continue
-                write_journal_line(journal, record)
-                queried += 1
-                if record["creation_year"] is not None:
-                    stats["dated"] += 1
-                elif rdap_answered(record):
-                    stats["not_dated"] += 1
-                else:
-                    stats[f"failed_{record['status']}"] += 1
-                # flush periodically so an interrupted run keeps its work
-                if queried % _JOURNAL_FLUSH_EVERY == 0:
-                    journal.flush()
-    if queried == 0:
-        path.unlink(missing_ok=True)
-        logger.info("rdap: nothing new to query; no journal written")
-    stats["queried"] = queried
-    for host, throttles in router.throttles().items():
-        stats[f"throttled_{host}"] = throttles
-    summary = dict(stats)
-    logger.info(f"rdap: {summary} -> {path if queried else 'no journal'}")
-    typer.echo(f"rdap: {summary}")
-    if queried:
-        typer.echo(f"journal: {path}\nnext: uv run ark ingest rdap_snapshot {path}")
-        # a domain RDAP cannot date leaves no trace after interpretation, which is
-        # right for a pool of already-held domains and wrong for unknown ones,
-        # where the undatable ones are meant to be kept as candidates
-        if stats.get("not_dated"):
-            typer.echo(
-                f"note: {stats['not_dated']:,} domains could not be dated; if this list was not "
-                f"already held, run `uv run ark seed {candidates}` to keep them as candidates"
-            )
-
-
-@app.command()
 def gaps(
     out: Annotated[
         Path, typer.Option("--out", help="Where to write the prioritised domain list.")
@@ -800,7 +615,9 @@ def gaps(
         summary = write_creation_candidates(conn, out)
         record_metrics(conn, "gaps", "creation_addressable", summary)
         logger.info(f"gaps (creation): {summary} -> {out}")
-        typer.echo(f"gaps (creation): {summary}\nwrote {out}\nnext: uv run ark rdap {out}")
+        # No "next" line any more: the RDAP client that consumed this list is retired
+        # (docs/retired.md), and nothing has replaced it as a creation-date route.
+        typer.echo(f"gaps (creation): {summary}\nwrote {out}")
         return
     summary = write_gap_candidates(
         conn, out, legacy_year_order=legacy_year_order, shards=shards, shard=shard

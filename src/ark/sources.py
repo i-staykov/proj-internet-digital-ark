@@ -20,11 +20,15 @@ from ark.canonical import to_registrable
 from ark.cdx import evidence_years as cdx_evidence_years
 from ark.ingest import YEARS
 from ark.journal import open_journal
-from ark.rdap import RDAP_REDIRECTOR, attested_years
 
 # The evidence URL every UDRP row falls back to: the consolidated list itself, so a
 # reviewer can find any proceeding by its number.
 UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
+
+# Where an RDAP query went before direct registry routing was added, so it
+# rebuilds the record URL of a journal written without one. See docs/retired.md
+# for why the client that wrote those journals is gone.
+RDAP_REDIRECTOR = "https://rdap.org/domain/"
 
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
 _MIN_CDX_FIELDS = 5
@@ -2117,10 +2121,24 @@ def parse_odp(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
-# An `ark rdap` run journal: one JSON object per line, format documented in
-# ark.rdap. The journal is the artifact, so this evidence replays from a hashed
-# file like every other source. Only the creation year is attested (III.6), so a
-# domain yields at most one record; the rule itself lives in rdap.attested_years.
+def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[int, ...]:
+    """The in-window years an RDAP creation year can attest on its own.
+
+    The creation year itself when it falls inside the window, nothing
+    otherwise. A domain created before `first` is left with no attested year:
+    RDAP shows it existed by then and exists now, but says nothing about any
+    single year in between, so it belongs in the candidate pool until
+    year-specific evidence turns up. Brief III.6 blesses exactly that and rules
+    out more.
+    """
+    return (creation,) if first <= creation <= last else ()
+
+
+# An RDAP run journal: one gzipped JSON object per line, with keys `domain`,
+# `queried_at`, `status`, `creation_year`, `response` and `url` (absent before
+# direct routing). The journal is the artifact, so this evidence replays from a
+# hashed file like every other source. Only the creation year is attested
+# (III.6), so a domain yields at most one record.
 def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per journalled domain whose creation year is in window."""
     try:
