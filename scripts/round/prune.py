@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parents[2]
 RETENTION = REPO / "docs/retention.md"
 
 # Classes whose bytes can come back. The other three are held whatever else holds:
-# `live_input` is read by `just sources`, `keep_journal` is ours alone, `reference`
+# `live_input` is read by `just reproduce sources`, `keep_journal` is ours alone, `reference`
 # is kept for the record.
 RECLAIMABLE = ("regenerable", "keep_until_priced")
 

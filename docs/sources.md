@@ -707,7 +707,7 @@ equivalent-English.
 ```bash
 uv run python scripts/sources/usenet/collect_usenet_bare.py --sample 400 --workers 8    # project first
 uv run python scripts/sources/usenet/project_usenet_bare.py --journal data/raw/usenet_bare/<file> --archives 400
-just usenet-bare                                                        # or the whole corpus
+just collect usenet-bare                                                # or the whole corpus
 ```
 
 Limitation: 1,200 of the 42,139 pairs come from `comp.mail.maps` or `can.uucp.maps`, which
@@ -1140,7 +1140,7 @@ the corroboration split. 5,134 net-new pairs, 3,241.9 EE, 0.0067 EE per in-windo
 
 ### `attrition_defacement`: the attrition.org web defacement mirror
 
-Web defacement mirror, January 1999 to 21 May 2001: date, defacer, organisation, defaced hostname. Republished as `attrition-org/web-hack-mirror`; its 33 index pages sit at `data/raw/source_probe_260806/attrition/`, and `just attrition` replays them without a request.
+Web defacement mirror, January 1999 to 21 May 2001: date, defacer, organisation, defaced hostname. Republished as `attrition-org/web-hack-mirror`; its 33 index pages sit at `data/raw/source_probe_260806/attrition/`, and `just collect attrition` replays them without a request.
 
 ```
 https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/{1995,1996,1997,1998}.html
