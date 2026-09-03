@@ -66,6 +66,65 @@ _NOT_IN_BASELINE = f"""
 _NOT_REVERSE_DNS = _shipping_filter()
 
 
+# ADR-007 (Ivo, 2026-09-03): `www.<a name already held that same year>` is the same site under
+# the name every crawler tries first, so it is not a second record. The ingest refuses
+# `www.<parent registrable>` already; this refuses the alias one level down, where the bare
+# name is dated for that year by the reviewer's file, by `hostname_year` or by `domain_year`.
+#
+# It lives in the export rather than the ingest for two reasons. "Already held" is a property
+# of the baseline at export time, not of the capture, so nothing in the store has to be
+# destroyed to answer it and one predicate turns the rows back on if the reviewer rules the
+# other way. And at ingest the answer would depend on arrival order, since whichever of two
+# names was written first would decide which was the alias.
+#
+# Measured before it was decided: 364,524 of 623,617 shipped hostname records and 201,767.94
+# of 330,577.84 EE, 61.0% of the hostname half. A bulk CDX index re-read at hostname grain is
+# almost nothing else (100.0% and 99.5% on the two corpora that came back as five-figure
+# finds); a corpus of URLs people typed keeps three quarters of its figure.
+NOT_WWW_ALIAS = """
+    (hy.hostname NOT LIKE 'www.%' OR (
+        NOT EXISTS (SELECT 1 FROM baseline_hostname b
+                    WHERE b.hostname = substr(hy.hostname, 5) AND b.year = hy.assigned_year)
+        AND NOT EXISTS (SELECT 1 FROM hostname_year h2
+                        WHERE h2.hostname = substr(hy.hostname, 5)
+                          AND h2.assigned_year = hy.assigned_year)
+        AND NOT EXISTS (SELECT 1 FROM domain_year dy
+                        WHERE dy.domain = substr(hy.hostname, 5)
+                          AND dy.assigned_year = hy.assigned_year)
+    ))
+"""
+
+# A hostname is net-new against the baseline FILES, not against store membership, because the
+# store collapsed the baseline to registrables at ingest and so cannot answer "is
+# alice.cjb.net itself already a benchmark record".
+NOT_IN_BASELINE_HOSTNAME = """
+    NOT EXISTS (SELECT 1 FROM baseline_hostname b
+                WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
+"""
+
+
+def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
+    """The reviewer's own annual files as a temp table, which both rules above read.
+
+    The directory is resolved, not hardcoded: inside a delivery the files sit at
+    `../baseline/<marker>/`, and the repository path alone silently exported every hostname
+    as net-new in the tier-2 rehearsal.
+    """
+    baseline_files = baseline_dir()
+    conn.execute("CREATE OR REPLACE TEMP TABLE baseline_hostname (hostname VARCHAR, year INTEGER)")
+    for year in YEARS:
+        baseline_file = baseline_files / f"{year}.txt"
+        if baseline_file.exists():
+            conn.execute(f"""
+                INSERT INTO baseline_hostname
+                SELECT lower(trim(column0)), {year}
+                FROM read_csv('{baseline_file}', header=false, delim='\\x01',
+                              columns={{'column0': 'VARCHAR'}})
+            """)
+        else:
+            logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
+
+
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(f"COPY ({query}) TO '{path}' (HEADER false)")
@@ -122,35 +181,18 @@ def export_all(
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
 
-    # The second output unit, accepted by the reviewer on 2026-09-01: hostnames ship
-    # as separate per-year files he can merge or discard, and the annual masters stay
-    # registrable exactly as his rule III.8 specifies. A hostname is net-new against
-    # the baseline FILES, not against store membership, because the store collapsed
-    # the baseline to registrables at ingest and so cannot answer "is alice.cjb.net
-    # itself already a benchmark record". The directory is resolved, not hardcoded:
-    # inside a delivery the files sit at ../baseline/<marker>/, and the repository path
-    # alone silently exported every hostname as net-new in the tier-2 rehearsal.
-    baseline_files = baseline_dir()
-    conn.execute("CREATE OR REPLACE TEMP TABLE baseline_hostname (hostname VARCHAR, year INTEGER)")
-    for year in YEARS:
-        baseline_file = baseline_files / f"{year}.txt"
-        if baseline_file.exists():
-            conn.execute(f"""
-                INSERT INTO baseline_hostname
-                SELECT lower(trim(column0)), {year}
-                FROM read_csv('{baseline_file}', header=false, delim='\\x01',
-                              columns={{'column0': 'VARCHAR'}})
-            """)
-        else:
-            logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
-    not_in_baseline = """
-        NOT EXISTS (SELECT 1 FROM baseline_hostname b
-                    WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
-    """
+    # The second output unit, accepted by the reviewer on 2026-09-01: hostnames ship as
+    # separate per-year files he can merge or discard, and the annual masters stay
+    # registrable exactly as his rule III.8 specifies. The two rules that decide which
+    # hostname ships are module-level, because `round_figures.py` reports what the second
+    # one removes and a second copy of it there would drift.
+    load_baseline_hostnames(conn)
+    not_in_baseline = NOT_IN_BASELINE_HOSTNAME
+    not_www_alias = NOT_WWW_ALIAS
     for year in YEARS:
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE hy.assigned_year = {year} AND {not_in_baseline}
+            WHERE hy.assigned_year = {year} AND {not_in_baseline} AND {not_www_alias}
             ORDER BY hy.hostname
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
@@ -164,7 +206,7 @@ def export_all(
         FROM hostname_year hy
         JOIN evidence e ON hy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
-        WHERE {not_in_baseline}
+        WHERE {not_in_baseline} AND {not_www_alias}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"

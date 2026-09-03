@@ -37,6 +37,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import export  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
@@ -245,48 +246,31 @@ def hostname_increment() -> tuple[int, Decimal]:
 
 
 def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
-    """Shipped hostnames that are `www.<a name already held in that same year>`.
+    """What ADR-007 keeps OUT of the hostname files: `www.<a name held that same year>`.
 
-    The ingest refuses `www.<parent registrable>` as the parent's own site under the name
-    every crawler tries first. Nothing refuses the same alias one level down, and on
-    2026-09-03 that was 61.0% of the hostname half: a CDX corpus re-read at hostname grain
-    yields almost nothing else (nypw_firstcdx 100.0%, ukwa 99.5%), while a corpus of URLs
-    people typed yields 27 to 38%. It is printed here rather than left to a pricing run,
-    because a figure whose composition is disputed must not be quotable without it.
+    The rows are net-new against the reviewer's files and would have shipped before
+    2026-09-03, when 364,524 of them carried 201,767.94 EE, 61.0% of the hostname half.
+    Reported every round rather than left in a commit message, because the reviewer has
+    not yet ruled on the alias and both readings have to stay visible: a CDX corpus
+    re-read at hostname grain is almost nothing else, while a corpus of URLs people typed
+    keeps three quarters of its figure. The predicate is imported from the export, so this
+    figure cannot drift from the rule that produced it.
     """
     weights = english_weights()
+    export.load_baseline_hostnames(conn)
     rows, ee = 0, Decimal(0)
     for year in range(1996, 2002):
-        path = REPO / f"output/netnew/{year}_hostnames.txt"
-        if not path.exists():
-            continue
-        hosts = [h.strip().lower() for h in path.read_text().splitlines() if h.strip()]
-        bare = {h[4:] for h in hosts if h.startswith("www.")}
-        if not bare:
-            continue
-        conn.execute("CREATE OR REPLACE TEMP TABLE seam_bare (name TEXT)")
-        conn.executemany("INSERT INTO seam_bare VALUES (?)", [(b,) for b in bare])
-        held = {
-            r[0]
-            for r in conn.execute(
-                "SELECT b.name FROM seam_bare b JOIN domain_year dy "
-                "ON dy.domain = b.name AND dy.assigned_year = ? "
-                "UNION SELECT b.name FROM seam_bare b JOIN hostname_year hy "
-                "ON hy.hostname = b.name AND hy.assigned_year = ?",
-                [year, year],
-            ).fetchall()
-        }
-        registrables = REPO / f"output/netnew/{year}.txt"
-        if registrables.exists():
-            held |= bare & {d.strip().lower() for d in registrables.read_text().splitlines()}
-        his = MERGED_BASELINE / f"{year}.txt"
-        if his.exists():
-            with his.open(errors="replace") as fh:
-                held |= {line.strip().lower() for line in fh} & bare
-        for host in hosts:
-            if host.startswith("www.") and host[4:] in held:
-                rows += 1
-                ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+        excluded = conn.execute(
+            f"""
+            SELECT DISTINCT hy.hostname FROM hostname_year hy
+            WHERE hy.assigned_year = {year}
+              AND {export.NOT_IN_BASELINE_HOSTNAME}
+              AND NOT {export.NOT_WWW_ALIAS}
+            """
+        ).fetchall()
+        rows += len(excluded)
+        for (host,) in excluded:
+            ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
     return rows, ee
 
 
