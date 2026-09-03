@@ -244,6 +244,52 @@ def hostname_increment() -> tuple[int, Decimal]:
     return pairs, ee
 
 
+def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
+    """Shipped hostnames that are `www.<a name already held in that same year>`.
+
+    The ingest refuses `www.<parent registrable>` as the parent's own site under the name
+    every crawler tries first. Nothing refuses the same alias one level down, and on
+    2026-09-03 that was 61.0% of the hostname half: a CDX corpus re-read at hostname grain
+    yields almost nothing else (nypw_firstcdx 100.0%, ukwa 99.5%), while a corpus of URLs
+    people typed yields 27 to 38%. It is printed here rather than left to a pricing run,
+    because a figure whose composition is disputed must not be quotable without it.
+    """
+    weights = english_weights()
+    rows, ee = 0, Decimal(0)
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        if not path.exists():
+            continue
+        hosts = [h.strip().lower() for h in path.read_text().splitlines() if h.strip()]
+        bare = {h[4:] for h in hosts if h.startswith("www.")}
+        if not bare:
+            continue
+        conn.execute("CREATE OR REPLACE TEMP TABLE seam_bare (name TEXT)")
+        conn.executemany("INSERT INTO seam_bare VALUES (?)", [(b,) for b in bare])
+        held = {
+            r[0]
+            for r in conn.execute(
+                "SELECT b.name FROM seam_bare b JOIN domain_year dy "
+                "ON dy.domain = b.name AND dy.assigned_year = ? "
+                "UNION SELECT b.name FROM seam_bare b JOIN hostname_year hy "
+                "ON hy.hostname = b.name AND hy.assigned_year = ?",
+                [year, year],
+            ).fetchall()
+        }
+        registrables = REPO / f"output/netnew/{year}.txt"
+        if registrables.exists():
+            held |= bare & {d.strip().lower() for d in registrables.read_text().splitlines()}
+        his = MERGED_BASELINE / f"{year}.txt"
+        if his.exists():
+            with his.open(errors="replace") as fh:
+                held |= {line.strip().lower() for line in fh} & bare
+        for host in hosts:
+            if host.startswith("www.") and host[4:] in held:
+                rows += 1
+                ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+    return rows, ee
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -256,6 +302,7 @@ def main() -> None:
     conn = open_store()
     try:
         m = increment(conn)
+        seam_rows, seam_ee = www_alias_seam(conn)
         his = verify_with_his_calculator(conn) if args.verify else None
     finally:
         conn.close()
@@ -280,6 +327,16 @@ def main() -> None:
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
     print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
+    if h_ee:
+        share = seam_ee / h_ee * 100
+        print(
+            f"    of which www.<held that year>   : {seam_rows:,} records  {seam_ee:,.4f}"
+            f"  ({share:.1f}% of the hostname half)"
+        )
+        print(
+            f"  increment without that seam       : {all_pairs - seam_rows:,} records  "
+            f"{all_ee - seam_ee:,.4f}  ({(all_ee - seam_ee) / BASELINE_EE * 100:.6f}%)"
+        )
     print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 
     mean = ee / pairs

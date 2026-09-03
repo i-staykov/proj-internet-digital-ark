@@ -7,6 +7,20 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Does `www.<a name already held that year>` count as a hostname record? 201,767.94 EE of this round turns on it
+
+The ingest refuses `www.<parent registrable>` because it is the parent's own site under the name
+every crawler tries first (our own tightening, 2026-09-02, not his instruction). Nothing refuses
+the same alias where the bare name is a hostname or registrable already dated for that year, and
+measured 2026-09-03 that is **61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE**:
+the round claims 346,668.36 EE and 1.673552% growth, or 144,900.42 EE and 0.699511% without it.
+His words admit them ("every distinct evidence-backed hostname beneath them is retained"); our own
+stated principle refuses them. Two E9.5 corpora were held out rather than ingested on it (`ukwa`
+20,916.90 EE at 99.5% alias, `nypw_firstcdx` 7,074.09 EE at 100.0%), and `round_figures.py` now
+prints the split so no round can quote the hostname half without it.
+
+Worth: 201,767.94 EE of the current claim, plus whether the next hostname corpus is worth reading. If they count, nothing changes; if they do not, the refusal moves into `hostnames.py` under an ADR and the round is restated.
+
 ### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
 
 Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot

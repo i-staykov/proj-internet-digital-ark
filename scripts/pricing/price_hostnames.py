@@ -146,8 +146,14 @@ def funnel(seen: dict[tuple[str, int], str], counts: Counter[str]) -> list[tuple
 def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict:  # noqa: ANN001
     """Difference the candidate rows against the store and the baseline files, read-only."""
     weights = english_weights()
-    conn.execute("CREATE TEMP TABLE cand (hostname TEXT, parent TEXT, year INTEGER)")
-    conn.executemany("INSERT INTO cand VALUES (?, ?, ?)", rows)
+    conn.execute("CREATE TEMP TABLE cand (hostname TEXT, parent TEXT, year INTEGER, bare TEXT)")
+    # `bare` is the name under a leading `www.`, so the seam below can be measured: the
+    # ingest refuses `www.<parent>` and nothing refuses `www.<a hostname we already hold>`,
+    # which is the same site under the name every crawler tries first.
+    conn.executemany(
+        "INSERT INTO cand VALUES (?, ?, ?, ?)",
+        [(h, p, y, h[4:] if h.startswith("www.") else None) for h, p, y in rows],
+    )
     conn.execute("CREATE TEMP TABLE baseline_host (hostname TEXT, year INTEGER)")
     years = sorted({y for _, _, y in rows})
     baseline_years = []
@@ -161,7 +167,10 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
                 SELECT lower(trim(column0)), {year}
                 FROM read_csv('{path}', header=false, delim='\\x01',
                               columns={{'column0': 'VARCHAR'}})
-                WHERE lower(trim(column0)) IN (SELECT hostname FROM cand WHERE year = {year})
+                WHERE lower(trim(column0)) IN (
+                    SELECT hostname FROM cand WHERE year = {year}
+                    UNION SELECT bare FROM cand WHERE year = {year} AND bare IS NOT NULL
+                )
                 """
             )
     netnew = conn.execute(
@@ -169,11 +178,16 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
         SELECT c.hostname, c.parent, c.year,
                hy.hostname IS NOT NULL AS in_store,
                b.hostname IS NOT NULL AS in_baseline,
-               d.domain IS NOT NULL AS parent_held
+               d.domain IS NOT NULL AS parent_held,
+               (bb.hostname IS NOT NULL OR bh.hostname IS NOT NULL
+                OR bd.domain IS NOT NULL) AS bare_held
         FROM cand c
         LEFT JOIN hostname_year hy ON hy.hostname = c.hostname AND hy.assigned_year = c.year
         LEFT JOIN baseline_host b ON b.hostname = c.hostname AND b.year = c.year
         LEFT JOIN domain d ON d.domain = c.parent
+        LEFT JOIN baseline_host bb ON bb.hostname = c.bare AND bb.year = c.year
+        LEFT JOIN hostname_year bh ON bh.hostname = c.bare AND bh.assigned_year = c.year
+        LEFT JOIN domain_year bd ON bd.domain = c.bare AND bd.assigned_year = c.year
         """
     ).fetchall()
     parent_new = conn.execute(
@@ -196,13 +210,20 @@ def price(conn, rows: list[tuple[str, str, int]], baseline: Path | None) -> dict
     ee_by_year: dict[int, Decimal] = {}
     by_tld: dict[str, Decimal] = {}
     total = Decimal(0)
-    for host, _parent, year, *_ in new_rows:
+    seam = seam_ee = Decimal(0)
+    for host, _parent, year, _in_store, _in_baseline, _parent_held, bare_held in new_rows:
         w = weight_of(host, weights)
         by_year[year] += 1
         ee_by_year[year] = ee_by_year.get(year, Decimal(0)) + w
         tld = host.rsplit(".", 1)[-1]
         by_tld[tld] = by_tld.get(tld, Decimal(0)) + w
         total += w
+        if bare_held:
+            seam += 1
+            seam_ee += w
+    out["www_of_held_name"] = int(seam)
+    out["www_of_held_name_ee"] = seam_ee
+    out["netnew_ee_eligible"] = total - seam_ee
     out["netnew_hostname_years"] = len(new_rows)
     out["netnew_by_year"] = dict(sorted(by_year.items()))
     out["netnew_ee_by_year"] = {y: str(v) for y, v in sorted(ee_by_year.items())}
@@ -248,6 +269,14 @@ def report(label: str, counts: Counter[str], priced: dict, sample_of: int | None
     for y, n in priced["netnew_by_year"].items():
         lines.append(
             f"    {y}: {n:>9,} hosts  {Decimal(priced['netnew_ee_by_year'][y]):>14,.4f} EE"
+        )
+    if priced["www_of_held_name"]:
+        share = priced["www_of_held_name_ee"] / priced["netnew_ee"] if priced["netnew_ee"] else 0
+        lines.append(
+            f"    of which www.<a name already held that year>: {priced['www_of_held_name']:,} "
+            f"({priced['www_of_held_name_ee']:,.4f} EE, {share:.1%}), the crawler-default alias "
+            f"seam the ingest refuses one level up; eligible without it "
+            f"{priced['netnew_ee_eligible']:,.4f} EE"
         )
     if priced["top_tlds"]:
         lines.append(
