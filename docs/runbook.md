@@ -61,6 +61,25 @@ forty: `check`, `collect`, `engines`, `expand`, `reproduce`, `schedule`, `ship` 
 prints its own choices when handed a word it does not know, `just collect` with no source lists the
 collectors, and `just` alone lists everything with the choices underneath.
 
+### What is on disk, and the copy of it elsewhere
+
+```bash
+just verify raw                          # checksum every data entry, regenerate docs/retention.md
+just verify trees                        # each extracted release tree against its zip, by CRC
+just verify offsite --manifest           # price the off-site payload into data/offsite-manifest.tsv
+just verify offsite --upload --yes       # rclone it to gdrive:ark-offsite, one log per entry
+just verify offsite --verify             # compare the remote by hash, downloading nothing
+```
+
+The payload is the part of [retention.md](retention.md) that nothing else can bring back: our own
+journals, the reviewer releases (the zstd trees under `data/archive/` among them), the frozen
+`submissions/phase-*`, live inputs with no refetch route, and unpriced corpora other than the two
+Usenet ones archive.org serves again. Regenerable entries and anything with a refetch URL stay local
+only, and `private/` has no row and cannot appear. The frozen submissions are checksummed into
+`submissions/SHA256SUMS`, at the root, so nothing is written inside a phase directory. An entry
+`--verify` calls verified is the precondition for deleting its local bytes; the deletion itself is a
+separate, human-approved table.
+
 ### What is unexhausted, in one command
 
 ```bash

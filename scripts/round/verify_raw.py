@@ -9,11 +9,14 @@ shape `wwwvl` and `ncsa-whats-new` already used), `sha256sum -c` compatible. A
 moved. A Usenet zip that `data/raw/usenet_catalog.json` names at the same size takes
 IA's sha1 into `SHA1SUMS` instead of a rehash; that covers the 9,266 zips of
 `usenet_bulk`. Loose files at a root (`data/raw/checksums.sha256`, `data/*.bak`)
-share the root's manifest. The manifests stay untracked: 89k lines that move with
-every collector run do not belong in a public repo.
+share the root's manifest, and so does every match of a glob root, which is how a
+frozen `submissions/phase-N` gets a row without a file written inside it. The
+manifests stay untracked: 89k lines that move with every collector run do not belong
+in a public repo.
 
 `docs/retention.md` is tracked, one row per entry: the children of `data/raw/`,
-`output/` and `feedback/`, and every `data/*.bak`. The class comes from the tables
+`output/` and `feedback/`, every `data/*.bak`, the archived releases under
+`data/archive/` and the frozen `submissions/phase-*`. The class comes from the tables
 below; an entry they do not name defaults to `reference` and is flagged. A path with
 no row is not deletable, and `just prune` reads this table before touching anything.
 
@@ -39,17 +42,20 @@ CATALOG = "data/raw/usenet_catalog.json"
 SUMS, SHA1S, STAT = "SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat"
 MANIFESTS = frozenset({SUMS, SHA1S, STAT})
 
-# Every child of a root is an entry; with a glob, only the matching loose files are
-# (the store backups, never the store itself).
+# Every child of a root is an entry; with a glob, only the matching children are (the
+# store backups, never the store itself), and they share the root's manifest.
 ROOTS: tuple[tuple[str, str | None], ...] = (
     ("data/raw", None),
     ("output", None),
     ("feedback", None),
     ("data", "*.bak"),
+    ("data/archive", "*.tar.zst"),
+    ("submissions", "phase-*"),
 )
 
 OWN = "own_journal"
 UNKNOWN = "unknown"
+NONE = "none"
 IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
 
 # The 26 entries the retention audit of 2026-09-02 left unpriced at hostname grain,
@@ -194,6 +200,11 @@ def classify(key: str) -> tuple[str, str] | None:
         return "reference", "reviewer_release"
     if root == "data" and name.endswith(".bak"):
         return "regenerable", "just reproduce"
+    if root == "data/archive" and name.endswith(".tar.zst"):
+        # the reviewer's release, repacked where his zip was discarded (docs/releases.md)
+        return "reference", "reviewer_release"
+    if root == "submissions":
+        return "reference", NONE
     return None
 
 
@@ -292,10 +303,13 @@ def load_catalog(root: Path) -> dict[str, tuple[str, int]]:
     return out
 
 
-def list_files(entry: Path) -> list[tuple[str, os.stat_result]]:
-    """`(./rel, stat)` for every regular file, the entry's own manifests excluded, sorted."""
+def list_files(entry: Path, where: Path) -> list[tuple[str, os.stat_result]]:
+    """`(./rel, stat)` for every regular file of the entry, `rel` from the manifest at `where`.
+
+    The manifests themselves, which sit at `where`, are never listed.
+    """
     if entry.is_file():
-        return [("./" + entry.name, entry.stat())]
+        return [("./" + entry.relative_to(where).as_posix(), entry.stat())]
     found = []
     for dirpath, dirnames, filenames in os.walk(entry):
         dirnames.sort()
@@ -303,15 +317,37 @@ def list_files(entry: Path) -> list[tuple[str, os.stat_result]]:
             path = Path(dirpath) / name
             if path.is_symlink() or not path.is_file():
                 continue
-            if path.parent == entry and name in MANIFESTS:
+            if path.parent == where and name in MANIFESTS:
                 continue
-            found.append(("./" + path.relative_to(entry).as_posix(), path.stat()))
+            found.append(("./" + path.relative_to(where).as_posix(), path.stat()))
     return sorted(found)
 
 
-def owns(entry: Path, rel: str) -> bool:
-    """A directory owns its whole manifest; a loose file owns its one line at the root."""
-    return entry.is_dir() or rel == "./" + entry.name
+def within(entry: Path, where: Path, rel: str) -> str | None:
+    """A manifest line's path relative to the entry, or None when the entry does not own it.
+
+    A directory with its own manifest owns every line. A loose file owns its one line
+    at the root. A directory sharing its root's manifest owns the lines under its name.
+    """
+    if entry == where:
+        return rel[2:]
+    own = "./" + entry.relative_to(where).as_posix()
+    if rel == own:
+        return entry.name
+    if rel.startswith(own + "/"):
+        return rel[len(own) + 1 :]
+    return None
+
+
+def owns(entry: Path, where: Path, rel: str) -> bool:
+    return within(entry, where, rel) is not None
+
+
+def home(root: Path, key: str) -> Path:
+    """Where the manifest for an entry lives: its own directory, or the root it shares."""
+    sub = key.rpartition("/")[0]
+    entry = root / key
+    return entry if entry.is_dir() and dict(ROOTS).get(sub) is None else root / sub
 
 
 def plan_entry(
@@ -325,7 +361,7 @@ def plan_entry(
     """Reuse what has not moved, copy catalog sha1s, queue the rest. Returns (files, bytes)."""
     files = size = 0
     seen = set()
-    for rel, st in list_files(entry):
+    for rel, st in list_files(entry, new.where):
         files += 1
         size += st.st_size
         seen.add(rel)
@@ -344,7 +380,7 @@ def plan_entry(
             new.sums[rel] = old.sums[rel]
         else:
             new.todo.append(rel)
-    gone = [rel for rel in old.stats if owns(entry, rel) and rel not in seen]
+    gone = [rel for rel in old.stats if owns(entry, old.where, rel) and rel not in seen]
     if gone:
         report.flags.append(f"{key}: {len(gone)} files in the last {SUMS} are gone")
     return files, size
@@ -380,17 +416,18 @@ def write_if_changed(path: Path, text: str, dry_run: bool, report: Report) -> No
 
 
 def fill_row(row: Row, entry: Path, m: Manifest, root: Path) -> None:
-    sums = [f"{h}  {rel}" for rel, h in m.sums.items() if owns(entry, rel)]
-    sha1s = [f"{h}  {rel}" for rel, h in m.sha1s.items() if owns(entry, rel)]
+    sums = [f"{h}  {rel}" for rel, h in m.sums.items() if owns(entry, m.where, rel)]
+    sha1s = [f"{h}  {rel}" for rel, h in m.sha1s.items() if owns(entry, m.where, rel)]
     row.digest = digest_of(sums, sha1s)
     kinds = [kind for kind, lines in ((SUMS, sums), (SHA1S, sha1s)) if lines]
     if not kinds:
         row.record = "none"
-    elif entry.is_dir():
+    elif m.where == entry:
         row.record = ", ".join(kinds)
     else:
         where = m.where.relative_to(root).as_posix()
-        row.record = "line in " + ", ".join(f"{where}/{kind}" for kind in kinds)
+        noun = "lines" if entry.is_dir() else "line"
+        row.record = f"{noun} in " + ", ".join(f"{where}/{kind}" for kind in kinds)
 
 
 def new_row(key: str, report: Report) -> Row:
@@ -404,8 +441,8 @@ def new_row(key: str, report: Report) -> Row:
 def row_from_disk(key: str, entry: Path, root: Path, report: Report) -> Row:
     """A row for an entry this run did not scan, read off the manifests it already has."""
     row = new_row(key, report)
-    m = Manifest.read(entry if entry.is_dir() else entry.parent)
-    stats = [stat for rel, stat in m.stats.items() if owns(entry, rel)]
+    m = Manifest.read(home(root, key))
+    stats = [stat for rel, stat in m.stats.items() if owns(entry, m.where, rel)]
     if stats:
         row.files = len(stats)
         row.size = sum(size for size, _ in stats)
@@ -418,7 +455,7 @@ def entries_of(root: Path, sub: str, glob: str | None) -> list[Path]:
     if not base.is_dir():
         return []
     if glob:
-        return sorted(p for p in base.glob(glob) if p.is_file())
+        return sorted(p for p in base.glob(glob) if not p.is_symlink())
     return sorted(p for p in base.iterdir() if p.name not in MANIFESTS and not p.is_symlink())
 
 
@@ -438,7 +475,7 @@ def run(root: Path, dry_run: bool = False, only: str | None = None) -> Report:
             if not selected(key, only):
                 report.rows.append(row_from_disk(key, entry, root, report))
                 continue
-            where = entry if entry.is_dir() else entry.parent
+            where = home(root, key)
             old = olds.setdefault(where, Manifest.read(where))
             new = news.setdefault(where, Manifest(where))
             row = new_row(key, report)
@@ -474,13 +511,15 @@ HEADER = "\n".join(
         "tables in the script; change those, never a row.",
         "",
         "One row per local data entry: the children of `data/raw/`, `output/` and `feedback/`, "
-        "and every `data/*.bak`. A path with no row is not deletable. `files` and `bytes` are "
+        "every `data/*.bak`, the archived releases `data/archive/*.tar.zst` and the frozen "
+        "`submissions/phase-*`. A path with no row is not deletable. `files` and `bytes` are "
         "what the entry held at the last run. `digest` is the sha256 of the entry's sorted "
         "`SHA256SUMS` lines, followed by its `SHA1SUMS` lines where IA's own sha1 from "
         "`data/raw/usenet_catalog.json` stands in for a rehash of a Usenet zip; the manifests "
-        "sit untracked beside the data and `record` names them. `refetch` is a URL, "
-        "`own_journal` for what our own collectors wrote, the recipe that rebuilds the entry, "
-        "`reviewer_release` for what arrived by mail, or `unknown`.",
+        "sit untracked beside the data, or at the root a frozen entry shares, and `record` "
+        "names them. `refetch` is a URL, `own_journal` for what our own collectors wrote, the "
+        "recipe that rebuilds the entry, `reviewer_release` for what arrived by mail, `none` "
+        "for what we sent and nobody sends back, or `unknown`.",
         "",
         "Classes: `live_input` is third-party bytes read by a `just reproduce` stage or by "
         "`just collect pandora-seed`; `keep_journal` is a journal of our own that a recipe "

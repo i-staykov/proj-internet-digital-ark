@@ -183,6 +183,55 @@ def test_legacy_manifest_without_sidecar_is_rehashed(tmp_path: Path) -> None:
     )
 
 
+def test_a_frozen_directory_shares_its_roots_manifest(tmp_path: Path) -> None:
+    """`submissions/phase-N` is frozen, so its lines go to `submissions/SHA256SUMS`."""
+    make_tree(tmp_path)
+    phase = tmp_path / "submissions/phase-4"
+    phase.mkdir(parents=True)
+    (phase / "ark.tar.gz").write_bytes(b"tarball")
+    (phase / "report.md").write_bytes(b"report")
+    (tmp_path / "submissions/README.md").write_bytes(b"not an entry")
+    (tmp_path / "data/archive").mkdir()
+    (tmp_path / "data/archive/merged260727.tar.zst").write_bytes(b"release")
+
+    vr.run(tmp_path)
+    assert sorted(p.name for p in phase.iterdir()) == ["ark.tar.gz", "report.md"]
+    shared = (tmp_path / "submissions/SHA256SUMS").read_text().splitlines()
+    assert shared == sorted(
+        [f"{sha256(b'tarball')}  ./phase-4/ark.tar.gz", f"{sha256(b'report')}  ./phase-4/report.md"]
+    )
+    rows = rows_by_key(tmp_path)
+    assert "submissions/README.md" not in rows
+    phase_row = rows["submissions/phase-4"]
+    assert phase_row[1:4] == ["reference", "2", "13"]
+    assert phase_row[4] == sha256("".join(f"{s}\n" for s in shared).encode())
+    assert phase_row[5:7] == ["none", "lines in submissions/SHA256SUMS"]
+    release = rows["data/archive/merged260727.tar.zst"]
+    assert release[1] == "reference"
+    assert release[5:7] == ["reviewer_release", "line in data/archive/SHA256SUMS"]
+
+    # unchanged, so nothing is rewritten; a file gone from the frozen tree is flagged
+    assert vr.run(tmp_path).written == []
+    (phase / "report.md").unlink()
+    report = vr.run(tmp_path)
+    assert any(
+        "submissions/phase-4: 1 files in the last SHA256SUMS are gone" in f for f in report.flags
+    )
+    assert rows_by_key(tmp_path)["submissions/phase-4"][2] == "1"
+
+
+def test_within_names_a_line_relative_to_its_entry(tmp_path: Path) -> None:
+    own = tmp_path / "own"
+    own.mkdir()
+    assert vr.within(own, own, "./a/b.txt") == "a/b.txt"
+    loose = tmp_path / "root/x.bak"
+    assert vr.within(loose, tmp_path / "root", "./x.bak") == "x.bak"
+    assert vr.within(loose, tmp_path / "root", "./y.bak") is None
+    shared = tmp_path / "root/phase-4"
+    assert vr.within(shared, tmp_path / "root", "./phase-4/report.md") == "report.md"
+    assert vr.within(shared, tmp_path / "root", "./phase-40/report.md") is None
+
+
 def test_entry_that_does_not_exist_exits(tmp_path: Path) -> None:
     make_tree(tmp_path)
     try:
