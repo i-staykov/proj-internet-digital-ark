@@ -44,7 +44,7 @@ evidence-backed. Two bins with a rule between them cannot be tuned.
 
 ## 2. Collectors write journals, not evidence
 
-Every network stage (`ark cdx`, `ark rdap`, `ark download`) writes a gzipped JSON Lines
+Every network stage (`ark cdx`, `ark download`) writes a gzipped JSON Lines
 **journal** of raw responses and touches no database. A later `ark ingest` turns journals into
 evidence.
 

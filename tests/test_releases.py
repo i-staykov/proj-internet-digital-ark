@@ -163,6 +163,34 @@ def test_stray_tree_is_reported_not_silently_added(monkeypatch, capsys, tmp_path
     assert "merged261231" not in _rows(tmp_path / "releases.md")
 
 
+def test_verify_trees_passes_a_matching_tree(monkeypatch, capsys, tmp_path):
+    _layout(tmp_path)
+    page = tmp_path / "releases.md"
+    stamp = page.stat().st_mtime_ns
+    out = _run(monkeypatch, capsys, tmp_path, "--verify-trees")
+    assert "7 members, 7 matched, 0 mismatched, 0 missing on disk, 0 extra on disk" in out
+    assert "deletable once the off-site copy exists: " in out
+    assert "merged260830" in out.splitlines()[-1]
+    # The zip-less tree has nothing to compare against, so it is not claimed.
+    assert "merged260810" not in out.splitlines()[-1]
+    assert page.stat().st_mtime_ns == stamp
+
+
+def test_verify_trees_catches_a_modified_and_a_missing_file(monkeypatch, capsys, tmp_path):
+    feedback, _, _ = _layout(tmp_path)
+    tree = feedback / "feedback-phase-7/Domain_Data_Collection_Task 3/merged260830"
+    # Same length as what the zip holds, so only the checksum can catch it.
+    (tree / "1996.txt").write_text("".join(f"zite{i}.com\n" for i in range(LINES[1996])))
+    (tree / "1998.txt").unlink()
+    (tree / "stray.txt").write_text("later\n")
+    out = _run(monkeypatch, capsys, tmp_path, "--verify-trees")
+    assert "7 members, 5 matched, 1 mismatched, 1 missing on disk, 1 extra on disk" in out
+    assert "crc differs: 1996.txt" in out
+    assert "missing on disk: 1998.txt" in out
+    assert "extra on disk: stray.txt" in out
+    assert out.splitlines()[-1].endswith("exists: none")
+
+
 @pytest.mark.skipif(shutil.which("zstd") is None, reason="zstd not installed")
 def test_zstd_packs_the_zipless_tree_and_hashes_it(monkeypatch, capsys, tmp_path):
     _layout(tmp_path)

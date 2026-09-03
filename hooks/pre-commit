@@ -14,6 +14,10 @@
 # committing wait on the ingest loop and the hook would be disabled within a day. Data
 # invariants belong in `just ship` and in the cron checklist, where they already are.
 #
+# The security scan runs here for the opposite reason: the repository is public and every
+# branch but `main` may now be pushed, so the commit is the last point at which a secret,
+# a machine address or a local path can still be kept out of world-readable bytes.
+#
 # Install with `just hooks`. Bypass with `git commit --no-verify`, which is honest: it
 # leaves a visible choice in the shell history rather than a silent failure.
 
@@ -29,6 +33,7 @@ fail() {
 
 uv run ruff check . || fail "ruff found problems"
 uv run ruff format --check . >/dev/null || fail "formatting is not clean, run 'just fmt'"
+uv run python -m ark.hygiene || fail "the security scan found something, read each hit in context"
 uv run pytest -q >/dev/null 2>&1 || fail "tests are failing"
 
-echo "pre-commit: ruff, format and tests pass"
+echo "pre-commit: ruff, format, security scan and tests pass"
