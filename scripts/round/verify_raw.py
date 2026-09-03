@@ -187,6 +187,8 @@ REGENERABLE: dict[str, str] = {
     "gapfill_candidates.txt": "derived list, no reader",
     "gapfill_sample.txt": "derived list, no reader",
     "isc_survey_hostgrain.log": "just reproduce sources",
+    "early_web_3xx_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
+    "early_web_nonok_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
     "nypw_firstcdx_hostgrain": "scripts/sources/nypw/nypw_firstcdx_hostgrain.py",
     "nypw_hostgrain": "regenerable from nypw_timemaps",
     "ukwa_hostgrain": "scripts/sources/ukwa/ukwa_hostgrain.py",
