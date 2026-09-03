@@ -39,3 +39,10 @@ The code itself is recoverable from git by the commit named here.
   bytes they fetched sit in `data/raw/dartmouth_bfs` and `data/raw/namewinner` with their refetch
   URLs in the register. Removed in this commit, which is what lifted the `xfail` on
   `test_every_script_has_a_caller`.
+- **The register converter** (`scripts/round/convert_register.py`, 702 lines): the one-shot that
+  rewrote 437 free-prose register entries into the eleven columns the ledger asks for, on
+  2026-09-03, refusing to write unless every token of every entry survived into a row or a
+  `## Detail` block. It has run, the register is in that shape, and running it again would
+  re-convert what is already converted. The pre-conversion text is in this file's history and
+  `bank_findings.py` now writes rows in the same eleven columns. Removed in this commit with
+  its test, 131 lines, which pinned the conversion rather than the register.
