@@ -182,7 +182,7 @@ Decision: master
 - **the decision stays `master`, and that is deliberate rather than convenient.** What Verisign and PIR
   prohibit is *sending* the queries, and every pair already in the store came from a response already
   received: replaying a stored journal sends nothing. Setting the class to `pending` would also break
-  `just journals`, which is the reproduction path the shipped archive tells a reviewer to run, and it
+  `just reproduce journals`, the reproduction path the shipped archive tells a reviewer to run, and it
   would withdraw 458,941 EE the reviewer has already merged on a reading the terms do not support
 - **what is closed is COLLECTION, and it is closed in code rather than in a note.** `ark rdap` now
   refuses every registry whose terms have been read and prohibit it, and needs
@@ -586,7 +586,7 @@ Decision: master
   `&nbsp;` and quote prefixes before either pattern runs, because an HTML-escaped second copy of a
   block once bound `openssl.org`'s creation date to `engelschall.com`
 - ingest specs: `usenet_whois_dated` and `usenet_whois_candidates`. Journals at
-  `data/raw/usenet_whois/usenet_whois_{dated,candidates}.jsonl.gz`, regenerable with `just usenet-whois`
+  `data/raw/usenet_whois/usenet_whois_{dated,candidates}.jsonl.gz`, regenerable with `just collect usenet-whois`
 - admitted under the standing rule of 2026-08-29 (Ivo)
 
 Decision: master

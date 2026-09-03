@@ -21,7 +21,7 @@ a warning when the two disagree. Not shipped.
 | 6 | 1,929,655 | 713,481.4198 | 5.3395 | 1,684,903 | 562,099.5294 | 4.130718 | merged260826 | 2026-08-21 11:19 | 2026-08-26 15:51 | 5.19 | 6 | 6.884530 | 6.88 | matches his figure |
 | 7 | 2,541,429 | 1,458,263.2088 | 7.5794 | 2,538,900 | 1,456,458.1029 | 7.562846 | merged260902-2 | 2026-08-21 11:19 | 2026-09-02 05:50 | 11.77 | 12 | 6.302372 | 6.302372 | matches his figure |
 
-Sum of S_i as he quotes them (rounds 6 and 7, 6.88 + 6.302372): **13.184372**; the same two computed
+Sum of S_i as he quotes them (rounds 6 and 7, 6.88 + 6.302372): **13.182372**; the same two computed
 to six places sum to 13.186902. Sum over every round under the same rule, round 1 included on its
 record percentage: 140.288752. Rounds 1 to 5 predate the rule and he has
 quoted no score for them; their S_i above is what the rule would give and is not a claim on him.

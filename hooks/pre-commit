@@ -32,7 +32,7 @@ fail() {
 }
 
 uv run ruff check . || fail "ruff found problems"
-uv run ruff format --check . >/dev/null || fail "formatting is not clean, run 'just fmt'"
+uv run ruff format --check . >/dev/null || fail "formatting is not clean, run 'just check fmt'"
 uv run python -m ark.hygiene || fail "the security scan found something, read each hit in context"
 uv run pytest -q >/dev/null 2>&1 || fail "tests are failing"
 
