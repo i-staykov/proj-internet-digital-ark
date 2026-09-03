@@ -28,10 +28,17 @@ from decimal import Decimal
 import duckdb
 
 from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE
+from ark.delegation import shipping_filter
 from ark.english_share import english_weights
 from ark.evidence_types import MASTER_TYPES
 
 BASELINE_TYPE = "prior_reused"
+
+# The scoreboard counts what ships, not what the store holds. Without this the brief
+# quoted 866 pairs (479.4256 EE) that `ark export` drops: `.arpa` names and pairs dated
+# before their TLD was delegated, which no round can be credited for.
+_SHIPPED = shipping_filter("dy.")
+_SHIPPED_CANDIDATE = shipping_filter("d.", with_year=False)
 
 # Growth is the increment divided by the reviewer's PRE-increment total, which is his
 # convention and not the same as dividing by the post-increment one. Which release
@@ -274,23 +281,27 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
     total_domains = conn.execute("SELECT count(*) FROM domain").fetchone()[0]
     total_pairs = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
     candidate_pool = conn.execute(
-        "SELECT count(*) FROM domain d WHERE NOT EXISTS "
-        "(SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)"
+        f"""
+        SELECT count(*) FROM domain d
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+          AND {_SHIPPED_CANDIDATE}
+        """
     ).fetchone()[0]
     # net-new domain: assigned, but carrying no baseline evidence anywhere
     netnew_domains = conn.execute(
-        """
+        f"""
         SELECT count(DISTINCT dy.domain) FROM domain_year dy
         WHERE NOT EXISTS (
             SELECT 1 FROM evidence e WHERE e.domain = dy.domain AND e.evidence_type = ?
         )
+          AND {_SHIPPED}
         """,
         [BASELINE_TYPE],
     ).fetchone()[0]
     # net-new pair: assigned, but no baseline evidence for that (domain, year)
     pairs_by_year = dict(
         conn.execute(
-            """
+            f"""
             SELECT dy.assigned_year, count(*)
             FROM domain_year dy
             WHERE NOT EXISTS (
@@ -298,6 +309,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
                 WHERE e.domain = dy.domain AND e.evidence_year = dy.assigned_year
                   AND e.evidence_type = ?
             )
+              AND {_SHIPPED}
             GROUP BY dy.assigned_year ORDER BY dy.assigned_year
             """,
             [BASELINE_TYPE],
@@ -424,16 +436,22 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
         WHERE NOT EXISTS (
             SELECT 1 FROM evidence e WHERE e.domain = dy.domain
               AND e.evidence_year = dy.assigned_year AND e.evidence_type = '{BASELINE_TYPE}')
+          AND {_SHIPPED}
         GROUP BY 1
         """
     ).fetchall()
     assigned = conn.execute(
-        "SELECT split_part(domain, '.', -1) AS tld, count(*) FROM domain_year GROUP BY 1"
+        f"""
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
+        WHERE {_SHIPPED}
+        GROUP BY 1
+        """
     ).fetchall()
     candidates = conn.execute(
-        """
+        f"""
         SELECT split_part(d.domain, '.', -1) AS tld, count(*) FROM domain d
         WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+          AND {_SHIPPED_CANDIDATE}
         GROUP BY 1
         """
     ).fetchall()
@@ -456,6 +474,7 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
                 SELECT 1 FROM evidence e WHERE e.domain = dy.domain
                   AND e.evidence_year = dy.assigned_year
                   AND e.evidence_type = '{BASELINE_TYPE}')
+              AND {_SHIPPED}
         )
         SELECT split_part(domain, '.', -1) AS tld, known, count(*)
         FROM nn GROUP BY 1, 2
@@ -472,6 +491,7 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
         WHERE NOT EXISTS (
             SELECT 1 FROM evidence e WHERE e.domain = dy.domain
               AND e.evidence_type = '{BASELINE_TYPE}')
+          AND {_SHIPPED}
         GROUP BY 1
         """
     ).fetchall()

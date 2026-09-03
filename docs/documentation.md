@@ -19,6 +19,12 @@ that supports it. Everything else follows from taking that literally.
 no code path that writes a year assignment without one, because the schema will not accept it. This is
 the **evidence wall**: it makes the property structural rather than a convention that erodes.
 
+Every evidence row also names how its observation was obtained: `evidence.acquisition_method`, the
+**extraction method** in the reviewer's terms. The baseline loader stamps `prior_task`; a bulk source
+stamps the method its `SourceSpec` declares, such as `bulk_cdx_file` or `registry_register_listing`.
+Both writers set it unconditionally, so it ships non-empty for every row in `provenance/evidence.parquet`
+and in `additions/evidence_manifest.csv`, next to the evidence type, value and URL.
+
 Evidence types are split in two:
 
 - **master-eligible**, meaning the observation fixes a year: an archive capture timestamp, a dated
@@ -38,7 +44,7 @@ evidence-backed. Two bins with a rule between them cannot be tuned.
 
 ## 2. Collectors write journals, not evidence
 
-Every network stage (`ark cdx`, `ark rdap`, `ark download`) writes a gzipped JSON Lines
+Every network stage (`ark cdx`, `ark download`) writes a gzipped JSON Lines
 **journal** of raw responses and touches no database. A later `ark ingest` turns journals into
 evidence.
 
@@ -137,7 +143,7 @@ else did, including a crash on step three of the documented tier-2 path.
 
 ## 7. The integrity gate
 
-`ark check` runs fifteen invariants over the store and exits non-zero on any failure. They are not
+`ark check` runs seventeen invariants over the store and exits non-zero on any failure. They are not
 tests of the code; they are tests of the data, and the two fail differently. `just check` runs both,
 deliberately, because giving either one the bare name invites running one and believing the other
 passed.
@@ -171,7 +177,7 @@ src/ark/          the pipeline package and the `ark` CLI
   db.py           schema, migrations, the store
   baseline.py     which reviewer release is current, and its totals
   english_share.py  the scoring metric's weight table
-  checks.py       the fifteen data invariants
+  checks.py       the seventeen data invariants
   cli.py          every command
 scripts/          collectors, splitters, supervisors, packaging, measurement
 tests/            pytest, network mocked

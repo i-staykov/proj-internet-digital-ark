@@ -32,6 +32,11 @@ jobs:
       - name: Format check (ruff)
         run: uv run ruff format --check .
 
+      # The repo is public, so this is the gate that keeps secrets, machine addresses
+      # and local paths out of bytes anyone can read.
+      - name: Security scan
+        run: uv run python -m ark.hygiene
+
       # Unit tests only: network is mocked, no archives hit, no legacy data needed.
       - name: Tests (pytest)
         run: uv run pytest

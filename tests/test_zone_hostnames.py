@@ -57,16 +57,18 @@ def test_ingest_writes_hostname_rows_dated_by_the_serial_and_is_idempotent(tmp_p
     init_db(conn)
     path = write(tmp_path, ZONE)
     stats = ingest_zone_hostnames(conn, path)
-    assert stats["hostname_year_rows"] == 3
+    # An NS target observes a nameserver, not a site, so since 2026-09-02 the lane
+    # writes evidence and the parent's year but no hostname record.
+    assert stats["hostname_year_candidates"] == 3
+    assert stats["hostname_year_rows"] == 0
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 0
     rows = conn.execute(
         """
-        SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type, e.evidence_value
-        FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
-        ORDER BY hy.hostname
+        SELECT e.domain, e.evidence_year, e.evidence_type, e.evidence_value
+        FROM evidence e ORDER BY e.evidence_value
         """
     ).fetchall()
     assert rows[1] == (
-        "ns1.provider.net",
         "provider.net",
         1997,
         "artifact_listing",
@@ -75,12 +77,12 @@ def test_ingest_writes_hostname_rows_dated_by_the_serial_and_is_idempotent(tmp_p
     # the parent earns 1997 from the same observation, once per parent
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 2
     assert ingest_zone_hostnames(conn, path)["skipped"] is True
-    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 3
+    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 3
     assert (
         conn.execute(
             "SELECT record_rows FROM ingested_file WHERE source_name = ?", [ZONE_SOURCE_NAME]
         ).fetchone()[0]
-        == 3
+        == 0
     )
 
 

@@ -21,7 +21,7 @@ of which **29,432 the store did not know at all**, 16,658 of them `.au`.
       list
     uv run ark seed data/raw/pandora-titles/pandora_hosts.txt
 
-Or `just pandora-seed`, which does both.
+Or `just collect pandora-seed`, which does both.
 """
 
 import argparse

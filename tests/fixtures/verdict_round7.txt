@@ -1,0 +1,8 @@
+1. Original domain-year total: 36,672,403
+2. Equivalent-English total: 19,258,069.0245
+3. Increment: 2,538,900 domain-year records
+4. Equivalent-English increment: 1,456,458.1029
+5. Equivalent-English growth rate: 7.562846%
+6. Candidate-Pool Equivalent-English growth rate: 0.225249%
+Validated against `merged260902-2`.
+Score calculation: S = 10 x (7.562846 / 12) = 6.302372
