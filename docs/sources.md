@@ -960,6 +960,36 @@ Nothing is ingested. The request is `usenet_body_url_hostnames / link_source` in
 survived a skeptic that reproduced every figure to the digit, because it re-ran the same code:
 a verifier has to read the extractor against the raw bytes, not re-price the same output.**
 
+## `usenet_uk_hostgrain`: FIND at 9,644 EE, the whole uk hierarchy read in one evening
+
+`https://archive.org/download/usenet-uk/<group>.mbox.zip`, 495 archives, 14,478,540,197 B,
+fetched 2026-09-03 23:23 with the existing polite fetcher into `data/raw/usenet_uk/` (honest
+User-Agent, one client, largest first, two passes). **The catalogue on disk said this pool
+existed and nobody had opened it**: `data/raw/usenet_catalog.json` lists 9,918 archives and
+328.5 GB never downloaded, of which this is the highest-weight block, because `.uk` scores
+0.9813 against `.com` 0.6321.
+
+**What dates one item is each post's own machine-written `Date:` header**, one item per post,
+and the hosts are the authorities of explicit `http://`, `https://` and `ftp://` URLs in the
+post BODY only, so a `Path`, `Xref`, `NNTP-Posting-Host`, `Message-ID`, `From` or
+`Organization` host never enters. Read whole, no sample and no projection: 25,943,465 posts,
+**9,295,674 dated inside 1996-2001**, 2,848,005 carrying a body URL, 203,622 distinct
+host-years, 61,112 candidates, 27,444 already in the store and 11,645 in his files alone.
+**21,968 net-new hostname years and 15,552.5896 EE gross.** The ADR-007 alias seam takes
+7,218 rows and 5,265.2005 EE (33.9%), leaving **10,287.3891 EE**, and the pools' sampled
+fiction rate of 6.25% takes it to **9,644.4273 EE central** (a mechanical word-list screen
+finds only 38 rows and 28.0860 EE here, 0.27%, which is why the sampled rate is the one to
+quote). Beside it, **6,066 net-new registrable-years worth 4,169.0703 EE** before the
+corroboration split.
+
+**`uk` is the top TLD of its own pool at 7,335.2 EE**, then `com` 3,657.3, `net` 1,408.4,
+`edu` 1,214.6. Spread 1996 1,055.2 EE to 2000 4,065.6 EE, so it is not a one-year artifact.
+
+**The transferable number: 1,152 EE per GB gross, against 851 for the two big pools**, which
+is the `.uk` weight showing up exactly where the weight table says it should. Nothing is
+ingested: this is the same `usenet_body_url_hostnames / link_source` class as the two pools
+and it waits on the same word.
+
 ## Detail`
 section, which holds the entry as it was written.
 

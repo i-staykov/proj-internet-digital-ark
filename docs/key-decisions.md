@@ -21,20 +21,21 @@ prints the split so no round can quote the hostname half without it.
 
 Worth: 201,767.94 EE of the current claim, plus whether the next hostname corpus is worth reading. If they count, nothing changes; if they do not, the refusal moves into `hostnames.py` under an ADR and the round is restated.
 
-### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 65,280 EE measured
+### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 74,924 EE measured
 
 Hosts of explicit `http`, `https` and `ftp` URLs in Usenet post BODIES, at hostname grain, over
-both pools already on disk read WHOLE and priced as one union: 110 GB, 173.7M posts, 71.2M in
-window, 88,564.4995 EE gross, **65,279.6605 EE after the ADR-007 alias seam and a sampled 6.25%
-fiction rate (Wilson 95% CI 2.7% to 13.8%, so 60,022 to 67,752)**. No projection anywhere in it.
-Beside it, needing no hostname decision, 42,625 registrable-years worth 24,172.0540 EE before the
+three pools read WHOLE and priced against the live store: 124 GB, 199.7M posts, 80.5M in window,
+104,117.0891 EE gross, **74,924.0878 EE after the ADR-007 alias seam and a sampled 6.25% fiction
+rate (Wilson 95% CI 2.7% to 13.8%, so 68,870 to 77,779)**. The uk hierarchy was fetched and read
+whole overnight on 2026-09-04 and is the densest of the three at 1,152 EE per GB. No projection anywhere in it.
+Beside it, needing no hostname decision, 48,691 registrable-years worth 28,341.1243 EE before the
 corroboration split, which is known to be brutal on this class. It parks on condition 1 only: no
 master-eligible class covers a host a human typed at hostname grain. In place of the split, the
 fiction rate is 6.25% here against ~13% for the `dig`-output request beneath it, and the fakes are
 typos of real hosts rather than examples, which is the argument for answering the two differently.
 The first pass of this figure was wrong by a one-character regex and is written up in `sources.md`.
 
-Worth: 65,280 EE measured, the largest single lane found in phase 8 and 6.3% of the gate. Bytes are on disk; journals rebuild in about 25 minutes a pool.
+Worth: 74,924 EE measured, the largest single lane found in phase 8 and 6.5% of the gate. Bytes are on disk; journals rebuild in about 25 minutes a pool.
 
 ### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
 
