@@ -6,14 +6,23 @@ exactly that, per family, in the register since phase 1, so the ledger is GENERA
 from the register at packaging time, never hand-maintained, and each row points back
 at the register entry that carries the full measurement.
 
-Read by COLUMN HEADER, over both register pages, since `convert_register.py` gave
-every entry one row of named columns and moved closed families to
-`docs/sources-closed.md`. Two consequences worth stating: every entry reaches the
-ledger now, 470 rows against 202, not only those that carried a bold heading, and an entry's
-`## Detail` block is read with its row, because the reopen clause is prose and the
-row is only a projection of it.
+Read over both register pages, since `convert_register.py` gave every entry one row of
+named columns and moved closed families to `docs/sources-closed.md`. Two consequences
+worth stating: every entry reaches the ledger now, 470 rows against 202, not only those
+that carried a bold heading, and an entry's `## Detail` block is read with its row,
+because the reopen clause is prose and the row is only a projection of it.
 
-The eight columns are unchanged. E4.3 owns adding `retrieval_method`.
+Every cell is located by its header NAME, never by position, so a column added or moved
+in the register cannot shift a cell here, and a required column that goes missing raises
+with the headers it did find instead of exporting a wrong ledger.
+
+Thirteen columns since 2026-09-03: the eight of phase 7, in their old order so a
+consumer reading the first eight is unaffected, plus `coverage_period`,
+`retrieval_method`, `baseline_overlap`, `effort` and `source_link`. The first four are
+his own schema words (coverage, overlap, effort) that the register held and the CSV
+dropped; the fifth is the source URL every entry carries under rule 8. `n/a` is kept
+verbatim, because in the register it means the entry does not say, which is not the same
+as a column the page does not have.
 
     uv run python scripts/round/saturation_ledger.py --out audit/source_saturation_ledger.csv
 """
@@ -31,8 +40,57 @@ DAY_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 DATES_RE = re.compile(r"[Ww]hat dates one item[:\s]*([^.|]{0,160})")
 EE_RE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
 ANCHOR_RE = re.compile(r"\[detail\]\(#([^)]+)\)")
+URL_RE = re.compile(r"https?://[^\s<>()\[\]]+")
 # The register's own verdict words, in the priority the old parser used.
 VERDICTS = ("BLOCKED", "REOPENED", "FIND", "CLOSED")
+
+# Ledger field <- the register header names that carry it, best first. The open page
+# spells eleven columns out; the closed page keeps five shorter names for the same
+# things, so most fields accept two. The order here is the open page's, because the
+# prose fallbacks read the cells joined and that is the order they were written in.
+COLUMNS: dict[str, tuple[str, ...]] = {
+    "source_family": ("source",),
+    "version_or_date": ("version or date", "date"),
+    "coverage_period": ("coverage period",),
+    "retrieval_method": ("retrieval method",),
+    "what_dates_one_item": ("what dates one item",),
+    "baseline_overlap": ("baseline overlap",),
+    "coverage_ee": ("net-new ee (date)", "measured"),
+    "quality_limitations": ("quality issues", "reason"),
+    "effort": ("effort",),
+    "status": ("verdict",),
+    "source_link": ("link",),
+}
+# Without these there is no ledger row worth writing, so their absence is an error and
+# not an empty cell. Both pages carry all five. The rest are optional, and the closed
+# page has none of them.
+REQUIRED = (
+    "source_family",
+    "version_or_date",
+    "coverage_ee",
+    "quality_limitations",
+    "source_link",
+)
+VOCABULARY = {name for names in COLUMNS.values() for name in names}
+# The prose fallbacks scan the row's other cells. Joining them in this fixed order
+# rather than the page's makes the output independent of how the register is ordered.
+BODY_ORDER = tuple(field for field in COLUMNS if field != "source_family")
+
+FIELDS = (
+    "source_family",
+    "version_or_date",
+    "status",
+    "coverage_ee",
+    "what_dates_one_item",
+    "quality_limitations",
+    "decision",
+    "reference",
+    "coverage_period",
+    "retrieval_method",
+    "baseline_overlap",
+    "effort",
+    "source_link",
+)
 
 
 def _clean(text: str) -> str:
@@ -40,8 +98,48 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _link(cell: str) -> str:
+    """The link cell holds the source URL and often a detail anchor; keep the URL."""
+    found = URL_RE.search(cell)
+    return found.group(0) if found else _clean(cell)
+
+
 def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def _cell(cells: list[str], index: dict[str, int], field: str) -> str:
+    """One cell by ledger field name. Empty when the page has no such column."""
+    position = index.get(field, -1)
+    return cells[position] if 0 <= position < len(cells) else ""
+
+
+def is_header(cells: list[str]) -> bool:
+    """A register header row: names the source column and at least two more we know."""
+    seen = {c.lower() for c in cells}
+    return "source" in seen and len(seen & VOCABULARY) >= 3
+
+
+def header_index(cells: list[str]) -> dict[str, int]:
+    """Ledger field -> column position, by header name."""
+    seen = [c.lower() for c in cells]
+    index: dict[str, int] = {}
+    for field, names in COLUMNS.items():
+        for name in names:
+            if name in seen:
+                index[field] = seen.index(name)
+                break
+    return index
+
+
+def require_columns(index: dict[str, int], cells: list[str], page: str) -> None:
+    missing = [field for field in REQUIRED if field not in index]
+    if not missing:
+        return
+    wanted = "; ".join(f"{field} (one of: {', '.join(COLUMNS[field])})" for field in missing)
+    raise ValueError(
+        f"{page}: register table has no column for {wanted}. Headers found: {', '.join(cells)}"
+    )
 
 
 def detail_blocks(text: str) -> dict[str, str]:
@@ -63,41 +161,47 @@ def rows_from_register(sources_md: str, page: str = "docs/sources.md") -> list[d
     """One ledger row per register row, whatever the page's column set is."""
     rows: list[dict[str, str]] = []
     details = detail_blocks(sources_md)
-    header: list[str] = []
+    index: dict[str, int] = {}
     for line in sources_md.splitlines():
         if not line.startswith("|"):
             if line.startswith("#"):
-                header = []
+                index = {}
+            continue
+        if not set(line) - set("|-: "):
             continue
         cells = _cells(line)
-        if cells[0].lower() == "source":
-            header = [c.lower() for c in cells]
+        if is_header(cells):
+            index = header_index(cells)
+            require_columns(index, cells, page)
             continue
-        if not header or not (set(cells[0]) - set("-: ")):
+        if not index:
             continue
-        row = dict(zip(header, cells, strict=False))
-        family = _clean(cells[0])
-        version = row.get("version or date") or row.get("date") or ""
+        cell = {field: _cell(cells, index, field) for field in COLUMNS}
+        family = _clean(cell["source_family"])
+        version = cell["version_or_date"]
         day = DAY_RE.search(version)
-        body = " ".join(cells[1:])
-        for anchor in ANCHOR_RE.findall(line):
+        # The row's other cells, plus any column the register has grown that we do
+        # not name yet, so a new column still feeds the fallbacks below.
+        extra = [cells[i] for i in range(len(cells)) if i not in set(index.values())]
+        body = " ".join(value for value in [*(cell[f] for f in BODY_ORDER), *extra] if value)
+        for anchor in ANCHOR_RE.findall(body):
             body = f"{body} {details.get(anchor, '')}"
-        said = row.get("verdict", body[:120]).upper()
+        said = (cell["status"] or body[:120]).upper()
         verdict = next((token.lower() for token in VERDICTS if token in said), "closed")
-        ee = EE_RE.search(row.get("net-new ee (date)") or row.get("measured") or body)
-        quality = _clean(row.get("quality issues") or row.get("reason") or body)[:300]
+        ee = EE_RE.search(cell["coverage_ee"] or body)
+        quality = _clean(cell["quality_limitations"] or body)[:300]
         # The closed page's five columns have no dating column, so it is read out of
         # the row's prose and its detail block, which is where the clause still is.
-        dates = row.get("what dates one item", "")
+        dates = cell["what_dates_one_item"]
         if dates in ("", "n/a"):
             clause = DATES_RE.search(body)
             dates = clause.group(1) if clause else ""
         reopen = ""
         lower = body.lower()
         for marker in ("reopen", "do not re-test", "revisit", "retire"):
-            pos = lower.find(marker)
-            if pos != -1:
-                reopen = _clean(body[pos : pos + 220])
+            position = lower.find(marker)
+            if position != -1:
+                reopen = _clean(body[position : position + 220])
                 break
         rows.append(
             {
@@ -109,6 +213,11 @@ def rows_from_register(sources_md: str, page: str = "docs/sources.md") -> list[d
                 "quality_limitations": quality,
                 "decision": reopen or "closed on measurement; see register entry",
                 "reference": f"{page} register row of {day.group(1) if day else 'no date'}",
+                "coverage_period": _clean(cell["coverage_period"])[:120],
+                "retrieval_method": _clean(cell["retrieval_method"])[:120],
+                "baseline_overlap": _clean(cell["baseline_overlap"])[:120],
+                "effort": _clean(cell["effort"])[:120],
+                "source_link": _link(cell["source_link"]),
             }
         )
     return rows
@@ -154,18 +263,8 @@ def main() -> int:
             page = f"docs/{path.name}"
             rows += rows_from_register(path.read_text(encoding="utf-8"), page)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    fields = [
-        "source_family",
-        "version_or_date",
-        "status",
-        "coverage_ee",
-        "what_dates_one_item",
-        "quality_limitations",
-        "decision",
-        "reference",
-    ]
     with args.out.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fields)
+        writer = csv.DictWriter(fh, fieldnames=FIELDS, restval="")
         writer.writeheader()
         writer.writerows(rows)
     print(f"{len(rows)} ledger rows -> {args.out}")
