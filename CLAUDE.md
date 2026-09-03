@@ -177,14 +177,14 @@ what survives the split we already hold. Ask whether the lister held the databas
 
 ## Rules
 
-- **Pushing (amended by Ivo, 2026-09-01): only the fleet's bank job pushes, and only the
-  fleet branch.** `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept public
-  deliberately as a portfolio, so every pushed commit and its message is world-readable the
-  moment it lands. Consequences: interactive sessions still never push unless Ivo asks;
-  `main` is never pushed by any agent; a commit message names no hosts, no IP addresses, no
-  email bodies and no personal context (`docs/ROUND.md` is ignored precisely because it
-  embeds the VPS address, and a commit message must not re-leak what the ignore protects).
-  Non-`main` branch only. No AI attribution in commits. **No em-dashes or en-dashes.**
+- **Pushing (amended by Ivo, 2026-09-03): any branch except `main` may be pushed, and `main`
+  is reached only by a PR.** `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept
+  public deliberately as a portfolio, so every pushed commit and its message is world-readable
+  the moment it lands. That is what the freedom costs: a commit message names no hosts, no IP
+  addresses, no email bodies and no personal context (`docs/ROUND.md` is ignored precisely
+  because it embeds the VPS address, and a commit message must not re-leak what the ignore
+  protects). `main` is never pushed by any agent, and branch protection enforces it. No AI
+  attribution in commits. **No em-dashes or en-dashes.**
 - Gate before every commit, never through a pipe:
   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`
 - `ark export` before `ark check`. Never edit `docs/SPEC.md`, `docs/report.md`, frozen `submissions/`.
