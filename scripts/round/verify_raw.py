@@ -58,35 +58,24 @@ UNKNOWN = "unknown"
 NONE = "none"
 IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
 
-# The 26 entries the retention audit of 2026-09-02 left unpriced at hostname grain,
-# with the URL it recorded. `None` is honest: nobody has found where the bytes came from.
+# What the retention audit of 2026-09-02 left unpriced at hostname grain. It listed 26;
+# the E9.5 batch priced 24 of them on 2026-09-03 and they moved to `reference` (a measured
+# negative, verdict and figure in `sources.md`) or to `keep_until_decided` below. These two
+# are left because their terms, not their value, are unsettled, and that is Ivo's word.
+# `None` is honest: nobody has found where the bytes came from.
 KEEP_UNTIL_PRICED: dict[str, str | None] = {
     "antispam_media": None,
-    "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
-    "attrition": "https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/",
-    "can_domain": "https://archive.org/download/usenet-can/can.domain.mbox.zip",
-    "dartmouth_bfs": "https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls",
-    "freebsd_ports": "ftp://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/i386/",
     "internic_zones": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/",
-    "jeb_bush": "https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z",
-    "maillists": "https://mail.python.org/pipermail/ and https://mail.gnome.org/archives/",
-    "ncsa-whats-new": "https://web.archive.org/cdx/search/cdx?url=ncsa.uiuc.edu/SDG/Software/Mosaic/Docs/whats-new*&from=1996&to=1996",
-    "nypw": "https://archive.org/details/nypw_urls_CDXfirstentry",
-    "odp": "https://web.archive.org/cdx/search/cdx?url=dmoz.org/rdf/*&from=2000&to=2001",
-    "probes": None,
-    "rtfm": "https://archive.org/download/ftp_rtfm.mit.edu_2014.07/2014.07.rtfm.mit.edu.tar",
-    "scout": "https://archives.internetscout.org/OAI?verb=ListRecords&metadataPrefix=oai_dc",
-    "source_probe_260806": "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz",
-    "squidguard_contrib_2001": "https://web.archive.org/web/20010710215730id_/http://ftp.ost.eltele.no/pub/www/proxy/squidGuard/contrib/blacklists.tar.gz",
-    "texts": "https://archive.org/download/<identifier>/<identifier>_djvu.txt",
-    "tucows": "https://archive.org/advancedsearch.php?q=collection:tucows+AND+year:[1996+TO+2001]",
-    "ukwa": "https://web.archive.org/web/2019id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz",
+}
+
+# Priced, and the bytes are what a yes would be ingested from, so neither `prune` nor the
+# off-site rule may treat them as spent. `ukwa` waits on whether `www.<a name already held
+# that year>` is a record at all (`key-decisions.md`, 2026-09-03); the two Usenet pools wait
+# on the `usenet_body_url_hostnames` class, 64,840.4 EE measured over both read whole.
+KEEP_UNTIL_DECIDED: dict[str, str] = {
+    "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "usenet_bulk": "https://archive.org/details/usenet-alt",
-    "usenet_msft": "https://archive.org/details/usenet-alt",
     "usenet_new": IA_USENET,
-    "usenet_probe": "https://archive.org/download/usenet-comp/comp.infosystems.www.misc.mbox.zip",
-    "usenet_probe5": IA_USENET,
-    "wwwvl": "http://vlib.org/",
 }
 
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:
@@ -145,27 +134,50 @@ KEEP_JOURNAL = frozenset(
 )
 
 # Kept for the record: measured negatives whose verdict is in docs/sources.md, spent
-# probes, quarantined journals, and the older checksum records.
+# probes, quarantined journals, and the older checksum records. The 2026-09-03 block is
+# the E9.5 batch, each priced at hostname grain and each under the bar, with its row in
+# the register's `Evaluated and rejected` table.
 REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
+    "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
+    "attrition": "https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/",
     "bl": UNKNOWN,
+    "can_domain": "https://archive.org/download/usenet-can/can.domain.mbox.zip",
     "ccgraph": UNKNOWN,
     "checksums.sha256": UNKNOWN,
+    "dartmouth_bfs": "https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls",
     "dedup_pool": UNKNOWN,
     "edgar": UNKNOWN,
     "ffiec": UNKNOWN,
+    "freebsd_ports": "ftp://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/i386/",
+    "jeb_bush": "https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z",
     "jpnic_tomocha": UNKNOWN,
     "lang": UNKNOWN,
+    "maillists": "https://mail.python.org/pipermail/ and https://mail.gnome.org/archives/",
+    "ncsa-whats-new": "https://web.archive.org/cdx/search/cdx?url=ncsa.uiuc.edu/SDG/Software/Mosaic/Docs/whats-new*&from=1996&to=1996",
+    "nypw": "https://archive.org/details/nypw_urls_CDXfirstentry",
+    "odp": "https://web.archive.org/cdx/search/cdx?url=dmoz.org/rdf/*&from=2000&to=2001",
     "pandora": UNKNOWN,
+    "probes": UNKNOWN,
     "rdap_hold_uk": OWN,
     "rdap_probe_gen": OWN,
+    "rtfm": "https://archive.org/download/ftp_rtfm.mit.edu_2014.07/2014.07.rtfm.mit.edu.tar",
+    "scout": "https://archives.internetscout.org/OAI?verb=ListRecords&metadataPrefix=oai_dc",
     "seeds": UNKNOWN,
+    "source_probe_260806": "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz",
     "squidguard2001": UNKNOWN,
+    "squidguard_contrib_2001": "https://web.archive.org/web/20010710215730id_/http://ftp.ost.eltele.no/pub/www/proxy/squidGuard/contrib/blacklists.tar.gz",
+    "texts": "https://archive.org/download/<identifier>/<identifier>_djvu.txt",
+    "tucows": "https://archive.org/advancedsearch.php?q=collection:tucows+AND+year:[1996+TO+2001]",
     "usenet_catalog.json": "https://archive.org/metadata/usenet-<hierarchy>",
+    "usenet_msft": "https://archive.org/details/usenet-alt",
+    "usenet_probe": "https://archive.org/download/usenet-comp/comp.infosystems.www.misc.mbox.zip",
     "usenet_probe2": UNKNOWN,
     "usenet_probe3": UNKNOWN,
     "usenet_probe4": UNKNOWN,
+    "usenet_probe5": IA_USENET,
+    "wwwvl": "http://vlib.org/",
     "usfedgov": "https://archive.org/download/USFEDGOV-EXTRACT-<year>/USFEDGOV-EXTRACT-<year>.cdx.gz",
 }
 
@@ -175,7 +187,9 @@ REGENERABLE: dict[str, str] = {
     "gapfill_candidates.txt": "derived list, no reader",
     "gapfill_sample.txt": "derived list, no reader",
     "isc_survey_hostgrain.log": "just reproduce sources",
+    "nypw_firstcdx_hostgrain": "scripts/sources/nypw/nypw_firstcdx_hostgrain.py",
     "nypw_hostgrain": "regenerable from nypw_timemaps",
+    "ukwa_hostgrain": "scripts/sources/ukwa/ukwa_hostgrain.py",
 }
 
 
@@ -185,6 +199,8 @@ def classify(key: str) -> tuple[str, str] | None:
     if root == "data/raw":
         if name in KEEP_UNTIL_PRICED:
             return "keep_until_priced", KEEP_UNTIL_PRICED[name] or UNKNOWN
+        if name in KEEP_UNTIL_DECIDED:
+            return "keep_until_decided", KEEP_UNTIL_DECIDED[name]
         if name in LIVE_INPUT:
             return "live_input", LIVE_INPUT[name] or UNKNOWN
         if name in KEEP_JOURNAL:
@@ -523,8 +539,9 @@ HEADER = "\n".join(
         "",
         "Classes: `live_input` is third-party bytes read by a `just reproduce` stage or by "
         "`just collect pandora-seed`; `keep_journal` is a journal of our own that a recipe "
-        "replays; `keep_until_priced` waits for its pricing at hostname grain; `reference` is "
-        "kept for the record; `regenerable` is rebuilt by a recipe.",
+        "replays; `keep_until_priced` waits for its pricing at hostname grain; "
+        "`keep_until_decided` is priced and waits for a human word, so it is not spent; "
+        "`reference` is kept for the record; `regenerable` is rebuilt by a recipe.",
         "",
         "| entry | class | files | bytes | digest | refetch | record |",
         "|---|---|---|---|---|---|---|",

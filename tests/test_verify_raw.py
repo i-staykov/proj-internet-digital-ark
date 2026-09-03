@@ -78,7 +78,8 @@ def test_first_run_writes_manifests_and_table(tmp_path: Path) -> None:
         "output/DomainDataCollectionTask_x",
     }
     wwwvl = rows["data/raw/wwwvl"]
-    assert wwwvl[1:4] == ["keep_until_priced", "2", "9"]
+    # priced at hostname grain on 2026-09-03 and under the bar, so kept for the record
+    assert wwwvl[1:4] == ["reference", "2", "9"]
     assert wwwvl[4] == sha256("".join(f"{s}\n" for s in sums).encode())
     assert wwwvl[5] == "http://vlib.org/"
     assert wwwvl[6] == "SHA256SUMS"
@@ -252,10 +253,16 @@ def test_cli(tmp_path: Path, capsys) -> None:
     assert (tmp_path / "docs/retention.md").is_file()
 
 
-def test_every_class_name_is_one_of_five() -> None:
+def test_every_class_name_is_one_of_six() -> None:
     keys = [
         f"data/raw/{n}"
-        for t in (vr.KEEP_UNTIL_PRICED, vr.LIVE_INPUT, vr.REFERENCE, vr.REGENERABLE)
+        for t in (
+            vr.KEEP_UNTIL_PRICED,
+            vr.KEEP_UNTIL_DECIDED,
+            vr.LIVE_INPUT,
+            vr.REFERENCE,
+            vr.REGENERABLE,
+        )
         for n in t
     ]
     keys += [f"data/raw/{n}" for n in vr.KEEP_JOURNAL]
@@ -265,9 +272,14 @@ def test_every_class_name_is_one_of_five() -> None:
         "live_input",
         "keep_journal",
         "keep_until_priced",
+        "keep_until_decided",
         "reference",
         "regenerable",
     }
-    assert len(vr.KEEP_UNTIL_PRICED) == 26
+    # the E9.5 batch priced 24 of the audit's 26; these two wait on terms, not on value
+    assert set(vr.KEEP_UNTIL_PRICED) == {"antispam_media", "internic_zones"}
+    # priced and not spent: the bytes a yes would be ingested from
+    assert set(vr.KEEP_UNTIL_DECIDED) == {"ukwa", "usenet_bulk", "usenet_new"}
+    assert not set(vr.KEEP_UNTIL_DECIDED) & set(vr.REFERENCE)
     assert vr.classify("data/raw/never_heard_of") is None
     assert vr.classify("data/ark.duckdb") is None
