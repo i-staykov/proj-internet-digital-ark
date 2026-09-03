@@ -46,6 +46,22 @@ pairs and 479.4256 EE under `.arpa` or dated before their TLD existed, which no 
 credited for. `ark.delegation.shipping_filter` is the one predicate; every count that claims to
 be what ships takes it, and a new counter that does not is wrong by construction.
 
+**A hostname-grain figure is not a figure until the `www.` alias share is measured.** Two lane-A
+corpora came back from the E9.5 batch as five-figure finds and both were the same illusion:
+`ukwa` 20,916.90 EE of which 99.5% was `www.<a name already held that year>`, and
+`nypw_firstcdx` 7,074.09 EE of which 100.0% was, leaving 107.94 and 2.84 EE. Neither was
+ingested. The seam is real code: `NOT_WWW_OF_PARENT` refuses `www.<parent registrable>` and
+nothing refuses `www.<held hostname>`, so a crawler's default alias of a name we already date
+counts as a new record. `just price-hosts` prints the share, `round_figures.py` prints it for the
+round, and a hostname number quoted without it is not comparable to one quoted with it.
+
+**Extracting hosts from a Usenet or mail document with a bare dotted-token regex prices the
+transport, not the web.** `rtfm` measured 20,049.42 EE that way and 3,719.91 EE when only
+explicit `http://`, `https://` and `ftp://` URLs in the body counted, an 81.45% error. The header
+block was the smaller half of it: `Path`, `Xref`, `NNTP-Posting-Host`, `Message-ID` and `From`
+hosts are news relays and mailboxes, 12% of the error, while un-vouched dotted tokens in the body
+were 69%. Extract from a URL scheme, never from the shape of a token.
+
 ## Collectors and queues
 
 **A running collector is not a working one.** Presence, progress and yield are three questions,

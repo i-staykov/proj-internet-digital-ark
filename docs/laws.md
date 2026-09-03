@@ -92,6 +92,22 @@ human-curated list, novelty and datability are mutually exclusive: what we lack 
 what survives the split we already hold. Ask whether the lister held the database, not how long
 the list is.
 
+## The hostname unit pays where a human typed the host, not where a crawler visited it
+
+Measured 2026-09-03 over the whole E9.5 batch. A hostname is net-new only if neither the store
+nor his files hold it in that year, and **the commonest way to satisfy that and mean nothing is
+`www.<a name already held that year>`**: the ingest refuses `www.<parent registrable>` as the
+parent's own site under the name every crawler tries first, and nothing refuses the same alias
+one level down, where the bare name is a hostname or a registrable we or he already date.
+
+The share of net-new hostname EE that is this alias, by artifact type: a bulk CDX index re-read
+at hostname grain is **essentially nothing else** (`nypw_firstcdx` 100.0% of 7,074.09 EE, leaving
+2.84; `ukwa` geoindex 99.5% of 20,916.90 EE, leaving 107.94), while a corpus of URLs people typed
+keeps most of its figure (`usenet_new` 33.8%, `usenet_bulk` 27.3%, `rtfm` FAQs 32.8%). **So the
+pre-pricing question for any hostname-grain reopen is whether a human or a crawler produced the
+host**, and `just price-hosts` prints the share for exactly this reason. The round's own figures
+print it too: on 2026-09-03 it was 61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE.
+
 ## Why only a bulk corpus closes the gap
 
 Querying is measured at **255 EE/hour** (400 pairs/hour over a 16.9-hour window, 2026-08-31, at
