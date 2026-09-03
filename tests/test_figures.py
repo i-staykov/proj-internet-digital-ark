@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS
 from ark.figures import (
+    TASK_ASSIGNED_DATE,
     cumulative,
     elapsed_days,
     now_in_his_clock,
@@ -22,6 +23,7 @@ from ark.figures import (
     score,
     scored_under_rule,
     t_days,
+    t_days_assignment,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,3 +122,41 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     assert "5: 14.901054% / 2d = 74.505270" in text
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
     assert "13.186902 (6.884530 + 6.302372)" in sentence
+
+
+def test_the_assignment_rule_of_2026_09_03_is_whole_calendar_days_from_one_origin() -> None:
+    """His 0903 update: t_i = max(1, receipt_date_i - task_assignment_date_member).
+
+    Dates, not stamps, and the origin never moves. Round 7 was received 43 days after
+    2026-07-21, so it scores 1.759 rather than the 6.302372 he awarded under the
+    benchmark rule, and that 3.6x is why both are reported until he answers.
+    """
+    p = ROWS["7"][5]
+    assert t_days_assignment("2026-09-02 05:50") == 43
+    assert score(p, 43) == Decimal("1.758801")
+    # the time of day cannot change a whole-calendar-day count
+    assert t_days_assignment("2026-09-02 23:59") == t_days_assignment("2026-09-02 00:01")
+    # and the clock does not reset on a later benchmark: round 5 went out two days after
+    # a release and 27 days after assignment
+    assert t_days("2026-08-15 10:27", "2026-08-17 03:03") == 2
+    assert t_days_assignment("2026-08-17 03:03") == 27
+
+
+def test_the_assignment_origin_is_the_earliest_date_any_record_supports() -> None:
+    """One day of error here moves every S_i, so the origin is pinned and Ivo confirms it."""
+    assert TASK_ASSIGNED_DATE == "2026-07-21"
+    first_release = min(r[6] for r in SUBMITTED_ROUNDS)[:10]
+    assert TASK_ASSIGNED_DATE <= first_release
+
+
+def test_a_receipt_on_the_assignment_date_still_divides_by_one() -> None:
+    assert t_days_assignment(TASK_ASSIGNED_DATE + " 23:00") == 1
+
+
+def test_the_two_rules_give_totals_that_differ_by_more_than_a_factor_of_two() -> None:
+    """The reason the report carries both: 140.2888 against 50.3421 over the six rounds."""
+    bench = cumulative([score(r[5], t_days(r[6], r[7])) for r in SUBMITTED_ROUNDS])
+    assign = cumulative([score(r[5], t_days_assignment(r[7])) for r in SUBMITTED_ROUNDS])
+    assert bench == Decimal("140.288752")
+    assert assign == Decimal("50.342098")
+    assert bench > assign * 2
