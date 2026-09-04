@@ -150,7 +150,10 @@ ISC_SOURCE = "isc_survey_hostnames"
 # His structural rule as SQL: dot-separated labels, letters, digits and interior hyphens only,
 # ending in an alphabetic TLD label. The same pattern as `hostnames._VALID_HOST`, spelled here
 # because these rows never pass through that funnel: they are read straight out of evidence.
-_HOSTNAME_RE = r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]+$"
+# No lookahead here either, for the same RE2 reason; the query pairs it with a `length()` test.
+_HOSTNAME_RE = (
+    r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,63}$"
+)
 
 
 def export_isc_hostnames(
@@ -173,6 +176,7 @@ def export_isc_hostnames(
             WHERE hy.assigned_year = {year}
               AND hy.hostname <> hy.parent
               AND hy.hostname LIKE '%.' || hy.parent
+              AND length(hy.hostname) <= 253
               AND regexp_matches(hy.hostname, '{_HOSTNAME_RE}')
               AND NOT EXISTS (SELECT 1 FROM hostname_year h2
                               WHERE h2.hostname = hy.hostname
