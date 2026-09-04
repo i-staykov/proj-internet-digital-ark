@@ -1020,6 +1020,38 @@ remaining 262 GB of the catalogue worth reading rather than projecting.
 Nothing is ingested. All four pools are the same `usenet_body_url_hostnames / link_source`
 class and wait on the same word.
 
+## `ia_cdx_hostnames` domain-wide sweep: 552,782 EE in one afternoon, 48% of the gate
+
+`https://web.archive.org/cdx/search/cdx?url=*.<parent>`, the channel already banked as
+`ia_cdx_hostnames / cdx_timestamp` and already `Decision: master`. **What is new is not the source
+but the question asked of it**, which is Ivo's standing priority of 2026-09-04: point it at
+registrables we ALREADY HOLD and keep every host it names, rather than asking which years one
+domain has.
+
+**What dates one item** is unchanged and is the row's own 14-digit capture timestamp, field 1 of
+the response, immediately before the URL it captured, so `19980301000000 http://www.example.com/`
+dates `www.example.com` to 1998.
+
+Two archive clients from 15:09 to 18:41 on 2026-09-04, the maximum this project runs, 2 s apart
+and backing off on every 503. One walked the platform parents ranked by the hosts we LACK
+(`rank_platform_parents.py --net-new`), the other the high-weight second-level suffixes
+(`co.uk` 0.9813 first). **22.5 million capture rows, 1,532,944 hostname records into the store, and
+886,216 net-new shippable records worth 552,782.0436 equivalent-English: 48.01% of the whole 5%
+gate in one afternoon.** Biggest single parents by rows written: `demon.co.uk` 4,423,683,
+`homestead.com` 3,224,657, `freeserve.co.uk` 1,449,319.
+
+**The transferable figure is the rate, and it is in [laws.md](laws.md).** About 193,000
+equivalent-English per client-hour, against the 255 EE/hour a per-domain gap query is measured at,
+a factor of roughly 750. The difference is not the archive or the rate limit, which are identical:
+a gap query asks which years one domain has and one answer is one pair, while a domain-wide query
+asks what hosts existed under it and one answer is thousands, each its own record since his
+acceptance of 2026-09-01. So the pre-request question is how many records one answer can carry.
+
+Three defects were found by running it and are fixed: the gap engine had been discarding the host
+from 2,984,321 answers, a journal the sweep was still appending to was ledgered as finished (which
+cost 401,293 rows until the skip was moved to content), and the alias law in `laws.md` had been
+left saying the opposite of what ADR-009 makes it mean. `just hostnames <epoch>` starts the lane.
+
 ## `usenet_alt_remainder`: SATURATED at 90.5%, 48 GB read for 1,929 EE, and the lane closes on that number
 
 `https://archive.org/download/usenet-alt/<group>.mbox.zip`, the same class and the same extractor
