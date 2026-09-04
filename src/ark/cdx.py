@@ -2,8 +2,18 @@
 
 One request answers all six years for a domain. `url=*.domain` matches the
 domain and every subdomain, `from`/`to` bound the window, `filter=statuscode:200`
-keeps only captures that served content, `fl=timestamp` trims the payload to 14
-bytes a row, and `collapse=timestamp:4` asks the server to fold repeated years.
+keeps only captures that served content, `fl=timestamp,original` returns the stamp
+and the captured URL, and `collapse=timestamp:4` asks the server to fold repeated
+years.
+
+**`original` was added on 2026-09-04 and it is the point of the whole lane now.**
+The field list was `timestamp` alone, 14 bytes a row, and the hostname the archive
+had just told us about was thrown away: 1,164 journals and 1,108,452 dated pairs of
+querying recorded `{domain, years}` and nothing else, so none of it can be re-read at
+hostname grain. Since ADR-009 a `www.` host is a record, so every one of those rows
+was a record we paid a request for and discarded. Keeping the URL costs payload on a
+row count the `limit` already bounds, and turns a query about a domain we hold into a
+harvest of the hosts beneath it, which is Ivo's standing priority of 2026-09-04.
 
 The collapse is only a payload optimisation, never correctness: the server
 collapses adjacent rows and results are ordered by URL key, so a domain with
@@ -91,7 +101,7 @@ def cdx_url(domain: str, first: int, last: int, limit: int = DEFAULT_LIMIT) -> s
             "from": str(first),
             "to": str(last),
             "filter": "statuscode:200",
-            "fl": "timestamp",
+            "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
         }
@@ -110,6 +120,34 @@ def years_in(body: str, first: int, last: int) -> set[int]:
         if first <= year <= last:
             years.add(year)
     return years
+
+
+def hosts_in(body: str, first: int, last: int) -> dict[str, str]:
+    """host -> earliest in-window capture stamp, from a `timestamp,original` response.
+
+    The stamp is field 0 and the URL is field 1, so a response from a builder that still
+    asked for `timestamp` alone simply yields nothing here rather than misparsing.
+
+    `collapse=timestamp:4` means this is a SUBSET of the hosts under the domain, not a
+    census: the server folds adjacent rows and orders by URL key, so a host whose rows all
+    collapsed into a neighbour's is absent. Every host it does return is a real host with a
+    real dated capture, which is what a record needs; completeness is the sweep's job.
+    """
+    out: dict[str, str] = {}
+    for line in body.splitlines():
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+        stamp = fields[0]
+        if len(stamp) != 14 or not stamp.isdigit() or not first <= int(stamp[:4]) <= last:
+            continue
+        rest = fields[1].split("://", 1)[-1]
+        host = rest.split("/", 1)[0].split(":", 1)[0].strip().lower().rstrip(".")
+        if not host or "." not in host:
+            continue
+        if host not in out or stamp < out[host]:
+            out[host] = stamp
+    return out
 
 
 def _is_timeout(exc: BaseException) -> bool:
@@ -193,7 +231,7 @@ def host_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
             "from": str(first),
             "to": str(last),
             "filter": "statuscode:200",
-            "fl": "timestamp",
+            "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
         }
@@ -220,7 +258,7 @@ def root_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
             "from": str(first),
             "to": str(last),
             "filter": "statuscode:200",
-            "fl": "timestamp",
+            "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
         }
@@ -242,7 +280,7 @@ def year_probe_url(domain: str, year: int) -> str:
             "from": str(year),
             "to": str(year),
             "filter": "statuscode:200",
-            "fl": "timestamp",
+            "fl": "timestamp,original",
             "limit": "1",
         }
     )
@@ -394,6 +432,8 @@ def lookup_years_by_host(
         "domain": domain,
         "status": status,
         "years": sorted(years_in(body, first, last)) if status == 200 else [],
+        # The hosts the same response named, at no extra request. See `hosts_in`.
+        "hosts": hosts_in(body, first, last) if status == 200 else {},
         "truncated": False,
         "strategy": "by_host",
     }
@@ -422,6 +462,7 @@ def lookup_years_by_root(
     """
     gov = governor or RateGovernor()
     years: set[int] = set()
+    seen: dict[str, str] = {}
     answers = 0
     last_status = REFUSED
     for prefix in hosts:
@@ -432,10 +473,14 @@ def lookup_years_by_root(
         if status == 200:
             answers += 1
             years |= years_in(body, first, last)
+            for host, stamp in hosts_in(body, first, last).items():
+                if host not in seen or stamp < seen[host]:
+                    seen[host] = stamp
     return {
         "domain": domain,
         "status": 200 if answers else last_status,
         "years": sorted(years),
+        "hosts": seen,
         "truncated": False,
         "strategy": "by_root",
     }
@@ -463,11 +508,15 @@ def lookup_years_per_year(
     years: set[int] = set()
     failures = 0
     last_status = 0
+    seen: dict[str, str] = {}
     for year in range(first, last + 1):
         status, body = _fetch_retrying(year_probe_url(domain, year), fetch, gov, retries)
         last_status = status
         if status == 200:
             years |= years_in(body, year, year)
+            for host, stamp in hosts_in(body, year, year).items():
+                if host not in seen or stamp < seen[host]:
+                    seen[host] = stamp
         else:
             failures += 1
     return {
@@ -476,6 +525,7 @@ def lookup_years_per_year(
         # run where every probe failed must not be recorded as "nothing archived"
         "status": 200 if failures < (last - first + 1) else last_status,
         "years": sorted(years),
+        "hosts": seen,
         "truncated": False,
         "strategy": "per_year",
         "probe_failures": failures,
@@ -574,6 +624,7 @@ def lookup_years(
 
     rows = [line for line in body.splitlines() if line.strip()]
     years = years_in(body, first, last)
+    found = hosts_in(body, first, last)
     truncated = len(rows) >= limit
 
     # a truncated response may have stopped before a year appeared, so probe only
@@ -587,6 +638,9 @@ def lookup_years(
             if probe_status == 200:
                 gov.on_success()
                 years |= years_in(probe_body, year, year)
+                for host, stamp in hosts_in(probe_body, year, year).items():
+                    if host not in found or stamp < found[host]:
+                        found[host] = stamp
             elif probe_status in _THROTTLE_STATUSES:
                 gov.on_throttle(_retry_after_seconds(probe_body), refused=probe_status == REFUSED)
 
@@ -594,6 +648,7 @@ def lookup_years(
         "domain": domain,
         "status": status,
         "years": sorted(years),
+        "hosts": found,
         "truncated": truncated,
     }
 
