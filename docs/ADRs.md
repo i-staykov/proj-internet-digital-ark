@@ -679,3 +679,48 @@ rule at the export and not at the ingest.
 **Still open, and worth more:** the ingest also refuses `www.<parent registrable>` outright
 (`NOT_WWW_OF_PARENT`), which section XI equally permits. Those evidence rows exist in the store, so
 that is a backfill rather than a re-collection. Measured and proposed separately.
+
+## ADR-009. `www.<parent registrable>` is its own hostname record
+
+Date: 2026-09-04. Decided by Ivo. Supersedes the second half of C-55.
+
+### What settled it
+
+Not a reading of his intent, which is what C-55 was, but a count of his own benchmark.
+
+**merged260904 holds 1,450,310 names beginning `www.`, and for 1,221,065 of them (84.2%) the bare
+name sits in the same year file.** Of those pairs, 1,106,190 are ones we sent him on 2026-09-02,
+which he merged in full and credited 7.562846%, and **114,875 came from nobody but him**. The
+shape is native to his corpus and separately validated in ours.
+
+His text says it twice. III.8: "No distinction is made between a registrable domain and a
+qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records
+when each specific hostname has qualifying annual evidence." XI: "Use hostname-level identity
+throughout... Retain the registrable domain only as secondary metadata. A valid base hostname and
+distinct valid subdomain hostnames may each be annual records when each has year-specific
+evidence."
+
+Neither sentence names `www`, so this is his rule applied rather than his rule quoted. That is
+why the round states the share rather than burying it.
+
+### The decision, and the line it does not cross
+
+`NOT_WWW_OF_PARENT` leaves all three ingest paths, and `scripts/round/admit_www_of_parent.py`
+backfills from evidence: **6,915,924 rows, no new bytes**, because every lane already wrote the
+evidence row naming `www.<parent>` and only the `hostname_year` insert refused it.
+
+**A record is created only where an evidence value names that exact host.** A capture of
+`foo.com` never becomes a record for `www.foo.com`. The old invariant
+`hostname_is_not_the_parent_www` is replaced by `a_www_record_has_its_own_evidence`, which is the
+weaker and more useful statement: admitting the shape is not the same as asserting it.
+
+### Consequence
+
+The hostname half goes to 7,738,159 records and 4,259,849.3712 EE, and the round to 18.764914%.
+**94.3% of the hostname half is now `www.<a name already held that year>`**, which is the figure
+the round report and the covering mail both quote, because a reviewer who finds it himself has
+found something we hid.
+
+The first half of C-55 stands: a hostname record still needs an observation of the host serving
+web content, so the DNS lanes date the parent only. That question ships separately as
+`<year>-ISC.txt` rather than being decided by us.

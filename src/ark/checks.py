@@ -230,12 +230,15 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
-        "hostname_is_not_the_parent_www",
-        "no hostname record is `www.<parent>`: that is the registrable's own site and the "
-        "capture dates the registrable, so counting it again would be the same site twice",
+        "a_www_record_has_its_own_evidence",
+        "every `www.<parent>` hostname record points at an evidence row naming that exact "
+        "host, so admitting the shape (ADR-009) never turned into asserting it: the parent's "
+        "own capture may not stand in for a capture of `www.` in front of it",
         """
-        SELECT count(*) FROM hostname_year
-        WHERE hostname = 'www.' || parent_domain
+        SELECT count(*) FROM hostname_year hy
+        JOIN evidence e ON e.evidence_id = hy.evidence_id
+        WHERE hy.hostname = 'www.' || hy.parent_domain
+          AND e.evidence_value NOT LIKE '% ' || hy.hostname
         """,
     ),
     (

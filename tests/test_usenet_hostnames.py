@@ -84,19 +84,15 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
     path = write(tmp_path, ITEMS)
     stats = ingest_usenet_item_journal(conn, path)
     assert stats["hostname_year_candidates"] == 3
-    # `www.demon.co.uk` is `www.<parent registrable>`, which the ingest refuses for every
-    # lane (C-55) and `hostname_is_not_the_parent_www` enforces. Section XI of his
-    # 2026-09-04 brief permits it; that is #101 and it is a backfill, since the evidence
-    # row below is written whether the hostname record is or not.
-    assert stats["hostname_year_rows"] == 2
+    # `www.demon.co.uk` is `www.<parent registrable>`, refused for every lane until
+    # 2026-09-04 and admitted by ADR-009, because the post names that exact host.
+    assert stats["hostname_year_rows"] == 3
     held = conn.execute("SELECT hostname FROM hostname_year ORDER BY hostname").fetchall()
-    assert held == [("pages.demon.co.uk",), ("support.microsoft.com",)]
-    assert (
-        conn.execute(
-            "SELECT count(*) FROM evidence WHERE evidence_value LIKE '%www.demon.co.uk'"
-        ).fetchone()[0]
-        == 1
-    )
+    assert held == [
+        ("pages.demon.co.uk",),
+        ("support.microsoft.com",),
+        ("www.demon.co.uk",),
+    ]
     # A post naming `pages.demon.co.uk` names demon.co.uk in the same breath, and
     # `nothing_earned_is_left_unassigned` requires the parent's year to exist for every
     # master-eligible evidence row.
@@ -115,7 +111,7 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
     # `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
     again = ingest_usenet_item_journal(conn, path)
     assert again["skipped"] is True
-    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 2
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 3
     key = conn.execute(
         "SELECT file_name FROM ingested_file WHERE source_name = ?", [USENET_SOURCE]
     ).fetchone()[0]

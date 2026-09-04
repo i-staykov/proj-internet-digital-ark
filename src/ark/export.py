@@ -132,6 +132,59 @@ def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
             logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
 
 
+# The DNS-listed set, shipped as its OWN `<year>-ISC.txt` files (Ivo, 2026-09-04) so that one
+# word from the reviewer admits or discards it without touching anything else.
+#
+# **Why it is not in `hostname_year`.** The ISC Internet Domain Survey walked reverse DNS in
+# 1996-1997 and its lines are direct, dated, machine-written evidence that a host answered.
+# Whether that is evidence a SITE existed is his call, not ours: C-55 read his purpose for the
+# unit as requiring a page, and his section XI asks for hostname-level identity wherever there
+# is year-specific evidence without restating that condition. So the rows stay out of the store
+# and out of the claim, and are shipped beside it as a labelled question. If he says yes it is
+# one line in `WEB_FACING_HOST_SOURCES` and a backfill; if he says no, nothing has to be undone.
+#
+# It is measurably a different shape from anything he holds, which is exactly why it is a
+# question: of 13,347,250 distinct hosts here, 1.419% appear anywhere in his files, against
+# 84.2% of his own `www.` names having the bare name beside them.
+ISC_SOURCE = "isc_survey_hostnames"
+# His structural rule as SQL: dot-separated labels, letters, digits and interior hyphens only,
+# ending in an alphabetic TLD label. The same pattern as `hostnames._VALID_HOST`, spelled here
+# because these rows never pass through that funnel: they are read straight out of evidence.
+_HOSTNAME_RE = r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]+$"
+
+
+def export_isc_hostnames(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
+) -> None:
+    """Write `<year>-ISC.txt`: net-new, shippable, and disjoint from the hostname files."""
+    conn.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE isc_export AS
+        SELECT DISTINCT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
+               e.domain AS parent, e.evidence_year AS assigned_year
+        FROM evidence e JOIN source s ON s.source_id = e.source_id
+        WHERE s.name = '{ISC_SOURCE}'
+        """
+    )
+    shipping = _shipping_filter_for("hy.hostname", "hy.assigned_year")
+    for year in YEARS:
+        query = f"""
+            SELECT DISTINCT hy.hostname FROM isc_export hy
+            WHERE hy.assigned_year = {year}
+              AND hy.hostname <> hy.parent
+              AND hy.hostname LIKE '%.' || hy.parent
+              AND regexp_matches(hy.hostname, '{_HOSTNAME_RE}')
+              AND NOT EXISTS (SELECT 1 FROM hostname_year h2
+                              WHERE h2.hostname = hy.hostname
+                                AND h2.assigned_year = hy.assigned_year)
+              AND NOT EXISTS (SELECT 1 FROM baseline_hostname b
+                              WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
+              AND {shipping}
+            ORDER BY hy.hostname
+        """
+        stats[f"isc_{year}"] = _copy_query(conn, query, netnew_dir / f"{year}-ISC.txt")
+
+
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(f"COPY ({query}) TO '{path}' (HEADER false)")
@@ -204,6 +257,8 @@ def export_all(
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
         stats[f"netnew_hostnames_{year}"] = count
+
+    export_isc_hostnames(conn, netnew_dir, stats)
 
     # The manifest carries the same rows as the shipped files: a row for a hostname
     # the benchmark already lists would read as an addition it is not.
