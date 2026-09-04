@@ -37,6 +37,7 @@ from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
+    baseline_dir,
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
@@ -551,6 +552,11 @@ def substitutions(f: dict) -> dict[str, str]:
             with path.open(encoding="utf-8", errors="replace") as fh:
                 isc += sum(1 for line in fh if line.strip())
     subs["ISCPAIRS"] = f"{isc:,}"
+    # The case FOR asking about the survey, generated rather than typed: every registrable
+    # domain the artifact names is already in his files, so the artifact's NAMES are not what
+    # is in question, only the host below them. A hardcoded figure here would drift the moment
+    # a release moved.
+    subs["ISCHELD"] = f"{isc_registrables_he_holds():,}"
 
     return subs
 
@@ -700,6 +706,42 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
         f"task-assignment interval). Which do you intend, and does it re-score the awarded "
         f"rounds?"
     )
+
+
+def isc_registrables_he_holds() -> int:
+    """Distinct registrables the ISC survey names that his current files already carry.
+
+    Measured 2026-09-04 at 1,414,080 of 1,414,080, which is the whole argument for asking
+    about the host grain: he treats this artifact as naming real 1996-1997 domains, and the
+    only open question is whether the machine below the name is a record too.
+    """
+    from ark.db import connect_read_only_patiently
+
+    conn = connect_read_only_patiently()
+    try:
+        names = {
+            d
+            for (d,) in conn.execute(
+                "SELECT DISTINCT e.domain FROM evidence e JOIN source s USING (source_id) "
+                "WHERE s.name IN ('isc_survey', 'isc_survey_hostnames')"
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+    if not names:
+        return 0
+    held: set[str] = set()
+    directory = baseline_dir()
+    for year in range(1996, 2002):
+        path = directory / f"{year}.txt"
+        if not path.is_file():
+            continue
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                host = line.strip().lower()
+                if host in names:
+                    held.add(host)
+    return len(held)
 
 
 def pool_restricted() -> str:

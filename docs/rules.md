@@ -64,7 +64,8 @@
   `CatalogException: Table with name domain_year does not exist` there, and that is the store being
   absent rather than an invariant failing: big data never reaches git, so a fresh clone never has one
   (measured in the fresh-session test, 2026-09-03).
-- Any branch except `main` may be pushed, and `main` is reached only by a PR; `main` is never pushed by any agent, and branch protection enforces it (Ivo, 2026-09-03).
+- Any branch except `main` may be pushed, and `main` is reached only by a PR; `main` is never pushed directly by any agent (Ivo, 2026-09-03).
+- **An agent MAY merge its own PR once CI is green, on either repository (Ivo, 2026-09-04).** The rule was always that `main` is reached by a PR and never by a direct push, and merging a green PR satisfies it; waiting for Ivo to click was habit, not rule. Merge only your own, only green, and never one that raises a question only he can answer.
 - `origin` is public, so a commit message names no hosts, no IP addresses, no email bodies and no personal context.
 - No AI attribution in commits.
 - No em-dashes or en-dashes anywhere.
