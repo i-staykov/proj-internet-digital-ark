@@ -31,6 +31,7 @@ Two things to know before opening anything:
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
 | `isc_survey_hostnames/<year>-ISC.txt` | **A question, not a claim.** ISC Internet Domain Survey hosts, in NO figure in the report or the covering mail. Merge the folder if a dated reverse-DNS listing counts; delete it if not, and nothing else changes |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
+| `candidates_unparsed.txt` | **The unparsed pool of your section XI**, one row per malformed-but-recoverable value with the reason the funnel refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`, `is_registrable`. In no figure |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
 | `baseline/<release>/` | **The reference the additions are counted against**, the reviewer's own reissued corpus shipped back so the archive is checkable on its own. See `baseline/README.txt` |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
