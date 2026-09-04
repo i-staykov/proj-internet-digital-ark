@@ -694,14 +694,11 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     t_abs = t_days_assignment(now_in_his_clock())
     s_abs = score(growth, t_abs)
     return (
-        f"Counting this round at its own figure, my cumulative verified percentage is "
-        f"{pct:.4f}% (round 1 included, although it was awarded on records), and my "
-        f"time-weighted score over the rounds you have scored is {total:.6f} "
-        f"({' + '.join(f'{r.s:.6f}' for r in scored)}). This round would add {this.s:.6f} "
-        f"under the benchmark-interval reading of t_i that scored those rounds, or "
-        f"{s_abs:.6f} at t = {t_abs} days under the absolute task-assignment interval your "
-        f"0903 update defines. I have computed both rather than choose; please tell me which "
-        f"you intend, and whether it re-scores the rounds already awarded."
+        f"Cumulative verified percentage {pct:.4f}%, time-weighted score {total:.6f} over the "
+        f"rounds you scored. **Your 0903 t_i change makes this round either {this.s:.6f} or "
+        f"{s_abs:.6f}** (t = 1 on the benchmark interval, t = {t_abs} days on the absolute "
+        f"task-assignment interval). Which do you intend, and does it re-score the awarded "
+        f"rounds?"
     )
 
 

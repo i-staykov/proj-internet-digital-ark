@@ -44,6 +44,7 @@ fi
 # --- 2 and 3. the result, and the evidence behind it -------------------------
 python3 - <<'PY' || fail=1
 import csv
+import re
 import sys
 from pathlib import Path
 
@@ -123,6 +124,39 @@ if h_total:
     print(f"{'evidence for every hostname':<46} PASS  all {len(h_claimed):,} traced to a capture")
 else:
     print(f"{'hostname additions':<46} SKIP  no hostnames/ in this archive")
+
+# The ISC folder is what the reviewer is being ASKED about, so it is the last place an
+# archive should ship unchecked bytes. The first cut went out with nothing asserting its
+# line counts, its disjointness from `hostnames/`, or that its names pass his structural
+# rule. Nothing here counts toward the round: the check exists so the question is answerable.
+isc_dir = Path("isc_survey_hostnames")
+isc = {}
+for year in years:
+    path = isc_dir / f"{year}-ISC.txt"
+    if path.exists():
+        isc[year] = {
+            line.strip()
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.strip()
+        }
+isc_total = sum(len(v) for v in isc.values())
+if isc_total:
+    per_year = ", ".join(f"{y}:{len(isc[y]):,}" for y in sorted(isc))
+    overlap = sum(len(isc[y] & hostnames.get(y, set())) for y in isc)
+    if overlap:
+        print(f"{'ISC survey question set':<46} FAIL  {overlap:,} lines repeat hostnames/")
+        sys.exit(1)
+    shape = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]+$")
+    bad = [h for names in isc.values() for h in names if not shape.match(h)]
+    if bad:
+        print(f"{'ISC survey question set':<46} FAIL  {len(bad):,} malformed, e.g. {bad[0]}")
+        sys.exit(1)
+    print(
+        f"{'ISC survey question set':<46} PASS  {isc_total:,} records ({per_year}), "
+        "disjoint from hostnames/, in NO figure"
+    )
+else:
+    print(f"{'ISC survey question set':<46} SKIP  no isc_survey_hostnames/ in this archive")
 
 PY
 

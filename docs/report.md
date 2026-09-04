@@ -14,7 +14,7 @@ evidence store, so nothing here can disagree with the files beside it. Receipts 
 | 4. Equivalent-English increment | **4,321,453.3122** |
 | 5. Equivalent-English growth rate | **18.7649%** |
 
-94,549 records (61,603.9410 EE) are registrable domains in `additions/`; 7,738,159 (4,259,849.3712 EE)
+94,549 records (60,552.7687 EE) are registrable domains in `additions/`; 7,740,052 (4,260,900.5435 EE)
 are valid hostnames beneath them in `hostnames/`. The two are disjoint in every year, neither is in
 the baseline, your validator rejects none of them, and either set can be merged or discarded whole.
 
@@ -24,7 +24,7 @@ host, never the parent's capture reused, and your III.8 and XI both say a base h
 qualifying subdomain may each be a record. We also counted your side: `merged260904` holds 1,450,310
 names beginning `www.` and 1,221,065 of them have the bare name in the same year file, 114,875 from
 sources other than us. If you read the rule the other way, dropping the prefix forms is one filter
-and the registrable round stands at 61,603.9410 EE.
+and the registrable round stands at 60,552.7687 EE.
 
 | Year | Registrables | Hostnames | Equivalent-English added |
 |------|-----------:|-----------:|--------------:|
@@ -61,11 +61,12 @@ Three conditions, enforced in code (`source/src/ark/hostnames.py`, `checks.py`),
 | `usenet_body_url_hostnames`, registrable | see `sources.md` | the crawl date on the link record | 77,771 | 45,517 |
 | `ia_cdx_hostnames`, registrable | see `sources.md` | a Wayback capture timestamp | 16,778 | 16,095 |
 | `usfedgov_extract_hostgrain`, hostname | IA USFEDGOV-EXTRACT 1996-2001 merged CDX indexes, one capture per host, bulk download | the row's own 14-digit capture timestamp | 1,219 | 1,067 |
-| 1 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 11 | 7 |
-| **Total** | | | **7,832,708** | **4,321,461** |
+| `maillist_body_url`, hostname | see `sources.md` | a Wayback capture timestamp | 1,893 | 1,051 |
+| 2 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 141 | 68 |
+| **Total** | | | **7,834,731** | **4,322,574** |
 
 Every stamp above is machine-written and inside the artifact, so no human judgement dates a year.
-2,354,010 domains carry no in-window evidence, ship as `candidates.txt`, and reach no annual
+2,353,926 domains carry no in-window evidence, ship as `candidates.txt`, and reach no annual
 file.
 
 **The methodological finding of this round, which we think transfers.** Reading a bulk corpus at
@@ -81,7 +82,7 @@ closed a 101 GB fetch on a measured 40 equivalent-English per GB instead of an a
 
 ## 4. One question, shipped as its own folder
 
-`isc_survey_hostnames/` holds **18,087,133** hostname years from the ISC Internet Domain Survey of
+`isc_survey_hostnames/` holds **18,087,127** hostname years from the ISC Internet Domain Survey of
 1996-1997, and **they are not in the figures above.** The survey's per-TLD host files are dated by
 their own edition code and name each host explicitly, so they satisfy conditions 1 and 2 and are
 direct rather than inferred. They fail condition 3 as we read it: a reverse-DNS walk shows a machine
@@ -99,7 +100,7 @@ of it is dialup ports and numbered workstations.
 
 A capture proves presence, never absence, so a year without one is unevidenced rather than empty,
 and both dating routes err toward omission. The units ship separately, so dropping the hostname
-files leaves the registrable round intact at 61,603.9410 EE.
+files leaves the registrable round intact at 60,552.7687 EE.
 
 Worth expanding next, in order: the same one-level-down reading of the remaining capture-bearing
 and URL-listing artifacts already on disk; the second-level suffix namespaces at hostname grain,

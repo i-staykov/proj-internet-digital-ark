@@ -29,6 +29,7 @@ Two things to know before opening anything:
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `hostnames/<year>_hostnames.txt` | **Hostname additions**, the second output unit: valid hostnames beneath held registrables, disjoint from `additions/` |
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
+| `isc_survey_hostnames/<year>-ISC.txt` | **A question, not a claim.** ISC Internet Domain Survey hosts, in NO figure in the report or the covering mail. Merge the folder if a dated reverse-DNS listing counts; delete it if not, and nothing else changes |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
 | `baseline/<release>/` | **The reference the additions are counted against**, the reviewer's own reissued corpus shipped back so the archive is checkable on its own. See `baseline/README.txt` |
@@ -95,17 +96,18 @@ bash verify.sh
 ```
 
 It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure.
-**Eleven checks.** The first six are the result and the evidence behind it: every file against
+**Twelve checks.** The first seven are the result and the evidence behind it: every file against
 `SHA256SUMS`, the annual addition files and their counts, every added pair present in
 `additions/evidence_manifest.csv`, the hostname files and their counts (disjoint from
-`additions/`), every hostname traced to a capture, and every assignment in the Parquet provenance
-resolving to an evidence row shipped beside it. Checks 7 to 11 are the four artifacts of the
+`additions/`), every hostname traced to a capture, `isc_survey_hostnames/` counted and shown to be
+disjoint from `hostnames/` and in no figure, and every assignment in the Parquet provenance
+resolving to an evidence row shipped beside it. Checks 8 to 12 are the four artifacts of the
 section above, D1 to D4: that the code snapshot carries its dependency manifest and lockfile, that
 the experience summary covers every topic asked for, that every reconciliation check in the merge
 audit passed and that the audit agrees with the shipped files on the record count, and that **the
 reviewer's own calculator, run from inside this archive, reproduces the audit's baseline figure**.
 
-It prints SKIP where the thing a check examines is not in the archive, and says which of the eleven
+It prints SKIP where the thing a check examines is not in the archive, and says which of the twelve
 failed rather than only that something did. The last check needs a writable extraction, because it runs the
 calculator into `audit/` and cleans up after itself.
 
