@@ -183,7 +183,7 @@ ACCOUNTED = {
     # names directly, `mlists` and `attrition` fed ingested sources, and
     # `hathitrust_ef` is the HathiTrust route already closed on measurement inside the
     # printed-directory verdict. Re-measured to be sure: 74 net-new pairs and 49.4 EE
-    # after the split, against a ~5,000-pair bar.
+    # after the split, against the bar, then ~5,000 pairs and 10,000 EE since 2026-09-04.
     "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
     "hathitrust_ef route closed on measurement, see docs/sources.md",
     "probes": "cached pages and journals from scripts/pricing/probe_source.py, read by "

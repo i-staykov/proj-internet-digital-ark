@@ -499,7 +499,7 @@ def main() -> None:
     print("\n== next, and not before ==")
     print("  Price it: sample it, measure against the LIVE store, and report net-new")
     print("  pairs, net-new domains and the mean weight of the net-new part. Bar is")
-    print("  ~5,000 net-new pairs and mean weight 0.6 good, below 0.4 needs a volume")
+    print("  10,000 EE since 2026-09-04, mean weight 0.6 good, below 0.4 needs a volume")
     print("  argument. Label any projection in the same sentence as the number, and")
     print("  fit the saturation curve as well as the line: a 120-archive pilot once")
     print("  projected 1.9M equivalent-English against a true 62,821.")
