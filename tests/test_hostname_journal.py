@@ -1,9 +1,12 @@
-"""The capture-journal hostname lane, and the two purpose rules of 2026-09-02.
+"""The capture-journal hostname lane, and what survives of the 2026-09-02 purpose rules.
 
-The reviewer accepted hostnames so that archived pages can be retrieved. So a record
-needs an observation of the host serving web content, and `www.<parent>` is the
-parent's own site rather than a second record. Both are enforced here and by two
-invariants in `checks.py`.
+One of the two still stands: a record needs an observation of the host serving web content,
+so the DNS lanes date the parent only. The other is gone. `www.<parent>` was refused as the
+parent's own site until 2026-09-04, when ADR-009 admitted it on his section XI and on a count
+of his own benchmark, where 1,221,065 names have both forms in the same year file.
+
+What replaced it is the weaker and more useful invariant: a `www.<parent>` record must point at
+evidence naming that exact host, so admitting the shape never became asserting it.
 """
 
 import gzip
@@ -32,15 +35,17 @@ def write(tmp_path: Path, rows: list[tuple[str, str]], name: str = "sweep_test.j
     return path
 
 
-def test_www_of_the_parent_dates_the_registrable_and_is_not_a_hostname_record(tmp_path) -> None:
+def test_www_of_the_parent_is_a_record_and_still_dates_the_registrable(tmp_path) -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
     stats = ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
-    # three (host, year) candidates below the registrable, one of them a real record
+    # three (host, year) candidates below the registrable, all three now records
     assert stats["hostname_year_candidates"] == 3
-    assert stats["hostname_year_rows"] == 1
-    assert conn.execute("SELECT hostname, assigned_year FROM hostname_year").fetchall() == [
-        ("shop.example.com", 1998)
+    assert stats["hostname_year_rows"] == 3
+    assert sorted(conn.execute("SELECT hostname, assigned_year FROM hostname_year").fetchall()) == [
+        ("shop.example.com", 1998),
+        ("www.example.com", 1998),
+        ("www.example.com", 1999),
     ]
     # the www captures still date example.com in both years
     assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [
@@ -48,11 +53,11 @@ def test_www_of_the_parent_dates_the_registrable_and_is_not_a_hostname_record(tm
         (1999,),
     ]
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
-    assert results["hostname_is_not_the_parent_www"]["ok"]
+    assert results["a_www_record_has_its_own_evidence"]["ok"]
     assert results["hostname_observed_serving_web"]["ok"]
 
 
-def test_the_two_purpose_invariants_catch_a_forced_row() -> None:
+def test_a_forced_dns_row_and_a_www_row_without_its_own_evidence_are_both_caught() -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
     conn.execute("INSERT INTO source (name, kind) VALUES ('isc_survey_hostnames', 'timestamped')")
@@ -68,8 +73,24 @@ def test_the_two_purpose_invariants_catch_a_forced_row() -> None:
         [eid],
     )
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
-    assert results["hostname_is_not_the_parent_www"]["offending"] == 1
+    # the ISC lane is still not web-facing, so the row is refused on that ground
     assert results["hostname_observed_serving_web"]["offending"] == 1
+    # and the value DOES name www.x.com, so the new invariant is satisfied: admitting the
+    # shape is not the same as letting a parent's capture stand in for it
+    assert results["a_www_record_has_its_own_evidence"]["offending"] == 0
+    # a row whose evidence names only the parent is what that invariant is for
+    conn.execute(
+        "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value) "
+        "VALUES ('x.com', 1, 1998, 'artifact_listing', 'isc survey 1998-01 host x.com')"
+    )
+    bare = conn.execute("SELECT max(evidence_id) FROM evidence").fetchone()[0]
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+        "VALUES ('www.x.com', 'x.com', 1998, ?)",
+        [bare],
+    )
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
+    assert results["a_www_record_has_its_own_evidence"]["offending"] == 1
 
 
 def test_dns_lanes_are_not_web_facing() -> None:
