@@ -4523,3 +4523,19 @@ bytes).
 `discmaster.textfiles.com/search?q={whois.conf,whois-servers,tld_serv_list,whois.txt}&qfields=name&mode=deep&tsMin=19960101&tsMax=20011231`,
 complete 14-file in-window population. 880 pairs over 468 domains, 22 net-new post-split, all
 2001, 79.3% one-edit-from-held (figure is an upper bound).
+
+## `maillist_body_url_hostnames`: ADMITTED 2026-09-04 at 589.0 EE on the live store, the reopened `maillists_hostgrain`
+
+`https://mail.gnome.org/archives/<list>/<YYYY-Month>.txt.gz` and
+`https://mail.python.org/pipermail/<list>/<YYYY-Month>.txt`, the 2,558 pipermail month files
+already on disk in `data/raw/maillists/` since 2026-08-08, read whole at hostname grain with the
+Usenet body-URL extractor (`scripts/sources/mail_corpora/build_maillist_pool.py`, 580,212
+messages, 578,705 dated inside 1996-2001). **What dates one item is the message's own `Date:`
+header**, written by the sending mail client; the hosts are the authorities of explicit `http`,
+`https` and `ftp` URLs in the body only. Against the live store on 2026-09-04: **1,050 net-new
+hostname years, 589.0482 EE, 550.9372 EE past the `www.` alias seam**, plus 161 parent pairs
+worth 77.0402 EE. A 64-host hand-judged sample found 2 invented hosts and 1 wrong year (4.7%,
+Wilson 1.6% to 12.9%). Admitted under the standing rule as `link_source`, the same shape as
+`usenet_body_url_hostnames`; ingested by `ark ingest-maillist-hostnames`. Two register figures
+did not survive: the fleet's 1,496 EE was priced before the Usenet lane's 1.06M hostname years
+reached the store, and the 186 EE closure of 2026-09-03 was a head-of-corpus sample.

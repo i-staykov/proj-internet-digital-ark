@@ -265,6 +265,8 @@ PROVENANCE_LINEAGE = {
     # here would make one body of observation look like two lineages.
     "maillist_archive": "mailing_list",
     "maillist_archive_mention": "mailing_list",
+    # The same month files read at hostname grain (2026-09-04): one body of observation.
+    "maillist_body_url_hostnames": "mailing_list",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
