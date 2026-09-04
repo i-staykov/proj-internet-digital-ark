@@ -10,11 +10,11 @@ evidence store, so nothing here can disagree with the files beside it. Receipts 
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 43,235,797 |
 | 2. Equivalent-English total | 23,029,472.9274 |
-| 3. Increment | **7,832,708** records |
-| 4. Equivalent-English increment | **4,321,453.3122** |
-| 5. Equivalent-English growth rate | **18.7649%** |
+| 3. Increment | **7,834,731** records |
+| 4. Equivalent-English increment | **4,322,566.2232** |
+| 5. Equivalent-English growth rate | **18.7697%** |
 
-94,549 records (60,552.7687 EE) are registrable domains in `additions/`; 7,740,052 (4,260,900.5435 EE)
+94,679 records (61,665.6797 EE) are registrable domains in `additions/`; 7,740,052 (4,260,900.5435 EE)
 are valid hostnames beneath them in `hostnames/`. The two are disjoint in every year, neither is in
 the baseline, your validator rejects none of them, and either set can be merged or discarded whole.
 
@@ -24,19 +24,19 @@ host, never the parent's capture reused, and your III.8 and XI both say a base h
 qualifying subdomain may each be a record. We also counted your side: `merged260904` holds 1,450,310
 names beginning `www.` and 1,221,065 of them have the bare name in the same year file, 114,875 from
 sources other than us. If you read the rule the other way, dropping the prefix forms is one filter
-and the registrable round stands at 60,552.7687 EE.
+and the registrable round stands at 61,665.6797 EE.
 
 | Year | Registrables | Hostnames | Equivalent-English added |
 |------|-----------:|-----------:|--------------:|
-| 1996 | 2,145 | 228,139 | 136,845.5229 |
-| 1997 | 4,640 | 349,506 | 208,217.6546 |
-| 1998 | 6,330 | 1,020,647 | 571,831.5344 |
-| 1999 | 11,036 | 1,434,464 | 796,328.5267 |
-| 2000 | 14,376 | 1,625,591 | 907,916.2495 |
-| 2001 | 56,022 | 3,079,812 | 1,700,313.8241 |
-| **Total** | **94,549** | **7,738,159** | **4,321,453.3122** |
+| 1996 | 2,145 | 228,154 | 136,855.3100 |
+| 1997 | 4,642 | 349,536 | 208,236.2993 |
+| 1998 | 6,334 | 1,020,781 | 571,909.9852 |
+| 1999 | 11,050 | 1,434,763 | 796,510.3073 |
+| 2000 | 14,403 | 1,626,241 | 908,292.4850 |
+| 2001 | 56,105 | 3,080,577 | 1,700,761.8364 |
+| **Total** | **94,679** | **7,740,052** | **4,322,566.2232** |
 
-Counting this round at its own figure, my cumulative verified percentage is 75.1305% (round 1 included, although it was awarded on records), and my time-weighted score over the rounds you have scored is 13.186902 (6.884530 + 6.302372). This round would add 187.648820 under the benchmark-interval reading of t_i that scored those rounds, or 4.169974 at t = 45 days under the absolute task-assignment interval your 0903 update defines. I have computed both rather than choose; please tell me which you intend, and whether it re-scores the rounds already awarded.
+Cumulative verified percentage 75.1353%, time-weighted score 13.186902 over the rounds you scored. **Your 0903 t_i change makes this round either 187.697140 or 4.171048** (t = 1 on the benchmark interval, t = 45 days on the absolute task-assignment interval). Which do you intend, and does it re-score the awarded rounds?
 
 ## 2. What one hostname record is
 
@@ -100,7 +100,7 @@ of it is dialup ports and numbered workstations.
 
 A capture proves presence, never absence, so a year without one is unevidenced rather than empty,
 and both dating routes err toward omission. The units ship separately, so dropping the hostname
-files leaves the registrable round intact at 60,552.7687 EE.
+files leaves the registrable round intact at 61,665.6797 EE.
 
 Worth expanding next, in order: the same one-level-down reading of the remaining capture-bearing
 and URL-listing artifacts already on disk; the second-level suffix namespaces at hostname grain,
@@ -114,10 +114,10 @@ directories were closed earlier, with figures in `experience-summary.md`.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260904` | 43,235,797 | 23,029,472.9274 |
-| **accepted increment** | **7,832,708** | **4,321,453.3122** |
-| post-merge total | 51,068,505 | 27,350,926.2396 |
+| **accepted increment** | **7,834,731** | **4,322,566.2232** |
+| post-merge total | 51,070,528 | 27,352,039.1506 |
 
-Overlap with the baseline is **0 records**, so all 7,832,708 submitted count once, and **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
+Overlap with the baseline is **0 records**, so all 7,834,731 submitted count once, and **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
 
 ## 7. Reproduction, and the four deliverables
 
