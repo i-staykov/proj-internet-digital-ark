@@ -494,6 +494,10 @@ reproduce stage="all":
         # through the same hostgrain script into the same journal directory, and the ISC
         # survey per-TLD host files are read one level below the registrable `isc_survey` took.
         uv run ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz | tail -1 || true
+        # Admitted 2026-09-04 under the standing rule: the pipermail month files already on
+        # disk for `maillist_dated`, read at hostname grain from their body URLs, 589.0 EE.
+        uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8
+        uv run ark ingest-maillist-hostnames data/raw/maillists_items/ | tail -1 || true
         # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
         # The collector runs first because the bytes are not kept in git.
         uv run python scripts/sources/registries/collect_granitecanyon.py
