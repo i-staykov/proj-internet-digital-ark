@@ -187,6 +187,26 @@ for i in $(seq 1 "$ITERATIONS"); do
         ingest_all cdx_snapshot data/raw/cdx/cdx_suffix_*.jsonl.gz
     fi
 
+    # **The three body-URL lanes built on 2026-09-04, which this loop did not know about.**
+    # Usenet, mailing lists and Enron all ship `{item, year, text}` shards and each has its
+    # own approved ingest, and every one of them was folded by hand. That is the fifth time
+    # in this project that a collector's work was invisible until a loop read it, after the
+    # VPS journals in July, the RDAP journals in August and both halves of the suffix sweep
+    # earlier today. Three of the five were created the same day the pattern was named, which
+    # is the argument for adding the line here as part of building a lane rather than after.
+    #
+    # Each is idempotent per shard and skips on content, so a pass over unchanged shards costs
+    # a hash and nothing else.
+    for pool in data/raw/usenet_*_items; do
+        [ -d "$pool" ] && uv run ark ingest-usenet-hostnames "$pool" >> "$LOG" 2>&1 || true
+    done
+    if [ -d data/raw/maillists_items ]; then
+        uv run ark ingest-maillist-hostnames data/raw/maillists_items >> "$LOG" 2>&1 || true
+    fi
+    if [ -d data/raw/enron_items ]; then
+        uv run ark ingest-enron-hostnames data/raw/enron_items >> "$LOG" 2>&1 || true
+    fi
+
     # Registry journals, which this loop did not know about until 8 August. The
     # RDAP sweep of the candidate pool wrote 19,705 in-window creation dates,
     # roughly 12,000 equivalent-English, and every one of them sat unread on disk
