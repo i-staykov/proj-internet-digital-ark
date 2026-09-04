@@ -201,3 +201,32 @@ file has no window.** Quote the cumulative for a submission, because that is wha
 query the store for what a session added. Fixing `hostname_increment()` to take a window means
 giving it the store rather than the files, which is a change to make deliberately and not at the
 end of a session.
+
+## A collector's work is invisible until a loop reads it, and a converter counts as a collector
+
+Five instances, four of them found on 2026-09-04 and three of them created that same day.
+
+| when | what wrote | what nobody read |
+|---|---|---|
+| July | the VPS's CDX journals | 5,793 year-records sat remote for a day and a half |
+| August | the RDAP sweep | 67 journals, ~12,000 EE, stranded on disk |
+| 2026-09-04 | the suffix sweep, hostname half | writing since round 7, ingested only by hand |
+| 2026-09-04 | the suffix sweep, registrable half | `cdx_suffix_convert.py` last run five weeks earlier |
+| 2026-09-04 | the three body-URL lanes | usenet, maillist and Enron, all built that day, none in the loop |
+
+**The shape is always the same and never announces itself.** Nothing fails, nothing warns, and
+every measurement taken afterwards is correct about a store that is missing the work. The two
+halves of the suffix sweep are the sharpest case: the same journal file, read by one loop line and
+not by the other, for five weeks.
+
+**And a converter is a collector for this purpose.** `cdx_suffix_convert.py` produced nothing new
+from the archive, only a reshaping of bytes already held, and its absence from the loop cost
+exactly as much as a collector's would.
+
+The rule: **a lane is not finished when its ingest works, it is finished when a loop calls it.**
+Add the `maintain.sh` line in the same commit that adds the ingest. Three of the five instances
+above were written on the day the pattern was named, by someone who had just named it, which is
+why this is a trap and not a reminder.
+
+`just residual` is the check that finds them, but only for families with a documented ingest glob;
+the fifth instance was invisible to it, because a brand-new lane has no glob to be too narrow.
