@@ -990,6 +990,36 @@ is the `.uk` weight showing up exactly where the weight table says it should. No
 ingested: this is the same `usenet_body_url_hostnames / link_source` class as the two pools
 and it waits on the same word.
 
+## `usenet_comp_hostgrain` and the four-pool union: 93,590 EE, and the overlap between hierarchies is only 16%
+
+Fetched and read whole overnight on 2026-09-04, same lane and same extractor as the other
+pools: `https://archive.org/download/usenet-comp/<group>.mbox.zip`, **1,205 archives,
+33,056,417,861 B**, into `data/raw/usenet_comp/`. 52,630,472 posts, **26,191,307 dated
+inside 1996-2001**, 8,446,768 carrying a body URL. Standalone: 87,073 net-new hostname
+years and **52,397.0489 EE gross**, alias seam 25.9%, **38,808.0098 EE eligible**, plus
+12,602 net-new registrable-years worth 7,258.9375 EE. `com` 14,892.9 EE then **`edu`
+13,950.7**, which is what the technical hierarchy looks like.
+
+**Density, which is the number that decides what to fetch next: comp is 1,701 EE per GB
+gross, uk 1,152, and the two original pools 851.** Bigger is not better; denser is, and
+density tracks how much people typed URLs at each other.
+
+**The union of all four pools, priced in one run, is the figure to quote**: 35,603,375
+item lines, 1,577,656 distinct host-years, 446,081 candidates, 138,342 already in the
+store and 92,158 in his files alone, **214,706 net-new hostname years and 127,336.8919 EE
+gross**. The ADR-007 alias seam takes 43,781 rows and 27,507.2807 EE (21.6%), leaving
+**99,829.6112 EE**, and the sampled 6.25% fiction rate gives **93,590.2605 EE central**.
+Beside it, **57,227 net-new registrable-years worth 33,172.8989 EE** before the
+corroboration split.
+
+**Saturation between hierarchies is 15.9%, not the wall it was assumed to be.** Priced
+separately the four give 118,727.04 EE eligible; unioned they give 99,829.61, so a new
+hierarchy still adds about four fifths of its standalone value. That is what makes the
+remaining 262 GB of the catalogue worth reading rather than projecting.
+
+Nothing is ingested. All four pools are the same `usenet_body_url_hostnames / link_source`
+class and wait on the same word.
+
 ## Detail`
 section, which holds the entry as it was written.
 
