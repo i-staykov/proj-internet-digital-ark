@@ -237,3 +237,35 @@ sweep pays about 193,000 EE per client-hour where a per-domain query pays 255.
 So the prior to carry into a hypothesis is **how much of the artifact can be read, not what family
 it belongs to.** A lead that can only be sampled is a median lead whatever its shape; a lead that
 can be read whole is where every outlier in this table came from.
+
+## Distinct hosts per capture row, not TLD weight, decides what a sweep page is worth
+
+Measured 2026-09-04 over the round-9 sweep's own journals, 22.5M capture rows across 19 parents.
+The spread in equivalent-English per 1,000 capture rows is **42x**, and it runs opposite to the
+ordering the queue was built on.
+
+| swept parent | capture rows | distinct hosts | rows per host | EE per 1k rows |
+|---|--:|--:|--:|--:|
+| `privatedances.co.uk` | 158,734 | 106,316 | 1.5 | **657.2** |
+| `searchpositioning.co.uk` | 150,174 | 100,306 | 1.5 | 655.4 |
+| `pornoholics.com` | 706,727 | 630,447 | 1.1 | 563.9 |
+| `de.vu` | 192,581 | 61,318 | 3.1 | 294.5 |
+| `cjb.net` | 528,438 | 145,645 | 3.6 | 124.9 |
+| `homestead.com` | 3,224,657 | 125,145 | 25.8 | 24.5 |
+| `co.uk` | 5,758,690 | 93,660 | 61.5 | **16.0** |
+| `demon.co.uk` | 4,423,683 | 70,847 | 62.4 | 15.7 |
+
+**The queue put `co.uk` first for its 0.9813 weight, and it is the worst parent in the table.**
+Weight is per RECORD and a sweep page costs the same whatever it returns, so what decides a page's
+value is how many DISTINCT hosts it carries: `co.uk` returns 61 capture rows per host because a
+large namespace is full of well-archived commercial sites, while `privatedances.co.uk` returns 1.5
+because it is full of tiny personal sites captured once or twice.
+
+So the ranking metric is **shallowness of archiving under a parent**, and it is measurable before
+committing a queue: one page of index blocks gives the rows-per-host ratio, and a parent above
+about 20 is spending most of its requests re-reading captures of hosts it has already named.
+
+This does not contradict "rank by the hosts we lack"; it refines it. The count of hosts we lack
+says how much is there, and rows-per-host says what it costs to get. `rank_platform_parents.py
+--net-new` should divide the one by the other, which is a change to make at the next restart
+rather than under a running sweep holding the queue file open.
