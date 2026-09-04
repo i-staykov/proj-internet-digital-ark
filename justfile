@@ -219,13 +219,30 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
         (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
-        #    A FIND wakes the admitter (a model, locally, where the store is).
+        #    A FIND used to wake a model HERE, and that is how Ivo's personal account was
+        #    being drained at API rates (2026-09-04). A local `claude -p` authenticates with
+        #    the LAPTOP'S own Claude login, which is his Taktile account and has API pricing
+        #    enabled; the fleet's workflows authenticate with `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY`,
+        #    the HPI account, which has limits and no API billing. So the same agent costs money
+        #    in one place and consumes an allowance in the other, and this recipe was the one
+        #    place where the token could not be chosen.
+        #
+        #    **Opt-in and off by default.** `just bank` still does everything else: drain the
+        #    findings, write the result lines, run the scribe, gate, export and push. Admission
+        #    is a model's judgement and belongs in the fleet, where the token is explicit.
         if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
-            echo "FIND present: waking the admitter (fable 5.1/medium)"
-            claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
-                --model claude-fable-5-1 --effort medium --output-format text \
-                > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
-            tail -3 "data/logs/admit_$LABEL.log"
+            if [ "${ARK_LOCAL_ADMITTER:-0}" = "1" ]; then
+                echo "FIND present: waking the LOCAL admitter (fable 5.1/medium)"
+                echo "  NOTE: this bills the laptop's own Claude login, not the fleet's token."
+                claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
+                    --model claude-fable-5-1 --effort medium --output-format text \
+                    > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
+                tail -3 "data/logs/admit_$LABEL.log"
+            else
+                echo "FIND present, local admitter OFF: it would bill the laptop's own Claude"
+                echo "  login at API rates. Set ARK_LOCAL_ADMITTER=1 to run it anyway, or let"
+                echo "  the fleet admit it under the primary token."
+            fi
         fi
         # 4. The deterministic scribe, then the gate, then one push.
         uv run python scripts/harness/bank_findings.py "$IN" \
