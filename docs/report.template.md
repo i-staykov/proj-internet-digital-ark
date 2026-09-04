@@ -47,8 +47,11 @@ Three conditions, enforced in code (`source/src/ark/hostnames.py`, `checks.py`),
 [ATTRIBUTION_TABLE]
 
 Every stamp above is machine-written and inside the artifact, so no human judgement dates a year.
-[CANDIDATES] domains carry no in-window evidence, ship as `candidates.txt`, and reach no annual
-file.
+
+**Annual and candidate contributions, separately, as your section XI asks.** The five fields above
+are annual records only. Beside them, [CANDIDATES] domains carry no in-window evidence, ship as
+`candidates.txt`, reach no annual file, and are worth [CANDIDATEEE] equivalent-English **if every
+one were later dated**, which is a ceiling on future work and not a contribution to this round.
 
 **The methodological finding of this round, which we think transfers.** Reading a bulk corpus at
 hostname grain pays only where a person typed the host, not where a crawler visited it: a CDX index
