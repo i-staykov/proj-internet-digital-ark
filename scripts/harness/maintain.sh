@@ -157,6 +157,26 @@ for i in $(seq 1 "$ITERATIONS"); do
 
     ingest_all cdx_snapshot      data/raw/cdx/cdx_*.jsonl.gz
 
+    # The SAME journals one level down, which is free and was not done until
+    # 2026-09-04. `ark.cdx` used to ask `fl=timestamp` and keep `{domain, years}`, so
+    # 2,984,321 answers across 1,163 journals record no host at all; the query now asks
+    # for `timestamp,original` and every record carries a `hosts` map. This converts that
+    # map and ingests it, so a gap query about a domain we already hold also harvests the
+    # hosts beneath it, at no extra request. Journals written before the change yield
+    # nothing here, which is correct: the information is not in them.
+    uv run python scripts/engines/cdx_gap_hostgrain.py >> "$LOG" 2>&1 || true
+    if compgen -G "data/raw/cdx_gap_hostgrain/cdx_gap_*.jsonl.gz" > /dev/null; then
+        uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain >> "$LOG" 2>&1 || true
+    fi
+
+    # And the suffix sweep's own journals, the other half of the standing hostname
+    # priority: `platform_sweep.sh` writes `{url, timestamp}` continuously and nothing
+    # here read them, so a sweep's work only became records when somebody ingested by
+    # hand. Same failure as the RDAP journals below, on a newer collector.
+    if compgen -G "data/raw/cdx_suffix/suffix_*.jsonl.gz" > /dev/null; then
+        uv run ark ingest-hostnames data/raw/cdx_suffix >> "$LOG" 2>&1 || true
+    fi
+
     # Registry journals, which this loop did not know about until 8 August. The
     # RDAP sweep of the candidate pool wrote 19,705 in-window creation dates,
     # roughly 12,000 equivalent-English, and every one of them sat unread on disk

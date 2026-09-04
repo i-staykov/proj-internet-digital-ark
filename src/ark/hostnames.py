@@ -64,8 +64,16 @@ USFEDGOV_SOURCE = "usfedgov_extract_hostnames"
 USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
 
 
+# The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
+# sweep, because both are IA CDX responses, and its own method so the contribution table can
+# say which query shape found a host.
+GAP_METHOD = "ia_cdx_gap_hostgrain"
+
+
 def source_for(path: Path) -> tuple[str, str]:
     """(source name, acquisition method) for one journal, from its filename family."""
+    if path.name.startswith("cdx_gap_"):
+        return SOURCE_NAME, GAP_METHOD
     if path.name.startswith("nypw_"):
         return SOURCE_NAME, NYPW_METHOD
     if path.name.startswith("early_web_"):
