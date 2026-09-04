@@ -154,6 +154,21 @@ confirmed 5% is a hard trigger, and on 2026-08-31 the gap was **530,535 EE**, wh
 of pure querying. The whole priced approval queue that day was 27,386 EE, or 5.2% of the gap.
 Spend the hours on bulk dated corpora accordingly; the current gap is in `ROUND.md`.
 
+**And the domain-wide hostname sweep is the exception that reframes the rest, measured
+2026-09-04.** Two archive clients walking `matchType=domain` over registrables we ALREADY HOLD
+produced 14,256,371 capture rows in 75 minutes, of which 1,131,651 became hostname records and
+**774,767 were net-new and shippable, worth 482,567.9442 equivalent-English: 41.9% of the whole 5%
+gate in an afternoon.** That is roughly 193,000 EE per client-hour against 255 EE/hour for the
+per-domain gap query, a factor of about 750.
+
+The difference is not the archive and not the rate limit, which are the same for both. It is the
+question. A gap query asks "which years does this one domain have", and one answer is one pair. A
+domain-wide query asks "what hosts existed under this domain", and one answer is thousands, each
+its own record since 2026-09-01. **So the pre-request question is not how fast we may query but
+how many records one answer can carry**, and the ranking that follows is `--net-new` on
+`rank_platform_parents.py`: order the parents by the hosts we LACK, since a parent whose hosts we
+hold returns records we already have.
+
 ## In-window share, not size, orders a Usenet fetch, and the cheap pre-filter does not work
 
 Measured 2026-09-04 by a researcher wave over 25 `alt.*` archives, 1,077.9 MB in five size strata.
