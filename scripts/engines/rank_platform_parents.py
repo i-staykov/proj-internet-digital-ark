@@ -63,6 +63,33 @@ def main() -> int:
                 if parent and parent != host:
                     subhosts[parent] += 1
 
+    # **Divide the hosts we lack by what they cost to reach** (measured 2026-09-04).
+    # A sweep page costs the same whatever it returns, so a parent's value per REQUEST is its
+    # distinct hosts per capture row, and that spans 42x: `privatedances.co.uk` returns 1.5
+    # rows per host and pays 657 EE per 1,000 rows, while `co.uk` returns 61.5 and pays 16.
+    # TLD weight is per record and says nothing about this, which is how the highest-weight
+    # namespace ended up first in a queue and paid least.
+    #
+    # The ratio cannot be predicted for a parent nobody has swept, so it is read from
+    # `rows_per_host.tsv`, derived once from the journals of parents already walked, and a
+    # parent with no measurement keeps its unadjusted score rather than being guessed at.
+    ratios: dict[str, float] = {}
+    ratio_file = REPO / "data/raw/cdx/rows_per_host.tsv"
+    if ratio_file.is_file():
+        for line in ratio_file.read_text().splitlines():
+            if line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) == 4:
+                try:
+                    ratios[parts[0]] = float(parts[3])
+                except ValueError:
+                    continue
+
+    def cost_of(parent: str) -> float:
+        """Capture rows per distinct host, 1.0 where unmeasured so the score is unchanged."""
+        return max(ratios.get(parent, 1.0), 1.0)
+
     # **Rank by what we LACK, not by what exists** (Ivo's standing priority, 2026-09-04).
     # His benchmark says which parents are real platforms, which is the right question for
     # "is this worth querying at all" and the wrong one for "what will the query add": a
@@ -86,7 +113,7 @@ def main() -> int:
 
     ranked = sorted(
         (
-            (max(count - held[parent], 0) * weight_of(parent), count, parent)
+            (max(count - held[parent], 0) * weight_of(parent) / cost_of(parent), count, parent)
             for parent, count in subhosts.items()
         ),
         reverse=True,
@@ -97,7 +124,9 @@ def main() -> int:
             out.write(parent + "\n")
     for score, count, parent in ranked[:15]:
         gap = f"  {count - held[parent]:>8,} we lack" if args.net_new else ""
-        print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}{gap}")
+        cost = ratios.get(parent)
+        seen_cost = f"  {cost:>5.1f} rows/host" if cost else "  unmeasured  "
+        print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}{gap}{seen_cost}")
     print(f"{len(ranked):,} parents ranked, top {args.top} -> {args.out}")
     return 0
 
