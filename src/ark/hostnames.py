@@ -97,10 +97,20 @@ def writes_hostname_years(source_name: str) -> bool:
     return source_name in WEB_FACING_HOST_SOURCES
 
 
-# The reviewer accepts "valid hostnames": RFC 1123 letters, digits and hyphens only.
-# The era's archives carry underscore NT-server names; those are refused here and the
-# capture still evidences the parent registrable through the registrable path.
-_VALID_HOST = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+# His structural rule, verbatim: "A valid annual hostname must have dot-separated labels, use
+# letters, digits, and interior hyphens only, and end in an alphabetic TLD label."
+#
+# The era's archives carry underscore NT-server names; those are refused here and the capture
+# still evidences the parent registrable through the registrable path.
+#
+# **The final `\.[a-z]+` is the alphabetic TLD label**, and it was missing until 2026-09-04. It
+# had cost nothing measurable, because `to_registrable` consults the public suffix list and
+# rejects a name whose last label is not a real TLD, and a sweep of all 929,964 shipped lines
+# found zero violations. It is here anyway, because "no violations today" and "cannot violate"
+# are different properties and only the second one survives a new source.
+_VALID_HOST = re.compile(
+    r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]+$"
+)
 YEARS = range(1996, 2002)
 
 

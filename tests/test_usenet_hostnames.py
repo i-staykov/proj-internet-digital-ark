@@ -121,3 +121,28 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
     ).fetchone()[0]
     assert key == "usenet_uk_items/shard_000.jsonl.gz"
     conn.close()
+
+
+def test_the_host_regex_is_his_structural_rule() -> None:
+    """His words: "dot-separated labels, use letters, digits, and interior hyphens only, and
+    end in an alphabetic TLD label."
+
+    The last clause was missing until 2026-09-04 and cost nothing measurable, because
+    `to_registrable` consults the public suffix list and a sweep of all 929,964 shipped lines
+    found zero violations. It is asserted here because "no violations today" and "cannot
+    violate" are different properties, and a new source only meets the second one.
+    """
+    from ark.hostnames import _VALID_HOST
+
+    for host in ("www.demon.co.uk", "pages.demon.co.uk", "x.y-z.com", "a.b", "x.in-addr.arpa"):
+        assert _VALID_HOST.match(host), host
+    for host in (
+        "foo.123",  # a numeric last label is not an alphabetic TLD
+        "1.2.3.4",  # nor is an address
+        "nt_box.custard.co.uk",  # underscores are not RFC 1123
+        "localhost",  # no dot, so no labels to separate
+        "-bad.com",
+        "bad-.com",  # hyphens are interior only
+        "foo..com",  # an empty label
+    ):
+        assert not _VALID_HOST.match(host), host
