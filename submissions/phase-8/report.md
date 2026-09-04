@@ -10,11 +10,11 @@ evidence store, so nothing here can disagree with the files beside it. Receipts 
 |---|--:|
 | 1. Total original domain-year records 1996-2001 | 43,235,797 |
 | 2. Equivalent-English total | 23,029,472.9274 |
-| 3. Increment | **7,832,708** records |
-| 4. Equivalent-English increment | **4,321,453.3122** |
-| 5. Equivalent-English growth rate | **18.7649%** |
+| 3. Increment | **7,834,717** records |
+| 4. Equivalent-English increment | **4,322,566.2232** |
+| 5. Equivalent-English growth rate | **18.7697%** |
 
-94,549 records (61,603.9410 EE) are registrable domains in `additions/`; 7,738,159 (4,259,849.3712 EE)
+94,672 records (61,669.4256 EE) are registrable domains in `additions/`; 7,740,045 (4,260,896.7976 EE)
 are valid hostnames beneath them in `hostnames/`. The two are disjoint in every year, neither is in
 the baseline, your validator rejects none of them, and either set can be merged or discarded whole.
 
@@ -24,19 +24,19 @@ host, never the parent's capture reused, and your III.8 and XI both say a base h
 qualifying subdomain may each be a record. We also counted your side: `merged260904` holds 1,450,310
 names beginning `www.` and 1,221,065 of them have the bare name in the same year file, 114,875 from
 sources other than us. If you read the rule the other way, dropping the prefix forms is one filter
-and the registrable round stands at 61,603.9410 EE.
+and the registrable round stands at 61,669.4256 EE.
 
 | Year | Registrables | Hostnames | Equivalent-English added |
 |------|-----------:|-----------:|--------------:|
-| 1996 | 2,145 | 228,139 | 136,845.5229 |
-| 1997 | 4,640 | 349,506 | 208,217.6546 |
-| 1998 | 6,330 | 1,020,647 | 571,831.5344 |
-| 1999 | 11,036 | 1,434,464 | 796,328.5267 |
-| 2000 | 14,376 | 1,625,591 | 907,916.2495 |
-| 2001 | 56,022 | 3,079,812 | 1,700,313.8241 |
-| **Total** | **94,549** | **7,738,159** | **4,321,453.3122** |
+| 1996 | 2,145 | 228,154 | 136,855.3100 |
+| 1997 | 4,642 | 349,536 | 208,236.2993 |
+| 1998 | 6,333 | 1,020,780 | 571,909.9852 |
+| 1999 | 11,048 | 1,434,761 | 796,510.3073 |
+| 2000 | 14,401 | 1,626,239 | 908,292.4850 |
+| 2001 | 56,103 | 3,080,575 | 1,700,761.8364 |
+| **Total** | **94,672** | **7,740,045** | **4,322,566.2232** |
 
-Counting this round at its own figure, my cumulative verified percentage is 75.1305% (round 1 included, although it was awarded on records), and my time-weighted score over the rounds you have scored is 13.186902 (6.884530 + 6.302372). This round would add 187.648820 under the benchmark-interval reading of t_i that scored those rounds, or 4.169974 at t = 45 days under the absolute task-assignment interval your 0903 update defines. I have computed both rather than choose; please tell me which you intend, and whether it re-scores the rounds already awarded.
+Cumulative verified percentage 75.1353%, time-weighted score 13.186902 over the rounds you scored. **Your 0903 t_i change makes this round either 187.697140 or 4.171048** (t = 1 on the benchmark interval, t = 45 days on the absolute task-assignment interval). Which do you intend, and does it re-score the awarded rounds?
 
 ## 2. What one hostname record is
 
@@ -57,15 +57,16 @@ Three conditions, enforced in code (`source/src/ark/hostnames.py`, `checks.py`),
 | `nypw_timemap_hostgrain`, hostname | NYPW TimeMaps (IA, CC BY 4.0), 34 parts held since round 6, re-read at hostname grain | the row's own 14-digit capture timestamp | 4,721,923 | 2,413,147 |
 | `ia_cdx_domain_sweep`, hostname | IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals | the row's own 14-digit capture timestamp | 1,000,897 | 698,944 |
 | `early_web_hostgrain`, hostname | IA Early Web CDX index, 224 parts held since July, re-read at hostname grain | the row's own 14-digit capture timestamp | 1,074,009 | 581,826 |
-| `usenet_body_url`, hostname | Every non-alt Usenet hierarchy of the archive.org collection, 224 GB read whole, hosts taken only from explicit http, https and ftp URLs in the post BODY | the post's own machine-written `Date:` header | 940,100 | 564,859 |
-| `usenet_body_url_hostnames`, registrable | see `sources.md` | the crawl date on the link record | 77,771 | 45,517 |
+| `usenet_body_url`, hostname | Every non-alt Usenet hierarchy of the archive.org collection, 224 GB read whole, hosts taken only from explicit http, https and ftp URLs in the post BODY | the post's own machine-written `Date:` header | 940,093 | 564,855 |
+| `usenet_body_url_hostnames`, registrable | see `sources.md` | the crawl date on the link record | 77,764 | 45,513 |
 | `ia_cdx_hostnames`, registrable | see `sources.md` | a Wayback capture timestamp | 16,778 | 16,095 |
 | `usfedgov_extract_hostgrain`, hostname | IA USFEDGOV-EXTRACT 1996-2001 merged CDX indexes, one capture per host, bulk download | the row's own 14-digit capture timestamp | 1,219 | 1,067 |
-| 1 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 11 | 7 |
-| **Total** | | | **7,832,708** | **4,321,461** |
+| `maillist_body_url`, hostname | see `sources.md` | a Wayback capture timestamp | 1,893 | 1,051 |
+| 2 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 141 | 68 |
+| **Total** | | | **7,834,717** | **4,322,566** |
 
 Every stamp above is machine-written and inside the artifact, so no human judgement dates a year.
-2,354,010 domains carry no in-window evidence, ship as `candidates.txt`, and reach no annual
+2,353,788 domains carry no in-window evidence, ship as `candidates.txt`, and reach no annual
 file.
 
 **The methodological finding of this round, which we think transfers.** Reading a bulk corpus at
@@ -81,7 +82,7 @@ closed a 101 GB fetch on a measured 40 equivalent-English per GB instead of an a
 
 ## 4. One question, shipped as its own folder
 
-`isc_survey_hostnames/` holds **18,087,133** hostname years from the ISC Internet Domain Survey of
+`isc_survey_hostnames/` holds **18,087,127** hostname years from the ISC Internet Domain Survey of
 1996-1997, and **they are not in the figures above.** The survey's per-TLD host files are dated by
 their own edition code and name each host explicitly, so they satisfy conditions 1 and 2 and are
 direct rather than inferred. They fail condition 3 as we read it: a reverse-DNS walk shows a machine
@@ -99,7 +100,7 @@ of it is dialup ports and numbered workstations.
 
 A capture proves presence, never absence, so a year without one is unevidenced rather than empty,
 and both dating routes err toward omission. The units ship separately, so dropping the hostname
-files leaves the registrable round intact at 61,603.9410 EE.
+files leaves the registrable round intact at 61,669.4256 EE.
 
 Worth expanding next, in order: the same one-level-down reading of the remaining capture-bearing
 and URL-listing artifacts already on disk; the second-level suffix namespaces at hostname grain,
@@ -113,10 +114,10 @@ directories were closed earlier, with figures in `experience-summary.md`.
 | | records | equivalent-English |
 |---|--:|--:|
 | baseline `merged260904` | 43,235,797 | 23,029,472.9274 |
-| **accepted increment** | **7,832,708** | **4,321,453.3122** |
-| post-merge total | 51,068,505 | 27,350,926.2396 |
+| **accepted increment** | **7,834,717** | **4,322,566.2232** |
+| post-merge total | 51,070,514 | 27,352,039.1506 |
 
-Overlap with the baseline is **0 records**, so all 7,832,708 submitted count once, and **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
+Overlap with the baseline is **0 records**, so all 7,834,717 submitted count once, and **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
 
 ## 7. Reproduction, and the four deliverables
 
