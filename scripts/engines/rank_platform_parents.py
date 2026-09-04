@@ -41,6 +41,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--top", type=int, default=60)
     parser.add_argument("--out", type=Path, default=REPO / "data/raw/cdx/platform_parents.txt")
+    parser.add_argument(
+        "--net-new",
+        action="store_true",
+        help="rank by the sub-hosts we do NOT already hold, not by all of them",
+    )
     args = parser.parse_args()
 
     subhosts: Counter[str] = Counter()
@@ -58,8 +63,32 @@ def main() -> int:
                 if parent and parent != host:
                     subhosts[parent] += 1
 
+    # **Rank by what we LACK, not by what exists** (Ivo's standing priority, 2026-09-04).
+    # His benchmark says which parents are real platforms, which is the right question for
+    # "is this worth querying at all" and the wrong one for "what will the query add": a
+    # parent whose sub-hosts we already hold spends requests to return records we have. The
+    # store now holds 13.7M hostname rows, so the two orderings have genuinely diverged.
+    #
+    # Off by default, because the subtraction needs the store and this script must keep
+    # running on a clone that has none.
+    held: Counter[str] = Counter()
+    if args.net_new:
+        from ark.db import connect_read_only_patiently
+
+        conn = connect_read_only_patiently()
+        try:
+            for parent, n in conn.execute(
+                "SELECT parent_domain, count(DISTINCT hostname) FROM hostname_year GROUP BY 1"
+            ).fetchall():
+                held[parent] = n
+        finally:
+            conn.close()
+
     ranked = sorted(
-        ((count * weight_of(parent), count, parent) for parent, count in subhosts.items()),
+        (
+            (max(count - held[parent], 0) * weight_of(parent), count, parent)
+            for parent, count in subhosts.items()
+        ),
         reverse=True,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +96,8 @@ def main() -> int:
         for _score, _count, parent in ranked[: args.top]:
             out.write(parent + "\n")
     for score, count, parent in ranked[:15]:
-        print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}")
+        gap = f"  {count - held[parent]:>8,} we lack" if args.net_new else ""
+        print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}{gap}")
     print(f"{len(ranked):,} parents ranked, top {args.top} -> {args.out}")
     return 0
 
