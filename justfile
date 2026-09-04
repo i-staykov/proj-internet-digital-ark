@@ -176,7 +176,15 @@ residual *args:
 #
 # check the round once and report what needs judgement
 cycle *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     uv run python scripts/harness/discover_cycle.py {{args}}
+    # The failure-state ledger his XI asks for. Printed here rather than left in a log,
+    # because a lane that has started failing looks exactly like a lane with nothing left
+    # to find, and past runs were losing 24% to 43% of every batch with nothing recording
+    # it. Never fatal: a warning about the archive is not a broken invariant.
+    echo ""
+    uv run python scripts/harness/query_health.py --write --tail 3 || true
 
 # Drain the fleet's findings, admit any FIND, book everything, gate, push `live`, and
 # refresh the VPS pricing snapshot. The one deliberate human-adjacent step of the loop
