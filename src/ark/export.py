@@ -137,11 +137,17 @@ def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
 #
 # **Why it is not in `hostname_year`.** The ISC Internet Domain Survey walked reverse DNS in
 # 1996-1997 and its lines are direct, dated, machine-written evidence that a host answered.
-# Whether that is evidence a SITE existed is his call, not ours: C-55 read his purpose for the
-# unit as requiring a page, and his section XI asks for hostname-level identity wherever there
-# is year-specific evidence without restating that condition. So the rows stay out of the store
-# and out of the claim, and are shipped beside it as a labelled question. If he says yes it is
-# one line in `WEB_FACING_HOST_SOURCES` and a backfill; if he says no, nothing has to be undone.
+#
+# He ruled on this artifact by name on 2026-07-24, in answer to our own question: "a domain's
+# documented presence in a dated DNS survey is acceptable as direct evidence for the corresponding
+# annual file. It does not require additional IA CDX confirmation." C-55 later read his PURPOSE
+# for the hostname unit as requiring a page, which is narrower than that ruling and was taken
+# without re-reading it. What is still genuinely open is only the grain: his ruling establishes
+# the DOMAIN from a host record, and whether the host is also a record of itself is the question
+# the mail asks, since the hostname unit did not exist in July.
+#
+# So the rows stay out of the store and out of the claim, and ship beside it as a labelled
+# question. Yes is one line in `WEB_FACING_HOST_SOURCES` and a backfill; no needs no undoing.
 #
 # It is measurably a different shape from anything he holds, which is exactly why it is a
 # question: of 13,347,250 distinct hosts here, 1.419% appear anywhere in his files, against
