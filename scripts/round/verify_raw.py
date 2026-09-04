@@ -82,12 +82,13 @@ KEEP_UNTIL_DECIDED: dict[str, str] = {
 # extraction worker, a few tens of MB against tens of GB of archives. They are what a yes on
 # `usenet_body_url_hostnames` would be ingested from, and the archives themselves are
 # refetchable by name from `data/raw/usenet_catalog.json`, so the zips go back and these stay.
-KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = {
-    "usenet_comp_items": IA_USENET,
-    "usenet_rec_items": IA_USENET,
-    "usenet_soc_items": IA_USENET,
-    "usenet_uk_items": IA_USENET,
-}
+KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = dict.fromkeys(
+    (
+        f"usenet_{h}_items"
+        for h in ("aus", "biz", "can", "comp", "misc", "news", "rec", "sci", "soc", "talk", "uk")
+    ),
+    IA_USENET,
+)
 
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:
 # the offline rebuild breaks without them. `None` means docs/sources.md has the URL

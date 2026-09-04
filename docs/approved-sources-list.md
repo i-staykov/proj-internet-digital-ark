@@ -1577,22 +1577,23 @@ Decision: rejected
 - source: https://archive.org/details/usenet-alt and
   https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip; `archive.org/robots.txt` read
   whole, only `/control/` and `/report/` disallowed
-- measured 2026-09-03 and 2026-09-04 on the live store, **four pools read whole and priced as
-  one union, no sample and no projection anywhere**: `usenet_new` 7,531 archives, `usenet_bulk`
-  9,266, `usenet_uk` 495 and `usenet_comp` 1,205, together 155 GB, 252,255,342 posts and
-  106,730,655 dated inside 1996-2001, of which 35,603,375 carry a body URL. 1,577,656 distinct
-  host-years, 446,081 candidates, 138,342 already in the store and 92,158 in his files alone:
-  **214,706 net-new hostname years and 127,336.8919 EE gross**. Three measured screens: the
-  ADR-007 `www.` alias seam takes 43,781 rows and 27,507.2807 EE (21.6%), leaving
-  **99,829.6112 EE**; the `.arpa` and TLD-delegation rules take the rest of the impossible
-  rows; and a sampled fiction rate of **6.25%, Wilson 95% CI 2.7% to 13.8%**, giving
-  **93,590.2605 EE central**. By TLD com 43,909.5, edu 21,248.2, uk 16,295.5, net 12,905.5.
-  **Density decides what to fetch next**: comp 1,701 EE per GB gross, uk 1,152, the two
-  original pools 851, and the overlap between hierarchies is only 15.9%, so a new hierarchy
-  still adds four fifths of its standalone value
-- beside it, needing no hostname decision at all: **57,227 net-new (registrable, year) pairs,
-  33,172.8989 EE** across the four pools, BEFORE the corroboration split every typed-name class
-  takes. The split is
+- measured 2026-09-03 and 2026-09-04 on the live store, **thirteen pools read whole and priced
+  as one union, no sample and no projection anywhere**: every hierarchy of the catalogue except
+  `alt`, fetched overnight with the existing polite fetcher (`uk` 495 archives, `comp` 1,205,
+  `rec` 919, `soc` 341, `sci` 237, `misc` 242, `news` 60, `talk` 47, `can` 109, `biz` 95, `aus`
+  195) beside `usenet_new` and `usenet_bulk`. **224 GB, 328,201,000 posts, 54,700,642 item lines
+  carrying a body URL**, 2,100,957 distinct host-years, 570,272 candidates, 175,368 already in
+  the store and 119,517 in his files alone: **274,354 net-new hostname years and 163,985.8408 EE
+  gross**. Screens, each measured: the ADR-007 `www.` alias seam takes 57,604 rows and
+  36,370.1156 EE (22.2%), leaving **127,615.7252 EE**; and a sampled fiction rate of **6.25%,
+  Wilson 95% CI 2.7% to 13.8%**, giving **119,639.7424 EE central, 110,005 to 124,170**. By TLD
+  com 56,825.2, edu 28,766.2, uk 18,886.1, net 16,298.0. **Density decides which hierarchy pays**,
+  not size: news 2,552 EE per GB gross, comp 1,701, sci 1,413, uk 1,152, the two original pools
+  851, soc 418. Cross-hierarchy saturation is 22.2%, so each one still adds four fifths of its
+  standalone value
+- beside it, needing no hostname decision at all: **83,708 net-new (registrable, year) pairs,
+  49,007.3050 EE** across the thirteen pools, BEFORE the corroboration split every typed-name
+  class takes. The split is
   known to be brutal on this class (the recorded registrable pass over `usenet_new` measured
   35.8 EE post-split), so treat that as an upper bound and not a second find
 - what dates one item: the post's own `Date:` header, the same stamp the banked Usenet body
@@ -1615,9 +1616,11 @@ Decision: rejected
   2026-09-01 update lists dated Usenet copies among sources unsuitable for further work. The
   corroboration split guards the registrable half and cannot guard this half, so the sampled
   fiction rate above is offered in its place. Conditions 2, 3 and 4 hold: the stamp is
-  machine-written and quoted, the terms are archive.org's, and the journals rebuild in about
-  25 minutes per pool at four workers
-- potential: 93590
+  machine-written and quoted, the terms are archive.org's, and the journals are on disk: the 224
+  GB of archives was deleted after pricing because archive.org serves them again by name, and the
+  thirteen `data/raw/usenet_*_items` directories hold the `{item, year, text}` shards a yes would
+  be ingested from at four workers
+- potential: 119640
 
 Decision: pending
 

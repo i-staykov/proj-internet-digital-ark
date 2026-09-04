@@ -79,22 +79,35 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/us_domain` | live_input | 8 | 3415979 | `aac5bdf5e01b6cf4912b7733e4a7416383b2683ae5881f85bb408fae9a33598d` | unknown | SHA256SUMS |
 | `data/raw/usenet` | keep_journal | 374 | 577180866 | `a30d5b994240962ccb694c72e86c7c0d4a55df4b498b6b917e7fa93e3346f40d` | own_journal | SHA256SUMS |
 | `data/raw/usenet_addr` | keep_journal | 297 | 9053114346 | `038121ef4b71a18763ac3fc0fe57f2335c50268f051601954d708a1db61663f9` | own_journal | SHA256SUMS |
+| `data/raw/usenet_aus` | reference | 1 | 47434 | `e8d7e8e61c3b52d0916ed511f6c67780d6f8db210da740ceab6a37151ec58c55` | unknown | SHA256SUMS |
+| `data/raw/usenet_aus_items` | keep_until_decided | 4 | 5088882 | `93616fb10ebad9219fe4912758667e63bbc869b18fb7d79a76d93578f69b3827` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_bare` | keep_journal | 278 | 1921937028 | `8a1d476a522cec50af729d8fee51bad5d5ecd5f53c62818ad70d448d9693de83` | own_journal | SHA256SUMS |
+| `data/raw/usenet_biz` | reference | 1 | 24341 | `43c8a56fcc04347df0e29861e621592d1c010212d51a4731649c4b772fcf7914` | unknown | SHA256SUMS |
+| `data/raw/usenet_biz_items` | keep_until_decided | 4 | 4712891 | `494cd65b7b0f09c269ecdaff7529e2a82a580c67d3a54a34487b7d474f4a74ce` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_bulk` | keep_until_decided | 9270 | 56027623646 | `e73fef549f4902bf5ec4b9ea5b7dab42f23163c51f7df35400a4509fcce0514f` | https://archive.org/details/usenet-alt | SHA256SUMS, SHA1SUMS |
+| `data/raw/usenet_can` | reference | 1 | 27450 | `ccc477e382bda7f4a812690c13fd020e7f7a8a722adaff66a8fb50a483beb800` | unknown | SHA256SUMS |
+| `data/raw/usenet_can_items` | keep_until_decided | 5 | 1355273 | `2539994b22257b43bdbad15e8c9ad249beff7f8ee8e9ddaa6ddc6bd7ce26fcc8` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_catalog.json` | reference | 1 | 4986572 | `d9459d4919cd9edc5740009744bc616f3ae0a3f05e34b69b12907e72ef501f42` | https://archive.org/metadata/usenet-<hierarchy> | line in data/raw/SHA256SUMS |
 | `data/raw/usenet_comp` | reference | 1 | 294121 | `fe56f64d65d6dd8c30e2cb2b96d67242c8f8c2575ca6b8417192ce059f3772a4` | unknown | SHA256SUMS |
 | `data/raw/usenet_comp_items` | keep_until_decided | 5 | 68725921 | `7411b9a787ee5f9c565a4908622224694281cc2e18ba85a1703a6174aeb1cf04` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_de` | keep_journal | 3 | 491703 | `4039c535bd1c1367742a4bff0df6854e8db58c9df5cbeb6f6a9fc4c01cf5eabd` | own_journal | SHA256SUMS |
 | `data/raw/usenet_hdr` | keep_journal | 48 | 188743854 | `6bd6506ecddee1689e0dbaf6ee5f8e24886d1f808c01ae810e6407ed8788602c` | own_journal | SHA256SUMS |
+| `data/raw/usenet_misc` | reference | 1 | 60620 | `a456e6180722d27f62bcdd18d3accbb1e8fd1d3267fe842477a632e60603a99e` | unknown | SHA256SUMS |
+| `data/raw/usenet_misc_items` | keep_until_decided | 5 | 13890944 | `a213cbc89f71cac0d3ca9f72487e3e48b22e762aa36b0a3184e19ade2288b2b4` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_msft` | reference | 3 | 511487988 | `e5a4651de2638e4e4a85e91a6e198882d0c5396ebbc7e41d837a5c70f263f07a` | https://archive.org/details/usenet-alt | SHA256SUMS |
 | `data/raw/usenet_new` | keep_until_decided | 22838 | 53671991587 | `1682295882530445640f580a43e6ae41ffa4919304e1fa9fe1583680f63a49c5` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
+| `data/raw/usenet_news` | reference | 1 | 16016 | `350a1b620ae9291bdabaf3c47e5e996adbbfc80aa71531800bb061a5280f55bc` | unknown | SHA256SUMS |
+| `data/raw/usenet_news_items` | keep_until_decided | 5 | 15166456 | `921bf21a1851000812ba2bf29e1bf4d923cae08e0eeaa882ed2be9a5592fa02d` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_probe` | reference | 1 | 44161042 | `d2be6cf9501410019c73a1b9daaaf32c2f1340fa10b32769916fa3d3398173c0` | https://archive.org/download/usenet-comp/comp.infosystems.www.misc.mbox.zip | SHA1SUMS |
 | `data/raw/usenet_probe5` | reference | 49 | 2409402649 | `db6316ddec90928311a97d89f31468c54240ab3f39358b08840fd996c814170b` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS, SHA1SUMS |
 | `data/raw/usenet_rec` | reference | 1 | 224035 | `c23184197c356af073f1c0846daa0ce52b997b56d49f502956c4da4bbba2c5c4` | unknown | SHA256SUMS |
 | `data/raw/usenet_rec_items` | keep_until_decided | 5 | 71694598 | `34d0a81af2237fde3361d8d3d91f51f816d6652a125f73929046239789f46689` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
-| `data/raw/usenet_sci` | reference | 117 | 10681243110 | `9e461dd93b520d1681d9ed7d33e08c41ee22fc4396e92084f9f9e676a6e9057d` | unknown | SHA256SUMS, SHA1SUMS |
+| `data/raw/usenet_sci` | reference | 1 | 58819 | `50b04ea13b7a49ff28fa0f833349120f0c075cb39b16baa3ae8a2d521b20cf38` | unknown | SHA256SUMS |
+| `data/raw/usenet_sci_items` | keep_until_decided | 5 | 10309209 | `ec59dd1e43bd6706d5b19905bea91b5401b1e457bcea0976932d0da57d0d348e` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_soc` | reference | 1 | 84090 | `ea88fa49588eb6b753ec9080677999e52b267212e75f63b122cd497bf6de8175` | unknown | SHA256SUMS |
 | `data/raw/usenet_soc_items` | keep_until_decided | 5 | 18093191 | `d9cedcfd20bea12d787a46d6b9a96e3c9905bc3ebda3e86ce08e8406718f1751` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
+| `data/raw/usenet_talk` | reference | 1 | 12871 | `79224441c6ce001dd88306979bab94206743cb936c425252bef04d64dbc7a7c9` | unknown | SHA256SUMS |
+| `data/raw/usenet_talk_items` | keep_until_decided | 5 | 2179820 | `78af4e824060a0a0496d2c16b0cee70b4abcd54d89eb673957a3b042c8f73439` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_uk` | reference | 1 | 120423 | `47be6cfee4ba6aca7d964378cd33091706cf8859d5a5bf079a4a546bfda9035a` | unknown | SHA256SUMS |
 | `data/raw/usenet_uk_items` | keep_until_decided | 6 | 17205113 | `6787a345945639b9a5da35bf5c354c470f457c4caf69413b0437f90cce525c25` | https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip | SHA256SUMS |
 | `data/raw/usenet_whois` | keep_journal | 7 | 88513 | `d13094ed8af536037ae6cc43a074d1e8870aadbea5db83ebf8fdadc396796676` | own_journal | SHA256SUMS |
@@ -132,4 +145,4 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `submissions/phase-6` | reference | 6 | 3064262075 | `3f6d69269810ffb081ffdacf52942de0de0cee268127e563847ea6a321959501` | none | lines in submissions/SHA256SUMS |
 | `submissions/phase-7` | reference | 6 | 3675572318 | `57f2ce9dcdfea3a3acca43b6a31f7bc96c0e6d04180faf84753b13c2fe7e7f4f` | none | lines in submissions/SHA256SUMS |
 
-Not in the classification tables, so defaulted to `reference` until someone adds them to the script: `data/raw/usenet_comp`, `data/raw/usenet_rec`, `data/raw/usenet_sci`, `data/raw/usenet_soc`, `data/raw/usenet_uk`.
+Not in the classification tables, so defaulted to `reference` until someone adds them to the script: `data/raw/usenet_aus`, `data/raw/usenet_biz`, `data/raw/usenet_can`, `data/raw/usenet_comp`, `data/raw/usenet_misc`, `data/raw/usenet_news`, `data/raw/usenet_rec`, `data/raw/usenet_sci`, `data/raw/usenet_soc`, `data/raw/usenet_talk`, `data/raw/usenet_uk`.

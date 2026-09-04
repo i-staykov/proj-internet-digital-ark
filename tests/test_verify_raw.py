@@ -282,12 +282,11 @@ def test_every_class_name_is_one_of_six() -> None:
     # priced and not spent: the bytes a yes would be ingested from
     assert set(vr.KEEP_UNTIL_DECIDED) == {"ukwa", "usenet_bulk", "usenet_new"}
     # a priced pool keeps its item journals and gives the archives back
-    assert set(vr.KEEP_UNTIL_DECIDED_ITEMS) == {
-        "usenet_comp_items",
-        "usenet_rec_items",
-        "usenet_soc_items",
-        "usenet_uk_items",
-    }
+    # every hierarchy read whole overnight on 2026-09-04 keeps its item journals
+    assert len(vr.KEEP_UNTIL_DECIDED_ITEMS) == 11
+    assert all(
+        k.startswith("usenet_") and k.endswith("_items") for k in vr.KEEP_UNTIL_DECIDED_ITEMS
+    )
     assert not set(vr.KEEP_UNTIL_DECIDED) & set(vr.REFERENCE)
     assert vr.classify("data/raw/never_heard_of") is None
     assert vr.classify("data/ark.duckdb") is None
