@@ -22,6 +22,11 @@
 - EE and speed are the proxy; the deliverable is demonstrated research capability, so a measured negative with a reason is a result and the method that found a source outranks the source (Ivo, 2026-08-27). Run independent hypotheses in parallel: keep what works, document what does not, move to the next.
 - Where the round stands is in `docs/ROUND.md`, which is generated; never state it in a hand-written page.
 
+## Cost
+
+- **No local recipe spawns a model. Model work runs in the fleet, under the primary token** (Ivo, 2026-09-04). A local `claude -p` authenticates with the LAPTOP'S own Claude login, which is the Taktile account and has API pricing enabled, so an agent that costs an allowance in the fleet costs real money here. `just bank`'s admitter is the one place this existed; it is now opt-in via `ARK_LOCAL_ADMITTER=1` and off by default.
+- The fleet's own token is `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY`, the HPI account: limits, no API billing. `CLAUDE_CODE_OAUTH_TOKEN` is Ivo's personal one and is reached only when the repository variable `ARK_USE_FALLBACK_TOKEN` is `1`, which is unset and should stay unset. CI already refuses a workflow that does not name the primary secret.
+
 ## Engines and politeness
 
 - Two archive clients maximum.
