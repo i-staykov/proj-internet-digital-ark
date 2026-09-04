@@ -175,6 +175,16 @@ for i in $(seq 1 "$ITERATIONS"); do
     # hand. Same failure as the RDAP journals below, on a newer collector.
     if compgen -G "data/raw/cdx_suffix/suffix_*.jsonl.gz" > /dev/null; then
         uv run ark ingest-hostnames data/raw/cdx_suffix >> "$LOG" 2>&1 || true
+        # **And the same journals' REGISTRABLE half, which had been dropped since
+        # 2026-08-27.** The sweep's rows carry a capture stamp for a bare registrable as
+        # often as for a host: 19,744,519 of them across the corpus, which the hostname
+        # funnel correctly refuses because they belong in `domain_year`. The converter that
+        # collapses them into the approved `cdx_snapshot` shape was run by hand, and the
+        # newest file it had produced was five weeks old, so every sweep since then had its
+        # registrable half discarded. Free evidence, from requests already paid for, and it
+        # is also the capacity Ivo's standing rule reserves for registrables.
+        uv run python scripts/engines/cdx_suffix_convert.py >> "$LOG" 2>&1 || true
+        ingest_all cdx_snapshot data/raw/cdx/cdx_suffix_*.jsonl.gz
     fi
 
     # Registry journals, which this loop did not know about until 8 August. The
