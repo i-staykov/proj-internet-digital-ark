@@ -40,6 +40,7 @@ from ark.baseline import (  # noqa: E402
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.export import NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
 from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
 
@@ -132,6 +133,11 @@ GROUNDS: dict[str, tuple[str, str]] = {
     "usfedgov_extract_hostgrain": (
         "IA USFEDGOV-EXTRACT 1996-2001 merged CDX indexes, one capture per host, bulk download",
         "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_body_url": (
+        "Every non-alt Usenet hierarchy of the archive.org collection, 224 GB read whole, "
+        "hosts taken only from explicit http, https and ftp URLs in the post BODY",
+        "the post's own machine-written `Date:` header",
     ),
     "isc_survey_host_list": (
         "ISC Internet Domain Survey per-TLD host files (9607, 9701, 9707), read at hostname grain",
@@ -536,6 +542,15 @@ def substitutions(f: dict) -> dict[str, str]:
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
+    # The ISC folder is a question and not a claim (C-70), so its size is counted from the
+    # files that actually ship rather than typed into the prose, where it would drift.
+    isc = 0
+    for year in range(1996, 2002):
+        path = NETNEW_DIR / f"{year}-ISC.txt"
+        if path.is_file():
+            with path.open(encoding="utf-8", errors="replace") as fh:
+                isc += sum(1 for line in fh if line.strip())
+    subs["ISCPAIRS"] = f"{isc:,}"
 
     return subs
 
@@ -672,12 +687,21 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     rows = score_rows(growth)
     pct, total, scored, _ = _score_parts(rows)
     this = rows[-1]
+    # Both readings of t_i, because his 0903 update redefined it and the two differ by
+    # almost 4x on this round alone. Quoting one silently would be a claim, not a figure.
+    from ark.figures import t_days_assignment
+
+    t_abs = t_days_assignment(now_in_his_clock())
+    s_abs = score(growth, t_abs)
     return (
         f"Counting this round at its own figure, my cumulative verified percentage is "
         f"{pct:.4f}% (round 1 included, although it was awarded on records), and my "
         f"time-weighted score over the rounds you have scored is {total:.6f} "
-        f"({' + '.join(f'{r.s:.6f}' for r in scored)}), to which this round would add "
-        f"{this.s:.6f} at t = {this.t} if received now."
+        f"({' + '.join(f'{r.s:.6f}' for r in scored)}). This round would add {this.s:.6f} "
+        f"under the benchmark-interval reading of t_i that scored those rounds, or "
+        f"{s_abs:.6f} at t = {t_abs} days under the absolute task-assignment interval your "
+        f"0903 update defines. I have computed both rather than choose; please tell me which "
+        f"you intend, and whether it re-scores the rounds already awarded."
     )
 
 

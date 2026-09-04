@@ -224,6 +224,14 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# The ISC reverse-DNS survey, shipped as its OWN folder because it is a QUESTION and not a
+# claim (C-70). Nothing in `additions/` or `hostnames/` depends on it, the round's figures
+# exclude it, and the covering mail asks whether a dated reverse-DNS listing with no capture
+# of a page counts. One word admits the folder or discards it.
+mkdir -p "$STAGE/isc_survey_hostnames"
+cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
+   "$STAGE/isc_survey_hostnames/" 2>/dev/null || true
+find "$STAGE/isc_survey_hostnames" -size 0 -delete
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
 

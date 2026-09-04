@@ -36,7 +36,7 @@ and the registrable round stands at 61,603.9410 EE.
 | 2001 | 56,022 | 3,079,812 | 1,700,313.8241 |
 | **Total** | **94,549** | **7,738,159** | **4,321,453.3122** |
 
-Counting this round at its own figure, my cumulative verified percentage is 75.1305% (round 1 included, although it was awarded on records), and my time-weighted score over the rounds you have scored is 13.186902 (6.884530 + 6.302372), to which this round would add 187.648820 at t = 1 if received now.
+Counting this round at its own figure, my cumulative verified percentage is 75.1305% (round 1 included, although it was awarded on records), and my time-weighted score over the rounds you have scored is 13.186902 (6.884530 + 6.302372). This round would add 187.648820 under the benchmark-interval reading of t_i that scored those rounds, or 4.169974 at t = 45 days under the absolute task-assignment interval your 0903 update defines. I have computed both rather than choose; please tell me which you intend, and whether it re-scores the rounds already awarded.
 
 ## 2. What one hostname record is
 
