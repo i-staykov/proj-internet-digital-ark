@@ -557,6 +557,11 @@ def substitutions(f: dict) -> dict[str, str]:
     # is in question, only the host below them. A hardcoded figure here would drift the moment
     # a release moved.
     subs["ISCHELD"] = f"{isc_registrables_he_holds():,}"
+    # His XI: report annual and active-candidate EE separately. Generated, so the report and
+    # `round_figures.py` cannot disagree about a figure that must never be added to the claim.
+    from round_figures import candidate_potential
+
+    subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
 
     return subs
 

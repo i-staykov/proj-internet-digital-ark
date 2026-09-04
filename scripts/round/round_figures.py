@@ -269,6 +269,29 @@ def registrable_increment() -> tuple[int, Decimal]:
     return shipped_increment("{year}.txt")
 
 
+def candidate_potential() -> tuple[int, Decimal]:
+    """Size of the shipped candidate pool, priced but NOT claimed.
+
+    His section XI: "Report annual and active-candidate Equivalent-English contributions
+    separately." Separately is the whole instruction. A candidate carries no in-window
+    evidence, so this is what the pool would be worth if every name in it were later dated,
+    which is a ceiling on future work and not a contribution to this round. It is printed
+    under its own heading, in its own sentence, so it can never be read into the five fields.
+    """
+    weights = english_weights()
+    path = REPO / "output/candidate_unverified.txt"
+    if not path.exists():
+        return 0, Decimal(0)
+    names, ee = 0, Decimal(0)
+    with path.open() as fh:
+        for line in fh:
+            name = line.strip()
+            if name:
+                names += 1
+                ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
+    return names, ee
+
+
 def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
     """How much of the hostname half is `www.<a name held that same year>`.
 
@@ -352,6 +375,14 @@ def main() -> None:
         f"\n  since this round opened ({SINCE[:16]}), registrables only: "
         f"{pairs:,} records  {ee:,.4f}"
     )
+    c_names, c_ee = candidate_potential()
+    if c_names:
+        # Reported separately because his XI says separately, and never added to anything:
+        # a candidate has no in-window evidence, so this is a ceiling on future work.
+        print(
+            f"\n  candidate pool (candidates.txt), NOT part of the increment: "
+            f"{c_names:,} names, {c_ee:,.4f} EE if every one were later dated"
+        )
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS
