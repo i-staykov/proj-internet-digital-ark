@@ -7,9 +7,9 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0903_Update.docx` |
-| sha256 | `dd19cb8ce992d6e3d7a43679f53cf34108521a41ea3ed6580b19a5b58f60e319` |
-| delivered in | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
+| source file | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0903_Update.docx` |
+| sha256 | `02645254fdb28a9af223aa67580871521b2ef213446903208384192a078b34f3` |
+| delivered in | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
 | transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
@@ -22,7 +22,7 @@ diff against everything under the rule.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-09-01 11:37:58(UTC+8)
+Update time: 2026-09-04 11:17:08 (UTC+8)
 
 **I. Task Background**
 
@@ -235,3 +235,23 @@ The final delivery must include more than several TXT files. It must document ho
 - UK Web Archive host-link graph records, UMN DRUM link-list records, and Arquivo.pt indexes remain valid direct-evidence patterns when the record itself carries an explicit target-year association and retrievable provenance. When a live endpoint is unavailable, recovery from a preserved archival capture is acceptable only if the recovery URL, file identity, and year-bearing field are retained in the evidence ledger.
 
 - Every final annual record must be traceable through an item-level evidence ledger containing the target year, source file, original or recovery URL, record location, evidence type, and extraction method. A source-level description alone is not a substitute for this ledger.
+
+**XI. Robust Hostname Processing and Candidate-Pool Reconciliation**
+
+- Use hostname-level identity throughout discovery, evidence storage, benchmark comparison, and annual export. Retain the registrable domain only as secondary metadata. A valid base hostname and distinct valid subdomain hostnames may each be annual records when each has year-specific evidence.
+
+- Treat annual master results and candidate pools as separate data products. A candidate may be useful for further discovery without qualifying for an annual file. When a candidate later has qualifying year-specific evidence, move only the verified hostname-year record into the relevant annual file.
+
+- Before merge and deduplication, normalize hostnames to lowercase, apply the project hostname rule, and sort each annual and candidate file. This supports deterministic streaming comparison, clear overlap accounting, and reproducible reconciliation against the current benchmark.
+
+- When maintaining an active candidate pool, union and deduplicate valid candidate hostnames, then remove any hostname already accepted in an annual master file. Retain malformed but potentially recoverable values only in a separately labeled unparsed or normalization-review file. Report annual and active-candidate Equivalent-English contributions separately.
+
+- Use resumable per-year archive queries for high-density platforms and other large source families. Save query templates, target years, pagination or resume checkpoints, retained capture timestamps, source locations, normalization decisions, and failure states. Incomplete queries remain scheduled work rather than negative evidence.
+
+- Maintain a source-saturation ledger that records coverage, overlap, evidence quality, cost or effort, failure reason, and the decision to retain, deprioritize, or revisit a source family. Feed both positive yield and negative results into the next automated discovery hypotheses.
+
+- After a data-model migration or evidence-rule change, rebuild derived exports from the authoritative evidence store. Do not mix legacy records with newer hostname-level records unless the original evidence supports the exact hostname.
+
+- For RDAP or registry evidence, use a registration event only for the hostname or registrable domain it directly supports and only for the relevant creation year. Do not use a base-domain registration date as evidence that an unrelated subdomain hostname existed, and do not infer later continuity without year-specific support.
+
+These controls support a continuous autonomous discovery loop while preserving auditable, year-specific annual results and an expandable candidate asset pool.

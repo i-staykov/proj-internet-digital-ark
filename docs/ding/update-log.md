@@ -7,9 +7,9 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/Update_Log.docx` |
-| sha256 | `0108e860a6b4636eb1331eddad1b21f893796bcf3fd3ac3a90a3af4f9863ff40` |
-| delivered in | `feedback/Domain_Data_Collection_Task_0903_UpdateV3/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
+| source file | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/Update_Log.docx` |
+| sha256 | `08b32489351a71b5405f5ad445d44eee7815afdec522743980506a3c0226f403` |
+| delivered in | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
 | transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
 
 Verbatim below. Nothing is summarised, reordered or corrected. To check the
@@ -243,3 +243,29 @@ Update topic: Absolute task-assignment interval for time-weighted scoring
 ## Practical Effect
 
 All participants are scored using one stable, participant-specific time origin. The chronological benchmark still determines the benchmark used to verify p_i, while the absolute task-assignment interval determines the time component of the score.
+
+# Update Record
+
+Timestamp: 2026-09-04 11:17:08 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0903_Update.docx
+
+Update topic: Robust hostname processing, candidate-pool reconciliation, and resumable evidence acquisition
+
+## Changes in This Update
+
+- Clarified hostname-level identity across evidence storage, benchmark comparison, and annual output, with registrable domains retained as supporting metadata.
+
+- Added deterministic normalization, sorting, and streaming comparison requirements before merging annual masters and active candidate pools.
+
+- Specified candidate-pool union, deduplication, exclusion of annual-master hostnames, and separate handling for unparsed or normalization-review values.
+
+- Added resumable per-year archive-query controls, including query templates, checkpoints, retained timestamps, evidence locations, and failure-state logs.
+
+- Added a source-saturation ledger to capture coverage, overlap, evidence quality, effort or cost, failure reasons, and decisions for the next discovery cycle.
+
+- Clarified that clean rebuilds are required after data-model or evidence-rule changes, and that RDAP or registry evidence cannot establish arbitrary subdomain existence or later-year continuity without direct support.
+
+## Practical Effect
+
+The project can expand hostname discovery at scale without weakening its annual evidence standard. Reusable checkpoints, source learning, and a clean separation between verified annual records and active candidates make later validation and reconciliation more transparent and repeatable.
