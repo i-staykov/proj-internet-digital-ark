@@ -67,21 +67,22 @@ _NOT_IN_BASELINE = f"""
 _NOT_REVERSE_DNS = _shipping_filter()
 
 
-# ADR-007 (Ivo, 2026-09-03): `www.<a name already held that same year>` is the same site under
-# the name every crawler tries first, so it is not a second record. The ingest refuses
-# `www.<parent registrable>` already; this refuses the alias one level down, where the bare
-# name is dated for that year by the reviewer's file, by `hostname_year` or by `domain_year`.
+# ADR-008 (Ivo, 2026-09-04) SUPERSEDES ADR-007: `www.<a name already held that year>` ships.
 #
-# It lives in the export rather than the ingest for two reasons. "Already held" is a property
-# of the baseline at export time, not of the capture, so nothing in the store has to be
-# destroyed to answer it and one predicate turns the rows back on if the reviewer rules the
-# other way. And at ingest the answer would depend on arrival order, since whichever of two
-# names was written first would decide which was the alias.
+# ADR-007 withheld it for one day on the reasoning that the alias is the same site under the
+# name every crawler tries first. What settled it was measuring the reviewer rather than
+# arguing about him: his merged260902-3 and merged260903-3 hold **all 1,917,606** hostnames of
+# the 2026-09-02 submission, including **all 1,313,547** beginning `www.`, with the bare name
+# beside 1,106,188 of them, and he credited that round 7.562846%. He merges both forms and pays
+# for them, so withholding them cost 233,999.15 EE and bought nothing.
 #
-# Measured before it was decided: 364,524 of 623,617 shipped hostname records and 201,767.94
-# of 330,577.84 EE, 61.0% of the hostname half. A bulk CDX index re-read at hostname grain is
-# almost nothing else (100.0% and 99.5% on the two corpora that came back as five-figure
-# finds); a corpus of URLs people typed keeps three quarters of its figure.
+# **The predicate is kept and no longer applied.** `round_figures.py` imports it to report the
+# alias share, because knowing that a bulk CDX index re-read at hostname grain is 99.5% to
+# 100.0% alias while a typed-URL corpus is 22.2% is what tells us which corpus to read next.
+# That was the finding; the exclusion was only ever one way of acting on it.
+#
+# Keeping it out of the ingest is what made the reversal one line: nothing was destroyed to
+# answer "already held", so the rows were still there when the answer changed.
 NOT_WWW_ALIAS = """
     (hy.hostname NOT LIKE 'www.%' OR (
         NOT EXISTS (SELECT 1 FROM baseline_hostname b
@@ -194,11 +195,10 @@ def export_all(
     # one removes and a second copy of it there would drift.
     load_baseline_hostnames(conn)
     not_in_baseline = NOT_IN_BASELINE_HOSTNAME
-    not_www_alias = NOT_WWW_ALIAS
     for year in YEARS:
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE hy.assigned_year = {year} AND {not_in_baseline} AND {not_www_alias}
+            WHERE hy.assigned_year = {year} AND {not_in_baseline}
               AND {HOSTNAME_SHIPPING_FILTER}
             ORDER BY hy.hostname
         """
@@ -213,7 +213,7 @@ def export_all(
         FROM hostname_year hy
         JOIN evidence e ON hy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
-        WHERE {not_in_baseline} AND {not_www_alias} AND {HOSTNAME_SHIPPING_FILTER}
+        WHERE {not_in_baseline} AND {HOSTNAME_SHIPPING_FILTER}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"

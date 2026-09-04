@@ -588,6 +588,8 @@ against it.
 
 ## ADR-007. `www.<a name already held that year>` is not a hostname record
 
+**SUPERSEDED by ADR-008 (2026-09-04). Kept because the measurement in it is still the live one.**
+
 **Date** 2026-09-03. **Status** Accepted (Ivo, 2026-09-03), with the reviewer to be asked at the next
 submission. Measured before it was decided; the figure is what forced the question.
 
@@ -631,3 +633,49 @@ pricer prints the same share per corpus, so a hostname-grain source is never pri
 round's claim falls to 144,900.42 EE and 0.699511% growth, and the gate is further away by exactly the
 amount that was never ours to claim. If the reviewer rules the other way at the next submission, the
 rows are still in the store and one predicate turns them back on.
+
+## ADR-008. `www.<a name already held that year>` ships, and ADR-007 is superseded
+
+Date: 2026-09-04. Decided by Ivo. Supersedes ADR-007 after one day.
+
+### Why it was reopened
+
+ADR-007 was decided on our reasoning about the reviewer rather than on evidence about him, and it was
+the single largest number on the board: 233,999.15 EE withheld or held out. So the question was turned
+into a measurement.
+
+**His merges answer it.** `merged260902-3` and `merged260903-3` both contain **all 1,917,606**
+hostnames of the 2026-09-02 submission, including **all 1,313,547** beginning `www.`, and for
+**1,106,188** of those the bare name sits in the same year file. He credited that round **7.562846%**.
+He merges both forms, keeps them side by side, and pays for them.
+
+**And then he wrote it down.** Section XI of the 2026-09-04 brief: "A valid base hostname and distinct
+valid subdomain hostnames may each be annual records when each has year-specific evidence." That is the
+rule ADR-007 guessed at, stated by the person who scores it, in the opposite direction.
+
+### The decision
+
+**Ship them.** `NOT_WWW_ALIAS` is removed from the export query and from the hostname evidence
+manifest. The predicate itself is kept, unapplied, because `round_figures.py` and the hostname pricer
+import it to report the alias share.
+
+### What the finding was, as distinct from what we did with it
+
+The measurement behind ADR-007 stands and is the useful part: the alias share separates artifact types
+cleanly. A bulk CDX index re-read at hostname grain is 99.5% to 100.0% alias (`nypw_firstcdx` 100.0%,
+`ukwa` 99.5%, `early_web` non-200 100.0%), so it adds names without adding sites; a corpus of URLs
+people typed is 22.2%. **That ratio is how we now choose which corpus to read next**, which is worth
+more than the exclusion ever was. Reporting it and excluding it were always two different acts, and
+only the second was wrong.
+
+### Consequence
+
+The round gains 202,022.69 EE immediately from rows already in the store, and `ukwa` (20,913.95),
+`nypw_firstcdx` (7,073.72) and `early_web` non-200 (3,988.79) stop being held out, whose journals are
+on disk. Nothing had to be re-collected, because ADR-007 lived in the export and destroyed nothing:
+the one-line reversal is the whole cost of having been wrong, which is the reason to put a contested
+rule at the export and not at the ingest.
+
+**Still open, and worth more:** the ingest also refuses `www.<parent registrable>` outright
+(`NOT_WWW_OF_PARENT`), which section XI equally permits. Those evidence rows exist in the store, so
+that is a backfill rather than a re-collection. Measured and proposed separately.

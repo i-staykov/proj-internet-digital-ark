@@ -333,6 +333,35 @@ def ingest_isc_hostnames_cmd(
         typer.echo(str(ingest_isc_hostnames(conn, path)))
 
 
+@app.command(name="ingest-usenet-hostnames")
+def ingest_usenet_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards, or directories of them "
+            "(`data/raw/usenet_*_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Usenet posts.
+
+    Approved 2026-09-04, class link_source. The host authority of an explicit
+    `http://`, `https://` or `ftp://` URL in the post BODY only: a `Path`, `Xref`,
+    `NNTP-Posting-Host`, `Message-ID`, `From` or `Organization` host is a news relay
+    or a mailbox, never a host that served a page. Idempotent per shard, keyed by
+    pool and shard name.
+    Example: ark ingest-usenet-hostnames data/raw/usenet_comp_items
+    """
+    from ark.hostnames import ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
