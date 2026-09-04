@@ -15,7 +15,7 @@ code must do rather than what we must report.
 | hostname-level identity throughout; registrable is secondary metadata | yes. `hostname_year` is a first-class table, `domain_year` keeps the parent, and the export writes both | `src/ark/export.py` |
 | **a base hostname and distinct subdomain hostnames may EACH be annual records** | now yes at export, after ADR-008 reverted ADR-007 the same day this landed | ADR-008 |
 | the same, one level up: `www.<parent registrable>` | **NOT yet.** The ingest still refuses it outright. His sentence permits it and the evidence rows are already in the store, so this is a backfill and not a re-collection | #101 |
-| the same, for DNS-listed hosts | **NOT yet.** Our 2026-09-02 purpose reading (C-55) lets only web-facing lanes write hostname rows, so a zone NS target or a RIPE `nserver:` dates the parent only. XI asks for year-specific evidence and does not restate the web-content condition | #102 |
+| the same, for DNS-listed hosts | **NOT yet, and C-55 was taken against a written ruling nobody re-read.** He wrote on 2026-07-24 that a dated DNS survey is direct annual-file evidence needing no CDX confirmation, naming the ISC survey. C-55 then read his *purpose* as requiring a page. XI adds hostname-level identity on top | #102 |
 | annual masters and candidate pools are separate data products | yes | `output/netnew/`, `output/candidates.txt` |
 | report annual and active-candidate EE **separately** | **NOT yet.** One figure is reported | #103 |
 | normalize, apply the hostname rule, sort before merge | yes: lowercased at ingest, `ORDER BY` on every exported file | `src/ark/export.py` |
