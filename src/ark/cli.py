@@ -362,6 +362,34 @@ def ingest_usenet_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path)))
 
 
+@app.command(name="ingest-maillist-hostnames")
+def ingest_maillist_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_maillist_pool.py, or directories "
+            "of them (`data/raw/maillists_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated mailing-list messages.
+
+    Admitted 2026-09-04 under the standing rule, class link_source: the same evidence shape
+    as the Usenet lane, read from the pipermail month files on disk. The item pointer is
+    `<host>/<list>__<YYYY-Month>.txt#<n>`, message n of a file the archive host still serves
+    by name. Idempotent per shard.
+    Example: ark ingest-maillist-hostnames data/raw/maillists_items
+    """
+    from ark.hostnames import MAILLIST_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=MAILLIST_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

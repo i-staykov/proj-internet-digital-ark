@@ -1564,6 +1564,53 @@ Decision: rejected
 ### ffiec_call_report_webaddr / artifact_listing
 Decision: rejected
 
+### maillist_body_url_hostnames / link_source
+
+- measured: **589.0482 EE over 1,050 net-new hostname years** against the live store on
+  2026-09-04, the whole corpus read rather than sampled: 2,558 month files, 722 MB, 580,212
+  messages, 578,705 dated inside 1996-2001, 230,722 carrying a body URL, 13,841 distinct
+  host-years, 6,345 candidates, 4,911 already in the store and 374 in his files alone.
+  **550.9372 EE past the `www.<a name already held that year>` seam** (76 rows, 38.1110 EE,
+  6.5%). By year 1996 8.6 / 1997 9.8 / 1998 52.9 / 1999 108.4 / 2000 197.6 / 2001 211.7; by
+  TLD com 170.7, org 133.5, edu 105.9, net 81.1. Beside it **161 parent (registrable, year)
+  pairs, 77.0402 EE**, written from the same rows. The fleet's 1,496 EE was priced against the
+  2026-09-03 file snapshot, before the Usenet lane put 1,064,563 hostname years into the
+  store, and does not survive re-pricing; the `maillists_hostgrain` closure at 186 EE on
+  2026-09-03 was a head-of-corpus sample and was wrong in the other direction
+- fiction rate, 64 eligible net-new hosts drawn at seed 20260904 and judged by hand against
+  the raw message: 2 invented (`a.very.long.host.name.com`, a documentation example;
+  `primates.helixode.com`, a typo of helixcode.com by a poster at helixcode.com) and 1 wrong
+  year (`TorresQuevedo.hispalinux.es` under `Date: Wed, 01 Jan 1997` on a message filed in the
+  2000-July archive, a sender's clock), so **3/64 = 4.7%, Wilson 95% 1.6% to 12.9%**. Net of
+  it the lane is about 525 EE of hostnames plus the 77 EE of pairs
+- what dates one item: the message's own `Date:` header, written by the sending mail client
+  and preserved verbatim by Mailman. Quoted: message 1 of
+  `gnome/foundation-announce__2000-October.txt` carries `Date: Thu, 05 Oct 2000 08:13:15
+  -0700` and, in its body, `http://foundation.gnome.org for the foundation's charter`, which
+  dates `foundation.gnome.org` for 2000. The evidence row is `list message 2000
+  gnome/foundation-announce__2000-October.txt#1 foundation.gnome.org`
+- the artifact: `https://mail.gnome.org/archives/<list>/<YYYY-Month>.txt.gz`, 1,415 files
+  across 89 lists, and `https://mail.python.org/pipermail/<list>/<YYYY-Month>.txt`, 1,143
+  files across 43 lists, the two newsgroup-gatewayed lists skipped exactly as the registrable
+  lane skips them. On disk since 2026-08-08 in `data/raw/maillists/`, and both hosts still
+  serve the files by name (HEAD 200 on 2026-09-04)
+- terms: public list archives with no terms page. `mail.gnome.org/robots.txt` is 404;
+  `mail.python.org/robots.txt` disallows only `/*/export/` at `crawl-delay: 2`, which the
+  2026-08-08 collector honoured. The same terms `maillist_archive / dated_directory` was
+  admitted under in phase 4
+- class: `link_source`, master-eligible, at the grain Ding accepted on 2026-09-01. The
+  identical evidence shape, a host inside a URL a person typed into a dated message body, is
+  `Decision: master` for `usenet_body_url_hostnames` since 2026-09-04 (C-68), and the
+  registrable lane of this very corpus has been master since phase 4. If C-68 is read as
+  binding Usenet alone, this is the entry to downgrade
+- ingest spec: `ark ingest-maillist-hostnames data/raw/maillists_items/`, the Usenet item-shard
+  ingest with a pipermail item pointer; shards built by
+  `scripts/sources/mail_corpora/build_maillist_pool.py`, body URLs only
+- potential: 551
+- admitted under the standing rule of 2026-08-29 (Ivo)
+
+Decision: master
+
 ## Pending requests
 
 ### usenet_body_url_hostnames / link_source

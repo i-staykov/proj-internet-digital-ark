@@ -38,6 +38,8 @@ import hashlib
 import json
 import re
 from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
@@ -86,6 +88,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
         # A person typing `http://host/` in a post is naming a host that served them a page.
         "usenet_body_url_hostnames",
+        # The same shape in a dated mailing-list message (`MAILLIST_FAMILY`, 2026-09-04).
+        "maillist_body_url_hostnames",
     }
 )
 # `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
@@ -1140,7 +1144,54 @@ USENET_METHOD = "usenet_body_url"
 _USENET_ITEM = re.compile(r"^(?P<group>[a-z0-9][a-z0-9.+_-]*)\.mbox\.zip#\d+$")
 
 
-def usenet_item_rows(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str, str]]:
+def _usenet_url(item: str) -> str:
+    hierarchy = item.split(".", 1)[0]
+    return f"https://archive.org/download/usenet-{hierarchy}/{item.split('#')[0]}"
+
+
+# The mailing-list twin, admitted 2026-09-04 under the standing rule: the pipermail month
+# files `collect_mailing_lists.py` fetched, read at hostname grain from their body URLs by
+# `scripts/sources/mail_corpora/build_maillist_pool.py`. The item is `<host>/<file>#<n>`,
+# message n of a month file the archive host still serves by name; gnome serves it gzipped
+# and python plain, which is why the URL is built per host rather than by pattern.
+MAILLIST_SOURCE = "maillist_body_url_hostnames"
+MAILLIST_METHOD = "maillist_body_url"
+_MAILLIST_ITEM = re.compile(
+    r"^(?P<host>gnome|python)/(?P<list>[a-z0-9][a-z0-9._+-]*)__"
+    r"(?P<month>(?:199[6-9]|200[01])-[A-Z][a-z]+)\.txt#\d+$"
+)
+_MAILLIST_ARCHIVE = {
+    "gnome": "https://mail.gnome.org/archives/{list}/{month}.txt.gz",
+    "python": "https://mail.python.org/pipermail/{list}/{month}.txt",
+}
+
+
+def _maillist_url(item: str) -> str:
+    m = _MAILLIST_ITEM.match(item)
+    assert m is not None  # the caller matched it already
+    return _MAILLIST_ARCHIVE[m["host"]].format(list=m["list"], month=m["month"])
+
+
+@dataclass(frozen=True)
+class ItemFamily:
+    """One `{item, year, text}` lane: its source row, item pointer and archive URL."""
+
+    source: str
+    method: str
+    noun: str  # leads the evidence value, before the year: `usenet post 1999 <item> <host>`
+    item_re: re.Pattern[str]
+    url_of: Callable[[str], str]
+
+
+USENET_FAMILY = ItemFamily(USENET_SOURCE, USENET_METHOD, "usenet post", _USENET_ITEM, _usenet_url)
+MAILLIST_FAMILY = ItemFamily(
+    MAILLIST_SOURCE, MAILLIST_METHOD, "list message", _MAILLIST_ITEM, _maillist_url
+)
+
+
+def usenet_item_rows(
+    path: Path, counts: Counter[str], family: ItemFamily = USENET_FAMILY
+) -> list[tuple[str, str, int, str, str]]:
     """(hostname, parent, year, evidence value, archive URL) for one `{item, year, text}` shard.
 
     One row per (host, year), keeping the lowest-sorting item that names it, so re-reading
@@ -1165,7 +1216,7 @@ def usenet_item_rows(path: Path, counts: Counter[str]) -> list[tuple[str, str, i
                     counts["out_of_window"] += 1
                     continue
                 item = str(row.get("item", ""))
-                if not _USENET_ITEM.match(item):
+                if not family.item_re.match(item):
                     counts["bad_item"] += 1
                     continue
                 for token in str(row.get("text", "")).split():
@@ -1194,7 +1245,6 @@ def usenet_item_rows(path: Path, counts: Counter[str]) -> list[tuple[str, str, i
     for (host, year), item in sorted(seen.items()):
         if host not in parents:
             continue
-        hierarchy = item.split(".", 1)[0]
         rows.append(
             (
                 host,
@@ -1206,8 +1256,8 @@ def usenet_item_rows(path: Path, counts: Counter[str]) -> list[tuple[str, str, i
                 # item-first this failed on 3,933,601 rows, every one of them a false
                 # positive, and putting the dating year in front both fixes it and states
                 # what dates the item rather than leaving it implied.
-                f"usenet post {year} {item} {host}",
-                f"https://archive.org/download/usenet-{hierarchy}/{item.split('#')[0]}",
+                f"{family.noun} {year} {item} {host}",
+                family.url_of(item),
             )
         )
     return rows
@@ -1228,7 +1278,7 @@ def _as_arrow_usenet(rows: list[tuple[str, str, int, str, str]]):  # noqa: ANN20
 
 
 def ingest_usenet_item_journal(
-    conn: duckdb.DuckDBPyConnection, path: Path
+    conn: duckdb.DuckDBPyConnection, path: Path, family: ItemFamily = USENET_FAMILY
 ) -> dict[str, int | str | bool]:
     """One `{item, year, text}` shard into hostname_year, idempotently.
 
@@ -1241,20 +1291,20 @@ def ingest_usenet_item_journal(
     file_key = f"{path.parent.name}/{path.name}"
     already = conn.execute(
         "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
-        [USENET_SOURCE, file_key],
+        [family.source, file_key],
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
         logger.info(f"{file_key}: already ingested, skipping")
         return stats
-    approvals.check(USENET_SOURCE, "link_source")
+    approvals.check(family.source, "link_source")
 
     counts: Counter[str] = Counter()
-    rows = usenet_item_rows(path, counts)
+    rows = usenet_item_rows(path, counts, family)
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
     if rows:
-        source_id = ensure_source(conn, USENET_SOURCE, "timestamped")
+        source_id = ensure_source(conn, family.source, "timestamped")
         conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS usenethost "
             "(hostname TEXT, parent TEXT, year INTEGER, value TEXT, url TEXT)"
@@ -1283,7 +1333,7 @@ def ingest_usenet_item_journal(
               ON hy.hostname = u.hostname AND hy.assigned_year = u.year
             WHERE hy.hostname IS NULL
             """,
-            [source_id, USENET_METHOD],
+            [source_id, family.method],
         )
         conn.execute(
             """
@@ -1321,19 +1371,22 @@ def ingest_usenet_item_journal(
     conn.execute(
         "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
         "VALUES (?, ?, ?, ?)",
-        [USENET_SOURCE, file_key, _sha256(path), stats["hostname_year_rows"]],
+        [family.source, file_key, _sha256(path), stats["hostname_year_rows"]],
     )
     logger.info(str(stats))
     return stats
 
 
 def ingest_usenet_item_dir(
-    conn: duckdb.DuckDBPyConnection, root: Path, pattern: str = "*.jsonl.gz"
+    conn: duckdb.DuckDBPyConnection,
+    root: Path,
+    pattern: str = "*.jsonl.gz",
+    family: ItemFamily = USENET_FAMILY,
 ) -> dict[str, int]:
     totals: Counter[str] = Counter()
     files = sorted(root.glob(pattern)) if root.is_dir() else [root]
     for i, path in enumerate(files, 1):
-        stats = ingest_usenet_item_journal(conn, path)
+        stats = ingest_usenet_item_journal(conn, path, family)
         for key, value in stats.items():
             if isinstance(value, int) and not isinstance(value, bool):
                 totals[key] += value
