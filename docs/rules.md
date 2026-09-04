@@ -32,6 +32,7 @@
 
 ## Hunting
 
+- **The standing priority (Ivo, 2026-09-04): bulk HOSTNAME sources first, and hostnames for domains we ALREADY HOLD before hostnames for new ones. Reserve some capacity for new registrables, never all of it.** The arithmetic behind it: the same thirteen Usenet pools paid 35.8 EE at registrable grain and 119,640 at hostname grain, and a held registrable needs no discovery, no corroboration split and no new approval, so a domain-wide archive query over names already in the store is the shortest path from a request to a record. `scripts/engines/platform_sweep.sh` over `rank_platform_parents.py` is that lane; the registrable reserve is what stops the pool from starving and the method from narrowing to one shape.
 - One lens per cycle, never the same lens twice running; rotate even when the last one paid.
 - If two hunts in a row return nothing, change the method, not the effort: widen the lens, not the list, and ask what *kind* of artifact has never been looked for, not which host has not been tried.
 - Rewrite the wake-up wording when a lens stalls, and re-price parked sources, because an unbanked source decays as the store grows.
