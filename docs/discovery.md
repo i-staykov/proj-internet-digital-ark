@@ -85,8 +85,8 @@ all three are answerable from a source's description alone.
 
 **A dated prose corpus yields about 0.042 net-new post-split pairs per item.** Measured twice
 independently: the closed RFC row at 0.0416 (140 pairs over 3,367 items) and a full census of D-Lib
-Magazine at 0.0420 (16 over 381). So clearing the 5,000-pair bar needs roughly **119,000 items**, and
-that single number screens a prose lead before any fetch.
+Magazine at 0.0420 (16 over 381). So clearing the bar, 10,000 EE since 2026-09-04, needs roughly
+**238,000 items**, and that single number screens a prose lead before any fetch.
 
 **But it is a property of SUBJECT MATTER, not of prose, and that was measured on 2026-08-18.** Both
 corpora that established it are prose *about the internet*. Government grant records cleared the item
@@ -152,8 +152,12 @@ building its collector.
 
 1. **Per-item year evidence**, as above. Anything else is seed-only. **This is still a veto**, and no
    deadline touches it.
-2. **Net-new `(domain, year)` pairs.** ~5,000 was the old floor and is now the point above which a
-   source jumps the queue. A measured 300 is worth having; it is simply worth having later.
+2. **Net-new equivalent-English. The bar is 10,000 EE (Ivo, 2026-09-04), raised from 5,000**, and
+   it is a queue position rather than a veto. A measured 300 is still worth having, later. The
+   raise is not a higher standard of proof, it is a statement about where the round is: the
+   hostname unit made bulk corpora worth an order of magnitude more than they were, the denominator
+   grows faster than a small source can matter, and **speed is the constraint**. A lead whose
+   ceiling is four figures now costs more attention than it can return.
 3. **A mean equivalent-English weight that pays.** Report the measured mean weight of the **net-new**
    part, not of the source. At or above 0.6 is good, below about 0.4 the volume has to carry it, and
    either way the figure now decides *order* rather than admission.

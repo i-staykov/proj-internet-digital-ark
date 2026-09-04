@@ -22,8 +22,8 @@ Read this before pricing or proposing a source. [discovery.md](discovery.md) has
 
 ## Prose density, and the second screen behind it
 
-Prose density ceiling: ~0.042 net-new pairs per item, so ~119,000 items to clear the bar. Ask
-what the corpus is *about* before trusting even that.
+Prose density ceiling: ~0.042 net-new pairs per item, so ~238,000 items to clear the 10,000 EE
+bar. Ask what the corpus is *about* before trusting even that.
 
 **Density and authority are two INDEPENDENT screens and a corpus must pass both.** Formal prose
 fails the first: Hansard is 3.26M words per 5 URLs, 0.00153 URLs per 1,000 words. Grey
