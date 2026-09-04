@@ -1073,6 +1073,9 @@ hierarchy to read**, and density is how much people typed URLs at each other:
 
 | pool | GB | EE per GB gross |
 |---|---|---|
+| maillists_full_scale_hostgrain | 2026-09-04, fleet 20260904T1131Z | n/a | see laws.md, "A projection from the head of a file-ordered corpus is a lower bound" | the message's own `Date:` header inside the pipermail month file. | n/a | 1496.2868 EE (2026-09-04) | 60 gnome month files, 4.2% of the tree, 20,616 in-window messages | n/a | FIND | <https://mail.gnome.org/archives/<list>/<YYYY-Month>.txt(.gz> |
+| fallback | 2026-09-04, fleet 20260904T1131Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-04) | agent produced no findings file | n/a | BLOCKED | n/a |
+| usenet_alt_remainder_hostgrain | 2026-09-04, fleet 20260904T1131Z | n/a | see laws.md, "In-window share, not size, orders a Usenet fetch" | the post's own machine-written `Date:` header, quoted as `<group>.mbox.zip#n` | n/a | 1591.0 EE (2026-09-04) | 25 alt.* archives, 1,077.9 MB, five size strata, alt.sex.* excluded | n/a | FIND | <https://archive.org/metadata/usenet-alt> |
 | `news` | 5.5 | 2,552 |
 | `comp` | 30.8 | 1,701 |
 | `sci` | 10.8 | 1,413 |

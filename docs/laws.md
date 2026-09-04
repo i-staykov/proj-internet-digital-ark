@@ -140,3 +140,43 @@ Querying is measured at **255 EE/hour** (400 pairs/hour over a 16.9-hour window,
 confirmed 5% is a hard trigger, and on 2026-08-31 the gap was **530,535 EE**, which is 87 days
 of pure querying. The whole priced approval queue that day was 27,386 EE, or 5.2% of the gap.
 Spend the hours on bulk dated corpora accordingly; the current gap is in `ROUND.md`.
+
+## In-window share, not size, orders a Usenet fetch, and the cheap pre-filter does not work
+
+Measured 2026-09-04 by a researcher wave over 25 `alt.*` archives, 1,077.9 MB in five size strata.
+
+**Only 42.1% of `alt` messages are dated 1996-2001, and the in-window share is uncorrelated with
+archive size.** `alt.guitar.beginner` is 75.7 MB of which **0.0%** is in window (137,161 of 137,525
+messages are post-2001); `alt.video.dvd` 155.9 MB at 12.9%; `alt.sources` 72.8 MB at 14.5%; while
+`alt.personals` 154.8 MB is 79.2% and `alt.music.techno` 71.5 MB is 85.2%. 7.1% of the probed bytes
+returned literally nothing.
+
+`fetch_usenet_hierarchies.sh` orders largest-first, which is **ordering on the wrong variable**.
+Ordering by in-window share roughly doubles equivalent-English per GB downloaded.
+
+**And the obvious cheap way to get that share does not work, which is the more useful half.** A
+range-GET of the first 200 KB of an archive does not reveal its era, because these mboxes are
+ordered by donation batch and not chronologically: the first three `Date:` headers are 2013 for
+`alt.guitar.beginner` at 0% in window, and 2008 for `alt.music.techno` at 85%. Do not build that
+pre-filter.
+
+## A projection from the head of a file-ordered corpus is a lower bound, not an upper one
+
+Measured 2026-09-04 on the pipermail mailing-list corpus, and it corrects a closure of our own.
+
+**A linear extrapolation from the HEAD of a file-ordered corpus is a lower bound whenever the
+ordering correlates with size or date**, which is most orderings. The mailing-list family had been
+closed on 7.63% of its files read from the front; the full read pays 1,496.2868 EE. So measure the
+saturation curve at 10, 25, 50, 75 and 100% before quoting a projection in either direction: if it
+steepens, the projection is wrong in the direction that closes a live source.
+
+Three smaller things from the same read, each measured:
+
+- **Price both units on the same pass.** Here 55.1% of hosts were already held at hostname grain
+  against 94.6% at registrable grain, a 39-point spread that is the whole reason the lane reopened.
+- **Stream-parse a mail corpus over HTTP straight into the extractor and never land the bytes.**
+  368 MB read, zero bytes on disk, no antivirus exposure, no storage budget needed.
+- **`robots.txt` `crawl-delay` is the cost model for this family, not bandwidth.**
+  `mail.gnome.org` serves from a CDN with no robots.txt and answers in 0.10s, so 1,415 files cost
+  562s; `mail.python.org` sets `crawl-delay: 2` and its 1,207 files cost 2,400s. Read the fast host
+  first and let the slow one be the projection.
