@@ -28,7 +28,6 @@ import json
 import subprocess
 import sys
 import tempfile
-import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -99,16 +98,19 @@ NOT_BASELINE = """
 """
 
 
-def open_store(attempts: int = 40, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Wait out the maintain loop rather than failing the whole measurement."""
-    for remaining in range(attempts, 0, -1):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            if remaining == 1:
-                raise
-            time.sleep(pause)
-    raise RuntimeError("unreachable")
+def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
+    """Wait out the maintain loop rather than failing the whole measurement.
+
+    The shared helper rather than a fourth hand-written retry loop, which is what this was:
+    `ark.db.connect_read_only_patiently` exists precisely because the same loop had been
+    written twice and omitted twice. 45 minutes of patience, not 10, because the fold loop
+    runs every 7 minutes and a single pass over 500 sweep journals can hold the writer for
+    longer than that: measured 2026-09-04, this command died on the lock while the round-9
+    lanes were running, which is exactly when the figures are wanted.
+    """
+    from ark.db import connect_read_only_patiently
+
+    return connect_read_only_patiently(STORE, patience_s=patience_s)
 
 
 def increment(conn: duckdb.DuckDBPyConnection) -> dict:
@@ -228,21 +230,43 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     return totals
 
 
-def hostname_increment() -> tuple[int, Decimal]:
-    """Records and EE of the shipped hostname files, priced with his weight model."""
+def shipped_increment(pattern: str) -> tuple[int, Decimal]:
+    """Records and EE of a shipped annual file family, priced with his weight model.
+
+    **This is the definition the five fields need, and the reason is a bug it fixed.** The
+    hostname half was measured here, from the files, while the registrable half was measured
+    from the store filtered by `round_since`. Those agree only while a round opens at the
+    instant a new benchmark arrives. Round 9 opened on 2026-09-04 BEFORE his feedback on round
+    8, and fields 3 and 4 immediately stopped matching what the archive actually contains: 6,223
+    registrable records against 100,883 in `additions/`.
+
+    What he merges is the shipped files, so that is what the five fields count, both units, no
+    session window. What a session ADDED is a different question and is printed separately
+    below, out of the store, where the timestamps are.
+    """
     weights = english_weights()
     pairs, ee = 0, Decimal(0)
     for year in range(1996, 2002):
-        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        path = REPO / f"output/netnew/{pattern.format(year=year)}"
         if not path.exists():
             continue
         with path.open() as fh:
             for line in fh:
-                host = line.strip()
-                if host:
+                name = line.strip()
+                if name:
                     pairs += 1
-                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+                    ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
     return pairs, ee
+
+
+def hostname_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped hostname files."""
+    return shipped_increment("{year}_hostnames.txt")
+
+
+def registrable_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped registrable additions."""
+    return shipped_increment("{year}.txt")
 
 
 def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
@@ -300,7 +324,11 @@ def main() -> None:
     # the hostname files. The split is printed beneath, registrables first, because he
     # still asks for those to be prioritized.
     h_pairs, h_ee = hostname_increment()
-    all_pairs, all_ee = pairs + h_pairs, ee + h_ee
+    # The five fields count what SHIPS, both units, from the files he will merge. `pairs`
+    # and `ee` above are the same unit over the session window and are reported separately,
+    # because a figure is comparable only to a figure over the same window.
+    r_pairs, r_ee = registrable_increment()
+    all_pairs, all_ee = r_pairs + h_pairs, r_ee + h_ee
     growth = all_ee / BASELINE_EE * 100
 
     print("The five fields, in his order\n")
@@ -309,7 +337,7 @@ def main() -> None:
     print(f"3. Increment                                  : {all_pairs:,} records")
     print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
-    print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
+    print(f"\n  registrable domains (additions/)  : {r_pairs:,} records  {r_ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
     if seam_rows and h_ee:
         # These are INSIDE the hostname figure above since ADR-008, so the share is of
@@ -319,7 +347,11 @@ def main() -> None:
             f"    of which www.<held that year>   : {seam_rows:,} records  {seam_ee:,.4f}"
             f"  ({share:.1f}% of the hostname half)"
         )
-    print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
+    print(f"  registrable-only growth rate      : {r_ee / BASELINE_EE * 100:.6f}%")
+    print(
+        f"\n  since this round opened ({SINCE[:16]}), registrables only: "
+        f"{pairs:,} records  {ee:,.4f}"
+    )
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS
