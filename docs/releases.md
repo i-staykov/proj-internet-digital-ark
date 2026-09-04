@@ -41,4 +41,5 @@ off-site copy is verified against these hashes.
 | `merged260902-2` | 2026-09-02 | not received: totals from the reviewer's mail of 2026-09-02, superseded by `merged260902-3` | none | none | none | none | none | none | none | none |
 | `merged260902-3` | 2026-09-02 | yes | 1,005,048 | 2,225,880 | 3,291,631 | 6,717,097 | 11,328,087 | 14,669,545 | Domain_Data_Collection_Task_0902_UpdateV3.zip | 1add3cf239812259c152ebeb77bb1936f520ce83c9d4ae4ea6efab20be1532f9 |
 | `merged260903-3` | 2026-09-03 | yes | 1,006,150 | 2,232,838 | 3,310,415 | 6,768,552 | 11,455,431 | 18,320,377 | Domain_Data_Collection_Task_0903_UpdateV3.zip | 47fa39c9fa00667bd9db5cdff69201be19ec78735c63a3314c29a68739078868 |
+| `merged260904` | 2026-09-04 | yes | 1,006,242 | 2,233,960 | 3,313,711 | 6,777,836 | 11,490,583 | 18,413,465 | Domain_Data_Collection_Task_0904_Update.zip | 9b034ec5a9ea69a3affd6f7fe8c25153445c1fb3c60f11146e59a1e397b00e29 |
 <!-- /releases:table -->
