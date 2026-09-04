@@ -15,7 +15,8 @@ funnel already knows which is which, so each row carries the reason:
 - `not_rfc1123`  underscores, over-long labels, a numeric TLD. The era really had these names, so
   they are recoverable if he ever rules on the shape.
 - `is_registrable` the value IS its own registrable, so it belongs in `additions/` and is not
-  malformed at all. Kept because a reader comparing counts will otherwise wonder where it went.
+  malformed at all. COUNTED but not listed: 19,744,519 of them, and a file padded with names that
+  are not malformed would misrepresent what the pool is for.
 - `no_public_suffix` no known suffix, so `to_registrable` cannot place it. Usually a typo in a
   typed URL, occasionally a TLD the pinned list postdates.
 - `reverse_dns` an `in-addr.arpa` or `ip6.arpa` name, refused as infrastructure.
@@ -68,8 +69,9 @@ def main() -> int:
     ap.add_argument(
         "--stable-after",
         type=int,
-        default=25,
-        help="stop once N consecutive journals add no new refused value (0 to disable)",
+        default=0,
+        help="quick look only: stop once N consecutive journals add nothing new. Off by "
+        "default, because the refused set does not saturate and a sample truncates it 274x",
     )
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
@@ -77,12 +79,14 @@ def main() -> int:
     counts: Counter[str] = Counter()
     seen: set[tuple[str, str]] = set()
     read = 0
-    # **The refused set saturates, so scanning every journal buys nothing.** 25 journals of
-    # `cdx_suffix` hold 14.4M values and yield 4,306 distinct refused ones, and the whole
-    # corpus is 300M values: an exhaustive pass would cost an hour per round to add almost
-    # nothing, because the same malformed shapes recur on the same platforms. So the pass
-    # stops when N consecutive journals add no new value, which is the same saturation
-    # argument as everywhere else in this project, applied to a pool rather than a corpus.
+    # **The refused set does NOT saturate, and I claimed it did on a sample.** 25 journals
+    # gave 4,306 distinct refused values from 14.4M; the whole 554 give 1,178,435 from
+    # 328M, which is 274 times more. The sample was the head of an alphabetically ordered
+    # corpus, so it covered one or two platforms, and every further platform brings its own
+    # malformed names. That is precisely the law this project recorded the same morning from
+    # a researcher wave: a projection from the HEAD of a file-ordered corpus is a lower
+    # bound, not an upper one. So the default is exhaustive, at about nine minutes for 328M
+    # values, and `--stable-after` exists only for a quick look.
     barren = 0
     for name in args.dirs:
         root = REPO / name
@@ -127,7 +131,10 @@ def main() -> int:
     with args.out.open("w", encoding="utf-8") as fh:
         fh.write("# value\treason\n")
         for value, why in sorted(seen):
-            fh.write(f"{value}\t{why}\n")
+            # Only the malformed classes are listed. `is_registrable` is not malformed, it is
+            # a registrable, and XI asks for a file of malformed-but-recoverable values.
+            if why != "is_registrable":
+                fh.write(f"{value}\t{why}\n")
     tail = " (stopped on saturation)" if counts.get("stopped_on_saturation") else ""
     print(f"{read:,} journals, {counts['values']:,} values, {len(seen):,} distinct refused{tail}")
     for why, n in counts.most_common():
@@ -135,7 +142,11 @@ def main() -> int:
             print(f"  {why:18} {n:>12,}")
     if counts["truncated_journals"]:
         print(f"  {'truncated journals':18} {counts['truncated_journals']:>12,} (a live collector)")
-    print(f"wrote {args.out.relative_to(REPO)}")
+    try:
+        shown = args.out.relative_to(REPO)
+    except ValueError:
+        shown = args.out  # a caller writing outside the repo, which packaging may do
+    print(f"wrote {shown}")
     return 0
 
 
