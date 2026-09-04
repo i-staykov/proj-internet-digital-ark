@@ -246,15 +246,15 @@ def hostname_increment() -> tuple[int, Decimal]:
 
 
 def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
-    """What ADR-007 keeps OUT of the hostname files: `www.<a name held that same year>`.
+    """How much of the hostname half is `www.<a name held that same year>`.
 
-    The rows are net-new against the reviewer's files and would have shipped before
-    2026-09-03, when 364,524 of them carried 201,767.94 EE, 61.0% of the hostname half.
-    Reported every round rather than left in a commit message, because the reviewer has
-    not yet ruled on the alias and both readings have to stay visible: a CDX corpus
-    re-read at hostname grain is almost nothing else, while a corpus of URLs people typed
-    keeps three quarters of its figure. The predicate is imported from the export, so this
-    figure cannot drift from the rule that produced it.
+    These rows SHIP, since ADR-008 (2026-09-04) and his own section XI, which says a base
+    hostname and a distinct subdomain hostname may each be annual records. The share is
+    still reported every round, because it is the one number that says whether a corpus
+    was worth reading: a bulk CDX index re-read at hostname grain is 99.5% to 100.0%
+    alias, so it adds names without adding sites, while a corpus of URLs people typed is
+    22.2%. That difference is what picks the next corpus. The predicate is imported from
+    the export, so the figure cannot drift from the rule that produced it.
     """
     weights = english_weights()
     export.load_baseline_hostnames(conn)
@@ -311,13 +311,13 @@ def main() -> None:
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
     print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
-    if seam_rows:
-        # These are OUT of the figures above, so the share is of what the two readings
-        # differ by, and the alternative growth rate is printed rather than implied.
-        with_seam = (all_ee + seam_ee) / BASELINE_EE * 100
+    if seam_rows and h_ee:
+        # These are INSIDE the hostname figure above since ADR-008, so the share is of
+        # the hostname half and reads as a quality signal, not as a withheld alternative.
+        share = seam_ee / h_ee * 100
         print(
-            f"    excluded, www.<held that year>  : {seam_rows:,} records  {seam_ee:,.4f}"
-            f"  (ADR-007; {with_seam:.6f}% if the reviewer counts them)"
+            f"    of which www.<held that year>   : {seam_rows:,} records  {seam_ee:,.4f}"
+            f"  ({share:.1f}% of the hostname half)"
         )
     print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
 

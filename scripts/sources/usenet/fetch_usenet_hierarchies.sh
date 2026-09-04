@@ -104,6 +104,12 @@ for f in fs:
 ")
 
     for name in $files; do
+        # An optional exclude, because a hierarchy is not homogeneous: alt's unread
+        # remainder is 168.2 GB of which 22.0 GB is alt.sex.*, a stratum an earlier
+        # measurement already set aside, and largest-first would fetch it first.
+        if [ -n "${ARK_USENET_EXCLUDE:-}" ] && printf '%s' "$name" | grep -qE "$ARK_USENET_EXCLUDE"; then
+            continue
+        fi
         [ "$(date +%s)" -ge "$DEADLINE" ] && { note "deadline reached"; break 2; }
         out="$DEST/$name"
         [ -s "$out" ] && continue

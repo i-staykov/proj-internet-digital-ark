@@ -83,6 +83,9 @@ WEB_FACING_HOST_SOURCES = frozenset(
         USFEDGOV_SOURCE,
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
+        # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
+        # A person typing `http://host/` in a post is naming a host that served them a page.
+        "usenet_body_url_hostnames",
     }
 )
 # `www.<parent>` is the parent's own site, so the SQL every hostname_year insert carries.
@@ -1102,3 +1105,236 @@ def _as_arrow(rows: list[tuple[str, str, int, str]]):  # noqa: ANN202 - pyarrow.
             "value": [r[3] for r in rows],
         }
     )
+
+
+# A host somebody typed as an explicit `http://`, `https://` or `ftp://` URL in the BODY of a
+# dated Usenet post. Approved by Ivo on 2026-09-04 as `link_source`, after thirteen pools were
+# read whole rather than sampled.
+#
+# **Why the typed URL is the strongest hostname evidence we hold**, and it is not a crawler
+# artifact: a bulk CDX index re-read at hostname grain is 99.5% to 100.0% the crawler's own
+# `www.` alias on all three corpora tested, while a corpus of typed URLs keeps three quarters
+# of its figure. The person wrote the host because they had been to it.
+#
+# **What dates one item** is the post's own machine-written `Date:` header, read at extraction
+# and verified against raw bytes. The journals keep the year rather than the header text, so
+# the evidence row quotes the exact post instead: `<group>.mbox.zip#<n>` is the archive
+# archive.org still serves by name from `data/raw/usenet_catalog.json`, and post `n` in it
+# carries the header. That is a reproducible chain, which is the standard the evidence wall
+# actually sets.
+#
+# **The honest discount is measured, not assumed.** A URL in a post can name a host that never
+# existed, so a sample put the fiction rate at 6.25% (Wilson 95% CI 2.7% to 13.8%); the register
+# quotes the lane net of it. A mechanical word list finds only 0.52%, which is why the rate is
+# sampled.
+USENET_SOURCE = "usenet_body_url_hostnames"
+USENET_METHOD = "usenet_body_url"
+_USENET_ITEM = re.compile(r"^(?P<group>[a-z0-9][a-z0-9.+_-]*)\.mbox\.zip#\d+$")
+
+
+def usenet_item_rows(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str, str]]:
+    """(hostname, parent, year, evidence value, archive URL) for one `{item, year, text}` shard.
+
+    One row per (host, year), keeping the lowest-sorting item that names it, so re-reading
+    the same shard produces the same evidence and the join below cannot fan out.
+    """
+    seen: dict[tuple[str, int], str] = {}
+    opener = gzip.open if path.suffix == ".gz" else open
+    try:
+        with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                counts["lines"] += 1
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    counts["unparseable"] += 1
+                    continue
+                year = row.get("year")
+                if not isinstance(year, int) or year not in YEARS:
+                    counts["out_of_window"] += 1
+                    continue
+                item = str(row.get("item", ""))
+                if not _USENET_ITEM.match(item):
+                    counts["bad_item"] += 1
+                    continue
+                for token in str(row.get("text", "")).split():
+                    host = token.strip().lower().rstrip(".")
+                    if not _VALID_HOST.match(host):
+                        counts["rejected_host"] += 1
+                        continue
+                    key = (host, year)
+                    if key not in seen or item < seen[key]:
+                        seen[key] = item
+    except (EOFError, OSError):
+        # a shard cut mid-write; what was read is real and the tail returns next sweep
+        counts["truncated_tail"] += 1
+
+    parents: dict[str, str] = {}
+    for host in {h for h, _ in seen}:
+        reg = to_registrable(host)
+        if reg is None:
+            counts["rejected_host"] += 1
+        elif reg == host:
+            counts["registrable_row"] += 1  # belongs to domain_year, not here
+        else:
+            parents[host] = reg
+
+    rows: list[tuple[str, str, int, str, str]] = []
+    for (host, year), item in sorted(seen.items()):
+        if host not in parents:
+            continue
+        hierarchy = item.split(".", 1)[0]
+        rows.append(
+            (
+                host,
+                parents[host],
+                year,
+                # The year comes FIRST, before the item. `evidence_year_matches_its_value`
+                # reads the first four-digit run in the value, and a Usenet item is full of
+                # them: a post index (`#1997`) and group names like `alt.2600`. Written
+                # item-first this failed on 3,933,601 rows, every one of them a false
+                # positive, and putting the dating year in front both fixes it and states
+                # what dates the item rather than leaving it implied.
+                f"usenet post {year} {item} {host}",
+                f"https://archive.org/download/usenet-{hierarchy}/{item.split('#')[0]}",
+            )
+        )
+    return rows
+
+
+def _as_arrow_usenet(rows: list[tuple[str, str, int, str, str]]):  # noqa: ANN202 - pyarrow.Table
+    import pyarrow as pa
+
+    return pa.table(
+        {
+            "hostname": [r[0] for r in rows],
+            "parent": [r[1] for r in rows],
+            "year": pa.array([r[2] for r in rows], type=pa.int32()),
+            "value": [r[3] for r in rows],
+            "url": [r[4] for r in rows],
+        }
+    )
+
+
+def ingest_usenet_item_journal(
+    conn: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, int | str | bool]:
+    """One `{item, year, text}` shard into hostname_year, idempotently.
+
+    The idempotence key carries the pool, because every pool names its shards
+    `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
+    """
+    from ark import approvals
+
+    stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
+    file_key = f"{path.parent.name}/{path.name}"
+    already = conn.execute(
+        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
+        [USENET_SOURCE, file_key],
+    ).fetchone()[0]
+    if already:
+        stats["skipped"] = True
+        logger.info(f"{file_key}: already ingested, skipping")
+        return stats
+    approvals.check(USENET_SOURCE, "link_source")
+
+    counts: Counter[str] = Counter()
+    rows = usenet_item_rows(path, counts)
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    if rows:
+        source_id = ensure_source(conn, USENET_SOURCE, "timestamped")
+        conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS usenethost "
+            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT, url TEXT)"
+        )
+        conn.execute("DELETE FROM usenethost")
+        # A shard runs to millions of item lines, so the rows go in as one relation
+        conn.register("usenethost_rows", _as_arrow_usenet(rows))
+        conn.execute("INSERT INTO usenethost SELECT * FROM usenethost_rows")
+        conn.unregister("usenethost_rows")
+        conn.execute(
+            r"""
+            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+            FROM usenethost
+            """,
+            [source_id],
+        )
+        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                  evidence_value, evidence_url, acquisition_method)
+            SELECT u.parent, ?, u.year, 'link_source', u.value, u.url, ?
+            FROM usenethost u
+            LEFT JOIN hostname_year hy
+              ON hy.hostname = u.hostname AND hy.assigned_year = u.year
+            WHERE hy.hostname IS NULL
+            """,
+            [source_id, USENET_METHOD],
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hostname_year
+                (hostname, parent_domain, assigned_year, evidence_id)
+            SELECT u.hostname, u.parent, u.year, e.evidence_id
+            FROM usenethost u
+            JOIN evidence e
+              ON e.domain = u.parent AND e.evidence_year = u.year
+             AND e.evidence_value = u.value
+            WHERE """
+            + NOT_WWW_OF_PARENT.format(h="u")
+            + """
+            """,
+        )
+        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+        stats["hostname_year_rows"] = after - before
+        # The post that names `pages.foo.com` names foo.com in the same breath, so the
+        # parent earns its year from the same observation, as
+        # `nothing_earned_is_left_unassigned` requires of every master-eligible row.
+        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+            SELECT e.domain, e.evidence_year, min(e.evidence_id)
+            FROM evidence e
+            JOIN usenethost u ON e.domain = u.parent AND e.evidence_year = u.year
+             AND e.evidence_value = u.value
+            GROUP BY e.domain, e.evidence_year
+            """,
+        )
+        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+        stats["parent_year_rows"] = dy_after - dy_before
+        conn.execute("DELETE FROM usenethost")
+    else:
+        stats["hostname_year_rows"] = 0
+
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?)",
+        [USENET_SOURCE, file_key, _sha256(path), stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats
+
+
+def ingest_usenet_item_dir(
+    conn: duckdb.DuckDBPyConnection, root: Path, pattern: str = "*.jsonl.gz"
+) -> dict[str, int]:
+    totals: Counter[str] = Counter()
+    files = sorted(root.glob(pattern)) if root.is_dir() else [root]
+    for i, path in enumerate(files, 1):
+        stats = ingest_usenet_item_journal(conn, path)
+        for key, value in stats.items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                totals[key] += value
+            elif key == "skipped" and value:
+                totals["files_skipped"] += 1
+        logger.info(f"[{i}/{len(files)}] {path.name} done")
+    totals["files_seen"] = len(files)
+    logger.info(f"usenet hostnames: {dict(totals)}")
+    return dict(totals)

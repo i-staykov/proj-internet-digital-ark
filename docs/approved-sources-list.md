@@ -1622,7 +1622,11 @@ Decision: rejected
   be ingested from at four workers
 - potential: 119640
 
-Decision: pending
+Decision: master
+
+Approved by Ivo on 2026-09-04. Thirteen pools read whole rather than sampled, the fiction
+rate measured on a sample and quoted with its interval, and the same body-only extraction
+the banked Usenet classes already use.
 
 ### arin_inaddr_ns_hostnames / artifact_listing
 

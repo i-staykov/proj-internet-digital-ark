@@ -92,13 +92,14 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
     assert not missed, f"test_export_all must redirect these: {sorted(missed)}"
 
 
-def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
-    """ADR-007: 61.0% of the hostname half was `www.<a name already held that year>`.
+def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
+    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS.
 
-    The ingest refuses `www.<parent registrable>`; this is the same alias one level down,
-    where the bare name is dated for the same year by the store or by his files. Three
-    holders count, and a year apart does not: `www.x` in 1999 is a real record when the
-    only `x` we hold is 1998's.
+    His merges hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of
+    them, and section XI says a base hostname and a distinct subdomain hostname may each be
+    annual records. So the alias is no longer withheld, and this test exists to keep the
+    reversal from being undone by accident, and to prove the two filters that DO still bite
+    were never part of it.
     """
     conn = connect(":memory:")
     init_db(conn)
@@ -114,15 +115,16 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
         [cdx],
     )
     rows = [
-        # www. of a hostname the store holds for that year: refused
+        # www. of a hostname the store holds for that same year: SHIPS since ADR-008
         ("www.deep.held.com", "held.com", 1999),
         ("deep.held.com", "held.com", 1999),
-        # www. of a registrable the store dates that year: refused
-        ("www.held.com", "held.com", 1999),
-        # www. of a name held only in another year: ships
+        # www. of a name held only in another year: always shipped
         ("www.deep.held.com", "held.com", 2000),
         # not a www. form at all: ships
         ("mail.held.com", "held.com", 1999),
+        # `www.<parent registrable>` is absent on purpose: the ingest refuses it and
+        # `hostname_is_not_the_parent_www` forbids the row, so a fixture holding one would
+        # be testing the export against a state `ark check` rejects. That rule is #101.
         # the hostname half applied neither the .arpa nor the delegation rule until
         # 2026-09-03, so 198 rows like these were shipping
         ("bust.web.site", "web.site", 1996),
@@ -144,13 +146,15 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
         provenance_dir=tmp_path / "provenance",
     )
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
-    assert shipped_1999 == ["deep.held.com", "mail.held.com"]
+    assert shipped_1999 == ["deep.held.com", "mail.held.com", "www.deep.held.com"]
     assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
-    # `.site` was delegated in 2015 and `.arpa` is never a website
+    # `.site` was delegated in 2015 and `.arpa` is never a website. Both survive ADR-008:
+    # the reversal was about the alias and touched neither.
     assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
+    assert "in-addr.arpa" not in (tmp_path / "netnew" / "1999_hostnames.txt").read_text()
     # the manifest carries the same rows as the files, or it reads as an addition it is not
     manifest = (tmp_path / "netnew" / "hostnames_evidence_manifest.csv").read_text()
-    assert "www.held.com" not in manifest
+    assert "www.deep.held.com" in manifest
     assert "deep.held.com" in manifest
     conn.close()
 
