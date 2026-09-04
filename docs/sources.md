@@ -1020,6 +1020,61 @@ remaining 262 GB of the catalogue worth reading rather than projecting.
 Nothing is ingested. All four pools are the same `usenet_body_url_hostnames / link_source`
 class and wait on the same word.
 
+## `usenet_body_url_hostnames`: 119,640 EE over every non-alt hierarchy, 224 GB read whole in one night
+
+**The whole catalogue except `alt`, read rather than projected.** `data/raw/usenet_catalog.json`
+listed 9,918 archives and 328.5 GB nobody had downloaded; overnight on 2026-09-04 eleven
+hierarchies came down with the existing polite fetcher and were read with the body-URL
+extractor: `uk` 495 archives, `comp` 1,205, `rec` 919, `soc` 341, `sci` 237, `misc` 242,
+`news` 60, `talk` 47, `can` 109, `biz` 95, `aus` 195, beside the `usenet_new` and
+`usenet_bulk` pools priced the day before. **13 pools, 224 GB, 328,201,000 posts.**
+
+**What dates one item** is unchanged and verified against raw bytes: each post's own
+machine-written `Date:` header, with hosts taken only from explicit `http://`, `https://`
+and `ftp://` URLs in the post BODY, so a `Path`, `Xref`, `NNTP-Posting-Host`,
+`Message-ID`, `From` or `Organization` host never enters.
+
+**Priced as ONE union, because summing pools double counts**: 54,700,642 item lines,
+2,100,957 distinct host-years, 570,272 candidates, 175,368 already in the store and
+119,517 in his files alone. **274,354 net-new hostname years and 163,985.8408 EE gross.**
+The ADR-007 alias seam takes 57,604 rows and 36,370.1156 EE (22.2%), leaving
+**127,615.7252 EE**, and the sampled 6.25% fiction rate gives **119,639.7424 EE central,
+110,005 to 124,170** on its Wilson interval. A mechanical word-list screen finds only
+1,081 rows and 668.41 EE (0.52%), which is why the rate is sampled and quoted with an
+interval rather than word-listed. Beside it, **83,708 net-new registrable-years worth
+49,007.3050 EE** before the corroboration split.
+
+Spread 1996 15,207 EE to 2000 30,432 EE of eligible; `com` 56,825.2 gross, `edu`
+28,766.2, `uk` 18,886.1, `net` 16,298.0.
+
+**The law this establishes, and it is the useful part. Density, not size, decides which
+hierarchy to read**, and density is how much people typed URLs at each other:
+
+| pool | GB | EE per GB gross |
+|---|---|---|
+| `news` | 5.5 | 2,552 |
+| `comp` | 30.8 | 1,701 |
+| `sci` | 10.8 | 1,413 |
+| `biz` | 1.1 | 1,435 |
+| `uk` | 13.5 | 1,152 |
+| `aus` | 5.0 | 1,213 |
+| `usenet_new` + `usenet_bulk` | 102 | 851 |
+| `rec` | 51.6 | 717 |
+| `can` | 2.0 | 771 |
+| `misc` | 9.1 | 1,033 |
+| `soc` | 30.1 | 418 |
+
+**And cross-hierarchy saturation is mild: 22.2% between the thirteen.** Summed
+standalone they give 158,841 EE eligible; unioned they give 127,616, so a new hierarchy
+still adds about four fifths of its own value. That is what justified reading eleven of
+them instead of sampling one.
+
+Nothing is ingested. This is the pending `usenet_body_url_hostnames / link_source`
+request and it waits on one word. **The archives are gone and the journals stay**: 224 GB
+of `.mbox.zip` was deleted after pricing because archive.org serves them again by name
+from the catalogue, and the 13 `data/raw/usenet_*_items` directories hold the
+`{item, year, text}` shards a yes would be ingested from, a few hundred MB in total.
+
 ## Detail`
 section, which holds the entry as it was written.
 
