@@ -208,3 +208,32 @@ Three smaller things from the same read, each measured:
   `mail.gnome.org` serves from a CDN with no robots.txt and answers in 0.10s, so 1,415 files cost
   562s; `mail.python.org` sets `crawl-delay: 2` and its 1,207 files cost 2,400s. Read the fast host
   first and let the slow one be the projection.
+
+## Shape does not predict yield: the spread inside a shape is four to six orders of magnitude
+
+Measured 2026-09-04 by `scripts/harness/yield_priors.py` over every EE figure in both registers,
+grouped by artifact shape. The script was written to give a hypothesis a per-shape floor, and its
+first run refuted the reason for writing it.
+
+| shape | n | median EE | best EE | spread |
+|---|--:|--:|--:|--:|
+| dns survey or zone | 25 | 15.6 | 6,371,375.2 | 408,421x |
+| registry or registrar data | 40 | 2.1 | 1,704,843.0 | 800,396x |
+| capture index at hostname grain | 54 | 590.3 | 818,952.0 | 1,387x |
+| blocklist or filter list | 13 | 100.0 | 14,229.0 | 142x |
+| usenet or mail bodies | 21 | 158.2 | 6,877.0 | 43x |
+| directory or portal listing | 23 | 7.7 | 2,406.7 | 311x |
+
+**No per-shape floor is honest.** A median-based one kills the 818,952 EE ISC census and the
+6,371,375 EE remainder; a best-based one admits everything. So "is this the kind of source that
+pays" is the wrong question, and it is the question the closed register answers by default.
+
+**What separates the outliers from the medians is one thing, and it is visible in the rows: the
+six- and seven-figure entries are whole-corpus reads, and the medians are samples, single artifacts
+and single groups.** Two of the day's other findings say the same from opposite directions: eleven
+Usenet hierarchies read whole paid 119,640 EE where one `comp` group paid 480, and a domain-wide
+sweep pays about 193,000 EE per client-hour where a per-domain query pays 255.
+
+So the prior to carry into a hypothesis is **how much of the artifact can be read, not what family
+it belongs to.** A lead that can only be sampled is a median lead whatever its shape; a lead that
+can be read whole is where every outlier in this table came from.
