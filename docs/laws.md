@@ -108,6 +108,31 @@ pre-pricing question for any hostname-grain reopen is whether a human or a crawl
 host**, and `just price-hosts` prints the share for exactly this reason. The round's own figures
 print it too: on 2026-09-03 it was 61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE.
 
+## Breadth pays and depth does not: 22.2% saturation across hierarchies, 90.5% inside one
+
+Measured on 2026-09-04 over 272 GB of Usenet, which is the largest single corpus this project has
+read, and the two numbers point in opposite directions.
+
+**Across hierarchies, saturation is mild.** Thirteen pools summed standalone give 158,841 EE
+eligible; unioned they give 127,616. So a hierarchy nobody has read still adds about four fifths
+of its own value, which is what justified reading eleven of them rather than sampling one.
+
+**Inside a hierarchy that is already read, saturation is near total.** 133 more `alt.*` archives,
+48 GB and 29.8M posts on top of the 9,266 `alt.*` archives already priced: 48,635 candidates, of
+which **44,028 were already in the store, 90.5%**. Net-new was **3,278 hostname years and
+1,929.1974 EE, about 40 EE per GB** against `news` at 2,552 gross and `soc` at 418. The remaining
+101 GB of non-`alt.sex` archives is therefore worth order 4,000 EE, and **the download was
+cancelled on that number** rather than on a guess.
+
+**The reason is what makes it transferable.** The hosts people typed at each other are the same
+few thousand free-hosting, portal and university hosts wherever they typed them, so depth inside
+one community re-finds them and breadth into another community finds a different set. The
+operational rule: **when a corpus divides into communities, read one archive from every community
+before a second archive from any of them.** The `usenet_probe` report of 2026-08-27 recommended
+closing the entire Usenet hostname lane on one `comp` group, which was wrong by two orders of
+magnitude for exactly this reason, and the same error in the opposite direction would have spent
+a day fetching `alt`.
+
 ## Why only a bulk corpus closes the gap
 
 Querying is measured at **255 EE/hour** (400 pairs/hour over a 16.9-hour window, 2026-08-31, at

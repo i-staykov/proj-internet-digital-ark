@@ -1020,6 +1020,27 @@ remaining 262 GB of the catalogue worth reading rather than projecting.
 Nothing is ingested. All four pools are the same `usenet_body_url_hostnames / link_source`
 class and wait on the same word.
 
+## `usenet_alt_remainder`: SATURATED at 90.5%, 48 GB read for 1,929 EE, and the lane closes on that number
+
+`https://archive.org/download/usenet-alt/<group>.mbox.zip`, the same class and the same extractor
+as the pools above, on the 6,013 `alt.*` archives the catalogue lists that `usenet_bulk` never
+held. 133 of them came down before the fetch was stopped, **48,051,456,195 B and 29,754,678
+posts**, and they were read whole rather than sampled: `scripts/sources/usenet/build_usenet_pool.py`,
+then `just price-hosts --items` against a store that already held the thirteen pools.
+
+**1,683,053 item lines, 153,590 distinct host-years, 48,635 candidates, and 44,028 of them already
+in the store. That is 90.5% saturation inside a hierarchy that was already read.** Net-new:
+**3,278 hostname years and 1,929.1974 EE**, plus 1,928 registrable-years worth 1,158.4629 EE, so
+about **40 EE per GB** against `news` at 2,552 gross and `soc` at 418. Ingested 2026-09-04 under
+the same `Decision: master`, because it was already extracted and the rows are real.
+
+**The remaining 101 GB of non-`alt.sex` archives is worth order 4,000 EE, so the fetch was
+cancelled rather than resumed.** That is the useful half of this entry: the cross-hierarchy
+saturation of the thirteen pools is 22.2% and the within-hierarchy saturation here is 90.5%, which
+is [laws.md](laws.md), "Breadth pays and depth does not". The archives were deleted after pricing,
+all 133 confirmed present in `data/raw/usenet_catalog.json` first, and the journals stay in
+`data/raw/usenet_alt2_items/`.
+
 ## `usenet_body_url_hostnames`: BANKED 2026-09-04, 119,640 EE over every non-alt hierarchy, 224 GB read whole in one night
 
 **The whole catalogue except `alt`, read rather than projected.** `data/raw/usenet_catalog.json`
