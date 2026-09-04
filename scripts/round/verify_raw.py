@@ -84,6 +84,8 @@ KEEP_UNTIL_DECIDED: dict[str, str] = {
 # refetchable by name from `data/raw/usenet_catalog.json`, so the zips go back and these stay.
 KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = {
     "usenet_comp_items": IA_USENET,
+    "usenet_rec_items": IA_USENET,
+    "usenet_soc_items": IA_USENET,
     "usenet_uk_items": IA_USENET,
 }
 
