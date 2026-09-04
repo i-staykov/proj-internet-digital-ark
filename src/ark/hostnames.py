@@ -98,6 +98,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "usenet_body_url_hostnames",
         # The same shape in a dated mailing-list message (`MAILLIST_FAMILY`, 2026-09-04).
         "maillist_body_url_hostnames",
+        # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`, 2026-09-04).
+        "enron_body_url_hostnames",
     }
 )
 # `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
@@ -1196,6 +1198,23 @@ USENET_FAMILY = ItemFamily(USENET_SOURCE, USENET_METHOD, "usenet post", _USENET_
 MAILLIST_FAMILY = ItemFamily(
     MAILLIST_SOURCE, MAILLIST_METHOD, "list message", _MAILLIST_ITEM, _maillist_url
 )
+
+# The third member of the body-URL family, admitted 2026-09-04 under the standing rule: the
+# CMU release of the Enron mailbox, one message per tar member, read at hostname grain by
+# `scripts/sources/mail_corpora/build_enron_pool.py`. The item is the member's own path in
+# the tarball, `maildir/<custodian>/<folder>/<n>.`, and every item resolves to the one
+# artifact CMU still serves. `collect_enron.py` banked the same messages at registrable grain.
+ENRON_SOURCE = "enron_body_url_hostnames"
+ENRON_METHOD = "enron_body_url"
+ENRON_ARCHIVE = "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz"
+_ENRON_ITEM = re.compile(r"^maildir/[^\s#/]+/[^\s#]+$")
+
+
+def _enron_url(item: str) -> str:
+    return ENRON_ARCHIVE
+
+
+ENRON_FAMILY = ItemFamily(ENRON_SOURCE, ENRON_METHOD, "enron message", _ENRON_ITEM, _enron_url)
 
 
 def usenet_item_rows(

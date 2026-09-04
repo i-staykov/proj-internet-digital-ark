@@ -252,6 +252,8 @@ PROVENANCE_LINEAGE = {
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
+    # The same released mailbox read at hostname grain (2026-09-04): one body of observation.
+    "enron_body_url_hostnames": "corporate_email",
     # A governor's released mailbox is the same body of observation as Enron's: a
     # correspondent's own mail client named the host, and the export was released
     # whole. Filing it as its own family would let two mailbox corpora corroborate

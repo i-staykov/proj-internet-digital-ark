@@ -390,6 +390,34 @@ def ingest_maillist_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=MAILLIST_FAMILY)))
 
 
+@app.command(name="ingest-enron-hostnames")
+def ingest_enron_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_enron_pool.py, or directories "
+            "of them (`data/raw/enron_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Enron messages.
+
+    Admitted 2026-09-04 under the standing rule, class link_source: the third member of
+    the body-URL family, read from the CMU release of the Enron mailbox. The item pointer
+    is the message's own path inside the tarball, `maildir/<custodian>/<folder>/<n>.`.
+    Idempotent per shard.
+    Example: ark ingest-enron-hostnames data/raw/enron_items
+    """
+    from ark.hostnames import ENRON_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=ENRON_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
