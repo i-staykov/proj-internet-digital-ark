@@ -38,9 +38,15 @@ _VALUE_YEAR = "TRY_CAST(regexp_extract(evidence_value, '([0-9]{4})', 1) AS INT)"
 # added here needs the same standard of proof.
 _SPAN_SOURCES = "'afnic_fr'"
 
-# a stored domain is a lowercase registrable name: strict first label, then one
-# or more suffix labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot
-_DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+# A stored domain is a lowercase registrable name: strict first label, then one or more suffix
+# labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot. The lengths are RFC 1035's
+# and his calculator's: 63 per label, 253 in total, and a 2-to-63 alphabetic last label. They
+# were absent until 2026-09-04, when fourteen over-long joke names from Usenet posts reached an
+# export and his own program refused them.
+# No lookahead: DuckDB uses RE2, which has none, so the 253-character total is a separate
+# `length()` condition at each call site rather than `(?=.{1,253}$)`.
+_DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
+_MAX_HOST_LEN = 253
 _WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
 
 # name, human description, SQL returning a single count of offending rows (0 = pass)
@@ -93,7 +99,8 @@ CHECKS: list[tuple[str, str, str]] = [
     (
         "registered_domain_format",
         "every stored domain is a well-formed lowercase registrable name",
-        f"SELECT count(*) FROM domain WHERE NOT regexp_matches(domain, '{_DOMAIN_RE}')",
+        f"SELECT count(*) FROM domain WHERE length(domain) > {_MAX_HOST_LEN} "
+        f"OR NOT regexp_matches(domain, '{_DOMAIN_RE}')",
     ),
     (
         "no_idn_tld_in_window",
@@ -214,6 +221,7 @@ CHECKS: list[tuple[str, str, str]] = [
         SELECT count(*) FROM hostname_year
         WHERE hostname = parent_domain
            OR hostname NOT LIKE '%.' || parent_domain
+           OR length(hostname) > 253
            OR NOT regexp_matches(hostname, '{_DOMAIN_RE}')
         """,
     ),

@@ -117,7 +117,8 @@ def writes_hostname_years(source_name: str) -> bool:
 # found zero violations. It is here anyway, because "no violations today" and "cannot violate"
 # are different properties and only the second one survives a new source.
 _VALID_HOST = re.compile(
-    r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]+$"
+    r"^(?=.{1,253}$)"
+    r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,63}$"
 )
 YEARS = range(1996, 2002)
 

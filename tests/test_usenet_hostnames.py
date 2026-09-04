@@ -130,15 +130,23 @@ def test_the_host_regex_is_his_structural_rule() -> None:
     """
     from ark.hostnames import _VALID_HOST
 
-    for host in ("www.demon.co.uk", "pages.demon.co.uk", "x.y-z.com", "a.b", "x.in-addr.arpa"):
+    for host in ("www.demon.co.uk", "pages.demon.co.uk", "x.y-z.com", "a.io", "x.in-addr.arpa"):
         assert _VALID_HOST.match(host), host
     for host in (
         "foo.123",  # a numeric last label is not an alphabetic TLD
         "1.2.3.4",  # nor is an address
+        "a.b",  # his rule is `[a-z]{2,63}`, so a single-letter TLD is not one
         "nt_box.custard.co.uk",  # underscores are not RFC 1123
         "localhost",  # no dot, so no labels to separate
         "-bad.com",
         "bad-.com",  # hyphens are interior only
         "foo..com",  # an empty label
+        # RFC 1035's 63-character label, which his calculator enforces and ours did not
+        # until 2026-09-04. Fourteen names like this reached an export and he refused them.
+        "a" * 64 + ".com",
+        # and its total length
+        (("a" * 60 + ".") * 5) + "x" * 60 + ".com",
     ):
         assert not _VALID_HOST.match(host), host
+    # 63 is allowed, 64 is not, so the boundary is asserted rather than assumed
+    assert _VALID_HOST.match("a" * 63 + ".com")
