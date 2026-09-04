@@ -179,3 +179,25 @@ is closed three times over wastes the run and teaches the agent to distrust the 
 **Grep does not reach the highest authority.** The reviewer's own words arrive in
 `feedback-phase-*/` and `private/personal-context.md`, both git-ignored, so a repository-wide
 search misses them; only the transcriptions in [ding/](ding/) are tracked.
+
+## The round figures mixed two windows the moment a round opened mid-flight
+
+Measured 2026-09-04. `round_figures.py` filters the registrable half by
+`domain_year.verified_at >= round_since`, and takes the hostname half by reading the exported
+`*_hostnames.txt` files, which carry no timestamps and hold everything net-new against the
+baseline. While a round opens only when a new benchmark arrives those two agree, because the
+baseline moves at the same instant. Round 9 opened at 15:00Z on 2026-09-04 **before** his feedback
+on round 8, so for one afternoon the printed increment was 6,223 registrable records (round 9
+alone) beside 8,620,331 hostname records (round 8 and 9 together), which reads as a collapse in the
+registrable lane and an explosion in the other. Neither is true.
+
+Both numbers are correct for what they measure and the label above them is wrong. Round 9's own
+hostname contribution has to be queried from the store (`evidence.ingested_at >= round_since`,
+through the export's own two predicates) and came to **886,216 records and 552,782.0436 EE**, while
+the cumulative position against `merged260904` is **8,626,554 records and 4,815,266.2861 EE**.
+
+**The rule: a figure is only comparable to another figure over the same window, and an exported
+file has no window.** Quote the cumulative for a submission, because that is what he merges, and
+query the store for what a session added. Fixing `hostname_increment()` to take a window means
+giving it the store rather than the files, which is a change to make deliberately and not at the
+end of a session.
