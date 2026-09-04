@@ -27,8 +27,10 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/key-dec
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Hunt a bulk dated corpus. This is the job.** Querying pays 255 EE/hour, so only a large bulk
-   corpus can close the gap; the arithmetic is in `docs/laws.md`.
+2. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
+   That is the standing priority (Ivo, 2026-09-04), with some capacity reserved for new
+   registrables. Querying pays 255 EE/hour, so only a large bulk corpus closes the gap, and
+   a held registrable needs no discovery and no split. The arithmetic is in `docs/laws.md`.
 3. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
 5. Log the result in `docs/sources.md` whatever the answer, so nobody re-tests it.
