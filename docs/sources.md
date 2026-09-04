@@ -844,7 +844,7 @@ them; where we hold our own verdict on the same family, both are cited.
 One row per source evaluated. Families their own verdict word closes are in
 [sources-closed.md](sources-closed.md), in that file's five columns. `n/a` means the
 entry does not say, never that the answer is nothing. The link column carries the source
-URL; where an entry names several, the first is here and all of them are in its `## `ukwa_geoindex_hostnames`: HELD OUT at hostname grain 2026-09-03 (would have exported as 20,916.9 EE), 99.5% a crawler's own alias
+URL; where an entry names several, the first is here and all of them are in its `## `ukwa_geoindex_hostnames`: BANKED 2026-09-04 at 20,916.9 EE, held out for one day and 99.5% a crawler's own alias
 
 `https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/`, the twelve
 `geoindex_postcode-*_inwindow.tsv.gz` members already on disk as `data/raw/ukwa/` and banked at
@@ -856,13 +856,13 @@ source. `scripts/sources/ukwa/ukwa_hostgrain.py` re-emits each member as a `{url
 journal, one per member, and the journals are in `data/raw/ukwa_hostgrain/`. Priced over all
 17,912,511 in-window rows with no sample: 429,415 distinct host-years, 122,501 candidates after the
 funnel, 87,259 already in the store, 13,910 in his files alone, **21,332 net-new hostname years and
-20,916.8958 EE**, 80.5% of it at 2001, `uk` 20,892.9 of the EE. **Not ingested, and the reason is
-the whole finding: 21,222 of those 21,332 records, 20,808.9528 of the 20,916.8958 EE (99.5%), are
-`www.<a name already held in that same year>`**, the crawler-default alias of a name we or he
-already date, which is the record `hostnames.py` refuses one level up. Eligible without the seam:
-**107.9430 EE.** The decision on whether the alias counts is Ivo's (`key-decisions.md`), and it
-governs 201,767.94 EE of the round rather than this corpus alone; the journals stay on disk so the
-ingest is minutes once it is taken. **The transferable point: a bulk CDX index re-read at hostname
+20,916.8958 EE**, 80.5% of it at 2001, `uk` 20,892.9 of the EE. **The finding stands and the decision reversed: 21,222 of those
+21,332 records, 20,808.9528 of the 20,916.8958 EE (99.5%), are `www.<a name already held in that
+same year>`**, the crawler-default alias of a name we or he already date. ADR-007 held the corpus
+out for that reason on 2026-09-03; ADR-008 ships it on 2026-09-04, because his merges keep all
+1,313,547 `www.` forms we sent and his section XI says a base hostname and a distinct subdomain
+hostname may each be annual records. **Ingested 2026-09-04, 32,156 hostname years.** Eligible on
+the old reading was 107.9430 EE, which is what the reversal was worth here. **The transferable point: a bulk CDX index re-read at hostname
 grain yields almost nothing but the alias, and the share must be measured before the figure is
 quoted.** `just price-hosts` prints it.
 
@@ -1020,7 +1020,7 @@ remaining 262 GB of the catalogue worth reading rather than projecting.
 Nothing is ingested. All four pools are the same `usenet_body_url_hostnames / link_source`
 class and wait on the same word.
 
-## `usenet_body_url_hostnames`: 119,640 EE over every non-alt hierarchy, 224 GB read whole in one night
+## `usenet_body_url_hostnames`: BANKED 2026-09-04, 119,640 EE over every non-alt hierarchy, 224 GB read whole in one night
 
 **The whole catalogue except `alt`, read rather than projected.** `data/raw/usenet_catalog.json`
 listed 9,918 archives and 328.5 GB nobody had downloaded; overnight on 2026-09-04 eleven
@@ -1069,18 +1069,27 @@ standalone they give 158,841 EE eligible; unioned they give 127,616, so a new hi
 still adds about four fifths of its own value. That is what justified reading eleven of
 them instead of sampling one.
 
-Nothing is ingested. This is the pending `usenet_body_url_hostnames / link_source`
-request and it waits on one word. **The archives are gone and the journals stay**: 224 GB
-of `.mbox.zip` was deleted after pricing because archive.org serves them again by name
-from the catalogue, and the 13 `data/raw/usenet_*_items` directories hold the
-`{item, year, text}` shards a yes would be ingested from, a few hundred MB in total.
+**Ingested 2026-09-04** under `Decision: master` (Ivo), by `ark ingest-usenet-hostnames`
+over the thirteen `data/raw/usenet_*_items` directories: **394,904 hostname years and
+77,029 (registrable, year) pairs** into the store, of which 76,208 registrable pairs reach
+the shipped files at 44,574.5944 EE. Class `link_source`, one evidence row per
+(host, year) quoting the dating year and the exact post: `usenet post 1997
+uk.comp.sys.mbox.zip#12 www.demon.co.uk`, with `evidence_url` the archive.org download the
+post came from. **All 24 derived identifiers were probed against `archive.org/metadata`
+before the ingest**, one request each, so no evidence row points at an item that does not
+exist: the identifier follows the group's first label rather than the pool directory,
+because `usenet_new` and `usenet_bulk` hold twelve hierarchies between them.
+
+**The archives are gone and the journals stay**: 224 GB of `.mbox.zip` was deleted after
+pricing because archive.org serves them again by name from the catalogue, and the shards
+are a few hundred MB in total.
 
 ## Detail`
 section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
-| early_web_nonok_hostgrain | 2026-09-04, fleet night-hunt-20260903 | n/a | a converter beside early_web_hostgrain.py keeping every status but 200 | field 2 of the classic CDX row, IA's own 14-digit capture timestamp | n/a | 0 EE (2026-09-04) | 3,988.7876 EE gross over 9,987 net-new hostname years, and 100.0% of it is www.<a name already held that year>, so 0.0000 EE eligible | n/a | CLOSED | <https://archive.org/details/early-web_cdx-lang-cdxa> |
+| early_web_nonok_hostgrain | 2026-09-04, fleet night-hunt-20260903 | n/a | a converter beside early_web_hostgrain.py keeping every status but 200 | field 2 of the classic CDX row, IA's own 14-digit capture timestamp | n/a | 3,988.7876 EE (2026-09-04) | 100.0% of it is www.<a name already held that year>, which ADR-007 refused for one day and ADR-008 ships; ingested 2026-09-04, 53,934 hostname years | n/a | BANKED | <https://archive.org/details/early-web_cdx-lang-cdxa> |
 | arquivo_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts over the converted Arquivo CDX journals | each CDXJ line's own 14-digit capture stamp, field 2, beside the original URL | n/a | 540.9323 EE (2026-09-03) | Measured 540.9323 EE over the whole converted index, 9x under the bar. | n/a | CLOSED | <https://arquivo.pt/datasets/cdxj/Roteiro.cdxj> |
 | attrition_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the attrition defacement records | the defacement date stamped inside the mirror path for that item | n/a | 922.6577 EE (2026-09-03) | Measured 922.6577 EE: one host per dated item, and most already held in that very year. | n/a | CLOSED | <https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/> |
 | can_domain_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the can_domain listing | the message's own Date header inside the mbox, one per item, machine-written by the posting host: the CDNnet registrar notices carry the | n/a | 37.7522 EE (2026-09-03) | Lane B, and measured, not reasoned. | n/a | CLOSED | <https://archive.org/download/usenet-can/can.domain.mbox.zip> |
@@ -1089,7 +1098,7 @@ section, which holds the entry as it was written.
 | jeb_bush_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over all 472,949 anchored lines, then over the URL-vouched subset alone | Each item is one message block, dated by its own unindented `Sent:` line, written by the sending mail client into the released export | n/a | 7126.8923 EE (2026-09-03) | Lane B, and it does not pay. | n/a | CLOSED | <https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z> |
 | maillists_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the mailing-list archives, body URLs only | The message's own `Date:` header inside the archive file, a machine-written stamp emitted by the sending mail client and preserved | n/a | 186.1089 EE (2026-09-03) | Lane B, and it does not pay. | n/a | CLOSED | <https://mail.python.org/pipermail/> |
 | ncsa-whats-new_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the NCSA What's New editions | Each issue file carries its own edition date in a publisher-written H2 header: data/raw/ncsa-whats-new/issues-1996/0196-01.html holds | n/a | 225.8968 EE (2026-09-03) | Lane B, measured, and far under the bar. | n/a | CLOSED | <https://web.archive.org/cdx/search/cdx?url=ncsa.uiuc.edu/SDG/Software/Mosaic/Docs/whats-new*&from=1996&to=1996> |
-| nypw_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | converter to {url, timestamp} journals, then price-hosts over the whole 6,281,937-row first-capture index | field 3 of each row, Wayback's own 14-digit capture timestamp | n/a | 2.8404 EE (2026-09-03) | 100.0% of the 7,074.0871 EE was www.<a name already held that year>, leaving 2.8404 EE over 4 hosts, all archive.org's own infrastructure. | n/a | CLOSED | <https://archive.org/details/nypw_urls_CDXfirstentry> |
+| nypw_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | converter to {url, timestamp} journals, then price-hosts over the whole 6,281,937-row first-capture index | field 3 of each row, Wayback's own 14-digit capture timestamp | n/a | 7,074.0871 EE (2026-09-04) | 100.0% alias, so 2.8404 EE on the ADR-007 reading and its gross under ADR-008. Ingested, 94,099 hostname years | n/a | BANKED | <https://archive.org/details/nypw_urls_CDXfirstentry> |
 | odp_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the ODP dump | The dump's own machine-written generation stamp in the first 200 bytes, matched by the ingest's regex "Generated at | n/a | 639.7007 EE (2026-09-03) | Lane B, not A: the RDF dumps carry no per-row capture timestamp. | n/a | CLOSED | <https://web.archive.org/cdx/search/cdx?url=dmoz.org/rdf/*&from=2000&to=2001> |
 | probes_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | inventory first, then price-hosts --items over the parts that are corpora rather than prober output | For an RFC or an Internet Draft, the month-and-year printed in the document's own header block beside the Request for Comments or draft | n/a | 387.1391 EE (2026-09-03) | Lane B, and it does not pay. | n/a | CLOSED | n/a |
 | rtfm_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | items rebuilt body-only, then price-hosts over all 16,604 dated FAQs | the FAQ's own revision header, Last-modified or X-Last-Updated, written by its tooling | n/a | 3719.9091 EE (2026-09-03) | 20,049.4200 EE became 3,719.9091 EE once only hosts inside explicit URLs in the body counted: an 81.45% extraction error. | n/a | CLOSED | <https://archive.org/download/ftp_rtfm.mit.edu_2014.07/2014.07.rtfm.mit.edu.tar> |
