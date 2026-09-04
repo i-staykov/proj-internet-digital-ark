@@ -239,6 +239,10 @@ uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_satu
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+# The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
+# recoverable values only in a separately labeled unparsed or normalization-review file." Each
+# row carries the reason the funnel refused it, and none of it counts toward any figure.
+uv run python scripts/round/unparsed_pool.py --out "$STAGE/candidates_unparsed.txt" || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
