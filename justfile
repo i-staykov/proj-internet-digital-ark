@@ -143,6 +143,14 @@ state *args:
 # private/handoff.md when the last session wrote one. Never opens the store or
 # runs ssh, so a session-start hook can call it inside its timeout.
 #
+# What the lanes have added since the round opened, from the store, no export needed.
+# `just brief` reads the last snapshot and `just state` needs a 20-minute export; this is the
+# question a long collection run asks every half hour, and it takes seconds.
+#
+# what this round has added so far, priced, without an export
+added *args:
+    uv run python scripts/round/added_since.py {{args}}
+
 # where the round stands, read from the last snapshot rather than the store
 brief:
     uv run python scripts/agents/brief.py
