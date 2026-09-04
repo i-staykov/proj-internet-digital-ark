@@ -88,8 +88,12 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "usenet_body_url_hostnames",
     }
 )
-# `www.<parent>` is the parent's own site, so the SQL every hostname_year insert carries.
-NOT_WWW_OF_PARENT = "{h}.hostname <> 'www.' || {h}.parent"
+# `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
+# every crawler tries first. ADR-009 admits it, on his section XI ("a valid base hostname and
+# distinct valid subdomain hostnames may each be annual records when each has year-specific
+# evidence") and on a count of his own benchmark: 1,450,310 of his names begin `www.` and
+# 1,221,065 of those have the bare name in the SAME year file, 114,875 of them from nobody but
+# him. The shape is native to his corpus, so refusing it was our rule and not his.
 
 
 def writes_hostname_years(source_name: str) -> bool:
@@ -245,9 +249,6 @@ def ingest_hostname_journal(
             JOIN evidence e
               ON e.domain = h.parent AND e.evidence_year = h.year
              AND e.evidence_value = 'cdx capture ' || h.ts || ' ' || h.hostname
-            WHERE """
-            + NOT_WWW_OF_PARENT.format(h="h")
-            + """
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
@@ -682,9 +683,6 @@ def ingest_blocklist_hostnames(
             JOIN evidence e
               ON e.domain = l.parent AND e.evidence_year = l.year
              AND e.evidence_value = l.value
-            WHERE """
-            + NOT_WWW_OF_PARENT.format(h="l")
-            + """
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
@@ -1296,9 +1294,6 @@ def ingest_usenet_item_journal(
             JOIN evidence e
               ON e.domain = u.parent AND e.evidence_year = u.year
              AND e.evidence_value = u.value
-            WHERE """
-            + NOT_WWW_OF_PARENT.format(h="u")
-            + """
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
