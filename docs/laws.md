@@ -103,10 +103,23 @@ one level down, where the bare name is a hostname or a registrable we or he alre
 The share of net-new hostname EE that is this alias, by artifact type: a bulk CDX index re-read
 at hostname grain is **essentially nothing else** (`nypw_firstcdx` 100.0% of 7,074.09 EE, leaving
 2.84; `ukwa` geoindex 99.5% of 20,916.90 EE, leaving 107.94), while a corpus of URLs people typed
-keeps most of its figure (`usenet_new` 33.8%, `usenet_bulk` 27.3%, `rtfm` FAQs 32.8%). **So the
-pre-pricing question for any hostname-grain reopen is whether a human or a crawler produced the
-host**, and `just price-hosts` prints the share for exactly this reason. The round's own figures
-print it too: on 2026-09-03 it was 61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE.
+keeps most of its figure (`usenet_new` 33.8%, `usenet_bulk` 27.3%, `rtfm` FAQs 32.8%).
+
+**ADR-009 inverted what that share MEANS, on 2026-09-04, and the measurement was right while the
+conclusion drawn from it became wrong.** While the alias was withheld, a high share meant a corpus
+was worthless and three were closed on it. Now the alias is a record, so **a high alias share means
+a corpus is worth nearly its gross**, and the same three corpora paid 20,913.95, 7,073.72 and
+3,988.79 EE on the day the rule changed. The share is still the number to measure first; it is now
+read as "how much of this is the crawler's own naming" rather than as "how much of this is
+nothing". Any bulk capture index we hold is a hostname corpus under this reading.
+
+**And the corollary cost us 2,984,321 answers.** The gap engine asked the archive `fl=timestamp`
+and journalled `{domain, years}`, so across 1,163 journals not one row records the host the archive
+had just named, and none of it can be re-read one level down. Since 2026-09-04 the query asks for
+`timestamp,original` and the journal keeps a `hosts` map, which makes every future gap query a
+hostname harvest at no extra request. **The general rule: journal the response, not the answer to
+today's question.** A collector that records its conclusion rather than its evidence cannot be
+re-read when the unit changes, and the unit changed twice in four days.
 
 ## Breadth pays and depth does not: 22.2% saturation across hierarchies, 90.5% inside one
 
