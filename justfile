@@ -754,6 +754,30 @@ cdx-pool until batch="1200" workers="8":
 #                  yet. Never `kill -9` here, that strands the `.part` and the work
 #                  in it is unreachable.
 #
+# The standing hostname lane in one command (Ivo's priority, 2026-09-04). Two archive
+# clients, which is the maximum: one walks the platforms we hold the FEWEST hosts under,
+# one walks the high-weight suffix namespaces. The maintain loop folds both into the store
+# as they write, so the lane needs no hand between starting it and reading the figures.
+#
+# `--net-new` on the ranker is the whole point: ranking by the hosts his benchmark carries
+# asks "is this a real platform", and ranking by the hosts we LACK asks "what will the
+# query add". With 13.7M hostname rows held those are different questions.
+#
+# start the hostname lane: two sweeps and the fold loop, to an absolute deadline
+hostnames until:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run python scripts/engines/rank_platform_parents.py --net-new \
+        --out data/raw/cdx/platform_queue_netnew.txt --top 40
+    nohup bash scripts/engines/platform_sweep.sh {{until}} \
+        data/raw/cdx/platform_queue_netnew.txt > data/logs/platform_netnew.log 2>&1 < /dev/null &
+    nohup bash scripts/engines/platform_sweep.sh {{until}} \
+        data/raw/cdx/suffix_queue_r9.txt > data/logs/suffix_sweep.log 2>&1 < /dev/null &
+    nohup bash scripts/harness/maintain.sh 420 24 > /dev/null 2>&1 < /dev/null &
+    sleep 5
+    echo "hostname lane started to $(date -r {{until}} '+%F %H:%M'); two clients, the maximum"
+    pgrep -f cdx_suffix_sweep.py | wc -l | xargs echo "  sweep processes:"
+
 # the CDX collectors: status start stop
 engines what="status" *args:
     #!/usr/bin/env bash
