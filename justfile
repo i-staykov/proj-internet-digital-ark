@@ -498,6 +498,11 @@ reproduce stage="all":
         # disk for `maillist_dated`, read at hostname grain from their body URLs, 589.0 EE.
         uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8
         uv run ark ingest-maillist-hostnames data/raw/maillists_items/ | tail -1 || true
+        # Admitted 2026-09-04 under the standing rule: the CMU Enron release read at hostname
+        # grain from its body URLs, the third member of the body-URL family. One 443 MB request.
+        test -f data/raw/enron/enron_mail_20150507.tar.gz || curl -sS -L -A "internet-digital-ark research collector" -o data/raw/enron/enron_mail_20150507.tar.gz https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz
+        uv run python scripts/sources/mail_corpora/build_enron_pool.py data/raw/enron/enron_mail_20150507.tar.gz data/raw/enron_items
+        uv run ark ingest-enron-hostnames data/raw/enron_items/ | tail -1 || true
         # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
         # The collector runs first because the bytes are not kept in git.
         uv run python scripts/sources/registries/collect_granitecanyon.py

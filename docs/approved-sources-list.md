@@ -384,6 +384,18 @@ Decision: master
   class stays master: the same row still dates the parent registrable, and the 18,147,169
   hostname rows it had written were removed by `scripts/round/apply_hostname_purpose_rule.py`.
   Re-admissible by adding the source to `WEB_FACING_HOST_SOURCES` if he rules DNS listings count
+- **the fleet's second census, 2026-09-04 (`isc_survey_host_files_remaining_tlds`), priced the
+  rest of the same files at 6,371,375.21 EE net-new post-split**, 7,502,726 distinct hostnames
+  over 24 files (`au`, `mil`, `us`, `ca`, `gov`, `org`, `net`, `za`, `nz`, `ie` at 9607; the
+  9701 and 9707 walks unioned for 1997), against the ark-data sync of 2026-09-03, registrable
+  half measured at 0.93 EE because `isc_survey` already holds every parent. All 584 files are on
+  disk; the only question is the one above. **The admitter did not admit it and filed no new
+  issue**: Ivo's amendment of 2026-09-02 stands until he or the reviewer lifts it, the reviewer
+  was asked in writing on 2026-09-04 whether a DNS-listed host counts as a record of itself, and
+  issue 102 on the main repository (`needs-ivo`) already carries that question; the figure was
+  added there. Not re-priced on the live store: the ingest is the only pricer at this scale and
+  it writes rows. Potential unchanged from the row above
+- potential: 6371375
 
 Decision: master
 
