@@ -158,9 +158,17 @@ def ingest_hostname_journal(
 
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     source_name, method = source_for(path)
+    # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
+    # journal under the journal's final name, one batch per index page, for hours. Ledgering
+    # by name alone marked a live journal done at whatever length it happened to have: on
+    # 2026-09-04 the first pass read `suffix_co_uk_...` at 391,684 rows and the second pass
+    # skipped all 500 files, so every row the sweep wrote afterwards would never have been
+    # read. The `.part`-then-rename convention `maintain.sh` relies on does not cover an
+    # append-style collector, and this does, for every lane at once.
+    digest = _sha256(path)
     already = conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
-        [source_name, path.name],
+        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ? AND sha256 = ?",
+        [source_name, path.name, digest],
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
@@ -288,10 +296,15 @@ def ingest_hostname_journal(
     else:
         stats["hostname_year_rows"] = 0
 
+    # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
+    # row to the new digest rather than adding one. `record_rows` accumulates, because the
+    # journal really did yield rows on both passes and the total is what the ledger is for.
     conn.execute(
         "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
+        "record_rows = ingested_file.record_rows + excluded.record_rows",
+        [source_name, path.name, digest, stats["hostname_year_rows"]],
     )
     logger.info(str(stats))
     return stats

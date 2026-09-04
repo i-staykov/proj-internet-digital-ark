@@ -98,3 +98,35 @@ def test_dns_lanes_are_not_web_facing() -> None:
         assert name not in WEB_FACING_HOST_SOURCES
         assert not writes_hostname_years(name)
     assert writes_hostname_years("ia_cdx_hostnames")
+
+
+def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
+    """The sweep appends to its journal under the final name, for hours.
+
+    Ledgering by name alone marked a live journal done at whatever length it had: on
+    2026-09-04 the first pass read `suffix_co_uk_...` at 391,684 rows and the second pass
+    skipped all 500 files, so every row written afterwards would never have been read. The
+    `.part`-then-rename convention does not cover an append-style collector; skipping on
+    content does, for every lane at once.
+    """
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    path = write(tmp_path, CAPTURES[:2])
+    first = ingest_hostname_journal(conn, path)
+    assert first["skipped"] is False
+    before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+
+    # unchanged: skipped
+    assert ingest_hostname_journal(conn, path)["skipped"] is True
+
+    # grown: read again, and only the new rows land, because the insert ignores duplicates
+    write(tmp_path, CAPTURES)
+    again = ingest_hostname_journal(conn, path)
+    assert again["skipped"] is False
+    after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+    assert after > before
+    # one ledger row, updated to the new digest, with the rows of both passes summed
+    ledger = conn.execute("SELECT count(*), sum(record_rows) FROM ingested_file").fetchone()
+    assert ledger[0] == 1
+    assert ledger[1] == first["hostname_year_rows"] + again["hostname_year_rows"]
+    conn.close()
