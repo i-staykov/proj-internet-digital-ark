@@ -184,14 +184,21 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     """Score the increment with his program, per year, and return his totals."""
     if not CALCULATOR.is_file():
         raise SystemExit(f"calculator not found at {CALCULATOR}")
-    rows = conn.execute(f"""
-        SELECT y.assigned_year, y.domain FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-        ORDER BY 1, 2
-    """).fetchall()
+    # **The registrable half comes from the SHIPPED files, not from the store filtered by
+    # `round_since`.** It used to come from the store, which agreed with the five fields only
+    # while a round opened as a benchmark arrived. When the fields were made symmetric earlier
+    # tonight this was left behind, so the verifier began scoring a different population than
+    # the one it checks: 8,635,490 records against a claimed 8,721,214, reported as a
+    # -52,926.8691 EE disagreement with zero records rejected and zero already his. A checker
+    # that reads a different set from the thing it checks does not fail safe, it cries wolf,
+    # and `just ship` refuses to package on it.
     per_year: dict[int, list[str]] = {}
-    for year, domain in rows:
-        per_year.setdefault(int(year), []).append(domain)
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}.txt"
+        if path.exists():
+            per_year[year] = [
+                line.strip() for line in path.read_text().splitlines() if line.strip()
+            ]
 
     totals = {
         "ee": Decimal(0),
