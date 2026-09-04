@@ -97,7 +97,43 @@ def register_row(f: dict, run_label: str) -> str:
         f"<{url.group(0)}>" if url else "n/a",
     ]
     tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
-    return "| " + " | ".join(tidy) + " |"
+    return _within_limit(tidy)
+
+
+# The register's rows are read in a terminal and a test refuses one over 500 characters.
+# It fired three times on 2026-09-04 alone, always on the same cell: a wave writes its
+# REUSABLE finding into `method`, which had no cap while `dates` and `probe` did, and the
+# finding is genuinely worth keeping, so truncating it looked like losing something.
+#
+# It is not lost. The full text is in the fleet's own `hypotheses.md`, which ships inside
+# `source/fleet.tar.gz` with every delivery, so the row can point at the ledger instead of
+# repeating it. A measured LAW earns a section in `laws.md` by hand; a row is an index entry.
+ROW_LIMIT = 500
+_LEDGER = "see the fleet hypothesis ledger"
+
+
+def _within_limit(cells: list[str]) -> str:
+    """The row, trimming the prose cells in order until the whole row fits.
+
+    Method first and probe second, because those are the two a wave writes freely; every
+    other cell is a slug, a figure, a verdict or a link, and a truncated link is worse than
+    a long row. If both are down to the pointer and the row is still long, it is returned
+    long: that is a row worth a human looking at, not one worth mangling.
+    """
+
+    def assemble() -> str:
+        return "| " + " | ".join(cells) + " |"
+
+    for index in (3, 7):
+        if len(assemble()) <= ROW_LIMIT:
+            break
+        overhead = len(assemble()) - len(cells[index])
+        budget = ROW_LIMIT - overhead - len(_LEDGER) - 2
+        if budget < 40:
+            cells[index] = _LEDGER
+        else:
+            cells[index] = (first_clause(cells[index], budget).rstrip() + " " + _LEDGER).strip()
+    return assemble()
 
 
 def append_rows(rows: list[str]) -> None:
