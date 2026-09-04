@@ -120,8 +120,15 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     assert "would add 15.000000 at t = 1" in text
     assert "Rounds 1, 3, 4 and 5 predate the rule" in text
     assert "5: 14.901054% / 2d = 74.505270" in text
+    # The email's one-liner was cut to fit a mail he reads in a minute, so it quotes the
+    # total rather than the addends. What it must NOT lose is both readings of t_i: his 0903
+    # update redefined it and the two differ by roughly 45x on a single round, so the mail
+    # asks which he means instead of picking one.
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
-    assert "13.186902 (6.884530 + 6.302372)" in sentence
+    assert "time-weighted score 13.186902" in sentence
+    assert "t = 1 on the benchmark interval" in sentence
+    assert "absolute task-assignment interval" in sentence
+    assert "re-score the awarded rounds?" in sentence
 
 
 def test_the_assignment_rule_of_2026_09_03_is_whole_calendar_days_from_one_origin() -> None:
