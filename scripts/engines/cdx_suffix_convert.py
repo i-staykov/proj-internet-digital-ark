@@ -39,7 +39,7 @@ def main() -> None:
     ap.add_argument(
         "--min-interval",
         type=float,
-        default=float(os.environ.get("ARK_CONVERT_INTERVAL_S", 3600)),
+        default=float(os.environ.get("ARK_CONVERT_INTERVAL_S", 21600)),
         help="skip if a snapshot is newer than this many seconds. 0 to always run",
     )
     args = ap.parse_args()
@@ -53,6 +53,11 @@ def main() -> None:
     # Skipping a pass costs nothing, because the read is cumulative rather than incremental: the
     # next run picks up everything this one would have. So it is rate-limited instead of made
     # incremental, which would be a real change to a script two live collectors feed.
+    #
+    # **Six hours, not one.** At one hour it still held the fold for 17 to 25 minutes in every
+    # 60, a third of the loop's capacity, and the runs it blocked were adding about six
+    # registrable records each: 44,117 EE of the round against the hostname half's 1,020,335.
+    # Six hours keeps the standing reserve for registrables at a cost near 7%.
     if args.min_interval > 0:
         newest = max(
             (p.stat().st_mtime for p in OUT.glob("cdx_suffix_*.jsonl.gz")),
