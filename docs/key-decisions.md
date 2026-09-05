@@ -7,20 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Does `www.<a name already held that year>` count as a hostname record? 201,767.94 EE of this round turns on it
-
-The ingest refuses `www.<parent registrable>` because it is the parent's own site under the name
-every crawler tries first (our own tightening, 2026-09-02, not his instruction). Nothing refuses
-the same alias where the bare name is a hostname or registrable already dated for that year, and
-measured 2026-09-03 that is **61.0% of the shipped hostname half, 201,767.94 of 330,577.84 EE**:
-the round claims 346,668.36 EE and 1.673552% growth, or 144,900.42 EE and 0.699511% without it.
-His words admit them ("every distinct evidence-backed hostname beneath them is retained"); our own
-stated principle refuses them. Two E9.5 corpora were held out rather than ingested on it (`ukwa`
-20,916.90 EE at 99.5% alias, `nypw_firstcdx` 7,074.09 EE at 100.0%), and `round_figures.py` now
-prints the split so no round can quote the hostname half without it.
-
-Worth: 201,767.94 EE of the current claim, plus whether the next hostname corpus is worth reading. If they count, nothing changes; if they do not, the refusal moves into `hostnames.py` under an ADR and the round is restated.
-
 ### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 119,640 EE measured
 
 Hosts of explicit `http`, `https` and `ftp` URLs in Usenet post BODIES, at hostname grain, over
@@ -128,6 +114,8 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-73** | 2026-09-05 | **The ISC reverse-DNS survey is refused as hostname records, and C-70's way of shipping it is what made the refusal cost nothing.** He ruled: "The ISC Survey hostname collection is preserved separately for reference, but is not included in the annual master, Equivalent-English increment, or score. Its DNS-survey observation establishes that a hostname was observed in DNS, but does not independently establish that the hostname served web content." That is our own condition 3 back in his words, and it settles the grain question left open by his 2026-07-24 ruling: the survey dates a DOMAIN and does not evidence a HOST as a record of itself. 18,087,127 hostname years and a hoped-for 6,371,375.21 EE close with it. Because the folder shipped outside every figure, no round is restated and nothing is undone. The lane is closed in `sources.md`; `WEB_FACING_HOST_SOURCES` stays as it is |
+| **C-72** | 2026-09-05 | **`www.<parent registrable>` is a hostname record, confirmed by the reviewer, closing the question C-69 decided on evidence alone.** He merged the round as submitted: "The official annual merge accepts the submitted `additions/` and `hostnames/` files. These records have valid hostname structure and their own year-specific web-content evidence, such as an exact-host capture or an explicit URL listing." 95.0% of that hostname half was the `www.` alias, so the acceptance is of the shape and not incidental to it. Round 8 is credited at 18.769714% and Score 5.687792 on figures that include it. ADR-009 stands, the two corpora held out on this question (`ukwa` 20,916.90 EE, `nypw_firstcdx` 7,074.09 EE) are now ingestible, and the round-9 sweep needs no filter |
 | **C-71** | 2026-09-05 | **Both archive client slots go to the domain sweep, and the per-domain gap pool stands down for the round.** Forced by the two-clients maximum once the sweep was doubled, and decided on the rate already in `laws.md`: the sweep pays about 193,000 EE per client-hour where a per-domain gap query pays 255, so the pool was holding a slot worth 757 times more than it returned. Found while answering "the harness is too slow": one sweep had EXITED 17 hours earlier when its fixed queue ran out, and the survivor was grinding `com.au` at 210.98 capture rows per host, the worst ratio in the measured set and 188 times worse than the shallow parents it now runs. Two faults fixed with it: `platform_sweep_loop.sh` refills its queue from the ranker instead of printing "queue walked" and exiting, sharded by parity so the two clients never take the same parent; and the liveness check counts DISTINCT sweep parents, because counting processes matched `bash` and `caffeinate` of one sweep as two and hid the dead lane for 17 hours. Reversible in one command: the pool resumes from its own queue state |
 | **C-70** | 2026-09-04 | The ISC reverse-DNS survey ships as its OWN `<year>-ISC.txt` files rather than being decided by us: 18,087,133 net-new hostname years, and the shape is measurably not one he holds (1.419% of its 13,347,250 distinct hosts appear anywhere in his files, against 84.2% for his own `www.` names). Rows stay OUT of `hostname_year` and out of the claim, so a yes is one line in `WEB_FACING_HOST_SOURCES` and a no needs no undoing. The covering mail asks the question, and asks it from HIS OWN RULING of 2026-07-24 that a dated DNS survey is direct annual-file evidence needing no CDX confirmation: the host is what the survey records, so it was already the instrument of that ruling, and only the grain is open. Ivo, 2026-09-04 |
 | **C-69** | 2026-09-04 | `www.<parent registrable>` is its own hostname record (ADR-009), superseding the second half of C-55. Settled by counting his benchmark rather than reading his intent: 1,221,065 of his names have both forms in the same year file, 114,875 of them from nobody but him. Backfilled from evidence, 6,915,924 rows, no new bytes. A record is created only where an evidence value names that exact host, and the new invariant `a_www_record_has_its_own_evidence` keeps it that way. Round to 18.764914%, of which 94.3% of the hostname half is the alias, which the report and the mail both state. Ivo, 2026-09-04 |

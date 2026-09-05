@@ -38,6 +38,7 @@ behind six reassuring "already ingested" lines.
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 # Resolved from this file, never from the working directory: the delivery unpacks the
 # repository tree into `source/`, so the JSON sits beside `src/` there exactly as here.
@@ -134,6 +135,36 @@ SUBMITTED_ROUNDS = tuple(
     )
     for row in _DATA["rounds"]
 )
+
+
+class AwardedScore(NamedTuple):
+    """A ranking score the reviewer stated himself, with the divisor he used."""
+
+    percent: Decimal
+    divisor: int
+    score: Decimal
+
+
+def awarded_score_of(label: str) -> AwardedScore | None:
+    """His own `S_i` for a round, where he has quoted one, else None.
+
+    **Recorded because it does not reproduce.** For round 8 he wrote
+    `S = 10 x (18.769714 / 33) = 5.687792`, and 33 is neither of the two readings of `t_i`
+    we put to him: the benchmark interval gives 1 and the task-assignment interval 45 from
+    the pinned origin of 2026-07-21. His 33 implies an origin of 2026-08-02, which nothing
+    here supports. So his figure is stored as a quoted fact rather than derived, exactly as
+    the awarded percentages are, and `figures.score` stays the model of the rule we can
+    defend until he says what the 33 counts from.
+    """
+    for row in _DATA["rounds"]:
+        if row["label"] == label and "awarded_score" in row:
+            return AwardedScore(
+                Decimal(row["awarded_percent"]),
+                int(row["awarded_score_divisor"]),
+                Decimal(row["awarded_score"]),
+            )
+    return None
+
 
 # The round whose percentage was awarded on records, so it is not commensurable with
 # the equivalent-English percentages of every later round. It is summed with them
