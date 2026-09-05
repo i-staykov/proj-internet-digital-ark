@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Keep one archive client busy until the deadline, refilling its own queue.
+# Keep one archive client busy until the deadline, refilling its own queue, and
+# never let one parent hold the slot.
 #
 # Why this exists, beside platform_sweep.sh: that script walks a fixed file and
 # prints "queue walked". When the file runs out the process EXITS, and nothing
@@ -7,18 +8,20 @@
 # while the other ground a parent worth 211 capture rows per host. Half capacity
 # on the worst target in the set.
 #
-# So the queue is refilled here rather than supplied once. When the file is
-# walked, the ranker is asked for more parents, skipping any with a .done marker
-# and any already held. An empty refill is not a reason to exit either: the
-# ranker's input grows as the gap engine ingests, so it waits and asks again.
+# So the queue is refilled here rather than supplied once, and each parent runs
+# under a time cap. The cap is the part that matters: the ranker divides by
+# capture rows per host, but `rows_per_host.tsv` holds 339 parents out of
+# thousands, so for most of the queue the divisor is unmeasured and the ranking
+# degrades to "sub-hosts we lack" alone. That is precisely the metric that put
+# `com.au` first at 210.98 rows per host. Depth cannot be known before asking,
+# so it is bounded after: a parent over PARENT_CAP is parked, not finished, and
+# the sweep's own state file means the work already done is kept.
+#
+# Parking measures the thing the ranker was missing, so parked parents are worth
+# re-reading later with a real cost attached rather than being lost.
 #
 # The two-clients maximum is unchanged. This runs at most twice, once per queue
 # half, and each instance holds one slot.
-#
-# Both instances refill from the same ranking, so each takes its own half by
-# parity of rank. Without that they would converge on the same top parent and
-# sweep it twice, which is worse than idling: it spends the scarce client slot
-# on rows the other client is already fetching.
 #
 # Usage: bash scripts/engines/platform_sweep_loop.sh <deadline_epoch> <parents_file> <shard 0|1>
 set -uo pipefail
@@ -28,31 +31,51 @@ while [ ! -d data/raw ] && [ "$PWD" != "/" ]; do cd ..; done
 DEADLINE="${1:?absolute epoch deadline}"
 PARENTS="${2:?parents file}"
 SHARD="${3:-0}"
+PARENT_CAP="${ARK_PARENT_CAP:-600}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
+DEEP="data/raw/cdx/platform_deep.txt"
 
 sweep_one() {
     local parent="$1" safe="${parent//./_}"
     [ -e "data/raw/cdx_suffix/suffix_${safe}.done" ] && return 0
     echo "=== $parent ==="
-    uv run python "$SWEEP" "$parent" --deadline "$DEADLINE" --delay 2.0 || {
+    uv run python "$SWEEP" "$parent" --deadline "$DEADLINE" --delay 2.0 &
+    local pid=$! waited=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 10
+        waited=$(( waited + 10 ))
+        [ "$waited" -lt "$PARENT_CAP" ] && continue
+        # deep namespace. park it: the shallow parents behind it in the queue
+        # are each worth more per request than the rest of this one.
+        echo "$parent: over ${PARENT_CAP}s, deep namespace, parked"
+        echo "$parent" >> "$DEEP"
+        kill -TERM "$pid" 2>/dev/null
+        # the wrapper is `uv run python`, so the python child needs killing too
+        pgrep -f "$SWEEP $parent " | while read -r child; do kill -TERM "$child" 2>/dev/null; done
+        sleep 3
+        kill -KILL "$pid" 2>/dev/null
+        pgrep -f "$SWEEP $parent " | while read -r child; do kill -KILL "$child" 2>/dev/null; done
+        return 0
+    done
+    wait "$pid" 2>/dev/null || {
         echo "$parent: sweep exited non-zero, moving on"
         echo "$parent" >> data/raw/cdx/platform_retry.txt
     }
 }
 
 refill() {
-    # Ask the ranker for parents this queue has not already burned. Ranked by
-    # lack x weight / cost, so a shallow parent outranks a big namespace even
-    # when the big one has more absent names.
+    # Ask the ranker for parents this queue has not already burned. Sharded by
+    # parity so the two clients never converge on the same parent, which would
+    # be worse than idling: it spends the scarce slot on rows the other client
+    # is already fetching.
     [ -f "$RANKER" ] || return 1
     uv run python "$RANKER" --net-new --top 400 2>/dev/null \
         | awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' > "$PARENTS.refill" || return 1
-    # drop anything finished or already in this queue
     awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
-            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || echo "$p"
+            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || grep -qxF "$p" "$DEEP" 2>/dev/null || echo "$p"
         done > "$PARENTS.new"
     if [ -s "$PARENTS.new" ]; then
         cat "$PARENTS.new" >> "$PARENTS"
@@ -65,13 +88,12 @@ refill() {
 line=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     while [ -e /tmp/ark-pause-sweeps ]; do sleep 60; done
-    line=$((line + 1))
+    line=$(( line + 1 ))
     parent="$(sed -n "${line}p" "$PARENTS")"
     if [ -z "$parent" ]; then
-        # queue walked. refill rather than exit, and wait if there is nothing yet
         if refill; then continue; fi
         echo "queue empty and refill found nothing, waiting"
-        line=$((line - 1))
+        line=$(( line - 1 ))
         sleep 300
         continue
     fi
