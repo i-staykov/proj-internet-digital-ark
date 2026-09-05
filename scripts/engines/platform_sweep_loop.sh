@@ -70,9 +70,17 @@ refill() {
     # parity so the two clients never converge on the same parent, which would
     # be worse than idling: it spends the scarce slot on rows the other client
     # is already fetching.
+    #
+    # **Read the ranker's --out FILE, never its stdout.** It prints only its top
+    # 15 as a human summary and writes the ranked list to the file. Piping stdout
+    # asked 20,000 parents' worth of ranking and got 15, all of them long since
+    # swept, so refill reported "found nothing" and both clients sat idle with a
+    # full pool on disk. That cost about an hour of collection on 2026-09-05.
     [ -f "$RANKER" ] || return 1
-    uv run python "$RANKER" --net-new --top 400 2>/dev/null \
-        | awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' > "$PARENTS.refill" || return 1
+    local ranked="data/raw/cdx/ranked_shard${SHARD}.txt"
+    uv run python "$RANKER" --net-new --top 20000 --out "$ranked" >/dev/null 2>&1 || return 1
+    [ -s "$ranked" ] || return 1
+    awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' "$ranked" > "$PARENTS.refill" || return 1
     awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
             [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || grep -qxF "$p" "$DEEP" 2>/dev/null || echo "$p"
