@@ -269,3 +269,25 @@ This does not contradict "rank by the hosts we lack"; it refines it. The count o
 says how much is there, and rows-per-host says what it costs to get. `rank_platform_parents.py
 --net-new` should divide the one by the other, which is a change to make at the next restart
 rather than under a running sweep holding the queue file open.
+
+## A deep parent costs a fixed slice of the client, so cap it at 300 seconds
+
+Measured 2026-09-05, on the round-9 sweep. The cost side of the ranking above cannot be applied to
+most of the queue: `rows_per_host.tsv` holds a few hundred parents and the ranked pool is 20,000,
+so for the rest the divisor is 1.0 and the ranking degrades to "sub-hosts we lack" alone. That
+metric puts big institutional namespaces first, because `.edu`, `.gov` and `.ac.uk` genuinely have
+the most hosts we lack, and every one of them is deep.
+
+Depth cannot be known before asking, so it is bounded after. Two caps were run against the same
+stretch of that queue:
+
+| cap | journals per minute |
+|---|--:|
+| 600s | 0.33 |
+| 300s | 1.00 |
+
+**Three times the parent throughput for half the time per parent**, and nothing is lost, because
+the sweep keeps a per-parent state file and a parked parent can be resumed with a real cost
+attached. It is the same finding as the Usenet hierarchies and the domain-wide sweep, in a third
+form: breadth pays and depth does not, so the right move when a parent turns out to be deep is to
+leave it rather than finish it.

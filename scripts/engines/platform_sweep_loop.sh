@@ -20,6 +20,13 @@
 # Parking measures the thing the ranker was missing, so parked parents are worth
 # re-reading later with a real cost attached rather than being lost.
 #
+# **300 seconds, measured, not 600.** The ranked queue interleaves big institutional
+# namespaces (.edu, .gov, .ac.uk) because they have the most sub-hosts we lack, and
+# their cost is unmeasured so nothing discounts them. At a 600s cap a run of them cut
+# collection to 0.33 journals per minute; at 300s the same stretch ran at 1.0, three
+# times the parent throughput. Nothing is lost by cutting earlier: the sweep is
+# resumable and the round's own law is that breadth pays where depth does not.
+#
 # The two-clients maximum is unchanged. This runs at most twice, once per queue
 # half, and each instance holds one slot.
 #
@@ -31,7 +38,7 @@ while [ ! -d data/raw ] && [ "$PWD" != "/" ]; do cd ..; done
 DEADLINE="${1:?absolute epoch deadline}"
 PARENTS="${2:?parents file}"
 SHARD="${3:-0}"
-PARENT_CAP="${ARK_PARENT_CAP:-600}"
+PARENT_CAP="${ARK_PARENT_CAP:-300}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
