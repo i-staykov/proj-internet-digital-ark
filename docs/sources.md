@@ -2293,13 +2293,18 @@ him with the delivery. Admitted by the loop under the standing rule. **The trans
 classic or NYPW-shaped CDX corpus on disk is a hostname-grain reopen at zero requests, and the
 first thing to measure is the `www.` share of what survives the baseline.**
 
-## `isc_survey_hostnames`: HELD OUT at hostname grain 2026-09-02 (had exported as 9,167,369.2 EE), the column the registrable unit threw away
+## `isc_survey_hostnames`: CLOSED at hostname grain by the reviewer 2026-09-05 (had exported as 9,167,369.2 EE), the column the registrable unit threw away
 
-**Status.** Ingested and then removed from `hostname_year` under the purpose rule below: a reverse-DNS
-walk observes a machine answering, not a site, and 65% of these names are dialup or workstation
-shapes for which no archived page can exist. The 18,147,169 rows still date their parents; the lane
-is one line (`WEB_FACING_HOST_SOURCES`) to restore if the reviewer rules DNS listings count. The
-entry below is kept as written at admission.
+**Status.** CLOSED, and closed by him rather than by us. Ruling of 2026-09-05, on the folder shipped
+with round 8: "The ISC Survey hostname collection is preserved separately for reference, but is not
+included in the annual master, Equivalent-English increment, or score. Its DNS-survey observation
+establishes that a hostname was observed in DNS, but does not independently establish that the
+hostname served web content." That is the purpose rule below in his own words, so the hold-out of
+2026-09-02 was right and `WEB_FACING_HOST_SOURCES` stays exactly as it is. **The ruling is about the
+GRAIN, not the survey**: the 18,147,169 rows still date their PARENTS, which is how `isc_survey` was
+banked in July and is untouched here. What he refused is the host as a record of itself. Because the
+folder shipped outside every figure, no round is restated. Do not re-test this lane at hostname
+grain. The entry below is kept as written at admission.
 
 `http://nw.com/zone/9607.hosts/uk.gz` and its siblings, through the 1996-1997 Wayback captures of
 `nw.com` (for example

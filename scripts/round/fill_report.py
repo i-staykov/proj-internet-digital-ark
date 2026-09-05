@@ -704,12 +704,27 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
 
     t_abs = t_days_assignment(now_in_his_clock())
     s_abs = score(growth, t_abs)
+    # **He answered the "which t_i" question by using a third value.** Round 8 was scored
+    # 10 x (18.769714 / 33) = 5.687792, and 33 is neither reading we offered: the benchmark
+    # interval gave t = 1 and the assignment interval t = 45 from our pinned origin of
+    # 2026-07-21. So the mail stops offering him a choice of two and asks the one thing
+    # still unknown, which is the date his 33 counts from.
+    from ark.baseline import awarded_score_of
+
+    his = awarded_score_of("8")
+    ask = ""
+    if his is not None:
+        ask = (
+            f" **You scored round 8 as 10 x ({his.percent} / {his.divisor}) = {his.score}.** "
+            f"We cannot reproduce the {his.divisor}: the benchmark interval gives t = 1 and "
+            f"the task-assignment interval t = {t_abs} from 2026-07-21, the earliest date our "
+            f"records support. Which date is t_i counted from, and does it re-score the "
+            f"awarded rounds?"
+        )
     return (
         f"Cumulative verified percentage {pct:.4f}%, time-weighted score {total:.6f} over the "
-        f"rounds you scored. **Your 0903 t_i change makes this round either {this.s:.6f} or "
-        f"{s_abs:.6f}** (t = 1 on the benchmark interval, t = {t_abs} days on the absolute "
-        f"task-assignment interval). Which do you intend, and does it re-score the awarded "
-        f"rounds?"
+        f"rounds you scored. This round reads {this.s:.6f} on the benchmark interval and "
+        f"{s_abs:.6f} on the assignment interval.{ask}"
     )
 
 

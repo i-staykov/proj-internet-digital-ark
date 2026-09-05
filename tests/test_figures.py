@@ -82,8 +82,8 @@ def test_cumulative_is_the_sum_of_the_rounds_he_scored() -> None:
     assert cumulative([]) == Decimal(0)
 
 
-def test_the_rule_covers_rounds_6_and_7_only() -> None:
-    assert [r[0] for r in SUBMITTED_ROUNDS if scored_under_rule(r[7])] == ["6", "7"]
+def test_the_rule_covers_rounds_6_7_and_8() -> None:
+    assert [r[0] for r in SUBMITTED_ROUNDS if scored_under_rule(r[7])] == ["6", "7", "8"]
 
 
 def test_a_receipt_inside_the_release_minute_still_divides_by_one() -> None:
@@ -114,20 +114,24 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     spec.loader.exec_module(fill_report)
     monkeypatch.setattr(fill_report, "now_in_his_clock", lambda: "2026-09-03 10:00")
     text = fill_report.cumulative({}, Decimal("1.5"))
-    assert "**S = 13.186902**" in text
+    # Round 8 entered the rule on 2026-09-05 and dominates it: received 1h50m after the
+    # benchmark it was measured against, so t = 1 and its 18.769714% scores 187.697140.
+    assert "**S = 200.884042**" in text
     assert "6: 4.130718% / 6d = 6.884530" in text
     assert "7: 7.562846% / 12d = 6.302372" in text
+    assert "8: 18.769714% / 1d = 187.697140" in text
     assert "would add 15.000000 at t = 1" in text
     assert "Rounds 1, 3, 4 and 5 predate the rule" in text
     assert "5: 14.901054% / 2d = 74.505270" in text
     # The email's one-liner was cut to fit a mail he reads in a minute, so it quotes the
-    # total rather than the addends. What it must NOT lose is both readings of t_i: his 0903
-    # update redefined it and the two differ by roughly 45x on a single round, so the mail
-    # asks which he means instead of picking one.
+    # total rather than the addends. It used to offer him a choice between two readings of
+    # t_i; on 2026-09-05 he scored round 8 by a THIRD (divisor 33), so it now states his own
+    # figure and asks the only thing still unknown, which is the date that 33 counts from.
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
-    assert "time-weighted score 13.186902" in sentence
-    assert "t = 1 on the benchmark interval" in sentence
-    assert "absolute task-assignment interval" in sentence
+    assert "time-weighted score 200.884042" in sentence
+    assert "10 x (18.769714 / 33) = 5.687792" in sentence
+    assert "cannot reproduce the 33" in sentence
+    assert "Which date is t_i counted from" in sentence
     assert "re-score the awarded rounds?" in sentence
 
 
@@ -161,9 +165,17 @@ def test_a_receipt_on_the_assignment_date_still_divides_by_one() -> None:
 
 
 def test_the_two_rules_give_totals_that_differ_by_more_than_a_factor_of_two() -> None:
-    """The reason the report carries both: 140.2888 against 50.3421 over the six rounds."""
+    """The reason the report carries both: 327.9859 against 54.5131 over the seven rounds.
+
+    **And on 2026-09-05 he scored round 8 by NEITHER of them.** He wrote
+    S = 10 x (18.769714 / 33) = 5.687792. Our two readings of that round give 187.697140
+    (benchmark interval, t = 1) and 4.171048 (assignment interval, t = 45 from the pinned
+    origin 2026-07-21). His 33 implies an origin of 2026-08-02, which no record here
+    supports, so the question stays open with his own figure recorded against it rather
+    than being closed on a guess.
+    """
     bench = cumulative([score(r[5], t_days(r[6], r[7])) for r in SUBMITTED_ROUNDS])
     assign = cumulative([score(r[5], t_days_assignment(r[7])) for r in SUBMITTED_ROUNDS])
-    assert bench == Decimal("140.288752")
-    assert assign == Decimal("50.342098")
+    assert bench == Decimal("327.985892")
+    assert assign == Decimal("54.513146")
     assert bench > assign * 2

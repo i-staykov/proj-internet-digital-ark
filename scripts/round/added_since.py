@@ -27,11 +27,16 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 from ark import export  # noqa: E402
-from ark.baseline import CURRENT_ROUND_SINCE  # noqa: E402
+from ark.baseline import CURRENT_ROUND_SINCE, REVIEWER_BASELINE_EE  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
-GATE_EE = Decimal("1151473.65")
+# **Derived, never typed.** This was the constant `Decimal("1151473.65")` and it survived the
+# intake of `merged260905-3` unchanged, so the first measurement against the new corpus reported
+# progress against the spent gate and read 4 points high. The gate moves with every release he
+# accepts, including on our own work, which is the whole reason the baseline figures live in
+# `data/baseline.json` and are loaded rather than restated.
+GATE_EE = REVIEWER_BASELINE_EE * Decimal("0.05")
 
 
 def main() -> int:
