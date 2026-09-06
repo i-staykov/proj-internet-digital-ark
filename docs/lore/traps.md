@@ -230,3 +230,46 @@ why this is a trap and not a reminder.
 
 `just residual` is the check that finds them, but only for families with a documented ingest glob;
 the fifth instance was invisible to it, because a brand-new lane has no glob to be too narrow.
+
+## A malware alert on the fleet host, and why the corpus lane will keep causing them
+
+2026-09-06. Microsoft Defender for Cloud raised `VirTool:JS/Obfuscator.HH` (category Tool) against
+`/tmp/arkrun/zips/misc.writing.screenplays.moderated.mbox.zip` on the fleet host, SHA256
+`8fba8919b55465cd9049db974dd2dc29d64ea01f65daa55a89736e3fd66592eb`.
+
+**It was a Usenet newsgroup archive an agent downloaded, and the finding was correct.** Historical
+mail and Usenet corpora carry the era's obfuscated-script spam as message content. The scanner was
+right; the file really did contain what it said.
+
+**Impact was nil, and both halves were checked rather than assumed.** It was never executed: a
+Linux host, inert text inside an archive. And it could never ship: the extractor reduces every post
+to `{item, year, text}` where `text` is a bare list of hostnames, so no message body leaves the
+machine. The shipped `journals/usenet_*_items/` files were inspected directly to confirm it.
+
+**The defect was the path, not the download.** `/tmp` is on the root disk, and the root disk is
+exactly what agentless scanning images. Corpus bytes now go to `$ARK_PROBE_DIR` under
+`/run/ark-probe`: tmpfs, so they live in RAM and never enter the disk image, mounted
+`noexec,nosuid,nodev`, and the harness fails loudly if that path is not tmpfs rather than falling
+back to disk.
+
+**Two lessons that generalise past this incident.**
+
+An instruction is not a control. The brief had told researchers to delete their downloads since the
+lane was built; five directories were still there eleven days later.
+
+**And a glob is not a control either.** The first fix swept `/tmp/ark_probe*`, `/tmp/ark_run_*` and
+`/tmp/dnsbridge_run`. The offending file was in `/tmp/arkrun`, which matches none of them, and the
+host also held `arkA_516190.py`, `ark_arm1b_512945.py` and `ark_full_513306.py`. Agents name their
+own scratch, so enumerate a location you own instead of guessing the names they will pick.
+
+**Triage next time, in this order.** Read the alert's File and Malware panes for the exact path and
+detection name before touching the host. A corpus path plus a `JS/Obfuscator`, `HTML/` or era-worm
+family is this class and is expected. Anything under `/home`, `/usr`, `/etc`, or a detection naming
+a miner, backdoor or credential stealer, is not: check `auth.log` for non-publickey logins, `ss
+-tulpn` for unexpected listeners, crontabs, and recently modified units, which on 2026-09-06 all
+came back clean and took about ten minutes.
+
+Two unrelated defects surfaced on the way: `clamav-freshclam` had been disabled since 2026-07-28,
+because `NotifyClamd` pointed at a config for a clamd that is not installed and `Checks 0` is
+rejected as "must be a positive integer". Signatures were six weeks stale. Both fixed, service
+enabled, updating hourly.
