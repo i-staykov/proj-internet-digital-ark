@@ -7,6 +7,37 @@ Read this before pricing or proposing a source. [discovery.md](discovery.md) has
 [traps.md](traps.md) the mistakes already paid for, [rules.md](rules.md) the evidence standard.
 
 
+
+## The thin-parent lane: 642 EE per client-hour, and targeting does not rescue it
+
+Tested 2026-09-06 on the idea of asking one `matchType=domain` question per registrable we hold
+with NO hostname records. The population is real and large: **10,029,609 registrables**.
+
+Two live samples, 70 requests:
+
+| population | hosts per answer | EE per client-hour |
+|---|--:|--:|
+| random zero-hostname parents (35) | 1.06 | **642** |
+| same but held in 5 or 6 years (35) | 0.97 | **563** |
+
+**Longevity does not predict yield here, so the obvious targeting lever is dead.** The reason is
+structural and shows in the shape of the two populations: 80% of the zero-hostname registrables
+appear in only one or two years, against a flat spread for those that DO have hostnames. The rich
+parents already have hostname records because the sweep already took them. What is left is thin
+because it was thin in the era.
+
+**The ceiling is worth knowing anyway.** 10,029,609 parents at 0.55 EE each is about **5.5M EE**,
+more than three times the 5% gate. It is not that the lane is worthless, it is that one request
+buys one record: at 1,100 answers per hour and two clients, harvesting it whole is roughly 190
+days. Against the domain-wide sweep's 193,000 EE per client-hour it is 300 times worse.
+
+**And its efficient form already exists.** One question that returns thousands of hosts is exactly
+what `matchType=domain` over a public suffix does, which is the suffix sweep. The per-registrable
+version is the same question asked ten million times instead of once.
+
+Keep it as the floor lane: when the ranked platform queue is finally empty, this is what is left,
+and it is still 2.5 times a per-domain gap query.
+
 ## A DNS observation is worth 2.67% of a web observation, measured by the reviewer
 
 He audited 1,800 ISC hostname-year records at random and **48 of them, about 2.67%, returned an

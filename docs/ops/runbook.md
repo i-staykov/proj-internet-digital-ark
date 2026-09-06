@@ -658,3 +658,15 @@ Two files under `docs/` are **generated, not written**. `docs/ROUND.md` comes fr
 `docs/report.template.md` via `scripts/round/fill_report.py`, which fills every figure from the store and
 refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
 next refresh, and packaging refuses outright if the two disagree.
+
+## Pricing the thin-parent lane
+
+`probe_thin_parents.py` asks one `matchType=domain` question per registrable we hold with no
+hostname records, and prints EE per client-hour. It writes nothing: it exists to price the lane,
+not to run it. Measured 2026-09-06 at 642 EE per client-hour, against 193,000 for the domain-wide
+sweep, and the figures are in `docs/lore/laws.md`.
+
+    uv run python scripts/engines/probe_thin_parents.py --domains <file> [--delay 2.0]
+
+One archive client, so run it only when a slot is free. The sweeps idle on
+`touch /tmp/ark-pause-sweeps` and resume when it is removed.
