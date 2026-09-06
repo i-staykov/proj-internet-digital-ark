@@ -27,14 +27,20 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
+2. **Two tracks are scored, not one (his 0906 update).** The annual files and the CANDIDATE POOL
+   are "measured and ranked separately", both as `S = 10 x (p / t)`, and both percentages divide
+   by the same annual equivalent-English total, so a candidate point is worth an annual point.
+   Round 8 earned no candidate section at all. Undated names are therefore an ASSET to be shipped,
+   never a by-product: "the candidate pool should be expanded proactively and made as large as
+   practicable". A candidate must not already sit in an annual file, his or ours.
+3. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
    That is the standing priority (Ivo, 2026-09-04), with some capacity reserved for new
    registrables. A per-domain gap query pays 255 EE/hour; a domain-wide sweep over names we
    already hold paid 193,000 EE per client-hour on 2026-09-04, because one answer carries
    thousands of records instead of one pair. `just hostnames <epoch>` starts that lane.
-3. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
-4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
-5. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
+4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
+5. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
+6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
 ## The ten rules that bind every session
 

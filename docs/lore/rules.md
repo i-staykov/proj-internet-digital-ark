@@ -11,8 +11,14 @@
 - A creation date evidences its own year only; continued registration needs its own record (rule 6).
 - Undated is fatal, and so are terms we do not hold; small, ugly or hard to parse is not a reason to reject, and a 25 EE source is admitted and gets one line.
 - Hostnames stand behind the same wall: `hostname_year` foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals, and two checks gate it.
+- **A raw ISC / Network Wizards survey record dates a DNS observation, not a website (his 0906 update).** It may not carry a hostname-year into an annual master on its own; that needs website-level evidence for the exact host and year, such as an exact-host CDX record, a webpage snapshot or a link-graph record. The lists ship instead as a provenance-linked candidate collection.
+- **The evidence must distinguish the bare domain from its `www.` form before both become records (his 0906 update).** `a_www_record_has_its_own_evidence` enforces one direction: no `www.<parent>` row unless an evidence value names that exact host. The other direction, a `www.`-only capture also writing the bare registrable, is inference and is asked about in `docs/registers/questions.md`.
 
 ## Scoring
+
+- **Two tracks, scored separately, same denominator.** Annual records and the candidate pool are each `S = 10 x (p / t)`, and both p values divide by the annual equivalent-English total, so a candidate point costs what an annual point costs. Verified against his own arithmetic of 2026-09-06: 1,702,122.4578 / 27,740,079.6441 = 6.135968%.
+- **A candidate is a name with no year evidence anywhere.** Union and deduplicate the sources, then remove anything already accepted in an annual file, his or ours. Malformed but recoverable strings go to a separate normalization-review file and are not candidates.
+- **t is an absolute clock and it only grows.** `t = max(1, receipt_date - task_assignment_date)` in whole days, never reset by a new baseline. A round held back a week loses about a fifth of its own score, so shipping a measured result beats holding it for a larger one.
 
 - Each `(domain, year)` counts its TLD's English share: `.uk` 0.9813, `.com` 0.6321, `.net` 0.4530, `.de` 0.1324; non-English ccTLDs are worthless.
 - Registrable domains are the prioritised unit; every distinct evidence-backed valid hostname beneath a held registrable ships too, in `NNNN_hostnames.txt`, and his calculator counts it at full TLD weight (Ding, 2026-09-01).
