@@ -162,10 +162,55 @@ _HOSTNAME_RE = (
 )
 
 
+def export_isc_provenance(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
+) -> None:
+    """The per-host provenance manifest his 2026-09-06 ruling makes MANDATORY.
+
+    His six fields, verbatim: "the survey edition, source file, original or recovery URL,
+    record location, extraction method, and target year". They make a record auditable and
+    they do NOT promote it: "provenance alone does not convert DNS evidence into
+    website-level evidence". Written beside the collection rather than inside the year
+    files, because the year files are a plain name list and he reads them as one.
+    """
+    query = (
+        """
+        SELECT DISTINCT
+               lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
+               e.evidence_year                                        AS target_year,
+               s.name                                                 AS survey_edition,
+               e.evidence_url                                         AS source_url,
+               e.evidence_value                                       AS record_location,
+               e.acquisition_method                                   AS extraction_method
+        FROM evidence e JOIN source s ON s.source_id = e.source_id
+        WHERE s.name = '"""
+        + ISC_SOURCE
+        + """'
+        ORDER BY hostname, target_year
+    """
+    )
+    path = netnew_dir / "isc_survey_provenance.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn.execute(f"COPY ({query}) TO '{path}' (HEADER true)")
+    stats["isc_provenance_rows"] = conn.execute(f"SELECT count(*) FROM ({query})").fetchone()[0]
+
+
 def export_isc_hostnames(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
-    """Write `<year>-ISC.txt`: net-new, shippable, and disjoint from the hostname files."""
+    """Write `<year>-ISC.txt`, a CANDIDATE collection and never an annual one.
+
+    **These files are not annual masters and must never be merged as if they were** (his
+    ruling of 2026-09-06). A raw survey observation says an exact hostname answered in DNS
+    during that edition; he audited 1,800 of them and 2.67% had an exact-host CDX record.
+    They ship as a provenance-linked candidate collection peer to `candidate_pool.txt`,
+    with `isc_survey_provenance.csv` beside them, and a hostname-year leaves the collection
+    for an annual file only on additional exact-host, target-year web evidence.
+
+    Still net-new, still shippable, still disjoint from the hostname files: a candidate that
+    already holds annual evidence is not a candidate, which is the one rule both his
+    collections share.
+    """
     conn.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE isc_export AS
@@ -269,6 +314,7 @@ def export_all(
         stats[f"netnew_hostnames_{year}"] = count
 
     export_isc_hostnames(conn, netnew_dir, stats)
+    export_isc_provenance(conn, netnew_dir, stats)
 
     # The manifest carries the same rows as the shipped files: a row for a hostname
     # the benchmark already lists would read as an addition it is not.
