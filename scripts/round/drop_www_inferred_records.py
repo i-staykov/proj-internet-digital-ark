@@ -14,10 +14,13 @@ they still carry the hostname record; only the inferred registrable year goes. T
 provenance intact and is why `nothing_earned_is_left_unassigned` was amended to exempt evidence
 naming a subdomain rather than being weakened.
 
-**What it cannot see.** Registrable-grain evidence stores a bare timestamp with no host, so a
-domain-year dated by an older domain-wide sweep cannot be attributed to a host at all. Those are
-left alone and counted here as `unattributable`, because guessing would be worse than reporting
-the limit. Sweeps have recorded the host since the `fl=timestamp,original` fix of 2026-09-05.
+**What it cannot see, and the number is large.** Registrable-grain evidence stores a bare
+timestamp with no host, so a domain-year dated by an older domain-wide sweep cannot be attributed
+to any host. **7,578,321 of our own domain-years are in that state** (his baseline's `prior_reused`
+rows are excluded from that count, or it would read 30.8M and mean nothing). Some unknown share of
+them will be `www.`-only too, and the honest position is that we cannot tell without re-querying
+the archive. They are left alone and reported rather than guessed at. Sweeps have recorded the host
+since the `fl=timestamp,original` fix of 2026-09-05, so the blind set is bounded and shrinking.
 
     uv run python scripts/round/drop_www_inferred_records.py [--apply]
 
@@ -47,12 +50,15 @@ WWW_ONLY = """
                     THEN 1 ELSE 0 END) = 0
 """
 
+# OURS only. The reviewer's own rows carry `prior_reused` and never named a host to begin
+# with, so counting them here would report 30.8M and mean nothing.
 UNATTRIBUTABLE = """
     SELECT count(*) FROM (
       SELECT dy.domain, dy.assigned_year
       FROM domain_year dy JOIN evidence e ON e.evidence_id = dy.evidence_id
       GROUP BY 1, 2
-      HAVING sum(CASE WHEN e.evidence_value LIKE 'cdx capture %' THEN 1 ELSE 0 END) = 0
+      HAVING sum(CASE WHEN e.evidence_type = 'prior_reused' THEN 1 ELSE 0 END) = 0
+         AND sum(CASE WHEN e.evidence_value LIKE 'cdx capture %' THEN 1 ELSE 0 END) = 0
     )
 """
 
@@ -70,7 +76,7 @@ def main() -> int:
         finally:
             conn.close()
         print(f"domain-years resting only on a www.<domain> capture : {n:,}")
-        print(f"domain-years whose evidence names no host at all    : {blind:,} (unattributable)")
+        print(f"ours whose evidence names no host at all           : {blind:,} (unattributable)")
         print("nothing written. Re-run with --apply to delete the first set.")
         return 0
 
