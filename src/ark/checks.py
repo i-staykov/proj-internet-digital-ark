@@ -250,12 +250,36 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
+        "a_bare_record_is_not_inferred_from_www",
+        "no registrable domain-year rests ONLY on a capture of `www.` in front of it. His "
+        "ruling of 2026-09-06 runs both ways: the bare parent does not establish the `www.` "
+        "host, and the presence of `www.` does not establish the bare one, so one observation "
+        "may not become two records in either direction",
+        """
+        SELECT count(*) FROM (
+          SELECT dy.domain, dy.assigned_year
+          FROM domain_year dy JOIN evidence e ON e.evidence_id = dy.evidence_id
+          GROUP BY 1, 2
+          HAVING sum(
+                   CASE WHEN e.evidence_value LIKE 'cdx capture % www.' || dy.domain
+                        THEN 1 ELSE 0 END) > 0
+             AND sum(
+                   CASE WHEN e.evidence_value NOT LIKE 'cdx capture % www.' || dy.domain
+                        THEN 1 ELSE 0 END) = 0
+        )
+        """,
+    ),
+    (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
-        "cannot sit in the candidate pool while already holding proof of a year",
+        "cannot sit in the candidate pool while already holding proof of a year. Evidence "
+        "that names a SUBDOMAIN is exempt: it evidences that host, not the registrable "
+        "beneath it, which is his ruling of 2026-09-06 and the reason the sibling check "
+        "`a_bare_record_is_not_inferred_from_www` can refuse the inferred row at all",
         f"""
         SELECT count(*) FROM evidence e
         WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
+          AND e.evidence_value NOT LIKE 'cdx capture % %.' || e.domain
           AND NOT EXISTS (
             SELECT 1 FROM domain_year dy
             WHERE dy.domain = e.domain AND dy.assigned_year = e.evidence_year

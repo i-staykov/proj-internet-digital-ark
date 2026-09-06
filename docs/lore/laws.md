@@ -6,6 +6,23 @@ date; a figure without one was current when this page was cut from `CLAUDE.md` o
 Read this before pricing or proposing a source. [discovery.md](discovery.md) has the long form,
 [traps.md](traps.md) the mistakes already paid for, [rules.md](rules.md) the evidence standard.
 
+
+## A DNS observation is worth 2.67% of a web observation, measured by the reviewer
+
+He audited 1,800 ISC hostname-year records at random and **48 of them, about 2.67%, returned an
+exact-host IA CDX record anywhere in 1996-2013** (2026-09-06). That is the price of the whole ISC
+class as annual evidence, and it is his own figure rather than ours, so it settles the question we
+had been asking since 2026-09-02.
+
+Two things follow. **A DNS-grain corpus is a candidate asset, not an annual one**, however well
+dated it is, because the date proves a machine answered and not that a page existed. And **the
+promotion route is worth pricing rather than assuming**: 2.67% of our 18,087,127 ISC hostname-years
+is roughly 483,000 that could carry an exact-host capture, so the value of hunting that evidence is
+bounded and knowable before a single request is spent.
+
+Our own independent measurement of the same class agreed in shape: 1.419% of the ISC hosts appear
+anywhere in his files, against 84.2% for the `www.` shape.
+
 ## The eight laws
 
 1. IA-derived cannot be net-new: the baseline is IA-derived too.
