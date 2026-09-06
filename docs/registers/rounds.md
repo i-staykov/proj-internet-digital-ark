@@ -1,9 +1,18 @@
 # Rounds
 
 Ledger of every submission: what was sent, what the reviewer credited, and the ranking score
-S_i = 10 x p_i / t_i under his rule of 2026-08-20, where p_i is the percentage he awarded and t_i the
-elapsed time from the release of the benchmark package the round was measured against to the receipt
-of the submission. Timestamps are in HIS clock (US Pacific), read from his mail headers and from the
+S_i = 10 x p_i / t_i, where p_i is the percentage he awarded. **t_i changed under him on 2026-09-03
+and this table now spans two rules.** Rounds 1 to 7 are read under the 2026-08-20 rule, elapsed time
+from the release of the benchmark package to the receipt of the submission, which is the reading that
+reproduces his only two quoted scores exactly. From the 0903 update t_i is instead
+`max(1, receipt_date_i - task_assignment_date_member)` in whole calendar days, an absolute clock that
+starts when the participant first received the task and never resets.
+
+**We cannot reproduce his t for round 8 and it is worth asking about.** He scored it 5.687792, which
+is 10 x 18.769714 / 33, so t = 33 and the origin is 2026-08-02. Our records support 2026-07-21 as the
+first receipt, which gives t = 45 and S = 4.171048. A contributor scored on 2026-09-06 was divided by
+21. The divisor is now the largest lever on the score and it grows by one every day, so a round held
+back a week costs about a fifth of its own value. Timestamps are in HIS clock (US Pacific), read from his mail headers and from the
 quote lines his replies carry; the two known scores fit exactly one reading of t_i, whole days rounded
 up from the release stamp (round 6: 5.19 days, t = 6; round 7: 11.77 days, t = 12). Calendar days
 give round 6 t = 5 and S = 8.26, which he did not quote. Seeded by hand on 2026-09-02 from the mail
@@ -20,6 +29,7 @@ a warning when the two disagree. Not shipped.
 | 5 | 2,838,732 | 1,697,225.1735 | 20.333700 | 2,608,322 | 1,566,229.7613 | 14.901054 | merged260817 | 2026-08-15 10:27 | 2026-08-17 03:03 | 1.69 | 2 | 74.505270 | not quoted |  |
 | 6 | 1,929,655 | 713,481.4198 | 5.3395 | 1,684,903 | 562,099.5294 | 4.130718 | merged260826 | 2026-08-21 11:19 | 2026-08-26 15:51 | 5.19 | 6 | 6.884530 | 6.88 | matches his figure |
 | 7 | 2,541,429 | 1,458,263.2088 | 7.5794 | 2,538,900 | 1,456,458.1029 | 7.562846 | merged260902-2 | 2026-08-21 11:19 | 2026-09-02 05:50 | 11.77 | 12 | 6.302372 | 6.302372 | matches his figure |
+| 8 | 7,834,717 | 4,322,566.2232 | 18.7697 | 7,834,717 | 4,322,566.2232 | 18.769714 | merged260904 | 2026-09-04 14:14 | 2026-09-04 07:58 | n/a | 33 | n/a | 5.687792 | his t, not ours: see below |
 
 Sum of S_i as he quotes them (rounds 6 and 7, 6.88 + 6.302372): **13.182372**; the same two computed
 to six places sum to 13.186902. Sum over every round under the same rule, round 1 included on its
