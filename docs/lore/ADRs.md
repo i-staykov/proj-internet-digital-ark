@@ -724,3 +724,44 @@ found something we hid.
 The first half of C-55 stands: a hostname record still needs an observation of the host serving
 web content, so the DNS lanes date the parent only. That question ships separately as
 `<year>-ISC.txt` rather than being decided by us.
+
+## ADR-010. The `www.` inference runs in neither direction
+
+Date: 2026-09-06. Decided by the reviewer, not by us. Extends ADR-009 rather than superseding it.
+
+### What settled it
+
+His words, and they are symmetric: "The existence of the bare parent does not automatically
+establish the www hostname, nor does the presence of www automatically establish the bare
+hostname."
+
+ADR-009 admitted the SHAPE and `a_www_record_has_its_own_evidence` has enforced the first half
+since 2026-09-04: no `www.<parent>` record unless an evidence value names that exact host. The
+second half we were breaking without having noticed, because a capture of `www.example.com` wrote
+the hostname record and ALSO folded to a registrable year for `example.com` through the registrable
+path. One observation, two records, one in `additions/` and one in `hostnames/`, which is the
+double count the sentence forbids.
+
+### What changes
+
+`a_bare_record_is_not_inferred_from_www` refuses a registrable domain-year whose every evidence row
+names `www.<domain>` and nothing else. Measured against `merged260906`: **47,004 domain-years**,
+about 0.58% of our registrable half. `scripts/round/drop_www_inferred_records.py` removes them.
+
+**The sibling invariant had to move for the two to agree.** `nothing_earned_is_left_unassigned`
+required every master-eligible evidence row to assign a `(domain, year)`, which would have demanded
+exactly the row the new check refuses. It now exempts evidence naming a subdomain, on the ground
+the reviewer states: such evidence attests THAT HOST, not the registrable beneath it. That is a
+narrowing of what evidence claims, not a weakening of the wall.
+
+### What it does not change
+
+The evidence rows stay, and so do the `www.` hostname records: each already carries its own
+exact-host capture, which is the condition he restates in the same paragraph. ADR-009 stands.
+
+### The limit, stated because it is large
+
+Registrable-grain evidence stores a bare timestamp and no host, so **7,578,321 of our domain-years
+cannot be attributed to any host at all** and an unknown share of them will be `www.`-only too.
+Re-deriving would mean re-querying the archive. The set stops growing from the
+`fl=timestamp,original` fix of 2026-09-05, which records the host on every new sweep.
