@@ -16,7 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-PAGE = ROOT / "docs/rounds.md"
+PAGE = ROOT / "docs/registers/rounds.md"
 
 
 def _load():

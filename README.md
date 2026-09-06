@@ -37,5 +37,5 @@ This page states no round figure, so it cannot go stale.
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | the standing rules, and the order to work in |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
-| [docs/runbook.md](docs/runbook.md) | every command, what it prints, and how the machines are arranged |
+| [docs/ops/runbook.md](docs/ops/runbook.md) | every command, what it prints, and how the machines are arranged |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

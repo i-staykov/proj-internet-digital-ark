@@ -56,9 +56,9 @@ from ark.yield_check import (  # noqa: E402
 )
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
-LEDGER = ROOT / "docs/hypotheses.tsv"
-APPROVALS = ROOT / "docs/approved-sources-list.md"
-DECISIONS_DOC = ROOT / "docs/key-decisions.md"
+LEDGER = ROOT / "docs/registers/hypotheses.tsv"
+APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
+DECISIONS_DOC = ROOT / "docs/lore/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
 JOURNAL_DIR = ROOT / "data/raw/cdx"
 RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"

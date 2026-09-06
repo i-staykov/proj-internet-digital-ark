@@ -191,11 +191,11 @@ cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
 # The archive name carries the packaging minute, so the README's checksum command
 # is filled in here; a hard-coded name went stale the round the name changed.
-sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
-cp docs/sources.md "$STAGE/sources.md"
+sed "s/\[ARCHIVE\]/$RELEASE/g" docs/round/delivery_readme.md > "$STAGE/README.md"
+cp docs/registers/sources.md "$STAGE/sources.md"
 # The register is two pages: closed families moved to sources-closed.md and shipping
 # sources.md alone would hand him an incomplete register.
-cp docs/sources-closed.md "$STAGE/sources-closed.md"
+cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
@@ -203,8 +203,8 @@ cp docs/sources-closed.md "$STAGE/sources-closed.md"
 # The two register pages above are the full register those two distil; both are
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
-cp docs/experience-summary.md "$STAGE/experience-summary.md"
-cp docs/metric-explained.md "$STAGE/metric-explained.md"
+cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
+cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
@@ -559,8 +559,8 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # repository. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
 cp docs/report.md "$ROUND_DIR/report.md"
-cp docs/sources.md "$ROUND_DIR/sources.md"
-cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"
+cp docs/registers/sources.md "$ROUND_DIR/sources.md"
+cp docs/registers/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -588,5 +588,5 @@ Delivery archive ready, in $ROUND_DIR/
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
 Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
-The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
+The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF

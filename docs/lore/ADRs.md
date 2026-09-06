@@ -6,7 +6,7 @@ evidence taxonomy, to the store's shape, to how the machines are allocated, or t
 route depends on. Each record states the question, what was measured, what was decided, and **what was
 rejected and why**, so a later session can disagree with the reasoning rather than rediscover it.
 
-**How it links to the other logs.** `docs/key-decisions.md` is the short review surface and names the
+**How it links to the other logs.** `docs/lore/key-decisions.md` is the short review surface and names the
 ADR for anything structural. The git log carries the day-to-day working. An ADR is the durable answer.
 
 **Status values.** `Accepted` means it is in force. `Superseded by ADR-N` means read that one instead.
@@ -259,7 +259,7 @@ repository, **an agent arguing that its own find is master evidence**, on the cr
 
 ### What was decided
 
-**A gate, not a convention.** `docs/approved-sources-list.md` holds one `Decision:` line per
+**A gate, not a convention.** `docs/registers/approved-sources-list.md` holds one `Decision:` line per
 (source name, evidence type). `ark ingest` refuses any master-eligible class whose decision is `pending`,
 `rejected` or absent, and it refuses **before opening the database** so an unapproved ingest does not
 even take the write lock. `src/ark/approvals.py` is the enforcement and `ingest_files` is the choke point
@@ -445,7 +445,7 @@ raising it, because it looks handled from the inside.
 
 ### What was decided
 
-**`docs/key-decisions.md` is the only surface that asks for a decision**, and the other files keep their
+**`docs/lore/key-decisions.md` is the only surface that asks for a decision**, and the other files keep their
 jobs unchanged.
 
 1. **The notes sign-off is gone.** That log is the agent's own working. Asking for a countersignature on

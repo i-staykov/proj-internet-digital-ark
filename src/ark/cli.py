@@ -701,7 +701,7 @@ def gaps(
         record_metrics(conn, "gaps", "creation_addressable", summary)
         logger.info(f"gaps (creation): {summary} -> {out}")
         # No "next" line any more: the RDAP client that consumed this list is retired
-        # (docs/retired.md), and nothing has replaced it as a creation-date route.
+        # (docs/lore/retired.md), and nothing has replaced it as a creation-date route.
         typer.echo(f"gaps (creation): {summary}\nwrote {out}")
         return
     summary = write_gap_candidates(

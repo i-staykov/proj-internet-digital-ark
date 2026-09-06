@@ -17,8 +17,12 @@ from ark.hygiene import IPV4, KNOWN_ADDRESSES, scan, tracked_files
 
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
-DOCS_PAGE = re.compile(r"docs/[^/]+\.md")
-DOC_REF = re.compile(r"docs/[a-z_-]+\.md")
+# `(?:[^/]+/)*` so a page keeps being seen once docs/ has subdirectories. Without it both
+# patterns silently stopped matching anything under docs/lore/, docs/registers/ and the rest,
+# which would have dropped every moved page out of the index check and out of the dangling
+# reference and script-orphan checks at the same time, reporting green because it saw nothing.
+DOCS_PAGE = re.compile(r"docs/(?:[^/]+/)*[^/]+\.md")
+DOC_REF = re.compile(r"docs/(?:[a-z_-]+/)*[a-z_-]+\.md")
 
 # Split so this file does not trip the scan it is testing.
 PLANTED_ADDRESS = "9.8.7" + ".6"
@@ -126,11 +130,14 @@ def test_justfile_has_at_most_forty_recipes() -> None:
 
 
 def test_register_lines_stay_under_500_chars() -> None:
-    """No line in `docs/sources.md` or `docs/sources-closed.md` is longer than 500 characters."""
+    """No register line is longer than 500 characters.
+
+    Both `docs/registers/sources.md` and `docs/registers/sources-closed.md`.
+    """
     over: dict[str, int] = {}
     for name in ("sources.md", "sources-closed.md"):
-        path = ROOT / "docs" / name
-        assert path.is_file(), f"docs/{name} does not exist"
+        path = ROOT / "docs" / "registers" / name
+        assert path.is_file(), f"docs/registers/{name} does not exist"
         lines = path.read_text(encoding="utf-8").splitlines()
         count = sum(1 for line in lines if len(line) > 500)
         if count:
@@ -192,7 +199,7 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
 
     The address rule fires only on globally routable addresses and the collector host is
     in private space, so this line passed every guard and was published in seven files
-    (docs/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
+    (docs/ops/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
     because a fixture that has to look like a host uses one.
     """
     from ark import hygiene

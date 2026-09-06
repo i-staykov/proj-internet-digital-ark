@@ -247,7 +247,7 @@ Decision: master
 - authority: phase 4, merged and credited 2026-08-10, and takes the corroboration split
 - 2026-08-30, re-priced by the whole-spool census: the 9,050 archives this collector has never
   run over are worth a few hundred EE at most, since the same names already carry the year
-  (`docs/discovery.md`, the re-selection law). Not worth the CPU.
+  (`docs/lore/discovery.md`, the re-selection law). Not worth the CPU.
 
 Decision: master
 
@@ -865,7 +865,7 @@ thrown it away, so **no measurement in this project had ever looked at one**. Th
 
 - artifact and LINK: item `https://archive.org/details/nypw_timemaps`, the same thirty-four
   partitions already linked one by one in the `nypw_timemaps` entry above and in
-  `docs/sources.md`. No new bytes were fetched for this; the flattened `.cdx.gz` are the same
+  `docs/registers/sources.md`. No new bytes were fetched for this; the flattened `.cdx.gz` are the same
   files `ark ingest nypw_timemaps` read
 - **what dates one item: field 3 of the CDX row, the crawler's own 14-digit capture stamp.**
   Verbatim, from `data/raw/nypw_timemaps/nypw_timemaps1998_rootURLs_part06r.cdx.gz`:
@@ -1088,7 +1088,7 @@ the region.
 `ripe_dbase_changed` is fully reflected; of the alive-in-1998 names carrying no 1998 line, 55.88%.
 So the residual behind the pricing is real and not an export artefact.
 
-**One correction to `docs/sources.md`**: FUNET's `split/` was recorded there as "15 same-1999-edition
+**One correction to `docs/registers/sources.md`**: FUNET's `split/` was recorded there as "15 same-1999-edition
 subsets" and it is a 2004-11-09 edition, and the sentence saying the 2000-and-2001 `changed:` route
 does not exist was wrong.
 
@@ -1193,10 +1193,10 @@ Decision: master
   26-May-2002 (3,834 names) is **out of window and cannot date a year**. The predecessor
   `zoneRejects.txt` is 9 names at 2000-03-03 and HTTP 403 at every later capture. Cost was 40
   archive.org fetches, no other host touched, zero queries against web.archive.org/cdx
-- not a by-construction zero: no `granitecanyon` directory exists under `data/raw`, `docs/sources.md`
+- not a by-construction zero: no `granitecanyon` directory exists under `data/raw`, `docs/registers/sources.md`
   records no ingest of it, and what already dates the held names on a 400-domain sample is
   `prior_task` 196, `usenet_announce` 48, `domain_creation_bulk` 33, `isc_survey` 33, `rdap_snapshot`
-  26. Prior art: `docs/sources.md` recorded "Granite Canyon secondary-DNS artifacts 1,881.1 EE
+  26. Prior art: `docs/registers/sources.md` recorded "Granite Canyon secondary-DNS artifacts 1,881.1 EE
   post-split against a 5,000 bar" on 2026-08-24 and kept no bytes and no URL, so it was not
   reproducible. This request names the artifacts; 1,732.9 is that figure decayed by five days of
   ingest since

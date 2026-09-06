@@ -3,7 +3,7 @@
 **Three problems this fixes, all measured on the loop's own ledger.**
 
 **1. A seventh of the budget was spent rediscovering closed families.** Twelve of 85
-runs found mid-flight that their family was already in `docs/sources.md`. The
+runs found mid-flight that their family was already in `docs/registers/sources.md`. The
 researcher prompt asked the agent to grep for it, which costs tokens, is skippable,
 and only tells the agent what it collided with if it greps the right words. So the
 collision report is computed HERE, by `screen_hypothesis.py`, and pasted into the
@@ -94,9 +94,9 @@ def collisions(proposal: str) -> str:
 HEADER = """You are ONE researcher in a parallel fan-out. Budget: about {budget} seconds for
 ALL of the hypotheses below. Nobody reads a status update; your output is files.
 
-Read CLAUDE.md first, it is binding. Then read docs/ding/update-log.md: it is the
+Read CLAUDE.md first, it is binding. Then read docs/brief/ding/update-log.md: it is the
 reviewer's own instruction log and outranks every local heuristic. A direction or
-worked example he names there (or in docs/ding/project-brief.md) is the strongest
+worked example he names there (or in docs/brief/ding/project-brief.md) is the strongest
 prior you have: follow it before your own ideas, and treat his recorded negative
 knowledge as closed. Then work the QUEUE below, in order, and STOP
 when your budget is spent. Most hypotheses die on the probe in minutes; a queue means
@@ -107,7 +107,7 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
 
 ## How to test one
 
-1. **The collision report is already below. Do not grep docs/sources.md to rediscover
+1. **The collision report is already below. Do not grep docs/registers/sources.md to rediscover
    it.** Read the verdict, then ask the question the report cannot answer for you:
    **what SCREEN was it closed on, and is that screen still current?** This project
    has retired two screens and both retirements reopened a family that had been

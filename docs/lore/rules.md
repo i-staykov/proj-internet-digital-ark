@@ -46,9 +46,9 @@
 
 ## Registers
 
-- Every source gets a link in `docs/sources.md` before it is ingested, beside the sentence saying what dates one item and why it clears the bar (Ivo, 2026-08-31).
-- Log every result in `docs/sources.md`, positive or negative, so nobody re-tests it.
-- A master-eligible class needs a human `Decision:` line in `docs/approved-sources-list.md`; candidate-only needs nothing.
+- Every source gets a link in `docs/registers/sources.md` before it is ingested, beside the sentence saying what dates one item and why it clears the bar (Ivo, 2026-08-31).
+- Log every result in `docs/registers/sources.md`, positive or negative, so nobody re-tests it.
+- A master-eligible class needs a human `Decision:` line in `docs/registers/approved-sources-list.md`; candidate-only needs nothing.
 - The loop may write the `Decision:` line itself when all four hold: the evidence type is already master-eligible, a machine-written stamp inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after the ingest (Ivo, 2026-08-29); failing any one parks the source as `pending`.
 - **The bar is 10,000 EE net-new (Ivo, 2026-09-04), raised from 5,000.** It ranks rather than vetoes, as it has since 2026-08-18, but a lead whose measured ceiling is four figures is now logged and left. The raise is not a higher standard of proof: the hostname unit made bulk corpora worth an order of magnitude more than they were, the denominator outgrows any small source, and **speed is the constraint**. Hunt bulk hostname-dense corpora first, and price a lead's ceiling before its detail.
 - Write-up length scales with yield: under the bar is one line in `sources.md` with the link, the dating sentence and the figure; over it earns the full treatment.

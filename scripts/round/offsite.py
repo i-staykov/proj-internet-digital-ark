@@ -1,6 +1,6 @@
 """Copy off-site what nothing else could bring back, and check it without downloading.
 
-The payload is not everything on disk. It is the entries of `docs/retention.md` that
+The payload is not everything on disk. It is the entries of `docs/registers/retention.md` that
 are neither regenerable by a recipe nor refetchable from somebody else:
 
   * `keep_journal`, our own collectors' output, which nobody else holds;
@@ -149,7 +149,7 @@ def payload(entries: list) -> tuple[list[Row], list[tuple[str, str]], list[str]]
 
 def render(rows: list[Row]) -> str:
     out = [
-        "# Off-site payload: the entries of docs/retention.md that are neither",
+        "# Off-site payload: the entries of docs/registers/retention.md that are neither",
         "# regenerable nor refetchable. Written by scripts/round/offsite.py --manifest.",
         "\t".join(COLUMNS),
     ]
@@ -399,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
     manifest = root / MANIFEST
 
     if args.manifest:
-        table = args.table or root / "docs/retention.md"
+        table = args.table or root / "docs/registers/retention.md"
         entries = prune.read_table(table)
         rows, refused, empty = payload(entries)
         held = [(e.key, held_because(e), e.size or 0) for e in entries if reason(e) is None]

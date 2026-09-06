@@ -573,7 +573,7 @@ def reproduction_result() -> str:
     "verified" is worth nothing next to one that names the run. `just ship` writes
     it; if it is absent the report says so instead of implying a pass.
     """
-    path = Path(__file__).resolve().parents[2] / "docs/reproduction.txt"
+    path = Path(__file__).resolve().parents[2] / "docs/round/reproduction.txt"
     if not path.is_file():
         return (
             "_The reproduction has not been run against this build. "
@@ -878,11 +878,11 @@ UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
 # A stub can also be satisfied from a tracked file rather than by hand, which is why
 # this exists: `private/email-draft.md` is REGENERATED from its template, so prose typed
 # straight into the draft is destroyed by the next fill. That happened, and the round's
-# email had to be rewritten from a copy kept elsewhere. `docs/email-sections.md` is
+# email had to be rewritten from a copy kept elsewhere. `docs/round/email-sections.md` is
 # tracked (and export-ignored, so it never reaches the reviewer), holding one `## name`
 # heading per section. The first stub in the template takes the first section, the second
 # the second, in order, so the template keeps owning what sections exist.
-EMAIL_SECTIONS = Path("docs/email-sections.md")
+EMAIL_SECTIONS = Path("docs/round/email-sections.md")
 _STUB_RE = re.compile(r"<!--\s*ROUND\b.*?-->", re.S | re.I)
 
 

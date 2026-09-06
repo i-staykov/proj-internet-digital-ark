@@ -36,7 +36,7 @@ import statistics
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-REGISTERS = (REPO / "docs/sources.md", REPO / "docs/sources-closed.md")
+REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
 
 # `<number> EE`, the figure every register row carries in its net-new column.
 _EE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
@@ -108,7 +108,7 @@ def main() -> int:
             f"{shape:34} {len(values):>4} {statistics.median(values):>12,.1f} "
             f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x"
         )
-    print("\nThe rates that decide where an HOUR goes are in docs/laws.md, measured:")
+    print("\nThe rates that decide where an HOUR goes are in docs/lore/laws.md, measured:")
     print("  a domain-wide hostname sweep over names already held : ~193,000 EE per client-hour")
     print("  a per-domain gap query                               :      255 EE per hour")
     print("  so ask how many records ONE answer can carry, not how fast we may ask")

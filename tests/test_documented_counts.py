@@ -1,9 +1,9 @@
 """A count written in prose must match the code it counts.
 
 `ark check` grew from nine invariants to ten on 2026-08-17, and nine days of documentation
-went on saying nine: `README.md` in four places, `docs/documentation.md` in two and the
+went on saying nine: `README.md` in four places, `docs/lore/documentation.md` in two and the
 `justfile` in three, including the banner `just ship` prints while running them. Both
-`README.md` and `docs/documentation.md` ship to the reviewer, and the report cites the
+`README.md` and `docs/lore/documentation.md` ship to the reviewer, and the report cites the
 invariants as the reason the result is trustworthy, so the wrong number is visible exactly
 where it costs most.
 
@@ -11,8 +11,8 @@ A hand-written count is a fact about the code stored somewhere the code cannot r
 is the same shape as a hardcoded path or a retyped figure. This is the cheapest available
 enforcement: it does not generate the prose, it just refuses to let it drift.
 
-Dated log entries are exempt. `docs/releases.md` and the `CLOSED` section of
-`docs/key-decisions.md` record what was true on a date, and rewriting them would falsify
+Dated log entries are exempt. `docs/registers/releases.md` and the `CLOSED` section of
+`docs/lore/key-decisions.md` record what was true on a date, and rewriting them would falsify
 history rather than correct it.
 """
 
@@ -27,15 +27,15 @@ ROOT = Path(__file__).resolve().parents[1]
 # Surfaces that describe the pipeline as it is now. Anything append-only or dated is out.
 LIVE_DOCS = (
     "README.md",
-    "docs/runbook.md",
+    "docs/ops/runbook.md",
     "CLAUDE.md",
     "justfile",
-    "docs/documentation.md",
-    "docs/delivery_readme.md",
-    "docs/discovery.md",
+    "docs/lore/documentation.md",
+    "docs/round/delivery_readme.md",
+    "docs/lore/discovery.md",
     "docs/report.template.md",
-    "docs/metric-explained.md",
-    "docs/experience-summary.md",
+    "docs/brief/metric-explained.md",
+    "docs/round/experience-summary.md",
 )
 
 WORDS = {

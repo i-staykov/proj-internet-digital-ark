@@ -4,7 +4,7 @@
 prices the (domain, year) unit, which is right for the annual masters and wrong for
 the second unit the reviewer accepted on 2026-09-01: 180 suffix journals it priced at
 0 were worth 301,650 EE once the hostnames beneath the held registrables were counted.
-The 26 `keep_until_priced` corpora in `docs/retention.md` were all priced the first
+The 26 `keep_until_priced` corpora in `docs/registers/retention.md` were all priced the first
 way, so none of them has a number at this grain, and until now the only way to get
 one was `ark ingest-hostnames`, which takes the store's single write lock and writes
 evidence rows. Pricing must not do either.

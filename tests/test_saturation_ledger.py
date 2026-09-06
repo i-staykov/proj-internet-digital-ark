@@ -125,7 +125,7 @@ def test_a_missing_required_column_names_the_headers_it_found() -> None:
         "| a_family | 2026-09-01 | 12 EE (2026-09-01) | none |\n"
     )
     with pytest.raises(ValueError) as caught:
-        ledger.rows_from_register(page, "docs/sources.md")
+        ledger.rows_from_register(page, "docs/registers/sources.md")
     message = str(caught.value)
     assert "source_link" in message
     assert "Headers found: source, version or date, net-new EE (date), quality issues" in message
@@ -144,7 +144,7 @@ def test_retrieval_method_is_populated_from_the_register_column() -> None:
 def test_the_closed_page_reads_its_five_columns_and_leaves_the_rest_empty() -> None:
     """No retrieval, coverage, overlap or effort column exists there, so those are empty."""
     text = (FIXTURES / "sources-closed.md").read_text(encoding="utf-8")
-    (row,) = ledger.rows_from_register(text, "docs/sources-closed.md")
+    (row,) = ledger.rows_from_register(text, "docs/registers/sources-closed.md")
     assert row["source_family"] == "closed_on_measurement"
     assert row["coverage_ee"] == "4.44"
     assert row["source_link"] == "https://example.org/irr-dump.txt"

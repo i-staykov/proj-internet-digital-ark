@@ -7,9 +7,9 @@ spends its context on prose it never wanted. Every page is streamed a line at a
 time, one truncated line is printed per hit, and no whole row and no whole entry
 ever reaches the terminal.
 
-The four pages, all of them registers: `docs/sources.md` (its eleven-column table,
-its narrative sections and its `## Detail` blocks), `docs/sources-closed.md`,
-`docs/approved-sources-list.md` and `docs/hypotheses-pending.md`.
+The four pages, all of them registers: `docs/registers/sources.md` (its eleven-column table,
+its narrative sections and its `## Detail` blocks), `docs/registers/sources-closed.md`,
+`docs/registers/approved-sources-list.md` and `docs/registers/hypotheses-pending.md`.
 
 A hit line is `page:line  key  verdict  net-new EE  where  the matching text`, where
 `where` says which shape the term was found in: a table `row`, a `## Detail` block,
@@ -40,10 +40,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # The four pages, by the tag the output prints. `docs/` is dropped from the tag: it
 # repeats on every line and it is not news.
 PAGES = {
-    "sources": "docs/sources.md",
-    "closed": "docs/sources-closed.md",
-    "approved": "docs/approved-sources-list.md",
-    "pending": "docs/hypotheses-pending.md",
+    "sources": "docs/registers/sources.md",
+    "closed": "docs/registers/sources-closed.md",
+    "approved": "docs/registers/approved-sources-list.md",
+    "pending": "docs/registers/hypotheses-pending.md",
 }
 
 # Every row of `sources-closed.md` is closed by the fact it is in that file, and its

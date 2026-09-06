@@ -1,6 +1,6 @@
 """Merge this round's additions into the reviewer's baseline, and audit the arithmetic.
 
-**D3 of the submission standard** (`docs/brief_amendments.md`): "the code and explanation
+**D3 of the submission standard** (`docs/brief/brief_amendments.md`): "the code and explanation
 used to normalize, merge, and deduplicate the submitted annual files against the latest
 baseline, including overlap counts, the accepted increment, and reconciliation checks."
 

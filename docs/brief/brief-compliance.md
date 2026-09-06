@@ -22,8 +22,8 @@ code must do rather than what we must report.
 | candidate pool: union, dedupe, remove anything already in an annual master | yes | `src/ark/seed_pool.py` |
 | malformed values kept in a separately labelled unparsed file | **NOT yet.** Rejects are counted, not emitted. He now ships his own `candidate_pool_unparsed_format.txt`, so the shape is his | #103 |
 | resumable per-year queries with templates, checkpoints, retained stamps, failure states | mostly: `just query-queue` and `just cdx-pool` checkpoint and resume, stamps are retained in the journals. No failure-state log | #104 |
-| **incomplete queries are scheduled work, not negative evidence** | yes, and it decides the `alt` remainder: 146.2 GB unread is a queue entry, not a closed source | `docs/sources.md` |
-| a source-saturation ledger: coverage, overlap, evidence quality, cost, failure reason, decision | close. `docs/sources.md` carries all six for closed families, and the Usenet lane measured overlap at 22.2% and density per GB. Not yet one machine-readable ledger the generator reads | #105 |
+| **incomplete queries are scheduled work, not negative evidence** | yes, and it decides the `alt` remainder: 146.2 GB unread is a queue entry, not a closed source | `docs/registers/sources.md` |
+| a source-saturation ledger: coverage, overlap, evidence quality, cost, failure reason, decision | close. `docs/registers/sources.md` carries all six for closed families, and the Usenet lane measured overlap at 22.2% and density per GB. Not yet one machine-readable ledger the generator reads | #105 |
 | rebuild derived exports after an evidence-rule change | yes, and done for ADR-008: `ark export` regenerates every file from the store | `just rebuild` |
 | RDAP: a registration event supports only what it directly names, and no later-year continuity | yes. `whois_creation` writes the creation year only, and no lane propagates a registrable's year to a subdomain | `src/ark/sources.py` |
 

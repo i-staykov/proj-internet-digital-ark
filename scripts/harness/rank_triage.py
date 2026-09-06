@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-DOC = Path("docs/approved-sources-list.md")
+DOC = Path("docs/registers/approved-sources-list.md")
 TRIAGE_HEADING = "## Found, awaiting triage"
 # Any `##` heading ends the section, so a later section cannot be swallowed into the sort.
 _NEXT_SECTION = re.compile(r"^## ", re.M)

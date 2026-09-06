@@ -1,4 +1,4 @@
-"""Fill the release table in docs/releases.md from what is on disk.
+"""Fill the release table in docs/registers/releases.md from what is on disk.
 
 One row per reviewer release. The per-year cells are `wc -l` over `1996.txt` to
 `2001.txt` of the extracted tree under `feedback/`; the checksum is of his zip where
@@ -36,7 +36,7 @@ import zipfile
 import zlib
 from pathlib import Path
 
-PAGE = Path("docs/releases.md")
+PAGE = Path("docs/registers/releases.md")
 FEEDBACK = Path("feedback")
 ARCHIVE = Path("data/archive")
 YEARS = tuple(range(1996, 2002))
@@ -67,6 +67,7 @@ RELEASES = (
     "merged260903-3",
     "merged260904",
     "merged260905-3",
+    "merged260906",
 )
 
 # marker -> (date of the mail that quoted its totals, the received release that holds them)

@@ -145,6 +145,7 @@ def test_write_saves_one_dated_draft(tmp_path: Path) -> None:
 
 def test_the_real_pages_parse() -> None:
     """The shipped pages, not a fixture: a column rename in either would go unnoticed."""
-    assert ship_mail.rows((ROOT / "docs/questions.md").read_text(encoding="utf-8"), "asked-on")
-    record = ship_mail.cumulative((ROOT / "docs/rounds.md").read_text(encoding="utf-8"))
+    questions = (ROOT / "docs/registers/questions.md").read_text(encoding="utf-8")
+    assert ship_mail.rows(questions, "asked-on")
+    record = ship_mail.cumulative((ROOT / "docs/registers/rounds.md").read_text(encoding="utf-8"))
     assert any("scored rounds" in line for line in record)

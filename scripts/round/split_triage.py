@@ -1,4 +1,4 @@
-"""Split the triage section of `docs/approved-sources-list.md` by Decision.
+"""Split the triage section of `docs/registers/approved-sources-list.md` by Decision.
 
 `## Found, awaiting triage` grew to 100 entries holding three populations under one
 heading: master blocks that are the ingest gate's approval record, rejected blocks with
@@ -6,11 +6,11 @@ a measured figure, and open hypotheses nobody has priced. The gate reads a `Deci
 line wherever it sits, so moving a block changes no decision:
 
 - `master` blocks move into `## Decided, ...` unchanged;
-- `rejected` blocks become one row each in `docs/sources-closed.md` and leave a two-line
+- `rejected` blocks become one row each in `docs/registers/sources-closed.md` and leave a two-line
   stub (heading and `Decision: rejected`) in Decided, so `ark ingest` and the request
   generator keep refusing them; the full block stays in this file's history;
 - everything else, the pending blocks with whatever prose sits inside them, goes
-  verbatim to `docs/hypotheses-pending.md`, which the owner moves to the fleet repository.
+  verbatim to `docs/registers/hypotheses-pending.md`, which the owner moves to the fleet repository.
 
 Safe to run again when decided blocks accumulate in triage: rows and blocks are appended.
 
@@ -32,9 +32,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from ark.approvals import parse as parse_approvals  # noqa: E402
 
-DOC = Path("docs/approved-sources-list.md")
-CLOSED = Path("docs/sources-closed.md")
-PENDING = Path("docs/hypotheses-pending.md")
+DOC = Path("docs/registers/approved-sources-list.md")
+CLOSED = Path("docs/registers/sources-closed.md")
+PENDING = Path("docs/registers/hypotheses-pending.md")
 TRIAGE_HEADING = "## Found, awaiting triage"
 DECIDED_HEADING = "## Decided, with the request that was reviewed"
 CLOSED_COLUMNS = ("source", "date", "measured", "reason", "link")

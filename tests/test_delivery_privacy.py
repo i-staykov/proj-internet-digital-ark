@@ -101,8 +101,8 @@ def test_the_known_offenders_stay_withheld() -> None:
         "docs/report-sendable.md",
         "docs/phase6-plan.md",
         # the two pages written about or to the reviewer, added 2026-09-02
-        "docs/questions.md",
-        "docs/rounds.md",
+        "docs/registers/questions.md",
+        "docs/registers/rounds.md",
     ):
         assert path not in names, f"{path} is shipping again"
 

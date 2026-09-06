@@ -233,7 +233,7 @@ raw suffix journals of 2026-08-21..24 (`data/raw/cdx_suffix/`, 46.8M capture row
 then as "worth exactly 0" under the registrable unit, are the first corpus in: the unit
 change repriced bytes already on disk. Exports: `output/netnew/NNNN_hostnames.txt` per year
 plus `hostnames_evidence_manifest.csv`. Admitted under the standing rule of 2026-08-29;
-Decision block in `docs/approved-sources-list.md`.
+Decision block in `docs/registers/approved-sources-list.md`.
 
 ### The same journals at hostname grain
 
@@ -573,7 +573,7 @@ this is `cdx_timestamp` unchanged rather than a new class.
 **Measured net-new post-split against the live store on 2026-09-01: 6,679.7 EE over 13,277 pairs**,
 out of 6,374,276 non-200 in-window rows that collapse to 444,308 distinct pairs, 97.0% of which
 were already held. By year: 1998 6, 1999 111, 2000 360, **2001 12,800**. Approval entry and the
-banked `year_rows` are in `docs/approved-sources-list.md`.
+banked `year_rows` are in `docs/registers/approved-sources-list.md`.
 
 **The method is worth more than the source.** `_parse_nypw` had discarded every non-200 row since
 it was written, counting them into `stats["non_200"]` and moving on, so the size of the lane was
@@ -2673,7 +2673,7 @@ FIND is a file the hypothesis did not name:
 `changed:` transaction line, `changed:      ovema@a.sol.no 19971128` under `domain:     
 hasselblad.gm`, the database's record of an update applied to that object. **Banked 913.84 EE
 over 1,510 pairs** as `ripe_dbase_split_2004`, 1998 4 / 1999 253 / 2000 792 / 2001 461, admitted
-under the standing rule; see `docs/approved-sources-list.md`. `docs/sources.md` line 597 is
+under the standing rule; see `docs/registers/approved-sources-list.md`. `docs/registers/sources.md` line 597 is
 corrected in place: FUNET's `split/` is a 2004 edition, not 15 same-1999-edition subsets, and
 the claim that the 2000-and-2001 `changed:` route does not exist was wrong. **Do not re-test the
 existence hunt**: `ftp.ripe.net/ripe/dbase/` is the current edition only, FUNET `archive/` is
@@ -2716,7 +2716,7 @@ the domain-specific signatures (`all_domains`, `domainlist`, `newdomains`, `whol
 `zone_file`, `deleted`, `expiring`) since the generic dump words produced no survivor, and
 settle each candidate in two requests with `archive.org/wayback/available` plus one `id_` fetch.
 290 of the 314 candidates are unscreened and worth roughly 1,900 EE more at the measured 11
-useful pages per 24. Detail in `docs/approved-sources-list.md`.
+useful pages per 24. Detail in `docs/registers/approved-sources-list.md`.
 
 ### public-mailman-subscriber-rosters-the-membership-table-rather-than-the
 
@@ -2737,7 +2737,7 @@ itself a member of**, since every Mailman message footer prints `/mailman/listin
 which turned 868 MB of on-disk archives into 463 host/list pairs at zero network cost, and
 `archive.org/wayback/available` prices a family when CDX is off limits. Mailman's members-only
 default killed 4 of the 9 in-window captures and each is recognisable as a 324-519 B stub
-without reading the body. Detail in `docs/approved-sources-list.md`.
+without reading the body. Detail in `docs/registers/approved-sources-list.md`.
 
 ### registry-whois-records-transcribed-into-artifacts-that-stamp-themselve
 
@@ -3117,7 +3117,7 @@ Meter; the counter-directory row above sizes the first three by name in the same
 family on measurement: `hitbox.com`'s head page at 1998-02-05 gives 48 registrable domains, **48
 of 48 already held AT 1998, 0.0 EE**, the deep rank pages carry 0 member rows, and the whole
 in-window list-page universe is 483 captures with **none at 2001**. Site Meter is the only
-member never named in `docs/sources.md` (grepped `sitemeter|site
+member never named in `docs/registers/sources.md` (grepped `sitemeter|site
 meter|statcounter|webtrends|hitbox|websidestory` across `docs/`, one hit). It is not an
 exception: sitemeter.com launched 1999 and its public surface is per-member stats pages plus a
 ranked top-sites list, the identical shape, and the closure's mechanism is structural rather

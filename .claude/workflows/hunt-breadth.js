@@ -44,11 +44,11 @@ Prose corpora ceiling at about 0.042 net-new pairs per item, so about 119,000 it
 and that ceiling is a property of SUBJECT MATTER: a million biology abstracts name no web sites at all.
 
 READ THESE FIRST, by grep and not whole:
-- docs/sources.md   every source developed plus roughly 110 families already REJECTED, each with the
+- docs/registers/sources.md   every source developed plus roughly 110 families already REJECTED, each with the
                     measurement that closed it. Anything already in here is worthless. Grep by NAME and
                     by POPULATION: the same population closed under another name is still dead.
-- docs/discovery.md the pricing bar and the three laws in full.
-- docs/ding/project-brief.md sections V, VI and IX, the reviewer's own list of what to try.
+- docs/lore/discovery.md the pricing bar and the three laws in full.
+- docs/brief/ding/project-brief.md sections V, VI and IX, the reviewer's own list of what to try.
 
 WHAT THE SHAPE OF A WIN LOOKS LIKE, from what actually paid: a 2017 Dartmouth/NBER release of the
 Internet Archive's own capture census, 227,273 net-new pairs; a bulk compilation of registry creation
@@ -81,7 +81,7 @@ const CANDIDATES = {
           evidence_type: { type: 'string', enum: ['cdx_timestamp', 'artifact_listing', 'link_source', 'dated_directory', 'whois_creation', 'link_target', 'none'] },
           size_estimate: { type: 'string', description: 'order of magnitude of in-window domains, and HOW you got that number' },
           english_share_note: { type: 'string', description: 'which TLDs dominate and what that does to the metric' },
-          already_in_register: { type: 'string', description: 'what you found grepping docs/sources.md by name AND by population' },
+          already_in_register: { type: 'string', description: 'what you found grepping docs/registers/sources.md by name AND by population' },
           killers_survived: { type: 'string', description: 'which of the seven it survives, and which one is its biggest risk' },
           years_reached: { type: 'string', description: 'which of 1996-2001 it can actually date' },
         },
@@ -216,7 +216,7 @@ const results = await pipeline(
       `${BRIEF}\n\nYou are the SCEPTIC for the "${lens.key}" shape. Another agent proposed these:\n\n` +
       JSON.stringify(list, null, 2) +
       `\n\nRefute each one. Default to survives=false when unsure. Four tests, all DONE rather than reasoned:
-      1. Grep docs/sources.md by NAME and by POPULATION. Roughly 110 families are already closed there.
+      1. Grep docs/registers/sources.md by NAME and by POPULATION. Roughly 110 families are already closed there.
       2. Actually fetch the URL. Report the HTTP status and byte count you got. A 404, a login wall, a
          Cloudflare interstitial or a 159-byte stub is dead however good the description sounds. Prove any
          zero against a positive control fetched in the same minute, because nothing-found and

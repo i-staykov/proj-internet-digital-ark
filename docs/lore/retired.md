@@ -24,7 +24,7 @@ The code itself is recoverable from git by the commit named here.
   `researcher_brief.py` stay, both on the fleet's invoked list. Removed in this commit.
 - **The decision sheet** (`scripts/harness/decision_sheet.py`, its test and the page it
   generated, `decisions-open.md`, 364 lines): a third copy of the pending queue, after the
-  `Decision: pending` blocks of `docs/approved-sources-list.md` and the open asks in
+  `Decision: pending` blocks of `docs/registers/approved-sources-list.md` and the open asks in
   `key-decisions.md`. No recipe called it. Removed in this commit; `key-decisions.md` now points
   at the register's own pending blocks.
 - **Three VPS shell helpers** (`scripts/engines/pull_vps_journals.sh`, `vps_start_edge.sh`,

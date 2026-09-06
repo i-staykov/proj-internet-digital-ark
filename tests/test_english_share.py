@@ -50,7 +50,7 @@ _SHARE_ENTRY = re.compile(
 _MODEL_COLUMN = "perc_of_tld"
 
 # The frozen table, by content. If this changes, either the reviewer has formally reissued
-# the standard, in which case update it and say so in `docs/brief_amendments.md`, or
+# the standard, in which case update it and say so in `docs/brief/brief_amendments.md`, or
 # something has edited the model and every figure this project has ever quoted is wrong.
 # Measured, not transcribed. `src/ark/english_share.py` records only the first twelve
 # characters in prose, and writing the rest from memory produced a wrong pin that this
@@ -64,7 +64,7 @@ def test_the_vendored_table_is_pinned_by_content() -> None:
     assert actual == EXPECTED_SHA256, (
         "the vendored weight model changed. His brief freezes it across submissions, so "
         "either he has formally reissued the standard (update this pin and record it in "
-        f"docs/brief_amendments.md) or this is a defect. Now: {actual}"
+        f"docs/brief/brief_amendments.md) or this is a defect. Now: {actual}"
     )
 
 

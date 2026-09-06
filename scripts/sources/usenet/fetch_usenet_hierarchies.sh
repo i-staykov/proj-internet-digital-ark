@@ -2,7 +2,7 @@
 # Download and bank the unheld English-facing Usenet hierarchies.
 #
 # **Why this can run without asking anyone.** `usenet_announce / dated_directory`
-# and its siblings are already `master` in `docs/approved-sources-list.md`, decided
+# and its siblings are already `master` in `docs/registers/approved-sources-list.md`, decided
 # by Ivo in phase 4, and the corroboration split is applied by `split_usenet.py`
 # rather than by anything here. So this is collection under an existing decision,
 # not a new source class.

@@ -1,10 +1,10 @@
 ---
 name: register-reader
-description: Answers a question from the registers and returns the matching entries rather than the files. Use before proposing or briefing a lens, before writing a Decision line, and any time the answer is somewhere in docs/sources.md, docs/sources-closed.md or docs/approved-sources-list.md.
+description: Answers a question from the registers and returns the matching entries rather than the files. Use before proposing or briefing a lens, before writing a Decision line, and any time the answer is somewhere in docs/registers/sources.md, docs/registers/sources-closed.md or docs/registers/approved-sources-list.md.
 tools: Bash, Grep
 ---
 
-The registers are large and `docs/sources.md` alone is several hundred kilobytes, so they are
+The registers are large and `docs/registers/sources.md` alone is several hundred kilobytes, so they are
 grep-only: reading one whole is denied in `.claude/settings.json`. Use `grep -n` with a narrow
 pattern, widen it if nothing hits, and quote the lines.
 

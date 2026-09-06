@@ -18,19 +18,19 @@ submissions/*/email-draft.md export-ignore
 docs/report-sendable.md export-ignore
 # The agent's short review surface for open and closed decisions. Working
 # document about how to approach the round, same class as notes.md.
-docs/key-decisions.md export-ignore
+docs/lore/key-decisions.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans
 # and the decision log: working documents about how to approach the round, and
 # corrections owed. Neither is a deliverable and neither is his business.
 handoff-*.md export-ignore
 # The round email prose, read by fill_report. Working document, not a deliverable.
-docs/email-sections.md export-ignore
+docs/round/email-sections.md export-ignore
 # Questions put to the reviewer, written to him in the second person. Same class as the
 # email prose: read by the ship step, never delivered.
-docs/questions.md export-ignore
+docs/registers/questions.md export-ignore
 # The rounds ledger: sent against credited figures and the ranking arithmetic, with the
 # reviewer's mail stamps. Bookkeeping about him, not a deliverable.
-docs/rounds.md export-ignore
+docs/registers/rounds.md export-ignore
 # The agent harness: settings and the hunt workflows. They configure the fleet from a clone
 # of this branch, and say nothing about the domains, so they are working apparatus not delivery.
 .claude/settings.json export-ignore

@@ -4,7 +4,7 @@ and read THE STANDING APPROVAL RULE in it carefully.
 
 For each findings file whose verdict is FIND, and only those:
 1. Re-check the four conditions of the standing rule against what the file actually says.
-   When all four hold: write the entry into docs/approved-sources-list.md, QUOTE the
+   When all four hold: write the entry into docs/registers/approved-sources-list.md, QUOTE the
    machine-written stamp that dates one item, add
    "- admitted under the standing rule of 2026-08-29 (Ivo)", set "Decision: master",
    register an ingest spec if one is needed, ingest it, and confirm ark check passes.
@@ -18,7 +18,7 @@ For each findings file whose verdict is FIND, and only those:
    record, because a sub-floor approval is not worth Ivo's time (Ivo, 2026-09-01).
    Never invent a new evidence class, never widen what counts as evidence to make a
    source fit.
-3. Every source gets its LINK into docs/sources.md before it is ingested.
+3. Every source gets its LINK into docs/registers/sources.md before it is ingested.
 4. Quote net-new POST-SPLIT equivalent-English against the LIVE STORE, never gross. The
    fleet priced against a file snapshot; your job includes re-pricing on the store before
    any figure is banked as a claim.

@@ -74,14 +74,14 @@ def main() -> int:
         staged = Path(handle.name)
     # A reference document, because the reviewer asked for four pages and pandoc's
     # default is 12pt with 10pt paragraph spacing and one-inch margins, which spends
-    # about a page and a half on air. `docs/assets/report-reference.docx` is that
+    # about a page and a half on air. `docs/round/assets/report-reference.docx` is that
     # default with 10pt body, 5pt spacing and 0.75in margins, and nothing else changed.
     # Pandoc's own markdown reader, not gfm: only it sizes pipe-table columns from the
     # separator row's dash counts, and the gfm reader gave every column of a six-column
     # attribution table the same width, which is what made the .docx unreadable.
     # `-smart` keeps `--` and `...` as typed instead of turning them into dashes.
     command = ["pandoc", "--from=markdown-smart", "--to=docx", "--standalone"]
-    reference = Path("docs/assets/report-reference.docx")
+    reference = Path("docs/round/assets/report-reference.docx")
     if reference.exists():
         command.append(f"--reference-doc={reference}")
     command += ["-o", str(out), str(staged)]

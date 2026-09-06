@@ -67,7 +67,7 @@ def _bench(tmp_path: Path) -> dict[str, Path]:
     baseline = tmp_path / "baseline.json"
     baseline.write_text((ROOT / "data/baseline.json").read_text(encoding="utf-8"))
     rounds_page = tmp_path / "rounds.md"
-    rounds_page.write_text((ROOT / "docs/rounds.md").read_text(encoding="utf-8"))
+    rounds_page.write_text((ROOT / "docs/registers/rounds.md").read_text(encoding="utf-8"))
     calculator = tmp_path / "equivalent_english_domains.py"
     calculator.write_text(CALCULATOR)
     return {

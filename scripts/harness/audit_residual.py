@@ -21,7 +21,7 @@ Five checks, each of which has caught something real:
                  rebuilds a store missing them. Found twice on 2026-07-26, where
                  `isc_survey/*.domains.gz` silently missed `wb_nw_9607_org.gz`.
 `unreferenced`   directories under data/raw/ that no ingest glob points into at
-                 all. These are the "bytes nothing reads" in `docs/sources.md`,
+                 all. These are the "bytes nothing reads" in `docs/registers/sources.md`,
                  and one of them is a National Library of Australia title index.
 `usenet`         the corpus has its own `.processed` ledger rather than rows in
                  `ingested_file`, so it needs its own three-way comparison
@@ -161,7 +161,7 @@ ACCOUNTED = {
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
     # collection, so these three journals are held where no ingest glob matches them
-    # and `maintain.sh` cannot bank them. See docs/key-decisions.md.
+    # and `maintain.sh` cannot bank them. See docs/lore/key-decisions.md.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
     # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
@@ -185,7 +185,7 @@ ACCOUNTED = {
     # printed-directory verdict. Re-measured to be sure: 74 net-new pairs and 49.4 EE
     # after the split, against the bar, then ~5,000 pairs and 10,000 EE since 2026-09-04.
     "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
-    "hathitrust_ef route closed on measurement, see docs/sources.md",
+    "hathitrust_ef route closed on measurement, see docs/registers/sources.md",
     "probes": "cached pages and journals from scripts/pricing/probe_source.py, read by "
     "scripts/pricing/price_items.py; a probe has no ingest spec by design (ADR-004)",
     "udrp": "the dockets collector's own input and journal, ingested as "
@@ -546,7 +546,7 @@ def main() -> None:
     print(
         "\nNot a gate: unread material is a fact about the round, not a broken invariant.\n"
         "An `unread` count above zero is the cheapest yield in the project. Price it\n"
-        "against the live store before ingesting, per docs/discovery.md."
+        "against the live store before ingesting, per docs/lore/discovery.md."
     )
 
 

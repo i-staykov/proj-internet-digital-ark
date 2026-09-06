@@ -26,7 +26,7 @@ from ark.journal import open_journal
 UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
 
 # Where an RDAP query went before direct registry routing was added, so it
-# rebuilds the record URL of a journal written without one. See docs/retired.md
+# rebuilds the record URL of a journal written without one. See docs/lore/retired.md
 # for why the client that wrote those journals is gone.
 RDAP_REDIRECTOR = "https://rdap.org/domain/"
 
@@ -397,7 +397,7 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # The SOA serial of an InterNIC zone, `YYYYMMDDNN`, which is the artifact's own statement
 # of when it was generated. Read from inside the file rather than from its name or its
-# capture, because `docs/discovery.md` asks whether a date would change if the artifact were
+# capture, because `docs/lore/discovery.md` asks whether a date would change if the artifact were
 # re-published tomorrow: this one would not.
 _ZONE_SERIAL = re.compile(r"\b(19[89]\d)(?:0[1-9]|1[0-2])(?:[0-2]\d|3[01])\d\d\b")
 
@@ -2624,7 +2624,7 @@ SOURCES: dict[str, SourceSpec] = {
     # The BL geoindex extract: IA capture timestamps for `.uk` resources, so
     # `cdx_timestamp` and self-dating. Registering the spec does NOT let it date a
     # year: `ark ingest` still refuses the class until a human writes its `Decision:`
-    # line in docs/approved-sources-list.md, which is the whole point of ADR-003.
+    # line in docs/registers/approved-sources-list.md, which is the whole point of ADR-003.
     # The parser exists ahead of that decision so approving it is one command rather
     # than a day's work.
     "ukwa_geoindex": SourceSpec(

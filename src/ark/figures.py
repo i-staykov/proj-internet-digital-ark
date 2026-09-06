@@ -22,7 +22,7 @@ released or when the participant makes a later submission". Under it round 7 sco
 rounds he has already awarded.** "The definition of t_i is revised throughout" and "all
 participants are scored using one stable, participant-specific time origin" read
 retroactively; his awarded figures were computed the other way. Both totals are reported
-until he answers, and the question is on `docs/questions.md`.
+until he answers, and the question is on `docs/registers/questions.md`.
 
 Pure arithmetic over timestamp strings. The rounds themselves live in `ark.baseline`;
 this module only knows how to turn two stamps and a percentage into his number.

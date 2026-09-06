@@ -86,7 +86,7 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
     )
     pending = snapshot["pending_amendments"]
     if pending:
-        lines.append(f"pending in docs/brief_amendments.md ({len(pending)}):")
+        lines.append(f"pending in docs/brief/brief_amendments.md ({len(pending)}):")
         lines += [f"  {row['date']}: {row['text']}" for row in pending]
     return lines
 

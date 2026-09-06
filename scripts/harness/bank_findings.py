@@ -23,7 +23,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-REGISTER = REPO / "docs/sources.md"
+REGISTER = REPO / "docs/registers/sources.md"
 TABLE_HEADING = "## Evaluated and rejected"
 
 _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
