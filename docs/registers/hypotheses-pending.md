@@ -197,7 +197,7 @@ column 1 and column 3 only, and price with `scripts/pricing/price_items.py` samp
 
 The rejection this reopens, kept as written:
 **Not unpriced, mis-filed: the fourth entry today whose `- measured:` line was lost in the 2026-08-23
-compaction.** Measured 2026-08-18 and recorded in `docs/sources.md`: UMN DRUM `10.13020/D62684`, "Link
+compaction.** Measured 2026-08-18 and recorded in `docs/registers/sources.md`: UMN DRUM `10.13020/D62684`, "Link
 Lists for Websites Tracking the Development of the Early Web from 1996 to 2000", 74.83 GB in 16 tar
 parts, and **45,130 of 45,130 sampled pairs already held, 1 net-new pair worth 0.63 EE over 226,171 real
 rows**, with 97,904 of 97,905 source-side pairs already dated that exact year. Payload presence is
@@ -332,7 +332,7 @@ Decision: pending
   property of nym addresses and not a law about forged headers
 - spot-check: ten random scoring pairs traced to the byte that dates them, all ten confirmed, for
   example `khuman.com` +2001 from the file above, where the store held it at 2000 only
-- this supersedes a closure: `docs/sources.md` closed these exact bytes on 2026-08-15 at 195.5 EE over
+- this supersedes a closure: `docs/registers/sources.md` closed these exact bytes on 2026-08-15 at 195.5 EE over
   4,793 domains. Nothing was MIME-decoded then, and 2001 spam hides its URLs in base64 and
   quoted-printable HTML. It is the only row in `sources.md` known to understate an artifact 6.6x
 - the family is exhausted, recorded so nobody re-fetches: the `untroubled_spam_archive` item on
@@ -681,7 +681,7 @@ Decision: pending
   `www.bomis.com/rings/<r>/` carries the member count as `max=N` in its frame src, so ring SIZE is
   readable one request ahead and the queue can be ranked biggest-first, which matters because the
   yield is concentrated in the few large rings
-- what this reopens, since the method is the reusable part: `docs/sources.md` closed webring member
+- what this reopens, since the method is the reusable part: `docs/registers/sources.md` closed webring member
   lists on 2026-08-05 because WebRing routes every member through `go.webring.org`. Bomis routes
   through its own pages too but **prints the bare hostname as text**, so the redirector is irrelevant.
   **A redirector kill is a claim about one hub, not about a shape**
@@ -755,7 +755,7 @@ Decision: pending
   The front page is 5 to 25 rows and is the editorially chosen head; the category pages one level down
   are 40 to 190 rows each and are the submission queue. It costs no CDX at all, since the index page
   enumerates the tree by href
-- this reopens nothing that was closed. `docs/sources.md:756` closed award galleries and
+- this reopens nothing that was closed. `docs/registers/sources.md:756` closed award galleries and
   pick-of-the-day archives at 3.5 EE on the current 2001 screen, and its own last line deferred "the
   REGISTER variant rather than the pick variant, a 1999-2001 successor to NCSA What's New listing all
   newly launched sites". That is what was measured here, at 67x the pick variant per capture.

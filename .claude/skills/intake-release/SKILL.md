@@ -5,7 +5,7 @@ description: Take one reviewer release into the repository: verify its sha256, e
 
 # Take a reviewer release
 
-`docs/releases.md` is the record and says what each column means; `docs/runbook.md` has the
+`docs/registers/releases.md` is the record and says what each column means; `docs/ops/runbook.md` has the
 surrounding steps. One command does the work:
 
 ```
@@ -14,7 +14,7 @@ just intake <his.zip>
 ```
 
 With `--mail <file> --round <label> --received '<YYYY-MM-DD HH:MM>'` it also writes the round's
-row in `docs/rounds.md`.
+row in `docs/registers/rounds.md`.
 
 What matters while running it:
 

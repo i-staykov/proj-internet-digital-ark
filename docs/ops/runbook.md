@@ -38,7 +38,7 @@ Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this
 cannot re-derive is measured and larger than it used to be: on 2026-08-18, 2,387,824 assignments of
 5,323,465 (44.9%) came from two sources whose inputs cannot ship, one withdrawn by its host and one
 under a licence that forbids redistribution. None of them falls inside this round's additions, and
-tier 2 reproduces all of them from the provenance export. `docs/delivery_readme.md` has the table.
+tier 2 reproduces all of them from the provenance export. `docs/round/delivery_readme.md` has the table.
 
 ## Reproduce the results
 
@@ -64,7 +64,7 @@ collectors, and `just` alone lists everything with the choices underneath.
 ### What is on disk, and the copy of it elsewhere
 
 ```bash
-just verify raw                          # checksum every data entry, regenerate docs/retention.md
+just verify raw                          # checksum every data entry, regenerate docs/registers/retention.md
 just verify trees                        # each extracted release tree against its zip, by CRC
 just verify offsite --manifest           # price the off-site payload into data/offsite-manifest.tsv
 just verify offsite --upload --yes       # rclone it to gdrive:ark-offsite, one log per entry
@@ -94,7 +94,7 @@ right thing to run *before* deciding what to collect.
 
 | check | what a finding means |
 |---|---|
-| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [docs/discovery.md](discovery.md) |
+| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [docs/lore/discovery.md](discovery.md) |
 | `glob_too_narrow` | the ledger holds a file the documented glob cannot reach. Loses nothing now, but `just reproduce` rebuilds a store without it |
 | `unreferenced` | a directory under `data/raw/` that no ingest glob points into at all |
 | `usenet` | the corpus against its own `.processed` ledger and the catalogue: unread, size mismatches, partial files |
@@ -124,11 +124,11 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | price-hosts | `just price-hosts data/raw/<x>_hostgrain/` | the same question at **hostname grain**, the second unit the reviewer accepted on 2026-09-01: runs the ingest's own funnel over `{url, timestamp}` journals (or `--items x.jsonl`), differences against `hostname_year` and his baseline files on a read-only connection, and prints net-new hostname years and EE per year with the parent pairs beside. `--head N --sample-of M` samples; the projection it prints is an upper bound and says so |
 | ship it | `just ship` | banks every class a human has newly moved to `master`, then exports, runs the data invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, builds the `.docx`, writes the mail draft and closes the gate issue. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
-| approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [docs/approved-sources-list.md](approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
-| rank | `just triage-rank` | sorts the triage queue in [docs/approved-sources-list.md](approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
+| approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [docs/registers/approved-sources-list.md](approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
+| rank | `just triage-rank` | sorts the triage queue in [docs/registers/approved-sources-list.md](approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
-| brief | `uv run python scripts/round/extract_ding_docs.py --package feedback-phase-N` | transcribes the reviewer's `.docx` into [docs/ding/](ding/) with pandoc, adding only a provenance header carrying the source file's sha256. Run it when a new task package arrives. The body is never retyped: a paraphrase of the brief is the one document here that must not exist |
+| brief | `uv run python scripts/round/extract_ding_docs.py --package feedback-phase-N` | transcribes the reviewer's `.docx` into [docs/brief/ding/](ding/) with pandoc, adding only a provenance header carrying the source file's sha256. Run it when a new task package arrives. The body is never retyped: a paraphrase of the brief is the one document here that must not exist |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 | schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads two launchd jobs: `com.ark.bank` runs `scripts/harness/scheduled_bank.sh` at :05 every hour (`just bank`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **It needs Full Disk Access and says so**: this repository sits under `~/Documents`, which macOS TCC protects, and a launchd agent inherits nothing from the terminal that installed it, so without the grant it exits 126 while `launchctl list` looks perfectly normal, and with launchd's bare PATH it exits 127 the same way, which is why the templates set one. The recipe therefore runs the cycle job once as the probe and reports its exit status rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
@@ -159,7 +159,7 @@ the second, and the line has moved by exactly one step: **from "cannot try a sou
 one"**, which is the step that was worth moving.
 
 **The one thing the harness may never decide for itself.** A source class may not date a year until a
-human has classified it in [docs/approved-sources-list.md](approved-sources-list.md), and `ark ingest` enforces
+human has classified it in [docs/registers/approved-sources-list.md](approved-sources-list.md), and `ark ingest` enforces
 that before it opens the database. The agent can collect, measure and argue; it cannot promote. The
 journal simply waits on disk, so nothing is lost and collection never blocks: candidate-only evidence
 passes freely, because a candidate claims nothing. **An unapproved source is not quarantined inside the
@@ -227,7 +227,7 @@ just screen --list-closed          # the whole closed register, with line number
 
 Two gates, cheapest first. **Does it collide with a family already closed?** Each closed family
 carries the measurement that killed it, and the register is parsed out of
-[docs/sources.md](sources.md) and [docs/sources-closed.md](sources-closed.md) at run time rather
+[docs/registers/sources.md](sources.md) and [docs/registers/sources-closed.md](sources-closed.md) at run time rather
 than copied, so no count here can drift from it:
 `just screen --list-closed` prints the register and its size. A collision prints the verdict, so you argue with the measurement instead of rediscovering
 it. **And what dates one item?** `self` needs no corroboration split and must not have its extraction
@@ -235,7 +235,7 @@ widened; `typed` takes the split, which is what makes wide extraction safe; `und
 It **exits 2 if no dating claim is made**, because that answer decides what the source can ever be.
 
 It prices nothing, on purpose: pricing is a sample measured against the live store with a parser per
-source, and [docs/discovery.md](discovery.md) is the method. What this removes is the step
+source, and [docs/lore/discovery.md](discovery.md) is the method. What this removes is the step
 before pricing, which is the one that wastes days.
 
 ### Part 1: get the inputs (tier 3 only)
@@ -251,7 +251,7 @@ wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
 ```
 
 **The bulk sources** go in `data/raw/<source>/`, one folder per source.
-**[docs/sources.md](sources.md) has the download command for each**, since the routes differ:
+**[docs/registers/sources.md](sources.md) has the download command for each**, since the routes differ:
 several survive only as web-archive captures, and one address answers HTTP 200 with a stub.
 
 ```bash
@@ -482,7 +482,7 @@ quota rather than a rate. The journals it wrote are still ingested, by the `ark 
 rdap_snapshot` lines in the justfile, and `attested_years` still reads them.
 
 Probe a registry before spending a night on it: 150 queries is enough. Each of the ones tried failed
-differently and each failure is recorded in `docs/sources.md`, including one that blocks with 403
+differently and each failure is recorded in `docs/registers/sources.md`, including one that blocks with 403
 rather than throttling and one whose namespace was re-registered in 2002 so its creation dates date
 nothing.
 
@@ -555,7 +555,7 @@ any a sweep still holds open.
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
 sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
-and residual headroom for every one are in [docs/sources.md](sources.md).
+and residual headroom for every one are in [docs/registers/sources.md](sources.md).
 
 One recipe, the source as its argument. `just collect` with no source lists them.
 

@@ -23,5 +23,5 @@ provenance export and the raw journals reproduce it, and the checksum proves the
 ## Rounds
 
 The round-by-round figures, sent against credited, with the reviewer's release and receipt stamps,
-are in `docs/rounds.md`, which stays out of the delivery. `MANIFEST.txt` in each folder here is the
+are in `docs/registers/rounds.md`, which stays out of the delivery. `MANIFEST.txt` in each folder here is the
 record of what went out.

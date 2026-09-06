@@ -15,7 +15,7 @@ Repository: ${REPO}. READ-ONLY: create, edit and delete nothing in it.
 
 A CLOSURE IN OUR OWN REGISTER HAS JUST BEEN REFUTED, AND THAT IS WHY THIS LENS IS OPEN.
 
-\`docs/sources.md\` contains a row, "Dated announcements of new domain registrations (2026-08-18)",
+\`docs/registers/sources.md\` contains a row, "Dated announcements of new domain registrations (2026-08-18)",
 which concluded: "a registry of this era published either dates without names (statistics) or names
 without dates (a zone snapshot). The intersection existed only where a registry ran its approval
 process in public, and that was exactly one namespace: the CA Domain Registry."
@@ -61,7 +61,7 @@ percent; read them there rather than guessing, and say which you used.
 ALREADY DONE, DO NOT REPEAT: .ie (banked, 18,846 EE), .my (found, above), .za (measured, 4,462 EE),
 .ph (measured, 467 EE), .in ISP roster (62.7 EE), .au, .ca, .nz, .sg, .hk and the .us
 \`domain-delegated.txt\` file, which is a CLOSED FAMILY in the register worth 1 to 2 net-new pairs and
-was re-proposed today by mistake. Grep \`docs/sources.md\` before proposing anything.
+was re-proposed today by mistake. Grep \`docs/registers/sources.md\` before proposing anything.
 
 HOW TO LOOK. Enumerate with the CDX index rather than guessing paths:
 \`https://web.archive.org/cdx/search/cdx?url=<host>&matchType=domain&collapse=urlkey&limit=3000&output=json\`
@@ -137,7 +137,7 @@ const results = await pipeline(
          otherwise against output/internet-digital-ark-1996-2001/baseline/merged260821 plus
          output/netnew. **Do not price against legacy-data**: that is the SUPERSEDED original baseline
          and an agent did exactly that today, overstating a source by about 1,000 EE.
-      7. Grep docs/sources.md for the artifact by name and by population. One agent today re-proposed a
+      7. Grep docs/registers/sources.md for the artifact by name and by population. One agent today re-proposed a
          family closed on 2026-08-18 and quoted a figure that row exists to refute.
       Correct every number and say how you checked it.`,
       { label: `verify:${r.key}`, phase: 'Verify', schema: SCHEMA },

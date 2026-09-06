@@ -1,6 +1,6 @@
 """Kill a source proposal before it costs a request.
 
-`docs/discovery.md` says the dead-lead register is an input rather than an
+`docs/lore/discovery.md` says the dead-lead register is an input rather than an
 afterthought, and that an automated discovery agent will walk straight back into
 roughly fifty closed families unless it reads that register first. Reading a
 1,500-line document is the cheapest step in the process and also the one most
@@ -9,7 +9,8 @@ likely to be skipped, so this does it mechanically.
 Two gates, in the order that costs least:
 
 **1. Does it collide with something already closed?** The register is parsed out of
-`docs/sources.md` and `docs/sources-closed.md` at run time and never copied, because
+`docs/registers/sources.md` and `docs/registers/sources-closed.md` at run time and never
+copied, because
 a hand-kept second copy of those verdicts is how they come to disagree: a snapshot
 table in that same file once omitted the round's largest contributor entirely. A
 collision prints the verdict that closed it, so the proposer can argue with the
@@ -43,8 +44,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCES_MD = ROOT / "docs" / "sources.md"
-CLOSED_MD = ROOT / "docs" / "sources-closed.md"
+SOURCES_MD = ROOT / "docs" / "registers" / "sources.md"
+CLOSED_MD = ROOT / "docs" / "registers" / "sources-closed.md"
 REGISTERS = (SOURCES_MD, CLOSED_MD)
 
 # `[detail](#anchor)` in a row's link column, beside the source URL.
@@ -252,7 +253,7 @@ class Closed:
     line: int
     # Which register page the row is on. Two pages carry the register since
     # `convert_register.py` split it, so a bare line number cites nothing.
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:
@@ -489,7 +490,7 @@ def main() -> None:
     if args.dating is None:
         print("  NOT STATED. Pass --dating self|typed|undated.")
         print("  If you cannot answer it in one sentence, the source is seed-only and")
-        print("  the conversation is over, per docs/discovery.md section 3.")
+        print("  the conversation is over, per docs/lore/discovery.md section 3.")
         sys.exit(2)
     label, notes = DATING[args.dating]
     print(f"  {label}")

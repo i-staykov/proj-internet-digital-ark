@@ -1,4 +1,4 @@
-"""Transcribe Prof. Ding's own task files into `docs/ding/`, verbatim.
+"""Transcribe Prof. Ding's own task files into `docs/brief/ding/`, verbatim.
 
 The body is pandoc's conversion of his `.docx`, never retyped, because a paraphrase
 of the brief is the one document in this repository that must not exist. Only a
@@ -104,7 +104,7 @@ def body(src: Path) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--package", type=Path, default=REPO / "feedback-phase-6")
-    ap.add_argument("--out", type=Path, default=REPO / "docs" / "ding")
+    ap.add_argument("--out", type=Path, default=REPO / "docs" / "brief" / "ding")
     ap.add_argument(
         "--archive", default="https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17)"
     )

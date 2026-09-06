@@ -5,11 +5,11 @@ description: Bank the sources a human has newly approved into the store, then ex
 
 # Bank approved sources
 
-The evidence bar and the standing approval rule are in `docs/rules.md`; the command table is in
-`docs/runbook.md`. Order:
+The evidence bar and the standing approval rule are in `docs/lore/rules.md`; the command table is in
+`docs/ops/runbook.md`. Order:
 
-1. The source has a link and its dating sentence in `docs/sources.md`. No link, no ingest.
-2. The class has a `Decision:` line in `docs/approved-sources-list.md`. The loop may write that
+1. The source has a link and its dating sentence in `docs/registers/sources.md`. No link, no ingest.
+2. The class has a `Decision:` line in `docs/registers/approved-sources-list.md`. The loop may write that
    line itself only when all four conditions of the standing approval rule hold, and cites the
    rule in the line. Failing any one, park the source as `pending` and stop here.
 3. `uv run python scripts/harness/bank_approved.py` reports what it would ingest and skips
@@ -21,7 +21,7 @@ The evidence bar and the standing approval rule are in `docs/rules.md`; the comm
 `just ship` runs step 3 to 4 as the first stage of shipping, so a rehearsal before any
 decision arrives exercises every later step and changes nothing.
 
-Traps worth re-reading in `docs/traps.md`: an already-ingested journal shows zero net-new by
+Traps worth re-reading in `docs/lore/traps.md`: an already-ingested journal shows zero net-new by
 construction, and a partition's real yield is the `year_rows` the ingest ledger printed, not an
 argument about the partition.
 

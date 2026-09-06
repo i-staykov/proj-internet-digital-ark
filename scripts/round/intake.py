@@ -4,8 +4,8 @@ The baseline goes stale between his release and our next measurement, and every 
 collected against a stale denominator prices itself wrong. So the whole intake is one
 command, and the order is fixed:
 
-    checksum -> extract -> count -> measure -> data/baseline.json -> docs/releases.md
-    -> docs/rounds.md (only with --mail)
+    checksum -> extract -> count -> measure -> data/baseline.json -> docs/registers/releases.md
+    -> docs/registers/rounds.md (only with --mail)
 
     uv run python scripts/round/intake.py feedback/feedback-phase-8/his.zip
     uv run python scripts/round/intake.py his.zip --mail private/mail/verdict7.txt \\
@@ -125,7 +125,7 @@ def released_at(zip_path: Path, marker: str, given: str | None) -> str:
 
 
 def recorded_sha(page: Path, marker: str) -> str | None:
-    """The sha256 docs/releases.md already carries for a marker, if it carries one."""
+    """The sha256 docs/registers/releases.md already carries for a marker, if it carries one."""
     if not page.is_file():
         return None
     _, rows, _ = releases.split_page(page.read_text(encoding="utf-8"))

@@ -1,4 +1,4 @@
-"""Read one verdict mail and write its round's row in docs/rounds.md.
+"""Read one verdict mail and write its round's row in docs/registers/rounds.md.
 
 His verdicts follow one template: five labelled figures, sometimes numbered, sometimes
 with a sixth candidate-pool line, and sometimes a `Score calculation:` line. Only the
@@ -31,7 +31,7 @@ from pathlib import Path
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS
 from ark.figures import elapsed_days, score, t_days
 
-PAGE = Path("docs/rounds.md")
+PAGE = Path("docs/registers/rounds.md")
 FEEDBACK = Path("feedback")
 
 # A cell of a new row that nothing here can fill.

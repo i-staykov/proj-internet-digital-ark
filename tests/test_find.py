@@ -99,8 +99,8 @@ PENDING = (
 
 @pytest.fixture
 def register(tmp_path):
-    docs = tmp_path / "docs"
-    docs.mkdir()
+    docs = tmp_path / "docs" / "registers"
+    docs.mkdir(parents=True)
     (docs / "sources.md").write_text(SOURCES, encoding="utf-8")
     (docs / "sources-closed.md").write_text(CLOSED, encoding="utf-8")
     (docs / "approved-sources-list.md").write_text(APPROVED, encoding="utf-8")

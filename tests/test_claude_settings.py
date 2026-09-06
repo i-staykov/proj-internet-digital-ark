@@ -27,7 +27,7 @@ LOCAL_SETTINGS = ".claude/settings.local.json"
 RULE = re.compile(r"^[A-Za-z]+\((.*)\)$")
 
 # The two registers the deny rule exists for, and the only files it may reach.
-REGISTERS = {"docs/sources.md", "docs/sources-closed.md"}
+REGISTERS = {"docs/registers/sources.md", "docs/registers/sources-closed.md"}
 
 ENV_CAPS = {"BASH_MAX_OUTPUT_LENGTH", "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS"}
 

@@ -3,7 +3,8 @@
 **What this is, and why a free-DNS operator published it.** Granite Canyon ran free secondary
 DNS. Like every such operator it refused to publish a customer list, but unlike the others it
 published a nightly list of the zones its BIND could not load, which gives away the same names.
-`docs/sources.md` records the transferable form: **when a service hides its inventory behind a
+`docs/registers/sources.md` records the transferable form: **when a service hides its
+inventory behind a
 login, look for its error log.** secondary.com, zoneedit.com, xname.org and freedns.com all
 refused; this one did not.
 

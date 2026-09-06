@@ -6,7 +6,8 @@ refuse anything that does not contain the text the real page must contain.
 
 **MYNIC**, `mynic.net.my/my/stats/<month><year>-{1,2}.htm`. Only the `-1` and `-2` half-month
 pages carry names; the bare-month pages are the statistics tables and are not fetched, though
-they are what settled the corroboration split (see `docs/sources.md`). 35 pages fall in the
+they are what settled the corroboration split (see `docs/registers/sources.md`). 35 pages
+fall in the
 window; `dec2001-1.htm` has only a 318-byte empty capture and stays missing, which is recorded
 rather than retried forever.
 

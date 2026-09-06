@@ -66,7 +66,7 @@ def test_an_unscored_entry_is_a_hard_error(tmp_path):
 
 def test_the_live_queue_is_in_order():
     """Against the real file, so a hand edit that breaks the order fails the suite."""
-    doc = Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md"
+    doc = Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
     _head, body, _tail = rank_triage.split_section(doc.read_text())
     _preamble, entries = rank_triage.parse_entries(body)
     keys = [(row[3], -row[0]) for row in entries]

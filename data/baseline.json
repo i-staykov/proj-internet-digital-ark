@@ -1,19 +1,19 @@
 {
   "current": {
-    "marker": "merged260905-3",
-    "directory": "feedback/feedback-phase-9/Domain_Data_Collection_Task/merged260905-3",
-    "released_at": "2026-09-05 16:27",
+    "marker": "merged260906",
+    "directory": "feedback/Domain_Data_Collection_Task_0906_Update/Domain_Data_Collection_Task/merged260906",
+    "released_at": "2026-09-06 14:14",
     "round_since": "2026-09-04 15:00:00+00",
     "round_label": "9",
-    "reviewer_pairs": 51702033,
-    "reviewer_ee": "27740079.6441",
+    "reviewer_pairs": 61336686,
+    "reviewer_ee": "32616472.5275",
     "reviewer_ee_by_year": {
-      "1996": "721869.5216",
-      "1997": "1449995.9502",
-      "1998": "2295090.7611",
-      "1999": "4244488.3961",
-      "2000": "6910086.0151",
-      "2001": "12118549.0000"
+      "1996": "724338.4069",
+      "1997": "1474061.7573",
+      "1998": "2343775.9179",
+      "1999": "4392647.7453",
+      "2000": "7253625.3584",
+      "2001": "16428023.3417"
     }
   },
   "original": {

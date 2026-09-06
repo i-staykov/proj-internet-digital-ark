@@ -33,7 +33,7 @@ ALLOWED_UNDOCUMENTED = {
     "promotion",
     # Measured and REJECTED on 2026-08-01: 6,281,952 lines for 60 net-new pairs, a
     # 99.998% overlap, because it samples the same Internet Archive CDX the baseline
-    # already drains. `docs/sources.md` carries the working. The parser is kept, tested
+    # already drains. `docs/registers/sources.md` carries the working. The parser is kept, tested
     # and wired so a future release of the family can be priced without rebuilding it,
     # and it has zero rows in the store. Putting it in the reproduction recipe would
     # tell a reviewer to ingest something this project measured and threw away.

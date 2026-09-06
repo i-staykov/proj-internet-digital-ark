@@ -1,6 +1,6 @@
 """Say which local data entries could be deleted, and delete nothing.
 
-Reads the tracked `docs/retention.md` and nothing else, so the page a human can read
+Reads the tracked `docs/registers/retention.md` and nothing else, so the page a human can read
 is the single source of truth: the classification tables inside `verify_raw.py` are
 not consulted here. An entry with no row is not in the table and so cannot appear.
 
@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-RETENTION = REPO / "docs/retention.md"
+RETENTION = REPO / "docs/registers/retention.md"
 
 # Classes whose bytes can come back. The other three are held whatever else holds:
 # `live_input` is read by `just reproduce sources`, `keep_journal` is ours alone, `reference`
