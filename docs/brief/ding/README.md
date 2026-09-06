@@ -28,7 +28,7 @@ because it is the thing every later argument gets settled against.
 said that are not in a `.docx`:
 
 - `docs/SPEC.md` is the reviewer's original brief, cited by clause from across the repo.
-- `docs/brief_amendments.md` is what he changed by email after a package was issued.
+- `docs/brief/brief_amendments.md` is what he changed by email after a package was issued.
 - `private/personal-context.md` holds his emails verbatim, and is git-ignored.
 
 An email of his outranks a brief of his when the two disagree, because it is later. The

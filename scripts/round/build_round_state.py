@@ -65,8 +65,8 @@ from ark.stats import collect_stats, format_stats  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
-DECISIONS = ROOT / "docs/key-decisions.md"
-AMENDMENTS = ROOT / "docs/brief_amendments.md"
+DECISIONS = ROOT / "docs/lore/key-decisions.md"
+AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 SECTION_RE = re.compile(r"^== (.*?) ==$", re.MULTILINE)
 GATE_PCT = Decimal(5)
@@ -246,8 +246,10 @@ def build() -> tuple[str, dict, dict]:
         "## Waiting on a human",
         "",
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
-        "on disk untouched until a `Decision:` line in `docs/approved-sources-list.md` says",
-        "otherwise. Each one is also raised under `## OPEN` in `docs/key-decisions.md`, which is",
+        "on disk untouched until a `Decision:` line in",
+        "`docs/registers/approved-sources-list.md` says",
+        "otherwise. Each one is also raised under `## OPEN` in",
+        "`docs/lore/key-decisions.md`, which is",
         "the only surface Ivo reads. Nothing is lost by leaving them; nothing enters an annual",
         "file while they wait.",
         "",
@@ -258,13 +260,13 @@ def build() -> tuple[str, dict, dict]:
             for a in waiting
         ]
     else:
-        parts += ["Nothing pending in `docs/approved-sources-list.md`."]
+        parts += ["Nothing pending in `docs/registers/approved-sources-list.md`."]
     parts += ["", "**Open decisions.**", ""]
     if decisions:
         parts += [f"- {d}" for d in decisions]
-        parts += ["", "Full context in `docs/key-decisions.md`."]
+        parts += ["", "Full context in `docs/lore/key-decisions.md`."]
     else:
-        parts += ["Nothing open in `docs/key-decisions.md`."]
+        parts += ["Nothing open in `docs/lore/key-decisions.md`."]
     parts += [
         "",
         "---",

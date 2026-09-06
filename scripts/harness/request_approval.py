@@ -50,8 +50,8 @@ from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
-APPROVALS = ROOT / "docs/approved-sources-list.md"
-DECISIONS_DOC = ROOT / "docs/key-decisions.md"
+APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
+DECISIONS_DOC = ROOT / "docs/lore/key-decisions.md"
 SAMPLE_SIZE = 6
 
 

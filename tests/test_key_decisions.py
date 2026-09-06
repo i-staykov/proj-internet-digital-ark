@@ -206,8 +206,8 @@ def test_every_pending_approval_is_surfaced_in_the_live_files() -> None:
     entry is exactly as invisible as an unnamed priced request.
     """
     root = Path(__file__).resolve().parents[1]
-    approvals = root / "docs" / "approved-sources-list.md"
-    decisions = root / "docs" / "key-decisions.md"
+    approvals = root / "docs" / "registers" / "approved-sources-list.md"
+    decisions = root / "docs" / "lore" / "key-decisions.md"
     waiting = pending(approvals)
 
     unsurfaced = [
@@ -267,7 +267,7 @@ def test_the_live_triage_entry_agrees_with_itself() -> None:
     """Against the real file, because the two copies disagreed there and nowhere else."""
     import re
 
-    text = (Path(__file__).resolve().parents[1] / "docs" / "key-decisions.md").read_text()
+    text = (Path(__file__).resolve().parents[1] / "docs" / "lore" / "key-decisions.md").read_text()
     match = re.search(r"### Triage the newly found sources[^\n]*\n\n(.{0,400})", text, re.S)
     assert match, "the triage mirror entry is missing from key-decisions.md"
     heading = text[match.start() : text.index("\n", match.start())]

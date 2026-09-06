@@ -31,7 +31,7 @@ the sent mail's, and the older figures that had them 17 records and 0.31 EE lowe
 Round 1 sent 1,429,524 records and he awarded
 17.38% on records, so its p_i is not commensurable with the others; it is summed on Ivo's instruction of
 2026-09-02 and flagged wherever the sum is printed. Whether he confirms the whole-day reading of t_i is
-open in `docs/questions.md`.
+open in `docs/registers/questions.md`.
 
 A round can be accepted in full and still be credited less than it was sent for: he merges against
 whatever baseline is current when he reaches the submission, and in round 5 230,393 of ours had already

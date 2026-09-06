@@ -1,13 +1,13 @@
 """A pending amendment must be on its way somewhere.
 
-`docs/brief_amendments.md` is the standing statement of what the reviewer currently asks
+`docs/brief/brief_amendments.md` is the standing statement of what the reviewer currently asks
 for, and intake writes a row into it for every changed paragraph of his brief before a
 human has classified it. Such a row carries `pending` in the columns a human fills.
 
 The failure worth guarding is the quiet one: the row is written, nobody classifies it, and
 the change it records is never made. So a pending row must do one of two things, both
 checkable without reading his mind. Either it quotes words that also stand in
-`docs/questions.md`, meaning the ambiguity is on its way back to him, or it names a file
+`docs/registers/questions.md`, meaning the ambiguity is on its way back to him, or it names a file
 that exists, meaning the change already has a home.
 """
 
@@ -15,14 +15,14 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-AMENDMENTS = ROOT / "docs" / "brief_amendments.md"
-QUESTIONS = ROOT / "docs" / "questions.md"
+AMENDMENTS = ROOT / "docs" / "brief" / "brief_amendments.md"
+QUESTIONS = ROOT / "docs" / "registers" / "questions.md"
 
 TABLE_ROW = re.compile(r"^\s*\|(?P<cells>.+)\|\s*$")
 PENDING = re.compile(r"\bpending\b", re.I)
 # His words, as a row quotes them. Short spans match too much to be evidence of anything.
 QUOTED = re.compile(r'"([^"]{12,})"')
-# `docs/rules.md`, `src/ark/sources.py`, `scripts/round/package_delivery.sh`.
+# `docs/lore/rules.md`, `src/ark/sources.py`, `scripts/round/package_delivery.sh`.
 NAMED_FILE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*\.[A-Za-z0-9]{2,5}")
 
 

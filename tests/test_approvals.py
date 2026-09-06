@@ -85,7 +85,7 @@ def test_pending_is_listed_for_the_state_document(tmp_path) -> None:
 def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None:
     """A spec with no entry cannot be ingested, so an unlisted one is a latent stop.
 
-    This runs against the live `docs/approved-sources-list.md` on purpose: adding a source
+    This runs against the live `docs/registers/approved-sources-list.md` on purpose: adding a source
     without classifying it should fail here rather than at 3am in an unattended run.
     """
     from pathlib import Path
@@ -95,7 +95,7 @@ def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None
 
     # The real file, named explicitly: conftest repoints the module attribute at a
     # temp file for every other test, and reading that here would pass vacuously.
-    real = Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md"
+    real = Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
     recorded = load(real)
     missing = sorted(
         {
@@ -165,7 +165,7 @@ def test_the_live_file_parses_and_its_triage_section_is_recognised() -> None:
     """Against the real document, so a rename of the heading cannot pass silently."""
     from ark.approvals import TRIAGE_SECTION, load
 
-    found = load(Path("docs/approved-sources-list.md"))
+    found = load(Path("docs/registers/approved-sources-list.md"))
     assert found, "the live approvals file parsed to nothing"
     assert TRIAGE_SECTION == "Found, awaiting triage"
     assert any(a.decision == "master" for a in found.values())
@@ -175,7 +175,7 @@ def test_the_live_triage_section_holds_only_open_entries() -> None:
     """Since 2026-09-03 a decision taken in triage is filed by `scripts/round/split_triage.py`:
     master blocks move to Decided, rejected ones to `sources-closed.md` behind a stub. A
     decided block left in triage means the split has not run, and the harness says so."""
-    found = load(Path("docs/approved-sources-list.md"))
+    found = load(Path("docs/registers/approved-sources-list.md"))
     decided = sorted(
         f"{a.source_name} / {a.evidence_type}"
         for a in found.values()
@@ -197,7 +197,9 @@ def test_every_master_eligible_recipe_is_approved_master() -> None:
     from ark.evidence_types import MASTER_TYPES
     from ark.sources import SOURCES
 
-    recorded = load(Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md")
+    recorded = load(
+        Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
+    )
     wrong = {}
     for key, spec in SOURCES.items():
         if spec.evidence_type not in MASTER_TYPES:

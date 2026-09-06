@@ -14,7 +14,7 @@ frozen `submissions/phase-N` gets a row without a file written inside it. The
 manifests stay untracked: 89k lines that move with every collector run do not belong
 in a public repo.
 
-`docs/retention.md` is tracked, one row per entry: the children of `data/raw/`,
+`docs/registers/retention.md` is tracked, one row per entry: the children of `data/raw/`,
 `output/` and `feedback/`, every `data/*.bak`, the archived releases under
 `data/archive/` and the frozen `submissions/phase-*`. The class comes from the tables
 below; an entry they do not name defaults to `reference` and is flagged. A path with
@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RETENTION = "docs/retention.md"
+RETENTION = "docs/registers/retention.md"
 CATALOG = "data/raw/usenet_catalog.json"
 SUMS, SHA1S, STAT = "SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat"
 MANIFESTS = frozenset({SUMS, SHA1S, STAT})
@@ -91,7 +91,7 @@ KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = dict.fromkeys(
 )
 
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:
-# the offline rebuild breaks without them. `None` means docs/sources.md has the URL
+# the offline rebuild breaks without them. `None` means docs/registers/sources.md has the URL
 # and this table does not carry it yet.
 LIVE_INPUT: dict[str, str | None] = {
     "afnic": None,
@@ -145,7 +145,7 @@ KEEP_JOURNAL = frozenset(
     }
 )
 
-# Kept for the record: measured negatives whose verdict is in docs/sources.md, spent
+# Kept for the record: measured negatives whose verdict is in docs/registers/sources.md, spent
 # probes, quarantined journals, and the older checksum records. The 2026-09-03 block is
 # the E9.5 batch, each priced at hostname grain and each under the bar, with its row in
 # the register's `Evaluated and rejected` table.
@@ -233,7 +233,7 @@ def classify(key: str) -> tuple[str, str] | None:
     if root == "data" and name.endswith(".bak"):
         return "regenerable", "just reproduce"
     if root == "data/archive" and name.endswith(".tar.zst"):
-        # the reviewer's release, repacked where his zip was discarded (docs/releases.md)
+        # the reviewer's release, repacked where his zip was discarded (docs/registers/releases.md)
         return "reference", "reviewer_release"
     if root == "submissions":
         return "reference", NONE
@@ -442,6 +442,8 @@ def write_if_changed(path: Path, text: str, dry_run: bool, report: Report) -> No
     if dry_run:
         return
     if text:
+        # docs/ grew subdirectories on 2026-09-06, so the page's parent may not exist yet
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
     else:
         path.unlink()

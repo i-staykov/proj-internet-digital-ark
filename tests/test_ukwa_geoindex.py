@@ -65,7 +65,9 @@ def test_registering_the_parser_did_not_grant_the_class_anything() -> None:
 
     from ark.approvals import load
 
-    approvals = Path(__file__).resolve().parents[1] / "docs" / "approved-sources-list.md"
+    approvals = (
+        Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
+    )
     text = approvals.read_text(encoding="utf-8")
     approval = load(approvals).get(("ukwa_geoindex", "cdx_timestamp"))
     assert approval is not None, "ukwa_geoindex has no Decision line, so the gate would refuse it"

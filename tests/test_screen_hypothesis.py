@@ -2,7 +2,7 @@
 
 Loaded by path, like the other script tests: `scripts/` is not a package.
 
-The register is parsed from `docs/sources.md` rather than copied, so two of these
+The register is parsed from `docs/registers/sources.md` rather than copied, so two of these
 tests run against the real document. That is deliberate: a parser that silently
 stops matching the file it reads would leave the tool reporting "no collision"
 for everything, which is the worst possible failure here because it reads as
@@ -21,7 +21,7 @@ _SPEC.loader.exec_module(screen)
 
 
 def test_the_real_register_parses_to_a_plausible_number_of_leads() -> None:
-    """`docs/discovery.md` says roughly fifty families are closed. A parser that
+    """`docs/lore/discovery.md` says roughly fifty families are closed. A parser that
     returns a handful has stopped matching the document."""
     register = screen.closed_leads()
     assert len(register) >= 40

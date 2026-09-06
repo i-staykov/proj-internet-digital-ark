@@ -203,7 +203,7 @@ totals are measured against is named in `src/ark/baseline.py` and nowhere else.
 That changes what a queue is for. **Neither population can be finished**, and both
 grow faster than the crawl closes them, because a larger merged baseline creates
 new bracketed gaps. So the ordering decides the outcome and the tail is
-theoretical. The measured pool sizes and hit rates live in `docs/sources.md` under
+theoretical. The measured pool sizes and hit rates live in `docs/registers/sources.md` under
 `ia_cdx_bulk` and `rdap`, which is where they ship; repeating them here is how they
 come to disagree. Both list builders therefore rank
 by **expected equivalent-English per query**, and the two factors come from

@@ -7,7 +7,7 @@ from the register at packaging time, never hand-maintained, and each row points 
 at the register entry that carries the full measurement.
 
 Read over both register pages, since `convert_register.py` gave every entry one row of
-named columns and moved closed families to `docs/sources-closed.md`. Two consequences
+named columns and moved closed families to `docs/registers/sources-closed.md`. Two consequences
 worth stating: every entry reaches the ledger now, 470 rows against 202, not only those
 that carried a bold heading, and an entry's `## Detail` block is read with its row,
 because the reopen clause is prose and the row is only a projection of it.
@@ -157,7 +157,9 @@ def detail_blocks(text: str) -> dict[str, str]:
     return {key: " ".join(value) for key, value in blocks.items()}
 
 
-def rows_from_register(sources_md: str, page: str = "docs/sources.md") -> list[dict[str, str]]:
+def rows_from_register(
+    sources_md: str, page: str = "docs/registers/sources.md"
+) -> list[dict[str, str]]:
     """One ledger row per register row, whatever the page's column set is."""
     rows: list[dict[str, str]] = []
     details = detail_blocks(sources_md)
@@ -236,7 +238,9 @@ def rows_from_contribution(csv_path: Path) -> list[dict[str, str]]:
                     "version_or_date": "active this round",
                     "status": "active",
                     "coverage_ee": "",
-                    "what_dates_one_item": "see docs/sources.md section and evidence manifest",
+                    "what_dates_one_item": (
+                        "see docs/registers/sources.md section and evidence manifest"
+                    ),
                     "quality_limitations": f"net-new pairs this round: {pairs}",
                     "decision": "retain: still contributing",
                     "reference": "audit/source_contribution.csv",
@@ -248,8 +252,8 @@ def rows_from_contribution(csv_path: Path) -> list[dict[str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--sources", type=Path, default=REPO / "docs/sources.md")
-    parser.add_argument("--closed", type=Path, default=REPO / "docs/sources-closed.md")
+    parser.add_argument("--sources", type=Path, default=REPO / "docs/registers/sources.md")
+    parser.add_argument("--closed", type=Path, default=REPO / "docs/registers/sources-closed.md")
     parser.add_argument(
         "--contribution",
         type=Path,
@@ -260,7 +264,8 @@ def main() -> int:
     rows = rows_from_contribution(args.contribution)
     for path in (args.sources, args.closed):
         if path.is_file():
-            page = f"docs/{path.name}"
+            # both registers live under docs/registers/ since 2026-09-06
+            page = f"docs/registers/{path.name}"
             rows += rows_from_register(path.read_text(encoding="utf-8"), page)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="") as fh:

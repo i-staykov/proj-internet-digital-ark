@@ -31,8 +31,8 @@ WORKFLOWS = CLAUDE / "workflows"
 
 MAX_LINES = 40
 
-# Repo-relative docs references, in prose or in a markdown link: docs/laws.md,
-# docs/ding/task-package-file-guide.md, docs/hypotheses.tsv.
+# Repo-relative docs references, in prose or in a markdown link: docs/lore/laws.md,
+# docs/brief/ding/task-package-file-guide.md, docs/registers/hypotheses.tsv.
 DOCS_REF = re.compile(r"docs/[A-Za-z0-9_./-]+\.(?:md|tsv|txt|docx)")
 
 # A generated page is git-ignored and absent from a fresh clone, so its .gitignore line is what

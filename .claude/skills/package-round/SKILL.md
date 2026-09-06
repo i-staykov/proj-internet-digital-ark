@@ -5,9 +5,9 @@ description: Build, verify and freeze a round's delivery archive. Use when a rou
 
 # Package a round
 
-`docs/runbook.md` holds the shipping section and what each step should print;
-`docs/delivery_readme.md` is the README that ships at the archive root and
-`docs/ding/task-package-file-guide.md` is his file guide for what the package must contain.
+`docs/ops/runbook.md` holds the shipping section and what each step should print;
+`docs/round/delivery_readme.md` is the README that ships at the archive root and
+`docs/brief/ding/task-package-file-guide.md` is his file guide for what the package must contain.
 
 ```
 just ship --help              # the whole chain, printed, nothing run

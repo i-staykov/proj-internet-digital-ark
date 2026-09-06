@@ -15,14 +15,14 @@ early, because percentages add and the denominator grows.
 
 | doing this | read |
 |---|---|
-| pricing a source | [docs/laws.md](docs/laws.md) |
-| touching a number | [docs/traps.md](docs/traps.md) |
-| an ingest or a commit | [docs/rules.md](docs/rules.md) |
-| running anything | [docs/runbook.md](docs/runbook.md) |
+| pricing a source | [docs/lore/laws.md](docs/lore/laws.md) |
+| touching a number | [docs/lore/traps.md](docs/lore/traps.md) |
+| an ingest or a commit | [docs/lore/rules.md](docs/lore/rules.md) |
+| running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
 | quoting a round figure | `docs/ROUND.md` |
-| proposing a lens | [docs/sources-closed.md](docs/sources-closed.md), then grep [docs/sources.md](docs/sources.md) |
+| proposing a lens | [docs/registers/sources-closed.md](docs/registers/sources-closed.md), then grep [docs/registers/sources.md](docs/registers/sources.md) |
 
-Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/key-decisions.md](docs/key-decisions.md).
+Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/key-decisions.md](docs/lore/key-decisions.md).
 
 ## When prompted, in this order
 
@@ -34,7 +34,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/key-dec
    thousands of records instead of one pair. `just hostnames <epoch>` starts that lane.
 3. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
-5. Log the result in `docs/sources.md` whatever the answer, so nobody re-tests it.
+5. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
 ## The ten rules that bind every session
 
@@ -57,7 +57,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/key-dec
    inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after
    the ingest. Failing any one parks the source as `pending`. Undated is still fatal, and so are terms
    we do not hold.
-8. **Every source gets a LINK in `docs/sources.md` before it is ingested** (Ivo, 2026-08-31), next to
+8. **Every source gets a LINK in `docs/registers/sources.md` before it is ingested** (Ivo, 2026-08-31), next to
    the sentence saying what dates one item and why it clears the bar.
 9. No AI attribution in commits.
 10. **No em-dashes or en-dashes.**

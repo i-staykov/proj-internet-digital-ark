@@ -3,7 +3,7 @@
 # Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong.
 # The raw commands stay the reproducibility contract, because they need nothing but
 # uv installed; these recipes exist so nobody has to remember the sequence, not to
-# hide what runs. docs/runbook.md is the long form: every command, and the output it
+# hide what runs. docs/ops/runbook.md is the long form: every command, and the output it
 # should give.
 #
 # Quiet by default, so a session reading this output sees results and not shell.
@@ -91,7 +91,7 @@ check what="all":
 
 # Prove what is on DISK, as opposed to the code or the store.
 #
-#   raw       checksum every local data entry and regenerate docs/retention.md. Writes
+#   raw       checksum every local data entry and regenerate docs/registers/retention.md. Writes
 #             data/raw/<entry>/SHA256SUMS (untracked) plus a .stat sidecar, so a second
 #             run hashes only files whose size or mtime moved; Usenet zips named in
 #             usenet_catalog.json take IA's sha1 into SHA1SUMS instead of a rehash. A
@@ -340,7 +340,7 @@ context-report *args:
 
 # --- proposing and pricing a source -------------------------------------------
 
-# The harness's working memory across sessions. `docs/sources.md` is the
+# The harness's working memory across sessions. `docs/registers/sources.md` is the
 # authoritative narrative and holds the ~60 verdicts the screener parses, but prose
 # cannot carry STATUS, so it cannot answer what an unattended run asks every time it
 # wakes up: what did I propose that I never finished pricing? `add` screens first and
@@ -356,7 +356,7 @@ hypo *args:
 
 # Does the proposal collide with one of the ~50 families already closed with a
 # measurement, and what dates ONE of its items. The register is parsed out of
-# docs/sources.md at run time rather than copied, so it cannot drift from the
+# docs/registers/sources.md at run time rather than copied, so it cannot drift from the
 # verdicts. Exits 2 if no dating claim is made, because a source whose items carry
 # no date is seed-only and that decides what it can ever be. Example:
 #   just screen --dating typed "1997 conference proceedings with affiliations"
@@ -465,7 +465,7 @@ reproduce stage="all":
     # evidence is present and its input file is not. Leaving the line in aborted this
     # whole stage on a missing file, which broke the reviewer-facing reproduction path.
     # To re-derive it rather than trust the store, download it first (the command is in
-    # docs/sources.md) and run the commented line by hand. Same reason
+    # docs/registers/sources.md) and run the commented line by hand. Same reason
     # `data/raw/checksums.sha256` verifies 234 files rather than 235.
     sources)
         uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
@@ -474,7 +474,7 @@ reproduce stage="all":
         uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
         # The nameserver TARGETS of the 1997 zones at hostname grain, admitted 2026-09-02
         # under the standing rule (11,860.7 EE). The 1999 tomocha files are deliberately
-        # not listed: their terms are parked, see docs/approved-sources-list.md.
+        # not listed: their terms are parked, see docs/registers/approved-sources-list.md.
         uv run ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz data/raw/internic_zones/edu.zone.gz data/raw/internic_zones/gov.zone.gz data/raw/internic_zones/mil.zone.gz data/raw/internic_zones/root.zone.gz data/raw/internic_zones/arpa.zone.gz
         uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
         # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
@@ -594,7 +594,7 @@ reproduce stage="all":
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv.gz
         uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
         # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
-        # is set in docs/approved-sources-list.md, so this line is a no-op until then and
+        # is set in docs/registers/approved-sources-list.md, so this line is a no-op until then and
         # is here so the documented reproduction is complete rather than nearly complete.
         # Build the input first with `bash scripts/sources/ukwa/ukwa_geoindex_pull.sh`.
         uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
@@ -1051,27 +1051,27 @@ collect source="" *args:
         echo "  attrition enron maillists pandora-seed rtfm-faqs trade-press"
         echo "  trade-press-american trade-press-reextract tucows usenet-addresses"
         echo "  usenet-bare usenet-ingest usenet-measure usenet-whois uucp-maps"
-        echo "Arguments and what each one reads: docs/runbook.md"
+        echo "Arguments and what each one reads: docs/ops/runbook.md"
         ;;
     *) echo "collect: no source called '{{source}}'; run 'just collect' for the list" >&2; exit 2 ;;
     esac
 
 # --- retention ----------------------------------------------------------------
 
-# Fill docs/releases.md from what is on disk: per-year line counts of every extracted
+# Fill docs/registers/releases.md from what is on disk: per-year line counts of every extracted
 # release tree under feedback/, the sha256 of the reviewer's zip where one exists and
 # of our data/archive/<marker>.tar.zst where it does not. Writes only the cells it can
 # compute, so a hash outlives the zip leaving the machine. `just releases --zstd`
 # packs the zip-less trees first; `--refresh` recounts and rehashes everything.
 #
-# fill docs/releases.md from the release trees on disk
+# fill docs/registers/releases.md from the release trees on disk
 releases *args:
     uv run python scripts/round/releases.py {{args}}
 
 # Take one reviewer release: verify the zip's sha256 and record it, extract it beside the
 # other releases, count the year files, remeasure them with his own calculator, point
-# data/baseline.json at the new marker and refresh docs/releases.md. With --mail it also
-# writes the round's row in docs/rounds.md. Every figure comes from the extracted files,
+# data/baseline.json at the new marker and refresh docs/registers/releases.md. With --mail it also
+# writes the round's row in docs/registers/rounds.md. Every figure comes from the extracted files,
 # never from his mail. Every step prints its wall time; a second run on the same zip
 # changes nothing; --dry-run says what it would do; a marker already recorded under a
 # different sha256 stops the run. It does NOT load the release into the store: that stays
@@ -1081,13 +1081,13 @@ releases *args:
 intake *args:
     uv run python scripts/round/intake.py {{args}}
 
-# Write a round's row in docs/rounds.md from the reviewer's verdict mail: his five
+# Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
 # figures parsed, S and t computed from the two stamps rather than read off the mail,
 # and a benchmark he never sent marked not received. Pass the mail, the round label
 # and the receipt stamp in his clock, e.g.
 # `just rounds --mail private/mail/verdict7.txt --round 7 --received "2026-09-02 05:50"`.
 #
-# write a round's row in docs/rounds.md from his verdict mail
+# write a round's row in docs/registers/rounds.md from his verdict mail
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 

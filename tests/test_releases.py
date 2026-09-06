@@ -41,7 +41,7 @@ def _blank_page() -> str:
     The tracked table is filled from the real feedback/ tree, so a test that started from
     it would read those cells instead of its own layout's.
     """
-    head, _, tail = releases.split_page((ROOT / "docs/releases.md").read_text())
+    head, _, tail = releases.split_page((ROOT / "docs/registers/releases.md").read_text())
     table = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])
     return head + releases.BEGIN + "\n" + table + "\n" + releases.END + tail
 
@@ -85,7 +85,7 @@ def _rows(page: Path) -> dict[str, dict[str, str]]:
 
 
 def test_every_release_has_a_row_and_a_date():
-    rows = _rows(ROOT / "docs/releases.md")
+    rows = _rows(ROOT / "docs/registers/releases.md")
     assert list(rows) == list(releases.RELEASES)
     for marker, row in rows.items():
         assert row["released"] == releases.release_date(marker)

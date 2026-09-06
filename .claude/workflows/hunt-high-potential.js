@@ -63,7 +63,7 @@ TODAY'S NETWORK REALITY, so you do not misread a refusal as an absence.
  - **The CDX \`length\` column is the COMPRESSED record size, not the page size.** A big uniform table
    compresses hardest, so ranking candidates by CDX length under-ranks exactly the pages worth having.
 
-BEFORE PROPOSING ANYTHING, grep \`docs/sources.md\` by NAME and by POPULATION. It holds roughly 180
+BEFORE PROPOSING ANYTHING, grep \`docs/registers/sources.md\` by NAME and by POPULATION. It holds roughly 180
 families, most of them closed with the measurement that closed them, and re-proposing one wastes the
 only thing that matters here. Already done today and NOT to be repeated: .ie, .my, .za, .ph, .in, .nz,
 .au, .ca, .sg, .hk, .tw, .id, .nu, .lu, .mt, .sa, .il, .ve, the \`nic.us/domain-delegated.txt\` file,
@@ -200,7 +200,7 @@ const results = await pipeline(
          exactly that today, overstating a source by about 1,000 EE. **And price on the CANONICAL form**:
          one pricing script joined raw URLs against a domain column and reported 6.3 MILLION EE where the
          truth was 4,509, because the top net-new TLDs it found were htm, html and php.
-      6. Grep docs/sources.md by name and by population. A family closed there is worth nothing.
+      6. Grep docs/registers/sources.md by name and by population. A family closed there is worth nothing.
       7. Apply the 5,000 EE bar honestly. If the corrected size is under it, say worth_a_decision=false
          even if the artifact is real and interesting.`,
       { label: `verify:${l.key}`, phase: 'Verify', schema: SCHEMA },

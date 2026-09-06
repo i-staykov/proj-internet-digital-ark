@@ -100,7 +100,7 @@ def build(root: Path, rows=ROWS) -> Path:
         files = [p for p in files if p.name not in offsite.SIDECARS]
         size = sum(p.stat().st_size for p in files)
         body += f"| `{key}` | {cls} | {len(files)} | {size} | `{digest}` | {refetch} | {record} |\n"
-    table = root / "docs/retention.md"
+    table = root / "docs/registers/retention.md"
     table.parent.mkdir(parents=True, exist_ok=True)
     table.write_text(HEAD + body, encoding="utf-8")
     return table
@@ -131,7 +131,7 @@ def test_the_payload_is_what_nothing_else_could_bring_back(tmp_path: Path, capsy
 
 def test_the_two_usenet_corpora_are_excluded_by_name(tmp_path: Path) -> None:
     build(tmp_path)
-    entries = {e.key: e for e in offsite.prune.read_table(tmp_path / "docs/retention.md")}
+    entries = {e.key: e for e in offsite.prune.read_table(tmp_path / "docs/registers/retention.md")}
     assert offsite.reason(entries["data/raw/usenet_bulk"]) is None
     assert "archive.org" in offsite.held_because(entries["data/raw/usenet_bulk"])
     assert offsite.REFETCHABLE == {"data/raw/usenet_bulk", "data/raw/usenet_new"}
@@ -250,7 +250,7 @@ def test_a_second_upload_transfers_nothing(tmp_path: Path, capsys) -> None:
 
 
 def test_the_real_table_keeps_regenerable_and_refetchable_bytes_local() -> None:
-    entries = offsite.prune.read_table(REPO / "docs/retention.md")
+    entries = offsite.prune.read_table(REPO / "docs/registers/retention.md")
     rows, refused, empty = offsite.payload(entries)
     assert rows and not refused
     picked = {r.entry for r in rows}

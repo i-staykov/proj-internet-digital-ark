@@ -26,7 +26,7 @@ than lucky: a disputed name is often a typosquat taken down within weeks, which 
 exactly the population a crawl never visits.
 
 **Evidence type `artifact_listing`, master, no corroboration split.** See ADR-002 for
-the reasoning and `docs/sources.md` for the measured figures under both readings.
+the reasoning and `docs/registers/sources.md` for the measured figures under both readings.
 
 **ICANN's own caveat, carried through rather than hidden:** the page describes itself
 as "an incomplete list of UDRP proceedings". So this is a floor, not a census, and the

@@ -89,7 +89,7 @@ YEARS = range(1996, 2002)
 #
 # Deliberately excluded: `magazine_rack` (34,287 items, measured 0.4 net-new pairs
 # each) and `folkscanomy_computer` (518 items, measured 36 of 40 unreachable and 2
-# net-new pairs from 40). Both are already in the rejected table of docs/sources.md
+# net-new pairs from 40). Both are already in the rejected table of docs/registers/sources.md
 # and adding item count is not the same as adding yield.
 HOBBYIST_QUERY = "collection:computermagazines OR collection:byte-magazine OR boardwatch"
 

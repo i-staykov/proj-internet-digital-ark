@@ -1,6 +1,6 @@
 """The hypothesis ledger: what the harness has proposed, priced, adopted or killed.
 
-**Why prose was not enough.** `docs/sources.md` is the authoritative narrative and
+**Why prose was not enough.** `docs/registers/sources.md` is the authoritative narrative and
 holds ~60 verdicts, which is what `just screen` parses to stop a dead lead. Prose
 cannot carry *status*, so it cannot answer the question an unattended run asks
 every time it wakes up: what did I propose on Tuesday that I never finished
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-LEDGER = ROOT / "docs/hypotheses.tsv"
+LEDGER = ROOT / "docs/registers/hypotheses.tsv"
 COLUMNS = (
     "id",
     "opened",
@@ -174,7 +174,7 @@ def cmd_close(args: argparse.Namespace) -> None:
             continue
         if row.get("status") not in ("rejected", "adopted"):
             print(f"warning: {args.id} is {row.get('status')}, not a closed verdict\n")
-        print("Paste this into the 'Evaluated and rejected' table in docs/sources.md,")
+        print("Paste this into the 'Evaluated and rejected' table in docs/registers/sources.md,")
         print("then the screener will catch this lead by itself:\n")
         bits = []
         if row.get("pairs"):
@@ -226,7 +226,9 @@ def main() -> None:
         upd.add_argument(f"--{field}")
     upd.set_defaults(func=cmd_update)
 
-    close = sub.add_parser("close", help="print the docs/sources.md row for a decided hypothesis")
+    close = sub.add_parser(
+        "close", help="print the docs/registers/sources.md row for a decided hypothesis"
+    )
     close.add_argument("id")
     close.set_defaults(func=cmd_close)
 
