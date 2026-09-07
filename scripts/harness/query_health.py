@@ -17,6 +17,15 @@ to find. Three signals separate them, and each is a measured shape rather than a
   first and is the early warning.
 - **a run of batches with no answers at all**, which is the shape of the service having stopped
   rather than of the queue being exhausted.
+- **silence**, a lane that has not written for a day. This is the one that decides the sentence
+  XI actually cares about, because an unretried query family and a dry one look identical in a
+  ledger with no clock in it. The time comes from the log's own last write rather than from the
+  batch lines, which print a clock but no date: a reconstructed date would be a guess, and the
+  file's mtime is a fact.
+
+**Every collector log, not one.** The first version read `cdx_pool.log` alone, so when that pool
+stood down on 2026-09-05 the reader went on judging a lane that had stopped and said nothing about
+the two that were still running. A collector that is not watched is the one that fails quietly.
 
     uv run python scripts/harness/query_health.py [--write] [--tail N]
 """
@@ -27,12 +36,20 @@ import argparse
 import ast
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 LEDGER = REPO / "data/logs/query_health.jsonl"
-POOL_LOG = REPO / "data/logs/cdx_pool.log"
-_STATS = re.compile(r"^cdx: (\{.*\})\s*$")
+LOG_DIR = REPO / "data/logs"
+LOG_GLOB = "cdx_*.log"
+# **Every batch is logged twice**, once through the logger with a clock and the journal it
+# wrote, `21:22:19 | INFO | cdx: {...} -> data/raw/cdx/...`, and once bare. The first version
+# anchored on the end of the line, so it matched only the bare copy and every row came back
+# without a time. Both forms are read here and the duplicate is dropped below.
+# The clock is captured because it is what a human reads back; the date it belongs to is not
+# in the line, so nothing here pretends to know it.
+_STATS = re.compile(r"^(?:(\d{2}:\d{2}:\d{2})\s*\|[^|]*\|\s*)?cdx: (\{[^}]*\})(?:\s*->.*)?$")
 
 # Above this share of a batch failing, the batch says nothing about its domains.
 FAILURE_RATE_ALARM = 0.25
@@ -41,26 +58,53 @@ THROTTLES_PER_QUERY_ALARM = 2.0
 # Consecutive batches answering nothing at all. Three, because one is noise and two is a bad
 # stretch of heavy domains; three in a row is the service and not the queue.
 DEAD_RUN_ALARM = 3
+# A lane silent for longer than this is unretried scheduled work, not an exhausted queue. A day,
+# because the collectors run in multi-hour legs and a gap of hours is ordinary between them.
+SILENT_HOURS_ALARM = 24.0
+
+
+def logs(directory: Path | None = None) -> list[Path]:
+    """Every collector log, so a lane cannot fail unwatched."""
+    return sorted((directory or LOG_DIR).glob(LOG_GLOB))
 
 
 def batches(path: Path) -> list[dict]:
-    """Every stats line in a collector log, oldest first."""
+    """Every stats line in a collector log, oldest first, each carrying its lane and clock."""
     if not path.is_file():
         return []
+    lane = path.stem
     out: list[dict] = []
+    previous: tuple[str | None, str] = (None, "")
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             match = _STATS.match(line.strip())
             if match is None:
                 continue
+            clock, payload = match.group(1), match.group(2)
+            # A bare line repeating the TIMED line just above it is one batch logged twice.
+            # Only that exact shape is collapsed, so two real batches that happen to be
+            # identical, which is how a dead lane looks, both survive and DEAD still fires.
+            duplicate = clock is None and previous[0] is not None and payload == previous[1]
+            previous = (clock, payload)
+            if duplicate:
+                continue
             try:
                 # the collectors print a python dict, not JSON: single quotes
-                row = ast.literal_eval(match.group(1))
+                row = ast.literal_eval(payload)
             except (ValueError, SyntaxError):
                 continue
             if isinstance(row, dict) and row.get("queried"):
-                out.append(row)
+                out.append({**row, "lane": lane, "clock": clock})
     return out
+
+
+def silence(path: Path, now: datetime | None = None) -> float | None:
+    """Hours since the lane last wrote anything, or None if it never has."""
+    if not path.is_file():
+        return None
+    now = now or datetime.now(UTC)
+    last = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+    return round((now - last).total_seconds() / 3600, 1)
 
 
 def health(row: dict) -> dict:
@@ -69,6 +113,8 @@ def health(row: dict) -> dict:
     answered = (row.get("with_capture") or 0) + (row.get("no_capture") or 0)
     throttles = row.get("throttles") or 0
     return {
+        "lane": row.get("lane"),
+        "clock": row.get("clock"),
         "queried": queried,
         "answered": answered,
         "failed": failed,
@@ -80,11 +126,31 @@ def health(row: dict) -> dict:
     }
 
 
-def verdicts(rows: list[dict]) -> list[str]:
+def freshest(quiet: dict[str, float | None]) -> tuple[str, float] | None:
+    """The lane that wrote most recently, and how long ago.
+
+    **One answer, not one per lane.** The question is whether collection is happening, and
+    fifteen retired experiments each announcing their own silence is a surface nobody reads
+    (the same law the approvals register carries: forty pending requests must collapse to a
+    count). A lane older than the freshest one tells you nothing the freshest does not.
+    """
+    live = [(lane, hours) for lane, hours in quiet.items() if hours is not None]
+    return min(live, key=lambda pair: pair[1]) if live else None
+
+
+def verdicts(rows: list[dict], quiet: dict[str, float | None] | None = None) -> list[str]:
     """What is worth a human's attention, most recent evidence first."""
     out: list[str] = []
+    newest = freshest(quiet or {})
+    if newest and newest[1] >= SILENT_HOURS_ALARM:
+        lane, hours = newest
+        out.append(
+            f"SILENT: no collector has written for {hours:,.0f} h ({lane} was the last). "
+            "Every queue behind them is unretried scheduled work, not negative evidence"
+        )
     if not rows:
-        return ["no batch has reported yet: nothing to judge, which is not the same as healthy"]
+        out.append("no batch has reported yet: nothing to judge, which is not the same as healthy")
+        return out
     last = rows[-1]
     if (last["failure_rate"] or 0) >= FAILURE_RATE_ALARM:
         out.append(
@@ -108,7 +174,7 @@ def verdicts(rows: list[dict]) -> list[str]:
             "service having stopped, not of the queue being exhausted, so the queue is still "
             "scheduled work and not negative evidence"
         )
-    return out or ["healthy on all three signals"]
+    return out or ["healthy on all four signals"]
 
 
 def main() -> int:
@@ -117,24 +183,39 @@ def main() -> int:
     ap.add_argument("--tail", type=int, default=5, help="batches to print")
     args = ap.parse_args()
 
-    rows = [health(row) for row in batches(POOL_LOG)]
+    found = logs()
+    rows = [health(row) for path in found for row in batches(path)]
+    quiet = {path.stem: silence(path) for path in found}
     if args.write:
         LEDGER.parent.mkdir(parents=True, exist_ok=True)
         with LEDGER.open("w", encoding="utf-8") as fh:
             for row in rows:
                 fh.write(json.dumps(row) + "\n")
-        print(f"wrote {LEDGER.relative_to(REPO)}: {len(rows):,} batches")
+        print(f"wrote {LEDGER.relative_to(REPO)}: {len(rows):,} batches over {len(found)} lanes")
 
-    print(f"\n{len(rows):,} batches in {POOL_LOG.relative_to(REPO)}")
-    print(f"{'queried':>9} {'answered':>9} {'failed':>7} {'fail%':>7} {'thr/q':>7} {'delay':>7}")
-    for row in rows[-args.tail :]:
-        rate = f"{row['failure_rate']:.1%}" if row["failure_rate"] is not None else "n/a"
-        print(
-            f"{row['queried']:>9,} {row['answered']:>9,} {row['failed']:>7,} {rate:>7} "
-            f"{row['throttles_per_query']:>7} {row['final_delay_ms'] or 0:>7}"
-        )
+    ranked = sorted(quiet.items(), key=lambda pair: (pair[1] is None, pair[1]))
+    print(f"\n{len(rows):,} batches over {len(found)} collector logs, newest first")
+    print(f"{'lane':>22} {'last write':>12} {'batches':>8}")
+    for lane, hours in ranked[: args.tail]:
+        seen = sum(1 for row in rows if row["lane"] == lane)
+        age = "never" if hours is None else f"{hours:,.0f} h ago"
+        print(f"{lane:>22} {age:>12} {seen:>8,}")
+    if len(ranked) > args.tail:
+        print(f"{'':>22} {'':>12} {len(ranked) - args.tail:>8,} older lanes not shown")
+
+    newest = freshest(quiet)
+    if newest:
+        recent = [row for row in rows if row["lane"] == newest[0]][-args.tail :]
+        print(f"\nlast batches of {newest[0]}")
+        print(f"{'clock':>9} {'queried':>9} {'ans':>8} {'fail%':>7} {'thr/q':>7}")
+        for row in recent:
+            rate = f"{row['failure_rate']:.1%}" if row["failure_rate"] is not None else "n/a"
+            print(
+                f"{row['clock'] or '-':>9} {row['queried']:>9,} "
+                f"{row['answered']:>8,} {rate:>7} {row['throttles_per_query']:>7}"
+            )
     print()
-    for line in verdicts(rows):
+    for line in verdicts(rows, quiet):
         print(f"  {line}")
     return 0
 
