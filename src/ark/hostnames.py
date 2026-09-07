@@ -279,6 +279,19 @@ def ingest_hostname_journal(
         # A capture under the domain evidences the parent registrable in that year
         # too, in the same cdx_timestamp class: assign it, one row per (parent, year),
         # so the parent earns its year from the same observation.
+        #
+        # **Except `www.` in front of the parent** (his ruling of 2026-09-06, ADR-010).
+        # "The existence of the bare parent does not automatically establish the www
+        # hostname, nor does the presence of www automatically establish the bare
+        # hostname." A capture of `www.example.com` therefore evidences that host and
+        # not `example.com`, and letting it through here shipped one observation as two
+        # records, one in `additions/` and one in `hostnames/`.
+        #
+        # Deleting the rows was not enough: `drop_www_inferred_records.py` cleared 47,004
+        # on 2026-09-06 and by the next morning the fold had written 22,920 more, because
+        # the cause was this INSERT and not the data. Any OTHER subdomain still dates the
+        # parent, which is why the exclusion names the one host shape the ruling covers
+        # rather than dropping the parent assignment altogether.
         dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
         conn.execute(
             """
@@ -287,6 +300,7 @@ def ingest_hostname_journal(
             FROM evidence e
             JOIN hostage h ON e.domain = h.parent AND e.evidence_year = h.year
              AND e.evidence_value = 'cdx capture ' || h.ts || ' ' || h.hostname
+            WHERE h.hostname <> 'www.' || h.parent
             GROUP BY e.domain, e.evidence_year
             """,
         )
