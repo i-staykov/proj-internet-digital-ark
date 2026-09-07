@@ -754,6 +754,15 @@ exactly the row the new check refuses. It now exempts evidence naming a subdomai
 the reviewer states: such evidence attests THAT HOST, not the registrable beneath it. That is a
 narrowing of what evidence claims, not a weakening of the wall.
 
+**Deleting the rows was not the fix, and 2026-09-07 proved it.** The cleanup left zero and the
+fold wrote 22,920 more overnight, because the CDX path's parent-year insert still made the
+inference. It now excludes `www.<parent>` at the source, so the invariant holds without a nightly
+sweep. The narrowed sibling then left 64,302 master-eligible evidence rows unassigned, in two
+classes that have nothing to do with `www.`: 37,124 baseline restatements and 27,060
+registrable-grain captures written before the sweep recorded which host answered.
+`scripts/round/assign_unassigned_evidence.py` assigns them, excluding subdomain evidence so the
+two invariants cannot pull against each other.
+
 ### What it does not change
 
 The evidence rows stay, and so do the `www.` hostname records: each already carries its own
