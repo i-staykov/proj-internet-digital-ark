@@ -288,7 +288,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
     # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
     uv run ark export >/dev/null && uv run ark check | tail -1
-    rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"
+    bash scripts/harness/sync_fleet.sh
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
     # 7. Refresh the brief snapshot; a failed refresh must not fail the bank.
     uv run python scripts/round/build_round_state.py | tail -1 || true
@@ -1079,7 +1079,11 @@ releases *args:
 #
 # take one reviewer release: verify, extract, remeasure, record
 intake *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     uv run python scripts/round/intake.py {{args}}
+    # a new baseline the fleet cannot see prices every wave against a stale ceiling
+    case "{{args}}" in *--dry-run*) ;; *) bash scripts/harness/sync_fleet.sh ;; esac
 
 # Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
 # figures parsed, S and t computed from the two stamps rather than read off the mail,
