@@ -774,3 +774,42 @@ Registrable-grain evidence stores a bare timestamp and no host, so **7,578,321 o
 cannot be attributed to any host at all** and an unknown share of them will be `www.`-only too.
 Re-deriving would mean re-querying the archive. The set stops growing from the
 `fl=timestamp,original` fix of 2026-09-05, which records the host on every new sweep.
+
+## ADR-011. A sweep admits 2xx and 3xx captures, not 200 alone
+
+Date: 2026-09-07. Ours, measured, and reversible in one string.
+
+### What settled it
+
+`cdx_suffix_sweep.py` has always sent `filter=statuscode:200`, which was never a decision so much
+as an inherited default. A capture is the archive saying it fetched that URL from that host at that
+time, and the status code describes what the server answered, not whether the host was there.
+
+Measured on `hypermart.net`, one page, same request cost:
+
+| filter | rows |
+|---|---|
+| `statuscode:200` | 169,147 |
+| `statuscode:[23][0-9][0-9]` | 173,285 |
+| none | 179,056 |
+
+Across a three-parent sample the wider filter's extra pairs were **98.6% net-new** against the
+store, so this is nearly pure yield rather than a re-read of what we hold.
+
+### What changes
+
+The sweep sends `filter=statuscode:[23][0-9][0-9]`. A 3xx is a host that resolved, accepted the
+connection and answered with a redirect, which is an observation of that hostname serving. The
+regex form is supported by the CDX API; a multi-clause negated filter is not, and returns HTTP 400.
+
+### Why not drop the filter altogether
+
+That is the 179,056 row, another 3.3%, and it admits 4xx and 5xx. A 404 shows the SERVER answered;
+it is weaker evidence that the hostname itself served anything, and the reviewer audits this class.
+The extra 3.3% is not worth arguing for, so the line is drawn where the evidence is unambiguous.
+
+### What it does not change
+
+The evidence class stays `cdx_timestamp` and the journal format is unchanged, so nothing already
+banked is affected and no re-walk is implied: parents already carrying a `.done` marker keep it.
+The gain applies to the queue still to be walked, which on 2026-09-07 is 41,122 parents.
