@@ -4769,3 +4769,32 @@ part worth remembering: the collector host was unreachable the whole time.
 master-eligible records and 841.38 EE between them, because the parent-held-at-that-year screen is
 already satisfied by the CDX lanes. That is 0.02% admission, against 1.1% for `usenet_addr` at
 registrable grain.
+
+## The rest of the unledgered tail, priced and closed (2026-09-07)
+
+After `usenet_addr` and `usenet_bare` were banked, what remains of the ledger audit is crumbs, and
+they are logged so the audit is not run a third time.
+
+- **`usenet_whois`, 5 journals: 769 in-window pairs, 695 corroborated, 17 not yet held, 10.3 EE**
+  (1997 one, 1999 five, 2000 eleven). `split_usenet_whois.py` has the dry run. Left unbanked: a
+  full export and `ark check` cycle costs about twenty minutes for ten EE, so it belongs in the next
+  bank rather than its own.
+- **The eleven remaining `*_items` families are hostname grain and that grain is saturated.**
+  Measured on three of them, 3,747,846 raw pairs admitted 1,350 records and 841.38 EE, an 0.02%
+  admission rate against 1.1% for the two registrable lanes, because the CDX sweeps have already
+  satisfied the parent-held-at-that-year screen almost everywhere. The other eleven are about 100 MB
+  and, at that rate, a few hundred EE between them. Not worth a pass while any registrable-grain
+  work remains.
+- **`build_promotion_journals.py` is exhausted: 2 pairs, 2.0 EE** across all eight mention sources.
+  Worth re-running only after a large ingest, since its whole premise is that the store has grown
+  enough to corroborate names it once refused.
+- The small non-Usenet remainders (`rdap_probe_gen`, `rdap_hold_uk`, `lang`, `probes`, `expand`,
+  `yahoo96`, `jeb_bush`, `tradepress`, `maillists_items`) are together under 12 MB of journals and
+  were not priced individually.
+
+**The reusable finding is the method, not the total.** Auditing `data/raw` against `ingested_file`
+at the grain the ingest consumes, then pricing the survivors after the rule that admits them, turned
+up 21,665.92 EE that had been on disk for weeks. It cost no archive request, which is why it was the
+only lane available on an afternoon when the collector host was unreachable. Run it after any long
+collection campaign, and run it at BOTH grains, because the registrable half of this corpus was
+1.1% unbanked while the hostname half was 0.02%.
