@@ -339,3 +339,59 @@ the sweep keeps a per-parent state file and a parked parent can be resumed with 
 attached. It is the same finding as the Usenet hierarchies and the domain-wide sweep, in a third
 form: breadth pays and depth does not, so the right move when a parent turns out to be deep is to
 leave it rather than finish it.
+
+## The 300-second cap measured the wrong thing, and the law above is superseded
+
+Date: 2026-09-07. The table above is real and its conclusion is wrong, because journals per minute
+is not a unit of anything. A journal is a file. Only a distinct (host, year) pair is a record, and
+the parents the flat cap discarded were the ones returning most: when the clock cut them,
+`columbia.edu` had written 885,968 capture rows and `utoronto.ca` 634,104.
+
+What decides a parent is still capture rows per distinct host, exactly as the law two sections up
+says. The mistake was applying it only to the 339 parents in `rows_per_host.tsv` and letting a
+stopwatch stand in for it everywhere else. The cap is now a yield test taken every 300 seconds
+against the parent's own journal, so an unmeasured parent is judged on what it is doing.
+
+**The honest counterweight, measured the same day:** of 261 parked parents with a journal to judge,
+only 49 are cheap per host. The flat cap was mostly parking correctly, so this is a correctness fix
+with a modest recovery, not a rescue. Breadth still pays. It just has to be breadth measured in
+records.
+
+## A queue built from a finished list reads as a dead lane
+
+Date: 2026-09-07, and it is the most expensive lesson of the round.
+
+The domain-wide sweep paid **193,000 EE per client-hour** on 2026-09-04. On the night of 2026-09-06
+the same query, the same code and the same two clients paid **210 EE per hour between them**, a fall
+of about three orders of magnitude. Nothing about the archive had changed. The queue had run out:
+1,516 parents had been asked domain-wide, and with the dense head gone the ranking fell through to
+registrables carrying three or four hosts each.
+
+**A collapsing rate is a statement about the queue before it is a statement about the source.** The
+project's own rule says change the method after two empty hunts, and the method that needed changing
+was not the query but the list it was fed. `rank_platform_parents.py` could only rank a parent that
+appeared in a file it read, and it read the reviewer's annual files; 6,349 dense parents known only
+to our own store had never been ranked at all.
+
+**And the unit hid the size of it.** A record is one (host, year), so a parent whose hosts are all
+dated in a single year of six has five sixths of its records outstanding. That is the normal case
+rather than an edge one, because ISC and the other hostname corpora are single-date snapshots: the
+never-asked parents sit at 1.00 to 1.55 years per host. Counting hosts saw nothing there. Counting
+host-years lacked saw 1,718,807 EE of ceiling.
+
+## A fleet figure that rests on "already held" is an upper bound, not a price
+
+Date: 2026-09-07. Two `FIND` verdicts in one wave, 29,450.5581 EE and about 11,400 EE, both worth
+**zero** when re-priced on the laptop.
+
+The cause is structural and will recur: a fleet agent prices against `/projects/ark-data`, a file
+sync with its own timestamp, and cannot open the store. Any subtraction of what we already hold is
+therefore made against a snapshot. The sync used by that wave was 2026-09-03 10:18:34 and round 8
+banked 7,834,717 records on 2026-09-04, so it understated our holdings by more than the findings
+claimed. Checking took one query each: 135,436 bare-registrable pairs over 92,148,254 capture rows,
+none missing at the year.
+
+Both agents named the ambiguity that killed their own figure, which is the behaviour to keep. The
+rule is on the reader, not the writer: **re-price a fleet FIND against the store before banking it**,
+and treat the fleet's number as the ceiling it actually is.
+
