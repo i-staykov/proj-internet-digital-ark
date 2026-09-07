@@ -53,7 +53,19 @@ hooks:
 
 # run any CLI command directly, e.g. `just run stats` or `just run cdx --help`
 run *args:
-    uv run ark {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -- {{args}}
+    for arg in "$@"; do
+        case "$arg" in
+        ingest*|export)
+            uv run python scripts/harness/bank_hygiene.py space
+            break
+            ;;
+        *) ;;
+        esac
+    done
+    uv run ark "$@"
 
 # --- validating ---------------------------------------------------------------
 
@@ -99,8 +111,8 @@ check what="all":
 #             run would hash and write, `--entry wwwvl` does one entry.
 #   trees     prove an extracted release tree is recoverable from the artifact beside
 #             it: every zip member compared to the file on disk by size and CRC-32,
-#             without extracting anything. A tree it names byte-verified may be
-#             deleted once the off-site copy exists.
+#             without extracting anything. Passes arguments to the release verifier;
+#             never deletes a tree.
 #   delivery  check a built delivery the way a reviewer would: checksums, pair counts,
 #             and that every shipped pair traces to an observation. Takes the
 #             directory; `just ship` passes the newest stage rather than this default.
@@ -119,7 +131,7 @@ verify what="" *args:
     set -- {{args}}
     case "{{what}}" in
     raw) uv run python scripts/round/verify_raw.py "$@" ;;
-    trees) uv run python scripts/round/releases.py --verify-trees ;;
+    trees) uv run python scripts/round/releases.py --verify-trees "$@" ;;
     delivery) bash scripts/round/verify_delivery.sh "${1:-output/internet-digital-ark-1996-2001}" ;;
     offsite) uv run python scripts/round/offsite.py "$@" ;;
     *) echo "verify: raw trees delivery offsite" >&2; exit 2 ;;
@@ -136,6 +148,7 @@ verify what="" *args:
 #
 # regenerate docs/ROUND.md, the generated statement of where the round stands
 state *args:
+    uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py {{args}}
 
 # Where the round stands in thirty lines, read from the snapshot that `just state`
@@ -178,6 +191,7 @@ residual *args:
 cycle *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/harness/discover_cycle.py {{args}}
     # The failure-state ledger his XI asks for. Printed here rather than left in a log,
     # because a lane that has started failing looks exactly like a lane with nothing left
@@ -204,8 +218,13 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     #    An ingest changes the store and no tracked file, so it is exported here and
     #    needs no commit.
     uv run python scripts/harness/bank_hygiene.py preflight
-    BANKED=$(uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr | grep -c '^== uv run ark ingest' || true)
-    if [ "$BANKED" -gt 0 ]; then uv run ark export >/dev/null && uv run ark check | tail -1; fi
+    uv run python scripts/harness/bank_hygiene.py space
+    BANKED=$(uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr | awk '/^== uv run ark ingest/ {n++} END {print n+0}')
+    if [ "$BANKED" -gt 0 ]; then
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark export >/dev/null
+        uv run ark check
+    fi
     # Anything still waiting on Ivo, first, so a bank never buries a decision.
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
@@ -264,7 +283,9 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
         uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-        uv run ark export && uv run ark check
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark export
+        uv run ark check
         git add docs/ src/ justfile 2>/dev/null || true
         git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
         git push -q origin live
@@ -276,6 +297,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
     : "${ARK_VPS:?set ARK_VPS}"
     rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+    uv run python scripts/harness/bank_hygiene.py space
     uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
     # the platform sweep's raw capture journals become hostname records (the second
     # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
@@ -285,12 +307,17 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     # ledgered at a third of its rows and had to be re-ingested by hand
     BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
     rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    uv run python scripts/harness/bank_hygiene.py space
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
     # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
-    uv run ark export >/dev/null && uv run ark check | tail -1
+    uv run python scripts/harness/bank_hygiene.py space
+    uv run ark export >/dev/null
+    uv run ark check
+    uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
     bash scripts/harness/sync_fleet.sh
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
-    # 7. Refresh the brief snapshot; a failed refresh must not fail the bank.
+    # 7. Disk refusal stops the bank; other brief refresh failures remain non-fatal.
+    uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py | tail -1 || true
     # 8. The gate issue, once per crossing, read off the brief just written.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
@@ -454,6 +481,7 @@ reproduce stage="all":
     # stage 1: create the stores, load the supplied baseline read-only (~2 min)
     baseline)
         uv run ark init
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-legacy
         uv run ark legacy-review
         uv run ark audit
@@ -468,110 +496,153 @@ reproduce stage="all":
     # docs/registers/sources.md) and run the commented line by hand. Same reason
     # `data/raw/checksums.sha256` verifies 234 files rather than 235.
     sources)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
         # The nameserver TARGETS of the 1997 zones at hostname grain, admitted 2026-09-02
         # under the standing rule (11,860.7 EE). The 1999 tomocha files are deliberately
         # not listed: their terms are parked, see docs/registers/approved-sources-list.md.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz data/raw/internic_zones/edu.zone.gz data/raw/internic_zones/gov.zone.gz data/raw/internic_zones/mil.zone.gz data/raw/internic_zones/root.zone.gz data/raw/internic_zones/arpa.zone.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
         # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
         # 4,146.8 EE post-split, 6,423 of its 6,424 pairs at 2001. The collector fetches
         # the three priced parts and flattens each tarball into one file:
         #   uv run python scripts/sources/nypw/collect_nypw_timemaps.py
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest nypw_timemaps      data/raw/nypw_timemaps/*.cdx.gz
         # The non-200 lane of the same 34 files, admitted by the loop on 2026-09-01
         # under the standing rule. Ingest it AFTER the 200 lane above: that ordering
         # is what makes the store the control group for the relaxation.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest nypw_timemaps_nonok data/raw/nypw_timemaps/*.cdx.gz
         # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
         # the whole recipe with it. Left here, commented, because the artifact is on disk
         # and the next reader should see why it is not ingested rather than wonder.
         # uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_1999   data/raw/ripe_funet/ripe.db.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_split_2004 data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_register_listing_inbody data/raw/cctld/*.html
         # Approved by Ivo on 2026-08-27: junkfilter at 2,189.4 EE and the Edelman whois
         # transcriptions at 2,968.5. The split step runs first because the ingest reads
         # its output, not the raw editions.
         uv run python scripts/sources/blocklists/split_junkfilter.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
         # Approved by Ivo on 2026-08-31: chastity-list at 14,229.0 EE, the largest single
         # source in the triage queue. Same shape as junkfilter, so the split runs first.
         uv run python scripts/sources/blocklists/split_chastity.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
         # Admitted by the loop on 2026-09-02 under the standing rule: the same two blocklists
         # read one level down, at hostname grain, 3,410.4 EE net-new. chastity's stamp is the
         # tar member header, so that lane reads the orig tarball rather than the unpacked tree.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-blocklist-hostnames data/raw/squidguard/*
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz
         # Three more hostname-grain lanes admitted 2026-09-02 under the standing rule: the
         # nameservers RIPE domain objects point at (both FUNET editions), IA's Early Web index
         # re-emitted as capture journals, and the USFEDGOV-EXTRACT-2001 merged index reduced
         # to one capture per host (`scripts/sources/early_web/early_web_hostgrain.py`,
         # `scripts/sources/usfedgov/usfedgov_hostgrain.py`).
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/usfedgov_hostgrain/ | tail -1 || true
         # Two more admitted 2026-09-02: the USFEDGOV-EXTRACT 1996-2000 sibling indexes go
         # through the same hostgrain script into the same journal directory, and the ISC
         # survey per-TLD host files are read one level below the registrable `isc_survey` took.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz | tail -1 || true
         # Admitted 2026-09-04 under the standing rule: the pipermail month files already on
         # disk for `maillist_dated`, read at hostname grain from their body URLs, 589.0 EE.
         uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-maillist-hostnames data/raw/maillists_items/ | tail -1 || true
         # Admitted 2026-09-04 under the standing rule: the CMU Enron release read at hostname
         # grain from its body URLs, the third member of the body-URL family. One 443 MB request.
         test -f data/raw/enron/enron_mail_20150507.tar.gz || curl -sS -L -A "internet-digital-ark research collector" -o data/raw/enron/enron_mail_20150507.tar.gz https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz
         uv run python scripts/sources/mail_corpora/build_enron_pool.py data/raw/enron/enron_mail_20150507.tar.gz data/raw/enron_items
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-enron-hostnames data/raw/enron_items/ | tail -1 || true
         # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
         # The collector runs first because the bytes are not kept in git.
         uv run python scripts/sources/registries/collect_granitecanyon.py
         uv run python scripts/sources/registries/split_granitecanyon.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest granitecanyon_dated      data/raw/granitecanyon/granitecanyon-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest granitecanyon_candidates data/raw/granitecanyon/granitecanyon-cand.*.txt
         # Approved by Ivo on 2026-08-31: the capture-dated ccTLD listings at 2,450.2 EE,
         # repriced from the bytes against a source register that claimed 3,496.0.
         uv run python scripts/sources/registries/collect_cctld_capture.py
         uv run python scripts/sources/registries/split_cctld_capture.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
         # Approved by Ivo on 2026-08-31: MYNIC at 6,883.1 EE and CO.ZA at 3,704.3. Neither
         # takes the split, since both are a registry reading out its own register.
         uv run python scripts/sources/registries/collect_mynic_coza.py
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest mynic_change_report data/raw/mynic/*.htm
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest coza_deletion_queue data/raw/coza/*.html
         # Approved by Ivo on 2026-08-31 at 1,403.2 EE post-split. NOT reproducible by a
         # collector: app.fac.gov is `User-agent: * / Disallow: /`, so the four census-<year>.zip
         # files must be downloaded BY HAND from https://www.fac.gov/data/download/historic/
         # and ELECAUDITHEADER.csv unpacked to data/raw/fac/header-<year>.csv.
         uv run python scripts/sources/mail_corpora/split_fac.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest fac_dated      data/raw/fac/fac-dated.*.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest fac_candidates data/raw/fac/fac-cand.*.tsv
         # Admitted by the loop on 2026-08-31 under the standing rule: the released Jeb Bush
         # gubernatorial mailbox at 3,546.1 EE (4,505 of its 5,692 pairs land at 2001) and a
         # domain broker inventory at 1,591.9 EE, all of it at 2001.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_dated       data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_candidates  data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b*.jsonl.gz
         # Admitted under the standing rule of 2026-08-29: URLMerchant's for-sale inventory
         # at 1,591.9 EE post-split over 244 listing pages. The page collector outlives a
         # session, so a later batch takes its own `--tag` and its own pair of ingest lines.
         uv run python scripts/sources/directories/split_urlmerchant.py --tag b1 --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b1.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b1.jsonl.gz
         # Admitted under the standing rule of 2026-08-29: Jeb Bush's gubernatorial mailbox
         # at 3,546.1 EE post-split. The extractor runs over the files unpacked from
@@ -581,29 +652,45 @@ reproduce stage="all":
         #   uv run python scripts/sources/mail_corpora/parse_jeb_mail.py --out-prefix data/raw/jeb_bush/jeb_bush \
         #       <dir>/Redacted/*.txt
         uv run python scripts/sources/mail_corpora/split_jeb_mail.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_dated      data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_candidates data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
         # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internet_scout    data/raw/scout/scout_oai.xml
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest odp               data/raw/odp/*.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
         # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
         # is set in docs/registers/approved-sources-list.md, so this line is a no-op until then and
         # is here so the documented reproduction is complete rather than nearly complete.
         # Build the input first with `bash scripts/sources/ukwa/ukwa_geoindex_pull.sh`.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
         # These three were ingested by hand and reached 11.5% of all assignments while this
         # recipe, which README.md calls "the authoritative list of what gets ingested", did
         # not name them. Found on 2026-08-18 by auditing the delivery against D1.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest domain_creation_bulk   data/raw/domain_creation/domains.csv
         ;;
     # stage 3: grow the candidate pool from the year-unlabelled host lists
@@ -617,14 +704,23 @@ reproduce stage="all":
     # the stored responses, so it needs no network and gives the same result every
     # time. To collect MORE, see the network recipes below.
     journals)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rdap_snapshot data/raw/rdap_gen/rdap_gen_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 1
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/round2/expand_round2.jsonl.gz --round 2
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/wwwvl/expand_wwwvl_corroborated.jsonl.gz --round 3
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/round4/expand_round4_corroborated.jsonl.gz --round 4
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/round4/expand_round4_unverified.jsonl.gz --round 4
         # Three directories, not one. The pools were added later and each wrote its
         # journals beside its own archives, so `data/raw/usenet/` alone reached 186 of
@@ -634,15 +730,25 @@ reproduce stage="all":
         # One line per directory, because the residual audit reads the FIRST glob on an
         # `ark ingest` line and a backslash continuation is invisible to it. A glob it
         # cannot see is a glob nobody checks.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet_new/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet_de/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/staging/usenet_resplit/filtered/usenet_dated_resplit*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet_new/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet_de/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/staging/usenet_resplit/filtered/usenet_candidates_resplit*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
         # `_r2` is the second split of the recovered-address journals, run after the
         # extractor was widened. The first split is in the ledger but no longer on
@@ -651,57 +757,96 @@ reproduce stage="all":
         # untagged names, then rename.
         # A glob rather than the one `_r2` file, because every later re-split writes its own
         # tagged pair and the split is now run on a loop. Named `_r*`, `_addr*` and `_cmp*`.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_*.jsonl.gz
         # The machine-written header seam. Same two source keys, because the headers
         # carry the same kind of claim as a typed address and no `usenet_hdr` spec
         # exists. Without these two lines a rebuild is 19,224 evidence rows short.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      data/raw/usenet_hdr/usenet_hdr_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates data/raw/usenet_hdr/usenet_hdr_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates*.jsonl.gz
         # Registry whois records pasted into the bodies. The registry's own creation
         # line dates the row, not the post, so this is `whois_creation` and rule 6
         # gives that year alone. Regenerate with `just collect usenet-whois`.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates*.jsonl.gz
         # The promotion tranches, which live under `data/staging/` rather than `data/raw/`.
         # They were ingested and then unreachable from any documented glob, so a replay
         # rebuilt a store without them. They are regenerable by re-running
         # `build_promotion_journals.py`, but a reproduction path should not depend on that.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated       data/staging/promotion/enron_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated    data/staging/promotion/maillist_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated        data/staging/promotion/rtfm_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated  data/staging/promotion/tradepress_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated      data/staging/promotion/tucows_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated      data/staging/promotion/usenet_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated data/staging/promotion/usenet_addr_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated data/staging/promotion/usenet_bare_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest attrition_dated     data/raw/attrition/attrition_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american_bare.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american_bare.jsonl.gz
         # The archived 1996-1997 Yahoo directory walk. Measured and rejected as a
         # route (55 requests bought 11 pairs), but its three journals were ingested,
         # so a rebuild without them is 670 records short of the store.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_pilot1996_corroborated.jsonl.gz --round 5
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_fatpages1996_corroborated.jsonl.gz --round 5
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_expand_corroborated.jsonl.gz --round 5
         ;;
     # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
@@ -719,9 +864,11 @@ reproduce stage="all":
     # round's store and reports every already-credited pair as a violation. Export
     # first, always.
     deliver)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
         uv run ark stats
         uv run ark check
+        uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
         ;;
     *) echo "reproduce: all baseline sources candidates journals seeds deliver" >&2; exit 2 ;;
     esac
@@ -805,6 +952,7 @@ cdx-pool until batch="1200" workers="8":
 hostnames until:
     #!/usr/bin/env bash
     set -euo pipefail
+    uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/engines/rank_platform_parents.py --net-new \
         --out data/raw/cdx/platform_queue_netnew.txt --top 40
     nohup bash scripts/engines/platform_sweep.sh {{until}} \
@@ -825,6 +973,7 @@ engines what="status" *args:
     status) bash scripts/engines/engine_status.sh ;;
     start)
         if [ $# -lt 1 ]; then echo "engines start UNTIL [batch] [workers]" >&2; exit 2; fi
+        uv run python scripts/harness/bank_hygiene.py space || exit $?
         ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
             nohup caffeinate -i bash scripts/engines/supervise_cdx_pool.sh \
             "$1" "${2:-600}" "${3:-8}" 900 > /dev/null 2>&1 < /dev/null &
@@ -871,8 +1020,10 @@ expand what="" *args:
             --out "data/raw/expand/round${round}/expand_round${round}.jsonl.gz"
         uv run python scripts/engines/split_expansion_journal.py \
             "data/raw/expand/round${round}/expand_round${round}.jsonl.gz" --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory \
             "data/raw/expand/round${round}/expand_round${round}_corroborated.jsonl.gz" --round "$round"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links \
             "data/raw/expand/round${round}/expand_round${round}_unverified.jsonl.gz" --round "$round"
         ;;
@@ -881,6 +1032,7 @@ expand what="" *args:
         stamp=$(date -u +%Y%m%dT%H%M%SZ)
         uv run ark download data/raw/expand/loop/seeds.txt -n "${2:-400}" --workers 2 \
             --delay 0.6 --captures 1 --out "data/raw/expand/loop/expand_${stamp}.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links data/raw/expand/loop/expand_*.jsonl.gz --round 6
         ;;
     *) echo "expand: round loop" >&2; exit 2 ;;
@@ -889,6 +1041,7 @@ expand what="" *args:
 # One loop rather than several, because DuckDB takes a single writer.
 # fold everything the collectors have finished into the store, on a loop
 maintain iterations="26" pause="900":
+    uv run python scripts/harness/bank_hygiene.py space
     bash scripts/harness/maintain.sh {{iterations}} {{pause}}
 
 # --- the per-source collectors ------------------------------------------------
@@ -926,6 +1079,7 @@ collect source="" *args:
     # that date, so a name that did not resolve could not be in the index.
     attrition)
         uv run python scripts/sources/directories/collect_attrition.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest attrition_dated data/raw/attrition/attrition_dated.jsonl.gz
         uv run ark seed data/raw/attrition/attrition_out_of_window_hosts.txt
         ;;
@@ -933,14 +1087,18 @@ collect source="" *args:
     # it has no store-lock retry, so a maintain pass landing mid-run loses the work.
     enron)
         uv run python scripts/sources/mail_corpora/collect_enron.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_candidates data/raw/enron/enron_candidates.jsonl.gz
         ;;
     # Harvest first, then parse: `--harvest` fetches about 2,600 month files from
     # two pipermail hosts, which takes six minutes and no archive.org budget.
     maillists)
         uv run python scripts/sources/mail_corpora/collect_mailing_lists.py --harvest --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
         ;;
     # Seed-only and permanently so: the index carries no date column, so nothing in it
@@ -957,7 +1115,9 @@ collect source="" *args:
         tag="${1:-}"
         suffix=""; [ -n "$tag" ] && suffix="_$tag"
         uv run python scripts/sources/usenet/split_rtfm_faqs.py --write --tag "$tag"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated      "data/raw/rtfm/rtfm_dated${suffix}.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates "data/raw/rtfm/rtfm_candidates${suffix}.jsonl.gz"
         ;;
     # Run --discover first: several plausible collection names do not exist and
@@ -966,7 +1126,9 @@ collect source="" *args:
         uv run python scripts/sources/trade_press/collect_trade_press.py --discover
         uv run python scripts/sources/trade_press/collect_trade_press.py --limit "${1:-5000}"
         uv run python scripts/sources/trade_press/split_trade_press.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
         ;;
     # Both corpora are already worked and ingested; this is here to reproduce, not to
@@ -976,7 +1138,9 @@ collect source="" *args:
         journal="${1:-data/raw/tradepress/tradepress_20260808T172417Z.jsonl.gz}"
         uv run python scripts/sources/trade_press/collect_trade_press.py --limit 1400 --delay 0.6
         uv run python scripts/sources/trade_press/split_trade_press.py --journal "$journal" --tag american --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
         ;;
     # Sends no request: it re-reads the OCR under data/raw/texts/cache. Worth running
@@ -988,7 +1152,9 @@ collect source="" *args:
         ;;
     tucows)
         uv run python scripts/sources/directories/split_tucows.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz
         ;;
     # mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host.
@@ -1006,7 +1172,9 @@ collect source="" *args:
         esac
         uv run python scripts/sources/usenet/collect_usenet_addresses.py --mode "$mode" --workers "$workers"
         uv run python scripts/sources/usenet/split_usenet_addresses.py --in-dir "$dir" --out-prefix "$prefix" --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      "$dir/${prefix}_dated.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates "$dir/${prefix}_candidates.jsonl.gz"
         ;;
     # Sends no request and takes about three hours of CPU at 8 workers. Run
@@ -1014,10 +1182,13 @@ collect source="" *args:
     usenet-bare)
         uv run python scripts/sources/usenet/collect_usenet_bare.py --workers "${1:-8}"
         uv run python scripts/sources/usenet/split_usenet_addresses.py --in-dir data/raw/usenet_bare --out-prefix usenet_bare --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
         ;;
     usenet-ingest)
+        uv run python scripts/harness/bank_hygiene.py space
         bash scripts/sources/usenet/ingest_new_usenet.sh "${1:-auto}"
         ;;
     # The one source assessed without measuring first was estimated at 27,276 net-new
@@ -1036,14 +1207,19 @@ collect source="" *args:
                 --workers "${1:-8}" --tag "$pool"
         done
         uv run python scripts/sources/usenet/split_usenet_whois.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates.jsonl.gz
         ;;
     # UUCP maps from comp.mail.maps: a .CA registry dump the Usenet parser read as prose
     uucp-maps)
         uv run python scripts/sources/usenet/split_uucp_maps.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_listing  data/raw/uucp/uucp_listing.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_creation data/raw/uucp/uucp_creation.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
         ;;
     "")
@@ -1095,10 +1271,11 @@ intake *args:
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
-# What the retention table says could be deleted, grouped by the conjunction that
-# makes it safe, and what everything else is missing. Deletes nothing: no flag does.
+# Legacy mode reports only. --round previews scoped backup/release cleanup;
+# --round --write executes only when the retained copy is verified.
+# Never deletes submissions/ or output/.
 #
-# what could be deleted, grouped by the conjunction that makes it safe
+# report retention or preview/execute verified round cleanup
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 
@@ -1133,8 +1310,8 @@ prune *args:
 #                   refresh the merge audit, print the figures
 #   build [round]   the middle of the chain alone: pause ingestion, export, the
 #                   invariants, regenerate and commit the report, package, verify
-#   package [round] the archive alone, into submissions/<round>/
-#   verify          the built delivery, from the newest stage directory
+#   package [round] package into submissions/<round>/, verify delivery and retained copies
+#   verify          verify the newest delivery and retained copies before round cleanup
 #   calculator      the reviewer's own calculator over the built files
 #   docx SOURCE     one markdown report into the .docx he asks for
 #   draft           print the mail draft; add --write to save it under private/
@@ -1145,32 +1322,47 @@ ship stage="all" *args:
     set -uo pipefail
     set -- {{args}}
 
-    # Restart the ingest loop whatever happens, including a failed package. The first
-    # rehearsal of this recipe failed at the report guard and left ingestion dead; it
-    # was noticed only because somebody was watching, and on the evening a round ships
-    # nobody is. The continuous laptop loop retired when the fleet took over
-    # (2026-09-01): restart it on exit ONLY if it was running when ship began.
+    # Restart only a previously running ingest loop, with sufficient disk space.
     WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
-    restore() { [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null && \
-        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted ==") || true; }
+    restore() {
+        if [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null; then
+            uv run python scripts/harness/bank_hygiene.py space || exit $?
+            nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 &
+            echo "== ingest loop restarted =="
+        fi
+    }
 
     newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
 
+    # Round cleanup requires local checksums and verified remote copies; no upload.
+    stage_retention() {
+        just verify raw
+        just verify offsite --manifest
+        just verify offsite --verify
+        just prune --round --write
+    }
+
     stage_prep() {
+        set -e
         source local.env
         # skip the journals a sweep still holds open: a half-copied one was once
         # ledgered at a third of its rows and had to be re-ingested by hand
         BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
         rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
         rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
         uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark export | tail -1
-        uv run ark check | tail -1
+        uv run ark check
+        uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
         uv run python scripts/round/merge_against_baseline.py | tail -3
-        uv run python scripts/round/round_figures.py | head -13
+        uv run python scripts/round/round_figures.py | sed -n '1,13p'
     }
 
     stage_build() {
@@ -1180,6 +1372,7 @@ ship stage="all" *args:
         pkill -f 'maintain[.]sh' 2>/dev/null || true
         until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
         echo "== exporting =="
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
         echo "== the data invariants =="
         uv run ark check
@@ -1207,6 +1400,7 @@ ship stage="all" *args:
         # resolve the newest one rather than hardcoding (a hardcoded path once verified
         # the PREVIOUS round's stage and reported its figures as this round's).
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
     }
 
     # Close the gate issue only on a delivery that has been verified, and only when
@@ -1233,8 +1427,8 @@ ship stage="all" *args:
         echo "                   then close the gate issue"
         echo "  prep             drain the sweeps, ingest, export, gate, merge audit, figures"
         echo "  build [round]    pause ingestion, export, invariants, report, package, verify"
-        echo "  package [round]  the archive alone"
-        echo "  verify           the newest built delivery, as a reviewer would"
+        echo "  package [round]  package, verify delivery and retained copies, round cleanup"
+        echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
         echo "  docx SOURCE      one markdown report into .docx"
         echo "  draft [--write]  the mail draft, printed unless --write"
@@ -1245,8 +1439,17 @@ ship stage="all" *args:
         ;;
     prep) stage_prep ;;
     build) stage_build "${1:-}" ;;
-    package) bash scripts/round/package_delivery.sh "${1:-}" ;;
-    verify) bash scripts/round/verify_delivery.sh "$(newest_stage)" ;;
+    package)
+        set -e
+        bash scripts/round/package_delivery.sh "${1:-}"
+        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
+        ;;
+    verify)
+        set -e
+        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
+        ;;
     calculator) uv run python scripts/round/round_figures.py --verify ;;
     docx)
         if [ $# -lt 1 ]; then echo "ship docx SOURCE.md" >&2; exit 2; fi
@@ -1265,6 +1468,7 @@ ship stage="all" *args:
         set -e
         round="${1:-}"
         echo "== banking newly approved classes =="
+        uv run python scripts/harness/bank_hygiene.py space
         uv run python scripts/harness/bank_approved.py --write
         # Regenerate and COMMIT the report artifacts before packaging, not after.
         # `package_delivery.sh` refuses to run against a dirty tree, correctly, because

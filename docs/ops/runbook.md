@@ -76,9 +76,50 @@ journals, the reviewer releases (the zstd trees under `data/archive/` among them
 `submissions/phase-*`, live inputs with no refetch route, and unpriced corpora other than the two
 Usenet ones archive.org serves again. Regenerable entries and anything with a refetch URL stay local
 only, and `private/` has no row and cannot appear. The frozen submissions are checksummed into
-`submissions/SHA256SUMS`, at the root, so nothing is written inside a phase directory. An entry
-`--verify` calls verified is the precondition for deleting its local bytes; the deletion itself is a
-separate, human-approved table.
+`submissions/SHA256SUMS`, at the root, so nothing is written inside a phase directory. Superseded
+store backups are also included, even when classified as regenerable.
+
+### Round disk safeguards
+
+`just ship build`, `just ship all`, `just ship package` and `just ship verify` finish delivery
+verification with `just verify raw`, `just verify offsite --manifest`,
+`just verify offsite --verify` and `just prune --round --write`, in that order. A failed remote
+verification stops the round before cleanup or a success notification. Upload stays explicit:
+run `just verify offsite --upload --yes`, then retry verification. No upload happens automatically.
+
+`just verify offsite --verify` checks current remote hashes and current local bytes. The first
+verification hashes local files; subsequent runs reuse hashes only while device, inode, size,
+mtime and ctime still match. It records per-file receipts in
+`data/logs/offsite-verified.json`. Missing files, stale inventories, duplicate remote paths,
+unhashed objects, symlinks and local changes refuse verification. A failed or interrupted run
+cannot leave an earlier receipt valid for a failed entry.
+
+`just prune` remains a retention report, not deletion permission. `just prune --round` previews
+only these candidates, and `just prune --round --write` applies their checks:
+
+| Candidate | Required before removal | Kept locally |
+|---|---|---|
+| `data/ark.duckdb.pre-*.bak` | A newer, nonempty, unchanged store with no WAL; a fresh successful `ark check`; the backup's verified remote copy | Current store |
+| Reviewer zip under `feedback/` | Every contained release has an extracted tree matching all files by size and CRC-32, with no extras; readable zip members; the zip's verified remote copy | Extracted release trees |
+
+Each removed file needs a receipt no older than 24 hours, bound to this checkout and the configured
+off-site destination. Cleanup checks that exact remote object again by hash immediately before
+removal. A refetch URL, a local duplicate, an old log or a passing store check alone is insufficient.
+Missing proof prints `HELD` and preserves the file. Bank and reproduction cleanup report held copies
+without blocking later work; explicit round cleanup returns nonzero when any candidate is held.
+Frozen submissions, output trees, raw inputs and zip-less release trees are never selected by round
+cleanup. Staging age alone grants no deletion permission either; banked payload files require the
+same per-file proofs, and unverified metadata stays local.
+
+By default, before ingests and exports in the recipes, `bank_hygiene.py space` requires **50 GiB free plus a
+write budget of at least 20 GiB or the current store size, whichever is larger**, on both the data
+and output filesystems. `ARK_FREE_SPACE_GIB` sets the floor and `ARK_WRITE_BUDGET_GIB` sets the
+budget; both must be finite positive values. Increase the budget for unusually large work. The
+guard checks available space, not a reservation against concurrent writers. It does not open the
+store and works in a code-only checkout. Use `just run ingest ...` or `just run export` for guarded
+individual commands. Direct `uv run ark ...` commands bypass recipe guards; run
+`uv run python scripts/harness/bank_hygiene.py space` first. Indirect writer scripts receive an
+entry check, not a check inside every iteration.
 
 ### What is unexhausted, in one command
 
