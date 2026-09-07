@@ -659,6 +659,15 @@ Two files under `docs/` are **generated, not written**. `docs/ROUND.md` comes fr
 refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
 next refresh, and packaging refuses outright if the two disagree.
 
+## What the fleet prices against
+
+The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline
+under `merged<marker>/` and our last export under `netnew/`. `scripts/harness/sync_fleet.sh`
+pushes both, reading the marker from `data/baseline.json` so it can never name a stale release,
+and removes superseded baselines on the VPS once the new one holds all six year files. It runs
+inside `just bank` and after every non-dry `just intake`; a wave priced before the next sync
+sees a ceiling, which its brief makes it say.
+
 ## Pricing the thin-parent lane
 
 `probe_thin_parents.py` asks one `matchType=domain` question per registrable we hold with no
