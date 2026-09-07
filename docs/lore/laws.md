@@ -395,3 +395,20 @@ Both agents named the ambiguity that killed their own figure, which is the behav
 rule is on the reader, not the writer: **re-price a fleet FIND against the store before banking it**,
 and treat the fleet's number as the ceiling it actually is.
 
+**The third instance, the same afternoon, and it is the one that shows the size of the effect.** Two
+later waves re-ran the same slug and returned **1,180,003.5 EE** at hostname grain: 424 journals,
+4,472,654 distinct hostname-years, 40.8% of them unheld. It tested its own confound, re-running on
+journals ledgered thirteen days before the export, and still found 47% unheld. On the live store the
+answer is **132 missing of 258,631 sampled pairs, 0.1%**, worth about 4,850 EE.
+
+The confound it tested was export TIMING. The confound that mattered was the held-set itself: the
+brief named `/projects/ark-data/merged260901` as the reviewer's current baseline, six releases and
+26.5M pairs out of date, with our own export beside it predating a round that banked 7,834,717
+records. **A careful agent cannot measure its way out of a stale denominator**, so the fix is not a
+better probe, it is to stop naming the baseline: it is discovered by marker date now, and a fleet
+figure must be written as a ceiling with both held-set dates and the settling query named.
+
+The counter-example in the same hour is worth keeping beside it. `internic_zone_hostnames_1999`,
+whose bytes sit on our own disk and whose held-set was therefore the store, re-priced UPWARD, from
+4,678.2 to **4,817.59 EE**. Staleness inflates; it does not simply add noise.
+
