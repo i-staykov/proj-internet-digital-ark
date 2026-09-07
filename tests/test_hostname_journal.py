@@ -35,11 +35,18 @@ def write(tmp_path: Path, rows: list[tuple[str, str]], name: str = "sweep_test.j
     return path
 
 
-def test_www_of_the_parent_is_a_record_and_still_dates_the_registrable(tmp_path) -> None:
+def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
+    """His ruling of 2026-09-06 (ADR-010) runs in both directions.
+
+    ADR-009 admitted `www.<parent>` as its own record and let the same capture date the parent
+    as well. The second half is what he then refused: "nor does the presence of www automatically
+    establish the bare hostname". So 1998 is still dated, by the bare capture and by
+    `shop.example.com`, and 1999 is not, because only `www.example.com` was seen that year.
+    """
     conn = duckdb.connect(":memory:")
     init_db(conn)
     stats = ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
-    # three (host, year) candidates below the registrable, all three now records
+    # three (host, year) candidates below the registrable, all three still records
     assert stats["hostname_year_candidates"] == 3
     assert stats["hostname_year_rows"] == 3
     assert sorted(conn.execute("SELECT hostname, assigned_year FROM hostname_year").fetchall()) == [
@@ -47,14 +54,23 @@ def test_www_of_the_parent_is_a_record_and_still_dates_the_registrable(tmp_path)
         ("www.example.com", 1998),
         ("www.example.com", 1999),
     ]
-    # the www captures still date example.com in both years
-    assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [
-        (1998,),
-        (1999,),
-    ]
+    # 1998 survives on its own evidence; 1999 rested only on www and is gone
+    assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [(1998,)]
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
     assert results["a_www_record_has_its_own_evidence"]["ok"]
     assert results["hostname_observed_serving_web"]["ok"]
+    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
+
+
+def test_a_www_only_year_never_dates_the_parent_even_alone(tmp_path) -> None:
+    """The exclusion is not an artefact of a sibling capture existing in the same year."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    ingest_hostname_journal(conn, write(tmp_path, [("http://www.example.com/", "19970601000000")]))
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 1
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
+    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
 
 
 def test_a_forced_dns_row_and_a_www_row_without_its_own_evidence_are_both_caught() -> None:
