@@ -306,3 +306,21 @@ Redirect to a file and read the file:
 the README, a docs page, another tracked file or the fleet list. A new script needs a caller or a
 sentence about it in the page where a reader would look for it.
 
+## Unledgered bytes are not lost records, and the raw tree will say they are
+
+An audit of `data/raw` against `ingested_file` reports **129 GB unledgered** and that number means
+nothing. Most of the tree is raw containers, Usenet zips and survey tarballs, which are read to
+produce derived journals that are ledgered under their own names; the container never enters the
+ledger and never should. Measured 2026-09-07: 129,101,381,838 unledgered bytes across all families,
+of which the journal-shaped population (`*.jsonl.gz`, what the ingest commands actually consume
+one-for-one) is **599,459,118**, a factor of 215 smaller.
+
+So audit at the grain the ingest works at, and then price rather than count, because even a genuinely
+unledgered journal is usually a superseded intermediate: the banked `usenet_addr` and `usenet_bare`
+files are `*_candidates_cmp*` consolidations, and the older per-run journals beside them hold the
+same pairs under different filenames.
+
+This is the same shape as the stale-held-set trap in `laws.md`: a completeness audit that counts
+files, bytes or rows will find a large number, and the only figure worth reporting is the anti-join
+against the store, priced in EE.
+
