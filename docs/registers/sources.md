@@ -4691,3 +4691,71 @@ had to be enforced at the fold rather than swept nightly.
 `/projects/ark-data`, a file sync, and cannot open the store. Any fleet figure resting on "is this
 already held" is therefore an upper bound with a staleness term, and the laptop must re-price it
 before a `FIND` is banked. Both of these took one query each.
+
+## usenet_addr, the 48 journals nobody had split (2026-09-07, banked)
+
+Not a new source and not a new rule: an existing master lane whose raw journals had never been put
+through the corroboration split, found by auditing `data/raw` against `ingested_file` at the grain
+the ingest works at. No fetch, no archive request, which is why it could be banked on an afternoon
+when the collector host was unreachable.
+
+`data/raw/usenet_addr/` held **48 journals absent from the ledger**, 2,796,334 (domain, year) pairs.
+`scripts/sources/usenet/split_usenet_addresses.py --write` split them: 1,398,734 corroborated to
+`dated_directory`, 1,397,600 seen only here to the candidate pool. Of the corroborated half,
+**30,336 pairs were not yet held, worth 17,484.17 EE**, and that is what `ark ingest
+usenet_addr_dated` wrote (48,720 evidence rows, 782,482 unique domains touched). Journal:
+`data/raw/usenet_addr/usenet_addr_dated_cmp20260907T130029Z.jsonl.gz`. **What dates one item** is
+the Usenet message's own `Date:` header, quoted per record with its group and message id, the same
+stamp this lane has always used. Banked under the standing rule of 2026-08-29: the class is already
+master-eligible for this lane, the stamp is machine-written inside the artifact, the terms are
+archive.org's and already read, and `ark check` returns ALL PASS on eighteen invariants after the
+ingest.
+
+**The corroboration was audited before the rows were allowed to stand, because two scripts in this
+repo disagree about it.** `split_usenet_addresses.py` builds its `known` set from
+`SELECT DISTINCT domain FROM domain_year`, which lets the Usenet corpus corroborate itself;
+`build_promotion_journals.py` excludes exactly that and calls it the filter that matters. Measured
+on the 30,336 rows actually written: **30,332 of the domains sit in the reviewer's OWN baseline**
+and **zero rest on the Usenet corpus alone**. So every admitted pair is his own name carrying a year
+he does not have, which is the strongest corroboration available and the "held AND missing that
+year" screen behaving as designed. The disagreement between the two scripts is real and unresolved,
+but it did not bear on this ingest.
+
+Position after: 984,275.5566 EE, 58.52% of the 1,682,033.00 gate against `merged260907-2`, up from
+57.48%.
+
+**The pre-split figure was 1,037,301.96 EE and it was wrong by 59x.** A plain anti-join of the raw
+journals against `domain_year` returns that; the split cuts it to 17,484.17. The lane's own script
+carries the warning in its docstring, that quoting a pre-split figure "would overstate the source by
+about seven times, which is the error that sank three of four source verdicts the same morning", and
+the multiplier here is far worse than seven. Price a Usenet lane after the split or not at all.
+
+## The remaining unledgered journals, priced (2026-09-07)
+
+The same audit over the other families, all priced at the grain that admits them, so nobody re-runs
+it. Journal-shaped files only: the raw tree reports 129,101,381,838 unledgered bytes and that figure
+is meaningless (see traps.md), against 599,459,118 in `*.jsonl.gz`.
+
+| family | files | raw pairs | master-eligible | EE | status |
+|---|--:|--:|--:|--:|---|
+| `usenet_addr` | 48 | 2,796,334 | 30,336 | 17,484.17 | BANKED, above |
+| `usenet_hdr` | 36 | 1,082,167 | 11,070 | 6,461.93 | blocked, no registered spec |
+| `usenet_bare` | 38 | 653,270 | 7,327 | 4,640.30 | needs a split tool |
+| `usenet_bulk_items` | 4 | 1,453,522 | 631 | 389.76 | not worth a pass |
+| `usenet_rec_items` | 5 | 1,134,062 | 402 | 254.33 | not worth a pass |
+| `usenet_comp_items` | 5 | 1,160,262 | 317 | 197.29 | not worth a pass |
+
+**`usenet_hdr` is the pending approval, not an oversight.** There is no `usenet_hdr` SourceSpec, and
+the lane is `usenet_header_fqdn_hostnames` in the approval queue, blocked on whether a
+server-written Usenet header needs the corroboration split at all. Its 6,461.93 EE waits on that
+ruling and was not ingested.
+
+**`usenet_bare` has no runnable split.** `collect_usenet_bare.py` reads `*.mbox.zip` archives and
+its own comment records that the directory now holds zero of them, the bytes having been reclaimed.
+So its 4,640.30 EE needs either a split script that works from the journals, as
+`split_usenet_addresses.py` does, or the archives again.
+
+**The three hostname-grain families are saturated and are closed.** 3.7M raw pairs yield 1,350
+master-eligible records and 841.38 EE between them, because the parent-held-at-that-year screen is
+already satisfied by the CDX lanes. That is 0.02% admission, against 1.1% for `usenet_addr` at
+registrable grain.
