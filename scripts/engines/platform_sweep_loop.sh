@@ -102,7 +102,20 @@ refill() {
 
 line=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
-    while [ -e /tmp/ark-pause-sweeps ]; do sleep 60; done
+    # **A pause flag with no expiry idles the lane that actually earns.** A researcher
+    # wave sets it and its resume job clears it, so a wave that hangs leaves both archive
+    # clients stopped indefinitely. On 2026-09-07 one leg ran 2h14m against a 50-minute
+    # cap and the collectors sat out nearly three hours of a night we needed. 90 minutes
+    # is past any healthy wave, so a flag older than that belongs to a dead run.
+    while [ -e /tmp/ark-pause-sweeps ]; do
+        age=$(( $(date +%s) - $(stat -c %Y /tmp/ark-pause-sweeps 2>/dev/null || date +%s) ))
+        if [ "$age" -gt 5400 ]; then
+            echo "pause flag is ${age}s old, past any healthy wave: resuming"
+            rm -f /tmp/ark-pause-sweeps
+            break
+        fi
+        sleep 60
+    done
     line=$(( line + 1 ))
     parent="$(sed -n "${line}p" "$PARENTS")"
     if [ -z "$parent" ]; then
