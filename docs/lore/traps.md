@@ -273,3 +273,36 @@ Two unrelated defects surfaced on the way: `clamav-freshclam` had been disabled 
 because `NotifyClamd` pointed at a config for a clamd that is not installed and `Checks 0` is
 rejected as "must be a positive integer". Signatures were six weeks stale. Both fixed, service
 enabled, updating hourly.
+
+## The store admits one process at a time, and a READER blocks the writer
+
+DuckDB will not mix a read-only and a read-write connection to the same file across processes, so
+`connect_read_only_patiently` is not the harmless choice it reads as. On 2026-09-07 a pricing probe
+holding a read-only handle stalled both `ark ingest-hostnames` and the repair scripts, and the error
+names the probe's own PID while suggesting read-only mode, which points the reader at the wrong fix:
+
+    IO Error: Could not set lock on file "data/ark.duckdb": Conflicting lock is held in
+    .../python3.12 (PID 4700) ... you would be able to open this database in read-only mode
+
+So before anything that writes, stop the loops that ingest. The order that works is: stop
+`pull_suffix_loop.sh` and `maintain.sh`, run the write, run `ark export` then `ark check`, then
+restart the loops. `ark check` is a reader and conflicts with an ingest exactly the same way, which
+is why the gate cannot be run while a collection loop is folding.
+
+A long read against the live store is also worth avoiding for its own sake: it holds the lock for
+its whole duration, and the collectors are what earn.
+
+## A green test run through a pipe is not a green test run
+
+`uv run pytest -q | tail -4` reports `tail`'s exit status, so a failing suite prints a plausible
+summary and returns zero. On 2026-09-07 that hid `test_every_script_has_a_caller` for four commit
+attempts, and the pre-commit hook, which redirects instead of piping, was the thing that caught it.
+The hook's own comment warns about this, and rule 2 already says the gate never goes through a pipe.
+Redirect to a file and read the file:
+
+    uv run pytest -q > /tmp/pt.log 2>&1; echo "exit=$?"; tail -3 /tmp/pt.log
+
+**What it was catching is worth knowing too**: every `scripts/*.py` must be named by the justfile,
+the README, a docs page, another tracked file or the fleet list. A new script needs a caller or a
+sentence about it in the page where a reader would look for it.
+
