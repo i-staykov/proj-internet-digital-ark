@@ -16,9 +16,9 @@ quiet kind:
    query, because either alone has a hole: the ledger cannot see an issue somebody
    closed by hand, and the query cannot see one that has been closed after shipping.
 
-Pruning the staging directories is here for the same reason: the run directories the
-bank downloads into are worthless the moment their findings are banked, and nothing
-else would ever delete them.
+Banked staging files require verified remote copies before removal. Empty incoming
+directories and unverified files remain local. Preflight also enforces the free-space
+floor and write budget before the bank starts.
 
     uv run python scripts/harness/bank_hygiene.py preflight   # before the bank works
     uv run python scripts/harness/bank_hygiene.py prune --write
@@ -28,8 +28,11 @@ else would ever delete them.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import math
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -53,6 +56,49 @@ STAGED = ("docs/", "src/", "justfile")
 # Where the bank downloads and parks fleet artifacts.
 INCOMING = "data/fleet_findings/incoming"
 BANKED = "data/fleet_findings/banked"
+GIB = 1024**3
+
+
+def round_prune():
+    if "prune" in sys.modules:
+        return sys.modules["prune"]
+    spec = importlib.util.spec_from_file_location("prune", ROOT / "scripts/round/prune.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["prune"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def space(*, root: Path = ROOT) -> tuple[int, list[str]]:
+    """Require the free-space floor plus a write budget on both destination filesystems."""
+    try:
+        floor = float(os.environ.get("ARK_FREE_SPACE_GIB", "50"))
+        budget = float(os.environ.get("ARK_WRITE_BUDGET_GIB", "20"))
+        if not all(math.isfinite(n) and n > 0 for n in (floor, budget)):
+            raise ValueError("space settings must be finite positive GiB values")
+        store = root / "data/ark.duckdb"
+        budget_bytes = max(int(budget * GIB), store.stat().st_size if store.exists() else 0)
+        required = int(floor * GIB) + budget_bytes
+        lines = []
+        for destination in (root / "data", root / "output"):
+            probe = destination
+            while not probe.exists():
+                probe = probe.parent
+            free = shutil.disk_usage(probe).free
+            lines.append(
+                f"space {destination.name}: {free / GIB:.1f} GiB free, "
+                f"need {required / GIB:.1f} GiB "
+                f"({floor:g} floor + {budget_bytes / GIB:.1f} write budget)"
+            )
+            if free < required:
+                return 2, [
+                    *lines,
+                    "REFUSED: insufficient free space; no ingest or export started. "
+                    "Use verified off-site cleanup or increase capacity.",
+                ]
+        return 0, lines
+    except (OSError, ValueError, OverflowError) as exc:
+        return 2, [f"REFUSED: cannot establish free space: {exc}"]
 
 
 def clean_env() -> dict[str, str]:
@@ -130,6 +176,11 @@ def preflight(
         return 2, lines
     lines.append("clone is clean")
 
+    code, disk_lines = space(root=root)
+    lines.extend(disk_lines)
+    if code:
+        return code, lines
+
     if not pull:
         return 0, lines
     code, out = run(["pull", "--ff-only", remote, branch], root)
@@ -145,43 +196,46 @@ def preflight(
 def prune(
     *, root: Path = ROOT, days: int = 14, now: float | None = None, write: bool = False
 ) -> list[str]:
-    """Delete the staging directories the bank created and no longer reads.
-
-    Empty run directories under `incoming` go whatever their age, since the bank
-    flattens the findings out of them and an empty one holds nothing. A banked
-    label directory goes once it is older than `days`: the findings themselves are
-    in the register by then, and this is the copy nobody reads.
-    """
+    """Prune old banked files only with per-file verified remote copies."""
+    root = root.resolve()
     now = time.time() if now is None else now
     lines, removed = [], 0
-    for path in sorted((root / INCOMING).glob("*")):
-        if path.is_dir() and not any(path.iterdir()):
-            lines.append(f"empty run directory: {path.relative_to(root)}")
-            removed += 1
-            if write:
-                path.rmdir()
     cutoff = now - days * 86400
     for path in sorted((root / BANKED).glob("*")):
         if path.is_dir() and path.stat().st_mtime < cutoff:
             age = int((now - path.stat().st_mtime) / 86400)
             lines.append(f"banked findings {age} days old: {path.relative_to(root)}")
-            removed += 1
-            if write:
-                _rmtree(path)
-    if not removed:
+            try:
+                _rmtree(path, root=root, write=write)
+                removed += 1
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+                lines.append(f"HELD: {exc}")
+    if not lines:
         return ["staging directories: nothing to prune"]
     lines.append(f"{'pruned' if write else 'would prune'} {removed} directory(ies)")
     return lines
 
 
-def _rmtree(path: Path) -> None:
-    """Depth-first delete: a staging directory holds findings, nothing precious."""
-    for child in sorted(path.rglob("*"), reverse=True):
-        if child.is_dir():
-            child.rmdir()
-        else:
-            child.unlink()
-    path.rmdir()
+def _rmtree(path: Path, *, root: Path = ROOT, write: bool = False) -> None:
+    """Require proofs for every file before removing any; retain unverified metadata."""
+    cleaner = round_prune()
+    offsite = cleaner.sibling("offsite")
+    inventory = offsite.local_files(root, path)
+    if not inventory:
+        raise ValueError("no verified payload; directory retained")
+    files = [path / rel for rel in inventory]
+    for child in files:
+        offsite.deletion_proof(root, child)
+    if offsite.local_files(root, path) != inventory:
+        raise ValueError("staging changed during verification")
+    for child in files:
+        cleaner.remove_verified(root, child, write=write)
+    if write:
+        for directory in sorted(path.rglob("*"), reverse=True):
+            if directory.is_dir() and not directory.is_symlink() and not any(directory.iterdir()):
+                directory.rmdir()
+        if not any(path.iterdir()):
+            path.rmdir()
 
 
 def latched(path: Path = LATCH) -> set[tuple[str, str]]:
@@ -304,6 +358,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="what", required=True)
 
+    sub.add_parser("space", help="refuse ingest/export below the free-space floor and write budget")
+
     pre = sub.add_parser("preflight", help="refuse a dirty or diverged clone, then fast-forward")
     pre.add_argument("--branch", default="live")
     pre.add_argument("--remote", default="origin")
@@ -318,6 +374,11 @@ def main() -> None:
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
 
     args = ap.parse_args()
+
+    if args.what == "space":
+        code, lines = space()
+        print("\n".join(lines))
+        raise SystemExit(code)
 
     if args.what == "preflight":
         code, lines = preflight(branch=args.branch, remote=args.remote, pull=not args.no_pull)

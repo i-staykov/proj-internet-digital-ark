@@ -1,4 +1,4 @@
-"""Say which local data entries could be deleted, and delete nothing.
+"""Report retention eligibility, or prune verified round duplicates with --round --write.
 
 Reads the tracked `docs/registers/retention.md` and nothing else, so the page a human can read
 is the single source of truth: the classification tables inside `verify_raw.py` are
@@ -20,14 +20,20 @@ before it can be copied and verified.
     uv run python scripts/round/prune.py
     uv run python scripts/round/prune.py --json
 
-Deleting is a separate approved ticket. This script has no flag that deletes.
+The retention report grants no deletion permission. Round cleanup is limited to
+superseded store backups and CRC-matched reviewer zips. Every removed file needs
+an unchanged local verification receipt and a current matching remote hash.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import subprocess
 import sys
+import zipfile
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -145,16 +151,107 @@ def human(size: int) -> str:
     return f"{size} B"
 
 
+def sibling(name: str):
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def remove_verified(root: Path, path: Path, *, write: bool = False) -> str:
+    """Delete one regular file only after checking its recorded and live remote copy."""
+    offsite = sibling("offsite")
+    stamp = offsite.deletion_proof(root, path)
+    if write:
+        if offsite.signature(root, path) != stamp:
+            raise ValueError(f"changed before deletion: {path.relative_to(root)}")
+        path.unlink()
+    return f"{'removed' if write else 'would remove'}: {path.relative_to(root)}"
+
+
+def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
+    """Keep extracted releases and the current store; never select submissions or output."""
+    root = root.resolve()
+    offsite, releases = sibling("offsite"), sibling("releases")
+    lines, held = [], False
+    store = root / "data/ark.duckdb"
+    for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak")):
+        try:
+            before = offsite.signature(root, store)
+            backup_stamp = offsite.signature(root, backup)
+            if (
+                before[2] == 0
+                or before[3] <= backup_stamp[3]
+                or before[:2] == backup_stamp[:2]
+                or store.with_suffix(".duckdb.wal").exists()
+            ):
+                raise ValueError("store is not a quiescent successor")
+            offsite.deletion_proof(root, backup)
+            if not write:
+                lines.append(f"would check store and remove: {backup.relative_to(root)}")
+                continue
+            done = subprocess.run(["uv", "run", "ark", "check"], cwd=root, check=False)
+            if (
+                done.returncode
+                or offsite.signature(root, store) != before
+                or store.with_suffix(".duckdb.wal").exists()
+            ):
+                raise ValueError("ark check failed or store changed; backup retained")
+            lines.append(remove_verified(root, backup, write=True))
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+            held = True
+            lines.append(f"HELD {backup.relative_to(root)}: {exc}")
+
+    trees = releases.find_trees(root / "feedback", {})
+    zips = releases.find_zips(root / "feedback")
+    for archive in sorted({p for paths in zips.values() for p in paths}):
+        try:
+            archive_stamp = offsite.signature(root, archive)
+            offsite.deletion_proof(root, archive)
+            inventories = {}
+            for marker in sorted(releases.zip_markers(archive)):
+                if not trees.get(marker):
+                    raise ValueError(f"no extracted tree for {marker}")
+                tree = trees[marker][0]
+                inventories[tree] = offsite.local_files(root, tree)
+                counts, problems = releases.verify_tree(tree, archive, marker)
+                if not counts["members"] or problems:
+                    raise ValueError(f"CRC verification failed for {marker}: {problems[:3]}")
+            if offsite.signature(root, archive) != archive_stamp or any(
+                offsite.local_files(root, tree) != before for tree, before in inventories.items()
+            ):
+                raise ValueError("release changed during CRC verification")
+            lines.append(remove_verified(root, archive, write=write))
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+            zipfile.BadZipFile,
+            zlib.error,
+            subprocess.SubprocessError,
+        ) as exc:
+            held = True
+            lines.append(f"HELD {archive.relative_to(root)}: {exc}")
+    if not lines:
+        lines.append("round duplicates: nothing to prune")
+    return (1 if held else 0), lines
+
+
 def report(groups: list[Group], path: Path) -> list[str]:
     total = sum(g.size for g in groups)
     count = sum(len(g.entries) for g in groups)
     free = sum(g.size for g in groups if g.deletable)
     out = [
         f"{path}: {count} entries, {total:,} B ({human(total)}).",
-        "Nothing was deleted: this script has no flag that deletes.",
+        "Nothing was deleted: retention eligibility is not remote-copy verification.",
     ]
     for heading, deletable in (
-        ("DELETABLE: class, refetch route and checksum record all hold", True),
+        ("ELIGIBLE FOR REVIEW: class, refetch route and checksum record all hold", True),
         ("HELD: what each entry is missing, which is the off-site copy to-do list", False),
     ):
         out += ["", heading]
@@ -208,16 +305,30 @@ def main(argv: list[str] | None = None) -> int:
     refused = [a for a in argv if a.split("=", 1)[0] in DELETE_FLAGS]
     if refused:
         print(
-            f"prune.py has no {', '.join(refused)}: it never deletes, it only says what could be. "
-            "Deletion is a separate approved ticket.",
+            f"prune.py has no {', '.join(refused)}: the retention report never deletes. "
+            "Only --round --write permits verified round cleanup.",
             file=sys.stderr,
         )
         return 2
 
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], epilog="Deletes nothing.")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--table", type=Path, default=RETENTION, help="retention table to read")
     ap.add_argument("--json", action="store_true", help="machine-readable form")
+    ap.add_argument(
+        "--round", action="store_true", help="check superseded backups and release zips"
+    )
+    ap.add_argument("--write", action="store_true", help="with --round, remove verified copies")
+    ap.add_argument("--root", type=Path, default=REPO)
     args = ap.parse_args(argv)
+
+    if args.write and not args.round:
+        ap.error("--write requires --round")
+    if args.round:
+        if args.json:
+            ap.error("--round does not accept --json")
+        code, lines = round_cleanup(args.root, write=args.write)
+        print("\n".join(lines))
+        return code
 
     groups = group(read_table(args.table))
     if args.json:
