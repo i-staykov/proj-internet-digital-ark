@@ -44,4 +44,5 @@ off-site copy is verified against these hashes.
 | `merged260904` | 2026-09-04 | yes | 1,006,242 | 2,233,960 | 3,313,711 | 6,777,836 | 11,490,583 | 18,413,465 | Domain_Data_Collection_Task_0904_Update.zip | 9b034ec5a9ea69a3affd6f7fe8c25153445c1fb3c60f11146e59a1e397b00e29 |
 | `merged260905-3` | 2026-09-05 | yes | 1,237,593 | 2,600,252 | 4,351,943 | 8,266,473 | 13,207,502 | 22,038,270 | Domain_Data_Collection_Task_0905_UpdateV2.zip | 095aa5de27e23eef1695a7d2d43dce5614a22e8e86084010d7ba875e3e5a9f98 |
 | `merged260906` | 2026-09-06 | yes | 1,242,496 | 2,647,211 | 4,451,485 | 8,569,884 | 13,894,328 | 30,531,282 | Domain_Data_Collection_Task_0906_Update.zip | 49aa163d18e8ec508c306b967eba4d7c7a4134378a3edc93ffeeade257425aca |
+| `merged260907-2` | 2026-09-07 | yes | 1,242,897 | 2,649,645 | 4,460,947 | 8,713,158 | 13,975,217 | 32,127,408 | Domain_Data_Collection_Task_0907_Update.zip | 668b2236f089cca2af80ee4713af9894d510b3e5276a8e7224494731dd17089b |
 <!-- /releases:table -->
