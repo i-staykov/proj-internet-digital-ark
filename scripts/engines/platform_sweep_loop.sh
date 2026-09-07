@@ -42,6 +42,7 @@ cd "$(dirname "$0")"
 while [ ! -d data/raw ] && [ "$PWD" != "/" ]; do cd ..; done
 
 DEADLINE="${1:?absolute epoch deadline}"
+PAUSE_FLAG="${ARK_STATE_DIR:-$HOME/ark/state}/pause"
 PARENTS="${2:?parents file}"
 SHARD="${3:-0}"
 PARENT_CAP="${ARK_PARENT_CAP:-300}"
@@ -163,11 +164,11 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # clients stopped indefinitely. On 2026-09-07 one leg ran 2h14m against a 50-minute
     # cap and the collectors sat out nearly three hours of a night we needed. 90 minutes
     # is past any healthy wave, so a flag older than that belongs to a dead run.
-    while [ -e /tmp/ark-pause-sweeps ]; do
-        age=$(( $(date +%s) - $(stat -c %Y /tmp/ark-pause-sweeps 2>/dev/null || date +%s) ))
+    while [ -e "$PAUSE_FLAG" ]; do
+        age=$(( $(date +%s) - $(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || date +%s) ))
         if [ "$age" -gt 5400 ]; then
             echo "pause flag is ${age}s old, past any healthy wave: resuming"
-            rm -f /tmp/ark-pause-sweeps
+            rm -f "$PAUSE_FLAG"
             break
         fi
         sleep 60

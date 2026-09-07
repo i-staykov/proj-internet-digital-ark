@@ -5,7 +5,7 @@
 # stands down while this runs, keeping the two-clients maximum. Runs as a plain
 # user process with an absolute deadline, the collector convention; resumable,
 # because the sweep keeps a per-parent state file and writes a .done marker when
-# a parent's namespace is exhausted. Pause: touch /tmp/ark-pause-sweeps.
+# a parent's namespace is exhausted. Pause: touch ~/ark/state/pause.
 #
 # Usage: bash scripts/engines/platform_sweep.sh <deadline_epoch> [parents_file]
 set -uo pipefail

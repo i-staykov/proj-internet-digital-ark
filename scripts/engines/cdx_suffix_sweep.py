@@ -44,6 +44,7 @@ so a resume at another size converts its position.
 import argparse
 import gzip
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -57,7 +58,7 @@ OUT = Path("data/raw/cdx_suffix")
 # Researcher waves need the archive unthrottled; the fleet touches this flag before
 # dispatching agents and removes it after, and the sweep idles while it exists. A
 # flag file rather than systemctl, because the sweep runs as a plain user process.
-PAUSE_FLAG = Path("/tmp/ark-pause-sweeps")
+PAUSE_FLAG = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state")) / "pause"
 
 
 def fetch(params: dict, timeout: int) -> tuple[str, list[str]]:

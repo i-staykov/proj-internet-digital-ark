@@ -529,7 +529,7 @@ of parents through `cdx_suffix_sweep.py`, one at a time, writing raw `{url, time
 journals to `data/raw/cdx_suffix/`; `ark ingest-hostnames` turns them into hostname
 records and `cdx_suffix_convert.py` into the registrable half. It holds the second
 archive slot, so the vedge engine stays stopped while it runs; `touch
-/tmp/ark-pause-sweeps` idles it between pages.
+~/ark/state/pause` idles it between pages.
 
 Three facts decide how it is run, all measured on `co.uk` on 2026-09-02:
 
@@ -669,4 +669,4 @@ sweep, and the figures are in `docs/lore/laws.md`.
     uv run python scripts/engines/probe_thin_parents.py --domains <file> [--delay 2.0]
 
 One archive client, so run it only when a slot is free. The sweeps idle on
-`touch /tmp/ark-pause-sweeps` and resume when it is removed.
+`touch ~/ark/state/pause` and resume when it is removed.
