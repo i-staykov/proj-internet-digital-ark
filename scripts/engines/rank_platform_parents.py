@@ -32,6 +32,9 @@ from ark.english_share import english_weights  # noqa: E402
 # floats are enough for a ranking; the exact Decimal table stays in english_share
 WEIGHTS = {tld: float(share) for tld, share in english_weights().items()}
 
+# 1996-2001, the six annual files, so six is the most years one host can be worth
+YEARS = 6
+
 
 def weight_of(parent: str) -> float:
     return WEIGHTS.get(parent.rsplit(".", 1)[-1], 0.0)
@@ -44,7 +47,7 @@ def main() -> int:
     parser.add_argument(
         "--net-new",
         action="store_true",
-        help="rank by the sub-hosts we do NOT already hold, not by all of them",
+        help="rank by the host-YEARS we do not already hold; adds parents known only to the store",
     )
     args = parser.parse_args()
 
@@ -99,31 +102,60 @@ def main() -> int:
     # Off by default, because the subtraction needs the store and this script must keep
     # running on a clone that has none.
     held: Counter[str] = Counter()
+    held_years: Counter[str] = Counter()
     if args.net_new:
         from ark.db import connect_read_only_patiently
 
         conn = connect_read_only_patiently()
         try:
-            for parent, n in conn.execute(
-                "SELECT parent_domain, count(DISTINCT hostname) FROM hostname_year GROUP BY 1"
+            for parent, hosts, host_years in conn.execute(
+                "SELECT parent_domain, count(DISTINCT hostname), count(*) "
+                "FROM hostname_year GROUP BY 1"
             ).fetchall():
-                held[parent] = n
+                held[parent] = hosts
+                held_years[parent] = host_years
         finally:
             conn.close()
 
-    ranked = sorted(
-        (
-            (max(count - held[parent], 0) * weight_of(parent) / cost_of(parent), count, parent)
+    # **The parent universe is his benchmark UNION our own store** (measured 2026-09-07).
+    # Taking it from the benchmark alone spent the queue: 742 parents walked and 530 parked
+    # left the ranking to thin registrables, and the two clients earned 210 EE/hour between
+    # them overnight against the 193,000 EE/client-hour this same lane paid on 2026-09-04.
+    # 6,937 parents carrying 4.1M of our own hostnames had never been asked domain-wide,
+    # because a parent can only be ranked if it appears in a file this script reads.
+    #
+    # **The unit is host-YEARS lacked, not hosts.** A record is one (host, year), so a parent
+    # whose hosts we hold in one year of six has five sixths of its records outstanding, and
+    # that is invisible to a count of hosts. It is the normal case rather than an edge one:
+    # ISC and the other hostname corpora are single-date snapshots, so they date every host
+    # they name in exactly one year, and the never-asked parents sit at 1.0 to 1.5 years per
+    # host. Both populations reduce to the same expression, which is why they can share one
+    # ranking: whichever source knows more hosts bounds the parent, six years each is the
+    # ceiling, and what we already hold is subtracted.
+    universe = set(subhosts) | set(held)
+
+    def headroom(parent: str) -> int:
+        hosts_known = max(subhosts.get(parent, 0), held.get(parent, 0))
+        return max(hosts_known * YEARS - held_years.get(parent, 0), 0)
+
+    if args.net_new:
+        scored = (
+            (headroom(p) * weight_of(p) / cost_of(p), max(subhosts.get(p, 0), held.get(p, 0)), p)
+            for p in universe
+        )
+    else:
+        # no store to subtract against, so the old benchmark-only ordering stands
+        scored = (
+            (count * weight_of(parent) / cost_of(parent), count, parent)
             for parent, count in subhosts.items()
-        ),
-        reverse=True,
-    )
+        )
+    ranked = sorted(scored, reverse=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w") as out:
         for _score, _count, parent in ranked[: args.top]:
             out.write(parent + "\n")
     for score, count, parent in ranked[:15]:
-        gap = f"  {count - held[parent]:>8,} we lack" if args.net_new else ""
+        gap = f"  {headroom(parent):>9,} host-years lacked" if args.net_new else ""
         cost = ratios.get(parent)
         seen_cost = f"  {cost:>5.1f} rows/host" if cost else "  unmeasured  "
         print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}{gap}{seen_cost}")

@@ -20,12 +20,18 @@
 # Parking measures the thing the ranker was missing, so parked parents are worth
 # re-reading later with a real cost attached rather than being lost.
 #
-# **300 seconds, measured, not 600.** The ranked queue interleaves big institutional
-# namespaces (.edu, .gov, .ac.uk) because they have the most sub-hosts we lack, and
-# their cost is unmeasured so nothing discounts them. At a 600s cap a run of them cut
-# collection to 0.33 journals per minute; at 300s the same stretch ran at 1.0, three
-# times the parent throughput. Nothing is lost by cutting earlier: the sweep is
-# resumable and the round's own law is that breadth pays where depth does not.
+# **The cap is a yield test taken every 300 seconds, not a deadline.** It used to be a
+# flat 300s, chosen because a 600s cap cut collection from 1.0 journals per minute to
+# 0.33 over a run of institutional namespaces. That optimised journals per minute, which
+# is a proxy for nothing: a journal is a file, and only distinct (host, year) pairs are
+# records. Measured 2026-09-07, the parents the flat cap discarded were the ones
+# returning most, `columbia.edu` at 885,968 capture rows and `utoronto.ca` at 634,104.
+#
+# So the parent is judged on capture rows per distinct host, read from its own journal
+# while it runs, and it keeps the slot while that stays cheap. Expensive namespaces are
+# parked to `platform_deep.txt` as before; a parent still cheap at PARENT_MAX is parked
+# to `platform_rich.txt` instead, because it is a rich platform rather than a dud and
+# should not be filed with the duds.
 #
 # The two-clients maximum is unchanged. This runs at most twice, once per queue
 # half, and each instance holds one slot.
@@ -39,25 +45,74 @@ DEADLINE="${1:?absolute epoch deadline}"
 PARENTS="${2:?parents file}"
 SHARD="${3:-0}"
 PARENT_CAP="${ARK_PARENT_CAP:-300}"
+PARENT_MAX="${ARK_PARENT_MAX:-2700}"
+RPH_MAX="${ARK_RPH_MAX:-8}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
 DEEP="data/raw/cdx/platform_deep.txt"
+RICH="data/raw/cdx/platform_rich.txt"
+
+# Rows and distinct hosts in a parent's journal so far, as "ROWS HOSTS".
+# The sweep flushes after every page, so a gzip read gets everything up to the last
+# page boundary and a torn tail is simply skipped.
+yield_of() {
+    local journal
+    journal=$(ls -t "data/raw/cdx_suffix/suffix_${1}_"*.jsonl.gz 2>/dev/null | head -1)
+    [ -n "$journal" ] || { echo "0 0"; return; }
+    gzip -cd "$journal" 2>/dev/null | python3 -c '
+import sys, json
+rows = 0
+hosts = set()
+for line in sys.stdin:
+    try:
+        url = json.loads(line)["url"]
+    except Exception:
+        continue
+    rows += 1
+    hosts.add(url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].lower())
+print(rows, len(hosts))
+' 2>/dev/null || echo "0 0"
+}
 
 sweep_one() {
     local parent="$1" safe="${parent//./_}"
     [ -e "data/raw/cdx_suffix/suffix_${safe}.done" ] && return 0
     echo "=== $parent ==="
     uv run python "$SWEEP" "$parent" --deadline "$DEADLINE" --delay 2.0 &
-    local pid=$! waited=0
+    local pid=$! waited=0 rows=0 hosts=0 rph=0
     while kill -0 "$pid" 2>/dev/null; do
         sleep 10
         waited=$(( waited + 10 ))
-        [ "$waited" -lt "$PARENT_CAP" ] && continue
-        # deep namespace. park it: the shallow parents behind it in the queue
-        # are each worth more per request than the rest of this one.
-        echo "$parent: over ${PARENT_CAP}s, deep namespace, parked"
-        echo "$parent" >> "$DEEP"
+        [ $(( waited % PARENT_CAP )) -eq 0 ] || continue
+
+        # **Park on measured cost per host, not on elapsed time.** A flat 300s cap parks
+        # whatever is slow, and the slowest parents are the ones returning most: measured
+        # 2026-09-07, `columbia.edu` had written 885,968 capture rows and `utoronto.ca`
+        # 634,104 when the cap cut them. Time was standing in for value and ranking it
+        # backwards.
+        #
+        # What actually decides a parent is capture rows per distinct host, because a page
+        # costs the same whatever it holds and only distinct (host, year) pairs are records.
+        # That ratio spans 42x across parents. The ranker already divides by it, but only
+        # for the 339 parents in `rows_per_host.tsv`; here it is read off this parent's own
+        # journal, so an unmeasured parent is judged on what it is doing rather than kept
+        # at an assumed 1.0 and then killed by the clock.
+        read -r rows hosts <<< "$(yield_of "$safe")"
+        [ "${hosts:-0}" -gt 0 ] && rph=$(( rows / hosts )) || rph=9999
+        if [ "$rph" -le "$RPH_MAX" ] && [ "$waited" -lt "$PARENT_MAX" ]; then
+            echo "$parent: ${waited}s, $rows rows over $hosts hosts, $rph rows/host, cheap, continuing"
+            continue
+        fi
+        if [ "$rph" -gt "$RPH_MAX" ]; then
+            echo "$parent: $rph rows/host over $RPH_MAX, expensive namespace, parked"
+            echo "$parent" >> "$DEEP"
+        else
+            # cheap per host and still going: this is a rich platform, not a dud, so it is
+            # parked where a dedicated long run can find it rather than among the duds
+            echo "$parent: $rph rows/host but hit ${PARENT_MAX}s, parked as rich"
+            echo "$parent" >> "$RICH"
+        fi
         kill -TERM "$pid" 2>/dev/null
         # the wrapper is `uv run python`, so the python child needs killing too
         pgrep -f "$SWEEP $parent " | while read -r child; do kill -TERM "$child" 2>/dev/null; done
@@ -90,7 +145,8 @@ refill() {
     awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' "$ranked" > "$PARENTS.refill" || return 1
     awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
-            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || grep -qxF "$p" "$DEEP" 2>/dev/null || echo "$p"
+            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || grep -qxF "$p" "$DEEP" 2>/dev/null \
+                || grep -qxF "$p" "$RICH" 2>/dev/null || echo "$p"
         done > "$PARENTS.new"
     if [ -s "$PARENTS.new" ]; then
         cat "$PARENTS.new" >> "$PARENTS"
