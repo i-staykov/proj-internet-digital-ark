@@ -45,6 +45,20 @@ for i in $(seq 1 "$ITERATIONS"); do
         "$ARK_VPS:$VPS_REPO/data/raw/cdx_suffix/suffix_*.jsonl.gz" data/raw/cdx_suffix/ \
         >> "$LOG" 2>&1 || say "pass $i: vps unreachable, will retry"
 
+    # **Pull the markers too, not only the journals.** A `.done` marker and a line in
+    # `platform_deep.txt` are how the ranker knows a parent has already been asked
+    # domain-wide. They live only on the VPS, so the laptop's ranking treated 6,937
+    # already-swept parents as fresh on 2026-09-07 and queued a head that resolved to
+    # "already walked" in under a minute. The markers are empty files; copying them is free.
+    rsync -a --ignore-existing --timeout=120 \
+        -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        "$ARK_VPS:$VPS_REPO/data/raw/cdx_suffix/suffix_*.done" data/raw/cdx_suffix/ \
+        >> "$LOG" 2>&1 || true
+    rsync -a --timeout=120 \
+        -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        "$ARK_VPS:$VPS_REPO/data/raw/cdx/platform_deep.txt" data/raw/cdx/vps_deep.txt \
+        >> "$LOG" 2>&1 || true
+
     after=$(ls data/raw/cdx_suffix/*.jsonl.gz 2>/dev/null | wc -l | tr -d ' ')
     say "pass $i: journals $before -> $after (held open remotely: $(echo "$BUSY" | grep -c . || echo 0))"
 
