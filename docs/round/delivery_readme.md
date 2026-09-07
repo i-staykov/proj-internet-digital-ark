@@ -18,6 +18,12 @@ Two things to know before opening anything:
   reviewer accepted on 2026-09-01), disjoint per year and each backed by its own evidence
   manifest. A name in `candidates.txt` has been seen but has not earned a year, and is never
   mixed into the annual lists.
+- **`isc_survey_hostnames/` is a separate scored candidate collection.** Exact names already
+  in the reference candidate pool or any annual file, yours or ours, are excluded across all
+  six years. A held parent does not exclude a distinct hostname. Count each surviving name
+  once across survey years, at its TLD's English share. Candidate and annual scores are separate
+  tracks with the same rate and annual equivalent-English denominator. ISC contributes nothing
+  to the annual increment or annual score.
 
 ## What is in here
 
@@ -29,11 +35,14 @@ Two things to know before opening anything:
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `hostnames/<year>_hostnames.txt` | **Hostname additions**, the second output unit: valid hostnames beneath held registrables, disjoint from `additions/` |
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
-| `isc_survey_hostnames/<year>-ISC.txt` | **A question, not a claim.** ISC Internet Domain Survey hosts, in NO figure in the report or the covering mail. Merge the folder if a dated reverse-DNS listing counts; delete it if not, and nothing else changes |
+| `isc_survey_hostnames/<year>-ISC.txt` | **Candidate collection**, grouped by DNS survey year, not annual website evidence. Promotion requires additional exact-host web evidence for that target year. Never merge these files directly into annual masters |
+| `isc_survey_hostnames/isc_candidates.txt` | The deduplicated candidate collection, one exact hostname per line across all survey years |
+| `isc_survey_hostnames/isc_survey_provenance.csv` | Per-host provenance for every surviving hostname-year: survey edition, source filename, original or recovery URL, record location keyed by hostname, extraction method and target year. Provenance alone does not promote a DNS observation |
+| `isc_survey_hostnames/isc_candidates_summary.json` | Measured distinct candidate count and equivalent-English total, survey-year counts, provenance rows and TLD counts, tied to the reference release. Year counts must not be summed as the candidate score |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
 | `candidates_unparsed.txt` | **The unparsed pool of your section XI**, one row per malformed-but-recoverable value with the reason the funnel refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`, `is_registrable`. In no figure |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
-| `baseline/<release>/` | **The reference the additions are counted against**, the reviewer's own reissued corpus shipped back so the archive is checkable on its own. See `baseline/README.txt` |
+| `baseline/<release>/` | **The reference the additions are counted against**, including the six annual files and `candidate_pool.txt` for exact-name ISC reconciliation. See `baseline/README.txt` |
 | `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
@@ -49,7 +58,7 @@ Two things to know before opening anything:
 | `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
 | `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
 | `equivalent_english_domain_calculator/` | **D4**: the reviewer's own scorer, vendored unmodified with its fixed model, so every figure here can be re-derived without fetching anything |
-| `SHA256SUMS`, `verify.sh` | Checksum for every file, and the checker |
+| `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | Checksums and verification, including ISC candidate reconciliation, provenance coverage and equivalent-English recalculation |
 
 
 ## The four deliverables he asked for on 2026-08-17
@@ -69,10 +78,10 @@ his own calculator, run here, reproduces the audit's baseline figure.
 
 ## File formats
 
-- **Every `.txt` list**: one registered domain per line, lowercase ASCII, C-locale sorted, newline
-  terminated, no header, no blank lines. A "registered domain" is the name at the registrable boundary
-  under the Public Suffix List, so `www.example.co.uk` appears as `example.co.uk`. This is the counting
-  unit throughout, and it is why these totals differ from a raw line count of the same source data.
+- **Generated `.txt` name lists**: one name per line, lowercase ASCII, C-locale sorted, newline
+  terminated, no header, no blank lines. Masters and registrable additions use the Public Suffix
+  List boundary. Hostname additions and ISC candidates retain the exact hostname without collapsing
+  it to its parent or removing `www.`. Survey years identify observations, not website existence.
 - **Every `.csv`**: RFC 4180, comma separated, UTF-8, one header row.
 - **`journals/*.jsonl.gz`**: gzipped JSON Lines, one object per query made.
 - **`provenance/*.parquet`**: Parquet with ZSTD, readable by any engine. `LOAD.sql` recreates the
@@ -96,12 +105,14 @@ Then from inside this folder:
 bash verify.sh
 ```
 
-It needs only `shasum` and `python3`, prints a verdict per check, and exits non-zero on failure.
+It needs `shasum`, `python3` and `uv` for the ISC file audit, prints a verdict per check, and exits
+non-zero on failure. The ISC audit uses DuckDB with bounded memory and temporary disk space.
 **Twelve checks.** The first seven are the result and the evidence behind it: every file against
 `SHA256SUMS`, the annual addition files and their counts, every added pair present in
 `additions/evidence_manifest.csv`, the hostname files and their counts (disjoint from
 `additions/`), every hostname traced to a capture, `isc_survey_hostnames/` counted and shown to be
-disjoint from `hostnames/` and in no figure, and every assignment in the Parquet provenance
+disjoint from the reference candidate pool and every annual year, with complete per-host provenance
+and a reproduced candidate-only equivalent-English total, and every assignment in the Parquet provenance
 resolving to an evidence row shipped beside it. Checks 8 to 12 are the four artifacts of the
 section above, D1 to D4: that the code snapshot carries its dependency manifest and lockfile, that
 the experience summary covers every topic asked for, that every reconciliation check in the merge
@@ -141,11 +152,15 @@ Everything comes back byte-identical:
 for y in 1996 1997 1998 1999 2000 2001; do
     cmp output/netnew/$y.txt            ../additions/$y.txt
     cmp output/netnew/${y}_hostnames.txt ../hostnames/${y}_hostnames.txt
+    cmp output/netnew/$y-ISC.txt        ../isc_survey_hostnames/$y-ISC.txt
     cmp data/exports/$y.txt             ../masters/$y.txt
 done
 cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
 cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
 cmp output/candidate_unverified.txt      ../candidates.txt
+cmp output/netnew/isc_candidates.txt ../isc_survey_hostnames/isc_candidates.txt
+cmp output/netnew/isc_survey_provenance.csv ../isc_survey_hostnames/isc_survey_provenance.csv
+cmp output/netnew/isc_candidates_summary.json ../isc_survey_hostnames/isc_candidates_summary.json
 ```
 
 The archive renames things, so here is the map:
@@ -156,6 +171,10 @@ The archive renames things, so here is the map:
 | `output/netnew/evidence_manifest.csv` | `additions/evidence_manifest.csv` |
 | `output/netnew/<year>_hostnames.txt` | `hostnames/<year>_hostnames.txt` |
 | `output/netnew/hostnames_evidence_manifest.csv` | `hostnames/hostnames_evidence_manifest.csv` |
+| `output/netnew/<year>-ISC.txt` | `isc_survey_hostnames/<year>-ISC.txt` |
+| `output/netnew/isc_candidates.txt` | `isc_survey_hostnames/isc_candidates.txt` |
+| `output/netnew/isc_survey_provenance.csv` | `isc_survey_hostnames/isc_survey_provenance.csv` |
+| `output/netnew/isc_candidates_summary.json` | `isc_survey_hostnames/isc_candidates_summary.json` |
 | `output/candidate_unverified.txt` | `candidates.txt` |
 | `data/exports/<year>.txt` | `masters/<year>.txt` |
 | `output/provenance/` | `provenance/` |
