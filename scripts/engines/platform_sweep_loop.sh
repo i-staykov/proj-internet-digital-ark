@@ -162,11 +162,16 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # **A pause flag with no expiry idles the lane that actually earns.** A researcher
     # wave sets it and its resume job clears it, so a wave that hangs leaves both archive
     # clients stopped indefinitely. On 2026-09-07 one leg ran 2h14m against a 50-minute
-    # cap and the collectors sat out nearly three hours of a night we needed. 90 minutes
-    # is past any healthy wave, so a flag older than that belongs to a dead run.
+    # cap and the collectors sat out nearly three hours of a night we needed.
+    #
+    # The flag is a HEARTBEAT: each wave shard touches it as it starts, so the age below
+    # measures time since any leg last began, not the length of the wave. It has to outlive
+    # one leg's ceiling, since a leg that outlived it would find the collectors back on the
+    # archive beside it, three clients where the rule allows two. The ceiling is 100 minutes
+    # (policy v15), so 150 clears it with slack and still catches a dead run within a leg.
     while [ -e "$PAUSE_FLAG" ]; do
         age=$(( $(date +%s) - $(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || date +%s) ))
-        if [ "$age" -gt 5400 ]; then
+        if [ "$age" -gt 9000 ]; then
             echo "pause flag is ${age}s old, past any healthy wave: resuming"
             rm -f "$PAUSE_FLAG"
             break
