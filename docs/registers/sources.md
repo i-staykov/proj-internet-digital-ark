@@ -4590,3 +4590,59 @@ Wilson 1.6% to 12.9%). Admitted under the standing rule as `link_source`, the sa
 `usenet_body_url_hostnames`; ingested by `ark ingest-maillist-hostnames`. Two register figures
 did not survive: the fleet's 1,496 EE was priced before the Usenet lane's 1.06M hostname years
 reached the store, and the 186 EE closure of 2026-09-03 was a head-of-corpus sample.
+
+## The parent universe was the benchmark alone, and it was spent (2026-09-07)
+
+Lens, not a source family, and it re-opens the lane the round had written off.
+`rank_platform_parents.py` could only rank a parent that appeared in a file it read, and it read
+his annual files. That list is finished: **1,516 parents asked domain-wide**, 981 walked to a
+`.done` marker and 535 parked as deep namespaces. With the head gone the ranking fell through to
+thin registrables and the two archive clients earned **210 EE per hour between them** over the
+night of 2026-09-06, against the **193,000 EE per client-hour** the same query paid on 2026-09-04.
+Two hunts in a row returning nothing was the queue, not the archive.
+
+The store knows parents his files never name. Ranking the union, in the unit that matters, found
+**6,349 dense parents (>=20 held hostnames) never asked domain-wide**, carrying 4.1M of our own
+hostnames and **1,718,807 EE of upper-bound headroom**. Queue built and both clients on it:
+41,122 parents, `data/raw/cdx/platform_parents.txt`.
+
+**The unit is host-YEARS lacked, not hosts, and that is where the headroom was hiding.** ISC and
+the other hostname corpora are single-date snapshots, so they date every host they name in exactly
+one year of six; the never-asked parents sit at 1.00 to 1.55 years per host, so five sixths of
+their records are outstanding and a count of hosts cannot see any of it. Both populations reduce
+to one expression: whichever source knows more hosts bounds the parent, six years each is the
+ceiling, minus what is held.
+
+The ceiling assumes the archive holds every known host in all six years, which it will not.
+**The realisation rate is unmeasured and is the number worth having next.** At 40% the annual gate
+closes; at 5% it contributes 86,000 EE. Nothing is claimed from this entry until the journals price
+themselves.
+
+Marker sync was the reason this went unseen: `.done` markers and `platform_deep.txt` live on the
+VPS and no local pass copied them, so the laptop treated hundreds of swept parents as fresh. A
+queue head hand-built from that belief resolved to "already walked" in under a minute.
+`pull_suffix_loop.sh` now syncs the markers with the journals.
+
+## Priced and closed on 2026-09-07
+
+Three measurements, all negative, all cheap, logged so nobody re-tests them.
+
+**Registrable candidates as a dating target: closed.** The undated pool is **2,294,119 names**, of
+which **2,170,829 are bare two-label registrables**. A domain-wide parent sweep cannot reach a name
+that has no parent beneath which to sweep, so each needs its own query at the measured per-domain
+rate of 255 EE/hour. Only 123,290 carry three or more labels and those are already inside the
+parent lane above.
+
+**Recovering the parents the old flat cap parked: mostly nothing.** Of 261 parked parents with a
+journal to judge, only **49 are cheap per host (<=8 capture rows per distinct host)** and their
+journals run 700 to 14,000 rows. The flat 300-second cap was parking genuinely expensive
+namespaces, so the yield-aware cap that replaced it is a correctness fix rather than a recovery:
+`columbia.edu` (885,968 rows) and `utoronto.ca` (634,104) are `.edu` institutional namespaces and
+are correctly parked on rows per host even though the clock was the wrong reason.
+
+**Widening the sweep's status filter: small, real, adopted.** See ADR-011. Measured on
+`hypermart.net`, one page, identical request cost: `statuscode:200` returns 169,147 rows,
+`statuscode:[23][0-9][0-9]` returns 173,285 (+2.4%), no filter returns 179,056 (+5.9%). Across a
+three-parent sample **98.6% of the extra pairs were net-new** against the store. The 2xx-3xx form
+is adopted; the last 3.3% is 4xx and 5xx and is not argued for. A negated multi-clause filter is
+not supported and returns HTTP 400.
