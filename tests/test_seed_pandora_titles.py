@@ -31,9 +31,9 @@ def test_reads_registrable_domains_and_dedupes(tmp_path: Path) -> None:
 
     `lawlink.nsw.gov.au` collapses to `nsw.gov.au`, because the pinned Public
     Suffix List snapshot carries `gov.au` and not the per-state `nsw.gov.au`.
-    Asserted rather than corrected: the whole corpus was canonicalised through
-    this list, and III.8 asks for registered domains, so an Australian state
-    government host legitimately collapses to its state registry.
+    This registrable-grain seeder uses that pinned list, so it collapses an
+    Australian state government host to its state registry. This is candidate
+    extraction, not the exact-host annual output rule in brief IV.8.
     """
     path = tmp_path / "titles.csv"
     path.write_text(HEADER + ROWS, encoding="utf-8")

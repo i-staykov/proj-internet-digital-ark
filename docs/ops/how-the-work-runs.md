@@ -31,10 +31,11 @@ with a verdict and a figure. Nothing it finds is a record until a session banks 
    drain.**
 5. **Ingest.** `ark ingest` / `ark ingest-hostnames`, which refuse any class without a decision.
    Every source gets its link and its dating sentence in `docs/registers/sources.md` first.
-6. **Export.** `ark export` writes the shipped files under `output/netnew/`: six annual registrable
-   files, six hostname files, the evidence manifests, the candidate pool. Three rules decide what
-   ships: not already in his files, not `.arpa` or a pre-delegation TLD, and not a `www.` alias of
-   a name already held that year (ADR-007, under review).
+6. **Export.** `ark export` writes annual additions under `output/netnew/`, split into registrable
+   and subdomain-hostname files, with evidence manifests and separate candidate collections.
+   Both annual halves retain exact-host year evidence (brief IV.8); the registrable roll-up is
+   secondary. `www.` and bare forms may each qualify, but neither evidences the other. Shipping
+   predicates exclude baseline overlap, reverse DNS and pre-delegation TLDs.
 7. **Check.** `ark check`, eighteen data invariants. Green is a precondition for every commit.
 8. **Package and send.** `just ship` builds the archive, verifies it as a reviewer would, re-scores
    it with his own calculator, writes the mail draft and stops. **Sending is always Ivo** (C-63).
@@ -61,9 +62,8 @@ with a verdict and a figure. Nothing it finds is a record until a session banks 
 - **Send anything to the reviewer.** Packaging is automatic, sending is not.
 - **Merge a PR.** `main` is reached only by a PR, on both repositories, and the agent never pushes it.
 - **Approve a deletion** of code or data (the single table, C-61).
-- **Answer a question the documents cannot.** Two are open: whether the 0903 scoring revision
-  re-scores rounds already awarded, and whether a `www.` hostname beside its bare name is two
-  records. His merges say yes to the second; we are holding 201,767.94 EE on it.
+- **Answer a question the documents cannot.** Current asks are in `docs/lore/key-decisions.md`;
+   settled hostname-output rules are in `docs/brief/ding/project-brief.md`, not an open question.
 
 ## What the agent does without being asked
 

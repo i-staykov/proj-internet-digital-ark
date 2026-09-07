@@ -421,9 +421,10 @@ original/
 
 $MARKER/
     The shared reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued
-    by the reviewer. $MERGED_LINES raw lines, collapsed to registered domains
-    under SPEC III.8. Every "net-new" figure in report.md means "not present in
-    these files".
+    by the reviewer. $MERGED_LINES raw lines, copied unchanged. Keep normalized
+    hostname identity when comparing these files (project brief IV.8); a
+    registrable roll-up is secondary. Every "net-new" figure in report.md means
+    "not present in these files".
 
     The pipeline ingests these under a marker namespace so their rows stay
     distinguishable from this project's evidence, which is what makes the net-new

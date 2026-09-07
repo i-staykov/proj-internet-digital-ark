@@ -152,9 +152,9 @@ _MESSAGE_SEP = re.compile(rb"^From ", re.MULTILINE)
 # the RFC 822 header/body boundary, tolerating both line endings
 _BODY_SEP = re.compile(rb"\r?\n\r?\n")
 
-# Hosts that carry no registrable information of their own: free-hosting and
-# archive infrastructure collapse to one registered domain under III.8, and the
-# Usenet plumbing is not a website anyone announced.
+# Infrastructure excluded by the registrable-grain Usenet extractor: these
+# hosting and archive names collapse under its canonicalization, and Usenet
+# plumbing is not a website anyone announced. This is not an annual output-unit rule.
 INFRASTRUCTURE = frozenset(
     {
         "google.com",

@@ -72,7 +72,7 @@ Decision: master
 ### ia_cdx_bulk / cdx_timestamp
 
 - ingest specs: `cdx_snapshot`
-- authority: phase 1 onward, the reviewer's own named route (SPEC VI)
+- authority: phase 1 onward, the reviewer's own named route ([2026-07-21 brief](../brief/ding/README.md#original-brief), VI; current brief VII)
 
 Decision: master
 
@@ -140,14 +140,14 @@ Decision: master
 ### page_directory / dated_directory
 
 - ingest specs: `expansion_directory`
-- authority: phase 1; the curated-catalogue assertion is made per seed and on the record (SPEC IV.i)
+- authority: phase 1; the curated-catalogue assertion is made per seed and on the record ([2026-07-21 brief](../brief/ding/README.md#original-brief), IV, directory-harvesting paragraph)
 
 Decision: master
 
 ### rdap_snapshot / whois_creation
 
 - ingest specs: `rdap_snapshot`
-- authority: phase 4, merged and credited 2026-08-10; SPEC III.6 allows a creation date for the year it falls in
+- authority: phase 4, merged and credited 2026-08-10; the [2026-07-21 brief](../brief/ding/README.md#original-brief), III.6, allows a creation date for its own year (current brief IV.6)
 - **the evidential question was settled in phase 4 and the TERMS question was never asked, and on
   2026-08-27 it was.** All four registries this class has queried publish a terms notice inside the
   RDAP response itself, so it has been on disk the whole time. Read from our own journals and, for

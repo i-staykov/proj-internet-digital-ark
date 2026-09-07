@@ -22,7 +22,7 @@ deduplicated here. A response that hits `limit` may have been truncated before
 some years appeared, so `lookup_years` reports truncation and the caller can
 fall back to one cheap probe per missing year.
 
-Throughput is the point. Brief section VI treats rate limits and 504s as signals
+Throughput is the point. Brief section VII treats rate limits and 504s as signals
 to adapt batch size and concurrency rather than to abandon a route, so requests
 run through `RateGovernor`, which paces them, ramps up slowly while the service
 is healthy, and backs off hard the moment it is not. `fetch` and `sleep` are
@@ -667,7 +667,7 @@ def evidence_years(record: dict, first: int, last: int) -> Iterable[int]:
     """In-window years a CDX record attests, which is exactly what it returned.
 
     No inference of any kind: a capture in a year is evidence for that year and
-    for no other, which is what brief III.7 requires.
+    for no other, which is what brief IV.7 requires.
     """
     for year in record.get("years") or []:
         if isinstance(year, int) and first <= year <= last:

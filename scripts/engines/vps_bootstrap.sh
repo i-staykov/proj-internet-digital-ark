@@ -25,7 +25,7 @@ DEADLINE="${1:?need a deadline epoch, e.g. 1786276800 for Sun 9 Aug 12:00 UTC}"
 SHARD="${2:-data/raw/cdx/gap_shard1.txt}"
 # Deliberately below the 8 this project runs locally. A second address is a second
 # rate-limit budget, not permission to double the load: the archive has refused
-# this project outright three times, and section VI of the brief treats a rate
+# this project outright three times, and section VII of the brief treats a rate
 # limit as a signal to adapt. Start low, watch `failed_403`, raise it after a
 # clean day.
 WORKERS="${3:-4}"

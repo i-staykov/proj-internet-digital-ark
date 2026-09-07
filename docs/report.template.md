@@ -20,7 +20,7 @@ the baseline, your validator rejects none of them, and either set can be merged 
 
 **[WWWSHARE] of the hostname half is `www.<a name already in your files for that year>`.** That is
 stated here rather than left to be found. Each of those records has its own capture of that exact
-host, never the parent's capture reused, and your III.8 and XI both say a base hostname and a
+host, never the parent's capture reused, and your IV.8 and XI both say a base hostname and a
 qualifying subdomain may each be a record. We also counted your side: `[BASELINE]` holds 1,450,310
 names beginning `www.` and 1,221,065 of them have the bare name in the same year file, 114,875 from
 sources other than us. If you read the rule the other way, dropping the prefix forms is one filter
