@@ -14,19 +14,19 @@ code must do rather than what we must report.
 |---|---|---|
 | hostname-level identity throughout; registrable is secondary metadata | yes. `hostname_year` is a first-class table, `domain_year` keeps the parent, and the export writes both | `src/ark/export.py` |
 | **a base hostname and distinct subdomain hostnames may EACH be annual records** | now yes at export, after ADR-008 reverted ADR-007 the same day this landed | ADR-008 |
-| the same, one level up: `www.<parent registrable>` | **NOT yet.** The ingest still refuses it outright. His sentence permits it and the evidence rows are already in the store, so this is a backfill and not a re-collection | #101 |
-| the same, for DNS-listed hosts | **NOT yet, and C-55 was taken against a written ruling nobody re-read.** He wrote on 2026-07-24 that a dated DNS survey is direct annual-file evidence needing no CDX confirmation, naming the ISC survey. C-55 then read his *purpose* as requiring a page. XI adds hostname-level identity on top | #102 |
+| the same, one level up: `www.<parent registrable>` | yes. Backfilled as its own record, 6,915,924 rows, each holding a capture of that exact host; he credited the round that shipped them | ADR-009 |
+| the same, for DNS-listed hosts | no, and he settled it himself. A DNS survey observation admits the host to the CANDIDATE pool only, because it does not establish that the host served web content; an annual record needs exact-host evidence for that year | `src/ark/hostnames.py` |
 | annual masters and candidate pools are separate data products | yes | `output/netnew/`, `output/candidates.txt` |
-| report annual and active-candidate EE **separately** | **NOT yet.** One figure is reported | #103 |
+| report annual and active-candidate EE **separately** | yes. Candidate EE prints under its own heading | `scripts/round/round_figures.py` |
 | normalize, apply the hostname rule, sort before merge | yes: lowercased at ingest, `ORDER BY` on every exported file | `src/ark/export.py` |
 | candidate pool: union, dedupe, remove anything already in an annual master | yes | `src/ark/seed_pool.py` |
-| malformed values kept in a separately labelled unparsed file | **NOT yet.** Rejects are counted, not emitted. He now ships his own `candidate_pool_unparsed_format.txt`, so the shape is his | #103 |
-| resumable per-year queries with templates, checkpoints, retained stamps, failure states | mostly: `just query-queue` and `just cdx-pool` checkpoint and resume, stamps are retained in the journals. No failure-state log | #104 |
+| malformed values kept in a separately labelled unparsed file | yes. `candidates_unparsed.txt` ships with a reason per line, in the shape he uses | `scripts/round/unparsed_pool.py` |
+| resumable per-year queries with templates, checkpoints, retained stamps, failure states | mostly. `query_health.py` writes a durable failure ledger inside `just cycle`, but its rows carry no time, so "unretried for a day" cannot be asked | #104 |
 | **incomplete queries are scheduled work, not negative evidence** | yes, and it decides the `alt` remainder: 146.2 GB unread is a queue entry, not a closed source | `docs/registers/sources.md` |
-| a source-saturation ledger: coverage, overlap, evidence quality, cost, failure reason, decision | close. `docs/registers/sources.md` carries all six for closed families, and the Usenet lane measured overlap at 22.2% and density per GB. Not yet one machine-readable ledger the generator reads | #105 |
+| a source-saturation ledger: coverage, overlap, evidence quality, cost, failure reason, decision | close. The ledger exists as a CSV and `yield_priors.py` ranks what paid, but the generator brief is still handed only the closed list, so the positive half never reaches it | #105 |
 | rebuild derived exports after an evidence-rule change | yes, and done for ADR-008: `ark export` regenerates every file from the store | `just rebuild` |
 | RDAP: a registration event supports only what it directly names, and no later-year continuity | yes. `whois_creation` writes the creation year only, and no lane propagates a registrable's year to a subdomain | `src/ark/sources.py` |
 
-**The two that are worth money** are the `www.<parent>` backfill and the DNS-listed hosts, both of
-which C-55 closed on our reading of his purpose and XI reopens in his own words. Both are measured
-before either is proposed, and neither is a re-collection: the evidence rows are in the store.
+**The two that were worth money** were the `www.<parent>` backfill and the DNS-listed hosts. He
+settled both himself: the backfill is banked and credited, and the DNS hosts are a candidate asset,
+not annual records. What is left on this page is reporting plumbing, not evidence.
