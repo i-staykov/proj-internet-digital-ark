@@ -4646,3 +4646,38 @@ are correctly parked on rows per host even though the clock was the wrong reason
 three-parent sample **98.6% of the extra pairs were net-new** against the store. The 2xx-3xx form
 is adopted; the last 3.3% is 4xx and 5xx and is not argued for. A negated multi-clause filter is
 not supported and returns HTTP 400.
+
+## Two fleet FINDs, both worth 0 against the live store (2026-09-07)
+
+The wave of 2026-09-07 08:26Z returned two `FIND` verdicts and both priced at zero once checked
+against the store the fleet cannot see. Logged so neither is re-opened, and logged in the agents'
+favour: each had stated the ambiguity that killed it.
+
+**`hostname_journal_ingest_completeness_audit`, claimed 29,450.5581 EE, actual 0.** The defect it
+found is real and worth understanding: `ingest_hostname_journal` counts `registrable_row` when
+`to_registrable(host) == host` and then drops the host, so a capture of the BARE registrable in a
+hostname journal writes no evidence and no `domain_year` row, by construction. The agent could not
+tell whether the compensating stage (`cdx_suffix_convert.py`) had run and been pruned, or never run,
+and said so: "two alternative explanations survive my measurement and only the store separates
+them". The store separates them. Over the 75 pure second-level-suffix journals, 92,148,254 capture
+rows and **135,436 bare-registrable (domain, year) pairs, 0 missing at the year**. A 50-journal
+random sample across the whole directory, 13,490,494 rows and 729 pairs, likewise 0 missing. The
+conversion stage ran and its output was pruned as raw bulk. The claimed figure was an upper bound
+against the netnew sync of 2026-09-03, which predates round 8's 7,834,717 banked records, exactly
+as the finding warned.
+
+**`hostname_parent_year_derivation`, claimed about 11,400 EE, actual 0.** Same test over 50 of the
+same journals, 90,469,626 rows: **28,304 (parent, year) pairs derived from real subdomains, 0
+missing at the year.** The lane already writes them. Its worked example is also the shape ADR-010
+forbids, `www.adamsgroup.co.uk` dating `adamsgroup.co.uk`, so part of what it priced was not
+admissible to begin with.
+
+**One number worth keeping from that scan.** In those 50 journals **407,464 (parent, year) pairs
+are observed ONLY as `www.<parent>`**, against 28,304 observed through some other subdomain. The
+www shape is not an edge case in this corpus, it is fourteen times the rest, which is why ADR-010
+had to be enforced at the fold rather than swept nightly.
+
+**The method note, because it is the reusable part.** A fleet agent prices against
+`/projects/ark-data`, a file sync, and cannot open the store. Any fleet figure resting on "is this
+already held" is therefore an upper bound with a staleness term, and the laptop must re-price it
+before a `FIND` is banked. Both of these took one query each.
