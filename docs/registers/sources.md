@@ -4721,8 +4721,8 @@ he does not have, which is the strongest corroboration available and the "held A
 year" screen behaving as designed. The disagreement between the two scripts is real and unresolved,
 but it did not bear on this ingest.
 
-Position after: 984,275.5566 EE, 58.52% of the 1,682,033.00 gate against `merged260907-2`, up from
-57.48%.
+Position after this ingest alone: 984,275.5566 EE, 58.52% of the 1,682,033.00 gate against
+`merged260907-2`, up from 57.48%.
 
 **The pre-split figure was 1,037,301.96 EE and it was wrong by 59x.** A plain anti-join of the raw
 journals against `domain_year` returns that; the split cuts it to 17,484.17. The lane's own script
@@ -4740,7 +4740,7 @@ is meaningless (see traps.md), against 599,459,118 in `*.jsonl.gz`.
 |---|--:|--:|--:|--:|---|
 | `usenet_addr` | 48 | 2,796,334 | 30,336 | 17,484.17 | BANKED, above |
 | `usenet_hdr` | 36 | 1,082,167 | 11,070 | 6,461.93 | blocked, no registered spec |
-| `usenet_bare` | 38 | 653,270 | 7,327 | 4,640.30 | needs a split tool |
+| `usenet_bare` | 38 | 653,270 | 6,568 | 4,181.75 | BANKED, same script |
 | `usenet_bulk_items` | 4 | 1,453,522 | 631 | 389.76 | not worth a pass |
 | `usenet_rec_items` | 5 | 1,134,062 | 402 | 254.33 | not worth a pass |
 | `usenet_comp_items` | 5 | 1,160,262 | 317 | 197.29 | not worth a pass |
@@ -4750,10 +4750,20 @@ the lane is `usenet_header_fqdn_hostnames` in the approval queue, blocked on whe
 server-written Usenet header needs the corroboration split at all. Its 6,461.93 EE waits on that
 ruling and was not ingested.
 
-**`usenet_bare` has no runnable split.** `collect_usenet_bare.py` reads `*.mbox.zip` archives and
-its own comment records that the directory now holds zero of them, the bytes having been reclaimed.
-So its 4,640.30 EE needs either a split script that works from the journals, as
-`split_usenet_addresses.py` does, or the archives again.
+**`usenet_bare` was banked with the same script, which turns out to be generic.**
+`collect_usenet_bare.py` cannot run: it reads `*.mbox.zip` archives and its own comment records that
+the directory holds zero of them now, the bytes having been reclaimed. But
+`split_usenet_addresses.py` takes `--in-dir` and `--out-prefix` and globs `usenet_*.jsonl.gz`, so
+`--in-dir data/raw/usenet_bare --out-prefix usenet_bare` splits that lane's journals under the same
+unchanged rule: 509,390 corroborated, 143,880 to candidates, **6,568 not yet held worth 4,181.75
+EE**, ingested as `usenet_bare_dated` (journal
+`data/raw/usenet_bare/usenet_bare_dated_cmp20260907T131442Z.jsonl.gz`, 12,305 evidence rows). The
+corroboration audit again returned **6,568 of 6,568 domains in the reviewer's own baseline and zero
+resting on Usenet alone**, and `ark check` is ALL PASS.
+
+Round position after both ingests: **988,457.3096 EE, 58.77% of the 1,682,033.00 gate**, from
+57.48% before them. **21,665.92 EE banked in an afternoon with no archive request**, which is the
+part worth remembering: the collector host was unreachable the whole time.
 
 **The three hostname-grain families are saturated and are closed.** 3.7M raw pairs yield 1,350
 master-eligible records and 841.38 EE between them, because the parent-held-at-that-year screen is
