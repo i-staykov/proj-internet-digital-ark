@@ -206,7 +206,7 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
 
     # Assembled, not written out: this file is scanned too, and a literal here would
     # make the test fail on itself. That is the rule working, so keep it that way.
-    login = "someone" + "@" + "10.1.0.6"
+    login = "someone" + "@" + "10.20.30.40"
     probe = tmp_path / "probe.sh"
     probe.write_text(f'VPS="${{ARK_VPS:-{login}}}"\n')
     rules = {f.rule for f in hygiene.scan([probe])}
