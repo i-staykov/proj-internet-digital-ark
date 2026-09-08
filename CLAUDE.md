@@ -4,12 +4,11 @@ Rebuild the list of domains that existed 1996-2001 for Prof. Ding, scored on **e
 (EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY. The
 deliverable is demonstrated research capability**: autonomous, creative, intelligent discovery (Ivo,
 2026-08-27), so a measured negative with a reason is a result and the METHOD outranks the source.
-**The 5% gate is hard**, and the first priority does not soften it: it decides what to do with the
-hours that find no outlier.
-
-**Where the round stands is in `docs/ROUND.md`, which is generated. Never state it here.** The task
-does not end at a gate: keep collecting until the discoverable sources are exhausted, and submit
-early, because percentages add and the denominator grows.
+**The 5% gate is hard and NOTHING IS SUBMITTED UNDER IT** (Ivo, 2026-09-08, C-78): a floor on
+sending, not a target, "there definitely are 5% to find". Never offer to package a short round.
+Past the floor, submit at once and keep collecting: percentages add and the denominator grows.
+The first priority does not soften the gate: it decides what to do with the hours that find no
+outlier. **Where the round stands is in `docs/ROUND.md`, generated. Never state it here.**
 
 ## Before task X, read page Y
 
