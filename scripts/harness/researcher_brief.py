@@ -121,8 +121,9 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
    on the retired screen and IS worth re-testing. If it was closed on a measurement
    made with the current screen, it is finished: say so and move to the next one.
 2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
-   Do NOT touch web.archive.org/cdx: two collectors are metering against it. Other
-   archive.org services and other hosts are fine.
+   Do NOT touch web.archive.org/cdx: two collectors are metering against it and they run
+   WHILE you do. Everything else at archive.org is yours and worth using: item downloads,
+   the metadata and availability APIs, full-text search, dataset items, TimeMaps.
 3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece and measure
    three numbers on it: distinct registrable domains, the fraction ALREADY HELD, and
    the fraction held AND MISSING the artifact's own year. That third number is the
