@@ -53,18 +53,51 @@ are annual records only. Beside them, [CANDIDATES] domains carry no in-window ev
 `candidates.txt`, reach no annual file, and are worth [CANDIDATEEE] equivalent-English **if every
 one were later dated**, which is a ceiling on future work and not a contribution to this round.
 
-**The methodological finding of this round, which we think transfers.** Reading a bulk corpus at
-hostname grain pays only where a person typed the host, not where a crawler visited it: a CDX index
-re-read one level down is 99.5% to 100.0% the crawler's own `www.` alias, while a corpus of typed
-URLs keeps three quarters of its value. Within that, **density decides which part of a corpus to
-read, not size**, and density is how much people typed URLs at each other: across the Usenet
-hierarchies it ranged from 2,552 equivalent-English per GB (`news`) to 418 (`soc`), a sixfold spread
-independent of volume. And the two saturation figures point opposite ways: **22.2% across
-hierarchies, 90.5% inside one already read.** So breadth pays and depth does not, and the rule we
-now follow is to read one archive from every community before a second from any of them. That
-closed a 101 GB fetch on a measured 40 equivalent-English per GB instead of an assumed 130,000.
+**The methodological findings of this round, which we think transfer.**
 
-## 4. One question, shipped as its own folder
+1. **What a domain-wide query is worth is set by the years the parent is held in, not by how many
+   hosts it has.** A capture under a parent we do not hold for that year cannot become a record, so
+   ranking parents by sub-host count alone spends requests on rows that are already ours or cannot
+   be assigned. Ranking instead on hosts we lack multiplied by the years we hold the parent, minus
+   the host-years already held, took the accepted share of one night's sweep from 4.9% to 21%.
+2. **A peak rate is a statement about the queue, not about the source.** The same query, code and
+   two clients paid about 193,000 equivalent-English per client-hour on the dense head of a ranked
+   queue and 210 per hour two nights later once that head had been walked. We now plan with the
+   sustained figure and treat a peak as evidence that the ranking, not the archive, has changed.
+3. **An absence is evidence about the search, not about the artifact.** Two families closed in our
+   own register at 0 EE, one because a navigation sweep of a site's home page found no inventory
+   page and one because an index of FTP hosts was assumed already held, were both wrong: the pages
+   were one link deeper, and 31.49% to 64.31% of that index's hosts were missing at their own year.
+   A verdict resting on "we looked and found nothing" is now re-probed by reading the site's own
+   link structure out of an archived page rather than by guessing paths.
+
+## 4. CDX acquisition: the tools, the strategy, the errors and what it added
+
+The hostname half of this round, [HOSTPAIRS] records and [HOSTEE] equivalent-English, comes from
+one query family. Two clients at most, ever, with an honest User-Agent naming the project and a
+contact.
+
+| | |
+|---|---|
+| tool | `source/scripts/engines/cdx_suffix_sweep.py`, driven by `platform_sweep_loop.sh` |
+| question | `matchType=domain` on a registrable this store already holds, so one answer carries every host under it |
+| parameters | `fl=original,timestamp`, `from=1996`, `to=2001`, `filter` on the status code, 2xx and 3xx only, and `pageSize` in index blocks |
+| why 3xx counts | a redirect is a host that resolved and answered. Measured 2.4% more rows for the same request, 98.6% of the extra net-new. 4xx and 5xx stay out: a 404 shows the server answered, not that the host served |
+| page cost | a page is a count of index blocks and costs about the same at any size: 200 blocks took 11 to 42 s, 10,000 took 110 s. The page count is asked once up front with `showNumPages` |
+| ordering | parents ranked by hosts we lack times the years we hold the parent, minus host-years already held |
+| stopping | a parent is parked on measured capture rows per distinct host, not on elapsed time, and its position is saved so the work already done is kept |
+
+**The errors, and what we did about each.**
+
+| error | how it was handled |
+|---|---|
+| `HTTP 403` on `url=<single-label TLD>&matchType=domain`, and on its `from`, `collapse` and `fl` variants | a whole TLD cannot be enumerated this way. Only multi-label suffixes and registrables are swept |
+| `HTTP 503` on a count query | transient rather than a throttle signal: retried with a short backoff, `5 x 3^n` seconds capped at 300, and the count query doubles as the availability check so no extra request is spent probing |
+| `HTTP 429` with no `Retry-After` on `archive.org/wayback/available`, sustained while the sweep runs | that endpoint shares a limiter with the CDX channel. `web.archive.org/web/timemap/link/<url>` does not, returns every memento with its datetime, and replaces it |
+| a truncated gzip tail on a journal still being written | the reader stops at the last complete record; the ingest is keyed on the file's sha256 so a re-read cannot double-count |
+| a 200 that is a period 404, or a 301 onto a live 404 | the body is read rather than the status trusted |
+
+## 5. One question, shipped as its own folder
 
 `isc_survey_hostnames/` holds **[ISCPAIRS]** hostname years from the ISC Internet Domain Survey of
 1996-1997, and **they are not in the figures above.** The survey's per-TLD host files are dated by
@@ -80,7 +113,7 @@ nothing else changes. We flag one fact against it: 1.419% of these hosts appear 
 files, against 84.2% for the `www.` shape, so it is a population you have not held before, and much
 of it is dialup ports and numbered workstations.
 
-## 5. Limitations
+## 6. Limitations
 
 A capture proves presence, never absence, so a year without one is unevidenced rather than empty,
 and both dating routes err toward omission. The units ship separately, so dropping the hostname
@@ -93,11 +126,11 @@ queued in `audit/source_saturation_ledger.csv`. Measured and closed this round: 
 remainder, on saturation. Prose corpora, academic repositories, CD-ROM media, FTP mirrors and trade
 directories were closed earlier, with figures in `experience-summary.md`.
 
-## 6. Merge, overlap and reconciliation (D3)
+## 7. Merge, overlap and reconciliation (D3)
 
 [MERGE_RECONCILIATION]
 
-## 7. Reproduction, and the four deliverables
+## 8. Reproduction, and the four deliverables
 
 `README.md` in the archive gives the route and the file map. Every evidence row names its source,
 evidence type, dated value, URL and extraction method; `additions/evidence_manifest.csv` and
@@ -105,6 +138,6 @@ evidence type, dated value, URL and extraction method; `additions/evidence_manif
 
 **D1** code and instructions: `source/source.tar.gz` at `source/COMMIT.txt`, with the autonomous
 research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`.
-**D3** merge and dedup code, overlap and reconciliation: section 6 and `audit/`. **D4** runnable
+**D3** merge and dedup code, overlap and reconciliation: section 7 and `audit/`. **D4** runnable
 metric code: `equivalent_english_domain_calculator/`, your program vendored unmodified and
 explained in `metric-explained.md`.
