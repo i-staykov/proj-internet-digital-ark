@@ -4833,3 +4833,22 @@ up 21,665.92 EE that had been on disk for weeks. It cost no archive request, whi
 only lane available on an afternoon when the collector host was unreachable. Run it after any long
 collection campaign, and run it at BOTH grains, because the registrable half of this corpus was
 1.1% unbanked while the hostname half was 0.02%.
+
+### usenet_alt_body_url_hostnames
+
+- link: https://archive.org/download/usenet-alt/<group>.mbox.zip, the item's own file list;
+  `archive.org/robots.txt` re-read whole on 2026-09-08, only `/control/` and `/report/`
+  disallowed, and `/download/` is not
+- what dates one item: the post's own `Date:` header, the same field C-68 accepted, and the
+  host comes only from an explicit `http`, `https` or `ftp` URL in the post BODY
+- why it clears the bar: the `alt` hierarchy is the partition C-68 was measured WITHOUT
+  ("every hierarchy of the catalogue except `alt`"), so it is the same artifact, extractor and
+  master class on unread bytes. Probed 2026-09-08 on three groups, 307,750,500 B: 11,587
+  distinct host-years, 3,435 already in the store, **410 net-new host-years worth 222.4278 EE**
+  plus 91 registrable pairs worth 50.7506 EE, i.e. 722 EE per GB. 193.3 GB of `alt` is not
+  `alt.binaries`, `alt.sex`, `alt.anonymous`, `alt.warez`, `alt.mag.*` or `alt.0.*`, so the
+  ceiling is about 139,000 EE and the marginal rate falls as hosts repeat
+- collector: `scripts/sources/usenet/sweep_alt_hierarchy.sh`, biggest discussion groups first,
+  streamed in batches because 193 GB does not fit beside the store; six connections to
+  `archive.org/download`, measured at 2.5 MB/s each, and not a CDX client
+- result: in progress 2026-09-08
