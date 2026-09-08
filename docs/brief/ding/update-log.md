@@ -7,14 +7,15 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/Update_Log.docx` |
-| sha256 | `08b32489351a71b5405f5ad445d44eee7815afdec522743980506a3c0226f403` |
-| delivered in | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
-| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/Update_Log.docx` |
+| sha256 | `aa50acc2920b0abf3bc17398a96571cf64c6aa08b49fd365ceec5190f14ea4d9` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0907_Update.zip (2026-09-07) |
+| transcribed | 2026-09-08 by `scripts/round/extract_ding_docs.py` |
 
-Verbatim below. Nothing is summarised, reordered or corrected. To check the
-transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
-diff against everything under the rule.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks
+and curly quotation marks are normalised. Wording, order and section numbering
+are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
+provenance values above to check it.
 
 ---
 
@@ -269,3 +270,25 @@ Update topic: Robust hostname processing, candidate-pool reconciliation, and res
 ## Practical Effect
 
 The project can expand hostname discovery at scale without weakening its annual evidence standard. Reusable checkpoints, source learning, and a clean separation between verified annual records and active candidates make later validation and reconciliation more transparent and repeatable.
+
+# Update Record
+
+Timestamp: 2026-09-06 13:26:13 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0904_Update.docx
+
+Update topic: ISC DNS-survey evidence classification and candidate preservation
+
+## Changes in This Update
+
+- Clarified that a raw ISC / Network Wizards survey observation is dated DNS-observation evidence. It establishes that the hostname was observed in DNS during the named survey edition, but does not by itself establish web service or webpage content.
+
+- Placed raw ISC survey hostname lists in a separately labelled, provenance-linked ISC candidate collection at the same operational level as candidate_pool.txt. Candidate collections are treated as equally important discovery assets while remaining distinct from annual master files.
+
+- Specified that provenance fields such as the survey edition, original or recovery URL, source file, record location, and extraction method are mandatory for auditability but do not alone establish website-level evidence.
+
+- Specified that an ISC hostname-year can be promoted to an annual master only after additional website-level evidence for the exact hostname and target year is retained, such as an exact-host CDX record, webpage snapshot, web link-graph record, or equivalent item-level material.
+
+## Practical Effect
+
+The project preserves high-value historical DNS discovery work without treating DNS observation alone as proof of a historical website. ISC records remain reusable, traceable candidate assets for later validation, while annual masters retain a clear website-level evidence standard.

@@ -1,12 +1,12 @@
-# The brief, as amended
+# Brief history and email clarifications
 
-[SPEC.md](SPEC.md) is the reviewer's original task brief of 2026-07-21, kept **verbatim and
-unedited**, because twenty-one files in this repository cite its clauses by roman numeral and that
-numbering is the only way he can look one up. He has since changed the scoring metric, retired one
-standard and added a new expectation, none of which appears in that document.
+[Ding's project brief](ding/project-brief.md) is the canonical packaged specification. This ledger
+records dated changes and email clarifications, not a second specification. Later messages from him
+override the packaged brief where they disagree.
 
-This file is where those changes live. It is the standing statement of what is currently being asked
-for; `SPEC.md` remains the constitution and is amended here rather than in place.
+Historical sections describe the requirements and results on their stated dates, not the current
+round. The [original 2026-07-21 brief](ding/README.md#original-brief) remains in Git history.
+Unqualified clause references below use the current brief's numbering.
 
 Quotations are his words. Year ranges are written with a hyphen throughout, including inside
 quotations, which is the only alteration made to anything quoted here.
@@ -57,22 +57,24 @@ additions split into English-verified and unverified sets.
 rule nobody applies, which reads as a rule still in force, so it is not reported at all. The engine
 that implemented it was removed on 2026-08-23; the git history holds it.
 
-## 3. Evidence rules that have not changed
+## 3. Evidence rules and the revised output unit
 
-These are `SPEC.md` III and IX, restated because everything else here depends on them.
+The authority is [Ding's brief](ding/project-brief.md), sections IV and X. The year-evidence
+requirements remain; the original registered-domain-only output rule has been superseded.
 
 - A domain may enter an annual file only with **per-item evidence for that specific year**. No
   inference: a capture in 1998 evidences 1998 and nothing else. No interpolation across years, no
   assuming continuity, no dating a domain from a page's "last modified".
 - A **WHOIS or RDAP creation date** evidences the annual file for the year it falls in, and no later
-  year (III.6).
+  year (IV.6).
 - **Cross-year duplication is required, not tolerated.** A domain shown active in four years belongs
-  in four annual files, each with its own basis (III.7).
+  in four annual files, each with its own basis (IV.7).
 - Anything without per-item year evidence goes to the **candidate pool** and never to an annual file
-  (III.2). The pool should be as large as practicable.
-- The output unit is the **registered domain**, not the hostname or a user path (III.8).
+  (IV.2). The pool should be as large as practicable.
+- The output unit is the **normalized valid hostname**. A base name and a qualifying subdomain
+  may each appear with exact-host year evidence; a registrable roll-up is secondary (IV.8, XI).
 - Every list ships with its acquisition method documented. Expanding a list without documenting the
-  method is "strictly unacceptable" (XI).
+  method is "strictly unacceptable" (IV.11).
 
 ## 4. What he asked for after phase 4, on 2026-08-10
 
@@ -260,9 +262,9 @@ it is what makes the increment checkable by subtraction.
 ## 6. The scoring rules, stated for the first time on 2026-08-18
 
 The feedback after phase 5 arrived twice: the acceptance in section 5, then a fuller message with a
-section headed **Competition scoring rules**. Nothing in `SPEC.md` or in `ding/` says how rounds
-combine into a score, so this is new information rather than a restatement, and it makes *when* we
-submit a lever in its own right. His words:
+section headed **Competition scoring rules**. Neither the original brief nor the packaged version
+then in use said how rounds combined into a score. This was new information at the time; section III
+of the current brief now includes the rules and the later time-weighted scoring amendment. His words:
 
 > Your cumulative competition score is the direct sum of the official percentage increases awarded by
 > the organizers for all your accepted submissions. For example, official verified increases of 5%,
@@ -308,13 +310,13 @@ two consecutive rounds with nothing rejected.
 
 ## 7. The ledger, from intake on
 
-Sections 1 to 6 are the amendments read and landed by hand. Intake appends one row here per changed
-paragraph of his brief, so that a change cannot be read and then forgotten. Columns: the date on his
+Sections 1 to 6 retain the earlier amendments. Record later clarifications here when reviewing a
+new package or message; baseline intake does not populate this ledger. Columns: the date on his
 document, his words quoted, the category (scoring, evidence, format or method hint), what changed
 here, and where it landed, meaning a rule page, a code path or a ledger.
 
 A row may say `pending` while it waits on a human, but not silently. `tests/test_amendments.py`
-fails unless a pending row either quotes words that also stand in [questions.md](questions.md), so
+fails unless a pending row either quotes words that also stand in [questions.md](../registers/questions.md), so
 the ambiguity is on its way back to him, or names a file that exists, so the change already has a
 home.
 

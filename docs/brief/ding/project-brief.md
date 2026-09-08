@@ -7,14 +7,15 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0903_Update.docx` |
-| sha256 | `02645254fdb28a9af223aa67580871521b2ef213446903208384192a078b34f3` |
-| delivered in | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
-| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0906_Update.docx` |
+| sha256 | `1e4c35f22b497036215ac74c06d152aac1c9631a863cbfb682739d8f5612371f` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0907_Update.zip (2026-09-07) |
+| transcribed | 2026-09-08 by `scripts/round/extract_ding_docs.py` |
 
-Verbatim below. Nothing is summarised, reordered or corrected. To check the
-transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
-diff against everything under the rule.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks
+and curly quotation marks are normalised. Wording, order and section numbering
+are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
+provenance values above to check it.
 
 ---
 
@@ -22,7 +23,7 @@ diff against everything under the rule.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-09-04 11:17:08 (UTC+8)
+Update time: 2026-09-06 14:13:57 (UTC+8)
 
 **I. Task Background**
 
@@ -108,13 +109,13 @@ The following rules have the highest priority. All subsequent methods must compl
 
 Treat the work as an intelligent discovery system rather than a sequence of isolated downloads. Do not repeatedly focus on a single source. The system should combine automated search engines, automated Deep Research engines, association inference, multi-source clue mining, historical-corpus analysis, and feedback from previous yields. First, fully develop known high-value sources that contain time evidence. Then discover new directory pages, navigation sites, yellow-page sites, historical indexes, webpage collections, mirrors, datasets, and relationships among domains, organizations, email addresses, hostnames, links, registrations, and archived captures. Convert sources without year labels into candidate seed pools; validate candidates using CDX, historical snapshots, or other dated evidence; extract outbound and reciprocal links from downloaded material; and feed newly discovered domains and failed-query clues back into the next autonomous discovery and validation queues.
 
-A domain's documented presence in a dated DNS survey is acceptable as direct evidence for the corresponding annual file. It does not require additional IA CDX confirmation. If the ISC / Network Wizards Internet Domain Survey records at least one host under the domain in a survey conducted during a specific target year, that is sufficient to establish the domain's existence in that year.
+ISC / Network Wizards Internet Domain Survey records are dated DNS-observation evidence. A raw ISC hostname observation establishes that the hostname was observed in DNS during the survey edition, but it does not by itself establish web service or webpage content. Raw ISC hostname lists must therefore be preserved as a separate, provenance-linked candidate collection, alongside but distinct from candidate_pool.txt and the annual master files. This candidate collection is an equally important discovery asset. A hostname-year may move into an annual master only when additional website-level evidence for that year is retained, such as an exact-host CDX record, a webpage snapshot, a web link-graph record, or equivalent item-level material.
 
 Proven external-dataset example - UMN DRUM: The University of Minnesota Data Repository (DRUM) dataset `Link Lists for Websites Tracking the Development of the Early Web from 1996 to 2000` (DOI: 10.13020/D62684) is a high-value example of obtaining historical domains from an existing research data source. Its multipart link-list and link-graph records include source and date information and have demonstrated very high domain-discovery yield. Records may enter an annual master file only when the dataset metadata or item-level evidence explicitly and traceably associates them with that target year; records without a sufficiently clear year association must remain in the candidate pool or undergo additional validation. This example should be treated as a discovery pattern, not as the only repository or dataset to search.
 
-More broadly, the domain lists collected at this stage do not depend exclusively on webpage capture records. Valid year-specific evidence may come from dated DNS surveys, archive indexes, host/link graphs, dated directory or index files, and other reliable sources that directly attest that a domain existed during the relevant year. Therefore:
+More broadly, the domain lists collected at this stage do not depend exclusively on webpage capture records. Dated DNS surveys may provide traceable discovery and DNS-existence evidence, while archive indexes, host/link graphs, dated directory or index files, and other reliable sources may provide website-level evidence. Direct annual acceptance depends on whether the record establishes the required website or webpage presence for the target year. Therefore:
 
-ISC / Network Wizards survey records may enter the corresponding annual files directly.
+ISC / Network Wizards raw survey records must remain in the separate ISC candidate collection unless additional website-level evidence is retained for the exact hostname and target year.
 
 Arquivo.pt capture indexes may also serve as direct annual evidence.
 
@@ -226,11 +227,15 @@ The final delivery must include more than several TXT files. It must document ho
 
 - For every platform query, preserve the platform seed, target year, complete query URL or request template, source response location, retained timestamp, normalization rule, and record count. Use resumable worklists, cautious rate limits, retries, and source-level failure logs. Failed or incomplete platform queries remain scheduled work rather than being treated as negative evidence.
 
+- Authorized archive-index extracts: An archive maintainer or other trusted custodian may supply a restricted per-host, per-year presence extract. It is direct annual evidence only when the delivery schema explicitly binds the exact canonical hostname to a target-year flag and the documented condition, such as a successful non-error capture, is sufficient for website presence. Preserve the authorization and use conditions, delivery date, file identity and hash, schema, row identifier, target-year field, source address or per-record verification template, and conversion code. A restricted source need not be redistributed when its permitted use is documented and each derived record remains auditable.
+
+- Hostname-variant control: `example.com` and `www.example.com` are distinct hostname records. A canonicalization system that removes or conflates `www.` does not establish which form was actually captured. It may support only the defined canonical hostname representation; adding its `www.` or bare counterpart requires exact-host, year-specific evidence. A pre-existing benchmark record for one form is not independent evidence for the other. Store unresolved variants in a separately labeled, exclusion-ready review set rather than merging them into annual master files.
+
 **Source-saturation ledger**
 
 - Maintain a shared source-saturation ledger with the source name and version, coverage period, retrieval method, baseline overlap, quality issues, effort, and the reason for retaining, deprioritizing, or revisiting the source. High overlap, corruption, or OCR noise is useful evidence for redirecting autonomous discovery; it is not evidence that no new source can exist.
 
-- The following source families have already been measured as high-overlap, low-yield, noisy, incomplete, or otherwise unsuitable in their evaluated versions: Internet Archive early-web language annotations; the New Riders WWW Yellow Pages CD-ROM; LAW/WebGraph WebBase-2001; dated Usenet archive copies; sampled scanned magazine runs; and specific raw ISC survey archive copies. Record the exact version and limitation. Revisit only when a different version, coverage period, extraction method, or item-level evidence basis is available.
+- The following source families have already been measured as high-overlap, low-yield, noisy, incomplete, or otherwise unsuitable for direct annual-master acceptance in their evaluated versions: Internet Archive early-web language annotations; the New Riders WWW Yellow Pages CD-ROM; LAW/WebGraph WebBase-2001; dated Usenet archive copies; sampled scanned magazine runs; and specific raw ISC survey archive copies. Record the exact version and limitation. Raw ISC survey copies should be retained as separately labelled, provenance-linked DNS candidate assets rather than discarded. Revisit any source when a different version, coverage period, extraction method, or item-level evidence basis is available.
 
 - UK Web Archive host-link graph records, UMN DRUM link-list records, and Arquivo.pt indexes remain valid direct-evidence patterns when the record itself carries an explicit target-year association and retrievable provenance. When a live endpoint is unavailable, recovery from a preserved archival capture is acceptable only if the recovery URL, file identity, and year-bearing field are retained in the evidence ledger.
 
@@ -240,7 +245,7 @@ The final delivery must include more than several TXT files. It must document ho
 
 - Use hostname-level identity throughout discovery, evidence storage, benchmark comparison, and annual export. Retain the registrable domain only as secondary metadata. A valid base hostname and distinct valid subdomain hostnames may each be annual records when each has year-specific evidence.
 
-- Treat annual master results and candidate pools as separate data products. A candidate may be useful for further discovery without qualifying for an annual file. When a candidate later has qualifying year-specific evidence, move only the verified hostname-year record into the relevant annual file.
+- Treat annual master results and candidate collections as separate but complementary data products. candidate_pool.txt and source-specific candidate collections such as isc_survey_hostnames are peer candidate products: both are equally important discovery assets, but neither may be mixed with annual master files before the required year-specific website-level evidence is obtained. When a candidate later has qualifying evidence, move only the verified hostname-year record into the relevant annual file.
 
 - Before merge and deduplication, normalize hostnames to lowercase, apply the project hostname rule, and sort each annual and candidate file. This supports deterministic streaming comparison, clear overlap accounting, and reproducible reconciliation against the current benchmark.
 

@@ -1,7 +1,8 @@
 # Professor Ding's own documents, transcribed
 
-Everything in this directory is **his**, not ours. It is the task specification in his
-words, and where anything in this repository disagrees with it, this directory wins.
+The three transcriptions below are **his documents**, not our summaries.
+[project-brief.md](project-brief.md) is the canonical packaged task specification.
+It outranks repository guidance; a later message from him overrides it where they disagree.
 
 | file | what it is |
 |---|---|
@@ -17,30 +18,34 @@ the ones the whole evidence model in this repository implements, and they are th
 
 **Do not edit these files.** They are generated:
 
-    uv run python scripts/round/extract_ding_docs.py --package feedback-phase-6
+    uv run python scripts/round/extract_ding_docs.py --package <document-directory> \
+        --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>
 
-The body of each is pandoc's conversion of his original, never retyped, and the header
-carries the source file's sha256 so a reader can prove the transcription belongs to that
-exact document. A paraphrase of the brief is the one document here that must not exist,
-because it is the thing every later argument gets settled against.
+Pass the directory containing all three originals, not the enclosing release directory.
+The package and provenance arguments are required; all inputs are converted before any
+transcription is replaced. The header records each original's sha256. Pandoc converts the
+body; only escaped backticks and curly quotation marks are normalised. Wording, order and
+section numbering stay his, including the two sections numbered VIII.
 
-**These are not the whole instruction set.** Three other surfaces carry things he has
-said that are not in a `.docx`:
+**Later messages still matter.** Two other surfaces retain his clarifications:
 
-- `docs/SPEC.md` is the reviewer's original brief, cited by clause from across the repo.
-- `docs/brief/brief_amendments.md` is what he changed by email after a package was issued.
+- [brief_amendments.md](../brief_amendments.md) records dated changes and email clarifications.
 - `private/personal-context.md` holds his emails verbatim, and is git-ignored.
 
-An email of his outranks a brief of his when the two disagree, because it is later. The
-equivalent-English metric arrived that way.
+Historical entries describe the instructions in force on their dates, not a competing
+current specification. Cite the current brief by section and title; qualify older citations
+with the brief's date rather than silently changing what an old decision relied on.
 
 ## Provenance
 
-Delivered as `Domain_Data_Collection_Task_0817_Update.zip` from
-https://www.transfernow.net/dl/20260817w4qMbvxo on 2026-08-17, unpacked to
-`feedback-phase-6/`. The original archive is kept at
-`feedback-phase-6/original-archive/`.
+Each generated header names the source file, source hash, delivery and transcription date.
+The originals remain under `feedback/`; archive identities are recorded in
+[releases.md](../../registers/releases.md). Refresh all three transcriptions after a new
+task package arrives. Baseline intake does not run this step automatically.
 
-The three files above are **byte-identical to the ones in the phase-5 package**: he
-reissued the same brief with a new baseline rather than changing the instructions. What
-changed for phase 6 is the corpus, `merged260817-2`, and the email that came with it.
+## Original brief
+
+The [2026-07-21 brief](https://github.com/i-staykov/proj-internet-digital-ark/blob/e398e2064e4b5a286fceed122e30ec0a9b3e45b4/docs/SPEC.md)
+is retained in Git history, not as a second live specification. Frozen submissions and
+historical approval citations keep that version's numbering. Its registered-domain-only
+rule was superseded by the current brief's IV.8, which retains qualifying exact hostnames.

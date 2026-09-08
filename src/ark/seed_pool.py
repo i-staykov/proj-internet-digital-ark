@@ -4,23 +4,22 @@ Backs `ark seed-pool`. Not to be confused with `ark.seed`, which reads a list of
 candidate domains INTO the store and queues them for verification; this module
 writes download seeds OUT of evidence already held.
 
-Brief III.8 fixes the registered domain as the counting unit, so `foo.com`,
-`www.foo.com` and `shop.foo.com` are one line in the annual files. That is the
-right unit for counting and the wrong unit for downloading: a crawler handed
-`foo.com` never sees the pages that only ever existed at `shop.foo.com`. Brief I
-asks for historical URL seeds alongside the domain lists, and III.2 names an
-auxiliary seed pool as a legitimate home for data that carries no year evidence
-of its own.
+This module preserves raw hostnames and URLs from registrable-grain parsers for
+downloading. A crawler handed `foo.com` may miss pages at `shop.foo.com` or a
+specific path. Brief I asks for historical URL seeds; IV.2 permits an auxiliary
+seed pool without its own year evidence. These seeds do not replace annual
+hostname records: IV.8 requires each qualifying exact hostname with its own
+year evidence, whether it is registrable or a subdomain.
 
 This module rebuilds that lost granularity without a second parser. Every bulk
 parser already yields `BulkRecord.raw`, the value exactly as the source wrote it,
-before canonicalization; the annual files keep the canonical form and the seed
-pool keeps the raw one. Reusing the same parsers is the point: a seed can never
+before registrable canonicalization; this seed pool keeps the raw form too.
+Reusing the same parsers is the point: a seed can never
 disagree with the evidence it came from, because both are read from one pass over
 one file.
 
 Only seeds whose raw form differs from the registered domain are kept, since a
-raw value equal to the domain adds nothing a year file does not already carry.
+raw value equal to the domain adds no retrieval granularity to that parser's result.
 
 Shipped, under `output/seeds/`:
   `download_seeds.txt`     the download list: one distinct raw hostname or URL
@@ -72,7 +71,7 @@ def write_source_part(spec: SourceSpec, paths: list[Path], parts_dir: Path = PAR
                     stats["unusable"] += 1
                     continue
                 if record.raw == domain:
-                    # already the counting unit, so the year files hold it
+                    # no extra retrieval granularity beyond this parser's registrable
                     stats["no_extra_granularity"] += 1
                     continue
                 key = (record.raw, record.year)
