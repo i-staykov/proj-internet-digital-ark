@@ -4935,6 +4935,20 @@ collection campaign, and run it at BOTH grains, because the registrable half of 
 - collector: `scripts/sources/usenet/sweep_alt_hierarchy.sh`, biggest discussion groups first,
   streamed in batches because 193 GB does not fit beside the store; six connections to
   `archive.org/download`, measured at 2.5 MB/s each, and not a CDX client
+- result, band by band, and the band EDGES were the thing worth measuring:
+
+  | band | groups | bytes | hostname EE | registrable EE | EE/GB |
+  |---|---|---|---|---|---|
+  | 150 MB and over (2 groups probed) | 2 | 1.87 GB | 0.0000 | 0 | 0 |
+  | 2 to 150 MB, read whole | 4,843 | ~56 GB | see below | | ~134 |
+  | 0.3 to 2 MB, read whole | 4,004 | 3.6 GB | **1,303.0012** | **528.5108** | **509** |
+
+  **The smallest groups are the densest.** 63% of a small group's posts fall inside 1996-2001 and
+  only 6.4% of its net-new hosts are the `www.<held name>` alias seam, because its URLs are the
+  ones nobody reposted; a popular group's URLs are already held from the thirteen pools C-68 read.
+  So the 2 MB floor in the first plan was excluding the best part of the hierarchy on an
+  assumption, and the band edges are parameters now.
+
 - result: **134 EE per GB realised, not the 722 the probe projected.** Measured on the first
   24 GB of the band (3,343 groups, 12 shards, 10,222,327 host mentions): 476,894 distinct
   host-years, 129,373 already in the store, 1,621 in his baseline only, **3,331 net-new
