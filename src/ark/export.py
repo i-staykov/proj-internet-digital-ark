@@ -5,15 +5,18 @@ committed work product), the candidate list, and the merged master lists
 (baseline + additions, large, delivery-archive material).
 """
 
+import json
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 from loguru import logger
 
-from ark.baseline import baseline_dir
+from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
+from ark.english_share import english_weights
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -132,26 +135,8 @@ def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
             logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
 
 
-# The DNS-listed set, shipped as its OWN `<year>-ISC.txt` files (Ivo, 2026-09-04) so that one
-# word from the reviewer admits or discards it without touching anything else.
-#
-# **Why it is not in `hostname_year`.** The ISC Internet Domain Survey walked reverse DNS in
-# 1996-1997 and its lines are direct, dated, machine-written evidence that a host answered.
-#
-# He ruled on this artifact by name on 2026-07-24, in answer to our own question: "a domain's
-# documented presence in a dated DNS survey is acceptable as direct evidence for the corresponding
-# annual file. It does not require additional IA CDX confirmation." C-55 later read his PURPOSE
-# for the hostname unit as requiring a page, which is narrower than that ruling and was taken
-# without re-reading it. What is still genuinely open is only the grain: his ruling establishes
-# the DOMAIN from a host record, and whether the host is also a record of itself is the question
-# the mail asks, since the hostname unit did not exist in July.
-#
-# So the rows stay out of the store and out of the claim, and ship beside it as a labelled
-# question. Yes is one line in `WEB_FACING_HOST_SOURCES` and a backfill; no needs no undoing.
-#
-# It is measurably a different shape from anything he holds, which is exactly why it is a
-# question: of 13,347,250 distinct hosts here, 1.419% appear anywhere in his files, against
-# 84.2% of his own `www.` names having the bare name beside them.
+# DNS observations are candidates only. Annual promotion requires exact-host web evidence
+# for the target year. Candidate counts deduplicate names across survey years.
 ISC_SOURCE = "isc_survey_hostnames"
 # His structural rule as SQL: dot-separated labels, letters, digits and interior hyphens only,
 # ending in an alphabetic TLD label. The same pattern as `hostnames._VALID_HOST`, spelled here
@@ -165,79 +150,139 @@ _HOSTNAME_RE = (
 def export_isc_provenance(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
-    """The per-host provenance manifest his 2026-09-06 ruling makes MANDATORY.
-
-    His six fields, verbatim: "the survey edition, source file, original or recovery URL,
-    record location, extraction method, and target year". They make a record auditable and
-    they do NOT promote it: "provenance alone does not convert DNS evidence into
-    website-level evidence". Written beside the collection rather than inside the year
-    files, because the year files are a plain name list and he reads them as one.
-    """
-    query = (
-        """
+    """Write provenance for exactly the reconciled hostname-years, then measure the files."""
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE isc_provenance AS
         SELECT DISTINCT
-               lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
-               e.evidence_year                                        AS target_year,
-               s.name                                                 AS survey_edition,
-               e.evidence_url                                         AS source_url,
-               e.evidence_value                                       AS record_location,
-               e.acquisition_method                                   AS extraction_method
+               i.hostname,
+               i.assigned_year AS target_year,
+               regexp_extract(e.evidence_value, 'isc survey ([0-9]{{4}}-[0-9]{{2}}) host ', 1)
+                   AS survey_edition,
+               regexp_extract(e.evidence_url, '([^/]+)$', 1) AS source_file,
+               e.evidence_url AS source_url,
+               e.evidence_value AS record_location,
+               e.acquisition_method AS extraction_method
         FROM evidence e JOIN source s ON s.source_id = e.source_id
-        WHERE s.name = '"""
-        + ISC_SOURCE
-        + """'
-        ORDER BY hostname, target_year
-    """
-    )
+        JOIN isc_export i
+          ON i.hostname = lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))
+         AND i.assigned_year = e.evidence_year
+        WHERE s.name = '{ISC_SOURCE}'
+    """)
+    missing = conn.execute("""
+        SELECT count(*) FROM isc_provenance
+        WHERE coalesce(trim(survey_edition), '') = ''
+           OR coalesce(trim(source_file), '') = ''
+           OR coalesce(trim(source_url), '') = ''
+           OR coalesce(trim(record_location), '') = ''
+           OR coalesce(trim(extraction_method), '') = ''
+           OR try_cast(substr(survey_edition, 1, 4) AS INTEGER) <> target_year
+    """).fetchone()[0]
+    if missing:
+        raise ValueError(f"ISC candidates have {missing} incomplete provenance rows")
+    uncovered = conn.execute("""
+        SELECT count(*) FROM isc_export i
+        WHERE NOT EXISTS (SELECT 1 FROM isc_provenance p
+                          WHERE p.hostname = i.hostname AND p.target_year = i.assigned_year)
+    """).fetchone()[0]
+    if uncovered:
+        raise ValueError(f"ISC candidates have {uncovered} hostname-years without provenance")
     path = netnew_dir / "isc_survey_provenance.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn.execute(f"COPY ({query}) TO '{path}' (HEADER true)")
-    stats["isc_provenance_rows"] = conn.execute(f"SELECT count(*) FROM ({query})").fetchone()[0]
+    conn.execute(f"""
+        COPY (SELECT * FROM isc_provenance
+              ORDER BY hostname, target_year, survey_edition, source_url,
+                       record_location, extraction_method)
+        TO '{path}' (HEADER true)
+    """)
+    stats["isc_provenance_rows"] = conn.execute(
+        "SELECT count(*) FROM read_csv(?, header=true, all_varchar=true)", [str(path)]
+    ).fetchone()[0]
+    tlds = conn.execute(
+        """
+        SELECT regexp_extract(hostname, '[^.]+$') AS tld, count(*) AS hosts
+        FROM read_csv(?, header=false, columns={'hostname': 'VARCHAR'})
+        GROUP BY tld ORDER BY tld
+    """,
+        [str(netnew_dir / "isc_candidates.txt")],
+    ).fetchall()
+    weights = english_weights()
+    ee = sum((weights.get(tld, Decimal(0)) * n for tld, n in tlds), Decimal(0))
+    summary = {
+        "baseline": CURRENT_BASELINE_MARKER,
+        "track": "candidate",
+        "counting_unit": "distinct exact hostname across all survey years",
+        "candidates": sum(n for _, n in tlds),
+        "equivalent_english": str(ee.quantize(Decimal("0.0001"))),
+        "hostname_years": sum(stats[f"isc_{year}"] for year in YEARS),
+        "by_year": {str(year): stats[f"isc_{year}"] for year in YEARS},
+        "provenance_rows": stats["isc_provenance_rows"],
+        "tld_counts": dict(tlds),
+    }
+    (netnew_dir / "isc_candidates_summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
+    logger.info(f"ISC candidates: {summary['candidates']:,}, {ee} equivalent-English")
+    conn.execute("DROP TABLE isc_provenance")
 
 
 def export_isc_hostnames(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
-    """Write `<year>-ISC.txt`, a CANDIDATE collection and never an annual one.
+    """Write candidates absent by exact name from reviewer candidates and all annual years.
 
-    **These files are not annual masters and must never be merged as if they were** (his
-    ruling of 2026-09-06). A raw survey observation says an exact hostname answered in DNS
-    during that edition; he audited 1,800 of them and 2.67% had an exact-host CDX record.
-    They ship as a provenance-linked candidate collection peer to `candidate_pool.txt`,
-    with `isc_survey_provenance.csv` beside them, and a hostname-year leaves the collection
-    for an annual file only on additional exact-host, target-year web evidence.
-
-    Still net-new, still shippable, still disjoint from the hostname files: a candidate that
-    already holds annual evidence is not a candidate, which is the one rule both his
-    collections share.
+    `baseline_hostname` must contain the current six annual files. A held parent or a
+    different `www.` form does not exclude a hostname. No annual table is modified.
     """
     conn.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE isc_export AS
-        SELECT DISTINCT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
-               e.domain AS parent, e.evidence_year AS assigned_year
-        FROM evidence e JOIN source s ON s.source_id = e.source_id
-        WHERE s.name = '{ISC_SOURCE}'
+        SELECT DISTINCT hy.hostname, hy.assigned_year FROM (
+            SELECT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
+                   e.domain AS parent, e.evidence_year AS assigned_year
+            FROM evidence e JOIN source s ON s.source_id = e.source_id
+            WHERE s.name = '{ISC_SOURCE}'
+        ) hy
+        WHERE hy.hostname <> hy.parent AND hy.hostname LIKE '%.' || hy.parent
+          AND length(hy.hostname) <= 253
+          AND regexp_matches(hy.hostname, '{_HOSTNAME_RE}')
+          AND {_shipping_filter_for("hy.hostname", "hy.assigned_year")}
         """
     )
-    shipping = _shipping_filter_for("hy.hostname", "hy.assigned_year")
+    if conn.execute("SELECT count(*) FROM isc_export").fetchone()[0]:
+        baseline = baseline_dir()
+        required = [baseline / f"{year}.txt" for year in YEARS] + [baseline / "candidate_pool.txt"]
+        absent = [str(path) for path in required if not path.is_file()]
+        if absent:
+            raise FileNotFoundError(f"ISC reconciliation requires current baseline files: {absent}")
+        conn.execute(
+            """
+            DELETE FROM isc_export WHERE hostname IN (
+                SELECT lower(trim(column0)) FROM read_csv(
+                    ?, header=false, delim='\x01', quote='',
+                    columns={'column0': 'VARCHAR'})
+            )
+        """,
+            [str(baseline / "candidate_pool.txt")],
+        )
+        for table, column in (
+            ("baseline_hostname", "hostname"),
+            ("hostname_year", "hostname"),
+            ("domain_year", "domain"),
+        ):
+            conn.execute(f"""
+                DELETE FROM isc_export
+                WHERE hostname IN (SELECT lower(trim({column})) FROM {table})
+            """)
     for year in YEARS:
         query = f"""
-            SELECT DISTINCT hy.hostname FROM isc_export hy
-            WHERE hy.assigned_year = {year}
-              AND hy.hostname <> hy.parent
-              AND hy.hostname LIKE '%.' || hy.parent
-              AND length(hy.hostname) <= 253
-              AND regexp_matches(hy.hostname, '{_HOSTNAME_RE}')
-              AND NOT EXISTS (SELECT 1 FROM hostname_year h2
-                              WHERE h2.hostname = hy.hostname
-                                AND h2.assigned_year = hy.assigned_year)
-              AND NOT EXISTS (SELECT 1 FROM baseline_hostname b
-                              WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
-              AND {shipping}
-            ORDER BY hy.hostname
+            SELECT hostname FROM isc_export WHERE assigned_year = {year} ORDER BY hostname
         """
         stats[f"isc_{year}"] = _copy_query(conn, query, netnew_dir / f"{year}-ISC.txt")
+    stats["isc_candidates"] = _copy_query(
+        conn,
+        "SELECT DISTINCT hostname FROM isc_export ORDER BY hostname",
+        netnew_dir / "isc_candidates.txt",
+    )
 
 
 def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
