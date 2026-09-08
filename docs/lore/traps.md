@@ -365,3 +365,22 @@ of the lane. And **project the next hour from a measurement taken AFTER the head
 practice means the second window rather than the first. The peak still matters, but as evidence
 about the ordering: a rate that falls tenfold is the queue reporting that its head is walked, and
 the answer to it is a re-rank, not a longer run.
+
+## A restarted collector recycles its output names, and the ledger is what catches it
+
+`sweep_alt_hierarchy.sh` numbered its output shards by batch, `batch1_shard_000` and so on, and the
+batch counter starts at 1 every time the script runs. Stopped and restarted on 2026-09-08, its first
+batch overwrote the first run's six `batch1_shard_*` files on disk.
+
+**Nothing banked was lost, and the reason is worth knowing.** `ark ingest` keys the ledger on
+`(source_name, file_name)` and stores the sha256, and a ledgered name whose bytes differ raises
+`ledgered with different content (sha256 mismatch)` instead of logging "already ingested, skipping".
+So the recycled name would have failed the next ingest loudly rather than dropping 15,183 hostname
+rows quietly. Auditing the 42 ledgered shards against disk found exactly 6 changed and 36 the same,
+which is how the blast radius was established before anything was touched.
+
+Two rules. **A long-running collector's output name must carry a run id, not a counter that resets**,
+and the fix here is a `date -u +%Y%m%dT%H%M%SZ` prefix. And when a name may have been recycled,
+**audit the ledger's sha256 against the bytes on disk before ingesting or deleting anything**: the
+answer is a list of files, not a guess. The cost of the incident was the six shards' first-run bytes,
+which are regenerable because the plan and done-file record exactly which groups produced them.
