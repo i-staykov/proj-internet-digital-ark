@@ -128,7 +128,11 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
    HEAD replay answered 429 for a whole leg, six retries at 25s spacing, no Retry-After,
    because the collectors saturate that limiter. `web.archive.org/web/timemap/link/<url>` is
    NOT on it, answered every time, and returns every memento with its datetime, so it fully
-   replaces the availability oracle for a known URL. Fetch with `-sL` and the `id_` replay
+   replaces the availability oracle for a known URL. **That limiter is per-ADDRESS and you
+   share the collectors', so request VOLUME alone is not a CLOSED verdict**: report the request
+   count and the EE per request and say it is rate-bound, because the same read costs nothing
+   from another address (measured 2026-09-08: an `id_` replay from off the fleet answered 200
+   in 1.2 s while both collectors were pulling 324 MB/hour). Fetch with `-sL` and the `id_` replay
    flavour, then CHECK THE BODY: a 200 can be a period IIS 404 and a 301 can be a
    corporate-acquisition redirect onto a live 404.
 3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece and measure
