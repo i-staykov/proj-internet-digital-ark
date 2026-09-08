@@ -60,10 +60,17 @@ one were later dated**, which is a ceiling on future work and not a contribution
    ranking parents by sub-host count alone spends requests on rows that are already ours or cannot
    be assigned. Ranking instead on hosts we lack multiplied by the years we hold the parent, minus
    the host-years already held, took the accepted share of one night's sweep from 4.9% to 21%.
-2. **A peak rate is a statement about the queue, not about the source.** The same query, code and
-   two clients paid about 193,000 equivalent-English per client-hour on the dense head of a ranked
-   queue and 210 per hour two nights later once that head had been walked. We now plan with the
-   sustained figure and treat a peak as evidence that the ranking, not the archive, has changed.
+2. **A peak rate is a statement about the queue, not about the source, and re-ranking is what
+   restores it.** The same query, code and two clients paid about 193,000 equivalent-English per
+   client-hour on the dense head of a ranked queue and 210 per hour two nights later once that head
+   had been walked. Re-ranking the queue against the store and restarting the two clients on its
+   new head returned 1,009,324 capture rows in one window, of which 225,088 were net-new records
+   worth 141,208 equivalent-English: **565 equivalent-English per megabyte of journal**, and the
+   figure to plan an hour with. **The caution that goes with it:** correlating a parent's rank
+   against what it actually banked gives Spearman +0.746 over 198 parents, which reads as a ranker
+   that is exactly inverted, because the head of any ranking is swept FIRST and re-measuring it
+   measures sweep history. Restricted to the 54 parents swept fresh from a new ranking the same
+   correlation is -0.655. Price a ranker only on parents it has never been used on.
 3. **An absence is evidence about the search, not about the artifact.** Two families closed in our
    own register at 0 EE, one because a navigation sweep of a site's home page found no inventory
    page and one because an index of FTP hosts was assumed already held, were both wrong: the pages
