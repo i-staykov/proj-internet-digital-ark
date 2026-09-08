@@ -8,16 +8,21 @@
 # extractor and the same class, on the partition nobody has read. C-77 says a different
 # partition is a fresh lead rather than a closed one.
 #
-# **What it is worth, measured before it was started.** Three groups, 307,750,500 B of
-# mbox zip (`alt.lawyers`, `alt.music.mp3`, `alt.folklore.computers`), extracted with the
-# same `build_usenet_pool.py` and priced with `price_hostnames.py` against the live store
-# on 2026-09-08: 11,587 distinct host-years, 3,435 already in the store, 125 in his
-# baseline only, **410 net-new host-years worth 222.4278 EE**, plus 91 registrable pairs
-# worth 50.7506 EE beside them. That is 722 EE per GB. `alt` holds 234.1 GB in 15,288
-# zips, of which 193.3 GB is not `alt.binaries`, `alt.sex`, `alt.anonymous`, `alt.warez`,
-# `alt.mag.*` or `alt.0.*`, so the lane's ceiling is about 139,000 EE. Treat that as a
-# ceiling: hosts repeat, so the marginal rate falls as the hierarchy is read, and
-# `alt.folklore.computers` returned no in-window post at all.
+# **What it is worth, and why the order is what it is.** Two measurements on 2026-09-08,
+# both priced with `price_hostnames.py` against the live store.
+#   Three mid-size groups, 307,750,500 B (`alt.lawyers`, `alt.music.mp3`,
+#   `alt.folklore.computers`): 11,587 distinct host-years, 3,435 already in the store,
+#   **410 net-new host-years worth 222.4278 EE**, plus 91 registrable pairs worth 50.7506
+#   EE. Of those bytes only 178 MB was in window, so 1.25 EE per in-window MB.
+#   Then the two biggest discussion groups, 1,872,269,724 B (`alt.answers`, `alt.religion`):
+#   43,590 distinct host-years, 17,385 already in the store, **NET-NEW 0, 0.0000 EE**.
+# So the big groups are saturated, and biggest-first was exactly backwards: `alt.answers` is
+# the FAQ group, its URLs are the most-posted URLs on Usenet, and the thirteen pools C-68
+# already read hold every one of them. `alt.religion` returned 276,256 posts and NONE in
+# window at all, as `alt.folklore.computers` did, so a group's bytes are not its evidence.
+# The order is therefore ASCENDING size over the 2 MB to 150 MB band, 4,841 zips and 109 GB:
+# small enough to be unpopular, big enough not to be an empty archive. Each band's realised
+# rate is measured before the next is fetched.
 #
 # **Which host this touches.** `archive.org/download/usenet-alt`, an item download. That
 # is NOT `web.archive.org/cdx`, which the two collectors meter, so this runs beside them
@@ -48,19 +53,21 @@ mkdir -p "$WORK" "$ITEMS"
 touch "$DONE"
 
 # The plan is written once and then only read, so a restart takes the same order.
-# Biggest first among the discussion groups, because the bytes are where the EE is and
-# an interrupted run should have taken the valuable part.
 if [ ! -s "$PLAN" ]; then
     uv run python - > "$PLAN" <<'PY'
 import json
 c = json.load(open("data/raw/usenet_catalog.json"))
 JUNK = ("alt.binaries", "alt.sex", "alt.anonymous", "alt.warez", "alt.mag.", "alt.0.")
+# 2 MB to 150 MB: under 2 MB is usually an archive with no in-window post, over 150 MB is
+# a popular group whose URLs the already-read pools hold. Both measured, see the header.
 rows = [
     (int(e["size"]), e["name"])
     for e in c["alt"]
-    if e.get("name", "").endswith(".mbox.zip") and not e["name"].lower().startswith(JUNK)
+    if e.get("name", "").endswith(".mbox.zip")
+    and not e["name"].lower().startswith(JUNK)
+    and 2_000_000 <= int(e["size"]) < 150_000_000
 ]
-rows.sort(reverse=True)
+rows.sort()
 for size, name in rows:
     print(f"{size}\t{name}")
 PY

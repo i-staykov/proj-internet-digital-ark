@@ -4851,4 +4851,13 @@ collection campaign, and run it at BOTH grains, because the registrable half of 
 - collector: `scripts/sources/usenet/sweep_alt_hierarchy.sh`, biggest discussion groups first,
   streamed in batches because 193 GB does not fit beside the store; six connections to
   `archive.org/download`, measured at 2.5 MB/s each, and not a CDX client
-- result: in progress 2026-09-08
+- result: **134 EE per GB realised, not the 722 the probe projected.** Measured on the first
+  24 GB of the band (3,343 groups, 12 shards, 10,222,327 host mentions): 476,894 distinct
+  host-years, 129,373 already in the store, 1,621 in his baseline only, **3,331 net-new
+  host-years worth 1,918.5533 EE** (9.9% of it the `www.<held name>` alias seam the ingest
+  refuses, so 1,728.0297 EE eligible), plus **2,125 registrable pairs worth 1,296.4599 EE**
+  needing no hostname decision. So the 109 GB band is worth about 15,000 EE, not 139,000: the
+  three-group probe at 722 EE/GB was a small-sample fluke and the honest figure is 5x lower.
+  It clears the 10,000 EE floor as a source and it does NOT move a 439,567 EE gate. Kept
+  running because it costs bandwidth rather than attention. Best years 2000 and 1999; `.com`
+  957.6 EE, `.net` 313.0, `.uk` 209.0
