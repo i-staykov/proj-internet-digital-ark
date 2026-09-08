@@ -18,7 +18,7 @@ VPS (always on)
    two archive collectors under systemd, querying capture indexes at zero token cost.
    They hold `web.archive.org/cdx` and run BESIDE the agent lanes rather than instead of
    them: the two-clients limit binds that one channel, so an agent may use every other
-   archive.org service and no lane touches CDX (C-77, `ark-fleet` #111)
+   archive.org service and no lane touches CDX (C-77, issue #111)
 Laptop (episodic, human-supervised)
    `just bank` ..................... drains fleet findings, admits, ingests into the
                                      evidence store, gates, pushes; packaging and reports
