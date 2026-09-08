@@ -11,6 +11,8 @@ the off-site copy is later verified against.
 import hashlib
 import importlib.util
 import shutil
+import stat
+import struct
 import subprocess
 import sys
 import zipfile
@@ -44,6 +46,13 @@ def _blank_page() -> str:
     head, _, tail = releases.split_page((ROOT / "docs/registers/releases.md").read_text())
     table = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])
     return head + releases.BEGIN + "\n" + table + "\n" + releases.END + tail
+
+
+def _zip_tree(tree: Path, zip_path: Path, compression=zipfile.ZIP_STORED) -> Path:
+    with zipfile.ZipFile(zip_path, "w", compression=compression) as zf:
+        for path in sorted(tree.iterdir()):
+            zf.write(path, f"{tree.name}/{path.name}")
+    return zip_path
 
 
 def _layout(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -183,12 +192,152 @@ def test_verify_trees_catches_a_modified_and_a_missing_file(monkeypatch, capsys,
     (tree / "1996.txt").write_text("".join(f"zite{i}.com\n" for i in range(LINES[1996])))
     (tree / "1998.txt").unlink()
     (tree / "stray.txt").write_text("later\n")
-    out = _run(monkeypatch, capsys, tmp_path, "--verify-trees")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, capsys, tmp_path, "--verify-trees")
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
     assert "7 members, 5 matched, 1 mismatched, 1 missing on disk, 1 extra on disk" in out
     assert "crc differs: 1996.txt" in out
     assert "missing on disk: 1998.txt" in out
     assert "extra on disk: stray.txt" in out
     assert out.splitlines()[-1].endswith("exists: none")
+
+
+def test_verify_trees_rejects_an_extra_file_only(monkeypatch, capsys, tmp_path):
+    feedback, _, _ = _layout(tmp_path)
+    tree = feedback / "feedback-phase-7/Domain_Data_Collection_Task 3/merged260830"
+    (tree / "stray.txt").write_text("extra\n")
+    page = tmp_path / "releases.md"
+    before = page.read_bytes(), page.stat().st_mtime_ns
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, capsys, tmp_path, "--verify-trees")
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "7 matched, 0 mismatched, 0 missing on disk, 1 extra on disk" in out
+    assert out.splitlines()[-1].endswith("exists: none")
+    assert (page.read_bytes(), page.stat().st_mtime_ns) == before
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "merged260830/../escape.txt",
+        "merged260830/./stray.txt",
+        "merged260830//stray.txt",
+        "merged260830/sub\\stray.txt",
+        "../merged260830/stray.txt",
+        "/merged260830/stray.txt",
+    ],
+)
+def test_verify_trees_rejects_unsafe_zip_paths(tmp_path, capsys, member):
+    tree = _tree(tmp_path / "merged260830")
+    archive = _zip_tree(tree, tmp_path / "release.zip")
+    with zipfile.ZipFile(archive, "a") as zf:
+        zf.writestr(member, "extra\n")
+    (tree / "stray.txt").write_text("extra\n")
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
+    out = capsys.readouterr().out
+    assert "unsafe" in out and out.splitlines()[-1].endswith("exists: none")
+
+
+@pytest.mark.parametrize("same_name", [True, False])
+def test_verify_trees_rejects_duplicate_zip_members(tmp_path, capsys, same_name):
+    tree = _tree(tmp_path / "merged260830")
+    archive = _zip_tree(tree, tmp_path / "release.zip")
+    name = f"{tree.name}/1996.txt"
+    with zipfile.ZipFile(archive, "a") as zf:
+        if same_name:
+            with pytest.warns(UserWarning, match="Duplicate name"):
+                zf.writestr(name, (tree / "1996.txt").read_bytes())
+        else:
+            zf.writestr(f"wrapper/{name}", (tree / "1996.txt").read_bytes())
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
+    out = capsys.readouterr().out
+    assert "duplicate zip member" in out
+    assert out.splitlines()[-1].endswith("exists: none")
+
+
+@pytest.mark.parametrize("location", ["file", "tree", "parent", "extra-directory"])
+def test_verify_trees_rejects_symlinks_on_disk(tmp_path, capsys, location):
+    parent = tmp_path / "extracted"
+    tree = _tree(parent / "merged260830")
+    archive = _zip_tree(tree, tmp_path / "release.zip")
+    if location == "extra-directory":
+        target = tmp_path / "empty"
+        target.mkdir()
+        (tree / "extra").symlink_to(target, target_is_directory=True)
+    else:
+        source = {"file": tree / "1996.txt", "tree": tree, "parent": parent}[location]
+        target = tmp_path / "original"
+        source.rename(target)
+        source.symlink_to(target, target_is_directory=location != "file")
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
+    assert capsys.readouterr().out.splitlines()[-1].endswith("exists: none")
+
+
+def test_verify_trees_rejects_symlink_zip_member(tmp_path, capsys):
+    tree = _tree(tmp_path / "merged260830")
+    (tree / "link").write_text("1996.txt")
+    archive = tmp_path / "release.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        for path in sorted(tree.iterdir()):
+            info = zipfile.ZipInfo(f"{tree.name}/{path.name}")
+            info.create_system = 3
+            info.external_attr = (
+                (stat.S_IFLNK if path.name == "link" else stat.S_IFREG) | 0o644
+            ) << 16
+            zf.writestr(info, path.read_bytes())
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
+    out = capsys.readouterr().out
+    assert "unsafe" in out and out.splitlines()[-1].endswith("exists: none")
+
+
+def test_verify_trees_rejects_corrupt_compressed_payload(tmp_path, capsys):
+    tree = _tree(tmp_path / "merged260830")
+    archive = _zip_tree(tree, tmp_path / "release.zip", zipfile.ZIP_DEFLATED)
+    with zipfile.ZipFile(archive) as zf:
+        info = zf.getinfo(f"{tree.name}/1996.txt")
+    assert info.CRC == releases.crc32(tree / "1996.txt")
+    payload = bytearray(archive.read_bytes())
+    name_size, extra_size = struct.unpack_from("<HH", payload, info.header_offset + 26)
+    offset = info.header_offset + 30 + name_size + extra_size
+    payload[offset] |= 0b110
+    archive.write_bytes(payload)
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
+    assert capsys.readouterr().out.splitlines()[-1].endswith("exists: none")
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_verify_trees_checks_future_markers(tmp_path, capsys, modified):
+    feedback = tmp_path / "feedback"
+    tree = _tree(feedback / "merged270101")
+    assert tree.name not in releases.RELEASES
+    _zip_tree(tree, feedback / "release.zip")
+    if modified:
+        (tree / "1996.txt").write_text("".join(f"zite{i}.com\n" for i in range(LINES[1996])))
+    assert releases.verify_trees(
+        releases.find_trees(feedback, {}), releases.find_zips(feedback)
+    ) is (not modified)
+    out = capsys.readouterr().out
+    assert tree.name in out
+    assert (str(tree) in out.splitlines()[-1]) is (not modified)
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_verify_trees_checks_every_duplicate_tree(tmp_path, capsys, modified):
+    feedback = tmp_path / "feedback"
+    shallow = _tree(feedback / "merged260830")
+    deep = _tree(feedback / "duplicate/nested/merged260830")
+    _zip_tree(shallow, feedback / "release.zip")
+    if modified:
+        (deep / "candidate_pool.txt").write_text("z.com\n")
+    trees = releases.find_trees(feedback, {})
+    assert trees[shallow.name] == [shallow, deep]
+    assert releases.verify_trees(trees, releases.find_zips(feedback)) is (not modified)
+    out = capsys.readouterr().out
+    assert f"{deep} against release.zip" in out
+    assert str(shallow) in out.splitlines()[-1]
+    assert (str(deep) in out.splitlines()[-1]) is (not modified)
 
 
 @pytest.mark.skipif(shutil.which("zstd") is None, reason="zstd not installed")
