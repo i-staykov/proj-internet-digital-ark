@@ -5005,3 +5005,31 @@ collection campaign, and run it at BOTH grains, because the registrable half of 
   command from being ingested if that floor ever moves again
 - the lesson, which is the third instance of it in two days: a seven-file probe of a 418-file
   artifact overstated it by 3.2x. `docs/lore/traps.md` carries the general form
+
+### jeb_bush_hostgrain, re-examined under the 5,000 EE floor
+
+Re-opened 2026-09-09 because the floor moved (C-82) and its 2026-09-03 closure read "Lane B, and
+it does not pay" against a 10,000 EE bar, while its dating is sound: each message block carries its
+own unindented `Sent:` line, written by the sending mail client into the released export, and the
+class `jeb_bush_gubernatorial_email / dated_directory` is already **master** with 67,972 record
+rows in the ledger and ZERO hostname rows, so it is an approved class at a new grain and its floor
+is 1,000 EE (C-81).
+
+**Priced against today's store: 8,000 net-new host-years worth 5,999.2714 EE**, only 0.8% of it the
+`www.<held name>` alias seam, plus 3,102.9807 EE of registrable pairs. Nine times the floor, and
+nothing to fetch.
+
+**CLOSED ANYWAY, on validity rather than on yield.** The journal on disk is
+`jeb_bush_anchored.jsonl.gz`, and `parse_jeb_mail.py` builds it as `anchored_all`, the UNION of
+`_ADDR` (a host in an email address) and `_URL` (a host in an explicit `http`, `https`, `ftp` or
+`www.` URL). At hostname grain that union asserts mailbox and relay hosts as hosts that served
+pages, which this project's own rule forbids ("a `Received`, `Message-ID`, `From` or `List-*` host
+is a mail relay or a mailbox, never a host that served a page") and which is the first thing the
+reviewer checks. So 5,999.2714 EE is not an admissible figure, it is an upper bound on one.
+
+**What it would take.** The admissible lane is `url_body` alone, which `parse_jeb_mail.py` can emit
+but which was never kept: only `anchored_all` and the candidate journal are on disk, so it needs
+`JebBushEmails-Text.7z` re-fetched from archive.org and re-parsed. Of 1,438,076 host mentions in the
+union, 426,899 (29.7%) have three or more labels, and the URL-vouched subset of those is smaller
+again, so expect four figures rather than five. Worth an hour when there is one; not worth claiming
+without the re-parse.
