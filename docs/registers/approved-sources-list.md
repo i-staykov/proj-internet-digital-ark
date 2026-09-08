@@ -267,6 +267,46 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### arquivo_ia_hostnames / cdx_timestamp
+
+- ingest: `ark ingest-hostnames data/raw/arquivo_hostgrain/`, Arquivo.pt's donated Internet
+  Archive index (`data/raw/arquivo/IA.cdxj`, 50,930,113,941 B, the exact artifact `arquivo_ia` was
+  banked on at registrable grain) re-emitted as `{url, timestamp}` capture journals by
+  `scripts/sources/arquivo/cdxj_to_journal.py`, HTTP 200 rows only, 1996-2001 only
+- source: https://arquivo.pt/datasets/cdxj/IA.cdxj, fetched by
+  `scripts/sources/arquivo/fetch_ia_cdxj.sh` in 26 verified 2 GB byte ranges
+- what dates one item: the 14-digit capture timestamp CDXJ carries between the SURT key and the
+  JSON body, `pt,gan,gannet)/gan.net/agentes/trocapass.asp 20020301195825 {"url": ...}`, written by
+  the crawler at capture time. **The file's FIRST block is written without it**: the
+  `PT-HISTORICAL-EMBEDS-*` group emits a bare object whose only 14-digit token is the ARC write
+  date `20100830000000`, out of window, so 1,799,163 lines carry no parseable stamp and are skipped
+  rather than guessed at
+- measured 2026-09-08 on the live store, the WHOLE file read: **14,819,170 in-window captures**,
+  which reproduces the registrable ingest's own `record_rows` of 14,819,170 exactly; 61,171 distinct
+  host-years, 10,156 already in the store, 14,452 in his baseline only, **3,034 net-new host-years
+  worth 763.7633 EE**. **73.7% of that is the `www.<held name>` alias seam the ingest refuses one
+  level up, so 201.1044 EE is eligible.** By year 1996 1.7193 EE, 1997 3.5822, 1998 19.1503, 1999
+  76.6352, 2000 176.9855, 2001 485.6908. By TLD `pt` 747.6, `com` 8.2, `edu` 2.9, everything else
+  under 2. Every parent was already held in that year, so 0 registrable-years are earned beside it
+- terms: `arquivo.pt/robots.txt` carries a `User-agent: *` group disallowing `/cdxj` and
+  `/datasets`, and `sobre.arquivo.pt/pt/acerca/termos-e-condicoes/` permits educational, scientific
+  and research use with a citation while forbidding distribution of accessed content. Cite as
+  "[fonte: Arquivo.pt, 08/09/2026]" wherever these records are described. Its own source row and
+  acquisition method (`arquivo_ia_cdxj_hostgrain`) keep it separable from the IA sweep in the
+  shipped contribution table
+- potential: 201
+
+Decision: master
+
+Approved by Ivo on 2026-09-08, twice and against my objections, recorded in issue #115 and C-81.
+First: "I don't agree with not taking ingesting Arquivo.pt at hostname grain for 18.000 EE, it is
+above our 10.000 EE floor and should therefore by definition be ingested." Then, after the whole
+file measured 763.7633 EE gross and 201.1044 EE eligible rather than the 18,000 I had projected:
+"Even if the the arquivo gain turns out small. Ingest it, it is cheap, you can just infer hostnames
+from the URLs in the evidence database." So the figure was known when the decision was made, and it
+is under even the 1,000 EE grain floor of the same day. I had closed this twice, first on rate and
+then on terms, and was overruled on the precedent that the same bytes are already in the ledger.
+
 ### early_web_cdx_hostnames / cdx_timestamp
 
 - ingest: `ark ingest-hostnames data/raw/early_web_hostgrain/`, the 224 Early Web CDX parts

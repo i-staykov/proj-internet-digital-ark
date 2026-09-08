@@ -112,6 +112,7 @@ PROVENANCE_LINEAGE = {
     # live CDX API or its bulk CDX files, so they share that lineage: a hostname this
     # confirms beside an Early Web row is IA agreeing with itself.
     "ia_cdx_hostnames": "internet_archive",
+    "arquivo_ia_hostnames": "arquivo_pt",
     "early_web_cdx_hostnames": "internet_archive",
     "usfedgov_extract_hostnames": "internet_archive",
     "iedr_register": "registry",

@@ -146,3 +146,28 @@ def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
     assert ledger[0] == 1
     assert ledger[1] == first["hostname_year_rows"] + again["hostname_year_rows"]
     conn.close()
+
+
+def test_arquivo_journals_get_their_own_source_row() -> None:
+    """A hostname read from Arquivo.pt must not read as an Internet Archive capture.
+
+    Ivo ruled the lane in on 2026-09-08 (C-81) and Arquivo's own terms require the citation
+    "[fonte: Arquivo.pt, dd/mm/aaaa]", so its provenance has to be separable in the shipped
+    contribution table. The dispatch is on the filename family, as it is for the Early Web and
+    USFEDGOV indexes.
+    """
+    from ark.hostnames import (
+        ARQUIVO_METHOD,
+        ARQUIVO_SOURCE,
+        SOURCE_NAME,
+        SWEEP_METHOD,
+        source_for,
+    )
+
+    assert source_for(Path("arquivo_ia_0000.jsonl.gz")) == (ARQUIVO_SOURCE, ARQUIVO_METHOD)
+    assert ARQUIVO_SOURCE != SOURCE_NAME
+    # A sweep journal is untouched by the new branch.
+    assert source_for(Path("suffix_example_com_20260908T000000Z.jsonl.gz")) == (
+        SOURCE_NAME,
+        SWEEP_METHOD,
+    )
