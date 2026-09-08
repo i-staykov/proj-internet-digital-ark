@@ -31,6 +31,25 @@ Orchestration lives in that separate private repo so this one stays free of secr
 exposure. Results land here on the `live` branch and reach `main` as merge-commit snapshots, so
 `live` keeps its history.
 
+## The Arquivo.pt hostname lane (C-81, one-off)
+
+Ruled in by Ivo on 2026-09-08 over a terms objection, on the precedent that `arquivo_ia` is
+already in the ingest ledger at registrable grain.
+
+```
+bash scripts/sources/arquivo/fetch_ia_cdxj.sh 5 2
+uv run python scripts/sources/arquivo/cdxj_to_journal.py data/raw/arquivo/IA.cdxj \
+    --out data/raw/arquivo_hostgrain
+uv run python scripts/pricing/price_hostnames.py 'data/raw/arquivo_hostgrain/*.jsonl.gz' --label arquivo_ia
+```
+
+The fetch takes 26 verified 2 GB byte ranges, five at a time, and assembles them only when every
+part matches its stated length; rerunning it keeps the parts already complete. It prints
+`assembled 50930113941 bytes`. The converter prints how many captures it kept and, importantly,
+how many lines carried **no parseable timestamp**: the file's first block is written without a
+SURT or a capture stamp, so that count is expected to be non-zero and is not an error. Ingest only
+if the priced figure clears the 1,000 EE grain floor.
+
 ## Three ways to check this work
 
 | Tier | What it proves | Cost | How |
