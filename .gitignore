@@ -102,3 +102,6 @@ local.env
 .claude/scheduled_tasks.json
 .claude/checkpoints/
 .claude/mailbox/
+
+# The working goal prompt: dates, cadence and a private target.
+goal.md
