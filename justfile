@@ -257,6 +257,21 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         rm -f "$T"
     done
     uv run python scripts/harness/bank_hygiene.py prune --write
+    # A wave picks its slugs from fleet MAIN, so a result line pushed to a feature branch
+    # strands the verdict: measured 2026-09-08, the clone was left on a fleet branch, two
+    # verdicts went there and the next wave re-dealt four settled slugs. `git push -q` with
+    # no refspec pushes whatever branch the clone happens to be on, so name it and refuse.
+    push_result_lines() {
+        BR="$(git -C "$FLEET" branch --show-current)"
+        if [ "$BR" != main ]; then
+            echo "fleet clone is on $BR, not main: result lines left uncommitted."
+            echo "  A wave picks from main, so a stranded verdict re-deals a settled slug."
+            echo "  Check the clone out on main and re-run the bank."
+            return 0
+        fi
+        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $1" \
+            && git push -q origin main) || true
+    }
     # Steps 3 and 4 need findings; 5 to 8 run on every bank, because the collectors
     # fill journals and the round can cross the gate with no fleet finding at all.
     if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; else
@@ -264,7 +279,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+        push_result_lines "$LABEL"
         #    A FIND used to wake a model HERE, and that is how Ivo's personal account was
         #    being drained at API rates (2026-09-04). A local `claude -p` authenticates with
         #    the LAPTOP'S own Claude login, which is his Taktile account and has API pricing
@@ -300,7 +315,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         git add docs/ src/ justfile 2>/dev/null || true
         git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
         git push -q origin live
-        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
+        push_result_lines "$LABEL"
         mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
     fi
     # 5. Bring the VPS collectors' journals home and bank them: this replaced the
