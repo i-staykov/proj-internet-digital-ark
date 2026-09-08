@@ -184,12 +184,23 @@ def test_brief_snapshot_carries_what_the_reader_prints():
             "ee_netnew_growth_pct": Decimal("1.2527"),
         },
     }
-    snapshot = build_round_state.brief(head, "== local ==\n   NOT RUNNING\n", 2, 3)
+    # The hostname half is injected, so this describes the arithmetic rather than
+    # whatever the last export happens to have left in output/.
+    snapshot = build_round_state.brief(
+        head, "== local ==\n   NOT RUNNING\n", 2, 3, hostnames=(90000, Decimal("60000.0000"))
+    )
     assert set(snapshot) == set(json.loads(FIXTURE.read_text(encoding="utf-8")))
-    assert snapshot["netnew_ee"] == 182034.5678 and snapshot["percent"] == 1.2527
+    # **Both units.** A gate distance from registrables alone was wrong by the hostname
+    # half, and that snapshot is what every session start reads.
+    assert snapshot["netnew_ee"] == 242034.5678
+    assert snapshot["registrable_ee"] == 182034.5678
+    assert snapshot["hostname_ee"] == 60000.0
+    assert snapshot["netnew_pairs"] == 402456
     assert snapshot["round"] == build_round_state.CURRENT_ROUND_LABEL
-    gate = build_round_state.REVIEWER_BASELINE_EE * 5 / 100 - Decimal("182034.5678")
+    gate = build_round_state.REVIEWER_BASELINE_EE * 5 / 100 - Decimal("242034.5678")
     assert snapshot["distance_to_gate_ee"] == round(float(gate), 4)
+    expected_pct = Decimal("242034.5678") / build_round_state.REVIEWER_BASELINE_EE * 100
+    assert snapshot["percent"] == round(float(expected_pct), 4)
     assert snapshot["collectors"] == {"local": "NOT RUNNING", "vps": "UNKNOWN"}
     assert snapshot["waiting_on_human"] == {"approvals": 2, "open_decisions": 3}
     # the reader takes the writer's output as it is
