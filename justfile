@@ -315,6 +315,9 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     uv run ark check
     uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
     bash scripts/harness/sync_fleet.sh
+    # A source waiting on a human reaches him as one issue and one mergeable pull
+    # request, because merging is something he can do from a phone. Never fails the bank.
+    uv run python scripts/harness/sync_approvals.py || true
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
     # 7. Disk refusal stops the bank; other brief refresh failures remain non-fatal.
     uv run python scripts/harness/bank_hygiene.py space
