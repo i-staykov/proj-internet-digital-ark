@@ -20,9 +20,16 @@
 # the FAQ group, its URLs are the most-posted URLs on Usenet, and the thirteen pools C-68
 # already read hold every one of them. `alt.religion` returned 276,256 posts and NONE in
 # window at all, as `alt.folklore.computers` did, so a group's bytes are not its evidence.
-# The order is therefore ASCENDING size over the 2 MB to 150 MB band, 4,841 zips and 109 GB:
-# small enough to be unpopular, big enough not to be an empty archive. Each band's realised
-# rate is measured before the next is fetched.
+# The order is therefore ASCENDING size, and the 2 MB floor turned out to be the wrong edge.
+# Measured after the 2 to 150 MB band was read whole (4,843 groups, 62 shards): it realises
+# **134 EE/GB**. The band BELOW it, 0.3 to 2 MB, 4,004 groups and 3.6 GB, realises
+# **1,303.0012 EE at hostname grain plus 528.5108 EE of registrable pairs, so 509 EE/GB**, almost
+# four times better, and only 6.4% of it is the `www.<held name>` alias seam against 73.7% for
+# Arquivo's crawl. The reason is saturation: 63% of a small group's posts fall inside 1996-2001
+# and its URLs are the ones nobody else reposted, while a popular group's URLs are already held
+# from the thirteen pools C-68 read. **So the smallest groups are the densest, not the emptiest**,
+# and the assumption that "under 2 MB is usually an archive with no in-window post" was wrong.
+# The band edges are parameters now, and each band's realised rate is measured before the next.
 #
 # **Which host this touches.** `archive.org/download/usenet-alt`, an item download. That
 # is NOT `web.archive.org/cdx`, which the two collectors meter, so this runs beside them
@@ -39,14 +46,21 @@
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 
-DEADLINE="${1:?usage: sweep_alt_hierarchy.sh <deadline_epoch> [batch_gb] [workers]}"
+DEADLINE="${1:?usage: sweep_alt_hierarchy.sh <deadline_epoch> [batch_gb] [workers] [min_mb] [max_mb]}"
 BATCH_GB="${2:-8}"
 WORKERS="${3:-6}"
+# **The band is a parameter because its edges were an assumption.** The 2 MB floor was reasoned,
+# not measured: "under 2 MB is usually an archive with no in-window post". The 2 to 150 MB band is
+# now read whole (4,843 groups) and realised 134 EE/GB, so the untested edges are worth a
+# measurement of their own. Changing either edge writes a new plan.
+MIN_MB="${4:-2}"
+MAX_MB="${5:-150}"
+PLAN_TAG="$(printf '%s_%s' "$MIN_MB" "$MAX_MB")"
 UA="ark-research/1.0 (+historical domain census; ivaylo.staykov@taktile.com)"
 BASE="https://archive.org/download/usenet-alt"
 WORK="data/raw/usenet_alt_work"
 ITEMS="data/raw/usenet_alt_items"
-PLAN="data/raw/usenet_alt_plan.txt"
+PLAN="data/raw/usenet_alt_plan_${PLAN_TAG}.txt"
 DONE="data/raw/usenet_alt_done.txt"
 
 mkdir -p "$WORK" "$ITEMS"
@@ -54,8 +68,12 @@ touch "$DONE"
 
 # The plan is written once and then only read, so a restart takes the same order.
 if [ ! -s "$PLAN" ]; then
-    uv run python - > "$PLAN" <<'PY'
+    uv run python - "$MIN_MB" "$MAX_MB" > "$PLAN" <<'PY'
 import json
+import sys
+
+low = int(float(sys.argv[1]) * 1_000_000)
+high = int(float(sys.argv[2]) * 1_000_000)
 c = json.load(open("data/raw/usenet_catalog.json"))
 JUNK = ("alt.binaries", "alt.sex", "alt.anonymous", "alt.warez", "alt.mag.", "alt.0.")
 # 2 MB to 150 MB: under 2 MB is usually an archive with no in-window post, over 150 MB is
@@ -65,7 +83,7 @@ rows = [
     for e in c["alt"]
     if e.get("name", "").endswith(".mbox.zip")
     and not e["name"].lower().startswith(JUNK)
-    and 2_000_000 <= int(e["size"]) < 150_000_000
+    and low <= int(e["size"]) < high
 ]
 rows.sort()
 for size, name in rows:
