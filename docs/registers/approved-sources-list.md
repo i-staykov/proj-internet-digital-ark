@@ -1720,8 +1720,9 @@ the banked Usenet classes already use.
   else on that host: the directory has been frozen since 1999, one file
 - potential: 4656
 
-Decision: pending
+- Ivo, 2026-09-08 (issue #113): rejected, under the 10,000 EE floor. 4,655.5 EE at 1999 and the terms were never held: APNIC's bulk AUP covers `/apnic/whois/`, not the `/apnic/arin/` path this came from. Reopen only if a larger reading of the same bytes clears 10,000 EE and the terms are settled.
 
+Decision: rejected
 ### usenet_body_pasted_hostnames / link_source
 
 - the fleet's probe (2026-09-02, `usenet_pasted_machine_blocks_hostname_grain`): FQDNs inside the
@@ -1756,8 +1757,9 @@ Decision: pending
   lane out
 - potential: 6200
 
-Decision: pending
+- Ivo, 2026-09-08 (issue #113): rejected, under the 10,000 EE floor. About 6,200 EE quotable for the one group, and a 60-name sample of the survivors still held roughly 13% fictitious config examples, which is the validity Ding checks first.
 
+Decision: rejected
 ### dartmouth_nber_arcs_hostnames / cdx_timestamp
 
 - the fleet's probe (2026-09-02, `dartmouth_captures_hostname_grain`): the 282 public per-item
@@ -1788,10 +1790,9 @@ Decision: pending
   collector, not a decision
 - potential: 88700
 
-Decision: pending
+- Ivo, 2026-09-08 (issue #113): "if the domains are valid, take them, if not close this". They are not valid for this window. The metadata item no longer serves, and the sibling ARC route the fleet did read was closed at 0 EE because its CDX rows carry 2013 capture timestamps, outside 1996-2001. Closed.
 
-
-
+Decision: rejected
 ### internic_zone_hostnames_1999 / artifact_listing
 
 - the same census over the two 1999 zones already on disk, `data/raw/internic_zones/edu.zone.19991120.gz`
@@ -1813,8 +1814,9 @@ Decision: pending
   files under the 1997 approval by design (`ingest_zone_hostnames` gates each zone year by name)
 - potential: 4678
 
-Decision: pending
+- Ivo, 2026-09-08 (issue #113): rejected, under the 10,000 EE floor. 4,678.2 EE measured on the live store, and it also rested on terms this project cannot show: `tomocha.net/robots.txt` disallows ClaudeBot and the 1999 `edu` zone carries Network Solutions' own access-agreement restriction. The 1997 files, which carry no such clause, stay approved.
 
+Decision: rejected
 ### usenet_header_fqdn_hostnames / link_source
 
 - the fleet's probe (2026-09-02, `usenet_header_fqdn_census`): server-written header fields in the
@@ -1863,9 +1865,9 @@ Decision: pending
   two conditions still fail; not re-priced on the live store; no new issue, issue 2 stands
 - potential: 6877
 
-Decision: pending
+- Ivo, 2026-09-08 (issue #113): "rejected on ground of being too large". The 50,000 to 150,000 EE band needs a whole-spool pass over 224 GB that is on neither machine any more, so the fetch alone outruns the round. The two rulings it also wanted, whether a server-written header host is split-free `link_source` and whether a client-written `Message-ID` host is evidence at all, are moot while the bytes are unreachable.
 
-
+Decision: rejected
 ### internic_zone / artifact_listing
 - measured: 8814.04 net-new post-split EE over 12,322 pairs, re-counted 2026-08-24 against the live store, `.arpa` excluded because the export drops it
 - what dates one item: the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day
