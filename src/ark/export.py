@@ -296,11 +296,10 @@ def export_all(
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
 
-    # The second output unit, accepted by the reviewer on 2026-09-01: hostnames ship as
-    # separate per-year files he can merge or discard, and the annual masters stay
-    # registrable exactly as his rule III.8 specifies. The two rules that decide which
-    # hostname ships are module-level, because `round_figures.py` reports what the second
-    # one removes and a second copy of it there would drift.
+    # The hostname half of the annual contribution ships beside the registrable half.
+    # Brief IV.8 requires exact qualifying hostnames, not a registrable-only roll-up;
+    # these are annual records, not auxiliary seeds. Shipping predicates are shared
+    # with `round_figures.py` so the reported and exported populations cannot drift.
     load_baseline_hostnames(conn)
     not_in_baseline = NOT_IN_BASELINE_HOSTNAME
     for year in YEARS:

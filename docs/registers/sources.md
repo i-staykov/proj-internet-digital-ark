@@ -834,7 +834,7 @@ them; where we hold our own verdict on the same family, both are cited.
 |---|---|
 | Internet Archive early-web language annotations | never tried here; CLOSED on his word |
 | New Riders WWW Yellow Pages CD-ROM | never tried here; the curated-directory floor (0.013-0.024 pairs/listed domain) predicted this class dead, and his reading agrees |
-| LAW / WebGraph WebBase-2001 | CLOSED here twice: novelty screen 2026-08-08, re-tested on the current screen 2026-09-01 at exactly 0 EE (all 603,245 registrable domains held AT 2001; SPEC names WebBase as an original-project source) |
+| LAW / WebGraph WebBase-2001 | CLOSED here twice: novelty screen 2026-08-08, re-tested on the current screen 2026-09-01 at exactly 0 EE (all 603,245 registrable domains held AT 2001; the [2026-07-21 brief](../brief/ding/README.md#original-brief), V, names WebBase as an original-project source) |
 | Dated Usenet archive copies | our Usenet channel is banked and its seams measured to saturation (bare-hostname arm projects 514-1,007 EE over all remaining archives); his "high-overlap" reading matches |
 | Sampled scanned magazines | `trade_press` banked small here; prose-density ceiling 0.042 pairs/item documented 2026-08-2x |
 | Specific raw ISC archive copies | `isc_survey` banked and closed for good here 2026-08-1x |

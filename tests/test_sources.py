@@ -390,7 +390,7 @@ def _journal(tmp_path: Path, records: list[dict], name: str = _JOURNAL_NAME) -> 
 
 
 def test_attested_years_is_the_creation_year_alone() -> None:
-    # brief III.6: the creation date attests its own year and no later one
+    # brief IV.6: the creation date attests its own year and no later one
     assert attested_years(1998) == (1998,)
     assert attested_years(1996) == (1996,)
     assert attested_years(2001) == (2001,)
@@ -633,7 +633,7 @@ def test_nypw_drops_out_of_window_and_non_200(tmp_path):
 
 def test_nypw_evidences_only_the_year_it_names(tmp_path):
     """A first-capture row says the URL was archived in that year and nothing
-    about any later one, which is III.7 applied to this source."""
+    about any later one, which is IV.7 applied to this source."""
     path = tmp_path / "nypw.txt"
     path.write_text(_nypw_line("19990601120000", "http://once.com/"))
     records = list(SOURCES["nypw_firstcdx"].parse(path, Counter()))

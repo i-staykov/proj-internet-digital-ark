@@ -693,7 +693,7 @@ name sits in the same year file.** Of those pairs, 1,106,190 are ones we sent hi
 which he merged in full and credited 7.562846%, and **114,875 came from nobody but him**. The
 shape is native to his corpus and separately validated in ours.
 
-His text says it twice. III.8: "No distinction is made between a registrable domain and a
+His text says it twice. IV.8: "No distinction is made between a registrable domain and a
 qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records
 when each specific hostname has qualifying annual evidence." XI: "Use hostname-level identity
 throughout... Retain the registrable domain only as secondary metadata. A valid base hostname and

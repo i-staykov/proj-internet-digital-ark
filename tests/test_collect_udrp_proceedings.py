@@ -93,7 +93,7 @@ def test_a_row_with_no_proceeding_number_is_refused() -> None:
 
 
 def test_hostnames_are_collapsed_to_registered_domains() -> None:
-    """III.8: the output unit is the registered domain, not the hostname."""
+    """This proceedings collector emits the disputed registrable, not subdomain evidence."""
     stats: Counter = Counter()
     page = _page(_row("2001-02-02", "-", "WIPO D2001-0002", "www.example.co.uk"))
     (record,) = list(udrp.records_in(page, stats))

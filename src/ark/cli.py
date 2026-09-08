@@ -433,7 +433,8 @@ def seed_pool(
 
     Deliberately not called `seed`: `ark seed` loads candidate DOMAINS into the
     verification pool, while this writes the HOSTNAME and URL download seeds
-    that III.8's registered-domain counting unit necessarily discards.
+    retained from registrable-grain parsers. These auxiliary seeds do not
+    replace the evidence-backed annual hostname records required by brief IV.8.
 
     Reads the same files through the same parser as `ark ingest`, keeping the raw
     value instead of the canonical one, so a seed cannot disagree with the
@@ -538,7 +539,7 @@ def download(
         ),
     ] = None,
 ) -> None:
-    """Fetch archived pages and extract the domains they link to (brief section VII).
+    """Fetch archived pages and extract links for the brief's source-expansion loop.
 
     Collection only: writes a per-run journal and never opens the store. Turn it
     into evidence with `ark ingest expansion_links <journal> --round N` for the
@@ -791,7 +792,7 @@ def cdx(
 
     One collapsed query covers all six years. Requests are paced by an adaptive
     governor that eases up while the service is healthy and backs off hard on
-    429/503/504, honouring Retry-After, per brief section VI. Resumable: any
+    429/503/504, honouring Retry-After, per brief section VII. Resumable: any
     domain already recorded in a journal in the same folder is skipped.
     """
     path = out or journal_path(CDX_JOURNAL_DIR, CDX_JOURNAL_PREFIX)

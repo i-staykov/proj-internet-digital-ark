@@ -23,7 +23,8 @@ Rules that bite here:
 - Report artifacts are regenerated and committed BEFORE packaging, which `just ship`
   does in that order.
 - The round lands in `submissions/<round>/` and is frozen: never edited afterwards, and
-  `docs/SPEC.md`, `docs/report.md` and `docs/ROUND.md` are never edited at all.
+  `docs/report.md` and `docs/ROUND.md` are never edited by hand.
+- `docs/brief/ding/project-brief.md` is the canonical brief; regenerate it from his originals.
 - `private/` never ships, and the tarball stays out of git.
 - The last word on the totals is his own calculator, which `just ship` runs with
   `--verify` (`just ship calculator` runs it alone).

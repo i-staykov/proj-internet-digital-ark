@@ -54,7 +54,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 2. Gate before every commit, never through a pipe:
    `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`,
    with `ark export` before `ark check`.
-3. Never edit `docs/SPEC.md`, `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
+3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
 4. `private/` never ships.
 5. **Big data must never reach git.**
 6. Two archive clients maximum. Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
