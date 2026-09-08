@@ -52,18 +52,32 @@ def main() -> int:
     args = parser.parse_args()
 
     subhosts: Counter[str] = Counter()
+    # **What HE already holds, per year, not just which hosts he knows.** A record is one
+    # (host, year), so his six files hold host-YEARS, and a parent whose host-years he has
+    # in full returns nothing net-new however many hosts it carries. Measured 2026-09-08:
+    # of 44,738 hostname-year rows a sweep banked, 36,811 were already in his files and only
+    # 7,927 reached the shipped additions, so ranking that subtracted our side alone was
+    # optimising the wrong difference.
+    reviewer_years: Counter[str] = Counter()
     seen: set[str] = set()
+    parent_of: dict[str, str] = {}
     for year_file in sorted(CURRENT_BASELINE_DIR.glob("[12]*.txt")):
         with year_file.open(encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 host = line.strip().lower()
                 # a hostname record has at least three labels; two-label lines are
                 # their own registrable almost always and the PSL call is the cost
-                if host.count(".") < 2 or host in seen:
+                if host.count(".") < 2:
                     continue
-                seen.add(host)
-                parent = to_registrable(host)
-                if parent and parent != host:
+                parent = parent_of.get(host)
+                if parent is None:
+                    parent = to_registrable(host) or ""
+                    parent_of[host] = parent
+                if not parent or parent == host:
+                    continue
+                reviewer_years[parent] += 1
+                if host not in seen:
+                    seen.add(host)
                     subhosts[parent] += 1
 
     # **Divide the hosts we lack by what they cost to reach** (measured 2026-09-04).
@@ -151,7 +165,8 @@ def main() -> int:
         # parent lacks cannot carry a record for any host beneath it. Falls back to the
         # window when the store was not read, so the no-store path is unchanged.
         reachable = min(parent_years.get(parent, YEARS), YEARS) if args.net_new else YEARS
-        return max(hosts_known * reachable - held_years.get(parent, 0), 0)
+        taken = held_years.get(parent, 0) + reviewer_years.get(parent, 0)
+        return max(hosts_known * reachable - taken, 0)
 
     if args.net_new:
         scored = (
