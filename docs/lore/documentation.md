@@ -4,9 +4,10 @@
 says what came out; this file holds the reasoning that neither of those should carry. It is
 deliberately meta-level: anything a docstring or a comment already says belongs there, not here.
 
-Related documents: [SPEC.md](SPEC.md) is the reviewer's brief and [brief_amendments.md](brief_amendments.md)
-is what he has changed since; [sources.md](sources.md) documents each source individually,
-and [discovery.md](discovery.md) is the method for pricing a new one.
+Related documents: [project-brief.md](../brief/ding/project-brief.md) is the canonical brief and
+[brief_amendments.md](../brief/brief_amendments.md) records dated changes and email clarifications;
+[sources.md](../registers/sources.md) documents each source individually, and
+[discovery.md](discovery.md) is the method for pricing a new one.
 
 ---
 
@@ -256,7 +257,7 @@ split, querying some domains twice and skipping others entirely.
 The real constraint is not machines but the archive. It rate-limits per source
 address, and it has refused this project outright three times. A second address is
 a second budget, which is why this helps at all, and also why per-node concurrency
-should go *down* when a node is added rather than staying flat. Section VI of the
+should go *down* when a node is added rather than staying flat. Section VII of the
 brief requires treating a rate limit as a signal to adapt; adding capacity to a
 service that is already throttling us is only defensible if total load stays near
 what it has shown it tolerates.

@@ -160,11 +160,9 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     out["ee_baseline"] = REVIEWER_BASELINE_EE
     out["ee_mean_weight"] = netnew_ee / out["netnew_pairs"] if out["netnew_pairs"] else Decimal(0)
 
-    # Baseline pairs per year, by THIS counting unit, so the growth percentages in
-    # the completeness table are derived rather than copied. merged260730 ships
-    # 10,263,632 raw lines; collapsed to registered domains under SPEC III.8 that
-    # is what this measures, and the difference is a counting unit rather than a
-    # discrepancy.
+    # Registrable-grain baseline counts for this table, derived from domain_year.
+    # This roll-up is not the full hostname benchmark required by brief IV.8;
+    # round_figures.py accounts for the hostname contribution separately.
     out["baseline_by_year"] = {
         int(y): int(n)
         for y, n in conn.execute("""

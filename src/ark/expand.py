@@ -1,7 +1,7 @@
 """Expand one source into more domains by reading the pages it points at.
 
-Brief section VII asks for a repeated cycle rather than a single pass: take a
-source, extract hosts, validate them against a time-evidence service, download
+The brief's "How to Expand One Source into More Domains" section asks for a
+repeated cycle: take a source, extract hosts, validate them against dated evidence, download
 the pages, extract the links those pages carry, and feed the new hosts back into
 the next round. This module is the download-and-extract half; the validation half
 is the CDX engine, and the feed-back is the round counter on a domain row.

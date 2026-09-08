@@ -7,14 +7,15 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/Task_Package_File_Guide.txt` |
+| source file | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/Task_Package_File_Guide.txt` |
 | sha256 | `3f83a1cd44e99add67170f9fa0f16814e0b0d34d519a9be88cd35cce267a03d8` |
-| delivered in | `feedback/feedback-phase-8/Domain_Data_Collection_Task_0904_Update/Domain_Data_Collection_Task/`, from https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17) |
-| transcribed | 2026-08-18 by `scripts/round/extract_ding_docs.py` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0907_Update.zip (2026-09-07) |
+| transcribed | 2026-09-08 by `scripts/round/extract_ding_docs.py` |
 
-Verbatim below. Nothing is summarised, reordered or corrected. To check the
-transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
-diff against everything under the rule.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks
+and curly quotation marks are normalised. Wording, order and section numbering
+are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
+provenance values above to check it.
 
 ---
 

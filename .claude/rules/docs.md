@@ -5,8 +5,8 @@ paths:
 
 # Editing anything under docs/
 
-- Never edit: `docs/SPEC.md` (frozen brief), `docs/report.md`, `docs/ROUND.md`, and anything under
-  `submissions/`, which is frozen per round.
+- Ding's canonical brief is `docs/brief/ding/project-brief.md`; regenerate it, never hand-edit it.
+- Never edit `docs/report.md`, `docs/ROUND.md`, or frozen `submissions/`.
 - A page marked *generated* in `docs/index.md` is written by the script named there and never by
   hand. Check that line before editing a page.
 - A new page gets one line in `docs/index.md`: what it is, and when to read it.

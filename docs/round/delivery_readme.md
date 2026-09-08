@@ -24,10 +24,10 @@ Two things to know before opening anything:
 | Path | Contents |
 |---|---|
 | `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
-| `masters/<year>.txt` | **Final annual lists**: the reference baseline normalized to registered domains, plus the additions. Not a line-for-line sum of `baseline/` and `additions/`, because normalization collapses subdomains; `audit/year_growth.csv` reconciles it exactly |
+| `masters/<year>.txt` | **Secondary registrable roll-up**: the reference baseline normalized to registered domains, plus registrable additions. `audit/year_growth.csv` reconciles this roll-up. It is not the full hostname result: merge both `additions/` and `hostnames/` into the reference annual files without collapsing hostnames (project brief IV.8) |
 | `additions/<year>.txt` | **Additions only**, against the reference baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
-| `hostnames/<year>_hostnames.txt` | **Hostname additions**, the second output unit: valid hostnames beneath held registrables, disjoint from `additions/` |
+| `hostnames/<year>_hostnames.txt` | **Annual hostname additions**, not auxiliary seeds: qualifying exact hostnames beneath held registrables, disjoint from `additions/` |
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
 | `isc_survey_hostnames/<year>-ISC.txt` | **A question, not a claim.** ISC Internet Domain Survey hosts, in NO figure in the report or the covering mail. Merge the folder if a dated reverse-DNS listing counts; delete it if not, and nothing else changes |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |

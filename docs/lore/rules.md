@@ -49,7 +49,7 @@
 - If two hunts in a row return nothing, change the method, not the effort: widen the lens, not the list, and ask what *kind* of artifact has never been looked for, not which host has not been tried.
 - Rewrite the wake-up wording when a lens stalls, and re-price parked sources, because an unbanked source decays as the store grows.
 - Never re-test a closed family, and never grind an old source because it is familiar.
-- Breadth is on Ding's own list ([ding/project-brief.md](ding/project-brief.md)), and he expects each shape tried and reported: dated directories and navigation sites, national web-archive indexes and link graphs, academic repositories and DOI datasets (UMN DRUM is his worked example), paper supplements and replication packages, registry datasets, government open data, mailing-list archives, preserved software and documentation collections, outbound-link expansion from pages already held, and automated dataset discovery over repository APIs.
+- Breadth is on Ding's own list ([project-brief.md](../brief/ding/project-brief.md)), and he expects each shape tried and reported: dated directories and navigation sites, national web-archive indexes and link graphs, academic repositories and DOI datasets (UMN DRUM is his worked example), paper supplements and replication packages, registry datasets, government open data, mailing-list archives, preserved software and documentation collections, outbound-link expansion from pages already held, and automated dataset discovery over repository APIs.
 
 ## Registers
 
@@ -65,7 +65,7 @@
 
 - The report is drafted as findings land, never reconstructed later: a five-figure source banks together with its paragraph in `docs/report.template.md`.
 - `README.md` stays a one-screen front page; the runbook is [runbook.md](runbook.md).
-- Never edit `docs/SPEC.md`, `docs/report.md` or frozen `submissions/`.
+- Ding's canonical brief is `docs/brief/ding/project-brief.md`; regenerate it, never hand-edit it. Never edit `docs/report.md` or frozen `submissions/`.
 - `ark export` before `ark check`.
 - `private/` never ships, and big data must never reach git.
 - Verbosity is the opposite of quality: keep instructions, wake-ups and agent prompts short, direct, simple.

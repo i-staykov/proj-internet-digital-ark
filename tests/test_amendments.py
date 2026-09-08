@@ -1,8 +1,8 @@
 """A pending amendment must be on its way somewhere.
 
-`docs/brief/brief_amendments.md` is the standing statement of what the reviewer currently asks
-for, and intake writes a row into it for every changed paragraph of his brief before a
-human has classified it. Such a row carries `pending` in the columns a human fills.
+`docs/brief/ding/project-brief.md` is the canonical packaged brief. Dated changes and email
+clarifications live in `docs/brief/brief_amendments.md`; an unclassified change carries
+`pending` in the columns a human fills.
 
 The failure worth guarding is the quiet one: the row is written, nobody classifies it, and
 the change it records is never made. So a pending row must do one of two things, both
