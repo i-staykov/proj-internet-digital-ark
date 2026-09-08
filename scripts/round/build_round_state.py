@@ -63,6 +63,9 @@ from ark.baseline import (  # noqa: E402
 from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from round_figures import hostname_increment  # noqa: E402
+
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
 DECISIONS = ROOT / "docs/lore/key-decisions.md"
@@ -161,20 +164,37 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(head: dict, engines: str, approvals: int, decisions: int) -> dict:
+def brief(
+    head: dict,
+    engines: str,
+    approvals: int,
+    decisions: int,
+    hostnames: tuple[int, Decimal] | None = None,
+) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
     injected into every session start, and thirty lines is the budget."""
     stats = head["_stats"]
-    ee = stats["ee_netnew"]
+    # **Both units, or the brief understates the round by most of it.** `ee_netnew` is the
+    # registrable half alone. Hostnames beneath a held registrable have been annual records
+    # at full weight since 2026-09-01 and the shipped report counts them (`fill_report`
+    # adds them for exactly this reason), so a gate distance taken from registrables alone
+    # is wrong by the hostname half: measured 2026-09-08, 54,599 EE against a real
+    # 991,394, which read as 1.63M short of the gate when the true distance was 691k. That
+    # figure is injected into every session start, so it was the first thing every session
+    # believed.
+    host_pairs, host_ee = hostnames if hostnames is not None else hostname_increment()
+    ee = stats["ee_netnew"] + host_ee
     gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
     return {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
         "round": CURRENT_ROUND_LABEL,
-        "netnew_pairs": head["pairs"],
+        "netnew_pairs": head["pairs"] + host_pairs,
         "netnew_domains": head["domains"],
         "netnew_ee": round(float(ee), 4),
-        "percent": round(float(stats["ee_netnew_growth_pct"]), 4),
+        "registrable_ee": round(float(stats["ee_netnew"]), 4),
+        "hostname_ee": round(float(host_ee), 4),
+        "percent": round(float(ee / REVIEWER_BASELINE_EE * 100), 4),
         "gate_pct": float(GATE_PCT),
         "distance_to_gate_ee": round(float(gate_ee - ee), 4),
         "collectors": collector_lines(engines),
