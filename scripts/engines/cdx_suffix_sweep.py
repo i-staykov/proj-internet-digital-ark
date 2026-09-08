@@ -45,7 +45,6 @@ import argparse
 import gzip
 import json
 import os
-import sys
 import time
 import urllib.error
 import urllib.parse
@@ -100,22 +99,6 @@ def main() -> None:
             pass
     print(f"{args.suffix}: starting at page {page:,}, journal {journal.name}")
 
-    # An archive outage of a few minutes once cost thirteen parents in one walk,
-    # each refused on its first probe; a probe that fails is retried before the
-    # parent is given up on.
-    # An outage is waited out, not given up on: a bounded retry drained a queue into
-    # `platform_retry.txt` one parent per six minutes while the archive was down.
-    attempt = 0
-    while True:
-        status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
-        if status == "200":
-            break
-        attempt += 1
-        if time.time() > args.deadline:
-            sys.exit(f"control failed ({status}) at the deadline; refusing to sweep")
-        print(f"  control probe {attempt}: {status}, waiting", flush=True)
-        time.sleep(min(60 * attempt, 300))
-
     base = {
         "url": args.suffix,
         "matchType": "domain",
@@ -132,7 +115,24 @@ def main() -> None:
     num_pages = None
     # `fl` turns the count into a row of dashes, so it is left out of this one query
     count_q = {k: v for k, v in base.items() if k != "fl"}
-    status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
+    # **This query is also the availability check.** There used to be a separate probe on a
+    # fixed small URL, retried at a minute and then longer, and it gated every parent behind
+    # a request the sweep did not otherwise need. Measured 2026-09-08 at 03:35, that probe's
+    # exact shape returned 503 while this parent's own `matchType=domain` count returned 200
+    # in 0.45 s, so the check was refusing work the archive was willing to do. Asking the
+    # question the sweep actually needs is one request fewer and cannot disagree with itself.
+    #
+    # A 503 here is transient rather than a throttle signal, on that same evidence, so the
+    # first retries are quick before settling into the long wait an outage deserves.
+    attempt = 0
+    while True:
+        status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
+        if status == "200" or time.time() > args.deadline:
+            break
+        attempt += 1
+        wait = min(5 * 3 ** (attempt - 1), 300)
+        print(f"  count probe {attempt}: {status}, waiting {wait}s", flush=True)
+        time.sleep(wait)
     if status == "200" and rows and rows[0].strip().isdigit():
         num_pages = int(rows[0])
         print(f"  {num_pages:,} pages of {args.page_size:,} blocks", flush=True)
