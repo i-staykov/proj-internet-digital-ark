@@ -126,6 +126,12 @@ queued in `audit/source_saturation_ledger.csv`. Measured and closed this round: 
 remainder, on saturation. Prose corpora, academic repositories, CD-ROM media, FTP mirrors and trade
 directories were closed earlier, with figures in `experience-summary.md`.
 
+**One eligibility question we cannot settle ourselves.** An FTP index row carries the crawler's own
+completion stamp for that exact host in that year, so the service answered and its files were
+counted. That is stronger than a DNS observation, which your 0906 update makes candidate-only, but
+it is not a webpage. We hold such rows out of the annual files until you rule, and they are in no
+figure in this report.
+
 ## 7. Merge, overlap and reconciliation (D3)
 
 [MERGE_RECONCILIATION]
