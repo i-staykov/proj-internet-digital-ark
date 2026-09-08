@@ -1,4 +1,4 @@
-"""Kill a source proposal before it costs a request.
+"""Price a source proposal against what is already known, before it costs a request.
 
 `docs/lore/discovery.md` says the dead-lead register is an input rather than an
 afterthought, and that an automated discovery agent will walk straight back into
@@ -8,7 +8,10 @@ likely to be skipped, so this does it mechanically.
 
 Two gates, in the order that costs least:
 
-**1. Does it collide with something already closed?** The register is parsed out of
+**1. Does it collide with something already closed?** A collision is REPORTED and priced,
+never refused: since C-77 (Ivo, 2026-09-08) the closed register is context for the proposer,
+because a verdict holds only against the screen, store and grain of its own day. The register
+is parsed out of
 `docs/registers/sources.md` and `docs/registers/sources-closed.md` at run time and never
 copied, because
 a hand-kept second copy of those verdicts is how they come to disagree: a snapshot
@@ -481,8 +484,12 @@ def main() -> None:
             print("  A dead host in 2026-08 may be a live host today, and one request settles it.")
         else:
             print("\n  All of the above were closed on MEASUREMENT, so waiting does not help.")
-        print("\n  Read the verdict before proceeding. If it is genuinely a different")
-        print("  population, say how in one sentence and record that beside the proposal.")
+            print("  A DIFFERENT partition, artifact or grain does: C-77 makes a collision")
+            print("  priced context rather than a veto, and the two largest reopens this")
+            print("  project has had were the other end of an already-measured partition.")
+        print("\n  Read the verdict before proceeding. This does NOT veto the proposal")
+        print("  (C-77, Ivo 2026-09-08): if it is a different population, partition or")
+        print("  grain, say how in one sentence and record that beside the proposal.")
     else:
         print("  no collision. That is not a green light, it is the absence of a red one.")
 

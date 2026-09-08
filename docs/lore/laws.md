@@ -464,3 +464,43 @@ So fable is cheap on the budget that binds across a week and expensive on the on
 inside a night. Pick it for a lane whose value is worth 22 tokens of window per token of work,
 and not otherwise. Two points, two different lanes, and the window may not be linear, so treat
 the factor as an order of magnitude rather than a constant.
+
+## A peak is not a rate, and a rate is not a priority
+
+Ivo's ruling of 2026-09-08 (C-77), and the arithmetic behind it is already on this page in
+three places, which is why it is worth stating as one law.
+
+| the same lane, three measurements | rate |
+|---|--:|
+| domain-wide sweep, 75 minutes, 2026-09-04 | 193,000 EE per client-hour |
+| same query, code and two clients, 2026-09-06 | 210 EE per hour between them |
+| `probe_thin_parents.py`, 2026-09-06 | 642 EE per client-hour |
+
+The 193,000 figure was quoted for four days as if it were the collector's rate, and it decided
+that a research wave should stop both collectors and that waves should be spaced four hours
+apart. It was a peak on the dense head of a queue that has since been walked. **A single
+75-minute observation of the best possible input is a ceiling, so plan with the decayed figure
+and treat the peak as evidence about the QUEUE.**
+
+The priority that follows is the second half of the ruling. A collector executes a known query
+and its yield falls as its queue is consumed; a researcher can find a corpus nobody has asked
+for, and other contributors keep finding them, so its expected value does not decay with our
+own queue. **The token window therefore goes to the research lanes, the collectors run steadily
+in parallel, and the operator checks in on them sporadically rather than pacing waves around
+them.**
+
+## Two archive clients maximum is about the CDX channel, not the hostname
+
+Also Ivo, 2026-09-08 (C-77), settling `ark-fleet` issue #111. Every research lane used to
+`touch ~/ark/state/pause` for its whole duration, on the reading that a researcher fetching
+anything from archive.org would be a third archive client. At a chain depth of six that was
+roughly twelve unbroken hours with no collection, and the two lanes were mutually exclusive
+for no measured reason.
+
+The limit protects one metered endpoint. `web.archive.org/cdx` is what the two collectors
+meter against, and it stays theirs: no agent may query it, and the prompts say so. The rest of
+archive.org is a different service with its own capacity, and a lane reading an item, the
+metadata API or full-text search is not a third CDX client. **So no lane pauses the collectors,
+and both halves of the fleet run at once.** The pause flag still exists for a human and for
+`probe_thin_parents.py`, and `platform_sweep_loop.sh` still treats it as a heartbeat that goes
+stale, so nothing can idle a collector indefinitely.

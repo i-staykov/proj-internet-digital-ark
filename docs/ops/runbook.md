@@ -9,12 +9,16 @@ give.** `README.md` is the short front page; this file is the long form. It was 
 ```
 GitHub Actions fleet (private repo, self-hosted runner on a small VPS)
    generator, on a schedule ........ proposes hypotheses from the register and the store
-   researcher waves, four times daily  screen and price them; findings land as artifacts
-   re-opener, daily ................ re-reads closed verdicts when a measurement screen retires
+   researcher waves, as often as the window allows  screen and price them; findings land
+                                     as artifacts, and no wave stops a collector (C-77)
+   re-opener, every three hours .... re-reads closed verdicts when a measurement screen retires
    improver ........................ tunes prompts and model choice from per-run telemetry
    weekly digest ................... one page of yield, cost and recommendations
 VPS (always on)
-   two archive collectors under systemd, querying capture indexes at zero token cost
+   two archive collectors under systemd, querying capture indexes at zero token cost.
+   They hold `web.archive.org/cdx` and run BESIDE the agent lanes rather than instead of
+   them: the two-clients limit binds that one channel, so an agent may use every other
+   archive.org service and no lane touches CDX (C-77, `ark-fleet` #111)
 Laptop (episodic, human-supervised)
    `just bank` ..................... drains fleet findings, admits, ingests into the
                                      evidence store, gates, pushes; packaging and reports
@@ -729,10 +733,13 @@ sees a ceiling, which its brief makes it say.
 
 `probe_thin_parents.py` asks one `matchType=domain` question per registrable we hold with no
 hostname records, and prints EE per client-hour. It writes nothing: it exists to price the lane,
-not to run it. Measured 2026-09-06 at 642 EE per client-hour, against 193,000 for the domain-wide
-sweep, and the figures are in `docs/lore/laws.md`.
+not to run it. Measured 2026-09-06 at 642 EE per client-hour, against the 193,000 the domain-wide
+sweep peaked at on the dense head of its own queue and the 210 EE/hour it paid once that head was
+walked. All three figures, and why the peak is not a planning rate, are in `docs/lore/laws.md`.
 
     uv run python scripts/engines/probe_thin_parents.py --domains <file> [--delay 2.0]
 
 One archive client, so run it only when a slot is free. The sweeps idle on
-`touch ~/ark/state/pause` and resume when it is removed.
+`touch ~/ark/state/pause` and resume when it is removed. **That flag is now for a human and
+for this probe only**: since C-77 no fleet lane sets it, and `platform_sweep_loop.sh` treats it
+as a heartbeat that expires, so a forgotten flag cannot idle a collector for a night.
