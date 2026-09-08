@@ -4984,3 +4984,24 @@ collection campaign, and run it at BOTH grains, because the registrable half of 
   It clears the 10,000 EE floor as a source and it does NOT move a 439,567 EE gate. Kept
   running because it costs bandwidth rather than attention. Best years 2000 and 1999; `.com`
   957.6 EE, `.net` 313.0, `.uk` 209.0
+
+### maillist_zope_dev_pipermail
+
+- link: https://mail.zope.dev/pipermail/, 98 lists, no robots.txt at all (404, so nothing is
+  disallowed and no crawl-delay is declared). Harvested with
+  `collect_mailing_lists.py --harvest --host zope`, which is the same tested collector the master
+  `maillist_body_url_hostnames` class uses for `mail.python.org` and `mail.gnome.org`
+- what dates one item: the message's own `Date:` header, preserved verbatim by Mailman
+- why it was tried: the fleet logged it as a **FIND at 1036 EE on 2026-09-08** from seven whole
+  month files. The floor was 10,000 EE that morning so it was left unbanked; when Ivo lowered the
+  floor to 5,000 on 2026-09-08 (C-82) it became worth reading whole
+- result 2026-09-09, the WHOLE host read: **418 in-window month files, 241,472 in-window messages
+  of 243,506, 115,619,877 B of text, harvested in 28 seconds.** At hostname grain: 4,616 distinct
+  host-years, 1,019 already in the store, 145 in his baseline only, **366 net-new host-years worth
+  213.2754 EE**, and unusually clean, only 2.6% of it the `www.<held name>` alias seam. Beside it
+  147 net-new registrable pairs worth **111.9960 EE**. **So the whole host is about 325 EE, not the
+  1,036 the seven-file probe suggested, and the probe was the misleading part rather than the
+  floor.** Under the 5,000 EE new-source floor, so NOT banked; both journals are on disk and one
+  command from being ingested if that floor ever moves again
+- the lesson, which is the third instance of it in two days: a seven-file probe of a 418-file
+  artifact overstated it by 3.2x. `docs/lore/traps.md` carries the general form
