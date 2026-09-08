@@ -145,6 +145,14 @@ uv run ark ingest arquivo_roteiro data/raw/arquivo/Roteiro.cdxj
 `cdx_timestamp`, a capture with an in-year timestamp and HTTP 200. Portuguese-web weighted; skipping
 both costs 17,696 pairs over 7,001 domains.
 
+**Re-examined at HOSTNAME grain on 2026-09-08 and still skipped, with the arithmetic.** The grain is
+the one thing that has reopened leads this round, and this is the largest capture index we have never
+read, so it deserved the question. Against it: the registrable-grain measurement is 17,696 in-window
+pairs, our own sweeps run about 29 hostname records per registrable record, and the weight is
+Portuguese, so the whole 47 GB projects to roughly 18,000 EE, which is 380 EE per GB against the 134
+the `alt` lane realised and far below what an hour of the two collectors pays. It would also need the
+47 GB fetched before a single line could be priced. Not closed on principle, closed on rate.
+
 ---
 
 ## `odp`: Open Directory Project (DMOZ) RDF content dumps
