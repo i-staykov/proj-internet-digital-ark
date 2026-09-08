@@ -62,6 +62,11 @@ EARLY_WEB_SOURCE = "early_web_cdx_hostnames"
 EARLY_WEB_METHOD = "early_web_hostgrain"
 USFEDGOV_SOURCE = "usfedgov_extract_hostnames"
 USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
+# Arquivo.pt's donated IA index, read at hostname grain on Ivo's ruling (C-81). Its OWN source
+# row, not the IA sweep's: it is a different archive with its own terms, which require the
+# citation "[fonte: Arquivo.pt, dd/mm/aaaa]", so a row of it must not read as an IA capture.
+ARQUIVO_SOURCE = "arquivo_ia_hostnames"
+ARQUIVO_METHOD = "arquivo_ia_cdxj_hostgrain"
 
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
@@ -80,6 +85,8 @@ def source_for(path: Path) -> tuple[str, str]:
         return EARLY_WEB_SOURCE, EARLY_WEB_METHOD
     if path.name.startswith("usfedgov_"):
         return USFEDGOV_SOURCE, USFEDGOV_METHOD
+    if path.name.startswith("arquivo_"):
+        return ARQUIVO_SOURCE, ARQUIVO_METHOD
     return SOURCE_NAME, SWEEP_METHOD
 
 
@@ -91,6 +98,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         SOURCE_NAME,
         EARLY_WEB_SOURCE,
         USFEDGOV_SOURCE,
+        ARQUIVO_SOURCE,
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
