@@ -700,6 +700,22 @@ Two files under `docs/` are **generated, not written**. `docs/ROUND.md` comes fr
 refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
 next refresh, and packaging refuses outright if the two disagree.
 
+## Approving a source from a phone
+
+A source the loop cannot decide sits at `Decision: pending` in
+`docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `sync_approvals.py`,
+which runs inside `just bank`, turns each one at or above the 10,000 EE bar into two things: a
+pull request on `live` that flips only that source's `Decision:` line, and an issue in the
+private fleet repository labelled `approval` that links to it and carries the measurement.
+
+**Merging the pull request is the approval.** Nothing is ingested by merging; the next bank does
+that. Closing it unmerged leaves the source pending. When a decision lands the next sync closes
+the issue, so the label is always what is actually waiting.
+
+Two things are deliberately not filed: anything under the bar, because four such issues sat
+unread for a week, and anything whose blocking condition is a missing stamp or a missing ingest,
+because that is work rather than a decision.
+
 ## What the fleet prices against
 
 The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline
