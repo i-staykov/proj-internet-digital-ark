@@ -66,11 +66,10 @@ one were later dated**, which is a ceiling on future work and not a contribution
    had been walked. Re-ranking the queue against the store and restarting the two clients on its
    new head returned 1,009,324 capture rows in one window, of which 225,088 were net-new records
    worth 141,208 equivalent-English, or 565 equivalent-English per megabyte of journal. **That
-   figure is not a rate either:** the next two and a half hours of the same two clients on the
-   same queue, now past the head, converted 245 megabytes into about 13,000 equivalent-English,
-   which is 53 per megabyte, a factor of ten lower. A conversion measured on a rich sample
-   overstates the next hour by about as much as the peak rate does, so an hour is planned with a
-   figure measured after the head, never on it. **The caution that goes with it:** correlating a parent's rank
+   figure is not a rate either.** Measured over the whole ten hours from the re-rank, the same two
+   clients wrote 1,067 megabytes of journal that banked 247,042 equivalent-English, which is **231
+   per megabyte, and the head overstates the sustained figure by 2.4x**. So the head is a fact
+   about the ordering, and an hour is planned with the sustained figure. **The caution that goes with it:** correlating a parent's rank
    against what it actually banked gives Spearman +0.746 over 198 parents, which reads as a ranker
    that is exactly inverted, because the head of any ranking is swept FIRST and re-measuring it
    measures sweep history. Restricted to the 54 parents swept fresh from a new ranking the same
@@ -81,6 +80,22 @@ one were later dated**, which is a ceiling on future work and not a contribution
    were one link deeper, and 31.49% to 64.31% of that index's hosts were missing at their own year.
    A verdict resting on "we looked and found nothing" is now re-probed by reading the site's own
    link structure out of an archived page rather than by guessing paths.
+
+4. **Order a bulk corpus by obscurity, not by size, and measure the band edges rather than
+   reasoning about them.** Reading the Usenet `alt` hierarchy at hostname grain, 14,482 of its
+   15,288 groups, the yield per gigabyte is not flat and not monotonic in size. The two largest
+   discussion groups paid **0.0000 equivalent-English**: `alt.answers` is the FAQ group, its URLs
+   are the most-posted URLs on Usenet, and every one of its 17,385 host-years was already held.
+   The 2 to 150 megabyte band paid about **134 per gigabyte**. The 0.3 to 2 megabyte band paid
+   **509 per gigabyte**, almost four times better, with 63% of its posts inside 1996-2001 and only
+   6.4% of its net-new hosts the `www.` alias seam. Below 0.3 megabytes it falls back to 145. The
+   mechanism is saturation, not size: an obscure group's URLs are the ones nobody reposted. Our
+   first plan excluded everything under 2 megabytes on the reasoning that a small archive probably
+   holds no in-window post, and that reasoning was wrong about the best band in the corpus.
+   **The companion caution:** a seven-file probe of a 418-file mailing-list archive said 1,036
+   equivalent-English and the whole archive paid 325, and a three-group probe of `alt` said 722 per
+   gigabyte against 134 realised. Probes of skewed corpora overstate by 3x to 5x, so a band is
+   priced by reading it, not by sampling it.
 
 ## 4. CDX acquisition: the tools, the strategy, the errors and what it added
 
