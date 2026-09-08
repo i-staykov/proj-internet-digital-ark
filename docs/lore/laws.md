@@ -444,3 +444,23 @@ host-years)`, and both corrections are in `rank_platform_parents.py`. The practi
 asking are the ones held across the window, not the ones with the most hosts.** It also
 explains why the hostname half of the round sits almost entirely at 2001, where parent
 coverage is deepest: 1,449,584 records at 2001 against 110 at 1996.
+
+## Fable costs about 22x sonnet against the five-hour session window
+
+Two legs of comparable token volume, from the fleet's own telemetry:
+
+| leg | model | tokens in+out | five-hour window after |
+|---|---|--:|--:|
+| generator, 2026-09-08 00:19 | fable-5-1 | 5,344,956 | 100% |
+| re-opener, 2026-09-08 05:27 | sonnet-5 | 4,698,307 | 4% |
+
+That is 18.7 points of window per million tokens against 0.85, a factor of about 22. The
+generator's single leg therefore consumed a whole fresh window and every lane after it was
+refused by the budget governor, including the researcher, which is the lane that finds sources.
+The telemetry rows either side of it are researcher legs at `5h=100`, `tokens=0`, `dur=5s`.
+
+**Fable's own weekly pool is separate and generous; the five-hour session window is neither.**
+So fable is cheap on the budget that binds across a week and expensive on the one that binds
+inside a night. Pick it for a lane whose value is worth 22 tokens of window per token of work,
+and not otherwise. Two points, two different lanes, and the window may not be linear, so treat
+the factor as an order of magnitude rather than a constant.
