@@ -269,8 +269,33 @@ bank fleet="~/Documents/GitHub/ark-fleet":
             echo "  Check the clone out on main and re-run the bank."
             return 0
         fi
-        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $1" \
-            && git push -q origin main) || true
+        # **A rejected push used to be swallowed, and that is how the queue lied.** Measured
+        # 2026-09-08 at 22:53Z: the 21:37Z bank committed its result lines, `main` had moved under
+        # it, the push was rejected as non-fast-forward, `|| true` hid it, and `origin/main` still
+        # reported 24 open hypotheses when 6 were left. The generator's gate read the remote
+        # correctly and refused to refill, so the lane that finds sources sat idle on a queue that
+        # only looked full. Now: fetch, replay our result lines onto the remote's file, retry, and
+        # SHOUT if it never lands.
+        ROOT_FOR_MERGE="$(pwd)"
+        (
+            cd "$FLEET" || exit 1
+            git add hypotheses.md
+            git commit -q -m "Result lines $1" || true
+            for attempt in 1 2 3; do
+                git push -q origin main 2>/dev/null && exit 0
+                echo "fleet push rejected on attempt $attempt, replaying onto the remote"
+                cp hypotheses.md "$TMPDIR/ark_result_lines.md"
+                git fetch -q origin main && git reset -q --hard origin/main
+                (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
+                    "$TMPDIR/ark_result_lines.md" "$FLEET/hypotheses.md")
+                git add hypotheses.md
+                git commit -q -m "Result lines $1" || true
+                sleep $(( attempt * 3 ))
+            done
+            echo "RESULT LINES NOT PUSHED after three attempts. The fleet queue will over-report"
+            echo "  open hypotheses until they land, so the generator will refuse to refill."
+            exit 1
+        ) || true
     }
     # Steps 3 and 4 need findings; 5 to 8 run on every bank, because the collectors
     # fill journals and the round can cross the gate with no fleet finding at all.
