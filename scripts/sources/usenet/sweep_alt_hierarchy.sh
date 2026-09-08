@@ -73,6 +73,12 @@ for size, name in rows:
 PY
 fi
 
+# **A run id, because the batch counter alone recycles shard names across runs.** Measured
+# 2026-09-08: the lane was stopped and restarted, its counter began at 1 again, and its first
+# batch's shards overwrote the first run's `batch1_shard_*`. Nothing banked was lost, because
+# `ark ingest-usenet-hostnames` refuses a ledgered name whose sha256 differs rather than skipping
+# it, but the next ingest would have failed. The run id makes a shard name unique for good.
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 batch=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     batch=$(( batch + 1 ))
@@ -102,7 +108,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     if [ -d "$ITEMS.batch$batch" ]; then
         for shard in "$ITEMS.batch$batch"/shard_*.jsonl.gz; do
             [ -e "$shard" ] || continue
-            mv "$shard" "$ITEMS/batch${batch}_$(basename "$shard")"
+            mv "$shard" "$ITEMS/${RUN_ID}_batch${batch}_$(basename "$shard")"
         done
         rm -rf "$ITEMS.batch$batch"
     fi
