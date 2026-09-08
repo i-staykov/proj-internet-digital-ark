@@ -178,16 +178,15 @@ refill() {
 
 line=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
-    # **A pause flag with no expiry idles the lane that actually earns.** A researcher
-    # wave sets it and its resume job clears it, so a wave that hangs leaves both archive
-    # clients stopped indefinitely. On 2026-09-07 one leg ran 2h14m against a 50-minute
-    # cap and the collectors sat out nearly three hours of a night we needed.
+    # **Since C-77 no fleet lane sets this flag.** The two-clients limit binds the CDX
+    # channel, which is this loop's, and an agent using any other archive.org service is not
+    # a third CDX client, so research waves and collectors now run at the same time. What
+    # remains is a HUMAN pause and `probe_thin_parents.py`, which needs a free slot.
     #
-    # The flag is a HEARTBEAT: each wave shard touches it as it starts, so the age below
-    # measures time since any leg last began, not the length of the wave. It has to outlive
-    # one leg's ceiling, since a leg that outlived it would find the collectors back on the
-    # archive beside it, three clients where the rule allows two. The ceiling is 100 minutes
-    # (policy v15), so 150 clears it with slack and still catches a dead run within a leg.
+    # It stays a HEARTBEAT with an expiry, because that is what makes a forgotten flag
+    # survivable: a flag with no expiry once idled both clients for nearly three hours of a
+    # night we needed, when a wave that set it ran 2h14m against a 50-minute cap. Anything
+    # that wants a long pause refreshes the file while it holds it.
     while [ -e "$PAUSE_FLAG" ]; do
         age=$(( $(date +%s) - $(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || date +%s) ))
         if [ "$age" -gt 9000 ]; then
