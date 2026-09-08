@@ -25,7 +25,7 @@
 - Registrable domains are the prioritised unit; every distinct evidence-backed valid hostname beneath a held registrable ships too, in `NNNN_hostnames.txt`, and his calculator counts it at full TLD weight (Ding, 2026-09-01).
 - Quote net-new post-split EE, never gross: they differ by more than 10x.
 - Price before proposing: net-new EE against the store, dates inside 1996-2001.
-- 5% is a hard trigger (round 6 crossed it on 2026-08-26), and the task does not end at a gate: keep collecting until the discoverable sources are exhausted, and submit early, because percentages add and the denominator grows.
+- 5% is a hard trigger (round 6 crossed it on 2026-08-26) and a FLOOR ON SUBMITTING: nothing is sent under it (Ivo, 2026-09-08, C-78, "there definitely are 5% to find"). Past it, submit at once and keep collecting, because percentages add and the denominator grows. The early-submission argument applies above the gate, never to going under it.
 - EE and speed are the proxy; the deliverable is demonstrated research capability, so a measured negative with a reason is a result and the method that found a source outranks the source (Ivo, 2026-08-27). Run independent hypotheses in parallel: keep what works, document what does not, move to the next.
 - Where the round stands is in `docs/ROUND.md`, which is generated; never state it in a hand-written page.
 
