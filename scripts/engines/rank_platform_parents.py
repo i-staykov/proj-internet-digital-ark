@@ -145,7 +145,8 @@ def main() -> int:
     # **The parent universe is his benchmark UNION our own store** (measured 2026-09-07).
     # Taking it from the benchmark alone spent the queue: 742 parents walked and 530 parked
     # left the ranking to thin registrables, and the two clients earned 210 EE/hour between
-    # them overnight against the 193,000 EE/client-hour this same lane paid on 2026-09-04.
+    # them overnight against the 193,000 EE/client-hour this same lane peaked at on 2026-09-04,
+    # a figure C-77 reads as a statement about the queue's dense head rather than a rate.
     # 6,937 parents carrying 4.1M of our own hostnames had never been asked domain-wide,
     # because a parent can only be ranked if it appears in a file this script reads.
     #

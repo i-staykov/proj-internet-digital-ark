@@ -20,7 +20,9 @@ What separates the outliers from the medians is visible in the register rows the
 thing: the six- and seven-figure entries are whole-corpus reads, and the medians are samples,
 single artifacts and single groups. That is the same finding as the day's other two, from opposite
 directions: reading eleven Usenet hierarchies whole paid 119,640 EE while one `comp` group paid
-480, and the sweep pays 193,000 EE per client-hour while the per-domain query pays 255.
+480, and the sweep paid 193,000 EE per client-hour on the dense head of its queue while the
+per-domain query pays 255. That sweep figure decayed to 210 EE/hour within two nights (C-77),
+which is the same law seen once more: what paid was reading a queue's head WHOLE.
 
 **So the prior a hypothesis should carry is not the shape's median but whether the artifact can be
 read WHOLE**, and the table below is printed to show the spread rather than to supply a threshold.
@@ -108,10 +110,16 @@ def main() -> int:
             f"{shape:34} {len(values):>4} {statistics.median(values):>12,.1f} "
             f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x"
         )
+    # **The rates below are the DECAYED ones, and that is C-77.** This table is printed
+    # into the generator's brief, so quoting the 2026-09-04 peak here taught the lane that
+    # collection outearns it by three orders of magnitude, which is false and was already
+    # false when it was written: the same sweep paid 210 EE/hour two nights later.
     print("\nThe rates that decide where an HOUR goes are in docs/lore/laws.md, measured:")
-    print("  a domain-wide hostname sweep over names already held : ~193,000 EE per client-hour")
-    print("  a per-domain gap query                               :      255 EE per hour")
-    print("  so ask how many records ONE answer can carry, not how fast we may ask")
+    print("  a domain-wide sweep, dense head of its queue, 2026-09-04 : ~193,000 EE/client-hour")
+    print("  the same sweep once that head was walked, 2026-09-06     :      210 EE/hour")
+    print("  a per-domain gap query                                   :      255 EE/hour")
+    print("  So the peak is a statement about the QUEUE, and a bulk corpus nobody has asked")
+    print("  for is worth more than any of them. Ask how many records ONE answer can carry.")
     return 0
 
 

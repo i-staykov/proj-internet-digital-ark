@@ -30,39 +30,39 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 2. **Two tracks are scored, not one (his 0906 update).** The annual files and the CANDIDATE POOL
    are "measured and ranked separately", both as `S = 10 x (p / t)`, and both percentages divide
    by the same annual equivalent-English total, so a candidate point is worth an annual point.
-   Round 8 earned no candidate section at all. Undated names are therefore an ASSET to be shipped,
-   never a by-product: "the candidate pool should be expanded proactively and made as large as
-   practicable". A candidate must not already sit in an annual file, his or ours.
+   Round 8 earned none of it, so undated names are an ASSET to ship: "expanded proactively and
+   made as large as practicable". A candidate must not already sit in an annual file, his or ours.
 3. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
-   That is the standing priority (Ivo, 2026-09-04), with some capacity reserved for new
-   registrables. A per-domain gap query pays 255 EE/hour; a domain-wide sweep over names we
-   already hold paid 193,000 EE per client-hour on 2026-09-04, because one answer carries
-   thousands of records instead of one pair. `just hostnames <epoch>` starts that lane.
+   The standing priority (Ivo, 2026-09-04); `just hostnames <epoch>` starts that lane. **The
+   sweep's 193,000 EE/client-hour is a PEAK, not a rate, and does not outrank research** (C-77:
+   the same query paid 210 EE/hour two nights on). The token window goes to the workflows; the
+   collectors run beside them and are checked sporadically.
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 5. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
 6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
 ## The ten rules that bind every session
 
-1. **Pushing (amended by Ivo, 2026-09-03): any branch except `main` may be pushed, and `main`
-   is reached only by a PR.** `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept
-   public deliberately as a portfolio, so every pushed commit and its message is world-readable
-   the moment it lands. That is what the freedom costs: a commit message names no hosts, no IP
-   addresses, no email bodies and no personal context (`docs/ROUND.md` is ignored precisely
-   because it embeds the VPS address, and a commit message must not re-leak what the ignore
-   protects). `main` is never pushed by any agent, and branch protection enforces it.
+1. **Pushing (Ivo, 2026-09-03): any branch except `main` may be pushed; `main` only by PR.**
+   `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept public deliberately as a
+   portfolio, so every pushed commit and its message is world-readable the moment it lands.
+   That is what the freedom costs: a commit message names no hosts, no IP addresses, no email
+   bodies and no personal context (`docs/ROUND.md` is ignored precisely because it embeds the
+   VPS address, and a message must not re-leak that). No agent pushes `main`; protection binds.
 2. Gate before every commit, never through a pipe:
    `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`,
    with `ark export` before `ark check`.
 3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
 4. `private/` never ships.
 5. **Big data must never reach git.**
-6. Two archive clients maximum. Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
-7. **The standing approval rule (Ivo, 2026-08-29): the loop writes the `Decision:` line itself, citing
-   this rule, when all four hold**: the class is already master-eligible, a machine-written stamp
-   inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after
-   the ingest. Failing any one parks the source as `pending`. Undated is still fatal, and so are terms
-   we do not hold.
+6. **Two archive clients maximum, and the limit binds the CDX CHANNEL** (C-77): the collectors
+   hold `web.archive.org/cdx` and no agent may query it, the rest of archive.org is open to a
+   research lane, and no lane pauses a collector. Honest User-Agent, honour `Retry-After`.
+7. **The standing approval rule (Ivo, 2026-08-29): the loop writes the `Decision:` line itself,
+   citing this rule, when all four hold**: the class is already master-eligible, a machine-written
+   stamp inside the artifact dates one item and is quoted, the terms permit it, and `ark check`
+   passes after the ingest. Failing any one parks it `pending`; undated and terms we do not hold
+   stay fatal.
 8. **Every source gets a LINK in `docs/registers/sources.md` before it is ingested** (Ivo, 2026-08-31), next to
    the sentence saying what dates one item and why it clears the bar.
 9. No AI attribution in commits.

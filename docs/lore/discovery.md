@@ -328,11 +328,25 @@ AWA-only pairs).
 An automated discovery agent will walk straight back into all of these unless it reads that register
 first. Reading it is the cheapest step in the process.
 
+**But a closed verdict is a measurement, not a wall, and for the hypothesis generator it does not
+veto** (Ivo, 2026-09-08, C-77). Every entry was closed against the screen, the store and the grain
+of its own day, and this project's two largest reopens came from exactly that: NYPW TimeMaps was
+closed at 14.2 EE on one partition and paid 87,905 EE at the other end of the same partition, and
+the Australian Web Archive was nearly closed as empty when one endpoint served a bot challenge and
+a second host answered normally. So a closed lead may be re-proposed when the **artifact, the
+partition or the grain** differs from the one that was measured, with one line saying what changed.
+What has not moved: undated is still fatal, the 10,000 EE floor still stands, and a re-proposal that
+names the same artifact at the same grain with nothing new to say is still waste. Re-opening on a
+retired screen is a whole lane of its own, `reopen.yaml` in the fleet, running every three hours.
+
 ## 6. Where this is automated
 
 The generating and the pricing run as code, not by hand: `scripts/harness/discover_cycle.py` proposes,
-`scripts/harness/screen_hypothesis.py` kills anything colliding with the closed register above, and
-`scripts/pricing/price_items.py` measures a sample against the live store before a collector is written.
+`scripts/harness/screen_hypothesis.py` prints the verdict of anything colliding with the closed
+register above, so the proposer argues with the measurement instead of rediscovering it, and
+`scripts/pricing/price_items.py` measures a sample against the live store before a collector is
+written. The screen REPORTS a collision and vetoes only an undated source: since C-77 a collision
+is priced context for the generator, not a refusal.
 Sections 1 to 5 are the rules those three apply, which is what makes an unattended proposal safe to
 act on. A hypothesis is a source plus a claim about what dates its items, because that is the unit
 section 1 can reject cheaply.
