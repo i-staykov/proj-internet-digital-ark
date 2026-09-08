@@ -491,7 +491,7 @@ them.**
 
 ## Two archive clients maximum is about the CDX channel, not the hostname
 
-Also Ivo, 2026-09-08 (C-77), settling `ark-fleet` issue #111. Every research lane used to
+Also Ivo, 2026-09-08 (C-77), settling issue #111. Every research lane used to
 `touch ~/ark/state/pause` for its whole duration, on the reading that a researcher fetching
 anything from archive.org would be a third archive client. At a chain depth of six that was
 roughly twelve unbroken hours with no collection, and the two lanes were mutually exclusive
