@@ -122,8 +122,15 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
    made with the current screen, it is finished: say so and move to the next one.
 2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
    Do NOT touch web.archive.org/cdx: two collectors are metering against it and they run
-   WHILE you do. Everything else at archive.org is yours and worth using: item downloads,
-   the metadata and availability APIs, full-text search, dataset items, TimeMaps.
+   WHILE you do. Everything else at archive.org is yours: item downloads, the metadata API,
+   full-text search, dataset items, TimeMaps.
+   **Use TimeMaps, not `/wayback/available`.** Measured 2026-09-08: `/wayback/available` and
+   HEAD replay answered 429 for a whole leg, six retries at 25s spacing, no Retry-After,
+   because the collectors saturate that limiter. `web.archive.org/web/timemap/link/<url>` is
+   NOT on it, answered every time, and returns every memento with its datetime, so it fully
+   replaces the availability oracle for a known URL. Fetch with `-sL` and the `id_` replay
+   flavour, then CHECK THE BODY: a 200 can be a period IIS 404 and a 301 can be a
+   corporate-acquisition redirect onto a live 404.
 3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece and measure
    three numbers on it: distinct registrable domains, the fraction ALREADY HELD, and
    the fraction held AND MISSING the artifact's own year. That third number is the

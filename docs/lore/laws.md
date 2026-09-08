@@ -504,3 +504,21 @@ metadata API or full-text search is not a third CDX client. **So no lane pauses 
 and both halves of the fleet run at once.** The pause flag still exists for a human and for
 `probe_thin_parents.py`, and `platform_sweep_loop.sh` still treats it as a heartbeat that goes
 stale, so nothing can idle a collector indefinitely.
+
+## The availability oracle shares the collectors' limiter; TimeMaps do not
+
+Measured 2026-09-08 by the `ftp_index_server_inventories` leg, which was rate-limited for its
+entire duration. `archive.org/wayback/available` and HEAD replay returned 429 through six retries
+at 25 second spacing with no `Retry-After`, while the two CDX collectors were running. That is the
+practical edge of C-77: the rest of archive.org is open to a research lane, but the availability
+endpoint sits behind the same limiter as the CDX channel the collectors hold.
+
+`web.archive.org/web/timemap/link/<url>` is not on that limiter. It answered every time in the same
+leg, and it returns every memento with its datetime, so it is a complete substitute for the
+availability oracle on a known URL. Combined with reading one archived homepage for its link
+structure, it enumerates a site's dated inventory pages without touching CDX at all.
+
+Two smaller rules from the same leg, both about believing a status code. Fetch with `-sL` and the
+`id_` replay flavour, then read the BODY: a 200 can be a period IIS 404, and a 301 can be a
+corporate-acquisition redirect that lands on a live 404. The 1999-and-later captures of the FTP
+Search inventory pages are exactly that, 301s onto `ftpsearch.lycos.com`, which 404s them.
