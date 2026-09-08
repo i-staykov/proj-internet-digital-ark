@@ -7,15 +7,18 @@ give.** `README.md` is the short front page; this file is the long form. It was 
 ## Where it runs
 
 ```
-GitHub Actions fleet (private repo, self-hosted runner on a small VPS)
+GitHub Actions fleet (private repo, three self-hosted runners on a small VPS)
    generator, on a schedule ........ proposes hypotheses from the register and the store
    researcher waves, as often as the window allows  screen and price them; findings land
                                      as artifacts, and no wave stops a collector (C-77)
    re-opener, every three hours .... re-reads closed verdicts when a measurement screen retires
    improver ........................ tunes prompts and model choice from per-run telemetry
    weekly digest ................... one page of yield, cost and recommendations
-VPS (always on)
-   two archive collectors under systemd, querying capture indexes at zero token cost.
+VPS (always on), two accounts by design (C-79)
+   three Actions runners as `digga`, out of that account's ~/runners/{1,2,3}, so every wave,
+   generator and re-opener leg is that user's process tree. Nothing migrates off it.
+   two archive collectors as `istaykov` under systemd, out of /projects, querying
+   capture indexes at zero token cost.
    They hold `web.archive.org/cdx` and run BESIDE the agent lanes rather than instead of
    them: the two-clients limit binds that one channel, so an agent may use every other
    archive.org service and no lane touches CDX (C-77, issue #111)
