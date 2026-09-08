@@ -95,20 +95,28 @@ def main() -> int:
         print("no measured figures found in the registers")
         return 0
     print("What each SHAPE of artifact has actually paid, from the register's own figures.")
-    print("Read the SPREAD, not the median. Every shape's median is three figures or less and")
-    print("its best is six or seven, so shape does not predict what a lead is worth and no")
-    print("per-shape floor is honest. What separates them is whether the artifact was read")
-    print("WHOLE: the outliers are whole-corpus reads, the medians are samples and single")
-    print("artifacts. Price a lead on how much of it you can read, not on its family.\n")
-    print(f"{'shape':34} {'n':>4} {'median EE':>12} {'best EE':>14} {'spread':>8}")
+    print("Read the SPREAD, not the median: every shape's median is three figures or less and")
+    print("its best is six or seven, because what separates them is whether the artifact was")
+    print("read WHOLE. The outliers are whole-corpus reads, the medians are samples. But read")
+    print("the LAST column before you propose: three shapes have 57 tries between them and")
+    print("have NEVER once cleared the 10,000 EE floor, so a lead of that shape needs a reason")
+    print("it is unlike the 57. Price a lead on how much of it you can read.\n")
+    print(
+        f"{'shape':34} {'n':>4} {'median EE':>12} {'best EE':>14} {'spread':>8} {'cleared 10k':>12}"
+    )
     ranked = sorted(rows.items(), key=lambda kv: -max(kv[1]))
     for shape, values in ranked[: args.top]:
         if len(values) < 2:
             continue
         median = statistics.median(values) or 0.1
+        # **How many of this shape's leads ever cleared the floor, not just the best one.**
+        # The spread column says a shape can pay; this one says how often it has. A shape
+        # with a dozen tries and none over the floor is a family, not a lead.
+        cleared = sum(1 for value in values if value >= 10_000)
         print(
             f"{shape:34} {len(values):>4} {statistics.median(values):>12,.1f} "
-            f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x"
+            f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x "
+            f"{cleared:>6} of {len(values):<4}"
         )
     # **The rates below are the DECAYED ones, and that is C-77.** This table is printed
     # into the generator's brief, so quoting the 2026-09-04 peak here taught the lane that
