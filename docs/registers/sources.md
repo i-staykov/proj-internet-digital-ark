@@ -153,6 +153,18 @@ Portuguese, so the whole 47 GB projects to roughly 18,000 EE, which is 380 EE pe
 the `alt` lane realised and far below what an hour of the two collectors pays. It would also need the
 47 GB fetched before a single line could be priced. Not closed on principle, closed on rate.
 
+**Reopened by Ivo, then STOPPED ON TERMS the same evening, which is a different objection (issue
+#115).** He ruled that 18,000 EE is above the floor and should therefore be ingested, and the
+arithmetic is his: `HEAD` answers 200 with `Content-Length: 50930113941`, so 50.9 GB, and 383 EE per
+GB is nearly three times what the Usenet `alt` lane realises. What stops it is what was read before
+the first byte. **`arquivo.pt/robots.txt` carries a `User-agent: *` group disallowing both `/cdxj`
+and `/datasets`**, and the file sits at `/datasets/cdxj/IA.cdxj`, so it is a refusal of the path
+rather than a rate to honour. And `sobre.arquivo.pt/pt/acerca/termos-e-condicoes/` forbids
+distribution of accessed content, permitting educational, scientific or research use with a
+citation, while a round redistributes derived records in a delivery archive. Note too that the
+closed register records 206 ranged GETs against these collections on 2026-08-15 and `Roteiro.cdxj`
+is on disk, so the path was touched once before anyone read the rule. Awaiting his word.
+
 ---
 
 ## `odp`: Open Directory Project (DMOZ) RDF content dumps
