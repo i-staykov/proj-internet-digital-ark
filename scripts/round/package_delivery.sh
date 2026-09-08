@@ -224,14 +224,14 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
-# The ISC reverse-DNS survey, shipped as its OWN folder because it is a QUESTION and not a
-# claim (C-70). Nothing in `additions/` or `hostnames/` depends on it, the round's figures
-# exclude it, and the covering mail asks whether a dated reverse-DNS listing with no capture
-# of a page counts. One word admits the folder or discards it.
+# ISC candidates must stay separate from annual records and carry per-host provenance.
 mkdir -p "$STAGE/isc_survey_hostnames"
 cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
-   "$STAGE/isc_survey_hostnames/" 2>/dev/null || true
-find "$STAGE/isc_survey_hostnames" -size 0 -delete
+    output/netnew/isc_candidates.txt output/netnew/isc_candidates_summary.json \
+    output/netnew/isc_survey_provenance.csv "$STAGE/isc_survey_hostnames/"
+cp src/ark/data/tld_english_share.json "$STAGE/isc_survey_hostnames/"
+cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
+cp scripts/round/verify_isc_candidates.py "$STAGE/"
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
 
@@ -403,12 +403,18 @@ cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/original/" 2>/de
 
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
+    cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
     cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/$MARKER/" 2>/dev/null || true
 else
     echo "refusing to package: $MARKER not found at $MERGED, so the archive could not" >&2
     echo "ship the baseline its own figures are measured against." >&2
     exit 1
 fi
+
+uv run python scripts/round/verify_isc_candidates.py \
+    --collection "$STAGE/isc_survey_hostnames" --baseline "$STAGE/baseline/$MARKER" \
+    --annual-dirs "$STAGE/masters" "$STAGE/additions" "$STAGE/hostnames" \
+    --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
 
 MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARKER"/200[01].txt \
     | wc -l | tr -d ' ')
