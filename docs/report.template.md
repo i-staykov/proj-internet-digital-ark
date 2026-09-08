@@ -65,8 +65,12 @@ one were later dated**, which is a ceiling on future work and not a contribution
    client-hour on the dense head of a ranked queue and 210 per hour two nights later once that head
    had been walked. Re-ranking the queue against the store and restarting the two clients on its
    new head returned 1,009,324 capture rows in one window, of which 225,088 were net-new records
-   worth 141,208 equivalent-English: **565 equivalent-English per megabyte of journal**, and the
-   figure to plan an hour with. **The caution that goes with it:** correlating a parent's rank
+   worth 141,208 equivalent-English, or 565 equivalent-English per megabyte of journal. **That
+   figure is not a rate either:** the next two and a half hours of the same two clients on the
+   same queue, now past the head, converted 245 megabytes into about 13,000 equivalent-English,
+   which is 53 per megabyte, a factor of ten lower. A conversion measured on a rich sample
+   overstates the next hour by about as much as the peak rate does, so an hour is planned with a
+   figure measured after the head, never on it. **The caution that goes with it:** correlating a parent's rank
    against what it actually banked gives Spearman +0.746 over 198 parents, which reads as a ranker
    that is exactly inverted, because the head of any ranking is swept FIRST and re-measuring it
    measures sweep history. Restricted to the 54 parents swept fresh from a new ranking the same

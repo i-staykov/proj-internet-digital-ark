@@ -343,3 +343,25 @@ Two things to carry from it. Price a ranker only on parents it has never been us
 practice means the window right after a re-rank. And read the DECAY while you are there: those 54
 parents ran 8 to 17 MB of compressed rows at the head and 0.2 to 2 MB by rank 50, so a re-ranked
 queue's dense head is about twenty parents deep and an hour of two clients walks it out.
+
+## Equivalent-English per byte is not a constant, and a rich sample overstates the next hour
+
+Three times on 2026-09-08, on three different lanes, a conversion measured on the best part of a
+corpus was used to plan the rest of it, and each time the realised figure came in several times
+lower:
+
+| lane | measured on | realised | factor |
+|---|---|---|---|
+| domain-wide sweep | 565 EE/MB on the freshly ranked head | 53 EE/MB over the next 2.5 h | 10.7x |
+| Usenet `alt` body URLs | 722 EE/GB on three mid-size groups | 134 EE/GB over the first 24 GB | 5.4x |
+| domain-wide sweep, 2026-09-04 | 193,000 EE/client-hour on a dense head | 210 EE/hour two nights on | 919x |
+
+The mechanism is the same in all three: a queue, a plan or a sample is ordered best-first, whether
+deliberately or by the population's own skew, so whatever is measured early is drawn from the top of
+the distribution. The rest of the corpus is the tail by construction.
+
+Two rules follow. **Quote a conversion with the window it was measured over**, never as a property
+of the lane. And **project the next hour from a measurement taken AFTER the head**, which in
+practice means the second window rather than the first. The peak still matters, but as evidence
+about the ordering: a rate that falls tenfold is the queue reporting that its head is walked, and
+the answer to it is a re-rank, not a longer run.
