@@ -16,6 +16,10 @@ done
 
 rsync -a "$DIR"/{1996,1997,1998,1999,2000,2001}.txt "$ARK_VPS":/projects/ark-data/"$MARKER"/
 rsync -a --delete output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/
+# The receipt that lets the host remove a journal this store has already ingested. Its
+# authority is the sha256 the ingest itself recorded, so a name collision cannot free bytes.
+uv run python scripts/harness/ack_journals.py --out output/journal_acks.tsv >/dev/null
+rsync -a output/journal_acks.tsv "$ARK_VPS":/projects/ark-data/journal_acks.tsv
 ssh "$ARK_VPS" "cd /projects/ark-data && [ \$(ls '$MARKER' | grep -c '\\.txt\$') -eq 6 ] \
     && for d in merged*; do [ \"\$d\" = '$MARKER' ] || rm -rf -- \"\$d\"; done; ls -d merged*"
 echo "fleet prices against $MARKER"
