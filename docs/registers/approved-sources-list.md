@@ -1863,7 +1863,7 @@ Decision: pending
   two conditions still fail; not re-priced on the live store; no new issue, issue 2 stands
 - potential: 6877
 
-Decision: pending
+Decision: master
 
 
 ### internic_zone / artifact_listing
