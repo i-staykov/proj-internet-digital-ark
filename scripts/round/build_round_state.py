@@ -343,9 +343,17 @@ def main() -> None:
     OUT.write_text(body, encoding="utf-8")
     BRIEF.parent.mkdir(parents=True, exist_ok=True)
     BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
+    # **Print the round, not half of it.** `head` is the registrable unit alone, so this line
+    # read "71,379 net-new pairs, 54601.6080 equivalent-English" for a round holding 1,820,780
+    # records and 1,106,725 EE. `brief()` already sums both units for exactly this reason; the
+    # line a human actually reads was still quoting one of them, and it is the line that gets
+    # pasted into a message.
     print(
-        f"wrote {OUT.relative_to(ROOT)}: {head['pairs']:,} net-new pairs, "
-        f"{head['domains']:,} net-new domains, {head['ee']} equivalent-English"
+        f"wrote {OUT.relative_to(ROOT)}: {snapshot['netnew_pairs']:,} net-new records "
+        f"({head['pairs']:,} registrable, {snapshot['netnew_pairs'] - head['pairs']:,} hostname), "
+        f"{snapshot['netnew_ee']:,.4f} equivalent-English, {snapshot['percent']}% of "
+        f"{snapshot['baseline']}, {snapshot['distance_to_gate_ee']:,.2f} EE short of "
+        f"{snapshot['gate_pct']}%"
     )
 
 
