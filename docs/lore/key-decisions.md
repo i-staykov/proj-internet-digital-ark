@@ -7,60 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Approve, refuse or downgrade usenet_body_url_hostnames / link_source: 119,640 EE measured
-
-Hosts of explicit `http`, `https` and `ftp` URLs in Usenet post BODIES, at hostname grain, over
-**every hierarchy of the catalogue except `alt`, all read whole**: eleven fetched overnight on
-2026-09-04 beside the two priced the day before, 224 GB, 328.2M posts, 54.7M item lines.
-163,985.8408 EE gross, **119,639.7424 EE after the ADR-007 alias seam and a sampled 6.25% fiction
-rate (Wilson 95% CI 2.7% to 13.8%, so 110,005 to 124,170)**. No projection anywhere in it. Beside
-it, needing no hostname decision, 83,708 registrable-years worth 49,007.3050 EE before the
-corroboration split. It parks on condition 1 only: no master-eligible class covers a host a human
-typed at hostname grain. In place of the split, the fiction rate is 6.25% here against ~13% for the
-`dig`-output request beneath it, and the fakes are typos of real hosts rather than examples.
-Density decides which hierarchy pays: news 2,552 EE per GB, comp 1,701, soc 418.
-
-Worth: 119,640 EE measured, the largest single lane in the project's history and 10.4% of the gate. Bytes are on disk; journals rebuild in about 25 minutes a pool.
-
-### Build or decline a collector for dartmouth_nber_arcs_hostnames / cdx_timestamp
-
-Not a decision to take now: conditions 1 to 3 of the standing rule hold and condition 4 cannot
-be evaluated because nothing has been ingested. The fleet sampled 57 of the 282 public
-DARTMOUTH-NBER ARCS aggregate CDX indexes at one Range slice each and found 120 novel hosts
-beneath held parents at 2001 out of 235 proper hosts (0.453 per registrable-year), projecting
-~88,700 EE at 2001 and ~92,000 at 1996-2000 from one alphabetic band per item. The measured
-sample is worth under 100 EE and no issue is filed. What it needs is a collector on the VPS
-(scout ~40 candidate items, pull the in-window per-ARC indexes, `ark ingest-hostnames`), and
-two more Range offsets on items 00333 and 02693 first to rule out a band artifact. Entry in
-`approved-sources-list.md` under Pending requests; the fleet finding is
-`dartmouth_captures_hostname_grain`, 2026-09-02.
-
-Worth: ~180,000 EE projected across the window, under 100 EE measured. A collector decision, not an approval.
-
-### Settle the terms for arin_inaddr_ns_hostnames / artifact_listing
-
-ARIN's twelve 1999 in-addr.arpa zones in APNIC's tar (`ftp.apnic.net/apnic/arin/arin.zones.tar.gz`), nameserver hostnames at hostname grain, fleet-measured at **4,655.5 EE** (7,232 novel host-years at 1999 plus 179 parents), dated by BIND's own AXFR stamp `at Thu Jan  7 12:18:51 1999`. Parks on condition 3 only: APNIC's bulk AUP covers `/apnic/whois/`, this directory carries no notice, and ARIN's position on historical zone redistribution is unread. One mail to APNIC or ARIN settles it. Issue on ark-fleet carries the block.
-
-Worth: 4,655.5 EE measured by the fleet, not yet re-priced on the live store. Directory frozen since 1999, so this is the whole family.
-
-### Approve, refuse or downgrade usenet_body_pasted_hostnames / link_source
-
-Hostnames inside Usenet post BODIES (`dig` answers, config snippets, logs) at hostname grain, fleet-measured at **~6,200 EE on one group** (`comp.protocols.dns.bind`, 67 MB) after a placeholder screen, with ~13% fictitious config examples still among the survivors. Parks on condition 1: the banked Usenet body classes date registrables under the corroboration split, and at hostname grain the split does not guard against `mail.bogus.com` beneath a held `bogus.com`. The machine-output lane alone is 2,477 EE if the human-pasted lane is refused. Issue on ark-fleet carries the block.
-
-Worth: ~6,200 EE on one group; yield is group-specific by 22x, so the spool-wide figure is unknown. Ding's 0901 update lists dated Usenet copies as unsuitable.
-
-### Approve, refuse or downgrade usenet_header_fqdn_hostnames / link_source
-
-Server-written Usenet header hostnames (`X-Trace`, `NNTP-Posting-Host`, final `Path` hop) at hostname grain, fleet-measured at **2,368 EE on one 28 MB demon.* probe**, not re-priced on the live store because the probe table was deleted and the bytes are on the VPS. Parks on conditions 1 and 4: no master-eligible class covers a server-written header hostname without the split the banked Usenet classes take, and no journal exists to ingest. Ding's 2026-09-01 update lists dated Usenet copies as unsuitable, so the fleet recommends asking him first. Issue 2 on ark-fleet carries the block.
-
-Worth: 6,877 EE on the second probe (55 MB, 2026-09-02), of which 2,823 rests on server-written fields and 4,054 on the client-written `Message-ID` host, which needs its own ruling; 20,000 to 60,000 EE projected for demon.* alone, unmeasured. A third probe on two uk.* groups adds 2,537 EE (server-written fields only, 73% retained across groups), so the 495-zip uk.* hierarchy is a labelled 50,000 to 150,000 EE guess on top.
-
-### Approve, refuse or downgrade internic_zone_hostnames_1999 / artifact_listing
-
-The nameserver targets of the 1999 `edu` and `gov` zones at hostname grain, the lane banked today for 1997 at 11,860.7 EE. Priced on the live store 2026-09-02 at **4,678.2 EE over 6,650 (hostname, 1999) records**. It parks on condition 3 of the standing rule, terms: the files came off `tomocha.net`, whose ClaudeBot refusal is the open question above, and the 1999 `edu` file itself opens with Network Solutions' access-agreement notice. The bytes are on disk, nothing is fetched by deciding. `approved-sources-list.md` has the block; issue 1 on ark-fleet carries it.
-
-Worth: 4,678.2 EE. This sharpens the tomocha question from 0 EE to a figure.
-
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
 Every registry this project has queried by RDAP publishes terms inside the response, and all four read so far prohibit high-volume automated querying: Verisign, PIR and CIRA with a registration-only carve-out, Nominet with none plus a ban on using the extracted contents at all. Both engines were stopped on 2026-08-27 and `ark rdap` now refuses those TLDs in code. The route was half of phase 6's equivalent-English, so a written permission of the RIPE kind is the only thing that reopens it.
@@ -89,21 +35,6 @@ The brief update of 2026-08-20 scores each submission `S_i = 10 * p_i / t_i`, wi
 
 Worth: the ranking, not the increment. Frequent small rounds dominate; the 5% trigger and this rule pull opposite ways and only you can choose.
 
-### Approve, refuse or downgrade internic_zone / artifact_listing
-
-`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
-
-Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
-
-### Approve, refuse or downgrade ukwa_geoindex / cdx_timestamp
-
-`approved-sources-list.md` has this class as `pending`, so `ark ingest` refuses it and its journal is sitting on disk. The request block in that file carries the seeded-random sample with live links, the measured figures and the counterfactual; decide from those rather than from anything the agent argues. Set its `Decision:` line to `master`, `candidate-only` or `rejected`.
-
-Raised automatically, because a `pending` line in a file you do not open is not a question anyone asked.
-
-**Gate 668,118 EE. The measured sources awaiting one word each are the `Decision: pending` blocks
-of `docs/registers/approved-sources-list.md`.**
-
 ### Triage the newly found sources: 40 found
 
 **40 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
@@ -114,6 +45,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-80** | 2026-09-08 | **Eight settled decisions were still being asked, and one of them for 119,640 EE we already hold.** Issue #113 rejected five classes (`usenet_header_fqdn_hostnames` too large, `dartmouth_nber_arcs_hostnames` invalid for the window, `internic_zone_hostnames_1999` at 4,678.2 EE, `arin_inaddr_ns_hostnames` at 4,655.5 EE, `usenet_body_pasted_hostnames` at ~6,200 EE with ~13% fiction, the last three under the 10,000 EE floor), C-68 made `usenet_body_url_hostnames` master on 2026-09-04, and `internic_zone` and `ukwa_geoindex` are master too. Every one of those decisions was written into `approved-sources-list.md` as its `Decision:` line and NONE of the eight OPEN entries was pruned, so the one surface that asks him for things carried eight questions he had already answered. Caught by reading the register instead of the surface: I was about to open an issue asking him to approve the Usenet body-URL lane, which is 1,064,556 hostname rows in the store and already inside tonight's 3.74%. `discover_cycle.py` reports a left-behind entry but cannot remove it, so the removal is a hand step and this is the reminder that it is one |
 | **C-79** | 2026-09-08 | **The `digga` account stays on the VPS; only the ssh login and the address are secrets.** Ivo, verbatim: "We will keep digga as the user on the VPS, digga merely will not be used as an ssh login anymore. The name of the account on the linux vps is not something to gate keep. The login and IP for ssh access to the VPS is what we are hiding." Settles issue #55, which reported that the whole fleet runs as `digga`: both GitHub Actions runners and now the third execute out of `that account's ~/runners/{1,2,3}` under `digga`'s systemd user instance, so every research wave, generator leg and re-opener leg is that process tree, while the collectors and the store run as `istaykov` out of `/projects`. The migration I offered (register a new runner under `istaykov`, drain, disable) is NOT wanted: nothing moves. What the hygiene rule covers is unchanged in force and narrower in scope, the `user@address` pair and the address itself |
 | **C-78** | 2026-09-08 | **Nothing is submitted under 5%: the gate is a floor on sending, not a target.** Ivo, verbatim: "We don't submit before 5%! There definitely are 5% to find!" Raised because I put the opposite case to him: round 9 stood at 3.3185% with 586,626 EE to go, the collectors measured at 4,300 to 10,500 EE/hour and research at about 480 EE per lead over 10 tested leads, so 14 hours projected 135,000 to 222,000 EE and I recommended sending short at 05:00 on the grounds that holding costs 0.12 points a day of denominator growth plus one day of his `t`. He refused: the decay argument applies ABOVE the gate, never to going under it. `CLAUDE.md` and `docs/lore/rules.md` carried "submit early, because percentages add and the denominator grows" without that qualification and now carry the floor first. The second half of the ruling: if the researchers are not finding anything, make their prompts SHORTER and give them more room to be creative, rather than adding rules |
 | **C-77** | 2026-09-08 | **The token window goes to the autonomous workflows, the collectors run beside them, and the two-clients limit binds one channel.** Settles issue #111. The 193,000 EE per client-hour the domain-wide sweep paid on 2026-09-04 is a peak on the dense head of a queue since walked: the same query and clients paid 210 EE/hour on 2026-09-06, so it may not be used to argue that collection outranks research. Three consequences, all shipped the same day. **1. No lane pauses the collectors.** `web.archive.org/cdx` is metered by the two collectors and stays theirs, every other archive.org service is open to a research agent, and a wave that reads an item is not a third CDX client; the wave spacing `ARK_WAVE_MIN_GAP` drops 14400 to 1800 s and the chain reaches 12 waves, because the only thing a wave now spends is tokens and the primary token is at 0%. **2. The closed register stops vetoing the hypothesis generator.** It is priced context: a closed lead may be re-proposed when the artifact, the partition or the grain differs, in one line saying what changed, because the register's own best cases (NYPW TimeMaps, the Australian Web Archive) were reopened exactly that way. Undated is still fatal and the 10,000 EE floor stands unchanged. **3. The re-opener's cadence goes from every 8 hours to every 3.** "We must not underestimate the potential of the researchers: one big bulk find of hostnames can make a big difference, and there must still be big bulk sources, as other teammates keep adding them" |
