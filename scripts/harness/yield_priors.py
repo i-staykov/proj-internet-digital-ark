@@ -38,6 +38,10 @@ import statistics
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+
+# The new-source bar, 5,000 EE since 2026-09-08 (C-82). It has moved twice in four days, so it is
+# named once here and every sentence below counts against it rather than quoting a figure.
+FLOOR = 5_000.0
 REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
 
 # `<number> EE`, the figure every register row carries in its net-new column.
@@ -98,11 +102,22 @@ def main() -> int:
     print("Read the SPREAD, not the median: every shape's median is three figures or less and")
     print("its best is six or seven, because what separates them is whether the artifact was")
     print("read WHOLE. The outliers are whole-corpus reads, the medians are samples. But read")
-    print("the LAST column before you propose: three shapes have 57 tries between them and")
-    print("have NEVER once cleared the 10,000 EE floor, so a lead of that shape needs a reason")
-    print("it is unlike the 57. Price a lead on how much of it you can read.\n")
+    # **Counted, not written down.** This sentence named its figures by hand and the floor moved
+    # under it twice in four days: at 10,000 EE it was three shapes and 57 tries, at 5,000 it is a
+    # different set. A claim about the table belongs to the table.
+    barren = [(shape, len(v)) for shape, v in rows.items() if len(v) > 1 and max(v) < FLOOR]
+    if barren:
+        tries = sum(n for _, n in barren)
+        print(f"the LAST column before you propose: {len(barren)} shapes have {tries} tries")
+        print(f"between them and have NEVER once cleared the {FLOOR:,.0f} EE floor, so a lead of")
+        print(f"that shape needs a reason it is unlike the {tries}. Price a lead on how much of")
+        print("it you can read.\n")
+    else:
+        print(f"the LAST column: every shape here has cleared the {FLOOR:,.0f} EE floor at least")
+        print("once, so price a lead on how much of it you can read, not on its family.\n")
+    cleared_head = f"cleared {int(FLOOR / 1000)}k"
     print(
-        f"{'shape':34} {'n':>4} {'median EE':>12} {'best EE':>14} {'spread':>8} {'cleared 10k':>12}"
+        f"{'shape':34} {'n':>4} {'median EE':>12} {'best EE':>14} {'spread':>8} {cleared_head:>12}"
     )
     ranked = sorted(rows.items(), key=lambda kv: -max(kv[1]))
     for shape, values in ranked[: args.top]:
@@ -112,7 +127,7 @@ def main() -> int:
         # **How many of this shape's leads ever cleared the floor, not just the best one.**
         # The spread column says a shape can pay; this one says how often it has. A shape
         # with a dozen tries and none over the floor is a family, not a lead.
-        cleared = sum(1 for value in values if value >= 10_000)
+        cleared = sum(1 for value in values if value >= FLOOR)
         print(
             f"{shape:34} {len(values):>4} {statistics.median(values):>12,.1f} "
             f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x "

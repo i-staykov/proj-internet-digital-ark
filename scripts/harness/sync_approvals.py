@@ -14,7 +14,7 @@ the terms question go in the private fleet issue that links to it.
 figures and were closed unread, because a source under the bar is not worth a decision (Ivo,
 2026-09-08). Below it the register block is the whole record.
 
-    uv run python scripts/harness/sync_approvals.py [--dry-run] [--floor 10000]
+    uv run python scripts/harness/sync_approvals.py [--dry-run] [--floor 5000]
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ PROJECT = "i-staykov/proj-internet-digital-ark"
 FLEET = "i-staykov/ark-fleet"
 LABEL = "approval"
 # The standing bar for a lead worth a decision (Ivo, 2026-09-04).
-DEFAULT_FLOOR = 10_000.0
+DEFAULT_FLOOR = 5_000.0
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
 # Which of the four conditions of the standing rule a human can actually settle. 1 is the
 # evidence class and 3 is the terms: both are judgements only Ivo makes. 2 is a missing stamp

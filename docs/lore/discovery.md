@@ -152,7 +152,7 @@ building its collector.
 
 1. **Per-item year evidence**, as above. Anything else is seed-only. **This is still a veto**, and no
    deadline touches it.
-2. **Net-new equivalent-English. The bar is 10,000 EE (Ivo, 2026-09-04), raised from 5,000**, and
+2. **Net-new equivalent-English. The bar is 5,000 EE (Ivo, 2026-09-08), lowered from 10,000**, and
    it is a queue position rather than a veto. A measured 300 is still worth having, later. The
    raise is not a higher standard of proof, it is a statement about where the round is: the
    hostname unit made bulk corpora worth an order of magnitude more than they were, the denominator
@@ -335,7 +335,7 @@ closed at 14.2 EE on one partition and paid 87,905 EE at the other end of the sa
 the Australian Web Archive was nearly closed as empty when one endpoint served a bot challenge and
 a second host answered normally. So a closed lead may be re-proposed when the **artifact, the
 partition or the grain** differs from the one that was measured, with one line saying what changed.
-What has not moved: undated is still fatal, the 10,000 EE floor still stands, and a re-proposal that
+What has not moved: undated is still fatal, the floor still stands (5,000 EE since 2026-09-08, and 1,000 EE for an already-approved class read at a new grain), and a re-proposal that
 names the same artifact at the same grain with nothing new to say is still waste. Re-opening on a
 retired screen is a whole lane of its own, `reopen.yaml` in the fleet, running every three hours.
 
