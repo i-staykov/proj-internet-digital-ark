@@ -203,3 +203,24 @@ def test_read_only_patient_connect_reraises_anything_that_is_not_the_lock(tmp_pa
     monkeypatch.setattr(duckdb, "connect", broken)
     with pytest.raises(duckdb.IOException, match="not a valid"):
         connect_read_only_patiently(tmp_path / "x.duckdb", patience_s=60)
+
+
+def test_a_connection_is_capped_and_can_spill() -> None:
+    """**DuckDB takes 80% of the machine unless told otherwise**, and this store is 52 GB.
+
+    Measured 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB
+    resident while `just bank`, `just state` and `just cycle` each start one, and the
+    machine swapped. The cap is what keeps a reporting query from evicting everything
+    else, and the spill directory is what keeps the cap from turning into an error.
+    """
+    conn = connect(":memory:")
+    settings = {
+        name: conn.execute(f"SELECT current_setting('{name}')").fetchone()[0]
+        for name in ("memory_limit", "threads", "temp_directory")
+    }
+    assert settings["memory_limit"] != "0 bytes"
+    # 10GB reads back as "9.3 GiB", so compare the number rather than the string
+    gib = float(settings["memory_limit"].split()[0])
+    assert 0 < gib <= 32, settings["memory_limit"]
+    assert int(settings["threads"]) <= 8, settings["threads"]
+    assert settings["temp_directory"], "no spill directory: a capped query would fail"

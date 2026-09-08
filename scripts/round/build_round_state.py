@@ -42,7 +42,6 @@ import json
 import re
 import subprocess
 import sys
-import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -60,6 +59,7 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
@@ -77,20 +77,23 @@ GATE_PCT = Decimal(5)
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
     """Wait out a writer rather than crashing against one. A long ingest holds the
-    lock for minutes, and this is a reporting tool: waiting is correct."""
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"the store was still being written after {patience_s}s; "
-                    "re-run when the ingest finishes"
-                ) from None
-            time.sleep(3)
+    lock for minutes, and this is a reporting tool: waiting is correct.
+
+    **Through `ark.db`, not a private copy of the retry loop.** This function had its
+    own, so it also missed the memory and thread caps that live there, and measured
+    2026-09-08 this process sat at 28 GB resident on a 36 GB laptop: DuckDB takes 80%
+    of the machine unless told otherwise, and `just bank`, `just state` and `just
+    cycle` each start one.
+    """
+    try:
+        return connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" in str(exc):
+            raise SystemExit(
+                f"the store was still being written after {patience_s}s; "
+                "re-run when the ingest finishes"
+            ) from None
+        raise
 
 
 def run(cmd: list[str], timeout: int) -> str:
