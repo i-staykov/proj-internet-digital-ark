@@ -229,12 +229,23 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
     # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
-    gh run list --repo i-staykov/ark-fleet --limit 50 --status completed \
-        --json databaseId --jq '.[].databaseId' | while read -r RID; do
+    #
+    # **A finished SHARD is bankable before its wave is.** This filtered on
+    # `--status completed`, and a wave completes only when its last shard does: measured
+    # 2026-09-08, two research legs finished at 10:53Z with a FIND worth 4,786 EE while the
+    # wave's third shard sat queued behind the generator and the re-opener, so `just bank`
+    # printed "nothing new to bank" with the finding already uploaded and waiting. Artifacts
+    # are per-job and readable the moment a job uploads them, so this takes in-progress runs
+    # too, and only marks a run PROCESSED once it has actually completed. An unfinished run is
+    # re-downloaded next bank, which is idempotent: `mv -n` keeps the copy already flattened
+    # and the ingest is keyed on each journal's sha256.
+    gh run list --repo i-staykov/ark-fleet --limit 50 \
+        --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' \
+        | while IFS=$'\t' read -r RID STATUS; do
         grep -qx "$RID" "$PROCESSED" && continue
         gh run download "$RID" --repo i-staykov/ark-fleet \
             --dir "$IN/run_$RID" >/dev/null 2>&1 || true
-        echo "$RID" >> "$PROCESSED"
+        [ "$STATUS" = "completed" ] && echo "$RID" >> "$PROCESSED"
     done
     # Flatten: findings artifacts hold findings/*.md plus telemetry.json.
     LABEL=$(date -u +%Y%m%dT%H%MZ)
