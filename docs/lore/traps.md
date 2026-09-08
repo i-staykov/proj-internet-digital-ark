@@ -324,3 +324,22 @@ This is the same shape as the stale-held-set trap in `laws.md`: a completeness a
 files, bytes or rows will find a large number, and the only figure worth reporting is the anti-join
 against the store, priced in EE.
 
+
+## Sweep ORDER confounds any correlation between a parent's rank and its yield
+
+Measured 2026-09-08, twice, on the same store. Joining the 41,122-parent ranking of 2026-09-07 to
+the hostname-year rows every swept parent actually banked gives Spearman rho **+0.746** over 198
+parents: the top 100 ranked parents paid a median of 3 rows each while ranks 5,000 to 20,000 paid a
+median of 6,442, which reads as a ranker that is exactly inverted. It is not. The head of a ranking
+is swept FIRST, so by the time a log records it again the parent is exhausted, its journal is
+`already ingested, skipping`, and its rows are already held. The correlation measures sweep history,
+not ranking quality.
+
+Restricting to the 54 parents swept FRESH from the ranking that replaced it, none of them touched
+before, gives rho **-0.655**: the ranking works. The same data, the opposite conclusion, decided
+entirely by whether the sample was contaminated by earlier sweeps.
+
+Two things to carry from it. Price a ranker only on parents it has never been used on, which in
+practice means the window right after a re-rank. And read the DECAY while you are there: those 54
+parents ran 8 to 17 MB of compressed rows at the head and 0.2 to 2 MB by rank 50, so a re-ranked
+queue's dense head is about twenty parents deep and an hour of two clients walks it out.
