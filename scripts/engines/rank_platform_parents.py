@@ -103,6 +103,7 @@ def main() -> int:
     # running on a clone that has none.
     held: Counter[str] = Counter()
     held_years: Counter[str] = Counter()
+    parent_years: Counter[str] = Counter()
     if args.net_new:
         from ark.db import connect_read_only_patiently
 
@@ -114,6 +115,16 @@ def main() -> int:
             ).fetchall():
                 held[parent] = hosts
                 held_years[parent] = host_years
+            # **A host record needs its PARENT held in the same year.** That is the hostname
+            # wall, and it is what actually bounds a sweep: a parent held in one year of six
+            # can only ever yield one year per host, whatever the archive returns for the
+            # other five. Measured 2026-09-08, ranking without it sent both clients at
+            # `markettrix-seo1.com`, held at 2001 alone, and 907,446 hostname-year candidates
+            # became 44,738 rows, a 4.9% acceptance rate.
+            for parent, years in conn.execute(
+                "SELECT domain, count(DISTINCT assigned_year) FROM domain_year GROUP BY 1"
+            ).fetchall():
+                parent_years[parent] = years
         finally:
             conn.close()
 
@@ -136,7 +147,11 @@ def main() -> int:
 
     def headroom(parent: str) -> int:
         hosts_known = max(subhosts.get(parent, 0), held.get(parent, 0))
-        return max(hosts_known * YEARS - held_years.get(parent, 0), 0)
+        # Years this parent is actually held, capped at the window, because a year the
+        # parent lacks cannot carry a record for any host beneath it. Falls back to the
+        # window when the store was not read, so the no-store path is unchanged.
+        reachable = min(parent_years.get(parent, YEARS), YEARS) if args.net_new else YEARS
+        return max(hosts_known * reachable - held_years.get(parent, 0), 0)
 
     if args.net_new:
         scored = (
