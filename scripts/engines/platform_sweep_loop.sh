@@ -100,7 +100,26 @@ sweep_one() {
         # journal, so an unmeasured parent is judged on what it is doing rather than kept
         # at an assumed 1.0 and then killed by the clock.
         read -r rows hosts <<< "$(yield_of "$safe")"
-        [ "${hosts:-0}" -gt 0 ] && rph=$(( rows / hosts )) || rph=9999
+        # **An empty journal is not an expensive parent.** With hosts at 0 the ratio was
+        # forced to 9999, which reads as the worst possible namespace, so a parent whose
+        # first page had not landed yet was parked among the duds. That is exactly what
+        # happens while the archive is answering 503: the backoff eats the first cap window
+        # and the highest-ranked parents are thrown away for being slow, which is the same
+        # mistake the flat time cap made. Nothing is known yet, so keep waiting, and if it
+        # is still silent at PARENT_MAX put it on the retry list rather than the dud list.
+        if [ "${hosts:-0}" -eq 0 ]; then
+            if [ "$waited" -lt "$PARENT_MAX" ]; then
+                echo "$parent: ${waited}s, nothing written yet, waiting"
+                continue
+            fi
+            echo "$parent: silent for ${PARENT_MAX}s, queued for retry"
+            echo "$parent" >> data/raw/cdx/platform_retry.txt
+            kill -TERM "$pid" 2>/dev/null
+            pgrep -f "$SWEEP $parent " | while read -r child; do kill -TERM "$child" 2>/dev/null; done
+            sleep 3
+            return 0
+        fi
+        rph=$(( rows / hosts ))
         if [ "$rph" -le "$RPH_MAX" ] && [ "$waited" -lt "$PARENT_MAX" ]; then
             echo "$parent: ${waited}s, $rows rows over $hosts hosts, $rph rows/host, cheap, continuing"
             continue
