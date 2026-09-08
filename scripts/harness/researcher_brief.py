@@ -128,9 +128,13 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
    three numbers on it: distinct registrable domains, the fraction ALREADY HELD, and
    the fraction held AND MISSING the artifact's own year. That third number is the
    one that decides it. Extrapolate, write the estimate down, then branch:
-   - projected under 200 EE: STOP, report CLOSED with the probe numbers, next hypothesis.
-   - projected 200 to 1,000 EE: take it only if the rest of the fetch is minutes.
-   - projected over 1,000 EE: measure it properly. This is the case that matters.
+   - projected under 10,000 EE: STOP, report CLOSED with the probe numbers, next
+     hypothesis. Measured over the register's 191 priced leads: the 176 that came in
+     under 10,000 EE produced 1.33% of all equivalent-English ever banked, and the
+     seven over 100,000 produced 97.56%. A window spent measuring a four-figure lead
+     properly is a window not spent finding a six-figure one.
+   - projected over 10,000 EE: measure it properly. This is the case that matters, and
+     what separates the outliers is whether the artifact can be read WHOLE.
 4. Price with `uv run python scripts/pricing/price_items.py`, against merged260830. Sample
    DISTINCT DOMAINS, never domain_year rows.
 5. If the artifact is already on disk under data/raw/, there is no fetch to save and
