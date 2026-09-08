@@ -711,7 +711,7 @@ next refresh, and packaging refuses outright if the two disagree.
 
 A source the loop cannot decide sits at `Decision: pending` in
 `docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `sync_approvals.py`,
-which runs inside `just bank`, turns each one at or above the 10,000 EE bar into two things: a
+which runs inside `just bank`, turns each one at or above the 5,000 EE bar into two things: a
 pull request on `live` that flips only that source's `Decision:` line, and an issue in the
 private fleet repository labelled `approval` that links to it and carries the measurement.
 

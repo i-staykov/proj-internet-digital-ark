@@ -58,7 +58,7 @@ def _register(monkeypatch, tmp_path):
 
 def test_a_terms_question_is_filed() -> None:
     """Terms are condition 3: a judgement only Ivo makes, so it earns his attention."""
-    names = [r.source for r in sa.requests(floor=10_000)]
+    names = [r.source for r in sa.requests(floor=5_000)]
     assert names == ["hostlist"]
 
 
@@ -74,7 +74,7 @@ def test_work_is_not_an_approval() -> None:
 
 def test_below_the_bar_nothing_is_filed() -> None:
     """Four issues sat unread at four figures and were closed on the bar (Ivo, 2026-09-08)."""
-    assert "tinylist" not in [r.source for r in sa.requests(floor=10_000)]
+    assert "tinylist" not in [r.source for r in sa.requests(floor=5_000)]
     assert "tinylist" in [r.source for r in sa.requests(floor=100)]
 
 
@@ -84,7 +84,7 @@ def test_a_decided_source_is_not_a_request() -> None:
 
 def test_the_pull_request_flips_exactly_one_line() -> None:
     """The merge IS the approval, so it must change the decision and nothing else."""
-    request = next(r for r in sa.requests(floor=10_000))
+    request = next(r for r in sa.requests(floor=5_000))
     after = sa.approve_line(request)
     before = sa.REGISTER.read_text(encoding="utf-8")
     assert after.count("Decision: master") == before.count("Decision: master") + 1
@@ -96,6 +96,6 @@ def test_the_pull_request_flips_exactly_one_line() -> None:
 
 
 def test_the_branch_name_is_stable_per_source() -> None:
-    request = next(r for r in sa.requests(floor=10_000))
+    request = next(r for r in sa.requests(floor=5_000))
     assert request.branch == "approve/hostlist"
     assert request.title == "Approve hostlist? 40,000 EE"
