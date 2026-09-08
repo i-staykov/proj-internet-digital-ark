@@ -412,3 +412,35 @@ The counter-example in the same hour is worth keeping beside it. `internic_zone_
 whose bytes sit on our own disk and whose held-set was therefore the store, re-priced UPWARD, from
 4,678.2 to **4,817.59 EE**. Staleness inflates; it does not simply add noise.
 
+
+## What a sweep page is worth is bounded by the parent's own years, and by his files
+
+Measured 2026-09-08 over the first six journals of a ranked platform sweep, from the raw
+capture rows through to the shipped additions:
+
+| stage | count | share of the previous |
+|---|--:|--:|
+| capture rows returned | 3,425,095 | |
+| hostname-year candidates | 907,446 | 26.5% |
+| rows the ingest accepted | 44,738 | 4.9% |
+| records that reached `hostnames/` | 7,927 | 17.7% |
+| equivalent-English banked | 5,010.66 | |
+
+**Two walls, not one, and both were invisible to the ranking.**
+
+The first is the hostname wall: a `(host, year)` record needs its PARENT held in that same
+year. `markettrix-seo1.com` returned 1,365,992 rows and 235,120 in-window host-years worth
+148,619 gross EE, and we hold that parent at 2001 alone, so five sixths of it could never
+become a record. The ranker scored every parent as if all six years were reachable, which
+is why both clients were spent there.
+
+The second is his benchmark. Of the 44,738 rows that passed the wall, 36,811 were host-years
+his files already hold; only 7,927 were net-new. The ranker subtracted our own held
+host-years and never his, so it was ordering the queue by a difference nobody gets paid for.
+
+So the headroom of a parent is `hosts x years we hold that parent - (our host-years + his
+host-years)`, and both corrections are in `rank_platform_parents.py`. The practical reading:
+**a sweep's value is set by how many years we already hold the parent in, so the parents worth
+asking are the ones held across the window, not the ones with the most hosts.** It also
+explains why the hostname half of the round sits almost entirely at 2001, where parent
+coverage is deepest: 1,449,584 records at 2001 against 110 at 1996.
