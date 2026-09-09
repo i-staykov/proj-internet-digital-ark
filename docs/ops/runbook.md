@@ -197,7 +197,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
 | brief | `uv run python scripts/round/extract_ding_docs.py --package <document-directory> --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>` | refreshes the canonical brief and its companion documents under [docs/brief/ding/](../brief/ding/) from his originals. All provenance arguments are required; the header carries each source file's sha256. Run after each task-package arrival; baseline intake does not do it. See [the transcription instructions](../brief/ding/README.md) |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
-| schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads two launchd jobs: `com.ark.bank` runs `scripts/harness/scheduled_bank.sh` at :05 every hour (`just bank`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **It needs Full Disk Access and says so**: this repository sits under `~/Documents`, which macOS TCC protects, and a launchd agent inherits nothing from the terminal that installed it, so without the grant it exits 126 while `launchctl list` looks perfectly normal, and with launchd's bare PATH it exits 127 the same way, which is why the templates set one. The recipe therefore runs the cycle job once as the probe and reports its exit status rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
+| schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads three launchd jobs: `com.ark.collectors` holds the CDX collector lane (see above), `com.ark.bank` runs `scripts/harness/scheduled_bank.sh` at :05 every hour (`just bank`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **It needs Full Disk Access and says so**: this repository sits under `~/Documents`, which macOS TCC protects, and a launchd agent inherits nothing from the terminal that installed it, so without the grant it exits 126 while `launchctl list` looks perfectly normal, and with launchd's bare PATH it exits 127 the same way, which is why the templates set one. The recipe therefore runs the cycle job once as the probe and reports its exit status rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | restart the collectors on a new deadline | `bash scripts/engines/restart_sweeps.sh <deadline_epoch>`, **on the VPS** | the VPS runs its two collectors as transient systemd user units (`ark-sweep0`, `ark-sweep1`) whose deadline is baked into the command line, so widening the window means restarting them. This stops both, waits, counts CLIENTS BY OPEN JOURNAL rather than by process (one client is a `uv run` wrapper plus its python child, so a process count doubles it), and starts only as many loops as the two-client rule leaves. **Expect one loop, not two:** a stopped sweep keeps its journal until its current parent is walked and still holds a slot, so the freed slot must be refilled afterwards or the fleet runs at half capacity for the rest of the window. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. `extend_engines.sh` is the LAPTOP equivalent and starts `supervise_cdx_pool.sh`, so do not point it at the VPS |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
@@ -277,7 +277,7 @@ opens nothing and is reported as stale.
 
 ### Banking without a session open, and asking for a package from a phone
 
-`just schedule install` loads two launchd jobs: `com.ark.bank` runs `scripts/harness/scheduled_bank.sh`
+`just schedule install` loads three launchd jobs: `com.ark.collectors` holds the collector lane, `com.ark.bank` runs `scripts/harness/scheduled_bank.sh`
 at five past every hour, `com.ark.cycle` runs the health check four times a day. The bank wrapper holds a
 lock, appends to `data/logs/scheduled_bank.log`, runs `just bank`, and then reads one label: `ship-now` on
 any open ark-fleet issue (the gate issue is the natural place) makes it run `just ship all` once, which
@@ -590,6 +590,41 @@ year-records on its disk and absent from the store, because nothing here ever lo
 lists any remote journal missing locally and prints the `rsync` that fetches it, and it now reports
 **UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
 
+### The collector lane under launchd
+
+The parent sweeps are the laptop's standing lane and launchd owns them, so there is no start
+and no stop, only three words:
+
+```bash
+just collectors status    # running or paused, the current parent, the last journal, the hit rate
+just collectors pause     # before travel or a shutdown
+just collectors resume     # after it
+```
+
+`com.ark.collectors` (loaded by `just schedule install`) runs `scripts/harness/scheduled_collectors.sh`,
+which re-execs itself under **`caffeinate -s`** and then supervises the lane in the foreground:
+two `platform_sweep_loop.sh` shards to a rolling six-hour deadline, plus one fold loop, and it
+waits on them rather than detaching. Both halves of that shape matter. Without `caffeinate` an
+idle-sleeping laptop stops the lane with no error line at all, because the sweep is not killed,
+it simply stops being scheduled. And because the job is `KeepAlive`, a program that returned
+immediately would be restarted immediately, and every restart would detach another pair of
+archive clients; the supervisor therefore never returns while a window is open.
+
+**Pause is a flag file, and that is what makes it survive a reboot.** `just collectors pause`
+writes `~/ark/state/pause` with `human` on its first line; `cdx_suffix_sweep.py` reads it between
+pages, so the pause costs one page in flight and never strands a `.part`, and launchd stays loaded
+doing nothing. The `human` marker is the whole point of the first line: the sweep loop expires an
+undated flag after 9,000 seconds, which is right for one a fleet wave forgot and wrong for one a
+person wrote, so a hand-written pause is never expired. `resume` removes the file and nothing else,
+and each parent continues from its own state file, so no page is re-fetched.
+
+**The budget is the channel's, not the machine's.** Two archive clients maximum binds
+`web.archive.org/cdx` across every machine (C-77), so before each window the supervisor counts the
+journals held open here AND asks the VPS how many it holds, and starts only what is left. While the
+VPS sweeps are still up it therefore starts nothing and says so; when they stop (S8) the two slots
+become the laptop's with no step here. `ARK_CDX_BUDGET` raises the number and is only for an overlap
+that has been asked for deliberately.
+
 ### The namespace sweep, which feeds the hostname unit
 
 `matchType=domain` on one parent returns every capture under it, so one request walks
@@ -747,11 +782,31 @@ because that is work rather than a decision.
 ## What the fleet prices against
 
 The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline
-under `merged<marker>/` and our last export under `netnew/`. `scripts/harness/sync_fleet.sh`
-pushes both, reading the marker from `data/baseline.json` so it can never name a stale release,
-and removes superseded baselines on the VPS once the new one holds all six year files. It runs
-inside `just bank` and after every non-dry `just intake`; a wave priced before the next sync
-sees a ceiling, which its brief makes it say.
+under `merged<marker>/`, our last export under `netnew/`, both candidate pools under
+`candidates/`, and `manifest.json`, which carries the marker, a `built_at` and the line count
+and sha256 of every file. `scripts/harness/sync_fleet.sh` pushes all of it, reading the marker
+from `data/baseline.json` so it can never name a stale release, and removes superseded
+baselines on the VPS once the new one holds all six year files. It runs inside `just bank` and
+after every non-dry `just intake`; a wave priced before the next sync sees a ceiling, which its
+brief makes it say.
+
+`scripts/harness/snapshot_manifest.py` stages what gets pushed, with hard links so a 1.5 GB
+baseline costs no disk, and **refuses to build a snapshot holding a zero-line file**: an empty
+held-set prices every name as net-new. An export family that is legitimately empty for one year
+(`1998-ISC.txt` today) is left out of the snapshot and named on the way past. The manifest is
+pushed last, so a torn sync fails the next wave rather than mispricing it.
+
+    uv run ark price-snapshot --snapshot /projects/ark-data --items items.jsonl
+    uv run ark price-snapshot --snapshot /projects/ark-data --items names.jsonl --track candidate
+
+**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}`, one
+JSON object per line; it prints one JSON object with `netnew_pairs`, `ee`, `by_year`, the top
+five TLDs, `www_alias_share`, `parent_held_share`, `manifest_sha`, `snapshot_marker` and
+`snapshot_built_at`, which a finding copies so the figure can be reproduced against the same
+snapshot. It reads no store and writes nothing, it applies the ingest's own hostname and `www.`
+rules and the export's shipping filter, and it exits 2 without a figure when the snapshot
+disagrees with its manifest in either direction. A leg may write its own extractor, which is
+kept as evidence; it may not write its own pricer.
 
 ## Pricing the thin-parent lane
 

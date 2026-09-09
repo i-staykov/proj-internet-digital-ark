@@ -211,8 +211,20 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # survivable: a flag with no expiry once idled both clients for nearly three hours of a
     # night we needed, when a wave that set it ran 2h14m against a 50-minute cap. Anything
     # that wants a long pause refreshes the file while it holds it.
+    #
+    # **A pause a human asked for is the exception, and expiring it would be a bug.**
+    # `just collectors pause` writes `human` on the flag's first line and is meant to hold
+    # over travel and a reboot, so this loop leaves that one alone: only `resume` clears it.
+    # `stat -c` is GNU and silently failed to macOS's `stat -f`, which made every flag read
+    # as zero seconds old on the laptop; both are asked now.
     while [ -e "$PAUSE_FLAG" ]; do
-        age=$(( $(date +%s) - $(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || date +%s) ))
+        if [ "$(head -1 "$PAUSE_FLAG" 2>/dev/null)" = "human" ]; then
+            echo "paused by hand, waiting for a resume"
+            sleep 60
+            continue
+        fi
+        mtime=$(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || stat -f %m "$PAUSE_FLAG" 2>/dev/null || date +%s)
+        age=$(( $(date +%s) - mtime ))
         if [ "$age" -gt 9000 ]; then
             echo "pause flag is ${age}s old, past any healthy wave: resuming"
             rm -f "$PAUSE_FLAG"
