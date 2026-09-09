@@ -7,9 +7,17 @@ findings carry their fields in a fixed shape, and a model was the second-largest
 cost in the loop. So this is that scribe, at zero tokens.
 
 It never ingests and never decides: a FIND is booked exactly like a CLOSED, and the
-admitter (a model, run separately by `just bank`) is the only thing that touches the
-store. Findings whose file lacks a parseable verdict are booked as BLOCKED with the
+approval path (`standing_rule.py`, then `sync_approvals.py`) is the only thing that reaches
+the store. Findings whose file lacks a parseable verdict are booked as BLOCKED with the
 file named, which is the fleet's fallback contract carried through.
+
+**The prose row is unchanged; the sidecar is what a program is allowed to believe.** Since
+S9 a leg arrives as a directory: `finding.md` in the register voice, `finding.json` in the
+fleet's schema, and `store_price.json` written by `fleet_findings.py reprice`. Where the
+sidecar disagrees with the prose about a verdict, a figure or a URL, the sidecar wins,
+because the prose is written to be read and the sidecar is written to be checked. **A fleet
+figure never reaches the register alone**: the EE cell carries the store's own re-price
+beside it, or says in words why there is none.
 
     uv run python scripts/harness/bank_findings.py data/fleet_findings/incoming \\
         --hypotheses ~/Documents/GitHub/ark-fleet/hypotheses.md --run-label wave-123
@@ -19,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import re
 from pathlib import Path
 
@@ -65,6 +74,54 @@ def parse_finding(path: Path) -> dict:
     return {"slug": slug, "verdict": verdict, "ee": ee, "fields": fields}
 
 
+def _json(path: Path) -> dict:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def overlay(finding: dict, lead: Path) -> dict:
+    """The prose finding, with the sidecar's machine-readable fields laid over it."""
+    sidecar = _json(lead / "finding.json")
+    if not sidecar:
+        return finding
+    finding["slug"] = sidecar.get("slug") or finding["slug"]
+    verdict = str(sidecar.get("verdict") or "").upper()
+    if verdict in {"FIND", "CLOSED", "BLOCKED"}:
+        finding["verdict"] = verdict
+    pricing = sidecar.get("pricing") or {}
+    if isinstance(pricing.get("ee"), int | float):
+        finding["ee"] = f"{pricing['ee']:,.1f}"
+    artifact = sidecar.get("artifact") or {}
+    if artifact.get("url"):
+        finding["fields"].setdefault("artifact", str(artifact["url"]))
+    if sidecar.get("reason"):
+        finding["fields"].setdefault("reason", str(sidecar["reason"]))
+    finding["verify"] = (sidecar.get("verify") or {}).get("status", "pending")
+    finding["store"] = _json(lead / "store_price.json")
+    return finding
+
+
+def findings_in(incoming: Path) -> list[dict]:
+    """Every finding in the drained directory, one per lead directory and per loose file."""
+    out: list[dict] = []
+    for lead in sorted(p for p in incoming.iterdir() if p.is_dir()):
+        prose, sidecar = lead / "finding.md", lead / "finding.json"
+        if not prose.is_file() and not sidecar.is_file():
+            continue
+        base = (
+            parse_finding(prose)
+            if prose.is_file()
+            else {"slug": lead.name, "verdict": "BLOCKED", "ee": "0", "fields": {}}
+        )
+        base["slug"] = lead.name
+        out.append(overlay(base, lead))
+    out += [parse_finding(p) for p in sorted(incoming.glob("*.md"))]
+    return out
+
+
 def first_clause(text: str, limit: int = 240) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     for stop in (". ", "; "):
@@ -83,6 +140,7 @@ def register_row(f: dict, run_label: str) -> str:
     dates = first_clause(f["fields"].get("what dates one item", ""), 140) or "n/a"
     probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 200)
     url = _URL.search(f["fields"].get("artifact", ""))
+    verdict = f["verdict"] + (f" ({f['verify']})" if f.get("verify") else "")
     cells = [
         f["slug"],
         f"{day}, fleet {run_label}",
@@ -90,14 +148,30 @@ def register_row(f: dict, run_label: str) -> str:
         f["fields"].get("method", "n/a") or "n/a",
         dates,
         "n/a",
-        f"{f['ee']} EE ({day})",
+        f"{ee_cell(f)} ({day})",
         probe or "n/a",
         "n/a",
-        f["verdict"],
+        verdict,
         f"<{url.group(0)}>" if url else "n/a",
     ]
     tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
     return _within_limit(tidy)
+
+
+def ee_cell(f: dict) -> str:
+    """The figure, and where it came from.
+
+    A fleet leg prices against the pushed snapshot, so its number is a measurement made
+    somewhere else against a copy. When the laptop has re-priced the same items on the live
+    store the two sit side by side and a reader can see the gap; when it has not, the cell
+    says why in words. Neither is allowed to look like the other.
+    """
+    store = f.get("store")
+    if store is None or f["verdict"] != "FIND":
+        return f"{f['ee']} EE"
+    if isinstance(store.get("ee"), int | float):
+        return f"fleet {f['ee']} EE, store {store['ee']:,.1f} EE"
+    return f"fleet {f['ee']} EE, store not re-priced: {store.get('status') or 'no store price'}"
 
 
 # The register's rows are read in a terminal and a test refuses one over 500 characters.
@@ -179,11 +253,10 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    files = sorted(args.incoming.glob("*.md"))
-    if not files:
+    findings = findings_in(args.incoming)
+    if not findings:
         print("nothing to bank")
         return 0
-    findings = [parse_finding(p) for p in files]
     rows = [register_row(f, args.run_label) for f in findings]
     if args.dry_run:
         print("\n".join(rows))

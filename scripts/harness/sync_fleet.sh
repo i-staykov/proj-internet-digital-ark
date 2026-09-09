@@ -5,7 +5,7 @@
 # sha256. `ark price-snapshot` refuses a snapshot whose files disagree with the manifest,
 # so the manifest is pushed LAST and a torn sync fails a wave instead of mispricing it.
 # Superseded baselines on the VPS are removed once the new one holds all six year files.
-# Runs inside `just bank` and after every non-dry `just intake`.
+# Runs inside `just sync` and after every non-dry `just intake`.
 set -euo pipefail
 
 [ -f local.env ] && . local.env
@@ -30,11 +30,21 @@ for sub in "$MARKER" netnew candidates; do
     ssh "$ARK_VPS" "mkdir -p /projects/ark-data/'$sub'"
     rsync -a --delete "$STAGE/$sub"/ "$ARK_VPS":/projects/ark-data/"$sub"/
 done
+# **The manifest goes as soon as its files are there, and everything optional goes after
+# it.** It went last of three under `set -e`, behind `ack_journals.py`, which opens the store
+# read-only: one locked store and the snapshot the fleet had just been sent became unusable,
+# because the pricer refuses files no manifest lists. Measured 2026-09-09, when today's
+# manifest reached the box only because the rsyncs were run again by hand.
+rsync -a "$STAGE"/manifest.json "$ARK_VPS":/projects/ark-data/manifest.json
+
 # The receipt that lets the host remove a journal this store has already ingested. Its
 # authority is the sha256 the ingest itself recorded, so a name collision cannot free bytes.
-uv run python scripts/harness/ack_journals.py --out output/journal_acks.tsv >/dev/null
-rsync -a output/journal_acks.tsv "$ARK_VPS":/projects/ark-data/journal_acks.tsv
-rsync -a "$STAGE"/manifest.json "$ARK_VPS":/projects/ark-data/manifest.json
+# Never fatal: a delayed ACK costs the box disk, a missing manifest costs a wave.
+if uv run python scripts/harness/ack_journals.py --out output/journal_acks.tsv >/dev/null; then
+    rsync -a output/journal_acks.tsv "$ARK_VPS":/projects/ark-data/journal_acks.tsv
+else
+    echo "ack skipped: store locked. The snapshot is pushed; the box keeps its journals."
+fi
 ssh "$ARK_VPS" "cd /projects/ark-data && [ \$(ls '$MARKER' | grep -c '\\.txt\$') -eq 6 ] \
     && for d in merged*; do [ \"\$d\" = '$MARKER' ] || rm -rf -- \"\$d\"; done; ls -d merged*"
 echo "fleet prices against $MARKER"

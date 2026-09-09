@@ -209,7 +209,7 @@ def test_a_connection_is_capped_and_can_spill() -> None:
     """**DuckDB takes 80% of the machine unless told otherwise**, and this store is 52 GB.
 
     Measured 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB
-    resident while `just bank`, `just state` and `just cycle` each start one, and the
+    resident while `just sync`, `just state` and `just cycle` each start one, and the
     machine swapped. The cap is what keeps a reporting query from evicting everything
     else, and the spill directory is what keeps the cap from turning into an error.
     """

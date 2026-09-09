@@ -82,7 +82,7 @@ def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
     **Through `ark.db`, not a private copy of the retry loop.** This function had its
     own, so it also missed the memory and thread caps that live there, and measured
     2026-09-08 this process sat at 28 GB resident on a 36 GB laptop: DuckDB takes 80%
-    of the machine unless told otherwise, and `just bank`, `just state` and `just
+    of the machine unless told otherwise, and `just sync`, `just state` and `just
     cycle` each start one.
     """
     try:

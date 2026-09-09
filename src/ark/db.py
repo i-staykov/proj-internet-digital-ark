@@ -22,7 +22,7 @@ DEFAULT_DB_PATH = Path("data/ark.duckdb")
 
 # **DuckDB takes 80% of the machine by default, and this store is 52 GB.** Measured
 # 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB resident and the
-# machine started swapping, while `just bank`, `just state` and `just cycle` each spawn
+# machine started swapping, while `just sync`, `just state` and `just cycle` each spawn
 # one. Nothing here needs that much: these are aggregations over a few wide tables, and
 # DuckDB spills to `temp_directory` when it hits the limit, so a cap costs some disk and
 # no correctness. Threads are capped for the same reason, since peak memory scales with
