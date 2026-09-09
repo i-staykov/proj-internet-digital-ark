@@ -747,11 +747,34 @@ because that is work rather than a decision.
 ## What the fleet prices against
 
 The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline
-under `merged<marker>/` and our last export under `netnew/`. `scripts/harness/sync_fleet.sh`
-pushes both, reading the marker from `data/baseline.json` so it can never name a stale release,
-and removes superseded baselines on the VPS once the new one holds all six year files. It runs
-inside `just bank` and after every non-dry `just intake`; a wave priced before the next sync
-sees a ceiling, which its brief makes it say.
+under `merged<marker>/`, our last export under `netnew/`, both candidate pools under
+`candidates/`, and `manifest.json`, which carries the marker, a `built_at` and the line count
+and sha256 of every file. `scripts/harness/sync_fleet.sh` pushes all of it, reading the marker
+from `data/baseline.json` so it can never name a stale release, and removes superseded
+baselines on the VPS once the new one holds all six year files. It runs inside `just bank` and
+after every non-dry `just intake`; a wave priced before the next sync sees a ceiling, which its
+brief makes it say.
+
+`scripts/harness/snapshot_manifest.py` stages what gets pushed, with hard links so a 1.5 GB
+baseline costs no disk, and **refuses to build a snapshot holding a zero-line file**: an empty
+held-set prices every name as net-new. An export family that is legitimately empty for one year
+(`1998-ISC.txt` today) is left out of the snapshot and named on the way past. The manifest is
+pushed last, so a torn sync fails the next wave rather than mispricing it.
+
+    uv run ark price-snapshot --snapshot /projects/ark-data --items items.jsonl
+    uv run ark price-snapshot --snapshot /projects/ark-data --items names.jsonl --track candidate
+
+**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}`, one
+JSON object per line; it prints one JSON object with `netnew_pairs`, `ee`, `by_year`, the top
+five TLDs, `www_alias_share`, `parent_held_share`, `split`, `manifest_sha`, `snapshot_marker`
+and `snapshot_built_at`, which a finding copies so the figure can be reproduced against the
+same snapshot. **`split` is fixed at `none, exact-name membership, pre-corroboration`**: the
+corroboration split needs the store's attestation and a snapshot carries year files rather
+than evidence, so `ee` is `price_items.py`'s BEFORE-the-split figure and an upper bound on
+what an annual submission of the same corpus would be credited. It reads no store and writes nothing, it applies the ingest's own hostname and `www.`
+rules and the export's shipping filter, and it exits 2 without a figure when the snapshot
+disagrees with its manifest in either direction. A leg may write its own extractor, which is
+kept as evidence; it may not write its own pricer.
 
 ## Pricing the thin-parent lane
 

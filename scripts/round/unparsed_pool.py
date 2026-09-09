@@ -38,7 +38,7 @@ import sys  # noqa: E402
 sys.path.insert(0, str(REPO / "src"))
 
 from ark.canonical import to_registrable  # noqa: E402
-from ark.hostnames import _VALID_HOST, _host_of  # noqa: E402
+from ark.hostnames import _VALID_HOST, host_of  # noqa: E402
 
 OUT = REPO / "output/netnew/candidates_unparsed.txt"
 DEFAULT_DIRS = ("data/raw/cdx_suffix", "data/raw/cdx_gap_hostgrain", "data/raw/nypw_hostgrain")
@@ -46,7 +46,7 @@ DEFAULT_DIRS = ("data/raw/cdx_suffix", "data/raw/cdx_gap_hostgrain", "data/raw/n
 
 def reason_for(raw: str) -> str | None:
     """Why the funnel refused this value, or None if it did not."""
-    host = _host_of(raw)
+    host = host_of(raw)
     if host is None:
         bare = raw.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].strip().lower()
         if not bare:
