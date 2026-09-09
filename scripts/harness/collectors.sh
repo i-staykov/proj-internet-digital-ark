@@ -93,12 +93,15 @@ vps_clients() (
 cd "$REPO" 2>/dev/null || exit 1
 flag="${ARK_STATE_DIR:-$HOME/ark/state}/pause"
 if [ -e "$flag" ]; then
-    # Quiet is measured on any journal, not on a `.part`: this machine's sweep writes its
-    # final name directly, so a `.part` glob found nothing and read every paused machine as
-    # quiet the instant the flag appeared, grace included.
-    recent=$(find data/raw/cdx_suffix data/raw/cdx -maxdepth 1 -name '*.jsonl.gz*' \
-        -newermt "-${QUIET} seconds" 2>/dev/null | head -1)
-    if [ -z "$recent" ]; then echo 0; exit 0; fi
+    # Quiet is measured on any journal, not on a `.part`: the other machine's sweep writes
+    # its final name directly, so a `.part` glob found nothing and read every paused machine
+    # as quiet the instant the flag appeared, grace included. `ls -t` and `stat` rather than
+    # `find -newermt`, because the relative timestamp that syntax needs is GNU find's and
+    # this laptop's `find` is bfs, which refuses it: the probe has to read the same on both.
+    newest=$(ls -t data/raw/cdx_suffix/*.jsonl.gz* data/raw/cdx/*.jsonl.gz* 2>/dev/null | head -1)
+    if [ -z "$newest" ]; then echo 0; exit 0; fi
+    mtime=$(stat -c %Y "$newest" 2>/dev/null || stat -f %m "$newest" 2>/dev/null || echo 0)
+    if [ $(( $(date +%s) - mtime )) -ge "$QUIET" ]; then echo 0; exit 0; fi
 fi
 journals=$(for pid in $(pgrep -f cdx_suffix_sweep.py 2>/dev/null); do
     ls -l /proc/$pid/fd 2>/dev/null | grep -oE '(suffix|cdx)_[^ /]*jsonl[.]gz'
