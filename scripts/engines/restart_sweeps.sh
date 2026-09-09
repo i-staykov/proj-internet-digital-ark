@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
-# Restart the two archive collectors with a new deadline and a freshly ranked queue.
+# Restart the two archive collectors on a new deadline, reusing the queue shards on disk.
+#
+# **It does not rank anything**, despite what this line said until 2026-09-09: it takes the
+# shard files as they are, and re-ranking is `rank_platform_parents.py` run deliberately
+# beforehand. The title claimed otherwise for a day, which is exactly the kind of comment
+# that gets believed instead of read.
 #
 # Why this exists as a script rather than three commands: the two-clients rule is the one
 # invariant that must hold across the restart, so the stop is verified before either start
 # and the count is verified after. Run it on the VPS as the collector user.
+#
+# **Expect it to start ONE loop, not two, and that is the correct outcome.** A sweep whose
+# loop has been stopped keeps its journal open until its current parent is walked, so it is
+# still one of the two clients the rule allows. Measured 2026-09-09: the stop left `dal.ca`
+# running, the budget was therefore 1, and one loop was started. The orphan then finishes
+# with nothing behind it, so the freed slot has to be refilled or the fleet quietly runs at
+# half capacity for the rest of the window. Re-run this, or wait for the slot and start the
+# missing shard directly.
 #
 # Usage:  bash scripts/engines/restart_sweeps.sh [deadline_epoch] [queue_prefix]
 # Default deadline is 04:00Z tomorrow, which outlives any run planned tonight.
