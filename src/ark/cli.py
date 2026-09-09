@@ -1,5 +1,6 @@
 """Command-line entry point for the ark pipeline."""
 
+import json
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -31,6 +32,8 @@ from ark.ingest import YEARS, ingest_legacy
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.price_snapshot import SnapshotError
+from ark.price_snapshot import price as price_against_snapshot
 from ark.provenance import PROVENANCE_DIR, load_provenance
 from ark.seed import seed_from_file
 from ark.seed_pool import combine_parts, write_source_part
@@ -655,6 +658,34 @@ def export() -> None:
     """
     conn = connect_patiently()
     export_all(conn)
+
+
+@app.command(name="price-snapshot")
+def price_snapshot_cmd(
+    snapshot: Annotated[
+        Path,
+        typer.Option(help="Snapshot directory: manifest.json, the marker, netnew, candidates."),
+    ],
+    items: Annotated[
+        Path, typer.Option(help="JSONL(.gz) of {host, year, text?}, one item per line.")
+    ],
+    track: Annotated[
+        str, typer.Option(help="`annual` for (name, year) records, `candidate` for undated names.")
+    ] = "annual",
+) -> None:
+    """Price items against a pushed snapshot and print one JSON object.
+
+    This is the only price a fleet leg may quote. It reads no store, writes nothing, and
+    refuses a snapshot whose files disagree with its manifest, so the figure in a finding
+    is reproducible from the marker and `built_at` it carries.
+    """
+    try:
+        priced = price_against_snapshot(snapshot, items, track)
+    except SnapshotError as exc:
+        logger.error(str(exc))
+        raise typer.Exit(2) from exc
+    # stdout is the JSON and nothing else: a leg copies fields out of it.
+    typer.echo(json.dumps(priced, indent=2))
 
 
 @app.command()
