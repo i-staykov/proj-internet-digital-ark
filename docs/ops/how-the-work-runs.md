@@ -9,8 +9,8 @@ code is right and this page is a bug.
 | where | what it does | needs the laptop |
 |---|---|---|
 | **a session with the agent** (this repo, `live`) | everything that changes the store, the register or the deliverable: pricing a corpus, an ingest, an export, a package, a commit | yes |
-| **the fleet** (`i-staykov/ark-fleet`, two self-hosted runners on the VPS, GitHub Actions schedule) | proposes hypotheses, screens and prices them read-only, re-opens closed verdicts, summarises, tunes its own policy | no |
-| **the collectors** (systemd units on the VPS) | long CDX sweeps that write journals | no |
+| **the fleet** (`i-staykov/ark-fleet`, three self-hosted runners on the VPS, GitHub Actions schedule) | one wave every 20 minutes, paced against the token window: a scout proposes a source, a price leg measures it read-only, a verify leg tries to refute it, an improver tunes one knob | no |
+| **the collectors** (launchd jobs on the laptop since 2026-09-09) | long CDX sweeps that write journals; `just collectors pause` and `resume` | yes, awake |
 
 The fleet never touches the store. It clones `live` fresh on every wave, reads the shipped files
 that `just sync` rsyncs to the VPS, and writes **findings**: a markdown file in the register voice
@@ -18,10 +18,17 @@ and a `finding.json` sidecar in the fleet's schema. Nothing it finds is a record
 takes it in, and no figure it reports is booked on its own: `just sync` prices every confirmed FIND
 again on the live store and the register row carries both numbers.
 
+**The fleet has its own one page, `harness.md` in `i-staykov/ark-fleet`, and it is the single
+source of truth on all of it**: the lanes and what each one delivers, the pacer, which account
+pays, the five kinds of decision, the download backlog, what the improver may change on its own,
+the three collector commands, and every file with what it decides. This page stops at the
+boundary; that one crosses it. What only Ivo can do is below, and it is the same list either side.
+
 ## The loop, and where each step leaves a mark
 
-1. **Discover.** A lens proposes a source. Fleet generator, or a session, or Ivo. Lands in
-   `ark-fleet/hypotheses.md` as an open block.
+1. **Discover.** A lens proposes a source. A fleet scout leg, or a session, or Ivo. A scout lands
+   it as `ark-fleet/leads/<slug>.json` at `status: scouted`, with the artifact, one quoted stamp
+   and a size estimate; a session works from `docs/registers/sources-closed.md` outward.
 2. **Screen.** Does it collide with a closed family, and what dates one item? `just screen`. A
    collision prints the measurement that killed it, so nobody re-argues it.
 3. **Price.** Net-new equivalent-English against the live store and against the reviewer's own

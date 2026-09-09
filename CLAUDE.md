@@ -37,7 +37,8 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
    the same query paid 210 EE/hour two nights on). The token window goes to the workflows; the
    collectors run beside them and are checked sporadically.
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
-5. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
+5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices every
+   confirmed FIND on the store, writes the `Decision:` line or raises the approval, and pushes.
 6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
 ## The ten rules that bind every session
