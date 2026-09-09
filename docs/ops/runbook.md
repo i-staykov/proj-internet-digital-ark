@@ -565,31 +565,31 @@ share ranks near the top: `.gov` came fourth by volume at a 0.9825 share. **A hi
 an invented name is still zero.** The builder warns rather than excluding, since which TLDs to drop is a
 judgement; act on it with `--tlds`.
 
-### A second machine
+### A second machine, and why there is not one any more
 
-Split the queue into disjoint shares and run one per machine. Assignment is by content hash of the
-domain, so the shares are disjoint and jointly complete with no coordination, and because the hash is
-independent of the ordering each share is a representative sample of the whole value curve rather
-than a contiguous block of it.
+**The VPS stopped collecting on 2026-09-09.** Both CDX clients of C-77 are this laptop's, the fleet
+host runs research legs only, and its 6.8 GB of journals came home and were deleted there once the
+ingest ledger's own digests said the store held them. The bundle-and-bootstrap pair that seeded a
+second collecting machine is retired with it, in `docs/lore/retired.md`.
 
-**Size each share by how fast its machine is.** Measured, the MacBook sustains 916 queries an hour
-against the VPS's 262, and an even split leaves the fast machine grinding its own cheap tail while the
-expensive head of the other half goes untouched.
+What a leg on that host may still do is ask about ONE named host, through
+`bash scripts/harness/cdx_slot.sh <exact host> ['<extra CDX query>']`. Every query on the host
+serialises behind one `flock`, waits two seconds after the previous one, honours `Retry-After`, and
+refuses a wildcard host or a `matchType` that would walk a namespace, so a price or verify leg can
+check a sample without becoming a third client on the channel. `ARK_CDX_DRY_RUN=1` prints the question
+and asks nobody.
 
-```bash
-just query-queue --weights 78,22 --rates 916,262   # shares, measured speeds
-bash scripts/engines/make_vps_bundle.sh              # ship share 1 and the repo
-bash scripts/engines/vps_bootstrap.sh                # then, on that machine
-```
+The measurements that paid for the split are worth keeping even so. Assignment was by content hash of
+the domain, so shares were disjoint and jointly complete with no coordination and each was a
+representative sample of the value curve rather than a contiguous block of it. Shares have to be sized
+by how fast each machine is: the MacBook sustained 916 queries an hour against the VPS's 262, and an
+even split left the fast machine grinding its cheap tail while the expensive head of the other half
+went untouched (`just query-queue --weights 78,22 --rates 916,262`).
 
-The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
-never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal name,
-and keep the prefix starting `cdx_` so the ingest globs and the resume scan still see it.
-
-**Bringing the remote journals home is the step that gets forgotten**, and a second machine's output
-is invisible to every measurement taken on the first. The VPS once ran for a day and a half with 5,793
+**Bringing a remote machine's journals home was the step that got forgotten**, and its output is
+invisible to every measurement taken here. The VPS once ran for a day and a half with 5,793
 year-records on its disk and absent from the store, because nothing here ever looked. `just engines`
-lists any remote journal missing locally and prints the `rsync` that fetches it, and it now reports
+lists any remote journal missing locally and prints the `rsync` that fetches it, and it reports
 **UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
 
 ### The collector lane under launchd
