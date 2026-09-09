@@ -205,3 +205,17 @@ def test_a_row_lands_under_the_register_table_not_the_first_table_below_the_head
         "| older | 2026-09-01 | n/a | n/a | n/a |"
     )
     assert lines[lines.index("| news | 5.5 |") - 1] == "|---|---|"
+
+
+def test_a_missing_hypothesis_ledger_writes_nothing_and_does_not_stop_the_sync(tmp_path):
+    # The ledger left the fleet with v1 (ark-fleet #83); a lead's fate travels in leads/.
+    gone = tmp_path / "hypotheses.md"
+    finding = {"slug": "a-lead", "verdict": "CLOSED", "ee": "0", "fields": {}}
+    assert scribe.write_result_lines(gone, [finding]) == 0
+    assert not gone.exists()
+
+
+def test_the_recipe_never_stages_the_ledger_unconditionally():
+    recipe = (ROOT / "justfile").read_text(encoding="utf-8")
+    assert "git add hypotheses.md leads" not in recipe
+    assert "[ -f hypotheses.md ] && git add hypotheses.md" in recipe
