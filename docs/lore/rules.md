@@ -31,7 +31,8 @@
 
 ## Cost
 
-- **No local recipe spawns a model. Model work runs in the fleet, under the primary token** (Ivo, 2026-09-04). A local `claude -p` authenticates with the LAPTOP'S own Claude login, which is the Taktile account and has API pricing enabled, so an agent that costs an allowance in the fleet costs real money here. `just bank`'s admitter is the one place this existed; it is now opt-in via `ARK_LOCAL_ADMITTER=1` and off by default.
+- **Condition 3 of the standing rule is checked as "the terms were recorded", not as "the terms permit it"** (S9, 2026-09-09). `standing_rule.py` parks a source whose lead carries no terms URL or whose robots verdict is not `allowed`; whether the terms actually permit the read is a judgement, and the lead schema has no field for it. Adding one is a fleet schema change and needs an ADR first, so until then a class whose terms are the question reaches Ivo.
+- **No local recipe spawns a model. Model work runs in the fleet, under the primary token** (Ivo, 2026-09-04). A local `claude -p` authenticates with the LAPTOP'S own Claude login, which is the Taktile account and has API pricing enabled, so an agent that costs an allowance in the fleet costs real money here. `just bank`'s admitter was the one place this existed; it was deleted with S9 on 2026-09-09, and the decision it used to make is now `standing_rule.py`, which spends no tokens at all.
 - The fleet's own token is `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY`, the HPI account: limits, no API billing. `CLAUDE_CODE_OAUTH_TOKEN` is Ivo's personal one and is reached only when the repository variable `ARK_USE_FALLBACK_TOKEN` is `1`, which is unset and should stay unset. CI already refuses a workflow that does not name the primary secret.
 
 ## Engines and politeness

@@ -237,7 +237,7 @@ seed_shard() {
 cmd_run() {
     mkdir -p data/logs data/raw/cdx data/raw/cdx_suffix
     # mkdir is the atomic primitive macOS has without flock, and the convention here
-    # (scheduled_bank.sh). A dead holder's lock is stale and taken over.
+    # (scheduled_sync.sh). A dead holder's lock is stale and taken over.
     if ! mkdir "$LOCK" 2>/dev/null; then
         holder=$(cat "$LOCK/pid" 2>/dev/null || true)
         if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then

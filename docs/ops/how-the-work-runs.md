@@ -13,8 +13,10 @@ code is right and this page is a bug.
 | **the collectors** (systemd units on the VPS) | long CDX sweeps that write journals | no |
 
 The fleet never touches the store. It clones `live` fresh on every wave, reads the shipped files
-that `just bank` rsyncs to the VPS, and writes **findings**: one small markdown file per hypothesis
-with a verdict and a figure. Nothing it finds is a record until a session banks it.
+that `just sync` rsyncs to the VPS, and writes **findings**: a markdown file in the register voice
+and a `finding.json` sidecar in the fleet's schema. Nothing it finds is a record until the laptop
+takes it in, and no figure it reports is booked on its own: `just sync` prices every confirmed FIND
+again on the live store and the register row carries both numbers.
 
 ## The loop, and where each step leaves a mark
 
