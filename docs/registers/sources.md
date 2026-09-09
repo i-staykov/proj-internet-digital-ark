@@ -1125,10 +1125,44 @@ hierarchy to read**, and density is how much people typed URLs at each other:
 
 | pool | GB | EE per GB gross |
 |---|---|---|
+| `news` | 5.5 | 2,552 |
+| `comp` | 30.8 | 1,701 |
+| `sci` | 10.8 | 1,413 |
+| `biz` | 1.1 | 1,435 |
+| `uk` | 13.5 | 1,152 |
+| `aus` | 5.0 | 1,213 |
+| `usenet_new` + `usenet_bulk` | 102 | 851 |
+| `rec` | 51.6 | 717 |
+| `can` | 2.0 | 771 |
+| `misc` | 9.1 | 1,033 |
+| `soc` | 30.1 | 418 |
+
+**And cross-hierarchy saturation is mild: 22.2% between the thirteen.** Summed
+standalone they give 158,841 EE eligible; unioned they give 127,616, so a new hierarchy
+still adds about four fifths of its own value. That is what justified reading eleven of
+them instead of sampling one.
+
+**Ingested 2026-09-04** under `Decision: master` (Ivo), by `ark ingest-usenet-hostnames`
+over the thirteen `data/raw/usenet_*_items` directories: **394,904 hostname years and
+77,029 (registrable, year) pairs** into the store, of which 76,208 registrable pairs reach
+the shipped files at 44,574.5944 EE. Class `link_source`, one evidence row per
+(host, year) quoting the dating year and the exact post: `usenet post 1997
+uk.comp.sys.mbox.zip#12 www.demon.co.uk`, with `evidence_url` the archive.org download the
+post came from. **All 24 derived identifiers were probed against `archive.org/metadata`
+before the ingest**, one request each, so no evidence row points at an item that does not
+exist: the identifier follows the group's first label rather than the pool directory,
+because `usenet_new` and `usenet_bulk` hold twelve hierarchies between them.
+
+**The archives are gone and the journals stay**: 224 GB of `.mbox.zip` was deleted after
+pricing because archive.org serves them again by name from the catalogue, and the shards
+are a few hundred MB in total.
+
+## Detail`
+section, which holds the entry as it was written.
+
+| source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
+|---|---|---|---|---|---|---|---|---|---|---|
 | ietf-mail-archive-received-by | 2026-09-09, fleet 20260909T2047Z | n/a | **the extractor is the approved class's own code.** `extract.py` imports `BOUNDARY`, | the message's own RFC 822 `Date:` header, cross-checked against the | n/a | fleet 4,914.2 EE, store not re-priced: verify pending (2026-09-09) | n/a | n/a | FIND (pending) | <https://www.ietf.org/ietf-ftp/ietf-mail-archive/> |
-| ietf-mail-archive-received-by | 2026-09-09, fleet 20260909T2047Z | n/a | **the extractor is the approved class's own code.** `extract.py` imports `BOUNDARY`, | the message's own RFC 822 `Date:` header, cross-checked against the | n/a | fleet 4,914.2 EE, store not re-priced: verify pending (2026-09-09) | n/a | n/a | FIND (pending) | <https://www.ietf.org/ietf-ftp/ietf-mail-archive/> |
-| cmu-webkb-1997-server-date-headers | 2026-09-09, fleet 20260909T2047Z | n/a | register check first (`just find` over all four registers) for every repository venue (`GET 9168504434183313441..gif`), so no hostname survives. see the fleet hypothesis ledger | the origin server's own HTTP `Date:` header, kept at the top of every | n/a | 0 EE (2026-09-09) | n/a | n/a | BLOCKED | <http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/webkb-data.gtar.gz>,> |
-| sep11-webarchivist-catalogue-captures | 2026-09-09, fleet 20260909T1606Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-09) | n/a | n/a | CLOSED | n/a |
 | academic_web_link_database_wlv_2000_2001 | 2026-09-09, fleet 20260909T1449Z | n/a | reusable, four parts. see the fleet hypothesis ledger | the crawler's own output-file timestamp, preserved as the DOS date in each zip member's local header, quoted verbatim: `link data/www.ic.ac. | n/a | 55383.0 EE (2026-09-09) | smallest piece = `nz_july_2000.exe`, 3,460,096 B replayed, 8 members (one per NZ university), 34 MB of text. | n/a | FIND | n/a |
 | agency_nic_host_tables_mil_nasa_esnet | 2026-09-09, fleet 20260909T1449Z | n/a | reusable, and it is a SHAPE LAW that generalises well past this lead, stated positively so it can be see the fleet hypothesis ledger | nothing was reached that carries a date over a host row, because no host row was reached. | n/a | 0 EE (2026-09-09) | the availability oracle first, then the two hosts that survived it read whole. | n/a | CLOSED | <https://web.archive.org/web/19961227192323id_/http://nic.mil/>> |
 | bugzilla_csv_route_terms_and_availability | 2026-09-09, fleet 20260909T1449Z | n/a | reusable, and it is the cheaper half of a tracker lead. see the fleet hypothesis ledger | sound in principle and untested here. | n/a | 0 EE (2026-09-09) | no payload fetched, because the four hosts the hypothesis names refuse or no longer serve the route. | n/a | BLOCKED | <https://bugzilla.mozilla.org/robots.txt> |
@@ -1373,43 +1407,6 @@ hierarchy to read**, and density is how much people typed URLs at each other:
 | maillists_full_scale_hostgrain | 2026-09-04, fleet 20260904T1131Z | n/a | see laws.md, "A projection from the head of a file-ordered corpus is a lower bound" | the message's own `Date:` header inside the pipermail month file. | n/a | 1496.2868 EE (2026-09-04) | 60 gnome month files, 4.2% of the tree, 20,616 in-window messages | n/a | FIND | <https://mail.gnome.org/archives/<list>/<YYYY-Month>.txt(.gz> |
 | fallback | 2026-09-04, fleet 20260904T1131Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-04) | agent produced no findings file | n/a | BLOCKED | n/a |
 | usenet_alt_remainder_hostgrain | 2026-09-04, fleet 20260904T1131Z | n/a | see laws.md, "In-window share, not size, orders a Usenet fetch" | the post's own machine-written `Date:` header, quoted as `<group>.mbox.zip#n` | n/a | 1591.0 EE (2026-09-04) | 25 alt.* archives, 1,077.9 MB, five size strata, alt.sex.* excluded | n/a | FIND | <https://archive.org/metadata/usenet-alt> |
-| `news` | 5.5 | 2,552 |
-| `comp` | 30.8 | 1,701 |
-| `sci` | 10.8 | 1,413 |
-| `biz` | 1.1 | 1,435 |
-| `uk` | 13.5 | 1,152 |
-| `aus` | 5.0 | 1,213 |
-| `usenet_new` + `usenet_bulk` | 102 | 851 |
-| `rec` | 51.6 | 717 |
-| `can` | 2.0 | 771 |
-| `misc` | 9.1 | 1,033 |
-| `soc` | 30.1 | 418 |
-
-**And cross-hierarchy saturation is mild: 22.2% between the thirteen.** Summed
-standalone they give 158,841 EE eligible; unioned they give 127,616, so a new hierarchy
-still adds about four fifths of its own value. That is what justified reading eleven of
-them instead of sampling one.
-
-**Ingested 2026-09-04** under `Decision: master` (Ivo), by `ark ingest-usenet-hostnames`
-over the thirteen `data/raw/usenet_*_items` directories: **394,904 hostname years and
-77,029 (registrable, year) pairs** into the store, of which 76,208 registrable pairs reach
-the shipped files at 44,574.5944 EE. Class `link_source`, one evidence row per
-(host, year) quoting the dating year and the exact post: `usenet post 1997
-uk.comp.sys.mbox.zip#12 www.demon.co.uk`, with `evidence_url` the archive.org download the
-post came from. **All 24 derived identifiers were probed against `archive.org/metadata`
-before the ingest**, one request each, so no evidence row points at an item that does not
-exist: the identifier follows the group's first label rather than the pool directory,
-because `usenet_new` and `usenet_bulk` hold twelve hierarchies between them.
-
-**The archives are gone and the journals stay**: 224 GB of `.mbox.zip` was deleted after
-pricing because archive.org serves them again by name from the catalogue, and the shards
-are a few hundred MB in total.
-
-## Detail`
-section, which holds the entry as it was written.
-
-| source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
-|---|---|---|---|---|---|---|---|---|---|---|
 | early_web_nonok_hostgrain | 2026-09-04, fleet night-hunt-20260903 | n/a | a converter beside early_web_hostgrain.py keeping every status but 200 | field 2 of the classic CDX row, IA's own 14-digit capture timestamp | n/a | 3,988.7876 EE (2026-09-04) | 100.0% of it is www.<a name already held that year>, which ADR-007 refused for one day and ADR-008 ships; ingested 2026-09-04, 53,934 hostname years | n/a | BANKED | <https://archive.org/details/early-web_cdx-lang-cdxa> |
 | arquivo_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts over the converted Arquivo CDX journals | each CDXJ line's own 14-digit capture stamp, field 2, beside the original URL | n/a | 540.9323 EE (2026-09-03) | Measured 540.9323 EE over the whole converted index, 9x under the bar. | n/a | CLOSED | <https://arquivo.pt/datasets/cdxj/Roteiro.cdxj> |
 | attrition_hostgrain | 2026-09-03, fleet e95-hostname-grain | n/a | price-hosts --items over the attrition defacement records | the defacement date stamped inside the mirror path for that item | n/a | 922.6577 EE (2026-09-03) | Measured 922.6577 EE: one host per dated item, and most already held in that very year. | n/a | CLOSED | <https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/> |
