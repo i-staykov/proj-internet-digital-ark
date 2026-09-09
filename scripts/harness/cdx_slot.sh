@@ -1,26 +1,16 @@
 #!/usr/bin/env bash
-# One CDX question for one exact host, taken through the fleet host's single slot.
-#
-# **The two-client limit of C-77 binds the CDX CHANNEL, not a machine.** Both clients are the
-# laptop's sweeps, and they are the guaranteed earner; a leg on the VPS that asked
-# `web.archive.org/cdx` directly would be a third client nobody was accounting for, at the
-# moment the archive has already refused this project outright three times. So a price or
-# verify leg that needs to see whether one named host was captured asks through here:
-# every query on the host serialises behind one lock, waits two seconds after the previous
-# one, and honours `Retry-After` when the service says to slow down.
-#
-# **It refuses a sweep shape rather than trusting the caller not to write one.** A wildcard
-# host, a `matchType` other than exact and a `collapse` walk are all the shapes that turn one
-# question into a namespace crawl, and the leg brief asking for "a sample" is not what stops
-# that happening. An exact host, a bounded row limit, one page.
+# One CDX question about one exact host, through the fleet host's single slot: serialised on
+# a flock, two seconds after the last query through it, Retry-After honoured once. The two
+# metered clients of C-77 are the laptop's sweeps, so a leg asks here and never sweeps: a
+# wildcard host, a path, a matchType or a collapse are refused before the lock is taken.
 #
 # Usage:
 #   bash scripts/harness/cdx_slot.sh www.example.com
 #   bash scripts/harness/cdx_slot.sh example.com 'from=1996&to=2001&fl=original,timestamp'
 #
-# Prints the CDX rows on stdout and nothing else, so a caller can count lines. Exit 0 with
-# no rows means the host has no captures; exit 3 means the slot was busy for the whole wait,
-# 4 that the service asked for a longer pause than the leg has, and 5 a refused shape.
+# Prints the CDX rows on stdout and nothing else, so a caller can count lines. Exit 0 with no
+# rows means the host has no captures; 3 the slot was busy or unlockable, 4 the service
+# refused or asked for longer than a leg may wait, 5 a shape that would walk a namespace.
 set -euo pipefail
 
 HOST="${1:?usage: cdx_slot.sh <exact host> [extra CDX query]}"
@@ -35,6 +25,8 @@ LIMIT="${ARK_CDX_LIMIT:-200}"
 # short enough that it cannot sit out its own ceiling.
 WAIT="${ARK_CDX_WAIT:-120}"
 MAX_RETRY_AFTER="${ARK_CDX_MAX_RETRY_AFTER:-60}"
+# What to wait when the service throttles without naming a wait, which is the usual 504.
+DEFAULT_RETRY_AFTER="${ARK_CDX_DEFAULT_RETRY_AFTER:-10}"
 
 die() { echo "cdx_slot: $2" >&2; exit "$1"; }
 
@@ -87,9 +79,13 @@ date +%s > "$SLOT"
 
 # A rate limit is a signal to adapt, not to retry harder (brief section VII). One wait, and
 # only when the service named a wait a leg can afford; otherwise the leg reports the refusal.
-if [ "$STATUS" = 429 ] || [ "$STATUS" = 503 ]; then
+# 504 sits here with 429 and 503 because it is the same signal from this service: the archive
+# kills a heavily captured host at a consistent ~60 s, and `src/ark/cdx.py` has throttled on
+# all three since the engine was written. A 504 rarely carries Retry-After, so it waits the
+# default below rather than the ceiling.
+if [ "$STATUS" = 429 ] || [ "$STATUS" = 503 ] || [ "$STATUS" = 504 ]; then
     RETRY=$(grep -i '^retry-after:' "$HEADERS" | tail -1 | tr -dc '0-9')
-    [ -n "$RETRY" ] || RETRY=$MAX_RETRY_AFTER
+    [ -n "$RETRY" ] || RETRY=$DEFAULT_RETRY_AFTER
     [ "$RETRY" -le "$MAX_RETRY_AFTER" ] || die 4 "the service asked for ${RETRY}s, longer than a leg may hold the slot"
     echo "cdx_slot: HTTP $STATUS, honouring Retry-After ${RETRY}s" >&2
     sleep "$RETRY"

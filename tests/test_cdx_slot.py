@@ -11,6 +11,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SLOT = ROOT / "scripts" / "harness" / "cdx_slot.sh"
 REFUSED_SHAPE = 5
@@ -48,10 +50,9 @@ def test_an_exact_host_composes_one_bounded_question(tmp_path):
     assert asked.endswith("from=1996&to=2001")
 
 
+@pytest.mark.skipif(shutil.which("flock") is not None, reason="flock is present here")
 def test_a_host_without_a_lock_refuses_rather_than_querying(tmp_path):
     """An unserialised query is the third client the limit exists to prevent."""
-    if shutil.which("flock") is not None:
-        return
     result = run("www.example.com", slot=tmp_path / "cdx.slot")
     assert result.returncode == NO_LOCK
     assert "flock" in result.stderr
@@ -62,3 +63,7 @@ def test_the_query_it_builds_is_one_exact_page():
     assert "matchType=exact" in text
     assert "flock -w" in text
     assert "retry-after" in text.lower()
+    # 504 is this service's own throttle: it kills a heavily captured host at a consistent
+    # ~60 s, and `src/ark/cdx.py` has backed off on all three statuses since it was written.
+    for status in ("429", "503", "504"):
+        assert f'"$STATUS" = {status}' in text
