@@ -97,16 +97,23 @@ def drain(incoming: Path) -> int:
     moved = leads = 0
     for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
         for lead in sorted(p for p in run.rglob("*") if p.is_dir() and (p / SIDECAR).is_file()):
-            target = incoming / lead.name
-            side = lead.parent / f"{lead.name}.json"
+            # **The slug in the sidecar names the directory, never the directory's own name.**
+            # A leg artifact's root directory is called `findings`, so a copy of one banked
+            # beside its lead directory as a second lead, and the same finding went into the
+            # register twice under the same slug (measured 2026-09-09 on
+            # `ietf-mail-archive-received-by`). Keying on the slug makes the two collide, and
+            # the collision is then resolved on which copy is more settled.
+            slug = str(load(lead / SIDECAR).get("slug") or lead.name)
+            target = incoming / slug
+            side = lead.parent / f"{slug}.json"
             if side.is_file() and not (lead / LEAD).exists():
                 shutil.move(str(side), str(lead / LEAD))
             if target.exists():
                 if freshness(lead) <= freshness(target):
-                    print(f"drain: {lead.name} is already here in a copy at least as settled")
+                    print(f"drain: {slug} is already here in a copy at least as settled")
                     shutil.rmtree(lead, ignore_errors=True)
                     continue
-                print(f"drain: {lead.name} arrives more settled than the copy here, replacing it")
+                print(f"drain: {slug} arrives more settled than the copy here, replacing it")
                 shutil.rmtree(target)
             shutil.move(str(lead), str(target))
             leads += 1
@@ -117,9 +124,29 @@ def drain(incoming: Path) -> int:
             shutil.move(str(prose), str(target))
             moved += 1
         ledger_rows(run)
+        keep_leftovers(incoming, run)
         shutil.rmtree(run, ignore_errors=True)
     print(f"drain: {leads} lead directories, {moved} loose findings")
     return 0
+
+
+def keep_leftovers(incoming: Path, run: Path) -> None:
+    """Anything the drain did not recognise, kept where a human can find it.
+
+    The run directory is removed once it is drained, so a file no rule matched (a rejected
+    lead, a leg's extractor, a shape a later wave invents) would go with it silently. They
+    are few and small, and a corpus nobody can re-read is the failure this whole lane exists
+    to avoid, so they move rather than vanish.
+    """
+    left = [p for p in run.rglob("*") if p.is_file() and p.name != "telemetry.json"]
+    if not left:
+        return
+    keep = incoming / "_unread" / run.name
+    for path in left:
+        target = keep / path.relative_to(run)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(target))
+    print(f"drain: {len(left)} unrecognised files from {run.name} kept in {keep}")
 
 
 def ledger_rows(run: Path) -> None:
