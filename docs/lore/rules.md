@@ -40,6 +40,7 @@
 - Two archive clients maximum.
 - Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
 - Read the terms in full before the first request, and the whole robots.txt of the host in the download URL. The RDAP episode cost the biggest route because nobody read the terms, and time pressure does not reopen that.
+- **A fleet leg downloads only through `scripts/harness/fetch.py`** (#80, 2026-09-09), never its own `curl`: it reads the whole robots.txt of the host in the download URL, refuses a by-name group wherever it sits, and does the same check again on every redirect hop, because a followed 302 is a request nobody checked. It honours `Retry-After`, caps at 1 GB by `Content-Length` and again by the stream, refuses a body that ended short of the length it declared, extracts nothing to disk, and prints the bytes and sha256 the finding quotes. It writes under two roots and no others: `$ARK_PROBE_DIR`, and the corpus directory `$ARK_FETCH_DEST_ROOT` that `fetch.yaml` sets after a human merged the decision, which is also the only place a zip or an unnamed content type reaches disk. An artifact over the cap or of a risky type is a row in the fleet's `downloads.md` and waits.
 - Collectors take an absolute deadline and outlive the session; restart a loop after editing what it imports.
 - Look for the existing tool before writing one.
 
