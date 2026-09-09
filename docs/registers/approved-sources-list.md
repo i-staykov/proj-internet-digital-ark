@@ -1712,6 +1712,10 @@ Decision: master
   distribution. Alias seam 0.0% (2 hosts), parent held in the same year 98.9%, 99.9% of messages
   dated in window, 25 dropped on the partition cross-check. 1,987 list-months of the plan are
   still to fetch and their realised rate is deliberately not projected from this tranche
+- **banked 2026-09-09, second tranche, the 513 smallest list-months of 5 messages or more:
+  1,091 net-new host-years, 609.2909 EE**, 1.19 EE per list-month against 123 at the head. The
+  class pays by message volume. The 1,474 middle list-months are unmeasured and the `potential`
+  line above stands only until they are
 - potential: 24000
 
 Decision: master

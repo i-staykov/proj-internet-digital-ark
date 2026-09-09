@@ -5195,6 +5195,16 @@ it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause A
   one list is unmeasured, and this tranche is the head of the distribution by construction. The
   1,620 remaining months of 5 messages or more are being fetched smallest-first, and the next
   entry here is their realised rate, not a projection from this one
+- **TRANCHE 2, 2026-09-09, is that realised rate, and it is a hundredth of the head's.** The
+  513 smallest list-months of 5 messages or more (about 30 messages each, 21.7 MB in total):
+  15,652 messages parsed, 15,634 in window, 6,593 carrying a `by` host, 13 undated, 5 dropped on
+  the partition cross-check. Priced against the live store before the ingest: 1,941 distinct
+  host-years, 654 already held, 60 in his baseline only, parent held 99.3%, **1,091 net-new
+  worth 609.2909 EE**, plus 17.0324 EE of registrable pairs. That is **1.19 EE per list-month**
+  against 123 at the head, so the class pays by message volume and the middle of the plan
+  (1,474 list-months between 48 and 1,364 messages) is worth measuring once more before it is
+  called, not assumed from either end. 1999 did appear this time: 91 hosts, 53.4751 EE.
+  Ingested into `apache_header_items_b2/`, 1,154 hostname-year rows and 28 parent-years
 - collect: `uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover`, then
   `--expand`, then `--harvest`; build with
   `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with
