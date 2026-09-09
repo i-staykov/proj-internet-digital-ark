@@ -33,10 +33,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 REGISTER = REPO / "docs/registers/sources.md"
+CLOSED = REPO / "docs/registers/sources-closed.md"
 TABLE_HEADING = "## Evaluated and rejected"
+CLOSED_HEADING = "| source | date | measured | reason | link |"
 
 _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
-_URL = re.compile(r"https?://[^\s`)\"']+")
+# `>` and a trailing comma end a URL as often as a space does, because the prose writes
+# artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
+# link that does not open.
+_URL = re.compile(r"https?://[^\s`)>\"']+")
 
 
 def parse_finding(path: Path) -> dict:
@@ -58,6 +63,8 @@ def parse_finding(path: Path) -> dict:
             "screen check",
             "method",
             "next",
+            "lens",
+            "evidence class",
             "reason",
             "reviewed",
             "repriced",
@@ -69,8 +76,13 @@ def parse_finding(path: Path) -> dict:
     verdict = fields.get("verdict", "").split()[0].upper() if fields.get("verdict") else "BLOCKED"
     if verdict not in {"FIND", "CLOSED", "BLOCKED", "SKIPPED"}:
         verdict = "BLOCKED"
-    ee_match = re.search(r"[\d,]+(?:\.\d+)?", fields.get("ee", "0"))
-    ee = ee_match.group(0).replace(",", "") if ee_match else "0"
+    # The figure, from the `ee:` field or from the verdict line that carries it instead:
+    # a scout writes `verdict: CLOSED, 20.92 EE against a 5,000 EE floor`, and reading only
+    # the first field booked that source as unpriced.
+    ee_match = re.search(r"[\d,]+(?:\.\d+)?", fields.get("ee", "")) or re.search(
+        r"([\d,]+(?:\.\d+)?)\s*EE", fields.get("verdict", "")
+    )
+    ee = ee_match.group(len(ee_match.groups())).replace(",", "") if ee_match else "0"
     return {"slug": slug, "verdict": verdict, "ee": ee, "fields": fields}
 
 
@@ -84,6 +96,9 @@ def _json(path: Path) -> dict:
 
 def overlay(finding: dict, lead: Path) -> dict:
     """The prose finding, with the sidecar's machine-readable fields laid over it."""
+    # The lead travelled with the artifact, so a closed row can name the lens, the class and
+    # the URL even when the prose beside it is three lines of refusal.
+    finding["lead"] = _json(lead / "lead.json")
     sidecar = _json(lead / "finding.json")
     if not sidecar:
         return finding
@@ -120,6 +135,47 @@ def findings_in(incoming: Path) -> list[dict]:
         out.append(overlay(base, lead))
     out += [parse_finding(p) for p in sorted(incoming.glob("*.md"))]
     return out
+
+
+def booked_slugs() -> set[str]:
+    """Every slug either register already carries, so a re-drained run books nothing twice.
+
+    Cheap and deliberately loose: the first cell of a row in `sources.md`, and the name
+    before the ` / ` in `sources-closed.md`. Both files are hundreds of kilobytes of prose
+    and are streamed a line at a time rather than parsed.
+    """
+    out: set[str] = set()
+    for path, split in ((REGISTER, False), (CLOSED, True)):
+        if not path.is_file():
+            continue
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                if not line.startswith("| "):
+                    continue
+                cell = line[2:].split("|", 1)[0].strip()
+                out.add(cell.split(" / ")[0].strip() if split else cell)
+    return out
+
+
+def one_per_slug(findings: list[dict]) -> list[dict]:
+    """One finding per slug, keeping the one that says the most.
+
+    A wave can hand over the same slug twice: a price leg's copy and the verify leg's, or a
+    leg artifact whose root directory is called `findings` beside the lead directory it is a
+    copy of. A FIND outranks a measured negative, a sidecar outranks prose alone, and a
+    settled verify outranks a pending one.
+    """
+    rank = {"FIND": 3, "CLOSED": 2, "BLOCKED": 1, "SKIPPED": 0}
+
+    def score(f: dict) -> tuple[int, int, int]:
+        settled = 1 if f.get("verify") not in (None, "pending") else 0
+        return (rank.get(f["verdict"], 0), 1 if "store" in f else 0, settled)
+
+    best: dict[str, dict] = {}
+    for f in findings:
+        if f["slug"] not in best or score(f) > score(best[f["slug"]]):
+            best[f["slug"]] = f
+    return [best[slug] for slug in sorted(best)]
 
 
 def first_clause(text: str, limit: int = 240) -> str:
@@ -210,6 +266,48 @@ def _within_limit(cells: list[str]) -> str:
     return assemble()
 
 
+def closed_row(f: dict, run_label: str) -> str:
+    """The five-column row a measured negative gets, in `sources-closed.md`.
+
+    **A negative does not belong in `sources.md`** (#74's floors, restated by Ivo on
+    2026-09-09): only a priced FIND and a banked source get a block there. A scout lead that
+    closed under the floor was reaching it as a row of eleven `n/a` cells, which is a row
+    that says a source was evaluated and records nothing about it. Here the lens, the figure
+    and the artifact are the row, and they come from `lead.json` and the prose beside it.
+    """
+    day = dt.date.today().isoformat()
+    lead = f.get("lead") or {}
+    etype = lead.get("evidence_class") or f["fields"].get("evidence class") or "unclassified"
+    lens = lead.get("lens") or f["fields"].get("lens") or "no lens recorded"
+    url = _URL.search(
+        f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
+    )
+    measured = f"{f['ee']} EE" if f["ee"] not in ("0", "0.0") else "not priced"
+    reason = first_clause(
+        f["fields"].get("probe", "")
+        or f["fields"].get("reason", "")
+        or f["fields"].get("verdict", ""),
+        300,
+    )
+    cells = [
+        f"{f['slug']} / {etype}",
+        f"{day}, fleet {run_label}",
+        measured,
+        f"lens {lens}. {reason}".strip(),
+        url.group(0) if url else "",
+    ]
+    tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
+    return "| " + " | ".join(tidy) + " |"
+
+
+def append_closed(rows: list[str]) -> None:
+    text = CLOSED.read_text(encoding="utf-8")
+    at = text.index(CLOSED_HEADING)
+    sep = text.index("|---|", at)
+    line_end = text.index("\n", sep) + 1
+    CLOSED.write_text(text[:line_end] + "\n".join(rows) + "\n" + text[line_end:], "utf-8")
+
+
 def append_rows(rows: list[str]) -> None:
     text = REGISTER.read_text(encoding="utf-8")
     at = text.index(TABLE_HEADING)
@@ -253,24 +351,40 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    findings = findings_in(args.incoming)
+    findings = one_per_slug(findings_in(args.incoming))
     if not findings:
         print("nothing to bank")
-        return 0
-    rows = [register_row(f, args.run_label) for f in findings]
-    if args.dry_run:
-        print("\n".join(rows))
         return 0
     if args.results_only:
         wrote = write_result_lines(args.hypotheses, findings)
         print(f"{wrote} result lines written to {args.hypotheses}")
         return 0
-    append_rows(rows)
+
+    already = booked_slugs()
+    fresh = [f for f in findings if f["slug"] not in already]
+    for f in findings:
+        if f["slug"] in already:
+            print(f"already booked: {f['slug']} has a row, not written again")
+    # Two registers, and which one a finding goes to is its verdict. A FIND is a measurement
+    # worth reading beside the others; everything else is a closed row so nobody re-tests it.
+    rows = [register_row(f, args.run_label) for f in fresh if f["verdict"] == "FIND"]
+    closed = [closed_row(f, args.run_label) for f in fresh if f["verdict"] != "FIND"]
+    if args.dry_run:
+        print("\n".join(rows + closed))
+        return 0
+    if rows:
+        append_rows(rows)
+    if closed:
+        append_closed(closed)
     wrote = write_result_lines(args.hypotheses, findings)
-    finds = sum(1 for f in findings if f["verdict"] == "FIND")
     print(
-        f"booked {len(findings)} findings ({finds} FIND) into the register; "
-        f"{wrote} result lines written to {args.hypotheses}"
+        f"booked {len(rows)} FIND rows into {REGISTER.name} and {len(closed)} into "
+        f"{CLOSED.name}; {wrote} result lines written to {args.hypotheses}"
+    )
+    # The line the recipe reads: a drain that booked nothing new is finished rather than
+    # failed, and may be archived even though no commit came out of it.
+    print(
+        f"scribe: {len(rows) + len(closed)} new rows, {len(findings) - len(fresh)} already booked"
     )
     return 0
 
