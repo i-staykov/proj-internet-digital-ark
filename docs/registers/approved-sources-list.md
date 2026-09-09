@@ -1715,8 +1715,18 @@ Decision: master
 - **banked 2026-09-09, second tranche, the 513 smallest list-months of 5 messages or more:
   1,091 net-new host-years, 609.2909 EE**, 1.19 EE per list-month against 123 at the head. The
   class pays by message volume. The 1,474 middle list-months are unmeasured and the `potential`
-  line above stands only until they are
-- potential: 24000
+  line below stands only until they are
+- **banked 2026-09-09, third tranche, the 468 middle list-months: 2,666 net-new host-years,
+  1,485.1800 EE**, plus 49.8643 EE of registrable pairs. 3.17 EE per list-month, and the band
+  carries 5.5 times tranche 2's messages for 2.4 times its EE, so the return per message FALLS
+  as the band gets denser: a busy list's relay hosts recur month to month and the second
+  sighting is not net-new
+- **the `potential` line is therefore corrected downwards from 24,000 by measurement.** Three
+  bands are now realised, 141 / 3.17 / 1.19 EE per list-month at head, middle and tail. About
+  600 list-months of 5 messages or more remain unfetched and are worth roughly 1,900 EE at the
+  middle rate, which puts the whole class near 9,000 EE. Banked so far: 4,913.2821 plus
+  609.2909 plus 1,485.1800
+- potential: 9000
 
 Decision: master
 
