@@ -164,7 +164,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _host_of(url: str) -> str | None:
+def host_of(url: str) -> str | None:
     """The hostname of a capture URL, lowercased, port and trailing dot stripped."""
     rest = url.split("://", 1)[-1]
     host = rest.split("/", 1)[0].split(":", 1)[0].strip().lower().rstrip(".")
@@ -225,7 +225,7 @@ def ingest_hostname_journal(
                 if year not in YEARS:
                     counts["out_of_window"] += 1
                     continue
-                host = _host_of(str(row.get("url", "")))
+                host = host_of(str(row.get("url", "")))
                 if host is None:
                     counts["no_host"] += 1
                     continue
