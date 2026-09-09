@@ -76,6 +76,29 @@ print(rows, len(hosts))
 ' 2>/dev/null || echo "0 0"
 }
 
+# The shard is a hash of the name, not a line ordinal: the two shards rank at different
+# moments and see different lists, so an ordinal split converged both clients on one
+# parent (2026-09-09).
+SHARD_BYTES='abcdefghijklmnopqrstuvwxyz0123456789.-_'
+
+# Print the half of a parent list that shard $1 owns. Remaining arguments are files,
+# read in order, so the park lists and the ranked list split under one rule.
+shard_split() {
+    local want="$1"
+    shift
+    awk -v s="$want" -v bytes="$SHARD_BYTES" '
+        function shard_of(name,   i, h) {
+            # position-weighted, so two names holding the same letters can still differ.
+            # `index` returns 0 for a byte outside the table, which hashes it as absent
+            # rather than failing.
+            h = length(name)
+            for (i = 1; i <= length(name); i++) h += i * index(bytes, substr(name, i, 1))
+            return h % 2
+        }
+        NF && $1 !~ /^#/ && shard_of(tolower($1)) == s { print $1 }
+    ' "$@"
+}
+
 sweep_one() {
     local parent="$1" safe="${parent//./_}"
     [ -e "data/raw/cdx_suffix/suffix_${safe}.done" ] && return 0
@@ -167,10 +190,10 @@ sweep_one() {
 }
 
 refill() {
-    # Ask the ranker for parents this queue has not already burned. Sharded by
-    # parity so the two clients never converge on the same parent, which would
-    # be worse than idling: it spends the scarce slot on rows the other client
-    # is already fetching.
+    # Ask the ranker for parents this queue has not already burned. Sharded on the
+    # name by `shard_split` so the two clients never converge on the same parent,
+    # which would be worse than idling: it spends the scarce slot on rows the other
+    # client is already fetching.
     #
     # **Read the ranker's --out FILE, never its stdout.** It prints only its top
     # 15 as a human summary and writes the ranked list to the file. Piping stdout
@@ -192,8 +215,7 @@ refill() {
     for parked in data/raw/cdx/platform_retry.txt "$RICH"; do
         [ -s "$parked" ] && awk 'NF && $1 !~ /^#/ {print $1}' "$parked" >> "$PARENTS.parked"
     done
-    awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' \
-        "$PARENTS.parked" "$ranked" > "$PARENTS.refill" || return 1
+    shard_split "$SHARD" "$PARENTS.parked" "$ranked" > "$PARENTS.refill" || return 1
     awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
             [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] \
@@ -206,6 +228,9 @@ refill() {
     fi
     return 1
 }
+
+# Sourced by the shard test, which wants `shard_split` and not a sweep.
+[ -n "${ARK_SWEEP_LOOP_LIB:-}" ] && return 0
 
 line=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
