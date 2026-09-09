@@ -357,6 +357,45 @@ only 49 are cheap per host. The flat cap was mostly parking correctly, so this i
 with a modest recovery, not a rescue. Breadth still pays. It just has to be breadth measured in
 records.
 
+## A park list nothing reads is a queue leak, and it hides the best parents
+
+Date: 2026-09-09, found by asking whether a denser queue existed rather than assuming the head
+was spent. It was the right question and the answer was in our own bookkeeping.
+
+`platform_sweep_loop.sh` parks a parent in one of three files. `platform_deep.txt` takes an
+expensive namespace, over `RPH_MAX` capture rows per distinct host, and that exclusion is
+earned. `platform_retry.txt` takes a parent whose sweep exited badly or went silent, and
+`platform_rich.txt` takes a parent still CHEAP per host at `PARENT_MAX`, which is the
+definition of a rich platform rather than a dud.
+
+**Two of the three were unreachable.** `platform_retry.txt` was appended to in three places
+and read in none. `refill()` excluded `platform_rich.txt` permanently, alongside the deep list,
+so the one file naming parents the loop had judged worth returning to was the one file the
+queue could never draw from. The lists that recorded promise behaved exactly like the list
+that recorded failure.
+
+**And a clean exit that wrote nothing left no trace at all.** The sweep returns zero when its
+deadline passes before the first page lands, which is what happens to whatever is in flight
+when a collection window closes. No rows, no state file, no `.done` marker, and no entry on
+any park list. Measured on 2026-09-09: **96 parents in that state**, among them `yahoo.com`,
+`aol.com`, `netscape.com`, `lycos.com`, `excite.com` and about forty universities on `.edu`,
+`.ac.uk` and `.edu.au`, the highest-weight namespaces we hold. The archive had never been
+asked and nothing would ever ask again.
+
+**Size it before believing it, because era intuition oversells this one.** `geocities.com` and
+`angelfire.com` are on that list and read as enormous, but both served user pages on PATHS, so
+at hostname grain they are thin and the ranker rates them accordingly: only 1 of the 96 makes
+the current top 300. The 96 carry 23,795 held sub-hosts between them, and at the dense-parent
+lens's measured 0.42 EE per held sub-host (4.1M hosts against 1,718,807 EE of upper bound)
+that is about **10,000 EE of upper bound, so low thousands realised**. Worth collecting, not
+worth a plan.
+
+**The transferable part is the audit, not the number.** A parent is walked only if it has a
+`.done` marker or a journal with rows in it; anything else is unasked, and the count of
+unasked parents is one `find` away. Run it whenever a rate falls, before re-ranking anything:
+a re-rank of the same universe returned the parents we had already walked, because the ranker
+scores host-YEARS lacked and a domain-wide query already asks all six years at once.
+
 ## A queue built from a finished list reads as a dead lane
 
 Date: 2026-09-07, and it is the most expensive lesson of the round.

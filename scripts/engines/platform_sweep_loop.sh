@@ -141,10 +141,22 @@ sweep_one() {
         pgrep -f "$SWEEP $parent " | while read -r child; do kill -KILL "$child" 2>/dev/null; done
         return 0
     done
-    wait "$pid" 2>/dev/null || {
+    if wait "$pid" 2>/dev/null; then
+        # **A clean exit that wrote nothing is not a walked parent.** Measured 2026-09-09:
+        # 96 parents held a 0-byte journal with no state file and no done marker, among them
+        # yahoo.com, aol.com and about forty universities on .edu and .ac.uk. The sweep
+        # returns zero when its deadline passes before the first page lands, which is what
+        # happens to whatever is in flight when a window closes, and nothing recorded that
+        # the archive had never actually been asked. So nothing would ever ask again.
+        read -r rows hosts <<< "$(yield_of "$safe")"
+        if [ "${rows:-0}" -eq 0 ] && [ ! -e "data/raw/cdx_suffix/suffix_${safe}.done" ]; then
+            echo "$parent: exited clean with an empty journal, queued for retry"
+            echo "$parent" >> data/raw/cdx/platform_retry.txt
+        fi
+    else
         echo "$parent: sweep exited non-zero, moving on"
         echo "$parent" >> data/raw/cdx/platform_retry.txt
-    }
+    fi
 }
 
 refill() {
@@ -162,11 +174,23 @@ refill() {
     local ranked="data/raw/cdx/ranked_shard${SHARD}.txt"
     uv run python "$RANKER" --net-new --top 20000 --out "$ranked" >/dev/null 2>&1 || return 1
     [ -s "$ranked" ] || return 1
-    awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' "$ranked" > "$PARENTS.refill" || return 1
+    # **A park list nothing reads is a leak, and these two were leaking the best parents.**
+    # `platform_retry.txt` was written in three places and read in none. `platform_rich.txt`
+    # holds the parents this loop judged CHEAP per host and still producing at PARENT_MAX,
+    # which is the definition of a rich platform, and refill excluded it for good. So the
+    # two lists naming work worth returning to were the two the queue could never reach.
+    # Both are read here, ahead of the ranker and sharded the same way, and `platform_deep`
+    # stays excluded because expensive per host is a measured reason to stay parked.
+    : > "$PARENTS.parked"
+    for parked in data/raw/cdx/platform_retry.txt "$RICH"; do
+        [ -s "$parked" ] && awk 'NF && $1 !~ /^#/ {print $1}' "$parked" >> "$PARENTS.parked"
+    done
+    awk -v s="$SHARD" 'NF && $1 !~ /^#/ {n++; if (n % 2 == s) print $1}' \
+        "$PARENTS.parked" "$ranked" > "$PARENTS.refill" || return 1
     awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
-            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] || grep -qxF "$p" "$DEEP" 2>/dev/null \
-                || grep -qxF "$p" "$RICH" 2>/dev/null || echo "$p"
+            [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] \
+                || grep -qxF "$p" "$DEEP" 2>/dev/null || echo "$p"
         done > "$PARENTS.new"
     if [ -s "$PARENTS.new" ]; then
         cat "$PARENTS.new" >> "$PARENTS"
