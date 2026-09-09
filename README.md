@@ -39,6 +39,18 @@ just collectors resume   # after it: every parent continues from its own state f
 The pause is a flag file rather than a signal, so it survives sleep and a reboot, and nothing but
 `resume` clears it.
 
+## Take in what the fleet found
+
+```bash
+just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
+```
+
+The fleet measures; the laptop is the only thing that writes the store. One `just sync` drains the
+findings, validates each one against the fleet's schema, prices every confirmed FIND again on the
+live store so no figure is booked on a copy, writes the register row with both numbers, decides what
+Ivo's standing rule already covers and asks him about the rest, ingests, gates, pushes, refreshes the
+pricing snapshot the fleet prices against, and writes each lead's fate back into the fleet's queue.
+
 ## Where the round stands
 
 In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated

@@ -153,7 +153,7 @@ state *args:
     uv run python scripts/round/build_round_state.py {{args}}
 
 # Where the round stands in thirty lines, read from the snapshot that `just state`
-# (so also `just cycle` and `just bank`) leaves in data/brief.json, plus
+# (so also `just cycle` and `just sync`) leaves in data/brief.json, plus
 # private/handoff.md when the last session wrote one. Never opens the store or
 # runs ssh, so a session-start hook can call it inside its timeout.
 #
@@ -201,12 +201,24 @@ cycle *args:
     echo ""
     uv run python scripts/harness/query_health.py --write --tail 3 || true
 
-# Drain the fleet's findings, admit any FIND, book everything, gate, push `live`, and
-# refresh the VPS pricing snapshot. The one deliberate human-adjacent step of the loop
-# (fleet plan, D3): run it whenever the laptop is open.
+# Drain the fleet's findings, price them again on the live store, book, decide, ingest,
+# gate, push `live`, refresh the VPS pricing snapshot, and hand the fleet its lead statuses
+# back. The laptop is the only writer of the store (S9), and this is the whole of what it
+# writes: run it whenever the laptop is open, and launchd runs it hourly while it is awake.
 #
-# drain the fleet's findings, admit, ingest, gate, push `live`
-bank fleet="~/Documents/GitHub/ark-fleet":
+# It replaced `just bank` on 2026-09-09. The drain is the same drain; what is new is the
+# three steps a fleet figure must not skip. **A finding is validated against the fleet's own
+# schema** before anything reads it, so a leg that wrote prose where a number belongs becomes
+# a BLOCKED finding rather than a register row nobody can check. **A confirmed FIND is priced
+# a second time here**, against the live store rather than the pushed snapshot, and both
+# figures go in the row. **A lead's fate is written back into the fleet's `leads/`**, because
+# a queue whose last step is invisible re-deals settled work.
+#
+# Idempotent by construction: an unfinished run is re-downloaded next time, a slug already
+# drained is dropped rather than re-booked, and every ingest is keyed on its journal's sha256.
+#
+# drain the fleet's findings, re-price, book, decide, ingest, gate, push `live`
+sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
     FLEET=$(eval echo {{fleet}})
@@ -226,61 +238,59 @@ bank fleet="~/Documents/GitHub/ark-fleet":
         uv run ark export >/dev/null
         uv run ark check
     fi
-    # Anything still waiting on Ivo, first, so a bank never buries a decision.
+    # Anything still waiting on Ivo, first, so a sync never buries a decision.
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
-    # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
+    # 1. Pull every unprocessed run's `findings-*` artifact from ark-fleet.
     #
     # **A finished SHARD is bankable before its wave is.** This filtered on
     # `--status completed`, and a wave completes only when its last shard does: measured
     # 2026-09-08, two research legs finished at 10:53Z with a FIND worth 4,786 EE while the
-    # wave's third shard sat queued behind the generator and the re-opener, so `just bank`
-    # printed "nothing new to bank" with the finding already uploaded and waiting. Artifacts
-    # are per-job and readable the moment a job uploads them, so this takes in-progress runs
-    # too, and only marks a run PROCESSED once it has actually completed. An unfinished run is
-    # re-downloaded next bank, which is idempotent: `mv -n` keeps the copy already flattened
-    # and the ingest is keyed on each journal's sha256.
+    # wave's third shard sat queued behind the generator and the re-opener, so the drain
+    # printed "nothing new" with the finding already uploaded and waiting. Artifacts are
+    # per-job and readable the moment a job uploads them, so this takes in-progress runs
+    # too, and only marks a run PROCESSED once it has actually completed.
     gh run list --repo i-staykov/ark-fleet --limit 50 \
         --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' \
         | while IFS=$'\t' read -r RID STATUS; do
         grep -qx "$RID" "$PROCESSED" && continue
-        gh run download "$RID" --repo i-staykov/ark-fleet \
+        gh run download "$RID" --repo i-staykov/ark-fleet --pattern 'findings-*' \
             --dir "$IN/run_$RID" >/dev/null 2>&1 || true
         [ "$STATUS" = "completed" ] && echo "$RID" >> "$PROCESSED"
     done
-    # Flatten: findings artifacts hold findings/*.md plus telemetry.json.
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    find "$IN" -mindepth 2 -name '*.md' -exec mv -n {} "$IN/" \;
-    # 2. The ledger row per telemetry file, then tidy.
-    find "$IN" -mindepth 2 -name 'telemetry.json' | while read -r T; do
-        python3 -c "import json,sys;d=json.load(open('$T'));print('$LABEL', d.get('tokens_in_plus_out',0), d.get('seven_day_pct','?'), sep='\t')" \
-            >> data/logs/fleet_ledger.tsv || true
-        rm -f "$T"
-    done
+    # One directory per lead at the top of the drain, the telemetry rows in the ledger.
+    uv run python scripts/harness/fleet_findings.py drain "$IN"
     uv run python scripts/harness/bank_hygiene.py prune --write
+    # 2. The fleet's schema, then the live store. Neither is optional: a sidecar nobody
+    #    validated is prose with braces, and a fleet figure nobody re-priced is a number
+    #    measured somewhere else against a copy of this store.
+    uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
+    uv run python scripts/harness/fleet_findings.py reprice "$IN" --fleet "$FLEET"
     # A wave picks its slugs from fleet MAIN, so a result line pushed to a feature branch
     # strands the verdict: measured 2026-09-08, the clone was left on a fleet branch, two
     # verdicts went there and the next wave re-dealt four settled slugs. `git push -q` with
     # no refspec pushes whatever branch the clone happens to be on, so name it and refuse.
-    push_result_lines() {
+    push_fleet() {
         BR="$(git -C "$FLEET" branch --show-current)"
         if [ "$BR" != main ]; then
-            echo "fleet clone is on $BR, not main: result lines left uncommitted."
+            echo "fleet clone is on $BR, not main: result lines and lead statuses left uncommitted."
             echo "  A wave picks from main, so a stranded verdict re-deals a settled slug."
-            echo "  Check the clone out on main and re-run the bank."
+            echo "  Check the clone out on main and re-run the sync."
             return 0
         fi
         # **A rejected push used to be swallowed, and that is how the queue lied.** Measured
-        # 2026-09-08 at 22:53Z: the 21:37Z bank committed its result lines, `main` had moved under
+        # 2026-09-08 at 22:53Z: the 21:37Z run committed its result lines, `main` had moved under
         # it, the push was rejected as non-fast-forward, `|| true` hid it, and `origin/main` still
         # reported 24 open hypotheses when 6 were left. The generator's gate read the remote
         # correctly and refused to refill, so the lane that finds sources sat idle on a queue that
-        # only looked full. Now: fetch, replay our result lines onto the remote's file, retry, and
-        # SHOUT if it never lands.
+        # only looked full. Now: fetch, replay our writes onto the remote's files, retry, and
+        # SHOUT if it never lands. The lead statuses are replayed by re-running the writer, which
+        # reads the drain and not the clone and is therefore safe after a hard reset.
         ROOT_FOR_MERGE="$(pwd)"
         (
             cd "$FLEET" || exit 1
-            git add hypotheses.md
+            git add hypotheses.md leads 2>/dev/null || git add hypotheses.md
             git commit -q -m "Result lines $1" || true
             for attempt in 1 2 3; do
                 git push -q origin main 2>/dev/null && exit 0
@@ -289,62 +299,68 @@ bank fleet="~/Documents/GitHub/ark-fleet":
                 git fetch -q origin main && git reset -q --hard origin/main
                 (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
                     "$TMPDIR/ark_result_lines.md" "$FLEET/hypotheses.md")
-                git add hypotheses.md
+                (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/fleet_leads.py \
+                    data/fleet_findings/incoming --fleet "$FLEET" --write) || true
+                git add hypotheses.md leads 2>/dev/null || git add hypotheses.md
                 git commit -q -m "Result lines $1" || true
                 sleep $(( attempt * 3 ))
             done
             echo "RESULT LINES NOT PUSHED after three attempts. The fleet queue will over-report"
-            echo "  open hypotheses until they land, so the generator will refuse to refill."
+            echo "  open leads until they land, so the dealer will re-deal settled work."
             exit 1
         ) || true
     }
-    # Steps 3 and 4 need findings; 5 to 8 run on every bank, because the collectors
-    # fill journals and the round can cross the gate with no fleet finding at all.
-    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; else
-        # 3. Result lines first and pushed at once: a wave that picks while the admitter
-        #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
+    # Steps 3 to 7 need findings; 8 to 11 run on every sync, because the collectors fill
+    # journals and the round can cross the gate with no fleet finding at all.
+    # Two shapes, tested separately: `ls` over two globs fails when EITHER is unmatched, which
+    # would have called a drain of nothing but lead directories empty.
+    if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null; then
+        echo "nothing new to bank"
+    else
+        # 3. Result lines first and pushed at once: a wave that picks while the rest of this
+        #    recipe is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-        push_result_lines "$LABEL"
-        #    A FIND used to wake a model HERE, and that is how Ivo's personal account was
-        #    being drained at API rates (2026-09-04). A local `claude -p` authenticates with
-        #    the LAPTOP'S own Claude login, which is his Taktile account and has API pricing
-        #    enabled; the fleet's workflows authenticate with `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY`,
-        #    the HPI account, which has limits and no API billing. So the same agent costs money
-        #    in one place and consumes an allowance in the other, and this recipe was the one
-        #    place where the token could not be chosen.
-        #
-        #    **Opt-in and off by default.** `just bank` still does everything else: drain the
-        #    findings, write the result lines, run the scribe, gate, export and push. Admission
-        #    is a model's judgement and belongs in the fleet, where the token is explicit.
-        if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
-            if [ "${ARK_LOCAL_ADMITTER:-0}" = "1" ]; then
-                echo "FIND present: waking the LOCAL admitter (fable 5.1/medium)"
-                echo "  NOTE: this bills the laptop's own Claude login, not the fleet's token."
-                claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
-                    --model claude-fable-5-1 --effort medium --output-format text \
-                    > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
-                tail -3 "data/logs/admit_$LABEL.log"
-            else
-                echo "FIND present, local admitter OFF: it would bill the laptop's own Claude"
-                echo "  login at API rates. Set ARK_LOCAL_ADMITTER=1 to run it anyway, or let"
-                echo "  the fleet admit it under the primary token."
-            fi
-        fi
-        # 4. The deterministic scribe, then the gate, then one push.
+        push_fleet "$LABEL"
+        # 4. The deterministic scribe: one register row per finding, both figures in it.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
+        # 5. The decision. The loop writes the `Decision:` line itself only where Ivo's
+        #    standing rule already authorises it, and the fourth condition of that rule is
+        #    that `ark check` passes after the ingest, so the line is written, the ingest
+        #    runs, and a red gate parks the line back to pending rather than leaving an
+        #    approval nobody granted in a public register.
+        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \
+            | tee /dev/stderr | grep -c '^decided:' || true)
+        if [ "$DECIDED" -gt 0 ]; then
+            uv run python scripts/harness/bank_hygiene.py space
+            if uv run python scripts/harness/bank_approved.py --write && uv run ark export >/dev/null && uv run ark check; then
+                echo "the standing rule's fourth condition holds: $DECIDED decisions stand"
+            else
+                echo "GATE RED after a standing-rule ingest: those decisions are parked back to pending"
+                echo "  The rows the ingest wrote are still in the store, which is where the red"
+                echo "  invariant is: read 'uv run ark check' before running this again."
+                git checkout -- docs/registers/approved-sources-list.md
+                exit 1
+            fi
+        fi
+        # 6. Everything the standing rule did not settle reaches Ivo as one issue and one
+        #    mergeable pull request, because merging is something he can do from a phone.
+        uv run python scripts/harness/sync_approvals.py || true
+        # 7. The gate, then one commit and one push.
         uv run ruff check . && uv run ruff format --check . && uv run pytest -q
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
         uv run ark check
         git add docs/ src/ justfile 2>/dev/null || true
-        git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
+        git commit -q -m "Sync fleet findings $LABEL" || echo "register unchanged"
         git push -q origin live
-        push_result_lines "$LABEL"
+        # 8. What became of each lead, back into the fleet's queue, with the result lines.
+        uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
+        push_fleet "$LABEL"
         mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
     fi
-    # 5. Bring the VPS collectors' journals home and bank them: this replaced the
+    # 9. Bring the VPS collectors' journals home and bank them: this replaced the
     # continuous pull loop when the laptop's role became episodic (fleet plan, D3).
     ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
     : "${ARK_VPS:?set ARK_VPS}"
@@ -353,7 +369,7 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
     # the platform sweep's raw capture journals become hostname records (the second
     # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
-    # through cdx_suffix_convert.py by hand when a sweep completes, not per bank,
+    # through cdx_suffix_convert.py by hand when a sweep completes, not per sync,
     # because the converter re-emits everything under a fresh tag on every run.
     # skip the journals a sweep still holds open: a half-copied one was once
     # ledgered at a third of its rows and had to be re-ingested by hand
@@ -361,20 +377,19 @@ bank fleet="~/Documents/GitHub/ark-fleet":
     rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     uv run python scripts/harness/bank_hygiene.py space
     uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
-    # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
+    # 10. Refresh the VPS pricing snapshot so the next wave prices against today, manifest
+    # and candidate pools included, and a wave refuses a snapshot older than the newest
+    # release in releases.md rather than pricing against a stale ceiling.
     uv run python scripts/harness/bank_hygiene.py space
     uv run ark export >/dev/null
     uv run ark check
     uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
     bash scripts/harness/sync_fleet.sh
-    # A source waiting on a human reaches him as one issue and one mergeable pull
-    # request, because merging is something he can do from a phone. Never fails the bank.
-    uv run python scripts/harness/sync_approvals.py || true
     uv run python scripts/round/round_figures.py | sed -n '5,7p'
-    # 7. Disk refusal stops the bank; other brief refresh failures remain non-fatal.
+    # 11. Disk refusal stops the sync; other brief refresh failures remain non-fatal.
     uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py | tail -1 || true
-    # 8. The gate issue, once per crossing, read off the brief just written.
+    # The gate issue, once per crossing, read off the brief just written.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
 
 # The only route into the four register pages, and the cheap one: the deny in
@@ -1585,9 +1600,9 @@ ship stage="all" *args:
 
 # --- unattended ---------------------------------------------------------------
 
-# Three launchd jobs. com.ark.bank runs `just bank` at five past every hour, so the
+# Three launchd jobs. com.ark.sync runs `just sync` at five past every hour, so the
 # round moves without a session open, and reads the `ship-now` label (the header of
-# scripts/harness/scheduled_bank.sh). com.ark.cycle runs the health check four times
+# scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times
 # a day; it reports and does not act, and scheduled_cycle.sh says why a restarting
 # watchdog is the wrong shape here. com.ark.collectors holds the CDX collector lane under
 # `caffeinate -s`; it is KeepAlive, so it comes back after a reboot on its own, and
@@ -1611,7 +1626,7 @@ ship stage="all" *args:
 schedule what="install" job="":
     #!/usr/bin/env bash
     set -uo pipefail
-    JOBS="com.ark.bank com.ark.cycle com.ark.collectors"
+    JOBS="com.ark.sync com.ark.cycle com.ark.collectors"
     if [ -n "{{job}}" ]; then
         case " $JOBS " in
         *" {{job}} "*) JOBS="{{job}}" ;;
@@ -1622,6 +1637,16 @@ schedule what="install" job="":
     install)
         set -euo pipefail
         mkdir -p "$HOME/Library/LaunchAgents" data/logs
+        # The hourly job was com.ark.bank until 2026-09-09. Its installed plist outlives the
+        # rename and names a script that no longer exists, so a laptop that had it would fire
+        # a 127 every hour with launchctl list looking perfectly normal. Taken out here
+        # because the list above no longer holds the name, so `remove` cannot reach it.
+        stale="$HOME/Library/LaunchAgents/com.ark.bank.plist"
+        if [ -f "$stale" ]; then
+            launchctl unload "$stale" 2>/dev/null || true
+            rm -f "$stale"
+            echo "removed the superseded com.ark.bank job"
+        fi
         for job in $JOBS; do
             plist="$HOME/Library/LaunchAgents/$job.plist"
             sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
@@ -1650,7 +1675,7 @@ schedule what="install" job="":
                 echo "OK: $probe exited 0"
             fi
             case " $JOBS " in
-            *" com.ark.bank "*) echo "com.ark.bank runs at :05 every hour and appends to data/logs/scheduled_bank.log" ;;
+            *" com.ark.sync "*) echo "com.ark.sync runs at :05 every hour and appends to data/logs/scheduled_sync.log" ;;
             esac
             case " $JOBS " in
             *" com.ark.collectors "*) echo "com.ark.collectors holds the CDX lane; 'just collectors status' reads it" ;;
@@ -1666,7 +1691,7 @@ schedule what="install" job="":
             echo "  repository is now. 127 means a tool is not on the PATH the"
             echo "  template sets."
             echo
-            echo "  Until then a terminal that runs 'just bank' hourly covers the same"
+            echo "  Until then a terminal that runs 'just sync' hourly covers the same"
             echo "  ground, because it inherits the grant of the terminal that started it."
             tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
         fi
@@ -1676,7 +1701,7 @@ schedule what="install" job="":
             line=$(launchctl list | awk -v j="$job" '$3 == j { print "pid " $1 ", last exit " $2 }')
             echo "$job: ${line:-not loaded}"
         done
-        for log in scheduled_bank scheduled_cycle; do
+        for log in scheduled_sync scheduled_cycle; do
             [ -f "data/logs/$log.log" ] && { echo "--- data/logs/$log.log"; grep '^===== scheduled' "data/logs/$log.log" | tail -2; }
         done
         ;;

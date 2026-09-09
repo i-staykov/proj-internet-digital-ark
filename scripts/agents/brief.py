@@ -1,7 +1,7 @@
 """Where the round stands, in thirty lines, from a snapshot.
 
 Reads `data/brief.json`, written by `scripts/round/build_round_state.py` (so by
-`just state`, `just cycle` and `just bank`), plus `private/handoff.md` when the
+`just state`, `just cycle` and `just sync`), plus `private/handoff.md` when the
 last session left one. Never the store and never the network: opening the store
 waits up to 900 s on a writer's lock and the engine status runs ssh, and either
 hangs a session-start hook at its 60 s default. So this reads a file and says how

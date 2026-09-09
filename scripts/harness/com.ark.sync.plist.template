@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.ark.bank</string>
+  <string>com.ark.sync</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>ARK_ROOT/scripts/harness/scheduled_bank.sh</string>
+    <string>ARK_ROOT/scripts/harness/scheduled_sync.sh</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict><key>Minute</key><integer>5</integer></dict>
@@ -21,6 +21,6 @@
     <string>ARK_HOME</string>
   </dict>
   <key>StandardErrorPath</key>
-  <string>ARK_ROOT/data/logs/scheduled_bank.err</string>
+  <string>ARK_ROOT/data/logs/scheduled_sync.err</string>
 </dict>
 </plist>

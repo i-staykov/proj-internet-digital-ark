@@ -3,6 +3,12 @@
 One line per capability removed from the tree, so a later run knows it existed and why it went.
 The code itself is recoverable from git by the commit named here.
 
+- **The local admitter** (`just bank`'s opt-in `claude -p` leg and `scripts/harness/admit_prompt.txt`):
+  a model was woken on the laptop to decide whether a FIND could be approved, which billed the
+  laptop's own Claude login at API rates and was off by default for that reason. S9 replaced the
+  judgement with a lookup: `standing_rule.py` writes the `Decision:` line where Ivo's standing rule
+  already authorises it and parks everything else for him. Removed in this commit, with `just bank`
+  itself, which is now `just sync`.
 - **The RDAP client** (`src/ark/rdap.py`, the `ark rdap` command, `tests/test_rdap.py`, the
   `rdap-batch` recipe): querying is closed for good on the registries' own terms, so bootstrap,
   routing, retries and journal writing had no caller left. `attested_years` and `RDAP_REDIRECTOR`
@@ -29,7 +35,7 @@ The code itself is recoverable from git by the commit named here.
   at the register's own pending blocks.
 - **Three VPS shell helpers** (`scripts/engines/pull_vps_journals.sh`, `vps_start_edge.sh`,
   `cdx_suffix_run.sh`, 280 lines): each retired by its own header comment or by
-  `vps_bootstrap.sh`, and the journal rsync is inline in `just bank`. Nothing outside the three
+  `vps_bootstrap.sh`, and the journal rsync is inline in `just sync`. Nothing outside the three
   files named any of them. Removed in this commit.
 - **The Yahoo directory collector** (`scripts/sources/directories/collect_yahoo_directory.py`
   and its test, 375 lines): the family was rejected at 7.73 EE and nothing called the collector.

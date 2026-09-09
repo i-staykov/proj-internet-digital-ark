@@ -22,7 +22,7 @@ def rendered(template: Path) -> dict:
 
 def test_the_three_jobs_are_shipped():
     names = [t.name.removesuffix(".plist.template") for t in TEMPLATES]
-    assert names == ["com.ark.bank", "com.ark.collectors", "com.ark.cycle"]
+    assert names == ["com.ark.collectors", "com.ark.cycle", "com.ark.sync"]
 
 
 @pytest.mark.parametrize("template", TEMPLATES, ids=lambda t: t.name)

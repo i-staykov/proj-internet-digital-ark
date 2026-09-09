@@ -3,7 +3,7 @@
 #
 # **The gap this closes.** `maintain.sh` rsyncs `cdx_*` and `rdap_*` and not
 # `cdx_suffix_*`, which is the one thing the platform sweep actually writes. That
-# pull lives inside `just bank`, a long episodic recipe nobody runs on a loop, so
+# pull lives inside `just sync`, a long episodic recipe nobody runs on a loop, so
 # on 2026-09-07 the VPS held 1,093 sweep journals that no local pass could see
 # and the store's EE could not move however hard the VPS worked.
 #

@@ -5,7 +5,7 @@
 # sha256. `ark price-snapshot` refuses a snapshot whose files disagree with the manifest,
 # so the manifest is pushed LAST and a torn sync fails a wave instead of mispricing it.
 # Superseded baselines on the VPS are removed once the new one holds all six year files.
-# Runs inside `just bank` and after every non-dry `just intake`.
+# Runs inside `just sync` and after every non-dry `just intake`.
 set -euo pipefail
 
 [ -f local.env ] && . local.env

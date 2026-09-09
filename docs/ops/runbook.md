@@ -23,8 +23,9 @@ VPS (always on), two accounts by design (C-79)
    them: the two-clients limit binds that one channel, so an agent may use every other
    archive.org service and no lane touches CDX (C-77, issue #111)
 Laptop (episodic, human-supervised)
-   `just bank` ..................... drains fleet findings, admits, ingests into the
-                                     evidence store, gates, pushes; packaging and reports
+   `just sync` ..................... drains fleet findings, validates them, prices the
+                                     confirmed ones again on the live store, books, decides,
+                                     ingests, gates, pushes; packaging and reports
 ```
 
 Orchestration lives in that separate private repo so this one stays free of secrets and runner
@@ -196,8 +197,9 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
 | brief | `uv run python scripts/round/extract_ding_docs.py --package <document-directory> --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>` | refreshes the canonical brief and its companion documents under [docs/brief/ding/](../brief/ding/) from his originals. All provenance arguments are required; the header carries each source file's sha256. Run after each task-package arrival; baseline intake does not do it. See [the transcription instructions](../brief/ding/README.md) |
+| sync | `just sync` | the laptop's whole write path: drains the fleet's findings, validates each sidecar against the fleet's schema, prices every confirmed FIND again on the live store, books both figures, writes the `Decision:` line the standing rule authorises or raises the approval for Ivo, ingests, gates, pushes `live`, refreshes the VPS pricing snapshot and writes each lead's fate back into the fleet's queue |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
-| schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads three launchd jobs, and a second argument names one of them because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.bank` runs `scripts/harness/scheduled_bank.sh` at :05 every hour (`just bank`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout moved to `~/GitHub` on 2026-09-09 so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exited 126 while `launchctl list` looked perfectly normal, and moving the repository was cheaper than granting `/bin/bash` the whole disk. A 126 now means a plist rendered from the old path or a checkout back under a protected directory; with launchd's bare PATH it exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
+| schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads three launchd jobs, and a second argument names one of them because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at :05 every hour (`just sync`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout moved to `~/GitHub` on 2026-09-09 so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exited 126 while `launchctl list` looked perfectly normal, and moving the repository was cheaper than granting `/bin/bash` the whole disk. A 126 now means a plist rendered from the old path or a checkout back under a protected directory; with launchd's bare PATH it exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | restart the collectors on a new deadline | `bash scripts/engines/restart_sweeps.sh <deadline_epoch>`, **on the VPS** | the VPS runs its two collectors as transient systemd user units (`ark-sweep0`, `ark-sweep1`) whose deadline is baked into the command line, so widening the window means restarting them. This stops both, waits, counts CLIENTS BY OPEN JOURNAL rather than by process (one client is a `uv run` wrapper plus its python child, so a process count doubles it), and starts only as many loops as the two-client rule leaves. **Expect one loop, not two:** a stopped sweep keeps its journal until its current parent is walked and still holds a slot, so the freed slot must be refilled afterwards or the fleet runs at half capacity for the rest of the window. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. `extend_engines.sh` is the LAPTOP equivalent and starts `supervise_cdx_pool.sh`, so do not point it at the VPS |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
@@ -275,16 +277,42 @@ recipe stages wholesale (`git add docs/` is how a 1.3 GB copy once reached histo
 `data/logs/gate_notified.tsv` and the open-issue query; a brief measured against a superseded release
 opens nothing and is reported as stale.
 
-### Banking without a session open, and asking for a package from a phone
+### What `just sync` does with a finding
+
+A leg arrives as a directory: `finding.md` in the register voice, `finding.json` in the fleet's
+schema, `items.jsonl` when the leg shipped the records it priced. Four programs read it, in order,
+and each one exists because of a way a figure has reached the register without being checked.
+
+1. `fleet_findings.py drain` flattens the downloaded artifacts into one directory per lead and
+   files the telemetry rows. A slug already drained is dropped rather than re-booked.
+2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
+   schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
+   replaced by the contract's BLOCKED fallback.
+3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time,
+   here, with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never
+   reaches the register alone**: it was measured against the pushed snapshot, which is a copy, by
+   the agent that wanted the answer to be large. A FIND that shipped no items is not re-priced and
+   the row says so in words.
+4. `bank_findings.py` writes the row, with the fleet's figure and the store's beside it, and the
+   verify status in the verdict cell.
+
+Then `standing_rule.py` writes the `Decision:` line for the sources Ivo's standing rule already
+covers, `sync_approvals.py` raises the rest as a pull request and an issue, and `fleet_leads.py`
+writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
+invisible re-deals settled work.
+
+### Syncing without a session open, and asking for a package from a phone
 
 `just schedule install` loads three launchd jobs: `com.ark.collectors` holds the collector lane,
-`com.ark.bank` runs `scripts/harness/scheduled_bank.sh` at five past every hour, `com.ark.cycle` runs the
-health check four times a day, and `just schedule install <job>` loads one of them on its own. The bank
-wrapper holds a lock, appends to `data/logs/scheduled_bank.log`, runs `just bank`, and then reads one label: `ship-now` on
+`com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at five past every hour, `com.ark.cycle` runs the
+health check four times a day, and `just schedule install <job>` loads one of them on its own. The sync
+wrapper holds a lock, appends to `data/logs/scheduled_sync.log`, runs `just sync`, and then reads one label: `ship-now` on
 any open ark-fleet issue (the gate issue is the natural place) makes it run `just ship all` once, which
 banks, regenerates the report, packages, verifies and writes the mail draft, and stops there. Nothing is
 sent (C-63). The label is removed before the ship starts, so a failure does not retry every hour, and the
-outcome lands as a comment on the issue that carried it. `just schedule status` shows each job's last
+outcome lands as a comment on the issue that carried it. **A laptop that installed the old hourly job needs one `just schedule install`**: it was
+`com.ark.bank` until 2026-09-09, the rename does not reach an installed plist, and the recipe
+unloads and deletes the superseded one on the way past. `just schedule status` shows each job's last
 exit and the last two runs of each log; the exits to know are 126 (launchd cannot read the checkout, so
 usually a plist rendered from the old `~/Documents` path) and 127 (a tool missing from the PATH the
 template sets).
@@ -659,7 +687,7 @@ Queues: `platform_queue_*.txt` are parents from `rank_platform_parents.py`,
 `suffix_queue_s1/s2.txt` are the English-heavy second-level suffixes (`co.uk`, `com.au`,
 `co.nz`, `org.uk`, `gov.uk`, `co.za`, `gc.ca`, the `.us` states) that the bare TLDs, which
 answer 403, cannot give. `sweep_chain.sh <pid> <queue>...` runs queues back to back behind
-a running sweep so a slot never idles. `just bank` brings finished journals home and skips
+a running sweep so a slot never idles. `just sync` brings finished journals home and skips
 any a sweep still holds open.
 
 ### The per-source collectors
@@ -773,12 +801,14 @@ next refresh, and packaging refuses outright if the two disagree.
 ## Approving a source from a phone
 
 A source the loop cannot decide sits at `Decision: pending` in
-`docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `sync_approvals.py`,
-which runs inside `just bank`, turns each one at or above the 5,000 EE bar into two things: a
-pull request on `live` that flips only that source's `Decision:` line, and an issue in the
-private fleet repository labelled `approval` that links to it and carries the measurement.
+`docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `standing_rule.py` and then `sync_approvals.py`,
+both inside `just sync`, split them in two. The standing rule writes the `Decision:` line itself
+where Ivo's rule of 2026-08-29 already authorises it; everything else at or above the 5,000 EE bar
+becomes two things: a pull request on `live` that flips only that source's `Decision:` line, and an
+issue in the private fleet repository labelled `approval` that links to it and carries the
+measurement.
 
-**Merging the pull request is the approval.** Nothing is ingested by merging; the next bank does
+**Merging the pull request is the approval.** Nothing is ingested by merging; the next sync does
 that. Closing it unmerged leaves the source pending. When a decision lands the next sync closes
 the issue, so the label is always what is actually waiting.
 
@@ -793,7 +823,7 @@ under `merged<marker>/`, our last export under `netnew/`, both candidate pools u
 `candidates/`, and `manifest.json`, which carries the marker, a `built_at` and the line count
 and sha256 of every file. `scripts/harness/sync_fleet.sh` pushes all of it, reading the marker
 from `data/baseline.json` so it can never name a stale release, and removes superseded
-baselines on the VPS once the new one holds all six year files. It runs inside `just bank` and
+baselines on the VPS once the new one holds all six year files. It runs inside `just sync` and
 after every non-dry `just intake`; a wave priced before the next sync sees a ceiling, which its
 brief makes it say.
 
