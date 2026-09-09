@@ -33,6 +33,19 @@ The code itself is recoverable from git by the commit named here.
   `Decision: pending` blocks of `docs/registers/approved-sources-list.md` and the open asks in
   `key-decisions.md`. No recipe called it. Removed in this commit; `key-decisions.md` now points
   at the register's own pending blocks.
+- **The VPS collector restart** (`scripts/engines/restart_sweeps.sh`, 96 lines): stopped the two
+  `ark-sweep` transient units and started as many as the two-client rule left, on the VPS. That host
+  stopped collecting on 2026-09-09 (C-84) and its unit names exist nowhere else, so the script could
+  only ever start a client that must not exist. Removed in this commit. What it defined and was worth
+  keeping, counting clients by the journal they hold open rather than by process, is `local_clients()`
+  in `scripts/harness/collectors.sh`; `extend_engines.sh` is the laptop's handover.
+- **The second-machine bundle** (`scripts/engines/make_vps_bundle.sh`, `vps_bootstrap.sh`, 113
+  lines): packed a shard list plus the journal history and started a supervisor on the VPS. The
+  VPS stopped collecting on 2026-09-09 (ark-fleet S8): both CDX clients of C-77 are this
+  laptop's, the fleet host runs research legs, and a script whose whole purpose is to start a
+  third client there is a trap rather than a tool. Removed in this commit; the runbook's second
+  machine section keeps the measurements that sized the split and points at `cdx_slot.sh` for the
+  one thing a leg on that host may still ask.
 - **Three VPS shell helpers** (`scripts/engines/pull_vps_journals.sh`, `vps_start_edge.sh`,
   `cdx_suffix_run.sh`, 280 lines): each retired by its own header comment or by
   `vps_bootstrap.sh`, and the journal rsync is inline in `just sync`. Nothing outside the three

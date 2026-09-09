@@ -200,7 +200,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | sync | `just sync` | the laptop's whole write path: drains the fleet's findings, validates each sidecar against the fleet's schema, prices every confirmed FIND again on the live store, books both figures, writes the `Decision:` line the standing rule authorises or raises the approval for Ivo, ingests, gates, pushes `live`, refreshes the VPS pricing snapshot and writes each lead's fate back into the fleet's queue |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 | schedule | `just schedule install` / `just schedule status` / `just schedule remove` | loads three launchd jobs, and a second argument names one of them because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at :05 every hour (`just sync`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout moved to `~/GitHub` on 2026-09-09 so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exited 126 while `launchctl list` looked perfectly normal, and moving the repository was cheaper than granting `/bin/bash` the whole disk. A 126 now means a plist rendered from the old path or a checkout back under a protected directory; with launchd's bare PATH it exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
-| restart the collectors on a new deadline | `bash scripts/engines/restart_sweeps.sh <deadline_epoch>`, **on the VPS** | the VPS runs its two collectors as transient systemd user units (`ark-sweep0`, `ark-sweep1`) whose deadline is baked into the command line, so widening the window means restarting them. This stops both, waits, counts CLIENTS BY OPEN JOURNAL rather than by process (one client is a `uv run` wrapper plus its python child, so a process count doubles it), and starts only as many loops as the two-client rule leaves. **Expect one loop, not two:** a stopped sweep keeps its journal until its current parent is walked and still holds a slot, so the freed slot must be refilled afterwards or the fleet runs at half capacity for the rest of the window. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. `extend_engines.sh` is the LAPTOP equivalent and starts `supervise_cdx_pool.sh`, so do not point it at the VPS |
+| restart the collectors on a new deadline | `bash scripts/engines/extend_engines.sh <deadline_epoch>`, **on the laptop** | the lane is the laptop's and launchd owns it (C-84), so widening the window is a handover on this machine and nothing is done on the VPS, which runs no collector at all. `extend_engines.sh` performs one handover and exits rather than looping, because a job that restarted a collector on its own would eventually restart it with settings that had since been retuned. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. **Count CLIENTS BY OPEN JOURNAL, never by process**: one client is a `uv run` wrapper plus its python child, so a process count doubles it, and `local_clients()` in `scripts/harness/collectors.sh` is the definition. The VPS recipe, `restart_sweeps.sh`, is retired with the lane |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
 | usenet body URLs | `uv run python scripts/sources/usenet/build_usenet_pool.py <pool dir> <out dir> <workers>`, then `uv run ark ingest-usenet-hostnames <out dir>` | the `usenet_body_url_hostnames` lane, `Decision: master` since 2026-09-04 and worth 119,640 equivalent-English over thirteen pools. Reads every archive in a pool rather than a sample, one `{item, year, text}` shard per worker, and takes hosts ONLY from explicit `http`, `https` and `ftp` URLs after the header block. Six workers keeps a laptop responsive and reads about 45 GB an hour. Price with `just price-hosts --items <out dir> ...`, passing every pool in one command, because summing pools double counts by the saturation share |
@@ -610,31 +610,31 @@ share ranks near the top: `.gov` came fourth by volume at a 0.9825 share. **A hi
 an invented name is still zero.** The builder warns rather than excluding, since which TLDs to drop is a
 judgement; act on it with `--tlds`.
 
-### A second machine
+### A second machine, and why there is not one any more
 
-Split the queue into disjoint shares and run one per machine. Assignment is by content hash of the
-domain, so the shares are disjoint and jointly complete with no coordination, and because the hash is
-independent of the ordering each share is a representative sample of the whole value curve rather
-than a contiguous block of it.
+**The VPS stopped collecting on 2026-09-09.** Both CDX clients of C-77 are this laptop's, the fleet
+host runs research legs only, and its 6.8 GB of journals came home and were deleted there once the
+ingest ledger's own digests said the store held them. The bundle-and-bootstrap pair that seeded a
+second collecting machine is retired with it, in `docs/lore/retired.md`.
 
-**Size each share by how fast its machine is.** Measured, the MacBook sustains 916 queries an hour
-against the VPS's 262, and an even split leaves the fast machine grinding its own cheap tail while the
-expensive head of the other half goes untouched.
+What a leg on that host may still do is ask about ONE named host, through
+`bash scripts/harness/cdx_slot.sh <exact host> ['<extra CDX query>']`. Every query on the host
+serialises behind one `flock`, waits two seconds after the previous one, honours `Retry-After`, and
+refuses a wildcard host or a `matchType` that would walk a namespace, so a price or verify leg can
+check a sample without becoming a third client on the channel. `ARK_CDX_DRY_RUN=1` prints the question
+and asks nobody.
 
-```bash
-just query-queue --weights 78,22 --rates 916,262   # shares, measured speeds
-bash scripts/engines/make_vps_bundle.sh              # ship share 1 and the repo
-bash scripts/engines/vps_bootstrap.sh                # then, on that machine
-```
+The measurements that paid for the split are worth keeping even so. Assignment was by content hash of
+the domain, so shares were disjoint and jointly complete with no coordination and each was a
+representative sample of the value curve rather than a contiguous block of it. Shares have to be sized
+by how fast each machine is: the MacBook sustained 916 queries an hour against the VPS's 262, and an
+even split left the fast machine grinding its cheap tail while the expensive head of the other half
+went untouched (`just query-queue --weights 78,22 --rates 916,262`).
 
-The remote machine needs the repo, `uv`, and its slice. It does **not** need the store: collection
-never opens it. Give each machine its own `ARK_PREFIX` so two runs cannot write the same journal name,
-and keep the prefix starting `cdx_` so the ingest globs and the resume scan still see it.
-
-**Bringing the remote journals home is the step that gets forgotten**, and a second machine's output
-is invisible to every measurement taken on the first. The VPS once ran for a day and a half with 5,793
+**Bringing a remote machine's journals home was the step that got forgotten**, and its output is
+invisible to every measurement taken here. The VPS once ran for a day and a half with 5,793
 year-records on its disk and absent from the store, because nothing here ever looked. `just engines`
-lists any remote journal missing locally and prints the `rsync` that fetches it, and it now reports
+lists any remote journal missing locally and prints the `rsync` that fetches it, and it reports
 **UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
 
 ### The collector lane under launchd
@@ -669,13 +669,14 @@ during it. `resume` removes the file and nothing else, and each parent continues
 file, so no page is re-fetched.
 
 **The budget is the channel's, not the machine's.** Two archive clients maximum binds
-`web.archive.org/cdx` across every machine (C-77), so before each window the supervisor counts the
-journals held open here AND asks the VPS how many it holds, and starts only what is left. A VPS that
-does not answer is counted as holding ONE client, not none: it holds its two whether or not the link is
-up, and reading silence as zero is how both laptop sweeps would start beside them. A paused machine
-reads as zero once its journals have gone quiet, which is the only honest test that the page in flight
-has finished. `ARK_CDX_BUDGET` raises the number and is only for an overlap that has been asked for
-deliberately.
+`web.archive.org/cdx` across every machine (C-77), and since C-84 both of them are this laptop's: the
+VPS runs no sweep, and what it may take is one flock-guarded slot for an exact-host query by a price or
+verify leg, never a namespace walk. The supervisor still counts the journals held open here and still
+asks the VPS before each window, counting a machine that does not answer as holding ONE client rather
+than none, because reading silence as zero is how a third client starts. That remote answer is now
+always zero, so the pessimistic default costs the laptop a sweep whenever the link is down: removing
+the remote question belongs with `collectors.sh` in the laptop issue, not here. `ARK_CDX_BUDGET` raises
+the number and is only for an overlap that has been asked for deliberately.
 
 ### The namespace sweep, which feeds the hostname unit
 
