@@ -19,10 +19,17 @@ The evidence wall is the one the registrable unit uses, unchanged:
 Two conditions come from the PURPOSE he gave for the unit, retrieving archived pages
 as completely as possible, rather than from its letter (tightened 2026-09-02):
 
-- the observation must show the host serving web content: a capture of a URL on it,
-  or a URL listing naming it. A DNS listing (a reverse-walk survey, an `nserver:`
-  attribute, an NS target in a zone) proves a machine answered, not a site, so those
-  lanes keep dating the parent registrable and write no hostname year;
+- the observation must show the host IN USE, which until 2026-09-09 read "serving web
+  content": a capture of a URL on it, or a URL listing naming it. A DNS listing (a
+  reverse-walk survey, an `nserver:` attribute, an NS target in a zone) proves a machine
+  answered, not a site, so those lanes keep dating the parent registrable and write no
+  hostname year. C-83 widened the wording to "in use" and admitted one non-web
+  observation by name, the `Received: ... by <host>` clause of a dated mail message,
+  because a receiving MTA writes its own name into a transaction it completed. His
+  section IV.1 is the authority for the wider reading: year evidence is "factual
+  material demonstrating that the domain actually existed, was in use, or was active",
+  and it lists a WHOIS record, which is not a page fetch either. The DNS lanes stay out
+  regardless, because he ruled on those by name on 2026-09-06 and measured the gap;
 - `www.<parent>` is the parent's own site under the name every crawler tries first, so
   it is not a separate record; the capture dates the registrable instead.
 
@@ -90,9 +97,11 @@ def source_for(path: Path) -> tuple[str, str]:
     return SOURCE_NAME, SWEEP_METHOD
 
 
-# The lanes whose observation shows the host serving web content. Only these write
+# The lanes whose observation shows the host IN USE in the year. Only these write
 # hostname_year; a lane missing here still runs and still dates the parent registrable
 # from the same row, so nothing is lost if the reviewer later rules DNS listings count.
+# Every member but the last is a web-serving observation, which is what the set held
+# until C-83. The name is kept because `ark check`, two round scripts and a test read it.
 WEB_FACING_HOST_SOURCES = frozenset(
     {
         SOURCE_NAME,
@@ -108,6 +117,12 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "maillist_body_url_hostnames",
         # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`, 2026-09-04).
         "enron_body_url_hostnames",
+        # The one non-web observation in this set (`APACHE_FAMILY`, C-83, Ivo 2026-09-09).
+        # A `Received: ... by <host>` clause is written by the MTA at that host, about
+        # itself, in a message the ASF's own archive dated independently. It proves the
+        # host was in use rather than that it served a page, which is the reading his
+        # section IV.1 allows and the reason the wall's wording changed with it.
+        "apache_list_header_hostnames",
     }
 )
 # `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
@@ -1250,6 +1265,35 @@ def _enron_url(item: str) -> str:
 
 
 ENRON_FAMILY = ItemFamily(ENRON_SOURCE, ENRON_METHOD, "enron message", _ENRON_ITEM, _enron_url)
+
+# The fourth member, and the first that is NOT a body URL: the `Received: ... by <host>`
+# clause of a dated message in the Ponymail archive at `lists.apache.org`, approved by Ivo on
+# 2026-09-09 (C-83) for the `by` clause alone. `build_apache_header_pool.py` writes the shards
+# and its docstring carries the parsing traps; the class argument is in the register.
+#
+# The item is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of the mbox export of one
+# list-month, and the export is still served by name from the API. `mbox.lua` accepts only
+# `d=YYYY-MM`: a year range answers 200 with a 13-message stub, so the month is part of the
+# pointer rather than something a reader could widen.
+APACHE_SOURCE = "apache_list_header_hostnames"
+APACHE_METHOD = "apache_list_received_by"
+_APACHE_ITEM = re.compile(
+    r"^(?P<domain>[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,})/"
+    r"(?P<list>[a-z0-9][a-z0-9._+-]*)__"
+    r"(?P<month>(?:199[6-9]|200[01])-(?:0[1-9]|1[0-2]))#\d+$"
+)
+
+
+def _apache_url(item: str) -> str:
+    m = _APACHE_ITEM.match(item)
+    assert m is not None  # the caller matched it already
+    return (
+        "https://lists.apache.org/api/mbox.lua"
+        f"?list={m['list']}&domain={m['domain']}&d={m['month']}"
+    )
+
+
+APACHE_FAMILY = ItemFamily(APACHE_SOURCE, APACHE_METHOD, "list header", _APACHE_ITEM, _apache_url)
 
 
 def usenet_item_rows(

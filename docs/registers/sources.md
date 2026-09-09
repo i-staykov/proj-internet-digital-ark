@@ -5105,3 +5105,70 @@ proxy-overstatement measured in this project.
 objection. The raw bytes are deleted again since the lane is spent; the artifact is re-fetchable
 from the URL above and the two commands are in this entry. What the 5,999 EE figure was worth is
 exactly what a mailbox host is worth at hostname grain: nothing.
+
+
+## apache_list_header_hostnames / link_source
+
+**The first non-web observation admitted at hostname grain, and the wall's wording changed with
+it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause ALONE.
+
+- the artifact: `https://lists.apache.org/api/mbox.lua?list=<list>&domain=<domain>&d=<YYYY-MM>`,
+  one mbox per list-month of the Ponymail archive at `lists.apache.org`. The list-month inventory
+  comes from `https://lists.apache.org/api/stats.lua?list=*&domain=*&d=<YYYY-MM>`, one request per
+  calendar month of 1996-2001, which returns every message the archive holds for that month with
+  its own list name attached, so DISCOVERY IS 72 REQUESTS rather than one per candidate list-month
+- what dates one item: the message's own `Date:` header, an RFC 822 date written by the sending
+  client and preserved verbatim by Ponymail, cross-checked against the `d=YYYY-MM` partition the
+  mbox was fetched under. A message whose `Date:` year disagrees with its partition year is
+  dropped rather than assigned to either. Quoted: message 1 of `httpd.apache.org/dev__1999-01`
+  carries `Date: Fri, 1 Jan 1999 19:58:57 +0100` and, in its `Received:` chain, `by
+  taz.hyperreal.org with SMTP`, which dates `taz.hyperreal.org` for 1999. The evidence row is
+  `list header 1999 httpd.apache.org/dev__1999-01#1 taz.hyperreal.org`
+- **why the class is `link_source` and not a new one.** `usenet_body_url_hostnames` and
+  `maillist_body_url_hostnames` are both `Decision: master` in that class, and the second of them
+  IS a public mailing-list archive read at hostname grain and dated by the same RFC 822 header.
+  This is that source at a different host and a different field of the same message, so the class
+  decision was already made and C-81's 1,000 EE grain floor applies rather than the 5,000 EE
+  floor for a new source
+- **why a relay host clears the evidence bar, in his own words.** His section IV.1 defines year
+  evidence as "factual material demonstrating that the domain actually existed, was in use, or
+  was active during the specific calendar year", lists "a WHOIS record demonstrating registration
+  status in that year", and closes the list with "or equivalent material". A WHOIS record is not a
+  page fetch either. Nothing in the brief requires a web-serving observation; the requirement that
+  it did was OUR generalisation of his 2026-09-06 ISC ruling, which was about DNS observations
+- **and why it takes no corroboration split.** The rule is that "anything a human typed needs
+  another source to date that domain first. A self-dating record takes no split." A `Received: by`
+  clause is written by the MTA at that host, about itself, in a transaction it completed, so the
+  typo failure mode that gates human-typed bodies is structurally absent. Nobody typed it
+- **three fields of the same header are NOT taken.** The `from` clause carries a HELO name the
+  SENDER chose, so it is forgeable and it is where the junk lives (`blonville.caii`,
+  `ecstasy.localnet`, bare IPs, all in one 1999 month). The parenthesised reverse-DNS is written
+  by the receiver but was outside the approval, so it is left for a later ruling rather than taken
+  quietly. `Message-ID` hosts are stamped by the client from a configured nodename, and
+  `usenet_header_fqdn_hostnames` already parks that as needing its own class reading
+- **this does NOT reopen `jeb_bush_hostgrain`.** That lane was closed at 322.4322 EE on the
+  `_ADDR` union, hosts taken from email ADDRESSES, which are mailbox names in a header a human
+  addressed. C-83 admits a receiving MTA naming itself, which is a different field with a
+  different author. The closure stands on its own figure
+- terms: `lists.apache.org/robots.txt` is `User-agent: * / Crawl-delay: 5` with NO Disallow, read
+  2026-09-09, and every request in `collect_apache_lists.py` waits that 5 seconds.
+  `mail-archives.apache.org/robots.txt` is `User-agent: * / Disallow: /`; it 302s here and is
+  never fetched from. `archive.apache.org` and the API are not `web.archive.org/cdx`, so this
+  lane is not a third archive client (C-77, rule 6)
+- **the wildcard listing CAPS at 15,001 messages and says nothing about it.** Measured over the
+  72 month requests: 2000-05 returned 11,650, 2000-06 13,707, and every month from 2000-07 on
+  returned exactly 15,001. So for the busy half of the window a list's count is a floor, and a
+  quiet list in a busy month can be absent from the response entirely. `--expand` fixes it with
+  one request per LIST: `active_months` gives a count for every month of that list's whole
+  history, which is exact. **The residual hole, stated rather than papered over**: a project whose
+  every in-window month was capped out of the wildcard pass is invisible to `--expand` too,
+  because nothing named its domain. Closing that needs a probe per domain of `preferences.lua`,
+  402 requests, and it is not done
+- and `d=` accepts a range it then IGNORES: `stats.lua?...&d=2001-12-01~2001-12-10` answers 200
+  with 15,001 messages whose epochs are in 2026-08, while echoing the range back in its own
+  `searchParams`. `d=YYYY-MM` is the only form this lane ever sends. Both traps are in
+  [../lore/traps.md](../lore/traps.md)
+- collect: `uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover`, then
+  `--expand`, then `--harvest`; build with
+  `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with
+  `uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/`

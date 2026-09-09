@@ -418,6 +418,36 @@ def ingest_enron_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=ENRON_FAMILY)))
 
 
+@app.command(name="ingest-apache-header-hostnames")
+def ingest_apache_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_apache_header_pool.py, or "
+            "directories of them (`data/raw/apache_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated Apache list messages.
+
+    Approved by Ivo on 2026-09-09 (C-83), class link_source, for the `Received: ... by
+    <host>` clause ALONE: the receiving MTA writes its own name there, so the field is
+    machine-written and takes no corroboration split. The `from` clause is a sender-chosen
+    HELO name and is not read; nor is the parenthesised reverse-DNS, which was not part of
+    the approval. The item pointer is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of
+    the mbox export of that list-month. Idempotent per shard.
+    Example: ark ingest-apache-header-hostnames data/raw/apache_header_items
+    """
+    from ark.hostnames import APACHE_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=APACHE_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

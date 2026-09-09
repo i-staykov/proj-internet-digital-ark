@@ -406,3 +406,51 @@ that union's value was mailbox hosts.
 union, find out what it unions before quoting it: the register row for this lane had said "over all
 472,949 anchored lines, then over the URL-vouched subset alone", which was the warning, and the
 figure that survived into the register was the union's.
+
+
+## A date range an API accepts and ignores hands back the wrong DECADE, at HTTP 200
+
+Measured 2026-09-09 on `lists.apache.org`, and the shape generalises to any archive API that
+parses one date form and shrugs at the rest.
+
+The working form is `d=YYYY-MM`. Three others look fine and are not:
+
+| request | what comes back |
+|---|---|
+| `mbox.lua?...&d=1999` | 200, a 13-message stub, not the year |
+| `mbox.lua?...&d=1999-01-01~1999-12-31` | 200, the same 13-message stub |
+| `stats.lua?list=*&domain=*&d=2001-12-01~2001-12-10` | 200, 15,001 messages whose epochs are in **2026-08** |
+
+The third is the dangerous one. It is not a stub and not an error: it is a large, well-formed
+response about the most recent mail in the archive, returned to a query that named ten days in
+2001. An extractor pointed at it would have found real hostnames, dated them 2001 from the
+`d=` parameter it asked for, and been wrong about every one.
+
+**So verify a range filter against the DATA, not against the status code.** One line does it: read
+the epoch or `Date:` of the first three records and print them as dates. The `searchParams` block
+this API echoes back repeated the range faithfully, so even the server's own echo of the query is
+not evidence that the query was applied.
+
+## A wildcard listing that caps SILENTLY makes the busy half of a window look like the quiet half
+
+Same host, same day. `stats.lua?list=*&domain=*&d=<month>` is the cheap way to enumerate an
+archive: 72 requests covered 1996-2001 instead of one per candidate list-month. Its counts by
+month:
+
+| month | messages | lists |
+|---|--:|--:|
+| 2000-05 | 11,650 | 53 |
+| 2000-06 | 13,707 | 52 |
+| 2000-07 | **15,001** | 51 |
+| 2000-12 | **15,001** | 72 |
+| 2001-12 | **15,001** | 108 |
+
+Every month from 2000-07 on returns exactly 15,001. That is a cap, not a plateau, and two things
+follow: a busy list's message count is a floor rather than a count, and a QUIET list in a busy
+month can be missing from the response altogether. Reading 2000-07 as "51 lists" would have
+planned a smaller harvest than the archive holds, and nothing in the response says so.
+
+**The fix was already in the same API and cost one request per list rather than per list-month.**
+`active_months` returns a count for every month of one list's whole history, so it is exact and
+the cap cannot reach it. A repeated round number at the top of a distribution is the tell: check
+whether the largest value appears more than once before treating any of them as measurements.

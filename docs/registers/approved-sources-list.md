@@ -1663,6 +1663,53 @@ Decision: rejected
 
 Decision: master
 
+### apache_list_header_hostnames / link_source
+
+- the artifact: `https://lists.apache.org/api/mbox.lua?list=<list>&domain=<domain>&d=<YYYY-MM>`,
+  one mbox export per list-month of the Ponymail archive at `lists.apache.org`. Inventory from
+  `https://lists.apache.org/api/stats.lua?list=*&domain=*&d=<YYYY-MM>`, one request per calendar
+  month of the window, which names every list with traffic that month and counts its messages
+- what dates one item: the message's own `Date:` header, an RFC 822 date written by the sending
+  client and preserved verbatim by Ponymail, cross-checked against the `d=YYYY-MM` partition the
+  mbox was fetched under; a message whose `Date:` year disagrees with its partition is dropped.
+  Quoted: message 1 of `httpd.apache.org/dev__1999-01` carries `Date: Fri, 1 Jan 1999 19:58:57
+  +0100` and `Received: from slarti.muc.de (...) by taz.hyperreal.org with SMTP`, its own
+  parenthesised address elided here because a tracked file names no addresses, which
+  dates `taz.hyperreal.org` for 1999. The evidence row is `list header 1999
+  httpd.apache.org/dev__1999-01#1 taz.hyperreal.org`
+- **the field, and only this field: the `by` clause.** The receiving MTA writes its own name
+  there, about itself, in a transaction it completed, so the record is machine-written and
+  self-dating and takes no corroboration split under the rule's own wording. The `from` clause is
+  a sender-chosen HELO name and is not read; nor is the parenthesised reverse-DNS, which is
+  receiver-written but was outside the approval; nor the `Message-ID` host, which the client
+  stamps from a configured nodename and which `usenet_header_fqdn_hostnames` already parks
+- measured by the fleet before the approval, on 19 list-months and 55 MB: **2,690 EE** (2,580 at
+  hostname grain, 110 at registrable), 141 EE per list-month, 17,526 messages of which 17,501
+  dated inside the window. Its net-new fraction does not decay across 1997/1999/2000/2001
+  (52.8 / 64.0 / 61.7 / 60.3%), which is what makes a projection credible rather than hopeful.
+  Priced against the 2026-09-08 baseline plus a lagging export, so a ceiling
+- measured on the laptop before asking him, one list-month re-fetched byte-identical
+  (`httpd/dev` 1999-01, 2,959,188 B): 154 distinct `by` hosts, **129 net-new against
+  `merged260908`**, of which **127 have their parent registrable held in the same year** and the
+  two that do not are exactly the two malformed names, `blonville.caii` and `ecstasy.localnet`.
+  So the existing hostname wall is the hygiene filter and no new rule was needed for it
+- corroboration, cited after the grounds and not as them (law 8): 34 of those 154 hosts (22.1%)
+  appear somewhere in his own files, against **1.419%** for the ISC class he ruled candidate-only
+  and 84.2% for the `www.` shape. That ordering is what ADR-012 encodes
+- terms: `lists.apache.org/robots.txt` is `User-agent: * / Crawl-delay: 5` with NO Disallow, read
+  2026-09-09, honoured on every request. `mail-archives.apache.org/robots.txt` is `Disallow: /`;
+  it 302s here and is never fetched from. Not `web.archive.org/cdx`, so not a third client (C-77)
+- the four conditions of the standing rule, checked: the class `link_source` is already master
+  twice, one of them a mailing-list archive at hostname grain; a machine-written stamp inside the
+  artifact dates one item and is quoted above; the terms permit it; and the ingest is gated on
+  `ark check` passing. The one thing the loop could NOT write for itself was the wall's wording,
+  which is why it went to him: ADR-012
+- Ivo, 2026-09-09 (issue #116): "Yes, agreed and approved for the by clause. Fetch and ingest
+  with proper documentation." Recorded as C-83
+- potential: 24000
+
+Decision: master
+
 ## Pending requests
 
 ### usenet_body_url_hostnames / link_source
