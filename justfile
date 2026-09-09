@@ -216,11 +216,19 @@ cycle *args:
 #
 # Idempotent by construction: an unfinished run is re-downloaded next time, a slug already
 # drained is dropped rather than re-booked, and every ingest is keyed on its journal's sha256.
+# One at a time, too: it takes `data/logs/.sync.lock` first, so a hand run and the hourly job
+# cannot meet in the store, and the one that arrives second says who has it and stops.
 #
 # drain the fleet's findings, re-price, book, decide, ingest, gate, push `live`
 sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
+    # **One lock, whoever started this.** The hourly wrapper used to hold one and a hand run
+    # held nothing, so a terminal and launchd were in the store together on 2026-09-09: an
+    # export lost its lock and the journal ACK was skipped. The lock lives here, where the
+    # work is, rather than around one of the two ways of starting it.
+    if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
+    trap 'bash scripts/harness/sync_lock.sh drop' EXIT
     FLEET=$(eval echo {{fleet}})
     IN=data/fleet_findings/incoming
     mkdir -p "$IN" data/fleet_findings/banked data/logs
