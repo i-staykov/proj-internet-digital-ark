@@ -227,9 +227,11 @@ CHECKS: list[tuple[str, str, str]] = [
     ),
     (
         "hostname_observed_serving_web",
-        "every hostname record comes from a lane whose observation shows the host serving "
-        "web content, a capture or a URL listing; DNS listings date the parent only, because "
-        "the reviewer's purpose for the unit is retrieving archived pages (rule of 2026-09-02)",
+        "every hostname record comes from a lane whose observation shows the host IN USE that "
+        "year: a capture, a URL listing, or the `Received: ... by <host>` clause a receiving "
+        "MTA wrote about itself (ADR-012, C-83). DNS listings still date the parent only, on "
+        "his ruling of 2026-09-06, because a machine answering is not a host in use. The check "
+        "name predates the wider wording and is kept so a failing gate stays greppable",
         f"""
         SELECT count(*) FROM hostname_year hy
         JOIN evidence e ON e.evidence_id = hy.evidence_id

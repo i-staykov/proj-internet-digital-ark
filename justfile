@@ -1106,6 +1106,7 @@ maintain iterations="26" pause="900":
 # a candidate half, and only then does anything reach the store. The split is the
 # evidence wall for every free-text source, so it is not optional.
 #
+#   apache-headers               Apache list relay hosts, dated per message (C-83)
 #   attrition                    the defacement mirror index, no request sent
 #   enron                        the FERC corpus, dated per message
 #   maillists                    public pipermail archives, dated per message
@@ -1131,6 +1132,19 @@ collect source="" *args:
     # Reads 33 index pages already on disk and sends no request. `artifact_listing`
     # and no corroboration split: the mirror saved a copy of the page at that host on
     # that date, so a name that did not resolve could not be in the index.
+    # Approved 2026-09-09 (C-83) for the `Received: ... by <host>` clause alone. Discovery
+    # is 72 requests and resumable per month; the harvest honours `Crawl-delay: 5` and skips
+    # what is already on disk, so it is safe to stop and restart. Pass a list-month limit as
+    # the first argument to take a measured slice rather than the whole plan.
+    apache-headers)
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --expand
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --harvest ${1:+--limit "$1"}
+        uv run python scripts/sources/mail_corpora/build_apache_header_pool.py \
+            data/raw/apache_lists data/raw/apache_header_items 8
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/
+        ;;
     attrition)
         uv run python scripts/sources/directories/collect_attrition.py --write
         uv run python scripts/harness/bank_hygiene.py space
