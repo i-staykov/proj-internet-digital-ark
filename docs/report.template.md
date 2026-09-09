@@ -97,6 +97,37 @@ one were later dated**, which is a ceiling on future work and not a contribution
    gigabyte against 134 realised. Probes of skewed corpora overstate by 3x to 5x, so a band is
    priced by reading it, not by sampling it.
 
+5. **A rule we had inferred from your purpose was narrower than the rule you wrote, and reading
+   your own wording back opened the largest new class of the round.** Our hostname wall required
+   that an observation show the host *serving web content*. Your section IV.1 requires that the
+   evidence demonstrate the domain "existed, was in use, or was active" in the year, names a WHOIS
+   record among the acceptable examples, which is not a page fetch either, and ends the list with
+   "or equivalent material". So we admitted one non-web observation by name: the
+   `Received: ... by <host>` clause of a dated mailing-list message, which the receiving mail
+   server writes about itself. It is machine-written, it is dated by the message's own RFC 822
+   `Date:` header cross-checked against the archive's month partition, and it needs no
+   corroboration because no human typed it. **The first 40 list-months of one public list archive
+   paid 4,913.2821 equivalent-English over 8,903 records**, about 123 per list-month, and the
+   remaining 1,987 list-months of that plan are still being read.
+
+   **Three checks decided it before any bytes were fetched, and the third is the one that
+   generalises.** First, your merged benchmark already holds hostnames of exactly this kind, in
+   bulk: 20,840 names beginning `mail.` at 2001, plus `imap.`, `mx1.`, `majordomo.`,
+   `localhost.<a name you hold>` and dial-up reverse-DNS shapes, present in your pre-contribution
+   base as well as the merged files. So the name shape was never the filter. Second, 22.1% of one
+   month's relay hosts already appear somewhere in your files, against 1.419% for the DNS-survey
+   class you ruled candidate-only and 84.2% for the `www.` shape, which places this evidence
+   between the two rather than beside either. Third, **the constraint we already enforce turned out
+   to be the whole hygiene filter**: 127 of the 129 net-new relay hosts have their parent
+   registrable held in the same year, and the two that fail are exactly the two malformed names in
+   the sample. No new rule was needed to reject the junk, and the alias seam on this class is
+   0.0% against 73.7% for a general web crawl, because mail relays are not named `www`.
+
+   We read only the `by` clause. The `from` clause carries a name the sender chose and is
+   forgeable; the parenthesised reverse-DNS is written by the receiver but was outside the
+   approval; and a `Message-ID` host is stamped by the sending client. Each exclusion costs yield
+   and each is stated so you can see what the class does and does not assert.
+
 ## 4. CDX acquisition: the tools, the strategy, the errors and what it added
 
 The hostname half of this round, [HOSTPAIRS] records and [HOSTEE] equivalent-English, comes from

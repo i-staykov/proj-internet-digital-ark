@@ -5168,6 +5168,33 @@ it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause A
   with 15,001 messages whose epochs are in 2026-08, while echoing the range back in its own
   `searchParams`. `d=YYYY-MM` is the only form this lane ever sends. Both traps are in
   [../lore/traps.md](../lore/traps.md)
+- **BANKED 2026-09-09 on the first tranche, and it is a measurement rather than a projection.**
+  40 list-months, the largest in the plan (1,364 messages and up), 272,612,945 B fetched at
+  `Crawl-delay: 5`. 78,006 messages parsed, **77,933 dated inside 1996-2001 (99.9%)**, 65,327
+  carrying at least one `by` host, 48 undated and **25 dropped because the message's own `Date:`
+  year disagreed with the archive's partition**, which is the cross-check earning its place.
+  Priced against the live store before the ingest, on the 32 of those 40 that had landed at the
+  time: 9,316 distinct host-years, 249 already in the store and 393 in his baseline only,
+  **7,952 net-new worth 4,381.0325 EE**, plus 122.3692 EE of registrable pairs.
+  The ingest of all 40 wrote **9,354 hostname-year rows over 8,436 distinct hosts** and 205
+  parent registrable-years, and `just added` prices the lane in the round at **8,903 records,
+  4,913.2821 EE**. So the class is worth about **123 EE per list-month** at the top of the
+  distribution, against the fleet's 141 measured on a different 19 months, which is an
+  independent reproduction rather than a re-quote
+- **two things about this lane are unusually good, both measured on the same tranche.** The
+  `www.<a name already held that year>` alias seam is **2 hosts, 0.0%**, against 73.7% for
+  Arquivo's crawl and 6.4% for the small `alt` groups: mail relays are simply not named `www`.
+  And **98.9% of the host-years have their parent registrable held in the same year**, so almost
+  nothing is lost to the hostname wall. By TLD the tranche is com 2,639.6, net 449.8, uk 249.3,
+  edu 213.8, au 169.4, ca 70.3
+- **1999 earned nothing in this tranche and that is a selection effect, not a hole.** The band
+  was the 40 biggest list-months and none of them fell in 1999, whose lists were smaller that
+  year: 1996 99 rows, 1997 134, 1998 90, 2000 5,127, 2001 3,904. The 1999 months are in the
+  plan and are fetched by the ascending pass
+- **do NOT multiply 123 EE by the 2,027 list-months in the plan.** Cross-month saturation inside
+  one list is unmeasured, and this tranche is the head of the distribution by construction. The
+  1,620 remaining months of 5 messages or more are being fetched smallest-first, and the next
+  entry here is their realised rate, not a projection from this one
 - collect: `uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover`, then
   `--expand`, then `--harvest`; build with
   `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with

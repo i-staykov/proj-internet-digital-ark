@@ -180,19 +180,43 @@ def worker(args) -> dict:
 
 
 def main() -> int:
+    """`<pool root> <out dir> [workers] [done file]`.
+
+    **The optional done file is what makes tranches safe.** The harvest runs for hours, so
+    banking wants to happen in tranches rather than once at the end. But the ingest ledger
+    keys on `<out dir>/<shard name>` plus a sha256, so a second build that re-read the first
+    tranche's months would either recycle a shard name with different bytes, which the ledger
+    refuses outright, or write a second evidence row for every host the first tranche already
+    banked. Listing what has been read, and skipping it next time, avoids both: each tranche
+    goes to its own out dir and reads only months no tranche has read. The `alt` lane paid for
+    this lesson the hard way on 2026-09-08, see docs/lore/traps.md.
+    """
     root, outdir = Path(sys.argv[1]), Path(sys.argv[2])
     workers = int(sys.argv[3]) if len(sys.argv) > 3 else 8
+    done_file = Path(sys.argv[4]) if len(sys.argv) > 4 else None
     outdir.mkdir(parents=True, exist_ok=True)
     files = sorted(p for p in root.glob("*/*.mbox.gz") if p.stat().st_size > 0)
+    if done_file is not None and done_file.exists():
+        already = set(done_file.read_text(encoding="utf-8").split())
+        before = len(files)
+        files = [p for p in files if f"{p.parent.name}/{p.name}" not in already]
+        print(
+            f"{done_file}: {len(already):,} list-months already read, {before - len(files)} skipped"
+        )
     total = sum(p.stat().st_size for p in files)
-    print(f"{root}: {len(files):,} list-months, {total:,} B on disk")
+    print(f"{root}: {len(files):,} list-months, {total:,} B to read")
     if not files:
-        raise SystemExit("nothing to read; run collect_apache_lists.py --harvest first")
+        raise SystemExit("nothing new to read; every list-month on disk is in the done file")
     chunks = [(i, files[i::workers], outdir) for i in range(workers)]
     with mp.Pool(workers) as pool:
         results = pool.map(worker, chunks)
     merged = {key: sum(r[key] for r in results) for key in results[0]}
     print("TOTAL", json.dumps(merged))
+    if done_file is not None:
+        with done_file.open("a", encoding="utf-8") as fh:
+            for path in files:
+                fh.write(f"{path.parent.name}/{path.name}\n")
+        print(f"{done_file}: {len(files):,} list-months appended")
     return 0
 
 

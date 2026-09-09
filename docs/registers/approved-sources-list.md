@@ -1706,6 +1706,12 @@ Decision: master
   which is why it went to him: ADR-012
 - Ivo, 2026-09-09 (issue #116): "Yes, agreed and approved for the by clause. Fetch and ingest
   with proper documentation." Recorded as C-83
+- **banked 2026-09-09, first tranche of 40 list-months: 8,903 records, 4,913.2821 EE** in the
+  round, priced by `just added`. Pre-ingest pricing on 32 of them gave 7,952 net-new host-years
+  and 4,381.0325 EE against the live store, so about 123 EE per list-month at the head of the
+  distribution. Alias seam 0.0% (2 hosts), parent held in the same year 98.9%, 99.9% of messages
+  dated in window, 25 dropped on the partition cross-check. 1,987 list-months of the plan are
+  still to fetch and their realised rate is deliberately not projected from this tranche
 - potential: 24000
 
 Decision: master
