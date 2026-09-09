@@ -268,3 +268,28 @@ def test_a_laptop_with_no_vps_says_so_rather_than_reporting_a_missing_file(
     lead.mkdir(parents=True)
     assert module.fetch_items(lead) is None
     assert "no ARK_VPS in local.env" in capsys.readouterr().out
+
+
+def test_a_leg_directory_called_findings_is_keyed_on_its_slug(tmp_path):
+    # A leg artifact's root is `findings/`, holding a copy of the same finding as the lead
+    # directory beside it. Keyed on the directory name, both were drained and the register
+    # took the same slug twice (measured 2026-09-09).
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    run = incoming / "run_1" / "leg-1"
+    (run / "findings").mkdir(parents=True)
+    (run / "findings" / "finding.json").write_text(json.dumps(finding()), encoding="utf-8")
+    artifact(incoming, "2", "a-lead", finding(run_id="99"))
+    module.drain(incoming)
+    assert sorted(p.name for p in incoming.iterdir() if p.is_dir()) == ["a-lead"]
+
+
+def test_an_unrecognised_file_is_kept_rather_than_deleted_with_the_run(tmp_path):
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    lead = artifact(incoming, "1", "a-lead", finding())
+    (lead.parent / "_rejected").mkdir()
+    (lead.parent / "_rejected" / "bad.lead.json").write_text("{}", encoding="utf-8")
+    module.drain(incoming)
+    kept = list((incoming / "_unread").rglob("bad.lead.json"))
+    assert kept, "an unrecognised file went with the run directory"

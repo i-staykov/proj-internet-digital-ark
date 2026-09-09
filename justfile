@@ -250,7 +250,10 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # printed "nothing new" with the finding already uploaded and waiting. Artifacts are
     # per-job and readable the moment a job uploads them, so this takes in-progress runs
     # too, and only marks a run PROCESSED once it has actually completed.
-    gh run list --repo i-staykov/ark-fleet --limit 50 \
+    #    Only the wave: `gh run list` with no workflow lists CI, the deploy hook and every
+    #    other run in the repository, each of which downloads nothing, is found empty and is
+    #    marked processed, which is fifty pointless downloads an hour hiding the two that matter.
+    gh run list --repo i-staykov/ark-fleet --workflow wave.yaml --limit 50 \
         --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' \
         | while IFS=$'\t' read -r RID STATUS; do
         grep -qx "$RID" "$PROCESSED" && continue
@@ -325,9 +328,12 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
         push_fleet "$LABEL"
-        # 4. The deterministic scribe: one register row per finding, both figures in it.
-        uv run python scripts/harness/bank_findings.py "$IN" \
-            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
+        # 4. The deterministic scribe: one row per finding, keyed on the slug so a re-drained
+        #    run books nothing twice, a FIND into sources.md with both figures, and every
+        #    measured negative into sources-closed.md rather than as a row of `n/a` cells.
+        SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
+            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+        NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
         # 5. The ask, then the decision. A confirmed FIND has no `Decision:` line until
         #    something writes one, and nothing else does: the standing rule and the approval
         #    filer both iterate blocks that already exist.
@@ -373,18 +379,35 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         # 6. Everything the standing rule did not settle reaches Ivo as one issue and one
         #    mergeable pull request, because merging is something he can do from a phone.
         uv run python scripts/harness/sync_approvals.py || true
-        # 7. The gate, then one commit and one push.
+        # 7. The gate, then one commit and one push. **A commit only when the tree moved**:
+        #    an empty commit on a drain that booked nothing is a message that says a wave was
+        #    banked when none was (7c98dcf, 2026-09-09).
         uv run ruff check . && uv run ruff format --check . && uv run pytest -q
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
         uv run ark check
         git add docs/ src/ justfile 2>/dev/null || true
-        git commit -q -m "Sync fleet findings $LABEL" || echo "register unchanged"
-        git push -q origin live
+        COMMITTED=no
+        if git diff --cached --quiet; then
+            echo "the registers are unchanged, so nothing is committed"
+        else
+            git commit -q -m "Sync fleet findings $LABEL"
+            git push -q origin live
+            COMMITTED=yes
+        fi
         # 8. What became of each lead, back into the fleet's queue, with the result lines.
         uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
         push_fleet "$LABEL"
-        mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+        # **A run leaves `incoming/` only once its rows are committed.** Two waves were
+        # archived under `banked/` by a sync that then failed, so nothing they carried was
+        # ever booked and nothing said so: the FIND in them was found by hand a day later.
+        # Anything else keeps them here, and the next sync drains them again, which is safe
+        # because every step of this recipe is keyed on the slug or the journal's sha256.
+        if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
+            mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+        else
+            echo "nothing was committed, so the drain stays in $IN for the next sync"
+        fi
     fi
     # 9. Bring the VPS collectors' journals home and bank them: this replaced the
     # continuous pull loop when the laptop's role became episodic (fleet plan, D3).

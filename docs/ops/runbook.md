@@ -284,9 +284,13 @@ schema, `items.jsonl` when the leg shipped the records it priced. Four programs 
 and each one exists because of a way a figure has reached the register without being checked.
 
 1. `fleet_findings.py drain` flattens the downloaded artifacts into one directory per lead,
-   moves the artifact's own `leads/<slug>.json` in beside the finding as `lead.json`, and files
-   one ledger row per leg. Where the same slug arrives twice, from a price wave and the verify
-   wave that answered it, the settled copy wins and then the later run.
+   **named by the slug inside the sidecar and never by the directory it arrived in**: a leg
+   artifact's root is called `findings`, so keying on the name banked a copy of a finding as a
+   second lead. It moves the artifact's own `leads/<slug>.json` in beside the finding as
+   `lead.json` and files one ledger row per leg. Where the same slug arrives twice, from a price
+   wave and the verify wave that answered it, the settled copy wins and then the later run. A
+   file no rule matched moves to `incoming/_unread/<run>/` rather than going with the run
+   directory.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
@@ -297,8 +301,20 @@ and each one exists because of a way a figure has reached the register without b
    leg leaves them on the VPS under `/projects/ark-data/items/<slug>.jsonl` so the verify leg's
    re-run finds them, so this fetches each one first and is loud when there is nothing to fetch or
    no `ARK_VPS` to fetch from. A FIND with no items is not re-priced and the row says so in words.
-4. `bank_findings.py` writes the row, with the fleet's figure and the store's beside it, and the
-   verify status in the verdict cell.
+4. `bank_findings.py` writes the row, once per slug, into the register the verdict belongs to.
+   **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
+   the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
+   the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
+   line quotes, the artifact URL. A scout lead that closed under the floor used to reach
+   `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
+   nothing about it. A slug either register already carries is skipped and said so.
+
+A drain leaves `incoming/` only once its rows are committed. Two waves were archived under
+`banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
+said so; the FIND inside them was found by hand a day later. On any earlier failure the drain
+stays where it is and the next sync takes it again, which is safe because every step is keyed on
+the slug or on a journal's sha256. A drain that books nothing new is finished rather than failed
+and is archived without a commit, because an empty commit reads as a wave that was banked.
 
 Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
 and the approval filer both iterate blocks that already exist, and a confirmed FIND with no block

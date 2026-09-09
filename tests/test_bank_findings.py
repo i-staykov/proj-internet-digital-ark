@@ -103,3 +103,85 @@ def test_a_lead_directory_with_only_a_sidecar_is_still_booked(tmp_path):
     )
     text = row(incoming)
     assert "BLOCKED" in text and "schema" in text
+
+
+# --- which register a finding goes to, and how often -----------------------------
+
+
+CLOSED_PROSE = """# a-scout-lead
+verdict: CLOSED, 20.92 EE (22 net-new pairs of 553) against a 5,000 EE floor
+lens: academic-datasets
+what dates one item: the origin server's own HTTP `Date:` header
+artifact: <http://example.invalid/webkb-data.gtar.gz>, the CMU data set
+probe: 5,802 of 8,282 members carry a Date line; the rest are undated
+"""
+
+
+def closed_lead(tmp_path, prose: str = CLOSED_PROSE, lead: dict | None = None) -> Path:
+    incoming = tmp_path / "incoming"
+    lead_dir = incoming / "a-scout-lead"
+    lead_dir.mkdir(parents=True)
+    (lead_dir / "finding.md").write_text(prose, encoding="utf-8")
+    if lead is not None:
+        (lead_dir / "lead.json").write_text(json.dumps(lead), encoding="utf-8")
+    return incoming
+
+
+def test_a_measured_negative_gets_a_closed_row_not_an_all_na_row(tmp_path):
+    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path)))
+    row = scribe.closed_row(findings[0], "wave-1")
+    assert row.startswith("| a-scout-lead / ")
+    assert "lens academic-datasets" in row
+    assert "20.92 EE" in row
+    assert "http://example.invalid/webkb-data.gtar.gz" in row
+    assert "n/a" not in row
+
+
+def test_the_closed_row_prefers_the_leads_own_lens_and_class(tmp_path):
+    lead = {"lens": "registry publications", "evidence_class": "artifact_listing"}
+    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path, lead=lead)))
+    row = scribe.closed_row(findings[0], "wave-1")
+    assert "a-scout-lead / artifact_listing" in row
+    assert "lens registry publications" in row
+
+
+def test_a_negative_with_no_figure_reads_not_priced(tmp_path):
+    prose = CLOSED_PROSE.replace("verdict: CLOSED, 20.92 EE", "verdict: CLOSED, 0 EE")
+    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path, prose=prose)))
+    assert "| not priced |" in scribe.closed_row(findings[0], "wave-1")
+
+
+def test_one_row_per_slug_when_a_leg_directory_duplicates_the_lead(tmp_path):
+    # The leg artifact's root is called `findings`, so its copy of a finding used to be
+    # booked as a second lead and the same slug reached the register twice.
+    incoming = tmp_path / "incoming"
+    for name in ("a-lead", "findings"):
+        d = incoming / name
+        d.mkdir(parents=True)
+        (d / "finding.md").write_text(PROSE, encoding="utf-8")
+        (d / "finding.json").write_text(json.dumps(SIDECAR), encoding="utf-8")
+    findings = scribe.one_per_slug(scribe.findings_in(incoming))
+    assert [f["slug"] for f in findings] == ["a-lead"]
+
+
+def test_a_find_outranks_a_measured_negative_for_the_same_slug(tmp_path):
+    incoming = tmp_path / "incoming"
+    for name, verdict in (("a-lead", "FIND"), ("copy", "CLOSED")):
+        d = incoming / name
+        d.mkdir(parents=True)
+        (d / "finding.json").write_text(
+            json.dumps(dict(SIDECAR, verdict=verdict)), encoding="utf-8"
+        )
+        (d / "finding.md").write_text(PROSE, encoding="utf-8")
+    kept = scribe.one_per_slug(scribe.findings_in(incoming))
+    assert len(kept) == 1 and kept[0]["verdict"] == "FIND"
+
+
+def test_a_slug_already_in_a_register_is_not_booked_again(tmp_path, monkeypatch):
+    register = tmp_path / "sources.md"
+    register.write_text("## Evaluated and rejected\n\n|---|\n| a-lead | x |\n", "utf-8")
+    closed = tmp_path / "sources-closed.md"
+    closed.write_text("| source | date |\n|---|---|\n| a-scout-lead / x | y |\n", "utf-8")
+    monkeypatch.setattr(scribe, "REGISTER", register)
+    monkeypatch.setattr(scribe, "CLOSED", closed)
+    assert {"a-lead", "a-scout-lead"} <= scribe.booked_slugs()
