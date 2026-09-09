@@ -84,6 +84,13 @@ sweep_one() {
     local pid=$! waited=0 rows=0 hosts=0 rph=0
     while kill -0 "$pid" 2>/dev/null; do
         sleep 10
+        # **Paused time is not time this parent has had.** The child idles on the flag
+        # between pages while this monitor's clock ran on regardless, so a pause longer than
+        # PARENT_CAP judged a parent that had fetched nothing since the pause, and a pause
+        # past PARENT_MAX parked it as silent or as rich on the strength of it. A pause is
+        # meant to cost the page in flight and nothing else, so the yield test does not tick
+        # while the flag is there.
+        [ -e "$PAUSE_FLAG" ] && continue
         waited=$(( waited + 10 ))
         [ $(( waited % PARENT_CAP )) -eq 0 ] || continue
 
@@ -211,8 +218,20 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # survivable: a flag with no expiry once idled both clients for nearly three hours of a
     # night we needed, when a wave that set it ran 2h14m against a 50-minute cap. Anything
     # that wants a long pause refreshes the file while it holds it.
+    #
+    # **A pause a human asked for is the exception, and expiring it would be a bug.**
+    # `just collectors pause` writes `human` on the flag's first line and is meant to hold
+    # over travel and a reboot, so this loop leaves that one alone: only `resume` clears it.
+    # `stat -c` is GNU and silently failed to macOS's `stat -f`, which made every flag read
+    # as zero seconds old on the laptop; both are asked now.
     while [ -e "$PAUSE_FLAG" ]; do
-        age=$(( $(date +%s) - $(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || date +%s) ))
+        if [ "$(head -1 "$PAUSE_FLAG" 2>/dev/null)" = "human" ]; then
+            echo "paused by hand, waiting for a resume"
+            sleep 60
+            continue
+        fi
+        mtime=$(stat -c %Y "$PAUSE_FLAG" 2>/dev/null || stat -f %m "$PAUSE_FLAG" 2>/dev/null || date +%s)
+        age=$(( $(date +%s) - mtime ))
         if [ "$age" -gt 9000 ]; then
             echo "pause flag is ${age}s old, past any healthy wave: resuming"
             rm -f "$PAUSE_FLAG"

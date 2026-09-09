@@ -120,13 +120,18 @@ def test_claude_md_stays_short() -> None:
 
 
 @pytest.mark.skipif(shutil.which("just") is None, reason="just not on PATH")
-def test_justfile_has_at_most_forty_recipes() -> None:
-    """`just --summary` lists at most 40 recipes."""
+def test_justfile_has_at_most_forty_one_recipes() -> None:
+    """`just --summary` lists at most 41 recipes.
+
+    The ceiling is a ratchet on the command surface, not a budget to spend: it went from 40
+    to 41 on 2026-09-09 for `collectors`, whose three words are the laptop's whole interface
+    to the CDX lane under launchd (S9). The next recipe should replace one.
+    """
     out = subprocess.run(
         ["just", "--summary"], cwd=ROOT, check=True, capture_output=True, text=True
     ).stdout
     recipes = out.split()
-    assert len(recipes) <= 40, f"{len(recipes)} recipes: {' '.join(recipes)}"
+    assert len(recipes) <= 41, f"{len(recipes)} recipes: {' '.join(recipes)}"
 
 
 def test_register_lines_stay_under_500_chars() -> None:
