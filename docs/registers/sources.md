@@ -5039,9 +5039,16 @@ pages, which this project's own rule forbids ("a `Received`, `Message-ID`, `From
 is a mail relay or a mailbox, never a host that served a page") and which is the first thing the
 reviewer checks. So 5,999.2714 EE is not an admissible figure, it is an upper bound on one.
 
-**What it would take.** The admissible lane is `url_body` alone, which `parse_jeb_mail.py` can emit
-but which was never kept: only `anchored_all` and the candidate journal are on disk, so it needs
-`JebBushEmails-Text.7z` re-fetched from archive.org and re-parsed. Of 1,438,076 host mentions in the
-union, 426,899 (29.7%) have three or more labels, and the URL-vouched subset of those is smaller
-again, so expect four figures rather than five. Worth an hour when there is one; not worth claiming
-without the re-parse.
+**So it was re-parsed, the same night, and the admissible figure is 18.6x smaller.**
+`JebBushEmails-Text.7z` re-fetched (411,928,998 B), `7z x ... 'Redacted/*'` (626 files, 3.4 GB),
+`parse_jeb_mail.py --out-prefix data/raw/jeb_bush/relane_` over all of them, 505,927 in-window
+messages, then priced on the `url_body` lane ALONE: 105,537 url-vouched host mentions, **479
+net-new host-years worth 322.4322 EE**, 14.1% of it the `www.<held name>` alias seam so 276.8698 EE
+eligible, plus 874 registrable pairs worth 543.8405 EE. About 866 EE all told against the union's
+5,999.2714, so **the union overstated the admissible lane by 18.6x**, which is the largest
+proxy-overstatement measured in this project.
+
+**CLOSED at 322.4322 EE, under the 1,000 EE grain floor**, and closed on a figure rather than on an
+objection. The raw bytes are deleted again since the lane is spent; the artifact is re-fetchable
+from the URL above and the two commands are in this entry. What the 5,999 EE figure was worth is
+exactly what a mailbox host is worth at hostname grain: nothing.

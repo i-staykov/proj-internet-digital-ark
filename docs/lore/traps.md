@@ -384,3 +384,25 @@ and the fix here is a `date -u +%Y%m%dT%H%M%SZ` prefix. And when a name may have
 **audit the ledger's sha256 against the bytes on disk before ingesting or deleting anything**: the
 answer is a list of files, not a guess. The cost of the incident was the six shards' first-run bytes,
 which are regenerable because the plan and done-file record exactly which groups produced them.
+
+## A proxy set overstates its admissible subset, and the factor reached 18.6x
+
+The pattern already recorded above is about SAMPLES of a corpus. This is its sibling: a set that
+stands in for the one you are allowed to claim.
+
+`jeb_bush_anchored.jsonl.gz` is built as `anchored_all`, the union of hosts found in email addresses
+and hosts found in explicit `http`, `https`, `ftp` or `www.` URLs. Priced at hostname grain on
+2026-09-09 the union gave **5,999.2714 EE over 8,000 net-new host-years**. Re-parsing the artifact
+and pricing the `url_body` lane alone, which is the only lane whose observation shows the host
+serving web content, gave **322.4322 EE over 479**. The union overstates the admissible figure by
+**18.6x**.
+
+Nothing about the union was wrong as a measurement. It was wrong as a claim, because this project's
+own rule says a `Received`, `Message-ID`, `From` or `List-*` host is a mail relay or a mailbox and
+never a host that served a page. A mailbox host at hostname grain is worth nothing, and 94.6% of
+that union's value was mailbox hosts.
+
+**So price the lane you may ship, never the lane that is easy to read.** When a journal on disk is a
+union, find out what it unions before quoting it: the register row for this lane had said "over all
+472,949 anchored lines, then over the URL-vouched subset alone", which was the warning, and the
+figure that survived into the register was the union's.
