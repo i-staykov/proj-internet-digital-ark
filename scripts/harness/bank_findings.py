@@ -323,6 +323,14 @@ def append_rows(rows: list[str]) -> None:
 
 
 def write_result_lines(hypo: Path, findings: list[dict]) -> int:
+    """Append a `result:` line to each finding's block in the fleet's hypothesis ledger.
+
+    The ledger left the fleet with v1 (ark-fleet #83, 2026-09-10): a lead's fate goes back
+    through `fleet_leads.py` into `leads/<slug>.json` now. A missing ledger is therefore the
+    normal case, and it writes nothing rather than stopping the sync in front of the scribe.
+    """
+    if not hypo.is_file():
+        return 0
     text = hypo.read_text(encoding="utf-8")
     wrote = 0
     for f in findings:

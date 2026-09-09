@@ -304,18 +304,24 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         ROOT_FOR_MERGE="$(pwd)"
         (
             cd "$FLEET" || exit 1
-            git add hypotheses.md leads 2>/dev/null || git add hypotheses.md
+            git add leads 2>/dev/null || true
+            [ -f hypotheses.md ] && git add hypotheses.md || true
             git commit -q -m "Result lines $1" || true
             for attempt in 1 2 3; do
                 git push -q origin main 2>/dev/null && exit 0
                 echo "fleet push rejected on attempt $attempt, replaying onto the remote"
-                cp hypotheses.md "$TMPDIR/ark_result_lines.md"
+                # The hypothesis ledger left the fleet with v1 (ark-fleet #83); the replay of
+                # its result lines runs only where the file still exists.
+                [ -f hypotheses.md ] && cp hypotheses.md "$TMPDIR/ark_result_lines.md" || true
                 git fetch -q origin main && git reset -q --hard origin/main
-                (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
-                    "$TMPDIR/ark_result_lines.md" "$FLEET/hypotheses.md")
+                if [ -f hypotheses.md ] && [ -f "$TMPDIR/ark_result_lines.md" ]; then
+                    (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
+                        "$TMPDIR/ark_result_lines.md" "$FLEET/hypotheses.md")
+                fi
                 (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/fleet_leads.py \
                     data/fleet_findings/incoming --fleet "$FLEET" --write) || true
-                git add hypotheses.md leads 2>/dev/null || git add hypotheses.md
+                git add leads 2>/dev/null || true
+            [ -f hypotheses.md ] && git add hypotheses.md || true
                 git commit -q -m "Result lines $1" || true
                 sleep $(( attempt * 3 ))
             done
