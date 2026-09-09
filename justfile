@@ -8,9 +8,9 @@
 #
 # Quiet by default, so a session reading this output sees results and not shell.
 #
-# Eight recipes dispatch on their first argument rather than taking a name of their
-# own: check, collect, engines, expand, reproduce, schedule, ship, verify. Each one
-# prints its own choices when handed a word it does not know.
+# Nine recipes dispatch on their first argument rather than taking a name of their
+# own: check, collect, collectors, engines, expand, reproduce, schedule, ship, verify.
+# Each one prints its own choices when handed a word it does not know.
 
 set quiet := true
 
@@ -21,6 +21,7 @@ help:
     echo "Dispatching recipes:"
     echo "  just check <what>       all code data lint fmt test scan"
     echo "  just collect <source>   no source lists them"
+    echo "  just collectors <what>  pause resume status"
     echo "  just engines <what>     status start stop"
     echo "  just expand <what>      round loop"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
@@ -1018,6 +1019,26 @@ hostnames until:
     echo "hostname lane started to $(date -r {{until}} '+%F %H:%M'); two clients, the maximum"
     pgrep -f cdx_suffix_sweep.py | wc -l | xargs echo "  sweep processes:"
 
+# The laptop's CDX collector lane (S9). `engines` below is the older per-host pool and
+# its start/stop; this is the launchd-supervised parent sweep, and it has no start or stop
+# because launchd owns the process. Three words only:
+#
+#   pause    the pause flag is written, the sweeps finish the page in flight and idle,
+#            launchd stays loaded and does nothing. Survives sleep and reboot.
+#   resume   the flag is removed and each parent continues from its own state file.
+#   status   running or paused, the current parent, the last journal time and the hit rate.
+#
+# `just schedule install` loads the job; the flag is the only thing these three touch.
+#
+# the laptop CDX collectors: pause resume status
+collectors what="status":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    case "{{what}}" in
+    pause|resume|status) bash scripts/harness/collectors.sh {{what}} ;;
+    *) echo "collectors: pause resume status" >&2; exit 2 ;;
+    esac
+
 # the CDX collectors: status start stop
 engines what="status" *args:
     #!/usr/bin/env bash
@@ -1564,25 +1585,39 @@ ship stage="all" *args:
 
 # --- unattended ---------------------------------------------------------------
 
-# Two launchd jobs. com.ark.bank runs `just bank` at five past every hour, so the
+# Three launchd jobs. com.ark.bank runs `just bank` at five past every hour, so the
 # round moves without a session open, and reads the `ship-now` label (the header of
 # scripts/harness/scheduled_bank.sh). com.ark.cycle runs the health check four times
 # a day; it reports and does not act, and scheduled_cycle.sh says why a restarting
-# watchdog is the wrong shape here.
+# watchdog is the wrong shape here. com.ark.collectors holds the CDX collector lane under
+# `caffeinate -s`; it is KeepAlive, so it comes back after a reboot on its own, and
+# `just collectors pause` is what stops it collecting without unloading it.
 #
-# **This needs Full Disk Access and will fail silently without it.** The repository
-# lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
-# grant from the terminal that installed it. The first install exited 126 four times
-# a day while `launchctl list` looked normal, so `install` runs the cycle job once as
-# the probe and reports its exit status rather than trusting the load. launchd also
-# starts with a bare PATH, which is why the templates carry one that finds just, uv,
-# gh and claude: the second install exited 127 the same silent way.
+# **The checkout moved to ~/GitHub on 2026-09-09 so that none of this needs Full Disk
+# Access.** Under ~/Documents, which macOS TCC protects, a launchd agent inherits no grant
+# from the terminal that installed it: the first install exited 126 four times a day while
+# `launchctl list` looked normal, and moving the repository was cheaper than granting
+# /bin/bash the whole disk. A 126 now means a plist rendered from the old path or a checkout
+# back inside a protected directory, so `install` still runs a job once as the probe and
+# reports what it did rather than trusting the load. launchd also starts with a bare PATH,
+# which is why the templates carry one that finds just, uv, gh and claude: the second
+# install exited 127 the same silent way.
 #
-# the launchd jobs that bank and health-check unattended: install remove status
-schedule what="install":
+# A second argument names ONE job, because the three are switched on at different times:
+# the collector lane moved to this laptop before the hourly bank did (S9), and loading all
+# three to get one of them would start banking unattended a round early.
+#
+# the launchd jobs that collect, bank and health-check unattended: install remove status
+schedule what="install" job="":
     #!/usr/bin/env bash
     set -uo pipefail
-    JOBS="com.ark.bank com.ark.cycle"
+    JOBS="com.ark.bank com.ark.cycle com.ark.collectors"
+    if [ -n "{{job}}" ]; then
+        case " $JOBS " in
+        *" {{job}} "*) JOBS="{{job}}" ;;
+        *) echo "schedule: no such job {{job}}, one of: $JOBS" >&2; exit 2 ;;
+        esac
+    fi
     case "{{what}}" in
     install)
         set -euo pipefail
@@ -1595,20 +1630,41 @@ schedule what="install":
             launchctl load "$plist"
             echo "loaded $job"
         done
-        echo "running com.ark.cycle once to find out whether launchd can reach this directory"
-        launchctl kickstart -k "gui/$(id -u)/com.ark.cycle" 2>/dev/null || true
+        # The probe is the cycle job when it was one of the ones loaded, because it exits
+        # rather than running for hours; otherwise the job just loaded answers for itself.
+        probe=com.ark.cycle
+        case " $JOBS " in *" com.ark.cycle "*) ;; *) probe="${JOBS%% *}" ;; esac
+        echo "running $probe once to find out whether launchd can reach this directory"
+        launchctl kickstart -k "gui/$(id -u)/$probe" 2>/dev/null || true
         sleep 20
-        status=$(launchctl list | awk '$3 == "com.ark.cycle" { print $2 }')
-        if [ "${status:-0}" = "0" ]; then
-            echo "OK: exited 0. com.ark.bank runs at :05 every hour and appends to data/logs/scheduled_bank.log"
+        # A job that RUNS for hours has no exit status yet, so a pid is the pass for it and
+        # an exit of 0 is the pass for one that finishes. Reading only the exit status
+        # called a healthy collector lane a failure.
+        line=$(launchctl list | awk -v p="$probe" '$3 == p { print $1, $2 }')
+        pid=${line%% *}
+        status=${line##* }
+        if [ -n "$line" ] && { [ "$pid" != "-" ] || [ "$status" = "0" ]; }; then
+            if [ "$pid" != "-" ]; then
+                echo "OK: $probe is running as pid $pid"
+            else
+                echo "OK: $probe exited 0"
+            fi
+            case " $JOBS " in
+            *" com.ark.bank "*) echo "com.ark.bank runs at :05 every hour and appends to data/logs/scheduled_bank.log" ;;
+            esac
+            case " $JOBS " in
+            *" com.ark.collectors "*) echo "com.ark.collectors holds the CDX lane; 'just collectors status' reads it" ;;
+            esac
         else
-            echo "FAILED: last exit status $status"
+            echo "FAILED: ${line:-$probe is not loaded}"
             echo
-            echo "  126 or 1 here is almost always macOS TCC: this repository is under"
-            echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
-            echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
-            echo "  /bin/bash. Then run 'just schedule' again. 127 means a tool is not on"
-            echo "  the PATH the template sets."
+            echo "  126 or 1 here means launchd cannot read this checkout. Since"
+            echo "  2026-09-09 it lives under ~/GitHub, which macOS does not protect,"
+            echo "  so the usual cause is a plist still rendered from the old"
+            echo "  ~/Documents path, or a checkout moved back under a protected"
+            echo "  directory: re-run 'just schedule install' from where the"
+            echo "  repository is now. 127 means a tool is not on the PATH the"
+            echo "  template sets."
             echo
             echo "  Until then a terminal that runs 'just bank' hourly covers the same"
             echo "  ground, because it inherits the grant of the terminal that started it."
