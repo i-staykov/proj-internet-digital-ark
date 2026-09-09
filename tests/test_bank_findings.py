@@ -185,3 +185,23 @@ def test_a_slug_already_in_a_register_is_not_booked_again(tmp_path, monkeypatch)
     monkeypatch.setattr(scribe, "REGISTER", register)
     monkeypatch.setattr(scribe, "CLOSED", closed)
     assert {"a-lead", "a-scout-lead"} <= scribe.booked_slugs()
+
+
+def test_a_row_lands_under_the_register_table_not_the_first_table_below_the_heading(
+    tmp_path, monkeypatch
+):
+    register = tmp_path / "sources.md"
+    register.write_text(
+        "## Evaluated and rejected\n\nA write-up with a table of its own.\n\n"
+        "| pool | GB |\n|---|---|\n| news | 5.5 |\n\n"
+        f"{scribe.REGISTER_HEADER} verdict | link |\n|---|---|---|---|---|\n"
+        "| older | 2026-09-01 | n/a | n/a | n/a |\n",
+        "utf-8",
+    )
+    monkeypatch.setattr(scribe, "REGISTER", register)
+    scribe.append_rows(["| newer | 2026-09-10 | n/a | n/a | n/a |"])
+    lines = register.read_text("utf-8").split("\n")
+    assert lines.index("| newer | 2026-09-10 | n/a | n/a | n/a |") + 1 == lines.index(
+        "| older | 2026-09-01 | n/a | n/a | n/a |"
+    )
+    assert lines[lines.index("| news | 5.5 |") - 1] == "|---|---|"

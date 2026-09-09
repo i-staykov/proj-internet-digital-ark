@@ -35,6 +35,7 @@ REPO = Path(__file__).resolve().parents[2]
 REGISTER = REPO / "docs/registers/sources.md"
 CLOSED = REPO / "docs/registers/sources-closed.md"
 TABLE_HEADING = "## Evaluated and rejected"
+REGISTER_HEADER = "| source | version or date | coverage period |"
 CLOSED_HEADING = "| source | date | measured | reason | link |"
 
 _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
@@ -311,9 +312,12 @@ def append_closed(rows: list[str]) -> None:
 def append_rows(rows: list[str]) -> None:
     text = REGISTER.read_text(encoding="utf-8")
     at = text.index(TABLE_HEADING)
-    # The table starts under the heading and its intro; insert right after the header
-    # row separator so newest entries lead, matching how the scribe wrote them.
-    sep = text.index("|---|", at)
+    # Anchor on the table's own header row, never on the first separator under the heading:
+    # a write-up with a table of its own sat between the two from 2026-09-04, and 248 rows
+    # were filed into the usenet pool table before anyone noticed (2026-09-10). Newest
+    # entries lead, matching how the scribe wrote them.
+    head = text.index(REGISTER_HEADER, at)
+    sep = text.index("|---|", head)
     line_end = text.index("\n", sep) + 1
     REGISTER.write_text(text[:line_end] + "\n".join(rows) + "\n" + text[line_end:], "utf-8")
 
