@@ -335,6 +335,19 @@ other, and it names every row it removes.
 writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
 invisible re-deals settled work.
 
+### One lock, whoever started the sync
+
+`just sync` takes `data/logs/.sync.lock` before it touches anything and drops it on the way
+out, whether it was started by hand or by launchd. A second sync prints who holds the lock and
+how long that one has been running, changes nothing and exits 0, so the hourly job skipping is
+not an error. A lock left by a killed run names a pid that is gone and is taken over, with a
+line saying so. `scripts/harness/sync_lock.sh holder` answers who has it.
+
+It is one lock because it used to be none: the wrapper held its own, which protected the hourly
+run from itself and from nothing else, and on 2026-09-09 a terminal recovering two waves and the
+:05 job were in the store together, one of them lost `ark export` to a lock conflict and the
+journal ACK was skipped.
+
 ### Syncing without a session open, and asking for a package from a phone
 
 `just schedule install` loads three launchd jobs: `com.ark.collectors` holds the collector lane,

@@ -20,21 +20,12 @@ cd "$(dirname "$0")/../.." || exit 1
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
-LOCK="data/logs/.scheduled_sync.lock"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 
-# mkdir is the atomic primitive macOS has without flock. A lock whose holder is
-# dead is stale and taken over; a live holder means a long rsync, and we leave.
-if ! mkdir "$LOCK" 2>/dev/null; then
-    holder=$(cat "$LOCK/pid" 2>/dev/null || true)
-    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-        printf '%s sync still running as pid %s, skipped\n' "$STAMP" "$holder" >> "$LOG"
-        exit 0
-    fi
-    rm -rf "$LOCK" && mkdir "$LOCK" || exit 1
-fi
-echo $$ > "$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT
+# **No lock here.** This wrapper used to hold its own, which protected it from itself and
+# from nothing else: a hand-run `just sync` took no lock at all and the two met in the store.
+# The lock moved into the recipe (`sync_lock.sh`), so both paths take the same one; a run
+# that finds it held prints why and stops, and that line lands in this log like any other.
 
 ship_now() {
     local n body
