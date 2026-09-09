@@ -9,9 +9,10 @@
 # waits on its children, and is the one process launchd supervises.
 #
 # The pause is a flag FILE, which is what makes it survive sleep and reboot: the sweep
-# checks it between pages (`cdx_suffix_sweep.py`), so a pause costs at most one page and
-# never a stranded `.part`. Resume is removing the file; the per-parent state files mean
-# the queue continues from its marker with no other step.
+# checks it between pages (`cdx_suffix_sweep.py`), so a pause costs at most the page in
+# flight and loses nothing, since the journal is written under its final name and flushed
+# every page. Resume is removing the file; the per-parent state files mean the queue
+# continues from its marker with no other step.
 #
 # Usage:
 #   bash scripts/harness/collectors.sh run       the supervisor (launchd calls this)
@@ -64,10 +65,6 @@ local_clients() {
 
 count() { printf '%s\n' "$1" | grep -c . ; }
 
-# Best effort, and an unreachable VPS reads as unknown rather than as zero. The address
-# is private, so it comes from local.env, and a missing one is not an error here.
-# ARK_NO_REMOTE skips the question outright, for a machine with no link and for the tests,
-# which must not spend eight seconds on an ssh timeout to decide a local invariant.
 # What the OTHER machine on the channel is spending, which is the number that decides
 # whether this laptop may start anything at all (C-77 binds the channel, not the machine).
 #
@@ -80,8 +77,15 @@ count() { printf '%s\n' "$1" | grep -c . ; }
 # only once the journals have actually gone quiet, which is the honest test for "the page in
 # flight has finished" and the one thing a flag file cannot tell us.
 #
+# **An unanswered question is not an answer of zero**, which is the way this could have put
+# four clients on the channel: the VPS holds two whether or not the link is up, so a failed
+# ssh once read as "the channel is free" and would have started both laptop sweeps beside
+# them. Unknown is therefore worth ONE remote client here, which leaves this laptop one
+# slot rather than none, until S8 stops the VPS sweeps and the answer is a real zero.
+#
 # ARK_NO_REMOTE skips the question outright, for a machine with no link and for the tests,
-# which must not spend eight seconds on an ssh timeout to decide a local invariant.
+# which must not spend eight seconds on an ssh timeout to decide a local invariant; it is
+# not a claim that the VPS is idle, so it costs the same one client.
 vps_clients() (
     [ "${ARK_NO_REMOTE:-0}" = "1" ] && { echo "not asked"; return; }
     [ -n "${ARK_VPS:-}" ] || { echo "unknown"; return; }
@@ -116,12 +120,14 @@ REMOTE
     esac
 )
 
-# Newest journal the sweeps are writing or have just written, and what it holds. The `.part`
-# has no gzip trailer, so python's reader returns everything up to the last flush and then
-# raises EOFError, which is the normal case.
+# Newest journal the sweeps are writing or have just written, and what it holds. **No `.part`
+# in this lane**: `cdx_suffix_sweep.py` opens its final name and flushes after every page, so
+# the file being written and the file that is finished have the same name, and a glob for
+# `.part` here matched nothing. Reading a journal still being written has no gzip trailer, so
+# python's reader returns everything up to the last flush and then raises EOFError, which is
+# the normal case.
 newest_journal() {
-    ls -t data/raw/cdx_suffix/suffix_*.jsonl.gz.part data/raw/cdx_suffix/suffix_*.jsonl.gz \
-        2>/dev/null | head -1
+    ls -t data/raw/cdx_suffix/suffix_*.jsonl.gz 2>/dev/null | head -1
 }
 
 hit_rate() {
@@ -189,7 +195,13 @@ cmd_status() {
     echo "clients: $n here holding a journal open (the channel allows $BUDGET)"
     [ "$n" -gt 0 ] && printf '%s\n' "$clients" | sed 's/^/     /'
     # The same channel, another machine: four clients is over budget, and S8 is the fix.
-    echo "         VPS: $(vps_clients) on the same channel"
+    # An unanswered question is worth one client to the supervisor, so say that here too
+    # rather than printing a word the reader has to translate.
+    there=$(vps_clients)
+    case "$there" in
+    "" | *[!0-9]*) echo "         VPS: $there, so counted as 1 client on the same channel" ;;
+    *) echo "         VPS: $there on the same channel" ;;
+    esac
 
     parent=$(ls -t data/logs/collectors_shard*.log 2>/dev/null | head -1)
     if [ -n "$parent" ]; then
@@ -243,7 +255,8 @@ cmd_run() {
             sleep 30
             continue
         fi
-        # Disk before requests: a full disk turns a good sweep into a stranded `.part`.
+        # Disk before requests: a full disk truncates the journal mid page, and the rows
+        # already fetched go with it.
         if ! uv run python scripts/harness/bank_hygiene.py space >/dev/null 2>&1; then
             note "disk check refused the run, waiting 15 minutes"
             sleep 900
@@ -253,9 +266,9 @@ cmd_run() {
         here=$(count "$(local_clients)")
         there=$(vps_clients)
         case "$there" in
-        "unknown" | "not asked")
-            note "could not ask the VPS how many clients it holds, assuming none"
-            there=0
+        "" | *[!0-9]*)
+            note "no answer from the VPS ($there), counting one client there rather than none"
+            there=1
             ;;
         esac
         room=$(( BUDGET - here - there ))
@@ -284,8 +297,13 @@ cmd_run() {
         # One fold loop, because DuckDB takes a single writer. It brings finished journals
         # into the store while the sweeps run, so the lane needs no hand.
         if ! pgrep -f "harness/maintain[.]sh" >/dev/null 2>&1; then
-            nohup bash scripts/harness/maintain.sh 420 24 >/dev/null 2>&1 < /dev/null &
-            note "fold loop started"
+            # **Its iteration count has to cover the window.** `maintain.sh 420 24` is
+            # 2.8 hours, so on a six hour window the fold loop died two thirds of the way
+            # through and nothing folded until the next window started one. The count is
+            # therefore derived from the window rather than written down.
+            nohup bash scripts/harness/maintain.sh "$(( WINDOW / 24 + 30 ))" 24 \
+                >/dev/null 2>&1 < /dev/null &
+            note "fold loop started, $(( WINDOW / 24 + 30 )) turns of 24s"
         fi
 
         # shellcheck disable=SC2086

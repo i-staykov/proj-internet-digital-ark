@@ -82,6 +82,29 @@ def test_the_sweep_loop_asks_both_stats_flavours():
     assert "stat -c %Y" in text and "stat -f %m" in text
 
 
+def test_silence_from_the_other_machine_is_not_counted_as_zero():
+    # It holds its two clients whether or not the link is up, so a failed ssh that read as
+    # "the channel is free" would start both laptop sweeps beside them (C-77).
+    text = COLLECTORS.read_text()
+    assert "there=1" in text
+    assert "there=0" not in text
+
+
+def test_the_yield_monitor_does_not_tick_while_paused():
+    # The child idles on the flag between pages; a monitor whose clock ran on regardless
+    # parked a good parent for being silent during the pause.
+    text = SWEEP_LOOP.read_text()
+    gate = text.index('[ -e "$PAUSE_FLAG" ] && continue')
+    tick = text.index("waited=$(( waited + 10 ))")
+    assert gate < tick, "the pause gate must come before the clock advances"
+
+
+def test_this_lane_does_not_glob_for_a_part_file():
+    # `cdx_suffix_sweep.py` opens its journal under its final name and flushes every page,
+    # so every `.part` glob in this lane matched nothing, here and on the other machine.
+    assert "jsonl.gz.part" not in COLLECTORS.read_text()
+
+
 def test_the_launchd_job_caffeinates_and_comes_back():
     plist = plistlib.loads(
         PLIST.read_text().replace("ARK_ROOT", str(ROOT)).replace("ARK_HOME", "/var/empty").encode()

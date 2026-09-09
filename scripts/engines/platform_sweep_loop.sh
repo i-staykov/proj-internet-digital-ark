@@ -84,6 +84,13 @@ sweep_one() {
     local pid=$! waited=0 rows=0 hosts=0 rph=0
     while kill -0 "$pid" 2>/dev/null; do
         sleep 10
+        # **Paused time is not time this parent has had.** The child idles on the flag
+        # between pages while this monitor's clock ran on regardless, so a pause longer than
+        # PARENT_CAP judged a parent that had fetched nothing since the pause, and a pause
+        # past PARENT_MAX parked it as silent or as rich on the strength of it. A pause is
+        # meant to cost the page in flight and nothing else, so the yield test does not tick
+        # while the flag is there.
+        [ -e "$PAUSE_FLAG" ] && continue
         waited=$(( waited + 10 ))
         [ $(( waited % PARENT_CAP )) -eq 0 ] || continue
 

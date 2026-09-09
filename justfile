@@ -1593,13 +1593,15 @@ ship stage="all" *args:
 # `caffeinate -s`; it is KeepAlive, so it comes back after a reboot on its own, and
 # `just collectors pause` is what stops it collecting without unloading it.
 #
-# **This needs Full Disk Access and will fail silently without it.** The repository
-# lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
-# grant from the terminal that installed it. The first install exited 126 four times
-# a day while `launchctl list` looked normal, so `install` runs the cycle job once as
-# the probe and reports its exit status rather than trusting the load. launchd also
-# starts with a bare PATH, which is why the templates carry one that finds just, uv,
-# gh and claude: the second install exited 127 the same silent way.
+# **The checkout moved to ~/GitHub on 2026-09-09 so that none of this needs Full Disk
+# Access.** Under ~/Documents, which macOS TCC protects, a launchd agent inherits no grant
+# from the terminal that installed it: the first install exited 126 four times a day while
+# `launchctl list` looked normal, and moving the repository was cheaper than granting
+# /bin/bash the whole disk. A 126 now means a plist rendered from the old path or a checkout
+# back inside a protected directory, so `install` still runs a job once as the probe and
+# reports what it did rather than trusting the load. launchd also starts with a bare PATH,
+# which is why the templates carry one that finds just, uv, gh and claude: the second
+# install exited 127 the same silent way.
 #
 # A second argument names ONE job, because the three are switched on at different times:
 # the collector lane moved to this laptop before the hourly bank did (S9), and loading all
@@ -1656,11 +1658,13 @@ schedule what="install" job="":
         else
             echo "FAILED: ${line:-$probe is not loaded}"
             echo
-            echo "  126 or 1 here is almost always macOS TCC: this repository is under"
-            echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
-            echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
-            echo "  /bin/bash. Then run 'just schedule' again. 127 means a tool is not on"
-            echo "  the PATH the template sets."
+            echo "  126 or 1 here means launchd cannot read this checkout. Since"
+            echo "  2026-09-09 it lives under ~/GitHub, which macOS does not protect,"
+            echo "  so the usual cause is a plist still rendered from the old"
+            echo "  ~/Documents path, or a checkout moved back under a protected"
+            echo "  directory: re-run 'just schedule install' from where the"
+            echo "  repository is now. 127 means a tool is not on the PATH the"
+            echo "  template sets."
             echo
             echo "  Until then a terminal that runs 'just bank' hourly covers the same"
             echo "  ground, because it inherits the grant of the terminal that started it."
