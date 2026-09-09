@@ -5205,6 +5205,25 @@ it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause A
   (1,474 list-months between 48 and 1,364 messages) is worth measuring once more before it is
   called, not assumed from either end. 1999 did appear this time: 91 hosts, 53.4751 EE.
   Ingested into `apache_header_items_b2/`, 1,154 hostname-year rows and 28 parent-years
+- **TRANCHE 3, 2026-09-09, is the middle band, and it says the class SATURATES rather than
+  scaling with volume.** The 468 next list-months by the same ascending pass: 86,291 messages
+  parsed, 86,235 in window, 31,158 carrying a `by` host, 41 undated, 12 dropped on the partition
+  cross-check, 3 out of window. Priced against the live store before the ingest: 5,180 distinct
+  host-years, 2,007 already held, 143 in his baseline only, parent held 99.1%, **2,666 net-new
+  worth 1,485.1800 EE**, plus 49.8643 EE of registrable pairs. By year 2001 922.6510, 2000
+  487.8854, 1999 42.0456, 1998 18.4932, 1997 14.1048; by TLD com 924.8, net 131.8, au 74.3,
+  uk 73.6, edu 71.9, gov 28.5. Ingested into `apache_header_items_b3/`, 2,817 hostname-year rows
+  and 80 parent-years.
+- **The three bands together close the projection question, and they close it downwards.** Per
+  list-month: 141 at the head (19 months, 17,526 messages), 3.17 in the middle (468 months,
+  86,291 messages), 1.19 at the tail (513 months, 15,652 messages). Tranche 3 carries **5.5
+  times tranche 2's messages for 2.4 times its EE**, so the return per message falls as the
+  band gets denser: the same relay hosts recur across a busy list's months and the second
+  sighting is not net-new. The reading is that the class is nearly spent, not that the rest of
+  the plan is worth 24,000 EE. Roughly 600 list-months of 5 messages or more remain unfetched
+  and at the middle band's rate they are worth about 1,900 EE, so the whole class lands near
+  9,000 EE against the 24,000 the approved-sources `potential` line still carries. Fetch them
+  because they are cheap, not because they close anything.
 - collect: `uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover`, then
   `--expand`, then `--harvest`; build with
   `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with
