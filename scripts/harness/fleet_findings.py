@@ -17,14 +17,14 @@ Three subcommands, in the order `just sync` runs them:
     uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming
     uv run python scripts/harness/fleet_findings.py validate data/fleet_findings/incoming \\
         --fleet ~/Documents/GitHub/ark-fleet
-    uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet
+    uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -35,7 +35,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SIDECAR = "finding.json"
 PROSE = "finding.md"
+LEAD = "lead.json"
 STORE_PRICE = "store_price.json"
+# Where a price leg leaves the `{host, year}` lines it measured (the fleet's ITEMS_DIR).
+# They outlive the leg so that `pricing.cmd` re-runs for verify, and they are the only copy:
+# the run artifact carries the finding, the lead and the extractor, and no data at all.
+VPS_ITEMS = "/projects/ark-data/items"
 # What the leg has to leave beside its finding for the laptop to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
@@ -65,23 +70,44 @@ def load(path: Path) -> dict:
 # --- drain --------------------------------------------------------------------
 
 
+def freshness(lead: Path) -> tuple[int, int]:
+    """How settled a copy of a lead is: a second opinion first, then the run that wrote it.
+
+    Two unprocessed runs can carry the same slug, because a price wave and the verify wave
+    that answers it are drained together. The price copy says `verify.status: pending` and
+    the verify copy says `confirmed`, so keeping whichever arrived first threw away the only
+    copy a re-price and the standing rule will act on.
+    """
+    finding = load(lead / SIDECAR)
+    settled = (finding.get("verify") or {}).get("status", "pending") != "pending"
+    run_id = str(finding.get("run_id") or "")
+    return (1 if settled else 0, int(run_id) if run_id.isdigit() else 0)
+
+
 def drain(incoming: Path) -> int:
     """One directory per lead at the top, whatever shape the artifact arrived in.
 
-    An S3 artifact is `leads/<slug>/{finding.json,finding.md,items.jsonl}`; the waves before
-    it uploaded `findings/*.md` and nothing else. Both end up where the scribe and the
-    pricer look, and a lead directory moves WHOLE so a sidecar keeps the items beside it.
-    A slug already drained is left alone: a run is re-downloaded until it completes, and
-    the copy already here is the one the register rows were written from.
+    An S3 artifact is `leads/<slug>.json` beside `leads/<slug>/{finding.json,finding.md,
+    extract.py,verify.json}`; the waves before it uploaded `findings/*.md` and nothing else.
+    Both end up where the scribe and the pricer look. The lead directory moves WHOLE and the
+    lead file moves INTO it as `lead.json`, because the grain and the dating stamp are read
+    from the lead and the fleet clone here is never pulled, so the artifact's copy is the
+    only one that is certainly the one the leg saw.
     """
     moved = leads = 0
     for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
         for lead in sorted(p for p in run.rglob("*") if p.is_dir() and (p / SIDECAR).is_file()):
             target = incoming / lead.name
+            side = lead.parent / f"{lead.name}.json"
+            if side.is_file() and not (lead / LEAD).exists():
+                shutil.move(str(side), str(lead / LEAD))
             if target.exists():
-                print(f"drain: {lead.name} is already here, the artifact copy is dropped")
-                shutil.rmtree(lead, ignore_errors=True)
-                continue
+                if freshness(lead) <= freshness(target):
+                    print(f"drain: {lead.name} is already here in a copy at least as settled")
+                    shutil.rmtree(lead, ignore_errors=True)
+                    continue
+                print(f"drain: {lead.name} arrives more settled than the copy here, replacing it")
+                shutil.rmtree(target)
             shutil.move(str(lead), str(target))
             leads += 1
         for prose in sorted(run.rglob("*.md")):
@@ -97,17 +123,25 @@ def drain(incoming: Path) -> int:
 
 
 def ledger_rows(run: Path) -> None:
-    """One ledger line per telemetry file, so the window's spend survives the tidy."""
+    """One ledger line per leg, so the window's spend survives the tidy.
+
+    The artifact's `telemetry.json` is `{"legs": [row, ...]}`, one row per leg. Reading the
+    top level as a row logged a zero for every wave, which is the shape of a ledger that is
+    being written and not read.
+    """
     label = datetime.now(UTC).strftime("%Y%m%dT%H%MZ")
     for telemetry in sorted(run.rglob("telemetry.json")):
         doc = load(telemetry)
-        if not doc:
-            continue
-        LEDGER.parent.mkdir(parents=True, exist_ok=True)
-        with LEDGER.open("a", encoding="utf-8") as out:
-            out.write(
-                f"{label}\t{doc.get('tokens_in_plus_out', 0)}\t{doc.get('seven_day_pct', '?')}\n"
-            )
+        rows = doc.get("legs") if isinstance(doc.get("legs"), list) else [doc]
+        for row in rows:
+            if not isinstance(row, dict) or not row:
+                continue
+            LEDGER.parent.mkdir(parents=True, exist_ok=True)
+            with LEDGER.open("a", encoding="utf-8") as out:
+                out.write(
+                    f"{label}\t{row.get('tokens_in_plus_out', 0)}\t"
+                    f"{row.get('seven_day_pct', '?')}\n"
+                )
 
 
 # --- validate -----------------------------------------------------------------
@@ -173,14 +207,58 @@ def items_file(lead: Path) -> Path | None:
     return None
 
 
-def grain_of(slug: str, finding: dict, fleet: Path) -> str:
+def items_remote() -> str:
+    """Where the items live, which is not in the artifact.
+
+    A price leg writes `{host, year}` lines to `$ITEMS_DIR/<slug>.jsonl` on the VPS so that
+    `pricing.cmd` still re-runs for the verify leg two waves later; the artifact carries the
+    finding, the lead and the extractor and none of the data. So the re-price has to fetch
+    them, and a laptop with no `ARK_VPS` cannot re-price at all, which is worth saying out
+    loud rather than reporting as a missing file.
+    """
+    if os.environ.get("ARK_ITEMS_REMOTE"):
+        return os.environ["ARK_ITEMS_REMOTE"]
+    env = REPO / "local.env"
+    if env.is_file():
+        for line in env.read_text(encoding="utf-8").splitlines():
+            name, _, value = line.strip().partition("=")
+            if name.strip() == "ARK_VPS" and value.strip():
+                return f"{value.strip().strip(chr(34)).strip(chr(39))}:{VPS_ITEMS}"
+    return ""
+
+
+def fetch_items(lead: Path) -> Path | None:
+    """The leg's items, from beside the finding or from the box that has them."""
+    here = items_file(lead)
+    if here is not None:
+        return here
+    remote = items_remote()
+    if not remote:
+        print(f"reprice: no ARK_VPS in local.env, so {lead.name}'s items cannot be fetched")
+        return None
+    target = lead / "items.jsonl"
+    done = subprocess.run(
+        ["rsync", "-a", f"{remote}/{lead.name}.jsonl", str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if done.returncode != 0 or not target.is_file():
+        print(f"reprice: {lead.name}.jsonl is not at {remote}: {done.stderr.strip()}")
+        return None
+    print(f"reprice: fetched {lead.name}.jsonl from the items directory")
+    return target
+
+
+def grain_of(slug: str, finding: dict, lead_dir: Path) -> str:
     """The lead's grain, which decides which pricer answers.
 
     The lead file is the authority because it is where the scout recorded what one record
-    is. A finding whose lead has been tidied away falls back to its own track, which is the
+    is, and the copy read is the ARTIFACT'S, moved in by the drain: the fleet clone on this
+    laptop is never pulled by the sync, so its `leads/` can be days behind the wave being
+    banked. A finding whose lead did not travel falls back to its own track, which is the
     only thing in the sidecar that distinguishes the two units.
     """
-    lead = load(fleet / "leads" / f"{slug}.json")
+    lead = load(lead_dir / LEAD)
     grain = lead.get("grain")
     if grain in {"hostname", "registrable", "candidate"}:
         return str(grain)
@@ -193,13 +271,12 @@ def grain_of(slug: str, finding: dict, fleet: Path) -> str:
     )
 
 
-def price(lead: Path, finding: dict, fleet: Path) -> dict:
+def price(lead: Path, finding: dict) -> dict:
     """Run the store pricer over the leg's own items and return what it measured."""
-    slug = lead.name
-    items = items_file(lead)
+    items = fetch_items(lead)
     if items is None:
-        return {"status": "no items shipped", "ee": None}
-    grain = grain_of(slug, finding, fleet)
+        return {"status": "no items to price, see the run log", "ee": None}
+    grain = grain_of(lead.name, finding, lead)
     script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
     cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
     done = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
@@ -221,7 +298,7 @@ def price(lead: Path, finding: dict, fleet: Path) -> dict:
     }
 
 
-def reprice(incoming: Path, fleet: Path) -> int:
+def reprice(incoming: Path) -> int:
     """Every confirmed FIND, priced again on the live store beside the fleet's figure."""
     for path in sidecars(incoming):
         finding = load(path)
@@ -236,7 +313,7 @@ def reprice(incoming: Path, fleet: Path) -> int:
                 encoding="utf-8",
             )
             continue
-        result = price(lead, finding, fleet)
+        result = price(lead, finding)
         result["fleet_ee"] = (finding.get("pricing") or {}).get("ee")
         (lead / STORE_PRICE).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if result["ee"] is None:
@@ -252,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("command", choices=["drain", "validate", "reprice"])
     ap.add_argument("incoming", type=Path)
-    ap.add_argument("--fleet", type=Path, help="the fleet clone, for its schema and its leads")
+    ap.add_argument("--fleet", type=Path, help="the fleet clone, for its schema (validate only)")
     args = ap.parse_args(argv)
 
     incoming = args.incoming.expanduser()
@@ -261,10 +338,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.command == "drain":
         return drain(incoming)
+    if args.command == "reprice":
+        return reprice(incoming)
     if args.fleet is None:
-        ap.error(f"{args.command} needs --fleet")
-    fleet = args.fleet.expanduser()
-    return validate(incoming, fleet) if args.command == "validate" else reprice(incoming, fleet)
+        ap.error("validate needs --fleet")
+    return validate(incoming, args.fleet.expanduser())
 
 
 if __name__ == "__main__":

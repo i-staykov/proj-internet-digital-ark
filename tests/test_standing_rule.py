@@ -46,7 +46,7 @@ LEAD = {
 }
 
 
-def setup(tmp_path, lead=None, register=REGISTER, **finding_over) -> tuple[Path, Path, Path]:
+def setup(tmp_path, lead=None, register=REGISTER, **finding_over) -> tuple[Path, Path]:
     incoming = tmp_path / "incoming"
     (incoming / "new-source").mkdir(parents=True)
     finding = {
@@ -61,21 +61,17 @@ def setup(tmp_path, lead=None, register=REGISTER, **finding_over) -> tuple[Path,
     (incoming / "new-source" / "store_price.json").write_text(
         json.dumps({"status": "priced", "ee": 7000.0}), encoding="utf-8"
     )
-    fleet = tmp_path / "fleet"
-    (fleet / "leads").mkdir(parents=True)
     if lead is not None:
-        (fleet / "leads" / "new-source.json").write_text(json.dumps(lead), encoding="utf-8")
+        (incoming / "new-source" / "lead.json").write_text(json.dumps(lead), encoding="utf-8")
     path = tmp_path / "approvals.md"
     path.write_text(register, encoding="utf-8")
-    return incoming, fleet, path
+    return incoming, path
 
 
 def decide(tmp_path, **kwargs) -> tuple[int, str, str]:
-    incoming, fleet, register = setup(tmp_path, **kwargs)
-    out = []
-    code = rule.main([str(incoming), "--fleet", str(fleet), "--register", str(register), "--write"])
-    out.append(register.read_text(encoding="utf-8"))
-    return code, out[0], str(register)
+    incoming, register = setup(tmp_path, **kwargs)
+    code = rule.main([str(incoming), "--register", str(register), "--write"])
+    return code, register.read_text(encoding="utf-8"), str(register)
 
 
 def test_all_four_conditions_hold_so_the_line_is_written_and_the_rule_is_cited(tmp_path, capsys):
@@ -124,17 +120,25 @@ def test_a_find_the_verify_lane_disputed_is_not_a_candidate_at_all(tmp_path, cap
 
 
 def test_a_find_the_laptop_could_not_reprice_is_not_a_candidate_either(tmp_path):
-    incoming, fleet, register = setup(tmp_path, lead=LEAD)
+    incoming, register = setup(tmp_path, lead=LEAD)
     (incoming / "new-source" / "store_price.json").write_text(
-        json.dumps({"status": "no items shipped", "ee": None}), encoding="utf-8"
+        json.dumps({"status": "no items to price, see the run log", "ee": None}), encoding="utf-8"
     )
-    rule.main([str(incoming), "--fleet", str(fleet), "--register", str(register), "--write"])
+    rule.main([str(incoming), "--register", str(register), "--write"])
     assert "Decision: pending" in register.read_text(encoding="utf-8")
 
 
 def test_without_write_nothing_is_touched(tmp_path, capsys):
-    incoming, fleet, register = setup(tmp_path, lead=LEAD)
+    incoming, register = setup(tmp_path, lead=LEAD)
     before = register.read_text(encoding="utf-8")
-    rule.main([str(incoming), "--fleet", str(fleet), "--register", str(register)])
+    rule.main([str(incoming), "--register", str(register)])
     assert register.read_text(encoding="utf-8") == before
     assert "would decide: new_source" in capsys.readouterr().out
+
+
+def test_a_lead_that_did_not_travel_with_the_artifact_parks(tmp_path, capsys):
+    # The fleet clone here is never pulled by the sync, so a decision may not fall back to
+    # it: no lead in the artifact means no stamp and no terms, which is three conditions.
+    _, text, _ = decide(tmp_path, lead=None)
+    assert "Decision: pending" in text
+    assert "names a category" in capsys.readouterr().out

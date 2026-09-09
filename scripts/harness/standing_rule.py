@@ -18,8 +18,13 @@ Nothing here approves a class nobody has approved before. The first source of a 
 reaches Ivo through `sync_approvals.py`, which is the whole point: the standing rule extends
 a decision he has taken, it never takes a new one.
 
-    uv run python scripts/harness/standing_rule.py data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet [--write]
+**What condition 3 can and cannot be.** The rule says the terms permit it; the lead records
+a terms URL and a robots verdict and no verdict on the terms themselves, so what this checks
+is that both were recorded, and a source that publishes no terms page parks. Reading the
+terms is a judgement, and the field that would carry it is a fleet schema change and needs an
+ADR, so it is not smuggled in here. `docs/lore/rules.md` says the same in one line.
+
+    uv run python scripts/harness/standing_rule.py data/fleet_findings/incoming [--write]
 """
 
 from __future__ import annotations
@@ -55,6 +60,16 @@ def _json(path: Path) -> dict:
     except (OSError, ValueError):
         return {}
     return doc if isinstance(doc, dict) else {}
+
+
+def lead_of(incoming: Path, slug: str) -> dict:
+    """The lead as the leg saw it, from the artifact rather than from the fleet clone.
+
+    The clone on this laptop is never pulled by the sync, so its `leads/` can be days behind
+    the wave being banked, and a decision must not rest on a file that moved underneath it.
+    The drain puts the artifact's copy at `<slug>/lead.json`.
+    """
+    return _json(incoming / slug / "lead.json")
 
 
 def confirmed_finds(incoming: Path) -> dict[str, dict]:
@@ -98,6 +113,7 @@ def reasons_to_park(approval, lead: dict, decided: dict) -> list[str]:
         bad.append("the lead names no stamp with a digit in it, so it names a category")
     artifact = lead.get("artifact") or {}
     if not artifact.get("terms_url"):
+        # Not "the terms permit it", which no field states. See the module docstring.
         bad.append("the lead records no terms page")
     if artifact.get("robots") != "allowed":
         bad.append(f"robots is {artifact.get('robots') or 'unrecorded'}, not allowed")
@@ -117,12 +133,11 @@ def decide(text: str, approval, citation: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("incoming", type=Path)
-    ap.add_argument("--fleet", type=Path, required=True)
     ap.add_argument("--register", type=Path, default=REGISTER)
     ap.add_argument("--write", action="store_true", help="without it, say what it would decide")
     args = ap.parse_args(argv)
 
-    incoming, fleet = args.incoming.expanduser(), args.fleet.expanduser()
+    incoming = args.incoming.expanduser()
     if not incoming.is_dir():
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
@@ -144,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         if approval is None:
             continue
         slug = slugify(approval.source_name)
-        lead = _json(fleet / "leads" / f"{slug}.json")
+        lead = lead_of(incoming, slug)
         bad = reasons_to_park(approval, lead, decided)
         if bad:
             print(f"parked: {approval.source_name} stays pending, {'; '.join(bad)}")

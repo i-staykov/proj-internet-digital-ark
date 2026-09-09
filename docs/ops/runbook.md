@@ -283,21 +283,38 @@ A leg arrives as a directory: `finding.md` in the register voice, `finding.json`
 schema, `items.jsonl` when the leg shipped the records it priced. Four programs read it, in order,
 and each one exists because of a way a figure has reached the register without being checked.
 
-1. `fleet_findings.py drain` flattens the downloaded artifacts into one directory per lead and
-   files the telemetry rows. A slug already drained is dropped rather than re-booked.
+1. `fleet_findings.py drain` flattens the downloaded artifacts into one directory per lead,
+   moves the artifact's own `leads/<slug>.json` in beside the finding as `lead.json`, and files
+   one ledger row per leg. Where the same slug arrives twice, from a price wave and the verify
+   wave that answered it, the settled copy wins and then the later run.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
 3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time,
    here, with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never
    reaches the register alone**: it was measured against the pushed snapshot, which is a copy, by
-   the agent that wanted the answer to be large. A FIND that shipped no items is not re-priced and
-   the row says so in words.
+   the agent that wanted the answer to be large. The items are not in the artifact, because a price
+   leg leaves them on the VPS under `/projects/ark-data/items/<slug>.jsonl` so the verify leg's
+   re-run finds them, so this fetches each one first and is loud when there is nothing to fetch or
+   no `ARK_VPS` to fetch from. A FIND with no items is not re-priced and the row says so in words.
 4. `bank_findings.py` writes the row, with the fleet's figure and the store's beside it, and the
    verify status in the verdict cell.
 
-Then `standing_rule.py` writes the `Decision:` line for the sources Ivo's standing rule already
-covers, `sync_approvals.py` raises the rest as a pull request and an issue, and `fleet_leads.py`
+Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
+and the approval filer both iterate blocks that already exist, and a confirmed FIND with no block
+is a measurement nobody can answer. A slug that names a registered spec gets the full
+`request_approval.py` request with its seeded sample; everything else gets a short block that
+carries both figures, quotes the stamp, names the items file, and says plainly that no collector
+here can ingest it yet.
+
+`standing_rule.py` then writes the `Decision:` line for the sources Ivo's standing rule already
+covers. Its fourth condition is `ark check` after the ingest, so **a red gate takes the rows back
+out with `unbank_source.py` and returns the line to pending**: reverting the line alone would leave
+a red store, and every later sync would refuse at the preflight until someone repaired it by hand.
+`unbank_source.py` is the only code here that deletes evidence, it is called on that path and no
+other, and it names every row it removes.
+
+`sync_approvals.py` raises what is left as a pull request and an issue, and `fleet_leads.py`
 writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
 invisible re-deals settled work.
 

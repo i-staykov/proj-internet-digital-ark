@@ -266,7 +266,10 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     #    validated is prose with braces, and a fleet figure nobody re-priced is a number
     #    measured somewhere else against a copy of this store.
     uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
-    uv run python scripts/harness/fleet_findings.py reprice "$IN" --fleet "$FLEET"
+    #    The items are not in the artifact: a price leg leaves them on the box under
+    #    /projects/ark-data/items so the verify leg's re-run finds them, so the re-price
+    #    fetches each slug's file before it can measure anything.
+    uv run python scripts/harness/fleet_findings.py reprice "$IN"
     # A wave picks its slugs from fleet MAIN, so a result line pushed to a feature branch
     # strands the verdict: measured 2026-09-08, the clone was left on a fleet branch, two
     # verdicts went there and the next wave re-dealt four settled slugs. `git push -q` with
@@ -325,22 +328,45 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         # 4. The deterministic scribe: one register row per finding, both figures in it.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
-        # 5. The decision. The loop writes the `Decision:` line itself only where Ivo's
-        #    standing rule already authorises it, and the fourth condition of that rule is
-        #    that `ark check` passes after the ingest, so the line is written, the ingest
-        #    runs, and a red gate parks the line back to pending rather than leaving an
-        #    approval nobody granted in a public register.
-        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \
+        # 5. The ask, then the decision. A confirmed FIND has no `Decision:` line until
+        #    something writes one, and nothing else does: the standing rule and the approval
+        #    filer both iterate blocks that already exist.
+        uv run python scripts/harness/fleet_request.py "$IN" --write
+        #    The loop writes the `Decision:` line itself only where Ivo's standing rule
+        #    already authorises it, and the fourth condition of that rule is that `ark check`
+        #    passes AFTER the ingest. So the line is written, the ingest runs, and a red gate
+        #    takes BOTH back: the rows come out with `unbank_source.py` and the line returns
+        #    to pending. Reverting only the line would leave the store red, and every later
+        #    sync would refuse at the preflight until someone repaired it by hand.
+        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --write \
             | tee /dev/stderr | grep -c '^decided:' || true)
         if [ "$DECIDED" -gt 0 ]; then
             uv run python scripts/harness/bank_hygiene.py space
-            if uv run python scripts/harness/bank_approved.py --write && uv run ark export >/dev/null && uv run ark check; then
+            #    A failed ingest takes the same road as a red gate: the rows it did write
+            #    come out and the line goes back, because a Decision line standing over an
+            #    ingest that did not happen reads exactly like one that did.
+            BANK_LOG=$(mktemp)
+            set +e
+            uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
+            BANK_RC=${PIPESTATUS[0]}
+            set -e
+            INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
+            if [ "$BANK_RC" -eq 0 ] && uv run ark export >/dev/null && uv run ark check; then
                 echo "the standing rule's fourth condition holds: $DECIDED decisions stand"
             else
-                echo "GATE RED after a standing-rule ingest: those decisions are parked back to pending"
-                echo "  The rows the ingest wrote are still in the store, which is where the red"
-                echo "  invariant is: read 'uv run ark check' before running this again."
+                echo "GATE RED after a standing-rule ingest: taking the rows and the lines back"
+                if [ -n "$INGESTED" ]; then
+                    uv run python scripts/harness/unbank_source.py $INGESTED --write
+                fi
                 git checkout -- docs/registers/approved-sources-list.md
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark export >/dev/null
+                if uv run ark check; then
+                    echo "the store is green again; the sources are pending and nothing was banked"
+                else
+                    echo "STILL RED after the rollback, so the red was not this ingest's:"
+                    echo "  read 'uv run ark check' before running the sync again."
+                fi
                 exit 1
             fi
         fi
