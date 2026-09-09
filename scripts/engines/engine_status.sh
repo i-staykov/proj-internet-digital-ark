@@ -25,7 +25,7 @@
 # acting on that answer cost a restart that threw away two parents mid-sweep. So the
 # question asked here is no longer "is a named process alive" but the one the rule is
 # actually about: **how many archive clients hold a journal open**, which is how
-# `restart_sweeps.sh` counts and how the two-client limit is defined (C-77).
+# `local_clients()` in `scripts/harness/collectors.sh` counts and how the limit is defined (C-77).
 #
 # **The two machines do not agree about what time it is, and their logs do not say
 # so.** The MacBook writes CEST and the VPS writes UTC, so a log line reading

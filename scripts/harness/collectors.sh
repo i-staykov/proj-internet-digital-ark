@@ -51,8 +51,8 @@ note() { printf '%s %s\n' "$(date -u '+%FT%TZ')" "$*"; }
 paused() { [ -e "$FLAG" ]; }
 
 # A client is the journal it holds open, not a process: one client is a `uv run` wrapper
-# plus its python child, so counting processes doubles it. This is how `just engines` and
-# `restart_sweeps.sh` count, and how the two-client rule is defined.
+# plus its python child, so counting processes doubles it. This is how `just engines` counts,
+# and since the VPS recipe was retired with its lane (C-84) this function is the definition.
 local_clients() {
     for pid in $(pgrep -f cdx_suffix_sweep.py 2>/dev/null); do
         if [ -d "/proc/$pid/fd" ]; then
