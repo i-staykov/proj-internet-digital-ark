@@ -18,11 +18,15 @@ time; there is one implementation and the brief points at it.
 read in-stream by Python, which is what `--to -` is for. That is not this program's taste,
 it is what keeps a 50 GB CDXJ off a disk the collectors need.
 
-**Three writes are possible and no others.** `$ARK_PROBE_DIR`, RAM-backed and private to
-one run, is where probe bytes go. `$ARK_FETCH_DEST_ROOT` is the second root, set only by
-`fetch.yaml` after a human merged a `download` decision, and it is what admits the two
-risky content types (a zip, and a body whose type the server will not name) to disk at
-all. Anything else exits 2 before a request is made.
+**Two write roots and no others.** `$ARK_PROBE_DIR`, RAM-backed and private to one run,
+is where probe bytes go. `$ARK_FETCH_DEST_ROOT` is the second, set only by `fetch.yaml`
+after a human merged a `download` decision, and a file going INTO it is what admits the two
+risky content types (a zip, and a body whose type the server will not name) to disk at all.
+Anything else exits 2 before a request is made.
+
+**A redirect is a new request and gets the whole check again.** urllib follows none of them
+here: each hop reads the robots.txt of the host it points at, so a 302 from a host that
+permits us onto a host that disallows us is refused instead of fetched. Five hops maximum.
 
 Exit codes, because the caller is a workflow and a workflow reads numbers:
 
@@ -43,6 +47,7 @@ failure, so a workflow always has something to record.
 import argparse
 import email.utils
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -133,14 +138,43 @@ def parse_size(text: str) -> int:
     return int(value)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Hand every 3xx back to the caller instead of following it.
+
+    **A followed redirect is a request nobody checked robots for.** `urlopen` will take a
+    302 from a host that permits us to a host that disallows us and fetch it without ever
+    asking the second host, which is the `www.fac.gov` to `app.fac.gov` shape with the
+    check silently skipped. Refusing to follow inside urllib is what lets `fetch()` run the
+    whole robots check again on each hop.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+REDIRECTS = {301, 302, 303, 307, 308}
+MAX_HOPS = 5
+
+
 def get(url: str, timeout: float) -> tuple[int, dict, object]:
-    """One request with the honest User-Agent. Returns (status, headers, body stream)."""
+    """One request with the honest User-Agent. Returns (status, headers, body stream).
+
+    Headers come back with lower-cased keys. HTTP field names are case-insensitive and a
+    plain `dict(response.headers)` is not: a server sending `content-type:` in lower case
+    read as unnamed, and a lower-case `content-length` skipped the first cap check.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        response = urllib.request.urlopen(request, timeout=timeout)  # noqa: S310
-        return response.status, dict(response.headers), response
+        response = _OPENER.open(request, timeout=timeout)  # noqa: S310
+        return response.status, _lower(response.headers), response
     except urllib.error.HTTPError as exc:
-        return exc.code, dict(exc.headers or {}), exc
+        return exc.code, _lower(exc.headers or {}), exc
+
+
+def _lower(headers) -> dict:
+    return {str(k).lower(): v for k, v in headers.items()}
 
 
 def retry_after_seconds(headers: dict, now: float | None = None) -> float | None:
@@ -235,64 +269,98 @@ def robots_verdict(text: str, path: str) -> tuple[str, float, str]:
     return worst[0], delay, worst[1]
 
 
-def read_robots(url: str, timeout: float) -> tuple[str, float, str]:
-    """The whole robots.txt of the host in the DOWNLOAD url, before anything else is asked.
+def _robots_file(url: str, timeout: float) -> tuple[str | None, str]:
+    """The host's robots.txt as text, or None with the reason there is none to read.
 
-    A 404 is a host with no rules and is `allowed`. Anything else unreadable is `unknown`
-    and fails closed: the rule is to read the terms before the first request, and a guess
-    is not a read.
+    A 404 is a host with no rules. Anything else unreadable is fatal, not permissive: the
+    rule is to read the terms before the first request, and a guess is not a read.
+    """
+    parts = urllib.parse.urlsplit(url)
+    robots = urllib.parse.urlunsplit((parts.scheme, parts.netloc, "/robots.txt", "", ""))
+    try:
+        status, _, body = get(robots, timeout)
+        with body:
+            payload = body.read(512 * 1024).decode("utf-8", "replace")
+    except (OSError, http.client.HTTPException) as exc:
+        return None, f"robots.txt could not be read: {exc}"
+    if status in (404, 410):
+        return "", f"the host serves no robots.txt ({status})"
+    if status != 200:
+        return None, f"robots.txt answered {status}"
+    return payload, "read in full"
+
+
+def read_robots(url: str, timeout: float, cache: dict | None = None) -> tuple[str, float, str]:
+    """The verdict for one URL: `allowed`, `refused` or `unknown`, before anything is asked.
+
+    The cache is per host and exists for redirects: a hop to a second host must read that
+    host's rules, and a hop within one host must re-match the new PATH against rules
+    already in hand rather than fetching them twice.
     """
     parts = urllib.parse.urlsplit(url)
     path = urllib.parse.quote(parts.path or "/", safe="/%~+,:@&=$!*()'")
     if parts.query:
         path += "?" + parts.query
-    robots = urllib.parse.urlunsplit((parts.scheme, parts.netloc, "/robots.txt", "", ""))
-    try:
-        status, _, body = get(robots, timeout)
-        payload = body.read(512 * 1024).decode("utf-8", "replace")
-        body.close()
-    except OSError as exc:
-        return "unknown", 0.0, f"robots.txt could not be read: {exc}"
-    if status in (404, 410):
-        return "allowed", 0.0, f"the host serves no robots.txt ({status})"
-    if status != 200:
-        return "unknown", 0.0, f"robots.txt answered {status}"
-    return robots_verdict(payload, path)
+    key = (parts.scheme, parts.netloc)
+    if cache is None or key not in cache:
+        payload = _robots_file(url, timeout)
+        if cache is not None:
+            cache[key] = payload
+    else:
+        payload = cache[key]
+    text, why = payload
+    if text is None:
+        return "unknown", 0.0, why
+    if not text:
+        return "allowed", 0.0, why
+    return robots_verdict(text, path)
 
 
 # ---------------------------------------------------------------- destination
 
 
-def allowed_roots() -> list[str]:
+PROBE_ROOT, APPROVED_ROOT = "ARK_PROBE_DIR", "ARK_FETCH_DEST_ROOT"
+
+
+def allowed_roots() -> list[tuple[str, str]]:
+    """The roots this may write under, as (env var name, resolved path)."""
     roots = []
-    for name in ("ARK_PROBE_DIR", "ARK_FETCH_DEST_ROOT"):
+    for name in (PROBE_ROOT, APPROVED_ROOT):
         value = (os.environ.get(name) or "").strip()
         if value:
-            roots.append(os.path.realpath(value))
+            roots.append((name, os.path.realpath(value)))
     return roots
 
 
-def resolve_destination(to: str | None, url: str) -> tuple[str, str | None]:
-    """The absolute path to write, or an explanation of why there is none.
+def resolve_destination(to: str | None, url: str) -> tuple[str, str | None, str]:
+    """(path, the reason there is none, the name of the root it is under).
 
     `--to` may be a directory, in which case the file is named from the URL. With no `--to`
-    the file lands in `$ARK_PROBE_DIR` under the same name.
+    the file lands in `$ARK_PROBE_DIR` under the same name. The root is returned because it
+    decides more than the path: a zip or an unnamed content type reaches disk only under
+    the approved root, and "the approved root is SET" is not the same claim as "this file
+    is going into it".
     """
     roots = allowed_roots()
     if not roots:
-        return "", "no ARK_PROBE_DIR and no ARK_FETCH_DEST_ROOT: there is nowhere this may write"
+        return "", f"no {PROBE_ROOT} and no {APPROVED_ROOT}: there is nowhere this may write", ""
     name = os.path.basename(urllib.parse.urlsplit(url).path) or "download.bin"
     name = re.sub(r"[^A-Za-z0-9._-]", "_", name)[:120] or "download.bin"
-    target = os.path.join(roots[0], name) if to is None else os.path.abspath(os.path.expanduser(to))
+    default = roots[0][1]
+    target = os.path.join(default, name) if to is None else os.path.abspath(os.path.expanduser(to))
     if os.path.isdir(target):
         target = os.path.join(target, name)
     # The parent is resolved, not the target: a file that does not exist yet has no
     # realpath of its own, and a symlinked parent is exactly the escape worth refusing.
+    # The target itself may still BE a symlink, which is why the write uses O_NOFOLLOW.
     parent = os.path.realpath(os.path.dirname(target) or ".")
     target = os.path.join(parent, os.path.basename(target))
-    if not any(parent == root or parent.startswith(root + os.sep) for root in roots):
-        return target, f"{target} is outside {' and '.join(roots)}"
-    return target, None
+    if os.path.islink(target):
+        return target, f"{target} is a symlink, so where it writes is not where it says", ""
+    for env, root in roots:
+        if parent == root or parent.startswith(root + os.sep):
+            return target, None, env
+    return target, f"{target} is outside {' and '.join(root for _, root in roots)}", ""
 
 
 # ---------------------------------------------------------------- the fetch
@@ -330,6 +398,25 @@ def stream(body, out, cap: int) -> tuple[int, str, bool]:
         out.write(chunk)
 
 
+def _discard(receipt: dict) -> None:
+    """Remove the part-file and stop claiming a path, so a failed fetch leaves nothing."""
+    try:
+        os.unlink(receipt["path"])
+    except OSError:
+        pass
+    receipt["path"] = None
+
+
+def _open_no_symlink(path: str):
+    """Create or truncate `path`, refusing to write through a symlink that IS the target.
+
+    The parent is already resolved and inside a root; this closes the last hole, where the
+    file name itself is a link pointing somewhere else entirely.
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+    return os.fdopen(os.open(path, flags, 0o600), "wb")
+
+
 def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) -> tuple[int, dict]:
     receipt = {
         "url": url,
@@ -341,87 +428,137 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
         "capped": False,
     }
     to_pipe = to == "-"
+    approved = False
 
     if not to_pipe:
-        target, why = resolve_destination(to, url)
+        target, why, root = resolve_destination(to, url)
         receipt["path"] = target or None
         if why:
             receipt["reason"] = why
             return USAGE, receipt
+        # The claim is "this file is going into the approved root", not "the approved root
+        # exists somewhere in the environment": a probe write with the variable set must
+        # not inherit a decision that was made about a different directory.
+        approved = root == APPROVED_ROOT
 
-    verdict, delay, why = read_robots(url, timeout)
-    receipt["robots"] = verdict
-    receipt["reason"] = why
-    if verdict == "refused":
-        return ROBOTS_REFUSED, receipt
-    if verdict != "allowed":
-        return ROBOTS_UNREADABLE, receipt
+    robots_cache: dict = {}
+    hops = 0
 
-    for attempt in range(1, ATTEMPTS + 1):
-        try:
-            status, headers, body = get(url, timeout)
-        except OSError as exc:
-            receipt["reason"] = f"the request failed: {exc}"
-            return HTTP_FAILED, receipt
+    while True:
+        # **Every hop is checked, not just the first.** urllib follows no redirect here, so
+        # a 302 onto a second host reads that host's robots.txt before anything is asked of
+        # it, and a 302 within one host re-matches the new path against rules in hand.
+        verdict, delay, why = read_robots(url, timeout, robots_cache)
+        receipt["url"] = url
+        receipt["robots"] = verdict
+        receipt["reason"] = why
+        if verdict == "refused":
+            return ROBOTS_REFUSED, receipt
+        if verdict != "allowed":
+            return ROBOTS_UNREADABLE, receipt
 
-        if status in RETRY_STATUS and attempt < ATTEMPTS:
-            wait = retry_after_seconds(headers)
-            if wait is None:
-                wait = min(MAX_SLEEP_SECONDS, max(delay, 2.0) * (2 ** (attempt - 1)))
-            body.close()
-            if wait > MAX_SLEEP_SECONDS:
-                receipt["reason"] = f"{status} with Retry-After {wait:.0f}s, longer than we wait"
-                return HTTP_FAILED, receipt
-            print(f"fetch: {status}, waiting {wait:.0f}s as asked", file=sys.stderr, flush=True)
-            sleep(wait)
-            continue
-
-        with body:
-            if status != 200:
-                receipt["reason"] = f"the server answered {status}"
+        for attempt in range(1, ATTEMPTS + 1):
+            try:
+                status, headers, body = get(url, timeout)
+            except (OSError, http.client.HTTPException) as exc:
+                receipt["reason"] = f"the request failed: {exc}"
                 return HTTP_FAILED, receipt
 
-            receipt["content_type"] = headers.get("Content-Type")
-            length = headers.get("Content-Length")
-            if length and length.strip().isdigit() and int(length) > cap:
-                receipt["bytes"] = int(length)
+            if status in RETRY_STATUS and attempt < ATTEMPTS:
+                wait = retry_after_seconds(headers)
+                if wait is None:
+                    wait = min(MAX_SLEEP_SECONDS, max(delay, 2.0) * (2 ** (attempt - 1)))
+                body.close()
+                if wait > MAX_SLEEP_SECONDS:
+                    receipt["reason"] = (
+                        f"{status} with Retry-After {wait:.0f}s, longer than we wait"
+                    )
+                    return HTTP_FAILED, receipt
+                print(f"fetch: {status}, waiting {wait:.0f}s as asked", file=sys.stderr, flush=True)
+                sleep(wait)
+                continue
+
+            if status in REDIRECTS and headers.get("location"):
+                body.close()
+                hops += 1
+                if hops > MAX_HOPS:
+                    receipt["reason"] = f"more than {MAX_HOPS} redirects"
+                    return HTTP_FAILED, receipt
+                nxt = urllib.parse.urljoin(url, headers["location"])
+                if urllib.parse.urlsplit(nxt).scheme not in ("http", "https"):
+                    receipt["reason"] = f"redirected to {nxt}, which is not http or https"
+                    return HTTP_FAILED, receipt
+                print(f"fetch: {status} to {nxt}, reading its robots", file=sys.stderr, flush=True)
+                url = nxt
+                break
+
+            with body:
+                if status != 200:
+                    receipt["reason"] = f"the server answered {status}"
+                    return HTTP_FAILED, receipt
+
+                receipt["content_type"] = headers.get("content-type")
+                length = headers.get("content-length")
+                declared = int(length) if length and length.strip().isdigit() else None
+                if declared is not None and declared > cap:
+                    receipt["bytes"] = declared
+                    receipt["capped"] = True
+                    receipt["reason"] = (
+                        f"Content-Length {declared} is over the {cap} byte cap: "
+                        "nothing was read, put it in downloads.md"
+                    )
+                    return OVER_CAP, receipt
+
+                bad = content_type_verdict(receipt["content_type"], to_pipe, approved)
+                if bad:
+                    receipt["reason"] = bad
+                    return BAD_TYPE, receipt
+
+                # **Two ways a body ends early, and neither may read as success.** A dead
+                # connection raises `http.client.HTTPException`, which is not an `OSError`,
+                # so it used to traceback out with no receipt and a part-file on disk. And
+                # a server that hangs up after a short body raises NOTHING at all:
+                # `HTTPResponse.read(amt)` returns b"" and the loop calls it EOF, so a
+                # truncated corpus banked a sha256 of the part that arrived. The declared
+                # length is checked against what was counted, below.
+                try:
+                    if to_pipe:
+                        total, digest, over = stream(body, sys.stdout.buffer, cap)
+                        sys.stdout.buffer.flush()
+                    else:
+                        os.makedirs(os.path.dirname(receipt["path"]), exist_ok=True)
+                        with _open_no_symlink(receipt["path"]) as out:
+                            total, digest, over = stream(body, out, cap)
+                except (OSError, http.client.HTTPException) as exc:
+                    if not to_pipe:
+                        _discard(receipt)
+                    receipt["reason"] = f"the transfer failed: {exc}"
+                    return HTTP_FAILED, receipt
+                if (over or (declared is not None and not over and total != declared)) and (
+                    not to_pipe
+                ):
+                    _discard(receipt)
+
+            receipt["bytes"] = total
+            receipt["sha256"] = digest
+            if declared is not None and not over and total != declared:
+                receipt["reason"] = (
+                    f"the transfer ended early, {total} of {declared} bytes: "
+                    "the sha256 of a part is not the sha256 of the artifact"
+                )
+                return HTTP_FAILED, receipt
+            if over:
                 receipt["capped"] = True
                 receipt["reason"] = (
-                    f"Content-Length {int(length)} is over the {cap} byte cap: "
-                    "nothing was read, put it in downloads.md"
+                    f"the stream passed the {cap} byte cap and was dropped: put it in downloads.md"
                 )
                 return OVER_CAP, receipt
-
-            approved = bool(os.environ.get("ARK_FETCH_DEST_ROOT"))
-            bad = content_type_verdict(receipt["content_type"], to_pipe, approved)
-            if bad:
-                receipt["reason"] = bad
-                return BAD_TYPE, receipt
-
-            if to_pipe:
-                total, digest, over = stream(body, sys.stdout.buffer, cap)
-                sys.stdout.buffer.flush()
-            else:
-                os.makedirs(os.path.dirname(receipt["path"]), exist_ok=True)
-                with open(receipt["path"], "wb") as out:
-                    total, digest, over = stream(body, out, cap)
-                if over:
-                    os.unlink(receipt["path"])
-                    receipt["path"] = None
-
-        receipt["bytes"] = total
-        receipt["sha256"] = digest
-        if over:
-            receipt["capped"] = True
-            receipt["reason"] = (
-                f"the stream passed the {cap} byte cap and was dropped: put it in downloads.md"
-            )
-            return OVER_CAP, receipt
-        receipt["reason"] = f"fetched {total} bytes"
-        return OK, receipt
-
-    receipt["reason"] = f"still being throttled after {ATTEMPTS} attempts"
-    return HTTP_FAILED, receipt
+            receipt["reason"] = f"fetched {total} bytes"
+            return OK, receipt
+        else:
+            receipt["reason"] = f"still being throttled after {ATTEMPTS} attempts"
+            return HTTP_FAILED, receipt
+        # Only a redirect leaves the attempt loop without answering, and `url` is the hop.
 
 
 def main(argv: list[str] | None = None) -> int:

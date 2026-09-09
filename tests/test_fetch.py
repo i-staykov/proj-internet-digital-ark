@@ -59,14 +59,23 @@ class Server:
                     self.end_headers()
                     return
                 status, headers, body = route() if callable(route) else route
+                headers = dict(headers)
+                # A server that promises more than it sends, then hangs up: the mid-stream
+                # failure that used to traceback out with no receipt at all.
+                truncate = headers.pop("X-Ark-Truncate", None)
                 self.send_response(status)
                 for key, value in headers.items():
                     self.send_header(key, value)
-                if "Content-Length" not in headers and "Transfer-Encoding" not in headers:
+                named = {k.lower() for k in headers}
+                if truncate:
+                    self.send_header("Content-Length", str(len(body) + int(truncate)))
+                elif "content-length" not in named and "transfer-encoding" not in named:
                     self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 if body:
                     self.wfile.write(body)
+                if truncate:
+                    self.close_connection = True
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
@@ -351,6 +360,208 @@ def test_an_executable_is_refused_whatever_the_destination(serve, probe, tmp_pat
         code, receipt, _ = run(f"{server.base}/setup.exe", *args, env=env)
         assert code == fetch.BAD_TYPE, receipt
         assert "allowlist" in receipt["reason"]
+
+
+# ---------------------------------------------------------------- redirects
+
+
+def test_a_redirect_onto_a_refusing_host_is_refused_and_never_fetched(serve, probe):
+    """The `www.fac.gov` shape with the check skipped: urllib would follow this."""
+    refuser = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, BY_NAME_REFUSAL.encode()),
+            "/data.txt": (200, {"Content-Type": "text/plain"}, b"never read\n"),
+        }
+    )
+    landing = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/get": (302, {"Location": f"{refuser.base}/data.txt"}, b""),
+        }
+    )
+    code, receipt, _ = run(f"{landing.base}/get")
+    assert code == fetch.ROBOTS_REFUSED, receipt
+    assert receipt["url"].endswith("/data.txt"), "the receipt must name the host that refused"
+    assert refuser.asked == ["/robots.txt"], "the second host was fetched without a check"
+    assert list(probe.iterdir()) == []
+
+
+def test_a_redirect_within_one_host_rechecks_the_new_path(serve, probe):
+    robots = "User-agent: *\nDisallow: /private\n"
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, robots.encode()),
+            "/public": (302, {"Location": "/private/x.txt"}, b""),
+            "/private/x.txt": (200, {"Content-Type": "text/plain"}, b"never read\n"),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/public")
+    assert code == fetch.ROBOTS_REFUSED, receipt
+    assert "/private/x.txt" not in server.asked
+    # Robots was read once and reused for the second hop rather than fetched twice.
+    assert server.asked.count("/robots.txt") == 1
+
+
+def test_an_allowed_redirect_is_followed_and_fetched(serve, probe):
+    body = b"a,b\n1,2\n"
+    final = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/real.csv": (200, {"Content-Type": "text/csv"}, body),
+        }
+    )
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/get": (301, {"Location": f"{final.base}/real.csv"}, b""),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/get")
+    assert code == fetch.OK, receipt
+    assert receipt["bytes"] == len(body)
+    assert receipt["url"].endswith("/real.csv")
+    # Named from the URL the caller asked for, not from the hop: where this writes is
+    # settled before the first request and a redirect must not move it.
+    assert (probe / "get").read_bytes() == body
+    assert not (probe / "real.csv").exists()
+
+
+def test_a_redirect_loop_stops_rather_than_spinning(serve, probe):
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/a": (302, {"Location": "/b"}, b""),
+            "/b": (302, {"Location": "/a"}, b""),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/a")
+    assert code == fetch.HTTP_FAILED
+    assert "redirects" in receipt["reason"]
+    assert len([p for p in server.asked if p in ("/a", "/b")]) <= fetch.MAX_HOPS + 1
+
+
+def test_a_redirect_off_http_is_refused(serve, probe):
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/x": (302, {"Location": "file:///etc/passwd"}, b""),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/x")
+    assert code == fetch.HTTP_FAILED
+    assert "not http or https" in receipt["reason"]
+
+
+# ---------------------------------------------------------------- header casing
+
+
+def test_lower_case_headers_are_read_like_any_other(serve, probe):
+    # HTTP field names are case-insensitive. A `dict()` of them is not, which read a
+    # lower-case content-type as unnamed and skipped the first cap check entirely.
+    two_gb = 2 * 1024**3
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/x.gz": (200, {"content-type": "application/gzip"}, b"body\n"),
+            "/big.gz": (
+                200,
+                {"content-type": "application/gzip", "content-length": str(two_gb)},
+                b"",
+            ),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/x.gz")
+    assert code == fetch.OK, receipt
+    assert receipt["content_type"] == "application/gzip"
+
+    code, receipt, _ = run(f"{server.base}/big.gz", "--max-bytes", "1G")
+    assert code == fetch.OVER_CAP, receipt
+    assert receipt["bytes"] == two_gb
+
+
+def test_a_lower_case_retry_after_and_location_are_read(serve, probe):
+    state = {"asks": 0}
+
+    def flaky():
+        state["asks"] += 1
+        if state["asks"] == 1:
+            return 503, {"retry-after": "0", "content-type": "text/plain"}, b""
+        return 302, {"location": "/final.txt"}, b""
+
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/x.txt": flaky,
+            "/final.txt": (200, {"content-type": "text/plain"}, b"ok\n"),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}/x.txt")
+    assert code == fetch.OK, receipt
+    assert receipt["url"].endswith("/final.txt")
+
+
+# ---------------------------------------------------------------- a broken transfer
+
+
+def test_a_connection_that_dies_mid_body_exits_seven_and_leaves_nothing(serve, probe):
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/half.txt": (
+                200,
+                {"Content-Type": "text/plain", "X-Ark-Truncate": "5000"},
+                b"the first part only\n",
+            ),
+        }
+    )
+    code, receipt, err = run(f"{server.base}/half.txt")
+    assert code == fetch.HTTP_FAILED, (receipt, err)
+    assert "Traceback" not in err
+    assert "20 of" in receipt["reason"], receipt["reason"]
+    assert receipt["path"] is None
+    assert list(probe.iterdir()) == [], "a part-file was left behind"
+
+
+# ---------------------------------------------------------------- the two roots
+
+
+def test_a_symlink_as_the_target_itself_is_refused(serve, probe, tmp_path):
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/x.txt": (200, {"Content-Type": "text/plain"}, b"ok\n"),
+        }
+    )
+    elsewhere = tmp_path / "elsewhere.txt"
+    elsewhere.write_text("mine\n")
+    link = probe / "x.txt"
+    link.symlink_to(elsewhere)
+    code, receipt, _ = run(f"{server.base}/x.txt", "--to", str(link))
+    assert code == fetch.USAGE
+    assert "symlink" in receipt["reason"]
+    assert elsewhere.read_text() == "mine\n", "it wrote through the link"
+    assert server.asked == []
+
+
+def test_the_approved_root_admits_a_risky_type_only_for_a_file_going_into_it(
+    serve, probe, tmp_path
+):
+    # The nit: `approved` used to be true whenever the variable was set, so a probe write
+    # inherited a decision made about a different directory.
+    corpus = tmp_path / "corpora" / "one"
+    corpus.mkdir(parents=True)
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/x.bin": (200, {"Content-Type": "application/octet-stream"}, b"bytes\n"),
+        }
+    )
+    approved = {"ARK_FETCH_DEST_ROOT": str(corpus)}
+    code, receipt, _ = run(f"{server.base}/x.bin", env=approved)
+    assert code == fetch.BAD_TYPE, "the probe root took a risky type on someone else's decision"
+    assert receipt["path"].startswith(str(probe))
+    code, receipt, _ = run(f"{server.base}/x.bin", "--to", str(corpus), env=approved)
+    assert code == fetch.OK, receipt
 
 
 # ---------------------------------------------------------------- throttling

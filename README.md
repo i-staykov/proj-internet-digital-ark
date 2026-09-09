@@ -58,10 +58,12 @@ uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only do
 ```
 
 It reads the whole robots.txt of the host in the download URL and refuses a group that names us
-wherever in the file it sits, honours `Retry-After`, counts the bytes twice against the cap, writes
-only into the run's RAM-backed probe directory, extracts no archive to disk, and prints the sha256
-the finding has to quote. Anything bigger than the cap, or of a type nobody can read in-stream,
-waits in the fleet's download backlog for a decision.
+wherever in the file it sits, and it reads the next host's rules before following a redirect rather
+than after. It honours `Retry-After`, counts the bytes twice against the cap, refuses a body shorter
+than the length it was promised, writes only into the run's RAM-backed probe directory or the corpus
+directory an approved download names, extracts no archive to disk, and prints the sha256 the finding
+has to quote. Anything bigger than the cap, or of a type nobody can read in-stream, waits in the
+fleet's download backlog for a decision.
 
 ## Where the round stands
 
