@@ -51,6 +51,18 @@ live store so no figure is booked on a copy, writes the register row with both n
 Ivo's standing rule already covers and asks him about the rest, ingests, gates, pushes, refreshes the
 pricing snapshot the fleet prices against, and writes each lead's fate back into the fleet's queue.
 
+Nothing the fleet downloads bypasses one program:
+
+```bash
+uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only download path
+```
+
+It reads the whole robots.txt of the host in the download URL and refuses a group that names us
+wherever in the file it sits, honours `Retry-After`, counts the bytes twice against the cap, writes
+only into the run's RAM-backed probe directory, extracts no archive to disk, and prints the sha256
+the finding has to quote. Anything bigger than the cap, or of a type nobody can read in-stream,
+waits in the fleet's download backlog for a decision.
+
 ## Where the round stands
 
 In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
