@@ -16,6 +16,17 @@
 # is worse than no monitor, because it answers the question confidently and wrongly.
 # Match the whole family; the prefix is the collector's business, not the watcher's.
 #
+# **And it narrowed twice more, which cost a wrong answer on 2026-09-09.** It reported
+# "NOT RUNNING" for a VPS that had two healthy collectors up for two and a half hours,
+# because it looked for `supervise_cdx_pool.sh` while that machine runs
+# `platform_sweep_loop.sh` as a systemd user unit; and it printed a "journal" line from
+# 2026-09-01 because it globbed `cdx_*.jsonl.gz.part` while the platform sweep writes
+# `suffix_<parent>_<stamp>.jsonl.gz`. Both are the same mistake as the one above, and
+# acting on that answer cost a restart that threw away two parents mid-sweep. So the
+# question asked here is no longer "is a named process alive" but the one the rule is
+# actually about: **how many archive clients hold a journal open**, which is how
+# `restart_sweeps.sh` counts and how the two-client limit is defined (C-77).
+#
 # **The two machines do not agree about what time it is, and their logs do not say
 # so.** The MacBook writes CEST and the VPS writes UTC, so a log line reading
 # "06:36" on one and "08:36" on the other is the same instant. On 8 August that cost
@@ -80,6 +91,23 @@ print(f"   {n:,} queried, {ok:,} answered, {yr:,} year-records")
 print(f"   tiers: host={h:,} root={r:,} scan={sc:,}   failures={f:,} ({100*f/max(n,1):.0f}%)")
 PY
 
+# One client is a `uv run` wrapper PLUS its python child, so counting processes doubles
+# it. A client is the JOURNAL it holds open, so that is what is counted. Linux has
+# /proc; macOS does not, and falls back to lsof.
+sweep_clients() {
+    for pid in $(pgrep -f cdx_suffix_sweep.py 2>/dev/null); do
+        if [ -d "/proc/$pid/fd" ]; then
+            ls -l "/proc/$pid/fd" 2>/dev/null | grep -oE "(suffix|cdx)_[^ /]*jsonl\.gz"
+        else
+            lsof -p "$pid" 2>/dev/null | grep -oE "(suffix|cdx)_[^ /]*jsonl\.gz"
+        fi
+    done | sort -u
+}
+
+# Any collector LOOP, by family rather than by one name: the laptop runs the supervisor,
+# the VPS runs the platform sweep loop under systemd, and both are collectors.
+LOOPS="supervise_cdx_pool[.]sh|platform_sweep_loop[.]sh"
+
 section() { printf '\n== %s ==\n' "$1"; }
 
 section "clocks (both machines, so log timestamps can be compared at all)"
@@ -89,31 +117,71 @@ ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
     2>/dev/null || echo "   VPS   unreachable"
 
 section "local"
-if pgrep -f "supervise_cdx_pool.sh" > /dev/null; then
-    ps -eo etime,command | grep "[s]upervise_cdx_pool.sh" | head -1 | sed 's/^/   up /'
+if ps -eo etime,command | grep -qE "$LOOPS"; then
+    ps -eo etime,command | grep -E "$LOOPS" | head -2 | sed 's/^/   up /'
 else
-    echo "   NOT RUNNING"
+    echo "   no collector loop"
 fi
-part=$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part 2>/dev/null | head -1)
-[ -n "$part" ] && echo "   journal $(basename "$part")"
-ARK_PART="$part" python3 -c "$TALLY"
+open_now=$(sweep_clients)
+if [ -n "$open_now" ]; then
+    printf '   archive clients holding a journal open: %s (the rule allows 2)\n' \
+        "$(printf '%s\n' "$open_now" | wc -l | tr -d ' ')"
+    printf '%s\n' "$open_now" | sed 's/^/     /'
+else
+    echo "   no archive client holds a journal open here"
+fi
+# **A stale `.part` is not an in-flight journal, and reading one is how this line lied.**
+# On 2026-09-09 it printed a tally from a `.part` abandoned on 2026-09-01 while two
+# collectors were live, because `ls -t` returns the newest file whether or not anything
+# still holds it. Anything older than an hour is named and NOT read.
+part=$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part data/raw/cdx/suffix_*.jsonl.gz.part 2>/dev/null | head -1)
+if [ -n "$part" ] && [ -n "$(find "$part" -mmin -60 2>/dev/null)" ]; then
+    echo "   journal $(basename "$part")"
+    ARK_PART="$part" python3 -c "$TALLY"
+elif [ -n "$part" ]; then
+    echo "   newest .part is STRANDED, not read: $(basename "$part")"
+else
+    echo "   no in-flight .part journal"
+fi
 echo "   last finished batch:"
 grep -hoE "cdx: \{[^}]*\}" $(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2>/dev/null \
     | tail -1 | sed 's/^/     /'
 
 section "VPS ($VPS)"
+# The remote half asks the same two questions in the same order, and must not narrow to
+# one script name: this machine runs its loops as systemd user units, so `systemctl` is
+# asked as well as the process table. Everything is single-quoted through ssh except the
+# variables that have to expand here, because a bracketed pattern is what stops `pgrep`
+# and `grep` from matching the command line of the probe itself.
 ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" "
 cd '$VPS_REPO' || exit 1
-if pgrep -f supervise_cdx_pool.sh > /dev/null; then
-    ps -eo etime,command | grep '[s]upervise_cdx_pool.sh' | head -1 | sed 's/^/   up /'
+if ps -eo etime,command | grep -qE '$LOOPS'; then
+    ps -eo etime,command | grep -E '$LOOPS' | head -2 | sed 's/^/   up /'
 else
-    echo '   NOT RUNNING'
+    echo '   no collector loop'
 fi
-part=\$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part 2>/dev/null | head -1)
-[ -n \"\$part\" ] && echo \"   journal \$(basename \"\$part\")\"
-ARK_PART=\"\$part\" python3 -c '$TALLY'
+systemctl --user list-units 'ark-sweep*' --no-legend 2>/dev/null | sed 's/^/   unit /'
+open_now=\$(for pid in \$(pgrep -f cdx_suffix_sweep.py 2>/dev/null); do
+    ls -l /proc/\$pid/fd 2>/dev/null | grep -oE '(suffix|cdx)_[^ /]*jsonl[.]gz'
+done | sort -u)
+if [ -n \"\$open_now\" ]; then
+    printf '   archive clients holding a journal open: %s (the rule allows 2)\n' \
+        \"\$(printf '%s\n' \"\$open_now\" | wc -l | tr -d ' ')\"
+    printf '%s\n' \"\$open_now\" | sed 's/^/     /'
+else
+    echo '   no archive client holds a journal open there'
+fi
+part=\$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part data/raw/cdx/suffix_*.jsonl.gz.part 2>/dev/null | head -1)
+if [ -n \"\$part\" ] && [ -n \"\$(find \"\$part\" -mmin -60 2>/dev/null)\" ]; then
+    echo \"   journal \$(basename \"\$part\")\"
+    ARK_PART=\"\$part\" python3 -c '$TALLY'
+elif [ -n \"\$part\" ]; then
+    echo \"   newest .part is STRANDED, not read: \$(basename \"\$part\")\"
+else
+    echo '   no in-flight .part journal'
+fi
 echo '   last finished batch:'
-grep -hoE 'cdx: \{[^}]*\}' \$(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2>/dev/null \
+grep -hoE 'cdx: \{[^}]*\}' \$(ls -t data/logs/cdx_*.log data/logs/*sweep*.log 2>/dev/null | head -1) 2>/dev/null \
     | tail -1 | sed 's/^/     /'
 " 2>&1 | grep -v "^Warning: Permanently added" || echo "   unreachable (VPN down?)"
 
