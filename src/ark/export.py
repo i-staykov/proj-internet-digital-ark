@@ -294,7 +294,7 @@ def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     return conn.execute(f"SELECT count(*) FROM ({query})").fetchone()[0]
 
 
-def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection) -> int:
+def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> int:
     """Net-new pairs that will actually reach the annual files.
 
     **Not the same as the store's raw net-new total, and the difference is the point.**
@@ -303,7 +303,12 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection) -> int:
     exported line count against this, because comparing it against the raw total made a
     current export look permanently stale: 726,344 against 726,336, a difference that is
     the filter doing its job.
+
+    The diff against his own annual files is part of the same argument. It drops 304 pairs
+    our ingested baseline evidence does not know he holds, and a count taken without it
+    called a correct export stale by exactly that many.
     """
+    load_his_annual_files(conn, baseline)
     total = 0
     for year in YEARS:
         total += conn.execute(
@@ -311,6 +316,7 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection) -> int:
             SELECT COUNT(DISTINCT dy.domain) FROM domain_year dy
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
               AND {_shipping_filter("dy.")}
+              AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
             """
         ).fetchone()[0]
     return total
