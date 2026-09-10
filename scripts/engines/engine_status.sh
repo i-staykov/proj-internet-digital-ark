@@ -218,17 +218,23 @@ section "journals on the VPS not yet copied here"
 # section exists to catch: the VPS once ran for a day and a half with 5,793
 # year-records on its disk and absent from the store, because nothing here looked.
 # So an unanswered question now reads as unanswered.
+# **`; exit 0` on the remote side, because an empty listing is not a dead link.** The
+# VPS collector lane was retired, so its `cdx_*.jsonl.gz` glob matches nothing, `ls`
+# exits 2 and `xargs` turns that into 123. This read every one of those as "could not
+# reach the VPS", on a host answering perfectly well, which is the same lie in the other
+# direction: it cried unreachable for six days while nothing was actually missing. The
+# remote command now always succeeds and ssh's own failure, 255, still trips the branch.
 remote=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
-    "ls '$VPS_REPO'/data/raw/cdx/cdx_*.jsonl.gz 2>/dev/null | xargs -n1 basename 2>/dev/null" 2>/dev/null)
+    "ls '$VPS_REPO'/data/raw/cdx/cdx_*.jsonl.gz 2>/dev/null | xargs -n1 basename 2>/dev/null; exit 0" 2>/dev/null)
 ssh_status=$?
 if [ "$ssh_status" -ne 0 ]; then
     echo "   UNKNOWN: could not reach $VPS to ask (ssh exit $ssh_status)"
     echo "   This is not 'nothing to fetch'. Bring the link up and re-run, then:"
     echo "     rsync -av --ignore-existing '$VPS:$VPS_REPO/data/raw/cdx/cdx_*.jsonl.gz' data/raw/cdx/"
 elif [ -z "$remote" ]; then
-    echo "   reachable, but it lists no journals at $VPS_REPO/data/raw/cdx/"
-    echo "   Check ARK_VPS_REPO: an empty listing from a live host usually means"
-    echo "   the repository is somewhere else on it."
+    echo "   reachable, and it holds no unbanked journals at $VPS_REPO/data/raw/cdx/"
+    echo "   Expected since its collector lane was retired (C-84). If you were expecting"
+    echo "   journals there, check ARK_VPS_REPO: the repository may be elsewhere on it."
 else
     missing=0
     total=0
