@@ -63,6 +63,7 @@ the delivery archive.
 | [reproduction.txt](round/reproduction.txt) | The paragraph on the verification run, quoted into the report by `fill_report.py` | when the report's reproduction paragraph is in question |
 | [delivery_readme.md](round/delivery_readme.md) | The README that ships at the archive root | before packaging |
 | [experience-summary.md](round/experience-summary.md) | What worked, what did not, the limits (D2 of the standard) | when writing up a round |
+| [findings.md](round/findings.md) | The round's research findings and the measurement behind each, kept out of the report so the report stays the figures and the receipts | when writing up a round |
 | [assets/](round/assets/) | `report-reference.docx`, the Word style reference for the report | never, unless the report styling changes |
 
 ## Operations

@@ -204,6 +204,9 @@ cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
 cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
+# The round's research findings, kept out of the report so the report stays the five
+# figures and the receipts. The report links here rather than carrying the method essay.
+cp docs/round/findings.md "$STAGE/findings.md"
 cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
@@ -213,6 +216,18 @@ MERGE_STAMP="$(date -u +%Y%m%d)"
 cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
+
+# Nothing ships that his baseline already holds. The export diffs every list against his
+# own annual files, so a non-zero overlap here means that diff did not run or ran against
+# a stale baseline directory, and the round would claim records he already has. It was
+# 304 on 2026-09-10, from a store whose ingested baseline predated his current release.
+OVERLAP=$(python3 -c "import json,sys; print(int(json.load(open(sys.argv[1]))['totals']['already_in_baseline_records']))" \
+    "output/merge/merge_audit_ark_${MERGE_STAMP}.json")
+if [ "$OVERLAP" != 0 ]; then
+    echo "refusing to package: $OVERLAP submitted records are already in the baseline." >&2
+    echo "re-run \`uv run ark export\` against the current baseline, then the merge audit." >&2
+    exit 1
+fi
 
 
 # merged master year lists + net-new additions + provenance
@@ -239,10 +254,26 @@ uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_satu
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+# THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
+# name he already lists in his candidate pool or in any annual file. He scores candidates
+# separately and at the same rate as annual records, so the claim is held to the same
+# net-new standard the annual files are. Provenance for each name is in `provenance/` and
+# in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
+cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
+cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
 # The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.
-uv run python scripts/round/unparsed_pool.py --out "$STAGE/candidates_unparsed.txt" || true
+#
+# **Kept in `output/netnew/` and rebuilt only when a journal is newer than it.** The scan is
+# exhaustive by design, and exhaustive now means reading 226 GB of gzip: it cost 25 minutes of
+# every packaging run, repeated in full whenever a report line changed. The journals only grow,
+# so a copy younger than every journal is the same file the scan would write.
+UNPARSED="output/netnew/candidates_unparsed.txt"
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit)" ]; then
+    uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
+fi
+cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level

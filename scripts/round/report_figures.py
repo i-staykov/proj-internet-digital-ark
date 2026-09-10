@@ -28,6 +28,7 @@ from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
 from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.export import load_his_annual_files  # noqa: E402
 from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
 
 DB = Path("data/ark.duckdb")
@@ -58,20 +59,34 @@ NOT_BASELINE = """
 SHIPPED = _shipping_filter("dy.")
 CANDIDATES_SHIPPED = _shipping_filter("d.", with_year=False)
 
+# The same diff the export applies, so the report's per-source table cannot count a row
+# the shipped files do not carry. `NOT_BASELINE` above asks OUR ingested copy of the
+# baseline; this asks his actual files, and on 2026-09-10 the two disagreed about 304
+# records, which is exactly the gap between the attribution table's total and the
+# increment. `figures()` loads `his_annual` before it runs any query that uses this.
+NOT_IN_HIS_FILES = """
+    NOT EXISTS (
+        SELECT 1 FROM his_annual h
+        WHERE h.name = lower(trim(dy.domain)) AND h.year = dy.assigned_year
+    )
+"""
+
 
 def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     out: dict = {}
+    load_his_annual_files(conn)
 
     out["netnew_by_year"] = {
         int(y): int(n)
         for y, n in conn.execute(f"""
             SELECT assigned_year, count(*) FROM domain_year dy
-            WHERE {NOT_BASELINE} AND {SHIPPED} GROUP BY 1 ORDER BY 1
+            WHERE {NOT_BASELINE} AND {SHIPPED} AND {NOT_IN_HIS_FILES} GROUP BY 1 ORDER BY 1
         """).fetchall()
     }
     out["netnew_pairs"] = sum(out["netnew_by_year"].values())
     out["netnew_unique_domains"] = conn.execute(
-        f"SELECT count(DISTINCT domain) FROM domain_year dy WHERE {NOT_BASELINE} AND {SHIPPED}"
+        f"SELECT count(DISTINCT domain) FROM domain_year dy "
+        f"WHERE {NOT_BASELINE} AND {SHIPPED} AND {NOT_IN_HIS_FILES}"
     ).fetchone()[0]
 
     # Genuinely new DOMAINS: a name the baseline does not hold in any year at
@@ -83,7 +98,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
                 SELECT 1 FROM evidence p
                 WHERE p.domain = dy.domain AND p.evidence_type = 'prior_reused'
             )
-            AND {SHIPPED}
+            AND {SHIPPED} AND {NOT_IN_HIS_FILES}
         )
     """).fetchone()[0]
 
@@ -117,7 +132,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
         FROM domain_year dy
         JOIN evidence e ON e.evidence_id = dy.evidence_id
         JOIN source s ON s.source_id = e.source_id
-        WHERE {NOT_BASELINE} AND {SHIPPED}
+        WHERE {NOT_BASELINE} AND {SHIPPED} AND {NOT_IN_HIS_FILES}
         GROUP BY 1, 2
     """).fetchall():
         ee_by_source[name] = ee_by_source.get(name, Decimal(0)) + weights.get(tld, Decimal(0)) * n
@@ -141,7 +156,7 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
             FROM domain_year dy
             JOIN evidence e ON e.evidence_id = dy.evidence_id
             JOIN source s ON s.source_id = e.source_id
-            WHERE {NOT_BASELINE} AND {SHIPPED}
+            WHERE {NOT_BASELINE} AND {SHIPPED} AND {NOT_IN_HIS_FILES}
             GROUP BY 1, 2, 3 ORDER BY 4 DESC
         """).fetchall()
     ]

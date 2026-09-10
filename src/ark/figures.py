@@ -48,11 +48,14 @@ SCORE_RULE_SINCE = "2026-08-20 03:37"
 PLACES = Decimal("0.000001")
 
 # The origin of the assignment rule: the date this participant first received the task.
-# His brief is stamped 2026-07-21 18:07:04 and round 1's benchmark was released
-# 2026-07-21 12:24, so that is the earliest date any record here supports. **It is not
-# confirmed by Ivo and one day of error moves every S_i**, which is why it is a named
-# constant rather than a literal in a formula.
-TASK_ASSIGNED_DATE = "2026-07-21"
+# **Derived from his own arithmetic rather than from our records.** He scored round 8 as
+# 10 x (18.769714 / 33) and received it on 2026-09-04, and 2026-09-04 minus 33 whole
+# calendar days is 2026-08-02. Our own earliest record is 2026-07-21 (his brief is
+# stamped 18:07:04 that day, round 1's benchmark released 12:24), which would give 45 and
+# is not the divisor he used. His figure is the law; ours was an inference from receipts
+# he never confirmed. One day of error moves every S_i, which is why this is a named
+# constant carrying its derivation rather than a literal in a formula.
+TASK_ASSIGNED_DATE = "2026-08-02"
 
 
 def parse_stamp(stamp: str) -> datetime:
