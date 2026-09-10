@@ -481,6 +481,34 @@ def ingest_ietf_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
 
 
+@app.command(name="ingest-usenet-header-hostnames")
+def ingest_usenet_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_usenet_header_pool.py, or "
+            "directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the server-written header hosts of dated Usenet posts.
+
+    Approved master-eligible by Ivo on 2026-09-10. Three fields, all written by a news
+    server about a transaction it completed: the trailing hostname of `X-Trace:`, the
+    `NNTP-Posting-Host:` the accepting server logged, and the final `Path:` hop. The
+    `Message-ID` host is client-written and is not read. Idempotent per shard.
+    Example: ark ingest-usenet-header-hostnames data/raw/usenet_header_items
+    """
+    from ark.hostnames import USENET_HEADER_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
