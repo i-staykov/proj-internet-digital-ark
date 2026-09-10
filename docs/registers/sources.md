@@ -5265,6 +5265,100 @@ it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause A
   `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with
   `uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/`
 
+## `usenet_header_fqdn_hostnames`: BANKED 2026-09-10 at 350,945.6930 EE, the largest single lane of the round after the CDX sweep, and a rejection that rested on a wrong number
+
+**Ivo, 2026-09-10: "The master-eligiblity of usenet_header_fqdn_hostnames is herewith absolutely
+approved."** He asked in the same breath whether the size objection that had closed it on
+2026-09-08 was true. It was not, and the correction is the whole story of this lane.
+
+- **the rejection said 224 GB "on neither machine any more". Measured instead of remembered:**
+  the two collections the class was priced on are `https://archive.org/download/usenet-demon/`,
+  58 zips and 0.79 GB, and `https://archive.org/download/usenet-uk/`, 495 zips and 14.48 GB,
+  summed from `https://archive.org/metadata/<item>`. **15.3 GB, not 224.** The 224 GB is the
+  thirteen-pool body-URL corpus, a different and far larger population, and it had been copied
+  into this entry by mistake. Separately, 104.8 GB of spool, 16,850 `.mbox.zip` archives across
+  `usenet_bulk`, `usenet_new`, `usenet_probe5` and `usenet_msft`, was already on the laptop with
+  172 GB free. Both halves of "too large and not enough space" were false, and the lane needed no
+  fetch at all to bank what it banked
+- **the reading is C-83's, not a new one.** A news server writes `X-Trace:`,
+  `NNTP-Posting-Host:` and its own `Path:` hop about a transaction it completed: about itself, or
+  about the machine it has just accepted an article from. That is what a receiving MTA does in a
+  `Received: ... by <host>` clause. Different protocol, same writer, same self-dating record
+- what dates one item: the post's own `Date:` header, the same field and the same boundary the
+  body-URL lane uses, so the two figures are comparable. Quoted:
+  `X-Trace: mail2news.demon.co.uk 894324354 19133 faqs pcserv.demon.co.uk` in a 1998 post dates
+  `pcserv.demon.co.uk`, and the evidence row is
+  `usenet header 1998 demon.ip.support.pc.mbox.zip#7 pcserv.demon.co.uk`
+- **`Message-ID` is still not read and still has no ruling.** Turnpike and Demon's clients stamp
+  it from a configured nodename, so it is client-written; the 2026-09-02 probe priced it
+  separately at 4,054 EE and the extractor does not touch it
+- **two parsing traps, both of which banked fiction before they were pinned.** News servers
+  append their own verdict to a `Path` element: `.POSTED` marks the injecting site and is not
+  part of the name, and left in it banked `news2-win.server.ntlworld.com.posted` as a host in its
+  own right, 2,006 rows in a 35 MB test; `.MISMATCH` is the server saying the reverse DNS did NOT
+  match, so that element is dropped rather than cleaned. And the dial-up pool filter had to be
+  widened against real samples four times before it caught
+  `1cust104.tnt8.redondo-beach.ca.da.uu.net`, `136.pool2.fukuoka.att.ne.jp` and
+  `man-s286.dialup.zetnet.co.uk`. It drops 6.5% of rows against the 6.9% the fleet's probe
+  measured. Both pinned in `tests/test_usenet_header_hostnames.py`
+- **the two Usenet lanes now share ONE provenance lineage** in `stats.py`. They read the same
+  spool: the body lane takes hosts people TYPED, this one takes hosts servers WROTE into the same
+  posts' headers. The facts differ, the corpus does not, so filing them apart would have let one
+  archive corroborate itself. That is the same trade the gatewayed-list note makes
+- realised, `--by-source` against the store on 2026-09-10: **736,440 net-new records,
+  350,945.6930 EE**, from 744,267 `hostname_year` rows. By pool: `usenet_bulk` 375,854 rows off
+  56.0 GB, `usenet_new` 358,757 off 53.5 GB, `usenet_probe5` 9,656, `usenet_msft` 0. 79.8M posts
+  read, 45.5M inside 1996-2001, 17.0M carrying a server-written host. Saturation is visible
+  inside a single pool: the first shard of `usenet_bulk` gave 94,287 rows and the fifth 45,963
+- **the demon.* and uk.* hierarchies, the 15.3 GB the class was actually MEASURED on, are still
+  unfetched.** Everything above is the general spool, which the probe expected to saturate on
+  news-server names. The ISP hierarchies are where the customer host appears and where the
+  20,000 to 60,000 EE band for demon.* alone was measured
+- collect: `uv run python scripts/sources/usenet/build_usenet_header_pool.py <pool> <out> <n>`;
+  ingest with `uv run ark ingest-usenet-header-hostnames <out>`
+
+## `poland_pl_extract_hostnames`: BANKED 2026-09-10 at 15,798.4430 EE, and the terms question that had to go to Ivo
+
+**Ivo, 2026-09-10: "I absolutely approve Poland_pl-ccTLD_2001-12-31 /
+ia-poland-pl-cctld-extraction-2001-cdx-hostnames to be downloaded, ingested and recorded."**
+
+- the artifact: <https://archive.org/details/Poland_pl-ccTLD_2001-12-31>, 19 items, uploader
+  helge@archive.org, publicdate 2020-12-14, parent collection `webdataservices`, the sibling of
+  `earlygovweb` where USFEDGOV-EXTRACT lives. Only the item-level `<item>.cdx.gz` is fetched,
+  1,240,317,860 bytes over 19 files. The 205 GB of ARC beside them is `private: true` and is
+  never touched
+- what dates one item: field 2 of the CDX row, the crawler's own 14-digit capture timestamp.
+  Quoted: `pl,gazeta,gwx)/~piotrh/art/horowitz/hz11.html 19960510131727
+  http://gwx.gazeta.pl:80/~piotrh/art/horowitz/hz11.html text/html 200` dates `gwx.gazeta.pl` for
+  1996. **The host comes from field 3 and never from field 1**, because the SURT key drops `www`
+  and reverses the labels
+- **the terms question, and the reason the loop did not write this decision itself.** The
+  collection record carries `access-restricted-item: true` and `hidden: true`, while every index
+  file under it is served with 200 and no login. Condition 3 of the standing rule is "the terms
+  permit it", and a collection the IA flagged restricted while leaving its indexes world-readable
+  is not a clean yes. Conditions 1, 2 and 4 all held: the class is `cdx_timestamp`, already
+  master at this exact artifact shape. Host is `archive.org/download/`, not
+  `web.archive.org/cdx`, so not a third client on the collectors' channel (C-77)
+- **the scout's measurement was reproduced independently before it was trusted.** The fetch
+  verifies every index against the byte size and sha256 the scout read, 19 of 19 with no
+  mismatch, and the reduction found 36,117,823 CDX rows against the scout's 36,117,804: the
+  difference is exactly the 19 CDX header lines. `no_host` 342 matched the scout's 342 exactly
+- only HTTP 200 rows inside 1996-2001 are kept, which is the population the price was taken on.
+  442,810 journal lines, 400,112 hostname candidates, **219,870 `hostname_year` rows and 1,263
+  parent-year rows** on ingest
+- realised, `--by-source` against the store: **147,649 net-new records, 15,798.4430 EE**, against
+  the scout's 16,958.4300 EE priced on the `merged260908` snapshot. 93.2% of the prediction, and
+  the gap is the store moving under it between the price and the ingest
+- capped by the population and not by effort: all but 3 hosts end in `.pl`, whose English share
+  is 10.7%, so the gross ceiling of the whole collection is 47,363 EE. Worth doing, never the
+  six-figure corpus the round was hunting
+- **next, and it is the interesting part.** `helge@archive.org` uploaded this in 2020 under
+  `webdataservices`. A sibling extraction for a high-English ccTLD (`.au`, `.nz`, `.ie`, `.za`,
+  `.ca`) would be six figures on the same class, the same shape and the same terms question
+- collect: `bash scripts/sources/poland/fetch_poland_cdx.sh`, then
+  `uv run python scripts/sources/poland/poland_pl_hostgrain.py data/raw/poland_cdx/`; ingest with
+  `uv run ark ingest-hostnames data/raw/poland_hostgrain/`
+
 ## ietf_list_header_hostnames / link_source
 
 **C-83's class at a second host, not a new class** (Ivo 2026-09-10). The same `Received: ... by
@@ -5313,3 +5407,17 @@ C-81's 1,000 EE grain floor applies rather than the 5,000 EE floor for a new sou
   Treat 22,261 as a ceiling and the realised sweep as the number
 - collect: `uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`, then
   `sweep`; ingest with `uv run ark ingest-ietf-header-hostnames data/raw/ietf_header_items/`
+- **BANKED 2026-09-10, the whole partition: 21,465 net-new records, 11,986.1182 EE.** All 4,846
+  in-window list-months swept into 224 shards, 274,891 items, 22,731 `hostname_year` rows and 454
+  parent-year rows on ingest. **The ceiling was right to distrust: realised is 53.8% of the
+  22,261 EE projection**, and the log-log fit was the optimistic half of the two readings even
+  so. The Apache lane's saturation law holds at a second host, which is now measured twice rather
+  than argued once: the same relay hosts recur across a busy list's months and the second
+  sighting is not net-new. 2.47 EE per list-month realised, against 6.9 on the 13.61% sample,
+  because the sample was the head of the distribution
+- two silent ingest defects were fixed BEFORE this ingest, and finding them is why the
+  half-swept corpus was not banked early to book EE sooner (#132): the walker globbed a suffix
+  the collector never writes, so an ingest that found no files reported success; and idempotence
+  keyed on a file NAME froze a shard the collector was still appending to, which would have
+  pinned every list at whatever it held at 45% and skipped the rest for ever, silently. Both are
+  in `docs/lore/traps.md`
