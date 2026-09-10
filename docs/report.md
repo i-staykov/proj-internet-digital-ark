@@ -16,9 +16,9 @@ per-source receipts in `sources.md`, and the route through the archive in `READM
 | 5. Equivalent-English growth rate | **5.3744%** |
 
 91,168 records (65,738.2990 EE) are registrable domains in `additions/` and 3,308,090 (1,809,240.9377
-EE) are hostnames beneath them in `hostnames/`. The two are disjoint in every year, neither is in
-the baseline, and either set can be merged or discarded whole. The increment covers 84,942
-distinct domains, 44,919 of which appear in none of your six files in any year.
+EE) are hostnames beneath them in `hostnames/`: disjoint in every year, and either set can be
+merged or discarded whole. 84,942 distinct domains carry the increment, 44,919 of them
+absent from your six files in every year.
 
 | Year | Registrables | Hostnames | Equivalent-English added |
 |------|-----------:|-----------:|--------------:|
@@ -52,25 +52,23 @@ Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744
 | 7 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 2,778 | 1,244 |
 | **Total** | | | **3,399,258** | **1,874,979** |
 
-Every stamp above is machine-written and inside the artifact, so no human judgement dates a year,
-and the middle column says which stamp for every source. Nothing in this table is a record your
-baseline already holds: the export diffs every shipped list against your own six annual files, so
-the overlap in section 5 is zero by construction.
+Every stamp is machine-written and inside the artifact, so no human judgement dates a year, and the
+middle column names the stamp per source. Nothing here is a record you already hold: the export
+diffs every shipped list against your own annual files, so section 5's overlap is zero by
+construction.
 
-**One class is new.** A server writing its own name: the `Received: ... by <host>` clause a
+**One class is new**, a server writing its own name: the `Received: ... by <host>` clause a
 receiving mail server writes about itself, and the `Path:`, `X-Trace:` and `NNTP-Posting-Host:`
 headers a news server writes about a transaction it completed. No sender-supplied field is read.
-`findings.md` section 1 gives the exclusions and the two parsing traps that had to be caught first.
-
-A capture proves presence and never absence, and a server header attests the year of its own
-message and no other, so both routes err toward omission rather than invention.
+`findings.md` gives the exclusions and the two parsing traps caught first. A capture proves
+presence and never absence, and a header attests its own message's year and no other, so both err
+toward omission.
 
 ## 3. The candidate track, counted the same way
 
-You score candidates separately and at the same rate, so this is a contribution and is held to the
-same standard as the annual one: a name your files already carry is not an addition. Every
-candidate collection we hold is unioned into one pool, then diffed against your `candidate_pool.txt`
-and all six annual files.
+You score candidates separately, at the same rate, over the same denominator, so this is a
+contribution and is held to the annual standard: every collection we hold unioned into one pool,
+then diffed against your `candidate_pool.txt` and all six annual files.
 
 | | Names | Equivalent-English |
 |---|--:|--:|
@@ -78,46 +76,41 @@ and all six annual files.
 | exact hostnames | 13,109,834 | 6,691,826.9522 |
 | **`candidate_additions.txt`** | **13,139,161** | **6,696,064.0603** |
 
-That is **19.1935%** of the same equivalent-English denominator as section 1, on the track you
-count separately, and it is never added to the annual increment.
+**19.1935%** of the same denominator as section 1, never added to it.
 
-**Where the names came from.** The hostnames are the ISC Internet Domain Survey of 1996-1997, dated
-by each edition's own code and named host by host: a DNS observation, which your 2026-09-05 ruling
-makes candidate-only, and which promotes one host at a time when exact-host web evidence arrives.
-The registrable names are what our own lanes turned up without an in-window stamp, chiefly hosts
-named in Usenet posts and mail archives whose date we could not pin to a year we could defend.
-**Provenance is per name and not in this list**: `provenance/` joins every name to the evidence row
-behind it, and `isc_survey_hostnames/isc_survey_provenance.csv` carries the survey edition, source
-file, recovery URL, record location, extraction method and target year for every hostname, which is
-the shape you specified on 2026-09-06. That collection also still ships in its own folder; its
-names are inside the pool above and are not counted twice.
+The hostnames are the ISC Internet Domain Survey of 1996-1997, dated by each edition's own code:
+a DNS observation, which your 0905 ruling makes candidate-only and promotable one host at a time on
+exact-host web evidence. The registrables are names our lanes found without a year we could defend.
+**Provenance is per name and not in this list**: `provenance/` joins each name to its evidence row,
+and `isc_survey_hostnames/isc_survey_provenance.csv` carries the survey edition, source file,
+recovery URL, record location, extraction method and year for every hostname, the shape you
+specified on 2026-09-06. That folder still ships; its names are inside the pool and not counted
+twice.
 
-**Our registrable pool is nearly exhausted against yours, which is worth knowing.** It holds
-2,279,755 undated names and ships whole as `candidates.txt` as the working set, but only
-29,327 of them are absent from your files. Reporting the working set as the contribution would
-have overstated that half of the track by 78x.
+One measurement worth passing on: our working pool holds 2,279,755 undated names, of which
+29,327 are absent from your files. Shipping a working set as a contribution would have
+overstated that half of the track by 78x.
 
-## 4. How the work runs, and what we would do next
+## 4. How the work runs, and where it goes next
 
 Two archive clients at most, ever, with an honest User-Agent naming the project and a contact, and
-they hold the CDX channel exclusively. Beside them an autonomous research harness runs on a
+they hold the CDX channel exclusively. An autonomous research harness runs beside them on a
 self-hosted runner: one lane proposes sources, one prices each against a snapshot of the store, a
 separate admitter re-derives every figure locally before anything is banked, and a re-opener
-re-tests closed verdicts whenever a measurement screen retires. The research lanes can never write
-to the store, which is why an agent's own figure has never decided a record.
+re-tests closed verdicts whenever a measurement screen retires. **The research lanes cannot write
+to the store**, which is why an agent's own figure has never decided a record.
 
 **No agent assigns a year, and no source reaches an annual file without a written decision.** A
 year comes from a machine-written stamp inside the artifact; `ark ingest` refuses any class with no
-`Decision:` line, and it refused twice this round until the decision existed. Eighteen invariants
-run before every commit and again inside the archive you are holding.
+`Decision:` line and refused twice this round until one existed. Eighteen invariants run before
+every commit and again inside this archive.
 
-**Next, in the order we would spend the hours.** The server-header class at the archives it has not
-been run against, which needs no new bandwidth. The ISP Usenet hierarchies, where the customer host
-appears rather than the news server. Sibling national ccTLD extractions of the shape the Poland
-index has, which exist for other countries under the same uploader. Second-level suffix namespaces
-at hostname grain, where `co.uk` alone is 3.39M index blocks and 1.2% walked. And promoting ISC
-candidates one host at a time as exact-host web evidence arrives, which is the only route that
-turns that 6.7 million into annual records.
+Next, in the order we would spend the hours: the server-header class at the archives it has not
+been run against, which needs no new bandwidth; the ISP Usenet hierarchies, where the customer host
+appears rather than the news server; sibling national ccTLD extractions of the shape the Poland
+index has; second-level suffix namespaces at hostname grain, where `co.uk` alone is 3.39M index
+blocks and 1.2% walked; and promoting ISC candidates as exact-host web evidence arrives, the one
+route that turns 6,691,826.9522 candidate equivalent-English into annual records.
 
 ## 5. Merge, overlap and reconciliation (D3)
 
