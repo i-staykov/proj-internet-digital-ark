@@ -1,0 +1,563 @@
+# The measured laws of source pricing
+
+**What kills a source before it is downloaded, and what a surviving source is worth.** Every
+figure here was measured on this project's own store. A date beside a figure is its measurement
+date; a figure without one was current when this page was cut from `CLAUDE.md` on 2026-09-02.
+Read this before pricing or proposing a source. [discovery.md](discovery.md) has the long form,
+[traps.md](traps.md) the mistakes already paid for, [rules.md](rules.md) the evidence standard.
+
+
+
+## The thin-parent lane: 642 EE per client-hour, and targeting does not rescue it
+
+Tested 2026-09-06 on the idea of asking one `matchType=domain` question per registrable we hold
+with NO hostname records. The population is real and large: **10,029,609 registrables**.
+
+Two live samples, 70 requests:
+
+| population | hosts per answer | EE per client-hour |
+|---|--:|--:|
+| random zero-hostname parents (35) | 1.06 | **642** |
+| same but held in 5 or 6 years (35) | 0.97 | **563** |
+
+**Longevity does not predict yield here, so the obvious targeting lever is dead.** The reason is
+structural and shows in the shape of the two populations: 80% of the zero-hostname registrables
+appear in only one or two years, against a flat spread for those that DO have hostnames. The rich
+parents already have hostname records because the sweep already took them. What is left is thin
+because it was thin in the era.
+
+**The ceiling is worth knowing anyway.** 10,029,609 parents at 0.55 EE each is about **5.5M EE**,
+more than three times the 5% gate. It is not that the lane is worthless, it is that one request
+buys one record: at 1,100 answers per hour and two clients, harvesting it whole is roughly 190
+days. Against the domain-wide sweep's 193,000 EE per client-hour it is 300 times worse.
+
+**And its efficient form already exists.** One question that returns thousands of hosts is exactly
+what `matchType=domain` over a public suffix does, which is the suffix sweep. The per-registrable
+version is the same question asked ten million times instead of once.
+
+Keep it as the floor lane: when the ranked platform queue is finally empty, this is what is left,
+and it is still 2.5 times a per-domain gap query.
+
+## A DNS observation is worth 2.67% of a web observation, measured by the reviewer
+
+He audited 1,800 ISC hostname-year records at random and **48 of them, about 2.67%, returned an
+exact-host IA CDX record anywhere in 1996-2013** (2026-09-06). That is the price of the whole ISC
+class as annual evidence, and it is his own figure rather than ours, so it settles the question we
+had been asking since 2026-09-02.
+
+Two things follow. **A DNS-grain corpus is a candidate asset, not an annual one**, however well
+dated it is, because the date proves a machine answered and not that a page existed. And **the
+promotion route is worth pricing rather than assuming**: 2.67% of our 18,087,127 ISC hostname-years
+is roughly 483,000 that could carry an exact-host capture, so the value of hunting that evidence is
+bounded and knowable before a single request is spent.
+
+Our own independent measurement of the same class agreed in shape: 1.419% of the ISC hosts appear
+anywhere in his files, against 84.2% for the `www.` shape.
+
+## The eight laws
+
+1. IA-derived cannot be net-new: the baseline is IA-derived too.
+2. Listing a name proves the artifact's date, not that the name was live.
+3. A trust-selected corpus holds authorities, not hosts.
+4. A current-state snapshot cannot evidence a past year.
+5. Human-typed novel names take the split and earn no year.
+6. Anonymised or hashed hostnames are worth nothing: ask for the sanitisation paragraph first.
+7. Dating and URL-bearing anticorrelate: a record naming a site is one somebody has since edited.
+8. Overlap with the baseline corroborates a reading; it never justifies one (Ivo, 2026-08-24).
+   The grounds must be what dates the item: the artifact asserting a state at an instant it
+   stamps itself, and a capture fixing when it existed. Agreement with `prior_task` is a check
+   on that argument, and cited only after it.
+
+## Prose density, and the second screen behind it
+
+Prose density ceiling: ~0.042 net-new pairs per item, so ~238,000 items to clear the 10,000 EE
+bar. Ask what the corpus is *about* before trusting even that.
+
+**Density and authority are two INDEPENDENT screens and a corpus must pass both.** Formal prose
+fails the first: Hansard is 3.26M words per 5 URLs, 0.00153 URLs per 1,000 words. Grey
+literature passes it emphatically at **221x that rate** (ERIC, 0.339 per 1,000 words) and then
+fails the second at 93.0% already held, because program reports print the URLs of institutions
+we already have. Measure BOTH on a sample before pricing any prose corpus, and expect `.edu` and
+`.gov` to die to the split: ERIC held 184 `.edu` pairs and exactly one survived.
+
+## Under the split, novelty is a cost
+
+**A list's EE is (domains held AND missing that year) x nothing else.** A novel name earns no
+year. But high already-held is only half the test: an IRR dump at 97.6% held paid **4.44 EE**
+because 95.2% were held **in that very year**. The screen is *held AND missing this year*.
+junkfilter paid 2,189 EE spanning 13 editions 1997-2001; a two-year list over the same
+population paid 120. Ask which YEARS an artifact can add to names we already have.
+
+## Compute headroom from the adjacent year only
+
+A gap between a domain's LAST held year and the target is evidence of death, not of missing
+data: of 9,680 `.us` names missing 2001, **6,948 were last seen in July 1997**, and only 37.65%
+of the names an ISC 1997 walk attests have any 2001 record at all (`.com` from the same file:
+40.31%). So "held ANY year, missing Y" is contaminated and "held Y-1, missing Y" is not. Quote
+the adjacent figure.
+
+## Aim at 2001, not 1996
+
+Measured headroom: **6,708,320 domains held at 2000 and missing 2001**, worth ~2.92M EE gross
+in the top eight TLDs, against **103,953** for the 1996-to-1997 gap. A 64x difference. Thin in
+absolute pairs is not the same as fillable. So aim the frozen-mirror rule at media and mirrors
+that stopped in **2001-2003**, not the 1990s.
+
+## The 2001 threshold, and it is the screen to use
+
+P(store lacks 2001 | domain held) is `com` 0.611, `net` 0.653, `org` 0.568, `uk` 0.309, `de`
+0.841. So one ALREADY-HELD name in a 2001-dated artifact is worth 0.386 EE in `com`, and
+**1,000 EE needs only ~2,600 held `com` names** (2,477 `org`, 2,484 `au`, 3,298 `uk`). That is
+32x below the 83,000 the curated-directory floor demands, because that floor was measured on
+artifacts dated in years already well covered. **A few thousand held names dated 2001 is a
+find; the same list dated 1999 is not.**
+
+**That is a population average and does NOT transfer to head-selected corpora.** A 2001
+magazine article archive measured **0.041 EE per name**, nine times worse, because a magazine
+cites the head of the distribution and we already cover the head at 2001. Head-type artifacts
+need ~24,000 names. **The pre-download discriminator is the expected held-fraction**: blocklists
+~50%, authority corpora 87-99%, forged-header spam corpora **~5%** (a remailer log was 23,102
+names and 4.56% held, since spam sender hostnames are invented). When sampling to check, sample
+DISTINCT DOMAINS, not `domain_year` rows: per-row gives P=0.492 against the true per-domain
+0.611.
+
+## Crawling kills discovery, not completeness, and the two laws interact
+
+A crawl-fed adversary finds few novel names (only 15% of a squidGuard list is unknown to us), so
+it loses on discovery. But if its held names LACK the year it is dated, it wins anyway: the
+**2001-12-18** squidGuard blacklist is 84.8% known and only 57.9% held at 2001, so it pays
+**10,736 EE**, while the 2000-10-18 edition paid 18 because its names already carried 2000.
+**So ask which YEAR the artifact can add before dismissing it for crawling.** Non-crawl channels
+still win on discovery: junkfilter 50.4% held, SpamEater 59.1%, a typosquat listing 25.8%.
+Visitor logs lose on both, at 98.4% and 99.6%, because the hostname is reverse DNS and the long
+tail resolves to its ISP.
+
+## The curated-directory floor
+
+Measured over four artifacts: 0.013 to 0.024 net-new post-split pairs per LISTED domain, at
+0.39 to 0.70 EE per pair. So 1,000 EE needs 83,000+ listed domains in one artifact. For a
+human-curated list, novelty and datability are mutually exclusive: what we lack takes the split,
+what survives the split we already hold. Ask whether the lister held the database, not how long
+the list is.
+
+## The hostname unit pays where a human typed the host, not where a crawler visited it
+
+Measured 2026-09-03 over the whole E9.5 batch. A hostname is net-new only if neither the store
+nor his files hold it in that year, and **the commonest way to satisfy that and mean nothing is
+`www.<a name already held that year>`**: the ingest refuses `www.<parent registrable>` as the
+parent's own site under the name every crawler tries first, and nothing refuses the same alias
+one level down, where the bare name is a hostname or a registrable we or he already date.
+
+The share of net-new hostname EE that is this alias, by artifact type: a bulk CDX index re-read
+at hostname grain is **essentially nothing else** (`nypw_firstcdx` 100.0% of 7,074.09 EE, leaving
+2.84; `ukwa` geoindex 99.5% of 20,916.90 EE, leaving 107.94), while a corpus of URLs people typed
+keeps most of its figure (`usenet_new` 33.8%, `usenet_bulk` 27.3%, `rtfm` FAQs 32.8%).
+
+**ADR-009 inverted what that share MEANS, on 2026-09-04, and the measurement was right while the
+conclusion drawn from it became wrong.** While the alias was withheld, a high share meant a corpus
+was worthless and three were closed on it. Now the alias is a record, so **a high alias share means
+a corpus is worth nearly its gross**, and the same three corpora paid 20,913.95, 7,073.72 and
+3,988.79 EE on the day the rule changed. The share is still the number to measure first; it is now
+read as "how much of this is the crawler's own naming" rather than as "how much of this is
+nothing". Any bulk capture index we hold is a hostname corpus under this reading.
+
+**And the corollary cost us 2,984,321 answers.** The gap engine asked the archive `fl=timestamp`
+and journalled `{domain, years}`, so across 1,163 journals not one row records the host the archive
+had just named, and none of it can be re-read one level down. Since 2026-09-04 the query asks for
+`timestamp,original` and the journal keeps a `hosts` map, which makes every future gap query a
+hostname harvest at no extra request. **The general rule: journal the response, not the answer to
+today's question.** A collector that records its conclusion rather than its evidence cannot be
+re-read when the unit changes, and the unit changed twice in four days.
+
+## Breadth pays and depth does not: 22.2% saturation across hierarchies, 90.5% inside one
+
+Measured on 2026-09-04 over 272 GB of Usenet, which is the largest single corpus this project has
+read, and the two numbers point in opposite directions.
+
+**Across hierarchies, saturation is mild.** Thirteen pools summed standalone give 158,841 EE
+eligible; unioned they give 127,616. So a hierarchy nobody has read still adds about four fifths
+of its own value, which is what justified reading eleven of them rather than sampling one.
+
+**Inside a hierarchy that is already read, saturation is near total.** 133 more `alt.*` archives,
+48 GB and 29.8M posts on top of the 9,266 `alt.*` archives already priced: 48,635 candidates, of
+which **44,028 were already in the store, 90.5%**. Net-new was **3,278 hostname years and
+1,929.1974 EE, about 40 EE per GB** against `news` at 2,552 gross and `soc` at 418. The remaining
+101 GB of non-`alt.sex` archives is therefore worth order 4,000 EE, and **the download was
+cancelled on that number** rather than on a guess.
+
+**The reason is what makes it transferable.** The hosts people typed at each other are the same
+few thousand free-hosting, portal and university hosts wherever they typed them, so depth inside
+one community re-finds them and breadth into another community finds a different set. The
+operational rule: **when a corpus divides into communities, read one archive from every community
+before a second archive from any of them.** The `usenet_probe` report of 2026-08-27 recommended
+closing the entire Usenet hostname lane on one `comp` group, which was wrong by two orders of
+magnitude for exactly this reason, and the same error in the opposite direction would have spent
+a day fetching `alt`.
+
+## Why only a bulk corpus closes the gap
+
+Querying is measured at **255 EE/hour** (400 pairs/hour over a 16.9-hour window, 2026-08-31, at
+0.638 EE/pair). The older ~3,000 EE/hour figure was the RDAP era and is dead with it. Ding
+confirmed 5% is a hard trigger, and on 2026-08-31 the gap was **530,535 EE**, which is 87 days
+of pure querying. The whole priced approval queue that day was 27,386 EE, or 5.2% of the gap.
+Spend the hours on bulk dated corpora accordingly; the current gap is in `ROUND.md`.
+
+**And the domain-wide hostname sweep is the exception that reframes the rest, measured
+2026-09-04.** Two archive clients walking `matchType=domain` over registrables we ALREADY HOLD
+produced 14,256,371 capture rows in 75 minutes, of which 1,131,651 became hostname records and
+**774,767 were net-new and shippable, worth 482,567.9442 equivalent-English: 41.9% of the whole 5%
+gate in an afternoon.** That is roughly 193,000 EE per client-hour against 255 EE/hour for the
+per-domain gap query, a factor of about 750.
+
+The difference is not the archive and not the rate limit, which are the same for both. It is the
+question. A gap query asks "which years does this one domain have", and one answer is one pair. A
+domain-wide query asks "what hosts existed under this domain", and one answer is thousands, each
+its own record since 2026-09-01. **So the pre-request question is not how fast we may query but
+how many records one answer can carry**, and the ranking that follows is `--net-new` on
+`rank_platform_parents.py`: order the parents by the hosts we LACK, since a parent whose hosts we
+hold returns records we already have.
+
+## In-window share, not size, orders a Usenet fetch, and the cheap pre-filter does not work
+
+Measured 2026-09-04 by a researcher wave over 25 `alt.*` archives, 1,077.9 MB in five size strata.
+
+**Only 42.1% of `alt` messages are dated 1996-2001, and the in-window share is uncorrelated with
+archive size.** `alt.guitar.beginner` is 75.7 MB of which **0.0%** is in window (137,161 of 137,525
+messages are post-2001); `alt.video.dvd` 155.9 MB at 12.9%; `alt.sources` 72.8 MB at 14.5%; while
+`alt.personals` 154.8 MB is 79.2% and `alt.music.techno` 71.5 MB is 85.2%. 7.1% of the probed bytes
+returned literally nothing.
+
+`fetch_usenet_hierarchies.sh` orders largest-first, which is **ordering on the wrong variable**.
+Ordering by in-window share roughly doubles equivalent-English per GB downloaded.
+
+**And the obvious cheap way to get that share does not work, which is the more useful half.** A
+range-GET of the first 200 KB of an archive does not reveal its era, because these mboxes are
+ordered by donation batch and not chronologically: the first three `Date:` headers are 2013 for
+`alt.guitar.beginner` at 0% in window, and 2008 for `alt.music.techno` at 85%. Do not build that
+pre-filter.
+
+## A projection from the head of a file-ordered corpus is a lower bound, not an upper one
+
+Measured 2026-09-04 on the pipermail mailing-list corpus, and it corrects a closure of our own.
+
+**A linear extrapolation from the HEAD of a file-ordered corpus is a lower bound whenever the
+ordering correlates with size or date**, which is most orderings. The mailing-list family had been
+closed on 7.63% of its files read from the front; the full read pays 1,496.2868 EE. So measure the
+saturation curve at 10, 25, 50, 75 and 100% before quoting a projection in either direction: if it
+steepens, the projection is wrong in the direction that closes a live source.
+
+Three smaller things from the same read, each measured:
+
+- **Price both units on the same pass.** Here 55.1% of hosts were already held at hostname grain
+  against 94.6% at registrable grain, a 39-point spread that is the whole reason the lane reopened.
+- **Stream-parse a mail corpus over HTTP straight into the extractor and never land the bytes.**
+  368 MB read, zero bytes on disk, no antivirus exposure, no storage budget needed.
+- **`robots.txt` `crawl-delay` is the cost model for this family, not bandwidth.**
+  `mail.gnome.org` serves from a CDN with no robots.txt and answers in 0.10s, so 1,415 files cost
+  562s; `mail.python.org` sets `crawl-delay: 2` and its 1,207 files cost 2,400s. Read the fast host
+  first and let the slow one be the projection.
+
+## Shape does not predict yield: the spread inside a shape is four to six orders of magnitude
+
+Measured 2026-09-04 by `scripts/harness/yield_priors.py` over every EE figure in both registers,
+grouped by artifact shape. The script was written to give a hypothesis a per-shape floor, and its
+first run refuted the reason for writing it.
+
+| shape | n | median EE | best EE | spread |
+|---|--:|--:|--:|--:|
+| dns survey or zone | 25 | 15.6 | 6,371,375.2 | 408,421x |
+| registry or registrar data | 40 | 2.1 | 1,704,843.0 | 800,396x |
+| capture index at hostname grain | 54 | 590.3 | 818,952.0 | 1,387x |
+| blocklist or filter list | 13 | 100.0 | 14,229.0 | 142x |
+| usenet or mail bodies | 21 | 158.2 | 6,877.0 | 43x |
+| directory or portal listing | 23 | 7.7 | 2,406.7 | 311x |
+
+**No per-shape floor is honest.** A median-based one kills the 818,952 EE ISC census and the
+6,371,375 EE remainder; a best-based one admits everything. So "is this the kind of source that
+pays" is the wrong question, and it is the question the closed register answers by default.
+
+**What separates the outliers from the medians is one thing, and it is visible in the rows: the
+six- and seven-figure entries are whole-corpus reads, and the medians are samples, single artifacts
+and single groups.** Two of the day's other findings say the same from opposite directions: eleven
+Usenet hierarchies read whole paid 119,640 EE where one `comp` group paid 480, and a domain-wide
+sweep pays about 193,000 EE per client-hour where a per-domain query pays 255.
+
+So the prior to carry into a hypothesis is **how much of the artifact can be read, not what family
+it belongs to.** A lead that can only be sampled is a median lead whatever its shape; a lead that
+can be read whole is where every outlier in this table came from.
+
+## Distinct hosts per capture row, not TLD weight, decides what a sweep page is worth
+
+Measured 2026-09-04 over the round-9 sweep's own journals, 22.5M capture rows across 19 parents.
+The spread in equivalent-English per 1,000 capture rows is **42x**, and it runs opposite to the
+ordering the queue was built on.
+
+| swept parent | capture rows | distinct hosts | rows per host | EE per 1k rows |
+|---|--:|--:|--:|--:|
+| `privatedances.co.uk` | 158,734 | 106,316 | 1.5 | **657.2** |
+| `searchpositioning.co.uk` | 150,174 | 100,306 | 1.5 | 655.4 |
+| `pornoholics.com` | 706,727 | 630,447 | 1.1 | 563.9 |
+| `de.vu` | 192,581 | 61,318 | 3.1 | 294.5 |
+| `cjb.net` | 528,438 | 145,645 | 3.6 | 124.9 |
+| `homestead.com` | 3,224,657 | 125,145 | 25.8 | 24.5 |
+| `co.uk` | 5,758,690 | 93,660 | 61.5 | **16.0** |
+| `demon.co.uk` | 4,423,683 | 70,847 | 62.4 | 15.7 |
+
+**The queue put `co.uk` first for its 0.9813 weight, and it is the worst parent in the table.**
+Weight is per RECORD and a sweep page costs the same whatever it returns, so what decides a page's
+value is how many DISTINCT hosts it carries: `co.uk` returns 61 capture rows per host because a
+large namespace is full of well-archived commercial sites, while `privatedances.co.uk` returns 1.5
+because it is full of tiny personal sites captured once or twice.
+
+So the ranking metric is **shallowness of archiving under a parent**, and it is measurable before
+committing a queue: one page of index blocks gives the rows-per-host ratio, and a parent above
+about 20 is spending most of its requests re-reading captures of hosts it has already named.
+
+This does not contradict "rank by the hosts we lack"; it refines it. The count of hosts we lack
+says how much is there, and rows-per-host says what it costs to get. `rank_platform_parents.py
+--net-new` should divide the one by the other, which is a change to make at the next restart
+rather than under a running sweep holding the queue file open.
+
+## A deep parent costs a fixed slice of the client, so cap it at 300 seconds
+
+Measured 2026-09-05, on the round-9 sweep. The cost side of the ranking above cannot be applied to
+most of the queue: `rows_per_host.tsv` holds a few hundred parents and the ranked pool is 20,000,
+so for the rest the divisor is 1.0 and the ranking degrades to "sub-hosts we lack" alone. That
+metric puts big institutional namespaces first, because `.edu`, `.gov` and `.ac.uk` genuinely have
+the most hosts we lack, and every one of them is deep.
+
+Depth cannot be known before asking, so it is bounded after. Two caps were run against the same
+stretch of that queue:
+
+| cap | journals per minute |
+|---|--:|
+| 600s | 0.33 |
+| 300s | 1.00 |
+
+**Three times the parent throughput for half the time per parent**, and nothing is lost, because
+the sweep keeps a per-parent state file and a parked parent can be resumed with a real cost
+attached. It is the same finding as the Usenet hierarchies and the domain-wide sweep, in a third
+form: breadth pays and depth does not, so the right move when a parent turns out to be deep is to
+leave it rather than finish it.
+
+## The 300-second cap measured the wrong thing, and the law above is superseded
+
+Date: 2026-09-07. The table above is real and its conclusion is wrong, because journals per minute
+is not a unit of anything. A journal is a file. Only a distinct (host, year) pair is a record, and
+the parents the flat cap discarded were the ones returning most: when the clock cut them,
+`columbia.edu` had written 885,968 capture rows and `utoronto.ca` 634,104.
+
+What decides a parent is still capture rows per distinct host, exactly as the law two sections up
+says. The mistake was applying it only to the 339 parents in `rows_per_host.tsv` and letting a
+stopwatch stand in for it everywhere else. The cap is now a yield test taken every 300 seconds
+against the parent's own journal, so an unmeasured parent is judged on what it is doing.
+
+**The honest counterweight, measured the same day:** of 261 parked parents with a journal to judge,
+only 49 are cheap per host. The flat cap was mostly parking correctly, so this is a correctness fix
+with a modest recovery, not a rescue. Breadth still pays. It just has to be breadth measured in
+records.
+
+## A park list nothing reads is a queue leak, and it hides the best parents
+
+Date: 2026-09-09, found by asking whether a denser queue existed rather than assuming the head
+was spent. It was the right question and the answer was in our own bookkeeping.
+
+`platform_sweep_loop.sh` parks a parent in one of three files. `platform_deep.txt` takes an
+expensive namespace, over `RPH_MAX` capture rows per distinct host, and that exclusion is
+earned. `platform_retry.txt` takes a parent whose sweep exited badly or went silent, and
+`platform_rich.txt` takes a parent still CHEAP per host at `PARENT_MAX`, which is the
+definition of a rich platform rather than a dud.
+
+**Two of the three were unreachable.** `platform_retry.txt` was appended to in three places
+and read in none. `refill()` excluded `platform_rich.txt` permanently, alongside the deep list,
+so the one file naming parents the loop had judged worth returning to was the one file the
+queue could never draw from. The lists that recorded promise behaved exactly like the list
+that recorded failure.
+
+**And a clean exit that wrote nothing left no trace at all.** The sweep returns zero when its
+deadline passes before the first page lands, which is what happens to whatever is in flight
+when a collection window closes. No rows, no state file, no `.done` marker, and no entry on
+any park list. Measured on 2026-09-09: **96 parents in that state**, among them `yahoo.com`,
+`aol.com`, `netscape.com`, `lycos.com`, `excite.com` and about forty universities on `.edu`,
+`.ac.uk` and `.edu.au`, the highest-weight namespaces we hold. The archive had never been
+asked and nothing would ever ask again.
+
+**Size it before believing it, because era intuition oversells this one.** `geocities.com` and
+`angelfire.com` are on that list and read as enormous, but both served user pages on PATHS, so
+at hostname grain they are thin and the ranker rates them accordingly: only 1 of the 96 makes
+the current top 300. The 96 carry 23,795 held sub-hosts between them, and at the dense-parent
+lens's measured 0.42 EE per held sub-host (4.1M hosts against 1,718,807 EE of upper bound)
+that is about **10,000 EE of upper bound, so low thousands realised**. Worth collecting, not
+worth a plan.
+
+**The transferable part is the audit, not the number.** A parent is walked only if it has a
+`.done` marker or a journal with rows in it; anything else is unasked, and the count of
+unasked parents is one `find` away. Run it whenever a rate falls, before re-ranking anything:
+a re-rank of the same universe returned the parents we had already walked, because the ranker
+scores host-YEARS lacked and a domain-wide query already asks all six years at once.
+
+## A queue built from a finished list reads as a dead lane
+
+Date: 2026-09-07, and it is the most expensive lesson of the round.
+
+The domain-wide sweep paid **193,000 EE per client-hour** on 2026-09-04. On the night of 2026-09-06
+the same query, the same code and the same two clients paid **210 EE per hour between them**, a fall
+of about three orders of magnitude. Nothing about the archive had changed. The queue had run out:
+1,516 parents had been asked domain-wide, and with the dense head gone the ranking fell through to
+registrables carrying three or four hosts each.
+
+**A collapsing rate is a statement about the queue before it is a statement about the source.** The
+project's own rule says change the method after two empty hunts, and the method that needed changing
+was not the query but the list it was fed. `rank_platform_parents.py` could only rank a parent that
+appeared in a file it read, and it read the reviewer's annual files; 6,349 dense parents known only
+to our own store had never been ranked at all.
+
+**And the unit hid the size of it.** A record is one (host, year), so a parent whose hosts are all
+dated in a single year of six has five sixths of its records outstanding. That is the normal case
+rather than an edge one, because ISC and the other hostname corpora are single-date snapshots: the
+never-asked parents sit at 1.00 to 1.55 years per host. Counting hosts saw nothing there. Counting
+host-years lacked saw 1,718,807 EE of ceiling.
+
+## A fleet figure that rests on "already held" is an upper bound, not a price
+
+Date: 2026-09-07. Two `FIND` verdicts in one wave, 29,450.5581 EE and about 11,400 EE, both worth
+**zero** when re-priced on the laptop.
+
+The cause is structural and will recur: a fleet agent prices against `/projects/ark-data`, a file
+sync with its own timestamp, and cannot open the store. Any subtraction of what we already hold is
+therefore made against a snapshot. The sync used by that wave was 2026-09-03 10:18:34 and round 8
+banked 7,834,717 records on 2026-09-04, so it understated our holdings by more than the findings
+claimed. Checking took one query each: 135,436 bare-registrable pairs over 92,148,254 capture rows,
+none missing at the year.
+
+Both agents named the ambiguity that killed their own figure, which is the behaviour to keep. The
+rule is on the reader, not the writer: **re-price a fleet FIND against the store before banking it**,
+and treat the fleet's number as the ceiling it actually is.
+
+**The third instance, the same afternoon, and it is the one that shows the size of the effect.** Two
+later waves re-ran the same slug and returned **1,180,003.5 EE** at hostname grain: 424 journals,
+4,472,654 distinct hostname-years, 40.8% of them unheld. It tested its own confound, re-running on
+journals ledgered thirteen days before the export, and still found 47% unheld. On the live store the
+answer is **132 missing of 258,631 sampled pairs, 0.1%**, worth about 4,850 EE.
+
+The confound it tested was export TIMING. The confound that mattered was the held-set itself: the
+brief named `/projects/ark-data/merged260901` as the reviewer's current baseline, six releases and
+26.5M pairs out of date, with our own export beside it predating a round that banked 7,834,717
+records. **A careful agent cannot measure its way out of a stale denominator**, so the fix is not a
+better probe, it is to stop naming the baseline: it is discovered by marker date now, and a fleet
+figure must be written as a ceiling with both held-set dates and the settling query named.
+
+The counter-example in the same hour is worth keeping beside it. `internic_zone_hostnames_1999`,
+whose bytes sit on our own disk and whose held-set was therefore the store, re-priced UPWARD, from
+4,678.2 to **4,817.59 EE**. Staleness inflates; it does not simply add noise.
+
+
+## What a sweep page is worth is bounded by the parent's own years, and by his files
+
+Measured 2026-09-08 over the first six journals of a ranked platform sweep, from the raw
+capture rows through to the shipped additions:
+
+| stage | count | share of the previous |
+|---|--:|--:|
+| capture rows returned | 3,425,095 | |
+| hostname-year candidates | 907,446 | 26.5% |
+| rows the ingest accepted | 44,738 | 4.9% |
+| records that reached `hostnames/` | 7,927 | 17.7% |
+| equivalent-English banked | 5,010.66 | |
+
+**Two walls, not one, and both were invisible to the ranking.**
+
+The first is the hostname wall: a `(host, year)` record needs its PARENT held in that same
+year. `markettrix-seo1.com` returned 1,365,992 rows and 235,120 in-window host-years worth
+148,619 gross EE, and we hold that parent at 2001 alone, so five sixths of it could never
+become a record. The ranker scored every parent as if all six years were reachable, which
+is why both clients were spent there.
+
+The second is his benchmark. Of the 44,738 rows that passed the wall, 36,811 were host-years
+his files already hold; only 7,927 were net-new. The ranker subtracted our own held
+host-years and never his, so it was ordering the queue by a difference nobody gets paid for.
+
+So the headroom of a parent is `hosts x years we hold that parent - (our host-years + his
+host-years)`, and both corrections are in `rank_platform_parents.py`. The practical reading:
+**a sweep's value is set by how many years we already hold the parent in, so the parents worth
+asking are the ones held across the window, not the ones with the most hosts.** It also
+explains why the hostname half of the round sits almost entirely at 2001, where parent
+coverage is deepest: 1,449,584 records at 2001 against 110 at 1996.
+
+## Fable costs about 22x sonnet against the five-hour session window
+
+Two legs of comparable token volume, from the fleet's own telemetry:
+
+| leg | model | tokens in+out | five-hour window after |
+|---|---|--:|--:|
+| generator, 2026-09-08 00:19 | fable-5-1 | 5,344,956 | 100% |
+| re-opener, 2026-09-08 05:27 | sonnet-5 | 4,698,307 | 4% |
+
+That is 18.7 points of window per million tokens against 0.85, a factor of about 22. The
+generator's single leg therefore consumed a whole fresh window and every lane after it was
+refused by the budget governor, including the researcher, which is the lane that finds sources.
+The telemetry rows either side of it are researcher legs at `5h=100`, `tokens=0`, `dur=5s`.
+
+**Fable's own weekly pool is separate and generous; the five-hour session window is neither.**
+So fable is cheap on the budget that binds across a week and expensive on the one that binds
+inside a night. Pick it for a lane whose value is worth 22 tokens of window per token of work,
+and not otherwise. Two points, two different lanes, and the window may not be linear, so treat
+the factor as an order of magnitude rather than a constant.
+
+## A peak is not a rate, and a rate is not a priority
+
+Ivo's ruling of 2026-09-08 (C-77), and the arithmetic behind it is already on this page in
+three places, which is why it is worth stating as one law.
+
+| the same lane, three measurements | rate |
+|---|--:|
+| domain-wide sweep, 75 minutes, 2026-09-04 | 193,000 EE per client-hour |
+| same query, code and two clients, 2026-09-06 | 210 EE per hour between them |
+| `probe_thin_parents.py`, 2026-09-06 | 642 EE per client-hour |
+
+The 193,000 figure was quoted for four days as if it were the collector's rate, and it decided
+that a research wave should stop both collectors and that waves should be spaced four hours
+apart. It was a peak on the dense head of a queue that has since been walked. **A single
+75-minute observation of the best possible input is a ceiling, so plan with the decayed figure
+and treat the peak as evidence about the QUEUE.**
+
+The priority that follows is the second half of the ruling. A collector executes a known query
+and its yield falls as its queue is consumed; a researcher can find a corpus nobody has asked
+for, and other contributors keep finding them, so its expected value does not decay with our
+own queue. **The token window therefore goes to the research lanes, the collectors run steadily
+in parallel, and the operator checks in on them sporadically rather than pacing waves around
+them.**
+
+## Two archive clients maximum is about the CDX channel, not the hostname
+
+Also Ivo, 2026-09-08 (C-77), settling issue #111. Every research lane used to
+`touch ~/ark/state/pause` for its whole duration, on the reading that a researcher fetching
+anything from archive.org would be a third archive client. At a chain depth of six that was
+roughly twelve unbroken hours with no collection, and the two lanes were mutually exclusive
+for no measured reason.
+
+The limit protects one metered endpoint. `web.archive.org/cdx` is what the two collectors
+meter against, and it stays theirs: no agent may query it, and the prompts say so. The rest of
+archive.org is a different service with its own capacity, and a lane reading an item, the
+metadata API or full-text search is not a third CDX client. **So no lane pauses the collectors,
+and both halves of the fleet run at once.** The pause flag still exists for a human and for
+`probe_thin_parents.py`, and `platform_sweep_loop.sh` still treats it as a heartbeat that goes
+stale, so nothing can idle a collector indefinitely.
+
+## The availability oracle shares the collectors' limiter; TimeMaps do not
+
+Measured 2026-09-08 by the `ftp_index_server_inventories` leg, which was rate-limited for its
+entire duration. `archive.org/wayback/available` and HEAD replay returned 429 through six retries
+at 25 second spacing with no `Retry-After`, while the two CDX collectors were running. That is the
+practical edge of C-77: the rest of archive.org is open to a research lane, but the availability
+endpoint sits behind the same limiter as the CDX channel the collectors hold.
+
+`web.archive.org/web/timemap/link/<url>` is not on that limiter. It answered every time in the same
+leg, and it returns every memento with its datetime, so it is a complete substitute for the
+availability oracle on a known URL. Combined with reading one archived homepage for its link
+structure, it enumerates a site's dated inventory pages without touching CDX at all.
+
+Two smaller rules from the same leg, both about believing a status code. Fetch with `-sL` and the
+`id_` replay flavour, then read the BODY: a 200 can be a period IIS 404, and a 301 can be a
+corporate-acquisition redirect that lands on a live 404. The 1999-and-later captures of the FTP
+Search inventory pages are exactly that, 301s onto `ftpsearch.lycos.com`, which 404s them.

@@ -157,6 +157,56 @@ for i in $(seq 1 "$ITERATIONS"); do
 
     ingest_all cdx_snapshot      data/raw/cdx/cdx_*.jsonl.gz
 
+    # The SAME journals one level down, which is free and was not done until
+    # 2026-09-04. `ark.cdx` used to ask `fl=timestamp` and keep `{domain, years}`, so
+    # 2,984,321 answers across 1,163 journals record no host at all; the query now asks
+    # for `timestamp,original` and every record carries a `hosts` map. This converts that
+    # map and ingests it, so a gap query about a domain we already hold also harvests the
+    # hosts beneath it, at no extra request. Journals written before the change yield
+    # nothing here, which is correct: the information is not in them.
+    uv run python scripts/engines/cdx_gap_hostgrain.py >> "$LOG" 2>&1 || true
+    if compgen -G "data/raw/cdx_gap_hostgrain/cdx_gap_*.jsonl.gz" > /dev/null; then
+        uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain >> "$LOG" 2>&1 || true
+    fi
+
+    # And the suffix sweep's own journals, the other half of the standing hostname
+    # priority: `platform_sweep.sh` writes `{url, timestamp}` continuously and nothing
+    # here read them, so a sweep's work only became records when somebody ingested by
+    # hand. Same failure as the RDAP journals below, on a newer collector.
+    if compgen -G "data/raw/cdx_suffix/suffix_*.jsonl.gz" > /dev/null; then
+        uv run ark ingest-hostnames data/raw/cdx_suffix >> "$LOG" 2>&1 || true
+        # **And the same journals' REGISTRABLE half, which had been dropped since
+        # 2026-08-27.** The sweep's rows carry a capture stamp for a bare registrable as
+        # often as for a host: 19,744,519 of them across the corpus, which the hostname
+        # funnel correctly refuses because they belong in `domain_year`. The converter that
+        # collapses them into the approved `cdx_snapshot` shape was run by hand, and the
+        # newest file it had produced was five weeks old, so every sweep since then had its
+        # registrable half discarded. Free evidence, from requests already paid for, and it
+        # is also the capacity Ivo's standing rule reserves for registrables.
+        uv run python scripts/engines/cdx_suffix_convert.py >> "$LOG" 2>&1 || true
+        ingest_all cdx_snapshot data/raw/cdx/cdx_suffix_*.jsonl.gz
+    fi
+
+    # **The three body-URL lanes built on 2026-09-04, which this loop did not know about.**
+    # Usenet, mailing lists and Enron all ship `{item, year, text}` shards and each has its
+    # own approved ingest, and every one of them was folded by hand. That is the fifth time
+    # in this project that a collector's work was invisible until a loop read it, after the
+    # VPS journals in July, the RDAP journals in August and both halves of the suffix sweep
+    # earlier today. Three of the five were created the same day the pattern was named, which
+    # is the argument for adding the line here as part of building a lane rather than after.
+    #
+    # Each is idempotent per shard and skips on content, so a pass over unchanged shards costs
+    # a hash and nothing else.
+    for pool in data/raw/usenet_*_items; do
+        [ -d "$pool" ] && uv run ark ingest-usenet-hostnames "$pool" >> "$LOG" 2>&1 || true
+    done
+    if [ -d data/raw/maillists_items ]; then
+        uv run ark ingest-maillist-hostnames data/raw/maillists_items >> "$LOG" 2>&1 || true
+    fi
+    if [ -d data/raw/enron_items ]; then
+        uv run ark ingest-enron-hostnames data/raw/enron_items >> "$LOG" 2>&1 || true
+    fi
+
     # Registry journals, which this loop did not know about until 8 August. The
     # RDAP sweep of the candidate pool wrote 19,705 in-window creation dates,
     # roughly 12,000 equivalent-English, and every one of them sat unread on disk

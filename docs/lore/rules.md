@@ -1,0 +1,88 @@
+# Rules
+
+**The standing rules, one line each, grouped by family.** The reasoning behind a rule is in [key-decisions.md](key-decisions.md) and [ADRs.md](ADRs.md); the measured laws are in [laws.md](laws.md) and the mistakes in [traps.md](traps.md). Cut from `CLAUDE.md` on 2026-09-02, and from `.github/copilot-instructions.md` on 2026-09-03, which is now a pointer.
+
+## Evidence standard
+
+- Per-item dates inside 1996-2001: check the dates before counting the contents.
+- `domain_year.evidence_id` is `NOT NULL` and foreign-keys `evidence`; no year without an observation.
+- Master-eligible classes: `prior_reused`, `cdx_timestamp`, `artifact_listing`, `link_source`, `dated_directory`, `whois_creation`; `link_target` never dates a year.
+- Corroboration split: anything a human typed needs another source to date that domain first. A self-dating record takes no split, and the split tests dating only, never whether the name was ever real.
+- A creation date evidences its own year only; continued registration needs its own record (rule 6).
+- Undated is fatal, and so are terms we do not hold; small, ugly or hard to parse is not a reason to reject, and a 25 EE source is admitted and gets one line.
+- Hostnames stand behind the same wall: `hostname_year` foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals, and two checks gate it.
+- **A raw ISC / Network Wizards survey record dates a DNS observation, not a website (his ruling of 2026-09-06).** It may not carry a hostname-year into an annual master on its own; that needs additional exact-host, target-year web evidence, such as an exact-host CDX record, a webpage snapshot or a link-graph record. He measured the gap: of 1,800 ISC hostname-years audited, 2.67% had an exact-host CDX record. The lists ship as a candidate collection peer to `candidate_pool.txt`, and the same rule binds later editions.
+- **ISC per-host provenance is MANDATORY and does not by itself promote anything**: survey edition, source file, original or recovery URL, record location, extraction method, target year. It makes a record auditable, not annual.
+- **`www.` and the bare name evidence each other in NEITHER direction (his ruling of 2026-09-06).** "The existence of the bare parent does not automatically establish the www hostname, nor does the presence of www automatically establish the bare hostname." Two invariants, one per direction: `a_www_record_has_its_own_evidence` and `a_bare_record_is_not_inferred_from_www`. A `www.<parent>` hostname IS a distinct annual record when it has its own qualifying exact-host target-year evidence, so the shape stays admitted; only the inference is refused.
+
+## Scoring
+
+- **Two tracks, scored separately, same denominator.** Annual records and the candidate pool are each `S = 10 x (p / t)`, and both p values divide by the annual equivalent-English total, so a candidate point costs what an annual point costs. Verified against his own arithmetic of 2026-09-06: 1,702,122.4578 / 27,740,079.6441 = 6.135968%.
+- **A candidate is a name with no year evidence anywhere.** Union and deduplicate the sources, then remove anything already accepted in an annual file, his or ours. Malformed but recoverable strings go to a separate normalization-review file and are not candidates.
+- **The candidate track ships as ONE pool and is a claim, so it is net-new the way the annual files are.** Every collection we hold, registrable and hostname, unioned into `candidate_additions.txt`, minus every name in his `candidate_pool.txt` and in his six annual files. Provenance stays per name in `provenance/` and in the collection's own provenance CSV, never in the name list. Measured 2026-09-10: our working pool of 2,279,755 registrable names reduced to 29,327 he did not already have, so shipping a working set as a contribution overstates that half of the track by 78x.
+- **Nothing ships that his baseline already holds, in either track, and the diff reads HIS files rather than our ingested copy of them.** The store's baseline evidence is whatever release was ingested and his current release can add names after it: on 2026-09-10 that gap put 303 names into the 2001 additions that `merged260908` already held. `export_all` loads his six annual files into `his_annual` and filters every shipped list and both evidence manifests through it, so the overlap is zero by construction.
+- **t is an absolute clock and it only grows.** `t = max(1, receipt_date - task_assignment_date)` in whole days, never reset by a new baseline. A round held back a week loses about a fifth of its own score, so shipping a measured result beats holding it for a larger one.
+
+- Each `(domain, year)` counts its TLD's English share: `.uk` 0.9813, `.com` 0.6321, `.net` 0.4530, `.de` 0.1324; non-English ccTLDs are worthless.
+- Registrable domains are the prioritised unit; every distinct evidence-backed valid hostname beneath a held registrable ships too, in `NNNN_hostnames.txt`, and his calculator counts it at full TLD weight (Ding, 2026-09-01).
+- Quote net-new post-split EE, never gross: they differ by more than 10x.
+- Price before proposing: net-new EE against the store, dates inside 1996-2001.
+- 5% is a hard trigger (round 6 crossed it on 2026-08-26) and a FLOOR ON SUBMITTING: nothing is sent under it (Ivo, 2026-09-08, C-78, "there definitely are 5% to find"). Past it, submit at once and keep collecting, because percentages add and the denominator grows. The early-submission argument applies above the gate, never to going under it.
+- EE and speed are the proxy; the deliverable is demonstrated research capability, so a measured negative with a reason is a result and the method that found a source outranks the source (Ivo, 2026-08-27). Run independent hypotheses in parallel: keep what works, document what does not, move to the next.
+- Where the round stands is in `docs/ROUND.md`, which is generated; never state it in a hand-written page.
+
+## Cost
+
+- **Condition 3 of the standing rule is checked as "the terms were recorded", not as "the terms permit it"** (S9, 2026-09-09). `standing_rule.py` parks a source whose lead carries no terms URL or whose robots verdict is not `allowed`; whether the terms actually permit the read is a judgement, and the lead schema has no field for it. Adding one is a fleet schema change and needs an ADR first, so until then a class whose terms are the question reaches Ivo.
+- **No local recipe spawns a model. Model work runs in the fleet, under the primary token** (Ivo, 2026-09-04). A local `claude -p` authenticates with the LAPTOP'S own Claude login, which is the Taktile account and has API pricing enabled, so an agent that costs an allowance in the fleet costs real money here. `just bank`'s admitter was the one place this existed; it was deleted with S9 on 2026-09-09, and the decision it used to make is now `standing_rule.py`, which spends no tokens at all.
+- The fleet's own token is `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY`, the HPI account: limits, no API billing. `CLAUDE_CODE_OAUTH_TOKEN` is Ivo's personal one and is reached only when the repository variable `ARK_USE_FALLBACK_TOKEN` is `1`, which is unset and should stay unset. CI already refuses a workflow that does not name the primary secret.
+
+## Engines and politeness
+
+- Two archive clients maximum.
+- Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
+- Read the terms in full before the first request, and the whole robots.txt of the host in the download URL. The RDAP episode cost the biggest route because nobody read the terms, and time pressure does not reopen that.
+- **A fleet leg downloads only through `scripts/harness/fetch.py`** (#80, 2026-09-09), never its own `curl`: it reads the whole robots.txt of the host in the download URL, refuses a by-name group wherever it sits, and does the same check again on every redirect hop, because a followed 302 is a request nobody checked. It honours `Retry-After`, caps at 1 GB by `Content-Length` and again by the stream, refuses a body that ended short of the length it declared, extracts nothing to disk, and prints the bytes and sha256 the finding quotes. It writes under two roots and no others: `$ARK_PROBE_DIR`, and the corpus directory `$ARK_FETCH_DEST_ROOT` that `fetch.yaml` sets after a human merged the decision, which is also the only place a zip or an unnamed content type reaches disk. An artifact over the cap or of a risky type is a row in the fleet's `downloads.md` and waits.
+- Collectors take an absolute deadline and outlive the session; restart a loop after editing what it imports.
+- Look for the existing tool before writing one.
+
+## Hunting
+
+- **The standing priority (Ivo, 2026-09-04): bulk HOSTNAME sources first, and hostnames for domains we ALREADY HOLD before hostnames for new ones. Reserve some capacity for new registrables, never all of it.** The arithmetic behind it: the same thirteen Usenet pools paid 35.8 EE at registrable grain and 119,640 at hostname grain, and a held registrable needs no discovery, no corroboration split and no new approval, so a domain-wide archive query over names already in the store is the shortest path from a request to a record. `scripts/engines/platform_sweep.sh` over `rank_platform_parents.py` is that lane; the registrable reserve is what stops the pool from starving and the method from narrowing to one shape.
+- One lens per cycle, never the same lens twice running; rotate even when the last one paid.
+- If two hunts in a row return nothing, change the method, not the effort: widen the lens, not the list, and ask what *kind* of artifact has never been looked for, not which host has not been tried.
+- Rewrite the wake-up wording when a lens stalls, and re-price parked sources, because an unbanked source decays as the store grows.
+- Never re-test a closed family, and never grind an old source because it is familiar.
+- Breadth is on Ding's own list ([project-brief.md](../brief/ding/project-brief.md)), and he expects each shape tried and reported: dated directories and navigation sites, national web-archive indexes and link graphs, academic repositories and DOI datasets (UMN DRUM is his worked example), paper supplements and replication packages, registry datasets, government open data, mailing-list archives, preserved software and documentation collections, outbound-link expansion from pages already held, and automated dataset discovery over repository APIs.
+
+## Registers
+
+- Every source gets a link in `docs/registers/sources.md` before it is ingested, beside the sentence saying what dates one item and why it clears the bar (Ivo, 2026-08-31).
+- Log every result in `docs/registers/sources.md`, positive or negative, so nobody re-tests it.
+- A master-eligible class needs a human `Decision:` line in `docs/registers/approved-sources-list.md`; candidate-only needs nothing.
+- The loop may write the `Decision:` line itself when all four hold: the evidence type is already master-eligible, a machine-written stamp inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after the ingest (Ivo, 2026-08-29); failing any one parks the source as `pending`.
+- **The bar is 5,000 EE net-new (Ivo, 2026-09-08), lowered back from 10,000, which he called "slightly ambitious".** It ranks rather than vetoes, as it has since 2026-08-18. The history matters because it is a dial, not a principle: 5,000 to 2026-09-04, then 10,000 while the hostname unit made bulk corpora worth an order of magnitude more, and 5,000 again once 27 researcher legs and 167.7M tokens had cleared 10,000 EE exactly never (ark-fleet #68). **An ALREADY-APPROVED source read at a new grain has a 1,000 EE floor instead** (Ivo, 2026-09-08), because the class decision is already made; its per-item evidence must still date the HOST and not merely the domain. Hunt bulk hostname-dense corpora first, and price a lead's ceiling before its detail.
+- Write-up length scales with yield: under the bar is one line in `sources.md` with the link, the dating sentence and the figure; over it earns the full treatment.
+- **A new update or baseline from him is not a new phase** (Ivo, 2026-09-04). `feedback/feedback-phase-N/` is opened by his SCORED FEEDBACK on a submission, and every package that arrives before the next one is filed inside the phase we are working in. Phase 7 is the last phase with feedback; phase 8 is where we are, and the 0902V3, 0903V3 and 0904 packages all belong to it.
+
+## Report and delivery
+
+- The report is drafted as findings land, never reconstructed later: a five-figure source banks together with its paragraph in `docs/report.template.md`.
+- `README.md` stays a one-screen front page; the runbook is [runbook.md](runbook.md).
+- Ding's canonical brief is `docs/brief/ding/project-brief.md`; regenerate it, never hand-edit it. Never edit `docs/report.md` or frozen `submissions/`.
+- `ark export` before `ark check`.
+- `private/` never ships, and big data must never reach git.
+- Verbosity is the opposite of quality: keep instructions, wake-ups and agent prompts short, direct, simple.
+
+## Pushing and commits
+
+- Gate before every commit, never through a pipe: `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`.
+- A clone with no `data/ark.duckdb` can run only the code half. `ark export` and `ark check` raise
+  `CatalogException: Table with name domain_year does not exist` there, and that is the store being
+  absent rather than an invariant failing: big data never reaches git, so a fresh clone never has one
+  (measured in the fresh-session test, 2026-09-03).
+- Any branch except `main` may be pushed, and `main` is reached only by a PR; `main` is never pushed directly by any agent (Ivo, 2026-09-03).
+- **An agent MAY merge its own PR once CI is green, on either repository (Ivo, 2026-09-04).** The rule was always that `main` is reached by a PR and never by a direct push, and merging a green PR satisfies it; waiting for Ivo to click was habit, not rule. Merge only your own, only green, and never one that raises a question only he can answer.
+- `origin` is public, so a commit message names no hosts, no IP addresses, no email bodies and no personal context.
+- No AI attribution in commits.
+- No em-dashes or en-dashes anywhere.

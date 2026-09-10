@@ -42,7 +42,6 @@ import json
 import re
 import subprocess
 import sys
-import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -60,13 +59,17 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from round_figures import hostname_increment  # noqa: E402
+
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
-DECISIONS = ROOT / "docs/key-decisions.md"
-AMENDMENTS = ROOT / "docs/brief_amendments.md"
+DECISIONS = ROOT / "docs/lore/key-decisions.md"
+AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 SECTION_RE = re.compile(r"^== (.*?) ==$", re.MULTILINE)
 GATE_PCT = Decimal(5)
@@ -74,20 +77,23 @@ GATE_PCT = Decimal(5)
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
     """Wait out a writer rather than crashing against one. A long ingest holds the
-    lock for minutes, and this is a reporting tool: waiting is correct."""
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"the store was still being written after {patience_s}s; "
-                    "re-run when the ingest finishes"
-                ) from None
-            time.sleep(3)
+    lock for minutes, and this is a reporting tool: waiting is correct.
+
+    **Through `ark.db`, not a private copy of the retry loop.** This function had its
+    own, so it also missed the memory and thread caps that live there, and measured
+    2026-09-08 this process sat at 28 GB resident on a 36 GB laptop: DuckDB takes 80%
+    of the machine unless told otherwise, and `just sync`, `just state` and `just
+    cycle` each start one.
+    """
+    try:
+        return connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" in str(exc):
+            raise SystemExit(
+                f"the store was still being written after {patience_s}s; "
+                "re-run when the ingest finishes"
+            ) from None
+        raise
 
 
 def run(cmd: list[str], timeout: int) -> str:
@@ -161,20 +167,37 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(head: dict, engines: str, approvals: int, decisions: int) -> dict:
+def brief(
+    head: dict,
+    engines: str,
+    approvals: int,
+    decisions: int,
+    hostnames: tuple[int, Decimal] | None = None,
+) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
     injected into every session start, and thirty lines is the budget."""
     stats = head["_stats"]
-    ee = stats["ee_netnew"]
+    # **Both units, or the brief understates the round by most of it.** `ee_netnew` is the
+    # registrable half alone. Hostnames beneath a held registrable have been annual records
+    # at full weight since 2026-09-01 and the shipped report counts them (`fill_report`
+    # adds them for exactly this reason), so a gate distance taken from registrables alone
+    # is wrong by the hostname half: measured 2026-09-08, 54,599 EE against a real
+    # 991,394, which read as 1.63M short of the gate when the true distance was 691k. That
+    # figure is injected into every session start, so it was the first thing every session
+    # believed.
+    host_pairs, host_ee = hostnames if hostnames is not None else hostname_increment()
+    ee = stats["ee_netnew"] + host_ee
     gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
     return {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
         "round": CURRENT_ROUND_LABEL,
-        "netnew_pairs": head["pairs"],
+        "netnew_pairs": head["pairs"] + host_pairs,
         "netnew_domains": head["domains"],
         "netnew_ee": round(float(ee), 4),
-        "percent": round(float(stats["ee_netnew_growth_pct"]), 4),
+        "registrable_ee": round(float(stats["ee_netnew"]), 4),
+        "hostname_ee": round(float(host_ee), 4),
+        "percent": round(float(ee / REVIEWER_BASELINE_EE * 100), 4),
         "gate_pct": float(GATE_PCT),
         "distance_to_gate_ee": round(float(gate_ee - ee), 4),
         "collectors": collector_lines(engines),
@@ -246,8 +269,10 @@ def build() -> tuple[str, dict, dict]:
         "## Waiting on a human",
         "",
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
-        "on disk untouched until a `Decision:` line in `docs/approved-sources-list.md` says",
-        "otherwise. Each one is also raised under `## OPEN` in `docs/key-decisions.md`, which is",
+        "on disk untouched until a `Decision:` line in",
+        "`docs/registers/approved-sources-list.md` says",
+        "otherwise. Each one is also raised under `## OPEN` in",
+        "`docs/lore/key-decisions.md`, which is",
         "the only surface Ivo reads. Nothing is lost by leaving them; nothing enters an annual",
         "file while they wait.",
         "",
@@ -258,13 +283,13 @@ def build() -> tuple[str, dict, dict]:
             for a in waiting
         ]
     else:
-        parts += ["Nothing pending in `docs/approved-sources-list.md`."]
+        parts += ["Nothing pending in `docs/registers/approved-sources-list.md`."]
     parts += ["", "**Open decisions.**", ""]
     if decisions:
         parts += [f"- {d}" for d in decisions]
-        parts += ["", "Full context in `docs/key-decisions.md`."]
+        parts += ["", "Full context in `docs/lore/key-decisions.md`."]
     else:
-        parts += ["Nothing open in `docs/key-decisions.md`."]
+        parts += ["Nothing open in `docs/lore/key-decisions.md`."]
     parts += [
         "",
         "---",
@@ -321,9 +346,17 @@ def main() -> None:
     OUT.write_text(body, encoding="utf-8")
     BRIEF.parent.mkdir(parents=True, exist_ok=True)
     BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
+    # **Print the round, not half of it.** `head` is the registrable unit alone, so this line
+    # read "71,379 net-new pairs, 54601.6080 equivalent-English" for a round holding 1,820,780
+    # records and 1,106,725 EE. `brief()` already sums both units for exactly this reason; the
+    # line a human actually reads was still quoting one of them, and it is the line that gets
+    # pasted into a message.
     print(
-        f"wrote {OUT.relative_to(ROOT)}: {head['pairs']:,} net-new pairs, "
-        f"{head['domains']:,} net-new domains, {head['ee']} equivalent-English"
+        f"wrote {OUT.relative_to(ROOT)}: {snapshot['netnew_pairs']:,} net-new records "
+        f"({head['pairs']:,} registrable, {snapshot['netnew_pairs'] - head['pairs']:,} hostname), "
+        f"{snapshot['netnew_ee']:,.4f} equivalent-English, {snapshot['percent']}% of "
+        f"{snapshot['baseline']}, {snapshot['distance_to_gate_ee']:,.2f} EE short of "
+        f"{snapshot['gate_pct']}%"
     )
 
 

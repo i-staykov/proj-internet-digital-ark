@@ -1,4 +1,4 @@
-"""Fill the release table in docs/releases.md from what is on disk.
+"""Fill the release table in docs/registers/releases.md from what is on disk.
 
 One row per reviewer release. The per-year cells are `wc -l` over `1996.txt` to
 `2001.txt` of the extracted tree under `feedback/`; the checksum is of his zip where
@@ -30,13 +30,14 @@ import argparse
 import hashlib
 import re
 import shlex
+import stat
 import subprocess
 import sys
 import zipfile
 import zlib
 from pathlib import Path
 
-PAGE = Path("docs/releases.md")
+PAGE = Path("docs/registers/releases.md")
 FEEDBACK = Path("feedback")
 ARCHIVE = Path("data/archive")
 YEARS = tuple(range(1996, 2002))
@@ -64,6 +65,12 @@ RELEASES = (
     "merged260902",
     "merged260902-2",
     "merged260902-3",
+    "merged260903-3",
+    "merged260904",
+    "merged260905-3",
+    "merged260906",
+    "merged260907-2",
+    "merged260908",
 )
 
 # marker -> (date of the mail that quoted its totals, the received release that holds them)
@@ -211,10 +218,19 @@ def zip_members(zip_path: Path, marker: str) -> dict[str, zipfile.ZipInfo]:
             if info.is_dir():
                 continue
             parts = info.filename.split("/")
+            if any(p in ("", ".", "..") for p in parts) or "\\" in info.filename:
+                raise ValueError(f"unsafe zip member: {info.filename}")
             if marker not in parts:
                 continue
             rel = "/".join(parts[parts.index(marker) + 1 :])
             if rel:
+                if (
+                    any(p in ("", ".", "..") for p in rel.split("/"))
+                    or "\\" in rel
+                    or rel in members
+                    or stat.S_ISLNK(info.external_attr >> 16)
+                ):
+                    raise ValueError(f"unsafe or duplicate zip member: {info.filename}")
                 members[rel] = info
     return members
 
@@ -226,6 +242,10 @@ def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int]
     problems: list[str] = []
     for rel, info in sorted(members.items()):
         on_disk = tree / rel
+        if any(p.is_symlink() for p in (on_disk, *on_disk.parents)):
+            counts["mismatched"] += 1
+            problems.append(f"  symlink on disk: {rel}")
+            continue
         if not on_disk.is_file():
             counts["missing"] += 1
             problems.append(f"  missing on disk: {rel}")
@@ -240,8 +260,13 @@ def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int]
             problems.append(f"  crc differs: {rel}")
             continue
         counts["matched"] += 1
+    with zipfile.ZipFile(zip_path) as zf:
+        for info in members.values():
+            with zf.open(info) as stream:
+                while stream.read(1 << 20):
+                    pass
     for p in sorted(tree.rglob("*")):
-        if p.is_file() and str(p.relative_to(tree)) not in members:
+        if (p.is_file() or p.is_symlink()) and str(p.relative_to(tree)) not in members:
             counts["extra"] += 1
             problems.append(f"  extra on disk: {p.relative_to(tree)}")
     return counts, problems
@@ -249,32 +274,42 @@ def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int]
 
 def verify_trees(
     trees: dict[str, list[Path]], zips: dict[str, list[Path]], limit: int = 10
-) -> None:
+) -> bool:
     """Report every marker holding both a tree and a zip, then the verified ones."""
     verified: list[Path] = []
     checked = 0
-    for marker in RELEASES:
+    failed = False
+    for marker in sorted(set(trees) & set(zips), key=marker_key):
         tree_list, zip_list = trees.get(marker, []), zips.get(marker, [])
         if not tree_list or not zip_list:
             continue
         checked += 1
-        tree, zip_path = tree_list[0], zip_list[0]
-        counts, problems = verify_tree(tree, zip_path, marker)
-        print(f"{marker}: {tree} against {zip_path.name}")
-        print(
-            "  {members} members, {matched} matched, {mismatched} mismatched,"
-            " {missing} missing on disk, {extra} extra on disk".format(**counts)
-        )
-        for line in problems[:limit]:
-            print(line)
-        if len(problems) > limit:
-            print(f"  and {len(problems) - limit} more")
-        if counts["members"] and counts["matched"] == counts["members"]:
-            verified.append(tree)
+        for tree in tree_list:
+            for zip_path in zip_list:
+                print(f"{marker}: {tree} against {zip_path.name}")
+                try:
+                    counts, problems = verify_tree(tree, zip_path, marker)
+                except (OSError, ValueError, RuntimeError, zipfile.BadZipFile, zlib.error) as exc:
+                    print(f"  REFUSED: {exc}")
+                    failed = True
+                    continue
+                print(
+                    "  {members} members, {matched} matched, {mismatched} mismatched,"
+                    " {missing} missing on disk, {extra} extra on disk".format(**counts)
+                )
+                for line in problems[:limit]:
+                    print(line)
+                if len(problems) > limit:
+                    print(f"  and {len(problems) - limit} more")
+                if counts["members"] and not problems:
+                    verified.append(tree)
+                else:
+                    failed = True
     if not checked:
         print("no marker has both an extracted tree and a zip")
     names = ", ".join(str(t) for t in verified) if verified else "none"
     print(f"byte-verified against their zips, deletable once the off-site copy exists: {names}")
+    return not failed
 
 
 def split_page(text: str) -> tuple[str, list[dict[str, str]], str]:
@@ -387,7 +422,8 @@ def main() -> None:
 
     if args.verify_trees:
         aliases = {"merged260715-2": args.legacy}
-        verify_trees(find_trees(args.feedback, aliases), find_zips(args.feedback))
+        if not verify_trees(find_trees(args.feedback, aliases), find_zips(args.feedback)):
+            raise SystemExit(1)
         return
 
     if not args.feedback.is_dir():

@@ -59,7 +59,7 @@ from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
-APPROVALS = ROOT / "docs/approved-sources-list.md"
+APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 DB = ROOT / "data/ark.duckdb"
 
 _SPEC_LINE = re.compile(r"^- ingest specs?: (.+)$", re.M)

@@ -3,7 +3,7 @@
 **Three problems this fixes, all measured on the loop's own ledger.**
 
 **1. A seventh of the budget was spent rediscovering closed families.** Twelve of 85
-runs found mid-flight that their family was already in `docs/sources.md`. The
+runs found mid-flight that their family was already in `docs/registers/sources.md`. The
 researcher prompt asked the agent to grep for it, which costs tokens, is skippable,
 and only tells the agent what it collided with if it greps the right words. So the
 collision report is computed HERE, by `screen_hypothesis.py`, and pasted into the
@@ -94,9 +94,9 @@ def collisions(proposal: str) -> str:
 HEADER = """You are ONE researcher in a parallel fan-out. Budget: about {budget} seconds for
 ALL of the hypotheses below. Nobody reads a status update; your output is files.
 
-Read CLAUDE.md first, it is binding. Then read docs/ding/update-log.md: it is the
+Read CLAUDE.md first, it is binding. Then read docs/brief/ding/update-log.md: it is the
 reviewer's own instruction log and outranks every local heuristic. A direction or
-worked example he names there (or in docs/ding/project-brief.md) is the strongest
+worked example he names there (or in docs/brief/ding/project-brief.md) is the strongest
 prior you have: follow it before your own ideas, and treat his recorded negative
 knowledge as closed. Then work the QUEUE below, in order, and STOP
 when your budget is spent. Most hypotheses die on the probe in minutes; a queue means
@@ -107,7 +107,7 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
 
 ## How to test one
 
-1. **The collision report is already below. Do not grep docs/sources.md to rediscover
+1. **The collision report is already below. Do not grep docs/registers/sources.md to rediscover
    it.** Read the verdict, then ask the question the report cannot answer for you:
    **what SCREEN was it closed on, and is that screen still current?** This project
    has retired two screens and both retirements reopened a family that had been
@@ -121,15 +121,31 @@ A hypothesis you never reach gets no file, which is correct and costs nothing.
    on the retired screen and IS worth re-testing. If it was closed on a measurement
    made with the current screen, it is finished: say so and move to the next one.
 2. Read the WHOLE robots.txt of any host before the first request. Honour Retry-After.
-   Do NOT touch web.archive.org/cdx: two collectors are metering against it. Other
-   archive.org services and other hosts are fine.
+   Do NOT touch web.archive.org/cdx: two collectors are metering against it and they run
+   WHILE you do. Everything else at archive.org is yours: item downloads, the metadata API,
+   full-text search, dataset items, TimeMaps.
+   **Use TimeMaps, not `/wayback/available`.** Measured 2026-09-08: `/wayback/available` and
+   HEAD replay answered 429 for a whole leg, six retries at 25s spacing, no Retry-After,
+   because the collectors saturate that limiter. `web.archive.org/web/timemap/link/<url>` is
+   NOT on it, answered every time, and returns every memento with its datetime, so it fully
+   replaces the availability oracle for a known URL. **That limiter is per-ADDRESS and you
+   share the collectors', so request VOLUME alone is not a CLOSED verdict**: report the request
+   count and the EE per request and say it is rate-bound, because the same read costs nothing
+   from another address (measured 2026-09-08: an `id_` replay from off the fleet answered 200
+   in 1.2 s while both collectors were pulling 324 MB/hour). Fetch with `-sL` and the `id_` replay
+   flavour, then CHECK THE BODY: a 200 can be a period IIS 404 and a 301 can be a
+   corporate-acquisition redirect onto a live 404.
 3. **PROBE BEFORE YOU COMMIT.** Fetch the SMALLEST representative piece and measure
    three numbers on it: distinct registrable domains, the fraction ALREADY HELD, and
    the fraction held AND MISSING the artifact's own year. That third number is the
    one that decides it. Extrapolate, write the estimate down, then branch:
-   - projected under 200 EE: STOP, report CLOSED with the probe numbers, next hypothesis.
-   - projected 200 to 1,000 EE: take it only if the rest of the fetch is minutes.
-   - projected over 1,000 EE: measure it properly. This is the case that matters.
+   - projected under 5,000 EE: STOP, report CLOSED with the probe numbers, next
+     hypothesis. Measured over the register's 191 priced leads: the 176 that came in
+     under 10,000 EE produced 1.33% of all equivalent-English ever banked, and the
+     seven over 100,000 produced 97.56%. A window spent measuring a four-figure lead
+     properly is a window not spent finding a six-figure one.
+   - projected over 5,000 EE: measure it properly. This is the case that matters, and
+     what separates the outliers is whether the artifact can be read WHOLE.
 4. Price with `uv run python scripts/pricing/price_items.py`, against merged260830. Sample
    DISTINCT DOMAINS, never domain_year rows.
 5. If the artifact is already on disk under data/raw/, there is no fetch to save and

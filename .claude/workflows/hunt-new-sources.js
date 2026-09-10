@@ -25,11 +25,11 @@ TLD: .uk 0.9813, .com 0.6321, .net 0.4530, .de 0.1324, .br 0.0934. A large non-E
 a SMALL source. Say so when a candidate is mostly non-English.
 
 READ THESE FIRST, in the repository:
-- docs/sources.md    every source already developed, plus roughly 60 families already REJECTED,
+- docs/registers/sources.md    every source already developed, plus roughly 60 families already REJECTED,
                      each with the measurement that closed it. This is long: grep it, do not read
                      it whole. Anything you propose that is already in here is worthless.
-- docs/discovery.md  the acceptance bar: how a source is priced before a collector is written.
-- docs/ding/project-brief.md  the reviewer's own brief, sections V, VI and IX.
+- docs/lore/discovery.md  the acceptance bar: how a source is priced before a collector is written.
+- docs/brief/ding/project-brief.md  the reviewer's own brief, sections V, VI and IX.
 
 WHAT THE REVIEWER ASKED FOR ON 2026-08-17, verbatim:
 "Please continue expanding the historical domain list and exploring additional ready-made
@@ -71,7 +71,7 @@ const CANDIDATES = {
           evidence_type: { type: 'string', enum: ['cdx_timestamp', 'artifact_listing', 'link_source', 'dated_directory', 'whois_creation', 'link_target', 'none'] },
           size_estimate: { type: 'string', description: 'order of magnitude of in-window domains, and how you got that number' },
           english_share_note: { type: 'string', description: 'which TLDs dominate and what that does to the metric' },
-          already_in_register: { type: 'string', description: 'what you found when you grepped docs/sources.md for it, by name AND by population' },
+          already_in_register: { type: 'string', description: 'what you found when you grepped docs/registers/sources.md for it, by name AND by population' },
           years_reached: { type: 'string', description: 'which of 1996-2001 it can actually date' },
         },
       },
@@ -144,7 +144,7 @@ date or whether it is candidate-only material for the CDX engine to date.`,
 directly whether previously successful methods can produce further additions, and the two largest
 gains last round were both of this kind: a parser that had been reading 6.76% of a file we already
 held, and a survey filed as unrecoverable that was intact under a successor hostname.
-Read docs/sources.md for what each developed source says REMAINS unexhausted, and read the
+Read docs/registers/sources.md for what each developed source says REMAINS unexhausted, and read the
 rejected register for entries closed because something could not be REACHED rather than because it
 was measured and found poor. A closure about one copy of an artifact is not a closure about the
 artifact. Propose specific unexhausted material, naming the file or date range, not general ideas.`,
@@ -169,7 +169,7 @@ const results = await pipeline(
       JSON.stringify(list, null, 2) +
       `\n\nYour job is to REFUTE each one. Default to survives=false when you are unsure. Three tests,
       all of which must be done rather than reasoned about:
-      1. Grep docs/sources.md for the source BY NAME and BY POPULATION. A source already closed under
+      1. Grep docs/registers/sources.md for the source BY NAME and BY POPULATION. A source already closed under
          another name is dead. Roughly 60 families are in the rejected register.
       2. Actually WebFetch the URL. A dataset that 404s, requires an institutional login, or has been
          taken down is dead however good it sounds. Report what you actually got back.

@@ -215,7 +215,7 @@ class Probe:
     predicted: str = ""
     parked: bool = False
     # Which register page `line` is in: the register is two pages since E4.2.
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:
@@ -299,7 +299,7 @@ class Lead:
     line: int
     verdict: str
     urls: list[str] = field(default_factory=list)
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:

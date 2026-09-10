@@ -126,6 +126,21 @@ else:
 
 PY
 
+# ISC candidates require complete provenance and exact-name reconciliation across all years.
+if [ -d isc_survey_hostnames ]; then
+    if command -v uv >/dev/null 2>&1; then
+        marker=$(python3 -c 'import json; print(json.load(open("isc_survey_hostnames/isc_candidates_summary.json"))["baseline"])') && \
+        uv run --with duckdb --no-project python verify_isc_candidates.py \
+            --collection isc_survey_hostnames --baseline "baseline/$marker" \
+            --annual-dirs masters additions hostnames \
+            --weights isc_survey_hostnames/tld_english_share.json || fail=1
+    else
+        say "ISC candidates" "FAIL  needs uv (https://docs.astral.sh/uv/)"; fail=1
+    fi
+else
+    say "ISC candidates" "SKIP  no isc_survey_hostnames/ in this archive"
+fi
+
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
 # Added 2026-08-17, after an archive shipped with 11,316,960 of 16,619,832
 # assignments pointing at an `evidence_id` that was not in the file beside them. A

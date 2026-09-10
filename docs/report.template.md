@@ -1,9 +1,8 @@
 # Internet Digital Ark: round [ROUND]
 
-Additions to the 1996-2001 annual lists, measured against `[BASELINE]`. Every figure is generated
-from the evidence store, so no table here can disagree with the files shipped beside it. This is a
-summary: `sources.md` holds the per-source receipts, `experience-summary.md` the yields and
-directions, `README.md` the reproduction route, `metric-explained.md` the metric.
+Additions to the 1996-2001 annual lists and to the candidate pool, against `[BASELINE]`. Every
+figure below is generated from the evidence store, so this report cannot disagree with the files
+beside it.
 
 ## 1. Results
 
@@ -15,125 +14,62 @@ directions, `README.md` the reproduction route, `metric-explained.md` the metric
 | 4. Equivalent-English increment | **[EE]** |
 | 5. Equivalent-English growth rate | **[EEGROWTH]** |
 
-[REGPAIRS] records ([REGEE] EE) are registrable domains in `additions/`, the unit you asked me to
-prioritize; [HOSTPAIRS] ([HOSTEE] EE) are valid hostnames beneath them in `hostnames/`. The two are
-disjoint in every year, neither is in the baseline, your validator rejects none of them, and the
-second set can be merged or discarded as a block.
+[REGPAIRS] records ([REGEE] EE) are registrable domains in `additions/`, [HOSTPAIRS] ([HOSTEE] EE)
+are hostnames beneath them in `hostnames/`: disjoint in every year, either set mergeable or
+discardable whole. [NEWDOMAINS] of the [UNIQUE] distinct domains carrying the increment are absent
+from your six files in every year.
 
 [PER_YEAR_TABLE]
 
-[CUMULATIVE]
+**The candidate track is claimed too, separately.** `candidate_additions.txt`: [CANDADD] names,
+[CANDTRACKEE] EE, **[CANDTRACKPCT]** of the same denominator, never added to the annual increment.
+It is net-new the way the annual files are, every collection we hold unioned into one pool and then
+diffed against your `candidate_pool.txt` and all six annual files. [CANDHOST] are ISC survey
+hostnames, dated by each edition's own code and candidate-only under your 0905 ruling. Provenance is
+per name and not in the list: `provenance/` and `isc_survey_hostnames/isc_survey_provenance.csv`,
+in the shape you specified on 0906.
 
-## 2. What one hostname record is
+[CUMULATIVE_SENTENCE]
 
-Four conditions, all enforced in code (`source/src/ark/hostnames.py`, `checks.py`), not by
-convention. The first two are your rule; the last two are its purpose, retrieving archived pages,
-applied on 2026-09-02 after a first build had counted names that pass the letter and serve it nothing:
+## 2. Where the increment came from, and what dates each record
 
-1. **RFC 1123 valid**: letters, digits and hyphens only, no leading or trailing hyphen in a label,
-   at least two labels. Underscore names, IP literals and `in-addr.arpa` forms are refused.
-2. **Strictly beneath a registrable this project holds for that same year.** The parent is a
-   foreign key, so a hostname cannot exist here without its registrable existing there, and a bare
-   registrable is never a hostname record. No name is counted in both units.
-3. **Its own machine-written observation in that year, showing the host serving web content**: a
-   capture of a URL on it, or a URL listing naming it. A DNS listing proves a machine answered, not
-   a site, so it dates the parent registrable and writes no hostname record.
-4. **Not `www.<parent>`.** That is the registrable's own site under the name every crawler tries
-   first; the capture dates the registrable, and counting it again would be the same site twice.
+[ATTRIBUTION_TOP]
 
-## 3. What is new this round, and why it is admissible
+Every year comes from a machine-written stamp inside the artifact, a capture timestamp or the
+message's own `Date:` header, so no human judgement dates a record; per-record columns are in
+`additions/evidence_manifest.csv` and `hostnames/hostnames_evidence_manifest.csv`, per-source
+reasoning in `sources.md`. **One evidence class is new: a server writing its own name.** The
+`Received: ... by <host>` clause you accepted last round reads the same in NNTP, so the `Path:`,
+`X-Trace:` and `NNTP-Posting-Host:` headers a news server writes about a transaction it completed
+are admitted under the same rule and no new one. No sender-supplied field is read. That class paid
+[HOST_USENETHDR_EE] EE from spool already on disk, at no new bandwidth; `findings.md` gives the
+exclusions and the two parsing traps. A capture proves presence and never absence, so both units err
+toward omission.
 
-One idea, applied to five artifact families: **when you accepted hostnames, the payload was a
-column of an artifact already on disk that the registrable unit had discarded.** Four of the five
-needed no new request, and most carried a written closure from an earlier round.
+**No agent writes to the store and no agent assigns a year.** The research harness proposes and
+prices sources autonomously, a separate admitter re-derives every figure before anything banks, and
+`ark ingest` refuses an evidence class with no written decision, twice this round. Eighteen
+invariants run before every commit and again inside this archive.
 
-| Source | What dates one record | Records | EE |
-|-----------------------------|--------------------------------------------------|--------:|-------:|
-| IA domain-wide CDX sweeps | the row's 14-digit capture timestamp | [HOST_SWEEP_N] | [HOST_SWEEP_EE] |
-| IA Early Web index | the row's 14-digit capture timestamp | [HOST_EARLYWEB_N] | [HOST_EARLYWEB_EE] |
-| NYPW TimeMaps | the row's 14-digit capture timestamp | [HOST_NYPW_N] | [HOST_NYPW_EE] |
-| USFEDGOV merged indexes | the row's 14-digit capture timestamp | [HOST_USFEDGOV_N] | [HOST_USFEDGOV_EE] |
-| squidGuard and chastity URL blocklists | the robot's compile stamp; the tar member's mtime | [HOST_BLOCKLIST_N] | [HOST_BLOCKLIST_EE] |
-| registrable domains, all lanes | per record in `additions/evidence_manifest.csv` | [REGPAIRS] | [REGEE] |
-
-Every stamp above is machine-written and inside the artifact, so no human judgement dates a year;
-each class was already master-eligible for those exact bytes; the terms were read in full before
-each fetch. Route, licence and per-TLD yield per source are in `sources.md`.
-
-**Two things your rule admits and this round does not count.** The same one-level-down reading
-of three DNS artifacts (the ISC Internet Domain Survey host files, RIPE `nserver:` attributes,
-InterNIC zone NS targets) had written 18,219,285 dated hostname rows, the survey alone exporting as
-9.17M EE, that pass conditions 1 and 2 and fail 3: two thirds of the survey's names are dialup
-ports and numbered workstations (`pc50.btbcs.bt.co.uk`), for which no archived page can exist. They
-are held out, their rows still date the parents, and the lane is one line to re-enable if you rule
-that DNS listings count. And 5,162,650 `www.<parent>` rows, valid and captured, fail condition 4;
-their captures date the registrables instead. Your 0902 brief says a domain-wide query may return
-the base hostname and every qualifying subdomain and that overlap is removed downstream, so this
-is the one place the round is deliberately narrower than your text: a `www.` capture is here read
-as the registrable's own page, and the rows are recoverable from the evidence with one filter if
-you want them as records. Both counts are store rows reported by
-`apply_hostname_purpose_rule.py` on the store as first built.
-
-The evidentiary standard is unchanged: one record is one machine-written observation of that name in
-that year, `evidence_id` is a `NOT NULL` foreign key on both units, seventeen invariants enforce it
-before every commit and inside the archive, `link_target` never dates a year, human-typed names take
-the corroboration split, and a creation date attests its own year only. [CANDIDATES] domains carry
-no in-window evidence, ship as `candidates.txt` and reach no annual file.
-
-## 4. What became autonomous since round 6
-
-Round 6 ran unattended for hours but a person judged every source. This round the loop closes, and
-its code, prompts, policy and full hypothesis register with every verdict ship as
-`source/fleet.tar.gz`.
-
-- **Five scheduled workflows on a self-hosted runner**: a generator writes hypotheses, each with a
-  yield floor and a kill screen; researcher waves test them in parallel; a re-opener re-reads closed
-  verdicts when a screen changes; an improver changes one prompt or model knob per pull request so
-  effects stay attributable. [DATASETS_SEARCHED]
-- **Admission without a human, under a rule fixed in advance**: a source banks only if its class is
-  already master-eligible, a machine stamp inside the artifact dates each item, the terms were read
-  in full and the invariants pass. Eight sources banked that way this round and two parked for a
-  written decision. No agent may write the store: a separate admitter re-derives every figure
-  locally first, and two agent-reported figures lost to that check. The rule admits on the
-  letter of your standard; the purpose reading in section 2 was a human decision over the result,
-  which is the division of labour intended.
-- **The re-opener earned its lane**: it recovered the NYPW TimeMaps from a 14 EE closure by
-  measuring the ingest ledger per folder (year rows per million: 2000 ~24,000, 1999 ~10,000, 2001
-  exactly 4), ~88,000 EE that a human closure had written off.
-- **CDX execution**: two clients at most, honest User-Agent, two seconds between requests,
-  `Retry-After` honoured, absolute deadlines that outlive a session. Sweeps write raw
-  `{url, timestamp}` journals, which is why the same bytes could be re-read under the new unit. A
-  page costs about the same at 200 index blocks as at 10,000, so the sweep walks 10,000-block pages;
-  one outage refused thirteen parents and they were requeued, not skipped. Per-domain gap queries
-  contributed [CDXBULK] registrable pairs.
-
-## 5. Limitations, and where the room is
-
-A capture proves presence and never absence, so a year without one is unevidenced rather than empty,
-and both dating routes err toward omission; the purpose reading in section 2 adds a third omission
-by design, the DNS-listed hosts held out above. The units ship separately, so dropping the hostname
-files leaves the registrable round intact at [REGEE] EE.
-
-Worth expanding, in order: the same one-level-down reading of every other capture-bearing or
-URL-listing artifact already on disk, since a URL list names hosts a domain sweep never reached
-(the DARTMOUTH-NBER ARCS indexes are sampled and priced in `key-decisions.md`); the second-level
-suffix namespaces at hostname grain, where `co.uk` alone is 3.39M index blocks and 1.2% walked; the
-ranked subdomain platforms still queued, resumable from `audit/source_saturation_ledger.csv`.
-Measured and closed: prose corpora, academic repositories, CD-ROM media, FTP mirrors, trade
-directories. The figures behind each verdict are in `experience-summary.md`.
-
-## 6. Merge, overlap and reconciliation (D3)
+## 3. Merge, overlap and reconciliation (D3)
 
 [MERGE_RECONCILIATION]
 
-## 7. Reproduction, and the four artifacts
+## 4. Reproduction, and where the rest is documented
 
-`README.md` in the archive gives the route and the file map. Every evidence row names its source, evidence
-type, dated value, URL and `acquisition_method`, the item's extraction method; `additions/evidence_manifest.csv`
-repeats those columns for this round's records. [REPRODUCTION_RESULT]
+[REPRODUCTION_RESULT] `README.md` gives the route and the file map.
 
-**D1** runnable code, dependencies and instructions: `source/source.tar.gz` at `source/COMMIT.txt`,
-with the research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`.
-**D3** merge and dedup code, overlap and reconciliation: section 6 and `audit/`. **D4** runnable
-metric code: `equivalent_english_domain_calculator/`, your program vendored unmodified, explained in
-`metric-explained.md`.
+| what you asked to see documented | where it is |
+|---|---|
+| counting unit, normalisation, registrable extraction, the metric | `metric-explained.md`; `equivalent_english_domain_calculator/`, your program vendored unmodified (**D4**) |
+| validity and salvage rules, dedup process, dropped-domain statistics | `README.md`, `dropped_domains.txt`, `audit/` (**D3**) |
+| source contributions, annual and candidate counted separately | section 1 and 2, `audit/source_contribution.csv`, `sources.md` |
+| CDX tools, retrieval strategy, errors and how they were handled | `experience-summary.md` (**D2**) |
+| newly identified methods, yields, limitations, what is worth expanding | `findings.md` and `experience-summary.md` (**D2**) |
+| code and instructions to reproduce the workflow | `source/source.tar.gz` at `source/COMMIT.txt`, the autonomous harness as `source/fleet.tar.gz` (**D1**) |
+
+Promising work I am taking up next, in this order: the server-header class at the archives it has not been run
+against, which needs no new bandwidth; the ISP Usenet hierarchies, where the customer host appears
+rather than the news server; sibling national ccTLD extractions of the shape the Poland index has;
+and promoting ISC candidates as exact-host evidence arrives, the one route that turns
+[CANDHOSTEE] candidate EE into annual records. `experience-summary.md` prices each.

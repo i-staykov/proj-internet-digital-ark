@@ -1,6 +1,6 @@
-"""Kill a source proposal before it costs a request.
+"""Price a source proposal against what is already known, before it costs a request.
 
-`docs/discovery.md` says the dead-lead register is an input rather than an
+`docs/lore/discovery.md` says the dead-lead register is an input rather than an
 afterthought, and that an automated discovery agent will walk straight back into
 roughly fifty closed families unless it reads that register first. Reading a
 1,500-line document is the cheapest step in the process and also the one most
@@ -8,8 +8,12 @@ likely to be skipped, so this does it mechanically.
 
 Two gates, in the order that costs least:
 
-**1. Does it collide with something already closed?** The register is parsed out of
-`docs/sources.md` and `docs/sources-closed.md` at run time and never copied, because
+**1. Does it collide with something already closed?** A collision is REPORTED and priced,
+never refused: since C-77 (Ivo, 2026-09-08) the closed register is context for the proposer,
+because a verdict holds only against the screen, store and grain of its own day. The register
+is parsed out of
+`docs/registers/sources.md` and `docs/registers/sources-closed.md` at run time and never
+copied, because
 a hand-kept second copy of those verdicts is how they come to disagree: a snapshot
 table in that same file once omitted the round's largest contributor entirely. A
 collision prints the verdict that closed it, so the proposer can argue with the
@@ -43,8 +47,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCES_MD = ROOT / "docs" / "sources.md"
-CLOSED_MD = ROOT / "docs" / "sources-closed.md"
+SOURCES_MD = ROOT / "docs" / "registers" / "sources.md"
+CLOSED_MD = ROOT / "docs" / "registers" / "sources-closed.md"
 REGISTERS = (SOURCES_MD, CLOSED_MD)
 
 # `[detail](#anchor)` in a row's link column, beside the source URL.
@@ -252,7 +256,7 @@ class Closed:
     line: int
     # Which register page the row is on. Two pages carry the register since
     # `convert_register.py` split it, so a bare line number cites nothing.
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:
@@ -480,8 +484,12 @@ def main() -> None:
             print("  A dead host in 2026-08 may be a live host today, and one request settles it.")
         else:
             print("\n  All of the above were closed on MEASUREMENT, so waiting does not help.")
-        print("\n  Read the verdict before proceeding. If it is genuinely a different")
-        print("  population, say how in one sentence and record that beside the proposal.")
+            print("  A DIFFERENT partition, artifact or grain does: C-77 makes a collision")
+            print("  priced context rather than a veto, and the two largest reopens this")
+            print("  project has had were the other end of an already-measured partition.")
+        print("\n  Read the verdict before proceeding. This does NOT veto the proposal")
+        print("  (C-77, Ivo 2026-09-08): if it is a different population, partition or")
+        print("  grain, say how in one sentence and record that beside the proposal.")
     else:
         print("  no collision. That is not a green light, it is the absence of a red one.")
 
@@ -489,7 +497,7 @@ def main() -> None:
     if args.dating is None:
         print("  NOT STATED. Pass --dating self|typed|undated.")
         print("  If you cannot answer it in one sentence, the source is seed-only and")
-        print("  the conversation is over, per docs/discovery.md section 3.")
+        print("  the conversation is over, per docs/lore/discovery.md section 3.")
         sys.exit(2)
     label, notes = DATING[args.dating]
     print(f"  {label}")
@@ -499,7 +507,7 @@ def main() -> None:
     print("\n== next, and not before ==")
     print("  Price it: sample it, measure against the LIVE store, and report net-new")
     print("  pairs, net-new domains and the mean weight of the net-new part. Bar is")
-    print("  ~5,000 net-new pairs and mean weight 0.6 good, below 0.4 needs a volume")
+    print("  5,000 EE since 2026-09-08, mean weight 0.6 good, below 0.4 needs a volume")
     print("  argument. Label any projection in the same sentence as the number, and")
     print("  fit the saturation curve as well as the line: a 120-archive pilot once")
     print("  projected 1.9M equivalent-English against a true 62,821.")

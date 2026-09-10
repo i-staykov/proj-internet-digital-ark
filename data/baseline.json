@@ -1,19 +1,19 @@
 {
   "current": {
-    "marker": "merged260902-3",
-    "directory": "feedback/feedback-phase-8/Domain_Data_Collection_Task/merged260902-3",
-    "released_at": "2026-09-02 10:31",
-    "round_since": "2026-09-02 12:14:46+00",
-    "round_label": "8",
-    "reviewer_pairs": 39237288,
-    "reviewer_ee": "20714526.9732",
+    "marker": "merged260908",
+    "directory": "feedback/Domain_Data_Collection_Task_0908_Update/Domain_Data_Collection_Task/merged260908",
+    "released_at": "2026-09-08 10:54",
+    "round_since": "2026-09-04 15:00:00+00",
+    "round_label": "9",
+    "reviewer_pairs": 65313842,
+    "reviewer_ee": "34887095.7393",
     "reviewer_ee_by_year": {
-      "1996": "583717.4598",
-      "1997": "1229302.1248",
-      "1998": "1703250.1788",
-      "1999": "3383015.2270",
-      "2000": "5856084.1034",
-      "2001": "7959157.8794"
+      "1996": "724593.2978",
+      "1997": "1475791.9563",
+      "1998": "2350240.0213",
+      "1999": "4476134.8891",
+      "2000": "7317490.1748",
+      "2001": "18542845.4000"
     }
   },
   "original": {
@@ -69,7 +69,9 @@
       "baseline": "merged260826",
       "awarded_percent": "4.130718",
       "benchmark_released": "2026-08-21 11:19",
-      "submission_received": "2026-08-26 15:51"
+      "submission_received": "2026-08-26 15:51",
+      "awarded_score": "6.88",
+      "awarded_score_divisor": 6
     },
     {
       "label": "7",
@@ -79,7 +81,21 @@
       "baseline": "merged260902-2",
       "awarded_percent": "7.562846",
       "benchmark_released": "2026-08-21 11:19",
-      "submission_received": "2026-09-02 05:50"
+      "submission_received": "2026-09-02 05:50",
+      "awarded_score": "6.302372",
+      "awarded_score_divisor": 12
+    },
+    {
+      "label": "8",
+      "date": "2026-09-05",
+      "records": 7834717,
+      "equivalent_english": "4322566.2232",
+      "baseline": "merged260904",
+      "awarded_percent": "18.769714",
+      "benchmark_released": "2026-09-04 11:18",
+      "submission_received": "2026-09-04 13:08",
+      "awarded_score": "5.687792",
+      "awarded_score_divisor": 33
     }
   ],
   "round_one_is_record_based": "1",

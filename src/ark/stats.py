@@ -112,8 +112,10 @@ PROVENANCE_LINEAGE = {
     # live CDX API or its bulk CDX files, so they share that lineage: a hostname this
     # confirms beside an Early Web row is IA agreeing with itself.
     "ia_cdx_hostnames": "internet_archive",
+    "arquivo_ia_hostnames": "arquivo_pt",
     "early_web_cdx_hostnames": "internet_archive",
     "usfedgov_extract_hostnames": "internet_archive",
+    "poland_pl_extract_hostnames": "internet_archive",
     "iedr_register": "registry",
     # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
     # so it shares the registry lineage rather than earning its own: a pair this and a
@@ -252,6 +254,8 @@ PROVENANCE_LINEAGE = {
     # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
+    # The same released mailbox read at hostname grain (2026-09-04): one body of observation.
+    "enron_body_url_hostnames": "corporate_email",
     # A governor's released mailbox is the same body of observation as Enron's: a
     # correspondent's own mail client named the host, and the export was released
     # whole. Filing it as its own family would let two mailbox corpora corroborate
@@ -265,6 +269,16 @@ PROVENANCE_LINEAGE = {
     # here would make one body of observation look like two lineages.
     "maillist_archive": "mailing_list",
     "maillist_archive_mention": "mailing_list",
+    # The same month files read at hostname grain (2026-09-04): one body of observation.
+    "maillist_body_url_hostnames": "mailing_list",
+    # The Usenet spool is one collection effort, and the two lanes that read it are two
+    # readings of it rather than two witnesses. `usenet_body_url_hostnames` takes the hosts
+    # people TYPED into posts; `usenet_header_fqdn_hostnames` takes the ones news servers
+    # WROTE into the same posts' headers. The facts differ, the corpus does not, so filing
+    # them apart would let one archive corroborate itself. Same trade the gatewayed-list
+    # note above makes, and the same reason `internic_zone_hostnames` sits under `registry`.
+    "usenet_body_url_hostnames": "usenet",
+    "usenet_header_fqdn_hostnames": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

@@ -28,7 +28,6 @@ import json
 import subprocess
 import sys
 import tempfile
-import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -99,16 +98,19 @@ NOT_BASELINE = """
 """
 
 
-def open_store(attempts: int = 40, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Wait out the maintain loop rather than failing the whole measurement."""
-    for remaining in range(attempts, 0, -1):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            if remaining == 1:
-                raise
-            time.sleep(pause)
-    raise RuntimeError("unreachable")
+def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
+    """Wait out the maintain loop rather than failing the whole measurement.
+
+    The shared helper rather than a fourth hand-written retry loop, which is what this was:
+    `ark.db.connect_read_only_patiently` exists precisely because the same loop had been
+    written twice and omitted twice. 45 minutes of patience, not 10, because the fold loop
+    runs every 7 minutes and a single pass over 500 sweep journals can hold the writer for
+    longer than that: measured 2026-09-04, this command died on the lock while the round-9
+    lanes were running, which is exactly when the figures are wanted.
+    """
+    from ark.db import connect_read_only_patiently
+
+    return connect_read_only_patiently(STORE, patience_s=patience_s)
 
 
 def increment(conn: duckdb.DuckDBPyConnection) -> dict:
@@ -182,14 +184,21 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     """Score the increment with his program, per year, and return his totals."""
     if not CALCULATOR.is_file():
         raise SystemExit(f"calculator not found at {CALCULATOR}")
-    rows = conn.execute(f"""
-        SELECT y.assigned_year, y.domain FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-        ORDER BY 1, 2
-    """).fetchall()
+    # **The registrable half comes from the SHIPPED files, not from the store filtered by
+    # `round_since`.** It used to come from the store, which agreed with the five fields only
+    # while a round opened as a benchmark arrived. When the fields were made symmetric earlier
+    # tonight this was left behind, so the verifier began scoring a different population than
+    # the one it checks: 8,635,490 records against a claimed 8,721,214, reported as a
+    # -52,926.8691 EE disagreement with zero records rejected and zero already his. A checker
+    # that reads a different set from the thing it checks does not fail safe, it cries wolf,
+    # and `just ship` refuses to package on it.
     per_year: dict[int, list[str]] = {}
-    for year, domain in rows:
-        per_year.setdefault(int(year), []).append(domain)
+    for year in range(1996, 2002):
+        path = REPO / f"output/netnew/{year}.txt"
+        if path.exists():
+            per_year[year] = [
+                line.strip() for line in path.read_text().splitlines() if line.strip()
+            ]
 
     totals = {
         "ee": Decimal(0),
@@ -228,33 +237,92 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     return totals
 
 
-def hostname_increment() -> tuple[int, Decimal]:
-    """Records and EE of the shipped hostname files, priced with his weight model."""
+def shipped_increment(pattern: str) -> tuple[int, Decimal]:
+    """Records and EE of a shipped annual file family, priced with his weight model.
+
+    **This is the definition the five fields need, and the reason is a bug it fixed.** The
+    hostname half was measured here, from the files, while the registrable half was measured
+    from the store filtered by `round_since`. Those agree only while a round opens at the
+    instant a new benchmark arrives. Round 9 opened on 2026-09-04 BEFORE his feedback on round
+    8, and fields 3 and 4 immediately stopped matching what the archive actually contains: 6,223
+    registrable records against 100,883 in `additions/`.
+
+    What he merges is the shipped files, so that is what the five fields count, both units, no
+    session window. What a session ADDED is a different question and is printed separately
+    below, out of the store, where the timestamps are.
+    """
     weights = english_weights()
     pairs, ee = 0, Decimal(0)
     for year in range(1996, 2002):
-        path = REPO / f"output/netnew/{year}_hostnames.txt"
+        path = REPO / f"output/netnew/{pattern.format(year=year)}"
         if not path.exists():
             continue
         with path.open() as fh:
             for line in fh:
-                host = line.strip()
-                if host:
+                name = line.strip()
+                if name:
                     pairs += 1
-                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
+                    ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
     return pairs, ee
 
 
-def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
-    """What ADR-007 keeps OUT of the hostname files: `www.<a name held that same year>`.
+def hostname_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped hostname files."""
+    return shipped_increment("{year}_hostnames.txt")
 
-    The rows are net-new against the reviewer's files and would have shipped before
-    2026-09-03, when 364,524 of them carried 201,767.94 EE, 61.0% of the hostname half.
-    Reported every round rather than left in a commit message, because the reviewer has
-    not yet ruled on the alias and both readings have to stay visible: a CDX corpus
-    re-read at hostname grain is almost nothing else, while a corpus of URLs people typed
-    keeps three quarters of its figure. The predicate is imported from the export, so this
-    figure cannot drift from the rule that produced it.
+
+def registrable_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped registrable additions."""
+    return shipped_increment("{year}.txt")
+
+
+def candidate_potential() -> tuple[int, Decimal]:
+    """Size of the shipped candidate pool, priced but NOT claimed.
+
+    His section XI: "Report annual and active-candidate Equivalent-English contributions
+    separately." Separately is the whole instruction. A candidate carries no in-window
+    evidence, so this is what the pool would be worth if every name in it were later dated,
+    which is a ceiling on future work and not a contribution to this round. It is printed
+    under its own heading, in its own sentence, so it can never be read into the five fields.
+    """
+    weights = english_weights()
+    path = REPO / "output/candidate_unverified.txt"
+    if not path.exists():
+        return 0, Decimal(0)
+    names, ee = 0, Decimal(0)
+    with path.open() as fh:
+        for line in fh:
+            name = line.strip()
+            if name:
+                names += 1
+                ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
+    return names, ee
+
+
+def candidate_track() -> dict:
+    """The candidate-track claim as the export measured it, or an empty result.
+
+    His 0906 update scores candidates separately and at the same rate as annual records,
+    so this is the second of the two numbers a round is judged on and it belongs beside
+    the first. The working pool in `candidates.txt` is not it: measured 2026-09-10 the
+    two were 2,279,755 and 29,327.
+    """
+    path = REPO / "output/netnew/candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0"}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
+    """How much of the hostname half is `www.<a name held that same year>`.
+
+    These rows SHIP, since ADR-008 (2026-09-04) and his own section XI, which says a base
+    hostname and a distinct subdomain hostname may each be annual records. The share is
+    still reported every round, because it is the one number that says whether a corpus
+    was worth reading: a bulk CDX index re-read at hostname grain is 99.5% to 100.0%
+    alias, so it adds names without adding sites, while a corpus of URLs people typed is
+    22.2%. That difference is what picks the next corpus. The predicate is imported from
+    the export, so the figure cannot drift from the rule that produced it.
     """
     weights = english_weights()
     export.load_baseline_hostnames(conn)
@@ -300,7 +368,11 @@ def main() -> None:
     # the hostname files. The split is printed beneath, registrables first, because he
     # still asks for those to be prioritized.
     h_pairs, h_ee = hostname_increment()
-    all_pairs, all_ee = pairs + h_pairs, ee + h_ee
+    # The five fields count what SHIPS, both units, from the files he will merge. `pairs`
+    # and `ee` above are the same unit over the session window and are reported separately,
+    # because a figure is comparable only to a figure over the same window.
+    r_pairs, r_ee = registrable_increment()
+    all_pairs, all_ee = r_pairs + h_pairs, r_ee + h_ee
     growth = all_ee / BASELINE_EE * 100
 
     print("The five fields, in his order\n")
@@ -309,17 +381,38 @@ def main() -> None:
     print(f"3. Increment                                  : {all_pairs:,} records")
     print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
-    print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
+    print(f"\n  registrable domains (additions/)  : {r_pairs:,} records  {r_ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
-    if seam_rows:
-        # These are OUT of the figures above, so the share is of what the two readings
-        # differ by, and the alternative growth rate is printed rather than implied.
-        with_seam = (all_ee + seam_ee) / BASELINE_EE * 100
+    if seam_rows and h_ee:
+        # These are INSIDE the hostname figure above since ADR-008, so the share is of
+        # the hostname half and reads as a quality signal, not as a withheld alternative.
+        share = seam_ee / h_ee * 100
         print(
-            f"    excluded, www.<held that year>  : {seam_rows:,} records  {seam_ee:,.4f}"
-            f"  (ADR-007; {with_seam:.6f}% if the reviewer counts them)"
+            f"    of which www.<held that year>   : {seam_rows:,} records  {seam_ee:,.4f}"
+            f"  ({share:.1f}% of the hostname half)"
         )
-    print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
+    print(f"  registrable-only growth rate      : {r_ee / BASELINE_EE * 100:.6f}%")
+    print(
+        f"\n  since this round opened ({SINCE[:16]}), registrables only: "
+        f"{pairs:,} records  {ee:,.4f}"
+    )
+    c_names, c_ee = candidate_potential()
+    if c_names:
+        # Reported separately because his XI says separately, and never added to anything.
+        # The CLAIM is the net-new pool, not the working set: he scores the candidate track
+        # at the same rate as the annual one, so it is the number that has to be watched.
+        print(
+            f"\n  candidate pool (candidates.txt), the working set: "
+            f"{c_names:,} names, {c_ee:,.4f} EE if every one were later dated"
+        )
+    track = candidate_track()
+    if track["candidates"]:
+        ee = Decimal(track["equivalent_english"])
+        print(
+            f"  CANDIDATE TRACK CLAIM (candidate_additions.txt), scored separately at the "
+            f"same rate: {track['candidates']:,} names, {ee:,.4f} EE, "
+            f"{ee / BASELINE_EE * 100:.6f}% of the same denominator"
+        )
 
     mean = ee / pairs
     last_mean = LAST_EE / LAST_PAIRS

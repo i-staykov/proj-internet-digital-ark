@@ -50,6 +50,13 @@ YEARS = range(1996, 2002)
 HOSTS = {
     "python": "https://mail.python.org/pipermail/",
     "gnome": "https://mail.gnome.org/archives/",
+    # Added 2026-09-09 on the fleet's own FIND of 2026-09-08: seven whole month files of
+    # `mail.zope.dev/pipermail/zope/` measured **1,036 EE** at hostname grain, 26.6 MB on the
+    # wire, and the lead was left unbanked only because the floor was 10,000 EE that morning.
+    # The host serves 62 lists, and `zope`, `zope-dev` and `zope-announce` alone carry 40, 36
+    # and 30 in-window month files. It publishes no robots.txt at all (404), so nothing is
+    # disallowed and no crawl-delay is declared; the pause below is ours.
+    "zope": "https://mail.zope.dev/pipermail/",
 }
 
 # Lists bidirectionally gatewayed with a newsgroup. Their traffic is already in
@@ -152,16 +159,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harvest", action="store_true", help="download month files first")
     parser.add_argument("--write", action="store_true", help="write both journals")
+    parser.add_argument(
+        "--host",
+        action="append",
+        choices=sorted(HOSTS),
+        help="limit to these host tags; default is every one of them",
+    )
     args = parser.parse_args()
+    wanted = {tag: HOSTS[tag] for tag in (args.host or sorted(HOSTS))}
 
     if args.harvest:
-        for host, base in HOSTS.items():
+        for host, base in wanted.items():
             harvest(host, base)
 
     stats: Counter = Counter()
     pairs: dict[tuple[str, int], tuple[str, str]] = {}
     started = time.time()
-    for host in HOSTS:
+    for host in wanted:
         directory = OUT_DIR / host
         if not directory.is_dir():
             continue

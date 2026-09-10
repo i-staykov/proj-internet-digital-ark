@@ -6,6 +6,7 @@ to_registrable(), and a year assignment is derived from its evidence row,
 so a mismatched assignment cannot be expressed.
 """
 
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,60 @@ from ark.canonical import to_registrable
 from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
+
+
+# **DuckDB takes 80% of the machine by default, and this store is 52 GB.** Measured
+# 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB resident and the
+# machine started swapping, while `just sync`, `just state` and `just cycle` each spawn
+# one. Nothing here needs that much: these are aggregations over a few wide tables, and
+# DuckDB spills to `temp_directory` when it hits the limit, so a cap costs some disk and
+# no correctness. Threads are capped for the same reason, since peak memory scales with
+# them and the collectors want the cores.
+#
+# Both are overridable, because the VPS and CI are much smaller than the laptop and a
+# future machine may be much larger: ARK_DB_MEMORY_LIMIT takes any DuckDB size string.
+def _default_memory_limit() -> str:
+    """40% of physical memory, floored at 2 GB.
+
+    Absolute defaults do not travel: 14GB is right on the 36 GB laptop and absurd on
+    the 7 GB VPS. 40% leaves the machine usable while clearing the measured need, and
+    the floor keeps CI (small containers, in-memory test databases) working.
+    """
+    try:
+        total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, ValueError, OSError):
+        return "4GB"
+    return f"{max(2, int(total * 0.4 // 1024**3))}GB"
+
+
+DB_MEMORY_LIMIT = os.environ.get("ARK_DB_MEMORY_LIMIT") or _default_memory_limit()
+# **Two, and it is not only about the cores.** DuckDB's peak memory scales with threads,
+# and the aggregation in `build_round_state.py` failed outright at a 10 GB limit with 4
+# threads ("could not allocate block of size 256.0 KiB (9.3 GiB/9.3 GiB used)"): not every
+# operator can spill. The same query completes at 14 GB with 2. A cap that makes the tool
+# fail is worse than no cap, so the pair is what was tested, not each half alone.
+DB_THREADS = os.environ.get("ARK_DB_THREADS", "2")
+DB_TEMP_DIR = os.environ.get("ARK_DB_TEMP_DIR", "data/duckdb_tmp")
+
+
+def _tune(conn: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyConnection:
+    """Apply the memory, thread and spill settings to a fresh connection.
+
+    Failures are ignored deliberately: an unknown setting on an older DuckDB must not
+    take down an ingest, and the default behaviour without them is what we had before.
+    """
+    Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    for statement in (
+        f"SET memory_limit='{DB_MEMORY_LIMIT}'",
+        f"SET threads={DB_THREADS}",
+        f"SET temp_directory='{DB_TEMP_DIR}'",
+    ):
+        try:
+            conn.execute(statement)
+        except duckdb.Error:
+            pass
+    return conn
+
 
 # the evidence_type CHECK is generated from the taxonomy, so code and schema
 # cannot drift apart
@@ -128,7 +183,7 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     path = Path(db_path)
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
-    return duckdb.connect(str(path))
+    return _tune(duckdb.connect(str(path)))
 
 
 def connect_patiently(
@@ -176,7 +231,7 @@ def connect_read_only_patiently(
     deadline = time.monotonic() + patience_s
     while True:
         try:
-            return duckdb.connect(str(Path(db_path)), read_only=True)
+            return _tune(duckdb.connect(str(Path(db_path)), read_only=True))
         except duckdb.Error as exc:
             if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
                 raise

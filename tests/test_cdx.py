@@ -408,3 +408,54 @@ def test_answered_only_accepts_a_real_reply() -> None:
     assert answered({"status": 200}) is True
     assert answered({"status": 0}) is False
     assert answered({"status": 503}) is False
+
+
+def test_the_response_carries_the_host_and_the_journal_keeps_it() -> None:
+    """`fl=timestamp,original`, added 2026-09-04, and the reason is a measured loss.
+
+    The field list was `timestamp` alone, so the hostname the archive named was discarded:
+    2,984,321 gap answers across 1,163 journals carry no host, and since ADR-009 a `www.`
+    host is a record, so each was a record we paid a request for and threw away.
+    """
+    from ark.cdx import cdx_url, host_url, hosts_in, root_url, year_probe_url
+
+    for url in (
+        cdx_url("foo.com", 1996, 2001),
+        host_url("foo.com", 1996, 2001),
+        root_url("www.foo.com", 1996, 2001),
+        year_probe_url("foo.com", 1998),
+    ):
+        assert "fl=timestamp%2Coriginal" in url, url
+
+    body = (
+        "19980101000000 http://www.foo.com/\n"
+        "19980102000000 http://www.foo.com/deeper/page.html\n"
+        "19990202000000 http://shop.foo.com:80/x\n"
+        "20040101000000 http://late.foo.com/\n"
+        "19970101000000 not-a-url\n"
+        "rubbish\n"
+    )
+    # earliest stamp per host, the window enforced, a port and a path stripped
+    assert hosts_in(body, 1996, 2001) == {
+        "www.foo.com": "19980101000000",
+        "shop.foo.com": "19990202000000",
+    }
+    # a response from a builder that still asked for `timestamp` alone yields nothing
+    # rather than misparsing, so an old journal is empty and not wrong
+    assert hosts_in("19980101000000\n19990101000000\n", 1996, 2001) == {}
+
+
+def test_every_lookup_strategy_returns_the_hosts_it_saw() -> None:
+    from ark.cdx import lookup_years, lookup_years_by_host, lookup_years_by_root
+
+    body = "19980101000000 http://www.foo.com/\n19990101000000 http://a.foo.com/\n"
+
+    def fetch(url, timeout=None):  # noqa: ANN001, ANN202, ARG001
+        return 200, body
+
+    for record in (
+        lookup_years_by_host("foo.com", 1996, 2001, fetch),
+        lookup_years_by_root("foo.com", 1996, 2001, fetch),
+        lookup_years("foo.com", 1996, 2001, fetch),
+    ):
+        assert set(record["hosts"]) == {"www.foo.com", "a.foo.com"}, record["strategy"]

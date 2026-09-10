@@ -1,5 +1,6 @@
 """Command-line entry point for the ark pipeline."""
 
+import json
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -31,6 +32,8 @@ from ark.ingest import YEARS, ingest_legacy
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.price_snapshot import SnapshotError
+from ark.price_snapshot import price as price_against_snapshot
 from ark.provenance import PROVENANCE_DIR, load_provenance
 from ark.seed import seed_from_file
 from ark.seed_pool import combine_parts, write_source_part
@@ -333,6 +336,179 @@ def ingest_isc_hostnames_cmd(
         typer.echo(str(ingest_isc_hostnames(conn, path)))
 
 
+@app.command(name="ingest-usenet-hostnames")
+def ingest_usenet_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards, or directories of them "
+            "(`data/raw/usenet_*_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Usenet posts.
+
+    Approved 2026-09-04, class link_source. The host authority of an explicit
+    `http://`, `https://` or `ftp://` URL in the post BODY only: a `Path`, `Xref`,
+    `NNTP-Posting-Host`, `Message-ID`, `From` or `Organization` host is a news relay
+    or a mailbox, never a host that served a page. Idempotent per shard, keyed by
+    pool and shard name.
+    Example: ark ingest-usenet-hostnames data/raw/usenet_comp_items
+    """
+    from ark.hostnames import ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path)))
+
+
+@app.command(name="ingest-maillist-hostnames")
+def ingest_maillist_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_maillist_pool.py, or directories "
+            "of them (`data/raw/maillists_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated mailing-list messages.
+
+    Admitted 2026-09-04 under the standing rule, class link_source: the same evidence shape
+    as the Usenet lane, read from the pipermail month files on disk. The item pointer is
+    `<host>/<list>__<YYYY-Month>.txt#<n>`, message n of a file the archive host still serves
+    by name. Idempotent per shard.
+    Example: ark ingest-maillist-hostnames data/raw/maillists_items
+    """
+    from ark.hostnames import MAILLIST_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=MAILLIST_FAMILY)))
+
+
+@app.command(name="ingest-enron-hostnames")
+def ingest_enron_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_enron_pool.py, or directories "
+            "of them (`data/raw/enron_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Enron messages.
+
+    Admitted 2026-09-04 under the standing rule, class link_source: the third member of
+    the body-URL family, read from the CMU release of the Enron mailbox. The item pointer
+    is the message's own path inside the tarball, `maildir/<custodian>/<folder>/<n>.`.
+    Idempotent per shard.
+    Example: ark ingest-enron-hostnames data/raw/enron_items
+    """
+    from ark.hostnames import ENRON_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=ENRON_FAMILY)))
+
+
+@app.command(name="ingest-apache-header-hostnames")
+def ingest_apache_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_apache_header_pool.py, or "
+            "directories of them (`data/raw/apache_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated Apache list messages.
+
+    Approved by Ivo on 2026-09-09 (C-83), class link_source, for the `Received: ... by
+    <host>` clause ALONE: the receiving MTA writes its own name there, so the field is
+    machine-written and takes no corroboration split. The `from` clause is a sender-chosen
+    HELO name and is not read; nor is the parenthesised reverse-DNS, which was not part of
+    the approval. The item pointer is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of
+    the mbox export of that list-month. Idempotent per shard.
+    Example: ark ingest-apache-header-hostnames data/raw/apache_header_items
+    """
+    from ark.hostnames import APACHE_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=APACHE_FAMILY)))
+
+
+@app.command(name="ingest-ietf-header-hostnames")
+def ingest_ietf_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from collect_ietf_mail_archive.py, or "
+            "directories of them (`data/raw/ietf_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated IETF list messages.
+
+    C-83's class at a second host, not a new class: the same `Received: ... by <host>`
+    clause Ivo approved on 2026-09-09, read by the Apache lane's own parser. The `from`
+    clause and the parenthesised reverse-DNS are not read here either. The item pointer is
+    `www.ietf.org/<tree>/<list>/<file>#<n>`, message n of that list-month, and the file name
+    is carried whole because the archive spells early months `1996-03` and later ones
+    `1999-05.mail`. Idempotent per shard.
+    Example: ark ingest-ietf-header-hostnames data/raw/ietf_header_items
+    """
+    from ark.hostnames import IETF_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
+
+
+@app.command(name="ingest-usenet-header-hostnames")
+def ingest_usenet_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_usenet_header_pool.py, or "
+            "directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the server-written header hosts of dated Usenet posts.
+
+    Approved master-eligible by Ivo on 2026-09-10. Three fields, all written by a news
+    server about a transaction it completed: the trailing hostname of `X-Trace:`, the
+    `NNTP-Posting-Host:` the accepting server logged, and the final `Path:` hop. The
+    `Message-ID` host is client-written and is not read. Idempotent per shard.
+    Example: ark ingest-usenet-header-hostnames data/raw/usenet_header_items
+    """
+    from ark.hostnames import USENET_HEADER_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
@@ -348,7 +524,8 @@ def seed_pool(
 
     Deliberately not called `seed`: `ark seed` loads candidate DOMAINS into the
     verification pool, while this writes the HOSTNAME and URL download seeds
-    that III.8's registered-domain counting unit necessarily discards.
+    retained from registrable-grain parsers. These auxiliary seeds do not
+    replace the evidence-backed annual hostname records required by brief IV.8.
 
     Reads the same files through the same parser as `ark ingest`, keeping the raw
     value instead of the canonical one, so a seed cannot disagree with the
@@ -453,7 +630,7 @@ def download(
         ),
     ] = None,
 ) -> None:
-    """Fetch archived pages and extract the domains they link to (brief section VII).
+    """Fetch archived pages and extract links for the brief's source-expansion loop.
 
     Collection only: writes a per-run journal and never opens the store. Turn it
     into evidence with `ark ingest expansion_links <journal> --round N` for the
@@ -541,6 +718,34 @@ def export() -> None:
     export_all(conn)
 
 
+@app.command(name="price-snapshot")
+def price_snapshot_cmd(
+    snapshot: Annotated[
+        Path,
+        typer.Option(help="Snapshot directory: manifest.json, the marker, netnew, candidates."),
+    ],
+    items: Annotated[
+        Path, typer.Option(help="JSONL(.gz) of {host, year, text?}, one item per line.")
+    ],
+    track: Annotated[
+        str, typer.Option(help="`annual` for (name, year) records, `candidate` for undated names.")
+    ] = "annual",
+) -> None:
+    """Price items against a pushed snapshot and print one JSON object.
+
+    This is the only price a fleet leg may quote. It reads no store, writes nothing, and
+    refuses a snapshot whose files disagree with its manifest, so the figure in a finding
+    is reproducible from the marker and `built_at` it carries.
+    """
+    try:
+        priced = price_against_snapshot(snapshot, items, track)
+    except SnapshotError as exc:
+        logger.error(str(exc))
+        raise typer.Exit(2) from exc
+    # stdout is the JSON and nothing else: a leg copies fields out of it.
+    typer.echo(json.dumps(priced, indent=2))
+
+
 @app.command()
 def audit(
     legacy_dir: Annotated[
@@ -616,7 +821,7 @@ def gaps(
         record_metrics(conn, "gaps", "creation_addressable", summary)
         logger.info(f"gaps (creation): {summary} -> {out}")
         # No "next" line any more: the RDAP client that consumed this list is retired
-        # (docs/retired.md), and nothing has replaced it as a creation-date route.
+        # (docs/lore/retired.md), and nothing has replaced it as a creation-date route.
         typer.echo(f"gaps (creation): {summary}\nwrote {out}")
         return
     summary = write_gap_candidates(
@@ -706,7 +911,7 @@ def cdx(
 
     One collapsed query covers all six years. Requests are paced by an adaptive
     governor that eases up while the service is healthy and backs off hard on
-    429/503/504, honouring Retry-After, per brief section VI. Resumable: any
+    429/503/504, honouring Retry-After, per brief section VII. Resumable: any
     domain already recorded in a journal in the same folder is skipped.
     """
     path = out or journal_path(CDX_JOURNAL_DIR, CDX_JOURNAL_PREFIX)

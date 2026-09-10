@@ -12,12 +12,16 @@ is exactly what git does with a dirty tree and a diverged branch.
 
 import hashlib
 import importlib.util
+import json
 import os
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 _SPEC = importlib.util.spec_from_file_location(
     "bank_hygiene", Path(__file__).resolve().parent.parent / "scripts/harness/bank_hygiene.py"
@@ -191,17 +195,38 @@ def test_prune_lists_before_it_deletes(tmp_path: Path) -> None:
     _staging(tmp_path)
     before = _snapshot(tmp_path)
     lines = hyg.prune(root=tmp_path, days=14)
-    assert any("run_1" in line for line in lines)
     assert any("banked/old" in line for line in lines)
+    assert any("HELD" in line for line in lines)
     assert _snapshot(tmp_path) == before
 
 
-def test_prune_removes_the_spent_staging_directories_only(tmp_path: Path) -> None:
-    """An empty run directory holds nothing; a fresh banked label is still readable."""
+def test_prune_preserves_local_only_staging(tmp_path: Path) -> None:
+    """Age and empty-directory status grant no deletion permission."""
     _staging(tmp_path)
+    before = _snapshot(tmp_path)
     hyg.prune(root=tmp_path, days=14, write=True)
-    assert not (tmp_path / "data/fleet_findings/incoming/run_1").exists()
-    assert (tmp_path / "data/fleet_findings/incoming/run_2/finding.md").is_file()
+    assert _snapshot(tmp_path) == before
+
+
+def verified_staging(root: Path, monkeypatch) -> None:
+    offsite = hyg.round_prune().sibling("offsite")
+    path = root / "data/fleet_findings/banked/old/finding.md"
+    record = {
+        "stat": offsite.signature(root, path),
+        "kind": "sha256",
+        "digest": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    offsite.write_receipt(root, offsite.REMOTE, {path.relative_to(root).as_posix(): record})
+    remote = json.dumps({"Size": path.stat().st_size, "Hashes": {"sha256": record["digest"]}})
+    monkeypatch.setattr(
+        offsite, "rclone", lambda *a, **kw: SimpleNamespace(returncode=0, stdout=remote)
+    )
+
+
+def test_verified_old_staging_can_be_pruned(tmp_path: Path, monkeypatch) -> None:
+    _staging(tmp_path)
+    verified_staging(tmp_path, monkeypatch)
+    hyg.prune(root=tmp_path, write=True)
     assert not (tmp_path / "data/fleet_findings/banked/old").exists()
     assert (tmp_path / "data/fleet_findings/banked/new/finding.md").is_file()
 
@@ -256,7 +281,7 @@ def test_an_issue_already_open_is_latched_rather_than_duplicated(tmp_path: Path)
     assert [args for args in calls if args[:2] == ["issue", "create"]] == []
 
 
-def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path) -> None:
+def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path, monkeypatch) -> None:
     """E7.5's acceptance, asserted on the tree and on the calls at once.
 
     The first run is the one that acts: it prunes what is spent and opens the gate
@@ -264,6 +289,7 @@ def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path) -
     path under the root and the list of `gh` calls must come back unchanged.
     """
     _staging(tmp_path)
+    verified_staging(tmp_path, monkeypatch)
     latch = tmp_path / "data/logs/gate_notified.tsv"
     brief = {"percent": 5.0104, "gate_pct": 5.0, "round": "8", "baseline": "m1"}
     calls = []
@@ -283,3 +309,43 @@ def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path) -
     assert lines == ["staging directories: nothing to prune"]
     assert _snapshot(tmp_path) == after_first
     assert calls == calls_after_first  # the second gate asked gh nothing at all
+
+
+@pytest.mark.parametrize("free,expected", [(69, 2), (70, 0), (71, 0)])
+def test_space_floor_includes_the_write_budget(tmp_path, monkeypatch, free, expected):
+    monkeypatch.delenv("ARK_FREE_SPACE_GIB", raising=False)
+    monkeypatch.delenv("ARK_WRITE_BUDGET_GIB", raising=False)
+    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: SimpleNamespace(free=free * hyg.GIB))
+    code, lines = hyg.space(root=tmp_path)
+    assert code == expected
+    assert "50 floor + 20.0 write budget" in lines[0]
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "invalid"])
+def test_bad_space_settings_fail_closed(tmp_path, monkeypatch, value):
+    monkeypatch.setenv("ARK_FREE_SPACE_GIB", value)
+    code, lines = hyg.space(root=tmp_path)
+    assert code == 2 and "REFUSED" in lines[0]
+
+
+def test_preflight_refuses_low_space_before_pull(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(hyg, "space", lambda **kw: (2, ["REFUSED: low disk"]))
+
+    def run(args, cwd):
+        calls.append(args[0])
+        return 0, "live" if args[0] == "rev-parse" else ""
+
+    assert hyg.preflight(root=tmp_path, run=run)[0] == 2
+    assert calls == ["rev-parse", "status"]
+
+
+def test_output_on_another_full_filesystem_is_refused(tmp_path, monkeypatch):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "output").mkdir()
+    monkeypatch.setattr(
+        hyg.shutil,
+        "disk_usage",
+        lambda p: SimpleNamespace(free=(100 if p.name == "data" else 1) * hyg.GIB),
+    )
+    assert hyg.space(root=tmp_path)[0] == 2

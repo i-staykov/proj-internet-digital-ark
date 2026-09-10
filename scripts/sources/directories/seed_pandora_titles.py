@@ -4,10 +4,10 @@ One of the four directories under `data/raw/` that no file in the tree read, and
 the reviewer's first priority names unprocessed files explicitly. It is
 **seed-only and can never be anything else**: the index carries no date column of
 any kind, so nothing in it can evidence a year. Writing it to an annual file would
-be the DMOZ error in `SPEC.md` III.3.
+be the DMOZ error in `docs/brief/ding/project-brief.md` IV.3.
 
 **Why it is worth seeding anyway, and why the expectation is near zero.** The
-reviewer asked for the candidate pool to be as large as practicable (III.2, IX),
+reviewer asked for the candidate pool to be as large as practicable (IV.2, X),
 and `.au` carries the highest English share in the table at 0.9904. Against that:
 the index spans PANDORA's whole run rather than the window, so a large share of
 its titles are simply later than 2001, and a 60-domain sample of it against the

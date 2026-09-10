@@ -76,7 +76,7 @@ def test_group_totals_sum_to_the_table_total(tmp_path: Path) -> None:
 
 
 def test_real_table_groups_sum_to_its_bytes_column() -> None:
-    page = REPO / "docs/retention.md"
+    page = REPO / "docs/registers/retention.md"
     groups = prune.group(prune.read_table(page))
     total = sum(
         int(line.split("|")[4].strip())

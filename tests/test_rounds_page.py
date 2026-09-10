@@ -16,7 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-PAGE = ROOT / "docs/rounds.md"
+PAGE = ROOT / "docs/registers/rounds.md"
 
 
 def _load():
@@ -160,8 +160,13 @@ def test_updating_one_row_leaves_the_others_byte_identical(monkeypatch, page) ->
 
 
 def test_a_round_the_page_lacks_is_inserted_in_order(monkeypatch, page) -> None:
-    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", "8", "2026-09-03 05:50", note="new")
+    # The round to insert is DERIVED, not "8". The page is the live ledger, so a hardcoded
+    # label tests nothing the moment that round is recorded, which is what happened when
+    # round 8 landed: the assertion started reading a filled row as if it were a new one.
+    present = {_cells(line)[0] for line in page.read_text().splitlines() if line.startswith("| ")}
+    nxt = str(max(int(x) for x in present if x.isdigit()) + 1)
+    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", nxt, "2026-09-03 05:50", note="new")
     labels = [_cells(line)[0] for line in page.read_text().splitlines() if line.startswith("| ")]
-    assert labels[-1] == "8"
-    row = _row(page.read_text(), "8")
+    assert labels[-1] == nxt
+    row = _row(page.read_text(), nxt)
     assert row[1] == "pending" and row[14] == "new"

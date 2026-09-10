@@ -1,0 +1,870 @@
+# Architecture decision records
+
+**What belongs here and what does not.** The git log is the record of every decision, and it is
+long by design. This file holds only the few decisions with **structural** impact: a change to the
+evidence taxonomy, to the store's shape, to how the machines are allocated, or to a write path every
+route depends on. Each record states the question, what was measured, what was decided, and **what was
+rejected and why**, so a later session can disagree with the reasoning rather than rediscover it.
+
+**How it links to the other logs.** `docs/lore/key-decisions.md` is the short review surface and names the
+ADR for anything structural. The git log carries the day-to-day working. An ADR is the durable answer.
+
+**Status values.** `Accepted` means it is in force. `Superseded by ADR-N` means read that one instead.
+`Open` means the question is live and the record exists so the next session does not start from zero.
+
+---
+
+## ADR-001. The store's single write lock, and the seed that holds it for half an hour
+
+**Date** 2026-08-11. **Status** Accepted. Opened as a question, closed the same evening on two
+measurements: the cause is `add_candidates` inserting row at a time, and the ingest loop's contention was
+636 invocations a pass. Both fixed and measured. The sections below are kept in the order they were
+written, so the two eliminated hypotheses and the third wrong one stay visible.
+
+### The question
+
+DuckDB permits many readers **or** one writer. Until today nothing contended for the store: collectors
+write journals and never open it, and ingests ran when a human was watching. Today three things want it
+continuously, which is new: the ingest loop every fifteen minutes, and two collectors whose output that
+loop folds in.
+
+Against that, `ark seed` held the write lock for **26 minutes for 6,079 names** and **33 minutes for
+35,391**, and while a writer holds the lock every reader is blocked. During that window the pricer, the
+state generator and the residual auditor all stalled. So the question is whether the seeding path needs
+restructuring, and if so how.
+
+### What was measured, including two wrong answers
+
+**First hypothesis: the row-at-a-time insert.** `seed_from_file` called `add_candidate` in a Python loop,
+so 29,432 names became 29,432 single-row `INSERT`s into a columnar store. That is real, and it was
+batched into one `executemany` as `db.add_candidates`. **It was not the cause**: the same seed then held
+the lock for 33 minutes anyway.
+
+**Second hypothesis: the classification query.** `_CLASSIFY_SQL` evaluates a correlated `EXISTS` per
+candidate name against `evidence`, which is 53.9 million rows, and that looked like the obvious cost.
+**Measured against the real store it is 0.33 s for 3,000 names.** A hand-written semi-join replacement
+measured **1.30 s for the same input, four times slower**, so the existing query is already the better
+formulation and DuckDB is planning it as a hash semi-join rather than 3,000 probes.
+
+**So the cause is unidentified.** Both plausible candidates are eliminated by measurement. What remains
+untested: the SQLite `enqueue` of several thousand rows into a 358 MB queue file, transaction commit and
+WAL checkpoint behaviour on an 8 GB store, and interaction with the ingest loop writing concurrently.
+
+### What was decided
+
+1. **No structural change.** Rewriting a write path that every seeding route depends on, without knowing
+   which line is slow, would be a change made on a guess. Two guesses have already been wrong here.
+2. **The seed path is instrumented instead.** `seed_from_file` now logs elapsed seconds per phase:
+   read-and-canonicalise, classify, insert, enqueue. The next occurrence produces a measurement rather
+   than a third hypothesis. This is observability, not debt: four timing marks and one log line.
+3. **The batched insert stays.** It is correct, tested, and removes a redundant second `to_registrable`
+   call per name. Its justification is now "it is the right shape" rather than "it fixed the slowness",
+   which it did not.
+4. **An allocation rule, which is the operative decision.** When jobs contend for the write lock,
+   **priority follows expected net-new equivalent-English**. Concretely:
+   - ingesting a collector's finished journal wins: it banks work already paid for;
+   - pricing and measurement win over seeding: they decide where the next hours go;
+   - **seeding yields**, because a candidate claims nothing until something dates it, and the two seeds
+     run today were measured at an expectation near zero (PANDORA) or are already banked as candidates
+     by a cheaper route (UDRP);
+   - a seed that is blocking anything valuable is interrupted rather than waited out. This is safe:
+     inserts autocommit, so a stopped seed keeps what it wrote and `INSERT OR IGNORE` makes a re-run
+     additive.
+
+### What was rejected, and why
+
+- **A second store, or read replicas.** Solves the contention and introduces two sources of truth for
+  the evidence graph, which is the one thing this project's design refuses. The provenance export, the
+  integrity gate and tier-2 reproduction all assume one store.
+- **Moving the candidate pool to SQLite.** The pool is queried by joins against `evidence` and
+  `domain_year` constantly, so splitting it across engines would turn cheap joins into application-level
+  work.
+- **A write queue in front of the store.** Real technical debt: a new component to keep correct, and it
+  would hide contention rather than remove it.
+- **Longer patience everywhere.** Already done where it belongs (the read-only tools wait 15 minutes),
+  but patience is not a fix: it makes a reader wait quietly instead of failing loudly.
+
+### Addendum, 2026-08-11 evening: the cause is identified, and the rule was never enforced
+
+Two findings, and the first supersedes the "cause is unidentified" section above.
+
+**Measured: the write lock is held 89% of the time, and almost all of it is the ingest loop skipping
+files it has already banked.** Sampled 18 times over 90 seconds: held 16, free 2. `scripts/harness/maintain.sh`
+runs one `uv run ark ingest` **per journal file**, over 400-plus files, every 900 seconds. Each
+invocation opens the store read-write, reads the ledger, finds the file already ingested, and closes:
+7,646 `already ingested, skipping` lines across 6,156 invocations. So the contention this ADR set out to
+explain is not the seed being slow. **It is the banking loop holding a write lock near-continuously to
+do almost nothing**, and every reader and every seed queues behind that.
+
+**Fixed, and measured on both sides.** The unknown that held it back was cheap to settle by reading the
+code: `ingest_files` already wraps each file in its own `try/except Exception`, counts `files_failed` and
+continues, so a bad file is contained exactly as it was under per-file invocation and now lands in the
+summary rather than scrolling past in a shell loop. With that answered, `maintain.sh` calls `ark ingest`
+once per **source** instead of once per **file**.
+
+    409 CDX journals, one invocation : 2 seconds, one lock acquisition, 408 skipped, 1 banked
+    write-lock occupancy before      : held 16 of 18 samples over 90s, 89%
+    write-lock occupancy after       : held  0 of 18 samples over 90s,  0%
+
+The 636 invocations a pass had been making were 636 Python interpreter starts, each taking the write lock
+to read one ledger row, every 150 seconds. That is the whole of the contention, and the seed it had been
+blocking all day ran immediately afterwards.
+
+The one limit now worth watching is the argument list: 636 paths is about 30 KB against an ARG_MAX near
+1 MB, but a glob grown into the thousands would need `xargs`, and an `ls` over 19,231 usenet archives has
+already overflowed exec once in this project.
+
+**The allocation rule in decision 4 above was prose and nothing implemented it.** Neither command had any
+lock patience, so whichever process reached the store first won and the other died with a DuckDB
+traceback. The stated priority had no effect on which one that was.
+
+It is now enforced by asymmetric patience, which is the smallest mechanism that expresses an ordering:
+`ark ingest` waits up to 2400s, because banking is top of the ordering and a pass that gives up leaves
+collected work on disk; `ark seed` waits 20s and then yields with a message saying so.
+
+**The first attempt at that inverted it, which is worth recording.** Giving the seed 600s of patience
+looked like politeness and was the opposite: the seed queued, won the lock the moment the ingest pass
+ended, and then held it for its own long run, so the ingest loop began crashing against the seed instead
+of the other way round. **Moving a traceback onto the job that outranks you is not an improvement.** The
+seed was interrupted under this ADR's own rule, which is safe because inserts autocommit and the insert
+ignores duplicates, and the patience was cut to 20s.
+
+### Closed: the seed's cost measured to one line
+
+The per-phase instrumentation this ADR added finally ran on a 13,078-name seed, and the phases are not
+close:
+
+    read_and_canonicalize = 0.1 s
+    classify              = 0.7 s
+    insert_candidates     = 1207.1 s
+    enqueue               = 0.7 s
+
+**One phase is 99.9% of the run.** `classify` at 0.7 s confirms the second hypothesis was correctly
+eliminated, and `enqueue` at 0.7 s clears the SQLite queue this ADR listed as untested. The row-at-a-time
+insert, which the first hypothesis blamed and which was supposedly fixed by moving to `executemany`, was
+the cause all along. Batching it into `executemany` was not the fix, because **`executemany` is not a
+batch**: it is N prepared-statement executions, and DuckDB is columnar, so each pays a whole statement's
+overhead against an 8 GB store.
+
+A third hypothesis was tested and refuted on the way: per-row autocommit inside `executemany`. Wrapping
+the whole batch in one explicit transaction measured **12.03 s against 11.88 s**, no difference at all.
+
+The fix is the idiom `bulk.py` had been using all along, an Arrow table registered and inserted set-wise
+with the `OR IGNORE` written as an anti-join. Measured against a 4,000,000-row table, inserting 13,078:
+
+    executemany, row at a time      13.47 s        971 rows/s
+    set-based from an Arrow table    0.05 s    259,242 rows/s      267x, identical results
+
+So the 20-minute write-lock hold becomes a few seconds, which retires the reason this ADR existed.
+
+**Two consequences to carry forward.** The interim allocation rule's justification changes: it said an
+interrupted seed is safe "because inserts autocommit", and a single statement rolls back instead. That is
+a better trade at this speed, since the window shrinks from twenty minutes to a fraction of a second and a
+re-run is still additive, but the reason is now "the window is negligible" rather than "partial work
+survives". And the instrumentation only printed at the end, so a seed that ran eighteen minutes emitted
+nothing and could not be distinguished from a hung one; each mark is now logged as it is taken, because a
+timing you cannot see until the run finishes does not measure a run that has not finished.
+
+### Consequence to watch
+
+The interim rule makes seeding the thing that always yields, which is right while seeds are worth
+nothing and wrong the moment a seed feeds a route that pays. The RDAP pool and the CDX pool are both fed
+by seeding, so if the discovery loop starts converting candidates at a good rate, this ordering needs
+revisiting rather than reapplying.
+
+---
+
+## ADR-002. UDRP dispute proceedings are master `artifact_listing`, not a split source
+
+**Date** 2026-08-11. **Status** Accepted, on Ivo's decision.
+
+### The question
+
+ICANN publishes a consolidated table of domain-name dispute proceedings across all five providers that
+heard cases in 1996-2001, with an explicit commencement date and the disputed name in its own column.
+Measured against the live store: 5,306 in-window proceedings, 8,800 distinct (domain, year) pairs over
+8,769 domains, of which **only 1,086 are already held**. 87.7% absent is the highest share of any source
+measured on this project.
+
+Which evidence class applies decides what it is worth, and the difference is 5.5x:
+
+| reading | net-new pairs | equivalent-English | mean weight |
+|---|--:|--:|--:|
+| `artifact_listing`, master, self-dating | **7,714** | **4,708.9** | 0.6214 |
+| `dated_directory`, taking the corroboration split | 1,471 | 914.1 | 0.6214 |
+
+### Why `artifact_listing`
+
+**The precedent is exact.** `attrition_defacement` is already `artifact_listing` on identical logic: a
+defaced host was serving on the day the mirror recorded it, so the record is contemporaneous evidence of
+existence with the date printed in it. A proceeding exists only because the domain was registered and a
+complaint was filed against it, and the provider verified the registration with the registrar. The claim
+is the same shape and the authority is stronger.
+
+**The domain is in a structured column, not in prose.** This is the property the corroboration split
+exists to compensate for, and it is absent here. The split was introduced because a hostname a human
+typed into a Usenet post carries transcription risk, and it is what makes `usenet_bare` safe to widen.
+Tucows' `creator` field was trusted on the same reasoning where its neighbours were not. A published
+docket's domain column is that kind of field.
+
+**It does not depend on a crawl.** The reason this source matters at all is that a dispute record
+attests existence without anyone having visited the site, which is precisely why 1996-1997 are hard.
+Sending it through a split that requires another source to have already seen the domain would discard
+exactly the names no other source has, which is the population worth having: 87.7% of what it names.
+
+### The argument against, which is real
+
+Self-dating means **no wall behind the extraction**: a bad match becomes a master claim rather than a
+candidate. Three mitigations, all in place before the figure was believed:
+
+1. **The extraction reads one table cell**, not the text between two case numbers. The first version did
+   the latter and swept in `www3.wipo.int` from the page furniture.
+2. **A row without a proceeding number is refused**, because the number is what makes a row auditable,
+   and the evidence value carries `UDRP <number> commenced <date>` so the integrity gate can check that
+   the value names the year it is filed under.
+3. **Eight tests pin what it refuses**, not only what it accepts, which is the right emphasis for a
+   source with no split behind it.
+
+### One figure that must not be misread
+
+The pricer's typo bound reports 46.4% of net-new names within one edit of a name already held. On every
+other source that is a contamination estimate. **Here it measures the signal**: a typosquat is one edit
+from a famous name by construction. This is the only source measured on this project where a high
+edit-distance score is evidence the extraction is finding the right thing, and a future session applying
+the usual reading would reject a good source.
+
+### Limitations carried forward
+
+ICANN's own page calls itself "an incomplete list of UDRP proceedings", so the figure is a **floor**, not
+a census: the providers' own search tools hold cases this table omits. The lineage is `dispute_docket`,
+its own family, so a pair it confirms alongside an RDAP creation date is genuine cross-lineage
+corroboration rather than one organisation agreeing with itself.
+
+---
+
+## ADR-003. A source class may not date a year until a human classifies it
+
+**Date** 2026-08-11. **Status** Accepted, on Ivo's proposal.
+
+### The question
+
+The harness can propose a source, screen it against the closed register, fetch it and price it against
+the live store without help. It cannot decide whether that source's records belong in the annual files,
+because that is a judgement about **what counts as proof** rather than a measurement.
+
+Until today that judgement happened by email. UDRP went from "priced" to "ingested as master evidence"
+on one exchange, and the reasoning for it lived in an ADR that only the agent had read. That does not
+scale to an unattended run, and more importantly it puts the least trustworthy artifact in the
+repository, **an agent arguing that its own find is master evidence**, on the critical path.
+
+### What was decided
+
+**A gate, not a convention.** `docs/registers/approved-sources-list.md` holds one `Decision:` line per
+(source name, evidence type). `ark ingest` refuses any master-eligible class whose decision is `pending`,
+`rejected` or absent, and it refuses **before opening the database** so an unapproved ingest does not
+even take the write lock. `src/ark/approvals.py` is the enforcement and `ingest_files` is the choke point
+every caller passes through.
+
+**Four decisions, and `rejected` binds.** `pending` refuses, `master` admits, `candidate-only` admits the
+source while forbidding it from dating a year, and `rejected` refuses and stops the request generator
+re-opening it. An agent that forgets a rejection re-proposes it a week later, which is the same failure
+the closed register exists to prevent for sources.
+
+**Candidate-only evidence is deliberately ungated.** It can never date a year, the reviewer asked for the
+pool to be as large as practicable, and gating it would stall collection for no gain. So **collection
+never waits on a human and promotion always does**, which is the property that makes the queue safe to
+leave unattended.
+
+### One refinement on the proposal, and it matters
+
+Ivo's sketch had the harness collecting `master_candidates` into a quarantined state. **The quarantine is
+outside the store instead.** Collectors already write journals and never open the database, so
+"collected but unclassified" needs no new state at all: the journal sits on disk and the gate refuses the
+ingest. That is strictly stronger, because an unapproved source **cannot contaminate anything, having
+never been written**, rather than depending on every future query to respect a marker. It is also less
+code and adds no schema.
+
+### What makes a request decidable in two minutes
+
+The reader does not trust the agent's prose, and should not. So `scripts/harness/request_approval.py` builds a
+request almost entirely from checkable things:
+
+- **a seeded-random sample of real records, each with a live link.** Seeded, and the seed printed, so the
+  sample is reproducible and **was not chosen by the agent**. Given the choice the agent would pick
+  flattering examples. WIPO decisions get a per-case URL composed from the case number, since a link to
+  an index proves nothing; NAF rows honestly fall back to the index because its ids are opaque.
+- **the measured figures**, produced by a program against the live store, including the share absent.
+- **the counterfactual**: what the source is worth under `master`, under the split, and under
+  `candidate-only`, so the stake is visible before the decision rather than after.
+- **the nearest already-closed family** from the register, since the strongest reason to refuse is usually
+  that something of this shape has already failed on measurement.
+- **reasons to refuse, written by the agent against its own request.**
+
+The single judgement it does ask the agent for is the **dating claim**, one sentence on what dates one
+item, and it is labelled as the agent's claim rather than presented as fact.
+
+### What was rejected, and why
+
+- **Quarantine inside the store**, as above: weaker and more code.
+- **Per-record approval.** Approving 8,972 rows individually is not a review, it is a rubber stamp. The
+  class is the right granularity, and a **material change to the extraction should re-open it**, since
+  that is what went wrong with the Microsoft Bookshelf ISO: self-dating plus a loose extraction would
+  have turned binary noise into master claims.
+- **Trusting the ADR as the record.** An ADR is the agent's reasoning. The gate reads a decision line a
+  human wrote, and the two are deliberately separate artifacts.
+- **Gating candidate-only evidence too.** Consistent, and it would stall collection to protect nothing.
+
+### Consequences, including the awkward one
+
+Everything already in the store was grandfathered, and the authority is cited per entry: the reviewer
+merging and crediting the round that contained it, or Ivo classifying it by name and date. That is real
+approval rather than the agent approving its own past work, but it is worth naming plainly that 24 of the
+25 classes were approved retrospectively in one sitting.
+
+A test asserts that **every master-eligible spec has an entry**, so adding a source without classifying
+it fails in the suite rather than at three in the morning in an unattended run. The unit-test fixture
+relaxes the gate, because unit tests build specs with invented source names, so `tests/test_approvals.py`
+is the only place the gate is genuinely exercised and it tests the gate rather than the convention.
+
+---
+
+## ADR-004. A declarative *probe*, and bespoke *collectors*: the line is master evidence
+
+**Date** 2026-08-11. **Status** Accepted, narrowing Ivo's proposal.
+
+### The question
+
+Ivo named this as one of three fixes for the harness sitting idle: make the fetcher **declarative**, so a
+new source can be tried by describing it rather than by writing a program. The idle behaviour is real. The
+loop's own output says it cannot "write the fetcher that turns a source into dated items", and that step
+is where an hour of hand-written Python stands between a hypothesis and a number.
+
+The question is what exactly should become declarative, because "declarative fetcher" spans two very
+different ambitions: *try a source cheaply*, and *ingest a source without writing code*.
+
+### What the sixteen existing parsers actually cost, measured
+
+Adding UDRP, the most recent source, cost **186 lines of collector, 71 lines of parser and spec, and eight
+tests**. That is the honest unit price. But the sequence around it is the thing to look at: the fetch and
+the first price took under an hour, and the Linux Software Map and the Microsoft Bookshelf ISO were each
+**found, fetched, priced and closed inside an hour**, at a cost of two or three requests. Both were
+rejected on the number. Neither needed a parser, and if a declarative ingest path had existed, neither
+would have been any cheaper, because **the cost that mattered was the measurement, not the code**.
+
+That reframes the bottleneck. The expensive idleness is not "I must write 186 lines before I can ingest".
+It is "I must write 186 lines before I can find out whether this is worth 186 lines."
+
+### What was decided
+
+**Two paths, split on whether the output can date a year.**
+
+1. **A declarative probe**, `scripts/pricing/probe_source.py`, driven by a TOML file: a URL, an extraction kind,
+   which field or column carries the hostname, which carries the date, and what a row must have to be
+   kept. It writes a journal of `{item, domain, year, text, url}` that `price_items.py` already reads, so
+   a source goes from a URL to a measured net-new figure with **no Python written at all**. It uses
+   `tomllib` and the same regex table extraction the UDRP collector already proved, so it adds no
+   dependency.
+2. **Bespoke collectors stay bespoke**, and remain the only route into an annual file.
+
+**The probe's output is candidate-only by construction, and not by policy.** It has no entry in `SOURCES`,
+so `ark ingest` has no spec to run and literally cannot admit it as master evidence. That is stronger than
+a flag, and it is the same trick ADR-003 used: the safety comes from the thing never having been wired up,
+not from every future caller remembering a rule.
+
+### What was rejected, and why it is the important half
+
+**A declarative path to master evidence was rejected.** Three reasons, in order of weight.
+
+- **The value of a parser is in its refusals, and refusals do not generalise.** UDRP refuses a row with no
+  proceeding number, because the number is what makes the row auditable; it refuses a value whose date
+  does not name the year it is filed under, which is what the integrity gate checks; and its first version
+  swept `www3.wipo.int` out of the page furniture until it was made to read one table cell. Every one of
+  those is specific to that document. A configuration language expressive enough to state them is a
+  programming language with worse tooling.
+- **Cheap plus self-dating is exactly the combination that contaminates.** ADR-003 exists because an agent
+  arguing for its own find is the least trustworthy artifact here. Lowering the cost of *adding* a source
+  is safe; lowering the cost of *promoting* one is not, and a declarative ingest would lower both at once.
+  The Bookshelf ISO is the concrete case: a loose extraction over a binary image, self-dating, would have
+  turned decompression noise into master claims.
+- **It would not have saved any of the time actually spent.** Of the last four sources considered, two
+  were rejected on measurement before any parser existed, one needed judgement about evidence class that
+  no configuration can express, and one is `.org`, which was not a parsing problem at all.
+
+**A generic "sniff the page and guess the columns" mode was also rejected.** It is the feature that makes
+a demonstration impressive and a corpus unreliable. The probe requires the column or field to be named,
+and **refuses to run rather than guess**, so a spec that is wrong fails loudly at the first row instead of
+quietly producing plausible rubbish.
+
+### It was validated against a known answer, not against a plausible one
+
+The obvious risk in a declarative extractor is that it looks like it works. So the first spec written was
+not a new source but a **self-test against a source already ingested by hand**: `probes/udrp_selftest.toml`,
+seven lines, pointed at the ICANN dockets. The bespoke collector is 186 lines and produced 8,923 pairs. The
+probe produced **8,923 pairs over 8,892 domains, agreeing on all 8,923, with nothing in either set that the
+other missed.** That is the claim worth making about this tool, and it is checkable by re-running both.
+
+It also demonstrated the multi-name cell in the process: the dockets list every disputed name of a case in
+one cell, a cell taken whole would have refused those rows, and the yield would have read low for a reason
+that has nothing to do with the source. That is exactly the lie this tool has to be built not to tell, so
+`domain_pattern` mines within a cell and the refusal counters show when it finds nothing.
+
+### The property that makes a probe trustworthy
+
+**It reports what it threw away, by reason.** A fetcher that silently drops rows is the single failure mode
+that turns a probe's price into a lie, and it is invisible: a low yield reads as a bad source rather than a
+bad extraction. So the probe prints accepted and refused counts per reason, and a refusal rate above half
+is called out, because at that point the likely explanation is the spec and not the source.
+
+### Consequence to watch
+
+If probing gets cheap, more sources get probed, and the approvals queue becomes the bottleneck instead of
+the parser. That is the correct place for a bottleneck, since it is the step that needs a human, but it is
+worth watching: an approvals file with fifteen pending classes is a queue nobody reads, which would put us
+back where a rejection is a stall rather than a decision.
+
+---
+
+## ADR-005. One surface asks the human for something, and it is enforced rather than agreed
+
+**Date** 2026-08-11. **Status** Accepted, on Ivo's instruction.
+
+### The question
+
+By this afternoon the project asked Ivo for things in three places, and he had been told about one of
+them. `notes.md` ended each of 37 entries with `Signed off by Ivo: pending`. `open-approvals.md`
+accumulated `pending` classes. And the hypothesis ledger's unfinished leads were being surfaced by
+`discover_cycle` as "needs judgement, not a program", so a cron wake reported five of them at him.
+
+His response is the whole ADR: "I had no idea there are hypothesis for me to sign-off. Everything I have
+to sign-off should be in one place, so I know about it."
+
+**The failure is not that the questions were unanswered. It is that the asker believed they had been
+asked.** A harness that raises an item into a file nobody opens has done the reporting and none of the
+communicating, and it then reports the silence as "the queue working". That is a worse state than not
+raising it, because it looks handled from the inside.
+
+### What was decided
+
+**`docs/lore/key-decisions.md` is the only surface that asks for a decision**, and the other files keep their
+jobs unchanged.
+
+1. **The notes sign-off is gone.** That log is the agent's own working. Asking for a countersignature on
+   all of it is how the two or three real questions got buried. Past entries keep their trailer, because
+   the log is append-only and rewriting history to look tidy is a different failure.
+2. **`open-approvals.md` becomes `approved-sources-list.md`**, on Ivo's wording, and a `pending` class in
+   it is **mirrored** into `key-decisions.md`. Twice, deliberately: `request_approval.py` raises the
+   entry at the moment it writes the request, and `check_approvals` raises it on any cycle that finds one
+   unsurfaced. Belt and braces, because the failure being prevented is silent by nature.
+3. **Hypotheses are the agent's to settle.** Screened, priced, decided. A lead is adopted, closed on a
+   measurement, or left with its verdict recorded, and only an outcome worth overruling becomes an entry
+   here. Ivo: "you make your own judgment on them and continue."
+
+### Why a module and a test, rather than a rule in CLAUDE.md
+
+CLAUDE.md already said to log decisions where a human would see them, and it did not prevent any of
+this, because a convention cannot notice that it has been broken. So `src/ark/key_decisions.py` owns the
+`## OPEN` block and **a test over the two live documents fails when a `pending` class is not named
+there**. This is the same reasoning as ADR-003, one level up: that gate stopped the agent promoting a
+source on its own authority, and this one stops the agent believing it has asked a question it has not.
+
+The mirror writes a **stub**, not an argument. It states what is waiting, what is at stake under each
+possible decision, and where the checkable evidence is. Generating the reasoning would produce exactly
+the confident filler the approvals design exists to distrust.
+
+### What was rejected
+
+- **Generating `key-decisions.md`.** It is prose about judgement and a human overrules things by reading
+  it. A generated file would be regenerated over his edits, and `ROUND.md` already occupies the
+  "generated current state" slot.
+- **Leaving the approvals file as the surface for approvals.** Defensible, and it is what had been true.
+  It also produced this ADR: two surfaces means the reader has to remember the second one exists.
+- **Deleting the trailer from the 37 existing entries.** They are dated history. `notes.md` is
+  append-only and a past entry is never edited, which is a rule with its own scar behind it.
+- **Having the cycle raise unfinished hypotheses as a question with a lower priority.** A quieter
+  version of the same defect. Either it needs a human or it does not, and these do not.
+
+### Consequence to watch
+
+The agent now decides hypotheses alone, which is more latitude than it had this morning. That is the
+right trade only because the approvals gate is downstream of it: a hypothesis can be adopted, collected
+and priced on the agent's judgement, and **its records still cannot date a year until a human classifies
+the source**. If a future change ever lets a hypothesis reach the annual files without passing ADR-003's
+gate, this ADR stops being safe and needs revisiting rather than reapplying.
+
+## ADR-006. Edge-year gaps are a third population, and the bracketing rule was never measured
+
+**Date** 2026-08-18. **Status** Accepted for the queue definition; the reallocation is REFUSED on the
+pilot's own numbers. Settled without Ivo, as C-24 in `key-decisions.md`.
+
+### The question
+
+`src/ark/gaps.py` selects gap targets with `h2.y = h1.y + 2`: a domain is a target only where the store
+already holds **both** flanking years. So a domain held in 2000 and missing 2001 needs 2002, and one
+held in 1997 and missing 1996 needs 1995. Both are outside the window, which means **1996 and 2001 can
+never be gap targets at all.** The module says the restriction is deliberate:
+
+> ...rather than to every year adjacent to a held one, which is 17.5x larger and far more speculative.
+
+That sentence predates the equivalent-English metric. The 17.5x is right. **"Far more speculative" had
+never been measured**, and measuring it took three attempts of which only the last was sound.
+
+### The population, which is what makes this an ADR rather than a note
+
+| | slots | never asked of CDX | EE ceiling, unasked |
+|---|--:|--:|--:|
+| 2001 edge | 5,358,097 | **99.8%** | 2,678,201 |
+| 1996 edge | 1,141,039 | 95.5% | 587,188 |
+
+**285,862 domains have ever been asked of the CDX index, out of 10,867,530 held.** An answer containing
+2000 returns **3.52 in-window years on average**, so one query can fill several missing years rather
+than the edge one alone. The queue builds in 1 second as one `GROUP BY domain`; the obvious form with
+correlated `NOT EXISTS` subqueries over 20.8M rows took 15 minutes and was killed twice.
+
+### The rate was measured three times and only the third was right
+
+A seeded sample of 200 domains from the best 50,000 rows, one worker and a two-second delay so as not
+to become a third heavy client on `web.archive.org`.
+
+| | what it measures | 2001 | 1996 |
+|---|---|--:|--:|
+| conditional off 725 journals | given an adjacent CAPTURE | 94.4% | 60.0% |
+| pilot vs the LIVE edge set | 200 domains | 24.2% | 0.0% |
+| **pilot vs a FIXED snapshot** | the same 200 answers | **59.7%** (111/186) | **0.0%** (0/186) |
+
+The journal figure carried a control that validated the method where the answer was already known:
+given 1998 and 2000, the archive also holds 1999 for **98.2%** of 63,761 answers, against the gap
+engine's own measured 96.0% to 97.5%. So the method was sound and the *population* was wrong.
+
+**The conditional was labelled a ceiling and was one.** It is conditional on the archive holding the
+adjacent capture, while this population holds its adjacent year from any source, very often a registry
+creation date for a site that was never archived at all. Overstated by 1.6x.
+
+**The second measurement is the one worth naming, because it looked like the careful one.** Recomputing
+the edge set live at measurement time biases a rate downward *by its own success*: every domain where
+2001 was found was banked by the ingest loop, left the edge set, and was removed from the very
+denominator it had just satisfied. 24.2% and 59.7% are the same 200 answers against a moving and a fixed
+denominator. The tell was arithmetic that could not be true, 25 hits in the first 47 answers and then 24
+in 99. **A rate measured against a set that your own measurement mutates is not a rate.**
+
+**1996 is not a thin edge, it is not an edge at all.** 0 of 186, where all 186 were sites established
+enough to hold both 1997 and 2000, which is exactly where a 1996 capture should have been most likely.
+`EDGE_RATE[1996]` is `0.000`, kept in the selector rather than deleted so that one constant revives it
+if a later pilot ever measures it above zero.
+
+One caveat on the 59.7%: it is a **head-of-queue** rate, since the pilot was drawn from the best 50,000
+rows and every resolvable domain in it was missing both edges. Expect it to fall as the queue is worked.
+
+### The decision, and it turned out not to need Ivo
+
+Ranked by expected equivalent-English per request, which is ADR-001's rule:
+
+| population | EE per query | basis |
+|---|--:|---|
+| bracketed gap | 1.249 | measured, `docs/report.md` section 4 |
+| edge, whole population | **0.2645** | 1,597,557 EE over 6,039,003 targets, on the pilot rates |
+| candidate pool | ~0.18 | 19.8% recent yield x mean weight |
+
+**Rebuilt on the measured rates, the answer reverses: nothing should move.** With `0.597` and `0.000` in
+place of the conditionals, the merged queue gives **9,999 of its best 10,000 rows to bracketed gaps**,
+which is the ranking working correctly rather than a disappointment. A single-slot bracketed gap scores
+`0.886 x weight` against a 2001 edge's `0.597 x weight`, so the gap wins on the same TLD, which it did
+not under the conditional. The edge population is worth roughly **1.5x the candidate pool** and about a
+fifth of a bracketed gap, not the 4.7x an earlier draft of this ADR reported off the journal figure.
+
+So the VPS stays on bracketed gaps, the local engine stays on discovery, and the edge queue exists for
+whenever the pool runs thin. An edge hit adds a **pair and never a domain**, so it is completeness and
+the reviewer asked for discovery, but that trade never had to be put to Ivo: the arithmetic settles it.
+
+### Consequence
+
+`build_query_queue.py` gains `--population edge`, ranked on the pilot's rates. `src/ark/gaps.py` keeps
+`sandwich_gap_domains` unchanged, so no existing queue or reproduction moves. Both are done and eight
+tests pin them. **Nothing points an engine at the new queue.**
+
+**And the reusable part is not the population, it is the method.** Two of the three measurements above
+were wrong in ways that looked rigorous, and both failures are cheap to avoid next time: prefer a small
+sample of the real population to a large sample of a proxy, and freeze the denominator before measuring
+against it.
+
+## ADR-007. `www.<a name already held that year>` is not a hostname record
+
+**SUPERSEDED by ADR-008 (2026-09-04). Kept because the measurement in it is still the live one.**
+
+**Date** 2026-09-03. **Status** Accepted (Ivo, 2026-09-03), with the reviewer to be asked at the next
+submission. Measured before it was decided; the figure is what forced the question.
+
+### The question
+
+The hostname unit refuses `www.<parent registrable>` because it is "the parent's own site under the
+name every crawler tries first" (`hostnames.py`, tightened 2026-09-02). Nothing refused the same alias
+one level down, where the bare name is a hostname or a registrable already dated for that same year:
+`www.aca.ntu.edu.tw` shipped as a new record while `aca.ntu.edu.tw` sat in the reviewer's own 2001
+file. The reviewer's words admit it ("every distinct evidence-backed hostname beneath them is
+retained"); the module's own stated principle refuses it. The question could not stay open because it
+is not a rounding error.
+
+### What was measured
+
+Over the shipped files on 2026-09-03: **364,524 of 623,617 hostname records and 201,767.94 of
+330,577.84 EE, 61.0% of the hostname half**, are `www.<a name already held in that same year>`. The
+round claims 346,668.36 EE and 1.673552% growth with them, 144,900.42 EE and 0.699511% without.
+
+The share separates artifact types cleanly, which is the transferable part. A bulk CDX index re-read at
+hostname grain is almost nothing else: `nypw_firstcdx` 100.0% of 7,074.09 EE and `ukwa` 99.5% of
+20,916.90 EE, which is why both were held out rather than banked. A corpus of URLs people typed keeps
+most of its figure: `usenet_new` 29.3%, `usenet_bulk` 24.0%, `rtfm` FAQs 32.8%.
+
+### The decision
+
+**Exclude them from what ships.** The rule lives where the shipping filter lives, in the export, not in
+the ingest: the evidence rows are real observations and stay in the store, and "already held that year"
+is a property of the baseline and the store at export time rather than of the capture. Excluding at
+ingest would also make the answer depend on ingest order, since the row that arrives first would decide
+which of two names is the alias.
+
+A hostname is refused when it begins `www.` and the name beneath it is dated for the same year by any
+of three: the reviewer's baseline file, `hostname_year`, or `domain_year`.
+
+### Consequence
+
+`ark export` drops those rows from the per-year hostname files and from the hostname evidence manifest;
+`round_figures.py` prints what the rule removed, so the two readings stay visible in every round; the
+pricer prints the same share per corpus, so a hostname-grain source is never priced without it. The
+round's claim falls to 144,900.42 EE and 0.699511% growth, and the gate is further away by exactly the
+amount that was never ours to claim. If the reviewer rules the other way at the next submission, the
+rows are still in the store and one predicate turns them back on.
+
+## ADR-008. `www.<a name already held that year>` ships, and ADR-007 is superseded
+
+Date: 2026-09-04. Decided by Ivo. Supersedes ADR-007 after one day.
+
+### Why it was reopened
+
+ADR-007 was decided on our reasoning about the reviewer rather than on evidence about him, and it was
+the single largest number on the board: 233,999.15 EE withheld or held out. So the question was turned
+into a measurement.
+
+**His merges answer it.** `merged260902-3` and `merged260903-3` both contain **all 1,917,606**
+hostnames of the 2026-09-02 submission, including **all 1,313,547** beginning `www.`, and for
+**1,106,188** of those the bare name sits in the same year file. He credited that round **7.562846%**.
+He merges both forms, keeps them side by side, and pays for them.
+
+**And then he wrote it down.** Section XI of the 2026-09-04 brief: "A valid base hostname and distinct
+valid subdomain hostnames may each be annual records when each has year-specific evidence." That is the
+rule ADR-007 guessed at, stated by the person who scores it, in the opposite direction.
+
+### The decision
+
+**Ship them.** `NOT_WWW_ALIAS` is removed from the export query and from the hostname evidence
+manifest. The predicate itself is kept, unapplied, because `round_figures.py` and the hostname pricer
+import it to report the alias share.
+
+### What the finding was, as distinct from what we did with it
+
+The measurement behind ADR-007 stands and is the useful part: the alias share separates artifact types
+cleanly. A bulk CDX index re-read at hostname grain is 99.5% to 100.0% alias (`nypw_firstcdx` 100.0%,
+`ukwa` 99.5%, `early_web` non-200 100.0%), so it adds names without adding sites; a corpus of URLs
+people typed is 22.2%. **That ratio is how we now choose which corpus to read next**, which is worth
+more than the exclusion ever was. Reporting it and excluding it were always two different acts, and
+only the second was wrong.
+
+### Consequence
+
+The round gains 202,022.69 EE immediately from rows already in the store, and `ukwa` (20,913.95),
+`nypw_firstcdx` (7,073.72) and `early_web` non-200 (3,988.79) stop being held out, whose journals are
+on disk. Nothing had to be re-collected, because ADR-007 lived in the export and destroyed nothing:
+the one-line reversal is the whole cost of having been wrong, which is the reason to put a contested
+rule at the export and not at the ingest.
+
+**Still open, and worth more:** the ingest also refuses `www.<parent registrable>` outright
+(`NOT_WWW_OF_PARENT`), which section XI equally permits. Those evidence rows exist in the store, so
+that is a backfill rather than a re-collection. Measured and proposed separately.
+
+## ADR-009. `www.<parent registrable>` is its own hostname record
+
+Date: 2026-09-04. Decided by Ivo. Supersedes the second half of C-55.
+
+### What settled it
+
+Not a reading of his intent, which is what C-55 was, but a count of his own benchmark.
+
+**merged260904 holds 1,450,310 names beginning `www.`, and for 1,221,065 of them (84.2%) the bare
+name sits in the same year file.** Of those pairs, 1,106,190 are ones we sent him on 2026-09-02,
+which he merged in full and credited 7.562846%, and **114,875 came from nobody but him**. The
+shape is native to his corpus and separately validated in ours.
+
+His text says it twice. IV.8: "No distinction is made between a registrable domain and a
+qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records
+when each specific hostname has qualifying annual evidence." XI: "Use hostname-level identity
+throughout... Retain the registrable domain only as secondary metadata. A valid base hostname and
+distinct valid subdomain hostnames may each be annual records when each has year-specific
+evidence."
+
+Neither sentence names `www`, so this is his rule applied rather than his rule quoted. That is
+why the round states the share rather than burying it.
+
+### The decision, and the line it does not cross
+
+`NOT_WWW_OF_PARENT` leaves all three ingest paths, and `scripts/round/admit_www_of_parent.py`
+backfills from evidence: **6,915,924 rows, no new bytes**, because every lane already wrote the
+evidence row naming `www.<parent>` and only the `hostname_year` insert refused it.
+
+**A record is created only where an evidence value names that exact host.** A capture of
+`foo.com` never becomes a record for `www.foo.com`. The old invariant
+`hostname_is_not_the_parent_www` is replaced by `a_www_record_has_its_own_evidence`, which is the
+weaker and more useful statement: admitting the shape is not the same as asserting it.
+
+### Consequence
+
+The hostname half goes to 7,738,159 records and 4,259,849.3712 EE, and the round to 18.764914%.
+**94.3% of the hostname half is now `www.<a name already held that year>`**, which is the figure
+the round report and the covering mail both quote, because a reviewer who finds it himself has
+found something we hid.
+
+The first half of C-55 stands: a hostname record still needs an observation of the host serving
+web content, so the DNS lanes date the parent only. That question ships separately as
+`<year>-ISC.txt` rather than being decided by us.
+
+## ADR-010. The `www.` inference runs in neither direction
+
+Date: 2026-09-06. Decided by the reviewer, not by us. Extends ADR-009 rather than superseding it.
+
+### What settled it
+
+His words, and they are symmetric: "The existence of the bare parent does not automatically
+establish the www hostname, nor does the presence of www automatically establish the bare
+hostname."
+
+ADR-009 admitted the SHAPE and `a_www_record_has_its_own_evidence` has enforced the first half
+since 2026-09-04: no `www.<parent>` record unless an evidence value names that exact host. The
+second half we were breaking without having noticed, because a capture of `www.example.com` wrote
+the hostname record and ALSO folded to a registrable year for `example.com` through the registrable
+path. One observation, two records, one in `additions/` and one in `hostnames/`, which is the
+double count the sentence forbids.
+
+### What changes
+
+`a_bare_record_is_not_inferred_from_www` refuses a registrable domain-year whose every evidence row
+names `www.<domain>` and nothing else. Measured against `merged260906`: **47,004 domain-years**,
+about 0.58% of our registrable half. `scripts/round/drop_www_inferred_records.py` removes them.
+
+**The sibling invariant had to move for the two to agree.** `nothing_earned_is_left_unassigned`
+required every master-eligible evidence row to assign a `(domain, year)`, which would have demanded
+exactly the row the new check refuses. It now exempts evidence naming a subdomain, on the ground
+the reviewer states: such evidence attests THAT HOST, not the registrable beneath it. That is a
+narrowing of what evidence claims, not a weakening of the wall.
+
+**Deleting the rows was not the fix, and 2026-09-07 proved it.** The cleanup left zero and the
+fold wrote 22,920 more overnight, because the CDX path's parent-year insert still made the
+inference. It now excludes `www.<parent>` at the source, so the invariant holds without a nightly
+sweep. The narrowed sibling then left 64,302 master-eligible evidence rows unassigned, in two
+classes that have nothing to do with `www.`: 37,124 baseline restatements and 27,060
+registrable-grain captures written before the sweep recorded which host answered.
+`scripts/round/assign_unassigned_evidence.py` assigns them, excluding subdomain evidence so the
+two invariants cannot pull against each other.
+
+### What it does not change
+
+The evidence rows stay, and so do the `www.` hostname records: each already carries its own
+exact-host capture, which is the condition he restates in the same paragraph. ADR-009 stands.
+
+### The limit, stated because it is large
+
+Registrable-grain evidence stores a bare timestamp and no host, so **7,578,321 of our domain-years
+cannot be attributed to any host at all** and an unknown share of them will be `www.`-only too.
+Re-deriving would mean re-querying the archive. The set stops growing from the
+`fl=timestamp,original` fix of 2026-09-05, which records the host on every new sweep.
+
+## ADR-011. A sweep admits 2xx and 3xx captures, not 200 alone
+
+Date: 2026-09-07. Ours, measured, and reversible in one string.
+
+### What settled it
+
+`cdx_suffix_sweep.py` has always sent `filter=statuscode:200`, which was never a decision so much
+as an inherited default. A capture is the archive saying it fetched that URL from that host at that
+time, and the status code describes what the server answered, not whether the host was there.
+
+Measured on `hypermart.net`, one page, same request cost:
+
+| filter | rows |
+|---|---|
+| `statuscode:200` | 169,147 |
+| `statuscode:[23][0-9][0-9]` | 173,285 |
+| none | 179,056 |
+
+Across a three-parent sample the wider filter's extra pairs were **98.6% net-new** against the
+store, so this is nearly pure yield rather than a re-read of what we hold.
+
+### What changes
+
+The sweep sends `filter=statuscode:[23][0-9][0-9]`. A 3xx is a host that resolved, accepted the
+connection and answered with a redirect, which is an observation of that hostname serving. The
+regex form is supported by the CDX API; a multi-clause negated filter is not, and returns HTTP 400.
+
+### Why not drop the filter altogether
+
+That is the 179,056 row, another 3.3%, and it admits 4xx and 5xx. A 404 shows the SERVER answered;
+it is weaker evidence that the hostname itself served anything, and the reviewer audits this class.
+The extra 3.3% is not worth arguing for, so the line is drawn where the evidence is unambiguous.
+
+### What it does not change
+
+The evidence class stays `cdx_timestamp` and the journal format is unchanged, so nothing already
+banked is affected and no re-walk is implied: parents already carrying a `.done` marker keep it.
+The gain applies to the queue still to be walked, which on 2026-09-07 is 41,122 parents.
+
+
+## ADR-012. The hostname wall admits an observation of the host IN USE, not only one of it serving
+
+Date: 2026-09-09. His approval, on his own brief's wording (C-83).
+
+### What settled it
+
+`hostnames.py` has said since 2026-09-02 that "the observation must show the host serving web
+content", and that sentence was derived from the PURPOSE he gave the hostname unit, retrieving
+archived pages as completely as possible, rather than from anything he wrote as a requirement. His
+section IV.1 does write a requirement, and it is wider:
+
+> evidence for the corresponding year means factual material demonstrating that the domain
+> actually existed, was in use, or was active during the specific calendar year [...] Such
+> evidence may include a CDX timestamp from that year, a historical webpage snapshot, a dated
+> directory page, a dated index file, a WHOIS record demonstrating registration status in that
+> year, or equivalent material.
+
+"In use or active", an open list, and a WHOIS record among the examples, which is not a page fetch
+either. So the narrower wall was ours. It cost `usenet_header_fqdn_hostnames` its class reading and
+would have cost this lane 2,580 of its 2,690 EE.
+
+### What changes
+
+`WEB_FACING_HOST_SOURCES` gains `apache_list_header_hostnames`, and the wall's documented condition
+becomes "shows the host in use". One field of one artifact is admitted by name: the
+`Received: ... by <host>` clause of a dated mail message, which the receiving MTA writes about
+itself. Nothing else moves.
+
+### Why the corroboration split does not apply
+
+The split's own wording is that "anything a human typed needs another source to date that domain
+first. A self-dating record takes no split." A `by` clause is written by the machine it names, in a
+transaction that machine completed, and the archive dated the message independently. Applying the
+split here would not be caution, it would be reading the rule backwards.
+
+### What stays out, and why the ISC ruling is untouched
+
+His 2026-09-06 ruling that a raw ISC or Network Wizards survey record dates a DNS observation and
+not a website stands by name, and the DNS lanes keep writing no hostname year. The distinction is
+not web-versus-not: a DNS answer proves a name resolves, while a `by` clause proves a service at
+that exact name accepted and forwarded a message. He measured the ISC class at 2.67% exact-host CDX
+corroboration; the same check on one Apache list-month put 22.1% of its `by` hosts somewhere in his
+own files, against 84.2% for the `www.` shape. That is the ordering the wall now encodes.
+
+Also excluded, all three deliberately: the `from` HELO clause, because the sender chose it and it
+is forgeable; the parenthesised reverse-DNS, because it was outside the approval; and the
+`Message-ID` host, because the client stamps it from a configured nodename.
+
+### What it does not change
+
+No schema change, no re-ingest, and nothing already banked moves. `jeb_bush_hostgrain` stays closed
+at 322.4322 EE: it was closed on hosts taken from email ADDRESSES, a field a human addressed, which
+is not what this admits.

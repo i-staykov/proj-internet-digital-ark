@@ -26,7 +26,7 @@ from ark.journal import open_journal
 UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
 
 # Where an RDAP query went before direct registry routing was added, so it
-# rebuilds the record URL of a journal written without one. See docs/retired.md
+# rebuilds the record URL of a journal written without one. See docs/lore/retired.md
 # for why the client that wrote those journals is gone.
 RDAP_REDIRECTOR = "https://rdap.org/domain/"
 
@@ -83,7 +83,7 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # first-capture index holds only each URL's EARLIEST Wayback capture; a TimeMap
 # holds every capture of one URL, one per line. Either way field 3 is the
 # crawler's own 14-digit stamp and a row evidences exactly the year it names and
-# no other, which is III.7: no inference from one capture to any other year.
+# no other, which is IV.7: no inference from one capture to any other year.
 _NYPW_FIELDS = 6
 
 
@@ -322,7 +322,7 @@ def parse_udrp_proceedings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # The Tucows Software Library on archive.org: ~32,600 donated items, each with a
 # release `date` and a `creator` field holding the vendor's home page URL. That
-# is a dated index file in the sense of III.1, and unlike a URL typed into a
+# is a dated index file in the sense of IV.1, and unlike a URL typed into a
 # Usenet post it is a single structured field rather than free text, so it does
 # not carry the same transcription risk.
 #
@@ -397,7 +397,7 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # The SOA serial of an InterNIC zone, `YYYYMMDDNN`, which is the artifact's own statement
 # of when it was generated. Read from inside the file rather than from its name or its
-# capture, because `docs/discovery.md` asks whether a date would change if the artifact were
+# capture, because `docs/lore/discovery.md` asks whether a date would change if the artifact were
 # re-published tomorrow: this one would not.
 _ZONE_SERIAL = re.compile(r"\b(19[89]\d)(?:0[1-9]|1[0-2])(?:[0-2]\d|3[01])\d\d\b")
 
@@ -1985,7 +1985,7 @@ def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # registered). A .fr creation date resets on re-registration, so the pair
 # (creation, withdrawal) documents one CONTINUOUS registration interval: the
 # domain was registered every year from creation until withdrawal (or now). Per
-# brief III.6 a record demonstrating continued registration in a year is valid
+# brief IV.6 a record demonstrating continued registration in a year is valid
 # year evidence, so one record is emitted per in-window year the domain was
 # registered, not only the creation year. Domains withdrawn before 1996 or
 # created after 2001 contribute nothing in window.
@@ -2128,7 +2128,7 @@ def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[
     otherwise. A domain created before `first` is left with no attested year:
     RDAP shows it existed by then and exists now, but says nothing about any
     single year in between, so it belongs in the candidate pool until
-    year-specific evidence turns up. Brief III.6 blesses exactly that and rules
+    year-specific evidence turns up. Brief IV.6 blesses exactly that and rules
     out more.
     """
     return (creation,) if first <= creation <= last else ()
@@ -2138,7 +2138,7 @@ def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[
 # `queried_at`, `status`, `creation_year`, `response` and `url` (absent before
 # direct routing). The journal is the artifact, so this evidence replays from a
 # hashed file like every other source. Only the creation year is attested
-# (III.6), so a domain yields at most one record.
+# (IV.6), so a domain yields at most one record.
 def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per journalled domain whose creation year is in window."""
     try:
@@ -2184,7 +2184,7 @@ def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # An `ark cdx` run journal: one JSON object per queried domain, format documented
 # in ark.cdx. A returned in-window capture year is evidence for that year and no
-# other, so there is no inference to make here (III.7).
+# other, so there is no inference to make here (IV.7).
 def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window year a CDX query returned for a domain."""
     try:
@@ -2624,7 +2624,7 @@ SOURCES: dict[str, SourceSpec] = {
     # The BL geoindex extract: IA capture timestamps for `.uk` resources, so
     # `cdx_timestamp` and self-dating. Registering the spec does NOT let it date a
     # year: `ark ingest` still refuses the class until a human writes its `Decision:`
-    # line in docs/approved-sources-list.md, which is the whole point of ADR-003.
+    # line in docs/registers/approved-sources-list.md, which is the whole point of ADR-003.
     # The parser exists ahead of that decision so approving it is one command rather
     # than a day's work.
     "ukwa_geoindex": SourceSpec(

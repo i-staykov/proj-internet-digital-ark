@@ -1,4 +1,4 @@
-"""`docs/key-decisions.md`: the one surface that asks Ivo for a decision.
+"""`docs/lore/key-decisions.md`: the one surface that asks Ivo for a decision.
 
 **Why this is a module and not a convention.** Ivo's instruction, 2026-08-11:
 "Everything I have to sign-off should be in one place, so I know about it." Before
@@ -23,7 +23,7 @@ waiting and where the working is, and it is the agent's job to make it worth rea
 import re
 from pathlib import Path
 
-DEFAULT_PATH = Path("docs/key-decisions.md")
+DEFAULT_PATH = Path("docs/lore/key-decisions.md")
 OPEN_MARK = "## OPEN"
 CLOSED_MARK = "## CLOSED"
 # Anchored to the start of a line, because the file's own header explains the rule in

@@ -25,6 +25,46 @@ A delivery archive verifies itself without this repository: `bash verify.sh` ins
 extraction. The other two reproduction tiers, and what each command should print, are in the
 runbook.
 
+## Collect unattended
+
+The CDX collectors are the laptop's standing lane, held by launchd under `caffeinate -s`, and
+three words steer them:
+
+```bash
+just collectors status   # running or paused, the current parent, the last journal, the hit rate
+just collectors pause    # before travel or a shutdown: the sweeps stop after the page in flight
+just collectors resume   # after it: every parent continues from its own state file
+```
+
+The pause is a flag file rather than a signal, so it survives sleep and a reboot, and nothing but
+`resume` clears it.
+
+## Take in what the fleet found
+
+```bash
+just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
+```
+
+The fleet measures; the laptop is the only thing that writes the store. One `just sync` drains the
+findings, validates each one against the fleet's schema, prices every confirmed FIND again on the
+live store so no figure is booked on a copy, writes the register row with both numbers, decides what
+Ivo's standing rule already covers and asks him about the rest, ingests, gates, pushes, refreshes the
+pricing snapshot the fleet prices against, and writes each lead's fate back into the fleet's queue.
+
+Nothing the fleet downloads bypasses one program:
+
+```bash
+uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only download path
+```
+
+It reads the whole robots.txt of the host in the download URL and refuses a group that names us
+wherever in the file it sits, and it reads the next host's rules before following a redirect rather
+than after. It honours `Retry-After`, counts the bytes twice against the cap, refuses a body shorter
+than the length it was promised, writes only into the run's RAM-backed probe directory or the corpus
+directory an approved download names, extracts no archive to disk, and prints the sha256 the finding
+has to quote. Anything bigger than the cap, or of a type nobody can read in-stream, waits in the
+fleet's download backlog for a decision.
+
 ## Where the round stands
 
 In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
@@ -37,5 +77,5 @@ This page states no round figure, so it cannot go stale.
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | the standing rules, and the order to work in |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
-| [docs/runbook.md](docs/runbook.md) | every command, what it prints, and how the machines are arranged |
+| [docs/ops/runbook.md](docs/ops/runbook.md) | every command, what it prints, and how the machines are arranged |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

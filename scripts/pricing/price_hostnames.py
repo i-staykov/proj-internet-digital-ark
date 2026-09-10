@@ -4,13 +4,13 @@
 prices the (domain, year) unit, which is right for the annual masters and wrong for
 the second unit the reviewer accepted on 2026-09-01: 180 suffix journals it priced at
 0 were worth 301,650 EE once the hostnames beneath the held registrables were counted.
-The 26 `keep_until_priced` corpora in `docs/retention.md` were all priced the first
+The 26 `keep_until_priced` corpora in `docs/registers/retention.md` were all priced the first
 way, so none of them has a number at this grain, and until now the only way to get
 one was `ark ingest-hostnames`, which takes the store's single write lock and writes
 evidence rows. Pricing must not do either.
 
 **It runs the ingest's own funnel**, imported from `ark.hostnames` rather than copied:
-the 14-digit stamp dates the row, `_host_of` accepts RFC 1123 hosts only, the host must
+the 14-digit stamp dates the row, `host_of` accepts RFC 1123 hosts only, the host must
 reduce to a parent registrable and not be it, and `www.<parent>` is the parent's own
 site. A hostname year is net-new when the store's `hostname_year` lacks it AND the
 reviewer's baseline file for that year lacks it, which is exactly the export's rule.
@@ -48,7 +48,7 @@ from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.delegation import shipping_filter_for  # noqa: E402
 from ark.english_share import english_weights, weight_of  # noqa: E402
-from ark.hostnames import YEARS, _host_of  # noqa: E402
+from ark.hostnames import YEARS, host_of  # noqa: E402
 
 
 def _opener(path: Path):  # noqa: ANN202 - a file object of either kind
@@ -118,7 +118,7 @@ def read_rows(
                         continue
                     urls = [str(row.get("url", ""))]
                 for url in urls:
-                    host = _host_of(url)
+                    host = host_of(url)
                     if host is None:
                         counts["no_host"] += 1
                         continue

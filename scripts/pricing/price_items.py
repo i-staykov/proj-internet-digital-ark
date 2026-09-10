@@ -352,7 +352,7 @@ def main() -> None:
 
     print()
     bar_pairs = len(corroborated) if not args.sample_of else None
-    print("== against the bar in docs/discovery.md ==")
+    print("== against the bar in docs/lore/discovery.md ==")
     if bar_pairs is not None:
         verdict = "clears it" if bar_pairs >= 5000 else "below the ~5,000 net-new pair bar"
         print(f"  volume      : {bar_pairs:,} net-new pairs, {verdict}")

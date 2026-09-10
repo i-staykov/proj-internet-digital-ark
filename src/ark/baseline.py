@@ -3,7 +3,7 @@
 The reviewer reissues the merged 1996-2001 corpus after each round he accepts, and
 every one of those releases has to be loaded under its own marker namespace, because
 the ingest ledger keys on the file name alone and a second `1996.txt` would otherwise
-be skipped as already seen. Several are now layered in the store; `docs/releases.md`
+be skipped as already seen. Several are now layered in the store; `docs/registers/releases.md`
 is the table of every release he has named.
 
 `merged260815` is the one that shows why this file matters. It arrived mid-round
@@ -38,6 +38,7 @@ behind six reassuring "already ingested" lines.
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 # Resolved from this file, never from the working directory: the delivery unpacks the
 # repository tree into `source/`, so the JSON sits beside `src/` there exactly as here.
@@ -93,7 +94,7 @@ REVIEWER_BASELINE_EE = Decimal(_CURRENT["reviewer_ee"])
 # is the workflow the reviewer's own brief update had just described. Overlap with our
 # unsubmitted round was tiny, because we collect registrable domains and that wave
 # collects hostnames, so the denominator grew while our increment barely moved and the
-# 5% trigger jumped with it. `docs/releases.md` carries the per-release counts.
+# 5% trigger jumped with it. `docs/registers/releases.md` carries the per-release counts.
 REVIEWER_BASELINE_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_ee_by_year"].items()
 }
@@ -116,7 +117,7 @@ ORIGINAL_BASELINE_EE = Decimal(_DATA["original"]["ee"])
 # benchmark released, submission received (the last two "YYYY-MM-DD HH:MM" in his
 # clock, US Pacific, which `ark.figures` turns into t_i).
 #
-# `docs/rounds.md` is the ledger: which rounds exist and why, where each awarded
+# `docs/registers/rounds.md` is the ledger: which rounds exist and why, where each awarded
 # percentage is quoted from, what must never be added to it, and the whole-day reading
 # of t_i that reproduces both scores he has quoted. A cumulative claim is the one
 # figure the store cannot regenerate, because a round the reviewer has merged stops
@@ -135,6 +136,36 @@ SUBMITTED_ROUNDS = tuple(
     for row in _DATA["rounds"]
 )
 
+
+class AwardedScore(NamedTuple):
+    """A ranking score the reviewer stated himself, with the divisor he used."""
+
+    percent: Decimal
+    divisor: int
+    score: Decimal
+
+
+def awarded_score_of(label: str) -> AwardedScore | None:
+    """His own `S_i` for a round, where he has quoted one, else None.
+
+    **Recorded because it does not reproduce.** For round 8 he wrote
+    `S = 10 x (18.769714 / 33) = 5.687792`, and 33 is neither of the two readings of `t_i`
+    we put to him: the benchmark interval gives 1 and the task-assignment interval 45 from
+    the pinned origin of 2026-07-21. His 33 implies an origin of 2026-08-02, which nothing
+    here supports. So his figure is stored as a quoted fact rather than derived, exactly as
+    the awarded percentages are, and `figures.score` stays the model of the rule we can
+    defend until he says what the 33 counts from.
+    """
+    for row in _DATA["rounds"]:
+        if row["label"] == label and "awarded_score" in row:
+            return AwardedScore(
+                Decimal(row["awarded_percent"]),
+                int(row["awarded_score_divisor"]),
+                Decimal(row["awarded_score"]),
+            )
+    return None
+
+
 # The round whose percentage was awarded on records, so it is not commensurable with
 # the equivalent-English percentages of every later round. It is summed with them
 # anyway, on Ivo's instruction of 2026-09-02, and every place that prints the sum says so.
@@ -142,7 +173,7 @@ ROUND_ONE_IS_RECORD_BASED = _DATA["round_one_is_record_based"]
 
 # `k` in the competition RANKING score `S_i = k * (p_i / t_i)`, which is not the
 # cumulative percentage and is the number that decides positions. From the brief update
-# of 2026-08-20. It makes speed worth as much as size; `docs/rounds.md` works the
+# of 2026-08-20. It makes speed worth as much as size; `docs/registers/rounds.md` works the
 # arithmetic through and says why the round length is Ivo's decision, not a logistics one.
 SUBMISSION_SPEED_K = _DATA["speed_k"]
 

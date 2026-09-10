@@ -191,11 +191,11 @@ cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
 # The archive name carries the packaging minute, so the README's checksum command
 # is filled in here; a hard-coded name went stale the round the name changed.
-sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
-cp docs/sources.md "$STAGE/sources.md"
+sed "s/\[ARCHIVE\]/$RELEASE/g" docs/round/delivery_readme.md > "$STAGE/README.md"
+cp docs/registers/sources.md "$STAGE/sources.md"
 # The register is two pages: closed families moved to sources-closed.md and shipping
 # sources.md alone would hand him an incomplete register.
-cp docs/sources-closed.md "$STAGE/sources-closed.md"
+cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
@@ -203,8 +203,11 @@ cp docs/sources-closed.md "$STAGE/sources-closed.md"
 # The two register pages above are the full register those two distil; both are
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
-cp docs/experience-summary.md "$STAGE/experience-summary.md"
-cp docs/metric-explained.md "$STAGE/metric-explained.md"
+cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
+# The round's research findings, kept out of the report so the report stays the five
+# figures and the receipts. The report links here rather than carrying the method essay.
+cp docs/round/findings.md "$STAGE/findings.md"
+cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
@@ -213,6 +216,18 @@ MERGE_STAMP="$(date -u +%Y%m%d)"
 cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
+
+# Nothing ships that his baseline already holds. The export diffs every list against his
+# own annual files, so a non-zero overlap here means that diff did not run or ran against
+# a stale baseline directory, and the round would claim records he already has. It was
+# 304 on 2026-09-10, from a store whose ingested baseline predated his current release.
+OVERLAP=$(python3 -c "import json,sys; print(int(json.load(open(sys.argv[1]))['totals']['already_in_baseline_records']))" \
+    "output/merge/merge_audit_ark_${MERGE_STAMP}.json")
+if [ "$OVERLAP" != 0 ]; then
+    echo "refusing to package: $OVERLAP submitted records are already in the baseline." >&2
+    echo "re-run \`uv run ark export\` against the current baseline, then the merge audit." >&2
+    exit 1
+fi
 
 
 # merged master year lists + net-new additions + provenance
@@ -224,6 +239,14 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# ISC candidates must stay separate from annual records and carry per-host provenance.
+mkdir -p "$STAGE/isc_survey_hostnames"
+cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
+    output/netnew/isc_candidates.txt output/netnew/isc_candidates_summary.json \
+    output/netnew/isc_survey_provenance.csv "$STAGE/isc_survey_hostnames/"
+cp src/ark/data/tld_english_share.json "$STAGE/isc_survey_hostnames/"
+cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
+cp scripts/round/verify_isc_candidates.py "$STAGE/"
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
 
@@ -231,6 +254,26 @@ uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_satu
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+# THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
+# name he already lists in his candidate pool or in any annual file. He scores candidates
+# separately and at the same rate as annual records, so the claim is held to the same
+# net-new standard the annual files are. Provenance for each name is in `provenance/` and
+# in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
+cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
+cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
+# The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
+# recoverable values only in a separately labeled unparsed or normalization-review file." Each
+# row carries the reason the funnel refused it, and none of it counts toward any figure.
+#
+# **Kept in `output/netnew/` and rebuilt only when a journal is newer than it.** The scan is
+# exhaustive by design, and exhaustive now means reading 226 GB of gzip: it cost 25 minutes of
+# every packaging run, repeated in full whenever a report line changed. The journals only grow,
+# so a copy younger than every journal is the same file the scan would write.
+UNPARSED="output/netnew/candidates_unparsed.txt"
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit)" ]; then
+    uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
+fi
+cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
@@ -391,12 +434,18 @@ cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/original/" 2>/de
 
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
+    cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
     cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/$MARKER/" 2>/dev/null || true
 else
     echo "refusing to package: $MARKER not found at $MERGED, so the archive could not" >&2
     echo "ship the baseline its own figures are measured against." >&2
     exit 1
 fi
+
+uv run python scripts/round/verify_isc_candidates.py \
+    --collection "$STAGE/isc_survey_hostnames" --baseline "$STAGE/baseline/$MARKER" \
+    --annual-dirs "$STAGE/masters" "$STAGE/additions" "$STAGE/hostnames" \
+    --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
 
 MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARKER"/200[01].txt \
     | wc -l | tr -d ' ')
@@ -409,9 +458,10 @@ original/
 
 $MARKER/
     The shared reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued
-    by the reviewer. $MERGED_LINES raw lines, collapsed to registered domains
-    under SPEC III.8. Every "net-new" figure in report.md means "not present in
-    these files".
+    by the reviewer. $MERGED_LINES raw lines, copied unchanged. Keep normalized
+    hostname identity when comparing these files (project brief IV.8); a
+    registrable roll-up is secondary. Every "net-new" figure in report.md means
+    "not present in these files".
 
     The pipeline ingests these under a marker namespace so their rows stay
     distinguishable from this project's evidence, which is what makes the net-new
@@ -547,8 +597,8 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # repository. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
 cp docs/report.md "$ROUND_DIR/report.md"
-cp docs/sources.md "$ROUND_DIR/sources.md"
-cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"
+cp docs/registers/sources.md "$ROUND_DIR/sources.md"
+cp docs/registers/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -576,5 +626,5 @@ Delivery archive ready, in $ROUND_DIR/
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
 Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
-The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
+The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF

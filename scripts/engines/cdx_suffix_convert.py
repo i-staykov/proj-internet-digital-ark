@@ -20,6 +20,7 @@ import argparse
 import glob
 import gzip
 import json
+import os
 import sys
 import time
 from collections import defaultdict
@@ -35,7 +36,37 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--tag", default=time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
     ap.add_argument("--glob", default="data/raw/cdx_suffix/*.jsonl.gz")
+    ap.add_argument(
+        "--min-interval",
+        type=float,
+        default=float(os.environ.get("ARK_CONVERT_INTERVAL_S", 21600)),
+        help="skip if a snapshot is newer than this many seconds. 0 to always run",
+    )
     args = ap.parse_args()
+
+    # **This re-reads every journal, so it gets slower as the sweep collects.** The fold loop
+    # calls it once per pass and it runs in the loop's foreground, which on 2026-09-05 meant a
+    # 25-minute conversion over 636 journals blocking the hostname ingest behind it. That trade
+    # is badly wrong by measurement: the hostname half was 1,007,669 EE of the round against the
+    # registrable half's 44,088, and the blocked pass added six registrable records.
+    #
+    # Skipping a pass costs nothing, because the read is cumulative rather than incremental: the
+    # next run picks up everything this one would have. So it is rate-limited instead of made
+    # incremental, which would be a real change to a script two live collectors feed.
+    #
+    # **Six hours, not one.** At one hour it still held the fold for 17 to 25 minutes in every
+    # 60, a third of the loop's capacity, and the runs it blocked were adding about six
+    # registrable records each: 44,117 EE of the round against the hostname half's 1,020,335.
+    # Six hours keeps the standing reserve for registrables at a cost near 7%.
+    if args.min_interval > 0:
+        newest = max(
+            (p.stat().st_mtime for p in OUT.glob("cdx_suffix_*.jsonl.gz")),
+            default=0.0,
+        )
+        age = time.time() - newest
+        if newest and age < args.min_interval:
+            print(f"snapshot {age / 60:.0f} min old, under {args.min_interval / 60:.0f}, skipping")
+            return
 
     years: defaultdict[str, set[int]] = defaultdict(set)
     rows = truncated = 0

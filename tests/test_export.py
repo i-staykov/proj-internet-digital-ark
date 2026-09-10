@@ -1,5 +1,6 @@
 """Exports: net-new files, manifest, candidates, and merged masters."""
 
+import json
 from pathlib import Path
 
 import duckdb
@@ -23,6 +24,21 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
     return conn
 
 
+def _fake_baseline(tmp_path: Path) -> Path:
+    """A baseline directory holding only what the export diffs against.
+
+    The export reads HIS annual files and candidate pool at export time, so a test that
+    used the real ones would pass or fail on whether a fixture name like `new.com`
+    happens to be in the reviewer's 1997 file. It is.
+    """
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    for year in range(1996, 2002):
+        (baseline / f"{year}.txt").write_text("already-his.com\n")
+    (baseline / "candidate_pool.txt").write_text("already-his-candidate.com\n")
+    return baseline
+
+
 def test_export_all(tmp_path: Path) -> None:
     conn = _populated_db()
     stats = export_all(
@@ -32,6 +48,7 @@ def test_export_all(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
 
     # net-new 1997 holds only the cdx-evidenced domain
@@ -57,6 +74,7 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
 
     # the contribution tables were the one destination not under the caller's
@@ -92,13 +110,14 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
     assert not missed, f"test_export_all must redirect these: {sorted(missed)}"
 
 
-def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
-    """ADR-007: 61.0% of the hostname half was `www.<a name already held that year>`.
+def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
+    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS.
 
-    The ingest refuses `www.<parent registrable>`; this is the same alias one level down,
-    where the bare name is dated for the same year by the store or by his files. Three
-    holders count, and a year apart does not: `www.x` in 1999 is a real record when the
-    only `x` we hold is 1998's.
+    His merges hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of
+    them, and section XI says a base hostname and a distinct subdomain hostname may each be
+    annual records. So the alias is no longer withheld, and this test exists to keep the
+    reversal from being undone by accident, and to prove the two filters that DO still bite
+    were never part of it.
     """
     conn = connect(":memory:")
     init_db(conn)
@@ -114,15 +133,16 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
         [cdx],
     )
     rows = [
-        # www. of a hostname the store holds for that year: refused
+        # www. of a hostname the store holds for that same year: SHIPS since ADR-008
         ("www.deep.held.com", "held.com", 1999),
         ("deep.held.com", "held.com", 1999),
-        # www. of a registrable the store dates that year: refused
-        ("www.held.com", "held.com", 1999),
-        # www. of a name held only in another year: ships
+        # www. of a name held only in another year: always shipped
         ("www.deep.held.com", "held.com", 2000),
         # not a www. form at all: ships
         ("mail.held.com", "held.com", 1999),
+        # `www.<parent registrable>` is absent on purpose: the ingest refuses it and
+        # `hostname_is_not_the_parent_www` forbids the row, so a fixture holding one would
+        # be testing the export against a state `ark check` rejects. That rule is #101.
         # the hostname half applied neither the .arpa nor the delegation rule until
         # 2026-09-03, so 198 rows like these were shipping
         ("bust.web.site", "web.site", 1996),
@@ -142,15 +162,18 @@ def test_a_www_alias_of_a_held_name_does_not_ship(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
-    assert shipped_1999 == ["deep.held.com", "mail.held.com"]
+    assert shipped_1999 == ["deep.held.com", "mail.held.com", "www.deep.held.com"]
     assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
-    # `.site` was delegated in 2015 and `.arpa` is never a website
+    # `.site` was delegated in 2015 and `.arpa` is never a website. Both survive ADR-008:
+    # the reversal was about the alias and touched neither.
     assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
+    assert "in-addr.arpa" not in (tmp_path / "netnew" / "1999_hostnames.txt").read_text()
     # the manifest carries the same rows as the files, or it reads as an addition it is not
     manifest = (tmp_path / "netnew" / "hostnames_evidence_manifest.csv").read_text()
-    assert "www.held.com" not in manifest
+    assert "www.deep.held.com" in manifest
     assert "deep.held.com" in manifest
     conn.close()
 
@@ -160,7 +183,9 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
 
     They were equal until the export learned to drop a pair whose TLD did not exist in
     its year. From then on the guard held a pre-filter number against a post-filter one
-    and reported a fresh export as stale: 726,344 against 726,336.
+    and reported a fresh export as stale: 726,344 against 726,336. It happened again on
+    2026-09-10, when the export began diffing against HIS annual files and the guard did
+    not: 91,168 written against 91,472 counted, the 304 being the diff working.
     """
     from ark.export import netnew_shipped_pairs
 
@@ -176,7 +201,13 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
     assign_year(
         conn, record_evidence(conn, "impossible.biz", cdx, 1998, "cdx_timestamp", "19980101000000")
     )
+    # and one he already holds for that year, which the export drops and the guard must too
+    add_candidate(conn, "already-his.com", cdx)
+    assign_year(
+        conn, record_evidence(conn, "already-his.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    )
 
+    baseline = _fake_baseline(tmp_path)
     stats = export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
@@ -184,7 +215,79 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
     )
     written = sum(v for k, v in stats.items() if k.startswith("netnew_"))
-    assert written == 1, "the impossible pair must not reach an annual file"
-    assert netnew_shipped_pairs(conn) == written
+    assert written == 1, "neither the impossible pair nor his own record may reach an annual file"
+    assert netnew_shipped_pairs(conn, baseline) == written
+
+
+def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Path) -> None:
+    """The candidate track is scored like the annual one, so its claim is net-new too.
+
+    One pool, not one file per collection: registrable candidates and ISC survey
+    hostnames land in the same list, because a list of names is a list of names and the
+    provenance for each lives in `provenance/` and `isc_survey_provenance.csv`.
+    `candidates.txt` is still the whole working pool and is a different number: measured
+    2026-09-10 it held 2,279,755 names of which 29,327 were absent from his files, so
+    shipping the pool as the contribution would have overstated the registrable half 78x.
+    """
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    # a candidate he already lists, in each of the two places he can list it
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "already-his.com", cdx)
+    add_candidate(conn, "already-his-candidate.com", cdx)
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    pool = (tmp_path / "candidates.txt").read_text().split()
+    additions = (tmp_path / "netnew" / "candidate_additions.txt").read_text().split()
+    assert "cand.org" in pool and "cand.org" in additions
+    # neither of the two he already has survives into the claim
+    assert "already-his.com" not in additions
+    assert "already-his-candidate.com" not in additions
+    # and nothing that earned a year is a candidate at all
+    assert "new.com" not in pool and "new.com" not in additions
+    summary = json.loads((tmp_path / "netnew" / "candidate_additions_summary.json").read_text())
+    assert summary["candidates"] == len(additions)
+    assert summary["track"] == "candidate"
+
+
+def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path) -> None:
+    """Diffed against HIS files at export time, not against our ingested copy of them.
+
+    Our baseline evidence is whatever release was ingested, and his current release can
+    add names after it. On 2026-09-10 that gap put 303 names into the 2001 additions that
+    `merged260908` already held, which the merge audit then reported as an overlap.
+    """
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    # he lists this one for 1997; we hold a capture of it for the same year
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "already-his.com", cdx)
+    assign_year(
+        conn,
+        record_evidence(conn, "already-his.com", cdx, 1997, "cdx_timestamp", "19970101000000"),
+    )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    shipped = (tmp_path / "netnew" / "1997.txt").read_text().split()
+    assert "new.com" in shipped
+    assert "already-his.com" not in shipped
+    # and the manifest cannot describe a line that does not ship
+    manifest = (tmp_path / "netnew" / "evidence_manifest.csv").read_text()
+    assert "already-his.com" not in manifest

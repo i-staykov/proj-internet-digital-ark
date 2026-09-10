@@ -1,9 +1,12 @@
-"""The capture-journal hostname lane, and the two purpose rules of 2026-09-02.
+"""The capture-journal hostname lane, and what survives of the 2026-09-02 purpose rules.
 
-The reviewer accepted hostnames so that archived pages can be retrieved. So a record
-needs an observation of the host serving web content, and `www.<parent>` is the
-parent's own site rather than a second record. Both are enforced here and by two
-invariants in `checks.py`.
+One of the two still stands: a record needs an observation of the host serving web content,
+so the DNS lanes date the parent only. The other is gone. `www.<parent>` was refused as the
+parent's own site until 2026-09-04, when ADR-009 admitted it on his section XI and on a count
+of his own benchmark, where 1,221,065 names have both forms in the same year file.
+
+What replaced it is the weaker and more useful invariant: a `www.<parent>` record must point at
+evidence naming that exact host, so admitting the shape never became asserting it.
 """
 
 import gzip
@@ -32,27 +35,45 @@ def write(tmp_path: Path, rows: list[tuple[str, str]], name: str = "sweep_test.j
     return path
 
 
-def test_www_of_the_parent_dates_the_registrable_and_is_not_a_hostname_record(tmp_path) -> None:
+def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
+    """His ruling of 2026-09-06 (ADR-010) runs in both directions.
+
+    ADR-009 admitted `www.<parent>` as its own record and let the same capture date the parent
+    as well. The second half is what he then refused: "nor does the presence of www automatically
+    establish the bare hostname". So 1998 is still dated, by the bare capture and by
+    `shop.example.com`, and 1999 is not, because only `www.example.com` was seen that year.
+    """
     conn = duckdb.connect(":memory:")
     init_db(conn)
     stats = ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
-    # three (host, year) candidates below the registrable, one of them a real record
+    # three (host, year) candidates below the registrable, all three still records
     assert stats["hostname_year_candidates"] == 3
-    assert stats["hostname_year_rows"] == 1
-    assert conn.execute("SELECT hostname, assigned_year FROM hostname_year").fetchall() == [
-        ("shop.example.com", 1998)
+    assert stats["hostname_year_rows"] == 3
+    assert sorted(conn.execute("SELECT hostname, assigned_year FROM hostname_year").fetchall()) == [
+        ("shop.example.com", 1998),
+        ("www.example.com", 1998),
+        ("www.example.com", 1999),
     ]
-    # the www captures still date example.com in both years
-    assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [
-        (1998,),
-        (1999,),
-    ]
+    # 1998 survives on its own evidence; 1999 rested only on www and is gone
+    assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [(1998,)]
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
-    assert results["hostname_is_not_the_parent_www"]["ok"]
+    assert results["a_www_record_has_its_own_evidence"]["ok"]
     assert results["hostname_observed_serving_web"]["ok"]
+    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
 
 
-def test_the_two_purpose_invariants_catch_a_forced_row() -> None:
+def test_a_www_only_year_never_dates_the_parent_even_alone(tmp_path) -> None:
+    """The exclusion is not an artefact of a sibling capture existing in the same year."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    ingest_hostname_journal(conn, write(tmp_path, [("http://www.example.com/", "19970601000000")]))
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 1
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
+    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
+
+
+def test_a_forced_dns_row_and_a_www_row_without_its_own_evidence_are_both_caught() -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
     conn.execute("INSERT INTO source (name, kind) VALUES ('isc_survey_hostnames', 'timestamped')")
@@ -68,8 +89,24 @@ def test_the_two_purpose_invariants_catch_a_forced_row() -> None:
         [eid],
     )
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
-    assert results["hostname_is_not_the_parent_www"]["offending"] == 1
+    # the ISC lane is still not web-facing, so the row is refused on that ground
     assert results["hostname_observed_serving_web"]["offending"] == 1
+    # and the value DOES name www.x.com, so the new invariant is satisfied: admitting the
+    # shape is not the same as letting a parent's capture stand in for it
+    assert results["a_www_record_has_its_own_evidence"]["offending"] == 0
+    # a row whose evidence names only the parent is what that invariant is for
+    conn.execute(
+        "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value) "
+        "VALUES ('x.com', 1, 1998, 'artifact_listing', 'isc survey 1998-01 host x.com')"
+    )
+    bare = conn.execute("SELECT max(evidence_id) FROM evidence").fetchone()[0]
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+        "VALUES ('www.x.com', 'x.com', 1998, ?)",
+        [bare],
+    )
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
+    assert results["a_www_record_has_its_own_evidence"]["offending"] == 1
 
 
 def test_dns_lanes_are_not_web_facing() -> None:
@@ -77,3 +114,60 @@ def test_dns_lanes_are_not_web_facing() -> None:
         assert name not in WEB_FACING_HOST_SOURCES
         assert not writes_hostname_years(name)
     assert writes_hostname_years("ia_cdx_hostnames")
+
+
+def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
+    """The sweep appends to its journal under the final name, for hours.
+
+    Ledgering by name alone marked a live journal done at whatever length it had: on
+    2026-09-04 the first pass read `suffix_co_uk_...` at 391,684 rows and the second pass
+    skipped all 500 files, so every row written afterwards would never have been read. The
+    `.part`-then-rename convention does not cover an append-style collector; skipping on
+    content does, for every lane at once.
+    """
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    path = write(tmp_path, CAPTURES[:2])
+    first = ingest_hostname_journal(conn, path)
+    assert first["skipped"] is False
+    before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+
+    # unchanged: skipped
+    assert ingest_hostname_journal(conn, path)["skipped"] is True
+
+    # grown: read again, and only the new rows land, because the insert ignores duplicates
+    write(tmp_path, CAPTURES)
+    again = ingest_hostname_journal(conn, path)
+    assert again["skipped"] is False
+    after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
+    assert after > before
+    # one ledger row, updated to the new digest, with the rows of both passes summed
+    ledger = conn.execute("SELECT count(*), sum(record_rows) FROM ingested_file").fetchone()
+    assert ledger[0] == 1
+    assert ledger[1] == first["hostname_year_rows"] + again["hostname_year_rows"]
+    conn.close()
+
+
+def test_arquivo_journals_get_their_own_source_row() -> None:
+    """A hostname read from Arquivo.pt must not read as an Internet Archive capture.
+
+    Ivo ruled the lane in on 2026-09-08 (C-81) and Arquivo's own terms require the citation
+    "[fonte: Arquivo.pt, dd/mm/aaaa]", so its provenance has to be separable in the shipped
+    contribution table. The dispatch is on the filename family, as it is for the Early Web and
+    USFEDGOV indexes.
+    """
+    from ark.hostnames import (
+        ARQUIVO_METHOD,
+        ARQUIVO_SOURCE,
+        SOURCE_NAME,
+        SWEEP_METHOD,
+        source_for,
+    )
+
+    assert source_for(Path("arquivo_ia_0000.jsonl.gz")) == (ARQUIVO_SOURCE, ARQUIVO_METHOD)
+    assert ARQUIVO_SOURCE != SOURCE_NAME
+    # A sweep journal is untouched by the new branch.
+    assert source_for(Path("suffix_example_com_20260908T000000Z.jsonl.gz")) == (
+        SOURCE_NAME,
+        SWEEP_METHOD,
+    )

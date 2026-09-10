@@ -13,7 +13,7 @@
       "Bash(git diff*)"
     ],
     "deny": [
-      "Read(./docs/sources*.md)"
+      "Read(./docs/registers/sources*.md)"
     ]
   },
   "hooks": {

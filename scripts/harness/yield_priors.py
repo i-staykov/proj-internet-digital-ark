@@ -1,0 +1,150 @@
+"""What has actually paid, per shape, and why that turns out not to be a floor.
+
+**The gap this fills is his XI's last sentence**: "Feed both positive yield and negative results
+into the next automated discovery hypotheses." The generator already gets the negative half, 493
+closed leads from `screen_hypothesis.py --list-closed`. It gets nothing about the positive half,
+and the cost of that is measurable: the `usenet_alt_remainder` hypothesis put its own floor at
+130,000 EE gross and the lane paid 1,929, a 67x overestimate, because nothing told it what a GB of
+`alt` had actually been worth. In the other direction `usenet_probe` recommended closing the whole
+Usenet hostname lane on one group, and the pools then paid 119,640.
+
+So this reads the register's measured figures and groups them by the SHAPE of the artifact.
+
+**And the first run refuted the reason it was written.** The intent was a per-shape floor. The
+distribution says no such floor exists: every shape's median is three figures or less while its
+best is six or seven, a spread of four to six orders of magnitude WITHIN a shape. A median-based
+floor would have killed the 818,952 EE ISC census and the 6,371,375 EE remainder, and a best-based
+floor admits everything. **Shape does not predict what a lead is worth.**
+
+What separates the outliers from the medians is visible in the register rows themselves and is one
+thing: the six- and seven-figure entries are whole-corpus reads, and the medians are samples,
+single artifacts and single groups. That is the same finding as the day's other two, from opposite
+directions: reading eleven Usenet hierarchies whole paid 119,640 EE while one `comp` group paid
+480, and the sweep paid 193,000 EE per client-hour on the dense head of its queue while the
+per-domain query pays 255. That sweep figure decayed to 210 EE/hour within two nights (C-77),
+which is the same law seen once more: what paid was reading a queue's head WHOLE.
+
+**So the prior a hypothesis should carry is not the shape's median but whether the artifact can be
+read WHOLE**, and the table below is printed to show the spread rather than to supply a threshold.
+
+    uv run python scripts/harness/yield_priors.py [--top N]
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import statistics
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+
+# The new-source bar, 5,000 EE since 2026-09-08 (C-82). It has moved twice in four days, so it is
+# named once here and every sentence below counts against it rather than quoting a figure.
+FLOOR = 5_000.0
+REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
+
+# `<number> EE`, the figure every register row carries in its net-new column.
+_EE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
+
+# The shapes a hypothesis is actually written in, matched against the slug and the row's prose.
+# Deliberately coarse: a shape with two members is a coincidence, not a prior.
+SHAPES: dict[str, tuple[str, ...]] = {
+    "capture index at hostname grain": ("hostgrain", "hostname_grain", "cdx", "timemap"),
+    "usenet or mail bodies": ("usenet", "maillist", "mail_", "pipermail", "enron", "listserv"),
+    "dns survey or zone": ("isc_survey", "zone", "nserver", "inaddr", "in-addr", "dns"),
+    "registry or registrar data": ("rdap", "whois", "registry", "register", "afnic", "iedr"),
+    "blocklist or filter list": ("blocklist", "squidguard", "chastity", "junkfilter", "spam"),
+    "directory or portal listing": ("directory", "portal", "odp", "yellow", "webring", "ring"),
+    "link graph or link list": ("link_", "linkgraph", "host_link", "ukwa"),
+    "prose or document corpus": ("rfc", "eric", "hansard", "magazine", "press", "faq", "rtfm"),
+}
+
+
+def shape_of(text: str) -> str | None:
+    low = text.lower()
+    for shape, needles in SHAPES.items():
+        if any(needle in low for needle in needles):
+            return shape
+    return None
+
+
+def measured() -> dict[str, list[float]]:
+    """Every EE figure in the registers, grouped by artifact shape."""
+    out: dict[str, list[float]] = {}
+    for path in REGISTERS:
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.startswith("| "):
+                continue
+            match = _EE.search(line)
+            shape = shape_of(line.split("|")[1] if "|" in line else line)
+            if match is None or shape is None:
+                continue
+            try:
+                value = float(match.group(1).replace(",", ""))
+            except ValueError:
+                continue
+            out.setdefault(shape, []).append(value)
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--top", type=int, default=12, help="shapes to print")
+    args = ap.parse_args()
+    rows = measured()
+    if not rows:
+        print("no measured figures found in the registers")
+        return 0
+    print("What each SHAPE of artifact has actually paid, from the register's own figures.")
+    print("Read the SPREAD, not the median: every shape's median is three figures or less and")
+    print("its best is six or seven, because what separates them is whether the artifact was")
+    print("read WHOLE. The outliers are whole-corpus reads, the medians are samples. But read")
+    # **Counted, not written down.** This sentence named its figures by hand and the floor moved
+    # under it twice in four days: at 10,000 EE it was three shapes and 57 tries, at 5,000 it is a
+    # different set. A claim about the table belongs to the table.
+    barren = [(shape, len(v)) for shape, v in rows.items() if len(v) > 1 and max(v) < FLOOR]
+    if barren:
+        tries = sum(n for _, n in barren)
+        print(f"the LAST column before you propose: {len(barren)} shapes have {tries} tries")
+        print(f"between them and have NEVER once cleared the {FLOOR:,.0f} EE floor, so a lead of")
+        print(f"that shape needs a reason it is unlike the {tries}. Price a lead on how much of")
+        print("it you can read.\n")
+    else:
+        print(f"the LAST column: every shape here has cleared the {FLOOR:,.0f} EE floor at least")
+        print("once, so price a lead on how much of it you can read, not on its family.\n")
+    cleared_head = f"cleared {int(FLOOR / 1000)}k"
+    print(
+        f"{'shape':34} {'n':>4} {'median EE':>12} {'best EE':>14} {'spread':>8} {cleared_head:>12}"
+    )
+    ranked = sorted(rows.items(), key=lambda kv: -max(kv[1]))
+    for shape, values in ranked[: args.top]:
+        if len(values) < 2:
+            continue
+        median = statistics.median(values) or 0.1
+        # **How many of this shape's leads ever cleared the floor, not just the best one.**
+        # The spread column says a shape can pay; this one says how often it has. A shape
+        # with a dozen tries and none over the floor is a family, not a lead.
+        cleared = sum(1 for value in values if value >= FLOOR)
+        print(
+            f"{shape:34} {len(values):>4} {statistics.median(values):>12,.1f} "
+            f"{max(values):>14,.1f} {max(values) / median:>7,.0f}x "
+            f"{cleared:>6} of {len(values):<4}"
+        )
+    # **The rates below are the DECAYED ones, and that is C-77.** This table is printed
+    # into the generator's brief, so quoting the 2026-09-04 peak here taught the lane that
+    # collection outearns it by three orders of magnitude, which is false and was already
+    # false when it was written: the same sweep paid 210 EE/hour two nights later.
+    print("\nThe rates that decide where an HOUR goes are in docs/lore/laws.md, measured:")
+    print("  a domain-wide sweep, dense head of its queue, 2026-09-04 : ~193,000 EE/client-hour")
+    print("  the same sweep once that head was walked, 2026-09-06     :      210 EE/hour")
+    print("  a per-domain gap query                                   :      255 EE/hour")
+    print("  So the peak is a statement about the QUEUE, and a bulk corpus nobody has asked")
+    print("  for is worth more than any of them. Ask how many records ONE answer can carry.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

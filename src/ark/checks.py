@@ -38,9 +38,15 @@ _VALUE_YEAR = "TRY_CAST(regexp_extract(evidence_value, '([0-9]{4})', 1) AS INT)"
 # added here needs the same standard of proof.
 _SPAN_SOURCES = "'afnic_fr'"
 
-# a stored domain is a lowercase registrable name: strict first label, then one
-# or more suffix labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot
-_DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+# A stored domain is a lowercase registrable name: strict first label, then one or more suffix
+# labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot. The lengths are RFC 1035's
+# and his calculator's: 63 per label, 253 in total, and a 2-to-63 alphabetic last label. They
+# were absent until 2026-09-04, when fourteen over-long joke names from Usenet posts reached an
+# export and his own program refused them.
+# No lookahead: DuckDB uses RE2, which has none, so the 253-character total is a separate
+# `length()` condition at each call site rather than `(?=.{1,253}$)`.
+_DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
+_MAX_HOST_LEN = 253
 _WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
 
 # name, human description, SQL returning a single count of offending rows (0 = pass)
@@ -93,7 +99,8 @@ CHECKS: list[tuple[str, str, str]] = [
     (
         "registered_domain_format",
         "every stored domain is a well-formed lowercase registrable name",
-        f"SELECT count(*) FROM domain WHERE NOT regexp_matches(domain, '{_DOMAIN_RE}')",
+        f"SELECT count(*) FROM domain WHERE length(domain) > {_MAX_HOST_LEN} "
+        f"OR NOT regexp_matches(domain, '{_DOMAIN_RE}')",
     ),
     (
         "no_idn_tld_in_window",
@@ -214,14 +221,17 @@ CHECKS: list[tuple[str, str, str]] = [
         SELECT count(*) FROM hostname_year
         WHERE hostname = parent_domain
            OR hostname NOT LIKE '%.' || parent_domain
+           OR length(hostname) > 253
            OR NOT regexp_matches(hostname, '{_DOMAIN_RE}')
         """,
     ),
     (
         "hostname_observed_serving_web",
-        "every hostname record comes from a lane whose observation shows the host serving "
-        "web content, a capture or a URL listing; DNS listings date the parent only, because "
-        "the reviewer's purpose for the unit is retrieving archived pages (rule of 2026-09-02)",
+        "every hostname record comes from a lane whose observation shows the host IN USE that "
+        "year: a capture, a URL listing, or the `Received: ... by <host>` clause a receiving "
+        "MTA wrote about itself (ADR-012, C-83). DNS listings still date the parent only, on "
+        "his ruling of 2026-09-06, because a machine answering is not a host in use. The check "
+        "name predates the wider wording and is kept so a failing gate stays greppable",
         f"""
         SELECT count(*) FROM hostname_year hy
         JOIN evidence e ON e.evidence_id = hy.evidence_id
@@ -230,21 +240,48 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
-        "hostname_is_not_the_parent_www",
-        "no hostname record is `www.<parent>`: that is the registrable's own site and the "
-        "capture dates the registrable, so counting it again would be the same site twice",
+        "a_www_record_has_its_own_evidence",
+        "every `www.<parent>` hostname record points at an evidence row naming that exact "
+        "host, so admitting the shape (ADR-009) never turned into asserting it: the parent's "
+        "own capture may not stand in for a capture of `www.` in front of it",
         """
-        SELECT count(*) FROM hostname_year
-        WHERE hostname = 'www.' || parent_domain
+        SELECT count(*) FROM hostname_year hy
+        JOIN evidence e ON e.evidence_id = hy.evidence_id
+        WHERE hy.hostname = 'www.' || hy.parent_domain
+          AND e.evidence_value NOT LIKE '% ' || hy.hostname
+        """,
+    ),
+    (
+        "a_bare_record_is_not_inferred_from_www",
+        "no registrable domain-year rests ONLY on a capture of `www.` in front of it. His "
+        "ruling of 2026-09-06 runs both ways: the bare parent does not establish the `www.` "
+        "host, and the presence of `www.` does not establish the bare one, so one observation "
+        "may not become two records in either direction",
+        """
+        SELECT count(*) FROM (
+          SELECT dy.domain, dy.assigned_year
+          FROM domain_year dy JOIN evidence e ON e.evidence_id = dy.evidence_id
+          GROUP BY 1, 2
+          HAVING sum(
+                   CASE WHEN e.evidence_value LIKE 'cdx capture % www.' || dy.domain
+                        THEN 1 ELSE 0 END) > 0
+             AND sum(
+                   CASE WHEN e.evidence_value NOT LIKE 'cdx capture % www.' || dy.domain
+                        THEN 1 ELSE 0 END) = 0
+        )
         """,
     ),
     (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
-        "cannot sit in the candidate pool while already holding proof of a year",
+        "cannot sit in the candidate pool while already holding proof of a year. Evidence "
+        "that names a SUBDOMAIN is exempt: it evidences that host, not the registrable "
+        "beneath it, which is his ruling of 2026-09-06 and the reason the sibling check "
+        "`a_bare_record_is_not_inferred_from_www` can refuse the inferred row at all",
         f"""
         SELECT count(*) FROM evidence e
         WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
+          AND e.evidence_value NOT LIKE 'cdx capture % %.' || e.domain
           AND NOT EXISTS (
             SELECT 1 FROM domain_year dy
             WHERE dy.domain = e.domain AND dy.assigned_year = e.evidence_year

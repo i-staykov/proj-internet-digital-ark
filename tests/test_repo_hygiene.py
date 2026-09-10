@@ -17,8 +17,12 @@ from ark.hygiene import IPV4, KNOWN_ADDRESSES, scan, tracked_files
 
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
-DOCS_PAGE = re.compile(r"docs/[^/]+\.md")
-DOC_REF = re.compile(r"docs/[a-z_-]+\.md")
+# `(?:[^/]+/)*` so a page keeps being seen once docs/ has subdirectories. Without it both
+# patterns silently stopped matching anything under docs/lore/, docs/registers/ and the rest,
+# which would have dropped every moved page out of the index check and out of the dangling
+# reference and script-orphan checks at the same time, reporting green because it saw nothing.
+DOCS_PAGE = re.compile(r"docs/(?:[^/]+/)*[^/]+\.md")
+DOC_REF = re.compile(r"docs/(?:[a-z_-]+/)*[a-z_-]+\.md")
 
 # Split so this file does not trip the scan it is testing.
 PLANTED_ADDRESS = "9.8.7" + ".6"
@@ -116,21 +120,29 @@ def test_claude_md_stays_short() -> None:
 
 
 @pytest.mark.skipif(shutil.which("just") is None, reason="just not on PATH")
-def test_justfile_has_at_most_forty_recipes() -> None:
-    """`just --summary` lists at most 40 recipes."""
+def test_justfile_has_at_most_forty_one_recipes() -> None:
+    """`just --summary` lists at most 41 recipes.
+
+    The ceiling is a ratchet on the command surface, not a budget to spend: it went from 40
+    to 41 on 2026-09-09 for `collectors`, whose three words are the laptop's whole interface
+    to the CDX lane under launchd (S9). The next recipe should replace one.
+    """
     out = subprocess.run(
         ["just", "--summary"], cwd=ROOT, check=True, capture_output=True, text=True
     ).stdout
     recipes = out.split()
-    assert len(recipes) <= 40, f"{len(recipes)} recipes: {' '.join(recipes)}"
+    assert len(recipes) <= 41, f"{len(recipes)} recipes: {' '.join(recipes)}"
 
 
 def test_register_lines_stay_under_500_chars() -> None:
-    """No line in `docs/sources.md` or `docs/sources-closed.md` is longer than 500 characters."""
+    """No register line is longer than 500 characters.
+
+    Both `docs/registers/sources.md` and `docs/registers/sources-closed.md`.
+    """
     over: dict[str, int] = {}
     for name in ("sources.md", "sources-closed.md"):
-        path = ROOT / "docs" / name
-        assert path.is_file(), f"docs/{name} does not exist"
+        path = ROOT / "docs" / "registers" / name
+        assert path.is_file(), f"docs/registers/{name} does not exist"
         lines = path.read_text(encoding="utf-8").splitlines()
         count = sum(1 for line in lines if len(line) > 500)
         if count:
@@ -192,14 +204,14 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
 
     The address rule fires only on globally routable addresses and the collector host is
     in private space, so this line passed every guard and was published in seven files
-    (docs/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
+    (docs/ops/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
     because a fixture that has to look like a host uses one.
     """
     from ark import hygiene
 
     # Assembled, not written out: this file is scanned too, and a literal here would
     # make the test fail on itself. That is the rule working, so keep it that way.
-    login = "someone" + "@" + "10.1.0.6"
+    login = "someone" + "@" + "10.20.30.40"
     probe = tmp_path / "probe.sh"
     probe.write_text(f'VPS="${{ARK_VPS:-{login}}}"\n')
     rules = {f.rule for f in hygiene.scan([probe])}

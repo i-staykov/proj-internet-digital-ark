@@ -5,9 +5,9 @@ description: Build, verify and freeze a round's delivery archive. Use when a rou
 
 # Package a round
 
-`docs/runbook.md` holds the shipping section and what each step should print;
-`docs/delivery_readme.md` is the README that ships at the archive root and
-`docs/ding/task-package-file-guide.md` is his file guide for what the package must contain.
+`docs/ops/runbook.md` holds the shipping section and what each step should print;
+`docs/round/delivery_readme.md` is the README that ships at the archive root and
+`docs/brief/ding/task-package-file-guide.md` is his file guide for what the package must contain.
 
 ```
 just ship --help              # the whole chain, printed, nothing run
@@ -23,7 +23,8 @@ Rules that bite here:
 - Report artifacts are regenerated and committed BEFORE packaging, which `just ship`
   does in that order.
 - The round lands in `submissions/<round>/` and is frozen: never edited afterwards, and
-  `docs/SPEC.md`, `docs/report.md` and `docs/ROUND.md` are never edited at all.
+  `docs/report.md` and `docs/ROUND.md` are never edited by hand.
+- `docs/brief/ding/project-brief.md` is the canonical brief; regenerate it from his originals.
 - `private/` never ships, and the tarball stays out of git.
 - The last word on the totals is his own calculator, which `just ship` runs with
   `--verify` (`just ship calculator` runs it alone).
