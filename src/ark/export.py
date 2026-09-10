@@ -401,6 +401,29 @@ def export_all(
     )
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
 
+    # The candidate pool as one batch of year files, beside the undated list rather than
+    # instead of it. A candidate carries no year evidence that promotes it to an annual
+    # record, but most carry a dated OBSERVATION that does not: a link-target row naming
+    # the domain in a crawl of that year, or a capture our own rules refuse to promote.
+    # Filing those under the year they were observed is what makes the pool usable to a
+    # reviewer who wants to know where to look, and it costs nothing, since the same
+    # names are already shipping in `candidates.txt`.
+    #
+    # **The year files overlap and their counts must never be summed as the pool size.**
+    # A name observed in 1998 and 2000 is one candidate in two files.
+    for year in YEARS:
+        year_query = f"""
+            SELECT DISTINCT d.domain FROM domain d
+            JOIN evidence e ON e.domain = d.domain
+            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+              AND e.evidence_year = {year}
+              AND {_shipping_filter("d.", with_year=False)}
+            ORDER BY d.domain
+        """
+        stats[f"candidates_{year}"] = _copy_query(
+            conn, year_query, netnew_dir / f"{year}-CANDIDATES.txt"
+        )
+
     # per-source and per-year contribution tables, which ship in the audit folder
     stats.update(write_contribution_tables(conn, report_dir))
 

@@ -44,7 +44,13 @@ from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.export import NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
-from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
+from ark.figures import (  # noqa: E402
+    now_in_his_clock,
+    score,
+    scored_under_rule,
+    t_days,
+    t_days_assignment,
+)
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -125,28 +131,25 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_domain_sweep": (
-        "IA CDX `matchType=domain` sweeps, two clients, over parents ranked by the hosts we "
-        "lack rather than the hosts they have",
+        "IA CDX `matchType=domain` sweeps, two clients, parents ranked by the hosts we lack",
         "the row's own 14-digit capture timestamp",
     ),
     "usenet_server_written_header": (
-        "Usenet spool (IA), already held, re-read for the three headers a NEWS SERVER writes "
-        "about itself: `Path:`, `X-Trace:` and `NNTP-Posting-Host:`. No sender-supplied field "
-        "is read",
+        "Usenet spool (IA), already held, re-read for the three headers a news server writes "
+        "about itself: `Path:`, `X-Trace:`, `NNTP-Posting-Host:`",
         "the post's own machine-written `Date:` header",
     ),
     "ietf_list_received_by": (
-        "IETF mail archive, one raw mbox per list-month, `ietf-mail-archive/` and "
-        "`concluded-wg-ietf-mail-archive/`",
+        "IETF mail archive, one raw mbox per list-month",
         "the message's `Date:` header, checked against the month the archive filed it under",
     ),
     "apache_list_received_by": (
-        "Apache mailing-list archive, the same `Received: ... by <host>` clause at a second host",
+        "Apache mailing-list archive, the same clause at a second host",
         "the message's `Date:` header, checked against the month the archive filed it under",
     ),
     "poland_pl_extract_hostgrain": (
-        "Poland `.pl` ccTLD extraction 2001-12-31 (IA, `webdataservices`), 19 item-level CDX "
-        "indexes, 1.24 GB, each verified against its published sha256 before it was read",
+        "Poland `.pl` ccTLD extraction 2001-12-31 (IA), 19 CDX indexes, 1.24 GB, each verified "
+        "against its published sha256",
         "the row's own 14-digit capture timestamp, from the original URL and never the SURT key",
     ),
     "arquivo_ia_cdxj_hostgrain": (
@@ -166,8 +169,7 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "usenet_body_url_hostnames": (
-        "the registrable half of the Usenet body-URL lane, hosts taken only from explicit "
-        "http, https and ftp URLs in the post body",
+        "the registrable half of the Usenet body-URL lane",
         "the post's own machine-written `Date:` header",
     ),
     "ia_cdx_hostnames": (
@@ -183,8 +185,8 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "usenet_body_url": (
-        "Every non-alt Usenet hierarchy of the archive.org collection, 224 GB read whole, "
-        "hosts taken only from explicit http, https and ftp URLs in the post BODY",
+        "Every non-alt Usenet hierarchy (IA), 224 GB read whole, hosts only from explicit "
+        "http, https and ftp URLs in the post body",
         "the post's own machine-written `Date:` header",
     ),
     "isc_survey_host_list": (
@@ -208,7 +210,7 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_bulk": (
-        "IA CDX per-domain queries over bracketed gaps and the candidate pool",
+        "IA CDX per-domain queries over bracketed year gaps and the candidate pool",
         "the capture timestamp of a URL on that host",
     ),
     "usenet_address": (
@@ -762,37 +764,25 @@ def merge_reconciliation() -> str:
 
 
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The same two records, as one sentence for the email."""
-    rows = score_rows(growth)
-    pct, total, scored, _ = _score_parts(rows)
-    this = rows[-1]
-    # Both readings of t_i, because his 0903 update redefined it and the two differ by
-    # almost 4x on this round alone. Quoting one silently would be a claim, not a figure.
-    from ark.figures import t_days_assignment
+    """The two official records in one sentence, under the rule that now governs.
 
-    t_abs = t_days_assignment(now_in_his_clock())
-    s_abs = score(growth, t_abs)
-    # **He answered the "which t_i" question by using a third value.** Round 8 was scored
-    # 10 x (18.769714 / 33) = 5.687792, and 33 is neither reading we offered: the benchmark
-    # interval gave t = 1 and the assignment interval t = 45 from our pinned origin of
-    # 2026-07-21. So the mail stops offering him a choice of two and asks the one thing
-    # still unknown, which is the date his 33 counts from.
-    his = awarded_score_of("8")
-    ask = ""
-    if his is not None:
-        ask = (
-            f" **You scored round 8 as 10 x ({his.percent} / {his.divisor}) = {his.score}.** "
-            f"We cannot reproduce the {his.divisor}: the benchmark interval gives t = 1 and "
-            f"the task-assignment interval t = {t_abs} from 2026-07-21, the earliest date our "
-            f"records support. Which date is t_i counted from, and does it re-score the "
-            f"awarded rounds?"
-        )
+    **His 0903 update replaced the benchmark interval and his 0905 score fixed its
+    origin.** He scored round 8 as 10 x (18.769714 / 33) and received it on 2026-09-04;
+    33 whole calendar days back is 2026-08-02, which `figures.TASK_ASSIGNED_DATE` now
+    carries. The report used to put that as a question to him. It is not a question: the
+    divisor he used is the answer, and asking again would spend his time on arithmetic we
+    can do.
+    """
+    rows = score_rows(growth)
+    pct, total, _scored, _early = _score_parts(rows)
+    t_now = t_days_assignment(now_in_his_clock())
     return (
-        f"Cumulative verified percentage {pct:.4f}%, this round counted at its own unverified "
-        f"{growth:.4f}% and round 1 on records rather than equivalent-English. Time-weighted "
-        f"score {total:.6f} over the rounds you scored, your own figure used wherever you "
-        f"stated one. This round reads {this.s:.6f} on the benchmark interval and "
-        f"{s_abs:.6f} on the assignment interval.{ask}"
+        f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
+        f"{growth:.4f}% and round 1 on records rather than equivalent-English. "
+        f"Time-weighted score {total:.6f} over the three rounds you have scored, your own "
+        f"figure wherever you stated one. Under your 0903 rule, with the origin your round "
+        f"8 divisor implies (2026-09-04 less 33 days), this round is t = {t_now} and adds "
+        f"{score(growth, t_now):.6f}."
     )
 
 

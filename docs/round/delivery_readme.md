@@ -40,6 +40,7 @@ Two things to know before opening anything:
 | `isc_survey_hostnames/isc_survey_provenance.csv` | Per-host provenance for every surviving hostname-year: survey edition, source filename, original or recovery URL, record location keyed by hostname, extraction method and target year. Provenance alone does not promote a DNS observation |
 | `isc_survey_hostnames/isc_candidates_summary.json` | Measured distinct candidate count and equivalent-English total, survey-year counts, provenance rows and TLD counts, tied to the reference release. Year counts must not be summed as the candidate score |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
+| `candidates/<year>.txt` | The same pool as one batch of year files: the year each name was OBSERVED by evidence that does not promote it to an annual record, chiefly a link-target row in a crawl of that year. The files overlap, so their counts must never be summed as the pool size |
 | `candidates_unparsed.txt` | **The unparsed pool of your section XI**, one row per malformed-but-recoverable value with the reason the funnel refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`, `is_registrable`. In no figure |
 | `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
 | `baseline/<release>/` | **The reference the additions are counted against**, including the six annual files and `candidate_pool.txt` for exact-name ISC reconciliation. See `baseline/README.txt` |
@@ -53,6 +54,7 @@ Two things to know before opening anything:
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
 | `sources.md` | Per-source detail, including **the commands to download each**, and one row per source evaluated |
 | `sources-closed.md` | The other half of that register: one row per family closed on a measurement, with the figure and the reason |
+| `findings.md` | The round's research findings in full, with the measurement behind each. The report cites them rather than carrying them |
 | `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full register this distils |
 | `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
 | `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
@@ -158,6 +160,9 @@ done
 cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
 cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
 cmp output/candidate_unverified.txt      ../candidates.txt
+for y in 1996 1997 1998 1999 2000 2001; do
+    cmp output/netnew/$y-CANDIDATES.txt ../candidates/$y-CANDIDATES.txt
+done
 cmp output/netnew/isc_candidates.txt ../isc_survey_hostnames/isc_candidates.txt
 cmp output/netnew/isc_survey_provenance.csv ../isc_survey_hostnames/isc_survey_provenance.csv
 cmp output/netnew/isc_candidates_summary.json ../isc_survey_hostnames/isc_candidates_summary.json
@@ -176,6 +181,7 @@ The archive renames things, so here is the map:
 | `output/netnew/isc_survey_provenance.csv` | `isc_survey_hostnames/isc_survey_provenance.csv` |
 | `output/netnew/isc_candidates_summary.json` | `isc_survey_hostnames/isc_candidates_summary.json` |
 | `output/candidate_unverified.txt` | `candidates.txt` |
+| `output/netnew/<year>-CANDIDATES.txt` | `candidates/<year>-CANDIDATES.txt` |
 | `data/exports/<year>.txt` | `masters/<year>.txt` |
 | `output/provenance/` | `provenance/` |
 
