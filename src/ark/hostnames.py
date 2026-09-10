@@ -74,6 +74,13 @@ USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
 # citation "[fonte: Arquivo.pt, dd/mm/aaaa]", so a row of it must not read as an IA capture.
 ARQUIVO_SOURCE = "arquivo_ia_hostnames"
 ARQUIVO_METHOD = "arquivo_ia_cdxj_hostgrain"
+# The IA's `Poland_pl-ccTLD_2001-12-31` extraction, item-level CDX, approved master by Ivo
+# on 2026-09-10. Same class and same artifact shape as USFEDGOV-EXTRACT, its own source row
+# because it is its own collection with its own terms: the ARCs beside these indexes are
+# `private: true` and are never fetched, and the approval records that the collection is
+# flagged `access-restricted-item` while every index file is served without login.
+POLAND_SOURCE = "poland_pl_extract_hostnames"
+POLAND_METHOD = "poland_pl_extract_hostgrain"
 
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
@@ -94,6 +101,8 @@ def source_for(path: Path) -> tuple[str, str]:
         return USFEDGOV_SOURCE, USFEDGOV_METHOD
     if path.name.startswith("arquivo_"):
         return ARQUIVO_SOURCE, ARQUIVO_METHOD
+    if path.name.startswith("poland_pl_"):
+        return POLAND_SOURCE, POLAND_METHOD
     return SOURCE_NAME, SWEEP_METHOD
 
 
@@ -108,6 +117,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         EARLY_WEB_SOURCE,
         USFEDGOV_SOURCE,
         ARQUIVO_SOURCE,
+        POLAND_SOURCE,
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
@@ -125,6 +135,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "apache_list_header_hostnames",
         # The same clause in the IETF mail archive (`IETF_FAMILY`, C-83 at a second host).
         "ietf_list_header_hostnames",
+        # And the news-server twin of it (`USENET_HEADER_FAMILY`, Ivo 2026-09-10). An
+        # `X-Trace`, `NNTP-Posting-Host` or final `Path` hop is written by the server that
+        # accepted the article, about itself or about the machine it accepted it from, in a
+        # transaction it completed. Same reading as C-83, different protocol.
+        "usenet_header_fqdn_hostnames",
     }
 )
 # `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
@@ -1323,6 +1338,28 @@ def _ietf_url(item: str) -> str:
 
 
 IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
+
+# The sixth member: the server-written header fields of a dated Usenet post, approved
+# master-eligible by Ivo on 2026-09-10 after the 2026-09-08 rejection was reopened. That
+# rejection was on size, "too large and us not having enough space", and the size was wrong:
+# the two collections the class was measured on are 15.3 GB, not the 224 GB the register
+# carried, and 104.8 GB of general spool was already on this disk.
+#
+# **Three fields, all written by a news server about a transaction it completed**, which is
+# the same reading C-83 settled for a `Received: ... by` clause: the trailing hostname of
+# `X-Trace:`, the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:`
+# hop, the rightmost element, which is the site that injected the article. `Message-ID` is
+# NOT read: Turnpike and Demon's clients stamp it from a configured nodename, so it is
+# client-written and needs its own ruling. `build_usenet_header_pool.py` writes the shards
+# and carries the parsing traps, the `.POSTED` marker and the dial-up pool filter among them.
+#
+# The item is `<group>.mbox.zip#<n>`, the same pointer shape and the same archive as the
+# body-URL lane, so `_USENET_ITEM` and `_usenet_url` are reused rather than re-typed.
+USENET_HEADER_SOURCE = "usenet_header_fqdn_hostnames"
+USENET_HEADER_METHOD = "usenet_server_written_header"
+USENET_HEADER_FAMILY = ItemFamily(
+    USENET_HEADER_SOURCE, USENET_HEADER_METHOD, "usenet header", _USENET_ITEM, _usenet_url
+)
 
 
 def usenet_item_rows(

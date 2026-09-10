@@ -1973,8 +1973,41 @@ Decision: rejected
 - potential: 6877
 
 - Ivo, 2026-09-08 (issue #113): "rejected on ground of being too large". The 50,000 to 150,000 EE band needs a whole-spool pass over 224 GB that is on neither machine any more, so the fetch alone outruns the round. The two rulings it also wanted, whether a server-written header host is split-free `link_source` and whether a client-written `Message-ID` host is evidence at all, are moot while the bytes are unreachable.
+- **that rejection rested on a size that was wrong, and the correction is the reason it was
+  reopened.** Ivo asked on 2026-09-10 whether the size objection was true. Measured rather than
+  remembered: the two collections the class was actually measured on are `usenet-demon`, 58 zips
+  and 0.79 GB, and `usenet-uk`, 495 zips and 14.48 GB, summed from
+  `https://archive.org/metadata/<item>`, so **15.3 GB and not 224 GB**. The 224 GB figure is the
+  whole thirteen-pool body-URL corpus, a different and much larger population, and it was carried
+  into this entry by mistake. Separately, 104.8 GB of that spool, 16,850 `.mbox.zip` archives
+  across `usenet_bulk`, `usenet_new`, `usenet_probe5` and `usenet_msft`, was already on the
+  laptop's disk with 172 GB free, so the general-spool pass needed no fetch at all. Both halves
+  of "too large and not enough space" were false
+- condition 4 now holds too: `scripts/sources/usenet/build_usenet_header_pool.py` writes the
+  `{item, year, text}` shards and `ark ingest-usenet-header-hostnames` reads them, so there is a
+  journal and `ark check` can gate the ingest
+- **the reading, and it is C-83's rather than a new one.** A news server writes `X-Trace:`,
+  `NNTP-Posting-Host:` and its own `Path:` hop about a transaction it completed: about itself, or
+  about the machine it has just accepted an article from. That is the same thing a receiving MTA
+  does in a `Received: ... by <host>` clause, which Ivo approved on 2026-09-09 as split-free
+  `link_source`. Different protocol, same writer and same self-dating record. `stats.py` files
+  this lane and `usenet_body_url_hostnames` under one `usenet` provenance, because they are two
+  readings of one collection effort and filing them apart would let the spool corroborate itself
+- **`Message-ID` is still not read and still has no ruling.** Turnpike and Demon's clients stamp
+  it from a configured nodename, so it is client-written; the 2026-09-02 probe priced it
+  separately at 4,054 EE and the extractor does not touch it
+- two parsing traps found while building the extractor, both of which would have banked fiction.
+  News servers append their own verdict to a `Path` element: `.POSTED` marks the injecting site
+  and is not part of the name, and left in it banked `news2-win.server.ntlworld.com.posted` as a
+  host in its own right, 2,006 rows in a 35 MB test; `.MISMATCH` is the server saying the reverse
+  DNS did NOT match, so those elements are dropped rather than cleaned. And the dial-up pool
+  filter had to be widened against real samples until it caught `1cust104.tnt8.redondo-beach.ca.da.uu.net`,
+  `136.pool2.fukuoka.att.ne.jp` and `man-s286.dialup.zetnet.co.uk`; it drops about 6.5% of rows,
+  against the 6.9% the fleet's probe measured
+- Ivo, 2026-09-10: "The master-eligiblity of usenet_header_fqdn_hostnames is herewith absolutely
+  approved." That settles condition 1, which is the one the loop could not write for itself
 
-Decision: rejected
+Decision: master
 ### internic_zone / artifact_listing
 - measured: 8814.04 net-new post-split EE over 12,322 pairs, re-counted 2026-08-24 against the live store, `.arpa` excluded because the export drops it
 - what dates one item: the zone's own SOA serial inside the artifact, `1997041800`, and an NS delegation is the registry stating the name existed that day
@@ -1988,6 +2021,105 @@ Decided by Ivo, 2026-08-24. The grounds are the artifact alone: the SOA serial `
 line 2 inside the payload, and an IA crawl two days later fixes when the file existed. An NS record
 in a zone is the delegation itself rather than a description of one, which is why killer 2 does not
 reach it: the registry was serving that name at that instant.
+
+### ietf_list_header_hostnames / link_source
+
+- the artifact: one raw mbox or MMDF month per list under
+  `https://www.ietf.org/ietf-ftp/ietf-mail-archive/<list>/` and
+  `https://www.ietf.org/ietf-ftp/concluded-wg-ietf-mail-archive/<list>/`, the month spelled
+  `YYYY-MM` before 1998 and `YYYY-MM.mail` from 1998 on. 4,846 in-window list-months,
+  1,583,520,416 bytes, planned by
+  `scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`. Read off the socket and
+  never written to disk: what lands is the derived `{item, year, text}` shard
+- what dates one item: the message's own RFC 822 `Date:` header, cross-checked against the
+  `YYYY-MM` the archive filed the month under; a message whose `Date:` year disagrees with its
+  partition is dropped rather than assigned to either. Quoted: message 1 of
+  `https://www.ietf.org/ietf-ftp/concluded-wg-ietf-mail-archive/snmpv2/1996-10` (75,053 bytes,
+  re-fetched 2026-09-10, 36 messages, all in window) carries `Date: Wed, 2 Oct 1996 11:05:48
+  -0400` and `Received: from neptune.hq.tis.com by CNRI.Reston.VA.US id aa13591; 2 Oct 96 12:08
+  EDT`, which dates `cnri.reston.va.us` for 1996. The evidence row is `list header 1996
+  www.ietf.org/concluded-wg-ietf-mail-archive/snmpv2/1996-10#1 cnri.reston.va.us`
+- **the field, and only this field: the `by` clause**, exactly as C-83 approved it for
+  `apache_list_header_hostnames`. The receiving MTA writes its own name there, about itself, in
+  a transaction it completed, so the record is machine-written and self-dating and takes no
+  corroboration split. The `from` HELO, the parenthesised reverse-DNS and the `Message-ID` host
+  are not read. `BOUNDARY`, `unfold`, `by_hosts` and `IN_WINDOW` are imported from
+  `build_apache_header_pool.py` rather than re-typed, so an ietf.org figure is comparable to
+  the Apache one
+- **this is C-83's class at a second host, not a new class**, so C-81's 1,000 EE floor for an
+  approved class at a new artifact applies and not the 5,000 EE floor for a new source
+- measured by the fleet before this entry, 2026-09-09 (run 34391624491, verified under
+  34440478182): a 13.61% sample, 713 of the in-window list-months and 203,016,161 fetched
+  bytes, gave 138,082 items over 7,278 hosts and **4,913.1933 EE annual on 8,282 net-new
+  pairs** against `merged260908`, plus 2,676.2575 EE candidate on 4,501 pairs. That is 6.9 EE
+  per list-month, between the Apache lane's middle band at 3.17 and its head at 141.
+  `www_alias_share` 0.0014, `parent_held_share` 0.9868, so the existing hostname wall is the
+  hygiene filter and no new rule is needed
+- **the projection is a ceiling and the Apache lane is the reason to distrust it.** A log-log
+  fit on the sample's pair curve gives 4.53x at the full partition, about 22,261 EE. The same
+  class measured on lists.apache.org saturated hard across three bands, 5.5 times the messages
+  for 2.4 times the EE, because a busy list's relay hosts recur month to month and the second
+  sighting is not net-new. The realised sweep is the number
+- terms: the IETF Trust Legal Provisions,
+  `https://trustee.ietf.org/documents/trust-legal-provisions/`. `robots.txt` (read 2026-09-10)
+  disallows only `/admin/` and `/search/` and states no crawl delay. Fetched single-threaded at
+  0.75 s between requests, the rate the fleet's scout measured safe; six parallel listings drew
+  HTTP 429 inside a minute. Not `web.archive.org/cdx`, so not a third client (C-77)
+- the four conditions of the standing rule (Ivo, 2026-08-29), checked: the class `link_source`
+  is already master, and `apache_list_header_hostnames` is this same field at another host under
+  C-83; a machine-written stamp inside the artifact dates one item and is quoted above; the
+  terms permit it; and `ark check` passed after the ingest
+- linked in `docs/registers/sources.md` before the ingest, per rule 8
+
+Decision: master
+
+### poland_pl_extract_hostnames / cdx_timestamp
+
+- the artifact: the 19 item-level CDX indexes of the archive.org collection
+  `Poland_pl-ccTLD_2001-12-31` ("Poland .pl ccTLD Extraction through 2001-12-31", uploader
+  helge@archive.org, publicdate 2020-12-14, parent collection `webdataservices`, the sibling of
+  `earlygovweb` where USFEDGOV-EXTRACT lives). Each index is 48 to 84 MB of classic 11-field
+  CDX (`CDX N b a m s k r M S V g`), 1,240,317,860 bytes in total.
+  `scripts/sources/poland/fetch_poland_cdx.sh` fetches them against the byte size and sha256
+  the fleet's scout read off every one of them, and `poland_pl_hostgrain.py` reduces them
+- what dates one item: field 2 of the CDX row, the crawler's own 14-digit capture timestamp.
+  Quoted from `pl-2001-EXTRACTION-20200922232618-00000-00009-ARC_arc`:
+  `pl,gazeta,gwx)/~piotrh/art/horowitz/hz11.html 19960510131727
+  http://gwx.gazeta.pl:80/~piotrh/art/horowitz/hz11.html text/html 200 XNRE4YN7YCMZYHDY4OA7OFSPUBJNKKJW`
+  dates `gwx.gazeta.pl` for 1996. The host comes from field 3, the original URL, never from
+  field 1: the SURT key drops `www` and reverses the labels
+- **the same class and the same artifact shape as the approved `usfedgov_extract_hostnames`**,
+  which is the item-level CDX of an IA extraction collection read at hostname grain. Not a new
+  class, so C-81's 1,000 EE floor for an approved class at a new artifact applies. Its own
+  source row all the same, because it is its own collection with its own terms
+- **only HTTP 200 rows inside 1996-2001 are kept**, which is the population the price was taken
+  on. 36,117,804 rows across the 19 indexes; 28,980,964 are 200 in window; 442,647 distinct
+  (host, year) over 376,445 hostnames. All but 3 hosts end in `.pl`, whose English share is
+  10.7%, so the gross ceiling of the whole collection is 47,363 EE
+- priced by the fleet against `merged260908` (built 2026-09-10T06:18:18+00:00, manifest sha
+  96a7b83511557598fcfae0ba315b400d672739bf32f305159a272876772f445d): **158,490 net-new pairs,
+  16,958.4300 EE**, `split none, exact-name membership, pre-corroboration`. records_priced
+  442,273, already_held 283,783, www_of_parent 125,477, no_host 342, rejected_host 32;
+  `www_alias_share` 0.5655, `parent_held_share` 0.728. By year: 1996 22 pairs / 2.3540 EE,
+  1997 136 / 14.5520, 1998 1,571 / 168.0970, 1999 5,723 / 612.3610, 2000 14,458 / 1,547.0060,
+  2001 136,580 / 14,614.0600
+- **terms, and the one thing that had to go to Ivo.** The collection record carries
+  `access-restricted-item: true` and `hidden: true`, while every `<item>.cdx.gz` under it is
+  served with 200 and no login. The ARCs beside them are `private: true` and are never
+  fetched: 205 GB of them, and nothing here touches one. Host is `archive.org/download/`,
+  not `web.archive.org/cdx`, so this is not a third client on the collectors' channel (C-77).
+  robots allowed on archive.org and on every `dn7*.ca.archive.org` redirect target; terms
+  `https://archive.org/about/terms`
+- the four conditions of the standing rule (Ivo, 2026-08-29): condition 1 holds, the class is
+  `cdx_timestamp` and already master at this exact artifact shape; condition 2 holds and the
+  stamp is quoted above; condition 4 is gated on `ark check`. **Condition 3 did not hold on
+  its own** and that is why the loop did not write this line for itself: a collection the IA
+  flagged restricted while leaving its index files world-readable is not a clean yes
+- Ivo, 2026-09-10: "I absolutely approve Poland_pl-ccTLD_2001-12-31 /
+  ia-poland-pl-cctld-extraction-2001-cdx-hostnames to be downloaded, ingested and recorded."
+- potential: 16958
+
+Decision: master
 
 ## Found, awaiting triage
 
