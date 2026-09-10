@@ -205,7 +205,7 @@ def post(title: str, body: str, repo: str = REPO) -> str:
                 "--repo",
                 repo,
                 "--title",
-                f"{TITLE_PREFIX}: the unattended run",
+                f"{TITLE_PREFIX}: {title}",
                 "--body",
                 body,
             ]
