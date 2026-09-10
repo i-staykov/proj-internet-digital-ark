@@ -20,9 +20,17 @@ def rendered(template: Path) -> dict:
     return plistlib.loads(text.encode())
 
 
-def test_the_three_jobs_are_shipped():
+def test_every_job_is_shipped():
+    """The set is named here so a template added without a `just schedule` entry fails.
+
+    A plist nobody installs is dead weight, and a job in the recipe with no template is a
+    `sed` reading a file that is not there.
+    """
     names = [t.name.removesuffix(".plist.template") for t in TEMPLATES]
-    assert names == ["com.ark.collectors", "com.ark.cycle", "com.ark.sync"]
+    assert names == ["com.ark.collectors", "com.ark.cycle", "com.ark.digest", "com.ark.sync"]
+    recipe = (ROOT / "justfile").read_text()
+    for name in names:
+        assert name in recipe, name
 
 
 @pytest.mark.parametrize("template", TEMPLATES, ids=lambda t: t.name)
