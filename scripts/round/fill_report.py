@@ -775,10 +775,16 @@ def merge_reconciliation() -> str:
         [
             *rows,
             "",
-            f"Of the {int(t['submitted_records']):,} records submitted, "
-            f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and are "
-            f"excluded, so the accepted increment above counts each remaining record once. "
-            f"**{passed} of {len(checks)} reconciliation checks pass**. "
+            (
+                f"**Not one of the {int(t['submitted_records']):,} records submitted is already "
+                "in the baseline**, so every one of them counts exactly once: the export diffs "
+                "each shipped list against your own annual files before it writes them. "
+                if int(t["already_in_baseline_records"]) == 0
+                else f"Of the {int(t['submitted_records']):,} records submitted, "
+                f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and "
+                "are excluded, so the accepted increment counts each remaining record once. "
+            )
+            + f"**{passed} of {len(checks)} reconciliation checks pass**. "
             "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
             "lowercased line within each year and scores every file with your own calculator; the "
             "per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in "
