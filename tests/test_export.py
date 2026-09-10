@@ -183,7 +183,9 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
 
     They were equal until the export learned to drop a pair whose TLD did not exist in
     its year. From then on the guard held a pre-filter number against a post-filter one
-    and reported a fresh export as stale: 726,344 against 726,336.
+    and reported a fresh export as stale: 726,344 against 726,336. It happened again on
+    2026-09-10, when the export began diffing against HIS annual files and the guard did
+    not: 91,168 written against 91,472 counted, the 304 being the diff working.
     """
     from ark.export import netnew_shipped_pairs
 
@@ -199,7 +201,13 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
     assign_year(
         conn, record_evidence(conn, "impossible.biz", cdx, 1998, "cdx_timestamp", "19980101000000")
     )
+    # and one he already holds for that year, which the export drops and the guard must too
+    add_candidate(conn, "already-his.com", cdx)
+    assign_year(
+        conn, record_evidence(conn, "already-his.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    )
 
+    baseline = _fake_baseline(tmp_path)
     stats = export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
@@ -207,11 +215,11 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
-        baseline=_fake_baseline(tmp_path),
+        baseline=baseline,
     )
     written = sum(v for k, v in stats.items() if k.startswith("netnew_"))
-    assert written == 1, "the impossible pair must not reach an annual file"
-    assert netnew_shipped_pairs(conn) == written
+    assert written == 1, "neither the impossible pair nor his own record may reach an annual file"
+    assert netnew_shipped_pairs(conn, baseline) == written
 
 
 def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Path) -> None:
