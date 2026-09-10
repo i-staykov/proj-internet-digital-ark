@@ -212,3 +212,24 @@ def test_the_measured_crawl_delay_is_not_quietly_retuned() -> None:
     c = _collector()
     assert c.CRAWL_DELAY >= 0.75
     assert c.USER_AGENT.startswith("ark-research/")
+
+
+def test_an_empty_month_is_never_planned_and_so_never_fetched(tmp_path, monkeypatch) -> None:
+    """Nearly half this archive's in-window months are listed at 0 bytes.
+
+    A list that existed but carried no traffic that month still gets a file, and it answers
+    HTTP 200 with no body. Planning them is 4,579 requests that can only return nothing.
+    """
+    c = _collector()
+    monkeypatch.setattr(c, "OUT_DIR", tmp_path)
+    monkeypatch.setattr(c, "PLAN", tmp_path / "plan.tsv")
+    monkeypatch.setattr(c, "TREES", ("ietf-mail-archive",))
+    monkeypatch.setattr(c, "fetch_with_retry", lambda url, attempts=4: b'<a href="sieve/">')
+    monkeypatch.setattr(
+        c,
+        "months_of",
+        lambda tree, listname: [("1999-05.mail", 4096), ("1999-06.mail", 0), ("1999-07.mail", 12)],
+    )
+    assert c.plan() == 0
+    planned = [ln.split("\t") for ln in (tmp_path / "plan.tsv").read_text().split("\n") if ln]
+    assert [row[1].rsplit("/", 1)[1] for row in planned] == ["1999-05.mail", "1999-07.mail"]
