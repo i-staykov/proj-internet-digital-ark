@@ -30,7 +30,7 @@ distinct domains, 45,206 of which appear in none of your six files in any year.
 | 2001 | 39,739 | 2,783,590 | 1,543,312.8989 |
 | **Total** | **91,472** | **3,308,090** | **1,874,979.2367** |
 
-Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records rather than equivalent-English. Time-weighted score 18.874694 over the three rounds you have scored, your own figure wherever you stated one. Under your 0903 rule, with the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
+Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 18.874694 over the three rounds you scored, your own figure where you stated one. Under your 0903 rule, at the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
 
 ## 2. What is new, and where it came from
 
