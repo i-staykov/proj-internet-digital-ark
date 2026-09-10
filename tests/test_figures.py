@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS
+from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS, awarded_score_of
 from ark.figures import (
     TASK_ASSIGNED_DATE,
     cumulative,
@@ -130,54 +130,62 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # t_i; on 2026-09-05 he scored round 8 by a THIRD (divisor 33), so it now states his own
     # figure and asks the only thing still unknown, which is the date that 33 counts from.
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
+    # The email's one-liner is cut to fit a mail he reads in a minute, so it quotes the
+    # total rather than the addends. It used to ASK which date t_i counts from; his own
+    # round 8 divisor answers that, so it states the derivation and asks nothing.
     assert "Time-weighted score 18.874694" in sentence
-    assert "10 x (18.769714 / 33) = 5.687792" in sentence
-    assert "cannot reproduce the 33" in sentence
-    assert "Which date is t_i counted from" in sentence
-    assert "re-score the awarded rounds?" in sentence
+    assert "2026-09-04 less 33 days" in sentence
+    assert "this round is t = 32 and adds 0.468750" in sentence
+    assert "?" not in sentence
 
 
 def test_the_assignment_rule_of_2026_09_03_is_whole_calendar_days_from_one_origin() -> None:
     """His 0903 update: t_i = max(1, receipt_date_i - task_assignment_date_member).
 
-    Dates, not stamps, and the origin never moves. Round 7 was received 43 days after
-    2026-07-21, so it scores 1.759 rather than the 6.302372 he awarded under the
-    benchmark rule, and that 3.6x is why both are reported until he answers.
+    Dates, not stamps, and the origin never moves. Round 7 was received 31 days after
+    2026-08-02, so it scores 2.439 rather than the 6.302372 he awarded under the
+    benchmark rule that was current when he scored it.
     """
     p = ROWS["7"][5]
-    assert t_days_assignment("2026-09-02 05:50") == 43
-    assert score(p, 43) == Decimal("1.758801")
+    assert t_days_assignment("2026-09-02 05:50") == 31
+    assert score(p, 31) == Decimal("2.439628")
     # the time of day cannot change a whole-calendar-day count
     assert t_days_assignment("2026-09-02 23:59") == t_days_assignment("2026-09-02 00:01")
     # and the clock does not reset on a later benchmark: round 5 went out two days after
-    # a release and 27 days after assignment
+    # a release and 15 days after assignment
     assert t_days("2026-08-15 10:27", "2026-08-17 03:03") == 2
-    assert t_days_assignment("2026-08-17 03:03") == 27
+    assert t_days_assignment("2026-08-17 03:03") == 15
 
 
-def test_the_assignment_origin_is_the_earliest_date_any_record_supports() -> None:
-    """One day of error here moves every S_i, so the origin is pinned and Ivo confirms it."""
-    assert TASK_ASSIGNED_DATE == "2026-07-21"
-    first_release = min(r[6] for r in SUBMITTED_ROUNDS)[:10]
-    assert TASK_ASSIGNED_DATE <= first_release
+def test_the_assignment_origin_is_the_one_his_own_divisor_implies() -> None:
+    """One day of error here moves every S_i, so the origin is derived, not guessed.
+
+    He scored round 8 with a divisor of 33 and received it on 2026-09-04. Whole calendar
+    days back from that receipt is the origin, and it must reproduce his 33 exactly.
+    """
+    assert TASK_ASSIGNED_DATE == "2026-08-02"
+    his = awarded_score_of("8")
+    assert his is not None
+    received = next(r[7] for r in SUBMITTED_ROUNDS if r[0] == "8")
+    assert t_days_assignment(received) == his.divisor
+    assert score(his.percent, his.divisor) == his.score
 
 
 def test_a_receipt_on_the_assignment_date_still_divides_by_one() -> None:
     assert t_days_assignment(TASK_ASSIGNED_DATE + " 23:00") == 1
 
 
-def test_the_two_rules_give_totals_that_differ_by_more_than_a_factor_of_two() -> None:
-    """The reason the report carries both: 327.9859 against 54.5131 over the seven rounds.
+def test_the_benchmark_reading_still_flatters_us_against_his_own_rule() -> None:
+    """Both totals, so nobody quotes the friendlier one by accident.
 
-    **And on 2026-09-05 he scored round 8 by NEITHER of them.** He wrote
-    S = 10 x (18.769714 / 33) = 5.687792. Our two readings of that round give 187.697140
-    (benchmark interval, t = 1) and 4.171048 (assignment interval, t = 45 from the pinned
-    origin 2026-07-21). His 33 implies an origin of 2026-08-02, which no record here
-    supports, so the question stays open with his own figure recorded against it rather
-    than being closed on a guess.
+    Rounds 6 and 7 were awarded under the benchmark rule and those awards stand. From his
+    0903 update the assignment rule governs, and 2026-09-05 settled its origin: round 8's
+    divisor of 33 counts back from its 2026-09-04 receipt to 2026-08-02. Rounds received
+    before that origin divide by the rule's floor of 1, so the totals below are properties
+    of the two formulas rather than claims about those rounds.
     """
     bench = cumulative([score(r[5], t_days(r[6], r[7])) for r in SUBMITTED_ROUNDS])
     assign = cumulative([score(r[5], t_days_assignment(r[7])) for r in SUBMITTED_ROUNDS])
     assert bench == Decimal("327.985892")
-    assert assign == Decimal("54.513146")
-    assert bench > assign * 2
+    assert assign == Decimal("225.512431")
+    assert bench > assign

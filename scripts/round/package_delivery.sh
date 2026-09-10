@@ -204,6 +204,9 @@ cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
 cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
+# The round's research findings, kept out of the report so the report stays the five
+# figures and the receipts. The report links here rather than carrying the method essay.
+cp docs/round/findings.md "$STAGE/findings.md"
 cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
@@ -239,6 +242,13 @@ uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_satu
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+# The same pool as one batch of year files, in the file shape his annual lists use, so a
+# reviewer can read the candidate track per year instead of as one 2.3 million line file.
+# Not a second deliverable: every name here is already in `candidates.txt`, and the year
+# is the year the name was OBSERVED by evidence that does not promote it to an annual
+# record. The files overlap, so their counts must never be summed as the pool size.
+mkdir -p "$STAGE/candidates"
+cp output/netnew/199[6-9]-CANDIDATES.txt output/netnew/200[01]-CANDIDATES.txt "$STAGE/candidates/"
 # The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.

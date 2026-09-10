@@ -192,3 +192,42 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
     written = sum(v for k, v in stats.items() if k.startswith("netnew_"))
     assert written == 1, "the impossible pair must not reach an annual file"
     assert netnew_shipped_pairs(conn) == written
+
+
+def test_the_candidate_pool_also_ships_as_year_files(tmp_path: Path) -> None:
+    """A candidate with a dated but non-promoting observation is filed under that year.
+
+    The year says when the name was OBSERVED, never that it earned the year: the same
+    name stays in `candidates.txt` and reaches no annual file. A candidate with no dated
+    evidence at all appears in no year file, and a name that earned a year appears in
+    none of them either, which is the leak this test exists to catch.
+    """
+    conn = _populated_db()
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    # seen as a link target in 1998 and 2000, which promotes nothing
+    add_candidate(conn, "seen.org", cdx)
+    for year in (1998, 2000):
+        record_evidence(conn, "seen.org", cdx, year, "link_target", f"{year} crawl")
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+    )
+
+    def read(year: int) -> list[str]:
+        return (tmp_path / "netnew" / f"{year}-CANDIDATES.txt").read_text().split()
+
+    assert read(1998) == ["seen.org"]
+    assert read(2000) == ["seen.org"]
+    assert read(1997) == []
+    # still a candidate, and still not an annual record
+    assert "seen.org" in (tmp_path / "candidates.txt").read_text()
+    assert "seen.org" not in (tmp_path / "netnew" / "1998.txt").read_text()
+    # cand.org has no dated evidence, so it is in the pool and in no year file
+    assert "cand.org" in (tmp_path / "candidates.txt").read_text()
+    assert not any("cand.org" in read(y) for y in range(1996, 2002))
+    # and a domain that EARNED its year is not a candidate in any file
+    assert not any("new.com" in read(y) for y in range(1996, 2002))
