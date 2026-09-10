@@ -30,7 +30,7 @@ a warning when the two disagree. Not shipped.
 | 6 | 1,929,655 | 713,481.4198 | 5.3395 | 1,684,903 | 562,099.5294 | 4.130718 | merged260826 | 2026-08-21 11:19 | 2026-08-26 15:51 | 5.19 | 6 | 6.884530 | 6.88 | matches his figure |
 | 7 | 2,541,429 | 1,458,263.2088 | 7.5794 | 2,538,900 | 1,456,458.1029 | 7.562846 | merged260902-2 | 2026-08-21 11:19 | 2026-09-02 05:50 | 11.77 | 12 | 6.302372 | 6.302372 | matches his figure |
 | 8 | 7,834,717 | 4,322,566.2232 | 18.7697 | 7,834,717 | 4,322,566.2232 | 18.769714 | merged260904 | 2026-09-04 14:14 | 2026-09-04 07:58 | n/a | 33 | n/a | 5.687792 | his t, not ours: see below |
-| 9 | 3,399,258 | 1,874,979.2367 | 5.3744 | pending | pending | pending | merged260908 | 2026-09-08 10:54 | 2026-09-10 13:24 | 2.10 | 39 | 1.378057 | pending | the archive's build time stands for the send time until he answers; candidate pool scored separately, 13,139,161 names and 6,696,064.0603 EE, 19.193527%, S 4.921417 |
+| 9 | 3,399,258 | 1,874,979.2367 | 5.3744 | pending | pending | pending | merged260908 | 2026-09-08 10:54 | 2026-09-10 13:24 | 2.10 | 39 | 1.378057 | pending | sent within the hour of packaging (Ivo, 2026-09-11); candidate pool scored separately, 13,139,161 names and 6,696,064.0603 EE, 19.193527%, S 4.921417 |
 
 Sum of S_i as he quotes them (rounds 6 and 7, 6.88 + 6.302372): **13.182372**; the same two computed
 to six places sum to 13.186902. Sum over every round under the same rule, round 1 included on its
