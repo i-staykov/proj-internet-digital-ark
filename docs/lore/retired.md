@@ -65,3 +65,23 @@ The code itself is recoverable from git by the commit named here.
   re-convert what is already converted. The pre-conversion text is in this file's history and
   `bank_findings.py` now writes rows in the same eleven columns. Removed in this commit with
   its test, 131 lines, which pinned the conversion rather than the register.
+
+- **The three one-shot store migrations** (`scripts/round/admit_www_of_parent.py`,
+  `apply_hostname_purpose_rule.py`, `assign_unassigned_evidence.py`): each repaired a store
+  filled before a rule the ingest and `ark check` now enforce, and each has run. `ark check` on
+  2026-09-10 passes `a_www_record_has_its_own_evidence`, `a_bare_record_is_not_inferred_from_www`
+  and `nothing_earned_is_left_unassigned` at 0 offending, so there is nothing left for them to
+  find. A future regression is a defect in the lane that wrote it, to be fixed there rather than
+  swept up afterwards. The decisions they carried out are still recorded in ADR-009, ADR-012 and
+  `key-decisions.md`, which name these files as the thing that did it. Removed in this commit.
+- **The sibling queue ranker** (`scripts/engines/rank_sibling_queue.py`): it re-ranked the
+  generated sibling RDAP queue by how long the base label lived, a 7.3-fold hit-rate split it
+  measured itself. The RDAP client was retired above, querying is closed on the registries' own
+  terms, and the candidate-pool headroom it fed measured 0.107 points rather than the 1.47 once
+  claimed. There is no queue left to rank. Removed in this commit.
+- **The VPS suffix-journal puller** (`scripts/harness/pull_suffix_loop.sh`): it looped pull,
+  ingest, sleep because `maintain.sh` rsynced `cdx_*` and not `cdx_suffix_*`, and 1,093 journals
+  once sat on the VPS where no local pass could see them. Both halves of that gap are closed:
+  `just sync` pulls `cdx_suffix` with the sweeper's open journals excluded, and `maintain.sh`
+  ingests `data/raw/cdx_suffix/` on its fold loop. The collector lane also moved to the laptop,
+  so there is nothing on the VPS to pull. Removed in this commit.
