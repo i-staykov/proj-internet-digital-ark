@@ -18,6 +18,7 @@ a public suffix).
 from __future__ import annotations
 
 import argparse
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -88,8 +89,7 @@ def main() -> int:
     # namespace ended up first in a queue and paid least.
     #
     # The ratio cannot be predicted for a parent nobody has swept, so it is read from
-    # `rows_per_host.tsv`, derived once from the journals of parents already walked, and a
-    # parent with no measurement keeps its unadjusted score rather than being guessed at.
+    # `rows_per_host.tsv`, which `build_rows_per_host.py` derives from every journal on disk.
     ratios: dict[str, float] = {}
     ratio_file = REPO / "data/raw/cdx/rows_per_host.tsv"
     if ratio_file.is_file():
@@ -103,9 +103,20 @@ def main() -> int:
                 except ValueError:
                     continue
 
+    # **An unmeasured parent is priced at the measured median, not at the best case.** The
+    # fallback was 1.0, which is not a neutral guess: it is the cheapest value the ratio can
+    # take, so a parent nobody had asked about outranked a measured one on identical headroom
+    # and the head of the queue filled with parents whose cost was unknown. Measured over 3,543
+    # parents and 1.23 billion capture rows on 2026-09-10, the median is 49.58 and the tenth
+    # and ninetieth percentiles are 4.17 and 1,671.19, so 1.0 was optimistic by a factor of
+    # fifty. Judged on the parents the sweep loop can actually work, meaning neither `.done`
+    # nor parked deep, the first 200 of the queue carried a median measured cost of 121.7 rows
+    # per host under the old table and 11.8 under this one.
+    unmeasured = statistics.median(ratios.values()) if ratios else 1.0
+
     def cost_of(parent: str) -> float:
-        """Capture rows per distinct host, 1.0 where unmeasured so the score is unchanged."""
-        return max(ratios.get(parent, 1.0), 1.0)
+        """Capture rows per distinct host, the measured median where this parent is unmeasured."""
+        return max(ratios.get(parent, unmeasured), 1.0)
 
     # **Rank by what we LACK, not by what exists** (Ivo's standing priority, 2026-09-04).
     # His benchmark says which parents are real platforms, which is the right question for
@@ -188,7 +199,7 @@ def main() -> int:
     for score, count, parent in ranked[:15]:
         gap = f"  {headroom(parent):>9,} host-years lacked" if args.net_new else ""
         cost = ratios.get(parent)
-        seen_cost = f"  {cost:>5.1f} rows/host" if cost else "  unmeasured  "
+        seen_cost = f"  {cost:>5.1f} rows/host" if cost else f"  {unmeasured:>5.1f} assumed"
         print(f"{parent:35s} {count:>8,} sub-hosts  score {score:>12,.0f}{gap}{seen_cost}")
     print(f"{len(ranked):,} parents ranked, top {args.top} -> {args.out}")
     return 0
