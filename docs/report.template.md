@@ -28,10 +28,10 @@ distinct domains, [NEWDOMAINS] of which appear in none of your six files in any 
 
 [ATTRIBUTION_TABLE]
 
-The table counts every record submitted; the increment in section 1 is smaller because it excludes
-the few your baseline already holds, which section 5 counts. Every stamp above is machine-written
-and inside the artifact, so no human judgement dates a year, and the middle column says which stamp
-for every source.
+Every stamp above is machine-written and inside the artifact, so no human judgement dates a year,
+and the middle column says which stamp for every source. Nothing in this table is a record your
+baseline already holds: the export diffs every shipped list against your own six annual files, so
+the overlap in section 5 is zero by construction.
 
 **One class is new.** A server writing its own name: the `Received: ... by <host>` clause a
 receiving mail server writes about itself, and the `Path:`, `X-Trace:` and `NNTP-Posting-Host:`
