@@ -810,8 +810,8 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
         f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
         f"{growth:.4f}% and round 1 on records. Time-weighted score {total:.6f} over the "
         f"three rounds you scored, your own figure where you stated one. Under your 0903 "
-        f"rule, at the origin your round 8 divisor implies (2026-09-04 less 33 days), this "
-        f"round is t = {t_now} and adds {score(growth, t_now):.6f}."
+        f"rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), "
+        f"this round is t = {t_now} and adds {score(growth, t_now):.6f}."
     )
 
 
