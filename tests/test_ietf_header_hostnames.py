@@ -19,6 +19,7 @@ from ark.db import init_db
 from ark.hostnames import (
     IETF_FAMILY,
     WEB_FACING_HOST_SOURCES,
+    ingest_usenet_item_dir,
     ingest_usenet_item_journal,
     usenet_item_rows,
     writes_hostname_years,
@@ -233,3 +234,67 @@ def test_an_empty_month_is_never_planned_and_so_never_fetched(tmp_path, monkeypa
     assert c.plan() == 0
     planned = [ln.split("\t") for ln in (tmp_path / "plan.tsv").read_text().split("\n") if ln]
     assert [row[1].rsplit("/", 1)[1] for row in planned] == ["1999-05.mail", "1999-07.mail"]
+
+
+def test_the_ingest_sees_the_shards_this_collector_actually_writes(tmp_path) -> None:
+    """The directory walker globbed `*.jsonl.gz` alone and this lane writes plain `.jsonl`.
+
+    `ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` therefore matched no
+    files at all and reported success over `files_seen: 0`. Nothing raised, nothing was
+    ingested, and the only visible sign was a zero in a stats dict.
+    """
+    pool = tmp_path / "ietf_header_items"
+    pool.mkdir()
+    plain = pool / "snmpv2.jsonl"
+    plain.write_text("".join(json.dumps(row) + "\n" for row in ITEMS), encoding="utf-8")
+
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    totals = ingest_usenet_item_dir(conn, pool, family=IETF_FAMILY)
+    assert totals["files_seen"] == 1, totals
+    assert totals["hostname_year_rows"] == 2, totals
+    conn.close()
+
+
+def test_the_collectors_shard_suffix_is_one_the_walker_globs() -> None:
+    """Pins the pair together, so moving either side without the other fails here."""
+    module = _collector()
+    suffix = Path(module.ITEMS_DIR / "x.jsonl").suffix
+    assert suffix in {".jsonl", ".gz"}
+    source = Path(module.__file__).read_text()
+    assert 'ITEMS_DIR / (stem.rsplit("/", 2)[-2] + ".jsonl")' in source, (
+        "the shard name moved; check ingest_usenet_item_dir globs the new suffix"
+    )
+
+
+def test_a_shard_the_collector_is_still_appending_to_is_read_again(tmp_path) -> None:
+    """Idempotence keyed on the file NAME froze a growing shard at its first reading.
+
+    This collector appends every month of a list to that list's one shard, so a name key
+    marked `snmpv2.jsonl` done at whatever it held when the ingest first saw it and every
+    month swept afterwards was skipped for ever, without a word. The key carries the digest
+    now, and the rows already banked land on `INSERT OR IGNORE`.
+    """
+    pool = tmp_path / "ietf_header_items"
+    pool.mkdir()
+    shard = pool / "snmpv2.jsonl"
+    shard.write_text(json.dumps(ITEMS[0]) + "\n", encoding="utf-8")
+
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    first = ingest_usenet_item_journal(conn, shard, family=IETF_FAMILY)
+    assert first["hostname_year_rows"] == 1
+
+    # the sweep moves on to 1997-03 and appends it to the same shard
+    with shard.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(ITEMS[2]) + "\n")
+
+    second = ingest_usenet_item_journal(conn, shard, family=IETF_FAMILY)
+    assert second["skipped"] is False, "a grown shard must be read again"
+    assert second["hostname_year_rows"] == 1, "only the month that was appended is new"
+    assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 2
+
+    # unchanged on disk, so the third pass is the cheap one again
+    third = ingest_usenet_item_journal(conn, shard, family=IETF_FAMILY)
+    assert third["skipped"] is True
+    conn.close()
