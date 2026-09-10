@@ -51,6 +51,73 @@ def test_the_export_reloads_and_still_joins(tmp_path) -> None:
     reader.close()
 
 
+def test_his_own_rows_are_not_shipped_back_to_him(tmp_path) -> None:
+    """The reviewer's baseline was 3 GB of a 6.9 GB archive, over his 5 GB limit.
+
+    A `prior_reused` row says only that his own release already holds the pair, so it
+    is his own file quoted back at him. Nothing this project claims rests on one:
+    `every_pair_has_master_evidence` and the shipped `verify.sh` both hold without them.
+    """
+    conn = _store()
+    prior = ensure_source(conn, "reviewer_baseline", "timestamped")
+    add_candidate(conn, "his.com", prior)
+    assign_year(conn, record_evidence(conn, "his.com", prior, 1997, "prior_reused", "merged1"))
+    counts = write_provenance(conn, tmp_path)
+
+    reader = duckdb.connect(":memory:")
+    kinds = reader.execute(
+        f"SELECT DISTINCT evidence_type FROM read_parquet('{tmp_path / 'evidence'}.parquet')"
+    ).fetchall()
+    assert kinds == [("cdx_timestamp",)]
+    assert counts["evidence"] == 1
+
+    # **And the assignment goes with it.** An assignment citing an evidence row that is
+    # not in the archive is a reference into nothing, and the shipped verify.sh counts
+    # exactly those.
+    dangling = reader.execute(
+        f"""
+        SELECT count(*) FROM read_parquet('{tmp_path / "domain_year"}.parquet') dy
+        WHERE NOT EXISTS (
+            SELECT 1 FROM read_parquet('{tmp_path / "evidence"}.parquet') e
+            WHERE e.evidence_id = dy.evidence_id
+        )
+        """
+    ).fetchone()[0]
+    assert dangling == 0
+    assert counts["domain_year"] == 1
+    reader.close()
+    conn.close()
+
+
+def test_an_assignment_we_can_prove_is_re_pointed_and_not_dropped(tmp_path) -> None:
+    """His release was ingested first, so pairs we can prove cite his marker anyway.
+
+    Dropping those with his evidence row left 32.4 million of our own observations with
+    no assignment on the rebuilt store, which `nothing_earned_is_left_unassigned` reads
+    as a domain in the candidate pool that already holds proof of a year.
+    """
+    conn = _store()
+    prior = ensure_source(conn, "reviewer_baseline", "timestamped")
+    add_candidate(conn, "both.com", prior)
+    # his row lands first, so the assignment points at it
+    assign_year(conn, record_evidence(conn, "both.com", prior, 1999, "prior_reused", "merged1"))
+    cdx = ensure_source(conn, "ia_cdx_bulk", "timestamped")
+    mine = record_evidence(conn, "both.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+    counts = write_provenance(conn, tmp_path)
+
+    reader = duckdb.connect(":memory:")
+    row = reader.execute(
+        f"""
+        SELECT evidence_id FROM read_parquet('{tmp_path / "domain_year"}.parquet')
+        WHERE domain = 'both.com' AND assigned_year = 1999
+        """
+    ).fetchone()
+    assert row == (mine,), "the assignment should cite our own observation, not his marker"
+    assert counts["domain_year"] == 2
+    reader.close()
+    conn.close()
+
+
 def test_the_load_instructions_ship_next_to_the_data(tmp_path) -> None:
     conn = _store()
     write_provenance(conn, tmp_path)

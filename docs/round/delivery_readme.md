@@ -140,12 +140,17 @@ capture timestamp, with a link where one exists.
 
 ### 2. Rebuild the result from the evidence (about 1 minute)
 
-No source data and no network: the export holds every observation and every assignment.
+No source data and no network: the export holds every observation this project made and
+every assignment resting on one. It does not hold YOUR rows. One evidence row per pair your
+own release already carries was 3 GB of an archive that has to fit 5 GB, and it told you only
+what your own file tells you, so the assignments citing those rows are out with them and the
+rebuilt `masters/` come back as our additions rather than the merged lists. Everything this
+project claims is here and rebuilds byte-identical.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync
-uv run ark rebuild ../provenance     # annual files, masters, candidates, manifest
+uv run ark rebuild ../provenance     # annual files, candidates, manifest
 uv run ark check                     # the integrity invariants
 ```
 

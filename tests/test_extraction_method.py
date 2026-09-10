@@ -51,10 +51,21 @@ def test_every_exported_evidence_row_names_its_extraction_method(tmp_path, monke
         "count(DISTINCT acquisition_method) FROM read_parquet(?)",
         [str(parquet)],
     ).fetchone()
-    # seven rows: six baseline years and one capture, from the two writers
-    assert total == 7
+    # **One row, not seven.** Both writers stamped a method and the store holds all
+    # seven, but the export stopped shipping the reviewer's own `prior_reused` rows on
+    # 2026-09-11: they were 3 GB of an archive that has to fit 5 GB. What has to hold
+    # here is that every row he DOES receive names how it was acquired.
+    assert total == 1
     assert blank == 0
-    assert methods == 2
+    assert methods == 1
+
+    stored = duckdb.connect("data/ark.duckdb", read_only=True)
+    kinds = stored.execute(
+        "SELECT count(*), count(*) FILTER (WHERE acquisition_method IS NULL "
+        "OR acquisition_method = '') FROM evidence"
+    ).fetchone()
+    stored.close()
+    assert kinds == (7, 0), "both writers still stamp the method in the store"
 
     manifest = NETNEW_DIR / "evidence_manifest.csv"
     rows = reader.execute(
