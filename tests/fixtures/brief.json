@@ -23,5 +23,10 @@
     }
   ],
   "registrable_ee": 182034.5678,
-  "hostname_ee": 60000.0
+  "hostname_ee": 60000.0,
+  "round_since": "2026-08-30 11:00:00+00",
+  "round_pairs": 120000,
+  "round_ee": 90000.0,
+  "round_percent": 0.4658,
+  "round_distance_to_gate_ee": 696572.7013
 }

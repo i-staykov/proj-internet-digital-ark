@@ -64,17 +64,31 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
     age = hours_between(parse_stamp(snapshot["written_at"]), now)
     if age > STALE_HOURS:
         return [f"brief is {age / 24:.1f} days old ({snapshot['written_at']}): run `just state`"]
-    gap = snapshot["distance_to_gate_ee"]
+    # **The gate line is the round's own window when the snapshot carries one.** The total
+    # is measured against his current release, which still lacks the round already sent, so
+    # it reads several points high the day a new window opens. A snapshot written before
+    # the window figures existed keeps the old single line rather than claiming them.
+    windowed = "round_ee" in snapshot
+    gap = snapshot["round_distance_to_gate_ee"] if windowed else snapshot["distance_to_gate_ee"]
     gate = f"{snapshot['gate_pct']:g}%"
     standing = (
         f"{abs(gap):,.0f} EE short of {gate}" if gap > 0 else f"{abs(gap):,.0f} EE past {gate}"
     )
-    lines = [
-        f"brief written {age:.1f} h ago ({snapshot['written_at']})",
-        f"round {snapshot['round']} against {snapshot['baseline']}: "
-        f"{snapshot['netnew_pairs']:,} net-new pairs, {snapshot['netnew_ee']:,.4f} EE, "
-        f"{snapshot['percent']:.4f}%, {standing}",
-    ]
+    lines = [f"brief written {age:.1f} h ago ({snapshot['written_at']})"]
+    if windowed:
+        lines += [
+            f"round {snapshot['round']} since {str(snapshot.get('round_since', '?'))[:10]}: "
+            f"{snapshot['round_pairs']:,} pairs, {snapshot['round_ee']:,.4f} EE, "
+            f"{snapshot['round_percent']:.4f}%, {standing}",
+            f"against {snapshot['baseline']} in total: {snapshot['netnew_pairs']:,} net-new "
+            f"pairs, {snapshot['netnew_ee']:,.4f} EE, {snapshot['percent']:.4f}%",
+        ]
+    else:
+        lines += [
+            f"round {snapshot['round']} against {snapshot['baseline']}: "
+            f"{snapshot['netnew_pairs']:,} net-new pairs, {snapshot['netnew_ee']:,.4f} EE, "
+            f"{snapshot['percent']:.4f}%, {standing}",
+        ]
     lines += [
         f"collector {role}: {collector_state(state)}"
         for role, state in snapshot["collectors"].items()

@@ -39,12 +39,14 @@ from ark.english_share import english_weights  # noqa: E402
 GATE_EE = REVIEWER_BASELINE_EE * Decimal("0.05")
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--since", default=CURRENT_ROUND_SINCE, help="window start, his clock")
-    ap.add_argument("--by-source", action="store_true", help="split the hostname half by lane")
-    args = ap.parse_args()
+def measure(since: str = CURRENT_ROUND_SINCE) -> dict:
+    """What the lanes have added since the window opened, both units, priced.
 
+    Split out of `main` so the hourly brief and the gate can read the same number the
+    command prints. The gate has to be taken on THIS round's work: his current release
+    still lacks the round we have already sent him, so the total net-new figure carries
+    the last round inside it and would report a crossing on the day the window opened.
+    """
     weights = english_weights()
     conn = connect_read_only_patiently(DEFAULT_DB_PATH, patience_s=2700)
     try:
@@ -57,14 +59,14 @@ def main() -> int:
             SELECT hy.hostname, hy.assigned_year, min(s.name) AS lane FROM hostname_year hy
             JOIN evidence e ON e.evidence_id = hy.evidence_id
             JOIN source s ON s.source_id = e.source_id
-            WHERE e.ingested_at >= TIMESTAMPTZ '{args.since}'
+            WHERE e.ingested_at >= TIMESTAMPTZ '{since}'
               AND {export.NOT_IN_BASELINE_HOSTNAME}
               AND {export.HOSTNAME_SHIPPING_FILTER}
             GROUP BY 1, 2
         """).fetchall()
         pairs = conn.execute(f"""
             SELECT DISTINCT dy.domain, dy.assigned_year FROM domain_year dy
-            WHERE dy.verified_at >= TIMESTAMPTZ '{args.since}'
+            WHERE dy.verified_at >= TIMESTAMPTZ '{since}'
               AND {export._NOT_IN_BASELINE}
               AND {export._shipping_filter("dy.")}
         """).fetchall()
@@ -77,10 +79,36 @@ def main() -> int:
     host_ee = priced([h for h, _, _ in hosts])
     pair_ee = priced([d for d, _ in pairs])
     total = host_ee + pair_ee
+    return {
+        "since": since,
+        "hostnames": len(hosts),
+        "hostname_ee": host_ee,
+        "registrables": len(pairs),
+        "registrable_ee": pair_ee,
+        "records": len(hosts) + len(pairs),
+        "ee": total,
+        "gate_ee": GATE_EE,
+        "hosts": hosts,
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--since", default=CURRENT_ROUND_SINCE, help="window start, his clock")
+    ap.add_argument("--by-source", action="store_true", help="split the hostname half by lane")
+    args = ap.parse_args()
+
+    window = measure(args.since)
+    weights = english_weights()
+    hosts = window["hosts"]
+    host_ee = window["hostname_ee"]
+    pair_ee = window["registrable_ee"]
+    pairs_n = window["registrables"]
+    total = window["ee"]
     print(f"added since {args.since}\n")
     print(f"  hostnames    : {len(hosts):>10,} records  {host_ee:>16,.4f} EE")
-    print(f"  registrables : {len(pairs):>10,} records  {pair_ee:>16,.4f} EE")
-    print(f"  together     : {len(hosts) + len(pairs):>10,} records  {total:>16,.4f} EE")
+    print(f"  registrables : {pairs_n:>10,} records  {pair_ee:>16,.4f} EE")
+    print(f"  together     : {window['records']:>10,} records  {total:>16,.4f} EE")
     print(f"  share of the 5% gate ({GATE_EE:,.2f}) : {total / GATE_EE * 100:.2f}%")
 
     if args.by_source:

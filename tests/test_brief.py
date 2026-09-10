@@ -45,9 +45,13 @@ def test_fresh_brief_leads_with_its_age_and_fits_thirty_lines():
     out = brief.render(fresh_snapshot(), handoff, NOW).splitlines()
     assert len(out) <= brief.MAX_LINES
     assert out[0].startswith("brief written 2.0 h ago")
-    assert "round 7 against merged260830" in out[1]
-    assert "312,456 net-new pairs" in out[1] and "1.2527%" in out[1]
-    assert "544,538 EE short of 5%" in out[1]
+    # The round's own window leads, because that is what the gate is taken on; the total
+    # against his release follows it, and the two are never added.
+    assert "round 7 since 2026-08-30" in out[1]
+    assert "120,000 pairs" in out[1] and "90,000.0000 EE" in out[1]
+    assert "696,573 EE short of 5%" in out[1]
+    assert "against merged260830 in total" in out[2]
+    assert "312,456 net-new pairs" in out[2] and "1.2527%" in out[2]
     assert "collector local: up 2-03:14:22" in "\n".join(out)
     assert "collector vps: NOT RUNNING" in out
     assert "2 approvals pending, 3 open decisions" in "\n".join(out)
@@ -57,8 +61,23 @@ def test_fresh_brief_leads_with_its_age_and_fits_thirty_lines():
 
 
 def test_past_the_gate_reads_as_past_not_short():
-    out = brief.render(fresh_snapshot(distance_to_gate_ee=-1200.5), None, NOW)
+    out = brief.render(fresh_snapshot(round_distance_to_gate_ee=-1200.5), None, NOW)
     assert "1,200 EE past 5%" in out
+
+
+def test_a_snapshot_without_a_window_still_answers_on_the_total():
+    """A brief written before the window figures existed must still render.
+
+    It is read at every session start, so a KeyError here would be a broken start
+    rather than a stale number.
+    """
+    old = fresh_snapshot()
+    for key in ("round_since", "round_pairs", "round_ee", "round_percent"):
+        del old[key]
+    del old["round_distance_to_gate_ee"]
+    out = brief.render(old, None, NOW).splitlines()
+    assert "round 7 against merged260830" in out[1]
+    assert "544,538 EE short of 5%" in out[1]
 
 
 def test_missing_snapshot_is_one_line():

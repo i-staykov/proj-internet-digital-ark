@@ -243,6 +243,30 @@ def test_the_gate_does_nothing_below_the_threshold(tmp_path: Path) -> None:
     assert "not crossed" in lines[0]
 
 
+def test_the_gate_reads_this_rounds_window_and_not_the_total(tmp_path: Path) -> None:
+    """The total carries the round already sent to him, so it cannot decide a crossing.
+
+    His release lags our submission by days: on the morning round 10 opened, the total
+    net-new against `merged260908` was still round 9's 5.36% and would have opened a gate
+    issue for a round that had collected nothing.
+    """
+    calls = []
+    lines = hyg.gate(
+        {
+            "percent": 5.3597,
+            "round_percent": 0.0412,
+            "gate_pct": 5.0,
+            "round": "10",
+            "baseline": "m1",
+        },
+        latch_path=tmp_path / "latch.tsv",
+        call=lambda args: calls.append(args) or (0, ""),
+        write=True,
+    )
+    assert calls == []
+    assert "at 0.0412%" in lines[0]
+
+
 def test_the_gate_issue_is_opened_once_per_crossing(tmp_path: Path) -> None:
     """Opened once it is information. Opened hourly it is noise, and gets muted."""
     brief = {"percent": 5.0104, "gate_pct": 5.0, "round": "8", "baseline": "m1"}

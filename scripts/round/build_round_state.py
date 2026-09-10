@@ -64,6 +64,7 @@ from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import added_since  # noqa: E402
 from round_figures import hostname_increment  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
@@ -173,6 +174,7 @@ def brief(
     approvals: int,
     decisions: int,
     hostnames: tuple[int, Decimal] | None = None,
+    window: dict | None = None,
 ) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
     injected into every session start, and thirty lines is the budget."""
@@ -188,6 +190,8 @@ def brief(
     host_pairs, host_ee = hostnames if hostnames is not None else hostname_increment()
     ee = stats["ee_netnew"] + host_ee
     gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
+    win = window or {}
+    round_ee = Decimal(str(win.get("ee", 0)))
     return {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
@@ -200,6 +204,16 @@ def brief(
         "percent": round(float(ee / REVIEWER_BASELINE_EE * 100), 4),
         "gate_pct": float(GATE_PCT),
         "distance_to_gate_ee": round(float(gate_ee - ee), 4),
+        # **The gate is taken on THIS round's window, not on the total.** The total is
+        # everything net-new against his current release, and his release still lacks the
+        # round already sent to him, so it carries the last round inside it: on the day
+        # round 10 opened it read 5.36% and would have reported a crossing with nothing
+        # collected. The window figures are `added_since.py`'s, over both units.
+        "round_since": CURRENT_ROUND_SINCE,
+        "round_pairs": int(win.get("records", 0)),
+        "round_ee": round(float(round_ee), 4),
+        "round_percent": round(float(round_ee / REVIEWER_BASELINE_EE * 100), 4),
+        "round_distance_to_gate_ee": round(float(gate_ee - round_ee), 4),
         "collectors": collector_lines(engines),
         "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
         "pending_amendments": pending_amendments(),
@@ -212,6 +226,10 @@ def build() -> tuple[str, dict, dict]:
         head = headline(conn)
     finally:
         conn.close()
+
+    # Nine seconds against the store, read-only, so the hourly bank can afford it and
+    # every reader of the brief gets the round's own progress rather than the total.
+    window = added_since.measure()
 
     # Producers run after the store connection is closed, because two of them open
     # it themselves and DuckDB allows many readers only when no writer is waiting.
@@ -300,7 +318,7 @@ def build() -> tuple[str, dict, dict]:
         f"ee={head['ee']} evidence={head['evidence']} -->",
         "",
     ]
-    return "\n".join(parts), head, brief(head, engines, len(waiting), len(decisions))
+    return "\n".join(parts), head, brief(head, engines, len(waiting), len(decisions), window=window)
 
 
 def parse_state(text: str) -> dict[str, str] | None:

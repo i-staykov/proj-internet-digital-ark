@@ -278,7 +278,11 @@ def gate(
     than opening the store a second time.
     """
     now = now or datetime.now(UTC)
-    percent = float(brief.get("percent", 0.0))
+    # **This round's window, not the total.** His current release lacks the round already
+    # sent to him, so the total carries that round inside it and would report a crossing
+    # on the day the next window opened, with nothing collected. A brief written before
+    # the window figures existed still answers on the total.
+    percent = float(brief.get("round_percent", brief.get("percent", 0.0)))
     target = float(brief.get("gate_pct", 5.0))
     label = str(brief.get("round", "?"))
     # The brief carries Ivo's numbering as a bare label ("8"), and the open-issue
