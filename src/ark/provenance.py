@@ -19,9 +19,18 @@ Six tables, which together are the whole provenance graph:
     domain_year     the annual assignments, each pointing at one evidence row
     ingested_file   the sha256 ledger, so a file's contribution is traceable
 
-The baseline rows are included deliberately. Excluding them is smaller, but then
-a reader holding only this archive cannot trace a baseline pair, and the point of
-the export is that it answers questions without anything else on hand.
+**The reviewer's own rows are excluded, since 2026-09-11.** They were included
+deliberately for eight rounds, so that a reader holding only this archive could
+trace a baseline pair too. It cost more than it was worth: 362.6 million of the
+442.2 million evidence rows were `prior_reused`, one per pair his own release
+already holds, and they were 3 GB of a 6.9 GB archive that then exceeded his
+5 GB limit and had to go by a private link. Measured: 4.544 GB to 1.62 GB.
+
+What is lost is tracing a pair he already has, which he can trace in his own
+release. What is kept is every row this project claims: nothing in `additions/`
+or `hostnames/` rests on a `prior_reused` row, and `ark check` asserts exactly
+that. The assignments that cite an excluded row go with it, so the export never
+points at evidence it does not carry, which the shipped `verify.sh` checks.
 """
 
 import shutil
@@ -29,6 +38,10 @@ from pathlib import Path
 
 import duckdb
 from loguru import logger
+
+from ark.evidence_types import CANDIDATE_ONLY_TYPES
+
+_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
@@ -82,6 +95,46 @@ ORDER BY dy.assigned_year;
 """
 
 
+# **What the export ships, as opposed to what the store holds.** Only two tables differ,
+# and they differ together: an assignment whose evidence row is not shipped would be a
+# reference into nothing, and the archive's own `verify.sh` refuses that. Everything else
+# goes whole, because the tables are small and a reader guessing at gaps is worse than a
+# reader holding the lot.
+# **The row it is re-pointed at has to be one the assigner would have accepted.** The
+# first version took any observation of the pair, which pointed 1,029,947 assignments at
+# candidate-only evidence and 886,252 at a capture of `www.` in front of the name, and
+# the rebuilt store failed `no_candidate_leakage` and `a_bare_record_is_not_inferred_from_www`
+# on exactly those. So the candidate types and the www-only captures are excluded here,
+# which are the same two rules those checks read, and a pair with nothing left is dropped
+# rather than re-pointed: we cannot prove it, and he can.
+#
+# **An assignment is re-pointed before it is dropped.** A pair he already held was
+# assigned against his marker simply because his release was ingested first, and many of
+# those pairs we can prove ourselves. Dropping them with his evidence row left 32,432,586
+# of our own observations with no assignment, which `nothing_earned_is_left_unassigned`
+# reads, correctly, as a domain sitting in the candidate pool while holding proof of a
+# year. So an assignment citing one of his rows is re-pointed at our own observation of
+# the same pair where one exists, and only the rest go.
+SHIPPED = {
+    "evidence": "SELECT * FROM evidence WHERE evidence_type <> 'prior_reused'",
+    "domain_year": f"""
+        WITH ours AS (
+            SELECT domain, evidence_year, min(evidence_id) AS evidence_id
+            FROM evidence
+            WHERE evidence_type <> 'prior_reused'
+              AND evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND evidence_value NOT LIKE 'cdx capture % www.' || domain
+            GROUP BY 1, 2
+        )
+        SELECT dy.* REPLACE (COALESCE(o.evidence_id, dy.evidence_id) AS evidence_id)
+        FROM domain_year dy
+        JOIN evidence e ON e.evidence_id = dy.evidence_id
+        LEFT JOIN ours o ON o.domain = dy.domain AND o.evidence_year = dy.assigned_year
+        WHERE e.evidence_type <> 'prior_reused' OR o.evidence_id IS NOT NULL
+    """,
+}
+
+
 def write_provenance(
     conn: duckdb.DuckDBPyConnection, out_dir: Path = PROVENANCE_DIR
 ) -> dict[str, int]:
@@ -90,8 +143,9 @@ def write_provenance(
     counts: dict[str, int] = {}
     for table in TABLES:
         path = out_dir / f"{table}.parquet"
-        conn.execute(f"COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-        counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        query = SHIPPED.get(table, f"SELECT * FROM {table}")
+        conn.execute(f"COPY ({query}) TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+        counts[table] = conn.execute(f"SELECT count(*) FROM ({query})").fetchone()[0]
     (out_dir / "LOAD.sql").write_text(LOAD_SQL, encoding="utf-8")
     # the query tool ships beside the data, so the export is usable on its own
     shutil.copyfile(Path(__file__).with_name("provenance_trace.py"), out_dir / "trace.py")
