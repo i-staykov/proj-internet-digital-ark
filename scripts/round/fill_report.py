@@ -778,11 +778,10 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     t_now = t_days_assignment(now_in_his_clock())
     return (
         f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
-        f"{growth:.4f}% and round 1 on records rather than equivalent-English. "
-        f"Time-weighted score {total:.6f} over the three rounds you have scored, your own "
-        f"figure wherever you stated one. Under your 0903 rule, with the origin your round "
-        f"8 divisor implies (2026-09-04 less 33 days), this round is t = {t_now} and adds "
-        f"{score(growth, t_now):.6f}."
+        f"{growth:.4f}% and round 1 on records. Time-weighted score {total:.6f} over the "
+        f"three rounds you scored, your own figure where you stated one. Under your 0903 "
+        f"rule, at the origin your round 8 divisor implies (2026-09-04 less 33 days), this "
+        f"round is t = {t_now} and adds {score(growth, t_now):.6f}."
     )
 
 
