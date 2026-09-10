@@ -454,3 +454,25 @@ planned a smaller harvest than the archive holds, and nothing in the response sa
 `active_months` returns a count for every month of one list's whole history, so it is exact and
 the cap cannot reach it. A repeated round number at the top of a distribution is the tell: check
 whether the largest value appears more than once before treating any of them as measurements.
+
+## An ingest that finds no files reports success
+
+`ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` would have banked nothing and
+said so only as a zero. `ingest_usenet_item_dir` globbed `*.jsonl.gz`, which is what the Usenet
+and Apache pools write, and `collect_ietf_mail_archive.py` appends plain `.jsonl` shards. No
+file matched, no exception was raised, and the command printed `files_seen: 0` beside a row of
+other zeros. Every count an ingest prints is a count of what it DID, so nothing in the output
+distinguishes "the corpus added nothing" from "the corpus was never opened". Read `files_seen`
+before reading anything else, and pin the writer's suffix and the reader's glob to each other in
+a test, because they live in different directories and move independently.
+
+## Idempotence keyed on a file name freezes a file that grows
+
+The same ingest marked a shard done by `(source, parent_dir/name)`. The pools write a shard once,
+so that key was exactly right for them. This collector appends every month of a list to that
+list's ONE shard, so the first reading would have marked `snmpv2.jsonl` done at whatever it held
+that minute and every month swept afterwards would have been skipped for ever, silently, with the
+shard sitting on disk holding the rows. The digest was already being computed and stored; it just
+was not being compared. It is compared now, and a changed digest re-reads the file, where the
+rows already banked land on `INSERT OR IGNORE`. Ask of any idempotence key whether the thing it
+names can change after it is first seen.

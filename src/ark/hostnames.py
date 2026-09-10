@@ -1425,11 +1425,18 @@ def ingest_usenet_item_journal(
 
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     file_key = f"{path.parent.name}/{path.name}"
-    already = conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ?",
+    digest = _sha256(path)
+    # **The key is the name AND the digest, because one lane's shard GROWS.** The pools
+    # write a shard once and never touch it again, so a name was enough for them. The IETF
+    # collector appends every month of a list to that list's one shard, which means a name
+    # key marks the shard done at whatever it held the first time and every month swept
+    # afterwards is skipped for ever, silently. Re-reading a grown shard costs one pass and
+    # the rows it already carried land on `INSERT OR IGNORE`, so nothing is double counted.
+    previous = conn.execute(
+        "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
         [family.source, file_key],
-    ).fetchone()[0]
-    if already:
+    ).fetchone()
+    if previous is not None and previous[0] == digest:
         stats["skipped"] = True
         logger.info(f"{file_key}: already ingested, skipping")
         return stats
@@ -1504,10 +1511,14 @@ def ingest_usenet_item_journal(
     else:
         stats["hostname_year_rows"] = 0
 
+    # One row per file, carrying what it has contributed across every reading of it, because
+    # `ingested_file` is keyed on (source_name, file_name) and a grown shard has to replace
+    # its own row rather than collide with it.
+    banked = (previous[1] if previous else 0) + int(stats["hostname_year_rows"])
     conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [family.source, file_key, _sha256(path), stats["hostname_year_rows"]],
+        "INSERT OR REPLACE INTO ingested_file "
+        "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
+        [family.source, file_key, digest, banked],
     )
     logger.info(str(stats))
     return stats
@@ -1516,11 +1527,24 @@ def ingest_usenet_item_journal(
 def ingest_usenet_item_dir(
     conn: duckdb.DuckDBPyConnection,
     root: Path,
-    pattern: str = "*.jsonl.gz",
+    pattern: str | None = None,
     family: ItemFamily = USENET_FAMILY,
 ) -> dict[str, int]:
+    """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file.
+
+    **The default used to be `*.jsonl.gz` alone, and one lane writes plain `.jsonl`.**
+    `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory, so this
+    glob matched nothing under `data/raw/ietf_header_items/` and the command reported success
+    over `files_seen: 0`. A silent zero is the worst answer an ingest can give, so both
+    spellings are read unless the caller names a pattern; `usenet_item_rows` already picks
+    its opener off the suffix.
+    """
     totals: Counter[str] = Counter()
-    files = sorted(root.glob(pattern)) if root.is_dir() else [root]
+    if root.is_dir():
+        patterns = [pattern] if pattern else ["*.jsonl.gz", "*.jsonl"]
+        files = sorted({p for pat in patterns for p in root.glob(pat)})
+    else:
+        files = [root]
     for i, path in enumerate(files, 1):
         stats = ingest_usenet_item_journal(conn, path, family)
         for key, value in stats.items():
