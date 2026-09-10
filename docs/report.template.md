@@ -29,7 +29,7 @@ distinct domains, [NEWDOMAINS] of which appear in none of your six files in any 
 [ATTRIBUTION_TABLE]
 
 The table counts every record submitted; the increment in section 1 is smaller because it excludes
-the few your baseline already holds, which section 4 counts. Every stamp above is machine-written
+the few your baseline already holds, which section 5 counts. Every stamp above is machine-written
 and inside the artifact, so no human judgement dates a year, and the middle column says which stamp
 for every source.
 
@@ -41,26 +41,65 @@ headers a news server writes about a transaction it completed. No sender-supplie
 A capture proves presence and never absence, and a server header attests the year of its own
 message and no other, so both routes err toward omission rather than invention.
 
-## 3. The candidate track
+## 3. The candidate track, counted the same way
 
-[CANDIDATES] domains carry no evidence that earns them a year. They ship as `candidates.txt` and
-reach no annual file. They are worth [CANDIDATEEE] equivalent-English if every one were later
-dated, which is a ceiling on future work and not a contribution to this round.
+You score candidates separately and at the same rate, so this is a contribution and is held to the
+same standard as the annual one: a name your files already carry is not an addition. Every
+candidate collection we hold is unioned into one pool, then diffed against your `candidate_pool.txt`
+and all six annual files.
 
-**New this round: the same pool also ships as one batch of year files, `candidates/<year>.txt`.**
-Most of these names carry a dated observation that does not promote them, chiefly a link-target row
-naming the domain in a crawl of that year, so the year says when the name was seen rather than that
-it existed. The files overlap and their counts must not be summed as the pool size. Nothing here is
-new data: every name is already in `candidates.txt`.
+| | Names | Equivalent-English |
+|---|--:|--:|
+| registrable domains | [CANDREG] | [CANDREGEE] |
+| exact hostnames | [CANDHOST] | [CANDHOSTEE] |
+| **`candidate_additions.txt`** | **[CANDADD]** | **[CANDTRACKEE]** |
 
-`isc_survey_hostnames/` is the separate provenance-linked candidate collection you specified on
-2026-09-06: [ISCPAIRS] hostname-years with per-host provenance, in no figure above.
+That is **[CANDTRACKPCT]** of the same equivalent-English denominator as section 1, on the track you
+count separately, and it is never added to the annual increment.
 
-## 4. Merge, overlap and reconciliation (D3)
+**Where the names came from.** The hostnames are the ISC Internet Domain Survey of 1996-1997, dated
+by each edition's own code and named host by host: a DNS observation, which your 2026-09-05 ruling
+makes candidate-only, and which promotes one host at a time when exact-host web evidence arrives.
+The registrable names are what our own lanes turned up without an in-window stamp, chiefly hosts
+named in Usenet posts and mail archives whose date we could not pin to a year we could defend.
+**Provenance is per name and not in this list**: `provenance/` joins every name to the evidence row
+behind it, and `isc_survey_hostnames/isc_survey_provenance.csv` carries the survey edition, source
+file, recovery URL, record location, extraction method and target year for every hostname, which is
+the shape you specified on 2026-09-06. That collection also still ships in its own folder; its
+names are inside the pool above and are not counted twice.
+
+**Our registrable pool is nearly exhausted against yours, which is worth knowing.** It holds
+[CANDIDATES] undated names and ships whole as `candidates.txt` as the working set, but only
+[CANDREG] of them are absent from your files. Reporting the working set as the contribution would
+have overstated that half of the track by 78x.
+
+## 4. How the work runs, and what we would do next
+
+Two archive clients at most, ever, with an honest User-Agent naming the project and a contact, and
+they hold the CDX channel exclusively. Beside them an autonomous research harness runs on a
+self-hosted runner: one lane proposes sources, one prices each against a snapshot of the store, a
+separate admitter re-derives every figure locally before anything is banked, and a re-opener
+re-tests closed verdicts whenever a measurement screen retires. The research lanes can never write
+to the store, which is why an agent's own figure has never decided a record.
+
+**No agent assigns a year, and no source reaches an annual file without a written decision.** A
+year comes from a machine-written stamp inside the artifact; `ark ingest` refuses any class with no
+`Decision:` line, and it refused twice this round until the decision existed. Eighteen invariants
+run before every commit and again inside the archive you are holding.
+
+**Next, in the order we would spend the hours.** The server-header class at the archives it has not
+been run against, which needs no new bandwidth. The ISP Usenet hierarchies, where the customer host
+appears rather than the news server. Sibling national ccTLD extractions of the shape the Poland
+index has, which exist for other countries under the same uploader. Second-level suffix namespaces
+at hostname grain, where `co.uk` alone is 3.39M index blocks and 1.2% walked. And promoting ISC
+candidates one host at a time as exact-host web evidence arrives, which is the only route that
+turns that 6.7 million into annual records.
+
+## 5. Merge, overlap and reconciliation (D3)
 
 [MERGE_RECONCILIATION]
 
-## 5. Reproduction, and the four deliverables
+## 6. Reproduction, and the four deliverables
 
 `README.md` in the archive gives the route and the file map. Every evidence row names its source,
 evidence type, dated value, URL and extraction method; `additions/evidence_manifest.csv` and
@@ -69,5 +108,5 @@ evidence type, dated value, URL and extraction method; `additions/evidence_manif
 **D1** code and instructions: `source/source.tar.gz` at `source/COMMIT.txt`, with the autonomous
 research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`, with
 this round's findings in `findings.md`. **D3** merge and dedup code, overlap and reconciliation:
-section 4 and `audit/`. **D4** runnable metric code: `equivalent_english_domain_calculator/`, your
+section 5 and `audit/`. **D4** runnable metric code: `equivalent_english_domain_calculator/`, your
 program vendored unmodified and explained in `metric-explained.md`.

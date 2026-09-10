@@ -622,8 +622,32 @@ def substitutions(f: dict) -> dict[str, str]:
     from round_figures import candidate_potential
 
     subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
+    # The candidate TRACK, which he scores separately and at the same rate as the annual
+    # one. Two collections, both counted the way the annual claim is: net-new against his
+    # files. The whole pool is not the claim, and the gap is 78x.
+    pool = candidate_additions()
+    subs["CANDADD"] = f"{pool['candidates']:,}"
+    subs["CANDTRACKEE"] = f"{Decimal(pool['equivalent_english']):,.4f}"
+    subs["CANDTRACKPCT"] = f"{Decimal(pool['equivalent_english']) / f['ee_baseline'] * 100:.4f}%"
+    by_unit = pool.get("by_unit", {})
+    for unit, token in (("registrable", "CANDREG"), ("hostname", "CANDHOST")):
+        row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})
+        subs[token] = f"{row['names']:,}"
+        subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
 
     return subs
+
+
+def candidate_additions() -> dict:
+    """The candidate-track claim as the export measured it, from its own summary.
+
+    Read rather than re-derived: the pool is one file and one number, and a second
+    derivation here would be a second thing to keep in step with the first.
+    """
+    path = NETNEW_DIR / "candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0", "by_unit": {}}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def reproduction_result() -> str:

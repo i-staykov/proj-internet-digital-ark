@@ -226,7 +226,10 @@ def export_isc_provenance(
 
 
 def export_isc_hostnames(
-    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
+    conn: duckdb.DuckDBPyConnection,
+    netnew_dir: Path,
+    stats: dict[str, int],
+    baseline: Path | None = None,
 ) -> None:
     """Write candidates absent by exact name from reviewer candidates and all annual years.
 
@@ -249,7 +252,7 @@ def export_isc_hostnames(
         """
     )
     if conn.execute("SELECT count(*) FROM isc_export").fetchone()[0]:
-        baseline = baseline_dir()
+        baseline = baseline or baseline_dir()
         required = [baseline / f"{year}.txt" for year in YEARS] + [baseline / "candidate_pool.txt"]
         absent = [str(path) for path in required if not path.is_file()]
         if absent:
@@ -313,6 +316,49 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection) -> int:
     return total
 
 
+def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> None:
+    """Load the reviewer's six annual files into `his_annual(name, year)`.
+
+    **The store's own baseline evidence is not a substitute for this.** That evidence is
+    whatever release was ingested, and his current release can add names after it: on
+    2026-09-10 that gap put 303 names into the 2001 additions that his `merged260908`
+    already held. Diffing against his files at export time makes the overlap zero by
+    construction instead of by hoping two copies of the baseline agree.
+    """
+    baseline = baseline or baseline_dir()
+    conn.execute("CREATE OR REPLACE TEMP TABLE his_annual(name VARCHAR, year INTEGER)")
+    if not baseline.is_dir():
+        # A store with no baseline beside it is a fresh init or a test, and there is
+        # nothing to diff against. A baseline that exists but is INCOMPLETE is the
+        # dangerous case and still raises below, because a half-loaded diff silently
+        # ships the half it could not read.
+        logger.warning(f"no baseline at {baseline}: shipped lists are not diffed against his")
+        return
+    for year in YEARS:
+        path = baseline / f"{year}.txt"
+        if not path.is_file():
+            raise FileNotFoundError(f"the export needs the reviewer's {year}.txt to diff against")
+        conn.execute(
+            f"""
+            INSERT INTO his_annual
+            SELECT lower(trim(column0)), {year} FROM read_csv(
+                ?, header=false, delim='\x01', quote='',
+                columns={{'column0': 'VARCHAR'}})
+            """,
+            [str(path)],
+        )
+
+
+def _not_in_his_annual(column: str, year_expr: str) -> str:
+    """SQL excluding a name the reviewer already lists for that year. Needs `his_annual`."""
+    return f"""
+        NOT EXISTS (
+            SELECT 1 FROM his_annual h
+            WHERE h.name = lower(trim({column})) AND h.year = {year_expr}
+        )
+    """
+
+
 def export_all(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
@@ -320,17 +366,21 @@ def export_all(
     masters_dir: Path = MASTERS_DIR,
     report_dir: Path = DEFAULT_REPORT_DIR,
     provenance_dir: Path = PROVENANCE_DIR,
+    baseline: Path | None = None,
 ) -> dict[str, int]:
     """Write every result file. Every destination is a parameter, so a caller
     that redirects the outputs redirects all of them; leaving one hardcoded let
     the test suite overwrite the real contribution tables with a test store."""
     stats: dict[str, int] = {}
+    baseline = baseline or baseline_dir()
+    load_his_annual_files(conn, baseline)
 
     for year in YEARS:
         netnew_query = f"""
             SELECT DISTINCT dy.domain FROM domain_year dy
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
               AND {_shipping_filter("dy.")}
+              AND {_not_in_his_annual("dy.domain", str(year))}
             ORDER BY dy.domain
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
@@ -352,12 +402,13 @@ def export_all(
             SELECT DISTINCT hy.hostname FROM hostname_year hy
             WHERE hy.assigned_year = {year} AND {not_in_baseline}
               AND {HOSTNAME_SHIPPING_FILTER}
+              AND {_not_in_his_annual("hy.hostname", str(year))}
             ORDER BY hy.hostname
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
         stats[f"netnew_hostnames_{year}"] = count
 
-    export_isc_hostnames(conn, netnew_dir, stats)
+    export_isc_hostnames(conn, netnew_dir, stats, baseline)
     export_isc_provenance(conn, netnew_dir, stats)
 
     # The manifest carries the same rows as the shipped files: a row for a hostname
@@ -369,6 +420,7 @@ def export_all(
         JOIN evidence e ON hy.evidence_id = e.evidence_id
         JOIN source s ON e.source_id = s.source_id
         WHERE {not_in_baseline} AND {HOSTNAME_SHIPPING_FILTER}
+          AND {_not_in_his_annual("hy.hostname", "hy.assigned_year")}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
@@ -383,6 +435,7 @@ def export_all(
         JOIN source s ON e.source_id = s.source_id
         WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
           AND {_shipping_filter("dy.")}
+          AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
         ORDER BY dy.domain, dy.assigned_year
     """
     path = netnew_dir / "evidence_manifest.csv"
@@ -401,28 +454,78 @@ def export_all(
     )
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
 
-    # The candidate pool as one batch of year files, beside the undated list rather than
-    # instead of it. A candidate carries no year evidence that promotes it to an annual
-    # record, but most carry a dated OBSERVATION that does not: a link-target row naming
-    # the domain in a crawl of that year, or a capture our own rules refuse to promote.
-    # Filing those under the year they were observed is what makes the pool usable to a
-    # reviewer who wants to know where to look, and it costs nothing, since the same
-    # names are already shipping in `candidates.txt`.
+    # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
+    # rate as annual records, so this is a contribution and is held to the same net-new
+    # standard: every candidate collection we hold, unioned, minus every name he already
+    # has in his candidate pool or in any of his six annual files.
     #
-    # **The year files overlap and their counts must never be summed as the pool size.**
-    # A name observed in 1998 and 2000 is one candidate in two files.
-    for year in YEARS:
-        year_query = f"""
-            SELECT DISTINCT d.domain FROM domain d
-            JOIN evidence e ON e.domain = d.domain
-            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-              AND e.evidence_year = {year}
-              AND {_shipping_filter("d.", with_year=False)}
-            ORDER BY d.domain
-        """
-        stats[f"candidates_{year}"] = _copy_query(
-            conn, year_query, netnew_dir / f"{year}-CANDIDATES.txt"
+    # One file, not one per collection. The names came from different places and the
+    # provenance for each is in `provenance/` and in `isc_survey_provenance.csv`, which is
+    # where provenance belongs: a list of names is a list of names, and splitting the pool
+    # by where it came from made the reviewer reconcile three files to count one track.
+    #
+    # The whole pool is NOT the claim and the gap is the reason this exists. Measured
+    # 2026-09-10, our registrable pool held 2,279,755 names and 29,327 of them were absent
+    # from his files, so shipping the pool as the contribution would have overstated the
+    # registrable half of this track by 78x.
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE candidate_pool AS
+        SELECT DISTINCT d.domain AS name, 'registrable' AS unit FROM domain d
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+          AND {_shipping_filter("d.", with_year=False)}
+    """)
+    # the ISC survey hostnames, already reduced by `export_isc_hostnames` against his
+    # candidate pool and every annual file, and against everything we hold ourselves
+    conn.execute("""
+        INSERT INTO candidate_pool
+        SELECT DISTINCT hostname, 'hostname' FROM isc_export
+    """)
+    his_pool = baseline / "candidate_pool.txt"
+    if his_pool.is_file():
+        conn.execute(
+            """
+            DELETE FROM candidate_pool WHERE name IN (
+                SELECT lower(trim(column0)) FROM read_csv(
+                    ?, header=false, delim='\x01', quote='',
+                    columns={'column0': 'VARCHAR'})
+            )
+        """,
+            [str(his_pool)],
         )
+    elif baseline.is_dir():
+        raise FileNotFoundError(f"the candidate claim needs his pool to diff against: {his_pool}")
+    conn.execute("""
+        DELETE FROM candidate_pool WHERE name IN (SELECT name FROM his_annual)
+    """)
+    stats["candidate_additions"] = _copy_query(
+        conn,
+        "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
+        netnew_dir / "candidate_additions.txt",
+    )
+    weights = english_weights()
+    counts = conn.execute(
+        """
+        SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
+        FROM candidate_pool GROUP BY 1, 2
+        """
+    ).fetchall()
+    by_unit: dict[str, tuple[int, Decimal]] = {}
+    for unit, tld, n in counts:
+        held_n, held_ee = by_unit.get(unit, (0, Decimal(0)))
+        by_unit[unit] = (held_n + n, held_ee + weights.get(tld, Decimal(0)) * n)
+    summary = {
+        "baseline": CURRENT_BASELINE_MARKER,
+        "track": "candidate",
+        "counting_unit": "distinct name, registrable domains and exact hostnames in one pool",
+        "candidates": sum(n for n, _ in by_unit.values()),
+        "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
+        "by_unit": {
+            u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
+        },
+    }
+    (netnew_dir / "candidate_additions_summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
 
     # per-source and per-year contribution tables, which ship in the audit folder
     stats.update(write_contribution_tables(conn, report_dir))

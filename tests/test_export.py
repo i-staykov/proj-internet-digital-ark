@@ -1,5 +1,6 @@
 """Exports: net-new files, manifest, candidates, and merged masters."""
 
+import json
 from pathlib import Path
 
 import duckdb
@@ -23,6 +24,21 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
     return conn
 
 
+def _fake_baseline(tmp_path: Path) -> Path:
+    """A baseline directory holding only what the export diffs against.
+
+    The export reads HIS annual files and candidate pool at export time, so a test that
+    used the real ones would pass or fail on whether a fixture name like `new.com`
+    happens to be in the reviewer's 1997 file. It is.
+    """
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    for year in range(1996, 2002):
+        (baseline / f"{year}.txt").write_text("already-his.com\n")
+    (baseline / "candidate_pool.txt").write_text("already-his-candidate.com\n")
+    return baseline
+
+
 def test_export_all(tmp_path: Path) -> None:
     conn = _populated_db()
     stats = export_all(
@@ -32,6 +48,7 @@ def test_export_all(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
 
     # net-new 1997 holds only the cdx-evidenced domain
@@ -57,6 +74,7 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
 
     # the contribution tables were the one destination not under the caller's
@@ -144,6 +162,7 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
     assert shipped_1999 == ["deep.held.com", "mail.held.com", "www.deep.held.com"]
@@ -188,26 +207,29 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
     )
     written = sum(v for k, v in stats.items() if k.startswith("netnew_"))
     assert written == 1, "the impossible pair must not reach an annual file"
     assert netnew_shipped_pairs(conn) == written
 
 
-def test_the_candidate_pool_also_ships_as_year_files(tmp_path: Path) -> None:
-    """A candidate with a dated but non-promoting observation is filed under that year.
+def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Path) -> None:
+    """The candidate track is scored like the annual one, so its claim is net-new too.
 
-    The year says when the name was OBSERVED, never that it earned the year: the same
-    name stays in `candidates.txt` and reaches no annual file. A candidate with no dated
-    evidence at all appears in no year file, and a name that earned a year appears in
-    none of them either, which is the leak this test exists to catch.
+    One pool, not one file per collection: registrable candidates and ISC survey
+    hostnames land in the same list, because a list of names is a list of names and the
+    provenance for each lives in `provenance/` and `isc_survey_provenance.csv`.
+    `candidates.txt` is still the whole working pool and is a different number: measured
+    2026-09-10 it held 2,279,755 names of which 29,327 were absent from his files, so
+    shipping the pool as the contribution would have overstated the registrable half 78x.
     """
     conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    # a candidate he already lists, in each of the two places he can list it
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    # seen as a link target in 1998 and 2000, which promotes nothing
-    add_candidate(conn, "seen.org", cdx)
-    for year in (1998, 2000):
-        record_evidence(conn, "seen.org", cdx, year, "link_target", f"{year} crawl")
+    add_candidate(conn, "already-his.com", cdx)
+    add_candidate(conn, "already-his-candidate.com", cdx)
     export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
@@ -215,19 +237,49 @@ def test_the_candidate_pool_also_ships_as_year_files(tmp_path: Path) -> None:
         masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
     )
+    pool = (tmp_path / "candidates.txt").read_text().split()
+    additions = (tmp_path / "netnew" / "candidate_additions.txt").read_text().split()
+    assert "cand.org" in pool and "cand.org" in additions
+    # neither of the two he already has survives into the claim
+    assert "already-his.com" not in additions
+    assert "already-his-candidate.com" not in additions
+    # and nothing that earned a year is a candidate at all
+    assert "new.com" not in pool and "new.com" not in additions
+    summary = json.loads((tmp_path / "netnew" / "candidate_additions_summary.json").read_text())
+    assert summary["candidates"] == len(additions)
+    assert summary["track"] == "candidate"
 
-    def read(year: int) -> list[str]:
-        return (tmp_path / "netnew" / f"{year}-CANDIDATES.txt").read_text().split()
 
-    assert read(1998) == ["seen.org"]
-    assert read(2000) == ["seen.org"]
-    assert read(1997) == []
-    # still a candidate, and still not an annual record
-    assert "seen.org" in (tmp_path / "candidates.txt").read_text()
-    assert "seen.org" not in (tmp_path / "netnew" / "1998.txt").read_text()
-    # cand.org has no dated evidence, so it is in the pool and in no year file
-    assert "cand.org" in (tmp_path / "candidates.txt").read_text()
-    assert not any("cand.org" in read(y) for y in range(1996, 2002))
-    # and a domain that EARNED its year is not a candidate in any file
-    assert not any("new.com" in read(y) for y in range(1996, 2002))
+def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path) -> None:
+    """Diffed against HIS files at export time, not against our ingested copy of them.
+
+    Our baseline evidence is whatever release was ingested, and his current release can
+    add names after it. On 2026-09-10 that gap put 303 names into the 2001 additions that
+    `merged260908` already held, which the merge audit then reported as an overlap.
+    """
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    # he lists this one for 1997; we hold a capture of it for the same year
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "already-his.com", cdx)
+    assign_year(
+        conn,
+        record_evidence(conn, "already-his.com", cdx, 1997, "cdx_timestamp", "19970101000000"),
+    )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    shipped = (tmp_path / "netnew" / "1997.txt").read_text().split()
+    assert "new.com" in shipped
+    assert "already-his.com" not in shipped
+    # and the manifest cannot describe a line that does not ship
+    manifest = (tmp_path / "netnew" / "evidence_manifest.csv").read_text()
+    assert "already-his.com" not in manifest

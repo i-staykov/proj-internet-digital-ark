@@ -217,6 +217,18 @@ cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
 
+# Nothing ships that his baseline already holds. The export diffs every list against his
+# own annual files, so a non-zero overlap here means that diff did not run or ran against
+# a stale baseline directory, and the round would claim records he already has. It was
+# 304 on 2026-09-10, from a store whose ingested baseline predated his current release.
+OVERLAP=$(python3 -c "import json,sys; print(int(json.load(open(sys.argv[1]))['totals']['already_in_baseline_records']))" \
+    "output/merge/merge_audit_ark_${MERGE_STAMP}.json")
+if [ "$OVERLAP" != 0 ]; then
+    echo "refusing to package: $OVERLAP submitted records are already in the baseline." >&2
+    echo "re-run \`uv run ark export\` against the current baseline, then the merge audit." >&2
+    exit 1
+fi
+
 
 # merged master year lists + net-new additions + provenance
 cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
@@ -242,13 +254,13 @@ uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_satu
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
-# The same pool as one batch of year files, in the file shape his annual lists use, so a
-# reviewer can read the candidate track per year instead of as one 2.3 million line file.
-# Not a second deliverable: every name here is already in `candidates.txt`, and the year
-# is the year the name was OBSERVED by evidence that does not promote it to an annual
-# record. The files overlap, so their counts must never be summed as the pool size.
-mkdir -p "$STAGE/candidates"
-cp output/netnew/199[6-9]-CANDIDATES.txt output/netnew/200[01]-CANDIDATES.txt "$STAGE/candidates/"
+# THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
+# name he already lists in his candidate pool or in any annual file. He scores candidates
+# separately and at the same rate as annual records, so the claim is held to the same
+# net-new standard the annual files are. Provenance for each name is in `provenance/` and
+# in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
+cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
+cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
 # The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.
