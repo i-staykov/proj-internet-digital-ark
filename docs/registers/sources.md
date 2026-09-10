@@ -5264,3 +5264,52 @@ it** (C-83, Ivo 2026-09-09). Approved for the `Received: ... by <host>` clause A
   `--expand`, then `--harvest`; build with
   `scripts/sources/mail_corpora/build_apache_header_pool.py`; ingest with
   `uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/`
+
+## ietf_list_header_hostnames / link_source
+
+**C-83's class at a second host, not a new class** (Ivo 2026-09-10). The same `Received: ... by
+<host>` clause, the same parser, the same wall; only the archive serving the mbox differs, so
+C-81's 1,000 EE grain floor applies rather than the 5,000 EE floor for a new source.
+
+- the artifact: `https://www.ietf.org/ietf-ftp/ietf-mail-archive/<list>/<YYYY-MM>.mail` and
+  `https://www.ietf.org/ietf-ftp/concluded-wg-ietf-mail-archive/<list>/<YYYY-MM>.mail`, one raw
+  mbox per list-month. The root listing of the first tree has 1,147 list directories. **The
+  month file is spelled two ways**, `1996-03` in the early years and `1999-05.mail` from 1998 on,
+  so the file name is carried whole in the item pointer rather than derived from the month: a
+  pointer that guessed the suffix would resolve to a 404 for half the partition. Verified both
+  ways on 2026-09-10: `concluded-wg-ietf-mail-archive/snmpv2/1996-10` answers 200 at 75,053 bytes
+  and `ietf-mail-archive/sieve/1997-03.mail` at 179,151, while each spelled the other way is a
+  404. A list lives in ONE tree, and `snmpv2` and `822ext` are both in the concluded half
+- what dates one item: the message's own RFC 822 `Date:` header, cross-checked against the
+  `YYYY-MM` the archive filed the month under. A message whose `Date:` year disagrees with its
+  partition is dropped rather than assigned to either, and on the fleet's sample that was 2,158
+  of 39,385 messages, 5.5%. Quoted: message 1 of
+  `https://www.ietf.org/ietf-ftp/concluded-wg-ietf-mail-archive/snmpv2/1996-10` (75,053 bytes,
+  re-fetched 2026-09-10, 36 messages all in window) carries `Date: Wed, 2 Oct 1996 11:05:48
+  -0400` and `Received: from neptune.hq.tis.com by CNRI.Reston.VA.US id aa13591; 2 Oct 96 12:08
+  EDT`, which dates `cnri.reston.va.us` for 1996. The evidence row is `list header 1996
+  www.ietf.org/concluded-wg-ietf-mail-archive/snmpv2/1996-10#1 cnri.reston.va.us`
+- **the corpus is TWO mailbox formats and reading it as one loses 89 MB of it.** The
+  `ietf-mail-archive` months are mbox, delimited by a `From ` line; the
+  `concluded-wg-ietf-mail-archive` months are MMDF, delimited by a line of four `\x01` bytes with
+  no `From ` line anywhere in the file. The Apache boundary alone over `822ext/1996-08` returned
+  0 messages from 247,156 bytes that hold 52 of them, silently. Pinned by
+  `tests/test_ietf_header_hostnames.py`
+- terms: the IETF Trust Legal Provisions, `https://trustee.ietf.org/documents/
+  trust-legal-provisions/`. `robots.txt` (read 2026-09-10) disallows only `/admin/` and
+  `/search/` and states no crawl delay. **Fetch it single-threaded**: the fleet's scout drew HTTP
+  429 from six parallel listing requests inside a minute, and one connection with a pause did 130
+  listings in 97 s untouched
+- measured by the fleet on a 13.61% sample, 2026-09-09 (run 34391624491), 713 of the 4,850
+  in-window list-months and 203,016,161 fetched bytes: 138,082 items over 7,278 hosts, **4,914.1650
+  EE annual on 8,283 net-new pairs** against `merged260908`, plus 2,676.2575 EE candidate on 4,501.
+  `www_alias_share` 0.0014, `parent_held_share` 0.9868. That is 6.9 EE per list-month, between
+  the Apache lane's middle band (3.17) and its head (141)
+- **the projection is 22,261 EE annual and the Apache lane is the reason to distrust it.** The
+  fleet's own log-log fit on the sample's pair curve gives 4.53x at the full partition, not the
+  6.9x a linear reading would. But `apache_list_header_hostnames` measured the same class
+  saturating hard across three bands, 5.5 times the messages for 2.4 times the EE, because the
+  same relay hosts recur across a busy list's months and the second sighting is not net-new.
+  Treat 22,261 as a ceiling and the realised sweep as the number
+- collect: `uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`, then
+  `sweep`; ingest with `uv run ark ingest-ietf-header-hostnames data/raw/ietf_header_items/`

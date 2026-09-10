@@ -451,6 +451,36 @@ def ingest_apache_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=APACHE_FAMILY)))
 
 
+@app.command(name="ingest-ietf-header-hostnames")
+def ingest_ietf_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from collect_ietf_mail_archive.py, or "
+            "directories of them (`data/raw/ietf_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated IETF list messages.
+
+    C-83's class at a second host, not a new class: the same `Received: ... by <host>`
+    clause Ivo approved on 2026-09-09, read by the Apache lane's own parser. The `from`
+    clause and the parenthesised reverse-DNS are not read here either. The item pointer is
+    `www.ietf.org/<tree>/<list>/<file>#<n>`, message n of that list-month, and the file name
+    is carried whole because the archive spells early months `1996-03` and later ones
+    `1999-05.mail`. Idempotent per shard.
+    Example: ark ingest-ietf-header-hostnames data/raw/ietf_header_items
+    """
+    from ark.hostnames import IETF_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[
