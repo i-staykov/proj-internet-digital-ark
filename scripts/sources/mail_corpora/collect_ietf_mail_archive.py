@@ -170,6 +170,7 @@ def plan() -> int:
     """
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[str, str, int]] = []
+    empty = 0
     for tree in TREES:
         page = fetch_with_retry(f"{BASE}/{tree}/")
         if page is None:
@@ -179,6 +180,15 @@ def plan() -> int:
         print(f"{tree}: {len(lists)} list directories", flush=True)
         for i, listname in enumerate(lists, 1):
             for name, size in months_of(tree, listname):
+                # **An empty month is a file, and fetching it is 4,579 wasted requests.**
+                # Nearly half this archive's in-window months are listed at 0 bytes: a list
+                # that existed but carried no traffic that month still gets a file. Each one
+                # answers HTTP 200 with no body, verified on `acap/2001-01.mail` and
+                # `routing-discussion/2001-11.mail`, so there is nothing to parse and asking
+                # is only rudeness. The listing already knows, so the plan does not carry them.
+                if size <= 0:
+                    empty += 1
+                    continue
                 where = f"{tree}/{listname}/{name}"
                 rows.append((f"{BASE}/{where}", f"{HOST}/{where}", size))
             if i % 100 == 0:
@@ -186,7 +196,10 @@ def plan() -> int:
     # Thinnest year first, then largest month, so the earliest hours buy the most coverage.
     rows.sort(key=lambda r: (-int(r[1].rsplit("/", 1)[1][:4]), -r[2]))
     PLAN.write_text("".join(f"{u}\t{s}\t{b}\n" for u, s, b in rows))
-    print(f"plan: {len(rows)} list-months, {sum(r[2] for r in rows):,} listed bytes -> {PLAN}")
+    print(
+        f"plan: {len(rows)} list-months, {sum(r[2] for r in rows):,} listed bytes, "
+        f"{empty} empty months skipped -> {PLAN}"
+    )
     return 0
 
 
