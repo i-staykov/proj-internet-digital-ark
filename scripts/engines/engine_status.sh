@@ -140,7 +140,14 @@ fi
 # On 2026-09-09 it printed a tally from a `.part` abandoned on 2026-09-01 while two
 # collectors were live, because `ls -t` returns the newest file whether or not anything
 # still holds it. Anything older than an hour is named and NOT read.
-part=$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part data/raw/cdx/suffix_*.jsonl.gz.part 2>/dev/null | head -1)
+#
+# **And the directory is part of the family too.** The suffix sweep writes into
+# `data/raw/cdx_suffix/`, not `data/raw/cdx/`, so globbing only the latter answered "no
+# in-flight .part journal" on 2026-09-10 while 852 journals had been written that morning.
+# The open-journal count above is the line that actually answers the C-77 question; this
+# one only adds a tally, so it names every directory a collector writes to.
+part=$(ls -t data/raw/cdx/cdx_*.jsonl.gz.part data/raw/cdx/suffix_*.jsonl.gz.part \
+    data/raw/cdx_suffix/*.jsonl.gz.part 2>/dev/null | head -1)
 if [ -n "$part" ] && [ -n "$(find "$part" -mmin -60 2>/dev/null)" ]; then
     echo "   journal $(basename "$part")"
     ARK_PART="$part" python3 -c "$TALLY"
@@ -149,9 +156,20 @@ elif [ -n "$part" ]; then
 else
     echo "   no in-flight .part journal"
 fi
+# **Two collectors, two log names and two batch lines, so match both families.** The
+# suffix sweep writes `collectors_shard<n>.log` and finishes a host with `<host>: N pages,
+# N rows -> <journal>`; the older pooled lane writes `cdx_<queue>.log` and `cdx: {...}`.
+# Globbing `cdx_*.log` alone printed a batch from 2026-09-08, a 3% hit rate from a lane
+# that was not running, while the sweep had written 852 journals that morning. The log the
+# line came from is named, so a stale answer says which file it is stale from.
 echo "   last finished batch:"
-grep -hoE "cdx: \{[^}]*\}" $(ls -t data/logs/cdx_*.log 2>/dev/null | head -1) 2>/dev/null \
-    | tail -1 | sed 's/^/     /'
+newest=$(ls -t data/logs/collectors_shard*.log data/logs/cdx_*.log 2>/dev/null | head -1)
+if [ -n "$newest" ]; then
+    line=$(grep -hoE "cdx: \{[^}]*\}|^[^ :]+: [0-9,]+ pages?, [0-9,]+ rows" "$newest" | tail -1)
+    printf '     %s: %s\n' "$(basename "$newest")" "${line:-no completed batch in this log}"
+else
+    echo "     no collector log on this machine"
+fi
 
 section "VPS ($VPS)"
 # The remote half asks the same two questions in the same order, and must not narrow to
