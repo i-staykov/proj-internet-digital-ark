@@ -118,8 +118,11 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # measured against, our benchmark interval gives t = 1 and an S of 187.697140, which put
     # the total at 200.884042 in a report whose next sentence says we cannot reproduce his
     # 33. Where he has stated a score, his figure is the one that is summed.
-    assert "**S = 18.874694**" in text
-    assert "6: 4.130718% / 6d = 6.884530" in text
+    # And rounds 6 and 7 the same way: he wrote 6.88 and 6.302372 in his own mails, so the
+    # total is the sum of his three figures. Our model gives round 6 6.884530, which he
+    # rounded; a total four thousandths off his own is a total he has to reconcile.
+    assert "**S = 18.870164**" in text
+    assert "6: 4.130718% / 6d = 6.880000" in text
     assert "7: 7.562846% / 12d = 6.302372" in text
     assert "8: 18.769714% / 33d = 5.687792" in text
     assert "would add 15.000000 at t = 1" in text
@@ -133,9 +136,14 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # The email's one-liner is cut to fit a mail he reads in a minute, so it quotes the
     # total rather than the addends. It used to ASK which date t_i counts from; his own
     # round 8 divisor answers that, so it states the derivation and asks nothing.
-    assert "Time-weighted score 18.874694" in sentence
+    # The addends, because a sum he can check in his head beats a total he has to trust,
+    # and both of this round's scores in the two lines he writes them in himself.
+    assert "score 6.88 + 6.302372 + 5.687792 = 18.870164" in sentence
+    assert "your own scores for rounds 6, 7 and 8" in sentence
     assert "2026-09-04 less 33 days" in sentence
-    assert "this round is t = 32 and adds 0.468750" in sentence
+    assert "this round is t = 32" in sentence
+    assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
+    assert "Candidate-Pool Score: S = 10 x (" in sentence
     assert "?" not in sentence
 
 

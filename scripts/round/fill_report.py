@@ -35,6 +35,7 @@ from report_figures import BASELINE, figures  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
+    REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
     awarded_score_of,
@@ -635,6 +636,27 @@ def substitutions(f: dict) -> dict[str, str]:
         subs[token] = f"{row['names']:,}"
         subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
 
+    # Both scores at the six places he awards in, and the divisor he would use today.
+    # The email states them as he states them, `S = 10 x (p / t)`, so he can check the
+    # arithmetic without opening the report. Bare numbers, because they sit inside his
+    # formula and a percent sign inside it would not be his notation.
+    t_now = t_days_assignment(now_in_his_clock())
+    cand_pct = candidate_growth()
+    subs["TDAYS"] = str(t_now)
+    subs["EEGROWTH6"] = f"{growth:.6f}"
+    subs["SCORE_ANNUAL"] = f"{score(growth, t_now):.6f}"
+    subs["CANDTRACKPCT6"] = f"{cand_pct:.6f}"
+    subs["SCORE_CANDIDATE"] = f"{score(cand_pct, t_now):.6f}"
+
+    # The mail quotes the reconciliation count too, and it is read from the audit rather
+    # than typed, because a mail claiming a pass count the audit does not hold is the one
+    # error he would never have to look for.
+    audit = newest_audit(Path(__file__).resolve().parents[2] / "output/merge")
+    checks = []
+    if audit is not None:
+        checks = json.loads(audit.read_text(encoding="utf-8")).get("reconciliation", [])
+    subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
+
     return subs
 
 
@@ -793,25 +815,47 @@ def merge_reconciliation() -> str:
     )
 
 
-def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The two official records in one sentence, under the rule that now governs.
+def as_he_wrote_it(s: Decimal) -> str:
+    """A score with his own trailing digits: he wrote 6.88, not 6.880000."""
+    text = f"{s:f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
 
-    **His 0903 update replaced the benchmark interval and his 0905 score fixed its
-    origin.** He scored round 8 as 10 x (18.769714 / 33) and received it on 2026-09-04;
-    33 whole calendar days back is 2026-08-02, which `figures.TASK_ASSIGNED_DATE` now
-    carries. The report used to put that as a question to him. It is not a question: the
-    divisor he used is the answer, and asking again would spend his time on arithmetic we
-    can do.
+
+def candidate_growth() -> Decimal:
+    """The candidate track's growth rate, which he scores separately at the same rate.
+
+    Over the ANNUAL equivalent-English denominator, because that is the denominator his
+    own candidate-pool score divides by, and the constant rather than the figures dict so
+    the sentence can be rendered without a store behind it.
+    """
+    return Decimal(candidate_additions()["equivalent_english"]) / REVIEWER_BASELINE_EE * 100
+
+
+def cumulative_sentence(f: dict, growth: Decimal) -> str:
+    """The two official records in one sentence, written the way he writes them.
+
+    **His figures, in his own arithmetic.** He states one score per round and sets each
+    track out as `S = 10 x (p / t)`, so the total is the sum of the three scores he has
+    quoted rather than our model of them, and this round is given as the two lines he
+    would write himself. His 0903 update replaced the benchmark interval and his round 8
+    divisor fixed its origin: he scored it 10 x (18.769714 / 33) and received it on
+    2026-09-04, and 33 whole calendar days back is 2026-08-02. That was once a question to
+    him. It is not one: the divisor he used is the answer.
     """
     rows = score_rows(growth)
-    pct, total, _scored, _early = _score_parts(rows)
+    pct, total, scored, _early = _score_parts(rows)
     t_now = t_days_assignment(now_in_his_clock())
+    addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
+    labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
+    cand = candidate_growth()
     return (
         f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
-        f"{growth:.4f}% and round 1 on records. Time-weighted score {total:.6f} over the "
-        f"three rounds you scored, your own figure where you stated one. Under your 0903 "
-        f"rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), "
-        f"this round is t = {t_now} and adds {score(growth, t_now):.6f}."
+        f"{growth:.4f}% and round 1 on records. Time-weighted score "
+        f"{addends} = {as_he_wrote_it(total)}, your own scores for rounds {labels}. Under "
+        f"your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 "
+        f"days), this round is t = {t_now}. Domain-Year Score: S = 10 x ({growth:.6f} / "
+        f"{t_now}) = {score(growth, t_now):.6f}. Candidate-Pool Score: S = 10 x "
+        f"({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )
 
 
