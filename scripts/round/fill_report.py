@@ -37,6 +37,7 @@ from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
+    awarded_score_of,
     baseline_dir,
 )
 from ark.english_share import english_weights  # noqa: E402
@@ -124,7 +125,53 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_domain_sweep": (
-        "IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals",
+        "IA CDX `matchType=domain` sweeps, two clients, over parents ranked by the hosts we "
+        "lack rather than the hosts they have",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_server_written_header": (
+        "Usenet spool (IA), already held, re-read for the three headers a NEWS SERVER writes "
+        "about itself: `Path:`, `X-Trace:` and `NNTP-Posting-Host:`. No sender-supplied field "
+        "is read",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ietf_list_received_by": (
+        "IETF mail archive, one raw mbox per list-month, `ietf-mail-archive/` and "
+        "`concluded-wg-ietf-mail-archive/`",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "apache_list_received_by": (
+        "Apache mailing-list archive, the same `Received: ... by <host>` clause at a second host",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "poland_pl_extract_hostgrain": (
+        "Poland `.pl` ccTLD extraction 2001-12-31 (IA, `webdataservices`), 19 item-level CDX "
+        "indexes, 1.24 GB, each verified against its published sha256 before it was read",
+        "the row's own 14-digit capture timestamp, from the original URL and never the SURT key",
+    ),
+    "arquivo_ia_cdxj_hostgrain": (
+        "Arquivo.pt `IA.cdxj` capture index, held since 2026-08, re-read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "ia_cdx_gap_hostgrain": (
+        "IA CDX queries over bracketed year gaps, read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_header_fqdn_hostnames": (
+        "the registrable half of the Usenet server-header lane above",
+        "the post's own machine-written `Date:` header",
+    ),
+    "poland_pl_extract_hostnames": (
+        "the registrable half of the Poland `.pl` extraction above",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_body_url_hostnames": (
+        "the registrable half of the Usenet body-URL lane, hosts taken only from explicit "
+        "http, https and ftp URLs in the post body",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ia_cdx_hostnames": (
+        "the registrable half of the CDX sweeps above",
         "the row's own 14-digit capture timestamp",
     ),
     "early_web_hostgrain": (
@@ -436,6 +483,13 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
     list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
     lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
     h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
+    # The server-written-header class, split the way the report argues it: the Usenet
+    # reading on one side, the two mailing-list archives it generalised from on the
+    # other. Summed here rather than typed, so the prose cannot drift from the table.
+    h_usenet_hdr = hosts.get("usenet_server_written_header", (0, Decimal(0)))
+    mail_methods = ("ietf_list_received_by", "apache_list_received_by")
+    mail_hdr = [hosts.get(m, (0, Decimal(0))) for m in mail_methods]
+    h_mail_hdr = (sum(r[0] for r in mail_hdr), sum((r[1] for r in mail_hdr), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
@@ -447,6 +501,10 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
         "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
+        "HOST_USENETHDR_EE": f"{h_usenet_hdr[1]:,.0f}",
+        "HOST_USENETHDR_N": f"{h_usenet_hdr[0]:,}",
+        "HOST_MAILHDR_EE": f"{h_mail_hdr[1]:,.0f}",
+        "HOST_MAILHDR_N": f"{h_mail_hdr[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
         "REG_CDX_EE": f"{total(cdx)[1]:,.0f}",
         "REG_USENET_EE": f"{total(usenet)[1]:,.0f}",
@@ -603,7 +661,16 @@ def score_rows(growth: Decimal) -> list[ScoreRow]:
     rows = []
     for r in SUBMITTED_ROUNDS:
         t = t_days(r[6], r[7])
-        rows.append(ScoreRow(r[0], r[5], t, score(r[5], t), scored_under_rule(r[7])))
+        s = score(r[5], t)
+        # Where he has stated the score himself, his figure wins over our model of the
+        # rule. Round 8 is why: he divided by 33, our benchmark interval divides by 1,
+        # and summing our reading put S_total at 200.88 in a report whose next sentence
+        # admits we cannot reproduce his divisor. A total he cannot recognise is worse
+        # than no total.
+        his = awarded_score_of(r[0])
+        if his is not None:
+            t, s = his.divisor, his.score
+        rows.append(ScoreRow(r[0], r[5], t, s, scored_under_rule(r[7])))
     t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
     rows.append(
         ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
@@ -682,8 +749,9 @@ def merge_reconciliation() -> str:
         [
             *rows,
             "",
-            f"Overlap with the baseline is **{int(t['already_in_baseline_records']):,} records**, "
-            f"so all {int(t['submitted_records']):,} submitted count once, and "
+            f"Of the {int(t['submitted_records']):,} records submitted, "
+            f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and are "
+            f"excluded, so the accepted increment above counts each remaining record once. "
             f"**{passed} of {len(checks)} reconciliation checks pass**. "
             "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
             "lowercased line within each year and scores every file with your own calculator; the "
@@ -709,8 +777,6 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     # interval gave t = 1 and the assignment interval t = 45 from our pinned origin of
     # 2026-07-21. So the mail stops offering him a choice of two and asks the one thing
     # still unknown, which is the date his 33 counts from.
-    from ark.baseline import awarded_score_of
-
     his = awarded_score_of("8")
     ask = ""
     if his is not None:
@@ -722,8 +788,10 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
             f"awarded rounds?"
         )
     return (
-        f"Cumulative verified percentage {pct:.4f}%, time-weighted score {total:.6f} over the "
-        f"rounds you scored. This round reads {this.s:.6f} on the benchmark interval and "
+        f"Cumulative verified percentage {pct:.4f}%, this round counted at its own unverified "
+        f"{growth:.4f}% and round 1 on records rather than equivalent-English. Time-weighted "
+        f"score {total:.6f} over the rounds you scored, your own figure used wherever you "
+        f"stated one. This round reads {this.s:.6f} on the benchmark interval and "
         f"{s_abs:.6f} on the assignment interval.{ask}"
     )
 
@@ -824,7 +892,7 @@ def datasets_searched(docs: Path | None = None) -> str:
     `sources.md` alone dropped the figure from 495 to 129, which would have
     understated our own work to the reviewer fourfold.
     """
-    docs = docs or Path(__file__).resolve().parents[2] / "docs"
+    docs = docs or Path(__file__).resolve().parents[2] / "docs/registers"
     path = docs / "sources.md"
     if not path.is_file():
         return "_`sources.md` not found beside this report._"

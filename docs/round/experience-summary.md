@@ -9,42 +9,34 @@ Every figure here is measured against the store, not projected, and says what it
 
 ## 1. The reusable technique
 
-**Re-price what is already on disk whenever the unit or a screen changes.** This round's increment
-is 1,458,263 equivalent-English against `merged260902`, and 316,725 of it, 21.7%, came from bytes
-the project already held and had written off, with no new request. The pattern is narrower than
-"re-read the artifact": in every case the payload was **a column the old counting unit discarded**.
+**Re-price what is already on disk whenever the unit, a screen, or a stated reason changes.** This
+round's increment is 1,874,979 equivalent-English against `merged260908`, and 355,090 of it, 18.9%,
+came from bytes the project already held and had written off, with no new request. The pattern is
+narrower than "re-read the artifact": in every case the payload was **a field the old reading
+discarded**, or the closure rested on a number nobody had re-measured.
 
-| held artifact | the column that was being discarded | what it paid |
+| held artifact | what had been discarded | what it paid |
 |---|---|--:|
-| NYPW TimeMaps, closed at 14.2 EE on the 1996 folder | first the other partitions, measured from the ingest ledger instead of argued about, then the captured host itself | 143,408 EE registrable, then 70,937 EE hostname |
-| IA Early Web CDX, banked in July for its registrables | the captured host beneath the registrable | 65,026 EE |
-| six USFEDGOV merged CDX indexes | the captured host, one capture per host, read offline from bulk files | 34,726 EE |
-| squidGuard and chastity URL blocklists, banked at registrable grain | the host each line names | 2,628 EE |
+| Usenet spool, 104.8 GB, closed as "224 GB, on neither machine any more" | the three headers a NEWS SERVER writes about itself, and a size that was wrong by 15x | 350,946 EE |
+| Arquivo.pt `IA.cdxj`, closed on projected rate at registrable grain | the captured host beneath the registrable | 4,144 EE |
 
-The same re-reading of three DNS artifacts (the ISC survey host files, RIPE `nserver:` attributes,
-InterNIC NS targets) had paid 9.19 million EE at hostname grain under the rule as written, and was
-held out on 2026-09-02 under its purpose: a DNS listing proves a machine answered, not a site
-(section 5). Of the remainder, 956,099 EE is the domain-wide CDX sweep of platform parents, one
-request per parent, which the accepted unit turned from a registrable-grain zero into the round's
-largest source; the rest is the registrable lanes of `sources.md`, led by the Usenet address
-corpora and the registry listings.
-
-Earlier rounds found the same shape: the 1999 RIPE snapshot re-read for its `changed:` lines paid
-58,398 EE, and the RDAP sibling-name generation paid 357,755 by asking about names invented rather
-than found. **Exhaust the artifact you already hold before looking for another one.** It needs no
-new licence and it is measured against the store as a control group.
+Earlier rounds found the same shape and it has now paid in four of them: NYPW TimeMaps, closed at
+14.2 EE on one folder, paid 143,408 EE and then 70,937 more at hostname grain; the IA Early Web CDX
+paid 65,026; the 1999 RIPE snapshot re-read for its `changed:` lines paid 58,398. **Exhaust the
+artifact you already hold before looking for another one.** It needs no licence, no bandwidth, and
+it is measured against the store as its own control.
 
 ## 2. What worked
 
 - **One clear written objective, then unattended running.** Research runs as scheduled lanes on a
-  self-hosted runner (generator, researcher waves, re-opener, improver). The round's largest source
-  was a generator proposal, and eight sources were admitted with no human in the loop under a rule
+  self-hosted runner (generator, researcher waves, re-opener, improver). One round's largest source
+  was a generator proposal, and eight sources have been admitted with no human in the loop under a rule
   fixed in advance: class already master-eligible, machine stamp inside the artifact, terms read in
   full, invariants pass. Two parked for a written decision, which is the rule working rather than
-  failing, and the hostname purpose rule (section 5) was a human decision over the result.
+  failing, and the two hostname-unit rulings (section 5) were human decisions over the result.
 - **Separating the agent that measures from the code that writes.** A researcher lane can never
   touch the store; a separate admitter re-derives every figure locally before anything is banked.
-  Two agent-reported figures this round differed from the re-derivation, and the local number won.
+  Agent-reported figures have differed from the re-derivation more than once; the local number won.
 - **Detached collectors holding an absolute epoch deadline**, so they outlive the session. They kept
   collecting through a day when the agent could not be reached.
 - **Machine-written artifacts over anything a person wrote.** The large registrable additions were
@@ -82,6 +74,28 @@ new licence and it is measured against the store as a control group.
   web-archive indexes, preserved CD-ROM media by name and by size, trade directories of internet
   businesses, and FTP-mirror archive listings (6.16M entries, 143,338 genuinely dated 2001, zero lists).
 
+### The archive errors this round, and what each one changed
+
+The hostname half of the round comes from one query family: `matchType=domain` on a registrable
+already in the store, so one answer carries every host under it. Two clients at most, ever, with an
+honest User-Agent naming the project and a contact, `from=1996`, `to=2001`, status filtered to 2xx
+and 3xx. A redirect counts because it is a host that resolved and answered: 2.4% more rows for the
+same request, 98.6% of them net-new. 4xx and 5xx stay out, since a 404 shows the server answered
+and not that the host served.
+
+| error | what it changed |
+|---|---|
+| `HTTP 403` on `url=<single-label TLD>&matchType=domain`, and on its `from`, `collapse` and `fl` variants | a whole TLD cannot be enumerated this way, so only multi-label suffixes and registrables are swept |
+| `HTTP 503` on a count query | transient rather than a throttle signal: retried at `5 x 3^n` seconds capped at 300, and the count query doubles as the availability check so no request is spent probing |
+| `HTTP 429` with no `Retry-After` on `archive.org/wayback/available`, sustained while a sweep runs | that endpoint shares a limiter with the CDX channel. `web.archive.org/web/timemap/link/<url>` does not, and replaced it |
+| a truncated gzip tail on a journal still being written | the reader stops at the last complete record; the ingest is keyed on the file's sha256, so a re-read cannot double-count |
+| a 200 that is a period 404, or a 301 onto a live 404 | the body is read rather than the status trusted |
+
+A page costs about the same at any size, since it is a count of index blocks: 200 blocks took 11 to
+42 seconds and 10,000 took 110, so the page count is asked once up front with `showNumPages`. A
+parent is parked on measured capture rows per distinct host rather than on elapsed time, and its
+position is saved, so the work already done is never repeated.
+
 ## 4. Lessons: the measured rules for pricing a source
 
 Each lesson below cost at least a day to learn.
@@ -106,14 +120,15 @@ Both dating routes err toward **under-claiming**. A capture proves presence and 
 year with no capture is unevidenced rather than empty; a creation date attests one year only. Neither
 can invent a year, so the mistake they make is omission.
 
-The one place the error could run the other way is the counting unit itself. A hostname is a valid
-record under the accepted rule as written, and a reverse-DNS walk resolves dialup ports as readily
-as web servers. So the round reads the rule by its purpose, retrieving archived pages: a hostname
-record needs an observation of the host serving web content, and `www.<parent>` is the registrable's
-own site. That held out 18.2 million dated DNS-survey hostname rows and 5.2 million `www.` rows, the
-evidence is kept, and both are recoverable with one filter if the reviewer rules the other way. His
-0902 brief keeps overlapping hostnames and deduplicates downstream, so the `www.` hold-out is the
-one place this round is narrower than his text, and it is disclosed as such.
+The one place the error could run the other way is the counting unit, and both open questions on it
+have since been ruled. A `www.` record stands where it carries its own exact-host evidence, and
+nothing is inferred in either direction between a bare name and its `www.` form (2026-09-06). A
+dated DNS-survey observation does not establish web content, so 17.7 million such hostname-years
+ship as a named candidate collection rather than as annual records (2026-09-05). One hold-out
+remains open: an FTP index row carries the crawler's own completion stamp for that exact host in
+that year, which is stronger than a DNS observation and is not a webpage, so those rows are held
+out of the annual files until the reviewer rules. The evidence is kept either way and one filter
+recovers it.
 
 A material share of archive requests fail at transport level rather than with a status code, which is
 throttling seen from the other side of the socket. And host survival correlates with refusal: the old
@@ -136,30 +151,30 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 
 ## Lessons added this round
 
-- **Re-read closed verdicts whenever a measurement screen retires.** A source rejected at
-  14.2 equivalent-English on its most saturated partition paid ~88,000 when the retired
-  novelty screen was replaced and the other end of the partition was measured. A
-  dedicated re-opener lane now does this on a schedule.
-- **A partitioned corpus is measured per partition, never argued about.** The ingest
-  ledger's per-file year counts are free and settled a four-orders-of-magnitude wrong
-  claim before it cost bandwidth.
-- **Agents in CI print mode need a structural contract**, not advice: hard timeout,
-  scheduling tools disabled, fallback verdict, telemetry. A backgrounded sort plus a
-  scheduled wake-up silently cost one run its whole budget before the contract existed.
-- **Spend models only where judgement pays.** Booking results is deterministic code now;
-  models propose, test and admit. Cadence is earned from a per-run ledger of
-  equivalent-English per token, under a hard weekly budget ceiling.
-- **Measure the shape of what a unit change admits before shipping the figure.** The survey lane
-  was real under the rule as written and two thirds of it was dialup and workstation names; the
-  Early Web lane was mostly `www.` forms. Measuring both per source is what made the purpose rule
-  a decision over data rather than a guess, and it cut the shipped hostname figure by 92% without
-  touching one evidence row.
-- **A closure is a hypothesis about a screen, not a fact about an artifact.** Of the seven rows in
-  section 1, six had a written closure against them. The re-opener exists because of that ratio.
-- **Keep the raw rows.** A sweep that writes `{url, timestamp}` lines and a separate
-  ingest that decides what a row is worth cost nothing extra on the day and paid the
-  whole hostname unit later. A collector that canonicalises on write destroys that option.
-- **Write the report from the data, never the other way.** Every figure in the report is a
-  token filled from the store and the merge audit, and the attribution table is generated
-  from the shipped files, so the numbers cannot drift from the archive between builds.
-
+- **Re-measure the reason a source was closed, not just the verdict.** A class rejected as
+  "224 GB and no space" was 15.3 GB, with 104.8 GB of the same corpus already on the laptop. It
+  became the second-largest lane of the round and needed no fetch. A closure now records the
+  measurement under it so the measurement can be re-run.
+- **Read an evidence class by its authorship, not by its syntax.** "A receiving mail server names
+  itself in `Received: ... by`" generalises to any server that writes about a transaction it
+  completed, which admitted Usenet `Path:`, `X-Trace:` and `NNTP-Posting-Host:` with no new rule
+  and no new approval class.
+- **A peak rate is a fact about the queue, not about the source.** The same query and clients paid
+  193,000 equivalent-English per client-hour on a fresh ranked head and 210 two nights later. Plan
+  with the sustained figure: over ten hours the head overstated it by 2.4x.
+- **Price a ranker only on parents it has never been used on.** Correlating rank against realised
+  yield over already-swept parents gives +0.746 and reads as an inverted ranker; over parents swept
+  fresh from a new ranking the same correlation is -0.655. The first number measures sweep history.
+- **Verify a bulk artifact against its own published checksums before reading it, and delete on
+  mismatch.** 19 of 19 indexes verified; the row count then reproduced an independent scout's count
+  to within exactly the number of header lines, which is what made the yield trustworthy without a
+  second pass.
+- **A partitioned corpus is measured per partition, never argued about.** The ingest ledger's
+  per-file year counts are free and have twice settled a claim that was orders of magnitude wrong
+  before it cost bandwidth.
+- **Keep the raw rows.** A sweep that writes `{url, timestamp}` and a separate ingest that decides
+  what a row is worth cost nothing on the day and paid the whole hostname unit later. A collector
+  that canonicalises on write destroys that option.
+- **Write the report from the data, never the other way.** Every figure in the report is a token
+  filled from the store and the merge audit, and the attribution table is generated from the
+  shipped files, so the numbers cannot drift from the archive between builds.
