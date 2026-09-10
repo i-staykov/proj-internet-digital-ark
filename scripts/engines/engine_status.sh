@@ -117,8 +117,14 @@ ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" \
     2>/dev/null || echo "   VPS   unreachable"
 
 section "local"
-if ps -eo etime,command | grep -qE "$LOOPS"; then
-    ps -eo etime,command | grep -E "$LOOPS" | head -2 | sed 's/^/   up /'
+# **`grep -q` under `set -o pipefail` inverts this answer.** `grep -q` exits at its FIRST
+# match, `ps` is still writing, and the SIGPIPE that kills it makes the pipeline fail: the
+# line printed "no collector loop" precisely WHEN a collector was running, and read as an
+# outage on 2026-09-10 while two sweep shards were up. Read once into a variable, so nothing
+# closes the pipe early and one `ps` answers both the question and the print.
+loops=$(ps -eo etime,command | grep -E "$LOOPS" || true)
+if [ -n "$loops" ]; then
+    printf '%s\n' "$loops" | head -2 | sed 's/^/   up /'
 else
     echo "   no collector loop"
 fi
@@ -155,8 +161,9 @@ section "VPS ($VPS)"
 # and `grep` from matching the command line of the probe itself.
 ssh -o ConnectTimeout=8 -o BatchMode=yes "$VPS" "
 cd '$VPS_REPO' || exit 1
-if ps -eo etime,command | grep -qE '$LOOPS'; then
-    ps -eo etime,command | grep -E '$LOOPS' | head -2 | sed 's/^/   up /'
+loops=\$(ps -eo etime,command | grep -E '$LOOPS' || true)
+if [ -n \"\$loops\" ]; then
+    printf '%s\n' \"\$loops\" | head -2 | sed 's/^/   up /'
 else
     echo '   no collector loop'
 fi
