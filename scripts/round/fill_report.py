@@ -35,15 +35,23 @@ from report_figures import BASELINE, figures  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
+    REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
+    awarded_score_of,
     baseline_dir,
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.export import NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
-from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
+from ark.figures import (  # noqa: E402
+    now_in_his_clock,
+    score,
+    scored_under_rule,
+    t_days,
+    t_days_assignment,
+)
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -124,7 +132,49 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_domain_sweep": (
-        "IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals",
+        "IA CDX `matchType=domain` sweeps, two clients, parents ranked by the hosts we lack",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_server_written_header": (
+        "Usenet spool (IA), already held, re-read for the three headers a news server writes "
+        "about itself: `Path:`, `X-Trace:`, `NNTP-Posting-Host:`",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ietf_list_received_by": (
+        "IETF mail archive, one raw mbox per list-month",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "apache_list_received_by": (
+        "Apache mailing-list archive, the same clause at a second host",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "poland_pl_extract_hostgrain": (
+        "Poland `.pl` ccTLD extraction 2001-12-31 (IA), 19 CDX indexes, 1.24 GB, each verified "
+        "against its published sha256",
+        "the row's own 14-digit capture timestamp, from the original URL and never the SURT key",
+    ),
+    "arquivo_ia_cdxj_hostgrain": (
+        "Arquivo.pt `IA.cdxj` capture index, held since 2026-08, re-read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "ia_cdx_gap_hostgrain": (
+        "IA CDX queries over bracketed year gaps, read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_header_fqdn_hostnames": (
+        "the registrable half of the Usenet server-header lane above",
+        "the post's own machine-written `Date:` header",
+    ),
+    "poland_pl_extract_hostnames": (
+        "the registrable half of the Poland `.pl` extraction above",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_body_url_hostnames": (
+        "the registrable half of the Usenet body-URL lane",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ia_cdx_hostnames": (
+        "the registrable half of the CDX sweeps above",
         "the row's own 14-digit capture timestamp",
     ),
     "early_web_hostgrain": (
@@ -136,8 +186,8 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "usenet_body_url": (
-        "Every non-alt Usenet hierarchy of the archive.org collection, 224 GB read whole, "
-        "hosts taken only from explicit http, https and ftp URLs in the post BODY",
+        "Every non-alt Usenet hierarchy (IA), 224 GB read whole, hosts only from explicit "
+        "http, https and ftp URLs in the post body",
         "the post's own machine-written `Date:` header",
     ),
     "isc_survey_host_list": (
@@ -161,7 +211,7 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_bulk": (
-        "IA CDX per-domain queries over bracketed gaps and the candidate pool",
+        "IA CDX per-domain queries over bracketed year gaps and the candidate pool",
         "the capture timestamp of a URL on that host",
     ),
     "usenet_address": (
@@ -436,6 +486,13 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
     list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
     lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
     h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
+    # The server-written-header class, split the way the report argues it: the Usenet
+    # reading on one side, the two mailing-list archives it generalised from on the
+    # other. Summed here rather than typed, so the prose cannot drift from the table.
+    h_usenet_hdr = hosts.get("usenet_server_written_header", (0, Decimal(0)))
+    mail_methods = ("ietf_list_received_by", "apache_list_received_by")
+    mail_hdr = [hosts.get(m, (0, Decimal(0))) for m in mail_methods]
+    h_mail_hdr = (sum(r[0] for r in mail_hdr), sum((r[1] for r in mail_hdr), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
@@ -447,6 +504,10 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
         "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
+        "HOST_USENETHDR_EE": f"{h_usenet_hdr[1]:,.0f}",
+        "HOST_USENETHDR_N": f"{h_usenet_hdr[0]:,}",
+        "HOST_MAILHDR_EE": f"{h_mail_hdr[1]:,.0f}",
+        "HOST_MAILHDR_N": f"{h_mail_hdr[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
         "REG_CDX_EE": f"{total(cdx)[1]:,.0f}",
         "REG_USENET_EE": f"{total(usenet)[1]:,.0f}",
@@ -562,8 +623,53 @@ def substitutions(f: dict) -> dict[str, str]:
     from round_figures import candidate_potential
 
     subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
+    # The candidate TRACK, which he scores separately and at the same rate as the annual
+    # one. Two collections, both counted the way the annual claim is: net-new against his
+    # files. The whole pool is not the claim, and the gap is 78x.
+    pool = candidate_additions()
+    subs["CANDADD"] = f"{pool['candidates']:,}"
+    subs["CANDTRACKEE"] = f"{Decimal(pool['equivalent_english']):,.4f}"
+    subs["CANDTRACKPCT"] = f"{Decimal(pool['equivalent_english']) / f['ee_baseline'] * 100:.4f}%"
+    by_unit = pool.get("by_unit", {})
+    for unit, token in (("registrable", "CANDREG"), ("hostname", "CANDHOST")):
+        row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})
+        subs[token] = f"{row['names']:,}"
+        subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
+
+    # Both scores at the six places he awards in, and the divisor he would use today.
+    # The email states them as he states them, `S = 10 x (p / t)`, so he can check the
+    # arithmetic without opening the report. Bare numbers, because they sit inside his
+    # formula and a percent sign inside it would not be his notation.
+    t_now = t_days_assignment(now_in_his_clock())
+    cand_pct = candidate_growth()
+    subs["TDAYS"] = str(t_now)
+    subs["EEGROWTH6"] = f"{growth:.6f}"
+    subs["SCORE_ANNUAL"] = f"{score(growth, t_now):.6f}"
+    subs["CANDTRACKPCT6"] = f"{cand_pct:.6f}"
+    subs["SCORE_CANDIDATE"] = f"{score(cand_pct, t_now):.6f}"
+
+    # The mail quotes the reconciliation count too, and it is read from the audit rather
+    # than typed, because a mail claiming a pass count the audit does not hold is the one
+    # error he would never have to look for.
+    audit = newest_audit(Path(__file__).resolve().parents[2] / "output/merge")
+    checks = []
+    if audit is not None:
+        checks = json.loads(audit.read_text(encoding="utf-8")).get("reconciliation", [])
+    subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
 
     return subs
+
+
+def candidate_additions() -> dict:
+    """The candidate-track claim as the export measured it, from its own summary.
+
+    Read rather than re-derived: the pool is one file and one number, and a second
+    derivation here would be a second thing to keep in step with the first.
+    """
+    path = NETNEW_DIR / "candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0", "by_unit": {}}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def reproduction_result() -> str:
@@ -603,7 +709,16 @@ def score_rows(growth: Decimal) -> list[ScoreRow]:
     rows = []
     for r in SUBMITTED_ROUNDS:
         t = t_days(r[6], r[7])
-        rows.append(ScoreRow(r[0], r[5], t, score(r[5], t), scored_under_rule(r[7])))
+        s = score(r[5], t)
+        # Where he has stated the score himself, his figure wins over our model of the
+        # rule. Round 8 is why: he divided by 33, our benchmark interval divides by 1,
+        # and summing our reading put S_total at 200.88 in a report whose next sentence
+        # admits we cannot reproduce his divisor. A total he cannot recognise is worse
+        # than no total.
+        his = awarded_score_of(r[0])
+        if his is not None:
+            t, s = his.divisor, his.score
+        rows.append(ScoreRow(r[0], r[5], t, s, scored_under_rule(r[7])))
     t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
     rows.append(
         ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
@@ -682,9 +797,16 @@ def merge_reconciliation() -> str:
         [
             *rows,
             "",
-            f"Overlap with the baseline is **{int(t['already_in_baseline_records']):,} records**, "
-            f"so all {int(t['submitted_records']):,} submitted count once, and "
-            f"**{passed} of {len(checks)} reconciliation checks pass**. "
+            (
+                f"**Not one of the {int(t['submitted_records']):,} records submitted is already "
+                "in the baseline**, so every one of them counts exactly once: the export diffs "
+                "each shipped list against your own annual files before it writes them. "
+                if int(t["already_in_baseline_records"]) == 0
+                else f"Of the {int(t['submitted_records']):,} records submitted, "
+                f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and "
+                "are excluded, so the accepted increment counts each remaining record once. "
+            )
+            + f"**{passed} of {len(checks)} reconciliation checks pass**. "
             "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
             "lowercased line within each year and scores every file with your own calculator; the "
             "per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in "
@@ -693,38 +815,47 @@ def merge_reconciliation() -> str:
     )
 
 
+def as_he_wrote_it(s: Decimal) -> str:
+    """A score with his own trailing digits: he wrote 6.88, not 6.880000."""
+    text = f"{s:f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def candidate_growth() -> Decimal:
+    """The candidate track's growth rate, which he scores separately at the same rate.
+
+    Over the ANNUAL equivalent-English denominator, because that is the denominator his
+    own candidate-pool score divides by, and the constant rather than the figures dict so
+    the sentence can be rendered without a store behind it.
+    """
+    return Decimal(candidate_additions()["equivalent_english"]) / REVIEWER_BASELINE_EE * 100
+
+
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The same two records, as one sentence for the email."""
+    """The two official records in one sentence, written the way he writes them.
+
+    **His figures, in his own arithmetic.** He states one score per round and sets each
+    track out as `S = 10 x (p / t)`, so the total is the sum of the three scores he has
+    quoted rather than our model of them, and this round is given as the two lines he
+    would write himself. His 0903 update replaced the benchmark interval and his round 8
+    divisor fixed its origin: he scored it 10 x (18.769714 / 33) and received it on
+    2026-09-04, and 33 whole calendar days back is 2026-08-02. That was once a question to
+    him. It is not one: the divisor he used is the answer.
+    """
     rows = score_rows(growth)
-    pct, total, scored, _ = _score_parts(rows)
-    this = rows[-1]
-    # Both readings of t_i, because his 0903 update redefined it and the two differ by
-    # almost 4x on this round alone. Quoting one silently would be a claim, not a figure.
-    from ark.figures import t_days_assignment
-
-    t_abs = t_days_assignment(now_in_his_clock())
-    s_abs = score(growth, t_abs)
-    # **He answered the "which t_i" question by using a third value.** Round 8 was scored
-    # 10 x (18.769714 / 33) = 5.687792, and 33 is neither reading we offered: the benchmark
-    # interval gave t = 1 and the assignment interval t = 45 from our pinned origin of
-    # 2026-07-21. So the mail stops offering him a choice of two and asks the one thing
-    # still unknown, which is the date his 33 counts from.
-    from ark.baseline import awarded_score_of
-
-    his = awarded_score_of("8")
-    ask = ""
-    if his is not None:
-        ask = (
-            f" **You scored round 8 as 10 x ({his.percent} / {his.divisor}) = {his.score}.** "
-            f"We cannot reproduce the {his.divisor}: the benchmark interval gives t = 1 and "
-            f"the task-assignment interval t = {t_abs} from 2026-07-21, the earliest date our "
-            f"records support. Which date is t_i counted from, and does it re-score the "
-            f"awarded rounds?"
-        )
+    pct, total, scored, _early = _score_parts(rows)
+    t_now = t_days_assignment(now_in_his_clock())
+    addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
+    labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
+    cand = candidate_growth()
     return (
-        f"Cumulative verified percentage {pct:.4f}%, time-weighted score {total:.6f} over the "
-        f"rounds you scored. This round reads {this.s:.6f} on the benchmark interval and "
-        f"{s_abs:.6f} on the assignment interval.{ask}"
+        f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
+        f"{growth:.4f}% and round 1 on records. Time-weighted score "
+        f"{addends} = {as_he_wrote_it(total)}, your own scores for rounds {labels}. Under "
+        f"your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 "
+        f"days), this round is t = {t_now}. Domain-Year Score: S = 10 x ({growth:.6f} / "
+        f"{t_now}) = {score(growth, t_now):.6f}. Candidate-Pool Score: S = 10 x "
+        f"({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )
 
 
@@ -824,7 +955,7 @@ def datasets_searched(docs: Path | None = None) -> str:
     `sources.md` alone dropped the figure from 495 to 129, which would have
     understated our own work to the reviewer fourfold.
     """
-    docs = docs or Path(__file__).resolve().parents[2] / "docs"
+    docs = docs or Path(__file__).resolve().parents[2] / "docs/registers"
     path = docs / "sources.md"
     if not path.is_file():
         return "_`sources.md` not found beside this report._"

@@ -69,7 +69,9 @@
       "baseline": "merged260826",
       "awarded_percent": "4.130718",
       "benchmark_released": "2026-08-21 11:19",
-      "submission_received": "2026-08-26 15:51"
+      "submission_received": "2026-08-26 15:51",
+      "awarded_score": "6.88",
+      "awarded_score_divisor": 6
     },
     {
       "label": "7",
@@ -79,7 +81,9 @@
       "baseline": "merged260902-2",
       "awarded_percent": "7.562846",
       "benchmark_released": "2026-08-21 11:19",
-      "submission_received": "2026-09-02 05:50"
+      "submission_received": "2026-09-02 05:50",
+      "awarded_score": "6.302372",
+      "awarded_score_divisor": 12
     },
     {
       "label": "8",

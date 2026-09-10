@@ -299,6 +299,20 @@ def candidate_potential() -> tuple[int, Decimal]:
     return names, ee
 
 
+def candidate_track() -> dict:
+    """The candidate-track claim as the export measured it, or an empty result.
+
+    His 0906 update scores candidates separately and at the same rate as annual records,
+    so this is the second of the two numbers a round is judged on and it belongs beside
+    the first. The working pool in `candidates.txt` is not it: measured 2026-09-10 the
+    two were 2,279,755 and 29,327.
+    """
+    path = REPO / "output/netnew/candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0"}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
     """How much of the hostname half is `www.<a name held that same year>`.
 
@@ -384,11 +398,20 @@ def main() -> None:
     )
     c_names, c_ee = candidate_potential()
     if c_names:
-        # Reported separately because his XI says separately, and never added to anything:
-        # a candidate has no in-window evidence, so this is a ceiling on future work.
+        # Reported separately because his XI says separately, and never added to anything.
+        # The CLAIM is the net-new pool, not the working set: he scores the candidate track
+        # at the same rate as the annual one, so it is the number that has to be watched.
         print(
-            f"\n  candidate pool (candidates.txt), NOT part of the increment: "
+            f"\n  candidate pool (candidates.txt), the working set: "
             f"{c_names:,} names, {c_ee:,.4f} EE if every one were later dated"
+        )
+    track = candidate_track()
+    if track["candidates"]:
+        ee = Decimal(track["equivalent_english"])
+        print(
+            f"  CANDIDATE TRACK CLAIM (candidate_additions.txt), scored separately at the "
+            f"same rate: {track['candidates']:,} names, {ee:,.4f} EE, "
+            f"{ee / BASELINE_EE * 100:.6f}% of the same denominator"
         )
 
     mean = ee / pairs

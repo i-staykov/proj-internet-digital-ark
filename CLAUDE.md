@@ -26,19 +26,19 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Two tracks are scored, not one (his 0906 update).** The annual files and the CANDIDATE POOL
-   are "measured and ranked separately", both as `S = 10 x (p / t)`, and both percentages divide
-   by the same annual equivalent-English total, so a candidate point is worth an annual point.
-   Round 8 earned none of it, so undated names are an ASSET to ship: "expanded proactively and
-   made as large as practicable". A candidate must not already sit in an annual file, his or ours.
+2. **Two tracks are scored, not one (his 0906 update), so GATHERING CANDIDATES IS A PRIORITY,
+   not a by-product.** Annual files and the CANDIDATE POOL are "measured and ranked separately",
+   both `S = 10 x (p / t)` over the same annual denominator, so a candidate point is worth an
+   annual point and costs far less: no dating argument, no approval line, no evidence class. A
+   lane producing names it cannot date has still produced a scored result. **Both tracks ship
+   net-new against HIS files, never our copy**, diffed at export time.
 3. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
    The standing priority (Ivo, 2026-09-04); `just hostnames <epoch>` starts that lane. **The
-   sweep's 193,000 EE/client-hour is a PEAK, not a rate, and does not outrank research** (C-77:
-   the same query paid 210 EE/hour two nights on). The token window goes to the workflows; the
-   collectors run beside them and are checked sporadically.
+   sweep's 193,000 EE/client-hour is a PEAK, not a rate** (C-77: 210 EE/hour two nights on). The
+   token window goes to the workflows; collectors run beside them, checked sporadically.
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
-5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices every
-   confirmed FIND on the store, writes the `Decision:` line or raises the approval, and pushes.
+5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
+   confirmed FIND, writes the `Decision:` line or raises the approval, and pushes.
 6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
 ## The ten rules that bind every session
