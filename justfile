@@ -1689,7 +1689,7 @@ ship stage="all" *args:
 schedule what="install" job="":
     #!/usr/bin/env bash
     set -uo pipefail
-    JOBS="com.ark.sync com.ark.cycle com.ark.collectors"
+    JOBS="com.ark.sync com.ark.cycle com.ark.collectors com.ark.digest"
     if [ -n "{{job}}" ]; then
         case " $JOBS " in
         *" {{job}} "*) JOBS="{{job}}" ;;
