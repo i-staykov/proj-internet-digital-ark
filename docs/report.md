@@ -33,13 +33,11 @@ from your six files in every year.
 6,696,064.0603 EE, **19.1935%** of the same denominator, never added to the annual increment.
 It is net-new the way the annual files are, every collection we hold unioned into one pool and then
 diffed against your `candidate_pool.txt` and all six annual files. 13,109,834 are ISC survey
-hostnames, dated by each edition's own code and candidate-only under your 0905 ruling; 29,327 are
-registrables our lanes found without a year we could defend, out of 2,279,755 undated names in
-the working pool, so shipping the pool itself would have overstated that half 78-fold. Provenance is
+hostnames, dated by each edition's own code and candidate-only under your 0905 ruling. Provenance is
 per name and not in the list: `provenance/` and `isc_survey_hostnames/isc_survey_provenance.csv`,
 in the shape you specified on 0906.
 
-Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 18.874694 over the three rounds you scored, your own figure where you stated one. Under your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
+Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 6.88 + 6.302372 + 5.687792 = 18.870164, your own scores for rounds 6, 7 and 8. Under your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39. Domain-Year Score: S = 10 x (5.374421 / 39) = 1.378057. Candidate-Pool Score: S = 10 x (19.193527 / 39) = 4.921417.
 
 ## 2. Where the increment came from, and what dates each record
 
@@ -93,7 +91,7 @@ Before sending, a fresh extraction of this archive was put through that route: a
 | newly identified methods, yields, limitations, what is worth expanding | `findings.md` and `experience-summary.md` (**D2**) |
 | code and instructions to reproduce the workflow | `source/source.tar.gz` at `source/COMMIT.txt`, the autonomous harness as `source/fleet.tar.gz` (**D1**) |
 
-Worth the next hours, in this order: the server-header class at the archives it has not been run
+Promising work I am taking up next, in this order: the server-header class at the archives it has not been run
 against, which needs no new bandwidth; the ISP Usenet hierarchies, where the customer host appears
 rather than the news server; sibling national ccTLD extractions of the shape the Poland index has;
 and promoting ISC candidates as exact-host evidence arrives, the one route that turns

@@ -264,7 +264,16 @@ cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_su
 # The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.
-uv run python scripts/round/unparsed_pool.py --out "$STAGE/candidates_unparsed.txt" || true
+#
+# **Kept in `output/netnew/` and rebuilt only when a journal is newer than it.** The scan is
+# exhaustive by design, and exhaustive now means reading 226 GB of gzip: it cost 25 minutes of
+# every packaging run, repeated in full whenever a report line changed. The journals only grow,
+# so a copy younger than every journal is the same file the scan would write.
+UNPARSED="output/netnew/candidates_unparsed.txt"
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit)" ]; then
+    uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
+fi
+cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level

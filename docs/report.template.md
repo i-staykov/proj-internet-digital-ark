@@ -25,9 +25,7 @@ from your six files in every year.
 [CANDTRACKEE] EE, **[CANDTRACKPCT]** of the same denominator, never added to the annual increment.
 It is net-new the way the annual files are, every collection we hold unioned into one pool and then
 diffed against your `candidate_pool.txt` and all six annual files. [CANDHOST] are ISC survey
-hostnames, dated by each edition's own code and candidate-only under your 0905 ruling; [CANDREG] are
-registrables our lanes found without a year we could defend, out of [CANDIDATES] undated names in
-the working pool, so shipping the pool itself would have overstated that half 78-fold. Provenance is
+hostnames, dated by each edition's own code and candidate-only under your 0905 ruling. Provenance is
 per name and not in the list: `provenance/` and `isc_survey_hostnames/isc_survey_provenance.csv`,
 in the shape you specified on 0906.
 
@@ -70,7 +68,7 @@ invariants run before every commit and again inside this archive.
 | newly identified methods, yields, limitations, what is worth expanding | `findings.md` and `experience-summary.md` (**D2**) |
 | code and instructions to reproduce the workflow | `source/source.tar.gz` at `source/COMMIT.txt`, the autonomous harness as `source/fleet.tar.gz` (**D1**) |
 
-Worth the next hours, in this order: the server-header class at the archives it has not been run
+Promising work I am taking up next, in this order: the server-header class at the archives it has not been run
 against, which needs no new bandwidth; the ISP Usenet hierarchies, where the customer host appears
 rather than the news server; sibling national ccTLD extractions of the shape the Poland index has;
 and promoting ISC candidates as exact-host evidence arrives, the one route that turns
