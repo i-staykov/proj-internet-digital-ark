@@ -39,7 +39,7 @@ the working pool, so shipping the pool itself would have overstated that half 78
 per name and not in the list: `provenance/` and `isc_survey_hostnames/isc_survey_provenance.csv`,
 in the shape you specified on 0906.
 
-Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 18.874694 over the three rounds you scored, your own figure where you stated one. Under your 0903 rule, at the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
+Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 18.874694 over the three rounds you scored, your own figure where you stated one. Under your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
 
 ## 2. Where the increment came from, and what dates each record
 
