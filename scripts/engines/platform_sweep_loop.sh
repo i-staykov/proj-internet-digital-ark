@@ -51,6 +51,7 @@ RPH_MAX="${ARK_RPH_MAX:-8}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
+COSTS="scripts/engines/build_rows_per_host.py"
 DEEP="data/raw/cdx/platform_deep.txt"
 RICH="data/raw/cdx/platform_rich.txt"
 
@@ -201,6 +202,15 @@ refill() {
     # swept, so refill reported "found nothing" and both clients sat idle with a
     # full pool on disk. That cost about an hour of collection on 2026-09-05.
     [ -f "$RANKER" ] || return 1
+    # **The ranker's divisor is only as good as the table behind it, and nothing was
+    # rebuilding that table.** It was written by hand on 2026-09-04 over 339 parents; by
+    # 2026-09-10 the collectors had walked 3,543, so the cost term was live for a tenth of
+    # the queue and everything else fell through to the fallback. Rebuilding is one pass over
+    # the journals, minutes, and only shard 0 does it so the two clients do not both spend
+    # them; `--max-age-hours` makes the call idempotent, so this can be blind.
+    if [ "$SHARD" = "0" ] && [ -f "$COSTS" ]; then
+        nice -n 10 uv run python "$COSTS" --max-age-hours 6 >/dev/null 2>&1 || true
+    fi
     local ranked="data/raw/cdx/ranked_shard${SHARD}.txt"
     uv run python "$RANKER" --net-new --top 20000 --out "$ranked" >/dev/null 2>&1 || return 1
     [ -s "$ranked" ] || return 1
