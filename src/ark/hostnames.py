@@ -123,6 +123,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # host was in use rather than that it served a page, which is the reading his
         # section IV.1 allows and the reason the wall's wording changed with it.
         "apache_list_header_hostnames",
+        # The same clause in the IETF mail archive (`IETF_FAMILY`, C-83 at a second host).
+        "ietf_list_header_hostnames",
     }
 )
 # `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
@@ -1294,6 +1296,33 @@ def _apache_url(item: str) -> str:
 
 
 APACHE_FAMILY = ItemFamily(APACHE_SOURCE, APACHE_METHOD, "list header", _APACHE_ITEM, _apache_url)
+
+# The fifth member, and C-83's class at a SECOND host rather than a new class: the same
+# `Received: ... by <host>` clause in the IETF mail archive, read by
+# `scripts/sources/mail_corpora/collect_ietf_mail_archive.py`, which imports the Apache
+# lane's own parser so the two figures are comparable. No new approval: the field, the
+# reading and the wall are C-83's, and only the host serving the mbox differs.
+#
+# The item is the month file's own path, `www.ietf.org/<tree>/<list>/<file>#<n>`, and the
+# file name is part of the pointer rather than derived from the month, because this archive
+# spells the same month two ways: `1996-03` in the early years and `1999-05.mail` from 1998
+# on. A pointer that guessed the suffix would resolve to a 404 for half the partition.
+IETF_SOURCE = "ietf_list_header_hostnames"
+IETF_METHOD = "ietf_list_received_by"
+_IETF_ITEM = re.compile(
+    r"^www\.ietf\.org/(?P<tree>ietf-mail-archive|concluded-wg-ietf-mail-archive)/"
+    r"(?P<list>[A-Za-z0-9][A-Za-z0-9._+-]*)/"
+    r"(?P<file>(?:199[6-9]|200[01])-(?:0[1-9]|1[0-2])(?:\.mail)?)#\d+$"
+)
+
+
+def _ietf_url(item: str) -> str:
+    m = _IETF_ITEM.match(item)
+    assert m is not None  # the caller matched it already
+    return f"https://www.ietf.org/ietf-ftp/{m['tree']}/{m['list']}/{m['file']}"
+
+
+IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
 
 
 def usenet_item_rows(
