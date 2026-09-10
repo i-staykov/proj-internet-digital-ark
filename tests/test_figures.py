@@ -114,12 +114,14 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     spec.loader.exec_module(fill_report)
     monkeypatch.setattr(fill_report, "now_in_his_clock", lambda: "2026-09-03 10:00")
     text = fill_report.cumulative({}, Decimal("1.5"))
-    # Round 8 entered the rule on 2026-09-05 and dominates it: received 1h50m after the
-    # benchmark it was measured against, so t = 1 and its 18.769714% scores 187.697140.
-    assert "**S = 200.884042**" in text
+    # Round 8 is quoted at HIS divisor, not ours. Received 1h50m after the benchmark it was
+    # measured against, our benchmark interval gives t = 1 and an S of 187.697140, which put
+    # the total at 200.884042 in a report whose next sentence says we cannot reproduce his
+    # 33. Where he has stated a score, his figure is the one that is summed.
+    assert "**S = 18.874694**" in text
     assert "6: 4.130718% / 6d = 6.884530" in text
     assert "7: 7.562846% / 12d = 6.302372" in text
-    assert "8: 18.769714% / 1d = 187.697140" in text
+    assert "8: 18.769714% / 33d = 5.687792" in text
     assert "would add 15.000000 at t = 1" in text
     assert "Rounds 1, 3, 4 and 5 predate the rule" in text
     assert "5: 14.901054% / 2d = 74.505270" in text
@@ -128,7 +130,7 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # t_i; on 2026-09-05 he scored round 8 by a THIRD (divisor 33), so it now states his own
     # figure and asks the only thing still unknown, which is the date that 33 counts from.
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
-    assert "time-weighted score 200.884042" in sentence
+    assert "Time-weighted score 18.874694" in sentence
     assert "10 x (18.769714 / 33) = 5.687792" in sentence
     assert "cannot reproduce the 33" in sentence
     assert "Which date is t_i counted from" in sentence
