@@ -73,6 +73,43 @@ def split(names: list[str], shard: int, tmp_path: Path) -> list[str]:
     return done.stdout.split()
 
 
+def _dedupe(queue: list[str], refill: list[str], tmp_path: Path) -> list[str]:
+    """The refill's own filter, lifted from the script: what is not already queued.
+
+    The line is read out of the script rather than copied here, so a change to it is
+    tested rather than shadowed by a stale copy.
+    """
+    parents = tmp_path / "queue.txt"
+    parents.write_text("".join(f"{n}\n" for n in queue))
+    (tmp_path / "queue.txt.refill").write_text("".join(f"{n}\n" for n in refill))
+    line = next(
+        ln for ln in SCRIPT.read_text().splitlines() if ln.strip().startswith("awk 'FILENAME")
+    )
+    done = subprocess.run(
+        ["bash", "-c", f'PARENTS="$1"; {line.strip().rstrip(chr(92))}', "dedupe", str(parents)],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    assert done.returncode == 0, done.stderr
+    return done.stdout.split()
+
+
+def test_an_empty_queue_can_still_be_refilled(tmp_path: Path) -> None:
+    """The filter ran on `NR==FNR`, which is a lie about an EMPTY first file.
+
+    NR==FNR means "still reading the first file" only while that file has records. With
+    an empty queue, NR and FNR stay equal for every line of the second file, so awk took
+    the whole refill list as the seen set and printed nothing. refill reported "found
+    nothing" and both clients idled for nine hours with 8,624 unswept parents on disk.
+    """
+    assert _dedupe([], ["a.com", "b.com"], tmp_path) == ["a.com", "b.com"]
+
+
+def test_the_refill_does_not_re_queue_what_is_already_there(tmp_path: Path) -> None:
+    assert _dedupe(["b.com"], ["a.com", "b.com", "c.com"], tmp_path) == ["a.com", "c.com"]
+
+
 def test_the_two_shards_share_no_parent(tmp_path: Path) -> None:
     """The issue's test: one parent, at most one client."""
     zero = split(PARENTS, 0, tmp_path)
