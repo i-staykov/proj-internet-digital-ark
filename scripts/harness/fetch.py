@@ -158,19 +158,24 @@ REDIRECTS = {301, 302, 303, 307, 308}
 MAX_HOPS = 5
 
 
-def get(url: str, timeout: float, start: int | None = None) -> tuple[int, dict, object]:
+def get(
+    url: str, timeout: float, start: int | None = None, end: int | None = None
+) -> tuple[int, dict, object]:
     """One request with the honest User-Agent. Returns (status, headers, body stream).
 
     Headers come back with lower-cased keys. HTTP field names are case-insensitive and a
     plain `dict(response.headers)` is not: a server sending `content-type:` in lower case
     read as unnamed, and a lower-case `content-length` skipped the first cap check.
 
-    `start` asks for the rest of the artifact from that byte, which is how a transfer that
-    ended early is continued rather than restarted.
+    `start` and `end` ask for one span of the artifact, which is how a transfer that ended
+    early is continued rather than restarted. **The span is bounded on purpose.** An
+    open-ended `bytes=N-` past 2 GiB is answered 206 by the archive and then delivers
+    nothing at all, while the same byte asked for as `bytes=N-M` comes back with a correct
+    `Content-Range`. Measured against the UKWA artifact on 2026-09-11.
     """
     fields = {"User-Agent": USER_AGENT}
     if start is not None:
-        fields["Range"] = f"bytes={start}-"
+        fields["Range"] = f"bytes={start}-{end}" if end is not None else f"bytes={start}-"
     request = urllib.request.Request(url, headers=fields)
     try:
         response = _OPENER.open(request, timeout=timeout)  # noqa: S310
@@ -409,6 +414,9 @@ def stream(body, out, cap: int, digest=None, seen: int = 0) -> tuple[int, str, b
 
 
 MAX_RESUMES = 200
+# Big enough that a 20 GB artifact is tens of rounds, small enough to stay inside
+# whatever the far side can count: the wall this exists for is at 2 GiB.
+RESUME_CHUNK = 512 * 1024 * 1024
 
 
 def _append_no_symlink(path: str):
@@ -448,7 +456,8 @@ def resume(
     for _ in range(MAX_RESUMES):
         if have >= declared:
             return have, None
-        status, headers, body = opener(url, timeout, have)
+        stop = min(have + RESUME_CHUNK, declared) - 1
+        status, headers, body = opener(url, timeout, have, stop)
         with body:
             if status in RETRY_STATUS:
                 wait = retry_after_seconds(headers)
