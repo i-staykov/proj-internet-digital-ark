@@ -226,7 +226,13 @@ refill() {
         [ -s "$parked" ] && awk 'NF && $1 !~ /^#/ {print $1}' "$parked" >> "$PARENTS.parked"
     done
     shard_split "$SHARD" "$PARENTS.parked" "$ranked" > "$PARENTS.refill" || return 1
-    awk 'NR==FNR {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
+    # **`FILENAME`, not `NR==FNR`, because the queue file can be EMPTY.** NR==FNR means
+    # "still reading the first file" only while that file has records in it: with an empty
+    # queue, NR and FNR stay equal for every line of the SECOND file, so awk took the whole
+    # refill list as the seen set and printed nothing. refill then reported "found nothing"
+    # and both clients idled for nine hours on 2026-09-11 with 8,624 unswept parents on
+    # disk, because a queue emptied by hand is a queue that can never be refilled.
+    awk 'FILENAME == ARGV[1] {seen[$0]=1; next} !seen[$0]' "$PARENTS" "$PARENTS.refill" \
         | while IFS= read -r p; do
             [ -e "data/raw/cdx_suffix/suffix_${p//./_}.done" ] \
                 || grep -qxF "$p" "$DEEP" 2>/dev/null || echo "$p"
