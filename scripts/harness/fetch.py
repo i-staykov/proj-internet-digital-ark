@@ -413,6 +413,23 @@ def stream(body, out, cap: int, digest=None, seen: int = 0) -> tuple[int, str, b
         out.write(chunk)
 
 
+def _size(path: str | None) -> int:
+    try:
+        return os.path.getsize(path) if path else 0
+    except OSError:
+        return 0
+
+
+def _rehash(path: str, digest) -> None:
+    """Hash what a previous run already wrote, so the resume can carry on from it."""
+    with open(path, "rb") as fh:
+        while True:
+            chunk = fh.read(1024 * 1024)
+            if not chunk:
+                return
+            digest.update(chunk)
+
+
 MAX_RESUMES = 200
 # Big enough that a 20 GB artifact is tens of rounds, small enough to stay inside
 # whatever the far side can count: the wall this exists for is at 2 GiB.
@@ -617,6 +634,32 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                 # The hash is kept as an object rather than a hex string, because a
                 # transfer continued with `Range` has to go on hashing where it stopped.
                 hasher = hashlib.sha256()
+
+                # **A part-file from a previous run is continued, not thrown away.** The
+                # runner kills the job at 90 minutes and a 20 GB artifact does not always
+                # arrive inside one, so without this each dispatch starts at zero and the
+                # fetch can never finish however many times it is asked. What is on disk is
+                # hashed first, which is the only way the sha256 can still be the whole
+                # artifact's. The declared length is the authority on whether it is a part.
+                on_disk = _size(receipt["path"]) if not to_pipe else 0
+                if declared is not None and 0 < on_disk < declared:
+                    body.close()
+                    print(
+                        f"fetch: {on_disk} of {declared} bytes are already here, hashing "
+                        "them and continuing",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    _rehash(receipt["path"], hasher)
+                    total, why = resume(
+                        url, receipt["path"], on_disk, declared, hasher, cap, timeout, sleep
+                    )
+                    receipt["bytes"], receipt["sha256"] = total, hasher.hexdigest()
+                    if why is not None:
+                        receipt["reason"] = why
+                        return HTTP_FAILED, receipt
+                    receipt["reason"] = f"fetched {total} bytes, continuing an earlier run"
+                    return OK, receipt
                 try:
                     if to_pipe:
                         total, digest, over = stream(body, sys.stdout.buffer, cap, hasher)
