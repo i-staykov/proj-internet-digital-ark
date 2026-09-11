@@ -537,8 +537,8 @@ def _opener(rounds):
     """A fake server: each call returns the next (status, headers, body) in the list."""
     calls = []
 
-    def opener(url, timeout, start=None):
-        calls.append(start)
+    def opener(url, timeout, start=None, end=None):
+        calls.append((start, end))
         status, headers, body = rounds[min(len(calls) - 1, len(rounds) - 1)]
         return status, headers, _Body(body)
 
@@ -558,7 +558,9 @@ def test_a_wall_at_two_gibibytes_is_continued_with_range(tmp_path):
     assert (total, why) == (21, None)
     assert path.read_bytes() == b"first-halfsecond-half"
     assert digest.hexdigest() == hashlib.sha256(b"first-halfsecond-half").hexdigest()
-    assert opener.calls == [10], "it asks for the rest, from where it stopped"
+    # Bounded, not open-ended: `bytes=N-` past 2 GiB is answered 206 and then delivers
+    # nothing, while `bytes=N-M` comes back with a correct Content-Range.
+    assert opener.calls == [(10, 20)], "it asks for a bounded span from where it stopped"
 
 
 def test_a_server_that_ignores_the_range_is_refused(tmp_path):
