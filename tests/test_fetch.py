@@ -12,7 +12,9 @@ the assertion.
 """
 
 import gzip
+import hashlib
 import importlib.util
+import io
 import json
 import os
 import socket
@@ -517,9 +519,120 @@ def test_a_connection_that_dies_mid_body_exits_seven_and_leaves_nothing(serve, p
     code, receipt, err = run(f"{server.base}/half.txt")
     assert code == fetch.HTTP_FAILED, (receipt, err)
     assert "Traceback" not in err
-    assert "20 of" in receipt["reason"], receipt["reason"]
+    # It now tries to continue with Range first; this server answers 200 to one, which
+    # means "starting over", and appending that would duplicate what is already here.
+    assert "ignored the Range header" in receipt["reason"], receipt["reason"]
     assert receipt["path"] is None
     assert list(probe.iterdir()) == [], "a part-file was left behind"
+
+
+# ------------------------------------------------------- continuing a short transfer
+
+
+class _Body(io.BytesIO):
+    """A response body: bytes that can be read and closed like a stream."""
+
+
+def _opener(rounds):
+    """A fake server: each call returns the next (status, headers, body) in the list."""
+    calls = []
+
+    def opener(url, timeout, start=None):
+        calls.append(start)
+        status, headers, body = rounds[min(len(calls) - 1, len(rounds) - 1)]
+        return status, headers, _Body(body)
+
+    opener.calls = calls
+    return opener
+
+
+def test_a_wall_at_two_gibibytes_is_continued_with_range(tmp_path):
+    """The UKWA dataset ends every continuous stream at exactly 2 GiB and answers 206."""
+    path = tmp_path / "artifact.gz"
+    path.write_bytes(b"first-half")
+    digest = hashlib.sha256(b"first-half")
+    opener = _opener([(206, {}, b"second-half")])
+    total, why = fetch.resume(
+        "https://host/x.gz", str(path), 10, 21, digest, 1 << 40, 5.0, opener=opener
+    )
+    assert (total, why) == (21, None)
+    assert path.read_bytes() == b"first-halfsecond-half"
+    assert digest.hexdigest() == hashlib.sha256(b"first-halfsecond-half").hexdigest()
+    assert opener.calls == [10], "it asks for the rest, from where it stopped"
+
+
+def test_a_server_that_ignores_the_range_is_refused(tmp_path):
+    """200 to a Range means starting over, and appending that duplicates the artifact."""
+    path = tmp_path / "artifact.gz"
+    path.write_bytes(b"first-half")
+    total, why = fetch.resume(
+        "https://host/x.gz",
+        str(path),
+        10,
+        21,
+        hashlib.sha256(b"first-half"),
+        1 << 40,
+        5.0,
+        opener=_opener([(200, {}, b"first-halfsecond-half")]),
+    )
+    assert total == 10
+    assert "ignored the Range header" in why
+    assert path.read_bytes() == b"first-half", "nothing was appended"
+
+
+def test_a_resume_that_stops_making_progress_gives_up(tmp_path):
+    path = tmp_path / "artifact.gz"
+    path.write_bytes(b"first-half")
+    total, why = fetch.resume(
+        "https://host/x.gz",
+        str(path),
+        10,
+        21,
+        hashlib.sha256(b"first-half"),
+        1 << 40,
+        5.0,
+        opener=_opener([(206, {}, b"")]),
+    )
+    assert total == 10
+    assert "stopped making progress" in why
+
+
+def test_the_cap_still_binds_while_resuming(tmp_path):
+    """What is already on disk counts, so a resume cannot walk past the caller's ceiling."""
+    path = tmp_path / "artifact.gz"
+    path.write_bytes(b"first-half")
+    total, why = fetch.resume(
+        "https://host/x.gz",
+        str(path),
+        10,
+        21,
+        hashlib.sha256(b"first-half"),
+        15,
+        5.0,
+        opener=_opener([(206, {}, b"second-half")]),
+    )
+    assert "passed the 15 byte cap" in why
+    assert total >= 10
+
+
+def test_a_throttled_round_waits_and_carries_on(tmp_path):
+    path = tmp_path / "artifact.gz"
+    path.write_bytes(b"first-half")
+    slept = []
+    opener = _opener([(503, {"retry-after": "3"}, b""), (206, {}, b"second-half")])
+    total, why = fetch.resume(
+        "https://host/x.gz",
+        str(path),
+        10,
+        21,
+        hashlib.sha256(b"first-half"),
+        1 << 40,
+        5.0,
+        sleep=slept.append,
+        opener=opener,
+    )
+    assert (total, why) == (21, None)
+    assert slept == [3.0]
 
 
 # ---------------------------------------------------------------- the two roots
