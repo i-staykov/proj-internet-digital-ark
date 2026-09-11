@@ -637,6 +637,46 @@ def test_a_throttled_round_waits_and_carries_on(tmp_path):
     assert slept == [3.0]
 
 
+def test_a_part_file_from_an_earlier_run_is_continued(serve, probe, monkeypatch):
+    """The runner kills the job at 90 minutes and a 20 GB artifact may need longer.
+
+    Without this each dispatch starts at zero and the fetch can never finish, however
+    many times it is asked.
+    """
+    whole = b"the first part only\n" + b"x" * 80
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/half.txt": (
+                200,
+                {"Content-Type": "text/plain", "Content-Length": str(len(whole))},
+                whole[:20],
+            ),
+        }
+    )
+    part = probe / "half.txt"
+    part.write_bytes(whole[:20])
+
+    rounds = [(206, {}, whole[20:])]
+    calls = []
+    plain = fetch.get
+
+    def opener(url, timeout, start=None, end=None):
+        if start is None:
+            return plain(url, timeout)
+        calls.append((start, end))
+        status, headers, body = rounds[0]
+        return status, headers, io.BytesIO(body)
+
+    monkeypatch.setattr(fetch, "get", opener)
+    code, receipt = fetch.fetch(f"{server.base}/half.txt", 1 << 30, str(probe), 10.0)
+    assert code == fetch.OK, receipt
+    assert receipt["bytes"] == len(whole)
+    assert receipt["sha256"] == hashlib.sha256(whole).hexdigest()
+    assert part.read_bytes() == whole
+    assert calls == [(20, len(whole) - 1)]
+
+
 # ---------------------------------------------------------------- the two roots
 
 
