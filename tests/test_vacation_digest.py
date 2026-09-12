@@ -14,6 +14,8 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts/harness"))
@@ -47,6 +49,16 @@ def snapshot(**overrides) -> dict:
     }
     base.update(overrides)
     return base
+
+
+# Kept before the autouse stub replaces it, so the probe's own tests can call the real one.
+REAL_WAVES = digest.waves
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """The fleet probe asks GitHub. No test here is allowed to, so it answers `unknown`."""
+    monkeypatch.setattr(digest, "waves", lambda now, limit=20: None)
 
 
 def test_the_share_of_the_gate_is_the_headline(monkeypatch) -> None:
@@ -105,3 +117,56 @@ def test_the_shipped_brief_can_be_composed() -> None:
         return
     title, body = digest.compose(json.loads(brief.read_text(encoding="utf-8")))
     assert title and "Round" in body
+
+
+def test_a_dark_fleet_is_an_alarm_the_title_carries(monkeypatch) -> None:
+    """2026-09-11: the plan job died for 36 hours and this page reported green throughout."""
+    monkeypatch.setattr(digest, "journal_activity", lambda now, root=None: (41, 0.2))
+    monkeypatch.setattr(digest, "clients", lambda: 2)
+    monkeypatch.setattr(digest, "waves", lambda now, limit=20: (35.6, 12))
+    title, body = digest.compose(snapshot(), now=NOW.timestamp())
+    assert title.startswith("STALLED (fleet dark)")
+    assert "last good wave 35.6 h ago, 12 failed since" in body
+
+
+def test_a_working_fleet_is_not_an_alarm(monkeypatch) -> None:
+    monkeypatch.setattr(digest, "journal_activity", lambda now, root=None: (41, 0.2))
+    monkeypatch.setattr(digest, "clients", lambda: 2)
+    monkeypatch.setattr(digest, "waves", lambda now, limit=20: (0.4, 0))
+    title, body = digest.compose(snapshot(), now=NOW.timestamp())
+    assert not title.startswith("STALLED")
+    assert "last good wave 0.4 h ago, nothing failed since" in body
+
+
+def test_a_fleet_that_cannot_be_asked_is_not_an_alarm(monkeypatch) -> None:
+    """A laptop off the network must still post the rest of the page."""
+    monkeypatch.setattr(digest, "journal_activity", lambda now, root=None: (41, 0.2))
+    monkeypatch.setattr(digest, "clients", lambda: 2)
+    title, body = digest.compose(snapshot(), now=NOW.timestamp())
+    assert not title.startswith("STALLED")
+    assert "could not be asked from here" in body
+
+
+def test_the_probe_counts_the_failures_newer_than_the_last_good_wave(monkeypatch) -> None:
+    rows = [
+        {"conclusion": "failure", "createdAt": "2026-09-12T19:16:42Z"},
+        {"conclusion": "cancelled", "createdAt": "2026-09-12T18:00:00Z"},
+        {"conclusion": "failure", "createdAt": "2026-09-12T17:05:00Z"},
+        {"conclusion": "success", "createdAt": "2026-09-12T15:00:00Z"},
+        {"conclusion": "failure", "createdAt": "2026-09-12T14:00:00Z"},
+    ]
+    monkeypatch.setattr(digest, "gh", lambda args: (0, json.dumps(rows)))
+    since, failed = REAL_WAVES(NOW.timestamp())
+    assert failed == 2, (
+        "a cancelled wave is not a failure, and one older than the good one is not counted"
+    )
+    assert since == pytest.approx(hours(datetime(2026, 9, 12, 15, tzinfo=UTC)), abs=0.01)
+
+
+def test_a_probe_github_refuses_reads_as_unknown_rather_than_zero(monkeypatch) -> None:
+    monkeypatch.setattr(digest, "gh", lambda args: (1, "gh: not authenticated"))
+    assert REAL_WAVES(NOW.timestamp()) is None
+
+
+def hours(when: datetime) -> float:
+    return (NOW.timestamp() - when.timestamp()) / 3600.0
