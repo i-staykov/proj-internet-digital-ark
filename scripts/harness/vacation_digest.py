@@ -59,6 +59,12 @@ _ADDRESS = re.compile(r"\b\d{1,3}(\.\d{1,3}){3}\b|@")
 STALL_HOURS = 4.0
 BRIEF_STALL_HOURS = 3.0
 
+# The fleet repository is private, so it is named here and never in what gets posted.
+FLEET = "i-staykov/ark-fleet"
+# Three hours is eight scheduled waves. Fewer would alarm on a queue; more would repeat
+# 2026-09-11, when the plan job died for 36 hours and this page reported green throughout.
+FLEET_STALL_HOURS = 3.0
+
 
 def hours_since(stamp: float, now: float) -> float:
     return (now - stamp) / 3600
@@ -116,6 +122,45 @@ def triage_top(limit: int = 5, docs: list[Path] | None = None) -> tuple[int, lis
     return len(open_ones), sorted(open_ones, key=lambda row: -row[0])[:limit]
 
 
+def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
+    """(hours since the last wave that worked, failures newer than it), or None if unknown.
+
+    **Why the digest asks GitHub rather than a file.** The fleet writes nothing to this
+    laptop until a wave collects, so a fleet that never gets as far as dealing a leg is
+    invisible in exactly the way a dead collector is not. Asking costs one API call.
+
+    Unknown is not an alarm: a laptop off the network must still post the rest of the page.
+    """
+    code, out = gh(
+        [
+            "run",
+            "list",
+            "--repo",
+            FLEET,
+            "--workflow",
+            "wave.yaml",
+            "--limit",
+            str(limit),
+            "--json",
+            "conclusion,createdAt",
+        ]
+    )
+    if code:
+        return None
+    try:
+        rows = json.loads(out or "[]")
+    except ValueError:
+        return None
+    failures = 0
+    for row in rows:  # newest first
+        if row.get("conclusion") == "success":
+            good = datetime.fromisoformat(row["createdAt"].replace("Z", "+00:00"))
+            return hours_since(good.timestamp(), now), failures
+        if row.get("conclusion") not in (None, "cancelled", "skipped"):
+            failures += 1
+    return (None, failures) if rows else None
+
+
 def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
     """(title, body). The title carries the alarm, because that is all a phone shows."""
     now = now or time.time()
@@ -134,6 +179,9 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
         stalled.append("collectors quiet")
     if brief_age > BRIEF_STALL_HOURS:
         stalled.append("sync quiet")
+    fleet = waves(now)
+    if fleet and (fleet[0] is None or fleet[0] > FLEET_STALL_HOURS):
+        stalled.append("fleet dark")
     stamp = datetime.fromtimestamp(now, UTC).strftime("%Y-%m-%d %H:%M UTC")
     mark = f"STALLED ({', '.join(stalled)}): " if stalled else ""
     title = f"{mark}round {brief['round']} at {share:.1f}% of the gate, {stamp}"
@@ -150,6 +198,7 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
         f"- collectors: {running} of 2 clients, {day} journals closed in 24 h, "
         + (f"last write {since_journal:.1f} h ago" if since_journal is not None else "none yet"),
         f"- last bank: {brief_age:.1f} h ago. Free space: {free_gib:,.0f} GiB.",
+        "- fleet: " + fleet_line(fleet),
         f"- waiting on you: {len(priced)} priced classes, {len(open_titles())} open decisions.",
         "",
     ]
@@ -169,6 +218,19 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
     ]
     body = "\n".join(line for line in lines if not _ADDRESS.search(line))
     return title, body
+
+
+def fleet_line(fleet: tuple[float | None, int] | None) -> str:
+    """One line about the waves, in the same voice as the collector line above it."""
+    if fleet is None:
+        return "could not be asked from here"
+    since, failed = fleet
+    late = (
+        "no wave has worked in the last 20"
+        if since is None
+        else f"last good wave {since:.1f} h ago"
+    )
+    return late + (f", {failed} failed since" if failed else ", nothing failed since")
 
 
 def gh(args: list[str]) -> tuple[int, str]:
