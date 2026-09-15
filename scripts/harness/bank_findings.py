@@ -243,19 +243,23 @@ ROW_LIMIT = 500
 _LEDGER = "see the fleet hypothesis ledger"
 
 
-def _within_limit(cells: list[str]) -> str:
-    """The row, trimming the prose cells in order until the whole row fits.
+def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
+    """The row, trimming the prose cells in `order` until the whole row fits.
 
     Method first and probe second, because those are the two a wave writes freely; every
     other cell is a slug, a figure, a verdict or a link, and a truncated link is worse than
     a long row. If both are down to the pointer and the row is still long, it is returned
     long: that is a row worth a human looking at, not one worth mangling.
+
+    The closed row has one prose cell, its reason, and passes `(3,)`. It went without this
+    guard until 2026-09-13, when one 898-character reason failed the gate and the dirty
+    register refused every hourly sync for forty hours.
     """
 
     def assemble() -> str:
         return "| " + " | ".join(cells) + " |"
 
-    for index in (3, 7):
+    for index in order:
         if len(assemble()) <= ROW_LIMIT:
             break
         overhead = len(assemble()) - len(cells[index])
@@ -298,7 +302,7 @@ def closed_row(f: dict, run_label: str) -> str:
         url.group(0) if url else "",
     ]
     tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
-    return "| " + " | ".join(tidy) + " |"
+    return _within_limit(tidy, order=(3,))
 
 
 def append_closed(rows: list[str]) -> None:

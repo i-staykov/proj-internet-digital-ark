@@ -219,3 +219,24 @@ def test_the_recipe_never_stages_the_ledger_unconditionally():
     recipe = (ROOT / "justfile").read_text(encoding="utf-8")
     assert "git add hypotheses.md leads" not in recipe
     assert "[ -f hypotheses.md ] && git add hypotheses.md" in recipe
+
+
+def test_a_closed_row_never_exceeds_the_register_line_limit():
+    """2026-09-13: one 898-character reason failed the gate and the dirty register refused
+    every hourly sync for forty hours. The reason is trimmed to the ledger pointer, never
+    the slug or the link."""
+    # The real row: the lead's `lens` had swallowed the scout's whole verdict, and that
+    # cell had no cap of its own.
+    lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
+    finding = {
+        "slug": "a-lead",
+        "verdict": "CLOSED",
+        "ee": "0",
+        "fields": {"artifact": "http://example.invalid/data.gz"},
+        "lead": {"lens": lens},
+    }
+    row = scribe.closed_row(finding, "wave-1")
+    assert len(row) <= scribe.ROW_LIMIT
+    assert row.startswith("| a-lead / unclassified |")
+    assert row.endswith("| http://example.invalid/data.gz |")
+    assert scribe._LEDGER in row
