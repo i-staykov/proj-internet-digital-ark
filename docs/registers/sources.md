@@ -1162,6 +1162,8 @@ section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
+| dk-hostmaster-dk-zonen-domains-txt-wayback-2001 | 2026-09-15, fleet 20260915T1502Z | n/a | n/a | n/a | n/a | fleet 43,674.0 EE, store not re-priced: verify pending (2026-09-15) | n/a | n/a | FIND (pending) | <http://web.archive.org/web/20011218001722id_/http://www.dk-hostmaster.dk/domaincount/domains.txt> |
+| flossmole-sf-registration-date-dump-project-subdomains | 2026-09-15, fleet 20260915T1502Z | n/a | n/a | n/a | n/a | fleet 7,446.0 EE, store not re-priced: verify disputed (2026-09-15) | n/a | n/a | FIND (disputed) | <http://flossdata.syr.edu/data/sf/2004/sfRawData21-Oct-2004.tar.gz> |
 | brief-audit: the corroboration split is keyed to authorship, and his IV.1 keys evidence to shape | 2026-09-11, fleet 20260911T1106Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-11) | n/a | n/a | FIND | n/a |
 | ia-poland-pl-cctld-2001-extraction-collection | 2026-09-11, fleet 20260911T1106Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-11) | n/a | n/a | FIND | n/a |
 | ietf-mail-archive-received-by | 2026-09-09, fleet 20260909T2047Z | n/a | **the extractor is the approved class's own code.** `extract.py` imports `BOUNDARY`, | the message's own RFC 822 `Date:` header, cross-checked against the | n/a | fleet 4,914.2 EE, store not re-priced: verify pending (2026-09-09) | n/a | n/a | FIND (pending) | <https://www.ietf.org/ietf-ftp/ietf-mail-archive/> |

@@ -271,6 +271,10 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
     return assemble()
 
 
+def is_brief_audit(f: dict) -> bool:
+    return f["slug"].startswith("brief-audit-") or f["fields"].get("lens", "") == "brief-audit"
+
+
 def closed_row(f: dict, run_label: str) -> str:
     """The five-column row a measured negative gets, in `sources-closed.md`.
 
@@ -282,8 +286,13 @@ def closed_row(f: dict, run_label: str) -> str:
     """
     day = dt.date.today().isoformat()
     lead = f.get("lead") or {}
-    etype = lead.get("evidence_class") or f["fields"].get("evidence class") or "unclassified"
-    lens = lead.get("lens") or f["fields"].get("lens") or "no lens recorded"
+    # A class is a token like `link_source` and a lens a name like `registry-publications`.
+    # Both arrive as a wave wrote them, and 2026-09-15 they arrived as 490 characters of
+    # the scout's reasoning; the row is an index entry, so each is held to a clause.
+    etype = first_clause(
+        lead.get("evidence_class") or f["fields"].get("evidence class") or "unclassified", 80
+    )
+    lens = first_clause(lead.get("lens") or f["fields"].get("lens") or "no lens recorded", 60)
     url = _URL.search(
         f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
     )
@@ -381,6 +390,13 @@ def main() -> int:
     for f in findings:
         if f["slug"] in already:
             print(f"already booked: {f['slug']} has a row, not written again")
+    # A brief audit is a leg reading his brief against a rule of ours, and its verdict FIND
+    # means "a rule to decide", not a source with a figure. One reached `sources.md` on
+    # 2026-09-15 as a FIND row at 0 EE. It stays in the drain for a human and an issue.
+    audits = [f for f in fresh if is_brief_audit(f)]
+    for f in audits:
+        print(f"rule audit, not a source: {f['slug']} is left in the drain for a human to file")
+    fresh = [f for f in fresh if not is_brief_audit(f)]
     # Two registers, and which one a finding goes to is its verdict. A FIND is a measurement
     # worth reading beside the others; everything else is a closed row so nobody re-tests it.
     rows = [register_row(f, args.run_label) for f in fresh if f["verdict"] == "FIND"]
