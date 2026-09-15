@@ -137,6 +137,12 @@ def surface(key: str, etype: str, lead: dict, store: dict, decisions: Path | Non
         f"`approved-sources-list.md`; merge the approval pull request to say yes, close it to "
         f"leave the source pending.\n\nWorth: {store['ee']:.0f} EE."
     )
+    if decisions is not None and not Path(decisions).is_file():
+        # A register somewhere else, as in a test, has no decisions document beside it.
+        # Writing to the real one from there is what put a fake entry into the live
+        # `key-decisions.md` on 2026-09-15 and had the hourly sync refuse a dirty clone.
+        print(f"request: no decisions document at {decisions}, OPEN entry not written")
+        return False
     return raise_open(f"Approve {key} / {etype}", body, decisions)
 
 
@@ -189,7 +195,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("incoming", type=Path)
     ap.add_argument("--register", type=Path, default=REGISTER)
     ap.add_argument("--write", action="store_true", help="without it, say what it would write")
-    ap.add_argument("--decisions", type=Path, default=None, help="key-decisions.md, for tests")
+    ap.add_argument(
+        "--decisions",
+        type=Path,
+        default=None,
+        help="key-decisions.md; by default the one beside the register, docs/lore/key-decisions.md",
+    )
     args = ap.parse_args(argv)
 
     incoming = args.incoming.expanduser()
@@ -214,7 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
         if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
             append(args.register, block(lead_dir, finding, lead, store))
-            surface(key, etype, lead, store, args.decisions)
+            decisions = args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
+            surface(key, etype, lead, store, decisions)
             print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
         written += 1
     if args.write:
