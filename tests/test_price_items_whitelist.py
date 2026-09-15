@@ -54,3 +54,12 @@ def test_a_filename_with_a_real_tld_suffix_is_the_known_upper_bound() -> None:
     pattern over prose overcounts. The report says so rather than pretending otherwise:
     this test pins the behaviour so the caveat cannot quietly stop being true."""
     assert price_items.wide_domains_in("open readme.md now") == {"readme.md"}
+
+
+def test_an_items_own_host_field_is_a_name_whatever_its_text_says() -> None:
+    """2026-09-15: 358,529 dated .dk names priced at 0 EE because the text held only the
+    stamp and the name sat in `host`, which nothing read."""
+    record = {"host": "0---0-animal.dk", "year": 2001, "text": "DK Zonen header 20010413"}
+    assert price_items.field_names(record) == {"0---0-animal.dk"}
+    assert price_items.field_names({"text": "just prose"}) == set()
+    assert price_items.field_names({"domain": "www.example.co.uk"}) == {"example.co.uk"}
