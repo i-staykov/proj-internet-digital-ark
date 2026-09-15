@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| edrm-enron-v2-eml-received-relay-hosts / unclassified | 2026-09-16, fleet 20260915T2306Z | 37000 EE | lens academic-datasets Received: from content119b.lga2.nytimes.co. FIND, estimated 6,000 to 37,000 EE against a 5,000 floor, blocked on a download |  |
 | dns-be-last-registered-feed-wayback-2001 / unclassified | 2026-09-15, fleet 20260915T1710Z | 10.35 EE | lens registry-publications. CLOSED. |  |
 | sk-nic-domeny-txt-full-register-wayback-2001 / cctld_register_listing_capture | 2026-09-15, fleet 20260915T1710Z | not priced | lens registry-publications. agent produced no findings file | https://web.archive.org/web/20011212152238id_/http://www.sk-nic.sk/domeny.txt |
 | public-proxy-list-directories-checked-stamp-hostnames / unclassified | 2026-09-15, fleet 20260915T1639Z | not priced | lens dated-directories text/html, sha256 `024253e002a7842d6270b7a. CLOSED. |  |
