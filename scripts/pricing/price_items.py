@@ -94,6 +94,22 @@ def wide_domains_in(text: str) -> set[str]:
     return out
 
 
+def field_names(record: dict) -> set[str]:
+    """The name an item carries in its own field, beside whatever its prose says.
+
+    A fleet price leg writes `{host, year, text}`: the name in its own field and the stamp
+    in `text`. The snapshot pricer reads the field; this one read only the prose and priced
+    358,529 dated .dk names at 0 EE on 2026-09-15. A field is a name, not prose, so the
+    whitelist that guards against OCR punctuation does not apply to it.
+    """
+    out: set[str] = set()
+    for field in ("host", "domain"):
+        value = record.get(field)
+        if value:
+            out |= wide_domains_in(str(value))
+    return out
+
+
 # The two fits live in the script that first needed them; importing rather than
 # reimplementing is the point, since a second saturation curve would eventually
 # disagree with the first.
@@ -212,6 +228,7 @@ def main() -> None:
                 else:
                     kept = narrow
                     dropped |= wide_domains_in(text) - narrow
+                kept = kept | field_names(record)
                 for name in kept:
                     key = (name, year)
                     if key not in seen_pair:
