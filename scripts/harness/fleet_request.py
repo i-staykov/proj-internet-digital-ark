@@ -37,6 +37,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
@@ -121,6 +122,24 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
     return "\n".join(lines)
 
 
+def surface(key: str, etype: str, lead: dict, store: dict, decisions: Path | None = None) -> bool:
+    """The OPEN entry in `key-decisions.md`, which is the one surface Ivo reads.
+
+    A pending block with no OPEN entry is a request nobody was told about, and the gate
+    refuses it (`test_every_pending_approval_is_surfaced_in_the_live_files`). The tool
+    path writes its own; this is the short path's, written on 2026-09-15 after the Danish
+    zone list's request refused the sync that raised it.
+    """
+    body = (
+        f"Found and priced by the fleet under the {lead.get('lens', 'unrecorded')} lens, "
+        f"confirmed by a second leg: **{store['ee']:,.1f} EE net-new on the live store** over "
+        f"{store.get('netnew', 0):,} records. The block is under `## Pending requests` in "
+        f"`approved-sources-list.md`; merge the approval pull request to say yes, close it to "
+        f"leave the source pending.\n\nWorth: {store['ee']:.0f} EE."
+    )
+    return raise_open(f"Approve {key} / {etype}", body, decisions)
+
+
 def append(register: Path, text: str) -> None:
     """Insert under the pending heading, so the newest ask is the first one read."""
     current = register.read_text(encoding="utf-8")
@@ -170,6 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("incoming", type=Path)
     ap.add_argument("--register", type=Path, default=REGISTER)
     ap.add_argument("--write", action="store_true", help="without it, say what it would write")
+    ap.add_argument("--decisions", type=Path, default=None, help="key-decisions.md, for tests")
     args = ap.parse_args(argv)
 
     incoming = args.incoming.expanduser()
@@ -194,7 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
         if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
             append(args.register, block(lead_dir, finding, lead, store))
-            print(f"request: wrote a pending block for {key} / {etype}")
+            surface(key, etype, lead, store, args.decisions)
+            print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
         written += 1
     if args.write:
         print(f"request: {written} blocks written; the standing rule decides them next")
