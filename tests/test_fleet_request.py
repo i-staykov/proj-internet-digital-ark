@@ -155,3 +155,19 @@ def test_a_drain_outside_the_checkout_still_writes_a_block(tmp_path):
     incoming, register = world(tmp_path)
     (incoming / "a-lead" / "items.jsonl").write_text('{"item": "x", "year": 1998}\n', "utf-8")
     assert "- journal: `" in write(incoming, register)
+
+
+def test_a_short_block_also_gets_an_open_entry(tmp_path):
+    """2026-09-15: the Danish zone list's block was written, its OPEN entry was not, and
+    the sync that raised the request refused its own gate."""
+    decisions = tmp_path / "key-decisions.md"
+    decisions.write_text(
+        "# Decisions\n\n## OPEN\n\n## CLOSED\n\n| | date | decision |\n|---|---|---|\n"
+    )
+    lead = {"lens": "registry-publications"}
+    store = {"ee": 9702.6, "netnew": 56707, "pricer": "price_items.py"}
+    assert request.surface("dk_zone", "artifact_listing", lead, store, decisions)
+    text = decisions.read_text()
+    assert "### Approve dk_zone / artifact_listing" in text
+    assert "9,702.6 EE net-new on the live store" in text
+    assert not request.surface("dk_zone", "artifact_listing", lead, store, decisions), "once"
