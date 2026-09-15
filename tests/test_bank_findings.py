@@ -239,4 +239,34 @@ def test_a_closed_row_never_exceeds_the_register_line_limit():
     assert len(row) <= scribe.ROW_LIMIT
     assert row.startswith("| a-lead / unclassified |")
     assert row.endswith("| http://example.invalid/data.gz |")
-    assert scribe._LEDGER in row
+
+
+def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
+    """2026-09-15: `evidence_class` arrived as 490 characters of the scout's reasoning and
+    the slug cell alone was over the register's limit."""
+    finding = {
+        "slug": "a-lead",
+        "verdict": "CLOSED",
+        "ee": "0",
+        "fields": {"artifact": "http://example.invalid/data.gz"},
+        "lead": {
+            "evidence_class": "link_source (C-83: mail relay host, the Received: clause " * 12,
+            "lens": "server-written-headers, " + "which is to say " * 20,
+        },
+    }
+    row = scribe.closed_row(finding, "wave-1")
+    assert len(row) <= scribe.ROW_LIMIT
+    assert row.startswith("| a-lead / link_source")
+    assert "lens server-written-headers" in row
+
+
+def test_a_brief_audit_is_not_booked_in_either_register():
+    """2026-09-15: a rule audit's `verdict: FIND` made a FIND row at 0 EE in sources.md."""
+    audit = {
+        "slug": "brief-audit-1-leg-1-2",
+        "verdict": "FIND",
+        "ee": "0",
+        "fields": {"lens": "brief-audit", "next": "rule decision"},
+    }
+    assert scribe.is_brief_audit(audit)
+    assert not scribe.is_brief_audit({"slug": "a-lead", "verdict": "FIND", "ee": "0", "fields": {}})
