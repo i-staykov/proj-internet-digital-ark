@@ -6,6 +6,8 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| dns-be-last-registered-feed-wayback-2001 / unclassified | 2026-09-15, fleet 20260915T1710Z | 10.35 EE | lens registry-publications. CLOSED. |  |
+| sk-nic-domeny-txt-full-register-wayback-2001 / cctld_register_listing_capture | 2026-09-15, fleet 20260915T1710Z | not priced | lens registry-publications. agent produced no findings file | https://web.archive.org/web/20011212152238id_/http://www.sk-nic.sk/domeny.txt |
 | public-proxy-list-directories-checked-stamp-hostnames / unclassified | 2026-09-15, fleet 20260915T1639Z | not priced | lens dated-directories text/html, sha256 `024253e002a7842d6270b7a. CLOSED. |  |
 | nsf-award-abstract-url-hosts-ia-mirror / unclassified | 2026-09-15, fleet 20260915T1547Z | 6.6049 EE | lens academic-datasets 51,037,802 B, `application/zip` (read with. CLOSED, 6.6049 EE annual (8 net-new pairs of 95, all year 2000) against a 5,000 EE floor, |  |
 | Brief audit: `link_target` never dates a year, and his 0906 update names a web link-graph record as year evidence / unclassified | 2026-09-15, fleet 20260915T1502Z | not priced | lens no lens recorded. |  |
