@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| public-proxy-list-directories-checked-stamp-hostnames / unclassified | 2026-09-15, fleet 20260915T1639Z | not priced | lens dated-directories text/html, sha256 `024253e002a7842d6270b7a. CLOSED. |  |
 | nsf-award-abstract-url-hosts-ia-mirror / unclassified | 2026-09-15, fleet 20260915T1547Z | 6.6049 EE | lens academic-datasets 51,037,802 B, `application/zip` (read with. CLOSED, 6.6049 EE annual (8 net-new pairs of 95, all year 2000) against a 5,000 EE floor, |  |
 | Brief audit: `link_target` never dates a year, and his 0906 update names a web link-graph record as year evidence / unclassified | 2026-09-15, fleet 20260915T1502Z | not priced | lens no lens recorded. |  |
 | debian-doc-linux-howto-editions-url-hosts / dated_directory | 2026-09-15, fleet 20260915T1502Z | 260.0 EE | lens software-documentation-archives. Measured, not blocked: the whole artifact pays 260.0377 EE annual (509 net-new pairs, all year 2000) and 14.5074 EE candidate (26 names), against a 5,000 EE floor, and 20x short is not a projection gap. | http://archive.debian.org/debian/dists/potato/main/source/doc/doc-linux_2000.03-1.tar.gz |
