@@ -1732,6 +1732,19 @@ Decision: master
 
 ## Pending requests
 
+### dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
+
+- ingest spec: none in this repository yet. The fleet found and priced this; no collector or parser here reads it, so a yes is a decision to write one and `bank_approved.py` will say it banked nothing until that exists
+- journal: `data/fleet_findings/incoming/dk-hostmaster-dk-zonen-domains-txt-wayback-2001/items.jsonl`, the items the figures below were measured from
+- refetch: http://web.archive.org/web/20011218001722id_/http://www.dk-hostmaster.dk/domaincount/domains.txt
+- terms: the lead records no terms page, robots allowed
+- what dates one item: 20011217: 349694 subdomains of DK - Kingdom of Denmark whois@whois.dk-hostmaster.dk
+- measured 2026-09-15: **9,702.6 EE net-new on the live store** over 56,707 records, by `price_items.py`. The fleet said 43,674.0 EE against the pushed snapshot; the store figure is the one to read
+- fleet run 34957591003, lens registry-publications, grain registrable, verified by a second leg
+- potential: 9703
+
+Decision: pending
+
 ### usenet_body_url_hostnames / link_source
 
 - ingest would be: `ark ingest-hostnames` over `{item, year, text}` journals rebuilt from

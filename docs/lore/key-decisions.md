@@ -7,6 +7,12 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Approve dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
+
+The Danish registry's own zone list, `domains.txt`, in three Wayback captures inside 2001, each opening with the registry's stamp of its own count on its own date (`20011217: 349694 subdomains of DK`). The fleet found it under the registry-publications lens, priced it and had a second leg confirm the price byte for byte. On the live store: 56,707 net-new pairs, 9,702.6 EE annual, and 198,237 names new to the candidate pool; the fleet's 43,674 EE against the pushed snapshot was before the corroboration split, which is the question #142 puts to you.
+
+Worth: 9,703 EE annual now, plus the candidate pool names. Merge PR #143 to approve; close it to leave the source pending. No ingest spec exists yet, so a yes is also a decision to write one.
+
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
 Every registry this project has queried by RDAP publishes terms inside the response, and all four read so far prohibit high-volume automated querying: Verisign, PIR and CIRA with a registration-only carve-out, Nominet with none plus a ban on using the extracted contents at all. Both engines were stopped on 2026-08-27 and `ark rdap` now refuses those TLDs in code. The route was half of phase 6's equivalent-English, so a written permission of the RIPE kind is the only thing that reopens it.
