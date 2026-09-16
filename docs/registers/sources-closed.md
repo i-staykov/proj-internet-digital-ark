@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| ddn-nic-domain-summary-1996-gtld-register / unclassified | 2026-09-16, fleet 20260916T0306Z | 3024 EE | lens no lens recorded. CLOSED [ netinfo/domain-info.txt ] DDN NIC DOMAIN SUMMARY 14-Jun-96 0-0-0CHECKMATE.COM 0-0.COM 0-DAY.COM 0.COM uv run ark price-snapshot --snapshot /projects/ark-data --items /projects/ark-data/items/ddn-nic-domain-summary-1996.jsonl com/net/org names is worth 0.001% of its gross. |  |
 | edrm-enron-v2-eml-received-relay-hosts / unclassified | 2026-09-16, fleet 20260915T2306Z | 37000 EE | lens academic-datasets Received: from content119b.lga2.nytimes.co. FIND, estimated 6,000 to 37,000 EE against a 5,000 floor, blocked on a download |  |
 | dns-be-last-registered-feed-wayback-2001 / unclassified | 2026-09-15, fleet 20260915T1710Z | 10.35 EE | lens registry-publications. CLOSED. |  |
 | sk-nic-domeny-txt-full-register-wayback-2001 / cctld_register_listing_capture | 2026-09-15, fleet 20260915T1710Z | not priced | lens registry-publications. agent produced no findings file | https://web.archive.org/web/20011212152238id_/http://www.sk-nic.sk/domeny.txt |
