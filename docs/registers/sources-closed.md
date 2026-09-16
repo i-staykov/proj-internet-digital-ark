@@ -6,6 +6,9 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: the corroboration split is stricter than section IV, and it filters fame rather than truth / unclassified | 2026-09-16, fleet 20260916T0406Z | not priced | lens no lens recorded. FIND, a `rule` decision for Ivo. |  |
+| ftp-list-sitelist-structured-site-records-1997 / dated_directory at hostname grain: a STRUCTURED `Site :` record in a machine-for | 2026-09-16, fleet 20260916T0406Z | 55.1 EE | lens software-documentation-archives. Measured, whole artifact, both tracks: 100 net-new pairs and 55.0688 EE annual, 51 net-new and 28.0640 EE candidate, against a 1,000 EE floor. | https://ftp.icm.edu.pl/pub/usenet/news.answers/ftp-list/sitelist/part6 |
+| scout / unclassified | 2026-09-16, fleet 20260916T0406Z | not priced | lens academic-datasets.. CLOSED | https://api.datacite.org/dois/10.5259/ukwa.ds.2/cdx/1 |
 | ddn-nic-domain-summary-1996-gtld-register / unclassified | 2026-09-16, fleet 20260916T0306Z | 3024 EE | lens no lens recorded. CLOSED [ netinfo/domain-info.txt ] DDN NIC DOMAIN SUMMARY 14-Jun-96 0-0-0CHECKMATE.COM 0-0.COM 0-DAY.COM 0.COM uv run ark price-snapshot --snapshot /projects/ark-data --items /projects/ark-data/items/ddn-nic-domain-summary-1996.jsonl com/net/org names is worth 0.001% of its gross. |  |
 | edrm-enron-v2-eml-received-relay-hosts / unclassified | 2026-09-16, fleet 20260915T2306Z | 37000 EE | lens academic-datasets Received: from content119b.lga2.nytimes.co. FIND, estimated 6,000 to 37,000 EE against a 5,000 floor, blocked on a download |  |
 | dns-be-last-registered-feed-wayback-2001 / unclassified | 2026-09-15, fleet 20260915T1710Z | 10.35 EE | lens registry-publications. CLOSED. |  |

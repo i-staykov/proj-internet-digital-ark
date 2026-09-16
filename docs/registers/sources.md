@@ -1162,6 +1162,7 @@ section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
+| brief-audit: the hostname wall still applies a condition C-83 retired, and it costs 9,923 EE | 2026-09-16, fleet 20260916T0406Z | n/a | n/a | n/a | n/a | 5998.8264 EE (2026-09-16) | n/a | n/a | FIND | n/a |
 | dk-hostmaster-dk-zonen-domains-txt-wayback-2001 | 2026-09-15, fleet 20260915T1502Z | n/a | n/a | n/a | n/a | fleet 43,674.0 EE, store not re-priced: verify pending (2026-09-15) | n/a | n/a | FIND (pending) | <http://web.archive.org/web/20011218001722id_/http://www.dk-hostmaster.dk/domaincount/domains.txt> |
 | flossmole-sf-registration-date-dump-project-subdomains | 2026-09-15, fleet 20260915T1502Z | n/a | n/a | n/a | n/a | fleet 7,446.0 EE, store not re-priced: verify disputed (2026-09-15) | n/a | n/a | FIND (disputed) | <http://flossdata.syr.edu/data/sf/2004/sfRawData21-Oct-2004.tar.gz> |
 | brief-audit: the corroboration split is keyed to authorship, and his IV.1 keys evidence to shape | 2026-09-11, fleet 20260911T1106Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-11) | n/a | n/a | FIND | n/a |
