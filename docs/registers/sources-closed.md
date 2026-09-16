@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| coza-zone-changelog-and-cctld-bulk-listing-sweep / unclassified | 2026-09-16, fleet 20260916T0910Z | not priced | lens registry-publications.. CLOSED | https://internet.org.za/early_coza_registrations.txt |
 | apache-ponymail-monthly-mbox-received-by-relays / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens server-written-headers.. CLOSED |  |
 | brief-audit: "undated is fatal" is our rule, not his, and it has thrown away six figures of candidate EE / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens no lens recorded. rule. | https://labs.statsbiblioteket.dk/linkgraph/ |
 | AOLA 2001 pilot crawl site lists, SNAP web graphs, and repository keyword sweeps / unclassified | 2026-09-16, fleet 20260916T0706Z | not priced | lens no lens recorded. |  |
