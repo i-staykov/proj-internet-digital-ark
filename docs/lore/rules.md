@@ -7,7 +7,7 @@
 - Per-item dates inside 1996-2001: check the dates before counting the contents.
 - `domain_year.evidence_id` is `NOT NULL` and foreign-keys `evidence`; no year without an observation.
 - Master-eligible classes: `prior_reused`, `cdx_timestamp`, `artifact_listing`, `link_source`, `dated_directory`, `whois_creation`; `link_target` never dates a year.
-- Corroboration split: anything a human typed needs another source to date that domain first. A self-dating record takes no split, and the split tests dating only, never whether the name was ever real.
+- Corroboration split, narrowed (Ivo, 2026-09-16, C-86): a name recovered by pattern from free text (a post or mail body, a FAQ, an article, an OCR'd page) needs another source to date that domain first. A name in a delimited field of a self-dating artifact (a registry list, a catalogue field, a docket column, a dated index) takes no split; a doubtful string goes to the normalization-review file, not the candidate pool. The split tests dating only, never whether the name was real.
 - A creation date evidences its own year only; continued registration needs its own record (rule 6).
 - Undated is fatal, and so are terms we do not hold; small, ugly or hard to parse is not a reason to reject, and a 25 EE source is admitted and gets one line.
 - Hostnames stand behind the same wall: `hostname_year` foreign-keys `evidence`, `ark ingest-hostnames` fills it from raw CDX capture journals, and two checks gate it.
