@@ -6,6 +6,9 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| candidate-only: stored for provenance and verification priority, never a year / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens no lens recorded. |  |
+| english-register-and-rir-domain-object-bulk-sweep / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens registry-publications.. CLOSED |  |
+| fidonet-nodelist-system-name-internet-hostnames / unclassified | 2026-09-16, fleet 20260916T1006Z | 191.3270 EE | lens no lens recorded. CLOSED ;A FidoNet Nodelist for Friday, December 31, 1999 -- Day number 365 : 33026 ;A Copyright 1999, Fido Software. |  |
 | coza-zone-changelog-and-cctld-bulk-listing-sweep / unclassified | 2026-09-16, fleet 20260916T0910Z | not priced | lens registry-publications.. CLOSED | https://internet.org.za/early_coza_registrations.txt |
 | apache-ponymail-monthly-mbox-received-by-relays / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens server-written-headers.. CLOSED |  |
 | brief-audit: "undated is fatal" is our rule, not his, and it has thrown away six figures of candidate EE / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens no lens recorded. rule. | https://labs.statsbiblioteket.dk/linkgraph/ |
