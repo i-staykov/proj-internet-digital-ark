@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: a dated DNS observation is a candidate under his brief, and a deletion under ours / unclassified | 2026-09-16, fleet 20260916T1606Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | blocklist-shape-sweep-squidguard-eltele-20010710 / unclassified | 2026-09-16, fleet 20260916T1106Z | not priced | lens software-documentation-archives.. CLOSED |  |
 | candidate-only: stored for provenance and verification priority, never a year / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens no lens recorded. |  |
 | english-register-and-rir-domain-object-bulk-sweep / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens registry-publications.. CLOSED |  |
