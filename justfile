@@ -822,6 +822,8 @@ reproduce stage="all":
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
         uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest dk_hostmaster_dk_zonen_domains_txt_wayback_2001 data/raw/registry_lists/dk_hostmaster_domains_txt_2001.jsonl
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest domain_creation_bulk   data/raw/domain_creation/domains.csv

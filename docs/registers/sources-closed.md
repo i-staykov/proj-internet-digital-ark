@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| Mirror whole-tree indexes hunted for the InterNIC `netinfo` register / unclassified | 2026-09-16, fleet 20260916T0506Z | not priced | lens registry-publications `a.dump.of.funet.fi-ftp.archive.1996-1. CLOSED at 0 EE. |  |
 | brief-audit: the corroboration split is stricter than section IV, and it filters fame rather than truth / unclassified | 2026-09-16, fleet 20260916T0406Z | not priced | lens no lens recorded. FIND, a `rule` decision for Ivo. |  |
 | ftp-list-sitelist-structured-site-records-1997 / dated_directory at hostname grain: a STRUCTURED `Site :` record in a machine-for | 2026-09-16, fleet 20260916T0406Z | 55.1 EE | lens software-documentation-archives. Measured, whole artifact, both tracks: 100 net-new pairs and 55.0688 EE annual, 51 net-new and 28.0640 EE candidate, against a 1,000 EE floor. | https://ftp.icm.edu.pl/pub/usenet/news.answers/ftp-list/sitelist/part6 |
 | scout / unclassified | 2026-09-16, fleet 20260916T0406Z | not priced | lens academic-datasets.. CLOSED | https://api.datacite.org/dois/10.5259/ukwa.ds.2/cdx/1 |

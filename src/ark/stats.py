@@ -230,6 +230,9 @@ PROVENANCE_LINEAGE = {
     # Usenet, nor the registry's own published data, so a pair UDRP confirms
     # alongside an RDAP creation date is genuine cross-lineage corroboration rather
     # than one organisation agreeing with itself.
+    # DK Hostmaster stating its own register in a dated zone list: the registry's own
+    # publication, so it shares the lineage of the other registry listings.
+    "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": "registry",
     "udrp_proceedings": "dispute_docket",
     # rtfm FAQs travelled over Usenet and are the same body of observation, so
     # they share its lineage: a FAQ and an announcement post confirming the same

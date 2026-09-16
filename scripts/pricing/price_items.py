@@ -196,6 +196,12 @@ def main() -> None:
         "hostnames rather than prose: the whitelist drops the low-English tail, which "
         "understates pairs and overstates the mean weight at the same time.",
     )
+    ap.add_argument(
+        "--no-split",
+        action="store_true",
+        help="the names sit in a delimited field of a self-dating artifact (a registry list, "
+        "a catalogue field, a docket column), which takes no corroboration split (C-86)",
+    )
     args = ap.parse_args()
 
     weights = english_weights()
@@ -288,7 +294,10 @@ def main() -> None:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
 
     netnew = pairs - held_pairs
-    corroborated = {(d, y) for d, y in netnew if d in attested}
+    # C-86 (Ivo, 2026-09-16): a name in a delimited field of a self-dating artifact takes
+    # no corroboration split. `--no-split` says the items are that, so the figure to quote
+    # is the whole net-new set; the split is still computed and printed for the record.
+    corroborated = netnew if args.no_split else {(d, y) for d, y in netnew if d in attested}
     pooled = netnew - corroborated
     label = f" [{args.label}]" if args.label else ""
 
@@ -301,10 +310,21 @@ def main() -> None:
     )
     print(f"already held by the store  : {len(pairs) - len(netnew):,}")
     print()
-    print(
-        f"net-new BEFORE the split   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE  <- DO NOT QUOTE"
-    )
-    print(f"net-new AFTER the split    : {len(corroborated):,} pairs, {ee(corroborated):,.1f} EE")
+    if args.no_split:
+        split = {(d, y) for d, y in netnew if d in attested}
+        print(f"net-new, no split (C-86)   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE")
+        print(
+            f"  the split would have kept: {len(split):,} pairs, {ee(split):,.1f} EE"
+            "  <- for the record"
+        )
+    else:
+        print(
+            f"net-new BEFORE the split   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE"
+            "  <- DO NOT QUOTE"
+        )
+        print(
+            f"net-new AFTER the split    : {len(corroborated):,} pairs, {ee(corroborated):,.1f} EE"
+        )
     mean = ee(corroborated) / len(corroborated) if corroborated else Decimal(0)
     print(f"  net-new domains          : {len({d for d, _ in corroborated}):,}")
     print(f"  mean weight of net-new   : {mean:.4f}")

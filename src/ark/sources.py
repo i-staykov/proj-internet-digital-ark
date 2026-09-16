@@ -282,6 +282,45 @@ def _parse_usenet_whois_journal(path: Path, stats: Counter) -> Iterator[BulkReco
 # The year is the **commencement** date, deliberately, not the decision date: a case
 # commenced in late 2000 may be decided in 2001, and the domain certainly existed when
 # the complaint was filed, so the earlier date is the safer claim.
+_REGISTRY_STAMP = re.compile(r"\b((?:199[6-9]|200[01])\d{4})\b")
+
+
+def parse_registry_items(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """A fleet price leg's items for a registry list: `{host, year, text}` per line.
+
+    `text` is the registry's own stamp, quoted by the extractor (`DK Zonen header
+    20011217`), and it must carry the date whose year the row is filed under: the integrity
+    gate reads the year out of the value, so a stamp naming another year is refused here
+    rather than failing there. `host` is the registered name; a hostname beneath it is not
+    what a zone list asserts, so the record is filed at the name as listed.
+    """
+    with open_journal(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            stats["journal_lines"] += 1
+            try:
+                record = json.loads(line)
+            except ValueError:
+                stats["unparseable_line"] += 1
+                continue
+            host, year, text = record.get("host"), record.get("year"), str(record.get("text") or "")
+            if not host or year not in YEARS:
+                stats["malformed"] += 1
+                continue
+            stamp = _REGISTRY_STAMP.search(text)
+            if not stamp or not stamp.group(1).startswith(str(year)):
+                stats["stamp_does_not_name_the_year"] += 1
+                continue
+            yield BulkRecord(
+                raw=str(host).lower(),
+                year=int(year),
+                evidence_value=f"{stamp.group(1)}: {text.strip()}",
+                evidence_url=record.get("url"),
+            )
+
+
 def parse_udrp_proceedings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """A `collect_udrp_proceedings.py` journal: one JSON object per (domain, year)."""
     with open_journal(path) as fh:
@@ -2774,6 +2813,18 @@ SOURCES: dict[str, SourceSpec] = {
     # and `uucp_map_registry`: a dated artifact enumerating hosts that were live.
     # Domain-dispute proceedings: a dated docket naming a registered domain in its
     # own column. Master, self-dating, no corroboration split. See ADR-002.
+    # DK Hostmaster's own zone list, `domaincount/domains.txt`, in three Wayback captures
+    # inside 2001. Each opens with the registry's dated count of its own register
+    # (`20011217: 349694 subdomains of DK`), which dates every name below it: the registry
+    # stating its own register, as MYNIC, TWNIC and IDNIC do. Approved 2026-09-16 (#143).
+    # A delimited field of a self-dating artifact, so no corroboration split (C-86).
+    "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": SourceSpec(
+        key="dk_hostmaster_dk_zonen_domains_txt_wayback_2001",
+        source_name="dk_hostmaster_dk_zonen_domains_txt_wayback_2001",
+        evidence_type="artifact_listing",
+        acquisition_method="registry_zone_list_wayback_capture",
+        parse=parse_registry_items,
+    ),
     "udrp_proceedings": SourceSpec(
         key="udrp_proceedings",
         source_name="udrp_proceedings",

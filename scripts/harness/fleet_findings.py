@@ -44,6 +44,8 @@ VPS_ITEMS = "/projects/ark-data/items"
 # What the leg has to leave beside its finding for the laptop to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
+# Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
+NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
 
 _ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
@@ -306,6 +308,10 @@ def price(lead: Path, finding: dict) -> dict:
     grain = grain_of(lead.name, finding, lead)
     script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
     cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
+    # C-86: a listing or a registry record is a delimited field, and takes no split.
+    lead_doc = load(lead / LEAD)
+    if script == "price_items.py" and lead_doc.get("evidence_class") in NO_SPLIT_CLASSES:
+        cmd.append("--no-split")
     done = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     (lead / "store_price.txt").write_text(done.stdout + done.stderr, encoding="utf-8")
     if done.returncode != 0:

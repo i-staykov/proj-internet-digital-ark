@@ -1735,7 +1735,7 @@ Decision: master
 ### dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
 
 - ingest spec: none in this repository yet. The fleet found and priced this; no collector or parser here reads it, so a yes is a decision to write one and `bank_approved.py` will say it banked nothing until that exists
-- journal: `data/fleet_findings/incoming/dk-hostmaster-dk-zonen-domains-txt-wayback-2001/items.jsonl`, the items the figures below were measured from
+- journal: `data/raw/registry_lists/dk_hostmaster_domains_txt_2001.jsonl`, the 358,529 items the figures below were measured from, regenerated from the three captures on 2026-09-15 (third capture sha256 77467afe...)
 - refetch: http://web.archive.org/web/20011218001722id_/http://www.dk-hostmaster.dk/domaincount/domains.txt
 - terms: the lead records no terms page, robots allowed
 - what dates one item: 20011217: 349694 subdomains of DK - Kingdom of Denmark whois@whois.dk-hostmaster.dk
