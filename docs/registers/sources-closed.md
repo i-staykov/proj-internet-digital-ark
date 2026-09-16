@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| apnic-ftp-mailing-list-archives-received-by / unclassified | 2026-09-16, fleet 20260916T1806Z | not priced | lens server-written-headers.. CLOSED |  |
 | brief-audit: WHOIS evidence has one shape here, "created in year Y", and his IV.6 names a second / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | lens brief-audit schema's CHECK constraint is generated from it, . FIND, a proposed `rule` decision for Ivo. |  |
 | listserv-notebooks-and-raw-mbox-routes-transport-closed / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | lens server-written-headers 200 only, so an entire engine is invi. CLOSED |  |
 | registry-publications: high-weight ccTLD bulk name files, reachable without CDX / unclassified | 2026-09-16, fleet 20260916T1706Z | 42906 EE | lens no lens recorded. CLOSED A registry publication with its own stamp, quoted: "CA Registered Organizations by Scope as of April 29, 1999 ... |  |
