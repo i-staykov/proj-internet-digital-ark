@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| registry-publications, leg 35156053937: big-register hunt outside the worked ccTLDs / unclassified | 2026-09-17, fleet 20260916T2306Z | not priced | lens no lens recorded. CLOSED `title:(domain list) OR title:(registered domains) OR title:(whois database)`, 194 hits), JSON, ~20 KB each. |  |
 | openaire-data-europa-aggregator-sweep-outside-datacite-union / unclassified | 2026-09-16, fleet 20260916T1906Z | not priced | lens academic-datasets.. CLOSED |  |
 | apnic-ftp-mailing-list-archives-received-by / unclassified | 2026-09-16, fleet 20260916T1806Z | not priced | lens server-written-headers.. CLOSED |  |
 | brief-audit: WHOIS evidence has one shape here, "created in year Y", and his IV.6 names a second / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | lens brief-audit schema's CHECK constraint is generated from it, . FIND, a proposed `rule` decision for Ivo. |  |
