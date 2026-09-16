@@ -6,6 +6,9 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: WHOIS evidence has one shape here, "created in year Y", and his IV.6 names a second / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | lens brief-audit schema's CHECK constraint is generated from it, . FIND, a proposed `rule` decision for Ivo. |  |
+| listserv-notebooks-and-raw-mbox-routes-transport-closed / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | lens server-written-headers 200 only, so an entire engine is invi. CLOSED |  |
+| registry-publications: high-weight ccTLD bulk name files, reachable without CDX / unclassified | 2026-09-16, fleet 20260916T1706Z | 42906 EE | lens no lens recorded. CLOSED A registry publication with its own stamp, quoted: "CA Registered Organizations by Scope as of April 29, 1999 ... |  |
 | brief-audit: a dated DNS observation is a candidate under his brief, and a deletion under ours / unclassified | 2026-09-16, fleet 20260916T1606Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | blocklist-shape-sweep-squidguard-eltele-20010710 / unclassified | 2026-09-16, fleet 20260916T1106Z | not priced | lens software-documentation-archives.. CLOSED |  |
 | candidate-only: stored for provenance and verification priority, never a year / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens no lens recorded. |  |
