@@ -1162,6 +1162,7 @@ section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
+| brief-audit: "a machine-written stamp INSIDE the artifact" is our rule, and his IV.1 grants a second warrant we have never once used | 2026-09-17, fleet 20260916T2306Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-17) | n/a | n/a | FIND | n/a |
 | brief-audit: `link_target` never dates a year is stricter than his section IV | 2026-09-16, fleet 20260916T1906Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-16) | n/a | n/a | FIND | n/a |
 | analog-host-report-client-hostnames | 2026-09-16, fleet 20260916T1706Z | n/a | n/a | n/a | n/a | fleet 22,451.3 EE, store not re-priced: verify pending (2026-09-16) | n/a | n/a | FIND (pending) | <http://www.weewave.mer.utexas.edu/stats/logs_99/Analog_9_99.html> |
 | spacekookie-google-groups-usenet-tarballs-server-header-hosts | 2026-09-16, fleet 20260916T1606Z | n/a | see the fleet hypothesis ledger | a stamp the news server wrote, never the poster's `Date:`. | n/a | fleet 1,450.5 EE, store not re-priced: verify pending (2026-09-16) | Stated plainly because neither FIND clause is met on its letter: the measured 1,450.4522 EE is below see the fleet hypothesis ledger | n/a | FIND (pending) | <https://archive.org/download/spacekookie-de-usenet-archive/> |
