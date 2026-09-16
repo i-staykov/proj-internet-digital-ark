@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| blocklist-shape-sweep-squidguard-eltele-20010710 / unclassified | 2026-09-16, fleet 20260916T1106Z | not priced | lens software-documentation-archives.. CLOSED |  |
 | candidate-only: stored for provenance and verification priority, never a year / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens no lens recorded. |  |
 | english-register-and-rir-domain-object-bulk-sweep / unclassified | 2026-09-16, fleet 20260916T1006Z | not priced | lens registry-publications.. CLOSED |  |
 | fidonet-nodelist-system-name-internet-hostnames / unclassified | 2026-09-16, fleet 20260916T1006Z | 191.3270 EE | lens no lens recorded. CLOSED ;A FidoNet Nodelist for Friday, December 31, 1999 -- Day number 365 : 33026 ;A Copyright 1999, Fido Software. |  |
