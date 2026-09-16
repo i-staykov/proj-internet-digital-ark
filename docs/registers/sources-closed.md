@@ -6,6 +6,8 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| apache-ponymail-monthly-mbox-received-by-relays / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens server-written-headers.. CLOSED |  |
+| brief-audit: "undated is fatal" is our rule, not his, and it has thrown away six figures of candidate EE / unclassified | 2026-09-16, fleet 20260916T0806Z | not priced | lens no lens recorded. rule. | https://labs.statsbiblioteket.dk/linkgraph/ |
 | AOLA 2001 pilot crawl site lists, SNAP web graphs, and repository keyword sweeps / unclassified | 2026-09-16, fleet 20260916T0706Z | not priced | lens no lens recorded. |  |
 | bulk-raw-header-mail-corpora-dark-or-robots-refused / unclassified | 2026-09-16, fleet 20260916T0706Z | not priced | lens server-written-headers.. CLOSED |  |
 | ripe-hostcount-family-sibling-trees-and-nask-arch-sweep / unclassified | 2026-09-16, fleet 20260916T0612Z | not priced | lens reopen.. CLOSED. | https://ftp.ripe.net/ripe/local-ir/inaddrcount/data/ |
