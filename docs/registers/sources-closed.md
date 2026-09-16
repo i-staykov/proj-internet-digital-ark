@@ -6,6 +6,8 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| AOLA 2001 pilot crawl site lists, SNAP web graphs, and repository keyword sweeps / unclassified | 2026-09-16, fleet 20260916T0706Z | not priced | lens no lens recorded. |  |
+| bulk-raw-header-mail-corpora-dark-or-robots-refused / unclassified | 2026-09-16, fleet 20260916T0706Z | not priced | lens server-written-headers.. CLOSED |  |
 | ripe-hostcount-family-sibling-trees-and-nask-arch-sweep / unclassified | 2026-09-16, fleet 20260916T0612Z | not priced | lens reopen.. CLOSED. | https://ftp.ripe.net/ripe/local-ir/inaddrcount/data/ |
 | Mirror whole-tree indexes hunted for the InterNIC `netinfo` register / unclassified | 2026-09-16, fleet 20260916T0506Z | not priced | lens registry-publications `a.dump.of.funet.fi-ftp.archive.1996-1. CLOSED at 0 EE. |  |
 | brief-audit: the corroboration split is stricter than section IV, and it filters fame rather than truth / unclassified | 2026-09-16, fleet 20260916T0406Z | not priced | lens no lens recorded. FIND, a `rule` decision for Ivo. |  |
