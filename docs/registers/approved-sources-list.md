@@ -1743,7 +1743,7 @@ Decision: master
 - fleet run 34957591003, lens registry-publications, grain registrable, verified by a second leg
 - potential: 9703
 
-Decision: pending
+Decision: master
 
 ### usenet_body_url_hostnames / link_source
 
