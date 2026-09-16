@@ -1734,7 +1734,7 @@ Decision: master
 
 ### dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
 
-- ingest spec: none in this repository yet. The fleet found and priced this; no collector or parser here reads it, so a yes is a decision to write one and `bank_approved.py` will say it banked nothing until that exists
+- ingest spec: `dk_hostmaster_dk_zonen_domains_txt_wayback_2001` (written 2026-09-16 on the approval; `parse_registry_items` over the fleet's items)
 - journal: `data/raw/registry_lists/dk_hostmaster_domains_txt_2001.jsonl`, the 358,529 items the figures below were measured from, regenerated from the three captures on 2026-09-15 (third capture sha256 77467afe...)
 - refetch: http://web.archive.org/web/20011218001722id_/http://www.dk-hostmaster.dk/domaincount/domains.txt
 - terms: the lead records no terms page, robots allowed
