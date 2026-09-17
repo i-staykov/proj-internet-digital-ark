@@ -7,12 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Approve dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
-
-The Danish registry's own zone list, `domains.txt`, in three Wayback captures inside 2001, each opening with the registry's stamp of its own count on its own date (`20011217: 349694 subdomains of DK`). The fleet found it under the registry-publications lens, priced it and had a second leg confirm the price byte for byte. On the live store: 56,707 net-new pairs, 9,702.6 EE annual, and 198,237 names new to the candidate pool; the fleet's 43,674 EE against the pushed snapshot was before the corroboration split, which is the question #142 puts to you.
-
-Worth: 9,703 EE annual now, plus the candidate pool names. Merge PR #143 to approve; close it to leave the source pending. No ingest spec exists yet, so a yes is also a decision to write one.
-
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
 Every registry this project has queried by RDAP publishes terms inside the response, and all four read so far prohibit high-volume automated querying: Verisign, PIR and CIRA with a registration-only carve-out, Nominet with none plus a ban on using the extracted contents at all. Both engines were stopped on 2026-08-27 and `ark rdap` now refuses those TLDs in code. The route was half of phase 6's equivalent-English, so a written permission of the RIPE kind is the only thing that reopens it.
@@ -51,6 +45,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-87** | 2026-09-16 | **The DK Hostmaster zone list `domains.txt` is approved as `artifact_listing`, and ingested.** Three Wayback captures inside 2001, each opening with the registry's stamp of its own count on its own date. PR #143. Banked on the live store under C-86: 255,266 net-new pairs, 43,676.0 EE annual, the round's first bulk source. |
 | **C-86** | 2026-09-16 | **The corroboration split is narrowed to free-text recovery.** A name in a delimited field of a self-dating artifact takes no split; a doubtful string goes to the XI normalization-review file. Measured cost of the old rule on delimited fields: 1.3x to 5.5x, and 255,254 to 56,707 pairs on the DK zone list. Ivo, 2026-09-16, on the fleet's audit (#142). |
 | **C-85** | 2026-09-11 | **A link graph is two evidence classes, not one: the LINK SOURCE host is a master addition, the LINK TARGET is candidate only.** Ivo's ruling on merging the UKWA host-linkage download (fleet #104): the crawler fetched the source host and recorded a 200, which dates it; being linked to is not evidence that the target served anything that year. The taxonomy already said so, `link_target` is candidate-only and `link_source` is master, so the store would refuse the mistake, but a pricing leg reading the lead would have priced 3,476,500 targets as annual records. The lead carries the ruling in its own `evidence_class`, and the 56,000 to 225,000 EE estimate is a CANDIDATE-track figure until the source half is measured on its own. |
 | **C-84** | 2026-09-09 | **The CDX lane is the laptop's: the two metered clients on `web.archive.org/cdx` are its launchd sweeps. The fleet host runs no sweep and keeps one flock-guarded slot, `scripts/harness/cdx_slot.sh`, for exact-host queries by price and verify legs.** Ivo, 2026-09-09 |
