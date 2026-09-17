@@ -6,6 +6,7 @@ Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| academic-web-usage-logs-referer-and-origin-hostname-sweep / unclassified | 2026-09-17, fleet 20260917T1206Z | not priced | lens academic-datasets.. CLOSED |  |
 | brief-audit: the parent-year wall is our rule, not his, and our own ingest does not apply it / unclassified | 2026-09-17, fleet 20260917T1106Z | not priced | lens no lens recorded. |  |
 | archiveorg-cdx-index-deposits-outside-the-web-collection / unclassified | 2026-09-17, fleet 20260917T0006Z | not priced | lens no lens recorded. |  |
 | archiveorg-raw-mbox-received-by-relay-hosts / link_source (C-83: mail relay host, the Received: by clause alone, hostname grai | 2026-09-17, fleet 20260917T0006Z | 3,406.1 EE | lens server-written-headers. Measured, not sampled: the whole 1996-2001 partition of the item (72 monthly mboxes, 67,891,328 bytes) yields 8,183 dated (host, year) items, 5,554 net-new pairs and 3,406.0758 EE annual against merged260908, 32 percent under the 5,000 floor. |  |
