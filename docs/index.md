@@ -32,8 +32,6 @@ the delivery archive.
 | [brief_amendments.md](brief/brief_amendments.md) | Dated brief changes and email clarifications, not a second specification | when a later message changes the packaged brief |
 | [ding/README.md](brief/ding/README.md) | What the transcribed documents are and how they win over ours | once |
 | [ding/project-brief.md](brief/ding/project-brief.md) | His canonical task brief (*generated* by `scripts/round/extract_ding_docs.py`) | when checking requirements or citing a clause |
-| [ding/task-package-file-guide.md](brief/ding/task-package-file-guide.md) | His file guide for the delivery package (*generated*, same script) | before packaging |
-| [ding/update-log.md](brief/ding/update-log.md) | His dated log of brief changes (*generated*, same script) | when dating an amendment |
 | [metric-explained.md](brief/metric-explained.md) | The equivalent-English metric, explained and runnable (D4 of the standard) | when a score needs defending |
 
 ## Registers
