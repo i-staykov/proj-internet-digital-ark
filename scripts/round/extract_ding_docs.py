@@ -52,14 +52,16 @@ provenance values above to check it.
 # rather than a renamed one. The glob is anchored on the stable part of the name and
 # `_pick` fails loudly if it matches none or several, because silently transcribing
 # the wrong one of two briefs is worse than not transcribing at all.
+# **One file, and it is the current state of the task.** Ivo, 2026-09-18. `Update_Log.docx`
+# is a changelog of how the rules USED to read and `Task_Package_File_Guide.txt` describes a
+# package layout we re-read from the package itself; both are amendments to a document we
+# already transcribe whole, and git holds what either of them would have said.
 DOCS = (
     (
         "Internet_Digital_Ark_Project_*.docx",
         "project-brief.md",
         "The task brief (Internet Digital Ark Project)",
     ),
-    ("Update_Log.docx", "update-log.md", "The task brief update log"),
-    ("Task_Package_File_Guide.txt", "task-package-file-guide.md", "Task package file guide"),
 )
 
 
