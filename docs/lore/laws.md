@@ -8,6 +8,35 @@ Read this before pricing or proposing a source. [discovery.md](discovery.md) has
 
 
 
+## Section XIII splits our own evidence: 9.3% of registrable net-new survives, 75.2% of hostname
+
+Screened over round 10's net-new manifests by ACQUISITION METHOD, because the evidence type does not
+decide it: `artifact_listing` and `dated_directory` each land on both sides.
+
+| acquisition method | registrable | hostname | XIII |
+|---|---:|---:|---|
+| `ia_cdx_collapsed_query` | 30,343 | | passes, exact-host capture |
+| `ia_cdx_domain_sweep` | 625 | 2,509,555 | passes |
+| `poland_pl_extract_hostgrain` | 1,260 | 147,649 | passes |
+| `arquivo_ia_cdxj_hostgrain` | | 16,366 | passes, custodian extract |
+| `ia_cdx_gap_hostgrain` | | 1,382 | passes |
+| `registry_zone_list_wayback_capture` | 255,211 | | fails: the capture is OF the zone file, so it dates the delegation, not the site |
+| `usenet_server_written_header` | 5,826 | 736,440 | fails: delivery header |
+| `usenet_post_address` | 33,288 | | fails: delivery header |
+| `usenet_body_url` | 11,413 | 109,258 | fails: textual mention, and Usenet is not a web link graph |
+| `usenet_post_bare_host` | 7,520 | | fails: textual mention |
+| `ietf_list_received_by` | 451 | 21,465 | fails: mail header |
+| `apache_list_received_by` | 308 | 12,669 | fails: mail header |
+| `usenet_post_date` / `rtfm_faq_revision_date` / `trade_press_issue_date` | 144 | | fails: textual mention |
+| **passes** | **32,228 / 346,389 (9.3%)** | **2,674,952 / 3,554,784 (75.2%)** | |
+
+The registrable track is almost entirely not web evidence, and 255,211 of the failures are one
+source, the DK Hostmaster zone list. The hostname track survives because the engine filling it is a
+CDX sweep, which is the standing priority paying off.
+
+**Failing rows re-track to candidates, which score at the same rate.** The cost is the claim, not the
+work.
+
 ## The thin-parent lane: 642 EE per client-hour, and targeting does not rescue it
 
 Tested 2026-09-06 on the idea of asking one `matchType=domain` question per registrable we hold
