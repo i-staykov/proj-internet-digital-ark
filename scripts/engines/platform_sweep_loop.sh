@@ -48,6 +48,10 @@ SHARD="${3:-0}"
 PARENT_CAP="${ARK_PARENT_CAP:-300}"
 PARENT_MAX="${ARK_PARENT_MAX:-2700}"
 RPH_MAX="${ARK_RPH_MAX:-8}"
+# Caps for the two refill helpers, in seconds. Both read the whole journal directory,
+# which is 63,801 files and growing, so neither is bounded by its own logic.
+COSTS_CAP="${ARK_COSTS_CAP:-600}"
+RANK_CAP="${ARK_RANK_CAP:-900}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
@@ -190,6 +194,31 @@ sweep_one() {
     fi
 }
 
+# Run a command under a wall-clock cap, killing it and its child if it overruns.
+# This laptop has no GNU `timeout`, and the one call that needed it had no cap at all:
+# `build_rows_per_host.py` is described below as "minutes", and on 2026-09-17 it held
+# shard 0 inside refill for 79 minutes with no output, which is one of the two archive
+# client slots idle for as long as it ran. A stale cost table is a worse ranking; a
+# blocked refill is no collection at all.
+bounded() {
+    local limit="$1"
+    shift
+    "$@" &
+    local pid=$! waited=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 5
+        waited=$(( waited + 5 ))
+        if [ "$waited" -ge "$limit" ]; then
+            pkill -P "$pid" 2>/dev/null
+            kill "$pid" 2>/dev/null
+            wait "$pid" 2>/dev/null
+            echo "bounded: $1 passed ${limit}s and was stopped"
+            return 124
+        fi
+    done
+    wait "$pid"
+}
+
 refill() {
     # Ask the ranker for parents this queue has not already burned. Sharded on the
     # name by `shard_split` so the two clients never converge on the same parent,
@@ -209,10 +238,12 @@ refill() {
     # the journals, minutes, and only shard 0 does it so the two clients do not both spend
     # them; `--max-age-hours` makes the call idempotent, so this can be blind.
     if [ "$SHARD" = "0" ] && [ -f "$COSTS" ]; then
-        nice -n 10 uv run python "$COSTS" --max-age-hours 6 >/dev/null 2>&1 || true
+        bounded "$COSTS_CAP" nice -n 10 uv run python "$COSTS" --max-age-hours 6 \
+            >/dev/null 2>&1 || true
     fi
     local ranked="data/raw/cdx/ranked_shard${SHARD}.txt"
-    uv run python "$RANKER" --net-new --top 20000 --out "$ranked" >/dev/null 2>&1 || return 1
+    bounded "$RANK_CAP" uv run python "$RANKER" --net-new --top 20000 --out "$ranked" \
+        >/dev/null 2>&1 || return 1
     [ -s "$ranked" ] || return 1
     # **A park list nothing reads is a leak, and these two were leaking the best parents.**
     # `platform_retry.txt` was written in three places and read in none. `platform_rich.txt`

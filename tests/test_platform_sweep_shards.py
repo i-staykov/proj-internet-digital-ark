@@ -154,3 +154,31 @@ def test_comments_and_blank_lines_are_not_parents(tmp_path: Path) -> None:
     listing = ["# parked 2026-09-07, expensive", "", "com.au", "   ", "co.uk"]
     both = split(listing, 0, tmp_path) + split(listing, 1, tmp_path)
     assert sorted(both) == ["co.uk", "com.au"]
+
+
+def _bounded(limit: int, command: str) -> subprocess.CompletedProcess:
+    """Run the script's own `bounded` over a shell command."""
+    return subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'ARK_SWEEP_LOOP_LIB=1 . "$1" 0 /dev/null 0; bounded {limit} {command}',
+            "sweep-loop-under-test",
+            str(SCRIPT),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+
+
+def test_a_command_inside_the_cap_keeps_its_own_exit_code() -> None:
+    assert _bounded(30, "bash -c 'exit 3'").returncode == 3
+
+
+def test_a_command_over_the_cap_is_stopped_rather_than_waited_on() -> None:
+    """The refill's cost build held one of the two client slots for 79 minutes on
+    2026-09-17 because nothing bounded it."""
+    done = _bounded(5, "sleep 120")
+    assert done.returncode == 124, done.stdout + done.stderr
+    assert "was stopped" in done.stdout
