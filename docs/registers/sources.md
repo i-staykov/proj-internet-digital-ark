@@ -1162,6 +1162,7 @@ section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
+| ipac-2mass-irsa-monthly-analog-host-reports-1998-2001 | 2026-09-17, fleet 20260917T0006Z | n/a | extract.py, kept beside this. It strips tags, finds the page stamp or falls back to | two generators wrote this tree and each stamps its own way, so there | n/a | fleet 35,429.9 EE, store 3,681.7 EE (2026-09-17) | n/a | n/a | FIND (confirmed) | n/a |
 | brief-audit: "a machine-written stamp INSIDE the artifact" is our rule, and his IV.1 grants a second warrant we have never once used | 2026-09-17, fleet 20260916T2306Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-17) | n/a | n/a | FIND | n/a |
 | brief-audit: `link_target` never dates a year is stricter than his section IV | 2026-09-16, fleet 20260916T1906Z | n/a | n/a | n/a | n/a | 0 EE (2026-09-16) | n/a | n/a | FIND | n/a |
 | analog-host-report-client-hostnames | 2026-09-16, fleet 20260916T1706Z | n/a | n/a | n/a | n/a | fleet 22,451.3 EE, store not re-priced: verify pending (2026-09-16) | n/a | n/a | FIND (pending) | <http://www.weewave.mer.utexas.edu/stats/logs_99/Analog_9_99.html> |
