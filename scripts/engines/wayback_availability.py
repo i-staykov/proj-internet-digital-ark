@@ -186,10 +186,18 @@ def main() -> int:
     if args.queue_file:
         domains = [x.strip() for x in args.queue_file.read_text().splitlines() if x.strip()]
     else:
-        from ark.db import connect
+        # Read-only and closed straight away. `ark.db.connect` takes the WRITE lock, and
+        # this engine runs for hours beside an ingest loop that needs it every fifteen
+        # minutes; the queue is read once at the start and never again.
+        import duckdb
 
-        with connect(read_only=True) as conn:
+        from ark.db import DEFAULT_DB_PATH
+
+        conn = duckdb.connect(str(DEFAULT_DB_PATH), read_only=True)
+        try:
             domains = [row[0] for row in conn.execute(queue_sql(args.limit)).fetchall()]
+        finally:
+            conn.close()
     print(f"queue {len(domains):,} domains, deadline {args.deadline:.0f}")
     totals = run(domains, args.deadline, args.out, args.host_out)
     print(
