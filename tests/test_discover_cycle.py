@@ -126,6 +126,7 @@ def test_a_pending_approval_is_mirrored_into_the_one_surface(tmp_path, monkeypat
     decisions.write_text(DECISIONS_FIXTURE, encoding="utf-8")
     monkeypatch.setattr(cycle, "APPROVALS", approvals)
     monkeypatch.setattr(cycle, "DECISIONS_DOC", decisions)
+    monkeypatch.setattr(cycle, "HYPOTHESES", tmp_path / "hypotheses-pending.md")
 
     findings, attention = cycle.check_approvals()
     assert cycle.key_decisions.is_open("new_source / artifact_listing", decisions)

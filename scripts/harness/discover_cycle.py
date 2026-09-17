@@ -58,6 +58,10 @@ from ark.yield_check import (  # noqa: E402
 LOG = ROOT / "data/logs/discovery_cycle.log"
 LEDGER = ROOT / "docs/registers/hypotheses.tsv"
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
+# Since `split_triage.py` ran on 2026-09-03 the undecided finds live here and the triage
+# section of APPROVALS holds only what has arrived since. Counting the section alone read
+# 0 waiting on 2026-09-17 while 49 sat in this file, so both are counted.
+HYPOTHESES = ROOT / "docs/registers/hypotheses-pending.md"
 DECISIONS_DOC = ROOT / "docs/lore/key-decisions.md"
 UNFINISHED = ("screened", "fetching", "priced")
 JOURNAL_DIR = ROOT / "data/raw/cdx"
@@ -441,6 +445,26 @@ def collector_reading(path: str) -> str | None:
     return None
 
 
+def pending_hypotheses(page: Path) -> int:
+    """Undecided `### key / etype` blocks in the pending hypotheses page.
+
+    A block is decided when it carries a `Decision:` line, the same mark the approvals
+    file uses, so the two queues are counted by one rule.
+    """
+    try:
+        text = page.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    blocks = re.split(r"^### ", text, flags=re.M)[1:]
+    decision = re.compile(r"^\s*(?:[-*]\s*)?\*{0,2}decision\*{0,2}\s*:\s*(.*)$", re.M | re.I)
+    waiting = 0
+    for block in blocks:
+        found = decision.search(block)
+        if found is None or found.group(1).strip().lower().startswith("pending"):
+            waiting += 1
+    return waiting
+
+
 def _mirror_triage_count(count: int, findings: list[str]) -> None:
     """One entry naming the count, refreshed in place as the queue grows.
 
@@ -462,9 +486,9 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     # old five-line body and dropped the `(O6)` marker with it: an automated writer that
     # disagrees with the file's format wins every time, and quietly.
     body = (
-        f"**{count} source(s) found and not yet priced**, in `{APPROVALS.name}` under "
-        f"`## Found, awaiting triage`. One word each, *candidate pool* or *fold in "
-        f"directly*.\n\n"
+        f"**{count} source(s) found and not yet priced**, in `{HYPOTHESES.name}` and in "
+        f"`{APPROVALS.name}` under `## Found, awaiting triage`. One word each, *candidate "
+        f"pool* or *fold in directly*.\n\n"
         f"A counter rather than a request, by your instruction of 2026-08-15. Nothing is "
         f"blocked: a pending class cannot date a year, so `ark ingest` refuses it and "
         f"collection continues."
@@ -482,6 +506,10 @@ def _mirror_triage_count(count: int, findings: list[str]) -> None:
     titled = f"{TRIAGE_HEADING}: {count} found{marker}"
     if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC, heading=titled):
         findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
+        return
+    if not count:
+        # An empty queue refreshes an entry down to zero but never opens one: a review
+        # surface that lists what is not waiting stops being read.
         return
     key_decisions.raise_open(titled, body, DECISIONS_DOC)
     findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
@@ -530,14 +558,19 @@ def check_approvals() -> tuple[list[str], list[str]]:
             "journals are on disk and nothing is lost: "
             + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in priced)
         )
+    untriaged = len(triage) + pending_hypotheses(HYPOTHESES)
     if triage:
         findings.append(f"approvals: {len(triage)} source(s) in the triage queue")
         attention.append(
-            f"{len(triage)} newly found source(s) await your triage in {APPROVALS.name} under "
-            f"'Found, awaiting triage': for each, candidate pool or fold in directly. Nothing is "
+            f"{untriaged} newly found source(s) await your triage, {len(triage)} in "
+            f"{APPROVALS.name} under 'Found, awaiting triage' and the rest in "
+            f"{HYPOTHESES.name}: for each, candidate pool or fold in directly. Nothing is "
             f"blocked on it, since none can date a year while pending"
         )
-        _mirror_triage_count(len(triage), findings)
+    # Outside the `if`, which is where it was, and the reason the entry read "40 found"
+    # on 2026-09-17 over an empty section: a queue that empties never refreshed the
+    # mirror, so the last non-zero count stood on Ivo's review surface indefinitely.
+    _mirror_triage_count(untriaged, findings)
     for approval in priced:
         needle = f"{approval.source_name} / {approval.evidence_type}"
         if key_decisions.is_open(needle, DECISIONS_DOC):

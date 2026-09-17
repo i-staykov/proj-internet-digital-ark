@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/Update_Log.docx` |
-| sha256 | `aa50acc2920b0abf3bc17398a96571cf64c6aa08b49fd365ceec5190f14ea4d9` |
-| delivered in | `feedback/Domain_Data_Collection_Task_0907_Update/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0907_Update.zip (2026-09-07) |
-| transcribed | 2026-09-08 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0917_UpdateV2/Domain_Data_Collection_Task/Update_Log.docx` |
+| sha256 | `beb8d94afc17c09325ba0441c7e91559d7c597edd937da8b9587918585d2520b` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0917_UpdateV2/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0917_UpdateV2.zip (2026-09-17) |
+| transcribed | 2026-09-17 by `scripts/round/extract_ding_docs.py` |
 
 Word files are converted with pandoc; plain text is fenced. Only escaped backticks
 and curly quotation marks are normalised. Wording, order and section numbering
@@ -292,3 +292,89 @@ Update topic: ISC DNS-survey evidence classification and candidate preservation
 ## Practical Effect
 
 The project preserves high-value historical DNS discovery work without treating DNS observation alone as proof of a historical website. ISC records remain reusable, traceable candidate assets for later validation, while annual masters retain a clear website-level evidence standard.
+
+# Update Record
+
+Timestamp: 2026-09-07 22:11:20 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0906_Update.docx
+
+Update topic: Pre-1996 archive discovery and precise hostname-year classification
+
+## Changes in This Update
+
+- Added an open research question on finding and acquiring pre-1996 historical web data at scale. Proposed approaches must explain bulk-access feasibility, date semantics, provenance, rights or access constraints, expected coverage, and the route from recovered material to reproducible hostname evidence.
+
+- Added an open research question on more precise hostname-year classification. Proposed methods must distinguish direct year-specific website evidence, discovery-only evidence, and unresolved records; combine multiple evidence sources without inferring unsupported continuity; and preserve the evidence needed to promote a candidate to an annual file.
+
+- Clarified that these questions do not weaken the existing annual evidence rules. Unresolved discoveries remain auditable candidate assets until qualifying hostname-year evidence is retained.
+
+## Practical Effect
+
+The discovery system now explicitly seeks both earlier historical coverage and more reliable temporal classification, while keeping collection, validation, candidate preservation, and Equivalent-English aggregation transparent and reproducible.
+
+# Update Record
+
+Timestamp: 2026-09-09 16:25:52 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0907_Update.docx
+
+Update topic: Candidate-source scope and Common Crawl exclusion
+
+## Changes in This Update
+
+- Added a candidate-source scope rule: avoid using Common Crawl corpus data to supplement the 1996-2001 candidate pool because its crawl data are distant from the target period and a separate workstream already covers that source family.
+
+- Specified that Common Crawl-derived candidate discoveries are excluded from the active candidate pool and candidate-pool scoring for this task.
+
+- Clarified that the restriction does not change the fixed Common Crawl TLD English-share weight table used solely for Equivalent-English Domain calculation.
+
+- Directed further candidate discovery toward overlooked external sources, including institutional archives, registry historical publications, academic datasets, email and newsgroup archives, historical directories, and scanned materials.
+
+## Practical Effect
+
+Candidate discovery effort is concentrated on temporally closer and independently discoverable historical sources, while the established Equivalent-English calculation remains consistent and reproducible.
+
+# Update Record
+
+Timestamp: 2026-09-14 22:43:59 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0909_Update.docx
+
+Update topic: Redirecting effort from benchmark-root subdomain enumeration to unknown-domain discovery
+
+## Changes in This Update
+
+- Clarified that querying domains already present in the benchmark through IA CDX solely to enumerate their subdomains is a low-return and duplicative route, because downstream CDX acquisition will already expose those subordinate hostnames.
+
+- Revised the former high-density platform-hostname workstream so that unknown registrable-domain discovery and active candidate-pool validation are the primary objectives.
+
+- Clarified that exact subdomain hostnames obtained independently from external datasets or historical sources remain eligible when they carry qualifying year-specific evidence; the restriction concerns derivation or bulk enumeration from existing benchmark domains.
+
+- Redirected CDX use toward year-specific validation of externally discovered hostnames, candidate-pool promotion, and assessment of genuinely new historical sources.
+
+- Required exceptional archive-expansion pilots to report overlap, previously unknown registrable-domain yield, hostname yield, evidence quality, and retrieval cost before any scaling decision.
+
+## Practical Effect
+
+Project resources are concentrated on discovering new registrable domains and converting unresolved candidate assets into evidence-backed annual records. This avoids repeating the later CDX-download stage while preserving independently sourced, evidence-backed hostname records.
+
+# Update Record
+
+Timestamp: 2026-09-17 (UTC+8)
+
+Related document: Internet_Digital_Ark_Project_0917_Update.docx
+
+Update topic: Mandatory evidence classification and semantic hostname integrity remediation
+
+## Changes in This Update
+
+Defined the annual master as a website-evidence product. Direct, exact-host, target-year website evidence is required for annual acceptance; DNS, registry, email, Usenet, and textual evidence are retained as discovery or hostname-in-use assets unless paired with qualifying web evidence.
+
+Added a mandatory hostname-integrity gate beyond basic regular-expression syntax: current IANA or documented historical terminal-TLD validation, exclusion of bare `www.\<single-label\>` values, detection of immediately duplicated terminal suffixes, exact-form handling for bare and `www.` hostnames, and a machine-readable exclusion ledger.
+
+Required annual/candidate reconciliation after cleansing: valid active candidates that are already accepted in a cleaned annual master must be removed from the active candidate pool. Records failing integrity checks are quarantined with reason and provenance rather than silently retained or discarded.
+
+## Practical Effect
+
+The project now distinguishes discovery evidence from direct website evidence uniformly, prevents malformed or semantically corrupted hostnames from inflating annual or candidate results, and makes legacy remediation reproducible and auditable without suppressing useful unresolved discoveries.

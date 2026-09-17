@@ -46,4 +46,6 @@ off-site copy is verified against these hashes.
 | `merged260906` | 2026-09-06 | yes | 1,242,496 | 2,647,211 | 4,451,485 | 8,569,884 | 13,894,328 | 30,531,282 | Domain_Data_Collection_Task_0906_Update.zip | 49aa163d18e8ec508c306b967eba4d7c7a4134378a3edc93ffeeade257425aca |
 | `merged260907-2` | 2026-09-07 | yes | 1,242,897 | 2,649,645 | 4,460,947 | 8,713,158 | 13,975,217 | 32,127,408 | Domain_Data_Collection_Task_0907_Update.zip | 668b2236f089cca2af80ee4713af9894d510b3e5276a8e7224494731dd17089b |
 | `merged260908` | 2026-09-08 | yes | 1,243,032 | 2,650,528 | 4,464,493 | 8,724,684 | 14,015,128 | 34,215,977 | Domain_Data_Collection_Task_0908_Update.zip | 89e4e19b115f3306f295b65165291c5c8549576fe8589ccf485837b26fb0e6ad |
+| `merged260911-4` | 2026-09-11 | yes | 1,251,095 | 2,667,301 | 4,514,404 | 11,574,736 | 18,108,348 | 42,991,843 | Domain_Data_Collection_Task_0911_UpdateV4.zip | 1bb1795ad9b2b803162084dd33e1e21591dc3778eb22ff67d37a48c5dede5045 |
+| `merged260917-2` | 2026-09-17 | yes | 1,765,161 | 3,390,798 | 5,690,312 | 14,606,285 | 23,295,019 | 54,475,928 | Domain_Data_Collection_Task_0917_UpdateV2.zip | 0e3f055b9a4d4edddbe2bfe9e96596d68abd0b5177d5fd19b909d439141b36cd |
 <!-- /releases:table -->

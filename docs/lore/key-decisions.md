@@ -35,9 +35,9 @@ The brief update of 2026-08-20 scores each submission `S_i = 10 * p_i / t_i`, wi
 
 Worth: the ranking, not the increment. Frequent small rounds dominate; the 5% trigger and this rule pull opposite ways and only you can choose.
 
-### Triage the newly found sources: 40 found
+### Triage the newly found sources: 49 found
 
-**40 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+**49 source(s) found and not yet priced**, in `hypotheses-pending.md` and in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
@@ -45,6 +45,9 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-90** | 2026-09-17 | **Spec XIII binds: the annual masters are a website-evidence product.** Only exact-host year-specific web evidence enters the annual files; DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are candidates. Screened over round 10: **32,228 of 346,389 registrable rows pass (9.3%), 2,674,952 of 3,554,784 hostname rows pass (75.2%)**, table in `laws.md`. Largest casualty is C-87, the DK zone list, 255,211 rows. Failing rows re-track to candidates. Export and `ark check` still have to enforce it. |
+| **C-89** | 2026-09-17 | **The 5% gate stands; an early submission is ASKED FOR, not taken.** We may ask Ding to accept below the floor when the research side carries it, and he decides. `merged260917-2` puts the gate at 2,803,730 EE, rising about 110,000 EE/day against our 23,000. |
+| **C-88** | 2026-09-17 | **The archive client cap goes to three; the third is the availability engine.** `archive.org/wayback/available` is a second budget: 1.27 q/s at 0.67% throttled while both CDX collectors ran at 0.308 q/s each and 27.3% throttled. It pays 1,494 net-new EE/hour over 4,137,392 com/net/org/uk names held at 2000 and missing 2001, against 600 EE/hour for both CDX collectors together. **On throttling, retire a CDX collector, never the engine.** |
 | **C-87** | 2026-09-16 | **The DK Hostmaster zone list `domains.txt` is approved as `artifact_listing`, and ingested.** Three Wayback captures inside 2001, each opening with the registry's stamp of its own count on its own date. PR #143. Banked on the live store under C-86: 255,266 net-new pairs, 43,676.0 EE annual, the round's first bulk source. |
 | **C-86** | 2026-09-16 | **The corroboration split is narrowed to free-text recovery.** A name in a delimited field of a self-dating artifact takes no split; a doubtful string goes to the XI normalization-review file. Measured cost of the old rule on delimited fields: 1.3x to 5.5x, and 255,254 to 56,707 pairs on the DK zone list. Ivo, 2026-09-16, on the fleet's audit (#142). |
 | **C-85** | 2026-09-11 | **A link graph is two evidence classes, not one: the LINK SOURCE host is a master addition, the LINK TARGET is candidate only.** Ivo's ruling on merging the UKWA host-linkage download (fleet #104): the crawler fetched the source host and recorded a 200, which dates it; being linked to is not evidence that the target served anything that year. The taxonomy already said so, `link_target` is candidate-only and `link_source` is master, so the store would refuse the mistake, but a pricing leg reading the lead would have priced 3,476,500 targets as annual records. The lead carries the ruling in its own `evidence_class`, and the 56,000 to 225,000 EE estimate is a CANDIDATE-track figure until the source half is measured on its own. |

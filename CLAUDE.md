@@ -1,14 +1,27 @@
 # Internet Digital Ark
 
-Rebuild the list of domains that existed 1996-2001 for Prof. Ding, scored on **equivalent-English
-(EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY. The
-deliverable is demonstrated research capability**: autonomous, creative, intelligent discovery (Ivo,
-2026-08-27), so a measured negative with a reason is a result and the METHOD outranks the source.
-**The 5% gate is hard and NOTHING IS SUBMITTED UNDER IT** (Ivo, 2026-09-08, C-78): a floor on
-sending, not a target, "there definitely are 5% to find". Never offer to package a short round.
-Past the floor, submit at once and keep collecting: percentages add and the denominator grows.
-The first priority does not soften the gate: it decides what to do with the hours that find no
-outlier. **Where the round stands is in `docs/ROUND.md`, generated. Never state it here.**
+## Rule 0: lean, or it is worthless
+
+**These docs are the source of truth as of today. Never write how things were.** Git is the only
+history. Verbosity is the enemy of quality: this is research for people with no time, and a longer
+text is worth less. Say it once, as short as it can be said, then stop. **Never grow a file:** the
+edit that adds a rule deletes the rule it replaces. No restating, no preamble, no AI slop.
+
+---
+
+Rebuild the domains that existed 1996-2001 for Prof. Ding, scored on **equivalent-English (EE)**:
+each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable
+is demonstrated research capability**, so a measured negative with a reason is a result and the
+METHOD outranks the source.
+
+**The annual masters are a WEBSITE-evidence product** (spec XIII, C-90). Only exact-host year-specific
+web evidence enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot, a dated web link-graph
+record, or a custodian's per-host/year web-capture extract. DNS, registry, RDAP, WHOIS, mail and
+Usenet headers and textual mentions are CANDIDATES, which are scored separately at the same rate.
+
+**The 5% gate is a floor on sending and nothing ships under it** (C-78, C-89). We may ASK Ding to
+accept less when the research side carries it; he decides. Never package a short round unasked.
+Past the floor, submit at once. **Where the round stands is in `docs/ROUND.md`, generated.**
 
 ## Before task X, read page Y
 
@@ -26,54 +39,41 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 ## When prompted, in this order
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Two tracks are scored, not one (his 0906 update), so GATHERING CANDIDATES IS A PRIORITY,
-   not a by-product.** Annual files and the CANDIDATE POOL are "measured and ranked separately",
-   both `S = 10 x (p / t)` over the same annual denominator, so a candidate point is worth an
-   annual point and costs far less: no dating argument, no approval line, no evidence class. A
-   lane producing names it cannot date has still produced a scored result. **Both tracks ship
-   net-new against HIS files, never our copy**, diffed at export time.
-3. **Hunt a bulk dated HOSTNAME corpus, and harvest hostnames under names we already hold.**
-   The standing priority (Ivo, 2026-09-04); `just hostnames <epoch>` starts that lane. **The
-   sweep's 193,000 EE/client-hour is a PEAK, not a rate** (C-77: 210 EE/hour two nights on). The
-   token window goes to the workflows; collectors run beside them, checked sporadically.
+2. **GATHER CANDIDATES.** Both tracks score at the same rate and a candidate costs no dating
+   argument, approval or evidence class. Both ship net-new against HIS files, diffed at export.
+3. **Hunt a bulk dated HOSTNAME corpus that meets the XIII standard**; `just hostnames <epoch>`.
+   The sweep's 193,000 EE/client-hour is a peak, not a rate: 210 EE/hour two nights on.
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
    confirmed FIND, writes the `Decision:` line or raises the approval, and pushes.
 6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
 
-## The ten rules that bind every session
+## The ten rules
 
-1. **Pushing (Ivo, 2026-09-03): any branch except `main` may be pushed; `main` only by PR.**
-   `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept public deliberately as a
-   portfolio, so every pushed commit and its message is world-readable the moment it lands.
-   That is what the freedom costs: a commit message names no hosts, no IP addresses, no email
-   bodies and no personal context (`docs/ROUND.md` is ignored precisely because it embeds the
-   VPS address, and a message must not re-leak that). No agent pushes `main`; protection binds.
+1. **Any branch but `main` may be pushed; `main` only by PR.** `origin` is PUBLIC, so a commit
+   message names no host, IP, email body or personal context.
 2. Gate before every commit, never through a pipe:
    `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`,
    with `ark export` before `ark check`.
 3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
 4. `private/` never ships.
 5. **Big data must never reach git.**
-6. **Two archive clients maximum, and the limit binds the CDX CHANNEL** (C-77): the collectors
-   hold `web.archive.org/cdx` and no agent may query it, the rest of archive.org is open to a
-   research lane, and no lane pauses a collector. Honest User-Agent, honour `Retry-After`.
-7. **The standing approval rule (Ivo, 2026-08-29): the loop writes the `Decision:` line itself,
-   citing this rule, when all four hold**: the class is already master-eligible, a machine-written
-   stamp inside the artifact dates one item and is quoted, the terms permit it, and `ark check`
-   passes after the ingest. Failing any one parks it `pending`; undated and terms we do not hold
-   stay fatal.
-8. **Every source gets a LINK in `docs/registers/sources.md` before it is ingested** (Ivo, 2026-08-31), next to
-   the sentence saying what dates one item and why it clears the bar.
+6. **Three archive clients maximum** (C-88): two hold `web.archive.org/cdx` and no agent may
+   query it, the third is the availability engine on `archive.org/wayback/available`. The rest of
+   archive.org is open to a research lane; no lane pauses a collector. Honest User-Agent, honour
+   `Retry-After`. **On throttling, retire a CDX collector, never the engine**: that costs 300
+   EE/hour and buys 1,494.
+7. **The loop writes its own `Decision:` line when all four hold**: the class is master-eligible
+   under XIII, a machine-written stamp in the artifact dates one item and is quoted, the terms
+   permit it, and `ark check` passes after the ingest. Any one failing parks it `pending`.
+8. **Every source gets a LINK in `docs/registers/sources.md` before ingest**, beside the sentence
+   saying what dates one item.
 9. No AI attribution in commits.
 10. **No em-dashes or en-dashes.**
 
 ## How to work
 
-**Verbosity is the opposite of quality.** Keep instructions, wake-ups and agent prompts short, direct,
-simple. If a rule takes a paragraph, it is being over-explained.
+**Two hunts returning nothing: change the method, not the effort.** Ask what *kind* of artifact you
+have never looked for, not which host you have not tried.
 
-**If two hunts in a row return nothing, change the method, not the effort.** Widen the lens, not the
-list: ask what *kind* of artifact you have never looked for, not which host you have not tried.
-
-**One lens per cycle, and never the same lens twice running.** Rotate even when the last one paid.
+**One lens per cycle, never the same twice running.** Rotate even when the last one paid.

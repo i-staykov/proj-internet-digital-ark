@@ -23,6 +23,16 @@ DEFAULT_REPORT_PATH = Path("data/reports/ingest_mismatches.txt")
 # review file keeps at most this many examples per category per file
 SAMPLE_LIMIT = 50
 CHUNK_SIZE = 200_000
+# **Rows per INSERT into `evidence`, and it is a memory number, not a speed one.**
+# `evidence` carries a PRIMARY KEY and a FOREIGN KEY on `domain`, so every inserted row
+# costs an ART lookup, and DuckDB holds the whole statement's index work until it
+# commits. On 2026-09-17 loading `merged260911-4` that cost 13 GiB on 1997's 2.67M rows
+# and died there ("Failed to commit: failed to allocate data of size 32.0 KiB"), with
+# 2001's 43M rows still to come, against an `evidence` table already holding 444M rows.
+# The abort then left the index in a state DuckDB refused to open for writing at all
+# ("Corrupted ART index"), so the store had to be restored from the pre-load backup.
+# Batched, the peak is bounded by this number rather than by the size of a year file.
+BATCH_ROWS = 2_000_000
 
 
 def _append_samples(report_path: Path, title: str, samples: list[str]) -> None:
@@ -113,36 +123,73 @@ def ingest_year_file(
     before = conn.execute(
         "SELECT count(*) FROM domain_year WHERE assigned_year = ?", [year]
     ).fetchone()[0]
-    conn.execute(
-        r"""
-        INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-        SELECT DISTINCT domain, regexp_replace(domain, '^[^.]+\.', ''), ?
-        FROM stage
-        """,
-        [source_id],
-    )
+    # Numbered once so the batches below are disjoint and stable. `SELECT DISTINCT` was
+    # inside each of the three inserts and ran three times over the year file; here it
+    # runs once, into a table that can spill.
     conn.execute(
         """
-        INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                              evidence_value, acquisition_method)
-        SELECT DISTINCT domain, ?, ?, 'prior_reused', ?, 'prior_task'
-        FROM stage
-        """,
-        [source_id, year, marker],
-    )
-    conn.execute(
+        CREATE OR REPLACE TEMP TABLE stage_d AS
+        SELECT row_number() OVER () AS rid, domain FROM (SELECT DISTINCT domain FROM stage)
         """
-        INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-        SELECT e.domain, e.evidence_year, e.evidence_id
-        FROM evidence e
-        WHERE e.evidence_type = 'prior_reused' AND e.evidence_value = ?
-        """,
-        [marker],
     )
+    to_write = conn.execute("SELECT count(*) FROM stage_d").fetchone()[0]
+    # Every batch is its own transaction, so a failure part way leaves the marker's rows
+    # half written. The skip at the top of this function reads a non-zero count as a
+    # finished load, so that half would be invisible and permanent. Undo it instead: the
+    # marker is unique to this release and this year, so deleting by it takes back
+    # exactly what this call wrote and nothing else.
+    written = conn.execute("SELECT coalesce(max(evidence_id), 0) FROM evidence").fetchone()[0]
+    try:
+        for low in range(0, to_write, BATCH_ROWS):
+            window = [low, low + BATCH_ROWS]
+            conn.execute(
+                r"""
+                INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+                SELECT domain, regexp_replace(domain, '^[^.]+\.', ''), ?
+                FROM stage_d WHERE rid > ? AND rid <= ?
+                """,
+                [source_id, *window],
+            )
+            conn.execute(
+                """
+                INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                                      evidence_value, acquisition_method)
+                SELECT domain, ?, ?, 'prior_reused', ?, 'prior_task'
+                FROM stage_d WHERE rid > ? AND rid <= ?
+                """,
+                [source_id, year, marker, *window],
+            )
+            now_at = conn.execute("SELECT coalesce(max(evidence_id), 0) FROM evidence").fetchone()[
+                0
+            ]
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+                SELECT e.domain, e.evidence_year, e.evidence_id
+                FROM evidence e
+                WHERE e.evidence_type = 'prior_reused' AND e.evidence_value = ?
+                  AND e.evidence_id > ? AND e.evidence_id <= ?
+                """,
+                [marker, written, now_at],
+            )
+            written = now_at
+    except Exception:
+        logger.error(f"{marker}: failed part way, taking back the rows this load wrote")
+        conn.execute(
+            "DELETE FROM domain_year WHERE evidence_id IN "
+            "(SELECT evidence_id FROM evidence WHERE evidence_type = 'prior_reused' "
+            "AND evidence_value = ?)",
+            [marker],
+        )
+        conn.execute(
+            "DELETE FROM evidence WHERE evidence_type = 'prior_reused' AND evidence_value = ?",
+            [marker],
+        )
+        raise
     after = conn.execute(
         "SELECT count(*) FROM domain_year WHERE assigned_year = ?", [year]
     ).fetchone()[0]
-    stats["unique_domains"] = conn.execute("SELECT count(DISTINCT domain) FROM stage").fetchone()[0]
+    stats["unique_domains"] = to_write
     stats["year_rows"] = after - before
     conn.execute("DELETE FROM stage")
 
