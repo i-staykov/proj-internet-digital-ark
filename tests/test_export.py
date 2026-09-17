@@ -18,7 +18,16 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
     assign_year(conn, record_evidence(conn, "base.com", prior, 1997, "prior_reused", "1997.txt"))
     add_candidate(conn, "new.com", cdx)
     assign_year(
-        conn, record_evidence(conn, "new.com", cdx, 1997, "cdx_timestamp", "19970101000000")
+        conn,
+        record_evidence(
+            conn,
+            "new.com",
+            cdx,
+            1997,
+            "cdx_timestamp",
+            "19970101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
     )
     add_candidate(conn, "cand.org", cdx)
     return conn
@@ -123,7 +132,15 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
     init_db(conn)
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
     add_candidate(conn, "held.com", cdx)
-    eid = record_evidence(conn, "held.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+    eid = record_evidence(
+        conn,
+        "held.com",
+        cdx,
+        1999,
+        "cdx_timestamp",
+        "19990101000000",
+        acquisition_method="ia_cdx_domain_sweep",
+    )
     assign_year(conn, eid)
     # the two parents the impossible hostnames hang off; `add_candidate` refuses `.arpa`
     # at the funnel, so that one goes in directly, exactly as the store's old rows did
@@ -194,17 +211,44 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
     add_candidate(conn, "real.com", cdx)
     assign_year(
-        conn, record_evidence(conn, "real.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+        conn,
+        record_evidence(
+            conn,
+            "real.com",
+            cdx,
+            1998,
+            "cdx_timestamp",
+            "19980101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
     )
     # .biz was delegated in 2001, so a 1998 pair under it can never ship.
     add_candidate(conn, "impossible.biz", cdx)
     assign_year(
-        conn, record_evidence(conn, "impossible.biz", cdx, 1998, "cdx_timestamp", "19980101000000")
+        conn,
+        record_evidence(
+            conn,
+            "impossible.biz",
+            cdx,
+            1998,
+            "cdx_timestamp",
+            "19980101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
     )
     # and one he already holds for that year, which the export drops and the guard must too
     add_candidate(conn, "already-his.com", cdx)
     assign_year(
-        conn, record_evidence(conn, "already-his.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+        conn,
+        record_evidence(
+            conn,
+            "already-his.com",
+            cdx,
+            1998,
+            "cdx_timestamp",
+            "19980101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
     )
 
     baseline = _fake_baseline(tmp_path)
@@ -274,7 +318,15 @@ def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path)
     add_candidate(conn, "already-his.com", cdx)
     assign_year(
         conn,
-        record_evidence(conn, "already-his.com", cdx, 1997, "cdx_timestamp", "19970101000000"),
+        record_evidence(
+            conn,
+            "already-his.com",
+            cdx,
+            1997,
+            "cdx_timestamp",
+            "19970101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
     )
     export_all(
         conn,

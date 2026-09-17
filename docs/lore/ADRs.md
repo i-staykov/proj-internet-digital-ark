@@ -815,56 +815,49 @@ banked is affected and no re-walk is implied: parents already carrying a `.done`
 The gain applies to the queue still to be walked, which on 2026-09-07 is 41,122 parents.
 
 
-## ADR-012. The hostname wall admits an observation of the host IN USE, not only one of it serving
+## ADR-012. The hostname wall admitted a host IN USE, not only one serving. SUPERSEDED by ADR-013
 
-Date: 2026-09-09. His approval, on his own brief's wording (C-83).
+Date: 2026-09-09, superseded 2026-09-17.
+
+## ADR-013. The annual claim is website evidence, and the METHOD decides it
+
+Date: 2026-09-17. His spec XIII (C-90). Supersedes ADR-012.
 
 ### What settled it
 
-`hostnames.py` has said since 2026-09-02 that "the observation must show the host serving web
-content", and that sentence was derived from the PURPOSE he gave the hostname unit, retrieving
-archived pages as completely as possible, rather than from anything he wrote as a requirement. His
-section IV.1 does write a requirement, and it is wider:
+XIII is unambiguous and it is narrower than the section IV.1 wording ADR-012 rested on:
 
-> evidence for the corresponding year means factual material demonstrating that the domain
-> actually existed, was in use, or was active during the specific calendar year [...] Such
-> evidence may include a CDX timestamp from that year, a historical webpage snapshot, a dated
-> directory page, a dated index file, a WHOIS record demonstrating registration status in that
-> year, or equivalent material.
+> A hostname-year record may enter `1996.txt` through `2001.txt` only when the retained evidence
+> establishes the exact hostname's web presence in the target year. [...] DNS observations,
+> registry/RDAP/WHOIS registration events that do not establish web presence, email or Usenet
+> delivery headers, and textual mentions are valuable discovery or hostname-in-use evidence, but
+> do not by themselves establish a website for an annual master.
 
-"In use or active", an open list, and a WHOIS record among the examples, which is not a page fetch
-either. So the narrower wall was ours. It cost `usenet_header_fqdn_hostnames` its class reading and
-would have cost this lane 2,580 of its 2,690 EE.
+"In use" was the whole of ADR-012 and XIII names it as exactly the thing that is not enough.
 
-### What changes
+### The decision
 
-`WEB_FACING_HOST_SOURCES` gains `apache_list_header_hostnames`, and the wall's documented condition
-becomes "shows the host in use". One field of one artifact is admitted by name: the
-`Received: ... by <host>` clause of a dated mail message, which the receiving MTA writes about
-itself. Nothing else moves.
+**The unit is the acquisition METHOD, not the evidence type.** Screened over round 10,
+`artifact_listing` and `dated_directory` each land on both sides: a registry zone list captured
+from Wayback is `artifact_listing` and dates a delegation, while an archived index page is
+`artifact_listing` and may date a page. A type-level rule cannot separate them.
 
-### Why the corroboration split does not apply
+`evidence_types.WEB_METHODS` is an **allowlist, and an unknown method fails closed** into
+candidates. A method missing from it costs a claim we can add back in a line; a method wrongly in
+it costs a refusal, and a refusal is what the screen exists to prevent.
 
-The split's own wording is that "anything a human typed needs another source to date that domain
-first. A self-dating record takes no split." A `by` clause is written by the machine it names, in a
-transaction that machine completed, and the archive dated the message independently. Applying the
-split here would not be caution, it would be reading the rule backwards.
+**The store is not filtered, the CLAIM is.** A row that cannot date a year is still evidence, still
+provenance, and still a candidate. `export.py` filters the six net-new year files, the six hostname
+files and both evidence manifests; `domain_year` and `hostname_year` keep every row.
 
-### What stays out, and why the ISC ruling is untouched
+`prior_task` is not in the allowlist and is not meant to be: that is his own merged baseline, its
+remediation is his under XIII's legacy section, and it is never part of our net-new claim.
 
-His 2026-09-06 ruling that a raw ISC or Network Wizards survey record dates a DNS observation and
-not a website stands by name, and the DNS lanes keep writing no hostname year. The distinction is
-not web-versus-not: a DNS answer proves a name resolves, while a `by` clause proves a service at
-that exact name accepted and forwarded a message. He measured the ISC class at 2.67% exact-host CDX
-corroboration; the same check on one Apache list-month put 22.1% of its `by` hosts somewhere in his
-own files, against 84.2% for the `www.` shape. That is the ordering the wall now encodes.
+### What it costs
 
-Also excluded, all three deliberately: the `from` HELO clause, because the sender chose it and it
-is forgeable; the parenthesised reverse-DNS, because it was outside the approval; and the
-`Message-ID` host, because the client stamps it from a configured nodename.
+Measured over round 10 before the filter: 32,228 of 346,389 registrable rows pass (9.3%) and
+2,674,952 of 3,554,784 hostname rows pass (75.2%). Over the whole store, ours only, the hostname
+grain is 92% CDX-derived and the registrable grain is not. Everything filtered out re-tracks to the
+candidate pool, which he scores separately at the same rate, so the cost is the claim and not the
+work.
 
-### What it does not change
-
-No schema change, no re-ingest, and nothing already banked moves. `jeb_bush_hostgrain` stays closed
-at 322.4322 EE: it was closed on hosts taken from email ADDRESSES, a field a human addressed, which
-is not what this admits.
