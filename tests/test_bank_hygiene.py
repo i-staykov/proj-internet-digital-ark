@@ -365,3 +365,22 @@ def test_output_on_another_full_filesystem_is_refused(tmp_path, monkeypatch):
         lambda p: SimpleNamespace(free=(100 if p.name == "data" else 1) * hyg.GIB),
     )
     assert hyg.space(root=tmp_path)[0] == 2
+
+
+def test_a_page_a_program_wrote_warns_and_does_not_refuse() -> None:
+    """`discover_cycle.py` rewrites these every cycle and commits neither.
+
+    Measured 2026-09-19: a triage counter moving 49 -> 50 left the clone dirty, preflight
+    refused, and the bank stopped for an hour while the collectors kept writing journals
+    nobody was banking. They sit inside STAGED, so the sync that follows commits them,
+    which is the flow the refusal was interrupting.
+    """
+    fatal, warn = hyg.unsafe(
+        " M docs/lore/key-decisions.md\n M docs/registers/hypotheses-pending.md"
+    )
+    assert fatal == [], "a machine-written page is nobody's work in progress"
+    assert len(warn) == 2
+
+    # the protection itself is unchanged: a human's edit under docs/ still refuses
+    fatal, _ = hyg.unsafe(" M docs/lore/laws.md")
+    assert len(fatal) == 1

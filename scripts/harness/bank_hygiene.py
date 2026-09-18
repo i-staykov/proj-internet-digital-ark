@@ -52,6 +52,12 @@ FLEET_REPO = "i-staykov/ark-fleet"
 # with the recipe's own `git add` line: widening that without widening this is how an
 # untracked file gets committed by a job nobody is watching.
 STAGED = ("docs/", "src/", "justfile")
+# **Pages a program writes, which must never refuse the bank.** `discover_cycle.py`
+# rewrites these every cycle and commits neither, so a changed triage count left the clone
+# dirty, preflight refused, and banking stopped until a human noticed. Measured 2026-09-19:
+# one such counter moving 49 -> 50 stalled the bank for an hour. They are inside `STAGED`,
+# so the sync that follows commits them itself, which is the intended flow.
+GENERATED = ("docs/lore/key-decisions.md", "docs/registers/hypotheses-pending.md")
 
 # Where the bank downloads and parks fleet artifacts.
 INCOMING = "data/fleet_findings/incoming"
@@ -131,13 +137,18 @@ def unsafe(status: str) -> tuple[list[str], list[str]]:
     A tracked edit refuses: the bank commits, and committing somebody's work in
     progress under a "Bank fleet findings" message hides it. An untracked file
     refuses only where the recipe stages by directory.
+
+    A page in `GENERATED` is the exception, because it is nobody's work in progress: a
+    program wrote it and the bank is what commits it.
     """
     fatal, warn = [], []
     for line in status.splitlines():
         if not line.strip():
             continue
         path = line[3:].strip().strip('"')
-        if line[:2] == "??":
+        if path in GENERATED:
+            warn.append(line.strip())
+        elif line[:2] == "??":
             (fatal if path.startswith(STAGED) else warn).append(line.strip())
         else:
             fatal.append(line.strip())
@@ -168,7 +179,13 @@ def preflight(
         return 2, [f"REFUSED: git status failed: {status}"]
     fatal, warn = unsafe(status)
     for line in warn:
-        lines.append(f"untracked, not staged by the bank: {line}")
+        path = line[3:].strip().strip('"')
+        why = (
+            "written by a program, the bank commits it"
+            if path in GENERATED
+            else ("untracked, not staged by the bank")
+        )
+        lines.append(f"{why}: {line}")
     if fatal:
         lines.append(f"REFUSED: the clone is dirty, {len(fatal)} path(s):")
         lines.extend(f"  {line}" for line in fatal[:20])
