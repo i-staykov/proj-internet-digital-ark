@@ -7,9 +7,8 @@
 # shipped on 2026-08-18 while the identical phase-5 file was withheld, because the rule
 # lived as one filename instead of as a shape.
 docs/phase*-plan.md export-ignore
-# **Anything addressed to a person.** `submissions/phase-5/email-draft.md` opens "Send to:
-# michael.xiaowei.ding@gmail.com" and "Dear Professor Ding", and travelled to Ding inside
-# every archive; `docs/report-sendable.md` is the same document's prose and additionally
+# **Anything addressed to a person.** `submissions/phase-5/email-draft.md` is a letter to
+# the reviewer and travelled to him inside every archive; `docs/report-sendable.md` is the same document's prose and additionally
 # carried superseded round-5 figures beside a round-6 report. The house rule is that
 # nothing addressed to a person is tracked at all, and `private/` is where drafts belong;
 # these two are already in history, so this is the containment. `tests/test_delivery_privacy.py`

@@ -1,34 +1,25 @@
 """Expand one source into more domains by reading the pages it points at.
 
-The brief's "How to Expand One Source into More Domains" section asks for a
-repeated cycle: take a source, extract hosts, validate them against dated evidence, download
-the pages, extract the links those pages carry, and feed the new hosts back into
-the next round. This module is the download-and-extract half; the validation half
-is the CDX engine, and the feed-back is the round counter on a domain row.
+The brief's "How to Expand One Source into More Domains" asks for a cycle: take a source,
+extract hosts, validate them against dated evidence, download the pages, extract their
+links, feed the new hosts back. This is the download-and-extract half; the CDX engine
+validates and the round counter on a domain row feeds back.
 
-Two things decide what an extracted link is worth.
+**A link is a claim by the LINKING page, not by the linked host.** A page captured in 1998
+linking to `example.com` shows its author believed the site existed, which is not the
+archive holding a capture of it, and dead links, typos and names registered only later are
+all common. So an extracted host is candidate-only and cannot assign a year on its own.
 
-A link is a claim by the *linking* page, not by the linked host. A page captured
-in 1998 that links to `example.com` shows that its author believed the site
-existed, which is not the same as the archive holding a capture of it. Dead
-links, typographical errors and names registered only later are all common. So an
-extracted host is candidate-only by default and cannot assign a year on its own.
+**The exception the brief grants is a curated directory page**, where a human editor listed
+a site in a dated catalogue and the capture date is item-level evidence for every entry.
+That cannot be detected from markup, so it is asserted PER SEED rather than guessed: a seed
+marked as a directory yields `dated_directory`, everything else `link_target`.
 
-The exception the brief grants is a curated directory page: where a
-human editor listed a site in a dated catalogue, the page's capture date is
-item-level evidence for every entry on it, with no further verification needed.
-That cannot be detected from markup, so it is asserted per seed rather than
-guessed: a seed marked as a directory yields `dated_directory` evidence, and
-everything else yields `link_target` candidates.
-
-Snapshots are fetched with the `id_` modifier, which serves the original stored
-bytes instead of a rewritten page, so the hrefs are the ones the author wrote
-rather than Wayback's redirects.
-
-HTML of this era is frequently malformed, so parsing uses the standard library's
-lenient `HTMLParser` and takes only `href` attributes. A full DOM parser would
-only be needed to tell a catalogue entry from a navigation link structurally,
-which is exactly the judgement this module declines to make.
+Snapshots are fetched with the `id_` modifier, which serves the original stored bytes, so
+the hrefs are the ones the author wrote rather than Wayback's redirects. HTML of this era is
+frequently malformed, so parsing uses the lenient `HTMLParser` and takes only `href`
+attributes; a full DOM parser would only help tell a catalogue entry from a navigation link
+structurally, which is exactly the judgement this module declines to make.
 """
 
 import urllib.parse
@@ -61,23 +52,19 @@ class _HrefCollector(HTMLParser):
 def unwrap_redirect(url: str) -> str:
     """The real target inside a click-tracking wrapper, or the url unchanged.
 
-    Portals of the period routed every outbound link through a counter, and the
-    target is carried inside the wrapper rather than linked directly. Yahoo's
-    shape is the one that matters most:
+    Portals of the period routed every outbound link through a counter, carrying the target
+    inside the wrapper:
 
         http://srd.yahoo.com/goo/Business/*http://www.example.com/
 
-    Left unhandled this is not a partial loss, it is a total one. The wrapper's
-    registrable domain is `yahoo.com`, which is also the page's own domain, so
-    every entry is discarded as a self-link and an archived Yahoo category page
-    reports **zero** outbound domains. Measured on 7 August: every 2000-2001
-    `dir.yahoo.com` capture returned nothing, which reads as a barren source
-    rather than as a parser that cannot see it.
+    Left unhandled this is a TOTAL loss, not a partial one: the wrapper's registrable is
+    `yahoo.com`, the page's own domain, so every entry is discarded as a self-link and an
+    archived category page reports zero outbound domains, which reads as a barren source
+    rather than a parser that cannot see it.
 
-    The rule is to take the LAST embedded scheme rather than the first, because
-    the wrapper itself begins with one. Percent-encoded targets (`?url=http%3A//`)
-    are unquoted first, and only once: a target may legitimately carry an encoded
-    query of its own, and unquoting repeatedly would corrupt it.
+    Take the LAST embedded scheme, not the first, because the wrapper begins with one.
+    Percent-encoded targets are unquoted first and ONLY ONCE: a target may legitimately
+    carry an encoded query of its own.
     """
     candidate = url
     if "%3a%2f%2f" in url.lower() or "%3A//" in url:

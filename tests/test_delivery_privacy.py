@@ -1,20 +1,13 @@
 """Nothing addressed to a person may reach the delivery archive.
 
 `package_delivery.sh` ships the code as `git archive HEAD`, so **every tracked file goes
-in front of the reviewer** unless `.gitattributes` marks it `export-ignore`. The failure
-mode is not hypothetical and has now happened three times:
+in front of the reviewer** unless `.gitattributes` marks it `export-ignore`. It has
+happened three times: an email draft's "notes for Ivo" section, a `submissions/` letter
+addressed to the reviewer travelling inside the archive delivered to him, and one plan
+page shipping while its identical sibling was withheld, because the rule had been written
+as a filename rather than as a shape.
 
-1. 2 August 2026: an email draft's "notes for Ivo" section, private reasoning about how to
-   present the work to him, travelled inside the archive.
-2. 2026-08-18, found by auditing the delivery: `submissions/phase-5/email-draft.md` was
-   still tracked and shipping. It opens "Send to: michael.xiaowei.ding@gmail.com" and
-   "Dear Professor Ding", so the archive delivered to Ding contained a letter addressed to
-   Ding. `docs/report-sendable.md` shipped beside it carrying superseded round-5 figures
-   next to a round-6 report.
-3. The same day: `docs/phase6-plan.md` shipped while the identical `docs/phase5-plan.md`
-   was withheld, because the rule had been written as one filename rather than as a shape.
-
-So this tests the shape rather than the filenames. It reads the actual archive manifest,
+So this tests the shape rather than the filenames, and reads the actual archive manifest,
 because `.gitattributes` is easy to believe and hard to verify by eye.
 """
 
@@ -37,18 +30,15 @@ ADDRESSED = (
 
 
 def _archive_names() -> set[str]:
-    """What the next `git archive HEAD` would contain, honouring export-ignore.
+    """What the next `git archive HEAD` would contain, honouring export-ignore, with two
+    deliberate departures for the same reason.
 
-    Two deliberate departures from `git archive HEAD`, for the same reason.
-
-    `--worktree-attributes` reads the export-ignore rules from the worktree rather than
-    the commit, so a newly written rule does not look broken until it is committed.
-
-    **And the tree archived is the INDEX, not HEAD**, because otherwise a staged deletion
-    is invisible: removing a file that ships would fail this test in the very commit that
-    removes it. That happened twice, on 2026-08-19 and 2026-08-23. `package_delivery.sh`
-    refuses to build against a modified tracked tree, so at packaging time index and HEAD
-    are identical anyway, and what is about to be committed is the version worth testing.
+    `--worktree-attributes` reads the export-ignore rules from the worktree rather than the
+    commit, so a newly written rule does not look broken until it is committed. **And the
+    tree archived is the INDEX, not HEAD**, because otherwise removing a file that ships
+    fails this test in the very commit that removes it. `package_delivery.sh` refuses to
+    build against a modified tracked tree, so at packaging time the two are identical
+    anyway, and what is about to be committed is the version worth testing.
     """
     tree = subprocess.run(
         ["git", "write-tree"], cwd=ROOT, check=True, capture_output=True, text=True

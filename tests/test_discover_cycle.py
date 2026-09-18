@@ -1,14 +1,12 @@
 """The cycle's two pieces of real logic: parsing staleness, and not rebuilding twice.
-
 Loaded by path, like the other script tests: `scripts/` is not a package.
 
-Everything else in the cycle shells out to a program that has its own tests, so there
-is little here worth pinning. These two are worth pinning because both have already
-failed in a way a report would not reveal: the staleness parse **crashed the entire
-cycle**, and it went unnoticed for an hour because the long-running loop had loaded the
-module before the function existed, so only a fresh invocation hit it. And with an
-hourly loop and a 15-minute cron wake both live, two rebuilds of one target path would
-truncate the file a collector then reads as a short list rather than as an error.
+Everything else shells out to a program with its own tests. These two have already failed
+in ways a report would not reveal: the staleness parse **crashed the entire cycle**, and
+it went unnoticed because a long-running loop had loaded the module before the function
+existed, so only a fresh invocation hit it; and with an hourly loop and a 15-minute wake
+both live, two rebuilds of one target path truncate the file a collector then reads as a
+short list rather than as an error.
 """
 
 import importlib.util
@@ -116,9 +114,9 @@ Nothing needs your input.
 
 
 def test_a_pending_approval_is_mirrored_into_the_one_surface(tmp_path, monkeypatch) -> None:
-    """The wiring, not the convention. A `pending` line in a file Ivo does not open is
-    a journal waiting on a human who was never told, and the harness would report that
-    as "the queue working" (ADR-005).
+    """The wiring, not the convention: a `pending` line in a file Ivo does not open is a
+    journal waiting on a human who was never told, which the harness reports as the queue
+    working (ADR-005).
     """
     approvals = tmp_path / "approved-sources-list.md"
     approvals.write_text(APPROVALS_FIXTURE, encoding="utf-8")
@@ -158,8 +156,8 @@ def test_an_open_entry_left_behind_after_a_decision_is_flagged(tmp_path, monkeyp
 
 
 def test_unfinished_hypotheses_are_not_raised_at_the_human(tmp_path, monkeypatch) -> None:
-    """Ivo, 2026-08-11: "I had no idea there are hypothesis for me to sign-off." They
-    are the agent's queue, so they belong in findings and never in attention.
+    """Ivo: "I had no idea there are hypothesis for me to sign-off." They are the agent's
+    queue, so they belong in findings and never in attention.
     """
     ledger = tmp_path / "hypotheses.tsv"
     ledger.write_text(
@@ -173,9 +171,8 @@ def test_unfinished_hypotheses_are_not_raised_at_the_human(tmp_path, monkeypatch
 
 
 def test_the_cycle_no_longer_knows_how_to_restart_a_collector() -> None:
-    """Deliberate absence, not an oversight. An unattended loop does not get to kill
-    collectors: the previous version did, with a self-matching `pkill -f`, and it took
-    down a healthy one mid-batch on 11 August.
+    """Deliberate absence, not an oversight: an unattended loop does not get to kill
+    collectors. A self-matching `pkill -f` once took down a healthy one mid-batch.
     """
     assert not hasattr(cycle, "repoint_pool_engine")
     source = (Path(__file__).resolve().parents[1] / "scripts/harness/discover_cycle.py").read_text(

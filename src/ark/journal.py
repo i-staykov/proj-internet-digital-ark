@@ -1,26 +1,22 @@
 """Run journals: the artifact a network collector writes, and evidence reads.
 
-Network collectors do not write evidence. They append one JSON object per
-queried domain to an immutable per-run journal, and a bulk parser turns that
-journal into evidence through the audited loader, which hashes it into the file
-ledger. Three properties follow, and each one was paid for the hard way:
+Network collectors do not write evidence. They append one JSON object per queried domain to
+an immutable per-run journal, and a bulk parser turns that journal into evidence through the
+audited loader, which hashes it into the file ledger. Three properties follow:
 
-- the evidence replays from bytes on disk instead of from a live service whose
-  answers change;
+- the evidence replays from bytes on disk instead of from a live service whose answers
+  change;
 - a change of evidence standard is a re-parse, not a database migration;
-- collection never opens the store, so a long run cannot hold the single-writer
-  lock against everything else.
+- collection never opens the store, so a long run cannot hold the single-writer lock.
 
-One file per run, never appended to after the run ends, because the loader keys
-its ledger on (source name, file name) and refuses a file whose hash changed.
+**One file per run, never appended to after the run ends**, because the loader keys its
+ledger on (source name, file name) and refuses a file whose hash changed.
 
-That ledger rule is also why a run writes to `<name>.part` and renames only when
-it stops. The documented ingest commands glob `*.jsonl.gz`, and a collector is
-often still running when one is issued; ingesting a half-written journal would
-ledger the hash of its first N lines, and every later ingest of the finished file
-would then fail the hash check with its tail unreachable. The `.part` name keeps
-an unfinished run out of that glob while `queried_domains` still reads it, so a
-killed run's answers are not re-queried.
+That is also why a run writes `<name>.part` and renames only when it stops. The ingest
+commands glob `*.jsonl.gz` while a collector is often still running; ingesting a half-written
+journal ledgers the hash of its first N lines, and every later ingest of the finished file
+then fails the hash check with its tail unreachable. The `.part` name keeps an unfinished run
+out of that glob while `queried_domains` still reads it.
 """
 
 import gzip
@@ -153,28 +149,17 @@ def queried_domains(
 ) -> set[str]:
     """Domains a run journal already ANSWERED, so runs never repeat settled work.
 
-    `answered` decides what counts as settled. This matters: a transport failure
-    is not an answer, and journalling it as one would permanently drop the domain
-    from every later run. Pass a predicate for sources where some outcomes are
-    failures rather than findings; the default treats any record as settled,
-    which is right where the service either answers or says "not found".
+    `answered` decides what counts as settled. A transport failure is not an answer, and
+    journalling it as one drops the domain from every later run permanently. Pass a
+    predicate where some outcomes are failures rather than findings; the default treats any
+    record as settled, right where the service either answers or says "not found".
 
-    Truncation is tolerated: an interrupted run leaves a journal readable up to
-    its last flush, and whatever it lost is simply queried again next time.
-
-    **It was only tolerated for one of the two ways a journal breaks, and the other
-    one stopped both engines dead on 2026-08-27.** A journal cut off between flushes
-    raises `EOFError`, which this caught. A journal whose last gzip block is damaged,
-    which is what a `kill -9` mid-write leaves behind, raises `zlib.error`, which is
-    not an `OSError` and so escaped: eleven such files sat under `data/raw/rdap` and
-    the resume scan died on the first of them, before a single query went out. Both
-    RDAP engines reported "the list is exhausted or the API refused" and exited in
-    under three minutes, which reads exactly like a finished queue.
-
-    So the guard now names the decompression errors too, and it sits INSIDE the read
-    loop rather than around it. Around it, a file that fails on its last block throws
-    away every domain read from the good blocks before it, and those get re-queried
-    for nothing: one of the eleven is 23.6 MB.
+    **Truncation and CORRUPTION are both tolerated, and the guard sits INSIDE the read
+    loop.** A journal cut between flushes raises `EOFError`; one whose last gzip block a
+    `kill -9` damaged raises `zlib.error`, which is not an `OSError`. Missing the second
+    stopped both RDAP engines dead before a single query went out, reading exactly like a
+    finished queue. Around the loop rather than inside it, a file failing on its last block
+    throws away every domain read from the good blocks before it.
     """
     seen: set[str] = set()
     if not directory.is_dir():

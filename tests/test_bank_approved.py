@@ -1,16 +1,11 @@
 """Banking a newly approved class must refuse anything a human has not answered.
 
-The handover this automates is the riskiest moment in a round: a request written
-days earlier, one word of answer, and a file on disk that has to be matched to the
-right spec at the end of a long evening. The property under test is therefore not
-"it ingests" but **"it refuses"**: a class still `pending` must be reported and
-skipped, so the recipe that calls this can be rehearsed without banking something
-nobody approved.
-
-Since approvals arrive as pull requests merged from a phone, a second property
-matters as much: **an approval that banks nothing must say so loudly**. The bytes a
-source was priced from live wherever it was priced, so the case to test is the
-normal one, an approved block whose journal is not on this machine.
+The property under test is not "it ingests" but **"it refuses"**: a class still
+`pending` is reported and skipped, so the recipe that calls this can be rehearsed
+without banking something nobody approved. And since approvals arrive as pull requests
+merged from a phone, **an approval that banks nothing must say so loudly**: the bytes a
+source was priced from live wherever it was priced, so an approved block whose journal
+is not on this machine is the normal case.
 """
 
 import email.message
@@ -84,11 +79,9 @@ def test_a_class_with_no_request_block_returns_empty() -> None:
 
 
 def test_the_journal_line_is_read_out_of_the_block() -> None:
-    """The path comes from the request, not the command line.
-
-    The block records the file the measured figures were computed from, so a
-    reviewer who approved those figures approved that file. Accepting a path as an
-    argument would let the two drift apart silently.
+    """The path comes from the request, not the command line: the block records the file the
+    measured figures were computed from, so a reviewer who approved those figures approved
+    that file, and a path argument would let the two drift apart silently.
     """
     request = bank.request_in(BLOCK, "bar_source", "artifact_listing")
     assert request.journal == "data/raw/bar/bar.jsonl.gz"
@@ -127,10 +120,9 @@ def test_a_block_with_the_three_lines_banks(tmp_path: Path) -> None:
 def test_a_missing_journal_with_a_refetch_line_is_reported_and_refetched(
     tmp_path: Path, capsys
 ) -> None:
-    """The fleet prices elsewhere, so the bytes have to come back from the URL.
-
-    Reported as well as fetched: a bank that silently downloads 70 MB is as hard to
-    reason about as one that silently skips.
+    """The fleet prices elsewhere, so the bytes come back from the URL. Reported as well as
+    fetched: a bank that silently downloads 70 MB is as hard to reason about as one that
+    silently skips.
     """
     text, approvals = _approved(
         tmp_path,
@@ -192,10 +184,9 @@ def test_a_block_with_neither_the_bytes_nor_a_refetch_line_is_refused_loudly(
 
 
 def test_a_journal_already_ingested_is_not_refetched(tmp_path: Path) -> None:
-    """A priced journal can be deleted once its rows are in the store, per retention.
-
-    Read the ledger before the filesystem or the bank downloads it all again every
-    hour, and every one of those blocks would also read as blocked.
+    """A priced journal can be deleted once its rows are in the store, per retention. Read the
+    ledger before the filesystem, or the bank downloads it all again every hour and every
+    one of those blocks reads as blocked.
     """
     text, approvals = _approved(
         tmp_path,
@@ -231,10 +222,9 @@ def test_a_journal_path_outside_the_repository_is_refused(tmp_path: Path) -> Non
 def test_two_consecutive_runs_with_no_new_data_plan_the_same_and_write_nothing(
     tmp_path: Path,
 ) -> None:
-    """E7.5's acceptance on this half: a repeated bank is a no-op.
-
-    Asserted two ways, because a plan can be stable while the tree is not: the
-    plans compare equal, and a digest of every path under the root is unchanged.
+    """A repeated bank is a no-op. Asserted two ways, because a plan can be stable while the
+    tree is not: the plans compare equal, and a digest of every path under the root is
+    unchanged.
     """
     text, approvals = _approved(
         tmp_path,
@@ -259,10 +249,9 @@ def test_two_consecutive_runs_with_no_new_data_plan_the_same_and_write_nothing(
 
 
 def test_a_refetch_that_returns_a_page_is_not_an_artifact(tmp_path: Path) -> None:
-    """A wall answers with a plausible byte count, so the check is on content.
-
-    The measured case was seven different replay URLs answering with the same
-    154,263-byte interstitial, all of which passed a size floor.
+    """A wall answers with a plausible byte count, so the check is on content: seven different
+    replay URLs once answered with the same 154,263-byte interstitial, all of which passed
+    a size floor.
     """
 
     class Response:
@@ -307,12 +296,10 @@ def test_a_throttled_refetch_reports_its_retry_after(tmp_path: Path) -> None:
 
 
 def test_it_never_offers_to_bank_a_class_a_human_has_not_approved() -> None:
-    """The invariant, against the live documents: only `master` is bankable.
-
-    Checked by reading the real approvals file rather than by running the ingest,
-    so it holds whatever state the file is in today. If a class is `pending`,
-    `rejected`, or `candidate-only`, this must not be among the things banking
-    would touch; only a human moving the line to `master` changes that.
+    """The invariant, against the live documents: only `master` is bankable. Checked by reading
+    the real approvals file rather than by running the ingest, so it holds whatever state
+    the file is in today. A `pending`, `rejected` or `candidate-only` class is untouchable
+    until a human moves the line to `master`.
     """
     from ark.approvals import load
     from ark.evidence_types import MASTER_TYPES

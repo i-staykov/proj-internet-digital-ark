@@ -1,14 +1,11 @@
 """When each TLD was delegated, for TLDs that did not exist throughout 1996-2001.
 
-**A domain cannot have existed before its TLD did.** `domain_creation_bulk` was admitted in
-phase 5 after checking exactly this, but the check was written against the six TLDs delegated in
-2001 and so could not see a TLD delegated in 2005 or later. Measured 2026-08-24 against the live
-store: **1,087 assigned pairs predate their own TLD's delegation**, across fourteen TLDs, led by
-`.eu` at 409 and `.info` at 202. Small in weight, 450.2 equivalent-English, and exactly the class
-the reviewer's validator is entitled to reject.
+**A domain cannot have existed before its TLD did**, and that is exactly the class the
+reviewer's validator is entitled to reject: measured 1,087 pairs and 450.2 EE predating
+their own TLD across fourteen TLDs, led by `.eu` at 409 and `.info` at 202.
 
-Only TLDs delegated in 1996 or later need an entry. Everything absent from this table existed for
-the whole window and is unconstrained.
+Only TLDs delegated in 1996 or later need an entry. Anything absent existed for the whole
+window and is unconstrained.
 """
 
 # ICANN delegation year. A pair is impossible if its assigned year is EARLIER than this.
@@ -30,16 +27,13 @@ DELEGATED: dict[str, int] = {
     "post": 2012,
     "tel": 2007,
     "travel": 2005,
-    # **Two-letter ccTLDs delegated AFTER the window.** `existed_predicate` waves through
-    # anything two characters long, on the reasoning that ccTLDs existed throughout, and
-    # these are the exceptions it therefore could not see. Measured 2026-08-31 the shipped
-    # files carried 79 pairs under three of them and every one is a Usenet extraction
-    # artifact: `eat.me`, `blow.me`, `byte.me`, `dontemail.me`, `e-mail.me`, `find.me`,
-    # `call.me`, `contact.me`, joke and anti-harvester addresses typed into From: headers
-    # years before `.me` existed. **Not one carries registry evidence**, which is what
-    # separates them from the 138 suffix-shaped names that DO (`name.ca` has the Canadian
-    # registry's own approval notice, `plc.nu` is in the .nu registry's expiry list, and
-    # eleven more sit in RIPE or RDAP). Those are real registrations and stay.
+    # **Two-letter ccTLDs delegated AFTER the window**, the exceptions `existed_predicate`
+    # cannot see because it waves through any two-character label. Measured: 79 pairs under
+    # three of them, every one a Usenet extraction artifact (`eat.me`, `dontemail.me`,
+    # joke and anti-harvester addresses typed into From: headers). None carries registry
+    # evidence, which is what separates them from the 138 suffix-shaped names that do
+    # (`name.ca` in the Canadian registry's approval notice, `plc.nu` in the .nu expiry
+    # list), and those are real registrations that stay.
     "ax": 2006,
     "bl": 2007,
     "bq": 2010,
@@ -54,28 +48,23 @@ DELEGATED: dict[str, int] = {
 }
 
 
-# **The eight gTLDs that existed for the whole window.** Everything else with a label of
-# three or more characters was delegated in 2001 or later, so a 1996-2001 pair under it is
-# impossible. Two-letter labels are ccTLDs, which existed throughout except for the handful
-# listed in DELEGATED above.
+# **The eight gTLDs that existed for the whole window.** Any other label of three or more
+# characters was delegated in 2001 or later, so a 1996-2001 pair under it is impossible.
+# Two-letter labels are ccTLDs, which existed throughout bar the handful in DELEGATED.
 WINDOW_GTLDS = ("com", "net", "org", "edu", "gov", "mil", "int", "arpa")
 
 
 def existed_predicate(column: str = "domain", year_column: str = "assigned_year") -> str:
     """True only for pairs whose TLD could have existed in that year.
 
-    **Why an allowlist and not a longer DELEGATED table.** `DELEGATED` names sixteen TLDs and
-    stops at 2012, so it could not see the 2013 new-gTLD programme, which delegated roughly
-    1,200 more. Text extraction then banks any English word that later became a gTLD, and
-    measured 2026-08-31 the shipped files carried **749 such pairs and 423.9 EE across 131
-    TLDs**: `.you`, `.here`, `.now`, `.sucks`, `.box`, `.world`, `.earth`. Several of those
-    carry weight 1.0000, the maximum in the model, so they cost more per pair than almost
-    anything real. Enumerating 1,200 delegations would go stale the same way; enumerating
-    what DID exist does not, because that set is closed and in the past.
+    **An allowlist, not a longer DELEGATED table.** The 2013 gTLD programme delegated some
+    1,200 names, and text extraction banks any English word that later became one: measured
+    749 such pairs and 423.9 EE across 131 TLDs (`.you`, `.now`, `.sucks`, `.world`), several
+    at weight 1.0000, the model's maximum. Enumerating what DID exist cannot go stale,
+    because that set is closed and in the past.
 
-    Kept beside `sql_predicate` rather than replacing it: that one encodes real delegation
-    years for TLDs that arrived DURING or just after the window, which this rule cannot
-    express, and both are applied.
+    Both predicates are applied. This one cannot express `sql_predicate`'s real delegation
+    years for TLDs that arrived during or just after the window.
     """
     allowed = ", ".join(f"'{g}'" for g in sorted(WINDOW_GTLDS))
     tld = f"lower(split_part({column}, '.', -1))"
@@ -86,8 +75,7 @@ def existed_predicate(column: str = "domain", year_column: str = "assigned_year"
 def sql_predicate(column: str = "domain", year_column: str = "assigned_year") -> str:
     """A SQL predicate that is true only for pairs whose TLD already existed that year.
 
-    Emitted rather than hand-written at each call site, because the `.arpa` filter had to be
-    repeated in four places in `export.py` and a fifth destination was added without it.
+    Emitted, never hand-written at a call site: a destination added without it ships.
     """
     clauses = [
         f"NOT ({column} LIKE '%.{tld}' AND {year_column} < {year})"
@@ -99,10 +87,8 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
 def shipping_filter_for(column: str, year_column: str) -> str:
     """The same rule for a table whose name column is not called `domain`.
 
-    `hostname_year` is the case that needed it. A hostname under a TLD that did not exist in
-    its year is the same error as a domain under one, and until 2026-09-03 the hostname half
-    of the export applied neither this nor the `.arpa` rule: `bust.web.site` at 1996 and
-    `comp.domaine.name` at 2000 were shipping, 198 rows of them.
+    `hostname_year` is the case that needs it: a hostname under a TLD that did not exist in
+    its year is the same error as a domain under one, and gets the `.arpa` rule too.
     """
     return (
         f"{column} NOT LIKE '%.arpa'"
@@ -114,11 +100,9 @@ def shipping_filter_for(column: str, year_column: str) -> str:
 def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
     """The rows allowed into a shipped file, for a given table alias.
 
-    Lives here rather than in `export` because `contribution` needs the same predicate
-    and importing it from `export` is a cycle. Built per call site rather than
-    string-replaced: the `.arpa` rule survives a blanket `.replace("domain", "dy.domain")`
-    but the delegation rule also names `assigned_year`, and that replace leaves the year
-    unqualified, which killed three of the four export destinations the first time.
+    Lives here rather than in `export` because `contribution` needs the same predicate and
+    importing it from `export` is a cycle. Built per call site, never string-replaced: a
+    blanket `.replace("domain", "dy.domain")` leaves `assigned_year` unqualified.
     """
     dom = f"{prefix}domain" if prefix else "domain"
     if not with_year:

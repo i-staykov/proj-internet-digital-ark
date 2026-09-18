@@ -1,18 +1,16 @@
 """Load candidate domains from a seed file and queue the ones still unproven.
 
-Backs `ark seed`. The other seed module, `ark.seed_pool`, goes the opposite way:
-it writes the hostname and URL download seeds out of evidence already held.
+Backs `ark seed`. The other seed module, `ark.seed_pool`, goes the opposite way: it writes
+hostname and URL download seeds out of evidence already held.
 
-Seeding never verifies anything: it canonicalizes, registers candidates, and
-enqueues work. Verification happens in its own stage so each can be rerun and
-resumed independently.
+Seeding never verifies anything: it canonicalizes, registers candidates, and enqueues work,
+so each stage can be rerun and resumed independently.
 
-What counts as "nothing left to do" is a confirmed year, not mere presence in the
-store. A domain can already be on file with no year assigned at all, which is
-precisely what a candidate is: reached by a candidate-only source, or dated
-outside 1996-2001, or queried and unanswered. Skipping those would leave them
-permanently unqueued while `ark export` still lists them as candidates, so the
-classification below distinguishes three states rather than one.
+**"Nothing left to do" means a confirmed year, not mere presence in the store.** A domain can
+be on file with no year assigned, which is precisely what a candidate is: reached by a
+candidate-only source, dated outside 1996-2001, or queried and unanswered. Skipping those
+would leave them permanently unqueued while `ark export` still lists them as candidates,
+which is why the classification below distinguishes three states rather than one.
 """
 
 import sqlite3

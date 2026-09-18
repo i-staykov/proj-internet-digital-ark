@@ -1,13 +1,11 @@
 """The approvals gate: what may date a year, and who decided.
 
-`tests/conftest.py` stubs the gate for every other test, because unit tests build
-specs with invented source names and would otherwise all be refused. **So this file
-is the only place the gate is actually exercised**, and it tests the gate rather than
-the convention: each case calls `check` with its own fixture file.
-
-The property under test is not "the agent recorded a decision" but "an undecided
-master-eligible source cannot be ingested". The agent's reasoning is exactly what is
-being distrusted, so the enforcement has to live in code.
+`tests/conftest.py` stubs the gate for every other test, because unit tests build specs
+with invented source names and would otherwise all be refused, so **this file is the only
+place the gate is exercised** and each case calls `check` with its own fixture file. The
+property under test is not "the agent recorded a decision" but "an undecided
+master-eligible source cannot be ingested": the agent's reasoning is what is distrusted,
+so the enforcement lives in code.
 """
 
 from pathlib import Path
@@ -54,11 +52,9 @@ def test_rejected_binds(tmp_path) -> None:
 
 
 def test_candidate_only_approval_refuses_a_master_spec(tmp_path) -> None:
-    """Approving a source as candidate-only must not let a master spec through.
-
-    This is the case that would otherwise silently promote: the reviewer said "keep
-    it, but it may not date a year", and a spec carrying a master evidence type for
-    the same source would ignore that.
+    """Approving a source as candidate-only must not let a master spec through. This is the
+    case that silently promotes: the reviewer said "keep it, but it may not date a year",
+    and a master evidence type for the same source ignores that.
     """
     path = _file(tmp_path, "### halfway / artifact_listing\n\nDecision: candidate-only\n")
     with pytest.raises(NotApproved, match="candidate-only"):
@@ -83,10 +79,9 @@ def test_pending_is_listed_for_the_state_document(tmp_path) -> None:
 
 
 def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None:
-    """A spec with no entry cannot be ingested, so an unlisted one is a latent stop.
-
-    This runs against the live `docs/registers/approved-sources-list.md` on purpose: adding a source
-    without classifying it should fail here rather than at 3am in an unattended run.
+    """A spec with no entry cannot be ingested, so an unlisted one is a latent stop. Runs
+    against the live `docs/registers/approved-sources-list.md` on purpose: adding a source
+    without classifying it fails here rather than at 3am in an unattended run.
     """
     from pathlib import Path
 
@@ -109,13 +104,11 @@ def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None
 
 
 def test_a_triage_entry_is_pending_but_marked_as_triage(tmp_path) -> None:
-    """The gate treats it like any other pending class; only the reporting differs.
-
-    A source found and not yet priced carries no sample and no measured figure, so it
-    cannot be decided in two minutes the way a priced request can. The distinction has
-    to be machine-readable, because the alternative is one entry per source on the one
-    surface Ivo reads, and that surface stops being read the moment it stops fitting on
-    a screen.
+    """The gate treats it like any other pending class; only the reporting differs. A source
+    found and not yet priced carries no sample and no figure, so it cannot be decided in
+    two minutes. The distinction must be machine-readable, because the alternative is one
+    entry per source on the surface Ivo reads, which stops being read once it stops
+    fitting on a screen.
     """
     from ark.approvals import load
 
@@ -137,11 +130,9 @@ def test_a_triage_entry_is_pending_but_marked_as_triage(tmp_path) -> None:
 
 
 def test_a_section_heading_ends_an_unfinished_request_block(tmp_path) -> None:
-    """A malformed entry must not swallow the next section's Decision line.
-
-    Without this, an entry whose `Decision:` line was forgotten would silently adopt the
-    decision of whatever came next, which is the one failure mode a gate must not have:
-    it would read as approved.
+    """A malformed entry must not swallow the next section's Decision line: an entry whose
+    `Decision:` line was forgotten would adopt whatever came next, which is the one
+    failure mode a gate must not have, because it reads as approved.
     """
     from ark.approvals import load
 
@@ -172,9 +163,9 @@ def test_the_live_file_parses_and_its_triage_section_is_recognised() -> None:
 
 
 def test_the_live_triage_section_holds_only_open_entries() -> None:
-    """Since 2026-09-03 a decision taken in triage is filed by `scripts/round/split_triage.py`:
-    master blocks move to Decided, rejected ones to `sources-closed.md` behind a stub. A
-    decided block left in triage means the split has not run, and the harness says so."""
+    """A decision taken in triage is filed by `scripts/round/split_triage.py`: master blocks
+    move to Decided, rejected ones to `sources-closed.md` behind a stub. A decided block
+    left in triage means the split has not run, and the harness says so."""
     found = load(Path("docs/registers/approved-sources-list.md"))
     decided = sorted(
         f"{a.source_name} / {a.evidence_type}"

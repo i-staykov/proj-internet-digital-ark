@@ -18,14 +18,10 @@ worth. Both factors matter. Share alone would rank a domain with one missing yea
 above one with three; count alone would spend the week on `.de` at 13.2% English
 while 13,503 `.uk` domains at 98.1% waited.
 
-The order this replaced ranked by thinnest gap year first, which was right when
-the goal was per-year completeness and predates the metric entirely. Measured
-against it over the next 50,000 queries, expected equivalent-English per query
-went from 0.813 to 1.249, about **54% better**, because the old order was feeding
-2,249 `.de`, 833 `.dk` and 656 `.it` domains into the queue ahead of `.uk`. It is
-kept as `year_priority_order` for reproducing earlier rounds, and it survives as
-the tiebreak inside an equal-value tier, so year balance still guides the choice
-between two targets worth the same.
+`year_priority_order`, ranking by thinnest gap year first, is kept for reproducing earlier
+rounds and survives as the tiebreak inside an equal-value tier, so year balance still
+guides the choice between two targets worth the same. Measured over 50,000 queries, the
+value order is worth 1.249 expected EE per query against its 0.813, about 54% better.
 
 Ties break on a content hash rather than alphabetically, because alphabetical
 clusters the numeric-prefix junk ("0171.com", "1-800-...") that was never
@@ -64,17 +60,12 @@ GROUP BY domain
 
 
 # **The window's two edge years, which the bracketing rule above cannot express.**
+# `_SANDWICH_SQL` needs a year held at Y-1 AND Y+1, so 1996 would need 1995 and 2001 would
+# need 2002, both outside the window. 2001 is worth targeting anyway: given a 2000 capture the
+# archive also holds 2001 for 94.4% of 140,924 answers, against 98.2% for a bracketed year.
 #
-# `_SANDWICH_SQL` requires a year held at Y-1 AND Y+1, so 1996 needs 1995 and 2001 needs 2002.
-# Both are outside the window, which means those two years were never targets at all. The
-# docstring calls the wider set "far more speculative", and that was written before the metric
-# existed and is wrong for 2001: measured on 2026-08-18 off 725 journals, given a 2000 capture
-# the archive also holds 2001 for **94.4%** of 140,924 answers, against 98.2% for a bracketed
-# year measured the same way. 1996 is the genuinely thin one at 60.0% of 30,198.
-#
-# Written as one `GROUP BY domain` rather than as correlated `NOT EXISTS` subqueries, which is
-# not a style choice: the subquery form took 15 minutes over 20.8M rows and this answers in 3
-# seconds. See ADR-006.
+# One `GROUP BY domain`, never correlated `NOT EXISTS` subqueries: the subquery form took 15
+# minutes over 20.8M rows and this answers in 3 seconds. See ADR-006.
 _EDGE_SQL = """
 WITH per_domain AS (
   SELECT domain,
@@ -89,24 +80,15 @@ UNION ALL
 SELECT domain, 2001 FROM per_domain WHERE y00 = 1 AND y01 = 0
 """
 
-# **Rates measured on the population itself, by a 200-domain pilot, not conditionals.**
+# **Rates measured on THIS population by a 200-domain pilot, never a conditional read off
+# the journals**, which is conditional on the archive holding the adjacent capture while this
+# population holds its adjacent year from any source, often a registry date for a site that
+# was never archived. The pilot: 2001 fills 111 of 186 and **1996 fills 0 of 186**, so 1996
+# is not a thin edge but no edge at all. It is scored zero rather than dropped, because
+# describing the population is the selector's job and pricing it is the ranking's.
 #
-# The first version of this constant carried 0.600 and 0.944, read off 725 journals as
-# "given a capture in the adjacent year, the archive also holds the edge year". Those were
-# labelled ceilings and they were: the journal figure is conditional on the archive holding
-# the adjacent CAPTURE, while this population holds its adjacent year from any source, very
-# often a registry creation date for a site that was never archived at all.
-#
-# The pilot measured the population itself: 2001 fills 111 of 186, and **1996 fills 0 of
-# 186**. So 1996 is not a thin edge, it is not an edge at all, and it is scored zero here
-# rather than dropped from the selector, because the selector's job is to describe the
-# population and the ranking's job is to price it.
-#
-# 0.597 is a HEAD-OF-QUEUE rate, not a population rate: the pilot was drawn from the best
-# 50,000 rows and every one of its 186 resolvable domains was missing both edges, which
-# means an established site holding 1997 and 2000. Such a site is more likely to be archived
-# in 2001 than the population average, so this number should fall as the queue is worked.
-# See ADR-006.
+# 0.597 is a HEAD-OF-QUEUE rate, not a population rate, and should fall as the queue is
+# worked. See ADR-006.
 EDGE_RATE = {1996: "0.000", 2001: "0.597"}
 
 

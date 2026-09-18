@@ -1,16 +1,12 @@
 """Our vendored weight table must be the reviewer's, and it must be pinned.
 
-Two implementations of the metric exist here on purpose: his
-`equivalent_english_domains.py` decides every figure quoted to him, and
-`src/ark/english_share.py` ranks two million candidates in a loop during collection, which
-shelling out per file cannot do. The whole arrangement rests on them agreeing, and until
-2026-08-18 that agreement was a sentence in a docstring with nothing checking it.
-
-It is not a theoretical risk. His validator requires a letters-only TLD and ours had no
-validity rule at all, so seventeen `xn--` records scored zero for him and full weight for
-us, and `round_figures.py --verify` refused the round over the resulting 0.3150
-discrepancy. That was the shape of a disagreement between the two sides; a silently
-different weight would be the same class of bug and harder to see.
+Two implementations of the metric exist on purpose: his `equivalent_english_domains.py`
+decides every figure quoted to him, and `src/ark/english_share.py` ranks two million
+candidates in a loop during collection, which shelling out per file cannot do. The whole
+arrangement rests on them agreeing. It is not a theoretical risk: his validator requires a
+letters-only TLD and ours had no validity rule at all, so seventeen `xn--` records scored
+zero for him and full weight for us, and `round_figures.py --verify` refused the round over
+a 0.3150 discrepancy.
 
 His brief also requires the table to be frozen: "the same fixed Common Crawl-derived TLD
 English-share weight table must be used for the baseline and every submission being
@@ -38,8 +34,6 @@ VENDORED = ROOT / "src" / "ark" / "data" / "tld_english_share.json"
 SHARE_HOLDERS = {
     "src/ark/english_share.py": "the one reader of the vendored table",
     "tests/test_english_share.py": "spells the quoted figures in order to check them",
-    "scripts/pricing/measure_host_unit.py": "reads HIS file on purpose, to separate the weight "
-    "question from the unit question",
 }
 # A TLD key followed by a share, however the value is wrapped: `"com": 0.6321`,
 # `"com": "0.6321"`, `"com": Decimal("0.6321")`.
@@ -91,11 +85,9 @@ def test_the_known_weights_are_what_the_project_quotes_everywhere() -> None:
 
 
 def test_our_table_agrees_with_his_model_on_every_tld() -> None:
-    """The load-bearing check, run whenever his package is on disk.
-
-    Skipped rather than failed when it is absent, because his package is git-ignored and a
-    fresh clone has no copy. The pin above is what holds in that case, which is why both
-    tests exist rather than only this one.
+    """The load-bearing check, run whenever his package is on disk. Skipped rather than failed
+    when it is absent, because his package is git-ignored and a fresh clone has no copy:
+    the pin above is what holds then, which is why both tests exist.
     """
     model = calculator_path().parent / "q2_tld_top_langs.json"
     if not model.is_file():
@@ -118,10 +110,9 @@ def test_our_table_agrees_with_his_model_on_every_tld() -> None:
 
 
 def test_no_second_copy_of_the_table_exists() -> None:
-    """Every weight in code comes from `english_weights()`, or the pin above guards nothing.
-
-    Two copies are caught: a literal that maps a TLD to its share, and a private parse of
-    his JSON, which is how `build_pool_candidates.py` carried its own table until 2026-09.
+    """Every weight in code comes from `english_weights()`, or the pin above guards nothing. Two
+    copies are caught: a literal mapping a TLD to its share, and a private parse of his
+    JSON, which is how `build_pool_candidates.py` once carried its own table.
     """
     weights = english_weights()
     copies: list[str] = []

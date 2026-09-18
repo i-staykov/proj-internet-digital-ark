@@ -2,6 +2,10 @@
 
 Open triage entries moved out of `approved-sources-list.md` on 2026-09-03 by `scripts/round/split_triage.py`, verbatim and in the order they had. Each is still pending, so `ark ingest` refuses it until a request is raised again. This page moves to the fleet repository; nothing in this repository reads it.
 
+**Grows without bound by design** (Ivo, 2026-08-12). One of two words per entry: *candidate pool*
+(`candidate-only`) or *fold in directly* (`master`). Nothing is blocked while an entry sits here,
+since a pending class cannot date a year. Reaches `key-decisions.md` as a count, never one line each.
+
 ### wayback_availability_2001 / cdx_timestamp
 
 - measured: 99.52 net-new post-split EE already in hand from 1,798 probe requests, over 415 capture
@@ -125,12 +129,16 @@ Decision: pending
 
 ### gias_england_school_website_domains / link_target
 
+- what dates one item: nothing in the file, Nominet per name
+- measured: ~5,568 sch.uk pairs, ~5,463 EE, MIXED
 - potential: 82
 
 Decision: pending
 
 ### nces_imls_pls_web_addr_1998_2001 / typed
 
+- what dates one item: ENDDATE of the reporting period
+- measured: 348 pairs FY1999 and ~1,200-1,800 over all years, 280.1 EE FY1999, MIXED
 - potential: 82
 
 Decision: pending
@@ -149,6 +157,8 @@ Decision: pending
 
 ### govinfo_cbd_bulk / typed
 
+- what dates one item: the issue date in each filename
+- measured: not priced
 - potential: 71
 
 Decision: pending
@@ -209,6 +219,8 @@ Access note for anyone returning: `conservancy.umn.edu` 403s an honest User-Agen
 
 ### usco_bulk_registrations / typed
 
+- what dates one item: reg_date beside the title
+- measured: not priced
 - potential: 63
 
 Decision: pending
@@ -363,6 +375,8 @@ Decision: pending
 
 ### cipo_ca_trademark_marktext_1996_2001 / typed
 
+- what dates one item: the mark's own filing date
+- measured: ~1,500-5,000 pairs pre-split, unpriced EE, ESTIMATE
 - potential: 49
 
 Decision: pending
@@ -375,18 +389,24 @@ Decision: pending
   both return real pages. What blocks pricing is enumeration: `/doc/?meeting=COP-04` is a 9,334-byte
   JavaScript shell with no document links in the HTML, so the in-window document list has to come
   from the meetings API before anything can be fetched. Requeued as its own task (2026-08-27)
+- what dates one item: the document's symbol and date
+- priced at triage: ~2,250-4,050 pairs pre-saturation, ~1,100-1,900 EE, MIXED
 - potential: 48
 
 Decision: pending
 
 ### ccew_charity_register_contact_domains / link_target
 
+- what dates one item: nothing in the file, CDX per name
+- measured: ~5,200 pairs, ~4,557 EE, MIXED
 - potential: 45
 
 Decision: pending
 
 ### ietf_meeting_attendee_rosters / typed
 
+- what dates one item: the meeting edition tag
+- measured: 27 pairs measured and ~324 over all editions, 13.56 EE measured and ~160 all, MIXED
 - potential: 45
 
 Decision: pending
@@ -460,6 +480,7 @@ Decision: pending
   returns the 20,666-byte Angular shell instead of the file for 2011, 2022, 2023 and 2024 alike; and
   `api.uspto.gov/api/v1/datasets/products/...` answers `{"message":"Unauthorized"}` with 401. Reopen
   condition: a human registers for an ODP API key. Nothing else about the class has changed (2026-08-27)
+- what dates one item: the application's filing date
 - potential: 40
 
 Decision: pending
@@ -473,64 +494,13 @@ Decision: pending
 
 Decision: pending
 
-**Grows without bound by design** (Ivo, 2026-08-12). One of two words per row: *candidate pool*
-(`candidate-only`) or *fold in directly* (`master`). Nothing is blocked while an entry sits here,
-since a pending class cannot date a year. Reaches `key-decisions.md` as a count, never one line each.
+### wikipedia_externallinks / cdx_timestamp
 
-| # | Source | What dates an item | Type | Net-new pairs | EE | Evidence | Decision |
-|--:|---|---|---|---|---|---|---|
-| 0 | ukwa_geoindex | 14-digit capture timestamp per row | cdx_timestamp | **79,253 MEASURED** | **77,749.1 MEASURED** | MEASURED, whole file extracted 2026-08-20 | pending |
-| 1 | can_domain_registry_notices | `Date-Approved:` on the notice | whois_creation | 11,418 self-dating / 936 split | 9,551.2 / 783.0 | MEASURED | pending |
-| 2 | nominet_whois_port43 | registry `Registered on:` per name | whois_creation | ~9,500 ceiling | ~9,300 ceiling | ESTIMATE | pending |
-| 3 | gias_england_school_website_domains | nothing in the file, Nominet per name | link_target | ~5,568 sch.uk | ~5,463 | MIXED | pending |
-| 4 | ccew_charity_register_contact_domains | nothing in the file, CDX per name | link_target | ~5,200 | ~4,557 | MIXED | pending |
-| 5 | ncua_5300_call_report_webaddr | CYCLE_DATE on every FS220D row | artifact_listing | 1,998 whole corpus | 1,328.3 whole corpus | MEASURED | pending |
-| 6 | fac_sfsac_historic_1998_2001 | AUDITEEDATESIGNED on the e-mail row | artifact_listing | ~6,000-12,000 per year | unpriced | ESTIMATE | pending |
-| 7 | junkfilter_dated_blocklist | the ISO-dated release directory | dated_directory | ~3,000-8,000 | unpriced | ESTIMATE | pending |
-| 8 | ipgod_au_marktext | the mark's own filing date | dated_directory | ~2,000-6,000 pre-split | unpriced | ESTIMATE | pending |
-| 9 | ted_ojs_notices_1996_2001 | the notice's own PD field | link_source | ~2,000-6,000 | unpriced | ESTIMATE | pending |
-| 10 | cipo_ca_trademark_marktext_1996_2001 | the mark's own filing date | typed | ~1,500-5,000 pre-split | unpriced | ESTIMATE | pending |
-| 11 | eric_fulltext_1996_2001 | publicationdateyear per document | dated_directory | ~1,300-4,700 | unpriced | ESTIMATE | pending |
-| 12 | uk_historic_hansard | the sitting date, printed four ways | dated_directory | ~1,000-3,000 | unpriced | ESTIMATE | pending |
-| 13 | sec_form_adv_part1_2000_2001 | the filing's own date, probable | artifact_listing | ~1,200-2,500 | unpriced | ESTIMATE | pending |
-| 14 | usac_erate_form471_contact_email_1998_2001 | funding year written on the form | dated_directory | ~low thousands | unpriced | ESTIMATE | pending |
-| 15 | sbir_sttr_award_pi_email_2000_2001 | Award Year on the award row | dated_directory | ~1,000-2,000 | ~600-1,300 | ESTIMATE | pending |
-| 16 | nces_imls_pls_web_addr_1998_2001 | ENDDATE of the reporting period | typed | 348 FY1999, ~1,200-1,800 all | 280.1 FY1999 | MIXED | pending |
-| 17 | ucsf_industry_documents | documentdate on each document | dated_directory | unpriced | unpriced | none | pending |
-| 18 | usco_bulk_registrations | reg_date beside the title | typed | unpriced | unpriced | none | pending |
-| 19 | govinfo_cbd_bulk | the issue date in each filename | typed | unpriced | unpriced | none | pending |
-| 20 | courtlistener_caselaw | date_filed on the opinion cluster | dated_directory | unpriced | unpriced | none | pending |
-| 21 | caselaw_access_project_opinions | the opinion's decision date | dated_directory | unpriced | unpriced | none | pending |
-| 22 | uspto_trademark_case_files | the application's filing date | artifact_listing | unpriced | unpriced | none | pending |
-| 23 | uspto_tm_marktext | the application's filing date | dated_directory | unpriced | unpriced | none | pending |
-| 24 | dnsrf_dap_udrp_multiprovider | the case filing year | artifact_listing | unpriced | unpriced | none | pending |
-| 25 | domainsproject_bulk_list | nothing, RDAP dates it after | link_target | unpriced | unpriced | none | pending |
-| 26 | namewinner_expiring (formerly domain_aftermarket_listings_1999_2001) | the listing page's capture date | artifact_listing | unpriced | unpriced | none | pending |
-| 27 | openpgp_keyserver_dumps | key self-signature, owner-asserted | link_target | ~50,000-150,000 names, gated | unpriced | ESTIMATE | pending |
-| 28 | wayback_longitudinal_url_sample | first capture time, data unpublished | cdx_timestamp | unpriced | unpriced | none | pending |
-| 29 | dotgov_real_names | nothing, RDAP dates it after | link_target | ~few hundred to low thousands | unpriced | ESTIMATE | pending |
-| 30 | govuk_domain_name_register_council_seeds | nothing, CDX pool engine only | link_target | 4,864 names | ~4,773 ceiling | MIXED | pending |
-| 31 | cog2002_gid_localgov_weburl | nothing, a 2002 canvass | link_target | 1,365 names | ~500, ceiling 954 | MIXED | pending |
-| 32 | cordis_fp4_fp5_project_websites | nothing, no per-item date exists | link_target | 944 names | 503.5 ceiling | MEASURED | pending |
-| 33 | nz_dnc_zone_data | registry Original Created per name | whois_creation | ~580 | ~570 | ESTIMATE | pending |
-| 34 | cog2002_gid_school_systems_weburl | nothing, a 2002 canvass | link_target | 553 names | ~200, ceiling 444 | MIXED | pending |
-| 35 | state_sos_entity_registers | entityformdate beside entityname | typed | 1,384 raw, Colorado only | ~437 | MIXED | pending |
-| 36 | cbd_secretariat_meeting_documents_1996_2001 | the document's symbol and date | link_source | ~2,250-4,050 pre-saturation | ~1,100-1,900 | MIXED | pending |
-| 37 | itu_operational_bulletin_1996_2001 | the issue masthead and cut-off | link_source | ~1,015-1,885 | ~519-934 | MIXED | pending |
-| 38 | uk_gazette_addressed_notices_1998_2001 | the notice's publication date | link_source | ~1,000-2,000 ceiling | unpriced | MIXED | pending |
-| 39 | ietf_meeting_attendee_rosters | the meeting edition tag | typed | 27 measured, ~324 all | 13.56 measured, ~160 all | MIXED | pending |
-| 40 | oireachtas_debates_xml | FRBRdate on the debate record | dated_directory | ~tens to low hundreds | unpriced | ESTIMATE | pending |
-| 41 | ripe_db_lastmodified | last-modified, disproved | link_target | 7 names | unpriced | MEASURED | pending |
-| 42 | osbar_bulletin_html_issues_2000_2001 | the issue, internally dated | link_source | 5 per issue, 8-95 all | 3.2 per issue, ~60 all | MIXED | pending |
-| 43 | lawsociety_ie_gazette_issue_pdfs_1997_2001 | the issue printed in the PDF | link_source | 3 per issue, ~10-150 all | 2.6 per issue | MIXED | pending |
-| 44 | bsd_ports_master_sites_dated_trees | the dated release tree | typed | 0 | 0.0 | MEASURED | pending |
-| 45 | winsite_cica_dated_shareware_index | per-file mtime | typed | 0 | 0.0 | MEASURED | pending |
-| 46 | pmc_oa_subset_fulltext_1998_2001 | the JATS pub-date | link_source | 0 | 0.0 | MEASURED | pending |
-| 47 | aminet_index_uploader_readme | nothing, age in weeks saturates | typed | cannot date a year | unpriced | none | pending |
-| 48 | educause_edu_whois_activation | registry activation date | whois_creation | ~280 | 0 banked, 400 to 1,400 priced | MEASURED | rejected |
-| 49 | nlm_medline_affiliation_email_1996_2001 | the citation's PubDate | link_source | 0 post-split | 0.0 | MEASURED | rejected |
-| 50 | ffiec_call_report_webaddr | quarter-end date, never published | artifact_listing | 0 | 0.0 | MEASURED | rejected |
-| 51 | wikipedia_externallinks | the 14-digit IA capture timestamp embedded in each `web.archive.org/web/<ts>/` citation | cdx_timestamp | unpriced | unpriced | SCREENED, NOT MEASURED: law 1 predicts near-zero | pending |
+- what dates one item: the 14-digit IA capture timestamp embedded in each
+  `web.archive.org/web/<ts>/` citation
+- measured: SCREENED, NOT MEASURED, law 1 predicts near-zero
+
+Decision: pending
 
 ### ia_webdataservices_cctld_extraction / cdx_timestamp
 
@@ -599,6 +569,8 @@ Decision: pending
 
 ### cordis_fp4_fp5_project_websites / link_target
 
+- what dates one item: nothing, no per-item date exists
+- measured: 944 names, 503.5 EE ceiling, MEASURED
 - potential: 32
 
 Decision: pending
@@ -697,12 +669,16 @@ Decision: pending
 
 ### cog2002_gid_localgov_weburl / link_target
 
+- what dates one item: nothing, a 2002 canvass
+- measured: 1,365 names, ~500 EE and a ceiling of 954, MIXED
 - potential: 30
 
 Decision: pending
 
 ### domainsproject_bulk_list / link_target
 
+- what dates one item: nothing, RDAP dates it after
+- measured: not priced
 - potential: 30
 
 Decision: pending
@@ -796,12 +772,16 @@ one follows on the same reading and costs one line and 63 refetches.
 
 ### dotgov_real_names / link_target
 
+- what dates one item: nothing, RDAP dates it after
+- measured: ~few hundred to low thousands pairs, unpriced EE, ESTIMATE
 - potential: 22
 
 Decision: pending
 
 ### govuk_domain_name_register_council_seeds / link_target
 
+- what dates one item: nothing, CDX pool engine only
+- measured: 4,864 names, ~4,773 EE ceiling, MIXED
 - potential: 22
 
 Decision: pending
@@ -846,6 +826,8 @@ Decision: pending
 
 ### state_sos_entity_registers / typed
 
+- what dates one item: entityformdate beside entityname
+- measured: 1,384 raw pairs, Colorado only, ~437 EE, MIXED
 - potential: 22
 
 Decision: pending
@@ -866,6 +848,8 @@ Decision: pending
 
 ### cog2002_gid_school_systems_weburl / link_target
 
+- what dates one item: nothing, a 2002 canvass
+- measured: 553 names, ~200 EE and a ceiling of 444, MIXED
 - potential: 20
 
 Decision: pending
@@ -896,6 +880,8 @@ Decision: pending
 
 ### ripe_db_lastmodified / link_target
 
+- what dates one item: last-modified, disproved
+- measured: 7 names, unpriced EE, MEASURED
 - potential: 12
 
 Decision: pending
@@ -937,18 +923,17 @@ Decision: pending
   is the archive's and not the query's. The publisher now answers every path with a 7-line HTML
   `400 Redirect` stub, including `robots.txt`. And no mirror exists: archive.org `advancedsearch.php`
   returns numFound 0 for both `jisc uk web domain dataset` and `ukwa.ds`
-- **superseded.** This entry previously said the request should be sent FIRST, ahead of
-  `ripe_dbase_1999`. That was written without checking whether we had already asked, and we had.
-  `ripe_dbase_1999` is now unambiguously the top access request, because permission there is a decision
+- `ripe_dbase_1999` is the top access request ahead of this one: permission there is a decision
   someone can still take, whereas here there is no server to serve the file
 - potential: 12. Scored on obtainability before submission, not on value: the British Library has
-  already said no until Autumn 2026 and the first restored service is a URL lookup rather than bulk
-  access. It sat at 100 for one evening on the assumption that nobody had asked yet
+  already said no until Autumn 2026 and the first restored service is a URL lookup rather than bulk access
 
 Decision: pending, but externally blocked. Nothing for Ivo to do here.
 
 ### bsd_ports_master_sites_dated_trees / typed
 
+- what dates one item: the dated release tree
+- measured: 0 pairs, 0.0 EE, MEASURED
 - potential: 8
 
 Decision: pending
@@ -972,12 +957,16 @@ Decision: pending
   of 2000-2001, and the live host no longer serves any of it: `/publications/bulletin/`,
   `/publications/bulletin/00jun/` and `/publications/bulletin/archives.html` all return the same
   32,677-byte 'Site Error' page, so a full run would be Wayback-only (2026-08-27)
+- what dates one item: the issue, internally dated
+- priced at triage: 5 pairs per issue and 8-95 over the run, ~60 EE all, MIXED
 - potential: 6
 
 Decision: pending
 
 ### winsite_cica_dated_shareware_index / typed
 
+- what dates one item: per-file mtime
+- measured: 0 pairs, 0.0 EE, MEASURED
 - potential: 5
 
 Decision: pending
@@ -988,12 +977,16 @@ Decision: pending
   live archive does not serve them: `/gazette/issues/` redirects to `/login`, and the PDF path that
   works for 2026 (`/globalassets/documents/gazette/gazette-pdfs/gazette-2026/july-2026-gazette.pdf`)
   404s for gazette-2001, gazette-1999 and even gazette-2004. Wayback-only (2026-08-27)
+- what dates one item: the issue printed in the PDF
+- priced at triage: 3 pairs per issue and ~10-150 over the run, MIXED
 - potential: 4
 
 Decision: pending
 
 ### aminet_index_uploader_readme / typed
 
+- what dates one item: nothing, age in weeks saturates
+- measured: cannot date a year, so not priced
 - potential: 3
 
 Decision: pending

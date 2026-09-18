@@ -1,47 +1,20 @@
 """UUCP map postings: a registry dump the Usenet parser was reading as prose.
 
-`comp.mail.maps` carried the UUCP maps, and from 1993 the `.CA` portion of them
-was machine-generated from the Canadian domain registry. A posting states its own
-provenance in the file:
+`comp.mail.maps` carried the UUCP maps, and from 1993 the `.CA` portion was generated
+from the Canadian domain registry. Such a posting declares itself in the file:
 
     #R Automatically generated from a .CA domain registration form
-    #W registry@cs.toronto.edu (UUCP Liaison)
 
-and lists one entry per registered name, keyed by `#N`, with the registrar's own
-`received:` and `approved:` dates inside each entry. That is a registry dump with
-a date on it, which is the strongest evidence class this project accepts, and it
-is structured rather than free text so it does not carry the transcription risk
-that forces the Usenet corroboration split.
+and lists one entry per name keyed by `#N`, with the registrar's `received:` /
+`approved:` dates inside the entry. This is registry data, so under Section XIII it is
+a CANDIDATE lane: it never dates a year in the annual masters.
 
-**The project has had this file on disk and marked ingested since 7 August, and
-took nothing from it.** `domains_in_message` reads http(s) URLs, bare `www.`
-hosts and the `From:` header address; a UUCP map entry contains none of those, so
-1,480,910 `#N` registry lines across 23,768 map postings were parsed as the
-sender's domain and discarded. Measured against the store snapshot, reading them
-properly is worth about 23,700 equivalent-English. Nothing had to be downloaded
-and nothing had to be re-crawled; the bytes were already here.
-
-**The provenance gate is the part that must not be skipped.** Two kinds of map
-posting share the format and only one of them is dated evidence:
-
-- **`.CA` registry-generated files.** Regenerated from the live registration
-  database at posting time, so every name in one existed on its posting date.
-  Verified rather than assumed: all 8,309 in-window postings carry an internal
-  generation stamp in the same year as the message `Date:` header, 569,157 of
-  569,157 entries at gap zero. Posting date is `artifact_listing`; the
-  `approved:` / `received:` lines are `whois_creation`, the same type AFNIC's
-  `.fr` registry data carries. All 118,766 of those registrar lines occur inside
-  `.CA`-generated files and none anywhere else.
-- **Classic hand-maintained maps.** The container is reposted on a schedule but
-  the entries are submitted by site admins and refresh only when someone
-  resubmits. Of 12,486 in-window entries carrying a `#W` stamp, only 1,031 are
-  within a year of the posting date; the mass sits at gaps of two to nine years,
-  and 31,960 more carry no stamp at all. "Listed in a file posted in 1996, last
-  touched in 1989" does not evidence 1996, so these are candidate-only.
-
-Applying that gate is worth minus 2,241 pairs and minus 578.6 equivalent-English
-against the ungated figure, and it is the difference between a registry claim and
-an inference.
+**The provenance gate must not be skipped.** Two kinds of posting share the format.
+A `.CA` registry-generated file is regenerated at posting time, so presence dates the
+name to the posting (`registry_listing`), and the registrar lines are `registry_creation`.
+A classic hand-maintained map is reposted on a schedule while its entries go stale:
+only 1,031 of 12,486 in-window entries with a `#W` stamp are within a year of the
+posting, so those are `uncorroborated`.
 """
 
 import re

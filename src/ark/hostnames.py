@@ -1,41 +1,38 @@
-"""Hostname records: the second output unit, accepted by the reviewer on 2026-09-01.
+"""Hostname records: the second output unit.
 
-His reply (verbatim in `private/personal-context.md`): both registrable domains and
-valid hostnames are annual database records, registrables stay prioritized as query
-seeds, and every distinct evidence-backed hostname beneath them is retained. So this
-module fills `hostname_year` from raw CDX capture journals, one JSON object per
-capture row (`{"url": ..., "timestamp": ...}`), the exact shape
-`scripts/engines/cdx_suffix_sweep.py` has written since 2026-08-21.
+His ruling (verbatim in `private/personal-context.md`): both registrable domains and valid
+hostnames are annual database records, registrables stay prioritized as query seeds, and
+every distinct evidence-backed hostname beneath them is retained. So this module fills
+`hostname_year` from raw CDX capture journals, one JSON object per capture row
+(`{"url": ..., "timestamp": ...}`), the shape `scripts/engines/cdx_suffix_sweep.py` writes.
 
-The evidence wall is the one the registrable unit uses, unchanged:
+The evidence wall is the registrable unit's, unchanged:
 
 - what dates one item is the row's own 14-digit capture timestamp (`cdx_timestamp`,
-  master-eligible, approved), quoted in the evidence row;
+  master-eligible), quoted in the evidence row;
 - every `hostname_year` row foreign-keys one `evidence` row;
-- the hostname must reduce to its parent registrable through the same
-  `to_registrable` funnel every registrable passed, and a hostname that IS its own
-  registrable is refused here, because that record belongs to `domain_year`.
+- the hostname must reduce to its parent registrable through the same `to_registrable`
+  funnel, and a hostname that IS its own registrable is refused here, because that record
+  belongs to `domain_year`.
 
-Two conditions come from the PURPOSE he gave for the unit, retrieving archived pages
-as completely as possible, rather than from its letter (tightened 2026-09-02):
+Two conditions come from the PURPOSE he gave the unit, retrieving archived pages as
+completely as possible, rather than from its letter:
 
-- the observation must show the host IN USE, which until 2026-09-09 read "serving web
-  content": a capture of a URL on it, or a URL listing naming it. A DNS listing (a
-  reverse-walk survey, an `nserver:` attribute, an NS target in a zone) proves a machine
-  answered, not a site, so those lanes keep dating the parent registrable and write no
-  hostname year. C-83 widened the wording to "in use" and admitted one non-web
-  observation by name, the `Received: ... by <host>` clause of a dated mail message,
-  because a receiving MTA writes its own name into a transaction it completed. His
-  section IV.1 is the authority for the wider reading: year evidence is "factual
-  material demonstrating that the domain actually existed, was in use, or was active",
-  and it lists a WHOIS record, which is not a page fetch either. The DNS lanes stay out
-  regardless, because he ruled on those by name on 2026-09-06 and measured the gap;
-- `www.<parent>` is the parent's own site under the name every crawler tries first, so
-  it is not a separate record; the capture dates the registrable instead.
+- **the observation must show the host IN USE.** A capture of a URL on it, or a URL listing
+  naming it. A DNS listing (a reverse-walk survey, an `nserver:` attribute, an NS target in
+  a zone) proves a machine answered, not a site, so those lanes date the parent registrable
+  and write no hostname year; he ruled on them by name and measured the gap. C-83 widened
+  "serving web content" to "in use" and admits one non-web observation by name, the
+  `Received: ... by <host>` clause of a dated mail message, because a receiving MTA writes
+  its own name into a transaction it completed. His section IV.1 is the authority: year
+  evidence is "factual material demonstrating that the domain actually existed, was in use,
+  or was active", and it lists WHOIS, which is not a page fetch either;
+- **`www.<parent>` is its own record** (ADR-009/ADR-010) and neither form establishes the
+  other, so a `www.` capture dates that host and NOT the bare parent.
 
-The registrable half of the same journal is NOT this module's job:
-`cdx_suffix_convert.py` already collapses capture rows into per-domain year sets for
-the approved `cdx_snapshot` ingest, and both halves can be run over one journal.
+The registrable half of the same journal is not this module's job: `cdx_suffix_convert.py`
+collapses capture rows into per-domain year sets for the `cdx_snapshot` ingest, and both
+halves can be run over one journal.
 """
 
 from __future__ import annotations
@@ -142,12 +139,10 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "usenet_header_fqdn_hostnames",
     }
 )
-# `www.<parent>` WAS refused here until 2026-09-04, as the parent's own site under the name
-# every crawler tries first. ADR-009 admits it, on his section XI ("a valid base hostname and
+# `www.<parent>` is a record here, per ADR-009 and his section XI ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
-# evidence") and on a count of his own benchmark: 1,450,310 of his names begin `www.` and
-# 1,221,065 of those have the bare name in the SAME year file, 114,875 of them from nobody but
-# him. The shape is native to his corpus, so refusing it was our rule and not his.
+# evidence"). The shape is native to his own corpus: 1,450,310 of his names begin `www.`,
+# 1,221,065 with the bare name in the SAME year file, 114,875 of those from nobody but him.
 
 
 def writes_hostname_years(source_name: str) -> bool:
@@ -320,18 +315,13 @@ def ingest_hostname_journal(
         # too, in the same cdx_timestamp class: assign it, one row per (parent, year),
         # so the parent earns its year from the same observation.
         #
-        # **Except `www.` in front of the parent** (his ruling of 2026-09-06, ADR-010).
-        # "The existence of the bare parent does not automatically establish the www
-        # hostname, nor does the presence of www automatically establish the bare
-        # hostname." A capture of `www.example.com` therefore evidences that host and
-        # not `example.com`, and letting it through here shipped one observation as two
-        # records, one in `additions/` and one in `hostnames/`.
-        #
-        # Deleting the rows was not enough: `drop_www_inferred_records.py` cleared 47,004
-        # on 2026-09-06 and by the next morning the fold had written 22,920 more, because
-        # the cause was this INSERT and not the data. Any OTHER subdomain still dates the
-        # parent, which is why the exclusion names the one host shape the ruling covers
-        # rather than dropping the parent assignment altogether.
+        # **Except `www.` in front of the parent** (ADR-010, his words): "the existence of
+        # the bare parent does not automatically establish the www hostname, nor does the
+        # presence of www automatically establish the bare hostname". A capture of
+        # `www.example.com` evidences that host and NOT `example.com`; letting it through
+        # ships one observation as two records, in `additions/` and in `hostnames/`.
+        # Any OTHER subdomain still dates the parent, so the exclusion names the one host
+        # shape the ruling covers rather than dropping the parent assignment.
         dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
         conn.execute(
             """
@@ -795,20 +785,15 @@ def ingest_blocklist_hostnames(
     return stats
 
 
-# The fourth hostname corpus: the nameservers a RIPE `domain:` object points AT. The
-# banked RIPE lanes read `*dn:` (the delegated name, 1999) and `changed:` (the audit
-# trail, 1996-2001) and never looked at `*ns:`, because at registrable grain an NS
-# right-hand side collapses to an operator the store holds (register line 916, 70.4 EE,
-# and the fleet's 2026-09-02 reprice at 254 EE agrees). At hostname grain the same
-# column is 93% absent: measured 2026-09-02 on the live store, 38,189 (hostname, 1999)
-# records from the 1999 snapshot and 11,895 more from the 2004 split edition's objects
-# dated by their latest `changed:` line, about 11,400 EE together. Same files, same
-# stamps, same `artifact_listing` class, same written RIPE NCC permission of 2026-08-26.
+# The nameservers a RIPE `domain:` object points AT. Worth nothing at registrable grain,
+# where an NS right-hand side collapses to an operator the store already holds, and 93%
+# absent at hostname grain: 38,189 (hostname, 1999) records from the 1999 snapshot plus
+# 11,895 from the 2004 split edition dated by their latest `changed:` line, about 11,400 EE.
 #
-# The permission constrains the code exactly as it does `parse_ripe_dbase_1999`: only
-# `*ns:` / `nserver:` values, the object key, and the trailing date of `changed:` are
-# read; `*de`, `*ac`, `*tc`, `*zc`, `*ch` and the address half of `changed:` are never
-# touched, and a nameserver hostname is infrastructure, not a person.
+# **The RIPE NCC permission constrains the code**, as it does `parse_ripe_dbase_1999`: read
+# only `*ns:` / `nserver:` values, the object key and the trailing date of `changed:`; never
+# `*de`, `*ac`, `*tc`, `*zc`, `*ch` or the address half of `changed:`. A nameserver hostname
+# is infrastructure, not a person.
 RIPE_NS_SOURCE = "ripe_nserver_hostnames"
 RIPE_NS_SNAPSHOT_METHOD = "ripe_snapshot_nserver"
 RIPE_NS_CHANGED_METHOD = "ripe_changed_nserver"
@@ -1198,25 +1183,20 @@ def _as_arrow(rows: list[tuple[str, str, int, str]]):  # noqa: ANN202 - pyarrow.
 
 
 # A host somebody typed as an explicit `http://`, `https://` or `ftp://` URL in the BODY of a
-# dated Usenet post. Approved by Ivo on 2026-09-04 as `link_source`, after thirteen pools were
-# read whole rather than sampled.
+# dated Usenet post, approved as `link_source`.
 #
-# **Why the typed URL is the strongest hostname evidence we hold**, and it is not a crawler
+# **The typed URL is the strongest hostname evidence we hold**, because it is not a crawler
 # artifact: a bulk CDX index re-read at hostname grain is 99.5% to 100.0% the crawler's own
-# `www.` alias on all three corpora tested, while a corpus of typed URLs keeps three quarters
-# of its figure. The person wrote the host because they had been to it.
+# `www.` alias on all three corpora tested, while typed URLs keep three quarters of the figure.
 #
-# **What dates one item** is the post's own machine-written `Date:` header, read at extraction
-# and verified against raw bytes. The journals keep the year rather than the header text, so
-# the evidence row quotes the exact post instead: `<group>.mbox.zip#<n>` is the archive
-# archive.org still serves by name from `data/raw/usenet_catalog.json`, and post `n` in it
-# carries the header. That is a reproducible chain, which is the standard the evidence wall
-# actually sets.
+# **What dates one item** is the post's machine-written `Date:` header, read at extraction and
+# verified against raw bytes. The journals keep the year, so the evidence row quotes the post:
+# `<group>.mbox.zip#<n>`, the archive archive.org serves by name from
+# `data/raw/usenet_catalog.json`, post `n` of which carries the header.
 #
-# **The honest discount is measured, not assumed.** A URL in a post can name a host that never
-# existed, so a sample put the fiction rate at 6.25% (Wilson 95% CI 2.7% to 13.8%); the register
-# quotes the lane net of it. A mechanical word list finds only 0.52%, which is why the rate is
-# sampled.
+# **The discount is measured, not assumed**: a sample puts the fiction rate at 6.25% (Wilson
+# 95% CI 2.7% to 13.8%) and the register quotes the lane net of it. A mechanical word list
+# finds only 0.52%, which is why the rate is sampled and not screened.
 USENET_SOURCE = "usenet_body_url_hostnames"
 USENET_METHOD = "usenet_body_url"
 _USENET_ITEM = re.compile(r"^(?P<group>[a-z0-9][a-z0-9.+_-]*)\.mbox\.zip#\d+$")
@@ -1340,10 +1320,7 @@ def _ietf_url(item: str) -> str:
 IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
 
 # The sixth member: the server-written header fields of a dated Usenet post, approved
-# master-eligible by Ivo on 2026-09-10 after the 2026-09-08 rejection was reopened. That
-# rejection was on size, "too large and us not having enough space", and the size was wrong:
-# the two collections the class was measured on are 15.3 GB, not the 224 GB the register
-# carried, and 104.8 GB of general spool was already on this disk.
+# master-eligible.
 #
 # **Three fields, all written by a news server about a transaction it completed**, which is
 # the same reading C-83 settled for a `Received: ... by` clause: the trailing hostname of

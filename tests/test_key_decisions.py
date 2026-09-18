@@ -1,13 +1,10 @@
 """The single sign-off surface, and the invariant that keeps it single.
 
-Ivo, 2026-08-11: "Everything I have to sign-off should be in one place, so I know about
-it." He had not known the hypothesis ledger was asking him for anything, which is the
-whole problem in one sentence: **a question raised in a file nobody opens is not a
-question anyone asked**, and the asker believes otherwise.
-
-So the property under test is not "the agent wrote an entry" but "a pending approval
-cannot exist without appearing under `## OPEN`". The last test checks that against the
-live files, so letting one drift out of sight fails here rather than in a week.
+Ivo: "Everything I have to sign-off should be in one place, so I know about it."
+**A question raised in a file nobody opens is not a question anyone asked**, and the
+asker believes otherwise. So the property under test is not "the agent wrote an entry"
+but "a pending approval cannot exist without appearing under `## OPEN`". The last test
+checks that against the live files, so a drift out of sight fails here, not in a week.
 """
 
 import importlib.util
@@ -102,11 +99,9 @@ def test_the_closed_block_is_untouched(tmp_path) -> None:
 
 
 def test_refreshing_replaces_a_live_figure_rather_than_freezing_it(tmp_path) -> None:
-    """The bug this exists for: the triage mirror said 11 while 44 were waiting.
-
-    `raise_open` is append-once, so an entry carrying a count froze at whatever it was
-    when first written, and the one surface Ivo reads under-reported its own queue by 4x
-    with nothing about it looking stale.
+    """`raise_open` is append-once, so an entry carrying a count freezes at whatever it was
+    when first written: the triage mirror once said 11 while 44 were waiting, and nothing
+    about the one surface Ivo reads looked stale.
     """
     path = _doc(tmp_path)
     raise_open("Triage the newly found sources", "**11 source(s)** are waiting.", path)
@@ -161,12 +156,10 @@ def test_newest_is_first_within_the_open_block(tmp_path) -> None:
 
 
 def test_the_marker_is_a_heading_and_not_a_substring(tmp_path) -> None:
-    """The header explains the rule in prose and writes "an `## OPEN` entry".
-
-    A substring split found that sentence rather than the heading and inserted the first
-    real entry into the middle of it, cutting the paragraph in half in the live file.
-    Matching a structural marker as a substring is the same defect as a glob that matches
-    too much: it works until the prose mentions itself.
+    """The header explains the rule in prose and writes "an `## OPEN` entry", so a substring
+    split finds the sentence rather than the heading and inserts the first entry into the
+    middle of it. Matching a structural marker as a substring works until the prose
+    mentions itself.
     """
     body = SKELETON.replace(
         "## OPEN\n",
@@ -189,21 +182,15 @@ def test_a_file_with_no_open_section_is_an_error_rather_than_a_silent_no_op(tmp_
 
 
 def test_every_pending_approval_is_surfaced_in_the_live_files() -> None:
-    """The invariant, against the real documents, in the two shapes it now has.
+    """The invariant, against the real documents, in the two shapes it has. A `pending` class
+    appearing nowhere in `key-decisions.md` is a journal waiting indefinitely on a human
+    who was never told, which the harness reports as the queue working.
 
-    A `pending` class that appears nowhere in `key-decisions.md` is a journal waiting
-    indefinitely on a human who was never told, which the harness would report as "the
-    queue working". Deliberately runs on the live files: this must fail in the suite,
-    not in a week.
-
-    **The invariant is "surfaced", not "named individually", and that distinction is
-    load-bearing since 2026-08-12.** A priced request carries a sample and a
-    counterfactual, is decidable in two minutes, and earns its own entry. A triage entry
-    is a source found and not yet priced, and that queue is meant to grow without bound
-    on Ivo's instruction, so naming forty of them individually would push the one surface
-    he reads past a screen. Those are represented by a single entry naming the count. Both
-    are surfaced; only the granularity differs, and a triage queue with no collective
-    entry is exactly as invisible as an unnamed priced request.
+    **The invariant is "surfaced", not "named individually".** A priced request carries a
+    sample and a counterfactual, is decidable in two minutes and earns its own entry. The
+    triage queue is meant to grow without bound, so naming forty entries would push the one
+    surface Ivo reads past a screen: those get one entry naming the count. A triage queue
+    with no collective entry is exactly as invisible as an unnamed priced request.
     """
     root = Path(__file__).resolve().parents[1]
     approvals = root / "docs" / "registers" / "approved-sources-list.md"
