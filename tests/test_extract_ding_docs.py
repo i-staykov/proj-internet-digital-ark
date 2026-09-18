@@ -62,11 +62,9 @@ def _refresh_args(package, out):
 
 
 def test_refresh_records_each_source_hash_and_supplied_provenance(tmp_path, monkeypatch):
-    sources = [
-        "Internet_Digital_Ark_Project_0906_Update.docx",
-        "Update_Log.docx",
-        "Task_Package_File_Guide.txt",
-    ]
+    # DERIVED from DOCS: the table is one entry since 2026-09-18 and a hardcoded list
+    # made `strict=True` fail rather than the assertion that matters.
+    sources = [p.replace("*", "0906_Update") for p, _, _ in extractor.DOCS]
     for name in sources:
         (tmp_path / name).write_bytes(name.encode())
     out = tmp_path / "out"
@@ -83,13 +81,18 @@ def test_refresh_records_each_source_hash_and_supplied_provenance(tmp_path, monk
 
 
 def test_failed_conversion_leaves_all_previous_documents_intact(tmp_path, monkeypatch):
+    """A half-written brief is worse than a stale one: nothing is touched until it converts."""
     (tmp_path / "Internet_Digital_Ark_Project_0906_Update.docx").write_bytes(b"brief")
     out = tmp_path / "out"
     out.mkdir()
     for _, output, _ in extractor.DOCS:
         (out / output).write_text("previous document\n")
     monkeypatch.setattr(sys, "argv", _refresh_args(tmp_path, out))
-    monkeypatch.setattr(extractor, "body", lambda src: "new document\n")
+
+    def _no_pandoc(src):
+        raise FileNotFoundError("pandoc")
+
+    monkeypatch.setattr(extractor, "body", _no_pandoc)
     with pytest.raises(FileNotFoundError):
         extractor.main()
     assert all(
