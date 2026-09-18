@@ -18,6 +18,7 @@ from pathlib import Path
 import duckdb
 
 from ark.delegation import shipping_filter as _shipping_filter
+from ark.evidence_types import web_evidence_sql
 from ark.ingest import YEARS
 from ark.stats import BASELINE_TYPE, _lineage_case_sql
 
@@ -72,8 +73,12 @@ netnew AS (
     -- reads here equals what he counts in `additions/evidence_manifest.csv`. Without
     -- it the column summed 12 pairs above the headline and the round's largest source
     -- was quoted four pairs above what ships.
+    -- and the XIII screen, the same one `stats.py` and `export.py` apply. A per-source
+    -- figure that counted rows the export refuses would not reconcile with the headline,
+    -- which is what `test_netnew_pairs_reconciles_with_the_scoreboard` exists to catch.
     WHERE e.evidence_type <> '{BASELINE_TYPE}'
       AND {_shipping_filter("dy.")}
+      AND {web_evidence_sql("e")}
     GROUP BY s.name
 ),
 candidates AS (

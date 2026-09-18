@@ -12,8 +12,18 @@ def _fresh_db() -> duckdb.DuckDBPyConnection:
     return conn
 
 
-def _assign(conn, domain: str, source: int, year: int, etype: str, value: str) -> None:
-    assign_year(conn, record_evidence(conn, domain, source, year, etype, value))
+# The scoreboard applies the XIII screen, so an assignment in a fixture needs a real
+# acquisition method or it is a candidate and counts nowhere. `ia_cdx_collapsed_query`
+# is the reference standard: an exact-host capture with its stamp.
+WEB = "ia_cdx_collapsed_query"
+
+
+def _assign(
+    conn, domain: str, source: int, year: int, etype: str, value: str, method: str = WEB
+) -> None:
+    assign_year(
+        conn, record_evidence(conn, domain, source, year, etype, value, acquisition_method=method)
+    )
 
 
 def _populated_db() -> duckdb.DuckDBPyConnection:
@@ -246,3 +256,37 @@ def test_every_source_has_an_explicit_provenance_lineage() -> None:
         spec.source_name for spec in SOURCES.values() if spec.source_name not in PROVENANCE_LINEAGE
     }
     assert not unclassified, f"classify these in PROVENANCE_LINEAGE: {sorted(unclassified)}"
+
+
+def test_the_scoreboard_counts_only_what_the_export_would_ship() -> None:
+    """The figure and the claim must apply the same XIII screen.
+
+    They did not until 2026-09-18: `export.py` filtered on the acquisition method and
+    `stats.py` did not, so `docs/ROUND.md` reported 251,125 net-new registrable rows for
+    2001 where the export wrote 3. A page that overstates the claim is worse than no
+    page: it is the number the 5% gate is judged against.
+    """
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    zone = ensure_source(conn, "registry_zone", "timestamped")
+
+    # web evidence: enters the annual claim
+    add_candidate(conn, "web.com", cdx)
+    _assign(conn, "web.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    # a registry zone list captured from Wayback dates a DELEGATION, not a page, and is
+    # 98% of our registrable net-new by EE. It is a candidate, and must not be counted.
+    add_candidate(conn, "zone.com", zone)
+    _assign(
+        conn,
+        "zone.com",
+        zone,
+        1998,
+        "artifact_listing",
+        "zone-1998",
+        method="registry_zone_list_wayback_capture",
+    )
+
+    stats = collect_stats(conn)
+    assert stats["netnew_pairs_total"] == 1, "the zone row is a candidate, not an annual record"
+    assert stats["netnew_pairs_by_year"] == {1998: 1}
+    assert stats["netnew_domains"] == 1

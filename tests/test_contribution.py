@@ -8,6 +8,10 @@ from ark.contribution import write_contribution_tables
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.stats import collect_stats
 
+# The per-source table applies the XIII screen, so a fixture assignment needs a real
+# acquisition method or it is a candidate and appears in no column.
+WEB = "ia_cdx_collapsed_query"
+
 
 def _store() -> duckdb.DuckDBPyConnection:
     conn = connect(":memory:")
@@ -29,7 +33,10 @@ def test_a_gap_filling_source_shows_new_pairs_but_no_new_domains(tmp_path) -> No
     assign_year(conn, record_evidence(conn, "known.com", prior, 1997, "prior_reused", "1997.txt"))
     # the archive then evidences 1999, which is a new PAIR on a known DOMAIN
     assign_year(
-        conn, record_evidence(conn, "known.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+        conn,
+        record_evidence(
+            conn, "known.com", cdx, 1999, "cdx_timestamp", "19990101000000", acquisition_method=WEB
+        ),
     )
 
     write_contribution_tables(conn, tmp_path)
@@ -46,7 +53,12 @@ def test_a_brand_new_domain_counts_in_both_columns(tmp_path) -> None:
     conn = _store()
     isc = ensure_source(conn, "isc_survey", "timestamped")
     add_candidate(conn, "fresh.org", isc)
-    assign_year(conn, record_evidence(conn, "fresh.org", isc, 1996, "artifact_listing", "1996-07"))
+    assign_year(
+        conn,
+        record_evidence(
+            conn, "fresh.org", isc, 1996, "artifact_listing", "1996-07", acquisition_method=WEB
+        ),
+    )
 
     write_contribution_tables(conn, tmp_path)
     row = {r["source"]: r for r in _rows(tmp_path / "source_contribution.csv")}["isc_survey"]
@@ -62,10 +74,18 @@ def test_netnew_pairs_reconciles_with_the_scoreboard(tmp_path) -> None:
     add_candidate(conn, "known.com", prior)
     assign_year(conn, record_evidence(conn, "known.com", prior, 1997, "prior_reused", "1997.txt"))
     assign_year(
-        conn, record_evidence(conn, "known.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+        conn,
+        record_evidence(
+            conn, "known.com", cdx, 1999, "cdx_timestamp", "19990101000000", acquisition_method=WEB
+        ),
     )
     add_candidate(conn, "fresh.org", isc)
-    assign_year(conn, record_evidence(conn, "fresh.org", isc, 1996, "artifact_listing", "1996-07"))
+    assign_year(
+        conn,
+        record_evidence(
+            conn, "fresh.org", isc, 1996, "artifact_listing", "1996-07", acquisition_method=WEB
+        ),
+    )
 
     write_contribution_tables(conn, tmp_path)
     total = sum(int(r["netnew_pairs"]) for r in _rows(tmp_path / "source_contribution.csv"))
