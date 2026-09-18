@@ -113,3 +113,23 @@ def test_the_launchd_job_caffeinates_and_comes_back():
     assert plist["RunAtLoad"] is True
     assert plist["ThrottleInterval"] >= 60
     assert "caffeinate -s" in WRAPPER.read_text()
+
+
+def test_no_remote_means_zero_clients_there_not_unknown(tmp_path):
+    """An unreadable answer counts as one client, so "not asked" cost half the channel.
+
+    C-88 puts all three archive clients on this laptop and none on the VPS, so a machine
+    told it has no remote is stating a fact. It was answering "not asked", the caller read
+    that as unknown, and every window started one sweep loop where two were allowed.
+    """
+    out = run("status", state=tmp_path / "state")
+    assert "VPS: 0 on the same channel" in out.stdout, out.stdout + out.stderr
+
+
+def test_the_script_carries_a_hard_stop_knob(tmp_path):
+    """A laptop that has to be closed needs an end, and the window may not run past it."""
+    text = COLLECTORS.read_text()
+    assert "ARK_COLLECTOR_UNTIL" in text
+    # the loop exits at the stop, and a window is clamped to it rather than overrunning
+    assert 'note "reached ARK_COLLECTOR_UNTIL' in text
+    assert 'deadline="$ARK_COLLECTOR_UNTIL"' in text
