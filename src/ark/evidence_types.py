@@ -63,7 +63,21 @@ WEB_METHODS = frozenset(
 )
 
 
+# **The one method admitted by its STATUS rather than by its name.** XIII's "non-error"
+# qualifier attaches to the custodian-extract pattern, not to the IA CDX pattern beside it,
+# and a NYPW TimeMap row IS the IA index read through Memento. So the status alone does not
+# disqualify it, and the binding test is the section's opening sentence: web presence in the
+# target year. A 3xx is a server for the exact host answering deliberately and is admitted.
+# 4xx and 5xx stay candidates: a wildcard vhost can answer 404 for any name pointed at it.
+REDIRECT_METHOD = "nypw_timemap_non_200"
+_STATUS_IN_VALUE = r"status (\d{3})"
+
+
 def web_evidence_sql(alias: str = "e") -> str:
     """The XIII predicate, for a query that has `evidence` joined as `alias`."""
     allowed = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
-    return f"{alias}.acquisition_method IN ({allowed})"
+    return (
+        f"({alias}.acquisition_method IN ({allowed})"
+        f" OR ({alias}.acquisition_method = '{REDIRECT_METHOD}'"
+        f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1) LIKE '3%'))"
+    )

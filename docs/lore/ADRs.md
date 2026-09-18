@@ -162,6 +162,12 @@ delegation, an archived index page may date a page. A type-level rule cannot sep
 candidates. A method missing from it costs a claim we add back in one line; a method wrongly in it
 costs a refusal, which is what the screen exists to prevent.
 
+**One method is admitted by its STATUS, not its name** (Ivo, 2026-09-18): XIII's "non-error"
+qualifies the custodian-extract pattern, not the IA CDX pattern beside it, and a NYPW TimeMap row
+is the IA index read through Memento. A 3xx is a server answering deliberately for the exact host,
+so it enters the claim; 4xx and 5xx stay candidates, because a wildcard vhost answers 404 for any
+name pointed at it. Status is kept in `evidence_value`, so the split needs no re-ingest.
+
 **The store is not filtered, the CLAIM is.** A row that cannot date a year is still evidence and
 still a candidate. `export.py` filters the six year files, the six hostname files and both evidence
 manifests; `domain_year` and `hostname_year` keep every row. `prior_task` is excluded by design:
