@@ -89,3 +89,19 @@ def web_evidence_sql(alias: str = "e") -> str:
         f" OR ({alias}.acquisition_method = '{REDIRECT_METHOD}'"
         f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1) LIKE '3%'))"
     )
+
+
+def web_evidence_exists(id_column: str) -> str:
+    """The XIII screen for a row that names its evidence, e.g. `dy.evidence_id`.
+
+    Lives here, beside the allowlist, because the CLAIM and the FIGURES quoted about the
+    claim must apply the same screen. They did not until 2026-09-18: `export.py` filtered
+    and `stats.py` did not, so `docs/ROUND.md` reported 251,125 net-new registrable rows
+    for 2001 where the export shipped 3.
+    """
+    return f"""
+    EXISTS (
+        SELECT 1 FROM evidence w
+        WHERE w.evidence_id = {id_column} AND {web_evidence_sql("w")}
+    )
+"""

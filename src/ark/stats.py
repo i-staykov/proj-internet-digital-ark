@@ -18,7 +18,7 @@ import duckdb
 from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE
 from ark.delegation import shipping_filter
 from ark.english_share import english_weights
-from ark.evidence_types import MASTER_TYPES
+from ark.evidence_types import MASTER_TYPES, web_evidence_exists
 
 BASELINE_TYPE = "prior_reused"
 
@@ -172,6 +172,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
             SELECT 1 FROM evidence e WHERE e.domain = dy.domain AND e.evidence_type = ?
         )
           AND {_SHIPPED}
+          AND {web_evidence_exists("dy.evidence_id")}
         """,
         [BASELINE_TYPE],
     ).fetchone()[0]
@@ -187,6 +188,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
                   AND e.evidence_type = ?
             )
               AND {_SHIPPED}
+              AND {web_evidence_exists("dy.evidence_id")}
             GROUP BY dy.assigned_year ORDER BY dy.assigned_year
             """,
             [BASELINE_TYPE],
@@ -301,6 +303,10 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
     def weigh(rows: list[tuple[str, int]]) -> Decimal:
         return sum((weights.get(tld, Decimal(0)) * n for tld, n in rows), Decimal(0))
 
+    # **The same XIII screen the export applies**, or this figure describes a claim we
+    # would not send. Until 2026-09-18 it did not, and the page reported 251,125 net-new
+    # registrable rows for 2001 against the 3 the export actually wrote. Rows the screen
+    # refuses are not lost: they are candidates, counted on the candidate track below.
     netnew = conn.execute(
         f"""
         SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
@@ -308,6 +314,7 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
             SELECT 1 FROM evidence e WHERE e.domain = dy.domain
               AND e.evidence_year = dy.assigned_year AND e.evidence_type = '{BASELINE_TYPE}')
           AND {_SHIPPED}
+          AND {web_evidence_exists("dy.evidence_id")}
         GROUP BY 1
         """
     ).fetchall()

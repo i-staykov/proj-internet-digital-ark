@@ -11,6 +11,13 @@ the measured laws of pricing are in [laws.md](laws.md), the rules in [rules.md](
 
 **Verify every number, including a subagent's.** Several were fabricated or out by 1000x.
 
+**`prior_task` is a SOURCE name, `prior_reused` is the EVIDENCE TYPE.** The baseline filter
+is `evidence_type = 'prior_reused'` (`stats.BASELINE_TYPE`). Writing `'prior_task'` matches
+nothing, so the filter silently passes everything and the answer looks plausible: it cost
+three wrong measurements on 2026-09-18, one of which reported "98.3% of net-new EE excluded"
+when it had counted all 43.7M of HIS baseline rows as ours. Import `BASELINE_TYPE`; never
+type either string.
+
 **An already-ingested journal shows 0 net-new by construction.** Measure against a pre-ingest
 snapshot.
 
