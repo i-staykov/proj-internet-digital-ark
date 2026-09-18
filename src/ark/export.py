@@ -17,6 +17,7 @@ from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
+from ark.evidence_types import web_evidence_sql
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -25,11 +26,25 @@ NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
 MASTERS_DIR = Path("data/exports")
 
+
 # A pair is an addition when the baseline holds NO evidence for that (domain, year), the
 # test `stats.py` and `contribution.py` apply. Deliberately not "the row this assignment
 # points at is not baseline": the baseline rolls forward, so an absorbed addition still
 # points at its original CDX row while now also carrying baseline evidence, and the weaker
 # test re-exports every past addition as new.
+# **Spec XIII: the annual CLAIM is website evidence only** (C-90). The store keeps every
+# row, because a row that cannot date a year is still evidence and still a candidate; what
+# this filters is what we ASSERT. `evidence_types.WEB_METHODS` is the allowlist and an
+# unknown method fails closed.
+def _is_web_evidence(id_column: str) -> str:
+    return f"""
+    EXISTS (
+        SELECT 1 FROM evidence w
+        WHERE w.evidence_id = {id_column} AND {web_evidence_sql("w")}
+    )
+"""
+
+
 _NOT_IN_BASELINE = f"""
     NOT EXISTS (
         SELECT 1 FROM evidence p
@@ -353,6 +368,7 @@ def export_all(
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
               AND {_shipping_filter("dy.")}
               AND {_not_in_his_annual("dy.domain", str(year))}
+              AND {_is_web_evidence("dy.evidence_id")}
             ORDER BY dy.domain
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
@@ -375,6 +391,7 @@ def export_all(
             WHERE hy.assigned_year = {year} AND {not_in_baseline}
               AND {HOSTNAME_SHIPPING_FILTER}
               AND {_not_in_his_annual("hy.hostname", str(year))}
+              AND {_is_web_evidence("hy.evidence_id")}
             ORDER BY hy.hostname
         """
         count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
@@ -393,6 +410,7 @@ def export_all(
         JOIN source s ON e.source_id = s.source_id
         WHERE {not_in_baseline} AND {HOSTNAME_SHIPPING_FILTER}
           AND {_not_in_his_annual("hy.hostname", "hy.assigned_year")}
+          AND {web_evidence_sql("e")}
         ORDER BY hy.hostname, hy.assigned_year
     """
     hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
@@ -408,6 +426,7 @@ def export_all(
         WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
           AND {_shipping_filter("dy.")}
           AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
+          AND {web_evidence_sql("e")}
         ORDER BY dy.domain, dy.assigned_year
     """
     path = netnew_dir / "evidence_manifest.csv"

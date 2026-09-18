@@ -133,7 +133,7 @@ multi-clause negated filter returns HTTP 400. Dropping the filter entirely is an
 admits 4xx and 5xx, where the SERVER answered rather than the host served, so the line stays where
 the evidence is unambiguous. No class or journal change, so nothing banked is affected.
 
-## ADR-012. The hostname wall admits an observation of the host IN USE, not only one of it serving
+## ADR-012. The hostname wall admitted a host IN USE, not only one serving. SUPERSEDED by ADR-013
 
 2026-09-09, C-83. **Overridden by Section XIII for what ships**: a `Received: ... by <host>` clause
 is a mail header, which XIII puts on the candidate side, so it dates no annual year. The wall's
@@ -148,3 +148,39 @@ no hostname year, on his ISC ruling of 2026-09-06: a DNS answer proves a name re
 clause proves a service at that exact name accepted a message. He measured the ISC class at 2.67%
 exact-host CDX corroboration, against 22.1% for one Apache list-month's `by` hosts and 84.2% for
 the `www.` shape, and that ordering is what the wall encodes.
+
+## ADR-013. The annual claim is website evidence, and the METHOD decides it
+
+Date: 2026-09-17. His spec XIII (C-90). Supersedes ADR-012, whose "in use" test XIII names as
+exactly the thing that is not enough.
+
+**The unit is the acquisition METHOD, not the evidence type.** `artifact_listing` and
+`dated_directory` each land on both sides: a registry zone list captured from Wayback dates a
+delegation, an archived index page may date a page. A type-level rule cannot separate them.
+
+`evidence_types.WEB_METHODS` is an **allowlist and an unknown method fails closed** into
+candidates. A method missing from it costs a claim we add back in one line; a method wrongly in it
+costs a refusal, which is what the screen exists to prevent.
+
+**One method is admitted by its STATUS, not its name** (Ivo, 2026-09-18): XIII's "non-error"
+qualifies the custodian-extract pattern, not the IA CDX pattern beside it, and a NYPW TimeMap row
+is the IA index read through Memento. A 3xx is a server answering deliberately for the exact host,
+so it enters the claim; 4xx and 5xx stay candidates, because a wildcard vhost answers 404 for any
+name pointed at it. Status is kept in `evidence_value`, so the split needs no re-ingest.
+
+**The store is not filtered, the CLAIM is.** A row that cannot date a year is still evidence and
+still a candidate. `export.py` filters the six year files, the six hostname files and both evidence
+manifests; `domain_year` and `hostname_year` keep every row. `prior_task` is excluded by design:
+that is his own merged baseline, remediated by him under XIII's legacy section.
+
+Of the 50 methods outside the allowlist, 17 are candidate-only by TYPE already, so the screen only
+bites on 38. Thirty-five of those are registry, zone, WHOIS, RDAP, ISC DNS, mail and Usenet, which
+XIII names by hand. Three were judged (Ivo, 2026-09-18): `attrition_defacement_mirror_index` is IN,
+a custodian's dated per-host mirror of what the host served; `nypw_first_capture_index` is IN for
+consistency with its own hostgrain sibling, though it can only offer a domain its first year, which
+the baseline already holds; `ncsa_whats_new_pages` stays OUT, a third-party textual mention however
+well dated.
+
+Cost, measured over round 10: 32,228 of 346,389 registrable rows pass (9.3%) and 2,674,952 of
+3,554,784 hostname rows pass (75.2%). Everything filtered re-tracks to the candidate pool, which he
+scores separately at the same rate, so the cost is the claim and not the work.
