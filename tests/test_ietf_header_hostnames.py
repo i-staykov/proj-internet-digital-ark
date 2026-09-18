@@ -1,10 +1,9 @@
 """Relay hosts from the `Received: ... by <host>` clause of dated IETF list messages.
 
-C-83's class at a second host, so the field, the wall and the parser are all the Apache
-lane's and are tested there. What is new and tested here is the item pointer, which carries
-the month file's own name because this archive spells the same month `1996-03` in the early
-years and `1999-05.mail` from 1998 on, and the MMDF boundary, without which the concluded
-working groups read as zero messages rather than as an error.
+C-83's class at a second host, so the field, the wall and the parser are the Apache lane's
+and are tested there. New here: the item pointer carries the month file's own name, because
+this archive spells the same month `1996-03` early and `1999-05.mail` from 1998 on, and the
+MMDF boundary, without which the concluded working groups read as zero messages.
 """
 
 import gzip
@@ -122,11 +121,9 @@ MMDF = "\x01\x01\x01\x01"
 
 
 def test_an_mmdf_month_reads_as_messages_and_not_as_silence() -> None:
-    """`822ext/1996-08` holds 52 messages and the mbox boundary alone returns 0 of them.
-
-    There is no `From ` line anywhere in an MMDF file, so nothing errors: the parser simply
-    never opens a header block. That is 89 MB of the partition read as empty, and it is the
-    boundary defect `docs/lore/traps.md` already paid for once.
+    """`822ext/1996-08` holds 52 messages and the mbox boundary alone returns 0 of them: there
+    is no `From ` line anywhere in an MMDF file, so nothing errors and the parser never
+    opens a header block. 89 MB of the partition read as empty.
     """
     c = _collector()
     lines = [
@@ -216,10 +213,9 @@ def test_the_measured_crawl_delay_is_not_quietly_retuned() -> None:
 
 
 def test_an_empty_month_is_never_planned_and_so_never_fetched(tmp_path, monkeypatch) -> None:
-    """Nearly half this archive's in-window months are listed at 0 bytes.
-
-    A list that existed but carried no traffic that month still gets a file, and it answers
-    HTTP 200 with no body. Planning them is 4,579 requests that can only return nothing.
+    """Nearly half this archive's in-window months are listed at 0 bytes: a list that carried no
+    traffic still gets a file, and it answers HTTP 200 with no body. Planning them is 4,579
+    requests that can only return nothing.
     """
     c = _collector()
     monkeypatch.setattr(c, "OUT_DIR", tmp_path)
@@ -237,11 +233,9 @@ def test_an_empty_month_is_never_planned_and_so_never_fetched(tmp_path, monkeypa
 
 
 def test_the_ingest_sees_the_shards_this_collector_actually_writes(tmp_path) -> None:
-    """The directory walker globbed `*.jsonl.gz` alone and this lane writes plain `.jsonl`.
-
-    `ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` therefore matched no
-    files at all and reported success over `files_seen: 0`. Nothing raised, nothing was
-    ingested, and the only visible sign was a zero in a stats dict.
+    """The directory walker globbed `*.jsonl.gz` alone while this lane writes plain `.jsonl`,
+    so `ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` matched nothing and
+    reported success over `files_seen: 0`. The only visible sign was a zero in a stats dict.
     """
     pool = tmp_path / "ietf_header_items"
     pool.mkdir()
@@ -268,12 +262,10 @@ def test_the_collectors_shard_suffix_is_one_the_walker_globs() -> None:
 
 
 def test_a_shard_the_collector_is_still_appending_to_is_read_again(tmp_path) -> None:
-    """Idempotence keyed on the file NAME froze a growing shard at its first reading.
-
-    This collector appends every month of a list to that list's one shard, so a name key
-    marked `snmpv2.jsonl` done at whatever it held when the ingest first saw it and every
-    month swept afterwards was skipped for ever, without a word. The key carries the digest
-    now, and the rows already banked land on `INSERT OR IGNORE`.
+    """Idempotence keyed on the file NAME freezes a growing shard at its first reading: this
+    collector appends every month of a list to that list's one shard, so `snmpv2.jsonl`
+    would be marked done at whatever it held and every later month skipped without a word.
+    The key carries the digest, and rows already banked land on `INSERT OR IGNORE`.
     """
     pool = tmp_path / "ietf_header_items"
     pool.mkdir()

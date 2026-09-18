@@ -1,12 +1,10 @@
 # Index of docs/
 
-**One line per page: what it is and when to read it.** `docs/` is a tree since 2026-09-06, five
-directories by what a page IS rather than what it is about: `lore/` standing knowledge we wrote,
-`brief/` the task as the reviewer stated it, `registers/` the append-only ledgers, `round/` the
-inputs to one delivery, `ops/` how to run the thing. The report cluster and this page stay at the
-root because they are the entry points. It was flat until then, on the argument that code pins
-`docs/<file>` paths; that was true and 33 of 35 pages had to be repointed, which is exactly why the
-flat version had stopped being navigable.
+**One line per page: what it is and when to read it.** `docs/` is five directories by what a page
+IS rather than what it is about: `lore/` standing knowledge we wrote, `brief/` the task as the
+reviewer stated it, `registers/` the append-only ledgers, `round/` the inputs to one delivery,
+`ops/` how to run the thing. The report cluster and this page stay at the root: they are the
+entry points.
 
 A page marked *generated* is written by the named script and never edited by hand; a page marked
 *frozen* is never edited at all. Pages marked *not shipped* are export-ignored and stay out of
@@ -32,8 +30,6 @@ the delivery archive.
 | [brief_amendments.md](brief/brief_amendments.md) | Dated brief changes and email clarifications, not a second specification | when a later message changes the packaged brief |
 | [ding/README.md](brief/ding/README.md) | What the transcribed documents are and how they win over ours | once |
 | [ding/project-brief.md](brief/ding/project-brief.md) | His canonical task brief (*generated* by `scripts/round/extract_ding_docs.py`) | when checking requirements or citing a clause |
-| [ding/task-package-file-guide.md](brief/ding/task-package-file-guide.md) | His file guide for the delivery package (*generated*, same script) | before packaging |
-| [ding/update-log.md](brief/ding/update-log.md) | His dated log of brief changes (*generated*, same script) | when dating an amendment |
 | [metric-explained.md](brief/metric-explained.md) | The equivalent-English metric, explained and runnable (D4 of the standard) | when a score needs defending |
 
 ## Registers
@@ -70,7 +66,6 @@ the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
-| [how-the-work-runs.md](ops/how-the-work-runs.md) | Who does what, where each artifact lands, and what only Ivo can do | when the shape of the process is unclear |
 | [brief-compliance.md](brief/brief-compliance.md) | Every bullet of his newest numbered brief section against the file that satisfies it | when an update from him lands |
 | [runbook.md](ops/runbook.md) | What to run and what each command should print | when running anything for the first time |
 | [security-posture.md](ops/security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |

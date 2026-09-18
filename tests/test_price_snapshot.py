@@ -1,8 +1,7 @@
 """The snapshot pricer: what counts as net-new, and what makes it refuse to answer.
 
-Written against the one failure mode that matters most here. A fleet leg has no store, so
-nothing downstream of this command can notice that it priced against an empty file, a
-half-pushed snapshot or a stale marker. Every refusal below is a case where measuring
+A fleet leg has no store, so nothing downstream can notice that it priced against an empty
+file, a half-pushed snapshot or a stale marker. Every refusal below is a case where measuring
 anyway would have produced a flattering number and no way to catch it.
 """
 
@@ -138,10 +137,9 @@ def test_neither_form_infers_the_other(tmp_path: Path) -> None:
 
 
 def test_a_www_form_and_its_parent_are_two_records(tmp_path: Path) -> None:
-    """ADR-010, in his words: neither form automatically establishes the other.
-
-    The store carries a check for each direction, so a pricer that folded a `www.` capture
-    onto the parent would quote a figure the ingest is forbidden to bank.
+    """ADR-010, in his words: neither form automatically establishes the other. The store
+    carries a check for each direction, so a pricer that folded a `www.` capture onto the
+    parent would quote a figure the ingest is forbidden to bank.
     """
     snapshot = _snapshot(tmp_path, held={2001: ["bare.com", "www.other.com"]})
     items = _items(
@@ -345,10 +343,8 @@ def test_staging_holds_exactly_what_the_manifest_names(tmp_path: Path) -> None:
 
 def test_an_absent_export_family_refuses_the_build(tmp_path: Path, monkeypatch) -> None:
     """A held-set the pricer never loads reads exactly like an empty one, so absence is fatal.
-
-    Both units we ship have to be there for all six years. A stale or half-written
-    `output/netnew` would otherwise price every name we have already delivered as net-new,
-    which is the same flattering failure a zero-line file makes, one level up.
+    Both units we ship have to be there for all six years: a stale or half-written
+    `output/netnew` would price every name we have already delivered as net-new.
     """
     netnew = tmp_path / "netnew"
     baseline = tmp_path / "baseline"

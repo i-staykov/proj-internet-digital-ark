@@ -1,14 +1,9 @@
 """The campaign measurement must count every journal, however it was named.
 
-This file exists because of one recurring failure: measuring the collectors that
-were named the way somebody expected rather than the ones that actually ran. It
-cost 31 hours once, when a yield check hardcoded two prefixes and the VPS wrote a
-third for 3,219 answered queries and zero captures while every line read clean.
-
-The same mistake came back in a smaller form. `scan` required a `_<UTC>` stamp in
-the filename, so `cdx_discovered.jsonl.gz` was skipped in silence and the shipped
-report understated the campaign by 298 queries. A journal with no stamp is still a
-journal, and a source with no rows is the only thing that should count as nothing.
+Measuring the collectors somebody expected rather than the ones that ran cost 31 hours once,
+and later understated the shipped report by 298 queries when `scan` required a `_<UTC>` stamp
+and skipped `cdx_discovered.jsonl.gz` in silence. A journal with no stamp is still a journal,
+and only a source with no rows counts as nothing.
 """
 
 import gzip
@@ -72,9 +67,8 @@ def test_a_partial_file_is_still_skipped(tmp_path: Path) -> None:
 
 
 def test_per_run_stamps_collapse_into_one_collector_family() -> None:
-    """A sweep that names each batch after its start time is one collector, not twenty.
-
-    The suffix sweep wrote `cdx_suffix_s20260823T144431Z` per batch and the report grew a
+    """A sweep that names each batch after its start time is one collector, not twenty. The
+    suffix sweep wrote `cdx_suffix_s20260823T144431Z` per batch and the report grew a
     near-identical row per run, burying the six collectors that matter.
     """
     assert notes._family("cdx_suffix_s20260823T144431Z") == "cdx_suffix"

@@ -1,11 +1,9 @@
 """The reviewer's per-item "extraction method" is `evidence.acquisition_method`.
 
-The column is nullable in the schema, so nothing structural forces it. What
-forces it is that both production writers stamp it unconditionally: the
-baseline loader with `prior_task`, the bulk loader with whatever the source's
-`SourceSpec` declares. These tests drive both writers into a temp store, run the
-export, and read the shipped files back, so a writer that stops stamping the
-method is caught here rather than by the reviewer.
+The column is nullable, so nothing structural forces it; what forces it is that both
+production writers stamp it unconditionally, the baseline loader with `prior_task` and the
+bulk loader with whatever the source's `SourceSpec` declares. These tests drive both into a
+temp store, run the export and read the shipped files back.
 """
 
 import duckdb

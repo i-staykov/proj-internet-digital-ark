@@ -1,17 +1,12 @@
 """Two clients on the same pages is one client.
 
 `platform_sweep_loop.sh` runs twice, once per shard, and that is the whole of the
-two-archive-clients budget. The split used to be the ordinal of a line in the
-concatenation of the park lists and the ranked list, `n % 2 == SHARD`. Each shard asks
-the ranker itself, at its own moment, and `--net-new` drops whatever has been swept
-since, so the two ranked lists differ in length: shift a list by one entry and every
-parent in it changes hands. Measured 2026-09-09, both shards walked the same parent from
-page 0 to the end, 391,338 rows each, 34 seconds apart. Half the collection budget spent
-twice on the same pages, and every parent behind it unvisited.
-
-So the shard is a hash of the name. These tests hold the two properties that matter and
-that the ordinal split did not have: the halves share no parent, and between them they
-cover the list.
+two-archive-clients budget. Under an ordinal split, `n % 2 == SHARD`, each shard ranks at its
+own moment and `--net-new` drops what has been swept since, so one extra entry flips every
+parent behind it: both shards once walked the same parent to the end, 391,338 rows each, 34
+seconds apart, with every other parent unvisited. So the shard is a hash of the name, and
+these hold the two properties the ordinal split lacked: the halves share no parent, and
+between them they cover the list.
 """
 
 import subprocess
@@ -74,10 +69,9 @@ def split(names: list[str], shard: int, tmp_path: Path) -> list[str]:
 
 
 def _dedupe(queue: list[str], refill: list[str], tmp_path: Path) -> list[str]:
-    """The refill's own filter, lifted from the script: what is not already queued.
-
-    The line is read out of the script rather than copied here, so a change to it is
-    tested rather than shadowed by a stale copy.
+    """The refill's own filter, lifted from the script: what is not already queued. The line is
+    read out of the script rather than copied, so a change to it is tested rather than
+    shadowed by a stale copy.
     """
     parents = tmp_path / "queue.txt"
     parents.write_text("".join(f"{n}\n" for n in queue))
@@ -96,12 +90,10 @@ def _dedupe(queue: list[str], refill: list[str], tmp_path: Path) -> list[str]:
 
 
 def test_an_empty_queue_can_still_be_refilled(tmp_path: Path) -> None:
-    """The filter ran on `NR==FNR`, which is a lie about an EMPTY first file.
-
-    NR==FNR means "still reading the first file" only while that file has records. With
-    an empty queue, NR and FNR stay equal for every line of the second file, so awk took
-    the whole refill list as the seen set and printed nothing. refill reported "found
-    nothing" and both clients idled for nine hours with 8,624 unswept parents on disk.
+    """`NR==FNR` means "still reading the first file" only while that file has records: with an
+    empty queue, NR and FNR stay equal for every line of the second file, so awk takes the
+    whole refill list as the seen set and prints nothing. Both clients once idled nine hours
+    on "found nothing" with 8,624 unswept parents on disk.
     """
     assert _dedupe([], ["a.com", "b.com"], tmp_path) == ["a.com", "b.com"]
 
@@ -132,10 +124,8 @@ def test_neither_shard_takes_the_whole_queue(tmp_path: Path) -> None:
 
 
 def test_a_parent_keeps_its_shard_when_the_list_around_it_changes(tmp_path: Path) -> None:
-    """The regression. Under the ordinal split, one extra entry flipped every name behind it.
-
-    The two shards never hold the same list: they rank at different moments, against a
-    store that has grown in between. So the shard has to be a property of the name.
+    """The two shards never hold the same list: they rank at different moments, against a store
+    that has grown in between, so the shard has to be a property of the name.
     """
     grown = ["akamai.net", *PARENTS, "yahoo.co.jp"]
     for shard in (0, 1):

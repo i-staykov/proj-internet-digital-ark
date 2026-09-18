@@ -1,12 +1,7 @@
 """The queue builder's round-window query.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-This exists because the query was once written `TIMESTAMPTZ ?`, which DuckDB's
-parser rejects, and nothing ran it until a queue was needed. The builder is the
-only consumer, so a parse error there disables `just query-queue` and its
-`--dry-run` together and leaves the shards on disk as the newest ones anybody
-can have.
+The builder is its only consumer, so a parse error disables `just query-queue` and its
+`--dry-run` together and leaves the shards on disk as the newest ones anybody can have.
 """
 
 import importlib.util
@@ -100,11 +95,8 @@ def test_reverse_dns_zones_are_not_query_targets() -> None:
 
 def test_plausibility_separates_a_real_namespace_from_a_fabricated_one() -> None:
     """The factor whose absence put 2,675 `.mil` names in the queue's first 3,000 and
-    returned zero captures from 1,200 queries.
-
-    Ratios are the ones measured against the live store on 2026-08-11, so this pins the
-    separation rather than an arbitrary threshold: real namespaces sit far above the
-    fabricated ones and no TLD has to be named for it to work.
+    returned zero captures from 1,200 queries. The ratios are measured against the live
+    store, so this pins the separation rather than a threshold, and no TLD is named.
     """
     pool = {}
     for i in range(913_012):
@@ -146,10 +138,9 @@ def _outcomes(spec):
 
 
 def test_an_unmeasured_cell_inherits_the_tld_and_not_the_source_average() -> None:
-    """The fix. `.mil` was measured at 0.000 over 1,372 answers and the chain skipped
-    straight from the exact cell to the source average, so an unmeasured
-    (other_source, mil) cell inherited a pool-average optimism the journals had already
-    refuted, and English share put 2,675 of them at the head of the queue.
+    """`.mil` measured 0.000 over 1,372 answers, but a chain skipping from the exact cell to
+    the source average let an unmeasured (other_source, mil) cell inherit a pool-average
+    optimism the journals had already refuted.
     """
     outcomes, source_of = _outcomes(
         [
@@ -202,12 +193,8 @@ def test_a_wholly_unmeasured_namespace_falls_through_to_the_pool_rate() -> None:
 
 def test_a_namespace_that_has_gone_flat_loses_its_lifetime_average() -> None:
     """The window. A lifetime rate describes a namespace's history; the queue needs its
-    margin.
-
-    Measured on 2026-08-18 over 188 pool journals, `.org` had answered 8,388 queries at a
-    lifetime 0.461 and its most recent 500 at **0.068**, a 6.8x overstatement, because the
-    productive names in a namespace get queried first. Its 0.7101 English weight then kept
-    it at the head of the queue: one batch spent 132 of 147 queries there for nine hits.
+    margin. Over 188 pool journals `.org` read a lifetime 0.461 against 0.068 on its most
+    recent 500, a 6.8x overstatement, because the productive names are queried first.
     """
     window = build_query_queue.WINDOW
     outcomes, source_of = {}, {}
@@ -225,11 +212,9 @@ def test_a_namespace_that_has_gone_flat_loses_its_lifetime_average() -> None:
 
 
 def test_the_window_corrects_upwards_too() -> None:
-    """A pool that has grown faster than it was worked is UNDERSTATED by a lifetime rate.
-
-    Same measurement, mirror image: `.uk` read 0.583 over its whole history and 0.798 over
-    its last 500. A window that only ever cut a rate would be a pessimism knob rather than
-    a measurement.
+    """A pool that has grown faster than it was worked is UNDERSTATED by a lifetime rate:
+    `.uk` read 0.583 over its whole history and 0.798 over its last 500. A window that
+    only ever cut a rate would be a pessimism knob rather than a measurement.
     """
     window = build_query_queue.WINDOW
     outcomes, source_of = {}, {}
@@ -252,11 +237,9 @@ def test_a_bucket_shorter_than_the_window_is_unaffected() -> None:
 
 
 def test_journals_sort_by_when_they_were_written_not_by_prefix() -> None:
-    """Name order groups by collector, and reading it as recency read 0.0% pool-wide.
-
-    Six collector prefixes exist. `cdx_q1_*` sorts last by name, and its final runs
-    worked an exhausted shard, so windowing the tail of a name-sorted stream measured
-    "the last answers of whichever prefix sorts last" rather than the last answers.
+    """Name order groups by collector, and reading it as recency read 0.0% pool-wide:
+    windowing the tail of a name-sorted stream measures the last answers of whichever
+    prefix sorts last, not the last answers.
     """
     paths = [
         Path("cdx_q1_20260801T000000Z.jsonl.gz"),  # oldest, but sorts LAST by name
@@ -280,11 +263,9 @@ def test_an_unstamped_journal_still_sorts_deterministically(tmp_path: Path) -> N
 
 
 def test_the_pool_wide_prior_is_not_windowed() -> None:
-    """Asymmetry on purpose: the fallback must let an unmeasured namespace rank.
-
-    A windowed pool-wide rate read 0.0% on 2026-08-18, because the tail of the stream
-    happened to be an exhausted shard. Every unmeasured cell would then have scored
-    zero, so no new namespace could ever earn its first measurement.
+    """Asymmetry on purpose: the fallback must let an unmeasured namespace rank. A windowed
+    pool-wide rate can read 0.0% when the tail of the stream is an exhausted shard, and
+    every unmeasured cell would then score zero and never earn its first measurement.
     """
     window = build_query_queue.WINDOW
     outcomes, source_of = {}, {}

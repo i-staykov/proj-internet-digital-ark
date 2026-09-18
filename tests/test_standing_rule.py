@@ -1,9 +1,8 @@
 """The four conditions of the standing approval rule, one test each.
 
-Writing a `Decision:` line is the one thing in the loop that grants a permission rather than
-recording a measurement, and it happens in a public register with nobody watching. So the
-test that matters is not that a decision can be written: it is that each condition, on its
-own, is enough to stop one.
+Writing a `Decision:` line grants a permission rather than recording a measurement, and it
+happens in a public register with nobody watching. So what matters is not that a decision can
+be written: it is that each condition, on its own, is enough to stop one.
 """
 
 import importlib.util

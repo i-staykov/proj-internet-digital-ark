@@ -1,22 +1,15 @@
-"""Per-source and per-year contribution tables, as machine-readable CSVs.
+"""Per-source and per-year contribution tables, as machine-readable CSVs, written to the
+audit directory that ships in the delivery archive.
 
-Two tables, because two questions get asked of this project.
+`source_contribution.csv` answers "what did each source actually buy?", which decides
+whether a source is worth expanding. Evidence rows are reported separately from assigned
+pairs because the gap is the point: millions of rows and almost no new pairs makes a
+corroboration source rather than a growth source, which is a finding.
 
-`source_contribution.csv` answers "what did each source actually buy?", which is
-what decides whether a source is worth expanding. It reports evidence rows
-separately from assigned pairs, because the gap between them is the point: a
-source can contribute millions of rows and almost no new pairs, which makes it a
-corroboration source rather than a growth source, and that is a finding rather
-than a disappointment.
-
-`year_growth.csv` answers "how much did each annual file grow?", in the column
-shape of the `merge_stats` file supplied with the task, so the two can be read
-side by side. One column of that shape is deliberately not reproduced:
-`candidate_unique_not_merged` assumes candidates are attributable to a year,
-and in this model a candidate has no year at all, which is what makes it a
-candidate. The pool is reported as a whole instead.
-
-Both are written to the audit directory that ships in the delivery archive.
+`year_growth.csv` answers "how much did each annual file grow?", in the column shape of the
+supplied `merge_stats` file. `candidate_unique_not_merged` is deliberately not reproduced:
+it assumes candidates are attributable to a year, and here a candidate has no year at all.
+The pool is reported as a whole instead.
 """
 
 import csv

@@ -1,14 +1,13 @@
 """The last gate before tracked bytes become world-readable.
 
-`origin` is public and every branch but `main` may now be pushed, so a secret, a machine
-address or a local path in a tracked file is published the moment the push lands. One scan
-covers all three, `tests/test_repo_hygiene.py` calls it, and the pre-commit hook and CI run
-it as `uv run python -m ark.hygiene`.
+`origin` is public and every branch but `main` may be pushed, so a secret, a machine address
+or a local path in a tracked file is published the moment the push lands. One scan covers
+all three; `tests/test_repo_hygiene.py` calls it and the pre-commit hook and CI run it as
+`uv run python -m ark.hygiene`.
 
-The rules are deliberately narrow: each one matches a shape that has no legitimate reason to
-sit in this repository. A hit is read in context, and then either it is a real leak, which is
-fixed and never committed, or it is a fixture or a public host, which goes on the allowlist
-below with a comment saying why.
+The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
+in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
+public host, which goes on the allowlist below with a comment saying why.
 """
 
 import ipaddress
@@ -72,12 +71,9 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     ("home path", re.compile(r"(?<![A-Za-z0-9._-])/(?:Users|home)/[A-Za-z0-9._-]+/"), False),
     ("ssh target", re.compile(r"\bssh\s+[A-Za-z0-9._-]+@[A-Za-z0-9.-]+"), False),
     # A login against a bare address, in ANY range. The address check below fires only on
-    # globally routable addresses, and the collector host sits in private space, so a
-    # shell default of that shape passed every guard and reached published history in
-    # seven files (docs/ops/security-posture.md, 2026-09-03). The rule it broke is about
-    # that host, so
-    # the class of the address is irrelevant and the shape is what must be refused.
-    # No literal example here: this file is scanned too.
+    # globally routable addresses and the collector host sits in private space, so a shell
+    # default of that shape passes every guard: the class of the address is irrelevant and
+    # the shape is what must be refused. No literal example here, this file being scanned.
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
 )
 

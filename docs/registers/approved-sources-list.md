@@ -29,7 +29,8 @@ Decision: master
 
 ### ukwa_geoindex / cdx_timestamp
 - measured: 4509.1 net-new post-split EE over 4,595 pairs, re-counted 2026-08-24 against the live
-  store; 4,559 of them `.uk` and 4,565 of them 2001
+  store; 4,559 of them `.uk` and 4,565 of them 2001. The whole-file extraction of 2026-08-20 measured 79,253 pairs
+  and 77,749.1 EE against the smaller store of that day
 
 - ingest specs: `ukwa_geoindex`
 - what dates one item: the 14-digit Internet Archive capture timestamp that prefixes every row, so a capture in 1999 evidences 1999 and nothing else. Nothing in the file was typed by a human, so no corroboration split
@@ -721,9 +722,8 @@ Decision: master
       1998/nypw_timemaps1998_rootURLs_part07r.tar.gz     521,097,923 B
       1998/nypw_timemaps1998_rootURLs_part08r.tar.gz     425,797,234 B
 
-  **Only three of these were recorded when the entry was first written, while eleven were already in
-  the store.** The tarballs are deleted after conversion to `.cdx.gz`, so an unrecorded partition is
-  an unrefetchable one, which is the exact failure the link rule exists to stop
+  The tarballs are deleted after conversion to `.cdx.gz`, so an unrecorded partition is an
+  unrefetchable one, which is the exact failure the link rule exists to stop
 - terms, read in full before the first request: CC BY 4.0, stated in the item's own
   `nypw_timemaps_readme.txt`, "You are free to share and adapt the material, provided that
   appropriate credit is given". `archive.org/robots.txt` is 238 bytes whole and disallows only
@@ -1730,8 +1730,6 @@ Decision: master
 
 Decision: master
 
-## Pending requests
-
 ### dk_hostmaster_dk_zonen_domains_txt_wayback_2001 / artifact_listing
 
 - ingest spec: `dk_hostmaster_dk_zonen_domains_txt_wayback_2001` (written 2026-09-16 on the approval; `parse_registry_items` over the fleet's items)
@@ -2134,7 +2132,9 @@ Decision: master
 
 Decision: master
 
+## Pending requests
+
 ## Found, awaiting triage
 
-Emptied on 2026-09-03 by `scripts/round/split_triage.py`: decided blocks moved to Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to `hypotheses-pending.md`. New finds land here as `### key / etype` blocks carrying a `- potential:` line and a pending decision; `just triage-rank` sorts them.
+A find lands here as a `### key / etype` block carrying a `- potential:` line and a pending decision; `just triage-rank` sorts them. `scripts/round/split_triage.py` drains it: decided blocks to Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to `hypotheses-pending.md`.
 

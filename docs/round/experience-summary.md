@@ -96,7 +96,7 @@ A page costs about the same at any size, since it is a count of index blocks: 20
 parent is parked on measured capture rows per distinct host rather than on elapsed time, and its
 position is saved, so the work already done is never repeated.
 
-## 4. Lessons: the measured rules for pricing a source
+## 4. Lessons: the measured rules for pricing and reading a source
 
 Each lesson below cost at least a day to learn.
 
@@ -113,6 +113,18 @@ Each lesson below cost at least a day to learn.
 5. **Re-price at the moment of admission, not of discovery.** One source measured 77,749 in August and
    4,493 four days later against a store that had grown into it.
 6. **Sample distinct domains, not rows.** Per-row sampling gave 0.492 against a true per-domain 0.611.
+7. **Verify a bulk artifact against its own published checksums before reading it, and delete on
+   mismatch.** 19 of 19 indexes verified; the row count then reproduced an independent scout's count
+   to within exactly the number of header lines, which is what made the yield trustworthy.
+8. **A partitioned corpus is measured per partition, never argued about.** The ingest ledger's
+   per-file year counts are free and have twice settled a claim that was orders of magnitude wrong
+   before it cost bandwidth.
+9. **Keep the raw rows.** A sweep that writes `{url, timestamp}` and a separate ingest that decides
+   what a row is worth cost nothing on the day and paid the whole hostname unit later. A collector
+   that canonicalises on write destroys that option.
+10. **Write the report from the data, never the other way.** Every figure is a token filled from the
+    store and the merge audit, and the attribution table is generated from the shipped files, so the
+    numbers cannot drift from the archive between builds.
 
 ## 5. Limitations, and the direction of the error
 
@@ -124,11 +136,10 @@ The one place the error could run the other way is the counting unit, and both o
 have since been ruled. A `www.` record stands where it carries its own exact-host evidence, and
 nothing is inferred in either direction between a bare name and its `www.` form (2026-09-06). A
 dated DNS-survey observation does not establish web content, so 17.7 million such hostname-years
-ship as a named candidate collection rather than as annual records (2026-09-05). One hold-out
-remains open: an FTP index row carries the crawler's own completion stamp for that exact host in
-that year, which is stronger than a DNS observation and is not a webpage, so those rows are held
-out of the annual files until the reviewer rules. The evidence is kept either way and one filter
-recovers it.
+ship as a named candidate collection rather than as annual records (2026-09-05). Section XIII
+settles the last hold-out: an FTP index row carries a crawl completion stamp for that exact host
+and year, which is not web presence, so those rows are candidates. The evidence is kept either way
+and one filter recovers it.
 
 A material share of archive requests fail at transport level rather than with a status code, which is
 throttling seen from the other side of the socket. And host survival correlates with refusal: the old
@@ -138,8 +149,9 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
 ## 6. Recommended directions
 
 1. **Bulk dated corpora**, still the best yield per megabyte by two orders of magnitude over prose.
-2. **Registry datasets that publish dates**, the only route that reaches 2001, where the archives are
-   thin: `P(store lacks 2001 | domain held)` is 0.611 for `.com` against near zero for 1999.
+2. **Registry datasets that publish dates** reach 2001, where the archives are thin:
+   `P(store lacks 2001 | domain held)` is 0.611 for `.com` against near zero for 1999. Section XIII
+   scores them on the candidate track; an annual record needs an exact-host capture beside them.
 3. **Re-auditing material already on disk**, which produced a fifth of this round for no new download
    (section 1), and the remaining capture-bearing artifacts have not yet been re-read at hostname grain.
 4. **Two sources are blocked on access rather than evidence.** The JISC UK per-year CDX index, 13.45 GB
@@ -148,33 +160,3 @@ now adding blanket `Disallow` rules, so the best-preserved hosts are disproporti
    and a URL-lookup service first. SEC EDGAR filings measure 2,500 to 4,000 equivalent-English
    concentrated in 2000-2001 but need one request per filing, roughly 35 hours, because the bulk feed
    route does not exist before 2002.
-
-## Lessons added this round
-
-- **Re-measure the reason a source was closed, not just the verdict.** A class rejected as
-  "224 GB and no space" was 15.3 GB, with 104.8 GB of the same corpus already on the laptop. It
-  became the second-largest lane of the round and needed no fetch. A closure now records the
-  measurement under it so the measurement can be re-run.
-- **Read an evidence class by its authorship, not by its syntax.** "A receiving mail server names
-  itself in `Received: ... by`" generalises to any server that writes about a transaction it
-  completed, which admitted Usenet `Path:`, `X-Trace:` and `NNTP-Posting-Host:` with no new rule
-  and no new approval class.
-- **A peak rate is a fact about the queue, not about the source.** The same query and clients paid
-  193,000 equivalent-English per client-hour on a fresh ranked head and 210 two nights later. Plan
-  with the sustained figure: over ten hours the head overstated it by 2.4x.
-- **Price a ranker only on parents it has never been used on.** Correlating rank against realised
-  yield over already-swept parents gives +0.746 and reads as an inverted ranker; over parents swept
-  fresh from a new ranking the same correlation is -0.655. The first number measures sweep history.
-- **Verify a bulk artifact against its own published checksums before reading it, and delete on
-  mismatch.** 19 of 19 indexes verified; the row count then reproduced an independent scout's count
-  to within exactly the number of header lines, which is what made the yield trustworthy without a
-  second pass.
-- **A partitioned corpus is measured per partition, never argued about.** The ingest ledger's
-  per-file year counts are free and have twice settled a claim that was orders of magnitude wrong
-  before it cost bandwidth.
-- **Keep the raw rows.** A sweep that writes `{url, timestamp}` and a separate ingest that decides
-  what a row is worth cost nothing on the day and paid the whole hostname unit later. A collector
-  that canonicalises on write destroys that option.
-- **Write the report from the data, never the other way.** Every figure in the report is a token
-  filled from the store and the merge audit, and the attribution table is generated from the
-  shipped files, so the numbers cannot drift from the archive between builds.

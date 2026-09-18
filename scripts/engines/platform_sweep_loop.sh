@@ -284,7 +284,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # **Since C-77 no fleet lane sets this flag.** The two-clients limit binds the CDX
     # channel, which is this loop's, and an agent using any other archive.org service is not
     # a third CDX client, so research waves and collectors now run at the same time. What
-    # remains is a HUMAN pause and `probe_thin_parents.py`, which needs a free slot.
+    # remains is a HUMAN pause.
     #
     # It stays a HEARTBEAT with an expiry, because that is what makes a forgotten flag
     # survivable: a flag with no expiry once idled both clients for nearly three hours of a

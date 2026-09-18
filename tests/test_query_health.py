@@ -32,11 +32,9 @@ def write(tmp_path: Path, name: str, lines: list[str], age_hours: float = 0.0) -
 
 
 def test_a_batch_logged_twice_is_one_batch(tmp_path: Path) -> None:
-    """The collector prints each batch through the logger and again bare.
-
-    Counting both doubled every figure; anchoring on the end of the line, which is what the
-    first version did, kept the count right and lost the clock. Both are read, the duplicate
-    is dropped, and the surviving row carries the time.
+    """The collector prints each batch through the logger and again bare, and counting both
+    doubled every figure. Both are read, the duplicate is dropped, and the surviving row
+    carries the time.
     """
     rows = qh.batches(write(tmp_path, "cdx_pool.log", [TIMED, BARE]))
     assert len(rows) == 1

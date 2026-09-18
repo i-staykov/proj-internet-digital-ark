@@ -1,19 +1,11 @@
 """Every source that dates a year must be reachable from a documented command.
 
 `README.md` says of the justfile recipes: "the recipes are the authoritative list of what
-gets ingested". On 2026-08-18 that was false, and the gap was not small. Three specs had
-been run by hand and had reached **11.5% of all assignments** in the store:
-`domain_creation_bulk` (2,165,506), `dartmouth_nber_captures` (227,273) and
-`udrp_proceedings` (7,837). Nothing detected it, because nothing compared the two lists.
-
-It matters for D1 of the submission standard, "the complete runnable code ... and
-execution instructions used for discovery and processing". A reviewer following the
-documented route would rebuild a store missing an eighth of the result and would have no
-way to know which eighth.
-
-This test compares the ingest specs the justfile names against the spec registry, in the
-direction that catches the failure: a spec whose evidence type can DATE A YEAR and which
-no recipe mentions. It deliberately does not read the store, so it works in a fresh clone.
+gets ingested", and D1 of the submission standard asks for "the complete runnable code ...
+and execution instructions used for discovery and processing". So this compares the ingest
+specs the justfile names against the spec registry in the direction that catches the failure:
+a spec whose evidence type can DATE A YEAR and which no recipe mentions. It deliberately does
+not read the store, so it works in a fresh clone.
 """
 
 import re

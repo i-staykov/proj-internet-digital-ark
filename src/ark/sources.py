@@ -76,14 +76,12 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# The Internet Archive's "Not Your Parents' Web" rows. Eight space-delimited
-# fields per line:
+# The Internet Archive's "Not Your Parents' Web" rows, eight space-delimited fields:
 #   queried-url  SURT  timestamp  original-url  mime  status  digest  length
-# Two sources share this layout because IA wrote both with the same tool. The
-# first-capture index holds only each URL's EARLIEST Wayback capture; a TimeMap
-# holds every capture of one URL, one per line. Either way field 3 is the
-# crawler's own 14-digit stamp and a row evidences exactly the year it names and
-# no other, which is IV.7: no inference from one capture to any other year.
+# Two sources share the layout. The first-capture index holds each URL's EARLIEST
+# capture only; a TimeMap holds every capture of one URL, one per line. Either way
+# field 3 is the crawler's own 14-digit stamp and a row evidences exactly the year it
+# names and no other (IV.7).
 _NYPW_FIELDS = 6
 
 
@@ -123,10 +121,8 @@ def parse_nypw_firstcdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_nypw_timemap(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window HTTP-200 capture listed in a TimeMap.
 
-    Same rows as the first-capture index, except that a URL appears once per
-    capture rather than once in total. That is the whole reason this source is
-    worth more than its sibling: it can carry a year for a domain the store
-    already holds in some other year, which is where the headroom is.
+    Same rows as the first-capture index, except a URL appears once per capture rather
+    than once in total, so it can carry a year for a domain the store already holds.
     """
     yield from _parse_nypw(path, stats, "nypw timemap capture")
 
@@ -134,16 +130,11 @@ def parse_nypw_timemap(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_nypw_timemap_nonok(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window capture whose stored status is NOT 200.
 
-    The lane `_parse_nypw` throws away. A CDX row carries the status the
-    crawler received, and every status in this corpus is a three-digit HTTP
-    code, so a 302, 404 or 500 row says a server accepted the connection and
-    answered at the stamped instant, which needs the name delegated exactly as
-    a 200 does. The status describes the resource, not the registration, so
-    this is the same evidence class on the same bytes rather than a new one.
-
-    Kept as a separate spec rather than a relaxation of the parser above so
-    the 200 lane stays the control group: every pair this finds that the store
-    lacks is attributable to the relaxation alone.
+    The lane `_parse_nypw` throws away. A 302, 404 or 500 row says a server accepted the
+    connection and answered at the stamped instant, which needs the name delegated
+    exactly as a 200 does: the status describes the resource, not the registration, so
+    this is the same evidence class on the same bytes. A separate spec rather than a
+    relaxation of the parser above, so the 200 lane stays the control group.
     """
     with _open_text(path) as fh:
         for line in fh:
@@ -198,13 +189,10 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 stats["malformed"] += 1
                 continue
             group = record.get("group", "usenet")
-            # A journal may carry its own evidence URL, and one that does is
-            # believed. The fallback below composes an archive.org Usenet item
-            # name out of the hierarchy, which is right for Usenet and wrong for
-            # everything else that reuses this parser: it gave all 5,258 Tucows
-            # rows `https://archive.org/details/usenet-tucows`, which 404s.
-            # The feedback asks for item-level traceability, so a dead link is a
-            # defect rather than cosmetic.
+            # A journal carrying its own evidence URL is believed. The fallback below
+            # composes an archive.org Usenet item name out of the hierarchy, which is
+            # right for Usenet and a dead link for anything else reusing this parser,
+            # and item-level traceability makes a dead link a defect.
             url = record.get("url") or (f"https://archive.org/details/usenet-{group.split('.')[0]}")
             yield BulkRecord(
                 raw=domain,
@@ -216,18 +204,15 @@ def _parse_usenet_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# A `collect_usenet_whois.py` journal, after the corroboration split: one JSON
-# object per (domain, creation year), carrying the registry date string that
-# dated it and the Message-ID of the post the record was pasted into.
+# A `collect_usenet_whois.py` journal, after the corroboration split: one JSON object per
+# (domain, creation year), carrying the registry date string that dated it and the
+# Message-ID of the post it was pasted into.
 #
-# **Why this does not reuse `_parse_usenet_journal`**, which is otherwise the
-# same shape. `whois_creation` rows are checked by `evidence_year_matches_its_value`:
-# `ark check` reads the first four-digit run out of the evidence value and
-# requires it to equal the year the row was filed under. The Usenet value is
-# `"<group> <message_id>"`, and both halves carry incidental digits, so
-# `microsoft.public.win2000.dns` would be read as the year 2000 on every row.
-# Putting the registry's own date first makes the check test what it means to
-# test, and it puts the quoted stamp in front of a reviewer.
+# **Does not reuse `_parse_usenet_journal`** despite the same shape:
+# `evidence_year_matches_its_value` reads the first four-digit run out of the value, and a
+# Usenet value `"<group> <message_id>"` carries incidental digits, so
+# `microsoft.public.win2000.dns` reads as 2000 on every row. The registry's own date goes
+# first so the check tests what it means to.
 def _parse_usenet_whois_journal(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     with open_journal(path) as fh:
         for line in fh:
@@ -262,26 +247,12 @@ def _parse_usenet_whois_journal(path: Path, stats: Counter) -> Iterator[BulkReco
             )
 
 
-# The consolidated ICANN list of UDRP proceedings. Every row is one dispute over a
-# registered domain, carrying an explicit commencement date and the disputed name in
-# its own column, across all five providers that heard cases in the window.
+# The consolidated ICANN list of UDRP proceedings: one dispute per row, an explicit
+# commencement date, the disputed name in its own column, all five providers that heard
+# cases in the window. `artifact_listing`, no corroboration split (ADR-002).
 #
-# **Why this is `artifact_listing` and takes no corroboration split**, which is the
-# only decision that matters about it and is recorded as ADR-002:
-#
-# - A proceeding exists only because the domain was registered and in dispute, so the
-#   record attests existence in that year **without depending on a crawler having
-#   visited the site**. That is the same claim `attrition_defacement` makes from a
-#   defacement date and `isc_survey` makes from a survey edition.
-# - The domain sits in a **structured column** of a published docket rather than in
-#   prose, which is the property that makes Tucows' `creator` field trustworthy where
-#   a hostname typed into a Usenet post is not. There is no transcription risk for the
-#   split to guard against.
-# - The author is an arbitration provider naming a registrar, not an anonymous poster.
-#
-# The year is the **commencement** date, deliberately, not the decision date: a case
-# commenced in late 2000 may be decided in 2001, and the domain certainly existed when
-# the complaint was filed, so the earlier date is the safer claim.
+# The year is the COMMENCEMENT date, never the decision date: a case commenced in late
+# 2000 may be decided in 2001, and the domain existed when the complaint was filed.
 _REGISTRY_STAMP = re.compile(r"\b((?:199[6-9]|200[01])\d{4})\b")
 
 
@@ -348,54 +319,14 @@ def parse_udrp_proceedings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(
                 raw=domain,
                 year=year,
-                # The commencement date leads, so the FIRST four-digit run in the
-                # value is the year the row is filed under, which is what
-                # `evidence_year_matches_its_value` reads. Putting the proceeding
-                # number first fails that check twice over: a NAF number like
-                # `FA0092016` offers `0092`, and a `D2000-` case commenced in
-                # January 2001 offers 2000 against an assigned 2001.
+                # The commencement date leads, so the FIRST four-digit run in the value
+                # is the filed year, which is what `evidence_year_matches_its_value`
+                # reads. The proceeding number first fails it twice over: NAF's
+                # `FA0092016` offers `0092`, and `D2000-` commenced in January 2001
+                # offers 2000 against an assigned 2001.
                 evidence_value=f"commenced {commenced} UDRP {proceeding}",
                 evidence_url=record.get("url") or UDRP_LIST_URL,
             )
-
-
-# The Tucows Software Library on archive.org: ~32,600 donated items, each with a
-# release `date` and a `creator` field holding the vendor's home page URL. That
-# is a dated index file in the sense of IV.1, and unlike a URL typed into a
-# Usenet post it is a single structured field rather than free text, so it does
-# not carry the same transcription risk.
-#
-# It does carry a different one. The catalogue was donated in 2004, so a
-# `creator` URL may record where the vendor lived then rather than at release.
-# Measured against evidence already held, the Tucows year is exactly right
-# 78.7% of the time and within one year 95.4%, which is far better than the
-# Usenet post date manages. But that sample is only domains the store already
-# knows, which are the long-lived ones, and drift would show precisely in the
-# names never seen before. So this route takes the same corroboration split as
-# Usenet rather than being trusted outright.
-def parse_tucows(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield one record per (vendor domain, release year) in the scraped index."""
-    with _open_text(path) as fh:
-        items = json.load(fh)
-    for item in items:
-        stats["items"] += 1
-        creator = item.get("creator")
-        if not creator:
-            stats["no_creator"] += 1
-            continue
-        if isinstance(creator, list):
-            creator = creator[0] if creator else ""
-        year_text = (item.get("date") or "")[:4]
-        if not year_text.isdigit() or int(year_text) not in YEARS:
-            stats["out_of_window"] += 1
-            continue
-        identifier = item.get("identifier", "")
-        yield BulkRecord(
-            raw=str(creator),
-            year=int(year_text),
-            evidence_value=f"tucows release {identifier}",
-            evidence_url=f"https://archive.org/details/{identifier}",
-        )
 
 
 def _isc_survey_date(name: str) -> tuple[int, str] | None:
@@ -469,20 +400,12 @@ def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per domain delegated in an InterNIC top-level zone file.
 
     **The owner of an NS record is the delegation; the target is a nameserver.** That one
-    distinction is the whole parser, and getting it backwards is not hypothetical: the
-    sibling `inaddr.zone.gz` was first claimed at 2,018 net-new pairs and measured at 336,
-    because 99.8% of its right-hand sides were nameserver names, which are the
-    most-covered names in the store. So only the owner counts, and only where it sits
-    exactly one label under the apex.
+    distinction is the whole parser: getting it backwards measured 2,018 claimed net-new
+    pairs against 336 real, 99.8% of the right-hand sides being nameserver names. Only the
+    owner counts, and only exactly one label under the apex.
 
-    A delegation in the 18 April 1997 `.org` zone is a registry statement that the name
-    existed on that day, which is `artifact_listing` and self-dating, so no corroboration
-    split applies. It says nothing about any later year, and none is emitted: continued
-    registration in 1998 is a separate fact needing separate evidence.
-
-    Deeper owners are skipped rather than truncated. A zone can delegate `sub.foo.org`
-    to a different nameserver, and recording that as `foo.org` would be a second claim
-    the artifact did not make, even though it happens to be true.
+    `artifact_listing`, self-dating, no corroboration split, no later year emitted. Deeper
+    owners are SKIPPED, never truncated: `sub.foo.org` as `foo.org` is a second claim.
     """
     header = _internic_zone_header(path)
     if header is None:
@@ -518,33 +441,26 @@ def parse_internic_zone(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# The IE Domain Registry, run by University College Dublin Computing Services,
-# regenerated its WHOLE register as static A-Z pages and Wayback captured them.
-# Two editions, two wordings. `/statistics/` writes "updated automatically at 14:51 GMT on
-# Friday, 21 December 2001"; the earlier `/lists/` tree writes "Last updated 27 Nov 1999".
-# JPNIC's own register of every registered `.jp` name, frozen on a personal DNS
-# document mirror at 1999-04-30 while JPNIC's own tree kept only policy prose.
+# IEDR (`.ie`) regenerated its WHOLE register as static A-Z pages, captured by Wayback.
+# Two editions, two wordings: `/statistics/` writes "updated automatically at 14:51 GMT on
+# Friday, 21 December 2001", the earlier `/lists/` tree "Last updated 27 Nov 1999".
 #
-# **Three details, each of which produced a wrong number before it was handled.**
+# JPNIC's register of every `.jp` name, frozen on a personal mirror at 1999-04-30. Lines 3
+# to 10 carry JPNIC's open-document notice: free reprint with the copyright notice.
 #
-# 1. **Shift-JIS, and it must be split on CRLF rather than by `splitlines()`.** The
-#    Japanese organisation names contain bytes that Python treats as line breaks
-#    (NEL, 0x85), so `splitlines()` shatters comments into phantom entries.
-# 2. **A label is not a domain.** Entries carry the label alone and the suffix comes
-#    from the section header: `AAA` under `------ AD domains:` is `aaa.ad.jp`. Labels
-#    in the geographic sections contain dots of their own (`CITY.CHITOSE`), so a
-#    dot-free label pattern reads 65 Hokkaido entries as 1.
-# 3. **45,662 entries are marked reserved and 923 abolished, and neither was ever a
-#    registration.** The reserved ones are municipal and school names JPNIC held back.
-#    Counting them inflates the source 4.4x, from 1,623 EE to about 4,394.
+# **Three traps, each of which produced a wrong number.**
 #
-# The parse is checked against the file's own arithmetic rather than trusted: each
-# section declares its own size and **62 of 63 reconcile exactly**, the total landing
-# at 72,770 against a declared 72,769, one over in `co.jp`.
+# 1. **Shift-JIS, split on CRLF and never by `splitlines()`.** Japanese organisation names
+#    contain bytes Python treats as line breaks (NEL, 0x85), shattering comments into
+#    phantom entries.
+# 2. **A label is not a domain.** The suffix comes from the section header: `AAA` under
+#    `------ AD domains:` is `aaa.ad.jp`. Geographic labels contain dots of their own
+#    (`CITY.CHITOSE`), so a dot-free label pattern reads 65 Hokkaido entries as 1.
+# 3. **45,662 reserved and 923 abolished entries were never registrations.** Counting the
+#    municipal and school names JPNIC held back inflates the source 4.4x.
 #
-# Licence, unusually for this family, is explicit permission. Lines 3 to 10 carry
-# JPNIC's open-document notice, which ends: as long as this copyright notice is
-# included, anyone may freely reprint, reproduce and redistribute it.
+# Checked against the file's own arithmetic: each section declares its size, 62 of 63
+# reconcile exactly, total 72,770 against a declared 72,769.
 _JPNIC_SECTION = re.compile(r"^-{3,}\s*(\S+)\s+domains:\s*([\d,]+)\s*\(([\d,]+)\)")
 _JPNIC_ENTRY = re.compile(r"^\(?\s*([A-Za-z0-9][A-Za-z0-9\-.]*)\s+#")
 _JPNIC_STAMP = re.compile(r"Registered Domains in JP \(([A-Za-z]{3} \d{1,2} (\d{4}))\)")
@@ -614,51 +530,18 @@ _RIPE_CHANGED_LONG = re.compile(r"^changed:.*?(\d{8})\s*$")
 def parse_ripe_dbase_changed(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per dated `changed:` transaction on a RIPE domain object.
 
-    **The claim, which is narrower than it first looks.** A RIPE object carries a
-    `changed:` attribute for every update applied to it. You cannot modify a registry
-    object that does not exist, so a line reading `19980315` records that this
-    registration existed on that date. That is not an inference from a listing; it is an
-    explicit transaction record inside the object, which is why killer 2 does not reach it.
-
-    **`changed:` is an attribute of the object rather than a registry-generated log, so
-    WHO writes it was measured before this was trusted.** 10,806 distinct addresses appear,
-    and the top eight are all ccTLD registry role accounts: `hostmaster@nic.de` **996,427
-    lines, 49.4% of the file on its own**, then `hostmaster@dk-hostmaster.dk` 101,556,
-    `hostmaster@nic.it` 78,987, `hostmaster@domain-registry.nl` 51,933, `jens@nic.de`
-    45,014, `ripe-dbm-updates@nic.fr` 44,035, `domain-admin@univie.ac.at` 42,508,
-    `hostmaster@dk.net` 37,900. So in the overwhelming majority this IS the registry
-    maintaining its own delegations. The tail of 10,798 other addresses is weaker: there
-    the claim is only that somebody with authority over the object updated it, which still
-    requires the object to have existed.
-
-    **The 1998 concentration is real activity, not a migration artifact**, which was the
-    other thing worth ruling out: 643,788 lines spread over 368 distinct day values, with
-    the largest single day at 16,486, only 2.6% of the year. A bulk re-stamp would have put
-    most of the year on one date. (368 distinct values over a 365-day year means a handful
-    of malformed dates; only the leading four digits are read, so a bad day-of-month cannot
-    change the year assigned.)
-
-    **This is what rule 6 asks for and a creation date cannot give.** Rule 6 says a
-    creation date evidences its own year only, and continued registration needs its own
-    record. Each `changed:` line IS its own record for its own year, so one object can
-    legitimately attest several years, each on separate evidence. The 1999-08-04 snapshot
-    was ingested dating every object to 1999 alone; this reads the audit trail underneath
-    it and reaches **1996, 1997 and 1998**, which the snapshot's own date cannot.
+    You cannot modify a registry object that does not exist, so `19980315` records that the
+    registration existed then. Each `changed:` line is its own record for its own year,
+    which rule 6 asks for and a creation date cannot give: the audit trail under the 1999
+    snapshot reaches 1996, 1997 and 1998 that the snapshot's own date cannot.
 
     **Personal data must never leave this function, and the regexp is the guard.** A
-    `changed:` line is `address SPACE date`, so the address is on every line this parser
-    touches: 2,045,382 of them. The pattern captures only the trailing 8-digit group and
-    the record carries only the date, so no address can reach evidence. Tests in
-    `tests/test_sources.py` fail on a leak, and the promise Ivo made to the RIPE NCC on
-    2026-08-25 is what they exist to keep.
+    `changed:` line is `address SPACE date`, so an address is on all 2,045,382 lines this
+    touches. The pattern captures only the trailing 8-digit group and the record carries
+    only the date. `tests/test_sources.py` fails on a leak: that is the promise to RIPE NCC.
 
-    **Scope.** `.arpa` reverse zones are skipped as infrastructure, as in the snapshot
-    parser. A date outside 1996-2001 is counted and dropped, which removes the 1990-1995
-    tail (60,000 lines) and anything after the snapshot's own instant.
-
-    **The honest limit.** This inherits the premise Ivo already accepted for the snapshot:
-    that a RIPE `domain:` object is a real registration. If that premise is wrong the
-    snapshot is wrong too, so this extends the existing decision rather than reopening it.
+    **Scope.** `.arpa` reverse zones are skipped; a date outside 1996-2001 is counted and
+    dropped; only the leading four digits are read, so a malformed day cannot move the year.
     """
     yield from _ripe_changed_records(path, stats, "*dn:", _RIPE_CHANGED)
 
@@ -705,26 +588,11 @@ def _ripe_changed_records(
 def parse_ripe_dbase_split_2004(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """The same `changed:` audit trail, read out of FUNET's 2004-11-09 `split/` edition.
 
-    **Why a second edition of one database is not a duplicate.** FUNET's whole-database
-    `ripe.db.gz` froze on 1999-08-03 and the `split/` directory in the same folder froze on
-    2004-11-09, five years apart. The 1999 file cannot carry a transaction that had not
-    happened yet, so 2000 and 2001 `changed:` lines exist only in the later edition: 16,536
-    dated 2000 and 21,507 dated 2001. Those two years are where the value is, and they are
-    the two years the store is thinnest in.
-
-    **The file is small because it is 96.2% reverse DNS.** Of 162,408 `domain:` objects only
-    6,160 are forward names; the rest are `in-addr.arpa` and `ip6.arpa`, which killer 3 and
-    the ARIN result already priced at nothing and which the shared reader skips. Between the
-    two editions RIPE deleted the forward ccTLD objects, so this edition holds 6,160 forward
-    names where the 1999 one holds 1.23M. That is why it pays hundreds and not thousands.
-
-    **The highest-weight population in it is not European.** `.gm` (Gambia, weight 0.9969)
-    was administered out of Norway and its 672 objects are worth more than the `.bg` and
-    `.mc` objects combined, so the region a regional registry covers is not the region its
-    forward names sit in.
-
-    The claim, the personal-data guard and the rule 6 reading are `parse_ripe_dbase_changed`'s
-    unchanged; only the two key spellings differ.
+    Not a duplicate of the 1999 edition: a file frozen 1999-08-03 cannot carry a later
+    transaction, so the 2000 and 2001 `changed:` lines (16,536 and 21,507) exist only here.
+    Small because it is 96.2% reverse DNS, 6,160 forward names of 162,408 objects. The
+    claim, the personal-data guard and the rule 6 reading are `parse_ripe_dbase_changed`'s;
+    only the two key spellings differ.
     """
     yield from _ripe_changed_records(path, stats, "domain:", _RIPE_CHANGED_LONG)
 
@@ -761,45 +629,25 @@ _ED_MONTHS = {
 def parse_edelman_whois(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per domain whose OWN whois creation date Edelman transcribed.
 
-    **This parser exists to avoid one specific, measured mistake.** An earlier pass
-    overstated this source by **47%** by binding a name to a neighbouring record's date.
-    The page format is why:
+    **The record is delimited by its bold subject, and only that subject takes the date.**
+    Pairing a domain with the nearest date overstates the source by a measured 47%: a block
+    also names the registrar, `google.com`, `web.archive.org` and, on typo pages, the
+    redirect target and the correctly-spelled original.
 
         <B><a href="http://A1-DESIGNS.COM">A1-DESIGNS.COM</a></b>
-        <BR>Current title: A1-DESIGNS.COM - Welcome!
         <BR>Registered on: Jun 28, 2001  by registrar: BULKREGISTER.COM, INC.
-        <BR>Google: ... www.google.com/search?q=... linking to a1-designs.com
-        <BR>Archive: ... web.archive.org/*/http://A1-DESIGNS.COM
 
-    One record mentions the **registrar** (`bulkregister.com`), **google.com** and
-    **web.archive.org** alongside its subject, and the typo-domain pages additionally name
-    the redirect target and the correctly-spelled original. A regexp that swept domains out
-    of a page and paired them with the nearest date would date all of those.
+    Everything else is counted as `other_domain_ignored`, the number to watch on re-verify.
 
-    **So the record is delimited by its bold subject, and only that subject takes the
-    date.** Everything else in the block is discarded, counted as `other_domain_ignored`,
-    which is the number to watch if this is ever re-verified.
+    **Three formats, and the third is the trap.** `nicgod` pages print `Registered on:`.
+    `renewals` pages carry 2002 dates and fall out of window by themselves. `typo-domains`
+    pages print THREE dates on one line, `Dates of creation / last modification /
+    expiration: ...`, and only the FIRST is the creation date, so the pattern is anchored
+    on the label.
 
-    **Three record formats, and the third one is where the overstatement came from.** The
-    `nicgod` pages print `Registered on: Jun 28, 2001`. The `renewals` pages use the same
-    field but carry 2002 dates, so they fall out of window by themselves. The `typo-domains`
-    pages instead print THREE dates on one line, `Dates of creation / last modification /
-    expiration: 25-May-2001 / 18-Jun-2002 / 25-May-2003`, and **only the first is the
-    creation date**. The pattern is anchored on the label so the second and third cannot
-    match: taking the wrong one would date a domain to its expiry. Those records also name
-    the redirect targets, the registrar and the correctly-spelled original, which is four
-    more domains per block that must not be dated.
-
-    **`whois_creation`, so rule 6 applies**: the transcribed creation date evidences its own
-    year and no other. A record whose creation year falls outside 1996-2001 is skipped, and
-    so is a record with no `Registered on:` line at all, which is common because Edelman
-    notes the date only "when available from registrar".
-
-    **What is being trusted, stated plainly.** This is a human transcription of a registry
-    record, not the registry's own file, so the date is second-hand. The register admits it
-    as `whois_creation` on the grounds that the transcribed field is a registry field, and
-    the anachronism test passed. It is the weakest dating provenance of any master source
-    here, and it is the reason the subject-binding has to be exact.
+    `whois_creation`, rule 6: the year of the transcribed date, no other. No `Registered
+    on:` line means skip, which is common. A human transcription of a registry record is
+    the weakest dating provenance here, which is why the subject-binding must be exact.
     """
     text = path.read_text(encoding="utf-8", errors="replace")
     marks = list(_ED_SUBJECT.finditer(text))
@@ -844,27 +692,17 @@ _JF_FILE = re.compile(r"^junkfilter-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$")
 def parse_junkfilter_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per name in one lane of one junkfilter edition.
 
-    **What dates an edition, three machine-written stamps agreeing.** The HTTP
-    `last-modified` header on the file, the release directory's own ISO name, and the
-    in-body `$Id: junkfilter,v 2.36 2001/05/28 20:00:08 gsutter Exp $` of the same release.
-    All thirteen in-window editions were verified to agree header-to-directory at
-    collection, and the headers are kept in `data/raw/junkfilter/last-modified.txt`.
+    **What dates an edition: three machine-written stamps agreeing.** The HTTP
+    `last-modified` header, the release directory's ISO name, and the in-body
+    `$Id: junkfilter,v 2.36 2001/05/28 20:00:08 gsutter Exp $`. All thirteen in-window
+    editions verified header-to-directory at collection, headers in
+    `data/raw/junkfilter/last-modified.txt`.
 
-    **`dated_directory` for the corroborated lane, `link_target` for the other**, because
-    the list is hand-maintained: the date is a machine's and the name is a person's. The
-    split is applied by `split_junkfilter.py` before ingest, against the strict predicate
-    (the domain already carries an assigned year), so this parser only reads whichever lane
-    it is pointed at and never decides.
-
-    **An edition evidences its own date and nothing else.** junkfilter began 1997-07-06,
-    inside the window, so no edition carries pre-window content, and the thirteen editions
-    are separately dated releases rather than one current state re-published, which is why
-    killer 4 does not reach it.
-
-    **What a listing means, and it is the honest weak point.** An entry means the maintainer
-    received mail from or advertising that host. That is one inference shorter than a
-    directory listing but it is still not a resolution, which is why the corroborated lane
-    exists at all.
+    **`dated_directory` for the corroborated lane, `link_target` for the other**, the list
+    being hand-maintained: the date is a machine's and the name is a person's.
+    `split_junkfilter.py` decides before ingest; this parser reads the lane it is given.
+    An edition evidences its own date and nothing else, and an entry means the maintainer
+    received mail from that host, which is not a resolution.
     """
     match = _JF_FILE.match(path.name)
     if match is None:
@@ -891,31 +729,17 @@ _CHASTITY_FILE = re.compile(r"^chastity-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt
 def parse_chastity_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per name in one lane of the chastity-list edition.
 
-    **What dates the edition, and it is a stamp a program wrote.** The tar member header
-    `Dec 14 2001` on every one of the 258 members of `chastity-list_0.5.orig.tar.gz`,
-    corroborated from inside the artifact by 209 per-date diff filenames running
-    `domains.20010813.diff` through `domains.20011201.diff`, all in window and monotone.
-    This is the same argument already approved for the 1997 half of
-    `junkfilter_dated_blocklist`, where a tar member header dated the edition.
+    **What dates the edition, and a program wrote it.** The tar member header `Dec 14 2001`
+    on all 258 members of `chastity-list_0.5.orig.tar.gz`, corroborated from inside by 209
+    per-date diff filenames, `domains.20010813.diff` to `domains.20011201.diff`, in window
+    and monotone.
 
-    **`dated_directory` for the corroborated lane, `link_target` for the other**, because
-    the list is hand-maintained: the date is a machine's and the name is a person's. The
-    split is applied by `split_chastity.py` before ingest, against the strict predicate
-    (the domain already carries an assigned year), so this parser reads whichever lane it is
-    pointed at and never decides. 94.0% of the population is corroborated, which is why the
-    split costs this source almost nothing.
+    **`dated_directory` for the corroborated lane, `link_target` for the other**, the list
+    being hand-maintained. `split_chastity.py` decides before ingest. 94.0% is corroborated.
 
-    **The edition evidences 2001 and nothing else.** The project measured chastity's whole
-    SourceForge release history at three releases, all December 2001, so there is no earlier
-    edition and no pre-window content. Pricing it at 1999 or 2000 would overstate the
-    headroom 141x and 39x respectively, because a blacklist's population was registered in
-    the years just before its compile: the store's gap at those years is non-existence, not
-    missing data.
-
-    **What a listing means, and it is the honest weak point.** An entry means the maintainer
-    judged the host to be serving the category's content, which is a claim it was live and
-    reachable when he wrote it down. That is not a resolution, which is why the
-    uncorroborated lane exists at all.
+    **The edition evidences 2001 and nothing else**: all three releases are December 2001.
+    Pricing it at 1999 or 2000 overstates the headroom 141x and 39x, a blacklist's
+    population having been registered in the years just before its compile.
     """
     match = _CHASTITY_FILE.match(path.name)
     if match is None:
@@ -942,29 +766,18 @@ _GC_FILE = re.compile(r"^granitecanyon-(dated|cand)\.(\d{4})(\d{2})(\d{2})\.txt$
 def parse_granitecanyon_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per zone in one lane of one Granite Canyon edition.
 
-    **What dates one item, and it is a stamp the operator's own program wrote.** Each
-    reject edition prints its generation instant in its own bytes, `Rejected Zone List:
-    7-May-2001 22:11 GMT`, and the Wayback capture fixes when the file existed. The six
-    in-window editions stamp themselves 23-Feb, 7-May, 11-Jun, 26-Jun, 31-Aug and 4-Dec
-    2001, every one agreeing with its capture timestamp. The 1999 prune list is dated by
-    `status.shtml`'s "29 November 1999 ... here is the list of pruned zones" and by its own
-    filename. So a row is Granite Canyon's nameserver holding that zone in its BIND
-    configuration at that instant, which is a machine's configuration record rather than
-    anyone's description of one.
+    **What dates one item: a stamp the operator's own program wrote.** Each reject edition
+    prints its generation instant, `Rejected Zone List: 7-May-2001 22:11 GMT`, and the
+    Wayback capture fixes when the file existed. All six in-window editions agree with
+    their capture stamps; the 1999 prune list is dated by `status.shtml` and its filename.
+    A row is Granite Canyon's nameserver holding that zone in BIND at that instant.
 
-    **`artifact_listing` for the corroborated lane, `link_target` for the other**, because
-    the zone name was typed by a customer into a submission form. `split_granitecanyon.py`
-    applies the split before ingest against the strict predicate, so this parser reads
-    whichever lane it is pointed at and never decides.
+    **`artifact_listing` for the corroborated lane, `link_target` for the other**, the zone
+    name having been typed into a submission form. `split_granitecanyon.py` decides.
 
-    **Killer 8 order, and it matters here.** The grounds are the self-stamp plus the
-    capture. The 60.4% and 46.8% agreement with the store is cited afterwards as a check on
-    that argument, never as the argument.
-
-    **Why the population is unusual and worth having.** 60.4% and 46.8% held, against 87 to
-    99% for authority corpora and 98.4 to 99.6% for visitor logs. A zone is not a page, so
-    no crawler reaches it through a link and the artifact is not head-selected: these are
-    people who had a domain and no server of their own.
+    An unusual population worth having: 60.4% and 46.8% held, against 87-99% for authority
+    corpora and 98.4-99.6% for visitor logs. A zone is not a page, so no crawler reaches it
+    through a link and the artifact is not head-selected.
     """
     match = _GC_FILE.match(path.name)
     if match is None:
@@ -991,31 +804,23 @@ _CCTLDCAP_FILE = re.compile(r"^cctldcap-(dated|cand)\.([a-z0-9]+)\.(\d{4})\.txt$
 def parse_cctld_capture_split(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per name in one lane of one capture-dated ccTLD register listing.
 
-    **Four artifacts, and the split differs between them because they are two different
-    kinds of thing.** A registry printing its own register is the authoritative record that
-    the name exists, so it takes no split, which is why the in-body sibling of this class
-    (TWNIC, IDNIC, RESTENA) is ingested with no split step. A third party's hand-kept
-    directory of other people's domains takes the split like any other curated list.
-    `split_cctld_capture.py` decides that per artifact and this parser never does.
+    **Four artifacts, two kinds of thing, so the split differs per artifact and
+    `split_cctld_capture.py` decides it, never this parser.** A registry printing its own
+    register takes no split; a third party's hand-kept directory takes it like any list.
 
-    **What dates one item, per artifact.** SaudiNIC's `AllSA` page, "a searchable directory
-    for all registered domains under .SA" generated by `indexing.cgi` out of the register,
-    carries no in-body date and is fixed by its Wayback capture at 2001-04-14, which is what
-    `cdx_timestamp` means. NU Domain's `notRenewed.cfm` is stronger than the class needs:
-    every row carries its own machine-written `Expired` date, so the year comes from the row
-    and not from the capture. ISOC-IL's `domains.html` self-stamps `Document Modified:
-    3-1-98` and is fixed again by its 1998-01-20 capture.
+    **What dates one item, per artifact.** SaudiNIC's `AllSA`, generated by `indexing.cgi`
+    out of the register, carries no in-body date and is fixed by its Wayback capture at
+    2001-04-14 (`cdx_timestamp`). NU Domain's `notRenewed.cfm` carries a machine-written
+    `Expired` date per ROW, so the year comes from the row. ISOC-IL's `domains.html`
+    self-stamps `Document Modified: 3-1-98`, capture 1998-01-20.
 
-    **NIC Malta is carried at 1.8 EE and only for the record.** Its own text refuses the
-    liveness claim this class rests on: "Sites are not required to be on-line prior to name
-    registration. This means that some of the links below may still be unreachable", and
-    "This directory is not updated regularly". It is kept so that the negative is measured
-    rather than assumed, since the source register once priced this artifact at 1,470.5 EE.
+    **NIC Malta is carried at 1.8 EE and only for the record**, its own text refusing the
+    liveness claim: "some of the links below may still be unreachable", "This directory is
+    not updated regularly". Kept so the negative is measured against the 1,470.5 EE the
+    source register once priced it at.
 
-    **A name on an expiry list was registered up to that date.** `.nu`'s rows are names whose
-    registration lapsed in 2001, so each was in the register during 2001 and the artifact
-    implies nothing about any other year, which is rule 6 respected. The one row expiring in
-    2003 is dropped before ingest rather than being read as a 2001 name.
+    A name on an expiry list was registered UP TO that date and implies nothing about
+    another year: `.nu`'s one row expiring in 2003 is dropped, not read as 2001.
     """
     match = _CCTLDCAP_FILE.match(path.name)
     if match is None:
@@ -1046,30 +851,18 @@ _MYNIC_ROW = re.compile(r"^(New|Delete)\t+([a-z0-9][a-z0-9.\-]*\.my)\s*$", re.I 
 def parse_mynic_listing(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per `New` or `Delete` row of one MYNIC listing page.
 
-    **What dates one item**: the per-day heading above the row, `15 March 2001`, with `New` or
-    `Delete` printed beside the name, so MYNIC is stating that this name entered or left its
-    register on that day. The year is carried forward from the most recent heading before the
-    row, which is why the file is walked in order rather than scanned for names.
+    **What dates one item**: the per-day heading above the row, `15 March 2001`, carried
+    forward from the most recent heading, which is why the file is walked in order rather
+    than scanned for names. Both actions date that year only: a name deleted on 15 March
+    2001 was in the register until that day.
 
-    **Both actions date the year, and only that year.** A name deleted on 15 March 2001 was in
-    the register until that day, so it existed in 2001; a name added that day entered in 2001.
-    Neither implies anything about another year, which is rule 6 respected.
+    **No corroboration split, settled on a test.** MYNIC's own monthly statistics table
+    gives March 2001 as New 850 / Delete 166 against New 850 / Delete 165 parsed from the
+    listing halves; a hand-compiled list cannot reproduce a registry's counts 850/850.
+    Alphabetical ordering is NOT the argument: sorting holds in 75.2% of 472 groups only.
 
-    **No corroboration split, and this was settled on a test rather than a judgement.** MYNIC
-    also published a monthly statistics table of per-day, per-TLD New and Delete counts, with
-    the note "Please click on the date to get daily New and Delete domain name listings". If
-    the listing is a complete enumeration out of the register then its rows must reproduce
-    those counts, and for March 2001 the statistics give **New 850 / Delete 166** against
-    **New 850 / Delete 165** parsed from the two listing halves. A hand-compiled list cannot
-    match a registry's own published counts 850/850, so this is the registry stating its own
-    register, exactly as the approved TWNIC, IDNIC and RESTENA listings do.
-
-    **Alphabetical ordering is NOT the argument**, though it looks like one. Sorting within a
-    day and TLD group holds in only 75.2% of 472 groups, because `Delete` rows come out
-    unsorted. Ordering is a hint; reproducing the publisher's own counts is a test.
-
-    Only the `-1` and `-2` half-month pages carry names. The bare-month pages are the
-    statistics tables and yield nothing, so they are counted and skipped rather than parsed.
+    Only the `-1` and `-2` half-month pages carry names; the bare-month pages are the
+    statistics tables and are counted and skipped.
     """
     raw = path.read_text(encoding="utf-8", errors="replace")
     if "domain name listing" not in raw.lower():
@@ -1104,26 +897,17 @@ COZA_TRUNCATION_WIDTH = 16
 def parse_coza_queue(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per label in one capture of a CO.ZA suspension or deletion queue.
 
-    **What dates one item**: the Wayback capture stamp, carried in the filename, because
-    neither page carries an in-body date. `todel.sh` is headed "Domains in CO.ZA to be deleted
-    ... The following domains are shortlisted for deletion. This is due to lack of payment",
-    and `warn.sh` is the separate suspension queue, "shortlisted for or have been suspended.
-    Within a couple of invoice runs they will move to the Deletion queue". Either way the
-    registry is asserting the name is in its register at the instant the crawler took the page.
+    **What dates one item**: the Wayback capture stamp in the filename, neither page
+    carrying an in-body date. `todel.sh` is the deletion shortlist, `warn.sh` the suspension
+    queue; either way the registry asserts the name is in its register at that instant.
+    **No corroboration split**: these are shell CGI reading the register.
 
-    **No corroboration split**: these are shell CGI reading the register, so this is the
-    registry stating its own register, the same grounds as MYNIC and SaudiNIC.
-
-    **640 labels are dropped, and the defect is in the artifact rather than in this parse.**
-    The CGI prints bare labels in fixed 16-character columns and truncates the name to fit
-    **in the `href` as well as the anchor text**, so `sahomeimprovement` is served as
-    `sahomeimprovemen`, and `museum-of-freedom`, `cruisesinternational` and
-    `australianimmigration` are all cut the same way. The label-length histogram shows it
-    plainly: 303 labels of 15 characters against a spike of 640 at exactly 16. Admitting a
-    truncated label would mint a well-formed domain that never existed, and no invariant in
-    `ark check` could catch it, because the result looks like a perfectly ordinary name. So
-    every label of exactly the column width is refused, which loses the handful of real
-    16-character names as the price of admitting no fabricated ones.
+    **640 labels are dropped, and the defect is in the artifact.** The CGI prints bare
+    labels in fixed 16-character columns and truncates to fit **in the `href` as well as the
+    anchor text**, so `sahomeimprovement` is served as `sahomeimprovemen`: 303 labels of 15
+    characters against a spike of 640 at exactly 16. A truncated label mints a well-formed
+    domain that never existed, which no `ark check` invariant could catch, so every label of
+    exactly the column width is refused.
     """
     match = _COZA_FILE.match(path.name)
     if match is None:
@@ -1161,38 +945,22 @@ _FAC_FILE = re.compile(r"^fac-(dated|cand)\.(\d{4})\.tsv$")
 def parse_fac_filings(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per (domain, signature year) in one lane of one FAC filing year.
 
-    **What dates one item.** The signature date on that filing row, `AUDITEEDATESIGNED` "Date
-    of auditee signature" or `CPADATESIGNED` "Date of CPA signature", both documented in GSA's
-    own historic data dictionary and both written `mm/dd/yyyy`. The address beside it is the
-    auditee's or the audit firm's own e-mail, so the row asserts that domain was in use on the
-    day the certifying official signed.
+    **What dates one item.** The signature date on that row, `AUDITEEDATESIGNED` or
+    `CPADATESIGNED`, both `mm/dd/yyyy` in GSA's historic data dictionary. The address beside
+    it is the auditee's or the audit firm's own.
 
-    **The signature date is the only usable date, and the file's own `AUDITYEAR` is a trap.**
-    The two do not agree: 1998 filings are routinely signed in 1999 and FY2001 audits in 2002.
-    Screening on the signature date drops **18,979 of the 75,311 e-mail fields, 25.2%**, and
-    dating on `AUDITYEAR` would have imported every one of them silently. The register's
-    earlier pass reported 18,698 on the same screen, so the two agree to 1.5%.
+    **The file's own `AUDITYEAR` is a trap and must not be used.** 1998 filings are
+    routinely signed in 1999 and FY2001 audits in 2002; screening on the signature date
+    drops 18,979 of 75,311 e-mail fields, 25.2%, all of which `AUDITYEAR` imports silently.
 
-    **The corroboration split applies, because a person typed the address into a form**, and
-    the novel names show it earning its place: `campell.edu` for Campbell, `clakamas.or.us` for
-    Clackamas, `staate.oh.us`, `selfsuffciency.com`, and `kl2.ca.us` where the letter `l` was
-    typed for the digit `1` in `k12`. A further 18.0% of novel names are a character prepended
-    to a name the store already dates, `aarthurandersen.com` for arthurandersen.com and
-    `aattglobal.net` for attglobal.net, which is an import defect rather than honest typing.
+    **The corroboration split applies, because a person typed the address into a form**:
+    `campell.edu`, `clakamas.or.us`, `kl2.ca.us` with `l` for `1`, and a further 18.0% are a
+    character prepended to a name the store already dates. The typo upper bound is 69.7%,
+    the highest in the register, so the uncorroborated lane parks as `link_target`.
 
-    **The split's cost is recorded rather than assumed.** The same sample holds names that are
-    plainly real and are exactly the long tail nothing else reaches: `isler-eugene.com` is a
-    real Eugene accountancy firm and `sau38.k12.nh.us` a real New Hampshire School
-    Administrative Unit. The measured typo upper bound is 69.7%, the highest in the register,
-    but it is an upper bound and the sample puts the true rate nearer a third, so the
-    uncorroborated lane parks as `link_target` and can be raised later without refetching.
-
-    **Provenance, because it is unusual for this project.** `app.fac.gov`, which hosts every
-    data file, serves `User-agent: *` / `Disallow: /`, so the ZIPs were downloaded by hand by
-    Ivo on 2026-08-31 and all four SHA1s verified against GSA's published `.sha1` files. No
-    automated client fetched them, and the archives carry no licence or README of their own:
-    the terms are the landing page's "provided as-is for historical research" and US federal
-    public domain.
+    **Provenance.** `app.fac.gov` serves `Disallow: /`, so the ZIPs were downloaded by hand
+    and all four SHA1s verified against GSA's published `.sha1` files. Terms are the landing
+    page's "provided as-is for historical research" and US federal public domain.
     """
     match = _FAC_FILE.match(path.name)
     if match is None:
@@ -1247,28 +1015,21 @@ _CCTLD_MONTHS = {
 def parse_cctld_register_inbody(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per name on a ccTLD register listing that dates itself.
 
-    **The class.** A registry that wrote its register to a static page, where the page
-    carries its own machine-written timestamp. So the registry is stating the contents of
-    its register at a stated instant, which is the zone-file argument, and nothing here was
-    typed by a person, so no corroboration split applies.
+    A registry that wrote its register to a static page carrying its own machine-written
+    timestamp, so no corroboration split.
 
-    **Two dating routes, and the row wins when it has one.** TWNIC's frozen-domain list
-    stamps the page, `更新時間: 2001/8/27 20:0:31`, and that dates every name on it: the
-    list is names whose registration expired between 2001-05-29 and 2001-08-26, so each was
-    in the register during 2001 and the artifact implies nothing about any other year.
-    IDNIC's unpaid-fees table instead prints a `Jatuh Tempo` due date per row, which is the
-    registry stating the boundary of that registration's paid period, so the row's own year
-    is used in preference to the file's.
+    **Two dating routes, and the ROW wins when it has one.** TWNIC's frozen-domain list
+    stamps the page, `更新時間: 2001/8/27 20:0:31`, dating every name on it. IDNIC's
+    unpaid-fees table prints a `Jatuh Tempo` due date per row, the boundary of that
+    registration's paid period, so the row's year wins over the file's.
 
-    **Only names under the registry's own namespace are read.** The filename declares the
-    TLD and anything else on the page, an ad or a mailto, cannot become evidence.
+    Only names under the registry's own namespace are read: the filename declares the TLD,
+    so an ad or a mailto on the page cannot become evidence.
 
-    **The collector must pin the capture and record the size**, because the CDX `length`
-    column is the compressed WARC record size, not the page size, and a big uniform table
-    compresses hardest. Measured here: TWNIC reads 77,565 in the index and **624,921 bytes
-    on the wire**, IDNIC 23,977 against **251,567**, ratios of 8.1x and 10.5x. Ranking
-    candidate pages by CDX length under-ranks exactly the pages worth having, and the `.id`
-    find was nearly discarded on that basis.
+    **The collector must pin the capture and record the size**: the CDX `length` column is
+    the compressed WARC record size and a big uniform table compresses hardest, TWNIC 77,565
+    in the index against 624,921 on the wire, IDNIC 23,977 against 251,567. Ranking
+    candidate pages by CDX length under-ranks exactly the pages worth having.
     """
     match = _CCTLD_FILE.match(path.name)
     if match is None:
@@ -1321,37 +1082,21 @@ _CA_APPROVED = re.compile(r"^Date-Approved:\s*(\d{4})/(\d{2})/(\d{2})\s*$", re.M
 def parse_can_domain_registry_notices(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per `.ca` subdomain the registry approved in window.
 
-    **What this is.** The CA Domain Registry ran its approval process in public,
-    posting a structured record to the `can.domain` newsgroup for every subdomain it
-    approved. 37,782 such records survive in the group's archive, carrying 37,578
-    `Date-Approved:` fields:
+    The CA Domain Registry ran approvals in public, posting a structured record to
+    `can.domain` for each. 37,782 survive, carrying 37,578 `Date-Approved:` fields:
 
         Subdomain:      privacy.ca
         Date-Received:  1999/06/23
         Date-Approved:  1999/06/30
         Date-Modified:  2000/08/23
 
-    **Why the approval field is the registry speaking, which is the ruling this rests
-    on.** The fields are machine-formatted with aligned columns and ISO-style dates, the
-    approval is the registry's own act rather than a description of somebody else's, and
-    this is the registry publishing its own process. So it is `whois_creation`: the
-    registry stating when it created the registration. Ruled by Ivo 2026-08-26. Read as
-    prose instead it would take the corroboration split and be worth about a tenth.
+    The approval is the registry's own machine-formatted act, so `whois_creation`, and rule
+    6 costs most of the file: an approval date evidences its own year only. 1996: 7,766 /
+    1997: 9,520 / 1998: 15,133 / 1999: 4,473 / 2000: 0 / 2001: 0, posting having stopped.
 
-    **Rule 6 governs and it costs most of the file.** An approval date evidences its own
-    year and nothing else, so a name approved in 1997 earns 1997 here and must earn any
-    later year from its own record. Approvals fall 1996: 7,766 / 1997: 9,520 / 1998:
-    15,133 / 1999: 4,473 / 2000: 0 / 2001: 0, because the registry stopped posting after
-    1999, and the many thousands approved before 1996 contribute nothing at all.
-
-    **`Date-Modified:` is deliberately not read.** It looked like free upside, since a
-    record cannot be modified for a name that is not registered, so a 2000 modification
-    would attest 2000. Measured: **nine such records in the whole archive, worth 0.0
-    equivalent-English.** Not worth a second evidence route.
-
-    **A block is bounded by the next `Subdomain:` line**, so an approval date belonging to
-    a neighbouring record can never attach to this one. That is the failure that inflated
-    an earlier source by binding a name to the date beside it.
+    **`Date-Modified:` is deliberately not read**: nine records, 0.0 equivalent-English.
+    **A block is bounded by the next `Subdomain:` line**, so a neighbour's approval date
+    can never attach to this one.
     """
     if path.suffix == ".zip":
         with zipfile.ZipFile(path) as archive:
@@ -1409,27 +1154,15 @@ _NW_MONTHS = {
 def parse_namewinner_expiring(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per name on a namewinner expiring-domain list.
 
-    **What the artifact asserts.** Dotster's `rule_book.php` calls this "our list of soon
-    to be expiring domain names", so a name on it is one the registrar is stating is
-    registered at that moment. That is the `coza_deletion_listing` argument and it is the
-    reason this is `artifact_listing` rather than a directory: the registrar held the
-    database and printed from it.
+    Dotster's `rule_book.php` calls this "our list of soon to be expiring domain names", so
+    a name on it is registered at that moment: `artifact_listing`, not a directory. **No
+    corroboration split**, being registered being the only way onto a dump out of a
+    registrar's own system, so it dates novel names too.
 
-    **No corroboration split.** This is a dump out of a registrar's expiring-domain system,
-    not a list a person compiled: being registered is the only way onto it. So it dates the
-    names on it, novel ones included, exactly as `iedr_register` and `internic_zone` do.
-    Ruled by Ivo 2026-08-26.
-
-    **The date is read PER ROW, and that is deliberate rather than defensive.** Every row of
-    the 2001-10-26 capture carries `25-OCT-01`, verified as 20,945 occurrences with no other
-    date of that shape in the file. Reading each row's own date instead of the file's means
-    the 2002-04 capture of the same page is refused automatically, one row at a time, which
-    is what rule 6 requires: an expiry date evidences its own year, and 2002 is out of
-    window. A parser that took the filename's date would have imported it.
-
-    **The two-digit year is expanded on a 30-year pivot**, so `01` is 2001. A `97` would be
-    1997. Nothing in this source's captures reaches either boundary, but the file format is
-    Oracle's default and the ambiguity is real, so it is resolved explicitly.
+    **The date is read PER ROW, not from the file.** Every row of the 2001-10-26 capture
+    carries `25-OCT-01`, 20,945 occurrences with no other date of that shape. Reading each
+    row's own date refuses the 2002-04 capture of the same page automatically, which is what
+    rule 6 requires. Two-digit years expand on a 30-year pivot, so `01` is 2001.
     """
     with _open_text(path) as fh:
         for line in fh:
@@ -1467,19 +1200,12 @@ _RIPE_DOMAIN = re.compile(r"^\*dn:\s*(\S+)\s*$")
 def parse_ripe_dbase_1999(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per `domain:` object in the 1999-08-04 RIPE database snapshot.
 
-    **This source is used under written permission and the permission constrains the
-    code, so the constraint lives here rather than in a document.** RIPE NCC Member
-    Services answered Ivo's request on 2026-08-26: research use of publicly available
-    data is fine, with the only condition being request volume against the live
-    database, which cannot apply to a static file. The request Ivo made, and therefore
-    the promise this parser has to keep, was to read the domain objects and derive
-    `(domain name, 1999)` pairs and to publish **no personal data at all**.
+    **Used under written permission, and the permission constrains the CODE, so it lives
+    here.** The promise to RIPE NCC: read the domain objects, derive `(domain name, 1999)`
+    pairs, publish NO personal data at all.
 
-    **That promise is not free, because the contact data is inline.** The file has no
-    `person:` objects (a census of all 63 attribute codes returns zero for person,
-    address, phone, fax, e-mail, nic-hdl and role), which invites the conclusion that
-    there is no personal data in it. That conclusion is WRONG. Contact details sit
-    inside the domain objects under other codes:
+    **The contact data is inline.** There are no `person:` objects, which invites the WRONG
+    conclusion that the file holds no personal data:
 
         *dn: TuKKK.FI
         *de: Rehtorinpellonkatu 3, SF-20500 TURKU, Finland   <- postal address
@@ -1487,21 +1213,12 @@ def parse_ripe_dbase_1999(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         *ac: mniemi@abo.fi                                   <- e-mail
         *ch: ripe-dbm@ripe.net 19920825                      <- e-mail
 
-    So `_RIPE_DOMAIN` matches `*dn:` and nothing else, and every other line is counted
-    and discarded. **Do not widen it.** `*de`, `*ac`, `*tc`, `*zc` and `*ch` are the
-    attributes that would break the promise, and three of the five are not obviously
-    personal from their names.
+    So `_RIPE_DOMAIN` matches `*dn:` and nothing else. **Do not widen it.** `*de`, `*ac`,
+    `*tc`, `*zc` and `*ch` break the promise, and three of the five do not look personal.
 
-    **What dates it.** Line 2 of the payload, `# 990804 00:07:01`, is the file stating
-    when it was generated, so a `domain:` object in it is the registry stating its
-    database contents on 4 August 1999. Per rule 6 that evidences **1999 and no other
-    year**: continued registration needs its own record. The stamp is read rather than
-    assumed, and a file without one is refused.
-
-    **Reverse zones are dropped here as well as by the store.** 20,974 of the 1,256,414
-    domain objects are `in-addr.arpa` delegations, which are infrastructure rather than
-    websites. The store has an invariant that would catch them anyway; dropping them
-    here keeps the counted totals honest.
+    **What dates it.** Line 2 of the payload, `# 990804 00:07:01`, so rule 6 gives 1999 and
+    no other year. The stamp is read rather than assumed and a file without one is refused.
+    Reverse zones (20,974 of 1,256,414) are dropped here as well as by the store.
     """
     year = None
     with _open_text(path) as fh:
@@ -1552,25 +1269,21 @@ _SG_STAMP = re.compile(r"compiled in [\d:]+ on (\d{4})\.(\d{2})\.(\d{2})")
 def parse_squidguard_blacklist(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per host in one squidGuard blacklist file.
 
-    **Why a crawler-compiled blocklist is admissible at all.** The header asserts liveness
-    rather than mere listing: `compiled from 2402 link sources and 654820 links, of which
-    510389 tested successfully`. So the robot fetched the host and it answered. Nobody typed
-    the list, so no corroboration split applies, and `squidGuardRobot-2.3.4` names itself.
+    The header asserts liveness rather than listing, `compiled from 2402 link sources and
+    654820 links, of which 510389 tested successfully`, so the robot fetched the host and it
+    answered. Nobody typed the list, so no corroboration split.
 
-    **Two date routes, and neither is the tar's.** A base `domains` or `urls` file carries its
-    own compile stamp and that dates its names. A diff carries the date in its filename. Both
-    are the robot's own output. A file with neither is skipped rather than dated from the
-    archive around it.
+    **Two date routes, and neither is the tar's.** A base `domains` or `urls` file carries
+    its own compile stamp; a diff carries the date in its filename. A file with neither is
+    skipped rather than dated from the archive around it.
 
-    **A diff's `-` lines are dropped, and this is the one judgement in here.** `+host` means
-    the robot added the host after testing it successfully at that date, which is an
-    assertion about that instant. `-host` means the host was REMOVED, which is evidence it
-    stopped answering, not that it was live then. Across this edition that is 104,242 added
-    against 23,267 removed, so keeping the removals would have inflated the count by a fifth
-    on exactly the wrong inference.
+    **A diff's `-` lines are dropped, the one judgement in here.** `+host` is the robot
+    adding a host it tested successfully; `-host` is evidence it STOPPED answering. 104,242
+    added against 23,267 removed, so keeping removals inflates the count by a fifth on
+    exactly the wrong inference.
 
-    **`urls` lines carry a path**, `007dedicatedserver.net/sexkey`, and the canonicaliser
-    strips it. IP-address lines appear in the diffs and are rejected there, not here.
+    `urls` lines carry a path the canonicaliser strips. IP-address lines appear in the diffs
+    and are rejected there, not here.
     """
     match = _SG_FILE.match(path.name)
     if match is None:
@@ -1633,28 +1346,19 @@ _USD_ROW = re.compile(r"^([A-Z]{2})\s+([A-Za-z0-9][A-Za-z0-9.\-]*?\.[Uu][Ss])\.?
 def parse_us_domain_delegated(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per delegated `.us` zone in one edition of the ISI list.
 
-    **What dates it.** A delegation list is the registry stating which zones it had
-    delegated at a stated instant, which is the same instrument as a DNS zone file and
-    the reason killer 2 does not reach it: the registry was serving those names, not
-    describing them. Nobody typed the list, so no corroboration split applies, and it
-    says nothing about any other year.
+    The registry stating which zones it had delegated at an instant, the same instrument as
+    a zone file: no corroboration split, and nothing about any other year.
 
-    **The date is in the filename because the artifact has none inside it**, and that is
-    the one weakness of this source, so the collector records where each date came from.
-    Two independent mechanisms agree: the 1996 and 1999 editions carry tar-preserved
-    mtimes whose rotation chain is monotone in both date and size (425,505 to 426,388
-    bytes across Feb-Mar 1999), continuing monotone into the Wayback captures (433,937 to
-    435,847), and the 2000 and 2001 editions carry their own capture stamps. An edition
-    whose filename has no date is skipped rather than guessed at.
+    **The date is in the filename because the artifact has none inside it**, this source's
+    one weakness, so the collector records where each date came from. Two independent
+    mechanisms agree: the 1996 and 1999 editions carry tar-preserved mtimes whose rotation
+    chain is monotone in date and size, continuing monotone into the Wayback captures; the
+    2000 and 2001 editions carry their own capture stamps. An edition whose filename has no
+    date is skipped rather than guessed at.
 
-    **Column 2 only.** Every row also carries a contact address, and those mail domains
-    are not delegated `.us` zones. Reading them would import third-party domains on this
-    file's authority: measured at 56 pairs of 13,816 when the whole line was scanned.
-
-    **The `k12` and locality zones are handled by the PSL, not here.** `K12.AK.US` is a
-    public suffix in its own right and `to_registrable` returns None for it, which is
-    correct: nobody registered it. `ANCHORAGE.AK.US` resolves, and `CI.ANCHORAGE.AK.US`
-    collapses onto it. So this parser deliberately does not filter by shape.
+    **Column 2 only.** Every row also carries a contact address, and those mail domains are
+    not delegated `.us` zones: 56 pairs of 13,816 when the whole line was scanned. The `k12`
+    and locality zones are left to the PSL, so this parser does not filter by shape.
     """
     edition = _USD_EDITION.search(path.name)
     if edition is None:
@@ -1689,24 +1393,19 @@ _IEDR_SELF = ("domainregistry.ie", "iedr.ie")
 def parse_iedr_register(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per `.ie` name printed on an archived IEDR register page.
 
-    **The date is inside the artifact, and the whole page stands or falls on it.** Each page
-    carries its own machine-written line, `updated automatically at 14:51 GMT on Friday, 21
-    December 2001`, and that is what dates every name on it. The Wayback capture stamp only
-    corroborates. A page whose own line falls outside the window is dropped ENTIRELY rather
-    than pulled in: of the 27 letter pages, `l-doms.html` reads 28 March 2002, and taking the
-    capture date instead would have imported 931 names into 2001 that the artifact places in 2002.
+    **The date is inside the artifact and the whole page stands or falls on it**: `updated
+    automatically at 14:51 GMT on Friday, 21 December 2001`, the Wayback capture only
+    corroborating. A page whose own line falls outside the window is dropped ENTIRELY: of 27
+    letter pages, `l-doms.html` reads 28 March 2002, and its capture date would import 931
+    names into 2001 that the artifact places in 2002.
 
-    **Read the date with the tags stripped.** The footer spans an anchor in some editions, so a
-    regex over raw HTML matches on most pages and silently misses others. Three pages were lost
-    that way on the first pass, which understates rather than errs loudly.
+    **Read the date with the tags stripped**: the footer spans an anchor in some editions,
+    so a regex over raw HTML matches most pages and silently misses others.
 
-    **Only a letter page is a register.** The same trees publish `stalled.html`, which lists
-    PENDING APPLICATIONS: names nobody had registered yet. Reading it would manufacture
-    registrations that never happened, so the filename is checked before the date is.
+    **Only a letter page is a register.** The same trees publish `stalled.html`, PENDING
+    APPLICATIONS nobody had registered, so the filename is checked before the date.
 
-    This is `artifact_listing`: a register regeneration is the registry stating which names were
-    registered at a stated instant, the same instrument as an InterNIC zone file. Nobody typed
-    the list, so no corroboration split applies. It says nothing about any other year.
+    `artifact_listing`, no corroboration split, nothing about any other year.
     """
     if _IEDR_PAGE.search(path.name) is None:
         stats["not_a_register_page"] += 1
@@ -1765,19 +1464,13 @@ def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord
 
     Rows are semicolon-separated with a header:
     `domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at`
-    and `created_at` is the registry's own creation date for that exact domain,
-    parsed by the publisher out of a port-43 WHOIS answer. That is the same claim
-    `rdap_snapshot` makes, from the same authority, in bulk.
+    and `created_at` is the registry's own creation date for that exact domain, parsed by
+    the publisher out of a port-43 WHOIS answer.
 
-    **One year per domain, deliberately.** A creation date says the name was created
-    on that day and nothing about any later year, so this emits the creation year
-    alone. Continued registration in 1999 is a separate fact needing separate
-    evidence, and inferring it here is exactly what the brief forbids.
-
-    **The direction of error is loss, which is the safe direction.** WHOIS reports
-    the CURRENT registration, so a name created in 1998, dropped, and re-registered
-    in 2015 reads 2015 and falls out of the window. We lose it. The reverse cannot
-    happen: nothing re-registered later can read earlier than it was created.
+    **One year per domain, deliberately**: a creation date says nothing about any later
+    year, and inferring one is what the brief forbids. The direction of error is LOSS, which
+    is safe: WHOIS reports the current registration, so a name created in 1998, dropped and
+    re-registered in 2015 reads 2015 and falls out of window. The reverse cannot happen.
     """
     with _open_text(path) as fh:
         for line in fh:
@@ -1795,20 +1488,13 @@ def parse_domain_creation_csv(path: Path, stats: Counter) -> Iterator[BulkRecord
                 stats["out_of_window"] += 1
                 continue
             domain = parts[0].strip()
-            # An internationalised TLD cannot be in window: every `xn--` TLD was
-            # delegated in 2010 or later. This file nonetheless carries 17 names under
-            # `.xn--fiqs8s` and `.xn--fiqz9s`, which are `.中国` and `.中國`, with
-            # creation dates in 2000 and 2001. CNNIC ran Chinese-character domains
-            # experimentally before ICANN delegated the TLD, and the migration in 2010
-            # appears to have carried the original dates forward, so the registry's
-            # date is not a fabrication and the DNS name still did not exist then.
-            #
-            # Found because the reviewer's own validator rejects them: his hostname
-            # regexp requires a letters-only TLD, so they scored zero for him and full
-            # weight for us, and `round_figures.py --verify` refused to send the round
-            # over a 0.3150 discrepancy. The falsification test run before this source
-            # was admitted checked the six TLDs delegated in 2001 and would never have
-            # caught a TLD delegated in 2010.
+            # An internationalised TLD cannot be in window: every `xn--` TLD was delegated
+            # in 2010 or later. This file carries 17 names under `.xn--fiqs8s` and
+            # `.xn--fiqz9s` with 2000 and 2001 creation dates, CNNIC having run
+            # Chinese-character domains before ICANN delegated the TLD. The registry date
+            # is not a fabrication; the DNS name still did not exist. His validator
+            # requires a letters-only TLD, so these score zero for him and full weight for
+            # us, and `round_figures.py --verify` refuses the round over the discrepancy.
             if domain.rsplit(".", 1)[-1].lower().startswith("xn--"):
                 stats["idn_tld_out_of_window"] += 1
                 continue
@@ -1901,19 +1587,12 @@ def parse_arquivo_cdxj(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# The host link graph is NOT one file sorted by year, and believing it was cost us
-# 93% of the source for three weeks. Measured 2026-08-16 over all 168,942,882 lines:
-# the year column decreases 14 times, so the file is 15 concatenated shards each
-# sorted internally, presumably a hash partition written out in order. The old scan
-# stopped at the first row past 2001, which falls at line 166,895, the end of shard
-# one of fifteen. It read 166,890 in-window rows out of 2,468,674 that are there.
-#
-# The lesson generalises past this file: "sorted" was asserted in a docstring and
-# corroborated by a tail that showed 2004, which proves only what the LAST shard
-# ends on. A cheap positive control, does the year ever go backwards, was never run.
-#
-# There is deliberately no last-year constant here any more. Keeping one invites the
-# early exit back.
+# **The host link graph is NOT one file sorted by year**, and believing it costs 93% of the
+# source. Over all 168,942,882 lines the year column decreases 14 times, so it is 15
+# concatenated shards each sorted internally: an early exit at the first row past 2001 stops
+# at line 166,895 and reads 166,890 in-window rows of 2,468,674. A tail showing 2004 proves
+# only what the LAST shard ends on, so run the cheap positive control, does the year ever go
+# backwards. There is deliberately no last-year constant here.
 
 
 _UKWA_SOURCE_COL = 1
@@ -1960,40 +1639,29 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield the TARGET host of each row as `link_target`, which is candidate-only.
 
-    Being linked to proves nothing about the target: dead links, typographical
-    errors and names registered only later are all common in a link graph. The row
-    is kept for provenance and to prioritise verification, and can never assign a
-    year on its own. Targets are worldwide, unlike the `.uk`-biased source hosts,
-    which is why they are worth holding as candidates at all.
+    Being linked to proves nothing about the target: dead links, typos and names registered
+    only later are all common. Kept for provenance and verification priority, never a year.
+    Targets are worldwide, unlike the `.uk`-biased source hosts.
     """
     yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
 
 
-# The British Library geoindex: the geographic index of the same JISC UK Web Domain
-# Dataset, but a different artifact from the host link graph above and a much better
-# one. Every `.uk` resource the Internet Archive held for 1996-2013, one row per
-# capture, `<14-digit timestamp>/<url><TAB><postcode>`.
+# The British Library geoindex of the JISC UK Web Domain Dataset: every `.uk` resource IA
+# held for 1996-2013, one row per capture, `<14-digit timestamp>/<url><TAB><postcode>`.
 #
-# **The timestamp is the capture's own, so this is `cdx_timestamp` and self-dating**,
-# which is why it takes no corroboration split where the link graph's source side
-# does. It is a bulk projection of IA holdings, the one exception to the rule that an
-# IA-derived source cannot be net-new against an IA-derived baseline, and the same
-# shape that made `dartmouth_nber_captures` pay.
+# **The timestamp is the capture's own, so `cdx_timestamp`, self-dating**, and no
+# corroboration split where the link graph's source side takes one. A bulk projection of IA
+# holdings, the documented exception to "an IA-derived source cannot be net-new against an
+# IA-derived baseline": 79,253 net-new pairs, 77,749.1 EE.
 #
-# Measured over the whole file on 2026-08-20, extracted by `scripts/ukwa_geoindex_*`:
-# 17,912,511 in-window rows, 289,857 distinct pairs, **79,253 net-new and 77,749.1
-# equivalent-English** at mean weight 0.9810, 45,122 domains never seen before.
-#
-# **Junk stamps exist and the window filter is what rejects them**: a handful of rows
-# carry `19800101000000` and some 1994 and 1995 dates, so nothing here trusts the
-# first row or the file's ordering. `YEARS` membership is the only gate.
+# **Junk stamps exist and the window filter is what rejects them**: some rows carry
+# `19800101000000` or 1994-1995 dates, so nothing trusts the first row or the ordering.
 def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window capture row of the BL geoindex extract.
 
-    Input is the filtered output of `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, not the 11.2 GB
-    original: the extraction and the parse are separate because the extraction has to
-    stream 9 GB over HTTP and count shard boundaries, and repeating that on every
-    ingest would be absurd.
+    Input is the filtered output of `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, not the
+    11.2 GB original: extraction streams 9 GB over HTTP and counts shard boundaries, which
+    is not repeated per ingest.
     """
     with _open_text(path) as fh:
         for line in fh:
@@ -2018,16 +1686,11 @@ def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             )
 
 
-# AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or
-# recently-withdrawn .fr domain. Column 1 is the domain, column 11 the creation
-# date and column 12 the WHOIS-withdrawal date, both DD-MM-YYYY (12 empty = still
-# registered). A .fr creation date resets on re-registration, so the pair
-# (creation, withdrawal) documents one CONTINUOUS registration interval: the
-# domain was registered every year from creation until withdrawal (or now). Per
-# brief IV.6 a record demonstrating continued registration in a year is valid
-# year evidence, so one record is emitted per in-window year the domain was
-# registered, not only the creation year. Domains withdrawn before 1996 or
-# created after 2001 contribute nothing in window.
+# AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or recently-withdrawn
+# .fr domain. Column 1 the domain, 11 the creation date, 12 the WHOIS-withdrawal date, both
+# DD-MM-YYYY (12 empty = still registered). A .fr creation date resets on re-registration,
+# so (creation, withdrawal) documents one CONTINUOUS interval and brief IV.6 makes every
+# in-window year inside it valid evidence, not only the creation year.
 _AFNIC_MIN_FIELDS = 12
 _AFNIC_NAME_COL = 0
 _AFNIC_CREATED_COL = 10
@@ -2075,13 +1738,10 @@ def parse_afnic_fr(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 )
 
 
-# Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an
-# editorial review of a live site; <dc:date> is the Scout Report publication year
-# (the archive spans 1994-2007, matching the Report's lifespan; a handful of
-# pre-1994 dc:date anomalies fall outside the window and drop out). The
-# publication date attests the site was live that year -> dated_directory (the
-# 2026-07-24: dated directory/index sources are direct). Site URLs are in
-# <dc:identifier>; the <header><identifier> is the auditable OAI record id.
+# Internet Scout Report archive (OAI-PMH harvest, oai_dc). Each <record> is an editorial
+# review of a live site and <dc:date> is the Report's publication year, so the date attests
+# the site was live: `dated_directory`. Site URLs are in <dc:identifier>; the
+# <header><identifier> is the auditable OAI record id.
 _SCOUT_RECORD = re.compile(r"<record>.*?</record>", re.S)
 _SCOUT_OAI_ID = re.compile(r"<identifier>([^<]+)</identifier>")
 _SCOUT_DATE = re.compile(r"<dc:date>(\d{4})</dc:date>")
@@ -2113,13 +1773,11 @@ def parse_internet_scout(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             yield BulkRecord(raw=url, year=year, evidence_value=record_id)
 
 
-# ODP (Open Directory / DMOZ) RDF content dump: a dated data file, so
-# artifact_listing evidence: a dated index file is direct evidence. The
-# `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump;
-# each cataloged site is an external URL in a `link r:resource="..."` or an
-# `ExternalPage about="..."`. The RDF is malformed pseudo-XML, so URLs are pulled
-# by regex, not an XML parser. Some dumps are truncated downloads (gzip EOF
-# mid-stream); tolerate that like UKWA, keeping everything decoded so far.
+# ODP (Open Directory / DMOZ) RDF content dump, `artifact_listing`: the
+# `<!-- Generated at YYYY-MM-DD ... -->` stamp fixes the year for the whole dump, and each
+# catalogued site is an external URL in `link r:resource="..."` or `ExternalPage about=...`.
+# The RDF is malformed pseudo-XML, so URLs come out by regex. Truncated downloads (gzip EOF
+# mid-stream) are tolerated like UKWA's, keeping everything decoded so far.
 _ODP_GENERATED = re.compile(r"Generated at (\d{4})-(\d{2})-(\d{2})")
 _ODP_URL = re.compile(r'(?:r:resource|about)="(https?://[^"]+)"')
 _ODP_NAME_YEAR = re.compile(r"(?:19|20)\d{2}")
@@ -2163,12 +1821,9 @@ def parse_odp(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[int, ...]:
     """The in-window years an RDAP creation year can attest on its own.
 
-    The creation year itself when it falls inside the window, nothing
-    otherwise. A domain created before `first` is left with no attested year:
-    RDAP shows it existed by then and exists now, but says nothing about any
-    single year in between, so it belongs in the candidate pool until
-    year-specific evidence turns up. Brief IV.6 blesses exactly that and rules
-    out more.
+    The creation year itself when it is inside the window, nothing otherwise. A domain
+    created before `first` gets no attested year: RDAP shows it existed by then and exists
+    now, but nothing about any year in between, so it stays a candidate (brief IV.6).
     """
     return (creation,) if first <= creation <= last else ()
 
@@ -2312,14 +1967,11 @@ def _parse_expansion(path: Path, stats: Counter, curated: bool) -> Iterator[Bulk
 def parse_ncsa_whats_new(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per site announced in NCSA's "What's New" pages.
 
-    The pages are the era's announcement list for newly launched sites, dated by
-    the issue that carried them. The harvest on disk is one `domain<TAB>date` row
-    per announced entry, extracted from the archived issues in `issues-1996/` and
-    checksummed alongside them.
-
-    Entries only. Navigation and masthead links are not announcements, and the
-    distinction is what lets this carry `dated_directory` rather than being
-    candidate-grade.
+    The era's announcement list for newly launched sites, dated by the issue that carried
+    them. On disk it is one `domain<TAB>date` row per entry, extracted from the archived
+    issues in `issues-1996/` and checksummed alongside them. Entries only: navigation and
+    masthead links are not announcements, and that distinction is what earns
+    `dated_directory` rather than candidate grade.
     """
     with _open_text(path) as fh:
         for line in fh:
@@ -2364,20 +2016,14 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="bulk_cdx_file",
         parse=parse_early_web_cdx,
     ),
-    # The seed layer of IA's breadth-first expansion of URLs pulled from SEC 10-K
-    # filings. Same classic CDX shape as Early Web, so it reuses that parser; a
-    # separate spec only because provenance and lineage must name it separately.
+    # The seed layer of IA's breadth-first expansion of URLs from SEC 10-K filings. Same
+    # classic CDX shape as Early Web, so it reuses that parser; a separate spec only so
+    # provenance and lineage name it separately. Not the closed
+    # DARTMOUTH-NBER-RESEARCH-ARCS family, which measured exactly zero net-new.
     #
-    # **It is not the closed DARTMOUTH-NBER-RESEARCH-ARCS family**, which measured
-    # exactly zero net-new because every capture in it is of a host on the NBER
-    # corporate list whose capture census we had already banked. This is a different
-    # and much larger seed population, and level 0 measures 2,460 net-new pairs.
-    #
-    # Only BFS level 0 is worth reading. Levels 2 and 3 are 92 of the 102 ARC items
-    # and measured 0.00, 0.00 and 0.59 EE per MB over three indexes, against level
-    # 0's 104.7, so extrapolating a shallow rate across the family overstates it
-    # about six-fold. The WARC half of the collection is 2012-2019 with zero
-    # in-window rows.
+    # **Only BFS level 0 is worth reading**: levels 2 and 3 are 92 of the 102 ARC items and
+    # measured 0.00, 0.00 and 0.59 EE per MB against level 0's 104.7. The WARC half of the
+    # collection is 2012-2019, zero in-window rows.
     # JPNIC's register at 1999-04-30, frozen on a personal mirror. Permissive licence,
     # unusually: JPNIC's open-document notice grants free redistribution.
     "jpnic_register": SourceSpec(
@@ -2414,11 +2060,10 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_register_listing",
         parse=parse_iedr_register,
     ),
-    # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on
-    # the zone-file argument: a delegation is the registry serving the name, not a
-    # description of one. Approved by Ivo 2026-08-26.
+    # The US Domain Registry's delegated-zone list, ISI, 1996-2001. Master-eligible on the
+    # zone-file argument: a delegation is the registry serving the name, not a description.
     # Edelman's 2002 whois transcriptions. `whois_creation`, so rule 6 gives the
-    # transcribed creation year and no other. Approved by Ivo 2026-08-27.
+    # transcribed creation year and no other.
     "early_bulk_whois_snapshot": SourceSpec(
         key="early_bulk_whois_snapshot",
         source_name="early_bulk_whois_snapshot",
@@ -2428,7 +2073,6 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # junkfilter's hand-maintained spam-origin blocklist, thirteen in-window editions.
     # Two lanes: the corroborated half dates a year, the rest parks as candidates.
-    # Approved by Ivo 2026-08-27.
     "junkfilter_dated": SourceSpec(
         key="junkfilter_dated",
         source_name="junkfilter_dated_blocklist",
@@ -2445,7 +2089,6 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # chastity-list, a hand-maintained squidGuard blacklist, one December 2001 edition.
     # Two lanes: the corroborated 94.0% dates 2001, the rest parks as candidates.
-    # Approved by Ivo 2026-08-31.
     "chastity_dated": SourceSpec(
         key="chastity_dated",
         source_name="chastity_list_blacklist",
@@ -2460,9 +2103,9 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="dated_blocklist_release",
         parse=parse_chastity_split,
     ),
-    # Granite Canyon's free-secondary-DNS reject and prune lists, seven editions.
-    # Two lanes: the corroborated half dates the edition's own stamped year, the rest
-    # parks as candidates. Approved by Ivo 2026-08-31.
+    # Granite Canyon's free-secondary-DNS reject and prune lists, seven editions. Two
+    # lanes: the corroborated half dates the edition's own stamped year, the rest parks
+    # as candidates.
     "granitecanyon_dated": SourceSpec(
         key="granitecanyon_dated",
         source_name="granitecanyon_zone_rejects",
@@ -2478,7 +2121,7 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_granitecanyon_split,
     ),
     # The capture-dated sibling of `cctld_register_listing_inbody`: four register
-    # listings with no in-body stamp of their own. Approved by Ivo 2026-08-31.
+    # listings with no in-body stamp of their own.
     "cctld_capture_dated": SourceSpec(
         key="cctld_capture_dated",
         source_name="cctld_register_listing_capture",
@@ -2494,7 +2137,7 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_cctld_capture_split,
     ),
     # MYNIC's fortnightly register change report. No split: the listing reproduces the
-    # registry's own published per-day counts. Approved by Ivo 2026-08-31.
+    # registry's own published per-day counts.
     "mynic_change_report": SourceSpec(
         key="mynic_change_report",
         source_name="mynic_my_change_report",
@@ -2503,7 +2146,7 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_mynic_listing,
     ),
     # The CO.ZA registry's own suspension and deletion queues, 22 captures over two
-    # hostnames. No split: shell CGI reading the register. Approved by Ivo 2026-08-31.
+    # hostnames. No split: shell CGI reading the register.
     "coza_deletion_queue": SourceSpec(
         key="coza_deletion_queue",
         source_name="coza_deletion_listing",
@@ -2530,7 +2173,6 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # ccTLD register listings that carry their own machine-written timestamp.
     # `artifact_listing`: the registry stating its register's contents at that instant.
-    # Approved by Ivo 2026-08-26.
     "cctld_register_listing_inbody": SourceSpec(
         key="cctld_register_listing_inbody",
         source_name="cctld_register_listing_inbody",
@@ -2540,7 +2182,6 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # The CA Domain Registry's public approval notices. `whois_creation`: the registry
     # stating when it created the registration, so rule 6 gives that year and no other.
-    # Approved by Ivo 2026-08-26.
     "can_domain_registry_notices": SourceSpec(
         key="can_domain_registry_notices",
         source_name="can_domain_registry_notices",
@@ -2548,9 +2189,9 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_approval_notice",
         parse=parse_can_domain_registry_notices,
     ),
-    # Dotster's expiring-domain auction list, 2001-10-26. `artifact_listing`: a
-    # registrar stating which names are registered and about to expire. Per-row dates,
-    # so an out-of-window edition is refused row by row. Approved by Ivo 2026-08-26.
+    # Dotster's expiring-domain auction list, 2001-10-26. `artifact_listing`: a registrar
+    # stating which names are registered and about to expire. Per-row dates, so an
+    # out-of-window edition is refused row by row.
     "namewinner_expiring": SourceSpec(
         key="namewinner_expiring",
         source_name="namewinner_expiring",
@@ -2568,9 +2209,8 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_database_audit_trail",
         parse=parse_ripe_dbase_changed,
     ),
-    # The same audit trail in FUNET's 2004-11-09 `split/` edition, which is the only
-    # reachable RIPE file carrying 2000 and 2001 `changed:` lines. Same class, same
-    # reading, same permission; admitted under the standing rule of 2026-08-29.
+    # The same audit trail in FUNET's 2004-11-09 `split/` edition, the only reachable RIPE
+    # file carrying 2000 and 2001 `changed:` lines. Same class, reading and permission.
     "ripe_dbase_split_2004": SourceSpec(
         key="ripe_dbase_split_2004",
         source_name="ripe_dbase_split_2004",
@@ -2578,10 +2218,9 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_database_audit_trail",
         parse=parse_ripe_dbase_split_2004,
     ),
-    # The 1999 RIPE database snapshot, used under written permission from RIPE NCC
-    # dated 2026-08-26. `artifact_listing`: the file states its own generation instant
-    # and a `domain:` object in it is the registry's database contents at that instant.
-    # Evidences 1999 and no other year, per rule 6. Approved by Ivo 2026-08-26.
+    # The 1999 RIPE database snapshot, used under written permission from RIPE NCC.
+    # `artifact_listing`: the file states its own generation instant and a `domain:` object
+    # in it is the registry's database contents then. Evidences 1999 only, per rule 6.
     "ripe_dbase_1999": SourceSpec(
         key="ripe_dbase_1999",
         source_name="ripe_dbase_1999",
@@ -2589,9 +2228,8 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_database_snapshot",
         parse=parse_ripe_dbase_1999,
     ),
-    # squidGuard's robot-compiled blacklists, 2001-12 edition. Master-eligible: the
-    # header asserts successful fetches, and nobody typed the list. Approved by Ivo
-    # 2026-08-26. GPL v2, so licence-clear.
+    # squidGuard's robot-compiled blacklists, 2001-12 edition. Master-eligible: the header
+    # asserts successful fetches, and nobody typed the list. GPL v2, so licence-clear.
     "squidguard_2001_blacklist": SourceSpec(
         key="squidguard_2001_blacklist",
         source_name="squidguard_2001_blacklist",
@@ -2613,12 +2251,11 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="isc_domain_survey",
         parse=parse_isc_survey,
     ),
-    # A per-year capture census the Internet Archive itself computed over the
-    # Dartmouth/NBER corporate-websites crawl, published as an ordinary item.
-    # It is a bulk index OF the archive rather than a corpus derived from it,
-    # which is the documented exception to "IA-derived cannot be net-new": it
-    # converts our binding constraint, request throughput, into a file download.
-    # Kept as its own source name so provenance never merges with `ia_cdx_bulk`.
+    # A per-year capture census IA itself computed over the Dartmouth/NBER
+    # corporate-websites crawl. A bulk index OF the archive rather than a corpus derived
+    # from it, the documented exception to "IA-derived cannot be net-new": it converts our
+    # binding constraint, request throughput, into a file download. Its own source name so
+    # provenance never merges with `ia_cdx_bulk`.
     # A published bulk of registry creation dates, CC BY 4.0, covering 171M domains.
     # Same claim and same authority as `rdap_snapshot`, arriving as a file instead of
     # 171 million queries we could never afford to make. Its own source name so
@@ -2661,11 +2298,10 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_ukwa_link_source,
     ),
     # The BL geoindex extract: IA capture timestamps for `.uk` resources, so
-    # `cdx_timestamp` and self-dating. Registering the spec does NOT let it date a
-    # year: `ark ingest` still refuses the class until a human writes its `Decision:`
-    # line in docs/registers/approved-sources-list.md, which is the whole point of ADR-003.
-    # The parser exists ahead of that decision so approving it is one command rather
-    # than a day's work.
+    # `cdx_timestamp` and self-dating. Registering a spec does NOT let it date a year:
+    # `ark ingest` refuses the class until a human writes its `Decision:` line in
+    # docs/registers/approved-sources-list.md (ADR-003). The parser exists ahead of that
+    # decision so approving it is one command.
     "ukwa_geoindex": SourceSpec(
         key="ukwa_geoindex",
         source_name="ukwa_geoindex",
@@ -2755,18 +2391,14 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="tucows_release_date",
         parse=_parse_usenet_journal,
     ),
-    # Scanned computer and internet trade press on archive.org. A 1997 issue that
-    # prints `foo.com` dates `foo.com` for 1997 in the same way a dated directory
-    # page does: the publication year is a property of the item.
+    # Scanned computer and internet trade press on archive.org. A 1997 issue printing
+    # `foo.com` dates it for 1997 the way a dated directory page does.
     #
-    # Scoped to computing titles on measurement, not on instinct. The same script
-    # and extractor gave 10.5 net-new pairs an item on `computermagazines` and 0.4
-    # on the general `magazine_rack`, so the subject matter is the variable and
-    # the corpus is not.
+    # Scoped to computing titles on measurement: the same script and extractor gave 10.5
+    # net-new pairs an item on `computermagazines` and 0.4 on the general `magazine_rack`,
+    # so the subject matter is the variable and the corpus is not.
     #
-    # Split like Usenet because the domains arrive through OCR, which fabricates
-    # hostnames. Corroborated names carry the issue date; names seen only here go
-    # to the candidate pool and must earn a year from a capture.
+    # Split like Usenet because the domains arrive through OCR, which fabricates hostnames.
     "tradepress_dated": SourceSpec(
         key="tradepress_dated",
         source_name="trade_press",
@@ -2781,13 +2413,9 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="trade_press_ocr_mention",
         parse=_parse_usenet_journal,
     ),
-    # UUCP map postings from comp.mail.maps. See `ark.uucp` for why these are
-    # registry evidence rather than a posted URL, and for the provenance gate that
-    # separates the two kinds of map file.
-    #
-    # `artifact_listing` for the posting date, the same type the ISC DNS survey
-    # carries: a dated index file regenerated from the live registration database
-    # is direct evidence that the names in it existed on that date.
+    # UUCP map postings from comp.mail.maps. See `ark.uucp` for why these are registry
+    # evidence rather than a posted URL, and for the provenance gate between the two kinds
+    # of map file. `artifact_listing` for the posting date, as the ISC DNS survey carries.
     "uucp_listing": SourceSpec(
         key="uucp_listing",
         source_name="uucp_map_registry",
@@ -2804,19 +2432,16 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="uucp_map_registrar_approval",
         parse=_parse_usenet_journal,
     ),
-    # A defacement mirror index. `artifact_listing` and NO corroboration split,
-    # deliberately, and the reason is the mirror itself: the operators saved a copy
-    # of the page at that host on that date, so a name that did not resolve could
-    # not be in the index. The hostname is verified by the act of mirroring rather
-    # than typed from memory, which is the property the split exists to supply for
-    # a hostname written into a Usenet post. Same class of claim as `isc_survey`
-    # and `uucp_map_registry`: a dated artifact enumerating hosts that were live.
+    # A defacement mirror index. `artifact_listing` and NO corroboration split, because
+    # the operators saved a copy of the page at that host on that date: a name that did not
+    # resolve could not be in the index, so the hostname is verified by the act of
+    # mirroring rather than typed from memory.
     # Domain-dispute proceedings: a dated docket naming a registered domain in its
     # own column. Master, self-dating, no corroboration split. See ADR-002.
     # DK Hostmaster's own zone list, `domaincount/domains.txt`, in three Wayback captures
     # inside 2001. Each opens with the registry's dated count of its own register
     # (`20011217: 349694 subdomains of DK`), which dates every name below it: the registry
-    # stating its own register, as MYNIC, TWNIC and IDNIC do. Approved 2026-09-16 (#143).
+    # stating its own register, as MYNIC, TWNIC and IDNIC do.
     # A delimited field of a self-dating artifact, so no corroboration split (C-86).
     "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": SourceSpec(
         key="dk_hostmaster_dk_zonen_domains_txt_wayback_2001",
@@ -2848,14 +2473,12 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="uucp_map_hand_maintained",
         parse=_parse_usenet_journal,
     ),
-    # The rtfm.mit.edu Usenet FAQ mirror. A FAQ carries its own revision date and
-    # lists dozens of sites, so the date is intrinsic to the artifact. Unlike the
-    # UUCP maps above, the URLs are prose typed by a human, so this takes the
-    # ordinary corroboration split rather than registry treatment.
+    # The rtfm.mit.edu Usenet FAQ mirror. A FAQ carries its own revision date and lists
+    # dozens of sites, so the date is intrinsic; unlike the UUCP maps above the URLs are
+    # prose typed by a human, so the ordinary corroboration split applies.
     #
-    # The year is the revision header, NOT `Date:`. rtfm keeps one copy of each
-    # FAQ, the last auto-repost, and of 12,318 documents carrying both, 6,610
-    # disagree, essentially always with the repost later.
+    # The year is the revision header, NOT `Date:`: rtfm keeps one copy of each FAQ, the
+    # last auto-repost, and of 12,318 documents carrying both, 6,610 disagree.
     "rtfm_dated": SourceSpec(
         key="rtfm_dated",
         source_name="rtfm_faq",
@@ -2906,13 +2529,12 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="usenet_post_bare_host_mention",
         parse=_parse_usenet_journal,
     ),
-    # Registry whois records people pasted whole into Usenet posts. The date is
-    # the registry's own `Record created on 20-Jul-2000.`, not the poster's, so
-    # this is `whois_creation` and rule 6 gives that year and no other. The NAME
-    # is what the corroboration split guards, since a person chose and reflowed
-    # the block. See `scripts/sources/usenet/collect_usenet_whois.py` for the binding rule that
-    # keeps one record's creation line off the next record's name.
-    # Approved under the standing rule of 2026-08-29.
+    # Registry whois records people pasted whole into Usenet posts. The date is the
+    # registry's own `Record created on 20-Jul-2000.`, so `whois_creation` and rule 6 gives
+    # that year and no other. The NAME is what the corroboration split guards, a person
+    # having chosen and reflowed the block. See
+    # `scripts/sources/usenet/collect_usenet_whois.py` for the binding rule that keeps one
+    # record's creation line off the next record's name.
     "usenet_whois_dated": SourceSpec(
         key="usenet_whois_dated",
         source_name="usenet_whois_paste",
@@ -2984,15 +2606,13 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="nypw_first_capture_index",
         parse=parse_nypw_firstcdx,
     ),
-    # The TimeMap sibling of the index above, and unlike it, it pays. The index
-    # gives one row per URL and so can only ever offer a domain its FIRST year,
-    # which the IA-derived baseline already holds; a TimeMap gives every capture,
-    # so it offers years for domains the collector never happened to query.
+    # The TimeMap sibling of the index above. The index gives one row per URL and so
+    # can only offer a domain its FIRST year, which the IA-derived baseline already
+    # holds; a TimeMap gives every capture.
     #
-    # Folder year is the year of first capture, not of the content, so folder Y
-    # can only add years Y+1..2001. That is why the 1996 folder measured 14.2 EE
-    # and closed the family on 2026-08-24, and why the 2000 folder measured
-    # 4,144.2 EE on two parts: aim it at the years adjacent to the hole.
+    # Folder year is the year of FIRST capture, not of the content, so folder Y can only
+    # add years Y+1..2001: aim it at the years adjacent to the hole. The 1996 folder
+    # measured 14.2 EE, the 2000 folder 4,144.2 EE on two parts.
     "nypw_timemaps": SourceSpec(
         key="nypw_timemaps",
         source_name="nypw_timemaps",
@@ -3000,12 +2620,9 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="nypw_timemap",
         parse=parse_nypw_timemap,
     ),
-    # The same 34 partitions read again with the status filter off. `_parse_nypw`
-    # has discarded every non-200 row since it was written, so no measurement in
-    # this project had ever looked at one; the lane is 6.37M rows, 12.8% of the
-    # corpus, and needs no archive request because the bytes are already on disk.
-    # Its yield is a 2001 effect, like its sibling's: a non-200 row adds nothing
-    # in a year the store already covers.
+    # The same 34 partitions read again with the status filter off: 6.37M rows, 12.8%
+    # of the corpus, and no archive request because the bytes are on disk. The yield is
+    # a 2001 effect like its sibling's, a non-200 row adding nothing in a covered year.
     "nypw_timemaps_nonok": SourceSpec(
         key="nypw_timemaps_nonok",
         source_name="nypw_timemaps_nonok",
@@ -3021,15 +2638,13 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_cdx_snapshot,
     ),
     # URLMerchant's whole for-sale inventory, printed as static A-Z listing pages and
-    # captured by Wayback. `artifact_listing` on the same argument the ISC survey
-    # carries: each page is a table the generator printed out of the broker's own
-    # listings database, and it stamps the instant it did so in its own
+    # captured by Wayback. `artifact_listing`: each page is a table the generator printed
+    # out of the broker's own listings database, stamping the instant in its own
     # `<META NAME="UPDATED" CONTENT="Tuesday, Jul 17 2001 1:19:41 AM">`.
     #
-    # Two lanes, because an owner submitted each name by hand: the date is a
-    # machine's and the name is a person's typing, at a 44.8% typo upper bound on the
-    # novel half. Split by `scripts/sources/directories/split_urlmerchant.py` before ingest.
-    # Admitted under the standing rule of 2026-08-29.
+    # Two lanes, an owner having submitted each name by hand: the date is a machine's and
+    # the name is a person's typing, 44.8% typo upper bound on the novel half. Split by
+    # `scripts/sources/directories/split_urlmerchant.py` before ingest.
     "urlmerchant_dated": SourceSpec(
         key="urlmerchant_dated",
         source_name="urlmerchant_inventory",
@@ -3049,12 +2664,10 @@ SOURCES: dict[str, SourceSpec] = {
     # what dates a message is its own unindented `Sent:` line, written by the sending
     # mail client, and what names the host is a person typing an address.
     #
-    # Hosts are anchored on an `@`, a scheme or a `www.` label by
-    # `parse_jeb_mail.py` (scripts/sources/mail_corpora/), because a missing space
-    # after a full stop forges a domain under a high-weight TLD out of prose:
-    # `Candace Rice.To tell the truth` reads as `rice.to`, and the wide pattern
-    # cost 200.8 EE of fabrication.
-    # Admitted under the standing rule of 2026-08-29.
+    # Hosts are anchored on an `@`, a scheme or a `www.` label by `parse_jeb_mail.py`
+    # (scripts/sources/mail_corpora/), because a missing space after a full stop forges a
+    # domain under a high-weight TLD out of prose: `Candace Rice.To tell the truth` reads
+    # as `rice.to`, and the wide pattern cost 200.8 EE of fabrication.
     "jeb_mail_dated": SourceSpec(
         key="jeb_mail_dated",
         source_name="jeb_bush_gubernatorial_email",

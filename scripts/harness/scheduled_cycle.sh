@@ -6,7 +6,7 @@
 # Nothing here acts on what it finds, deliberately. This is a scheduled *reporter*,
 # not a watchdog: a loop that restarted collectors on its own would eventually
 # restart one with settings that had since been retuned, which is the failure the
-# supervisor/watchdog collapse in `extend_engines.sh` exists to prevent.
+# supervisor/watchdog collapse this exists to prevent.
 #
 # It appends to `data/logs/scheduled_cycle.log` and keeps the last 2,000 lines, so
 # an agent returning after a day away reads one file to learn what happened while

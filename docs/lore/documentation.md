@@ -84,12 +84,7 @@ not the rate. Lowering requests per pair changes the rate.
 
 ---
 
-## 4. Two lessons from a retired engine
-
-The page-level English verification engine is gone: the reviewer replaced that standard with the
-equivalent-English metric in August 2026, and the code was removed on 2026-08-23. Two of its
-design rules are general enough to belong here, because they
-apply to anything that asks a service a question and records the answer.
+## 4. What survived a retired engine
 
 **Unsettled is a first-class outcome.** A verdict, a documented rejection, and "the question did not
 land" are three different things. A naive design collapses the third into the second, which excludes a
@@ -98,14 +93,14 @@ in the RDAP engine, at a cost of 12,888 domains, which is why the distinction is
 than trusted.
 
 **A record is never excluded on the strength of a question that was not asked.** A filtered CDX query
-returning nothing means "nothing matching that filter", not "nothing at all". Before an absence is
-recorded, a second unfiltered probe goes out. The same principle is why `ark check` reports a check
-that read no files as **skipped** rather than passed: a check that examined nothing must not read like
-one that found nothing wrong.
+returning nothing means "nothing matching that filter", not "nothing at all". The same principle is
+why `ark check` reports a check that read no files as **skipped** rather than passed: a check that
+examined nothing must not read like one that found nothing wrong.
 
-The `domain_language` table stays in `db.py` with its migration. Existing stores hold those rows, every
-provenance export already delivered contains them, and `ark rebuild` loads them, so dropping it would
-make a shipped archive unrebuildable.
+The `domain_language` table stays in `db.py` with its migration, although the page-level English
+verification engine that filled it is gone. Existing stores hold those rows, every provenance export
+already delivered contains them, and `ark rebuild` loads them, so dropping it would make a shipped
+archive unrebuildable.
 
 ## 5. One set of additions, and the pool beside it
 
@@ -144,7 +139,7 @@ else did, including a crash on step three of the documented tier-2 path.
 
 ## 7. The integrity gate
 
-`ark check` runs seventeen invariants over the store and exits non-zero on any failure. They are not
+`ark check` runs its data invariants over the store and exits non-zero on any failure. They are not
 tests of the code; they are tests of the data, and the two fail differently. `just check` runs both,
 deliberately, because giving either one the bare name invites running one and believing the other
 passed.
@@ -156,14 +151,10 @@ expensive to discover was broken. Adding one is cheap; the honest question is wh
 
 ## 8. Sizing decisions by measurement
 
-The standing rule is **measure the yield against the store before ingesting anything**. It is not
-caution for its own sake: three of five sources assessed in one day were rejected after measurement
-contradicted the estimate, two of them by two orders of magnitude, and one of those measurements
-avoided a 19.35 GB download in two minutes.
-
-The same rule applies inward. Whether the 1996 and 1997 additions deserve any verification budget was
-settled by probing 200 of them rather than by argument, and the answer, 9.1% with a capture, changed
-the queue ordering.
+Measure the yield against the store before ingesting anything, and the four ways this project has got
+a projection wrong are in [discovery.md](discovery.md) section 4. The rule applies inward too: whether
+1996 and 1997 deserved any verification budget was settled by probing 200 of them, 9.1% with a
+capture, which changed the queue ordering.
 
 **Where an estimate is unavoidable, it is labelled in the same sentence as the number.** A projection
 presented as a measurement is the specific error this project is most exposed to, because most of its
@@ -172,18 +163,6 @@ figures are measurements.
 ---
 
 ## 9. Layout
-
-```
-src/ark/          the pipeline package and the `ark` CLI
-  db.py           schema, migrations, the store
-  baseline.py     which reviewer release is current, and its totals
-  english_share.py  the scoring metric's weight table
-  checks.py       the seventeen data invariants
-  cli.py          every command
-scripts/          collectors, splitters, supervisors, packaging, measurement
-tests/            pytest, network mocked
-docs/             the brief and its amendments, sources, discovery, this file, the report
-```
 
 Scripts under `scripts/` are the parts that run unattended for hours. They are shell rather than
 Python where their job is process supervision, because their job is exactly what a shell is good at:

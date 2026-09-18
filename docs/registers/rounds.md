@@ -36,6 +36,9 @@ Sum of S_i as he quotes them (rounds 6 and 7, 6.88 + 6.302372): **13.182372**; t
 to six places sum to 13.186902. Sum over every round under the same rule, round 1 included on its
 record percentage: 140.288752. Rounds 1 to 5 predate the rule and he has
 quoted no score for them; their S_i above is what the rule would give and is not a claim on him.
+Each p_i was awarded against the baseline of the day it arrived (round 3's `merged260730` was
+5,531,053.6089) and those baselines are gone, so the cumulative record is the direct sum of his
+percentages and not a ratio anything can recompute.
 
 Figures come from the sent mails and his feedback, quoted as numbers only. Round 5 sent figures are
 the sent mail's, and the older figures that had them 17 records and 0.31 EE lower are retired.
@@ -50,25 +53,7 @@ arrived in his interim `merged260817` through another contributor. `merged260727
 +609,145 records from an external contributor (`feedback-external-phase-2/`), not this project's round
 2, and must never be added to this table. Round 1's EE (756,559.2864) is the difference between his two
 releases under the unchanged weight model, computed 2026-08-17, and was never quoted by him.
+Only shipped rounds get a row: an interim report is measured against the same baseline as the
+shipped round that follows it, so it is already inside that row, and Ivo's instruction of
+2026-08-17 is not to mention them.
 
-## Where each awarded percentage is quoted from
-
-His feedback mails, one per round: 2026-07-27 ("adding 1,429,524 records (17.38%)", a record
-percentage, since the equivalent-English metric came after it), 2026-08-03 ("91,814.6880, equal to
-1.659986% of the merged260730 baseline of 5,531,053.6089"), 2026-08-10 ("increased by 603,401.7811 ...
-a 10.730988% increase over merged260802-2"), 2026-08-18, 2026-08-27 and 2026-09-02. Each was taken
-against the baseline of the day it arrived, and those baselines are gone, so the cumulative record is
-the direct sum of the percentages and not a ratio anything here can recompute.
-
-Only shipped rounds have a row. Three interim reports went out between them, on 2026-08-05, 08-06 and
-08-12, each measured against the same baseline as the shipped round that followed, so each is already
-inside one of these rows. Ivo's instruction of 2026-08-17 is not to mention them; listing them would in
-any case invite the double count the table exists to prevent.
-
-## What the ranking score does to round length
-
-`S_i = 10 x p_i / t_i` makes speed worth as much as size, and the arithmetic is brutal. Round 6 took
-six days and awarded 4.130718%, so it scored 6.88. The same 4.13% delivered in two days would have
-scored 20.65, and three separate 1.4% rounds at two days each would score 21.0 against the 6.88 that
-one 4.13% round actually earned. So the round length is a scoring decision, not a logistics one, and it
-belongs to Ivo.

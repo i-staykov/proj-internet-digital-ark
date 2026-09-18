@@ -1,18 +1,14 @@
 """Load candidate domains from a seed file and queue the ones still unproven.
 
-Backs `ark seed`. The other seed module, `ark.seed_pool`, goes the opposite way:
-it writes the hostname and URL download seeds out of evidence already held.
+Backs `ark seed`; `ark.seed_pool` goes the opposite way, writing download seeds out of
+evidence already held. Seeding never verifies anything: it canonicalizes, registers
+candidates and enqueues work, so each stage reruns and resumes independently.
 
-Seeding never verifies anything: it canonicalizes, registers candidates, and
-enqueues work. Verification happens in its own stage so each can be rerun and
-resumed independently.
-
-What counts as "nothing left to do" is a confirmed year, not mere presence in the
-store. A domain can already be on file with no year assigned at all, which is
-precisely what a candidate is: reached by a candidate-only source, or dated
-outside 1996-2001, or queried and unanswered. Skipping those would leave them
-permanently unqueued while `ark export` still lists them as candidates, so the
-classification below distinguishes three states rather than one.
+**"Nothing left to do" means a confirmed year, not mere presence in the store.** A domain
+on file with no year assigned is exactly what a candidate is: reached by a candidate-only
+source, dated outside 1996-2001, or queried and unanswered. Skipping those leaves them
+permanently unqueued while `ark export` still lists them, which is why the classification
+below distinguishes three states rather than one.
 """
 
 import sqlite3
@@ -62,18 +58,14 @@ def seed_from_file(
         "new_candidates": 0,
     }
 
-    # Phase timings, because this has been misdiagnosed twice. It was blamed on the
-    # row-at-a-time insert, which was real and was batched, and then on the
-    # classification query, which measures 0.33 s for 3,000 names against an idle
-    # store. A seed of 6,079 names has nonetheless held the write lock for 26
-    # minutes while the ingest loop was running. The cause is still unidentified, so
-    # the next occurrence should produce a measurement rather than a third guess.
-    # **Each mark is logged the moment it is taken**, not only in the summary at the
-    # end. The first version collected them all and printed them last, which meant a
-    # seed that ran 18 minutes emitted nothing at all, so an operator could not tell a
-    # slow phase from a hung process and the instrumentation added for ADR-001 was
-    # unreadable exactly when it was needed. A timing you cannot see until the run
-    # finishes does not measure a run that has not finished.
+    # Phase timings, because this has been misdiagnosed twice: blamed on the row-at-a-time
+    # insert, which was real and was batched, then on the classification query, which
+    # measures 0.33 s for 3,000 names against an idle store. A seed of 6,079 names has still
+    # held the write lock for 26 minutes against a running ingest loop, cause unidentified,
+    # so the next occurrence should produce a measurement rather than a third guess.
+    #
+    # **Each mark is logged the moment it is taken**, not only in the end summary: a timing
+    # you cannot see until the run finishes does not measure a run that has not finished.
     marks: dict[str, float] = {}
     clock = time.monotonic()
 

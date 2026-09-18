@@ -1,9 +1,8 @@
 """The context report must count each record once and name the tool behind each result.
 
 A resumed session copies its earlier records into the new file, differing only in metadata
-such as `gitBranch`, so a naive sum double-counts most of a long session (49,467 of 98,559
-lines in the newest transcript when this was written). The fixture therefore repeats a
-tool_result and a compaction record under the same uuid and expects both to be counted once.
+such as `gitBranch`, so a naive sum double-counts most of a long session. The fixture repeats
+a tool_result and a compaction record under one uuid and expects one count each.
 """
 
 import importlib.util

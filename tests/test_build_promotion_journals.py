@@ -1,10 +1,8 @@
 """Promotion re-files an observation; it must not alter one.
 
-The tranche is 106,604 pairs written under a MASTER source, so a field mangled here
-becomes a year assignment nobody can trace back to a post. The round-trip test is the
-one that matters: what the builder writes must parse back to the evidence value the
-loader originally stored, or the Message-ID in the shipped corpus stops naming the
-post it claims to name.
+The tranche is 106,604 pairs written under a MASTER source. The round trip is the test that
+matters: what the builder writes must parse back to the evidence value the loader stored, or
+the Message-ID in the shipped corpus stops naming the post it claims to name.
 """
 
 import gzip

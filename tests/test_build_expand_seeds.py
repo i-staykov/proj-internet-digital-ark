@@ -1,11 +1,8 @@
 """Which archived pages the discovery loop chooses to seed.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-The ranking is the whole value of the step. Seeding each dated domain's home page
-was measured at 0.1 net-new names per page, because a small site of the period
-links inward and nowhere else, so a builder that quietly fell back to roots would
-look like it was working and return almost nothing.
+The ranking is the whole value of the step. Seeding each dated domain's home page measured
+0.1 net-new names per page, because a small site of the period links inward and nowhere
+else, so a builder that quietly fell back to roots would look like it was working.
 """
 
 import importlib.util

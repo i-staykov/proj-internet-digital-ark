@@ -52,11 +52,10 @@ def test_the_export_reloads_and_still_joins(tmp_path) -> None:
 
 
 def test_his_own_rows_are_not_shipped_back_to_him(tmp_path) -> None:
-    """The reviewer's baseline was 3 GB of a 6.9 GB archive, over his 5 GB limit.
-
-    A `prior_reused` row says only that his own release already holds the pair, so it
-    is his own file quoted back at him. Nothing this project claims rests on one:
-    `every_pair_has_master_evidence` and the shipped `verify.sh` both hold without them.
+    """The reviewer's baseline was 3 GB of a 6.9 GB archive, over his 5 GB limit. A
+    `prior_reused` row says only that his own release already holds the pair, and nothing
+    this project claims rests on one: `every_pair_has_master_evidence` and the shipped
+    `verify.sh` both hold without them.
     """
     conn = _store()
     prior = ensure_source(conn, "reviewer_baseline", "timestamped")
@@ -90,11 +89,10 @@ def test_his_own_rows_are_not_shipped_back_to_him(tmp_path) -> None:
 
 
 def test_an_assignment_we_can_prove_is_re_pointed_and_not_dropped(tmp_path) -> None:
-    """His release was ingested first, so pairs we can prove cite his marker anyway.
-
-    Dropping those with his evidence row left 32.4 million of our own observations with
-    no assignment on the rebuilt store, which `nothing_earned_is_left_unassigned` reads
-    as a domain in the candidate pool that already holds proof of a year.
+    """His release was ingested first, so pairs we can prove cite his marker anyway. Dropping
+    those with his evidence row left 32.4 million of our own observations with no assignment
+    on the rebuilt store, which `nothing_earned_is_left_unassigned` reads as a domain in the
+    candidate pool that already holds proof of a year.
     """
     conn = _store()
     prior = ensure_source(conn, "reviewer_baseline", "timestamped")
@@ -129,11 +127,9 @@ def test_the_load_instructions_ship_next_to_the_data(tmp_path) -> None:
 
 
 def test_a_provenance_export_rebuilds_the_same_result(tmp_path) -> None:
-    """The export must regenerate the deliverable, not merely describe it.
-
-    This is the reproduction path that needs no source data, so it has to
-    produce the same files. Measured on the shipped export, all thirteen result
-    files come back byte-identical in about six seconds.
+    """The export must regenerate the deliverable, not merely describe it. This is the
+    reproduction path that needs no source data: measured on the shipped export, all thirteen
+    result files come back byte-identical in about six seconds.
     """
     from ark.export import export_all
     from ark.provenance import load_provenance

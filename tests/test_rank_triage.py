@@ -1,9 +1,8 @@
 """Ordering of the triage queue, which Ivo reads top down.
 
-He signs off the most promising source first, so the order IS the interface. Two things
-must hold: an unscored entry stops the sort loudly rather than sinking to the bottom, and
-sorting must not disturb anything outside the section, since the same file is the gate
-`ark ingest` enforces.
+He signs off the most promising source first, so the order IS the interface. An unscored
+entry must stop the sort loudly rather than sinking to the bottom, and sorting must not
+disturb anything outside the section, since the same file is the gate `ark ingest` enforces.
 """
 
 import importlib.util
@@ -75,10 +74,9 @@ def test_the_live_queue_is_in_order():
 
 def test_a_decided_entry_sinks_below_everything_still_open(tmp_path):
     """The instruction is to sort the OPEN sources, so a decided one must not hold rank 3.
-
-    educause_edu_whois_activation scored 78 and was rejected on the server's own terms. Sorting
-    on score alone put it third in a queue whose entire purpose is to show what still needs a
-    decision.
+    educause_edu_whois_activation scored 78 and was rejected on the server's own terms;
+    sorting on score alone put it third in a queue whose purpose is to show what still needs
+    a decision.
     """
     import sys
 

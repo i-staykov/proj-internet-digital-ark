@@ -16,9 +16,7 @@ building a collector.
 date given, not a current count.** A source re-measured later against a larger store reads lower, so
 the two are different quantities and both are kept. The authoritative current counts are in
 `audit/source_contribution.csv`, which `ark export` rewrites from the store on every run and whose
-`netnew_pairs` column sums to the report's headline increment. A hand-copied snapshot once lived here
-claiming to be generated, and by the time anyone checked it had omitted the round's largest
-contributor entirely.
+`netnew_pairs` column sums to the report's headline increment.
 
 ---
 
@@ -459,9 +457,8 @@ universe too, and it is a separate source with a separate verdict: see below.
 ## `nypw_timemaps`: NYPW TimeMaps, master
 
 Item: `https://archive.org/details/nypw_timemaps`. The THIRTY-FOUR parts ingested on 2026-09-01,
-each linked so the bytes can be pulled again. The entry first listed only three of these while
-eleven were already in the store, and the tarballs are deleted once converted to `.cdx.gz`, so the
-missing links were the difference between a refetchable partition and a lost one:
+each linked so the bytes can be pulled again. **The tarballs are deleted once converted to
+`.cdx.gz`, so an unlinked partition is an unrefetchable one:**
 
 - `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_deeplinks_part00o.tar.gz`, 81,558,295 B
 - `https://archive.org/download/nypw_timemaps/1999/nypw_timemaps1999_rootURLs_part01r.tar.gz`, 548,991,394 B
@@ -862,9 +859,11 @@ them; where we hold our own verdict on the same family, both are cited.
 ## Evaluated and rejected
 
 One row per source evaluated. Families their own verdict word closes are in
-[sources-closed.md](sources-closed.md), in that file's five columns. `n/a` means the
-entry does not say, never that the answer is nothing. The link column carries the source
-URL; where an entry names several, the first is here and all of them are in its `## `ukwa_geoindex_hostnames`: BANKED 2026-09-04 at 20,916.9 EE, held out for one day and 99.5% a crawler's own alias
+[sources-closed.md](sources-closed.md), in that file's five columns. `n/a` means the entry
+does not say, never that the answer is nothing. The link column carries the first URL an
+entry names; the rest are in `## Detail` below.
+
+## `ukwa_geoindex_hostnames`: BANKED 2026-09-04 at 20,916.9 EE, held out for one day and 99.5% a crawler's own alias
 
 `https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/`, the twelve
 `geoindex_postcode-*_inwindow.tsv.gz` members already on disk as `data/raw/ukwa/` and banked at
@@ -1157,8 +1156,6 @@ because `usenet_new` and `usenet_bulk` hold twelve hierarchies between them.
 pricing because archive.org serves them again by name from the catalogue, and the shards
 are a few hundred MB in total.
 
-## Detail`
-section, which holds the entry as it was written.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -2664,8 +2661,7 @@ infrastructure, reprice that attribute under the hostname unit before hunting a 
 
 ## Detail
 
-Each entry above whose row could not carry all of it, in the words it was written in.
-The row is a projection of this, never the only copy.
+The entry as it was written. Its row above is a projection of this, never the only copy.
 
 ### inaddr-reverse-tree-ns-hostnames-1997-1999
 

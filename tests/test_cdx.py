@@ -411,11 +411,9 @@ def test_answered_only_accepts_a_real_reply() -> None:
 
 
 def test_the_response_carries_the_host_and_the_journal_keeps_it() -> None:
-    """`fl=timestamp,original`, added 2026-09-04, and the reason is a measured loss.
-
-    The field list was `timestamp` alone, so the hostname the archive named was discarded:
-    2,984,321 gap answers across 1,163 journals carry no host, and since ADR-009 a `www.`
-    host is a record, so each was a record we paid a request for and threw away.
+    """`fl=timestamp,original`, added 2026-09-04, and the reason is a measured loss. The field
+    list was `timestamp` alone, so the hostname the archive named was discarded: 2,984,321 gap
+    answers across 1,163 journals carry no host, and since ADR-009 a `www.` host is a record.
     """
     from ark.cdx import cdx_url, host_url, hosts_in, root_url, year_probe_url
 

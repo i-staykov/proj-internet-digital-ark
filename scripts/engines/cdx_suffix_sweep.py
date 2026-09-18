@@ -54,6 +54,8 @@ from pathlib import Path
 UA = "InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 BASE = "https://web.archive.org/cdx/search/cdx"
 OUT = Path("data/raw/cdx_suffix")
+# Consecutive 403s on the count probe before the parent is given up.
+MAX_COUNT_REFUSALS = 3
 # Researcher waves need the archive unthrottled; the fleet touches this flag before
 # dispatching agents and removes it after, and the sweep idles while it exists. A
 # flag file rather than systemctl, because the sweep runs as a plain user process.
@@ -124,11 +126,27 @@ def main() -> None:
     #
     # A 503 here is transient rather than a throttle signal, on that same evidence, so the
     # first retries are quick before settling into the long wait an outage deserves.
+    #
+    # **A 403 is a refusal, not a throttle, and waiting it out costs the whole parent.**
+    # `guardian.co.uk` answered 403 to every count probe and this loop retried it to the
+    # parent deadline, so one shard spent 45 minutes per pass writing nothing. Three tries
+    # covers a transient one; past that the parent is given up and the loop moves on. It is
+    # NOT marked done, so the yield test queues it for retry rather than parking it as a dud.
     attempt = 0
+    refusals = 0
     while True:
         status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
         if status == "200" or time.time() > args.deadline:
             break
+        if "403" in str(status):
+            refusals += 1
+            if refusals >= MAX_COUNT_REFUSALS:
+                print(
+                    f"{args.suffix}: {refusals} count probes refused with {status}, "
+                    f"giving the parent up rather than waiting out the window",
+                    flush=True,
+                )
+                return
         attempt += 1
         wait = min(5 * 3 ** (attempt - 1), 300)
         print(f"  count probe {attempt}: {status}, waiting {wait}s", flush=True)

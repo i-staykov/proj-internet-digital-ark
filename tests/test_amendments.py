@@ -1,14 +1,9 @@
 """A pending amendment must be on its way somewhere.
 
-`docs/brief/ding/project-brief.md` is the canonical packaged brief. Dated changes and email
-clarifications live in `docs/brief/brief_amendments.md`; an unclassified change carries
-`pending` in the columns a human fills.
-
-The failure worth guarding is the quiet one: the row is written, nobody classifies it, and
-the change it records is never made. So a pending row must do one of two things, both
-checkable without reading his mind. Either it quotes words that also stand in
-`docs/registers/questions.md`, meaning the ambiguity is on its way back to him, or it names a file
-that exists, meaning the change already has a home.
+Dated changes live in `docs/brief/brief_amendments.md`; an unclassified one carries
+`pending`. A pending row must either quote words that also stand in
+`docs/registers/questions.md` or name a file that exists, so a row nobody classifies cannot
+sit there with the change it records unmade.
 """
 
 import re

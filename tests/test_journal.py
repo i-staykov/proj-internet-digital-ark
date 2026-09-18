@@ -1,10 +1,8 @@
 """Run journals: a journal becomes ingestable only when its run has stopped.
 
-The rule these tests defend: the documented ingest commands glob `*.jsonl.gz`,
-and one is often issued while a collector is still running. If the glob matched
-the live journal, the loader would ledger the hash of a half-written file and
-every later ingest of the finished file would fail its hash check, with the tail
-of the run unreachable.
+The documented ingest commands glob `*.jsonl.gz` and one is often issued while a collector is
+still running. If the glob matched the live journal, the loader would ledger the hash of a
+half-written file and every later ingest of the finished file would fail its hash check.
 """
 
 import gzip
@@ -90,14 +88,9 @@ def test_a_published_journal_is_gzipped(tmp_path) -> None:
 
 def test_a_live_journal_grows_on_disk_as_records_are_written(tmp_path) -> None:
     """The watchdog decides a run has stalled by watching this size.
-
-    `scripts/engines/supervise_cdx_pool.sh` reads journal bytes and restarts the supervisor when
-    they stop moving. gzip emits nothing until zlib fills a block, so without a
-    flush per record the file sits at zero for minutes: on 3 August, with the
-    archive answering slowly, the first block took 12.7 minutes against a
-    10-minute window, which reads as a stall on a perfectly healthy batch.
-
-    So this asserts what the monitor assumes, with no explicit flush by the caller.
+    `scripts/engines/supervise_cdx_pool.sh` restarts the supervisor when journal bytes stop
+    moving, and gzip emits nothing until zlib fills a block: without a flush per record the
+    first block once took 12.7 minutes against a 10-minute window.
     """
     path = _journal(tmp_path)
     partial = in_flight_path(path)
@@ -123,12 +116,9 @@ def test_the_resume_scan_keeps_what_it_read_from_a_truncated_journal(tmp_path) -
 
 
 def test_stopping_a_run_does_not_wait_for_its_queued_work() -> None:
-    """A stop request must not first drain the whole submitted batch.
-
-    The collectors submit every domain up front, so the default
-    `ThreadPoolExecutor.__exit__`, which waits for all queued tasks, turned
-    SIGTERM into a wait for hundreds of pending HTTP requests. Observed live: a
-    run kept going for minutes after `pkill` and had to be killed with -9.
+    """A stop request must not first drain the whole submitted batch. The collectors submit
+    every domain up front, so the default `ThreadPoolExecutor.__exit__`, which waits for all
+    queued tasks, turns SIGTERM into a wait for hundreds of pending HTTP requests.
     """
     import time as _time
 
@@ -155,15 +145,10 @@ def test_stopping_a_run_does_not_wait_for_its_queued_work() -> None:
 
 
 def test_a_damaged_gzip_block_does_not_stop_the_resume_scan(tmp_path) -> None:
-    """One `kill -9` mid-write stopped both RDAP engines dead on 2026-08-27.
-
-    A journal truncated between flushes raises `EOFError`; one whose last gzip block
-    is damaged raises `zlib.error`, which is not an `OSError`. Eleven of the second
-    kind sat under `data/raw/rdap` and the scan died on the first, before a query
-    went out, reporting "the list is exhausted or the API refused".
-
-    The good records BEFORE the damage must survive, or a 23 MB journal's whole
-    contents get re-queried for nothing.
+    """A journal truncated between flushes raises `EOFError`; one whose last gzip block is
+    damaged raises `zlib.error`, which is not an `OSError`. One `kill -9` mid-write once
+    stopped both RDAP engines dead on the first of eleven journals, reporting "the list is
+    exhausted or the API refused". The good records BEFORE the damage must survive.
     """
     good = tmp_path / "rdap_20260101T000000Z.jsonl.gz"
     with journal_writer(good) as fh:

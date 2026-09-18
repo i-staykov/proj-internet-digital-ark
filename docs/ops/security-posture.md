@@ -3,11 +3,9 @@
 What can go wrong while collecting dated corpora for a public repository, and what to do when it does.
 The detail behind any incident (hashes, hostnames, paths) lives in `private/security/` and never ships.
 
-**Deliberately not called `SECURITY.md`** (Ivo, 2026-09-03). GitHub treats a file of that name in
-the root, `docs/` or `.github/` as the repository's security policy and advertises it on the public
-front page and in the Security tab. This page is an operating note for whoever is collecting, not a
-vulnerability-disclosure policy, and the incident table below says where to look for what leaked. It
-stays public; it just stops being the thing GitHub puts a banner on.
+**Deliberately not called `SECURITY.md`** (Ivo, 2026-09-03): GitHub would advertise a file of that
+name in the root, `docs/` or `.github/` as this repository's vulnerability-disclosure policy, and
+this is an operating note.
 
 ## Threat model
 
@@ -19,8 +17,8 @@ stays public; it just stops being the thing GitHub puts a banner on.
 - The fleet's token lives only in the fleet's secrets. It is never in a tracked file, a dotenv under
   the tree, a log or a commit.
 - `robots.txt` is read whole before the first request to a host, and a by-name refusal anywhere in
-  the file is honoured, whatever the `User-agent: *` block above it allows. The refusal list is
-  in `CLAUDE.md`.
+  the file is honoured, whatever the `User-agent: *` block above it allows.
+  `scripts/harness/fetch.py` enforces it; the rule is in [../lore/rules.md](../lore/rules.md).
 - Nothing under `private/` ships. The delivery archive is built from the tracked tree with
   `export-ignore` applied, and a test pins the names that must stay out.
 

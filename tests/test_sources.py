@@ -317,16 +317,9 @@ def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
 
 
 def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
-    """The file is 15 internally sorted shards, so an out-of-window year is not the end.
-
-    This test replaces one that asserted the opposite. The parser used to `break` at
-    the first row past 2001 on a docstring claim that the graph was year-sorted.
-    Measured over all 168,942,882 lines of the real file on 2026-08-16: the year
-    column decreases 14 times, the break fired at line 166,895, and the scan read
-    166,890 of the 2,468,674 in-window rows that are actually there. 6.76%.
-
-    The fixture is the real shape in miniature: a shard that runs past the window,
-    then another that starts before it.
+    """The file is 15 internally sorted shards, so an out-of-window year is not the end. A
+    `break` at the first row past 2001 read 166,890 of the 2,468,674 in-window rows, 6.76%.
+    The fixture is that shape in miniature.
     """
     rows = [
         # shard one, sorted, running out of the window
@@ -689,10 +682,9 @@ def test_nypw_nonok_drops_a_status_that_is_not_a_server_answering(tmp_path):
 
 
 def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
-    """Most posts carry an RFC 822 date, but the Giganews donation rewrote a
-    large share as a bare YYYY/MM/DD, which parsedate_to_datetime rejects. In
-    comp.infosystems.www.announce that is 21,346 of 23,282 messages, so a parser
-    that only understands RFC 822 silently discards 92% of the archive."""
+    """The Giganews donation rewrote a large share of dates as a bare YYYY/MM/DD, which
+    parsedate_to_datetime rejects: 21,346 of 23,282 messages in
+    comp.infosystems.www.announce, so RFC 822 alone discards 92% of the archive."""
     from ark.usenet import message_year
 
     assert message_year("Tue, 18 Jun 1996 12:00:00 GMT") == 1996
@@ -704,11 +696,9 @@ def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
 
 
 def test_usenet_reads_a_date_header_that_is_not_a_string():
-    """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047
-    encoded, and `Header` has no `.strip()`. 8,258 archives went through before one
-    carried such a date, and it then aborted a whole 2,500-archive batch: the
-    splitter parses a batch in one call, so one bad archive unmarked all of them and
-    the maintain loop retried the same batch every 150s for six hours."""
+    """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047 encoded,
+    and `Header` has no `.strip()`. The splitter parses a batch in one call, so one
+    archive in 8,258 aborts all 2,500 of them and the maintain loop retries for ever."""
     from email.header import Header
 
     from ark.usenet import message_year
@@ -719,11 +709,9 @@ def test_usenet_reads_a_date_header_that_is_not_a_string():
 
 
 def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
-    """One counter for both hides which problem a barren source has. An archive
-    that is entirely out of window should be dropped; one whose dates cannot be
-    parsed means the parser is wrong. alt.www.webmaster is 170 MB and 100%
-    out of window, while comp.infosystems.www.announce looked 92% undated until
-    the Giganews date format was handled."""
+    """One counter for both hides which problem a barren source has: an archive entirely out
+    of window should be dropped, while one whose dates cannot be parsed means the parser
+    is wrong."""
     from ark.usenet import parse_usenet
 
     path = tmp_path / "g.mbox"
@@ -753,10 +741,8 @@ def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
 
 
 def test_usenet_reads_an_address_written_without_a_scheme():
-    """The hole this closes: the URL regex requires `https?://`, so a human writing
-    `www.foo.com`, which was the ordinary way to write an address in 1996-1999, was
-    invisible to the shipped signal. Same artifact, same date header, same kind of
-    claim as a linked URL."""
+    """A URL regex requiring `https?://` cannot see `www.foo.com`, the ordinary way to write
+    an address in 1996-1999. Same artifact, same date header, same kind of claim."""
     from ark.usenet import domains_in_message
 
     found = domains_in_message("Try www.warehouse.co.uk for prices, or WWW.UPPER.COM", "")
@@ -827,10 +813,9 @@ def test_usenet_dated_is_master_and_mentions_are_candidate_only():
 
 
 def test_moderated_announce_follows_usenet_naming_convention():
-    """A group whose last component is announce or moderated is moderated by
-    long-standing convention, so the rule is a suffix test rather than a list
-    nobody will maintain. The named set covers the ones that are moderated
-    announcement forums without saying so."""
+    """A group whose last component is announce or moderated is moderated by convention, so
+    the rule is a suffix test rather than a list nobody will maintain. The named set
+    covers the forums that are moderated without saying so."""
     from ark.usenet import is_moderated_announce
 
     assert is_moderated_announce("comp.os.linux.announce")
@@ -845,10 +830,9 @@ def test_moderated_announce_follows_usenet_naming_convention():
 
 
 def _printed_domains_in(text: str) -> set[str]:
-    """The extractor `collect_trade_press.py` and `split_rtfm_faqs.py` share.
-
-    It lives in `scripts/`, which is not an installed package, so the import
-    follows the same sys.path convention those scripts use.
+    """The extractor `collect_trade_press.py` and `split_rtfm_faqs.py` share. It lives in
+    `scripts/`, which is not an installed package, so the import follows the same
+    sys.path convention those scripts use.
     """
     import sys
     from pathlib import Path
@@ -863,11 +847,10 @@ def _printed_domains_in(text: str) -> set[str]:
 
 
 def test_printed_text_reads_a_bare_two_label_domain():
-    """The hole this closes, and it is the same shape as the `www.` hole in the
-    Usenet extractor. The pattern required two labels before the TLD, so it read
-    `www.foo.com` and dropped `foo.com`, `http://foo.com/` and `bob@foo.com`.
-    Printed copy drops the `www.` constantly, and re-reading the cached issues
-    found 12,788 (domain, year) rows the old pattern never saw."""
+    """Same shape as the `www.` hole in the Usenet extractor: a pattern requiring two labels
+    before the TLD reads `www.foo.com` and drops `foo.com`, `http://foo.com/` and
+    `bob@foo.com`. Printed copy drops the `www.` constantly, and re-reading the cached
+    issues found 12,788 (domain, year) rows the old pattern never saw."""
     assert _printed_domains_in("visit foo.com today") == {"foo.com"}
     assert _printed_domains_in("http://foo.com/pricing") == {"foo.com"}
     assert _printed_domains_in("mail bob@foo.com") == {"foo.com"}
@@ -1065,10 +1048,9 @@ def test_creation_csv_keeps_only_in_window_years(tmp_path: Path) -> None:
 
 
 def test_creation_csv_emits_one_year_per_domain(tmp_path: Path) -> None:
-    """A creation date says the name was created that day and nothing about later.
-
-    Emitting a span would be the inference the brief forbids by name: continued
-    registration in a later year is a separate fact needing separate evidence.
+    """A creation date says the name was created that day and nothing about later. A span
+    would be the inference the brief forbids by name: continued registration in a later
+    year is a separate fact needing separate evidence.
     """
     fixture = tmp_path / "domains.csv"
     fixture.write_text("a.com;com;f;R;1998-06-06;{};{};{};2024-10-12\n", encoding="utf-8")
@@ -1139,11 +1121,10 @@ def test_ripe_reads_domain_objects_and_dates_them_1999(tmp_path: Path) -> None:
 
 
 def test_ripe_emits_no_personal_data(tmp_path: Path) -> None:
-    """The promise made to RIPE NCC, enforced rather than documented.
-
-    Every emitted value must be a bare hostname: no `@`, no telephone `+`, no comma or
-    space, and nothing from a `*de`, `*ac`, `*tc` or `*ch` line. The fixture deliberately
-    contains a postal address, a phone number and three e-mail addresses.
+    """The promise made to RIPE NCC, enforced rather than documented: every emitted value is a
+    bare hostname, with no `@`, no telephone `+`, no comma or space and nothing from a `*de`,
+    `*ac`, `*tc` or `*ch` line. The fixture holds a postal address, a phone number and three
+    e-mail addresses.
     """
     records, _ = _ripe_records(tmp_path)
     emitted = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)

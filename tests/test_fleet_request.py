@@ -1,10 +1,9 @@
 """The block a fleet FIND needs before anything can decide it.
 
-Without this the loop stopped one step short and looked complete: a row in `sources.md`, a
-confirmed FIND, and no `Decision:` line anywhere, so the standing rule found nothing to flip
-and Ivo was asked nothing. The tests are about what the block must not do, which is read as
-more than it is: no invented spec, no invented terms, and never a second block for a source
-already decided.
+Without it the loop stops one step short and looks complete: a row in `sources.md`, a
+confirmed FIND and no `Decision:` line, so the standing rule finds nothing to flip and Ivo is
+asked nothing. The tests pin what the block must not do: no invented spec, no invented terms,
+no second block for a source already decided.
 """
 
 import importlib.util

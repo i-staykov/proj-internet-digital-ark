@@ -1,13 +1,9 @@
 """The bank runs hourly and unwatched, so its hygiene has to be a program.
 
-Three properties, each of which has cost something once: a clone that is dirty must
-be refused **before** anything is fetched or written, a clone that has diverged must
-be fast-forwarded rather than merged, and the gate issue must be opened once per
-crossing rather than once per run. The fourth is the one that makes the other three
-safe to schedule: two consecutive runs over unchanged state change nothing.
-
-The git tests use real git in a temporary pair of clones, because what is under test
-is exactly what git does with a dirty tree and a diverged branch.
+Four properties: a dirty clone is refused **before** anything is fetched or written, a
+diverged clone is fast-forwarded rather than merged, the gate issue is opened once per
+crossing, and two consecutive runs over unchanged state change nothing. The git tests use
+real git in a temporary pair of clones.
 """
 
 import hashlib
@@ -244,11 +240,9 @@ def test_the_gate_does_nothing_below_the_threshold(tmp_path: Path) -> None:
 
 
 def test_the_gate_reads_this_rounds_window_and_not_the_total(tmp_path: Path) -> None:
-    """The total carries the round already sent to him, so it cannot decide a crossing.
-
-    His release lags our submission by days: on the morning round 10 opened, the total
-    net-new against `merged260908` was still round 9's 5.36% and would have opened a gate
-    issue for a round that had collected nothing.
+    """The total carries the round already sent to him, so it cannot decide a crossing: his
+    release lags our submission by days, and the morning a round opens the total net-new
+    against the newest baseline is still the last round's.
     """
     calls = []
     lines = hyg.gate(
@@ -306,11 +300,9 @@ def test_an_issue_already_open_is_latched_rather_than_duplicated(tmp_path: Path)
 
 
 def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path, monkeypatch) -> None:
-    """E7.5's acceptance, asserted on the tree and on the calls at once.
-
-    The first run is the one that acts: it prunes what is spent and opens the gate
-    issue. The second is given exactly the same state, and both the digest of every
-    path under the root and the list of `gh` calls must come back unchanged.
+    """Asserted on the tree and on the calls at once. The first run prunes what is spent and
+    opens the gate issue; the second is given the same state, and both the digest of every
+    path under the root and the list of `gh` calls come back unchanged.
     """
     _staging(tmp_path)
     verified_staging(tmp_path, monkeypatch)

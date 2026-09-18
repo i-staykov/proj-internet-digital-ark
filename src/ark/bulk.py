@@ -1,14 +1,12 @@
 """Shared bulk ingester: one audited loader, one small parser per source.
 
-A parser turns one source file into BulkRecord rows; the loader does the
-rest identically for every source: canonicalization, set-based staging,
-evidence rows and year assignments (or candidate routing, per the evidence
-taxonomy), the per-source audit CSV, run metrics, and a per-file ledger
-that makes re-runs no-ops.
+A parser turns one source file into BulkRecord rows; the loader does the rest identically
+for every source: canonicalization, set-based staging, evidence rows and year assignments
+(or candidate routing, per the evidence taxonomy), the per-source audit CSV, run metrics,
+and a per-file ledger that makes re-runs no-ops.
 
-Crash rules: each file commits alone, its ledger row is part of that
-commit, and its audit rows reach the CSV only after the commit. A failing
-file is logged and skipped; the rest of the run continues.
+Crash rules: each file commits alone, its ledger row is part of that commit, and its audit
+rows reach the CSV only after the commit. A failing file is logged and skipped.
 """
 
 import csv
@@ -275,11 +273,10 @@ def ingest_files(
 ) -> dict:
     """Ingest many files of one source; each file is its own resumable unit.
 
-    Refuses before touching the store if this source class has no human approval
-    behind it. Master-eligible evidence can create a year assignment, and deciding
-    whether a source deserves that is a judgement about proof rather than a
-    measurement, so it is not the agent's to make. Candidate-only evidence passes
-    freely: it can never date a year.
+    Refuses before touching the store if this source class has no human approval behind it.
+    Master-eligible evidence can create a year assignment, and whether a source deserves
+    that is a judgement about proof rather than a measurement. Candidate-only evidence
+    passes freely: it can never date a year.
     """
     approvals.check(spec.source_name, spec.evidence_type)
     kind = "candidate_only" if spec.is_candidate_only else "timestamped"

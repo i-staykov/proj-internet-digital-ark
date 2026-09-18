@@ -54,17 +54,12 @@ def test_clean_store_passes_all_checks() -> None:
 def test_detects_an_internationalised_tld() -> None:
     """No `xn--` TLD existed before 2010, so none can hold a 1996-2001 year.
 
-    Seventeen of these shipped: `domain_creation_bulk` carries `.xn--fiqs8s` and
-    `.xn--fiqz9s` names, `.中国` and `.中國`, with registry creation dates in 2000 and
-    2001. CNNIC ran Chinese-character domains before ICANN delegated the TLD and the
-    2010 migration appears to have carried the original dates forward.
-
-    Nothing caught them here. The falsification test run before that source was
-    admitted checked the six TLDs delegated in 2001, so a TLD delegated in 2010 was
-    outside what it could see. What caught them was the reviewer's own validator,
-    whose hostname regexp requires a letters-only TLD: they scored zero for him and
-    full weight for us, and `round_figures.py --verify` refused the round over the
-    resulting 0.3150 discrepancy.
+    Seventeen shipped: `domain_creation_bulk` carries `.xn--fiqs8s` and `.xn--fiqz9s`
+    names with registry creation dates in 2000 and 2001, CNNIC having run
+    Chinese-character domains before ICANN delegated the TLD. What caught them was the
+    reviewer's validator, whose hostname regexp requires a letters-only TLD: they scored
+    zero for him and full weight for us, and `round_figures.py --verify` refused the round
+    over the 0.3150 discrepancy.
     """
     conn = _clean_store()
     src = ensure_source(conn, "domain_creation_bulk", "timestamped")
@@ -147,13 +142,10 @@ def test_registration_spans_are_exempt_from_the_year_match() -> None:
 
 
 def test_detects_an_addition_that_is_also_baseline(tmp_path: Path) -> None:
-    """The invariant is about the SHIPPED file, not the store.
-
-    A pair the baseline already had is allowed to sit in the store carrying this
-    project's own evidence too: that is what a rolling baseline produces, since each
-    release absorbs the previous round's additions. What must never happen is
-    that pair appearing in the exported additions, where it would be counted a
-    second time.
+    """The invariant is about the SHIPPED file, not the store. A pair the baseline already
+    had may sit in the store carrying this project's own evidence too, which is what a
+    rolling baseline produces. What must never happen is that pair appearing in the
+    exported additions, where it would be counted a second time.
     """
     conn = _clean_store()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
@@ -182,12 +174,9 @@ def test_missing_export_is_skipped_not_silently_passed(tmp_path: Path) -> None:
 
 
 def test_empty_export_is_skipped_not_an_internal_error(tmp_path: Path) -> None:
-    """The day a new baseline lands, every annual file exports empty.
-
-    DuckDB 1.5 reports a `read_csv` over files with no rows as an internal error
-    ("must return at least one column"), which is the same state the older
-    binder error described. Both read as skipped, never as a crash and never as
-    a pass.
+    """The day a new baseline lands, every annual file exports empty. DuckDB 1.5 reports a
+    `read_csv` over files with no rows as an internal error ("must return at least one
+    column"). That reads as skipped, never as a crash and never as a pass.
     """
     for year in range(1996, 2002):
         (tmp_path / f"{year}.txt").write_text("", encoding="utf-8")
