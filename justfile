@@ -865,7 +865,9 @@ reproduce stage="all":
 
 # Needs no source data at all. About a minute, and byte-identical.
 #
-# tier 2: regenerate every result file from a provenance export
+# tier 2: regenerate every result file from a provenance export. `ark export` does not
+# write that export unless asked, so refresh it with `ark export --provenance` first or
+# this rebuilds whatever was last shipped.
 rebuild dir="output/provenance":
     uv run ark rebuild {{dir}}
     uv run ark check

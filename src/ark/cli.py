@@ -669,15 +669,26 @@ def download(
 
 
 @app.command()
-def export() -> None:
+def export(
+    provenance: Annotated[
+        bool,
+        typer.Option(
+            "--provenance/--no-provenance",
+            help="Also write the provenance graph. Needed to ship a round or to `ark rebuild`.",
+        ),
+    ] = False,
+) -> None:
     """Write net-new year files, candidates, manifest, and merged masters.
 
     Patient, because it is the first step of shipping a round: DuckDB blocks a write
     connection against any other process holding the file, even a reader, and this
     project always has readers.
+
+    **The provenance graph is off unless asked for**: it is 229 of the command's 444
+    seconds and 2,319 MB, and only `package_delivery.sh` and `just rebuild` read it.
     """
     conn = connect_patiently()
-    export_all(conn)
+    export_all(conn, with_provenance=provenance)
 
 
 @app.command(name="price-snapshot")

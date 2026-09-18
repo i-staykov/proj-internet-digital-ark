@@ -82,6 +82,7 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=_fake_baseline(tmp_path),
+        with_provenance=True,
     )
 
     # the contribution tables were the one destination not under the caller's
@@ -327,3 +328,15 @@ def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path)
     # and the manifest cannot describe a line that does not ship
     manifest = (tmp_path / "netnew" / "evidence_manifest.csv").read_text()
     assert "already-his.com" not in manifest
+
+
+def test_the_provenance_graph_is_off_unless_asked_for() -> None:
+    """It was 229 of `ark export`'s 444 seconds and 2,319 MB, written on every hourly
+    sync, and read in exactly two places: `package_delivery.sh` and `just rebuild`.
+    Neither runs hourly, so the default must stay off.
+    """
+    import inspect
+
+    import ark.export as ex
+
+    assert inspect.signature(ex.export_all).parameters["with_provenance"].default is False

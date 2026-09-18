@@ -354,6 +354,7 @@ def export_all(
     report_dir: Path = DEFAULT_REPORT_DIR,
     provenance_dir: Path = PROVENANCE_DIR,
     baseline: Path | None = None,
+    with_provenance: bool = False,
 ) -> dict[str, int]:
     """Write every result file. Every destination is a parameter, so a caller
     that redirects the outputs redirects all of them; leaving one hardcoded let
@@ -519,10 +520,16 @@ def export_all(
     # per-source and per-year contribution tables, which ship in the audit folder
     stats.update(write_contribution_tables(conn, report_dir))
 
-    # the provenance graph itself, so a reader can ask "why is this domain in
-    # this year?" without the source data or a copy of the database
-    provenance = write_provenance(conn, provenance_dir)
-    stats["provenance_mb"] = provenance["megabytes"]
+    # The provenance graph itself, so a reader can ask "why is this domain in this year?"
+    # without the source data or a copy of the database.
+    #
+    # **Off by default, because it is 52% of this command.** Measured 2026-09-18: 229 of
+    # 444 seconds, writing 2,319 MB over 81.7M evidence and 28.0M hostname_year rows. It
+    # is read in exactly two places, `just rebuild` and `package_delivery.sh`, and neither
+    # runs hourly. The sync that fires every hour paid for it anyway.
+    if with_provenance:
+        provenance = write_provenance(conn, provenance_dir)
+        stats["provenance_mb"] = provenance["megabytes"]
 
     logger.info(f"export: {stats}")
     return stats

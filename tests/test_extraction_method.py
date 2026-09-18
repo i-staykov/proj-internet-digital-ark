@@ -39,7 +39,7 @@ def test_every_exported_evidence_row_names_its_extraction_method(tmp_path, monke
     assert legacy_run.exit_code == 0, legacy_run.output
     bulk_run = runner.invoke(app, ["ingest", "early_web", str(cdx)])
     assert bulk_run.exit_code == 0, bulk_run.output
-    assert runner.invoke(app, ["export"]).exit_code == 0
+    assert runner.invoke(app, ["export", "--provenance"]).exit_code == 0
 
     reader = duckdb.connect(":memory:")
     parquet = PROVENANCE_DIR / "evidence.parquet"
