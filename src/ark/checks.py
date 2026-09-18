@@ -1,12 +1,9 @@
 """Read-only integrity checks over the provenance store.
 
-Each check is a SQL query that must return zero offending rows. `ark check`
-runs them all and exits non-zero if any fails, so it doubles as a release gate:
-no annual result ships unless every invariant below holds.
-
-The checks exist to make claims machine-verified rather than asserted in prose.
-Several of them encode a rule that is stated in the delivery report, so a reader
-who doubts the rule can run the gate instead of taking it on trust.
+Each check is a SQL query that must return zero offending rows. `ark check` runs them all
+and exits non-zero if any fails, so it doubles as a release gate: no annual result ships
+unless every invariant below holds. Several encode a rule the delivery report states, so a
+reader who doubts the rule can run the gate instead of taking it on trust.
 """
 
 from pathlib import Path
@@ -38,13 +35,12 @@ _VALUE_YEAR = "TRY_CAST(regexp_extract(evidence_value, '([0-9]{4})', 1) AS INT)"
 # added here needs the same standard of proof.
 _SPAN_SOURCES = "'afnic_fr'"
 
-# A stored domain is a lowercase registrable name: strict first label, then one or more suffix
-# labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot. The lengths are RFC 1035's
-# and his calculator's: 63 per label, 253 in total, and a 2-to-63 alphabetic last label. They
-# were absent until 2026-09-04, when fourteen over-long joke names from Usenet posts reached an
-# export and his own program refused them.
-# No lookahead: DuckDB uses RE2, which has none, so the 253-character total is a separate
-# `length()` condition at each call site rather than `(?=.{1,253}$)`.
+# A stored domain is a lowercase registrable name: strict first label, then one or more
+# suffix labels (co.uk, xn--*, historical ccTLDs all fit), at least one dot. The lengths are
+# RFC 1035's and his calculator's, 63 per label, 253 in total, a 2-to-63 alphabetic last
+# label: without them over-long joke names from Usenet posts reach an export and his own
+# program refuses them. No lookahead, DuckDB using RE2, so the 253-character total is a
+# separate `length()` condition at each call site.
 _DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
 _MAX_HOST_LEN = 253
 _WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
@@ -320,15 +316,12 @@ def collect_checks(
             )
             continue
         except (duckdb.BinderException, duckdb.InternalException) as exc:
-            # Every matching file is empty, so `read_csv` infers no columns and
-            # the query cannot bind. That is a real state, not a fault: a round
-            # that has added nothing yet exports six empty annual files, and an
-            # empty additions set trivially satisfies an invariant about what the
-            # additions may contain. Reported as skipped rather than passed, for
-            # the same reason an absent export is: a check that examined nothing
-            # should not read as one that found nothing wrong. DuckDB 1.5 raises
-            # this as an InternalException worded "must return at least one
-            # column"; any other internal error is a fault and is re-raised.
+            # Every matching file is empty, so `read_csv` infers no columns and the query
+            # cannot bind. A real state, not a fault: a round that has added nothing exports
+            # six empty annual files. Reported as skipped rather than passed, because a
+            # check that examined nothing is not one that found nothing wrong. DuckDB 1.5
+            # words this InternalException "must return at least one column"; any other
+            # internal error is a fault and is re-raised.
             if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
                 raise
             results.append(

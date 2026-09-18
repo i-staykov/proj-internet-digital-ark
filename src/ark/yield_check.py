@@ -1,23 +1,19 @@
 """Is a collector finding anything, as opposed to merely running and writing?
 
-**Presence is not progress, and progress is not yield.** A supervisor watching journal
-growth catches a stuck socket but not a stuck population, because **a journal full of
-misses grows exactly as fast as a journal full of hits.** That gap cost a measured
-fortnight: a queue whose first 3,000 rows were 2,675 `.mil` names ran 1,200 archive
-queries for ZERO in-window captures while every mechanical check reported clean.
-
-So this reads the journals and asks what none of the other checks do: **of the domains
-the archive actually answered, what share held a capture?**
+**Presence is not progress, and progress is not yield.** A journal full of misses grows
+exactly as fast as a journal full of hits, so a supervisor watching journal growth catches
+a stuck socket but not a stuck population: a queue whose first 3,000 rows were 2,675 `.mil`
+names ran 1,200 archive queries for ZERO in-window captures while every mechanical check
+reported clean. So this asks what none of the other checks do: **of the domains the archive
+actually answered, what share held a capture?**
 
 **Only status 200 counts in the denominator**, the rule `journal_outcomes` uses: a
-transport failure says nothing about whether a capture exists, so counting it as a miss
-would slander the whole population.
+transport failure says nothing about whether a capture exists.
 
-**A collapse is judged against the collector's own history, never against a constant.**
-The populations differ by design, gap answering 96-97.5% and the candidate pool 36.9-90.6%
-depending on where a name came from, so one floor would either miss a pool collapse or cry
-wolf at a healthy pool. Absolute zero is caught separately, since zero over a real sample
-is never healthy for either.
+**A collapse is judged against the collector's own history, never against a constant.** The
+populations differ by design, gap answering 96-97.5% and the candidate pool 36.9-90.6%, so
+one floor would either miss a pool collapse or cry wolf at a healthy pool. Absolute zero is
+caught separately.
 """
 
 import gzip
@@ -93,10 +89,10 @@ class Yield:
     def latest(self) -> str:
         """The newest FINISHED batch on its own, which is the recovery signal.
 
-        The windowed rate is what to alarm on and the wrong thing to read after a queue
-        is re-ranked: averaging three batches, it stays low for hours after a fix. This
-        reads only a published journal, never a `.part`, because a gzip stream still
-        being appended truncates at its last complete block and a prefix is not a sample.
+        The windowed rate is what to alarm on and the wrong thing to read after a queue is
+        re-ranked: averaging three batches, it stays low for hours after a fix. Published
+        journals only, never a `.part`: a gzip stream still being appended truncates at its
+        last complete block, and a prefix is not a sample.
         """
         if not self.newest or self.newest_rate is None:
             return "no finished batch yet"
@@ -140,14 +136,12 @@ def rdap_verdict(record: dict) -> tuple[bool, bool]:
     """(answered, in-window creation year) for an RDAP journal record.
 
     **A 404 counts as answered here, where its CDX equivalent would not**: the registry
-    saying "no such domain" is information, and 1,107,164 of 1,656,921 RDAP queries here
-    returned one, the forged half of the candidate pool seen from the registry side. A
-    throttle (429), refusal (403, 426) or transport failure (0) is not an answer and must
-    stay out of the denominator, or rate-limiting reads as a vanished population.
+    saying "no such domain" is information, and 1,107,164 of 1,656,921 RDAP queries returned
+    one. A throttle (429), refusal (403, 426) or transport failure (0) is not an answer and
+    must stay out of the denominator, or rate-limiting reads as a vanished population.
 
     The year must be **in window**: 28.4% of queries return some year against 10.1%
-    returning one that counts, so counting any year reports a sweep of modern
-    registrations as productive.
+    returning one that counts, so any-year counting reports a modern sweep as productive.
     """
     if record.get("status") not in (200, 404):
         return False, False
@@ -167,14 +161,12 @@ class Collector:
 def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[int, int, bool]:
     """(answered, hits, truncated) in one journal.
 
-    **A journal still being written raises `EOFError`, not `OSError`**, so catch both or
-    a live RDAP journal takes the whole cycle down. Both collectors write `<name>.part`
-    and rename on exit, but a killed batch can still publish a partial under the final
-    name, and a live RDAP batch runs over an hour, so the read stays truncation-tolerant
-    rather than trusting the suffix.
-
-    A truncated read keeps what parsed and **says it was truncated**. Quietly trusting a
-    prefix is how one batch got reported at four different rates.
+    **A journal still being written raises `EOFError`, not `OSError`**, so catch both or a
+    live RDAP journal takes the whole cycle down. Collectors write `<name>.part` and rename
+    on exit, but a killed batch can publish a partial under the final name, so the read
+    stays truncation-tolerant rather than trusting the suffix. A truncated read keeps what
+    parsed and **says it was truncated**; trusting a prefix quietly reported one batch at
+    four different rates.
     """
     answered = hits = 0
     truncated = False
@@ -194,12 +186,10 @@ def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[in
                 answered += 1
                 hits += was_hit
     except (OSError, EOFError, gzip.BadGzipFile, zlib.error):
-        # zlib.error is the CORRUPT case rather than the truncated one, and it subclasses
-        # none of the others, so leaving it out takes the whole health cycle down on a
-        # journal a killed collector left mid-write. Same treatment as truncation.
-        #
-        # Not UnicodeDecodeError: `open_journal` opens with errors="replace", so inflated
-        # garbage is substituted. An ad-hoc reader on strict decoding DOES die that way.
+        # zlib.error is the CORRUPT case rather than the truncated one and subclasses none
+        # of the others, so leaving it out takes the health cycle down on a journal a killed
+        # collector left mid-write. Not UnicodeDecodeError: `open_journal` uses
+        # errors="replace", though an ad-hoc reader on strict decoding DOES die that way.
         truncated = True
     return answered, hits, truncated
 
@@ -216,10 +206,9 @@ def measure(
     produced 19%, 9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
 
     **Files are selected and ordered on the timestamp in the name, never on the raw
-    filename**, because `data/raw/rdap/` also holds hand-named probe files from one-off
-    experiments and `rdap_probe_...` sorts ahead of every `rdap_pool_<stamp>...`. That
-    reports a static probe as the newest finished batch, and **a yield check reading the
-    wrong file cannot fail loudly**.
+    filename**: `data/raw/rdap/` also holds hand-named probe files, and `rdap_probe_...`
+    sorts ahead of every `rdap_pool_<stamp>...`, which reports a static probe as the newest
+    finished batch. **A yield check reading the wrong file cannot fail loudly.**
     """
     stamped = []
     for path in directory.glob(f"{prefix}_*.jsonl*"):
@@ -283,13 +272,12 @@ def active_cdx_collectors(
     """Every CDX prefix that has written here recently, discovered rather than listed.
 
     **Never a hardcoded list.** A supervisor header describes intent; the directory holds
-    the facts, and it has held six prefixes where the header named two. An unplanned
-    prefix ran 31 hours against an exhausted shard, 3,219 answered queries for ZERO
-    captures, invisible because nothing was looking for it. Asking the directory is the
-    only version of this check a collector under a new name cannot defeat.
+    the facts, and it has held six prefixes where the header named two. One unplanned prefix
+    ran 31 hours against an exhausted shard, 3,219 answered queries for ZERO captures,
+    invisible because nothing was looking for it.
 
-    Activity is judged on the newest file INCLUDING a `.part`, since that is usually what
-    a live collector is writing; the measurement still ignores `.part` files.
+    Activity is judged on the newest file INCLUDING a `.part`, usually what a live collector
+    is writing; the measurement still ignores `.part` files.
     """
     moment = time.time() if now is None else now
     newest: dict[str, float] = {}

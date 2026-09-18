@@ -1,11 +1,9 @@
 """The PANDORA title index reader.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-The BOM case is the one worth pinning. The published CSV starts with a UTF-8 BOM,
-so reading it as plain `utf-8` names the first column `﻿tep_id` and a
-`DictReader` lookup for `tep_id` returns nothing without raising. A file that
-parses to zero usable rows looks exactly like a source with nothing in it.
+The BOM case is the one worth pinning. The published CSV opens with a UTF-8 BOM, so reading
+it as plain `utf-8` glues the BOM to the first column name and a `DictReader` lookup for
+`tep_id` returns nothing without raising. A file that parses to zero usable rows looks
+exactly like a source with nothing in it.
 """
 
 import importlib.util
@@ -28,11 +26,8 @@ ROWS = (
 
 def test_reads_registrable_domains_and_dedupes(tmp_path: Path) -> None:
     """Two rows on one domain give one name, and the unit is the registered domain.
-
-    `lawlink.nsw.gov.au` collapses to `nsw.gov.au`, because the pinned Public
-    Suffix List snapshot carries `gov.au` and not the per-state `nsw.gov.au`.
-    This registrable-grain seeder uses that pinned list, so it collapses an
-    Australian state government host to its state registry. This is candidate
+    `lawlink.nsw.gov.au` collapses to `nsw.gov.au`, because the pinned Public Suffix List
+    snapshot carries `gov.au` and not the per-state `nsw.gov.au`. This is candidate
     extraction, not the exact-host annual output rule in brief IV.8.
     """
     path = tmp_path / "titles.csv"

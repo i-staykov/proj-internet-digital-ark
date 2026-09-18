@@ -1,14 +1,9 @@
 """Nothing addressed to a person may reach the delivery archive.
 
-`package_delivery.sh` ships the code as `git archive HEAD`, so **every tracked file goes
-in front of the reviewer** unless `.gitattributes` marks it `export-ignore`. It has
-happened three times: an email draft's "notes for Ivo" section, a `submissions/` letter
-addressed to the reviewer travelling inside the archive delivered to him, and one plan
-page shipping while its identical sibling was withheld, because the rule had been written
-as a filename rather than as a shape.
-
-So this tests the shape rather than the filenames, and reads the actual archive manifest,
-because `.gitattributes` is easy to believe and hard to verify by eye.
+`package_delivery.sh` ships the code as `git archive HEAD`, so **every tracked file goes in
+front of the reviewer** unless `.gitattributes` marks it `export-ignore`. This tests the
+SHAPE rather than the filenames, because a rule written as a filename has leaked three times,
+and it reads the real archive manifest, which `.gitattributes` cannot be eyeballed for.
 """
 
 import shutil
@@ -31,14 +26,11 @@ ADDRESSED = (
 
 def _archive_names() -> set[str]:
     """What the next `git archive HEAD` would contain, honouring export-ignore, with two
-    deliberate departures for the same reason.
-
-    `--worktree-attributes` reads the export-ignore rules from the worktree rather than the
-    commit, so a newly written rule does not look broken until it is committed. **And the
+    deliberate departures. `--worktree-attributes` reads the export-ignore rules from the
+    worktree, so a newly written rule does not look broken until it is committed. **And the
     tree archived is the INDEX, not HEAD**, because otherwise removing a file that ships
-    fails this test in the very commit that removes it. `package_delivery.sh` refuses to
-    build against a modified tracked tree, so at packaging time the two are identical
-    anyway, and what is about to be committed is the version worth testing.
+    fails this test in the very commit that removes it; `package_delivery.sh` refuses to
+    build against a modified tracked tree, so at packaging time the two are identical.
     """
     tree = subprocess.run(
         ["git", "write-tree"], cwd=ROOT, check=True, capture_output=True, text=True

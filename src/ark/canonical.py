@@ -45,13 +45,12 @@ extract = tldextract.TLDExtract(
     extra_suffixes=HISTORICAL_SUFFIXES,
 )
 
-# accepted label characters while parsing; underscores occur in real
-# 1996-2001 subdomains and are only rejected in the registered label.
+# accepted label characters while parsing; underscores occur in real 1996-2001 subdomains
+# and are only rejected in the registered label.
 #
-# **The `{0,61}` is RFC 1035's 63-character label limit, and his own calculator enforces it**
-# (`[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?`). Without it the funnel admits names that cannot
-# exist in DNS: joke URLs typed into Usenet posts, 112 characters in one label. A name that
-# long was never a domain, so this belongs in the funnel and not in a shipping filter.
+# **The `{0,61}` is RFC 1035's 63-character label limit, which his own calculator enforces.**
+# Without it the funnel admits names that cannot exist in DNS, such as 112-character joke
+# labels typed into Usenet posts, so it belongs here and not in a shipping filter.
 _LABEL = re.compile(r"^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$")
 # the registered label itself must be strictly valid DNS
 _STRICT_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
@@ -62,11 +61,10 @@ _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
 
 # **A reverse-DNS zone is not a website and never was**, and `206.in-addr.arpa` reaches the
-# funnel from Usenet `From:` headers. It matters more than the row count because `.arpa` scores
-# **1.0000** in the CC-MAIN model, the highest weight in the table, so it is junk concentrated
-# at the top weight, and his validator accepts it as well-formed and would score it too.
-# Rejected HERE rather than at export, because this is the single funnel every domain from
-# every source passes before touching the database.
+# funnel from Usenet `From:` headers. It matters more than the row count because `.arpa`
+# scores **1.0000** in the CC-MAIN model, the highest weight in the table, and his validator
+# accepts it as well-formed. Rejected HERE rather than at export, this being the single
+# funnel every domain from every source passes before touching the database.
 _REVERSE_DNS = (".in-addr.arpa", ".ip6.arpa")
 
 

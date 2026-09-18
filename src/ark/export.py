@@ -25,13 +25,11 @@ NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
 MASTERS_DIR = Path("data/exports")
 
-# A pair is an addition when the baseline holds NO evidence for that (domain, year),
-# which is the same test `stats.py` and `contribution.py` apply. It is deliberately
-# not "the row this assignment happens to point at is not baseline": the baseline
-# rolls forward, so once a release absorbs an earlier addition, that pair still
-# points at the original CDX row while now also carrying baseline evidence. Under
-# the weaker test every past addition would be re-exported as new against the
-# current baseline, which is exactly the double count the brief forbids.
+# A pair is an addition when the baseline holds NO evidence for that (domain, year), the
+# test `stats.py` and `contribution.py` apply. Deliberately not "the row this assignment
+# points at is not baseline": the baseline rolls forward, so an absorbed addition still
+# points at its original CDX row while now also carrying baseline evidence, and the weaker
+# test re-exports every past addition as new.
 _NOT_IN_BASELINE = f"""
     NOT EXISTS (
         SELECT 1 FROM evidence p
@@ -42,22 +40,21 @@ _NOT_IN_BASELINE = f"""
 
 
 # **The shipping filter: no `.arpa`, and no pair whose TLD did not yet exist.**
-# The rule is the whole TLD, not the reverse-DNS pattern: no website lived under `.arpa`
-# in 1996-2001, everything delegated there since is infrastructure, and narrowing to
-# `in-addr`/`ip6` left `ignore.arpa` shipping at weight 1.0000, the model's maximum.
-# Filtered here rather than deleted from the store, which would be a destructive
-# migration; `dropped_domains.txt` ships the excluded baseline lines. `ark.delegation`
-# owns the years, so the rule is in one place for all four destinations it reaches.
+# The rule is the whole TLD, not the reverse-DNS pattern: narrowing to `in-addr`/`ip6` left
+# `ignore.arpa` shipping at weight 1.0000, the model's maximum. Filtered here rather than
+# deleted from the store, which would be a destructive migration; `dropped_domains.txt`
+# ships the excluded baseline lines. `ark.delegation` owns the years, so the rule is in one
+# place for all four destinations it reaches.
 _NOT_REVERSE_DNS = _shipping_filter()
 
 
-# `www.<a name already held that year>` SHIPS. Measured on him rather than argued: his
-# merges hold all 1,313,547 `www.` hostnames of the 2026-09-02 submission and he credited
-# the round, so withholding them cost 233,999.15 EE and bought nothing.
+# `www.<a name already held that year>` SHIPS. Measured on him: his merges hold all
+# 1,313,547 `www.` hostnames of the 2026-09-02 submission and he credited the round, so
+# withholding them cost 233,999.15 EE and bought nothing.
 #
 # Not applied to the export. Kept because `scripts/round/round_figures.py` imports it to
-# report the alias share, which is what tells us which corpus to read next: a bulk CDX
-# index re-read at hostname grain is 99.5% to 100.0% alias, a typed-URL corpus 22.2%.
+# report the alias share, which tells us which corpus to read next: a bulk CDX index
+# re-read at hostname grain is 99.5% to 100.0% alias, a typed-URL corpus 22.2%.
 NOT_WWW_ALIAS = """
     (hy.hostname NOT LIKE 'www.%' OR (
         NOT EXISTS (SELECT 1 FROM baseline_hostname b
@@ -269,16 +266,14 @@ def _copy_query(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
 def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> int:
     """Net-new pairs that will actually reach the annual files.
 
-    **Not the same as the store's raw net-new total, and the difference is the point.**
-    `_shipping_filter` drops a pair whose TLD did not exist in its year, so the store can
-    hold more net-new pairs than any export will ever write. Packaging compares its
-    exported line count against this, because comparing it against the raw total made a
-    current export look permanently stale: 726,344 against 726,336, a difference that is
-    the filter doing its job.
+    **Not the store's raw net-new total, and the difference is the point.**
+    `_shipping_filter` drops a pair whose TLD did not exist in its year, so the store holds
+    more net-new pairs than any export writes. Packaging compares its exported line count
+    against this: against the raw total a current export looks permanently stale, 726,344
+    against 726,336.
 
-    The diff against his own annual files is part of the same argument. It drops 304 pairs
-    our ingested baseline evidence does not know he holds, and a count taken without it
-    called a correct export stale by exactly that many.
+    The diff against his own annual files is part of the same argument: it drops 304 pairs
+    our ingested baseline evidence does not know he holds.
     """
     load_his_annual_files(conn, baseline)
     total = 0
@@ -297,11 +292,10 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None 
 def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> None:
     """Load the reviewer's six annual files into `his_annual(name, year)`.
 
-    **The store's own baseline evidence is not a substitute for this.** That evidence is
-    whatever release was ingested, and his current release can add names after it: on
-    2026-09-10 that gap put 303 names into the 2001 additions that his `merged260908`
-    already held. Diffing against his files at export time makes the overlap zero by
-    construction instead of by hoping two copies of the baseline agree.
+    **The store's own baseline evidence is not a substitute.** That evidence is whatever
+    release was ingested, and his current release can add names after it: one such gap put
+    303 names into the 2001 additions that his `merged260908` already held. Diffing against
+    his files at export time makes the overlap zero by construction.
     """
     baseline = baseline or baseline_dir()
     conn.execute("CREATE OR REPLACE TEMP TABLE his_annual(name VARCHAR, year INTEGER)")
@@ -433,19 +427,17 @@ def export_all(
     stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
 
     # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
-    # rate as annual records, so this is a contribution and is held to the same net-new
-    # standard: every candidate collection we hold, unioned, minus every name he already
-    # has in his candidate pool or in any of his six annual files.
+    # rate as annual records, so this is held to the same net-new standard: every candidate
+    # collection we hold, unioned, minus every name he already has in his candidate pool or
+    # in any of his six annual files.
     #
-    # One file, not one per collection. The names came from different places and the
-    # provenance for each is in `provenance/` and in `isc_survey_provenance.csv`, which is
-    # where provenance belongs: a list of names is a list of names, and splitting the pool
-    # by where it came from made the reviewer reconcile three files to count one track.
+    # One file, not one per collection: provenance belongs in `provenance/` and
+    # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
+    # reconcile three files to count one track.
     #
-    # The whole pool is NOT the claim and the gap is the reason this exists. Measured
-    # 2026-09-10, our registrable pool held 2,279,755 names and 29,327 of them were absent
-    # from his files, so shipping the pool as the contribution would have overstated the
-    # registrable half of this track by 78x.
+    # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and 29,327
+    # of them were absent from his files, so shipping the pool as the contribution would
+    # overstate the registrable half of this track by 78x.
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE candidate_pool AS
         SELECT DISTINCT d.domain AS name, 'registrable' AS unit FROM domain d

@@ -1,12 +1,9 @@
 """The one lock a sync holds, whoever started it.
 
-The failure it prevents is not hypothetical: on 2026-09-09 a terminal recovering two waves
-and the launchd job at :05 were in the store together, one lost `ark export` to a lock
-conflict and the journal ACK was skipped. The wrapper had a lock; the recipe did not; so the
-lock protected the hourly run from itself and from nothing else.
-
-So the tests are about the two ways that goes wrong: a second sync must not get in, and a
-lock left behind by a run that was killed must not hold the lane shut for ever.
+A terminal recovering two waves and the launchd job at :05 were once in the store together,
+one lost `ark export` to a lock conflict and the journal ACK was skipped: the wrapper had a
+lock, the recipe did not. So the tests are the two ways that goes wrong: a second sync must
+not get in, and a lock left by a killed run must not hold the lane shut for ever.
 """
 
 import os

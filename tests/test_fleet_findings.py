@@ -1,10 +1,9 @@
 """The drain, the schema check and the second pricing `just sync` runs over a finding.
 
-The properties worth a test are the ones that fail quietly. A drain that loses the items
-beside a sidecar makes every FIND unpriceable and says nothing; a validator that passes a
-sidecar the fleet would reject lets prose into a row that reads like a measurement; a
-re-price that cannot find the pricer's own answer in its output would report zero, which is
-the one wrong answer that looks like a result.
+The quiet failures. A drain that loses the items beside a sidecar makes every FIND
+unpriceable and says nothing; a validator that passes a sidecar the fleet would reject lets
+prose into a row that reads like a measurement; a re-price that cannot find the pricer's own
+answer would report zero, the one wrong answer that looks like a result.
 """
 
 import importlib.util

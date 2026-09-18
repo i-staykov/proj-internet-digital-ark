@@ -1,14 +1,12 @@
 """Two clients on the same pages is one client.
 
 `platform_sweep_loop.sh` runs twice, once per shard, and that is the whole of the
-two-archive-clients budget. Under an ordinal split, `n % 2 == SHARD`, each shard ranks at
-its own moment and `--net-new` drops what has been swept since, so the two lists differ
-in length and one extra entry flips every parent behind it: both shards once walked the
-same parent to the end, 391,338 rows each, 34 seconds apart, with every other parent
-unvisited.
-
-So the shard is a hash of the name, and these hold the two properties the ordinal split
-lacked: the halves share no parent, and between them they cover the list.
+two-archive-clients budget. Under an ordinal split, `n % 2 == SHARD`, each shard ranks at its
+own moment and `--net-new` drops what has been swept since, so one extra entry flips every
+parent behind it: both shards once walked the same parent to the end, 391,338 rows each, 34
+seconds apart, with every other parent unvisited. So the shard is a hash of the name, and
+these hold the two properties the ordinal split lacked: the halves share no parent, and
+between them they cover the list.
 """
 
 import subprocess
@@ -94,8 +92,8 @@ def _dedupe(queue: list[str], refill: list[str], tmp_path: Path) -> list[str]:
 def test_an_empty_queue_can_still_be_refilled(tmp_path: Path) -> None:
     """`NR==FNR` means "still reading the first file" only while that file has records: with an
     empty queue, NR and FNR stay equal for every line of the second file, so awk takes the
-    whole refill list as the seen set and prints nothing. Both clients once idled nine
-    hours on "found nothing" with 8,624 unswept parents on disk.
+    whole refill list as the seen set and prints nothing. Both clients once idled nine hours
+    on "found nothing" with 8,624 unswept parents on disk.
     """
     assert _dedupe([], ["a.com", "b.com"], tmp_path) == ["a.com", "b.com"]
 

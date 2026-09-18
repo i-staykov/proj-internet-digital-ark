@@ -1,8 +1,7 @@
 """`just brief` reads a snapshot and nothing else.
 
-It is injected at session start, so the two things that matter are that it fits
-in thirty lines and that it can never block: no store, no ssh, no `duckdb`
-import. The snapshot side is tested too, because a field the writer drops is a
+Injected at session start, so it must fit in thirty lines and can never block: no store, no
+ssh, no `duckdb` import. The snapshot writer is tested too, because a field it drops is a
 line the reader loses.
 """
 
@@ -66,10 +65,8 @@ def test_past_the_gate_reads_as_past_not_short():
 
 
 def test_a_snapshot_without_a_window_still_answers_on_the_total():
-    """A brief written before the window figures existed must still render.
-
-    It is read at every session start, so a KeyError here would be a broken start
-    rather than a stale number.
+    """A brief written before the window figures existed must still render: it is read at
+    every session start, so a KeyError here is a broken start rather than a stale number.
     """
     old = fresh_snapshot()
     for key in ("round_since", "round_pairs", "round_ee", "round_percent"):

@@ -1,18 +1,13 @@
-"""The scoreboard: how much has been added on top of the baseline, and how many sources
-back each assertion.
+"""The scoreboard: what has been added on top of the baseline, and how well attested it is.
 
-Everything is computed over the evidence table, one row per (domain, year) per source. A
-pair is net-new when it is assigned and has no `prior_reused` (baseline) evidence; a domain
-is net-new when it is assigned and has no baseline evidence at all. That holds regardless of
-which evidence row happened to make the assignment.
+Computed over the evidence table, one row per (domain, year) per source. A pair is net-new
+when it is assigned and carries no `prior_reused` (baseline) evidence; a domain is net-new
+when it is assigned and carries no baseline evidence in any year.
 
-**Corroboration is reported at two strengths.** Cross-SOURCE counts distinct source rows and
-is the weaker figure: the supplied baseline, Early Web CDX and the Arquivo `IA.cdxj`
-donation all trace back to the Internet Archive, so a pair carrying all three is well
-covered but confirmed by one organisation's crawling. Cross-PROVENANCE counts distinct
-collection LINEAGES, so a DNS survey agreeing with a registry file is genuine independent
-confirmation. That is the figure worth quoting, and it is much smaller.
-
+Corroboration is reported at two strengths. Cross-SOURCE counts distinct source rows and is
+the weaker figure, because several sources share one collector. Cross-PROVENANCE counts
+distinct collection LINEAGES, so a DNS survey agreeing with a registry file is genuine
+independent confirmation: that is the figure worth quoting, and it is much smaller.
 Candidate-only evidence proves nothing and is excluded from both.
 """
 
@@ -27,252 +22,124 @@ from ark.evidence_types import MASTER_TYPES
 
 BASELINE_TYPE = "prior_reused"
 
-# The scoreboard counts what ships, not what the store holds. Without this the brief
-# quoted 866 pairs (479.4256 EE) that `ark export` drops: `.arpa` names and pairs dated
-# before their TLD was delegated, which no round can be credited for.
+# The scoreboard counts what ships, not what the store holds: `ark export` drops `.arpa`
+# names and pairs dated before their TLD was delegated, 866 pairs (479.4256 EE) that no
+# round can be credited for.
 _SHIPPED = shipping_filter("dy.")
 _SHIPPED_CANDIDATE = shipping_filter("d.", with_year=False)
 
-# Growth is the increment divided by the reviewer's PRE-increment total, which is his
-# convention and not the same as dividing by the post-increment one. Which release
-# that is lives in `ark.baseline`, so this figure and the ingest defaults cannot drift
-# apart.
-#
-# A hardcoded ALREADY_CREDITED_EE stood here briefly, subtracting the round he had
-# already merged, because `merged260802` was sitting unread on disk and net-new
-# therefore overstated by exactly that round. Ingesting it makes net-new right by
-# construction. A constant needing a hand edit every time he merges is the worse bug
-# of the two: it fails silently, and it fails in our favour.
+# Growth is the increment over the reviewer's PRE-increment total, his convention. Which
+# release that is lives in `ark.baseline`, so this and the ingest defaults cannot drift.
+# Never subtract an already-credited constant here: ingesting his merged release makes
+# net-new right by construction, and a constant needing a hand edit when he merges fails
+# silently, in our favour.
 
-# Which body of observation each source ultimately derives from. Sources sharing a
-# lineage cannot independently confirm one another, however many rows they carry:
-# the baseline was built from Internet Archive holdings, Early Web IS an IA
-# dataset, and Arquivo's `IA.cdxj` was donated by IA, so agreement among them is
-# coverage rather than confirmation. A source absent from this map is treated as
-# its own lineage, which is the conservative default for anything newly added.
+# Which body of observation each source derives from. Sources sharing a lineage cannot
+# confirm one another however many rows they carry, so filing a source in an existing
+# family costs a corroboration statistic and is the conservative trade. A source absent
+# from this map is treated as its own lineage, which is conservative for anything new.
 PROVENANCE_LINEAGE = {
     "prior_task": "internet_archive",
     "early_web_cdx": "internet_archive",
     "arquivo_ia": "internet_archive",
     "ia_cdx": "internet_archive",
     "ia_cdx_bulk": "internet_archive",
-    # NYPW is a sample of the Internet Archive's own CDX, so a pair it confirms
-    # alongside early_web_cdx or a Wayback query has ONE lineage, not two. Filing
-    # it here rather than as its own family keeps the independent-corroboration
-    # count honest, which is the whole point of that measure.
     "nypw_firstcdx": "internet_archive",
-    # The TimeMap sibling reads the same IA index through the same tool, so it
-    # joins the same family. It corroborates nothing our own Wayback queries say.
     "nypw_timemaps": "internet_archive",
-    # The non-200 lane of the same partitions. Same bytes, same index, so it
-    # cannot corroborate a Wayback query of ours any more than its sibling can.
     "nypw_timemaps_nonok": "internet_archive",
-    # IA's own breadth-first crawl of SEC 10-K seed URLs, indexed by IA, so it
-    # shares the lineage for the same reason NYPW does.
     "dartmouth_bfs_seed": "internet_archive",
-    # The Dartmouth/NBER census is the Internet Archive counting its own captures,
-    # so it shares that lineage for exactly the reason NYPW does. Filing it here
-    # costs us a corroboration statistic we could otherwise have quoted, and that
-    # is the correct trade: a pair this confirms alongside our own Wayback query
-    # is one lineage agreeing with itself, not two independent sources agreeing.
     "dartmouth_nber_captures": "internet_archive",
     "page_expansion": "internet_archive",
     "page_directory": "internet_archive",
     "isc_survey": "dns_survey",
-    # The same survey files read one level down, at hostname grain (2026-09-02):
-    # the PTR walk naming a host is the walk naming its parent, one lineage.
     "isc_survey_hostnames": "dns_survey",
     "afnic_fr": "registry",
-    # Registry creation dates in bulk. Same lineage as our live RDAP sweeps by
-    # construction: both ask a registry when it created a name, so a pair they both
-    # attest is one authority agreeing with itself, not two witnesses.
     "domain_creation_bulk": "registry",
-    # An InterNIC zone file is the registry publishing its own delegations, which is the same
-    # authority a creation date comes from, so it shares that lineage. Filing it here costs a
-    # corroboration statistic and is the correct trade for the same reason NYPW's is: a pair
-    # attested by both the 1997 `.org` zone and an RDAP answer is one authority agreeing with
-    # itself. It is genuinely independent of every web crawl, which is where its value lies.
     "internic_zone": "registry",
-    # The NS targets of the same zone files, at hostname grain (2026-09-02). Same
-    # registry statement read one column to the right, so the same lineage.
     "internic_zone_hostnames": "registry",
     "internic_zone_hostnames_1999": "registry",
-    # The NS targets of RIPE domain objects, at hostname grain (2026-09-02). The same
-    # registry database read one attribute further, so the same lineage as its two
-    # registrable lanes below.
     "ripe_nserver_hostnames": "registry",
-    # The hostname unit's capture lanes all read the Internet Archive's own index, the
-    # live CDX API or its bulk CDX files, so they share that lineage: a hostname this
-    # confirms beside an Early Web row is IA agreeing with itself.
     "ia_cdx_hostnames": "internet_archive",
     "arquivo_ia_hostnames": "arquivo_pt",
     "early_web_cdx_hostnames": "internet_archive",
     "usfedgov_extract_hostnames": "internet_archive",
     "poland_pl_extract_hostnames": "internet_archive",
     "iedr_register": "registry",
-    # ISI's delegated-zone list for `.us`. A registry stating what it had delegated,
-    # so it shares the registry lineage rather than earning its own: a pair this and a
-    # zone file both attest is one authority agreeing with itself.
     "us_domain_delegated": "registry",
-    # A regional registry stating its own database contents. Same lineage as every
-    # other registry assertion, so a pair this and a zone file both attest is one
-    # authority agreeing with itself.
     "ripe_dbase_1999": "registry",
-    # The same file's audit trail. Same authority, so a pair this and the snapshot both
-    # attest is one registry agreeing with itself, not two witnesses.
     "ripe_dbase_changed": "registry",
-    # The same audit trail in the 2004 split edition. Same registry, same authority.
     "ripe_dbase_split_2004": "registry",
-    # A registrar printing from its own database. Same authority family as a registry
-    # listing: both are the operator of record stating what it holds.
     "namewinner_expiring": "registry",
-    # A BROKER printing from its own database, which is deliberately NOT the registry
-    # family that `namewinner_expiring` sits in: a registrar is the operator of record,
-    # a marketplace knows a name only because its owner submitted it for sale. So a
-    # pair a broker listing and a zone file both attest is two witnesses, not one
-    # authority agreeing with itself, and filing it under `registry` would understate
-    # genuine cross-lineage corroboration.
+    # A BROKER, deliberately not the `registry` family `namewinner_expiring` sits in: a
+    # registrar is the operator of record, a marketplace knows a name only because its
+    # owner submitted it for sale, so a broker listing and a zone file are two witnesses.
     "urlmerchant_inventory": "broker_inventory",
     "urlmerchant_inventory_mention": "broker_inventory",
-    # The .ca registry stating when it approved a registration. Registry authority,
-    # same family as every other registry assertion.
     "can_domain_registry_notices": "registry",
-    # A ccTLD registry printing its own register. Registry authority.
     "cctld_register_listing_inbody": "registry",
-    # A maintainer's hand-kept spam blocklist. Not a crawl and not a registry: its own
-    # family, so a pair it and a crawl both attest counts as two witnesses.
-    # A human transcription of registry whois records. Registry lineage, since the
-    # field being read is the registry's, even though a person copied it.
+    # A person transcribed registry whois records: the field read is the registry's.
     "early_bulk_whois_snapshot": "registry",
     "junkfilter_dated_blocklist": "blocklist",
     "junkfilter_mention": "blocklist",
-    # chastity-list is a squidGuard blacklist compiled by hand from the maintainer's
-    # own browsing, not from a crawl, so it is its own lineage rather than the
-    # Internet Archive's. It shares the family with junkfilter for the same reason
-    # both take the corroboration split: a person typed the name.
     "chastity_list_blacklist": "blocklist",
     "chastity_list_hostnames": "blocklist",
     "chastity_list_mention": "blocklist",
-    # Granite Canyon is a free-DNS operator reading out its own BIND configuration,
-    # so the lineage is the nameserver, not a crawl and not the Internet Archive:
-    # the capture only fixes when the file existed, it did not produce the names.
+    # A free-DNS operator reading out its own BIND config. The capture only fixes when
+    # the file existed, it did not produce the names.
     "granitecanyon_zone_rejects": "hosted_dns",
     "granitecanyon_zone_mention": "hosted_dns",
-    # A registry reading out its own register, so the lineage is the registry, not the
-    # capture that happens to fix the instant. Same family as the in-body sibling.
     "cctld_register_listing_capture": "registry",
     "cctld_register_listing_mention": "registry",
-    # Two more registries reading out their own registers, so the same lineage: the
-    # capture or the day heading only fixes when, it did not produce the names.
     "mynic_my_change_report": "registry",
     "coza_deletion_listing": "registry",
-    # A federal filing dataset is its own lineage: the address was typed on a form by
-    # the auditee or the audit firm, not observed by anyone crawling or resolving it.
     "fac_single_audit": "federal_filing",
     "fac_single_audit_mention": "federal_filing",
-    # A crawler compiled this list, so it shares the lineage of everything else that
-    # learned a hostname by fetching it. Not `internet_archive`: this robot did its own
-    # fetching in 2001 and owes the archive nothing.
+    # This robot did its own fetching in 2001 and owes the archive nothing, so `crawl`
+    # rather than `internet_archive`.
     "squidguard_2001_blacklist": "crawl",
     "squidguard_2001_hostnames": "crawl",
     "jpnic_register": "registry",
     "rdap": "registry",
     "rdap_snapshot": "registry",
     "ukwa_link_source": "uk_web_archive",
-    # Same JISC dataset as the link graph and the same lineage, but a different
-    # artifact: IA capture timestamps rather than a crawled link. It is a bulk
-    # projection of IA holdings, so it is NOT independent corroboration of anything
-    # already attested by `internet_archive`, and grouping it under `uk_web_archive`
-    # rather than its own name is what keeps the independent-corroboration count
-    # honest.
     "ukwa_geoindex": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
-    # Usenet is its own lineage: the archive is a Giganews donation of posts,
-    # entirely independent of any web crawl, so a pair it confirms alongside a
-    # Wayback capture is genuine cross-lineage corroboration.
     "usenet_announce": "usenet",
     "usenet_mention": "usenet",
-    # Tucows is a software catalogue, independent of both web crawls and Usenet
     "tucows_catalogue": "software_catalogue",
     "tucows_mention": "software_catalogue",
-    # Scanned trade press. Its own lineage: the observation is a printed page in a
-    # magazine, which is independent of every crawl, of Usenet and of the software
-    # catalogue. Filing it anywhere else would understate genuine cross-lineage
-    # corroboration, and giving it no entry at all would silently make it its own
-    # family anyway, which is the failure this table exists to prevent.
     "trade_press": "trade_press",
     "trade_press_mention": "trade_press",
-    # UUCP maps are a registry dump that happened to travel over Usenet. The
-    # lineage is the registry, not the newsgroup: filing them under `usenet` would
-    # let a Usenet announcement and a registry record for the same pair look like
-    # one body of observation, and filing them as their own family would let them
-    # corroborate AFNIC as if independently collected. They are registry data.
-    # A defacement mirror is its own body of observation: neither a web crawl, nor
-    # Usenet, nor a registry. Its operators saw the host serving because they broke
-    # into it or watched someone else do so, which is independent of every other
-    # source here, so a pair it confirms alongside a capture is genuine
-    # cross-lineage corroboration.
     "attrition_defacement": "defacement_mirror",
+    # A registry dump that happened to travel over Usenet. Under `usenet` a Usenet
+    # announcement and a registry record would look like one observation; as its own
+    # family it would corroborate AFNIC as if independently collected.
     "uucp_map_registry": "registry",
     "uucp_map_creation": "registry",
     "uucp_map_mention": "registry",
-    # A domain-dispute docket is its own body of observation too: the arbitration
-    # provider knows the name was registered because a complaint was filed against
-    # it and the registrar confirmed the registration. That is neither a crawl, nor
-    # Usenet, nor the registry's own published data, so a pair UDRP confirms
-    # alongside an RDAP creation date is genuine cross-lineage corroboration rather
-    # than one organisation agreeing with itself.
-    # DK Hostmaster stating its own register in a dated zone list: the registry's own
-    # publication, so it shares the lineage of the other registry listings.
     "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": "registry",
     "udrp_proceedings": "dispute_docket",
-    # rtfm FAQs travelled over Usenet and are the same body of observation, so
-    # they share its lineage: a FAQ and an announcement post confirming the same
-    # pair is one source of evidence, not two.
     "rtfm_faq": "usenet",
     "rtfm_faq_mention": "usenet",
-    # Addresses recovered from the same Usenet messages. Same body of
-    # observation, so the same lineage: an announcement post and a body address
-    # in that post confirming one pair is one observation, not two.
     "usenet_address": "usenet",
     "usenet_address_mention": "usenet",
-    # Bare hosts in the body of the same posts. Same messages again, so the same
-    # lineage: three readings of one artifact are one observation, not three.
     "usenet_bare": "usenet",
     "usenet_bare_mention": "usenet",
-    # A registry whois record pasted into one of the same posts. The DATE comes
-    # from the registry, not from the post, but the post is still the artifact we
-    # read, so a fourth reading of one message stays one observation.
     "usenet_whois_paste": "usenet",
     "usenet_whois_paste_mention": "usenet",
-    # Corporate email is its own body of observation, independent of every crawl,
-    # of Usenet and of the registries.
     "enron_email": "corporate_email",
     "enron_email_mention": "corporate_email",
-    # The same released mailbox read at hostname grain (2026-09-04): one body of observation.
     "enron_body_url_hostnames": "corporate_email",
-    # A governor's released mailbox is the same body of observation as Enron's: a
-    # correspondent's own mail client named the host, and the export was released
-    # whole. Filing it as its own family would let two mailbox corpora corroborate
-    # each other as if independently collected, which is the failure this table
-    # exists to prevent. It is genuinely independent of every crawl and registry.
     "jeb_bush_gubernatorial_email": "corporate_email",
     "jeb_bush_gubernatorial_email_mention": "corporate_email",
-    # Public pipermail list archives. Its own family, and the claim is only safe
-    # because the collector skips the newsgroup-gatewayed lists: a gatewayed list
-    # carries the same messages the Usenet corpus already holds, so counting it
-    # here would make one body of observation look like two lineages.
+    # Safe as its own family only because the collector skips newsgroup-gatewayed lists,
+    # which carry the messages the Usenet corpus already holds.
     "maillist_archive": "mailing_list",
     "maillist_archive_mention": "mailing_list",
-    # The same month files read at hostname grain (2026-09-04): one body of observation.
     "maillist_body_url_hostnames": "mailing_list",
-    # The Usenet spool is one collection effort, and the two lanes that read it are two
-    # readings of it rather than two witnesses. `usenet_body_url_hostnames` takes the hosts
-    # people TYPED into posts; `usenet_header_fqdn_hostnames` takes the ones news servers
-    # WROTE into the same posts' headers. The facts differ, the corpus does not, so filing
-    # them apart would let one archive corroborate itself. Same trade the gatewayed-list
-    # note above makes, and the same reason `internic_zone_hostnames` sits under `registry`.
+    # Two readings of one spool, not two witnesses: hosts people TYPED into posts, and
+    # the ones news servers WROTE into the same posts' headers.
     "usenet_body_url_hostnames": "usenet",
     "usenet_header_fqdn_hostnames": "usenet",
     "odp": "editorial_directory",
@@ -422,18 +289,12 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
 
 
 def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
-    """The reviewer's metric, which is the one the round is actually scored on.
+    """The reviewer's metric, the one the round is scored on.
 
-    Every figure here is a count somewhere else in this scoreboard re-weighted by
-    the English page-language share of each domain's right-most TLD, so 10,000 `.de`
-    pairs are worth less than 1,500 `.uk` ones and a pair count no longer says what
-    a tranche is worth. Growth is quoted against the reviewer's merged baseline the
-    way he computes it: increment divided by the PRE-increment total.
-
-    The candidate figure is deliberately labelled an upper bound. It assumes every
-    held name is real and earns exactly one year, and a large share of the pool is
-    neither: Usenet posters munged their addresses against harvesters, so it carries
-    names like `mqegamrfaj.mil` and `nospam@...` that no capture will ever confirm.
+    Each figure is a count elsewhere in this scoreboard re-weighted by the English
+    page-language share of the domain's right-most TLD, so a pair count no longer says
+    what a tranche is worth. The candidate figure is an UPPER BOUND: it assumes every
+    held name is real and earns exactly one year, and much of the pool is neither.
     """
     weights = english_weights()
 
@@ -466,12 +327,11 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
         """
     ).fetchall()
 
-    # The reviewer's priority (d): a genuinely unknown domain and a filled year on
-    # a domain he already has are different results, and he asked for both to stay
-    # visible. `has_baseline` is per DOMAIN, not per pair, so the two branches
-    # partition the net-new pairs exactly and neither can be read off the other.
-    # Counting distinct domains over net-new pairs instead once reported 1,161,961
-    # domains against a true 463,566.
+    # The reviewer's priority (d): an unknown domain and a filled year on a domain he
+    # already has are different results and both stay visible. `has_baseline` is per
+    # DOMAIN, not per pair, so the two branches partition the net-new pairs exactly.
+    # Counting distinct domains over net-new pairs reports 1,161,961 against a true
+    # 463,566.
     split = conn.execute(
         f"""
         WITH nn AS (

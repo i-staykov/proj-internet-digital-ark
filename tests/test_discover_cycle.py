@@ -1,12 +1,9 @@
 """The cycle's two pieces of real logic: parsing staleness, and not rebuilding twice.
-Loaded by path, like the other script tests: `scripts/` is not a package.
 
-Everything else shells out to a program with its own tests. These two have already failed
-in ways a report would not reveal: the staleness parse **crashed the entire cycle**, and
-it went unnoticed because a long-running loop had loaded the module before the function
-existed, so only a fresh invocation hit it; and with an hourly loop and a 15-minute wake
-both live, two rebuilds of one target path truncate the file a collector then reads as a
-short list rather than as an error.
+Everything else shells out to a program with its own tests. These two fail in ways a report
+would not reveal: a staleness parse error **crashes the entire cycle**, and with an hourly
+loop and a 15-minute wake both live, two rebuilds of one target path truncate the file a
+collector then reads as a short list rather than as an error.
 """
 
 import importlib.util

@@ -1,17 +1,13 @@
 """The auxiliary seed pool: hostnames and URLs, not registered domains.
 
-Backs `ark seed-pool`, and goes the opposite way to `ark.seed`, which reads candidate
-domains INTO the store: this writes download seeds OUT of evidence already held.
+Backs `ark seed-pool`, the opposite way to `ark.seed`: that reads candidate domains INTO the
+store, this writes download seeds OUT of evidence already held. Brief I asks for historical
+URL seeds and IV.2 permits an auxiliary pool with no year evidence of its own. **These seeds
+do not replace annual hostname records**, which IV.8 requires to carry their own evidence.
 
-A crawler handed `foo.com` may miss pages at `shop.foo.com` or a specific path. Brief I asks
-for historical URL seeds and IV.2 permits an auxiliary seed pool with no year evidence of
-its own. **These seeds do not replace annual hostname records**, which IV.8 requires to
-carry their own year evidence.
-
-The granularity is rebuilt without a second parser: every bulk parser already yields
-`BulkRecord.raw`, the value exactly as the source wrote it before canonicalization. Reusing
-the same parsers is the point, because a seed then cannot disagree with the evidence it came
-from. Only seeds whose raw form differs from the registered domain are kept.
+No second parser: every bulk parser already yields `BulkRecord.raw`, the value exactly as
+the source wrote it, so a seed cannot disagree with the evidence it came from. Only seeds
+whose raw form differs from the registered domain are kept.
 
 Shipped, under `output/seeds/`:
   `download_seeds.txt`     one distinct raw hostname or URL per line, sorted

@@ -1,10 +1,9 @@
 """A numbered OPEN heading must not read as a decided one.
 
-Ivo's rewrite of 2026-08-20 numbers the entries `(O1)` upward at the end of the
-heading, because both this cycle and `test_the_live_triage_entry_agrees_with_itself`
-match on a heading's opening words. Equality against the still-pending set then
-failed, and the cycle told him to close an entry that was still waiting on him.
-Acting on that would have stranded the journal the approval gate protects.
+Entries are numbered `(O1)` upward at the end of the heading, and both this cycle and
+`test_the_live_triage_entry_agrees_with_itself` match on a heading's opening words. Equality
+against the still-pending set then fails, and the cycle tells him to close an entry still
+waiting on him, which would strand the journal the approval gate protects.
 """
 
 import importlib.util
@@ -63,10 +62,9 @@ def test_a_numbered_triage_heading_is_still_recognised(tmp_path) -> None:
 
 
 def test_the_cycle_preserves_the_number_when_it_refreshes_the_count(tmp_path, monkeypatch) -> None:
-    """An automated writer that disagrees with the file's format wins, and quietly.
-
-    The first version of Ivo's numbered layout was reverted within the hour because
-    this writer still emitted the old heading and dropped the `(O6)` marker with it.
+    """An automated writer that disagrees with the file's format wins, and quietly. The first
+    version of Ivo's numbered layout was reverted within the hour because this writer still
+    emitted the old heading and dropped the `(O6)` marker with it.
     """
     doc = _titles(tmp_path)
     monkeypatch.setattr(dc, "DECISIONS_DOC", doc)

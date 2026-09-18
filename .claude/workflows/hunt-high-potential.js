@@ -22,7 +22,7 @@ finds is not.
 WHAT PAID TODAY, so you know the shape and the size to beat. The IE Domain Registry regenerated its
 whole \`.ie\` register as static A-Z web pages, each carrying its own line \`updated automatically at
 14:51 GMT on Friday, 21 December 2001\`. That is the same instrument as a DNS zone file: the registry
-asserting what was registered at a stated instant. **19,341 net-new pairs and 18,846 equivalent-English
+asserting what was registered at a stated instant. **Banked at 19,263 net-new pairs worth 18,769.9 EE
 from 38 HTTP requests and 1.1 MB.** Nine further namespaces were then tried and gave 144 to 4,462 EE
 each, which is the size NOT to bring back.
 

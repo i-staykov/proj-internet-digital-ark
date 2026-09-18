@@ -1,11 +1,8 @@
 """The approvals gate: what may date a year, and who decided.
 
-`tests/conftest.py` stubs the gate for every other test, because unit tests build specs
-with invented source names and would otherwise all be refused, so **this file is the only
-place the gate is exercised** and each case calls `check` with its own fixture file. The
-property under test is not "the agent recorded a decision" but "an undecided
-master-eligible source cannot be ingested": the agent's reasoning is what is distrusted,
-so the enforcement lives in code.
+`tests/conftest.py` stubs the gate everywhere else, so this is the only place it is
+exercised. The property is not "the agent recorded a decision" but "an undecided
+master-eligible source cannot be ingested".
 """
 
 from pathlib import Path
@@ -105,10 +102,9 @@ def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None
 
 def test_a_triage_entry_is_pending_but_marked_as_triage(tmp_path) -> None:
     """The gate treats it like any other pending class; only the reporting differs. A source
-    found and not yet priced carries no sample and no figure, so it cannot be decided in
-    two minutes. The distinction must be machine-readable, because the alternative is one
-    entry per source on the surface Ivo reads, which stops being read once it stops
-    fitting on a screen.
+    found and not yet priced carries no sample and no figure, so it cannot be decided in two
+    minutes, and the distinction must be machine-readable: the alternative is one entry per
+    source on the surface Ivo reads, which stops being read once it stops fitting a screen.
     """
     from ark.approvals import load
 

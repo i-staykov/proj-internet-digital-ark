@@ -1,18 +1,15 @@
 """No query queue may ask about a name that could never have been registered.
 
-Ivo, 2026-08-24, answering O9: *"If truly impossible, purge them."*
-
-**Purging turned out to mean excluding, not deleting, and the reason is worth keeping.**
+Ivo, answering O9: *"If truly impossible, purge them."* Purging means excluding, not deleting.
 A `DELETE` from `domain` fails on a foreign key: 585,555 such names are referenced by
-`evidence` rows recording that somebody once wrote the name in a Usenet post. Deleting
-those rows would destroy the record of what was seen, which is provenance rather than
-waste. What Ivo asked for is that no query be spent on them, and a query is only ever
-spent on a name that reaches a queue.
+`evidence` rows recording that somebody once wrote the name in a Usenet post, and destroying
+those would destroy the record of what was seen. A query is only ever spent on a name that
+reaches a queue.
 
-`.mil`, `.gov` and `.edu` never allowed arbitrary registration, so an UNDATED name under
-one of them cannot be real. A name we already date there is a different thing entirely and
-must stay queryable: a `.gov` domain held at 1998 and 2000 may genuinely have a 1999
-capture, and `ark gaps` emits exactly that population.
+`.mil`, `.gov` and `.edu` never allowed arbitrary registration, so an UNDATED name under one
+of them cannot be real. A name we already date there must stay queryable: a `.gov` domain
+held at 1998 and 2000 may genuinely have a 1999 capture, and `ark gaps` emits that
+population.
 """
 
 from pathlib import Path
@@ -56,10 +53,8 @@ def test_no_rdap_queue_asks_about_an_impossible_namespace():
 
 def test_a_dated_name_in_those_namespaces_is_still_a_legitimate_target():
     """The exclusion is about UNDATED names, and conflating the two would cost real pairs.
-
-    `ark gaps` emits held domains whose missing year sits between two held years. Some of
-    those are `.gov` and `.edu`, and they are exactly the population an archive query can
-    answer, so their presence in a CDX queue is correct rather than a defect.
+    `ark gaps` emits held domains whose missing year sits between two held years, some of
+    them `.gov` and `.edu`, and they are exactly the population an archive query answers.
     """
     gap_queues = [p for p in ROOT.glob("data/raw/cdx/*.txt") if p.stat().st_size]
     if not gap_queues:

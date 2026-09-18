@@ -1,14 +1,10 @@
 """The one download path, tested against a local server that counts what it is asked.
 
-The properties worth a test are the expensive ones. A by-name robots refusal must cost the
-artifact host zero requests, because the breach that put this program here was a read that
-happened anyway. A cap must hold when the server lies about `Content-Length` as well as
-when it tells the truth, because a chunked response has no length to check. And a
-destination outside the two allowed roots must be refused before a socket opens, because
-probe bytes on the wrong filesystem is how a shared box fills up.
-
-Nothing here reaches the network: `http.server` on a loopback port, and the request log is
-the assertion.
+The expensive properties. A by-name robots refusal must cost the artifact host zero requests,
+because the breach that put this program here was a read that happened anyway. A cap must
+hold when the server lies about `Content-Length` as well as when it tells the truth. And a
+destination outside the two allowed roots must be refused before a socket opens. Nothing here
+reaches the network: `http.server` on a loopback port, and the request log is the assertion.
 """
 
 import gzip
@@ -638,10 +634,8 @@ def test_a_throttled_round_waits_and_carries_on(tmp_path):
 
 
 def test_a_part_file_from_an_earlier_run_is_continued(serve, probe, monkeypatch):
-    """The runner kills the job at 90 minutes and a 20 GB artifact may need longer.
-
-    Without this each dispatch starts at zero and the fetch can never finish, however
-    many times it is asked.
+    """The runner kills the job at 90 minutes and a 20 GB artifact may need longer. Without
+    this each dispatch starts at zero and the fetch can never finish.
     """
     whole = b"the first part only\n" + b"x" * 80
     server = serve(

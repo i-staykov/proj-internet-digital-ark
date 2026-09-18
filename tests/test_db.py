@@ -106,10 +106,9 @@ def test_ensure_source_refuses_kind_change() -> None:
 
 
 def test_add_candidates_batches_and_stays_idempotent() -> None:
-    """One statement for many names, and re-offering them changes nothing.
-
-    Batched because a row-at-a-time loop over 29,432 names held the store's only
-    write lock for more than twenty minutes, which blocks every reader too.
+    """One statement for many names, and re-offering them changes nothing. Batched because a
+    row-at-a-time loop over 29,432 names held the store's only write lock for more than
+    twenty minutes, which blocks every reader too.
     """
     conn, sid = _db_with_source()
     written = add_candidates(conn, ["a.com", "b.co.uk", "c.org"], sid)
@@ -160,12 +159,9 @@ def test_add_candidates_leaves_an_existing_row_untouched() -> None:
 
 
 def test_read_only_patient_connect_waits_out_a_writer(tmp_path, monkeypatch):
-    """A reporting command must queue behind the ingest loop, not crash into it.
-
-    DuckDB's single writer excludes readers too, so anything that opens the store
-    read-only meets the lock every few minutes while journals are being banked. The
-    round report generator was the one command that crashed on it, and it is only ever
-    run at the end of a round, when the collectors are busiest.
+    """A reporting command must queue behind the ingest loop, not crash into it. DuckDB's
+    single writer excludes readers too, so anything that opens the store read-only meets
+    the lock every few minutes while journals are being banked.
     """
     import duckdb
 
@@ -207,11 +203,10 @@ def test_read_only_patient_connect_reraises_anything_that_is_not_the_lock(tmp_pa
 
 def test_a_connection_is_capped_and_can_spill() -> None:
     """**DuckDB takes 80% of the machine unless told otherwise**, and this store is 52 GB.
-
-    Measured 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB
-    resident while `just sync`, `just state` and `just cycle` each start one, and the
-    machine swapped. The cap is what keeps a reporting query from evicting everything
-    else, and the spill directory is what keeps the cap from turning into an error.
+    Measured 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB resident
+    while `just sync`, `just state` and `just cycle` each start one, and the machine
+    swapped. The cap keeps a reporting query from evicting everything else; the spill
+    directory keeps the cap from turning into an error.
     """
     conn = connect(":memory:")
     settings = {

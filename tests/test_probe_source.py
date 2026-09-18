@@ -1,14 +1,9 @@
 """The declarative probe: what it extracts, and what it refuses to guess.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-**Why the refusals carry the weight here.** A probe's whole output is one number, the
-yield, and a probe that silently drops rows reports a bad extraction as a bad source.
-That failure is invisible downstream, so these tests pin that every drop is counted
-under a reason, and that a spec which does not say which column holds the hostname
-fails loudly instead of guessing (ADR-004).
-
-Nothing here reaches the network: `pairs_from` and `year_of` take the page as text.
+A probe's whole output is one number, the yield, so a probe that silently drops rows reports
+a bad extraction as a bad source, invisibly downstream. These pin that every drop is counted
+under a reason, and that a spec which does not say which column holds the hostname fails
+loudly instead of guessing (ADR-004). Nothing here reaches the network.
 """
 
 import importlib.util

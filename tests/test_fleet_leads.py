@@ -1,8 +1,8 @@
 """Writing a lead's fate back into the fleet's queue, and refusing to write the rest.
 
-The failure this guards is quiet in both directions: a settled lead left `verified` is
-re-dealt for ever, and an unsettled one marked `banked` disappears from the queue while
-still waiting on a human. So the interesting cases are the ones in between.
+Quiet in both directions: a settled lead left `verified` is re-dealt for ever, and an
+unsettled one marked `banked` disappears from the queue while still waiting on a human. The
+interesting cases are the ones in between.
 """
 
 import importlib.util

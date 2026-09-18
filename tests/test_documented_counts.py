@@ -1,19 +1,12 @@
 """A count written in prose must match the code it counts.
 
-`ark check` grew from nine invariants to ten on 2026-08-17, and nine days of documentation
-went on saying nine: `README.md` in four places, `docs/lore/documentation.md` in two and the
-`justfile` in three, including the banner `just ship` prints while running them. Both
-`README.md` and `docs/lore/documentation.md` ship to the reviewer, and the report cites the
-invariants as the reason the result is trustworthy, so the wrong number is visible exactly
-where it costs most.
+A hand-written count is a fact about the code stored somewhere the code cannot reach, the
+same shape as a hardcoded path. `README.md` and `docs/lore/documentation.md` both ship and
+the report cites the invariants as the reason the result is trustworthy, so a wrong number is
+visible where it costs most. This does not generate the prose, it refuses to let it drift.
 
-A hand-written count is a fact about the code stored somewhere the code cannot reach, which
-is the same shape as a hardcoded path or a retyped figure. This is the cheapest available
-enforcement: it does not generate the prose, it just refuses to let it drift.
-
-Dated log entries are exempt. `docs/registers/releases.md` and the `CLOSED` section of
-`docs/lore/key-decisions.md` record what was true on a date, and rewriting them would falsify
-history rather than correct it.
+Dated log entries are exempt: `docs/registers/releases.md` and the `CLOSED` section of
+`docs/lore/key-decisions.md` record what was true on a date.
 """
 
 import re
@@ -93,13 +86,9 @@ def test_the_shipped_report_carries_no_unwritten_section() -> None:
     """An empty section 5 reaching the reviewer is what the token mechanism is for.
 
     `docs/report.template.md` marks each section whose prose a human must write as
-    `<!-- ROUND [ROUND]: ... -->`. On 2026-08-18 `docs/report.md` held four of them,
-    `fill_report.py --check` reported "would fill cleanly", and `just ship` would have
-    packaged a report whose sections 2, 4, 5 and 6 were empty. The template itself calls
-    5 and 6 the sections he reads most closely.
-
-    The generated report is checked rather than the template, because the template is
-    SUPPOSED to carry the markers between rounds: they are the instruction for writing it.
+    `<!-- ROUND [ROUND]: ... -->`, and the template calls 5 and 6 the sections he reads most
+    closely. The generated report is checked rather than the template, because the template
+    is SUPPOSED to carry the markers between rounds: they are the instruction for writing it.
     """
     report = ROOT / "docs" / "report.md"
     if not report.is_file():

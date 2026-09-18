@@ -20,12 +20,11 @@ from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
 
 
-# **DuckDB takes 80% of the machine by default, and this store is 52 GB.** Measured: one
+# **DuckDB takes 80% of the machine by default, and this store is 52 GB**: one
 # `build_round_state.py` at 28 GB resident on a 36 GB laptop, swapping, while `just sync`,
 # `just state` and `just cycle` each spawn one. These are aggregations over a few wide
 # tables and DuckDB spills to `temp_directory`, so a cap costs disk and no correctness.
-# Overridable, because the VPS and CI are much smaller: ARK_DB_MEMORY_LIMIT takes any
-# DuckDB size string.
+# ARK_DB_MEMORY_LIMIT overrides it, the VPS and CI being much smaller.
 def _default_memory_limit() -> str:
     """40% of physical memory, floored at 2 GB.
 
@@ -176,10 +175,9 @@ def connect_patiently(
 ) -> duckdb.DuckDBPyConnection:
     """Wait out a writer instead of crashing against one, for a reporting command.
 
-    For commands that need the write lock themselves because they record a metrics row,
-    `ark check` and `ark stats`. A traceback from a scheduled run reads as a broken
-    invariant rather than a busy database, and per ADR-001 banking a collector's journal
-    outranks measuring, so the reporting side yields.
+    For `ark check` and `ark stats`, which need the write lock themselves to record a
+    metrics row. ADR-001 puts banking a collector's journal above measuring, so the
+    reporting side yields rather than emitting a traceback a scheduled run reads as broken.
     """
     deadline = time.monotonic() + patience_s
     while True:
@@ -274,16 +272,15 @@ def add_candidates(
     """Register many already-canonical domains in ONE set-based statement.
 
     **Never a Python loop and never `executemany`**, which is N prepared-statement
-    executions against a columnar store: measured on a 4,000,000-row table inserting
-    13,078, `executemany` takes 13.47 s (971 rows/s) and the set-based anti-join from an
-    Arrow table takes 0.05 s (259,242 rows/s), 267x. This is what held the store's only
-    write lock for 26 minutes on a 6,079-name seed.
+    executions against a columnar store: on a 4,000,000-row table inserting 13,078,
+    `executemany` takes 13.47 s (971 rows/s) against the set-based anti-join from an Arrow
+    table at 0.05 s (259,242 rows/s), 267x. That is what held the only write lock for 26
+    minutes on a 6,079-name seed.
 
-    **Deduplicate the batch first**: the anti-join tests each row against the TABLE, so
-    two identical names inside one batch both pass it and collide on the primary key.
+    **Deduplicate the batch first**: the anti-join tests each row against the TABLE, so two
+    identical names inside one batch both pass and collide on the primary key.
 
-    Takes canonical names, not raw ones; the caller has already parsed them. An
-    interrupted call keeps nothing, and a re-run is additive.
+    Takes canonical names; the caller has parsed them. An interrupted call keeps nothing.
     """
     if not domains:
         return 0

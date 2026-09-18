@@ -27,13 +27,11 @@ DELEGATED: dict[str, int] = {
     "post": 2012,
     "tel": 2007,
     "travel": 2005,
-    # **Two-letter ccTLDs delegated AFTER the window**, the exceptions `existed_predicate`
-    # cannot see because it waves through any two-character label. Measured: 79 pairs under
-    # three of them, every one a Usenet extraction artifact (`eat.me`, `dontemail.me`,
-    # joke and anti-harvester addresses typed into From: headers). None carries registry
-    # evidence, which is what separates them from the 138 suffix-shaped names that do
-    # (`name.ca` in the Canadian registry's approval notice, `plc.nu` in the .nu expiry
-    # list), and those are real registrations that stay.
+    # **Two-letter ccTLDs delegated AFTER the window**, which `existed_predicate` cannot
+    # see because it waves through any two-character label: 79 pairs under three of them,
+    # every one a Usenet extraction artifact (`eat.me`, `dontemail.me`, anti-harvester
+    # addresses typed into From: headers). None carries registry evidence, which is what
+    # separates them from the 138 suffix-shaped names that do and stay.
     "ax": 2006,
     "bl": 2007,
     "bq": 2010,
@@ -58,12 +56,11 @@ def existed_predicate(column: str = "domain", year_column: str = "assigned_year"
     """True only for pairs whose TLD could have existed in that year.
 
     **An allowlist, not a longer DELEGATED table.** The 2013 gTLD programme delegated some
-    1,200 names, and text extraction banks any English word that later became one: measured
-    749 such pairs and 423.9 EE across 131 TLDs (`.you`, `.now`, `.sucks`, `.world`), several
-    at weight 1.0000, the model's maximum. Enumerating what DID exist cannot go stale,
-    because that set is closed and in the past.
+    1,200 names and text extraction banks any English word that later became one: 749 such
+    pairs and 423.9 EE across 131 TLDs (`.you`, `.now`, `.sucks`), several at weight 1.0000.
+    Enumerating what DID exist cannot go stale, that set being closed and in the past.
 
-    Both predicates are applied. This one cannot express `sql_predicate`'s real delegation
+    Both predicates are applied: this one cannot express `sql_predicate`'s real delegation
     years for TLDs that arrived during or just after the window.
     """
     allowed = ", ".join(f"'{g}'" for g in sorted(WINDOW_GTLDS))

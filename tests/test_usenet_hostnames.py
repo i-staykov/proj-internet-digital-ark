@@ -1,11 +1,11 @@
 """Hosts typed as body URLs in dated Usenet posts, at hostname grain.
 
-Approved master 2026-09-04 after thirteen pools were read whole. The two things that can
-go wrong here are both extraction failures that already happened once on this corpus: a
-host taken from a header rather than the body (14.02% of one pool's hosts, `Organization:`
-alone 12.65%), and a post boundary the reader does not recognise, which appends one post's
-headers to the previous post's body. Both are upstream of these journals, so what this
-tests is the funnel: the item pointer, the window, the registrable rule and idempotence.
+Approved master 2026-09-04 after thirteen pools were read whole. Two extraction failures have
+already happened on this corpus: a host taken from a header rather than the body (14.02% of
+one pool's hosts, `Organization:` alone 12.65%), and an unrecognised post boundary, which
+appends one post's headers to the previous post's body. Both are upstream of these journals,
+so what this tests is the funnel: the item pointer, the window, the registrable rule and
+idempotence.
 """
 
 import gzip
@@ -120,13 +120,12 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
 
 
 def test_the_host_regex_is_his_structural_rule() -> None:
-    """His words: "dot-separated labels, use letters, digits, and interior hyphens only, and
-    end in an alphabetic TLD label."
+    """His words: "dot-separated labels, use letters, digits, and interior hyphens only, and end
+    in an alphabetic TLD label."
 
-    The last clause was missing until 2026-09-04 and cost nothing measurable, because
-    `to_registrable` consults the public suffix list and a sweep of all 929,964 shipped lines
-    found zero violations. It is asserted here because "no violations today" and "cannot
-    violate" are different properties, and a new source only meets the second one.
+    The last clause was missing until 2026-09-04 and cost nothing measurable: a sweep of all
+    929,964 shipped lines found zero violations. It is asserted here because "no violations
+    today" and "cannot violate" are different properties.
     """
     from ark.hostnames import _VALID_HOST
 

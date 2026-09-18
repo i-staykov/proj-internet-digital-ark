@@ -1,9 +1,9 @@
 """Relay hosts from the `Received: ... by <host>` clause of dated Apache list messages.
 
 Approved 2026-09-09 (C-83) for the `by` clause alone. The funnel is the body-URL family's;
-what is new is the field read, the item pointer `<list domain>/<list>__<YYYY-MM>#<n>`, and
-the API URL it resolves to. The builder is tested against the four `Received:` shapes that
-actually occur in `httpd/dev` 1999-01, because three of them defeat a naive `by (\\S+)`.
+new are the field read and the item pointer `<list domain>/<list>__<YYYY-MM>#<n>`. Tested
+against the four `Received:` shapes in `httpd/dev` 1999-01, three of which defeat a naive
+`by (\\S+)`.
 """
 
 import gzip

@@ -25,13 +25,11 @@ SAMPLE_LIMIT = 50
 CHUNK_SIZE = 200_000
 # **Rows per INSERT into `evidence`, and it is a memory number, not a speed one.**
 # `evidence` carries a PRIMARY KEY and a FOREIGN KEY on `domain`, so every inserted row
-# costs an ART lookup, and DuckDB holds the whole statement's index work until it
-# commits. On 2026-09-17 loading `merged260911-4` that cost 13 GiB on 1997's 2.67M rows
-# and died there ("Failed to commit: failed to allocate data of size 32.0 KiB"), with
-# 2001's 43M rows still to come, against an `evidence` table already holding 444M rows.
-# The abort then left the index in a state DuckDB refused to open for writing at all
-# ("Corrupted ART index"), so the store had to be restored from the pre-load backup.
-# Batched, the peak is bounded by this number rather than by the size of a year file.
+# costs an ART lookup and DuckDB holds the whole statement's index work until it commits:
+# unbatched, one year file cost 13 GiB on 2.67M rows and died against an `evidence` table
+# holding 444M ("Failed to commit: failed to allocate data of size 32.0 KiB"). The abort
+# left the index unopenable for writing ("Corrupted ART index") and the store had to be
+# restored from backup. Batched, the peak is bounded by this number, not by the file.
 BATCH_ROWS = 2_000_000
 
 
@@ -60,11 +58,10 @@ def ingest_year_file(
 ) -> dict[str, int | str | bool]:
     """Canonicalize one legacy year file into domain/evidence/domain_year rows.
 
-    `marker_prefix` namespaces the evidence marker, which is what makes a SECOND
-    baseline ingestable. The marker is otherwise the file name alone, so a later
-    release's `1996.txt` looks like the one already ingested and is skipped as
-    already done: quietly, behind six reassuring "already ingested" lines. Pass
-    the release name to keep the two distinct.
+    `marker_prefix` namespaces the evidence marker, which is what makes a SECOND baseline
+    ingestable: the marker is otherwise the file name alone, so a later release's `1996.txt`
+    looks like the one already ingested and is skipped quietly behind six reassuring
+    "already ingested" lines.
     """
     marker = f"{marker_prefix}/{path.name}" if marker_prefix else path.name
     stats: dict[str, int | str | bool] = {

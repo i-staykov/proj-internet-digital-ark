@@ -49,7 +49,7 @@ Prose corpora ceiling at about 0.042 net-new pairs per item, so about 119,000 it
 and that ceiling is a property of SUBJECT MATTER: a million biology abstracts name no web sites at all.
 
 ONE OPERATOR, ONE DATABASE. Ask who HELD the register before asking what the archive holds. \`.ie\`
-paid 18,038 EE because a single university computing service regenerated one register onto a static
+paid 18,769.9 EE because a single computing service regenerated one register onto a static
 tree; \`.za\` paid almost nothing because eleven second levels were separately administered, most
 accepting applications by e-mail to a named individual, so there was no single machine to regenerate.
 

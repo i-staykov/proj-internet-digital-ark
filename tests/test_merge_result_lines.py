@@ -1,9 +1,8 @@
 """Replaying result lines onto a fleet file that moved under us.
 
-Three times on 2026-09-08 a stale branch dropped work silently, and the worst of them made the
-fleet queue over-report: `origin/main` said 24 open hypotheses when 6 were left, because a bank's
-push was rejected and the failure was swallowed. The merge is mechanical because both sides only
-ever add, so it is worth pinning rather than trusting.
+A stale branch drops work silently and can make the fleet queue over-report: `origin/main`
+once said 24 open hypotheses when 6 were left, because a bank's push was rejected and the
+failure was swallowed. The merge is mechanical because both sides only ever add.
 """
 
 import sys

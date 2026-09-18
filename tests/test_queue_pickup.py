@@ -1,15 +1,10 @@
 """A rebuilt queue that no collector reads is not a rebuild.
 
-`supervise_cdx_pool.sh` resolves `ARK_TARGETS` once, at startup, and passes that fixed path
-to every `ark cdx` batch. So `discover_cycle`'s claim that "the running collector picks it up
-at its next dispatch" held only when the collector happened to have been started on the file
-the cycle rebuilds.
-
-On 2026-08-18 it had not been. The engine worked `queue_pool_20260818c.txt` for two hours at
-9.5% on a `.ca` head, worth 0.0794 equivalent-English per query, while `queue_pool_local.txt`
-sat correctly re-ranked to a `.au` and `.com` head and unread. **Every health check read clean**:
-the process was present, the journal was growing, and the yield check did fire, but its advice
-was "rebuild and re-rank", which had already been done. Only the queue identity was wrong, and
+`supervise_cdx_pool.sh` resolves `ARK_TARGETS` once, at startup, so `discover_cycle`'s claim
+that "the running collector picks it up at its next dispatch" holds only when the collector
+was started on the file the cycle rebuilds. When it was not, the engine worked a `.ca` head
+at 0.0794 equivalent-English per query for two hours while the correctly re-ranked queue sat
+unread. **Every health check read clean**, because only the queue identity was wrong and
 nothing was looking at that.
 """
 

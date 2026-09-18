@@ -1,10 +1,9 @@
 """The pasted-whois route: binding a creation line to the right name, and the split.
 
-The test that matters is `test_escaped_copy_cannot_steal_the_previous_name`. It
-is the regression for a measured defect: a message that quotes the same whois
-block three times, plain, `>`-quoted and HTML-escaped, made an earlier pass bind
-`openssl.org`'s creation date to `engelschall.com`, because the date pattern
-matched inside the escaped copy and the name pattern did not.
+`test_escaped_copy_cannot_steal_the_previous_name` is the regression for a measured defect: a
+message quoting the same whois block three times, plain, `>`-quoted and HTML-escaped, bound
+`openssl.org`'s creation date to `engelschall.com`, because the date pattern matched inside
+the escaped copy and the name pattern did not.
 """
 
 import gzip

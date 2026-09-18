@@ -85,10 +85,9 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
 
 
 def test_no_export_destination_can_be_missed_by_a_test() -> None:
-    """Every Path parameter of `export_all` must be redirectable, and redirected. Checking the
-    files this suite happens to know about is not enough: a new destination defaulting to
-    the real delivery tree lets the tests overwrite a shipping artifact. This compares the
-    signature against what the test above overrides, so the next one fails here.
+    """Every Path parameter of `export_all` must be redirectable, and redirected: a new
+    destination defaulting to the real delivery tree lets the tests overwrite a shipping
+    artifact. This compares the signature against what the test above overrides.
     """
     import inspect
 
@@ -105,11 +104,11 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
 
 
 def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
-    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS. His merges hold
-    all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of them, and section
-    XI says a base hostname and a distinct subdomain hostname may each be annual records.
-    This keeps the reversal from being undone and proves the two filters that DO still bite
-    were never part of it.
+    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS. His merges
+    hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of them, and
+    section XI says a base hostname and a distinct subdomain hostname may each be annual
+    records. This keeps the reversal from being undone and proves the two filters that DO
+    still bite were never part of it.
     """
     conn = connect(":memory:")
     init_db(conn)
@@ -171,10 +170,9 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
 
 
 def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> None:
-    """Packaging compares these two, so a mismatch refuses a current export for ever. Each time
-    the export learned a new filter and the guard did not, a fresh export read as stale:
-    726,344 against 726,336 for the TLD-not-yet-delegated filter, then 91,168 written
-    against 91,472 counted when the export began diffing against HIS annual files.
+    """Packaging compares these two, so a mismatch refuses a current export for ever. Each
+    time the export learned a new filter and the guard did not, a fresh export read as
+    stale: 726,344 against 726,336, then 91,168 written against 91,472 counted.
     """
     from ark.export import netnew_shipped_pairs
 
@@ -251,7 +249,7 @@ def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path)
     """Diffed against HIS files at export time, not against our ingested copy of them: our
     baseline evidence is whatever release was ingested, and his current release can add
     names after it. That gap once put 303 names already in `merged260908` into the 2001
-    additions, which the merge audit reported as an overlap.
+    additions.
     """
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path)

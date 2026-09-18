@@ -317,11 +317,9 @@ def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
 
 
 def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
-    """The file is 15 internally sorted shards, so an out-of-window year is not the end.
-
-    A `break` at the first row past 2001 read 166,890 of the 2,468,674 in-window rows,
-    6.76%. The fixture is that shape in miniature: a shard that runs past the window,
-    then another that starts before it.
+    """The file is 15 internally sorted shards, so an out-of-window year is not the end. A
+    `break` at the first row past 2001 read 166,890 of the 2,468,674 in-window rows, 6.76%.
+    The fixture is that shape in miniature.
     """
     rows = [
         # shard one, sorted, running out of the window
@@ -1123,10 +1121,10 @@ def test_ripe_reads_domain_objects_and_dates_them_1999(tmp_path: Path) -> None:
 
 
 def test_ripe_emits_no_personal_data(tmp_path: Path) -> None:
-    """The promise made to RIPE NCC, enforced rather than documented: every emitted value is
-    a bare hostname, with no `@`, no telephone `+`, no comma or space and nothing from a
-    `*de`, `*ac`, `*tc` or `*ch` line. The fixture holds a postal address, a phone number
-    and three e-mail addresses.
+    """The promise made to RIPE NCC, enforced rather than documented: every emitted value is a
+    bare hostname, with no `@`, no telephone `+`, no comma or space and nothing from a `*de`,
+    `*ac`, `*tc` or `*ch` line. The fixture holds a postal address, a phone number and three
+    e-mail addresses.
     """
     records, _ = _ripe_records(tmp_path)
     emitted = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)

@@ -1,9 +1,8 @@
-"""The proposal screener: does it actually stop a reproposed dead lead? Loaded by path,
-like the other script tests: `scripts/` is not a package.
+"""The proposal screener: does it actually stop a reproposed dead lead?
 
-The register is parsed from `docs/registers/sources.md` rather than copied, so two of
-these run against the real document: a parser that silently stopped matching would report
-"no collision" for everything, and that reads as permission.
+The register is parsed from `docs/registers/sources.md` rather than copied, so two of these
+run against the real document: a parser that silently stopped matching would report "no
+collision" for everything, and that reads as permission.
 """
 
 import importlib.util
