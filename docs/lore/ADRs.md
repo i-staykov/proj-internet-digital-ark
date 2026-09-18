@@ -173,6 +173,14 @@ still a candidate. `export.py` filters the six year files, the six hostname file
 manifests; `domain_year` and `hostname_year` keep every row. `prior_task` is excluded by design:
 that is his own merged baseline, remediated by him under XIII's legacy section.
 
+Of the 50 methods outside the allowlist, 17 are candidate-only by TYPE already, so the screen only
+bites on 38. Thirty-five of those are registry, zone, WHOIS, RDAP, ISC DNS, mail and Usenet, which
+XIII names by hand. Three were judged (Ivo, 2026-09-18): `attrition_defacement_mirror_index` is IN,
+a custodian's dated per-host mirror of what the host served; `nypw_first_capture_index` is IN for
+consistency with its own hostgrain sibling, though it can only offer a domain its first year, which
+the baseline already holds; `ncsa_whats_new_pages` stays OUT, a third-party textual mention however
+well dated.
+
 Cost, measured over round 10: 32,228 of 346,389 registrable rows pass (9.3%) and 2,674,952 of
 3,554,784 hostname rows pass (75.2%). Everything filtered re-tracks to the candidate pool, which he
 scores separately at the same rate, so the cost is the claim and not the work.

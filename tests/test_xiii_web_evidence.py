@@ -66,3 +66,21 @@ def test_the_predicate_names_the_alias_it_was_given() -> None:
     # sorted, so the generated SQL does not churn between runs
     methods = sql.split("IN (", 1)[1].split(")", 1)[0].split(", ")
     assert methods == sorted(methods)
+
+
+def test_the_three_judged_methods_stay_where_ivo_put_them() -> None:
+    """Ruled 2026-09-18, after reading the 38 exclusions that can back a year.
+
+    The other 35 are registry, zone, WHOIS, RDAP, ISC DNS, mail and Usenet, which XIII
+    names by hand as candidate-only. These three needed a judgement.
+    """
+    # a custodian's dated per-host mirror of the page the host served
+    assert "attrition_defacement_mirror_index" in WEB_METHODS
+    # an exact-host IA CDX first capture, admitted so it matches its own hostgrain sibling
+    assert "nypw_first_capture_index" in WEB_METHODS
+    assert "nypw_firstcdx_hostgrain" in WEB_METHODS
+    # a third-party textual mention, which XIII names as candidate-only however dated it is
+    assert "ncsa_whats_new_pages" not in WEB_METHODS
+    # registry data does not become a web capture by being captured from the web
+    assert "registry_zone_list_wayback_capture" not in WEB_METHODS
+    assert "registry_listing_capture" not in WEB_METHODS

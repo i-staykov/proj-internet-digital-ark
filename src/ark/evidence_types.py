@@ -50,11 +50,19 @@ WEB_METHODS = frozenset(
         "nypw_timemap",
         "nypw_timemap_hostgrain",
         "nypw_firstcdx_hostgrain",
+        # the registrable-grain arm of the line above. It can only ever offer a domain its
+        # FIRST year, which the IA-derived baseline already holds, so it is here for
+        # consistency with its own sibling and not for what it adds.
+        "nypw_first_capture_index",
         # a custodian's own per-host/year web-capture extract
         "arquivo_cdxj",
         "arquivo_ia_cdxj_hostgrain",
         "poland_pl_extract_hostgrain",
         "early_web_hostgrain",
+        # a custodian's dated per-host mirror of the page itself. A defaced site was
+        # serving the web at the stamped date and attrition mirrored what it served,
+        # which is his custodian pattern and is non-error by construction.
+        "attrition_defacement_mirror_index",
         # a dated web link graph naming the target host
         "ukwa_host_link_graph",
         "ukwa_hostgrain",
