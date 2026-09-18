@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| candidate-bulk-registry-access-exhaustion-sweep / unclassified | 2026-09-18, fleet 20260918T1806Z | 99.7 EE | lens no lens recorded. CLOSED. |  |
 | academic-web-usage-logs-referer-and-origin-hostname-sweep / unclassified | 2026-09-17, fleet 20260917T1206Z | not priced | lens academic-datasets.. CLOSED |  |
 | brief-audit: the parent-year wall is our rule, not his, and our own ingest does not apply it / unclassified | 2026-09-17, fleet 20260917T1106Z | not priced | lens no lens recorded. |  |
 | archiveorg-cdx-index-deposits-outside-the-web-collection / unclassified | 2026-09-17, fleet 20260917T0006Z | not priced | lens no lens recorded. |  |
