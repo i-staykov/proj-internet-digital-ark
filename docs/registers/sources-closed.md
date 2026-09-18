@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| custodian-second-tier-national-archives-sweep / unclassified | 2026-09-18, fleet 20260918T2106Z | not priced | lens custodian-capture-indexes. CLOSED fetched, 226 bytes, sha256 `43f2e36c9896f9d84aa806c4465f0c2e54d71837a2bdd84accc8dcd9c078996d`, allowed at root but `Disallow: /pan` (the archive-instance path) and `Disallow: /subject` (the browse index). |  |
 | rscott-oldinternetfiles-ddn-nic-pre1996-sweep / registry_publication_tree | 2026-09-18, fleet 20260918T2006Z | 4.9 EE | lens pre-1996. Measured, not guessed. | https://rscott.org/OldInternetFiles/domain-info.19960614.txt |
 | candidate-bulk-registry-access-exhaustion-sweep / unclassified | 2026-09-18, fleet 20260918T1806Z | 99.7 EE | lens no lens recorded. CLOSED. |  |
 | academic-web-usage-logs-referer-and-origin-hostname-sweep / unclassified | 2026-09-17, fleet 20260917T1206Z | not priced | lens academic-datasets.. CLOSED |  |
