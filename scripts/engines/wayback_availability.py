@@ -138,20 +138,26 @@ def host_of(url: str) -> str | None:
     return host or None
 
 
-def probe(domain: str) -> dict | None:
-    """One answer, filed under the host the ARCHIVE named. None when it dates nothing."""
+def probe(domain: str) -> tuple[str, dict | float | None]:
+    """("ok", row), ("empty", None), or ("throttled", seconds to wait).
+
+    **A throttle is not an answer and must never be recorded as one.** The first version
+    slept once, asked again, and returned None either way, so a sustained 429 marked every
+    name in the queue as having no capture and advanced the resume marker past it. Against a
+    4,000,000 row queue that silently destroys the queue. The caller puts a throttled name
+    back and only then backs off.
+    """
     url, stamp, wait = ask(domain)
     if wait:
-        time.sleep(wait)
-        url, stamp, _ = ask(domain)
+        return "throttled", wait
     if not url or not stamp or len(stamp) < 4 or not stamp[:4].isdigit():
-        return None
+        return "empty", None
     if int(stamp[:4]) != TARGET_YEAR:
-        return None
+        return "empty", None
     host = host_of(url)
     if host is None:
-        return None
-    return {"domain": domain, "host": host, "timestamp": stamp, "asked": domain}
+        return "empty", None
+    return "ok", {"domain": domain, "host": host, "timestamp": stamp, "asked": domain}
 
 
 def run(
@@ -164,7 +170,7 @@ def run(
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_dir.mkdir(parents=True, exist_ok=True)
     host_dir.mkdir(parents=True, exist_ok=True)
-    totals = {"asked": 0, "exact": 0, "variant": 0, "empty": 0}
+    totals = {"asked": 0, "exact": 0, "variant": 0, "empty": 0, "throttled": 0}
     started_at = done_before
     work: queue.Queue[str] = queue.Queue()
     for domain in domains:
@@ -179,7 +185,18 @@ def run(
                 domain = work.get_nowait()
             except queue.Empty:
                 return
-            found = probe(domain)
+            state, payload = probe(domain)
+            if state == "throttled":
+                # Back on the queue: the name was never answered. The worker waits out the
+                # archive's own figure, which is what C-77 requires of every client here.
+                work.put(domain)
+                with lock:
+                    totals["throttled"] += 1
+                    if totals["throttled"] % 20 == 0:
+                        print(f"throttled {totals['throttled']:,} times so far", flush=True)
+                time.sleep(payload if isinstance(payload, float) else BACKOFF_DEFAULT)
+                continue
+            found = payload
             with lock:
                 totals["asked"] += 1
                 if totals["asked"] % FLUSH_EVERY == 0:
@@ -262,7 +279,8 @@ def main() -> int:
     STATE_FILE.write_text(str(done + totals["asked"]) + "\n")
     print(
         f"asked {totals['asked']:,}  exact {totals['exact']:,}  "
-        f"variant {totals['variant']:,}  empty {totals['empty']:,}"
+        f"variant {totals['variant']:,}  empty {totals['empty']:,}  "
+        f"throttled {totals['throttled']:,}"
     )
     return 0
 
