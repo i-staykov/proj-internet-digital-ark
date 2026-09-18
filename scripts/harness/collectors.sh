@@ -28,6 +28,9 @@ cd "$(dirname "$0")/../.." || exit 1
 : "${ARK_STATE_DIR:=$HOME/ark/state}"
 : "${ARK_CDX_BUDGET:=2}"
 : "${ARK_COLLECTOR_WINDOW:=21600}"
+# Epoch after which this laptop collects nothing more, for a machine that has to be closed.
+# Empty means run forever, which is the default and what the VPS wants.
+: "${ARK_COLLECTOR_UNTIL:=}"
 
 STATE_DIR="$ARK_STATE_DIR"
 FLAG="$STATE_DIR/pause"
@@ -87,7 +90,11 @@ count() { printf '%s\n' "$1" | grep -c . ; }
 # which must not spend eight seconds on an ssh timeout to decide a local invariant; it is
 # not a claim that the VPS is idle, so it costs the same one client.
 vps_clients() (
-    [ "${ARK_NO_REMOTE:-0}" = "1" ] && { echo "not asked"; return; }
+    # **0, not "unknown".** The caller counts an unreadable answer as one client, which is
+    # the safe default against the cap, so "not asked" silently cost this laptop half the
+    # channel every window. Under C-88 all three archive clients are here and the VPS runs
+    # none, so a machine that says it has no remote is stating a fact, not declining to look.
+    [ "${ARK_NO_REMOTE:-0}" = "1" ] && { echo 0; return; }
     [ -n "${ARK_VPS:-}" ] || { echo "unknown"; return; }
     local out
     out=$(ARK_VPS_REPO="${ARK_VPS_REPO:-/projects/proj-internet-digital-ark}" \
@@ -251,6 +258,10 @@ cmd_run() {
 
     note "supervisor up, window ${WINDOW}s, budget $BUDGET clients"
     while true; do
+        if [ -n "$ARK_COLLECTOR_UNTIL" ] && [ "$(date +%s)" -ge "$ARK_COLLECTOR_UNTIL" ]; then
+            note "reached ARK_COLLECTOR_UNTIL, the lane stops here"
+            exit 0
+        fi
         if paused; then
             sleep 30
             continue
@@ -279,6 +290,9 @@ cmd_run() {
         fi
 
         deadline=$(( $(date +%s) + WINDOW ))
+        if [ -n "$ARK_COLLECTOR_UNTIL" ] && [ "$deadline" -gt "$ARK_COLLECTOR_UNTIL" ]; then
+            deadline="$ARK_COLLECTOR_UNTIL"
+        fi
         seed_shard 0 data/raw/cdx/platform_queue_netnew.txt
         seed_shard 1 data/raw/cdx/suffix_queue_r9.txt
 
