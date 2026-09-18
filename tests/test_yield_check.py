@@ -1,14 +1,11 @@
 """Collector yield: the question none of the other checks asked.
 
-`check_collectors` asks whether a process is alive and the supervisor watches journal
-growth, but **a journal full of misses grows exactly as fast as a journal full of hits**:
-a rebuilt queue once sent 1,200 archive queries for zero captures with every mechanical
-check clean.
-
-These pin the two ways that failure shows up and the two ways a naive version cries wolf,
-a small sample and a harder population: the gap pool answers 96-97.5% and the candidate
-pool 36.9-90.6%, so one hardcoded floor either misses a collapse or alarms on a healthy
-pool.
+`check_collectors` asks whether a process is alive and the supervisor watches journal growth,
+but **a journal full of misses grows exactly as fast as a journal full of hits**: a rebuilt
+queue once sent 1,200 archive queries for zero captures with every mechanical check clean.
+These pin the two ways that shows up and the two ways a naive version cries wolf: the gap pool
+answers 96-97.5% and the candidate pool 36.9-90.6%, so one hardcoded floor either misses a
+collapse or alarms on a healthy pool.
 """
 
 import gzip
@@ -258,8 +255,7 @@ def test_a_hand_named_probe_is_not_read_as_the_newest_batch(tmp_path) -> None:
 def test_a_corrupt_stream_is_reported_truncated_rather_than_crashing(tmp_path):
     """A killed collector leaves a journal whose deflate stream desynchronises mid-file. That
     raises `zlib.error`, which is not a subclass of OSError, EOFError or BadGzipFile, so it
-    escapes `_count` and takes the whole health cycle down. The register documents the same
-    shape on the corrupt ISC survey copies.
+    escapes `_count` and takes the whole health cycle down.
     """
     import gzip
 

@@ -1,10 +1,10 @@
 """The nameserver TARGETS of an InterNIC zone, at hostname grain.
 
-`parse_internic_zone` keeps the owner of an NS record and discards the target, because
-at registrable grain the target is the operator we already hold. The hostname unit the
-reviewer accepted on 2026-09-01 makes the discarded column a corpus of its own: the
-1997 zones name 21,498 proper hostnames and 19,211 of them were absent at 1997 from
-both the store and the reviewer's own 1997 file (measured 2026-09-02, 11,860.7 EE).
+`parse_internic_zone` keeps the owner of an NS record and discards the target, which at
+registrable grain is the operator we already hold. The hostname unit the reviewer accepted on
+2026-09-01 makes the discarded column a corpus of its own: the 1997 zones name 21,498 proper
+hostnames and 19,211 of them were absent at 1997 from both the store and the reviewer's own
+1997 file (measured 2026-09-02, 11,860.7 EE).
 """
 
 import gzip

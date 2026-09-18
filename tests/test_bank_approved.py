@@ -1,11 +1,8 @@
 """Banking a newly approved class must refuse anything a human has not answered.
 
-The property under test is not "it ingests" but **"it refuses"**: a class still
-`pending` is reported and skipped, so the recipe that calls this can be rehearsed
-without banking something nobody approved. And since approvals arrive as pull requests
-merged from a phone, **an approval that banks nothing must say so loudly**: the bytes a
-source was priced from live wherever it was priced, so an approved block whose journal
-is not on this machine is the normal case.
+The property is **"it refuses"**: a class still `pending` is reported and skipped, so the
+recipe can be rehearsed. And an approval that banks nothing must say so loudly, because the
+bytes a source was priced from live wherever it was priced.
 """
 
 import email.message

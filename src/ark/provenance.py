@@ -1,10 +1,9 @@
 """Export the provenance store as Parquet, so the result can be checked offline.
 
-The annual files say which domains belong to which years. They do not say why, and "why" is
-the whole claim: every assignment points at a specific evidence row recording which source
-saw the domain, in which artifact, at which timestamp. Parquet carries the same tables in a
-fraction of the store's size, loads in any engine, and is cheap enough to regenerate with
-every delivery rather than maintain.
+The annual files say which domains belong to which years, not why, and "why" is the whole
+claim: every assignment points at an evidence row recording which source saw the domain, in
+which artifact, at which timestamp. Parquet carries the same tables in a fraction of the
+store's size, loads in any engine, and is cheap enough to regenerate per delivery.
 
 Six tables, which together are the whole provenance graph:
 
@@ -15,12 +14,11 @@ Six tables, which together are the whole provenance graph:
     ingested_file   the sha256 ledger, so a file's contribution is traceable
 
 **The reviewer's own rows are excluded.** 362.6 million of 442.2 million evidence rows were
-`prior_reused`, one per pair his own release already holds, and they were 3 GB of an archive
-that then exceeded his 5 GB limit. What is lost is tracing a pair he already has, which he
-can trace in his own release; what is kept is every row this project claims, and `ark check`
-asserts that nothing in `additions/` or `hostnames/` rests on a `prior_reused` row. The
-assignments citing an excluded row go with it, so the export never points at evidence it
-does not carry, which the shipped `verify.sh` checks.
+`prior_reused`, one per pair his release already holds, and 3 GB of an archive that then
+exceeded his 5 GB limit. What is lost is tracing a pair he can trace in his own release;
+what is kept is every row this project claims, and `ark check` asserts that nothing in
+`additions/` or `hostnames/` rests on a `prior_reused` row. Assignments citing an excluded
+row go with it, so the export never points at evidence it does not carry.
 """
 
 import shutil
@@ -36,13 +34,10 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
-# Page-language verdicts, from the standard the reviewer retired in August 2026
-# (the engine was retired and removed). Still exported and still loaded, because a reviewer
-# holding an archive from a round that shipped them must be able to rebuild it,
-# and because a verdict that was acted on once should stay auditable. Optional on
-# load in both directions: an export from before the standard existed has no such
-# file, and one from after it was retired need not either, so neither may raise
-# FileNotFoundError.
+# Page-language verdicts, from the standard the reviewer retired in August 2026. Still
+# exported and loaded, so an archive from a round that shipped them rebuilds and a verdict
+# acted on once stays auditable. Optional on load in both directions: an export from either
+# side of the standard's life may lack the file, so neither may raise FileNotFoundError.
 # `hostname_year` is last on purpose: it references both `domain` and `evidence`,
 # and the rebuild drops in reverse order, so it must go before either of them.
 OPTIONAL_TABLES = ("domain_language", "hostname_year")
@@ -143,18 +138,14 @@ def write_provenance(
 def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENANCE_DIR) -> dict:
     """Recreate the store's tables from a provenance export.
 
-    This is the reproduction path that needs no source data: the export holds
-    every observation and every assignment, so re-running the exporter over it
-    regenerates the annual files, and the integrity gate re-runs against it too.
-    Measured on the shipped export: the fourteen result files come back
-    byte-identical in about six seconds.
+    The reproduction path that needs no source data: the export holds every observation and
+    every assignment, so re-running the exporter over it regenerates the annual files and
+    the integrity gate re-runs too. On the shipped export the fourteen result files come
+    back byte-identical in about six seconds.
 
-    **Every table is dropped before any is created, in reverse dependency
-    order.** Dropping and recreating one at a time works only on an empty store,
-    because `domain` references `source` and DuckDB refuses to drop a table a
-    foreign key still points at. That made this fail on any store that had
-    already been initialised, which is the ordinary case for anyone told to run
-    `ark export` before rebuilding.
+    **Every table is dropped before any is created, in reverse dependency order.** Dropping
+    and recreating one at a time works only on an empty store, because `domain` references
+    `source` and DuckDB refuses to drop a table a foreign key still points at.
     """
     missing = [t for t in CORE_TABLES if not (source_dir / f"{t}.parquet").exists()]
     if missing:

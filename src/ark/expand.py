@@ -1,25 +1,20 @@
 """Expand one source into more domains by reading the pages it points at.
 
-The brief's "How to Expand One Source into More Domains" asks for a cycle: take a source,
-extract hosts, validate them against dated evidence, download the pages, extract their
-links, feed the new hosts back. This is the download-and-extract half; the CDX engine
-validates and the round counter on a domain row feeds back.
+The download-and-extract half of the brief's "How to Expand One Source into More Domains"
+cycle; the CDX engine validates and the round counter on a domain row feeds back.
 
-**A link is a claim by the LINKING page, not by the linked host.** A page captured in 1998
-linking to `example.com` shows its author believed the site existed, which is not the
-archive holding a capture of it, and dead links, typos and names registered only later are
-all common. So an extracted host is candidate-only and cannot assign a year on its own.
+**A link is a claim by the LINKING page, not by the linked host.** Dead links, typos and
+names registered only later are all common, so an extracted host is candidate-only and
+cannot assign a year on its own.
 
-**The exception the brief grants is a curated directory page**, where a human editor listed
-a site in a dated catalogue and the capture date is item-level evidence for every entry.
-That cannot be detected from markup, so it is asserted PER SEED rather than guessed: a seed
-marked as a directory yields `dated_directory`, everything else `link_target`.
+**The exception the brief grants is a curated directory page**, where an editor listed a
+site in a dated catalogue and the capture date is item-level evidence for every entry. That
+cannot be detected from markup, so it is asserted PER SEED: a seed marked as a directory
+yields `dated_directory`, everything else `link_target`.
 
 Snapshots are fetched with the `id_` modifier, which serves the original stored bytes, so
-the hrefs are the ones the author wrote rather than Wayback's redirects. HTML of this era is
-frequently malformed, so parsing uses the lenient `HTMLParser` and takes only `href`
-attributes; a full DOM parser would only help tell a catalogue entry from a navigation link
-structurally, which is exactly the judgement this module declines to make.
+the hrefs are the author's rather than Wayback's redirects. HTML of this era is frequently
+malformed, so parsing uses the lenient `HTMLParser` and takes only `href` attributes.
 """
 
 import urllib.parse
@@ -52,19 +47,17 @@ class _HrefCollector(HTMLParser):
 def unwrap_redirect(url: str) -> str:
     """The real target inside a click-tracking wrapper, or the url unchanged.
 
-    Portals of the period routed every outbound link through a counter, carrying the target
+    Portals of the period routed outbound links through a counter, carrying the target
     inside the wrapper:
 
         http://srd.yahoo.com/goo/Business/*http://www.example.com/
 
-    Left unhandled this is a TOTAL loss, not a partial one: the wrapper's registrable is
-    `yahoo.com`, the page's own domain, so every entry is discarded as a self-link and an
-    archived category page reports zero outbound domains, which reads as a barren source
-    rather than a parser that cannot see it.
+    Left unhandled this is a TOTAL loss: the wrapper's registrable is the page's own domain,
+    so every entry is discarded as a self-link and the page reports zero outbound domains,
+    which reads as a barren source.
 
     Take the LAST embedded scheme, not the first, because the wrapper begins with one.
-    Percent-encoded targets are unquoted first and ONLY ONCE: a target may legitimately
-    carry an encoded query of its own.
+    Percent-encoded targets are unquoted ONLY ONCE: a target may carry an encoded query.
     """
     candidate = url
     if "%3a%2f%2f" in url.lower() or "%3A//" in url:
@@ -216,18 +209,15 @@ def read_seeds(lines: list[str]) -> list[tuple[str, bool]]:
 def split_by_corroboration(records: list[dict], known: set[str]) -> tuple[list[dict], list[dict]]:
     """Split expansion records into the corroborated half and the rest.
 
-    The brief lets a curated directory page's capture date evidence every
-    domain listed on it. That is sound for the page and unsound for the parser:
-    archived HTML carries transcription typos, and this route has produced
-    `arvard.edu` from a `harvard.edu` link, plus `gov.edu` and `gintysuooly.com`.
-    A sample of the same route measured roughly 40% of never-before-seen names
-    as errors, so asserting them would trade precision for a handful of domains.
+    The brief lets a curated directory page's capture date evidence every domain on it,
+    which is sound for the page and unsound for the parser: archived HTML carries
+    transcription typos, this route having produced `arvard.edu` from a `harvard.edu` link
+    plus `gov.edu` and `gintysuooly.com`, roughly 40% of never-before-seen names.
 
-    A name some other source already attests is therefore kept curated, and its
-    capture date evidences the year. A name appearing only here is emitted as an
-    ordinary outbound link, which the loader routes to the candidate pool to earn
-    its own evidence. The split is a statement about corroboration, not about the
-    page, and it never discards anything.
+    So a name some other source already attests stays curated and its capture date evidences
+    the year; a name appearing only here is emitted as an ordinary outbound link, which the
+    loader routes to the candidate pool. A statement about corroboration, not about the
+    page, and it discards nothing.
     """
     corroborated: list[dict] = []
     uncorroborated: list[dict] = []

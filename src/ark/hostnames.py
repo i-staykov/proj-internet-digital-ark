@@ -1,38 +1,30 @@
 """Hostname records: the second output unit.
 
-His ruling (verbatim in `private/personal-context.md`): both registrable domains and valid
-hostnames are annual database records, registrables stay prioritized as query seeds, and
-every distinct evidence-backed hostname beneath them is retained. So this module fills
-`hostname_year` from raw CDX capture journals, one JSON object per capture row
-(`{"url": ..., "timestamp": ...}`), the shape `scripts/engines/cdx_suffix_sweep.py` writes.
+Both registrable domains and valid hostnames are annual database records; registrables stay
+prioritised as query seeds and every distinct evidence-backed hostname beneath them is
+retained. This module fills `hostname_year` from raw CDX capture journals, one JSON object
+per capture row (`{"url": ..., "timestamp": ...}`), the shape
+`scripts/engines/cdx_suffix_sweep.py` writes.
 
 The evidence wall is the registrable unit's, unchanged:
 
-- what dates one item is the row's own 14-digit capture timestamp (`cdx_timestamp`,
-  master-eligible), quoted in the evidence row;
+- what dates one item is the row's own 14-digit capture timestamp (`cdx_timestamp`),
+  quoted in the evidence row;
 - every `hostname_year` row foreign-keys one `evidence` row;
 - the hostname must reduce to its parent registrable through the same `to_registrable`
   funnel, and a hostname that IS its own registrable is refused here, because that record
-  belongs to `domain_year`.
-
-Two conditions come from the PURPOSE he gave the unit, retrieving archived pages as
-completely as possible, rather than from its letter:
-
-- **the observation must show the host IN USE.** A capture of a URL on it, or a URL listing
-  naming it. A DNS listing (a reverse-walk survey, an `nserver:` attribute, an NS target in
-  a zone) proves a machine answered, not a site, so those lanes date the parent registrable
-  and write no hostname year; he ruled on them by name and measured the gap. C-83 widened
-  "serving web content" to "in use" and admits one non-web observation by name, the
-  `Received: ... by <host>` clause of a dated mail message, because a receiving MTA writes
-  its own name into a transaction it completed. His section IV.1 is the authority: year
-  evidence is "factual material demonstrating that the domain actually existed, was in use,
-  or was active", and it lists WHOIS, which is not a page fetch either;
+  belongs to `domain_year`;
+- **the observation must show the host IN USE**, a capture of a URL on it or a URL listing
+  naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
+  answered, not a site, so those lanes date the parent registrable and write no hostname
+  year. C-83 admits one non-web observation by name, the `Received: ... by <host>` clause
+  of a dated message. Spec XIII narrows what such a record may ENTER an annual file with:
+  only exact-host year-specific web evidence, the rest being candidates;
 - **`www.<parent>` is its own record** (ADR-009/ADR-010) and neither form establishes the
   other, so a `www.` capture dates that host and NOT the bare parent.
 
-The registrable half of the same journal is not this module's job: `cdx_suffix_convert.py`
-collapses capture rows into per-domain year sets for the `cdx_snapshot` ingest, and both
-halves can be run over one journal.
+The registrable half of the same journal is `cdx_suffix_convert.py`'s job, collapsing
+capture rows into per-domain year sets for the `cdx_snapshot` ingest.
 """
 
 from __future__ import annotations
@@ -58,10 +50,10 @@ SOURCE_NAME = "ia_cdx_hostnames"
 # column is what lets the shipped contribution table say which artifact a hostname came from.
 NYPW_METHOD = "nypw_timemap_hostgrain"
 SWEEP_METHOD = "ia_cdx_domain_sweep"
-# Two bulk CDX artifacts re-emitted the same way, each under its own source row because
-# the approval, the lineage note and the contribution table name them separately:
-# IA's Early Web index (banked at registrable grain as `early_web_cdx`, admitted at
-# hostname grain 2026-09-02) and the USFEDGOV-EXTRACT-2001 merged ZipNum index.
+# Two bulk CDX artifacts re-emitted the same way, each under its own source row because the
+# approval, the lineage note and the contribution table name them separately: IA's Early Web
+# index (banked at registrable grain as `early_web_cdx`) and the USFEDGOV-EXTRACT-2001
+# merged ZipNum index.
 EARLY_WEB_SOURCE = "early_web_cdx_hostnames"
 EARLY_WEB_METHOD = "early_web_hostgrain"
 USFEDGOV_SOURCE = "usfedgov_extract_hostnames"
@@ -71,11 +63,11 @@ USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
 # citation "[fonte: Arquivo.pt, dd/mm/aaaa]", so a row of it must not read as an IA capture.
 ARQUIVO_SOURCE = "arquivo_ia_hostnames"
 ARQUIVO_METHOD = "arquivo_ia_cdxj_hostgrain"
-# The IA's `Poland_pl-ccTLD_2001-12-31` extraction, item-level CDX, approved master by Ivo
-# on 2026-09-10. Same class and same artifact shape as USFEDGOV-EXTRACT, its own source row
-# because it is its own collection with its own terms: the ARCs beside these indexes are
-# `private: true` and are never fetched, and the approval records that the collection is
-# flagged `access-restricted-item` while every index file is served without login.
+# The IA's `Poland_pl-ccTLD_2001-12-31` extraction, item-level CDX. Same class and artifact
+# shape as USFEDGOV-EXTRACT, its own source row because it is its own collection with its
+# own terms: the ARCs beside these indexes are `private: true` and are never fetched, and
+# the collection is flagged `access-restricted-item` while every index file is served
+# without login.
 POLAND_SOURCE = "poland_pl_extract_hostnames"
 POLAND_METHOD = "poland_pl_extract_hostgrain"
 
@@ -124,18 +116,17 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "maillist_body_url_hostnames",
         # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`, 2026-09-04).
         "enron_body_url_hostnames",
-        # The one non-web observation in this set (`APACHE_FAMILY`, C-83, Ivo 2026-09-09).
-        # A `Received: ... by <host>` clause is written by the MTA at that host, about
-        # itself, in a message the ASF's own archive dated independently. It proves the
-        # host was in use rather than that it served a page, which is the reading his
-        # section IV.1 allows and the reason the wall's wording changed with it.
+        # The one non-web observation in this set (`APACHE_FAMILY`, C-83). A
+        # `Received: ... by <host>` clause is written by the MTA at that host, about itself,
+        # in a message the ASF's own archive dated independently. It proves the host was in
+        # use rather than that it served a page, the reading his section IV.1 allows.
         "apache_list_header_hostnames",
         # The same clause in the IETF mail archive (`IETF_FAMILY`, C-83 at a second host).
         "ietf_list_header_hostnames",
-        # And the news-server twin of it (`USENET_HEADER_FAMILY`, Ivo 2026-09-10). An
-        # `X-Trace`, `NNTP-Posting-Host` or final `Path` hop is written by the server that
-        # accepted the article, about itself or about the machine it accepted it from, in a
-        # transaction it completed. Same reading as C-83, different protocol.
+        # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
+        # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
+        # article, about itself or the machine it came from, in a transaction it completed.
+        # Same reading as C-83, different protocol.
         "usenet_header_fqdn_hostnames",
     }
 )
@@ -156,11 +147,9 @@ def writes_hostname_years(source_name: str) -> bool:
 # The era's archives carry underscore NT-server names; those are refused here and the capture
 # still evidences the parent registrable through the registrable path.
 #
-# **The final `\.[a-z]+` is the alphabetic TLD label**, and it was missing until 2026-09-04. It
-# had cost nothing measurable, because `to_registrable` consults the public suffix list and
-# rejects a name whose last label is not a real TLD, and a sweep of all 929,964 shipped lines
-# found zero violations. It is here anyway, because "no violations today" and "cannot violate"
-# are different properties and only the second one survives a new source.
+# **The final `\.[a-z]+` is the alphabetic TLD label.** `to_registrable` also consults the
+# public suffix list, so this catches nothing today, but "no violations today" and "cannot
+# violate" are different properties and only the second survives a new source.
 _VALID_HOST = re.compile(
     r"^(?=.{1,253}$)"
     r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,63}$"
@@ -194,12 +183,10 @@ def ingest_hostname_journal(
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     source_name, method = source_for(path)
     # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
-    # journal under the journal's final name, one batch per index page, for hours. Ledgering
-    # by name alone marked a live journal done at whatever length it happened to have: on
-    # 2026-09-04 the first pass read `suffix_co_uk_...` at 391,684 rows and the second pass
-    # skipped all 500 files, so every row the sweep wrote afterwards would never have been
-    # read. The `.part`-then-rename convention `maintain.sh` relies on does not cover an
-    # append-style collector, and this does, for every lane at once.
+    # journal under the journal's FINAL name, one batch per index page, for hours. A name-only
+    # ledger marks a live journal done at whatever length it happened to have, and every row
+    # written afterwards is never read. The `.part`-then-rename convention `maintain.sh`
+    # relies on does not cover an append-style collector; this does, for every lane at once.
     digest = _sha256(path)
     already = conn.execute(
         "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ? AND sha256 = ?",
@@ -311,17 +298,14 @@ def ingest_hostname_journal(
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
         stats["hostname_year_rows"] = after - before
-        # A capture under the domain evidences the parent registrable in that year
-        # too, in the same cdx_timestamp class: assign it, one row per (parent, year),
-        # so the parent earns its year from the same observation.
+        # A capture under the domain evidences the parent registrable in that year too, in
+        # the same cdx_timestamp class: one row per (parent, year).
         #
         # **Except `www.` in front of the parent** (ADR-010, his words): "the existence of
         # the bare parent does not automatically establish the www hostname, nor does the
-        # presence of www automatically establish the bare hostname". A capture of
-        # `www.example.com` evidences that host and NOT `example.com`; letting it through
-        # ships one observation as two records, in `additions/` and in `hostnames/`.
-        # Any OTHER subdomain still dates the parent, so the exclusion names the one host
-        # shape the ruling covers rather than dropping the parent assignment.
+        # presence of www automatically establish the bare hostname". Letting it through
+        # ships one observation as two records, in `additions/` and in `hostnames/`. Any
+        # OTHER subdomain still dates the parent, so the exclusion names that one shape.
         dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
         conn.execute(
             """
@@ -373,12 +357,10 @@ def ingest_hostname_dir(
 
 
 # The second hostname corpus inside an InterNIC zone file: the nameserver a delegation
-# points AT. `parse_internic_zone` reads only the owner of an NS record and discards
-# the target on purpose, because at registrable grain the target collapses to its
-# operator, which the store already holds (register, 2026-08-29: 14,573 domains,
-# 99.28% held at 1997). At hostname grain the same right-hand sides are 90% absent:
-# `ns1.`/`ns2.` hosts are exactly what a web crawler never fetches. Same bytes, same
-# SOA serial, same `artifact_listing` class Ivo decided master on 2026-08-24.
+# points AT. `parse_internic_zone` discards the target on purpose, because at registrable
+# grain it collapses to its operator, which the store holds (14,573 domains, 99.28% held at
+# 1997). At hostname grain the same right-hand sides are 90% absent: `ns1.`/`ns2.` hosts are
+# what a web crawler never fetches. Same bytes, same SOA serial, same `artifact_listing`.
 ZONE_SOURCE_NAME = "internic_zone_hostnames"
 ZONE_METHOD = "internic_zone_ns_target"
 # The Wayback capture that fixes when each 1997 file existed; the SOA serial inside the
@@ -534,14 +516,12 @@ def ingest_zone_hostnames(
     return stats
 
 
-# The third hostname corpus: the sub-registrable hosts inside two blocklists already
-# banked at registrable grain, squidGuard 1.2.0's robot-compiled 2001-12 lists and
-# chastity-list 0.5's hand-kept 2001-12 edition. At registrable grain both are settled
-# (10,376.9 and 14,229.0 EE). The lists name the offending HOST, `members.tripod.com/x`
-# collapses to `tripod.com`, and every such collapse threw away a hostname the crawl
-# rarely fetched: measured 2026-09-02 on the live store, 7,653 (hostname, 2001) records
-# and 3,410.4 EE absent from both the store and the reviewer's own 2001 file. Same
-# bytes, same stamps, same classes Ivo decided master on 2026-08-26 and 2026-08-31.
+# The third hostname corpus: the sub-registrable hosts inside two blocklists already banked
+# at registrable grain, squidGuard 1.2.0's robot-compiled 2001-12 lists (10,376.9 EE) and
+# chastity-list 0.5's hand-kept 2001-12 edition (14,229.0 EE). The lists name the offending
+# HOST and `members.tripod.com/x` collapses to `tripod.com`, throwing away a hostname the
+# crawl rarely fetched: 7,653 (hostname, 2001) records and 3,410.4 EE absent from both the
+# store and the reviewer's own 2001 file. Same bytes, same stamps, same classes.
 SQUIDGUARD_HOST_SOURCE = "squidguard_2001_hostnames"
 SQUIDGUARD_HOST_URL = (
     "http://archive.debian.org/debian/pool/main/s/squidguard/squidguard_1.2.0.orig.tar.gz"
@@ -785,15 +765,13 @@ def ingest_blocklist_hostnames(
     return stats
 
 
-# The nameservers a RIPE `domain:` object points AT. Worth nothing at registrable grain,
-# where an NS right-hand side collapses to an operator the store already holds, and 93%
-# absent at hostname grain: 38,189 (hostname, 1999) records from the 1999 snapshot plus
+# The nameservers a RIPE `domain:` object points AT. Worth nothing at registrable grain and
+# 93% absent at hostname grain: 38,189 (hostname, 1999) records from the 1999 snapshot plus
 # 11,895 from the 2004 split edition dated by their latest `changed:` line, about 11,400 EE.
 #
 # **The RIPE NCC permission constrains the code**, as it does `parse_ripe_dbase_1999`: read
 # only `*ns:` / `nserver:` values, the object key and the trailing date of `changed:`; never
-# `*de`, `*ac`, `*tc`, `*zc`, `*ch` or the address half of `changed:`. A nameserver hostname
-# is infrastructure, not a person.
+# `*de`, `*ac`, `*tc`, `*zc`, `*ch` or the address half of `changed:`.
 RIPE_NS_SOURCE = "ripe_nserver_hostnames"
 RIPE_NS_SNAPSHOT_METHOD = "ripe_snapshot_nserver"
 RIPE_NS_CHANGED_METHOD = "ripe_changed_nserver"
@@ -1007,16 +985,14 @@ def ingest_ripe_nserver_hostnames(
     return stats
 
 
-# The fifth hostname corpus: the per-TLD host lists of the Network Wizards / ISC
-# Internet Domain Survey, banked at registrable grain since July as `isc_survey`
-# (14,956 EE, the best 1996-1997 source in the project) and "complete and fully held"
-# at that grain (register, 2026-08-25). Every line is `IP hostname`, the PTR walk's
-# own record of a host that answered in DNS during the survey month, and the
-# registrable collapse threw away 98% of the rows: the fleet's census of five 9607
-# files (2026-09-02) found 100% of parents held at 1996 and 98.2% of the hosts absent
-# from both the store and the reviewer's own 1996 file. Same bytes, same `YYMM`
-# survey stamp, same `artifact_listing` class the reviewer confirmed in writing on
-# 2026-07-24. The `.domains` lists hold registrables only and belong to `isc_survey`.
+# The fifth hostname corpus: the per-TLD host lists of the Network Wizards / ISC Internet
+# Domain Survey, banked at registrable grain as `isc_survey` (14,956 EE, the best 1996-1997
+# source here) and complete at that grain. Every line is `IP hostname`, the PTR walk's
+# record of a host that answered in DNS during the survey month, and the registrable
+# collapse threw away 98% of the rows: a census of five 9607 files found 100% of parents
+# held at 1996 and 98.2% of the hosts absent from both the store and the reviewer's own
+# 1996 file. Same bytes, same `YYMM` stamp, same `artifact_listing`. The `.domains` lists
+# hold registrables only and belong to `isc_survey`.
 ISC_SOURCE_NAME = "isc_survey_hostnames"
 ISC_METHOD = "isc_survey_host_list"
 _ISC_HOST_FILE = re.compile(r"^wb_nw_(9\d{3})_([a-z0-9-]+)\.gz$")
@@ -1183,16 +1159,15 @@ def _as_arrow(rows: list[tuple[str, str, int, str]]):  # noqa: ANN202 - pyarrow.
 
 
 # A host somebody typed as an explicit `http://`, `https://` or `ftp://` URL in the BODY of a
-# dated Usenet post, approved as `link_source`.
+# dated Usenet post, `link_source`.
 #
-# **The typed URL is the strongest hostname evidence we hold**, because it is not a crawler
-# artifact: a bulk CDX index re-read at hostname grain is 99.5% to 100.0% the crawler's own
-# `www.` alias on all three corpora tested, while typed URLs keep three quarters of the figure.
+# **A typed URL is not a crawler artifact**: a bulk CDX index re-read at hostname grain is
+# 99.5% to 100.0% the crawler's own `www.` alias on all three corpora tested, while typed
+# URLs keep three quarters of the figure.
 #
-# **What dates one item** is the post's machine-written `Date:` header, read at extraction and
-# verified against raw bytes. The journals keep the year, so the evidence row quotes the post:
-# `<group>.mbox.zip#<n>`, the archive archive.org serves by name from
-# `data/raw/usenet_catalog.json`, post `n` of which carries the header.
+# **What dates one item** is the post's machine-written `Date:` header, read at extraction
+# and verified against raw bytes. The evidence row quotes the post: `<group>.mbox.zip#<n>`,
+# the archive archive.org serves by name from `data/raw/usenet_catalog.json`.
 #
 # **The discount is measured, not assumed**: a sample puts the fiction rate at 6.25% (Wilson
 # 95% CI 2.7% to 13.8%) and the register quotes the lane net of it. A mechanical word list
@@ -1207,11 +1182,10 @@ def _usenet_url(item: str) -> str:
     return f"https://archive.org/download/usenet-{hierarchy}/{item.split('#')[0]}"
 
 
-# The mailing-list twin, admitted 2026-09-04 under the standing rule: the pipermail month
-# files `collect_mailing_lists.py` fetched, read at hostname grain from their body URLs by
-# `scripts/sources/mail_corpora/build_maillist_pool.py`. The item is `<host>/<file>#<n>`,
-# message n of a month file the archive host still serves by name; gnome serves it gzipped
-# and python plain, which is why the URL is built per host rather than by pattern.
+# The mailing-list twin: the pipermail month files `collect_mailing_lists.py` fetched, read
+# at hostname grain from their body URLs by `build_maillist_pool.py`. The item is
+# `<host>/<file>#<n>`, message n of a month file the archive host still serves by name;
+# gnome serves it gzipped and python plain, so the URL is built per host, not by pattern.
 MAILLIST_SOURCE = "maillist_body_url_hostnames"
 MAILLIST_METHOD = "maillist_body_url"
 _MAILLIST_ITEM = re.compile(
@@ -1246,11 +1220,11 @@ MAILLIST_FAMILY = ItemFamily(
     MAILLIST_SOURCE, MAILLIST_METHOD, "list message", _MAILLIST_ITEM, _maillist_url
 )
 
-# The third member of the body-URL family, admitted 2026-09-04 under the standing rule: the
-# CMU release of the Enron mailbox, one message per tar member, read at hostname grain by
-# `scripts/sources/mail_corpora/build_enron_pool.py`. The item is the member's own path in
-# the tarball, `maildir/<custodian>/<folder>/<n>.`, and every item resolves to the one
-# artifact CMU still serves. `collect_enron.py` banked the same messages at registrable grain.
+# The third member of the body-URL family: the CMU release of the Enron mailbox, one message
+# per tar member, read at hostname grain by `build_enron_pool.py`. The item is the member's
+# own path in the tarball, `maildir/<custodian>/<folder>/<n>.`, and every item resolves to
+# the one artifact CMU still serves. `collect_enron.py` banked the same messages at
+# registrable grain.
 ENRON_SOURCE = "enron_body_url_hostnames"
 ENRON_METHOD = "enron_body_url"
 ENRON_ARCHIVE = "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz"
@@ -1264,14 +1238,12 @@ def _enron_url(item: str) -> str:
 ENRON_FAMILY = ItemFamily(ENRON_SOURCE, ENRON_METHOD, "enron message", _ENRON_ITEM, _enron_url)
 
 # The fourth member, and the first that is NOT a body URL: the `Received: ... by <host>`
-# clause of a dated message in the Ponymail archive at `lists.apache.org`, approved by Ivo on
-# 2026-09-09 (C-83) for the `by` clause alone. `build_apache_header_pool.py` writes the shards
-# and its docstring carries the parsing traps; the class argument is in the register.
+# clause of a dated message in the Ponymail archive at `lists.apache.org`, C-83, for the `by`
+# clause alone. `build_apache_header_pool.py` writes the shards and carries the parsing traps.
 #
-# The item is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of the mbox export of one
-# list-month, and the export is still served by name from the API. `mbox.lua` accepts only
-# `d=YYYY-MM`: a year range answers 200 with a 13-message stub, so the month is part of the
-# pointer rather than something a reader could widen.
+# The item is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of one list-month's mbox
+# export, still served by name from the API. `mbox.lua` accepts only `d=YYYY-MM`, a year
+# range answering 200 with a 13-message stub, so the month is part of the pointer.
 APACHE_SOURCE = "apache_list_header_hostnames"
 APACHE_METHOD = "apache_list_received_by"
 _APACHE_ITEM = re.compile(
@@ -1292,16 +1264,14 @@ def _apache_url(item: str) -> str:
 
 APACHE_FAMILY = ItemFamily(APACHE_SOURCE, APACHE_METHOD, "list header", _APACHE_ITEM, _apache_url)
 
-# The fifth member, and C-83's class at a SECOND host rather than a new class: the same
+# The fifth member, C-83's class at a SECOND host rather than a new class: the same
 # `Received: ... by <host>` clause in the IETF mail archive, read by
 # `scripts/sources/mail_corpora/collect_ietf_mail_archive.py`, which imports the Apache
-# lane's own parser so the two figures are comparable. No new approval: the field, the
-# reading and the wall are C-83's, and only the host serving the mbox differs.
+# lane's parser so the two figures are comparable.
 #
-# The item is the month file's own path, `www.ietf.org/<tree>/<list>/<file>#<n>`, and the
-# file name is part of the pointer rather than derived from the month, because this archive
-# spells the same month two ways: `1996-03` in the early years and `1999-05.mail` from 1998
-# on. A pointer that guessed the suffix would resolve to a 404 for half the partition.
+# The item is the month file's own path, `www.ietf.org/<tree>/<list>/<file>#<n>`, the file
+# name carried whole rather than derived from the month: this archive spells `1996-03` in
+# the early years and `1999-05.mail` from 1998 on, so a guessed suffix 404s on half of it.
 IETF_SOURCE = "ietf_list_header_hostnames"
 IETF_METHOD = "ietf_list_received_by"
 _IETF_ITEM = re.compile(
@@ -1319,19 +1289,17 @@ def _ietf_url(item: str) -> str:
 
 IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
 
-# The sixth member: the server-written header fields of a dated Usenet post, approved
-# master-eligible.
+# The sixth member: the server-written header fields of a dated Usenet post.
 #
-# **Three fields, all written by a news server about a transaction it completed**, which is
-# the same reading C-83 settled for a `Received: ... by` clause: the trailing hostname of
-# `X-Trace:`, the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:`
-# hop, the rightmost element, which is the site that injected the article. `Message-ID` is
-# NOT read: Turnpike and Demon's clients stamp it from a configured nodename, so it is
-# client-written and needs its own ruling. `build_usenet_header_pool.py` writes the shards
-# and carries the parsing traps, the `.POSTED` marker and the dial-up pool filter among them.
+# **Three fields, all written by a news server about a transaction it completed**, the
+# reading C-83 settled for a `Received: ... by` clause: the trailing hostname of `X-Trace:`,
+# the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:` hop, the site
+# that injected the article. `Message-ID` is NOT read: Turnpike and Demon clients stamp it
+# from a configured nodename, so it is client-written and needs its own ruling.
+# `build_usenet_header_pool.py` writes the shards and carries the parsing traps.
 #
-# The item is `<group>.mbox.zip#<n>`, the same pointer shape and the same archive as the
-# body-URL lane, so `_USENET_ITEM` and `_usenet_url` are reused rather than re-typed.
+# The item is `<group>.mbox.zip#<n>`, the same pointer shape and archive as the body-URL
+# lane, so `_USENET_ITEM` and `_usenet_url` are reused.
 USENET_HEADER_SOURCE = "usenet_header_fqdn_hostnames"
 USENET_HEADER_METHOD = "usenet_server_written_header"
 USENET_HEADER_FAMILY = ItemFamily(
@@ -1402,10 +1370,8 @@ def usenet_item_rows(
                 year,
                 # The year comes FIRST, before the item. `evidence_year_matches_its_value`
                 # reads the first four-digit run in the value, and a Usenet item is full of
-                # them: a post index (`#1997`) and group names like `alt.2600`. Written
-                # item-first this failed on 3,933,601 rows, every one of them a false
-                # positive, and putting the dating year in front both fixes it and states
-                # what dates the item rather than leaving it implied.
+                # them: a post index (`#1997`), group names like `alt.2600`. Item-first
+                # fails on 3,933,601 rows, every one a false positive.
                 f"{family.noun} {year} {item} {host}",
                 family.url_of(item),
             )
@@ -1440,12 +1406,11 @@ def ingest_usenet_item_journal(
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     file_key = f"{path.parent.name}/{path.name}"
     digest = _sha256(path)
-    # **The key is the name AND the digest, because one lane's shard GROWS.** The pools
-    # write a shard once and never touch it again, so a name was enough for them. The IETF
-    # collector appends every month of a list to that list's one shard, which means a name
-    # key marks the shard done at whatever it held the first time and every month swept
-    # afterwards is skipped for ever, silently. Re-reading a grown shard costs one pass and
-    # the rows it already carried land on `INSERT OR IGNORE`, so nothing is double counted.
+    # **The key is the name AND the digest, because one lane's shard GROWS.** Most pools
+    # write a shard once, but the IETF collector appends every month of a list to that
+    # list's one shard, so a name key would mark it done at its first length and skip every
+    # later month silently. Re-reading a grown shard costs one pass and its existing rows
+    # land on `INSERT OR IGNORE`.
     previous = conn.execute(
         "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
         [family.source, file_key],
@@ -1546,12 +1511,10 @@ def ingest_usenet_item_dir(
 ) -> dict[str, int]:
     """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file.
 
-    **The default used to be `*.jsonl.gz` alone, and one lane writes plain `.jsonl`.**
-    `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory, so this
-    glob matched nothing under `data/raw/ietf_header_items/` and the command reported success
-    over `files_seen: 0`. A silent zero is the worst answer an ingest can give, so both
-    spellings are read unless the caller names a pattern; `usenet_item_rows` already picks
-    its opener off the suffix.
+    **Both `.jsonl.gz` and plain `.jsonl` are read** unless the caller names a pattern,
+    because `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory
+    and a gz-only glob reports success over `files_seen: 0`. `usenet_item_rows` picks its
+    opener off the suffix.
     """
     totals: Counter[str] = Counter()
     if root.is_dir():

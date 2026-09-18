@@ -1,10 +1,9 @@
 """The fleet host's single CDX slot, and the sweep shapes it refuses.
 
 C-77 caps the CDX channel at two clients and both are this laptop's sweeps, so a price or
-verify leg on the VPS takes one extra seat and only for an exact-host sample. The properties
-worth a test are the ones that would otherwise fail silently and expensively: a shape that
-walks a namespace must be refused before any request is made, and a host with no lock must
-refuse rather than query unserialised. Neither test reaches the network.
+verify leg on the VPS takes one extra seat and only for an exact-host sample. A shape that
+walks a namespace is refused before any request is made, and a host with no lock refuses
+rather than query unserialised. Neither test reaches the network.
 """
 
 import shutil

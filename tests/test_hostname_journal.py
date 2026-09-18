@@ -1,11 +1,10 @@
 """The capture-journal hostname lane, and what survives of the purpose rules.
 
 One still stands: a record needs an observation of the host serving web content, so the DNS
-lanes date the parent only. The other is gone, `www.<parent>` having been admitted by
-ADR-009 on his section XI and on a count of his own benchmark, where 1,221,065 names carry
-both forms in the same year file. What replaced it is weaker and more useful: a
-`www.<parent>` record must point at evidence naming that exact host, so admitting the shape
-never became asserting it.
+lanes date the parent only. The other is gone, `www.<parent>` having been admitted by ADR-009
+on his section XI and on a count of his own benchmark, where 1,221,065 names carry both forms
+in one year file. What replaced it is weaker and more useful: a `www.<parent>` record must
+point at evidence naming that exact host, so admitting the shape never became asserting it.
 """
 
 import gzip
@@ -115,10 +114,9 @@ def test_dns_lanes_are_not_web_facing() -> None:
 
 def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
     """The sweep appends to its journal under the final name, for hours, so ledgering by name
-    alone marks a live journal done at whatever length it had: one pass read a suffix
-    journal at 391,684 rows and the next skipped all 500 files, so every row written
-    afterwards would never be read. The `.part`-then-rename convention does not cover an
-    append-style collector; skipping on content does, for every lane at once.
+    alone marks a live journal done at whatever length it had: one pass read a suffix journal
+    at 391,684 rows and the next skipped all 500 files. The `.part`-then-rename convention
+    does not cover an append-style collector; skipping on content does, for every lane.
     """
     conn = duckdb.connect(":memory:")
     init_db(conn)

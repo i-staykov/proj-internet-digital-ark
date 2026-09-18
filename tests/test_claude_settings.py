@@ -1,11 +1,9 @@
 """The tracked harness settings, which configure the fleet as well as a laptop session.
 
-The fleet runs `claude -p` inside a clone of this branch, so `.claude/settings.json` is read
-unattended: a host or a local path in it would be published and would also be wrong on every
-other machine. The one deny rule is a `Read()` rule on purpose. Claude Code resolves the file
-a Bash command reads and checks it against the `Read()` rules, so a single entry covers the
-Read tool, `cat` and a pager alike; `just find` and `grep` stay open.
-
+The fleet reads them unattended, so a host or a local path would be published and would be
+wrong on every other machine. The one deny rule is a `Read()` rule on purpose: Claude Code
+resolves the file a Bash command reads and checks it against the `Read()` rules, so one entry
+covers the Read tool, `cat` and a pager alike while `just find` and `grep` stay open.
 `.claude/settings.local.json` is the machine-local half and must never become tracked.
 """
 

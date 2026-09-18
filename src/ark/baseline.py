@@ -1,15 +1,12 @@
 """Which baseline release is current, in one place.
 
-**The figures live in `data/baseline.json`; this module only loads them.** Point the
-JSON at the new release and every command follows. `docs/registers/releases.md` names
-every release the reviewer has issued.
+**The figures live in `data/baseline.json`; this module only loads them.** Point the JSON
+at the new release and every command follows. `docs/registers/releases.md` lists them.
 
-Each release loads under its OWN marker namespace: the ingest ledger keys on file name
-alone, so a second `1996.txt` is skipped as already seen. `ark ingest-legacy` with only
-`--legacy-dir` reuses the marker below and skips all six files behind reassuring
-"already ingested" lines, so pass `--marker-prefix` when loading a release the JSON does
-not yet name. Loading a round against a stale baseline is silent: it reports as net-new
-work the reviewer already holds, and only surfaces when he merges and disagrees.
+Each release loads under its OWN marker namespace, the ingest ledger keying on file name
+alone, so pass `--marker-prefix` when loading a release the JSON does not yet name or all
+six files are skipped behind reassuring "already ingested" lines. Loading a round against a
+stale baseline is silent: it reports work the reviewer already holds as net-new.
 """
 
 import json
@@ -28,9 +25,9 @@ _CURRENT = _DATA["current"]
 CURRENT_BASELINE_DIR = Path(_CURRENT["directory"])
 CURRENT_BASELINE_MARKER = _CURRENT["marker"]
 
-# When the previous round's archive was cut, so the earliest anything in this round
-# could have been written. Beside the marker because the window opens where the shipped
-# release closes; kept apart they drift and re-report held candidates in our favour.
+# When the previous round's archive was cut, so the earliest anything in this round could
+# have been written. Beside the marker because the window opens where the shipped release
+# closes; kept apart they drift and re-report held candidates in our favour.
 CURRENT_ROUND_SINCE = _CURRENT["round_since"]
 
 # What to call the round now being collected, in Ivo's numbering. The report heading,
@@ -46,29 +43,27 @@ CURRENT_BASELINE_RELEASED = _CURRENT["released_at"]
 REVIEWER_BASELINE_PAIRS = _CURRENT["reviewer_pairs"]
 REVIEWER_BASELINE_EE = Decimal(_CURRENT["reviewer_ee"])
 
-# Per-year equivalent-English, because the completion standard is stated against each
-# year's own baseline. Always MEASURED by running his calculator over each file of the
-# release, never by carrying our reported increments forward: a release absorbs several
-# contributors' rounds, so the denominator can move without our increment moving.
+# Per-year equivalent-English, the completion standard being stated against each year's own
+# baseline. Always MEASURED by running his calculator over each file of the release, never
+# by carrying our increments forward: a release absorbs several contributors' rounds, so the
+# denominator moves without our increment moving.
 REVIEWER_BASELINE_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_ee_by_year"].items()
 }
 
-# The corpus before this project's FIRST submission: `merged260715-2`, shipped as
-# `legacy-data/`. **Not the cumulative denominator.** Ivo's instruction is to quote the
-# cumulative contribution against the CURRENT corpus, `REVIEWER_BASELINE_EE`. Kept
-# because it is the only release predating every contribution, so phase 1's measured
-# increment stays checkable.
+# The corpus before this project's FIRST submission, `merged260715-2`, shipped as
+# `legacy-data/`. **Not the cumulative denominator**: Ivo's instruction is to quote the
+# cumulative contribution against the CURRENT corpus, `REVIEWER_BASELINE_EE`. Kept as the
+# only release predating every contribution, so phase 1's increment stays checkable.
 ORIGINAL_BASELINE_PAIRS = _DATA["original"]["pairs"]
 ORIGINAL_BASELINE_EE = Decimal(_DATA["original"]["ee"])
 
-# The rounds this project has SHIPPED, each row carrying the reviewer's ACCEPTED
-# figures, not the ones it was submitted with. Ordered as the JSON lists them: label,
-# date, records, equivalent-English, baseline accepted against, awarded %, benchmark
-# released, submission received (the last two "YYYY-MM-DD HH:MM" in his clock, which
-# `ark.figures` turns into t_i). A cumulative claim is the one figure the store cannot
-# regenerate, because a merged round stops being net-new, so these rows are read and
-# never recomputed. `docs/registers/rounds.md` is the ledger.
+# The rounds this project has SHIPPED, each row carrying the reviewer's ACCEPTED figures,
+# not the ones submitted. As the JSON lists them: label, date, records, equivalent-English,
+# baseline accepted against, awarded %, benchmark released, submission received (the last
+# two "YYYY-MM-DD HH:MM" in his clock, which `ark.figures` turns into t_i). A cumulative
+# claim is the one figure the store cannot regenerate, a merged round stopping being
+# net-new, so these rows are read and never recomputed. Ledger: `docs/registers/rounds.md`.
 SUBMITTED_ROUNDS = tuple(
     (
         row["label"],

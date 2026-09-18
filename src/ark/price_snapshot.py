@@ -1,8 +1,7 @@
 """The one price a fleet leg may quote, measured against a snapshot instead of the store.
 
 A fleet runner has no 52 GB `data/ark.duckdb`, so it prices against a directory the laptop
-builds and pushes (`scripts/harness/sync_fleet.sh`). One command's output is the only
-figure a finding may carry.
+builds and pushes (`scripts/harness/sync_fleet.sh`).
 
 **The snapshot is name lists and a manifest, nothing else.**
 
@@ -17,14 +16,11 @@ everything look net-new, the most flattering way this can be wrong.
 
 **Membership is tested on the EXACT name, and neither form infers the other.** A name that
 is its registrable is a `domain_year` record, a name beneath one a `hostname_year` record,
-a name reducing to nothing is refused; `www.<registrable>` is a record in its own right
-and is never folded onto the parent, in his words "the existence of the bare parent does
-not automatically establish the www hostname, nor does the presence of www automatically
-establish the bare hostname". The `www.` share of a figure is reported, not hidden.
+a name reducing to nothing is refused, and `www.<registrable>` is never folded onto the
+parent (ADR-010). The `www.` share of a figure is reported, not hidden.
 
-**The corroboration split is NOT applied**, as every result's `split` field says, because
-a snapshot carries year files rather than evidence. `ee` is therefore an upper bound and
-a finding may never quote it as a post-split figure.
+**The corroboration split is NOT applied**, as every result's `split` field says, because a
+snapshot carries year files rather than evidence, so `ee` is an upper bound.
 """
 
 from __future__ import annotations
@@ -419,14 +415,11 @@ def price(snapshot: Path, items: Path, track: str = "annual") -> dict:
         conn.close()
     return {
         "track": track,
-        # **The corroboration split is NOT applied here**, and a reader of a finding has to
-        # be told rather than left to assume. `price_items.py` splits its net-new set into a
-        # corroborated half (the domain is already attested in some year) and a
-        # candidate-pool half, and quotes only the first; this figure is the whole of it,
-        # which is that tool's "BEFORE the split" line. On a snapshot the split cannot be
-        # computed: it needs the store's attestation, and the snapshot carries year files,
-        # not evidence. So a leg's `ee` is an upper bound on what an annual submission of
-        # the same corpus would be credited.
+        # **The corroboration split is NOT applied here**, and a finding must say so.
+        # `price_items.py` splits its net-new set into a corroborated half and a
+        # candidate-pool half and quotes only the first; this figure is the whole of it,
+        # that tool's "BEFORE the split" line. A snapshot carries year files, not evidence,
+        # so the split cannot be computed and a leg's `ee` is an upper bound.
         "split": SPLIT,
         **priced,
         "manifest_sha": manifest_sha,

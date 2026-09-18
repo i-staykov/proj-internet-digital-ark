@@ -1,6 +1,6 @@
 export const meta = {
   name: 'hunt-registry-artifacts',
-  description: 'One agent per namespace: an archived register LISTING or a dated CHANGE report, the two shapes that paid 18,038 EE for .ie and 11,445 net-new pairs for .my',
+  description: 'One agent per namespace: an archived register LISTING or a dated CHANGE report, the two shapes that paid 18,769.9 EE for .ie and 11,445 net-new pairs for .my',
   phases: [
     { title: 'Probe', detail: 'one namespace or region each, CDX-enumerate the registry hosts' },
     { title: 'Verify', detail: 'per namespace: re-fetch, read the in-body date, re-count, price against the live store' },
@@ -18,8 +18,8 @@ TWO SHAPES HAVE PAID, and you are looking for either one in a namespace that has
 **A register LISTING.** The IE Domain Registry published its WHOLE .ie register as static A-Z pages
 at domainregistry.ie/statistics/{0-9,a..z}-doms.html, machine-generated from the live register, each
 page carrying its own in-body line, verbatim: "Last updated automatically at 14:51 GMT on Friday, 21
-December 2001". The Wayback Machine captured them. Measured three times independently: 24,805
-distinct .ie names, 18,512 net-new (domain, 2001) pairs, 18,038 equivalent-English.
+December 2001". The Wayback Machine captured them: 24,805 distinct .ie names, banked at 19,263
+net-new pairs worth 18,769.9 EE (docs/registers/sources.md, \`iedr_register\`).
 
 **A CHANGE report.** MYNIC published a fortnightly "Domain Name Listing" at
 \`mynic.net.my/my/stats/<month><year>-<half>.htm\` giving every name that ENTERED or LEFT the register
@@ -67,7 +67,7 @@ ie 0.9744, za 0.9682, ph 0.9483, sg 0.9476, us 0.9261, in 0.8361, ca 0.8365, my 
 com 0.6321, net 0.4530. Weights live in \`src/ark/data/tld_english_share.json\` as an \`eng\` row in
 percent; read them there rather than guessing, and say which you used.
 
-ALREADY DONE, DO NOT REPEAT: .ie (banked, 18,846 EE), .my (found, above), .za (measured, 4,462 EE),
+ALREADY DONE, DO NOT REPEAT: .ie (banked, above), .my (found, above), .za (measured, 4,462 EE),
 .ph (measured, 467 EE), .in ISP roster (62.7 EE), the .au family (AUNIC, auDA and AARNet are closed as
 having no bulk artifact), .ca's Usenet approval notices (banked; a LISTING artifact would be new), .nz,
 .sg, .hk, and the .us \`domain-delegated.txt\` file, a CLOSED FAMILY worth 1 to 2 net-new pairs that has

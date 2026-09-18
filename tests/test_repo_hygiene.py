@@ -199,9 +199,8 @@ def test_the_tracked_tree_passes_the_security_scan() -> None:
 def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
     """The shape that reached published history: a login against a non-routable address. The
     address rule fires only on globally routable addresses and the collector host is in
-    private space, so such a line passes every other guard (docs/ops/security-posture.md).
-    A documentation-range address is still allowed, because a fixture that has to look like
-    a host uses one.
+    private space, so such a line passes every other guard
+    (docs/ops/security-posture.md). A documentation-range address is still allowed.
     """
     from ark import hygiene
 

@@ -43,6 +43,22 @@ hostname-year records and 48 of them, about 2.67%, returned an exact-host IA CDX
 could ever carry web evidence. A DNS-grain corpus is a candidate asset however well dated, because
 the date proves a machine answered and not that a page existed.
 
+## The availability endpoint is blocked, and its queue re-aimed at CDX pays 125 EE/hour
+
+`archive.org/wayback/available` answers 429 with `x-rl: 0` and no `Retry-After`, sustained over
+13 hours INCLUDING with none of our clients running, so the block is not our load and the
+1,494 net-new EE/hour it was priced at (C-88) is not currently achievable. `web.archive.org/cdx`
+is unaffected and the sweeps run normally, so the limit is per service, not per address.
+
+Asking the same queue through `ark cdx` instead ran at **0.100 q/s** over a five-minute window,
+which at the measured 0.3459 net-new EE per query is **125 EE/hour against roughly 300 for one
+suffix sweep**. The swap costs more than it buys, so the third client stays off and both CDX
+collectors run. Re-test the endpoint before spending anything else on it.
+
+The queue build had two defects worth keeping: it ordered by TLD NAME, so a 4,000,000 row limit
+filled with `.com` alone and `.uk` at 0.9813, the richest of the four, never entered; and a
+throttle was recorded as "no capture", which would have consumed the queue while learning nothing.
+
 ## The thin-parent lane: 642 EE per client-hour, and targeting does not rescue it
 
 Tested 2026-09-06 on the idea of asking one `matchType=domain` question per registrable we hold

@@ -1,9 +1,7 @@
-"""The queue builder's round-window query. Loaded by path, like the other script tests:
-`scripts/` is not a package.
+"""The queue builder's round-window query.
 
-The builder is the only consumer of this query, so a parse error in it disables
-`just query-queue` and its `--dry-run` together and leaves the shards on disk as the
-newest ones anybody can have.
+The builder is its only consumer, so a parse error disables `just query-queue` and its
+`--dry-run` together and leaves the shards on disk as the newest ones anybody can have.
 """
 
 import importlib.util

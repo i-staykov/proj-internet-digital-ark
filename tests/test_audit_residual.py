@@ -1,13 +1,9 @@
 """The residual auditor: the two checks that have to fire on a real defect.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-The pair of checks is the point. `unread` catches a glob matching files the
-ledger has never read, which is the 496-shard case worth 14,956 equivalent-English.
-`glob_too_narrow` catches the opposite, a file the ledger holds that the documented
-glob cannot reach, which loses nothing now and makes `just reproduce` rebuild a
-store missing it later. A tool that found only one of the two would read as clean
-in exactly the case that has already happened twice.
+`unread` catches a glob matching files the ledger has never read, the 496-shard case worth
+14,956 equivalent-English. `glob_too_narrow` catches the opposite, a file the ledger holds
+that the documented glob cannot reach, which makes `just reproduce` rebuild a store missing
+it. One without the other reads as clean.
 """
 
 import importlib.util
@@ -102,11 +98,8 @@ def test_a_commented_out_ingest_line_is_not_read_as_documented(
 def test_a_writer_that_outlasts_our_patience_gets_an_explanation_not_a_traceback(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Found by running the tool while `ark seed` held the lock for 20 minutes.
-
-    A read-only reporting tool that ends in a DuckDB traceback reads as a broken
-    tool rather than as a busy store, and the first version gave up after 117
-    seconds for the same reason.
+    """A read-only reporting tool that ends in a DuckDB traceback reads as a broken tool
+    rather than as a busy store. Found while `ark seed` held the lock for 20 minutes.
     """
     import duckdb as _duckdb
 

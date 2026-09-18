@@ -1,23 +1,22 @@
 """Internet Archive CDX lookups: which in-window years hold a capture.
 
-One request answers all six years for a domain. `url=*.domain` matches the domain and
-every subdomain, `from`/`to` bound the window, `filter=statuscode:200` keeps only captures
-that served content, `fl=timestamp,original` returns the stamp and the captured URL, and
+One request answers all six years for a domain. `url=*.domain` matches the domain and every
+subdomain, `from`/`to` bound the window, `filter=statuscode:200` keeps captures that served
+content, `fl=timestamp,original` returns the stamp and the captured URL, and
 `collapse=timestamp:4` asks the server to fold repeated years.
 
-**Always ask for `original`, never `timestamp` alone.** Since ADR-009 a `www.` host is a
-record, so the URL the archive has just handed us is the point of the lane: keeping it
-turns a query about a domain we already hold into a harvest of the hosts beneath it, at no
-extra request and inside a row count `limit` already bounds.
+**Always ask for `original`, never `timestamp` alone.** A `www.` host is its own record
+(ADR-009), so keeping the URL turns a query about a domain we hold into a harvest of the
+hosts beneath it, at no extra request and inside the row `limit`.
 
 The collapse is a payload optimisation, never correctness: results are ordered by URL key,
 so a domain with many subdomains still returns a year several times and years are
 deduplicated here. A response that hits `limit` may have been truncated before some years
 appeared, so `lookup_years` reports truncation and the caller can probe the missing years.
 
-Throughput is the point. Brief section VII treats rate limits and 504s as signals to adapt
-batch size and concurrency rather than to abandon a route, so requests run through
-`RateGovernor`. `fetch` and `sleep` are injected so every path is tested offline.
+Brief section VII treats rate limits and 504s as signals to adapt batch size and
+concurrency rather than to abandon a route, so requests run through `RateGovernor`. `fetch`
+and `sleep` are injected so every path is tested offline.
 """
 
 import re
@@ -38,12 +37,11 @@ Fetch = Callable[[str], tuple[int, str]]
 # A refusal and a client-side timeout are opposite signals and must not share a status.
 # REFUSED backs the pace off like any throttle: a refused connection is the host
 # rate-limiting this IP (measured, while other hosts answered 8 of 8 at the same moment),
-# and retrying at full pace holds the run in the penalty box. Recovery after stopping an
-# eight-worker run was under 90 s.
+# and retrying at full pace holds the run in the penalty box. Recovery under 90 s.
 #
 # A TIMEOUT says the opposite: the server accepted the question and could not finish it,
-# which is no evidence about the pace, and it kills a heavily archived domain at a
-# consistent ~60 s. Those domains are what `lookup_years_per_year` exists to sweep.
+# which is no evidence about the pace. It kills a heavily archived domain at a consistent
+# ~60 s, and those are what `lookup_years_per_year` exists to sweep.
 REFUSED = 0
 TIMED_OUT = -1
 
@@ -101,13 +99,10 @@ def years_in(body: str, first: int, last: int) -> set[int]:
 def hosts_in(body: str, first: int, last: int) -> dict[str, str]:
     """host -> earliest in-window capture stamp, from a `timestamp,original` response.
 
-    The stamp is field 0 and the URL is field 1, so a response from a builder that still
-    asked for `timestamp` alone simply yields nothing here rather than misparsing.
-
-    `collapse=timestamp:4` means this is a SUBSET of the hosts under the domain, not a
-    census: the server folds adjacent rows and orders by URL key, so a host whose rows all
-    collapsed into a neighbour's is absent. Every host it does return is a real host with a
-    real dated capture, which is what a record needs; completeness is the sweep's job.
+    Stamp is field 0 and URL field 1, so a `timestamp`-only response yields nothing here
+    rather than misparsing. `collapse=timestamp:4` makes this a SUBSET of the hosts under
+    the domain, not a census: a host whose rows all folded into a neighbour's is absent.
+    Every host returned is real with a real dated capture; completeness is the sweep's job.
     """
     out: dict[str, str] = {}
     for line in body.splitlines():
@@ -176,16 +171,14 @@ ROOT_HOSTS = ("", "www.")
 def host_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
     """Ask one host, every path on it, instead of every subdomain of the domain.
 
-    CDX is keyed by a SURT, so `url=*.domain` walks the key range of every subdomain
-    while `matchType=host` walks one host's. Narrowing the range is the win; `collapse`
-    and `limit` only bound the payload. Measured against wildcard answers already in the
-    journals: median 2.07 s against roughly 33 s, same years every time.
+    CDX is keyed by a SURT, so `url=*.domain` walks every subdomain's key range while
+    `matchType=host` walks one host's. Narrowing the range is the win; `collapse` and
+    `limit` only bound the payload. Median 2.07 s against roughly 33 s for the wildcard,
+    same years every time. `www.` comes free, IA folding `www.abc.net.au` and `abc.net.au`
+    onto the key prefix `au,net,abc)/` (verified, not assumed).
 
-    `www.` comes free, because IA folds `www.abc.net.au` and `abc.net.au` onto the key
-    prefix `au,net,abc)/`. Verified, not assumed.
-
-    NOT the answer for a heavily archived domain: one host can still hold millions of
-    rows and this shape 504s on them too. `root_url` is the tier for those.
+    NOT the answer for a heavily archived domain: one host can hold millions of rows and
+    this shape 504s on them too. `root_url` is the tier for those.
     """
     query = urllib.parse.urlencode(
         {
@@ -205,11 +198,11 @@ def host_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
 def root_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
     """Ask one exact url, the host's root page, which is a single CDX key.
 
-    The cheapest question that can still date a domain, and the only one a heavily
-    archived name reliably answers: one key means the server reads a contiguous run in
-    time order, so `collapse` plus a small limit lets it stop as soon as it has the
-    years. Measured on `warehouse.co.uk`, which the wildcard scan failed on five times
-    and which `matchType=host` also 504s, apex plus www answered in 20.5 s with 4 years.
+    The cheapest question that can still date a domain and the only one a heavily archived
+    name reliably answers: one key means the server reads a contiguous run in time order, so
+    `collapse` plus a small limit lets it stop once it has the years. On `warehouse.co.uk`,
+    which the wildcard scan failed five times and `matchType=host` also 504s, apex plus www
+    answered in 20.5 s with 4 years.
     """
     query = urllib.parse.urlencode(
         {
@@ -250,13 +243,11 @@ def year_probe_url(domain: str, year: int) -> str:
 class RateGovernor:
     """Paces requests across threads, ramping up on health and down on refusal.
 
-    Multiplicative decrease on refusal, gradual increase while healthy, applied to the
-    delay between request STARTS rather than to a worker count, so the pool size stays
-    fixed and only the pace moves.
-
-    This workload is latency-bound: a wildcard query runs about 20 s, so throughput comes
-    from concurrency and pacing exists only to stay under the limiter. Hence a low ceiling
-    and quick recovery, or an unlucky patch of throttles leaves the run crawling for hours.
+    Multiplicative decrease on refusal, gradual increase while healthy, applied to the delay
+    between request STARTS rather than to a worker count, so pool size stays fixed and only
+    the pace moves. The workload is latency-bound (a wildcard query runs about 20 s), so
+    throughput comes from concurrency and pacing exists only to stay under the limiter:
+    hence a low ceiling and quick recovery, or a patch of throttles crawls for hours.
     """
 
     delay: float = 0.2
@@ -404,11 +395,10 @@ def lookup_years_by_root(
 ) -> dict:
     """Date a domain from the root pages of its apex and www hosts.
 
-    The last tier, for domains so heavily archived the server can finish neither the
-    wildcard scan nor a whole-host match. Narrow by construction, since a year evidenced
-    only by a deeper page or another subdomain is not seen, but the comparison is against
-    no answer at all. A host answering with no rows is still an answer, so the domain is
-    settled if either host returned 200.
+    The last tier, for domains so heavily archived the server finishes neither the wildcard
+    scan nor a whole-host match. Narrow by construction, a year evidenced only by a deeper
+    page being unseen, but the comparison is against no answer at all. A host answering with
+    no rows is still an answer, so the domain is settled if either host returned 200.
     """
     gov = governor or RateGovernor()
     years: set[int] = set()
@@ -494,24 +484,22 @@ def lookup_years(
 ) -> dict:
     """Query one domain and return its journal record.
 
-    The record always states what happened, including failure, so a later run knows not
-    to repeat it and the coverage is auditable.
+    The record always states what happened, including failure, so a later run knows not to
+    repeat it and the coverage is auditable.
 
     **The cheap shape is asked first and the wildcard scan is the fallback**, because the
     scan is what the server gives up on: an unanswered queue head is 100% domains earlier
-    batches already failed on, four or five times over, and only an HTTP 200 settles a
-    domain, so they return to the head of every later batch. The cheap shape loses nothing
-    measurable, returning the same year set every time both answered.
+    batches failed on, and only an HTTP 200 settles a domain. The cheap shape returns the
+    same year set every time both answered.
 
     Three tiers, each for a failure the others measurably have:
 
     1. `matchType=host`, one request, answers the ordinary domain in about 2 s.
-    2. If the server cannot finish that, the apex and www ROOT pages, single keys. Not
-       interchangeable with tier 1, which 504s on `warehouse.co.uk`, `gigabyte.com` and
-       `bbc.co.uk` while their root pages answer in about 10 s.
-    3. If tier 1 answered but found nothing, the wildcard scan, the only shape that can
-       see a capture under another subdomain. Cheap precisely because a domain with
-       nothing on its own host is lightly archived.
+    2. If the server cannot finish that, the apex and www ROOT pages, single keys. Tier 1
+       504s on `warehouse.co.uk`, `gigabyte.com` and `bbc.co.uk` while their root pages
+       answer in about 10 s.
+    3. If tier 1 answered but found nothing, the wildcard scan, the only shape that sees a
+       capture under another subdomain. Cheap because such a domain is lightly archived.
     """
     gov = governor or RateGovernor()
 

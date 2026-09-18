@@ -1,10 +1,8 @@
 """The UDRP proceedings reader, and the rules that make it master evidence.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-This source takes **no corroboration split** (ADR-002), so unlike a Usenet or OCR
-extractor there is no wall behind its pattern: anything it emits becomes a master
-claim. The tests therefore pin what it refuses as tightly as what it accepts.
+This source takes **no corroboration split** (ADR-002), so there is no wall behind its
+pattern: anything it emits becomes a master claim. The tests pin what it refuses as tightly
+as what it accepts.
 """
 
 import importlib.util
@@ -52,11 +50,9 @@ def test_reads_the_commencement_year_and_the_domain_column() -> None:
 
 
 def test_the_year_comes_from_commencement_not_from_the_decision() -> None:
-    """A case commenced in 2000 and decided in 2001 evidences 2000.
-
-    The domain certainly existed when the complaint was filed, so the earlier date
-    is the safer claim, and `evidence_year_matches_its_value` requires the value to
-    name the year it is filed under.
+    """A case commenced in 2000 and decided in 2001 evidences 2000: the domain certainly
+    existed when the complaint was filed, and `evidence_year_matches_its_value` requires
+    the value to name the year it is filed under.
     """
     stats: Counter = Counter()
     page = _page(_row("2000-12-20", "2001-03-04", "NAF FA0092015", "buyerschoice.com"))
@@ -113,11 +109,11 @@ def test_a_header_row_produces_nothing() -> None:
 
 
 def test_the_journal_carries_the_date_and_number_the_parser_needs() -> None:
-    """`sources.parse_udrp_proceedings` builds the evidence value from these two
-    fields and puts the date first, so the first four-digit run in the value is the
-    year the row is filed under. A NAF number like `FA0092016` offers `0092` and a
-    `D2000-` case commenced in 2001 offers 2000, so either one leading would fail
-    `evidence_year_matches_its_value`."""
+    """`sources.parse_udrp_proceedings` builds the evidence value from these two fields and
+    puts the date first, so the first four-digit run in the value is the year the row is
+    filed under. A NAF number like `FA0092016` offers `0092` and a `D2000-` case commenced
+    in 2001 offers 2000, so either one leading would fail `evidence_year_matches_its_value`.
+    """
     stats: Counter = Counter()
     page = _page(_row("2001-05-15", "-", "WIPO D2000-1762", "late.com"))
     (record,) = list(udrp.records_in(page, stats))

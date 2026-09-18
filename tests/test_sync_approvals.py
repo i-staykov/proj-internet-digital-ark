@@ -63,10 +63,9 @@ def test_a_terms_question_is_filed() -> None:
 
 
 def test_work_is_not_an_approval() -> None:
-    """Condition 4 is a missing ingest.
-
-    Its block says conditions 1 to 3 HOLD, so reading condition numbers from the whole block
-    would file it as a terms question. It needs a collector, not a decision.
+    """Condition 4 is a missing ingest. Its block says conditions 1 to 3 HOLD, so reading
+    condition numbers from the whole block would file it as a terms question. It needs a
+    collector, not a decision.
     """
     assert sa.failed_conditions(NOT_INGESTED) == {"4"}
     assert "bigcorpus" not in [r.source for r in sa.requests(floor=1_000)]

@@ -1,29 +1,22 @@
 """Dated website announcements from Usenet archives (the Giganews donation to IA).
 
 A post carries its own date and one or more website URLs, so the date is intrinsic to the
-artifact rather than recovered from a crawl. **Under Section XIII a Usenet post is a
-textual mention, so this is a CANDIDATE lane: it cannot date a year in the annual
-masters.** It is scored on the candidate track at the same rate.
+artifact. **Under Section XIII a Usenet post is a textual mention, so this is a CANDIDATE
+lane: it cannot date a year in the annual masters.** It is scored on the candidate track at
+the same rate.
 
-**Two things make the source dangerous, and both shape the design.**
-
-A URL in a message body is typed by a human. The corpus holds `weddinqnetwork.com` and
-`dmjbuisness.co.uk`, and roughly a quarter of never-before-seen names are within one edit
-of a name the store already holds.
-
-And a mention is not an announcement: a moderated group announcing new sites is curated,
-a commerce group is people advertising, where a URL may be a competitor or an aspiration.
+**Two things make the source dangerous, and both shape the design.** A URL in a body is
+typed by a human: the corpus holds `weddinqnetwork.com` and `dmjbuisness.co.uk`, and a
+quarter of never-before-seen names are within one edit of a name the store holds. And a
+mention is not an announcement: a moderated group announcing new sites is curated, a
+commerce group is people advertising a competitor or an aspiration.
 
 **Corroboration gates admission and nothing else does.** A domain another source already
 places in an annual file is real, so only the year is open and the post answers it with an
-auditable Message-ID. A name appearing only in Usenet has neither existence nor year
-attested, so it becomes `link_target` and goes to the candidate pool to earn its own
-evidence. Same split `expand.py` applies to archived directory pages: the post may be
-sound while the transcription is not.
-
-Group purpose is RECORDED, not enforced: `is_moderated_announce` reports the split, every
-evidence row names its group, and a reviewer who disagrees can filter on that name without
-reprocessing anything. Nothing is discarded either way.
+auditable Message-ID. A name appearing only in Usenet becomes `link_target` and goes to the
+candidate pool to earn its own evidence. Group purpose is RECORDED, not enforced:
+`is_moderated_announce` reports the split, every evidence row names its group, and nothing
+is discarded either way.
 """
 
 import email
@@ -48,13 +41,11 @@ MODERATED_ANNOUNCE_GROUPS = frozenset(
 
 
 def is_moderated_announce(group: str) -> bool:
-    """Whether a group is a moderated announcement forum.
+    """Whether a group is a moderated announcement forum. Reported, not enforced.
 
     A COMPONENT test, not a suffix test, because the marker is not always last:
     `news.announce.conferences` and `news.announce.newgroups` are both moderated.
     `MODERATED_ANNOUNCE_GROUPS` names the handful that say so nowhere in the name.
-
-    Reported, not enforced. See the module docstring.
     """
     parts = set(group.split("."))
     return group in MODERATED_ANNOUNCE_GROUPS or bool(parts & {"announce", "moderated"})
@@ -178,15 +169,13 @@ def domains_in_message(body: str, from_header: str) -> list[str]:
 def bare_domains_in_body(body: str) -> list[str]:
     """Registrable domains written bare in a message body, deduplicated in order.
 
-    Separate from `domains_in_message` so the bare form carries its own source name and
-    can be measured or dropped without touching what `usenet_announce` claimed.
+    Separate from `domains_in_message` so the bare form carries its own source name and can
+    be measured or dropped without touching what `usenet_announce` claimed. Pass the body,
+    not the whole message: see `_BARE_DOMAIN`.
 
-    Pass the body, not the whole message. See `_BARE_DOMAIN` for why.
-
-    The fourth guard is here rather than in the pattern because it reads better as a
-    sentence: all-digit labels before the TLD are a version string, not a site, or
-    `upgraded to 4.0.2.au` canonicalises to the fabricated `2.au`. It costs the handful
-    of genuinely all-numeric domains (`123.com`).
+    The fourth guard lives here rather than in the pattern: all-digit labels before the TLD
+    are a version string, not a site, or `upgraded to 4.0.2.au` canonicalises to the
+    fabricated `2.au`. It costs the handful of genuinely all-numeric domains (`123.com`).
     """
     found: dict[str, None] = {}
     for host in _BARE_DOMAIN.findall(body or ""):
@@ -213,9 +202,9 @@ def iter_messages(path: Path) -> Iterator[bytes]:
     """Yield each raw message from an mbox, or from a zip holding one.
 
     The archives ship as `<group>.mbox.zip` and the member is read directly rather than
-    unpacked for one pass. It holds the decompressed mbox in memory, which is the limit
-    on this route: the largest group so far is 150 MB compressed, about 600 MB expanded.
-    Only the separator scan needs the whole blob, so a much larger group wants streaming.
+    unpacked. It holds the decompressed mbox in memory, which is the limit on this route:
+    the largest group so far is 150 MB compressed, about 600 MB expanded. Only the separator
+    scan needs the whole blob, so a much larger group wants streaming.
     """
     if path.suffix == ".zip":
         with zipfile.ZipFile(path) as archive:

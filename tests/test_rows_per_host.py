@@ -1,11 +1,10 @@
 """The cost table the platform ranker divides by, and the fallback for a parent without one.
 
 `rank_platform_parents.py` ranks a parent by `headroom x TLD weight / rows_per_host`, because
-a CDX page costs the same whatever it returns and only distinct (host, year) pairs are records.
-The divisor comes from `data/raw/cdx/rows_per_host.tsv`, which nothing built: it was written by
-hand on 2026-09-04 over 339 parents, and by 2026-09-10 the collectors had walked 3,543. So the
-cost term was live for a tenth of the queue, and the other nine tenths fell through to a
-fallback of 1.0, which is not a neutral guess but the cheapest value the ratio can take.
+a CDX page costs the same whatever it returns and only distinct (host, year) pairs are
+records. The divisor in `data/raw/cdx/rows_per_host.tsv` was written by hand over 339 parents
+while the collectors have walked 3,543, so most of the queue falls through to a fallback of
+1.0, which is not a neutral guess but the cheapest value the ratio can take.
 """
 
 import importlib.util

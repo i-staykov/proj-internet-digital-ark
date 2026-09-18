@@ -64,10 +64,9 @@ def test_the_legacy_order_still_puts_the_thinnest_gap_year_first() -> None:
 
 def test_english_share_outranks_the_gap_year_it_used_to_lose_to() -> None:
     """The whole point of the reorder: what an answer is worth beats which year it fills.
-
-    `low.de` sits in the thinnest year (1998) and would lead under the legacy
-    order. `high.uk` fills 1997, the densest year and last in YEAR_PRIORITY, but
-    `.uk` is 98.1% English against `.de` at 13.2%, so it is worth 7x more.
+    `low.de` sits in the thinnest year (1998) and would lead under the legacy order;
+    `high.uk` fills 1997, the densest year and last in YEAR_PRIORITY, but `.uk` is 98.1%
+    English against `.de` at 13.2%, so it is worth 7x more.
     """
     conn, source_id = _store()
     _hold(conn, source_id, "low.de", 1997)
@@ -82,11 +81,9 @@ def test_english_share_outranks_the_gap_year_it_used_to_lose_to() -> None:
 
 
 def test_more_fillable_years_outranks_a_higher_share_when_it_is_worth_more() -> None:
-    """Share alone is not the key: a query answers every year at once.
-
-    `two.de` can fill 1998 and 2000, worth 2 x 0.1324 = 0.2648. `one.net` can fill
-    one year at 0.4530. So the higher-share domain wins here, and would lose if
-    `two.*` had enough gaps to overtake it. This pins the product, not either factor.
+    """Share alone is not the key: a query answers every year at once. `two.de` can fill 1998
+    and 2000, worth 2 x 0.1324 = 0.2648; `one.net` can fill one year at 0.4530. This pins
+    the product, not either factor.
     """
     conn, source_id = _store()
     _hold(conn, source_id, "two.de", 1997)
@@ -127,11 +124,9 @@ def test_a_shard_keeps_the_priority_order_it_was_given() -> None:
 
 
 def test_sharding_is_stable_across_processes() -> None:
-    """PYTHONHASHSEED must not decide which machine owns a domain.
-
-    `hash()` on a str is salted per interpreter run. If sharding used it, two
-    machines would disagree about the split and would both query some domains
-    while both skipped others.
+    """PYTHONHASHSEED must not decide which machine owns a domain. `hash()` on a str is salted
+    per interpreter run, so two machines would disagree about the split and would both query
+    some domains while both skipped others.
     """
     import subprocess
     import sys
@@ -175,11 +170,9 @@ def test_weighted_shards_are_sized_by_their_weight() -> None:
 
 
 def test_a_weighted_shard_is_a_sample_of_the_curve_not_a_block_of_it() -> None:
-    """The slow machine must not be handed only the cheap tail.
-
-    Hashing is independent of the ordering, so each share should carry close to
-    its own fraction of the total value. Splitting by position instead would give
-    one machine the entire high-value head, which is the failure this guards.
+    """The slow machine must not be handed only the cheap tail. Hashing is independent of the
+    ordering, so each share carries close to its own fraction of the total value; splitting
+    by position would give one machine the entire high-value head.
     """
     rows = [(f"d{i}.com", 0, 1 + i % 4) for i in range(20000)]
     ordered = equivalent_english_order(rows)

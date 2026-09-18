@@ -1,15 +1,12 @@
 """A dead host's pages and its files are different questions, and only one was asked.
 
-`reprobe_closed.py` re-asks whether a host answers. That is the wrong question for a
-source closed on availability, and 2026-08-16 proved it twice: `nw.com` had been
-recorded as unrecoverable while `zone/9701.domains.gz` sat intact in the Wayback
-Machine, worth 76,324 net-new pairs; and `cybermetrics.wlv.ac.uk` does not resolve at
-all while its entire `/database/` tree survives, including a 166 MB zip.
-
-These tests pin the filter that separates a data file from a page, because its two
-failure modes are opposite and both are expensive. Too strict and it hides the file
-that matters, which is what "Wayback skips large binaries" would have done. Too loose
-and it reports every HTML page on a dead host as a recovery.
+`reprobe_closed.py` re-asks whether a host answers, the wrong question for a source closed on
+availability: `nw.com` was recorded unrecoverable while `zone/9701.domains.gz` sat intact in
+the Wayback Machine, worth 76,324 net-new pairs, and `cybermetrics.wlv.ac.uk` does not
+resolve at all while its entire `/database/` tree survives, including a 166 MB zip. These pin
+the filter that separates a data file from a page, whose two failure modes are opposite and
+both expensive: too strict hides the file that matters, too loose reports every HTML page on
+a dead host as a recovery.
 """
 
 import importlib.util
@@ -33,10 +30,9 @@ def test_a_large_archive_is_reported() -> None:
 
 
 def test_a_self_extracting_exe_is_reported() -> None:
-    """Excluding .exe would have hidden the largest files on the first host tried.
-
-    A 1990s research host shipped its datasets as self-extracting archives, so the
-    generous suffix list is deliberate rather than sloppy.
+    """Excluding .exe would have hidden the largest files on the first host tried: a 1990s
+    research host shipped its datasets as self-extracting archives, so the generous suffix
+    list is deliberate rather than sloppy.
     """
     rows = [_row("http://cybermetrics.wlv.ac.uk/database/uk_unis_2000.exe", 45_486_540)]
     assert len(recover.interesting(rows)) == 1
@@ -77,11 +73,9 @@ def test_an_unparseable_length_is_skipped_rather_than_raising() -> None:
 
 
 def test_papers_and_fonts_are_not_data() -> None:
-    """The first whole-register sweep returned 89 hits and most were a reading list.
-
-    Conference PDFs on Yahoo Webscope, PostScript papers from a 1999 caching
-    workshop, and Bootstrap glyph fonts on an Icelandic archive. All are served as
-    octet-stream, so the mime check alone lets them through.
+    """The first whole-register sweep returned 89 hits and most were a reading list: conference
+    PDFs, PostScript papers from a 1999 caching workshop, and Bootstrap glyph fonts. All are
+    served as octet-stream, so the mime check alone lets them through.
     """
     rows = [
         _row("http://webscope.sandbox.yahoo.com/files/YmirV.pdf", 5_251_465),

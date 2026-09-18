@@ -2,10 +2,8 @@
 
 `engine_status.sh` runs under `set -uo pipefail` and asked whether a collector was up with
 `ps -eo etime,command | grep -qE "$LOOPS"`. `grep -q` exits at its first match while `ps` is
-still writing, so `ps` dies of SIGPIPE (141) and pipefail reports the whole pipeline failed.
-The line therefore printed "no collector loop" precisely WHEN a collector was running, which
-is how `data/brief.json` told a session at 04:28Z on 2026-09-10 that the lane was down while
-two sweep shards had been up for half an hour.
+still writing, so `ps` dies of SIGPIPE and pipefail reports the pipeline failed: the line
+printed "no collector loop" precisely WHEN a collector was running.
 """
 
 import subprocess

@@ -1,12 +1,10 @@
 """Our vendored weight table must be the reviewer's, and it must be pinned.
 
-Two implementations of the metric exist on purpose: his `equivalent_english_domains.py`
-decides every figure quoted to him, and `src/ark/english_share.py` ranks two million
-candidates in a loop during collection, which shelling out per file cannot do. The whole
-arrangement rests on them agreeing. It is not a theoretical risk: his validator requires a
-letters-only TLD and ours had no validity rule at all, so seventeen `xn--` records scored
-zero for him and full weight for us, and `round_figures.py --verify` refused the round over
-a 0.3150 discrepancy.
+Two implementations exist on purpose: his `equivalent_english_domains.py` decides every
+figure quoted to him, and `src/ark/english_share.py` ranks two million candidates in a loop
+during collection, which shelling out per file cannot do. The whole arrangement rests on them
+agreeing, and it has broken: his validator requires a letters-only TLD and ours had no
+validity rule at all, so seventeen `xn--` records scored zero for him and full weight for us.
 
 His brief also requires the table to be frozen: "the same fixed Common Crawl-derived TLD
 English-share weight table must be used for the baseline and every submission being

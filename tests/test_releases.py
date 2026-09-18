@@ -1,11 +1,9 @@
 """The release table fills from disk and never forgets what it has measured.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-Two properties matter. A zip is matched to its marker by member list, because his
-zips are named by mail date (`..._0831_UpdateV2.zip` holds `merged260830`). And a
-filled cell survives the file behind it leaving the machine, since the hash is what
-the off-site copy is later verified against.
+Two properties matter. A zip is matched to its marker by member list, because his zips are
+named by mail date (`..._0831_UpdateV2.zip` holds `merged260830`). And a filled cell survives
+the file behind it leaving the machine, since the hash is what the off-site copy is later
+verified against.
 """
 
 import hashlib
@@ -38,10 +36,9 @@ def _tree(where: Path) -> Path:
 
 
 def _blank_page() -> str:
-    """The tracked page's prose around a table nobody has filled yet.
-
-    The tracked table is filled from the real feedback/ tree, so a test that started from
-    it would read those cells instead of its own layout's.
+    """The tracked page's prose around a table nobody has filled yet. The tracked table is
+    filled from the real feedback/ tree, so a test that started from it would read those
+    cells instead of its own layout's.
     """
     head, _, tail = releases.split_page((ROOT / "docs/registers/releases.md").read_text())
     table = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])

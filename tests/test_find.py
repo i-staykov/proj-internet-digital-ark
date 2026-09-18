@@ -1,15 +1,10 @@
 """`just find`: the only route into the four register pages, so it must be honest.
 
-Three things are pinned here, because each is a way the tool could quietly stop
-being a replacement for reading the file: a term that lives only in a `## Detail`
-block is still found and says where it is, `--detail` prints one entry and only
-that one, and nothing prints over the line cap without `--all`.
-
-The fourth is that no page is ever read whole. That is the whole point of the
-recipe, and it is asserted rather than reviewed: the module's `open` is replaced
-with a handle that raises if anything calls `read` or `readlines`.
-
-Loaded by path, like the other script tests: `scripts/` is not a package.
+Four ways the tool could quietly stop replacing the file, one test each: a term living only
+in a `## Detail` block is still found and says where it is, `--detail` prints one entry and
+only that one, nothing prints over the line cap without `--all`, and no page is ever read
+whole, asserted by replacing the module's `open` with a handle that raises on `read` or
+`readlines`.
 """
 
 import importlib.util
@@ -274,11 +269,9 @@ def test_no_page_is_read_whole(register, monkeypatch, capsys):
 
 
 def test_a_column_name_is_found_rather_than_reported_absent(register, capsys):
-    """A header row is searchable text: exit 1 must mean absent, never skipped.
-
-    Skipping header rows outright made a search for one of the register's own column
-    names answer "not in the register", which is the one wrong answer this command
-    cannot give, since it is the only route into the pages.
+    """A header row is searchable text: exit 1 must mean absent, never skipped. Skipping
+    header rows outright made a search for one of the register's own column names answer
+    "not in the register", which is the one wrong answer this command cannot give.
     """
     assert run(register, "baseline overlap") == 0
     out = capsys.readouterr().out

@@ -1,19 +1,16 @@
 """Which source classes a human has approved for the annual files, and the gate.
 
-The pipeline can measure a source; it cannot decide whether that source's records belong
-in the annual files. The thing distrusted in an unattended run is **the agent's own
-reasoning about its own sources**, so the classification is a human decision taken from
-external evidence, recorded in `docs/registers/approved-sources-list.md`, and **enforced
-here rather than remembered**.
+The pipeline can measure a source; it cannot decide whether that source's records belong in
+the annual files. What is distrusted in an unattended run is **the agent's own reasoning
+about its own sources**, so the classification is a human decision recorded in
+`docs/registers/approved-sources-list.md` and **enforced here rather than remembered**.
 
 **The quarantine is the journal on disk, outside the store.** Collectors never open the
-database, so an unapproved source cannot contaminate anything, having never been written,
-rather than relying on every future query to respect a marker.
+database, so an unapproved source cannot contaminate anything, having never been written.
 
 A **master-eligible** evidence type needs approval, because its rows can create a year
-assignment. A **candidate-only** type does not: a candidate claims nothing, the reviewer
-asked for the pool to be as large as practicable, and waiting on a human to grow a pool
-would stall collection for no gain.
+assignment. A **candidate-only** type does not: a candidate claims nothing, and waiting on
+a human to grow a pool would stall collection for no gain.
 
 **The decision vocabulary**, one line per request in the register:
 
@@ -82,10 +79,9 @@ class Approval:
 def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
     """Parse `docs/registers/approved-sources-list.md`, keyed by (source name, evidence type).
 
-    The file is the single source of truth and is edited by a human: a reviewer
-    changes one `Decision:` line. Parsing it rather than keeping a second machine
-    file means the record a person reads and the record the gate enforces cannot
-    disagree, which is the failure mode `sources.md` already carries a scar from.
+    The single source of truth, edited by a human changing one `Decision:` line. Parsing it
+    rather than keeping a second machine file means the record a person reads and the record
+    the gate enforces cannot disagree.
     """
     path = Path(path) if path is not None else DEFAULT_APPROVALS_PATH
     if not path.exists():

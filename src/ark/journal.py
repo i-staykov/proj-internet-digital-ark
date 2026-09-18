@@ -61,15 +61,10 @@ def open_journal(path: Path) -> IO[str]:
 def open_journal_for_write(path: Path) -> IO[str]:
     """Open a journal for writing, gzipped unless the path says otherwise.
 
-    `mtime=0` rather than the default, and it is load-bearing rather than tidy.
-    gzip stamps the current time into its header, so writing the same records
-    twice produces different bytes, and the ingest ledger keys on the content
-    hash. The consequences were both real: a collector re-run that changed
-    nothing was refused as "ledgered with different content", and tier-2's
-    byte-identical rebuild claim was quietly false for every journal in the
-    delivery. With the timestamp pinned, identical records give an identical
-    file, which is what makes "re-offering an ingested journal is a no-op"
-    true rather than usually true.
+    `mtime=0` is load-bearing. gzip stamps the current time into its header, so the same
+    records written twice give different bytes while the ingest ledger keys on the content
+    hash: a re-run that changed nothing is refused as "ledgered with different content", and
+    the byte-identical rebuild claim goes quietly false for every journal in the delivery.
     """
     if _is_compressed(path):
         # GzipFile opens the file itself, so closing the wrapper closes both.
@@ -83,11 +78,9 @@ def open_journal_for_write(path: Path) -> IO[str]:
 def _sigterm_raises() -> Iterator[None]:
     """Turn SIGTERM into SystemExit, so `finally` blocks still run.
 
-    The supervisor script stops a collector with `pkill`, and Python's default
-    SIGTERM handling exits without unwinding, which would leave the journal
-    stranded under its `.part` name. Only the main thread can install a handler,
-    and only the main thread ever runs this, but a worker thread asking for one
-    should be a no-op rather than a crash.
+    The supervisor stops a collector with `pkill`, and Python's default SIGTERM handling
+    exits without unwinding, stranding the journal under its `.part` name. Only the main
+    thread can install a handler, so a worker thread asking is a no-op rather than a crash.
     """
 
     def raise_system_exit(_signum: int, _frame: object) -> None:
@@ -126,17 +119,12 @@ def journal_writer(path: Path) -> Iterator[IO[str]]:
 def write_journal_line(fh: IO[str], record: dict) -> None:
     """Append one record and push it to disk.
 
-    The flush is not belt-and-braces, it is load-bearing. `scripts/engines/supervise_cdx_pool.sh`
-    decides whether a run has stalled by watching the journal's size on disk, and
-    gzip emits nothing until zlib fills a block. At normal speed the first block
-    lands inside the watchdog's window; on 3 August, with the archive answering in
-    ~15 s instead of ~2 s, it took 12.7 minutes, which a 10-minute window reads as
-    a stall. A healthy batch would have been killed and restarted all night.
-
-    So the file on disk now tracks progress, which is what the watchdog was always
-    documented to measure. The cost is a `Z_SYNC_FLUSH` per record, worth a few
-    bytes of compression on a 20 KB journal, against a monitor that cannot go
-    blind. Writes come from the collector's main thread, so no lock is needed.
+    The flush is load-bearing. `scripts/engines/supervise_cdx_pool.sh` decides whether a run
+    has stalled by watching the journal's size on disk, and gzip emits nothing until zlib
+    fills a block: with the archive answering in ~15 s instead of ~2 s the first block took
+    12.7 minutes, which a 10-minute watchdog window reads as a stall. The cost is a
+    `Z_SYNC_FLUSH` per record, a few bytes of compression on a 20 KB journal, against a
+    monitor that cannot go blind. Writes come from the main thread, so no lock is needed.
     """
     fh.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
     fh.flush()
@@ -151,15 +139,14 @@ def queried_domains(
 
     `answered` decides what counts as settled. A transport failure is not an answer, and
     journalling it as one drops the domain from every later run permanently. Pass a
-    predicate where some outcomes are failures rather than findings; the default treats any
-    record as settled, right where the service either answers or says "not found".
+    predicate where some outcomes are failures; the default treats any record as settled,
+    right where the service either answers or says "not found".
 
     **Truncation and CORRUPTION are both tolerated, and the guard sits INSIDE the read
     loop.** A journal cut between flushes raises `EOFError`; one whose last gzip block a
-    `kill -9` damaged raises `zlib.error`, which is not an `OSError`. Missing the second
-    stopped both RDAP engines dead before a single query went out, reading exactly like a
-    finished queue. Around the loop rather than inside it, a file failing on its last block
-    throws away every domain read from the good blocks before it.
+    `kill -9` damaged raises `zlib.error`, which is not an `OSError`, and missing it stops
+    an engine dead looking exactly like a finished queue. Around the loop rather than inside
+    it, a file failing on its last block throws away the good blocks before it.
     """
     seen: set[str] = set()
     if not directory.is_dir():

@@ -1,12 +1,9 @@
 """The collector lane's three commands, and the pause that has to outlive a reboot.
 
-`just collectors pause` is the one instruction given to a laptop about to be shut, so the
-properties worth a test are the ones that fail silently otherwise: the flag lands where the
-sweep reads it, it says a human wrote it so the sweep loop's 9,000 second heartbeat expiry
-leaves it alone, and resume removes exactly that file and nothing else.
-
-The marker word is shared between two scripts in two languages of shell, which is how a
-rename would quietly turn a human pause back into an expiring one. Both are asked here.
+`just collectors pause` is the one instruction given to a laptop about to be shut: the flag
+lands where the sweep reads it, it says a human wrote it so the loop's 9,000 second heartbeat
+expiry leaves it alone, and resume removes exactly that file. The marker word is shared
+between two scripts in two shells, so both are asked here.
 """
 
 import plistlib
@@ -116,11 +113,10 @@ def test_the_launchd_job_caffeinates_and_comes_back():
 
 
 def test_no_remote_means_zero_clients_there_not_unknown(tmp_path):
-    """An unreadable answer counts as one client, so "not asked" cost half the channel.
-
-    C-88 puts all three archive clients on this laptop and none on the VPS, so a machine
-    told it has no remote is stating a fact. It was answering "not asked", the caller read
-    that as unknown, and every window started one sweep loop where two were allowed.
+    """An unreadable answer counts as one client, so "not asked" cost half the channel. C-88
+    puts all three archive clients on this laptop and none on the VPS, so a machine told it
+    has no remote is stating a fact; answering "not asked" started one sweep loop per
+    window where two were allowed.
     """
     out = run("status", state=tmp_path / "state")
     assert "VPS: 0 on the same channel" in out.stdout, out.stdout + out.stderr

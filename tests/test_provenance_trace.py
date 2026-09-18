@@ -1,9 +1,8 @@
 """`trace.py`, the tool the reviewer runs blind, driven the way he runs it.
 
-`write_provenance` copies `src/ark/provenance_trace.py` into the export folder as
-`trace.py`, and the reviewer runs that copy from there with no project around it.
-So each test runs the copied file as `__main__` from its shipped location rather
-than importing the module, and reads what it printed.
+`write_provenance` copies `src/ark/provenance_trace.py` into the export folder as `trace.py`
+and the reviewer runs that copy with no project around it, so each test runs the copied file
+as `__main__` from its shipped location and reads what it printed.
 """
 
 import runpy

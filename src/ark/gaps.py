@@ -1,32 +1,24 @@
 """Select which held domains are worth a per-domain archive query, best first.
 
-A domain assigned in year Y-1 and again in Y+1, but missing Y, almost certainly
-existed in Y: the two flanking years bracket it. That makes it the highest-yield
-target for a year-specific lookup, and it is why the candidate set is restricted
-to this shape rather than to every year adjacent to a held one, which is 17.5x
-larger and far more speculative.
+A domain assigned in Y-1 and Y+1 but missing Y almost certainly existed in Y, which makes
+it the highest-yield target for a year-specific lookup. Hence this shape rather than every
+year adjacent to a held one, which is 17.5x larger and far more speculative. The unit of
+work is the domain, not the gap, because one archive query answers every year at once.
 
-The unit of work is the domain, not the gap, because one archive query answers
-every year at once.
+**Ordering is by expected equivalent-English, which is the score.** A query is worth
+`English share of the TLD x bracketed years it could fill`: the hit rate is near-uniform
+here (96.0% and 96.9% on consecutive batches), so what separates targets is what an answer
+is worth. Both factors matter. Share alone ranks a domain with one missing year above one
+with three; count alone spends the week on `.de` at 13.2% English while 13,503 `.uk`
+domains at 98.1% wait.
 
-**Ordering is by expected equivalent-English, since August 2026 that is the
-score.** A query is worth `English share of the TLD x the number of bracketed
-years it could fill`, because the hit rate is close to uniform across this
-population: measured 96.0% and 96.9% on consecutive batches, so what separates
-one target from another is not the chance of an answer but what the answer is
-worth. Both factors matter. Share alone would rank a domain with one missing year
-above one with three; count alone would spend the week on `.de` at 13.2% English
-while 13,503 `.uk` domains at 98.1% waited.
+`year_priority_order`, thinnest gap year first, reproduces earlier rounds and survives as
+the tiebreak inside an equal-value tier. Over 50,000 queries the value order is worth 1.249
+expected EE per query against its 0.813, about 54% better.
 
-`year_priority_order`, ranking by thinnest gap year first, is kept for reproducing earlier
-rounds and survives as the tiebreak inside an equal-value tier, so year balance still
-guides the choice between two targets worth the same. Measured over 50,000 queries, the
-value order is worth 1.249 expected EE per query against its 0.813, about 54% better.
-
-Ties break on a content hash rather than alphabetically, because alphabetical
-clusters the numeric-prefix junk ("0171.com", "1-800-...") that was never
-archived, so a run that cannot finish the pool would spend its budget on the
-least promising names and badly understate the true hit rate.
+Ties break on a content hash, not alphabetically: alphabetical clusters the numeric-prefix
+junk ("0171.com", "1-800-...") that was never archived, so a run that cannot finish the
+pool spends its budget on the least promising names and understates the hit rate.
 """
 
 import hashlib
@@ -61,11 +53,11 @@ GROUP BY domain
 
 # **The window's two edge years, which the bracketing rule above cannot express.**
 # `_SANDWICH_SQL` needs a year held at Y-1 AND Y+1, so 1996 would need 1995 and 2001 would
-# need 2002, both outside the window. 2001 is worth targeting anyway: given a 2000 capture the
-# archive also holds 2001 for 94.4% of 140,924 answers, against 98.2% for a bracketed year.
+# need 2002. 2001 is worth targeting anyway: given a 2000 capture the archive also holds
+# 2001 for 94.4% of 140,924 answers, against 98.2% for a bracketed year.
 #
-# One `GROUP BY domain`, never correlated `NOT EXISTS` subqueries: the subquery form took 15
-# minutes over 20.8M rows and this answers in 3 seconds. See ADR-006.
+# One `GROUP BY domain`, never correlated `NOT EXISTS` subqueries: the subquery form took
+# 15 minutes over 20.8M rows and this answers in 3 seconds. See ADR-006.
 _EDGE_SQL = """
 WITH per_domain AS (
   SELECT domain,
@@ -80,15 +72,13 @@ UNION ALL
 SELECT domain, 2001 FROM per_domain WHERE y00 = 1 AND y01 = 0
 """
 
-# **Rates measured on THIS population by a 200-domain pilot, never a conditional read off
-# the journals**, which is conditional on the archive holding the adjacent capture while this
-# population holds its adjacent year from any source, often a registry date for a site that
-# was never archived. The pilot: 2001 fills 111 of 186 and **1996 fills 0 of 186**, so 1996
-# is not a thin edge but no edge at all. It is scored zero rather than dropped, because
-# describing the population is the selector's job and pricing it is the ranking's.
+# **Rates measured on THIS population by a 200-domain pilot, never read off the journals**,
+# which are conditional on the archive holding the adjacent capture while this population
+# holds its adjacent year from any source. The pilot: 2001 fills 111 of 186 and **1996 fills
+# 0 of 186**, so 1996 is no edge at all. Scored zero rather than dropped, because describing
+# the population is the selector's job and pricing it is the ranking's.
 #
-# 0.597 is a HEAD-OF-QUEUE rate, not a population rate, and should fall as the queue is
-# worked. See ADR-006.
+# 0.597 is a HEAD-OF-QUEUE rate, not a population rate, and falls as the queue is worked.
 EDGE_RATE = {1996: "0.000", 2001: "0.597"}
 
 
@@ -121,10 +111,9 @@ def spread(domain: str) -> bytes:
 def expected_equivalent_english(domain: str, gap_count: int) -> object:
     """What querying this domain is worth to the score, in expectation.
 
-    The English share of its TLD times the number of bracketed years a capture
-    could fill. The near-uniform hit rate is left out deliberately: it is a
-    constant factor across this population, so it scales every target equally and
-    changes no ordering.
+    The English share of its TLD times the bracketed years a capture could fill. The
+    near-uniform hit rate is left out deliberately: a constant factor across this
+    population scales every target equally and changes no ordering.
     """
     return english_weights().get(domain.rsplit(".", 1)[-1], 0) * gap_count
 
@@ -149,12 +138,10 @@ def year_priority_order(rows: list[tuple[str, int, int]]) -> list[tuple[str, int
 def take_shard(rows: list[tuple[str, int, int]], shards: int, shard: int) -> list:
     """One of `shards` disjoint slices, so two machines never query the same name.
 
-    Assignment is by content hash, not by position, which is what makes it safe
-    without any coordination: each machine computes the same answer from the
-    domain alone, so the slices are disjoint and jointly complete however often
-    either side regenerates its list. Slicing by position would instead hand the
-    whole high-value head to one machine, and this ordering puts real money in
-    that head.
+    Assignment is by content hash, not position, which is what makes it safe without
+    coordination: each machine computes the same answer from the domain alone, so the slices
+    stay disjoint and jointly complete however often either side regenerates its list.
+    Slicing by position hands the whole high-value head to one machine.
     """
     if shards < 1 or not 0 <= shard < shards:
         raise ValueError(f"shard {shard} is not in range for {shards} shards")

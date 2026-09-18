@@ -1,11 +1,9 @@
 """The nameservers RIPE `domain:` objects point at, at hostname grain.
 
-Both banked RIPE lanes read the delegated name and the audit trail and skip `*ns:`.
-Under the hostname unit that column is a corpus of its own (measured 2026-09-02:
-38,189 records from the 1999 snapshot, 11,895 from the 2004 split edition). The
-permission Ivo holds from the RIPE NCC constrains the code, so the leak tests here
-mirror the ones on `parse_ripe_dbase_1999`: nothing but a nameserver hostname and a
-date may leave these readers.
+Both banked RIPE lanes read the delegated name and the audit trail and skip `*ns:`. Under the
+hostname unit that column is a corpus of its own: 38,189 records from the 1999 snapshot,
+11,895 from the 2004 split edition, measured 2026-09-02. The permission Ivo holds from the
+RIPE NCC constrains the code, so nothing but a nameserver hostname and a date may leave.
 """
 
 import gzip

@@ -1,17 +1,13 @@
 """The skills, agents, rules and output style the harness loads, kept as pointers.
 
-A skill or a rule that restates a `docs/` page is a second copy of the rule, and the second copy
-is the one that goes stale: the round it was written for ends, the figure moves, and an unattended
-session reads the old one. So these files are held to two properties a test can check. They are
-SHORT, which is what stops a copy fitting in one. And every `docs/` page they name resolves, which
-is what stops a pointer rotting into a dead reference. The 40-line ceiling is the enforcement, not
-a style preference: nothing here may grow into a parallel manual.
+A file here that restates a `docs/` page is a second copy, and the second copy is the one
+that goes stale. Two properties: each is SHORT, the 40-line ceiling being the enforcement,
+and every `docs/` page it names resolves.
 
-The fleet runs `claude -p` inside a clone of this branch and reads this directory unattended, so a
-machine address, an account name or a path outside the repository in any of these files would be
-published and would also be wrong on every other machine. The scan is `ark.hygiene`, the same one
-the pre-commit hook runs. `settings.local.json`, the lock file and the worktrees are deliberately
-outside it: they are machine-local and untracked.
+The fleet runs `claude -p` in a clone of this branch and reads this directory unattended, so
+`ark.hygiene`, the pre-commit hook's own scan, refuses a machine address, an account name or
+a path outside the repository. `settings.local.json`, the lock file and the worktrees are
+machine-local and untracked, so they stay outside it.
 """
 
 import re
