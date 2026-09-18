@@ -1,39 +1,29 @@
 """Which source classes a human has approved for the annual files, and the gate.
 
-**The problem this solves.** The pipeline can measure a source without help, and it
-cannot decide whether that source's records belong in the annual files. That is a
-judgement about what counts as proof, and the thing being distrusted in an
-unattended run is precisely **the agent's own reasoning about its own sources**. An
-ADR written by the agent arguing that its find is master evidence is the least
-trustworthy artifact in the repository.
+The pipeline can measure a source; it cannot decide whether that source's records belong
+in the annual files. The thing distrusted in an unattended run is **the agent's own
+reasoning about its own sources**, so the classification is a human decision taken from
+external evidence, recorded in `docs/registers/approved-sources-list.md`, and **enforced
+here rather than remembered**.
 
-So the classification is a human decision, taken from external evidence, recorded
-in `docs/registers/approved-sources-list.md`, and **enforced here rather than remembered**.
+**The quarantine is the journal on disk, outside the store.** Collectors never open the
+database, so an unapproved source cannot contaminate anything, having never been written,
+rather than relying on every future query to respect a marker.
 
-**Where the quarantine lives, and why it is outside the store.** Collectors already
-write journals and never open the database, so "collected but not yet classified"
-needs no new state: the journal sits on disk and this gate refuses the ingest. That
-is strictly stronger than a flag inside the store, because an unapproved source
-**cannot contaminate anything, having never been written**, rather than relying on
-every future query to respect a marker. It is also less code.
+A **master-eligible** evidence type needs approval, because its rows can create a year
+assignment. A **candidate-only** type does not: a candidate claims nothing, the reviewer
+asked for the pool to be as large as practicable, and waiting on a human to grow a pool
+would stall collection for no gain.
 
-**What needs approval and what does not.**
-
-- A source whose evidence type is **master-eligible** needs approval, because its
-  rows can create a year assignment.
-- A source whose evidence type is **candidate-only** does not. A candidate claims
-  nothing, the reviewer asked for the pool to be as large as practicable, and
-  waiting on a human to grow a pool would stall collection for no gain.
-
-**The decision vocabulary**, one line per request in `docs/registers/approved-sources-list.md`:
+**The decision vocabulary**, one line per request in the register:
 
     Decision: pending          nobody has looked yet; ingest refuses
     Decision: master           approved for the annual files
     Decision: candidate-only   collect it, but its rows may never date a year
     Decision: rejected         do not ingest at all, and do not re-request
 
-`rejected` binds: the gate refuses it and the request generator refuses to re-open
-it, because an agent that forgets a rejection re-proposes it next week.
+`rejected` binds in both directions: the gate refuses it and the request generator refuses
+to re-open it, because an agent that forgets a rejection re-proposes it next week.
 """
 
 import re

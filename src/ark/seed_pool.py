@@ -1,35 +1,24 @@
 """The auxiliary seed pool: hostnames and URLs, not registered domains.
 
-Backs `ark seed-pool`. Not to be confused with `ark.seed`, which reads a list of
-candidate domains INTO the store and queues them for verification; this module
-writes download seeds OUT of evidence already held.
+Backs `ark seed-pool`, and goes the opposite way to `ark.seed`, which reads candidate
+domains INTO the store: this writes download seeds OUT of evidence already held.
 
-This module preserves raw hostnames and URLs from registrable-grain parsers for
-downloading. A crawler handed `foo.com` may miss pages at `shop.foo.com` or a
-specific path. Brief I asks for historical URL seeds; IV.2 permits an auxiliary
-seed pool without its own year evidence. These seeds do not replace annual
-hostname records: IV.8 requires each qualifying exact hostname with its own
-year evidence, whether it is registrable or a subdomain.
+A crawler handed `foo.com` may miss pages at `shop.foo.com` or a specific path. Brief I asks
+for historical URL seeds and IV.2 permits an auxiliary seed pool with no year evidence of
+its own. **These seeds do not replace annual hostname records**, which IV.8 requires to
+carry their own year evidence.
 
-This module rebuilds that lost granularity without a second parser. Every bulk
-parser already yields `BulkRecord.raw`, the value exactly as the source wrote it,
-before registrable canonicalization; this seed pool keeps the raw form too.
-Reusing the same parsers is the point: a seed can never
-disagree with the evidence it came from, because both are read from one pass over
-one file.
-
-Only seeds whose raw form differs from the registered domain are kept, since a
-raw value equal to the domain adds no retrieval granularity to that parser's result.
+The granularity is rebuilt without a second parser: every bulk parser already yields
+`BulkRecord.raw`, the value exactly as the source wrote it before canonicalization. Reusing
+the same parsers is the point, because a seed then cannot disagree with the evidence it came
+from. Only seeds whose raw form differs from the registered domain are kept.
 
 Shipped, under `output/seeds/`:
-  `download_seeds.txt`     the download list: one distinct raw hostname or URL
-                           per line, sorted
-  `download_seeds.csv`     the same seeds with the registered domain, the year
-                           the source dates them to, and the source name
+  `download_seeds.txt`     one distinct raw hostname or URL per line, sorted
+  `download_seeds.csv`     the same seeds with domain, year and source name
 
-Intermediate, under `data/seeds/parts/`: one CSV per source, so re-running a
-source replaces only its own rows. Not shipped, because the two files above
-already hold everything in it.
+Intermediate, under `data/seeds/parts/`: one CSV per source, so re-running a source replaces
+only its own rows.
 """
 
 import csv

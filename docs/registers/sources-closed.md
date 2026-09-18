@@ -2,7 +2,7 @@
 
 One row per source measured and closed, so nobody re-tests it. Grep it, never read it whole.
 
-Rows split out of the triage section of `approved-sources-list.md` on 2026-09-03 by `scripts/round/split_triage.py`. The date is the latest one the entry cites, the figure is what the entry reports as measured, and the full block is in that file's history before the split.
+The date is the latest one the entry cites; the figure is what the entry reports as measured.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|

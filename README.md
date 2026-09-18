@@ -45,11 +45,10 @@ The pause is a flag file rather than a signal, so it survives sleep and a reboot
 just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
 ```
 
-The fleet measures; the laptop is the only thing that writes the store. One `just sync` drains the
-findings, validates each one against the fleet's schema, prices every confirmed FIND again on the
-live store so no figure is booked on a copy, writes the register row with both numbers, decides what
-Ivo's standing rule already covers and asks him about the rest, ingests, gates, pushes, refreshes the
-pricing snapshot the fleet prices against, and writes each lead's fate back into the fleet's queue.
+The fleet measures; the laptop is the only thing that writes the store. **No fleet figure is booked
+on its own**: `just sync` re-prices every confirmed FIND on the live store, writes the register row
+with both numbers, decides what Ivo's standing rule covers and asks him about the rest, ingests,
+gates, pushes, and refreshes the snapshot the fleet prices against. The runbook has each step.
 
 Nothing the fleet downloads bypasses one program:
 
@@ -57,13 +56,10 @@ Nothing the fleet downloads bypasses one program:
 uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only download path
 ```
 
-It reads the whole robots.txt of the host in the download URL and refuses a group that names us
-wherever in the file it sits, and it reads the next host's rules before following a redirect rather
-than after. It honours `Retry-After`, counts the bytes twice against the cap, refuses a body shorter
-than the length it was promised, writes only into the run's RAM-backed probe directory or the corpus
-directory an approved download names, extracts no archive to disk, and prints the sha256 the finding
-has to quote. Anything bigger than the cap, or of a type nobody can read in-stream, waits in the
-fleet's download backlog for a decision.
+It reads the whole robots.txt of each host, including the next one before it follows a redirect,
+honours `Retry-After`, caps and re-counts the bytes, extracts no archive to disk, and prints the
+sha256 the finding has to quote. Anything over the cap waits in the fleet's download backlog for a
+decision. `docs/lore/rules.md` states the rule it enforces.
 
 ## Where the round stands
 

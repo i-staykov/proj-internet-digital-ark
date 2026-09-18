@@ -1,24 +1,17 @@
-"""The scoreboard: how much has been added on top of the baseline, and how
-many sources back each assertion.
+"""The scoreboard: how much has been added on top of the baseline, and how many sources
+back each assertion.
 
-Everything is computed over the evidence table, which holds one row per
-(domain, year) per source. A (domain, year) pair is net-new when it is
-assigned but has no prior_reused (baseline) evidence; a domain is net-new
-when it is assigned but has no baseline evidence at all. This is robust
-regardless of which evidence row happened to make the assignment.
+Everything is computed over the evidence table, one row per (domain, year) per source. A
+pair is net-new when it is assigned and has no `prior_reused` (baseline) evidence; a domain
+is net-new when it is assigned and has no baseline evidence at all. That holds regardless of
+which evidence row happened to make the assignment.
 
-Corroboration is reported at two strengths, because they mean different things.
-
-Cross-SOURCE corroboration counts distinct source rows behind an asserted pair.
-It is the weaker figure: the supplied baseline, the Early Web CDX dataset and the
-Arquivo `IA.cdxj` donation all trace back to the Internet Archive, so a pair
-carrying all three is well covered but confirmed by one organisation's crawling.
-
-Cross-PROVENANCE corroboration counts distinct collection lineages, grouping every
-source that ultimately derives from the same body of observation. Two sources in
-different lineages agreeing is genuine independent confirmation: a DNS survey and
-a registry file have no common ancestor. That is the figure worth quoting, and it
-is much smaller than the cross-source one.
+**Corroboration is reported at two strengths.** Cross-SOURCE counts distinct source rows and
+is the weaker figure: the supplied baseline, Early Web CDX and the Arquivo `IA.cdxj`
+donation all trace back to the Internet Archive, so a pair carrying all three is well
+covered but confirmed by one organisation's crawling. Cross-PROVENANCE counts distinct
+collection LINEAGES, so a DNS survey agreeing with a registry file is genuine independent
+confirmation. That is the figure worth quoting, and it is much smaller.
 
 Candidate-only evidence proves nothing and is excluded from both.
 """

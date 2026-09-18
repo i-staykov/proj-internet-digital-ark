@@ -1,51 +1,29 @@
-"""Dated website announcements from Usenet archives.
+"""Dated website announcements from Usenet archives (the Giganews donation to IA).
 
-Giganews donated its Usenet archive to the Internet Archive in 2013. The
-announcement and commerce hierarchies contain, per message, a posting date and
-one or more website URLs, which is item-level year evidence of an unusual kind:
-the date is intrinsic to the artifact rather than recovered from a crawl.
+A post carries its own date and one or more website URLs, so the date is intrinsic to the
+artifact rather than recovered from a crawl. **Under Section XIII a Usenet post is a
+textual mention, so this is a CANDIDATE lane: it cannot date a year in the annual
+masters.** It is scored on the candidate track at the same rate.
 
-That matters for the years this project is weakest in. A moderated announcement
-posted in 1997 saying "new site at example.com" is contemporaneous evidence that
-the site was live in 1997, and it does not depend on the Internet Archive having
-crawled it. The 1996 and 1997 additions are 0.4% and 0.0% capture-backed, so a
-route that does not need a capture reaches exactly where the crawl cannot.
+**Two things make the source dangerous, and both shape the design.**
 
-**Two things make this source dangerous, and both shape the design.**
+A URL in a message body is typed by a human. The corpus holds `weddinqnetwork.com` and
+`dmjbuisness.co.uk`, and roughly a quarter of never-before-seen names are within one edit
+of a name the store already holds.
 
-A URL in a message body is typed by a human. The corpus contains
-`weddinqnetwork.com` and `dmjbuisness.co.uk`, and roughly a quarter of the
-never-before-seen names are within one edit of a name the store already holds.
-Admitting those would put invented domains into an annual file, which is the one
-failure this project cannot afford.
+And a mention is not an announcement: a moderated group announcing new sites is curated,
+a commerce group is people advertising, where a URL may be a competitor or an aspiration.
 
-And a mention is not an announcement. A moderated group whose stated purpose is
-announcing new websites is an editorially curated dated listing, which the brief
-treats as master-eligible. A commerce or marketplace group is people advertising,
-where a URL may be a competitor, a typo or an aspiration.
+**Corroboration gates admission and nothing else does.** A domain another source already
+places in an annual file is real, so only the year is open and the post answers it with an
+auditable Message-ID. A name appearing only in Usenet has neither existence nor year
+attested, so it becomes `link_target` and goes to the candidate pool to earn its own
+evidence. Same split `expand.py` applies to archived directory pages: the post may be
+sound while the transcription is not.
 
-**Corroboration is what gates admission**, and it is the only thing that does. A
-domain another source already places in an annual file is real, so the only open
-question is the year, which the post answers with an auditable Message-ID: that
-half becomes `dated_directory`. A name appearing only in Usenet has neither its
-existence nor its year independently attested, so it becomes `link_target` and
-goes to the candidate pool to earn its own evidence. This is the same split
-`expand.py` applies to archived directory pages, and for the same reason: the
-post may be sound while the transcription is not.
-
-Group purpose is recorded rather than enforced, and that is a deliberate choice
-worth stating because it is the one place a reviewer might reasonably disagree.
-The stricter alternative would admit only moderated announcement groups. It was
-not taken because, once corroboration has established that the domain is real,
-a URL written in a dated public post is contemporaneous evidence that the site
-was in use that year whether the group was moderated or not: advertising a dead
-site is unusual. `is_moderated_announce` therefore exists to *report* the
-split rather than to gate it, every evidence row names the group it came from,
-and a reviewer who disagrees can filter on that name without reprocessing
-anything.
-
-Nothing is discarded either way. A name that cannot be admitted becomes a
-candidate, which is what the candidate pool is for.
+Group purpose is RECORDED, not enforced: `is_moderated_announce` reports the split, every
+evidence row names its group, and a reviewer who disagrees can filter on that name without
+reprocessing anything. Nothing is discarded either way.
 """
 
 import email
@@ -72,74 +50,44 @@ MODERATED_ANNOUNCE_GROUPS = frozenset(
 def is_moderated_announce(group: str) -> bool:
     """Whether a group is a moderated announcement forum.
 
-    Usenet convention carries most of this: a group carrying an `announce` or
-    `moderated` component is moderated by long-standing practice, so the rule is
-    expressed as a component test rather than a list nobody will maintain.
+    A COMPONENT test, not a suffix test, because the marker is not always last:
+    `news.announce.conferences` and `news.announce.newgroups` are both moderated.
+    `MODERATED_ANNOUNCE_GROUPS` names the handful that say so nowhere in the name.
 
-    Components rather than a suffix, because the marker is not always last:
-    `news.announce.conferences` and `news.announce.newgroups` are both moderated
-    announcement groups with the marker in the middle, and a suffix test reports
-    them as ordinary discussion.
-
-    `MODERATED_ANNOUNCE_GROUPS` then names the handful that are moderated
-    announcement forums without saying so at all, of which
-    `comp.internet.net-happenings` is the important one.
-
-    This classification is reported, not enforced. See the module docstring.
+    Reported, not enforced. See the module docstring.
     """
     parts = set(group.split("."))
     return group in MODERATED_ANNOUNCE_GROUPS or bool(parts & {"announce", "moderated"})
 
 
 _URL = re.compile(r"https?://[^\s<>\"'\)\],;]+", re.IGNORECASE)
-# An address written without a scheme, `www.foo.com`. `_URL` requires `https?://`,
-# so the shipped signal cannot see these at all, and in 1996-1999 people wrote
-# addresses this way constantly. It is the same claim from the same artifact as a
-# linked URL: a human writing down a website address in a message that carries its
-# own date.
-#
-# Anchored on the `www.` label rather than accepting any bare host, because a bare
-# `foo.com` in running prose is more often a company name, a file name or half an
-# email address than an address. The lookbehind keeps it off hosts already inside
-# a URL or an email address, where the preceding character is `/` or `@`.
-#
-# `bare_domains_in_body` below reads the bare form instead, on its own source name
-# and behind the same corroboration split. This pattern stays as it is so the two
-# can be compared and so nothing already ingested changes meaning.
+# An address written without a scheme, `www.foo.com`, which `_URL` cannot see and which
+# people wrote constantly in 1996-1999. Anchored on the `www.` label rather than any bare
+# host; the lookbehind keeps it off hosts already inside a URL or an email address.
+# `bare_domains_in_body` reads the bare form under its own source name, so the two stay
+# comparable and nothing already ingested changes meaning.
 _BARE_WWW = re.compile(
     r"(?<![\w.@/-])www\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+",
     re.IGNORECASE,
 )
-# The bare form, `foo.com` with no scheme and no `www.`. Nothing above reads it,
-# and in 1996-1999 people wrote addresses this way constantly.
+# The bare form, `foo.com` with no scheme and no `www.`. The pattern can afford recall
+# because **every row passes `split_by_corroboration` before it can date anything**: a
+# company name or half an email address is not a domain another lineage has placed in
+# `domain_year`, so it becomes a candidate and asserts nothing.
 #
-# The original argument for refusing it was that a bare name in prose is often not
-# an address at all. That is true and it is not the deciding fact, because **every
-# row from this corpus passes `split_by_corroboration` before it can date
-# anything**. A company name, a file name or half an email address is not a
-# registered domain any independent lineage has placed in `domain_year`, so it
-# cannot reach an annual file: it becomes a candidate and asserts nothing. The
-# evidence wall is the split, not the pattern, so the pattern can afford recall.
+# Four guards, each answering a real failure in this corpus:
 #
-# Four guards remain, and each answers a real failure seen in this corpus:
+#   * a **TLD allowlist**, the only anchor a bare name has; a generic dot rule fabricates
+#     domains out of punctuation and file names (`ads.my`, `article.pl` sank the generic
+#     token scan on `alt.bbs.lists`).
+#   * the **lookbehind** `(?<![\w.@/-])`, which stops a match starting inside a longer
+#     dotted token, so URLs and email addresses stay with the patterns that own them.
+#   * the **lookahead** `(?![a-z0-9@-])`, which refuses `end.Company` and a domain-shaped
+#     email local part such as `john.com@example.org`.
+#   * **greedy labels before the TLD**, so `foo.com.au` matches whole.
 #
-#   * a **TLD allowlist**, the same one the trade-press extractor uses. The TLD is
-#     the only anchor a bare name has, so a generic dot rule fabricates domains out
-#     of sentence punctuation and file names. This is also what refuses the
-#     contamination that sank the generic token scan on `alt.bbs.lists`
-#     (`ads.my`, `article.pl`).
-#   * the **lookbehind** `(?<![\w.@/-])`, which stops a match starting inside a
-#     longer dotted token, and so keeps this off hosts already inside a URL or an
-#     email address. `_URL` and the `usenet_address` patterns own those.
-#   * the **lookahead** `(?![a-z0-9@-])`, which refuses `end.Company` (the `p`
-#     after `Com` is not a boundary) and refuses a domain-shaped email local part
-#     such as `john.com@example.org`.
-#   * **greedy labels before the TLD**, so `foo.com.au` matches whole and is not
-#     read as `foo.com`.
-#
-# Body text only, never headers. `Path:`, `Xref:` and `Newsgroups:` are dotted
-# tokens by construction, and a bare rule over them reads news servers and vanity
-# newsgroup names (`alt.isd.net`) as announced websites.
+# Body text only, never headers: `Path:`, `Xref:` and `Newsgroups:` are dotted tokens by
+# construction, and reading them banks news servers and newsgroup names as websites.
 _BARE_TLDS = "com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg"
 _BARE_DOMAIN = re.compile(
     rf"(?<![\w.@/-])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)*\.(?:{_BARE_TLDS})(?![a-z0-9@-])",
@@ -152,9 +100,9 @@ _MESSAGE_SEP = re.compile(rb"^From ", re.MULTILINE)
 # the RFC 822 header/body boundary, tolerating both line endings
 _BODY_SEP = re.compile(rb"\r?\n\r?\n")
 
-# Infrastructure excluded by the registrable-grain Usenet extractor: these
-# hosting and archive names collapse under its canonicalization, and Usenet
-# plumbing is not a website anyone announced. This is not an annual output-unit rule.
+# Excluded by the registrable-grain extractor: these hosting and archive names collapse
+# under canonicalization, and Usenet plumbing is not a website anyone announced. Not an
+# annual output-unit rule.
 INFRASTRUCTURE = frozenset(
     {
         "google.com",
@@ -173,21 +121,17 @@ INFRASTRUCTURE = frozenset(
 def message_year(raw_date: str) -> int | None:
     """The posting year, or None if the header is missing or unreadable.
 
-    Two formats, and missing the second one is expensive. Most posts carry an
-    RFC 822 date, but the Giganews donation rewrote a large share of them as a
-    bare `YYYY/MM/DD`, which `parsedate_to_datetime` rejects outright. In
-    `comp.infosystems.www.announce` that is **21,346 of 23,282 messages**, so a
-    parser that only understands RFC 822 silently discards 92% of the archive
-    and reports the remainder as though it were the whole corpus.
+    Two formats, and missing the second is expensive. The Giganews donation rewrote a
+    large share of dates as a bare `YYYY/MM/DD`, which `parsedate_to_datetime` rejects:
+    **21,346 of 23,282 messages** in `comp.infosystems.www.announce`, so an RFC 822-only
+    parser silently discards 92% of the archive and reports the rest as the whole.
     """
     if not raw_date:
         return None
-    # `Message.get` returns a `Header`, not a `str`, when the value is RFC 2047
-    # encoded, and `Header` has no `.strip()`. Rare enough that 8,258 archives
-    # passed before one hit it, and expensive enough that it cost a night: the
-    # splitter processes a batch in one call, so a single bad archive aborted all
-    # 2,500 of them, left them unmarked, and the maintain loop then retried the
-    # identical batch every 150 seconds until morning.
+    # `Message.get` returns a `Header`, not a `str`, on an RFC 2047 encoded value, and
+    # `Header` has no `.strip()`. Rare (one archive in 8,258) and costly: the splitter
+    # does a batch in one call, so one bad archive aborts 2,500 and the maintain loop
+    # retries the identical batch forever.
     text = str(raw_date).strip()
     year: int | None = None
     try:
@@ -234,19 +178,15 @@ def domains_in_message(body: str, from_header: str) -> list[str]:
 def bare_domains_in_body(body: str) -> list[str]:
     """Registrable domains written bare in a message body, deduplicated in order.
 
-    Deliberately separate from `domains_in_message` rather than folded into it.
-    Keeping the two apart lets the bare form carry its own source name, so a
-    reviewer can measure what it added and drop it on its own without touching
-    anything `usenet_announce` has already claimed.
+    Separate from `domains_in_message` so the bare form carries its own source name and
+    can be measured or dropped without touching what `usenet_announce` claimed.
 
     Pass the body, not the whole message. See `_BARE_DOMAIN` for why.
 
-    The last guard lives here rather than in the pattern because it reads better
-    as a sentence than as a lookahead: a name whose every label before the TLD is
-    digits is a version string, not a site. `upgraded to 4.0.2.au` otherwise
-    canonicalises to `2.au`, which is a fabricated name of exactly the kind the
-    candidate pool should not be filled with. It costs the handful of genuinely
-    all-numeric domains (`123.com`), which is a price worth paying.
+    The fourth guard is here rather than in the pattern because it reads better as a
+    sentence: all-digit labels before the TLD are a version string, not a site, or
+    `upgraded to 4.0.2.au` canonicalises to the fabricated `2.au`. It costs the handful
+    of genuinely all-numeric domains (`123.com`).
     """
     found: dict[str, None] = {}
     for host in _BARE_DOMAIN.findall(body or ""):
@@ -261,10 +201,9 @@ def bare_domains_in_body(body: str) -> list[str]:
 def body_of(raw: bytes) -> str:
     """The body of a raw message, split on the first blank line.
 
-    A cheap split rather than a full `email` parse, because this runs over 507
-    million messages and the header block is exactly what must not be scanned.
-    A message with no blank line has no body and yields nothing, which is the
-    safe direction.
+    A cheap split rather than a full `email` parse: this runs over 507 million messages,
+    and the header block is exactly what must not be scanned. No blank line means no
+    body and no yield, which is the safe direction.
     """
     match = _BODY_SEP.search(raw)
     return raw[match.end() :].decode("latin-1", "replace") if match else ""
@@ -273,14 +212,10 @@ def body_of(raw: bytes) -> str:
 def iter_messages(path: Path) -> Iterator[bytes]:
     """Yield each raw message from an mbox, or from a zip holding one.
 
-    The archives ship as `<group>.mbox.zip`. Reading the member directly avoids
-    unpacking it to disk for a single pass.
-
-    It does hold the decompressed mbox in memory, which is the practical limit
-    on this route: the largest group taken so far is 150 MB compressed and
-    roughly 600 MB expanded. A group several times that would want a streaming
-    split instead, and nothing here depends on the whole blob being present
-    except the separator scan.
+    The archives ship as `<group>.mbox.zip` and the member is read directly rather than
+    unpacked for one pass. It holds the decompressed mbox in memory, which is the limit
+    on this route: the largest group so far is 150 MB compressed, about 600 MB expanded.
+    Only the separator scan needs the whole blob, so a much larger group wants streaming.
     """
     if path.suffix == ".zip":
         with zipfile.ZipFile(path) as archive:
@@ -296,12 +231,9 @@ def iter_messages(path: Path) -> Iterator[bytes]:
 def _split_mbox(blob: bytes) -> Iterator[bytes]:
     """Split an mbox on its `From ` separators.
 
-    The classic mbox ambiguity applies: a body line beginning "From " is
-    supposed to be escaped to ">From ", and where an export failed to do that
-    this will cut a message in two. The consequence is bounded and safe rather
-    than silent, because the fragment after the cut carries no `Date` or
-    `Message-ID` header and is dropped by the caller. So a mis-split costs one
-    message, and cannot invent an evidence row.
+    The classic mbox ambiguity: an unescaped body line beginning "From " cuts a message
+    in two. Bounded and safe, because the fragment carries no `Date` or `Message-ID` and
+    the caller drops it, so a mis-split costs one message and cannot invent evidence.
     """
     starts = [m.start() for m in _MESSAGE_SEP.finditer(blob)]
     if not starts:
@@ -328,12 +260,9 @@ def parse_usenet(path: Path, stats: Counter) -> Iterator[BulkRecord]:
             stats["unparseable_message"] += 1
             continue
         year = message_year(message.get("Date", ""))
-        # Counted apart on purpose. A group that is entirely out of window and a
-        # group whose dates cannot be read look identical under one counter, and
-        # they call for opposite responses: drop the source, or fix the parser.
-        # `alt.www.webmaster` is 170 MB and 100% out of window (2006 to 2013),
-        # while `comp.infosystems.www.announce` looked 92% undated until the
-        # Giganews date format was handled.
+        # Counted apart on purpose: a group wholly out of window and a group whose dates
+        # cannot be read look identical under one counter and call for opposite responses,
+        # drop the source or fix the parser.
         if year is None:
             stats["unreadable_date"] += 1
             continue

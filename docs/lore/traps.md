@@ -29,7 +29,7 @@ ledger is free, needs no store lock, and settles any claim about what a partitio
 before acting on a partition recommendation, including your own.
 
 **A collapse after a change is not evidence the change caused it.** Three queue orderings were
-compared inside the Verisign clamp below and all read as catastrophic, which produced a
+compared inside one registry's quota clamp and all read as catastrophic, which produced a
 confident and wrong law about ranking. Get a per-minute series out of the journals before
 attributing a rate change to anything.
 
@@ -46,11 +46,17 @@ pairs and 479.4256 EE under `.arpa` or dated before their TLD existed, which no 
 credited for. `ark.delegation.shipping_filter` is the one predicate; every count that claims to
 be what ships takes it, and a new counter that does not is wrong by construction.
 
-**A hostname-grain figure is not a figure until the `www.` alias share is measured.** Two lane-A
-corpora came back from the E9.5 batch as five-figure finds and both were the same illusion:
-`ukwa` 20,916.90 EE of which 99.5% was `www.<a name already held that year>`, and
-`nypw_firstcdx` 7,074.09 EE of which 100.0% was, leaving 107.94 and 2.84 EE. Neither was
-ingested. The seam is real code: `NOT_WWW_OF_PARENT` refuses `www.<parent registrable>` and
+**A figure is comparable only to a figure over the same window, and an exported file has no
+window.** Quote the cumulative for a submission, because that is what he merges, and ask
+`scripts/round/added_since.py` what a session added. `round_figures.py` still takes its hostname
+half by reading the exported `*_hostnames.txt` files, which carry no timestamps, so the two halves
+of its increment disagree whenever a round opens before his feedback lands.
+
+**A hostname-grain figure is not a figure until the `www.` alias share is measured.** `ukwa` came
+back at 20,916.90 EE of which 99.5% was `www.<a name already held that year>`, and
+`nypw_firstcdx` at 7,074.09 EE of which 100.0% was. Both WERE banked: ADR-008 admits the alias as
+its own record and the reviewer accepted the shape (C-72), so the share is what makes two
+hostname figures comparable, not what disqualifies them. The seam is real code: `NOT_WWW_OF_PARENT` refuses `www.<parent registrable>` and
 nothing refuses `www.<held hostname>`, so a crawler's default alias of a name we already date
 counts as a new record. `just price-hosts` prints the share, `round_figures.py` prints it for the
 round, and a hostname number quoted without it is not comparable to one quoted with it.
@@ -95,10 +101,9 @@ outlier is `by_root` at 32.9% of collector seconds for 15.3% of years, and the t
 classes burn 31.9% of the clock. Recovering this needs no requests: journal filename stamp gives
 the start, file mtime the end, per-tier record counts the design matrix.
 
-**Verisign RDAP is a QUOTA, not a rate.** It served 64,568 queries at a flat 65 q/s for
-seventeen minutes, then clamped to about 1 q/s for at least twenty-five minutes across three
-restarts. Restarting does not clear it; only resting might. Budget a night's Verisign work as
-one block of ~65,000 queries.
+**A rate limit can be a QUOTA rather than a rate.** Verisign RDAP served 64,568 queries at a flat
+65 q/s for seventeen minutes, then clamped to about 1 q/s across three restarts. Restarting does not
+clear a quota; only resting might.
 
 **Look for the existing tool before writing one.** A worse reimplementation of
 `build_promotion_journals.py` overstated a source 20x.
@@ -139,10 +144,6 @@ offline.** Proven twice on 2026-08-19: `ftp.gwdg.de`'s 926 MB locatedb indexed a
 and a 9.8 MB `ls-lR` gave 1.46M lines. Politer and more complete than crawling, and it turns a
 zero into a proved zero.
 
-**On a port-43 whois source, read PAST the record.** The terms of use follow the data, so a
-reader that stops at the last field reports "no licence" on a source that explicitly prohibits
-bulk access. `.nz` cost 7,586 EE that way; `.uk` says the same thing.
-
 **A landing page's robots.txt does not govern the host its downloads sit on.** `www.fac.gov` is
 `Disallow:` and permits everything; every Federal Audit Clearinghouse data file it links is on
 `app.fac.gov`, which is `Disallow: /`. Read the robots.txt of the host in the download URL.
@@ -180,28 +181,6 @@ is closed three times over wastes the run and teaches the agent to distrust the 
 `feedback-phase-*/` and `private/personal-context.md`, both git-ignored, so a repository-wide
 search misses them; only the transcriptions in [ding/](ding/) are tracked.
 
-## The round figures mixed two windows the moment a round opened mid-flight
-
-Measured 2026-09-04. `round_figures.py` filters the registrable half by
-`domain_year.verified_at >= round_since`, and takes the hostname half by reading the exported
-`*_hostnames.txt` files, which carry no timestamps and hold everything net-new against the
-baseline. While a round opens only when a new benchmark arrives those two agree, because the
-baseline moves at the same instant. Round 9 opened at 15:00Z on 2026-09-04 **before** his feedback
-on round 8, so for one afternoon the printed increment was 6,223 registrable records (round 9
-alone) beside 8,620,331 hostname records (round 8 and 9 together), which reads as a collapse in the
-registrable lane and an explosion in the other. Neither is true.
-
-Both numbers are correct for what they measure and the label above them is wrong. Round 9's own
-hostname contribution has to be queried from the store (`evidence.ingested_at >= round_since`,
-through the export's own two predicates) and came to **886,216 records and 552,782.0436 EE**, while
-the cumulative position against `merged260904` is **8,626,554 records and 4,815,266.2861 EE**.
-
-**The rule: a figure is only comparable to another figure over the same window, and an exported
-file has no window.** Quote the cumulative for a submission, because that is what he merges, and
-query the store for what a session added. Fixing `hostname_increment()` to take a window means
-giving it the store rather than the files, which is a change to make deliberately and not at the
-end of a session.
-
 ## A collector's work is invisible until a loop reads it, and a converter counts as a collector
 
 Five instances, four of them found on 2026-09-04 and three of them created that same day.
@@ -233,46 +212,25 @@ the fifth instance was invisible to it, because a brand-new lane has no glob to 
 
 ## A malware alert on the fleet host, and why the corpus lane will keep causing them
 
-2026-09-06. Microsoft Defender for Cloud raised `VirTool:JS/Obfuscator.HH` (category Tool) against
-`/tmp/arkrun/zips/misc.writing.screenplays.moderated.mbox.zip` on the fleet host, SHA256
-`8fba8919b55465cd9049db974dd2dc29d64ea01f65daa55a89736e3fd66592eb`.
+2026-09-06, and the finding was correct: historical mail and Usenet corpora carry the era's
+obfuscated-script spam as message content. Impact was nil, checked rather than assumed: inert text
+in an archive on a Linux host, and the extractor reduces every post to `{item, year, text}` where
+`text` is a bare list of hostnames, so no message body can ship.
 
-**It was a Usenet newsgroup archive an agent downloaded, and the finding was correct.** Historical
-mail and Usenet corpora carry the era's obfuscated-script spam as message content. The scanner was
-right; the file really did contain what it said.
+**The defect was the path.** `/tmp` is on the root disk, which is exactly what agentless scanning
+images. Corpus bytes go to `$ARK_PROBE_DIR` under `/run/ark-probe`: tmpfs, so they never enter the
+disk image, mounted `noexec,nosuid,nodev`, and the harness fails loudly rather than falling back to
+disk.
 
-**Impact was nil, and both halves were checked rather than assumed.** It was never executed: a
-Linux host, inert text inside an archive. And it could never ship: the extractor reduces every post
-to `{item, year, text}` where `text` is a bare list of hostnames, so no message body leaves the
-machine. The shipped `journals/usenet_*_items/` files were inspected directly to confirm it.
+**And a glob is not a control.** The first fix swept `/tmp/ark_probe*`, `/tmp/ark_run_*` and
+`/tmp/dnsbridge_run`; the offending file was in `/tmp/arkrun`. Agents name their own scratch, so
+enumerate a location you own instead of guessing the names they will pick.
 
-**The defect was the path, not the download.** `/tmp` is on the root disk, and the root disk is
-exactly what agentless scanning images. Corpus bytes now go to `$ARK_PROBE_DIR` under
-`/run/ark-probe`: tmpfs, so they live in RAM and never enter the disk image, mounted
-`noexec,nosuid,nodev`, and the harness fails loudly if that path is not tmpfs rather than falling
-back to disk.
-
-**Two lessons that generalise past this incident.**
-
-An instruction is not a control. The brief had told researchers to delete their downloads since the
-lane was built; five directories were still there eleven days later.
-
-**And a glob is not a control either.** The first fix swept `/tmp/ark_probe*`, `/tmp/ark_run_*` and
-`/tmp/dnsbridge_run`. The offending file was in `/tmp/arkrun`, which matches none of them, and the
-host also held `arkA_516190.py`, `ark_arm1b_512945.py` and `ark_full_513306.py`. Agents name their
-own scratch, so enumerate a location you own instead of guessing the names they will pick.
-
-**Triage next time, in this order.** Read the alert's File and Malware panes for the exact path and
-detection name before touching the host. A corpus path plus a `JS/Obfuscator`, `HTML/` or era-worm
-family is this class and is expected. Anything under `/home`, `/usr`, `/etc`, or a detection naming
-a miner, backdoor or credential stealer, is not: check `auth.log` for non-publickey logins, `ss
--tulpn` for unexpected listeners, crontabs, and recently modified units, which on 2026-09-06 all
-came back clean and took about ten minutes.
-
-Two unrelated defects surfaced on the way: `clamav-freshclam` had been disabled since 2026-07-28,
-because `NotifyClamd` pointed at a config for a clamd that is not installed and `Checks 0` is
-rejected as "must be a positive integer". Signatures were six weeks stale. Both fixed, service
-enabled, updating hourly.
+**Triage in this order.** Read the alert's File and Malware panes before touching the host. A corpus
+path plus a `JS/Obfuscator`, `HTML/` or era-worm family is this class and is expected. Anything
+under `/home`, `/usr`, `/etc`, or a detection naming a miner, backdoor or credential stealer, is
+not: check `auth.log` for non-publickey logins, `ss -tulpn` for unexpected listeners, crontabs and
+recently modified units, which takes about ten minutes.
 
 ## The store admits one process at a time, and a READER blocks the writer
 

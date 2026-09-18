@@ -1,53 +1,30 @@
 """The one price a fleet leg may quote, measured against a snapshot instead of the store.
 
-**Why a third pricer, when `price_items.py` and `price_hostnames.py` exist.** Both read
-`data/ark.duckdb`, which lives on the laptop and is 52 GB. A fleet runner has neither, so
-until now a price leg had no way to answer "is this net-new" and every leg that tried
-invented its own arithmetic. That is how a 1,180,003 EE claim reached the register and was
-re-priced at about a two-hundredth of it. This prices against a directory the laptop
-builds and pushes, `scripts/harness/sync_fleet.sh`, so a leg measures rather than guesses,
-and one command's output is the only figure a finding is allowed to carry.
+A fleet runner has no 52 GB `data/ark.duckdb`, so it prices against a directory the laptop
+builds and pushes (`scripts/harness/sync_fleet.sh`). One command's output is the only
+figure a finding may carry.
 
-**The snapshot is a set of name lists and a manifest, nothing else.**
+**The snapshot is name lists and a manifest, nothing else.**
 
     <marker>/{1996..2001}.txt   the reviewer's current baseline, his files
     netnew/{year}*.txt          our last export for that year, not yet in his baseline
     candidates/*.txt            his candidate pool and ours, the second scored track
     manifest.json               {marker, built_at, files: {path: {lines, sha256}}}
 
-Every file the manifest names is hashed before a single item is priced, and a file whose
-digest, line count or presence disagrees with the manifest refuses the whole run. A
-zero-line file refuses it too: an empty held-set silently makes everything look net-new,
-which is the single most flattering way this can be wrong.
+Every named file is hashed before anything is priced, and a disagreeing digest, line count
+or presence refuses the whole run. So does a zero-line file: an empty held-set makes
+everything look net-new, the most flattering way this can be wrong.
 
-**The two rules the funnel applies are the ingest's own, not new ones.**
+**Membership is tested on the EXACT name, and neither form infers the other.** A name that
+is its registrable is a `domain_year` record, a name beneath one a `hostname_year` record,
+a name reducing to nothing is refused; `www.<registrable>` is a record in its own right
+and is never folded onto the parent, in his words "the existence of the bare parent does
+not automatically establish the www hostname, nor does the presence of www automatically
+establish the bare hostname". The `www.` share of a figure is reported, not hidden.
 
-- *the hostname rule*: a name that IS its registrable is a `domain_year` record, a name
-  beneath one is a `hostname_year` record, and a name that reduces to nothing is refused.
-  Neither form infers the other: a held parent does not make its child held, and a held
-  child does not make the parent held, so membership is tested on the exact name only.
-- *the `www.` rule* (ADR-009 and ADR-010, his own words): `www.<registrable>` is a record
-  in its own right, and it is NOT folded onto the parent. "The existence of the bare parent
-  does not automatically establish the www hostname, nor does the presence of www
-  automatically establish the bare hostname", so a `www.` item prices `www.<parent>` and
-  nothing else. The share of the figure that arrived in that form is reported rather than
-  hidden: a corpus made mostly of `www.` names is a real claim, and a distinct one from a
-  claim about the parents, which is why the store carries a check for each direction.
-
-**The corroboration split is not applied, and every result says so** in its `split` field.
-This is the whole net-new set, which is `price_items.py`'s "BEFORE the split" line; the
-split needs the store's attestation of a name in some other year, and a snapshot carries
-year files rather than evidence. So `ee` is an upper bound on what an annual submission of
-the same corpus would be credited, and a finding may not quote it as a post-split figure.
-
-Items stream in and are inserted in batches, so a 10M-item file costs the same memory as a
-10-item one, and the held sets are loaded restricted to the names actually asked about
-rather than in full: his 2001 file alone is 18.5M names. DuckDB runs in memory under
-`ARK_DB_MEMORY_LIMIT`, the same knob the store honours.
-
-    uv run ark price-snapshot --snapshot /projects/ark-data --items items.jsonl
-    uv run ark price-snapshot --snapshot /projects/ark-data --items names.jsonl.gz \\
-        --track candidate
+**The corroboration split is NOT applied**, as every result's `split` field says, because
+a snapshot carries year files rather than evidence. `ee` is therefore an upper bound and
+a finding may never quote it as a post-split figure.
 """
 
 from __future__ import annotations

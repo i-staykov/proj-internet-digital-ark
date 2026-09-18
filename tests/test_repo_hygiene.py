@@ -121,11 +121,8 @@ def test_claude_md_stays_short() -> None:
 
 @pytest.mark.skipif(shutil.which("just") is None, reason="just not on PATH")
 def test_justfile_has_at_most_forty_one_recipes() -> None:
-    """`just --summary` lists at most 41 recipes.
-
-    The ceiling is a ratchet on the command surface, not a budget to spend: it went from 40
-    to 41 on 2026-09-09 for `collectors`, whose three words are the laptop's whole interface
-    to the CDX lane under launchd (S9). The next recipe should replace one.
+    """`just --summary` lists at most 41 recipes. The ceiling is a ratchet on the command
+    surface, not a budget to spend: the next recipe should replace one.
     """
     out = subprocess.run(
         ["just", "--summary"], cwd=ROOT, check=True, capture_output=True, text=True
@@ -200,12 +197,11 @@ def test_the_tracked_tree_passes_the_security_scan() -> None:
 
 
 def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
-    """The shape that reached published history: a login against a non-routable address.
-
-    The address rule fires only on globally routable addresses and the collector host is
-    in private space, so this line passed every guard and was published in seven files
-    (docs/ops/security-posture.md, 2026-09-03). A documentation-range address is still allowed,
-    because a fixture that has to look like a host uses one.
+    """The shape that reached published history: a login against a non-routable address. The
+    address rule fires only on globally routable addresses and the collector host is in
+    private space, so such a line passes every other guard (docs/ops/security-posture.md).
+    A documentation-range address is still allowed, because a fixture that has to look like
+    a host uses one.
     """
     from ark import hygiene
 

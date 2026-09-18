@@ -1,23 +1,17 @@
 """`docs/lore/key-decisions.md`: the one surface that asks Ivo for a decision.
 
-**Why this is a module and not a convention.** Ivo's instruction, 2026-08-11:
-"Everything I have to sign-off should be in one place, so I know about it." Before
-that there were three places. The old decision log's entries each ended asking for a sign-off he
-does not give and does not want; the approvals file accumulated `pending` classes he
-had no reason to open; and the hypothesis ledger surfaced five unfinished leads as
-though they were his to judge, which he had not known existed. **A question raised in
-a file nobody reads is the same as a question not raised**, and worse, because the
-asker believes it was.
+Ivo's instruction: "Everything I have to sign-off should be in one place, so I know about
+it." **A question raised in a file nobody reads is the same as a question not raised**, and
+worse, because the asker believes it was.
 
-So there is one rule, enforced here rather than remembered: **anything waiting on a
-human is named under `## OPEN` in `key-decisions.md`, or it is not waiting on anyone.**
-The other files keep their jobs. The approvals file is still what `ark ingest` enforces
-and still the thing he edits; this only guarantees he learns that it wants him.
+So one rule, enforced here rather than remembered: **anything waiting on a human is named
+under `## OPEN` in `key-decisions.md`, or it is not waiting on anyone.** The other files
+keep their jobs; the approvals file is still what `ark ingest` enforces and still the thing
+he edits.
 
-**What this deliberately does not do.** It does not write the reasoning. An entry's
-body is prose about a judgement, and generating that would produce exactly the
-confident filler this project distrusts. `raise_open` writes a stub that says what is
-waiting and where the working is, and it is the agent's job to make it worth reading.
+**This does not write the reasoning.** An entry's body is prose about a judgement, and
+generating that produces exactly the confident filler this project distrusts. `raise_open`
+writes a stub saying what is waiting and where the working is.
 """
 
 import re

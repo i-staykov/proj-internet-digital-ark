@@ -20,22 +20,17 @@ from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
 
 
-# **DuckDB takes 80% of the machine by default, and this store is 52 GB.** Measured
-# 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB resident and the
-# machine started swapping, while `just sync`, `just state` and `just cycle` each spawn
-# one. Nothing here needs that much: these are aggregations over a few wide tables, and
-# DuckDB spills to `temp_directory` when it hits the limit, so a cap costs some disk and
-# no correctness. Threads are capped for the same reason, since peak memory scales with
-# them and the collectors want the cores.
-#
-# Both are overridable, because the VPS and CI are much smaller than the laptop and a
-# future machine may be much larger: ARK_DB_MEMORY_LIMIT takes any DuckDB size string.
+# **DuckDB takes 80% of the machine by default, and this store is 52 GB.** Measured: one
+# `build_round_state.py` at 28 GB resident on a 36 GB laptop, swapping, while `just sync`,
+# `just state` and `just cycle` each spawn one. These are aggregations over a few wide
+# tables and DuckDB spills to `temp_directory`, so a cap costs disk and no correctness.
+# Overridable, because the VPS and CI are much smaller: ARK_DB_MEMORY_LIMIT takes any
+# DuckDB size string.
 def _default_memory_limit() -> str:
     """40% of physical memory, floored at 2 GB.
 
-    Absolute defaults do not travel: 14GB is right on the 36 GB laptop and absurd on
-    the 7 GB VPS. 40% leaves the machine usable while clearing the measured need, and
-    the floor keeps CI (small containers, in-memory test databases) working.
+    A fraction, not an absolute: 14GB is right on the 36 GB laptop and absurd on the
+    7 GB VPS. The floor keeps CI containers and in-memory test databases working.
     """
     try:
         total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
@@ -45,11 +40,10 @@ def _default_memory_limit() -> str:
 
 
 DB_MEMORY_LIMIT = os.environ.get("ARK_DB_MEMORY_LIMIT") or _default_memory_limit()
-# **Two, and it is not only about the cores.** DuckDB's peak memory scales with threads,
-# and the aggregation in `build_round_state.py` failed outright at a 10 GB limit with 4
-# threads ("could not allocate block of size 256.0 KiB (9.3 GiB/9.3 GiB used)"): not every
-# operator can spill. The same query completes at 14 GB with 2. A cap that makes the tool
-# fail is worse than no cap, so the pair is what was tested, not each half alone.
+# **Two, and not only about the cores.** Peak memory scales with threads and not every
+# operator can spill: `build_round_state.py` fails outright at a 10 GB limit with 4
+# threads and completes at 14 GB with 2. The limit and the thread count were tested as a
+# pair, so do not move one alone.
 DB_THREADS = os.environ.get("ARK_DB_THREADS", "2")
 DB_TEMP_DIR = os.environ.get("ARK_DB_TEMP_DIR", "data/duckdb_tmp")
 
@@ -118,12 +112,11 @@ CREATE TABLE IF NOT EXISTS domain_year (
     PRIMARY KEY (domain, assigned_year)
 );
 
--- Hostname records, admitted 2026-09-01 when the reviewer accepted "both registrable
--- domains and valid hostnames as annual database records" (his reply, verbatim, in
--- private/personal-context.md). Same evidence wall as domain_year: every row points at
--- one evidence observation, and the checks enforce that the hostname reduces to
--- parent_domain and is not itself a bare registrable (those stay in domain_year).
--- Registrables remain the prioritized unit; hostnames ship as separate per-year files.
+-- Hostname records: the reviewer accepts "both registrable domains and valid hostnames
+-- as annual database records" (his words, in private/personal-context.md). Same evidence
+-- wall as domain_year, and the checks enforce that the hostname reduces to parent_domain
+-- and is not itself a bare registrable (those stay in domain_year). Registrables remain
+-- the prioritized unit; hostnames ship as separate per-year files.
 CREATE TABLE IF NOT EXISTS hostname_year (
     hostname      TEXT    NOT NULL,
     parent_domain TEXT    NOT NULL REFERENCES domain(domain),
@@ -142,16 +135,11 @@ CREATE TABLE IF NOT EXISTS ingested_file (
     PRIMARY KEY (source_name, file_name)
 );
 
--- Language verification, deliberately NOT an evidence type. Every row in
--- `evidence` answers "did this domain exist in this year". A language verdict
--- answers "what was this website in this year", which is orthogonal, and a
--- domain can be perfectly evidenced and still inadmissible under the English
--- standard. Mixing the two would corrupt a taxonomy that MASTER_TYPES, the
--- evidence_type CHECK and four integrity checks all depend on.
---
--- `evidence_urls` is what separates this from a TLD prior: it names the exact
--- snapshots that were read, so a reviewer can refetch them and recompute the
--- verdict.
+-- Language verification, deliberately NOT an evidence type. `evidence` answers "did this
+-- domain exist in this year"; a verdict answers "what was this website", which is
+-- orthogonal, and mixing them corrupts the taxonomy MASTER_TYPES, the evidence_type
+-- CHECK and four integrity checks depend on. `evidence_urls` names the exact snapshots
+-- read, so a reviewer can refetch them and recompute the verdict.
 CREATE TABLE IF NOT EXISTS domain_language (
     domain        TEXT    NOT NULL REFERENCES domain(domain),
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
@@ -167,11 +155,8 @@ CREATE TABLE IF NOT EXISTS domain_language (
 );
 """
 
-# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does
-# nothing to a table that is already there, so a new column in SCHEMA_SQL reaches
-# fresh stores only and silently skips every existing one. Each entry is applied
-# with IF NOT EXISTS, so running this on either kind of store is a no-op or a
-# one-line change and never an error.
+# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does nothing
+# to a table already there, so a new column in SCHEMA_SQL reaches fresh stores only.
 MIGRATIONS = (
     ("domain_language", "reason", "TEXT"),
     ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
@@ -191,16 +176,10 @@ def connect_patiently(
 ) -> duckdb.DuckDBPyConnection:
     """Wait out a writer instead of crashing against one, for a reporting command.
 
-    The read-only tools already do this. `ark check` and `ark stats` could not, because
-    both record a metrics row and so need the write lock themselves, and the ingest loop
-    holds it every fifteen minutes. Against a live loop they raised a DuckDB traceback,
-    which for a scheduled unattended run reads as a broken invariant rather than as a
-    busy database: exactly the confusion `ark check` exists to prevent by reporting SKIP
-    rather than PASS.
-
-    Waiting is the correct behaviour here and not merely the polite one. Per ADR-001,
-    banking a collector's finished journal outranks measuring, so the reporting side is
-    the side that yields.
+    For commands that need the write lock themselves because they record a metrics row,
+    `ark check` and `ark stats`. A traceback from a scheduled run reads as a broken
+    invariant rather than a busy database, and per ADR-001 banking a collector's journal
+    outranks measuring, so the reporting side yields.
     """
     deadline = time.monotonic() + patience_s
     while True:
@@ -217,16 +196,9 @@ def connect_read_only_patiently(
 ) -> duckdb.DuckDBPyConnection:
     """Read-only, and waits out a writer instead of crashing against one.
 
-    **DuckDB's single writer excludes readers too**, so a reporting command that opens
-    read-only still meets the lock every time the ingest loop banks a journal, which is
-    every few minutes. `connect_patiently` covers the commands that need to write a
-    metrics row; this covers the ones that must not write at all.
-
-    It exists because the same retry loop had been hand-written twice, in
-    `round_figures.py` and `build_round_state.py`, while `fill_report.py` and
-    `report_figures.py` crashed outright. That is the worst possible split: the round
-    report generator, which is only ever run at the end of a round when the collectors
-    are busiest, was the one that would fail.
+    **DuckDB's single writer excludes readers too**, so even a read-only reporting
+    command meets the lock every few minutes while the ingest loop banks journals. Use
+    this for anything that must not write; `connect_patiently` for the rest.
     """
     deadline = time.monotonic() + patience_s
     while True:
@@ -241,10 +213,8 @@ def connect_read_only_patiently(
 def _statements(schema: str) -> list[str]:
     """Split the schema into statements, ignoring `--` comment lines.
 
-    Statements are separated on `;`, so a semicolon inside a comment would cut a
-    CREATE TABLE in half and fail with a parser error pointing at prose. Comments
-    are stripped before the split rather than after, which keeps the explanatory
-    text in the source and out of the executed SQL.
+    Comments are stripped BEFORE the split on `;`, or a semicolon inside a comment cuts
+    a CREATE TABLE in half and fails with a parser error pointing at prose.
     """
     body = "\n".join(line for line in schema.splitlines() if not line.lstrip().startswith("--"))
     return [statement for statement in body.split(";") if statement.strip()]
@@ -303,38 +273,17 @@ def add_candidates(
 ) -> int:
     """Register many already-canonical domains in ONE set-based statement.
 
-    **This is the answer to ADR-001, and it took three wrong guesses to find.** The
-    seed held the store's only write lock for 26 minutes on 6,079 names and 33 on
-    35,391, blocking every reader. Blamed first on `add_candidate` in a Python loop,
-    which was real and was replaced by `executemany`; the seed stayed slow. Blamed next
-    on the classification query, which measures 0.33 s for 3,000 names. Blamed third,
-    by me, on per-row autocommit inside `executemany`: wrapping the whole batch in an
-    explicit transaction measured **12.03 s against 11.88 s, no difference at all.**
+    **Never a Python loop and never `executemany`**, which is N prepared-statement
+    executions against a columnar store: measured on a 4,000,000-row table inserting
+    13,078, `executemany` takes 13.47 s (971 rows/s) and the set-based anti-join from an
+    Arrow table takes 0.05 s (259,242 rows/s), 267x. This is what held the store's only
+    write lock for 26 minutes on a 6,079-name seed.
 
-    Measured against a 4,000,000-row table, inserting 13,078:
+    **Deduplicate the batch first**: the anti-join tests each row against the TABLE, so
+    two identical names inside one batch both pass it and collide on the primary key.
 
-        executemany, row at a time      13.47 s        971 rows/s
-        set-based from an Arrow table    0.05 s    259,242 rows/s      267x
-
-    `executemany` is not a batch. It is N prepared-statement executions, and DuckDB is
-    columnar, so each one pays a whole statement's overhead against an 8 GB store. The
-    fix is the idiom `bulk.py` has used all along: register the batch as an Arrow table
-    and let one statement do an anti-join insert. `INSERT OR IGNORE` becomes
-    `WHERE NOT EXISTS`, which is the same thing said set-wise.
-
-    **The batch is deduplicated first**, which `INSERT OR IGNORE` used to do implicitly:
-    the anti-join tests each row against the *table*, so two identical names inside one
-    batch would both pass it and collide on the primary key.
-
-    Takes canonical names rather than raw ones, because the caller has already parsed
-    them: `add_candidate` calls `to_registrable` a second time on a value its caller
-    just produced.
-
-    One consequence, since ADR-001's interim rule leaned on the opposite. An
-    interrupted seed no longer keeps a partial insert, because this is now a single
-    statement. That is a better trade than it sounds: the window shrinks from twenty
-    minutes to a fraction of a second, and a re-run stays additive because the
-    anti-join skips whatever is already there.
+    Takes canonical names, not raw ones; the caller has already parsed them. An
+    interrupted call keeps nothing, and a re-run is additive.
     """
     if not domains:
         return 0

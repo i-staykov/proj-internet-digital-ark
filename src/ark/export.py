@@ -41,51 +41,23 @@ _NOT_IN_BASELINE = f"""
 """
 
 
-# **A reverse-DNS zone is not a website and must not ship, whoever listed it first.**
-#
-# `ark.canonical` refuses them at the funnel since 2026-08-18, so no new one can arrive, but 63
-# assigned pairs across 18 zones had already got in from Usenet `From:` headers and from the
-# reviewer's own baseline, and all six shipped annual files carried them. The reason it matters
-# more than 63 rows should is the weight: `.arpa` scores **1.0000** in the CC-MAIN model, the
-# highest value in the table, above `.mil` at 0.9981. So it is junk concentrated in the top
-# weight, and the reviewer's validator accepts `206.in-addr.arpa` as well formed, so his side
-# would score it too.
-#
-# Filtered here rather than deleted from the store, because deleting rows is a destructive
-# migration and the store's history is harmless once nothing can add to it or ship it.
-# `dropped_domains.txt` already ships the baseline lines this pipeline excludes, and these join
-# them.
-#
-# **And the rule is the whole TLD rather than the reverse-DNS pattern, which is the stronger and
-# simpler statement.** No website ever lived under `.arpa` in 1996-2001: the ARPANET host
-# transition finished in 1990, and every zone delegated under `.arpa` since is infrastructure
-# (`in-addr`, `ip6`, `e164`, `uri`, `urn`, `iris`). Narrowing to `in-addr` and `ip6` left exactly
-# one survivor in the annual files, `ignore.arpa` in 2000, which is a placeholder scoring 1.0000,
-# so the narrow rule was catching the shape and missing the class.
-#
-# **The same filter now also drops a pair whose TLD did not yet exist**, which is the general form
-# of the same mistake: 1,087 assigned pairs predated their own TLD's delegation, `.eu` 409 and
-# `.info` 202 among them. `ark.delegation` owns the years, so the list is in one place rather than
-# repeated at each of the four destinations this predicate reaches.
+# **The shipping filter: no `.arpa`, and no pair whose TLD did not yet exist.**
+# The rule is the whole TLD, not the reverse-DNS pattern: no website lived under `.arpa`
+# in 1996-2001, everything delegated there since is infrastructure, and narrowing to
+# `in-addr`/`ip6` left `ignore.arpa` shipping at weight 1.0000, the model's maximum.
+# Filtered here rather than deleted from the store, which would be a destructive
+# migration; `dropped_domains.txt` ships the excluded baseline lines. `ark.delegation`
+# owns the years, so the rule is in one place for all four destinations it reaches.
 _NOT_REVERSE_DNS = _shipping_filter()
 
 
-# ADR-008 (Ivo, 2026-09-04) SUPERSEDES ADR-007: `www.<a name already held that year>` ships.
+# `www.<a name already held that year>` SHIPS. Measured on him rather than argued: his
+# merges hold all 1,313,547 `www.` hostnames of the 2026-09-02 submission and he credited
+# the round, so withholding them cost 233,999.15 EE and bought nothing.
 #
-# ADR-007 withheld it for one day on the reasoning that the alias is the same site under the
-# name every crawler tries first. What settled it was measuring the reviewer rather than
-# arguing about him: his merged260902-3 and merged260903-3 hold **all 1,917,606** hostnames of
-# the 2026-09-02 submission, including **all 1,313,547** beginning `www.`, with the bare name
-# beside 1,106,188 of them, and he credited that round 7.562846%. He merges both forms and pays
-# for them, so withholding them cost 233,999.15 EE and bought nothing.
-#
-# **The predicate is kept and no longer applied.** `round_figures.py` imports it to report the
-# alias share, because knowing that a bulk CDX index re-read at hostname grain is 99.5% to
-# 100.0% alias while a typed-URL corpus is 22.2% is what tells us which corpus to read next.
-# That was the finding; the exclusion was only ever one way of acting on it.
-#
-# Keeping it out of the ingest is what made the reversal one line: nothing was destroyed to
-# answer "already held", so the rows were still there when the answer changed.
+# Not applied to the export. Kept because `scripts/round/round_figures.py` imports it to
+# report the alias share, which is what tells us which corpus to read next: a bulk CDX
+# index re-read at hostname grain is 99.5% to 100.0% alias, a typed-URL corpus 22.2%.
 NOT_WWW_ALIAS = """
     (hy.hostname NOT LIKE 'www.%' OR (
         NOT EXISTS (SELECT 1 FROM baseline_hostname b

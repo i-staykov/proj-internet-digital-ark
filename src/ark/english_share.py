@@ -1,26 +1,20 @@
 """The reviewer's TLD English-share table, which is what the score is made of.
 
-Since August 2026 the work is scored in **equivalent-English domains**: each
-(domain, year) record contributes not 1 but the English primary-page-language
-share of its right-most TLD, so `foo.uk` is worth 0.9813 of a record and `foo.de`
-0.1324. The table is `CC-MAIN-2024-10`-derived and was supplied by the reviewer
-with his own calculator. Reproduced exactly: his three-domain worked example
-gives 1.2766 here, and our 151,949-record increment gives 91,814.6880, identical
-to the figure he credited.
+The work is scored in **equivalent-English domains**: each (domain, year) record contributes
+the English primary-page-language share of its right-most TLD, so `foo.uk` is worth 0.9813
+of a record and `foo.de` 0.1324. The `CC-MAIN-2024-10`-derived table is his, supplied with
+his calculator, and reproduced exactly: his three-domain worked example gives 1.2766 here.
 
-The rule is his, and deliberately not improved on: right-most label only, the row
-where `lang == 'eng'`, share as a fraction, and **zero when the model does not
-know the TLD**. Guessing a share for an unlisted TLD would score us on a number
-he cannot reproduce.
+**The rule is his and is deliberately not improved on**: right-most label only, the row
+where `lang == 'eng'`, share as a fraction, and **zero when the model does not know the
+TLD**. Guessing a share for an unlisted TLD scores us on a number he cannot reproduce.
 
-The file is vendored here rather than read from `feedback-phase-3/`, which is
-git-ignored: a fresh clone, or a second machine collecting in parallel, would
-otherwise have no weights at all and silently rank everything at zero. Pinned
-like the public suffix list, for the same reason. sha256 begins 480d86bc287e.
+Vendored here rather than read from git-ignored `feedback-phase-3/`, or a fresh clone would
+have no weights and silently rank everything at zero. Pinned like the public suffix list;
+sha256 begins 480d86bc287e.
 
-A fractional total is not a claim about individual domains. It is an expected
-count over a population, and it must never be described as a set of domains
-individually identified as English.
+**A fractional total is not a claim about individual domains.** It is an expected count over
+a population and must never be described as a set of domains identified as English.
 """
 
 import json

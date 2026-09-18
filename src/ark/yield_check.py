@@ -1,33 +1,23 @@
 """Is a collector finding anything, as opposed to merely running and writing?
 
-**Presence is not progress, and progress is not yield.** `supervise_cdx_pool.sh`
-argues the first at length in its own header: a batch stuck on a socket leaves the
-process alive and the journal frozen, so the supervisor watches journal growth
-rather than the PID. That closed the gap it was aimed at and left a wider one open,
-because **a journal full of misses grows exactly as fast as a journal full of
-hits.** Every record is written either way.
+**Presence is not progress, and progress is not yield.** A supervisor watching journal
+growth catches a stuck socket but not a stuck population, because **a journal full of
+misses grows exactly as fast as a journal full of hits.** That gap cost a measured
+fortnight: a queue whose first 3,000 rows were 2,675 `.mil` names ran 1,200 archive
+queries for ZERO in-window captures while every mechanical check reported clean.
 
-That gap cost a measured fortnight of collector time on 2026-08-11. A queue rebuilt
-that afternoon put 2,675 `.mil` names in its first 3,000 rows, and the local engine
-ran two batches, 1,200 archive queries, and returned **zero** in-window captures. Its
-process was alive, its journal was growing, `just cycle` reported every mechanical
-check clean, and the only place the truth appeared was a `no_capture: 600` counter in
-a log line nothing read. Roughly 25 days of the prioritised discovery half would have
-produced nothing.
+So this reads the journals and asks what none of the other checks do: **of the domains
+the archive actually answered, what share held a capture?**
 
-So this reads the journals and answers the question none of the other checks ask:
-**of the domains the archive actually answered, what share held a capture?**
+**Only status 200 counts in the denominator**, the rule `journal_outcomes` uses: a
+transport failure says nothing about whether a capture exists, so counting it as a miss
+would slander the whole population.
 
-**Only status 200 counts in the denominator**, the same rule `journal_outcomes` uses
-and for the same reason: a transport failure says nothing about whether a capture
-exists, so counting it as a miss would slander the whole population.
-
-**A collapse is judged against the collector's own history, not against a constant.**
-The two populations differ by design, gap answering 96-97.5% and the candidate pool
-36.9-90.6% depending on where a name came from, so one hardcoded floor would either
-miss a pool collapse or cry wolf at a healthy pool. Comparing a collector against its
-own recent past needs no such number, and the absolute-zero case is caught separately
-because zero over a real sample is never healthy for either population.
+**A collapse is judged against the collector's own history, never against a constant.**
+The populations differ by design, gap answering 96-97.5% and the candidate pool 36.9-90.6%
+depending on where a name came from, so one floor would either miss a pool collapse or cry
+wolf at a healthy pool. Absolute zero is caught separately, since zero over a real sample
+is never healthy for either.
 """
 
 import gzip
@@ -84,9 +74,8 @@ class Yield:
     def collapsed(self) -> bool:
         """Zero over a real sample, or far below this collector's own history.
 
-        Zero is called out on its own because it needs no comparison: a population
-        that answers and never holds a capture is not a population worth querying,
-        whatever it did last week.
+        Zero needs no comparison: a population that answers and never holds a capture is
+        not worth querying, whatever it did last week.
         """
         if not self.measurable or self.recent_rate is None:
             return False
@@ -104,14 +93,10 @@ class Yield:
     def latest(self) -> str:
         """The newest FINISHED batch on its own, which is the recovery signal.
 
-        The windowed rate is the right thing to alarm on and the wrong thing to read
-        after a queue is re-ranked: it averages over three batches, so it stays low for
-        hours after a fix and cannot say whether the fix worked. This can.
-
-        It reads only a published journal, never a `.part`. Reading an in-flight one is
-        how three different rates got quoted off a single batch in one afternoon, 9.5%
-        then 14.0% then 27.9%, because a gzip stream still being appended truncates at
-        its last complete block and the prefix is not a sample.
+        The windowed rate is what to alarm on and the wrong thing to read after a queue
+        is re-ranked: averaging three batches, it stays low for hours after a fix. This
+        reads only a published journal, never a `.part`, because a gzip stream still
+        being appended truncates at its last complete block and a prefix is not a sample.
         """
         if not self.newest or self.newest_rate is None:
             return "no finished batch yet"
@@ -154,17 +139,15 @@ def cdx_verdict(record: dict) -> tuple[bool, bool]:
 def rdap_verdict(record: dict) -> tuple[bool, bool]:
     """(answered, in-window creation year) for an RDAP journal record.
 
-    **A 404 counts as answered here, where its CDX equivalent would not.** The registry
-    replying "no such domain" is information, and a real one: 1,107,164 of 1,656,921
-    RDAP queries on this project have returned 404, which is the forged half of the
-    candidate pool seen from the registry side. A throttle (429), a refusal (403, 426)
-    or a transport failure (0) is not an answer and must not enter the denominator, or a
-    registry that starts rate-limiting would read as a population that stopped existing.
+    **A 404 counts as answered here, where its CDX equivalent would not**: the registry
+    saying "no such domain" is information, and 1,107,164 of 1,656,921 RDAP queries here
+    returned one, the forged half of the candidate pool seen from the registry side. A
+    throttle (429), refusal (403, 426) or transport failure (0) is not an answer and must
+    stay out of the denominator, or rate-limiting reads as a vanished population.
 
-    The year must be **in window**. A creation year of 2015 is a perfectly good answer
-    that pays nothing, and counting it would report a sweep of modern registrations as
-    productive: 28.4% of queries return some year against 10.1% returning one that
-    counts.
+    The year must be **in window**: 28.4% of queries return some year against 10.1%
+    returning one that counts, so counting any year reports a sweep of modern
+    registrations as productive.
     """
     if record.get("status") not in (200, 404):
         return False, False
@@ -184,20 +167,14 @@ class Collector:
 def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[int, int, bool]:
     """(answered, hits, truncated) in one journal.
 
-    **A journal still being written raises rather than ending politely**, and the error
-    is `EOFError`, not an `OSError`, so an `except OSError` around this crashed the whole
-    cycle the first time it met a live RDAP journal. The two collectors differ in a way
-    that matters here: the CDX supervisor writes `<name>.part` and renames on exit, so a
-    finished file is identifiable and mid-write ones are simply excluded. **The RDAP
-    sweep does the same, contrary to what this docstring claimed until 2026-08-13**: it
-    writes `<name>.part` and renames on exit, which was found by watching a stalled batch
-    publish its partial journal under the final name on being killed. The reading is
-    still tolerant of truncation rather than excluding `.part`, because a live RDAP batch
-    runs for over an hour and excluding it would leave the newest hour unmeasured.
+    **A journal still being written raises `EOFError`, not `OSError`**, so catch both or
+    a live RDAP journal takes the whole cycle down. Both collectors write `<name>.part`
+    and rename on exit, but a killed batch can still publish a partial under the final
+    name, and a live RDAP batch runs over an hour, so the read stays truncation-tolerant
+    rather than trusting the suffix.
 
-    So a truncated read keeps what it could parse and **says that it was truncated**,
-    because the alternative is either crashing or quietly trusting a prefix, and quietly
-    trusting a prefix is how one batch got reported at four different rates.
+    A truncated read keeps what parsed and **says it was truncated**. Quietly trusting a
+    prefix is how one batch got reported at four different rates.
     """
     answered = hits = 0
     truncated = False
@@ -217,18 +194,12 @@ def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[in
                 answered += 1
                 hits += was_hit
     except (OSError, EOFError, gzip.BadGzipFile, zlib.error):
-        # zlib.error is the CORRUPT case as opposed to the truncated one, and it is
-        # not a subclass of any of the others, so it used to escape and take the whole
-        # health cycle down: `zlib.error: Error -3 while decompressing data: invalid
-        # stored block lengths`, from a journal a killed collector left mid-write. The
-        # register already documents this shape on the corrupt ISC survey copies, where
-        # a desynchronised deflate stream decodes as plausible-looking garbage. Same
-        # treatment as truncation: keep what parsed and say the read was incomplete.
+        # zlib.error is the CORRUPT case rather than the truncated one, and it subclasses
+        # none of the others, so leaving it out takes the whole health cycle down on a
+        # journal a killed collector left mid-write. Same treatment as truncation.
         #
-        # Not UnicodeDecodeError: `open_journal` already opens with errors="replace",
-        # so inflated garbage is substituted rather than raised. An ad-hoc reader using
-        # the default strict decoding DOES die that way, which is how this was nearly
-        # mis-diagnosed as a second bug in this function.
+        # Not UnicodeDecodeError: `open_journal` opens with errors="replace", so inflated
+        # garbage is substituted. An ad-hoc reader on strict decoding DOES die that way.
         truncated = True
     return answered, hits, truncated
 
@@ -241,22 +212,14 @@ def measure(
 ) -> Yield:
     """Recent yield against earlier yield, for one collector prefix.
 
-    In-flight `.part` files are skipped: a batch two records in is not evidence, and
-    including it would make the reading jump around between cycles for no reason. That
-    exclusion is load-bearing rather than tidy, and reading one anyway produced 19%,
-    9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
+    In-flight `.part` files are skipped, and that exclusion is load-bearing: reading one
+    produced 19%, 9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
 
-    **Hand-named files are skipped too, and that exclusion was paid for.** The ordering
-    used to be a reverse sort of the raw filename, which is only a time ordering if every
-    name carries a timestamp in the same place. `data/raw/rdap/` also holds probe files
-    from one-off experiments, and `rdap_probe_org_step2.jsonl.gz` sorts ahead of every
-    `rdap_pool_<stamp>.jsonl.gz` because `probe` follows `pool`. So on 2026-08-15 this
-    function had been reporting the RDAP collector's "newest finished batch" as a static
-    probe from 11 August for days: a frozen 38.0% of 550 while the live sweep was running
-    at 23% to 26% of 710 to 773. **A yield check reading the wrong file cannot fail
-    loudly**, which is the same defect that let the VPS write for 31 hours against an
-    exhausted shard while every line read clean. Requiring the stamp and sorting on it
-    fixes both the selection and the ordering.
+    **Files are selected and ordered on the timestamp in the name, never on the raw
+    filename**, because `data/raw/rdap/` also holds hand-named probe files from one-off
+    experiments and `rdap_probe_...` sorts ahead of every `rdap_pool_<stamp>...`. That
+    reports a static probe as the newest finished batch, and **a yield check reading the
+    wrong file cannot fail loudly**.
     """
     stamped = []
     for path in directory.glob(f"{prefix}_*.jsonl*"):
@@ -319,20 +282,14 @@ def active_cdx_collectors(
 ) -> list[Collector]:
     """Every CDX prefix that has written here recently, discovered rather than listed.
 
-    **The list used to be hardcoded to two, and that is how 31 hours of a collector
-    finding nothing stayed invisible.** The comment justifying the pair cited the
-    supervisor's own header, which says `cdx_pool` and `cdx_gap` are the prefixes that
-    population may use. The header describes intent; the directory holds the facts, and
-    on 2026-08-12 it held six prefixes. The VPS had been running `cdx_q1` for over a day
-    against an exhausted shard, 3,219 answered queries for **zero** captures across
-    twelve consecutive batches, and no yield reading covered it because no yield reading
-    was looking for it.
+    **Never a hardcoded list.** A supervisor header describes intent; the directory holds
+    the facts, and it has held six prefixes where the header named two. An unplanned
+    prefix ran 31 hours against an exhausted shard, 3,219 answered queries for ZERO
+    captures, invisible because nothing was looking for it. Asking the directory is the
+    only version of this check a collector under a new name cannot defeat.
 
-    So this asks the directory. A prefix nobody planned still gets measured, which is the
-    only version of this check that cannot be defeated by starting a collector under a
-    new name. Activity is judged on the newest file including a `.part`, because a live
-    collector's newest file is usually the one it is still writing; the measurement
-    itself still ignores `.part` files, since a prefix of a gzip stream is not a sample.
+    Activity is judged on the newest file INCLUDING a `.part`, since that is usually what
+    a live collector is writing; the measurement still ignores `.part` files.
     """
     moment = time.time() if now is None else now
     newest: dict[str, float] = {}
@@ -351,10 +308,5 @@ def active_cdx_collectors(
 
 
 def measure_collectors(collectors: Iterable[Collector]) -> list[Yield]:
-    """Every collector, each read by the verdict its own journal format needs.
-
-    The RDAP sweep is this round's largest single contributor, 81,216 records and 49,012
-    equivalent-English, and until now nothing measured whether it was still finding
-    anything. Same gap as the CDX one, one collector over.
-    """
+    """Every collector, each read by the verdict its own journal format needs."""
     return [measure(c.directory, c.prefix, verdict=c.verdict) for c in collectors]

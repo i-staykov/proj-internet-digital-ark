@@ -1,12 +1,9 @@
-"""The proposal screener: does it actually stop a reproposed dead lead?
+"""The proposal screener: does it actually stop a reproposed dead lead? Loaded by path,
+like the other script tests: `scripts/` is not a package.
 
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-The register is parsed from `docs/registers/sources.md` rather than copied, so two of these
-tests run against the real document. That is deliberate: a parser that silently
-stops matching the file it reads would leave the tool reporting "no collision"
-for everything, which is the worst possible failure here because it reads as
-permission.
+The register is parsed from `docs/registers/sources.md` rather than copied, so two of
+these run against the real document: a parser that silently stopped matching would report
+"no collision" for everything, and that reads as permission.
 """
 
 import importlib.util
@@ -84,13 +81,9 @@ def test_common_words_alone_do_not_collide(tmp_path: Path) -> None:
 
 
 def test_a_shared_year_range_is_not_a_collision(tmp_path: Path) -> None:
-    """Found by using the tool on ten fresh hypotheses.
-
-    Every source in this project is about 1996-2001, so the window is in half the
-    register's entry names. `1996-2001` occurs in exactly one of them, which made
-    the single-rare-token rule fire, and "INET conference proceedings 1996-2001"
-    was reported as colliding with "SEC EDGAR filings 1996-2001". A date says when,
-    never what.
+    """Every source here is about 1996-2001, so the window is in half the register's entry
+    names and a single-rare-token rule reports "INET conference proceedings 1996-2001" as
+    colliding with "SEC EDGAR filings 1996-2001". A date says when, never what.
     """
     doc = tmp_path / "sources.md"
     doc.write_text(
@@ -118,12 +111,9 @@ def test_a_generic_noun_is_not_a_collision(tmp_path: Path) -> None:
 
 
 def test_closure_reason_separates_reprobeable_leads_from_finished_ones() -> None:
-    """A measurement does not improve by waiting; a dead host might be alive.
-
-    Revisiting unavailable sources is part of the task, and the register's own
-    Australian Web Archive entry is the case: one endpoint served an anti-bot
-    challenge, a second host answered normally, and the family was nearly closed
-    as empty on the first result.
+    """A measurement does not improve by waiting; a dead host might be alive. The register's
+    Australian Web Archive entry is the case: one endpoint served an anti-bot challenge, a
+    second host answered normally, and the family was nearly closed on the first result.
     """
     dead = screen.Closed("Some archive", "the host does not resolve; no route in", 1)
     priced = screen.Closed("Some corpus", "0.4 net-new pairs per reachable item", 2)
@@ -141,10 +131,9 @@ def test_the_real_register_has_both_classes_and_availability_is_the_minority() -
 
 
 def test_an_entry_can_close_one_route_on_reach_and_another_on_yield() -> None:
-    """`closed_on` returns one value and stays biased toward `availability`, which is
-    right. But an entry can close two routes, and reporting only the bias told a reader
-    to re-probe a family whose second route had already been measured. On 2026-08-11
-    that cost a re-measurement reproducing a verdict from three days earlier.
+    """`closed_on` returns one value and stays biased toward `availability`, which is right,
+    but an entry can close two routes: reporting only the bias sends a reader to re-probe a
+    family whose second route was already measured, reproducing a verdict.
     """
     both = screen.Closed(
         "Printed directories",
@@ -176,11 +165,9 @@ def test_every_dating_class_carries_its_corroboration_rule() -> None:
 
 
 def test_the_verdict_body_catches_a_collision_the_name_misses(tmp_path: Path) -> None:
-    """Found by using the tool.
-
-    A proposal for the 1996 Microsoft Bookshelf Internet Directory did not collide
-    with the entry that closes the CD-ROM family containing it, because
-    `cdbbsarchive` and `ISO` appear in the verdict and not in the entry name.
+    """A proposal for the 1996 Microsoft Bookshelf Internet Directory did not collide with the
+    entry closing the CD-ROM family that contains it, because `cdbbsarchive` and `ISO`
+    appear in the verdict and not in the entry name.
     """
     doc = tmp_path / "sources.md"
     doc.write_text(

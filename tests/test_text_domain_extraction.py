@@ -1,23 +1,18 @@
 """The text extractor must not invent a domain out of a longer real hostname.
 
 `probe_texts_corpus.domains_in` is the shared extractor for every corpus of prose or OCR
-this project prices or ingests: `price_items.py` imports it, so does the trade-press
-collector and the RTFM FAQ splitter. It had no test until 2026-08-18, which is how the
-following survived.
+this project prices or ingests: `price_items.py`, the trade-press collector and the RTFM
+FAQ splitter all import it.
 
-Its TLD whitelist carries `uk` and `au` because both are worth having, and the pattern
-had no right boundary, so `www.nctu.edu.tw` matched `www.nctu.edu` and collapsed to
-`nctu.edu`, and `tuvok.au.af.mil` matched `tuvok.au`. Both results are well-formed
-domains, so no store invariant could see them, and the error ran in the flattering
-direction twice over: the real host is lost, so the pair count falls, and the invented
-TLD outweighs the real one, so the equivalent-English rises. `.edu` is 0.9717 against
-`.edu.tw` at 0.1338.
-
-Measured over both affected corpora at the whole-corpus level, the old pattern invented
-534 names in the trade-press OCR and 1,442 in the RTFM FAQs, 1,934 distinct. 128 of them
-reached the annual files, worth 85.2549 equivalent-English, and every one of those 128
-also carries same-year evidence from another source, which is the corroboration split
-doing exactly what it is for. So the register was contained and the pricing was not.
+Its TLD whitelist carries `uk` and `au`, so a pattern with no right boundary matches
+`www.nctu.edu` inside `www.nctu.edu.tw` and `tuvok.au` inside `tuvok.au.af.mil`. Both
+results are well-formed domains, so no store invariant can see them, and the error runs
+in the flattering direction twice: the real host is lost, so the pair count falls, and
+the invented TLD outweighs the real one, so the equivalent-English rises (`.edu` 0.9717
+against `.edu.tw` 0.1338). Measured whole-corpus, the old pattern invented 534 names in
+the trade-press OCR and 1,442 in the RTFM FAQs, 1,934 distinct; 128 reached the annual
+files, worth 85.2549 EE, and every one of those also carries same-year evidence from
+another source, so the corroboration split contained the register and not the pricing.
 """
 
 import importlib.util
@@ -117,13 +112,11 @@ def test_a_shared_object_and_a_postscript_file_are_not_domains() -> None:
 
 
 def test_the_ocr_file_name_comes_from_metadata_not_from_the_identifier() -> None:
-    """`<identifier>_djvu.txt` is the usual name, not the rule.
-
-    A magazine scan uploaded as "Internet Magazine 031 [1997-06].pdf" carries
-    "Internet Magazine 031 [1997-06]_djvu.txt" beside it, and guessing the name called
-    32 of 33 in-window UK issues unreachable on 2026-08-27 where the metadata shows
-    33 of 33. Unreachable and unnamed look identical from the outside, so the reachable
-    share this script prints was a floor on every corpus it has closed.
+    """`<identifier>_djvu.txt` is the usual name, not the rule: a scan uploaded as "Internet
+    Magazine 031 [1997-06].pdf" carries "Internet Magazine 031 [1997-06]_djvu.txt" beside
+    it, and guessing the name called 32 of 33 in-window UK issues unreachable where the
+    metadata shows 33. Unreachable and unnamed look identical from outside, so the
+    reachable share this script prints is a floor on every corpus it has closed.
     """
     calls: list[str] = []
 
