@@ -175,7 +175,7 @@ def host_of(url: str) -> str | None:
 
 
 def ingest_hostname_journal(
-    conn: duckdb.DuckDBPyConnection, path: Path
+    conn: duckdb.DuckDBPyConnection, path: Path, ledger: set[tuple[str, str, str]] | None = None
 ) -> dict[str, int | str | bool]:
     """One journal of raw capture rows into hostname_year, idempotently."""
     from ark import approvals
@@ -188,13 +188,25 @@ def ingest_hostname_journal(
     # written afterwards is never read. The `.part`-then-rename convention `maintain.sh`
     # relies on does not cover an append-style collector; this does, for every lane at once.
     digest = _sha256(path)
-    already = conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name = ? AND file_name = ? AND sha256 = ?",
-        [source_name, path.name, digest],
-    ).fetchone()[0]
+    # **One query for the whole directory, not one per file.** The check itself is cheap;
+    # asking the store 24,664 times is not, and at ~60ms of round trip each that was 24
+    # minutes of a 25 minute run. `ingest_hostname_dir` reads the ledger once and passes
+    # it; a caller with no ledger still asks, so a single-file ingest is unchanged.
+    if ledger is not None:
+        already = (source_name, path.name, digest) in ledger
+    else:
+        already = bool(
+            conn.execute(
+                "SELECT count(*) FROM ingested_file "
+                "WHERE source_name = ? AND file_name = ? AND sha256 = ?",
+                [source_name, path.name, digest],
+            ).fetchone()[0]
+        )
     if already:
         stats["skipped"] = True
-        logger.info(f"{path.name}: already ingested, skipping")
+        # debug, not info: in a directory of 24,664 journals this line alone wrote 24,664
+        # rows to the log every run, and it says nothing a reader wants.
+        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     # The same gate every other master-eligible ingest passes: a journal family with no
     # `Decision: master` line behind its source row is refused before anything is read.
@@ -343,14 +355,24 @@ def ingest_hostname_dir(
 ) -> dict[str, int]:
     totals: Counter[str] = Counter()
     files = sorted(root.glob(pattern)) if root.is_dir() else [root]
+    # The whole ledger, once. It is one row per file ever ingested, so it costs a few MB
+    # of memory and saves one round trip per file in the directory.
+    ledger = {
+        (str(s), str(f), str(h))
+        for s, f, h in conn.execute(
+            "SELECT source_name, file_name, sha256 FROM ingested_file"
+        ).fetchall()
+    }
+    logger.info(f"ledger: {len(ledger):,} files already ingested, read in one query")
     for i, path in enumerate(files, 1):
-        stats = ingest_hostname_journal(conn, path)
+        stats = ingest_hostname_journal(conn, path, ledger=ledger)
         for key, value in stats.items():
             if isinstance(value, int) and not isinstance(value, bool):
                 totals[key] += value
             elif key == "skipped" and value:
                 totals["files_skipped"] += 1
-        logger.info(f"[{i}/{len(files)}] {path.name} done")
+        if not stats.get("skipped") or i % 2000 == 0 or i == len(files):
+            logger.info(f"[{i}/{len(files)}] {path.name} done")
     totals["files_seen"] = len(files)
     logger.info(f"hostnames: {dict(totals)}")
     return dict(totals)
