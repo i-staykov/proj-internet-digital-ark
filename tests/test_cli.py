@@ -86,7 +86,7 @@ def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeyp
 def test_rebuild_proceeds_when_the_export_is_current(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     assert runner.invoke(app, ["init"]).exit_code == 0
-    assert runner.invoke(app, ["export"]).exit_code == 0
+    assert runner.invoke(app, ["export", "--provenance"]).exit_code == 0
     result = runner.invoke(app, ["rebuild", "output/provenance"])
     assert result.exit_code == 0, result.output
     assert "rebuilt from" in result.output

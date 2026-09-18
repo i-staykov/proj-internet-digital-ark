@@ -143,6 +143,7 @@ def test_a_provenance_export_rebuilds_the_same_result(tmp_path) -> None:
         masters_dir=first / "masters",
         report_dir=first / "reports",
         provenance_dir=first / "prov",
+        with_provenance=True,
     )
     conn.close()
 
@@ -157,6 +158,7 @@ def test_a_provenance_export_rebuilds_the_same_result(tmp_path) -> None:
         masters_dir=second / "masters",
         report_dir=second / "reports",
         provenance_dir=second / "prov",
+        with_provenance=True,
     )
     rebuilt.close()
 

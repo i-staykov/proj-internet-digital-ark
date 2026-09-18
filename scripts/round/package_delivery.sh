@@ -2,7 +2,7 @@
 # Assemble the delivery archive: one compressed file plus its checksum, holding
 # the results, the evidence behind them, the code that produced them, and the
 # documentation. Run from anywhere; paths resolve relative to the repo root.
-# Regenerate the data first with `ark export`.
+# Regenerate the data first with `ark export --provenance`.
 #
 # Usage: bash scripts/round/package_delivery.sh [round-label]
 #
@@ -89,7 +89,7 @@ case "$STORED" in
 esac
 if [ "$SHIPPED" != "$STORED" ]; then
     echo "refusing to package: output/ holds $SHIPPED net-new pairs, the store holds $STORED" >&2
-    echo "run 'uv run ark export' first, then re-run." >&2
+    echo "run 'uv run ark export --provenance' first, then re-run." >&2
     exit 1
 fi
 
@@ -476,7 +476,15 @@ BASELINES
 # so any shipped line can be traced without the source data or the database
 # everything the export wrote, not a hand-listed subset: naming the files here
 # once shipped the data without trace.py, the tool the README tells them to run
-cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
+# `ark export` no longer writes this: it was 52% of that command and only ever read
+# here and by `just rebuild`. So it is asked for, and its absence refuses the package
+# rather than shipping an empty folder the way `|| true` used to.
+if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
+    echo "refusing to package: output/provenance is empty" >&2
+    echo "run 'uv run ark export --provenance' first, then re-run." >&2
+    exit 1
+fi
+cp -R output/provenance/. "$STAGE/provenance/"
 
 # The FULL evidence table ships, baseline rows included, and the 429 MB they cost is
 # not optional. Dropping `prior_reused` was tried on 2026-08-17 and shipped once. It
