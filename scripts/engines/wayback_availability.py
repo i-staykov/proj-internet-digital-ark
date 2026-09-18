@@ -40,6 +40,18 @@ PIN = "20010701"
 TARGET_YEAR = 2001
 WORKERS = 2
 BACKOFF_DEFAULT = 30.0
+# Rows between flushes of both journals and the resume marker. gzip buffers, so an engine
+# killed mid-window loses everything it has not flushed: this one ran 95 minutes over a
+# 0-byte journal before that was noticed. The window is days long and the archive is slow,
+# so flushing every 50 rows costs nothing measurable.
+FLUSH_EVERY = 50
+QUEUE_FILE = REPO / "data/raw/availability_queue.txt"
+STATE_FILE = REPO / "data/raw/availability_queue.done"
+# How long to wait for the store's lock when building the queue. The first real run opened a
+# read-only connection while the ingest loop held the write lock and sat there silently for
+# 2h20m at 0% CPU with an empty journal. A bounded wait that SAYS what it is waiting for is
+# the difference between a slow start and a dead engine nobody notices.
+QUEUE_LOCK_WAIT_S = 600
 
 
 def queue_sql(limit: int) -> str:
@@ -57,6 +69,33 @@ def queue_sql(limit: int) -> str:
         ORDER BY d.tld, dy.domain
         LIMIT {int(limit)}
     """
+
+
+def build_queue(path: Path, limit: int) -> None:
+    """Write the queue once, from a read-only connection that is closed straight away."""
+    import duckdb
+
+    from ark.db import DEFAULT_DB_PATH
+
+    deadline = time.monotonic() + QUEUE_LOCK_WAIT_S
+    while True:
+        try:
+            conn = duckdb.connect(str(DEFAULT_DB_PATH), read_only=True)
+            break
+        except duckdb.Error as err:
+            if time.monotonic() >= deadline:
+                raise SystemExit(
+                    f"the store stayed locked for {QUEUE_LOCK_WAIT_S}s: {err}"
+                ) from err
+            print(f"store locked, waiting 30s to build the queue: {str(err)[:90]}", flush=True)
+            time.sleep(30)
+    try:
+        rows = [row[0] for row in conn.execute(queue_sql(limit)).fetchall()]
+    finally:
+        conn.close()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(rows) + "\n")
+    print(f"queue rebuilt: {len(rows):,} domains -> {path}", flush=True)
 
 
 def ask(domain: str) -> tuple[str | None, str | None, float]:
@@ -115,11 +154,18 @@ def probe(domain: str) -> dict | None:
     return {"domain": domain, "host": host, "timestamp": stamp, "asked": domain}
 
 
-def run(domains: list[str], deadline: float, out_dir: Path, host_dir: Path) -> dict[str, int]:
+def run(
+    domains: list[str],
+    deadline: float,
+    out_dir: Path,
+    host_dir: Path,
+    done_before: int = 0,
+) -> dict[str, int]:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_dir.mkdir(parents=True, exist_ok=True)
     host_dir.mkdir(parents=True, exist_ok=True)
     totals = {"asked": 0, "exact": 0, "variant": 0, "empty": 0}
+    started_at = done_before
     work: queue.Queue[str] = queue.Queue()
     for domain in domains:
         work.put(domain)
@@ -136,6 +182,16 @@ def run(domains: list[str], deadline: float, out_dir: Path, host_dir: Path) -> d
             found = probe(domain)
             with lock:
                 totals["asked"] += 1
+                if totals["asked"] % FLUSH_EVERY == 0:
+                    exact.flush()
+                    variant.flush()
+                    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    STATE_FILE.write_text(f"{started_at + totals['asked']}\n")
+                    print(
+                        f"asked {totals['asked']:,}  exact {totals['exact']:,}  "
+                        f"variant {totals['variant']:,}",
+                        flush=True,
+                    )
                 if found is None:
                     totals["empty"] += 1
                 elif found["host"] == domain:
@@ -180,26 +236,30 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=200_000, help="queue size to take")
     ap.add_argument("--out", type=Path, default=REPO / "data/raw/availability")
     ap.add_argument("--host-out", type=Path, default=REPO / "data/raw/availability_hostgrain")
-    ap.add_argument("--queue-file", type=Path, help="one domain per line, instead of the store")
+    ap.add_argument("--queue-file", type=Path, default=QUEUE_FILE, help="one domain per line")
+    ap.add_argument("--refresh-queue", action="store_true", help="rebuild the file from the store")
     args = ap.parse_args()
 
-    if args.queue_file:
-        domains = [x.strip() for x in args.queue_file.read_text().splitlines() if x.strip()]
-    else:
-        # Read-only and closed straight away. `ark.db.connect` takes the WRITE lock, and
-        # this engine runs for hours beside an ingest loop that needs it every fifteen
-        # minutes; the queue is read once at the start and never again.
-        import duckdb
+    if args.refresh_queue or not args.queue_file.is_file():
+        build_queue(args.queue_file, args.limit)
+    domains = [x.strip() for x in args.queue_file.read_text().splitlines() if x.strip()]
 
-        from ark.db import DEFAULT_DB_PATH
-
-        conn = duckdb.connect(str(DEFAULT_DB_PATH), read_only=True)
+    # Where the last run stopped. A 4M queue outlives many windows, and without this every
+    # restart re-probes the same head of the file and the tail is never reached.
+    done = 0
+    if STATE_FILE.is_file():
         try:
-            domains = [row[0] for row in conn.execute(queue_sql(args.limit)).fetchall()]
-        finally:
-            conn.close()
-    print(f"queue {len(domains):,} domains, deadline {args.deadline:.0f}")
-    totals = run(domains, args.deadline, args.out, args.host_out)
+            done = int(STATE_FILE.read_text().strip())
+        except ValueError:
+            done = 0
+    domains = domains[done:]
+    print(
+        f"queue {len(domains):,} left ({done:,} asked before), deadline {args.deadline:.0f}",
+        flush=True,
+    )
+    totals = run(domains, args.deadline, args.out, args.host_out, done_before=done)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(str(done + totals["asked"]) + "\n")
     print(
         f"asked {totals['asked']:,}  exact {totals['exact']:,}  "
         f"variant {totals['variant']:,}  empty {totals['empty']:,}"
