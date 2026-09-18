@@ -39,21 +39,45 @@ def test_the_echoed_timestamp_is_not_the_answer(monkeypatch) -> None:
             0.0,
         ),
     )
-    assert engine.probe("example.com") is None, "a 1999 capture may not date 2001"
+    assert engine.probe("example.com") == ("empty", None), "a 1999 capture may not date 2001"
 
 
 def test_a_www_answer_is_not_evidence_for_the_bare_name(monkeypatch) -> None:
     """XIII: a capture of `www.example.com` does not establish `example.com`."""
     monkeypatch.setattr(engine, "ask", lambda d: ("http://www.example.com/", "20010704120000", 0.0))
-    found = engine.probe("example.com")
-    assert found is not None
+    state, found = engine.probe("example.com")
+    assert state == "ok"
     assert found["host"] == "www.example.com" != found["asked"]
+
+
+def test_a_throttle_is_not_an_answer(monkeypatch) -> None:
+    """A 429 must never be recorded as "no capture": that eats the queue silently."""
+    monkeypatch.setattr(engine, "ask", lambda d: (None, None, 12.0))
+    assert engine.probe("example.com") == ("throttled", 12.0)
+
+
+def test_a_throttled_name_goes_back_on_the_queue(tmp_path, monkeypatch) -> None:
+    """It is re-asked, not consumed, and it is not counted as asked."""
+    calls = {"n": 0}
+
+    def flaky(domain):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None, None, 0.01
+        return "http://a.com/", "20010704120000", 0.0
+
+    monkeypatch.setattr(engine, "ask", flaky)
+    monkeypatch.setattr(engine, "WORKERS", 1)
+    monkeypatch.setattr(engine, "STATE_FILE", tmp_path / "done")
+    totals = engine.run(["a.com"], 1e12, tmp_path / "e", tmp_path / "h")
+    assert totals["throttled"] == 1
+    assert totals["asked"] == 1 and totals["exact"] == 1
 
 
 def test_an_exact_answer_is_evidence_for_the_name_asked(monkeypatch) -> None:
     monkeypatch.setattr(engine, "ask", lambda d: ("http://example.com:80/", "20010704120000", 0.0))
-    found = engine.probe("example.com")
-    assert found is not None and found["host"] == "example.com"
+    state, found = engine.probe("example.com")
+    assert state == "ok" and found["host"] == "example.com"
 
 
 def test_the_two_grains_go_to_two_journals(tmp_path, monkeypatch) -> None:
@@ -65,8 +89,9 @@ def test_the_two_grains_go_to_two_journals(tmp_path, monkeypatch) -> None:
     }
     monkeypatch.setattr(engine, "ask", lambda d: replies[d])
     monkeypatch.setattr(engine, "WORKERS", 1)
+    monkeypatch.setattr(engine, "STATE_FILE", tmp_path / "done")
     totals = engine.run(["a.com", "b.com", "c.com"], 1e12, tmp_path / "exact", tmp_path / "host")
-    assert totals == {"asked": 3, "exact": 1, "variant": 1, "empty": 1}
+    assert totals == {"asked": 3, "exact": 1, "variant": 1, "empty": 1, "throttled": 0}
 
     exact = next((tmp_path / "exact").glob("*.jsonl.gz"))
     rows = [json.loads(x) for x in gzip.open(exact, "rt") if x.strip()]
