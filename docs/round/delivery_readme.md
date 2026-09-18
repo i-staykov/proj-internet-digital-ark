@@ -1,8 +1,8 @@
 # Internet Digital Ark: 1996-2001 annual domain lists
 
-Evidence-backed annual domain lists for 1996-2001. Every line in an annual file traces to a specific
-dated observation: a capture the Internet Archive holds, a registry record, or an address printed in
-a dated artifact.
+Evidence-backed annual domain lists for 1996-2001. **The annual files are a website-evidence
+product** under your Section XIII: a line qualifies only on exact-host, year-specific web evidence,
+and a name known by any other route ships as a candidate instead. The standard is at the end.
 
 **The counts live in `report.docx` and in `verify.sh`, not here.** Quoting figures in two places is how
 they come to disagree. `bash verify.sh` prints the current totals from the shipped files in about ten
@@ -209,19 +209,16 @@ just reproduce
 
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
-this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing, which is how
-it behaved before 2026-08-18. **The five excluded journal sets will replay nothing** until they are restored: the RDAP
-logs on request, the other four by re-deriving them from the public sources `sources.md` links.
+this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing.
+**The eight excluded journal sets will replay nothing** until they are restored: the RDAP logs on
+request, the other seven by re-deriving them from the public sources `sources.md` links.
 Every assignment they back is checkable by tier 2, which is the route below.
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
 about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been
 re-measured since, so treat them as indicative.
 
-**What tier 3 cannot re-derive, stated plainly, because the figure used to be wrong by four orders of
-magnitude.** This paragraph said "the gap is two sources with no journal to replay, whose 840 domains
-return to the candidate pool". That was true of phase 1 and has not been true since phase 5. Measured
-on 2026-08-27:
+**What tier 3 cannot re-derive, stated plainly.** Measured on 2026-08-27:
 
 | | assignments | share |
 |---|--:|--:|
@@ -248,12 +245,20 @@ journals and the provenance export shipped here do not move.
 
 ## Evidence standard
 
-A domain is in `masters/<year>.txt` only with item-level evidence for that year: a web-archive capture,
-a dated survey or directory file, a host-link-graph row, a registry record, or the baseline's own prior
-evidence. An earlier appearance never implies a later year.
+**Your Section XIII: the annual master is a website-evidence product.** A hostname-year qualifies
+for `masters/`, `additions/` or `hostnames/` only on retained evidence of that exact hostname's web
+presence in that year, in one of four patterns:
 
-Data that only suggests a domain existed, such as being linked to from another site, never assigns a
-year. It goes to `candidates.txt` until it earns its own evidence.
+- an exact-host Internet Archive CDX capture, with the captured URL or hostname and the target-year
+  timestamp retained;
+- a dated webpage snapshot;
+- a dated web link-graph record that identifies the target hostname;
+- a trusted custodian's documented per-host/year non-error web-capture extract.
 
-The report gives the standard in full, including how registry dates are read and which evidence
-types may back an annual entry.
+Evidence for a parent domain or for another hostname variant does not carry, in either direction
+between a bare name and its `www.` form. An earlier appearance never implies a later year.
+
+DNS observations, registry, RDAP and WHOIS registration events, mail and Usenet delivery headers,
+and textual mentions are discovery evidence rather than website evidence. They ship in the candidate
+collections with their provenance and a verification route, and are promoted only when paired with
+exact-host, target-year website evidence.

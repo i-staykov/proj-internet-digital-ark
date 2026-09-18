@@ -37,6 +37,28 @@ CDX sweep, which is the standing priority paying off.
 **Failing rows re-track to candidates, which score at the same rate.** The cost is the claim, not the
 work.
 
+**The promotion hunt is bounded before a request is spent.** The reviewer audited 1,800 ISC
+hostname-year records and 48 of them, about 2.67%, returned an exact-host IA CDX record anywhere in
+1996-2013 (2026-09-06, C-76), so 2.67% of our 18,087,127 ISC hostname-years is roughly 483,000 that
+could ever carry web evidence. A DNS-grain corpus is a candidate asset however well dated, because
+the date proves a machine answered and not that a page existed.
+
+## The availability endpoint is blocked, and its queue re-aimed at CDX pays 125 EE/hour
+
+`archive.org/wayback/available` answers 429 with `x-rl: 0` and no `Retry-After`, sustained over
+13 hours INCLUDING with none of our clients running, so the block is not our load and the
+1,494 net-new EE/hour it was priced at (C-88) is not currently achievable. `web.archive.org/cdx`
+is unaffected and the sweeps run normally, so the limit is per service, not per address.
+
+Asking the same queue through `ark cdx` instead ran at **0.100 q/s** over a five-minute window,
+which at the measured 0.3459 net-new EE per query is **125 EE/hour against roughly 300 for one
+suffix sweep**. The swap costs more than it buys, so the third client stays off and both CDX
+collectors run. Re-test the endpoint before spending anything else on it.
+
+The queue build had two defects worth keeping: it ordered by TLD NAME, so a 4,000,000 row limit
+filled with `.com` alone and `.uk` at 0.9813, the richest of the four, never entered; and a
+throttle was recorded as "no capture", which would have consumed the queue while learning nothing.
+
 ## The thin-parent lane: 642 EE per client-hour, and targeting does not rescue it
 
 Tested 2026-09-06 on the idea of asking one `matchType=domain` question per registrable we hold
@@ -66,22 +88,6 @@ version is the same question asked ten million times instead of once.
 
 Keep it as the floor lane: when the ranked platform queue is finally empty, this is what is left,
 and it is still 2.5 times a per-domain gap query.
-
-## A DNS observation is worth 2.67% of a web observation, measured by the reviewer
-
-He audited 1,800 ISC hostname-year records at random and **48 of them, about 2.67%, returned an
-exact-host IA CDX record anywhere in 1996-2013** (2026-09-06). That is the price of the whole ISC
-class as annual evidence, and it is his own figure rather than ours, so it settles the question we
-had been asking since 2026-09-02.
-
-Two things follow. **A DNS-grain corpus is a candidate asset, not an annual one**, however well
-dated it is, because the date proves a machine answered and not that a page existed. And **the
-promotion route is worth pricing rather than assuming**: 2.67% of our 18,087,127 ISC hostname-years
-is roughly 483,000 that could carry an exact-host capture, so the value of hunting that evidence is
-bounded and knowable before a single request is spent.
-
-Our own independent measurement of the same class agreed in shape: 1.419% of the ISC hosts appear
-anywhere in his files, against 84.2% for the `www.` shape.
 
 ## The eight laws
 
@@ -347,43 +353,23 @@ says how much is there, and rows-per-host says what it costs to get. `rank_platf
 --net-new` should divide the one by the other, which is a change to make at the next restart
 rather than under a running sweep holding the queue file open.
 
-## A deep parent costs a fixed slice of the client, so cap it at 300 seconds
+## A parent keeps the client slot while it is cheap per host, tested every 300 seconds
 
-Measured 2026-09-05, on the round-9 sweep. The cost side of the ranking above cannot be applied to
-most of the queue: `rows_per_host.tsv` holds a few hundred parents and the ranked pool is 20,000,
-so for the rest the divisor is 1.0 and the ranking degrades to "sub-hosts we lack" alone. That
-metric puts big institutional namespaces first, because `.edu`, `.gov` and `.ac.uk` genuinely have
-the most hosts we lack, and every one of them is deep.
+Measured 2026-09-05 and corrected 2026-09-07. Depth cannot be known before asking, so it is bounded
+after: the sweep keeps a per-parent state file, and a parked parent resumes with a real cost attached.
 
-Depth cannot be known before asking, so it is bounded after. Two caps were run against the same
-stretch of that queue:
-
-| cap | journals per minute |
-|---|--:|
-| 600s | 0.33 |
-| 300s | 1.00 |
-
-**Three times the parent throughput for half the time per parent**, and nothing is lost, because
-the sweep keeps a per-parent state file and a parked parent can be resumed with a real cost
-attached. It is the same finding as the Usenet hierarchies and the domain-wide sweep, in a third
-form: breadth pays and depth does not, so the right move when a parent turns out to be deep is to
-leave it rather than finish it.
-
-## The 300-second cap measured the wrong thing, and the law above is superseded
-
-Date: 2026-09-07. The table above is real and its conclusion is wrong, because journals per minute
-is not a unit of anything. A journal is a file. Only a distinct (host, year) pair is a record, and
-the parents the flat cap discarded were the ones returning most: when the clock cut them,
-`columbia.edu` had written 885,968 capture rows and `utoronto.ca` 634,104.
-
-What decides a parent is still capture rows per distinct host, exactly as the law two sections up
-says. The mistake was applying it only to the 339 parents in `rows_per_host.tsv` and letting a
-stopwatch stand in for it everywhere else. The cap is now a yield test taken every 300 seconds
-against the parent's own journal, so an unmeasured parent is judged on what it is doing.
+The first form of this law was a flat 600s-to-300s stopwatch chosen on journals per minute, and
+**journals per minute is not a unit of anything**: a journal is a file, only a distinct (host, year)
+pair is a record, and the parents the flat cap discarded were the ones returning most, with
+`columbia.edu` at 885,968 capture rows and `utoronto.ca` at 634,104 when the clock cut them. What
+decides a parent is capture rows per distinct host, exactly as the law above says; the mistake was
+applying it only to the 339 parents in `rows_per_host.tsv` and letting a stopwatch stand in for it
+everywhere else. The cap is now a YIELD test taken every 300 seconds against the parent's own
+journal, so an unmeasured parent is judged on what it is doing.
 
 **The honest counterweight, measured the same day:** of 261 parked parents with a journal to judge,
 only 49 are cheap per host. The flat cap was mostly parking correctly, so this is a correctness fix
-with a modest recovery, not a rescue. Breadth still pays. It just has to be breadth measured in
+with a modest recovery, not a rescue. Breadth still pays; it just has to be breadth measured in
 records.
 
 ## A park list nothing reads is a queue leak, and it hides the best parents
@@ -557,7 +543,7 @@ own queue. **The token window therefore goes to the research lanes, the collecto
 in parallel, and the operator checks in on them sporadically rather than pacing waves around
 them.**
 
-## Two archive clients maximum is about the CDX channel, not the hostname
+## The archive client limit is about the CDX channel, not the hostname
 
 Also Ivo, 2026-09-08 (C-77), settling issue #111. Every research lane used to
 `touch ~/ark/state/pause` for its whole duration, on the reading that a researcher fetching

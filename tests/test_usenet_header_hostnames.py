@@ -1,9 +1,9 @@
 """Server-written header hostnames from dated Usenet posts.
 
-Approved master-eligible by Ivo on 2026-09-10, reopening a 2026-09-08 rejection whose
-grounds were a size that turned out to be wrong. The funnel is the body-URL family's; what
-is new is the three fields read and the two markers a news server appends to a `Path`
-element, both of which banked fiction before they were pinned here.
+Approved master-eligible by Ivo on 2026-09-10, reopening a 2026-09-08 rejection whose grounds
+were a size that turned out to be wrong. The funnel is the body-URL family's; new are the
+three fields read and the two markers a news server appends to a `Path` element, both of which
+banked fiction before they were pinned here.
 """
 
 import gzip

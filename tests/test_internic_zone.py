@@ -1,14 +1,13 @@
 """The InterNIC zone parser, whose whole discipline is which side of an NS record counts.
 
 The Defense Data Network NIC mirrored InterNIC's zone distribution over HTTP and Wayback
-captured it, which is how a family this project closed twice for "no in-window zone file
-survives" turned out to have one: a complete 18 April 1997 `.org` zone, plus `edu`, `gov`,
-`mil`, `root` and `arpa` from the same crawl.
+captured it, which is how a family closed twice for "no in-window zone file survives" turned
+out to have one: a complete 18 April 1997 `.org` zone, plus `edu`, `gov`, `mil`, `root` and
+`arpa` from the same crawl.
 
-**The owner of an NS record is the delegation; the target is a nameserver.** Getting that
-backwards is not hypothetical. The sibling `inaddr.zone.gz` was first claimed at 2,018
-net-new pairs and measured at 336, because 99.8% of its right-hand sides were nameserver
-names, which are the most-covered names in the store.
+**The owner of an NS record is the delegation; the target is a nameserver.** The sibling
+`inaddr.zone.gz` was first claimed at 2,018 net-new pairs and measured at 336, because 99.8%
+of its right-hand sides were nameserver names, the most-covered names in the store.
 
 Measured on the real files, 2026-08-18: 65,261 delegations, 52,861 already held, 12,400
 net-new pairs and 8,871.2 equivalent-English as the self-dating class it is.

@@ -1,12 +1,10 @@
-"""The capture-journal hostname lane, and what survives of the 2026-09-02 purpose rules.
+"""The capture-journal hostname lane, and what survives of the purpose rules.
 
-One of the two still stands: a record needs an observation of the host serving web content,
-so the DNS lanes date the parent only. The other is gone. `www.<parent>` was refused as the
-parent's own site until 2026-09-04, when ADR-009 admitted it on his section XI and on a count
-of his own benchmark, where 1,221,065 names have both forms in the same year file.
-
-What replaced it is the weaker and more useful invariant: a `www.<parent>` record must point at
-evidence naming that exact host, so admitting the shape never became asserting it.
+One still stands: a record needs an observation of the host serving web content, so the DNS
+lanes date the parent only. The other is gone, `www.<parent>` having been admitted by ADR-009
+on his section XI and on a count of his own benchmark, where 1,221,065 names carry both forms
+in one year file. What replaced it is weaker and more useful: a `www.<parent>` record must
+point at evidence naming that exact host, so admitting the shape never became asserting it.
 """
 
 import gzip
@@ -36,12 +34,10 @@ def write(tmp_path: Path, rows: list[tuple[str, str]], name: str = "sweep_test.j
 
 
 def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
-    """His ruling of 2026-09-06 (ADR-010) runs in both directions.
-
-    ADR-009 admitted `www.<parent>` as its own record and let the same capture date the parent
-    as well. The second half is what he then refused: "nor does the presence of www automatically
-    establish the bare hostname". So 1998 is still dated, by the bare capture and by
-    `shop.example.com`, and 1999 is not, because only `www.example.com` was seen that year.
+    """His ruling in ADR-010 runs in both directions. ADR-009 admitted `www.<parent>` as its own
+    record and let the same capture date the parent as well; the second half is what he
+    refused, "nor does the presence of www automatically establish the bare hostname". So
+    1998 is still dated, by the bare capture and by `shop.example.com`, and 1999 is not.
     """
     conn = duckdb.connect(":memory:")
     init_db(conn)
@@ -117,13 +113,10 @@ def test_dns_lanes_are_not_web_facing() -> None:
 
 
 def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
-    """The sweep appends to its journal under the final name, for hours.
-
-    Ledgering by name alone marked a live journal done at whatever length it had: on
-    2026-09-04 the first pass read `suffix_co_uk_...` at 391,684 rows and the second pass
-    skipped all 500 files, so every row written afterwards would never have been read. The
-    `.part`-then-rename convention does not cover an append-style collector; skipping on
-    content does, for every lane at once.
+    """The sweep appends to its journal under the final name, for hours, so ledgering by name
+    alone marks a live journal done at whatever length it had: one pass read a suffix journal
+    at 391,684 rows and the next skipped all 500 files. The `.part`-then-rename convention
+    does not cover an append-style collector; skipping on content does, for every lane.
     """
     conn = duckdb.connect(":memory:")
     init_db(conn)
@@ -149,12 +142,10 @@ def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
 
 
 def test_arquivo_journals_get_their_own_source_row() -> None:
-    """A hostname read from Arquivo.pt must not read as an Internet Archive capture.
-
-    Ivo ruled the lane in on 2026-09-08 (C-81) and Arquivo's own terms require the citation
-    "[fonte: Arquivo.pt, dd/mm/aaaa]", so its provenance has to be separable in the shipped
-    contribution table. The dispatch is on the filename family, as it is for the Early Web and
-    USFEDGOV indexes.
+    """A hostname read from Arquivo.pt must not read as an Internet Archive capture. The lane is
+    in under C-81 and Arquivo's terms require the citation "[fonte: Arquivo.pt, dd/mm/aaaa]",
+    so its provenance has to be separable in the shipped contribution table. The dispatch is
+    on the filename family, as for the Early Web and USFEDGOV indexes.
     """
     from ark.hostnames import (
         ARQUIVO_METHOD,

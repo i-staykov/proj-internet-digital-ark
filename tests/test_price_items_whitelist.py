@@ -1,15 +1,14 @@
 """The prose whitelist is wrong for a list of hostnames, and it flatters in both directions.
 
 `price_items.py` extracts through `probe_texts_corpus.domains_in`, whose TLD whitelist is
-com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg. That narrowness is deliberate and correct for
-OCR and prose, where a permissive pattern turns sentence punctuation into fabricated names.
-It is wrong when an item's text is already a clean list of hostnames.
+com|net|org|edu|gov|us|uk|au|ca|nz|ie|za|sg. That narrowness is correct for OCR and prose,
+where a permissive pattern turns sentence punctuation into fabricated names, and wrong when
+an item's text is already a clean list of hostnames.
 
-Measured on the squidGuard blacklists on 2026-08-18, independently by two agents: the
-whitelist silently dropped 2,333 of 30,916 names, almost all low-weight (.de 1,377, .dk
-158, .nl 136, .nu 91). That understated the pair count by 7.5% and raised the reported mean
-weight from 0.5725 to 0.6249, which is across the 0.6 line the acceptance bar tests. Two
-errors in one pass and both in the flattering direction, which is why the drop is now
+Measured on the squidGuard blacklists, 2026-08-18: the whitelist silently dropped 2,333 of
+30,916 names, almost all low-weight (.de 1,377, .dk 158, .nl 136, .nu 91). That understated
+the pair count by 7.5% and raised the reported mean weight from 0.5725 to 0.6249, across the
+0.6 line the acceptance bar tests. Both errors flattered, which is why the drop is now
 reported rather than silent.
 """
 

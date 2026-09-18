@@ -2,6 +2,7 @@
 
 from typer.testing import CliRunner
 
+import ark
 from ark.cli import app
 
 runner = CliRunner()
@@ -11,6 +12,8 @@ def test_help_lists_commands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "seed" in result.output
+    # the console script pyproject declares: ark = "ark:main"
+    assert callable(ark.main)
 
 
 def test_export_runs_after_init(tmp_path, monkeypatch) -> None:

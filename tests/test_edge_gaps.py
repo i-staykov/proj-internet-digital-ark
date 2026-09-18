@@ -1,16 +1,12 @@
 """The window's two edge years, which no queue could express until 2026-08-18.
 
-`sandwich_gap_domains` requires a year held at Y-1 AND Y+1, so 1996 needs 1995 and 2001
-needs 2002. Both are outside 1996-2001, so those two years were never gap targets at all,
-and a domain that already carries a year is not a pool candidate either. 5,358,097 slots sat
-in that blind spot, 99.8% of them never asked of the archive.
+`sandwich_gap_domains` requires a year held at Y-1 AND Y+1, so 1996 needs 1995 and 2001 needs
+2002, both outside the window: 5,358,097 slots sat in that blind spot, 99.8% of them never
+asked of the archive. Measured off 725 journals, given a 2000 capture the archive also holds
+2001 for 94.4% of 140,924 answers, against 98.2% for a bracketed year measured the same way,
+which is the control that validates the method. 1996 is the thin one at 60.0%.
 
-`gaps.py` justified the restriction as "17.5x larger and far more speculative". The 17.5x is
-right; the speculation is not. Measured off 725 journals: given a 2000 capture the archive
-also holds 2001 for 94.4% of 140,924 answers, against 98.2% for a bracketed year measured
-the same way, which is the control that validates the method. 1996 is the thin one at 60.0%.
-
-See ADR-006. These tests pin the selection rule and the measured rates, not the allocation
+See ADR-006. These pin the selection rule and the measured rates, not the allocation
 decision, which is Ivo's.
 """
 
@@ -68,11 +64,10 @@ def test_a_domain_with_no_adjacent_year_is_not_an_edge_target(store) -> None:
 
 
 def test_the_rates_are_the_ones_the_pilot_measured(store) -> None:
-    """Pinned to the pilot, not to the journal conditional it replaced.
-
-    The conditional said 0.600 and 0.944 and was labelled a ceiling. The pilot measured the
-    population itself at 0 of 186 for 1996 and 111 of 186 for 2001, so a future edit cannot
-    quietly restore the flattering pair.
+    """Pinned to the pilot, not to the journal conditional it replaced. The conditional said
+    0.600 and 0.944 and was labelled a ceiling; the pilot measured the population itself at
+    0 of 186 for 1996 and 111 of 186 for 2001, so a future edit cannot quietly restore the
+    flattering pair.
     """
     assert EDGE_RATE == {1996: "0.000", 2001: "0.597"}
     assert float(EDGE_RATE[1996]) == 0.0, "1996 measured 0 of 186 and must score nothing"

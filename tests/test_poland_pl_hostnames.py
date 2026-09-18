@@ -1,10 +1,10 @@
 """The Poland .pl ccTLD extraction, item-level CDX read at hostname grain.
 
-Approved master by Ivo on 2026-09-10. Same class and same artifact shape as
+Approved master by Ivo on 2026-09-10. Same class and artifact shape as
 `usfedgov_extract_hostnames`, its own source row because it is its own collection with its
-own terms. What is pinned here is the receipt check, which is the only thing standing
-between a truncated fetch and a corpus of half-read dates, and the field the host comes
-from: field 3 and never field 1, because the SURT key drops `www` and reverses the labels.
+own terms. Pinned here: the receipt check, the only thing between a truncated fetch and a
+corpus of half-read dates, and that the host comes from field 3 and never field 1, because
+the SURT key drops `www` and reverses the labels.
 """
 
 import gzip

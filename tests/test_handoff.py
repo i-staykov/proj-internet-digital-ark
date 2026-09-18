@@ -1,8 +1,8 @@
 """The PreCompact handoff, and the two hooks that carry a session across a gap.
 
-Both hooks run on every session start and every compaction, so what is tested is
-what a hook must survive: a fresh clone with no `data/` and no transcript. Each
-command prints one line there and exits 0.
+Both run on every session start and every compaction, so what is tested is what a hook must
+survive: a fresh clone with no `data/` and no transcript. Each prints one line there and
+exits 0.
 """
 
 import importlib.util

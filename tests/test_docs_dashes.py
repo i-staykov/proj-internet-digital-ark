@@ -1,15 +1,9 @@
 """No em-dash and no en-dash in any tracked markdown, on either repository.
 
-Rule 10 of `CLAUDE.md`, and the one house rule with no exception: the reviewer reads this
-prose through the register and the report, so a dash that slips in is a dash he sees. It was
-held in three places and none of them covered `docs/`: `tests/test_claude_harness.py` scans
-`.claude/`, `scripts/round/extract_ding_docs.py` asserts it for the canonical brief, and the
-fleet's `scripts/test_docs.py` holds the other repository. This closes the gap for the pages
-a human actually writes.
-
-Markdown only, and every tracked one of them. A binary, a fixture or a downloaded artifact
-is not something anybody typed, and the registers are markdown, so quoting a 1999 artifact
-that carries a dash means transcribing it as a hyphen rather than widening this test.
+Rule 10, and the one house rule with no exception: the reviewer reads this prose through the
+register and the report. Markdown only and every tracked one of them, so quoting a 1999
+artifact that carries a dash means transcribing it as a hyphen rather than widening this
+test. `tests/test_claude_harness.py` covers `.claude/` and the fleet holds its own pages.
 """
 
 import subprocess

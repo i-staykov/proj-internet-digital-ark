@@ -1,9 +1,8 @@
 """The digest is the only thing that reaches a phone, so it has to be readable and safe.
 
-Two properties are worth a test. **Nothing shaped like an address may leave the machine**,
-because the issue is on the public repository and the collector host is deliberately not in
-it. And **the alarm has to be in the title**, since a phone shows a title and a timestamp
-and nothing else until somebody taps it.
+**Nothing shaped like an address may leave the machine**, because the issue is on the public
+repository and the collector host is deliberately not in it. And **the alarm has to be in the
+title**, since a phone shows a title and a timestamp and nothing else until somebody taps it.
 """
 
 from __future__ import annotations

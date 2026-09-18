@@ -25,11 +25,9 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
 
 
 def _fake_baseline(tmp_path: Path) -> Path:
-    """A baseline directory holding only what the export diffs against.
-
-    The export reads HIS annual files and candidate pool at export time, so a test that
-    used the real ones would pass or fail on whether a fixture name like `new.com`
-    happens to be in the reviewer's 1997 file. It is.
+    """A baseline directory holding only what the export diffs against. The export reads HIS
+    annual files and candidate pool at export time, so a test on the real ones would pass
+    or fail on whether a fixture name like `new.com` is in his 1997 file. It is.
     """
     baseline = tmp_path / "baseline"
     baseline.mkdir()
@@ -87,14 +85,9 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
 
 
 def test_no_export_destination_can_be_missed_by_a_test() -> None:
-    """Every Path parameter of `export_all` must be redirectable, and redirected.
-
-    Checking the files this suite happens to know about is not enough: twice now
-    a new destination was added with a default pointing at the real delivery
-    tree, and the tests overwrote a shipping artifact because nobody passed it.
-    First the contribution tables, then the 241 MB provenance export. This
-    compares the signature against what the test above actually overrides, so
-    the next destination fails here instead of in the archive.
+    """Every Path parameter of `export_all` must be redirectable, and redirected: a new
+    destination defaulting to the real delivery tree lets the tests overwrite a shipping
+    artifact. This compares the signature against what the test above overrides.
     """
     import inspect
 
@@ -111,13 +104,11 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
 
 
 def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
-    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS.
-
-    His merges hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of
-    them, and section XI says a base hostname and a distinct subdomain hostname may each be
-    annual records. So the alias is no longer withheld, and this test exists to keep the
-    reversal from being undone by accident, and to prove the two filters that DO still bite
-    were never part of it.
+    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS. His merges
+    hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of them, and
+    section XI says a base hostname and a distinct subdomain hostname may each be annual
+    records. This keeps the reversal from being undone and proves the two filters that DO
+    still bite were never part of it.
     """
     conn = connect(":memory:")
     init_db(conn)
@@ -179,13 +170,9 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
 
 
 def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> None:
-    """Packaging compares these two, so a mismatch refuses a current export forever.
-
-    They were equal until the export learned to drop a pair whose TLD did not exist in
-    its year. From then on the guard held a pre-filter number against a post-filter one
-    and reported a fresh export as stale: 726,344 against 726,336. It happened again on
-    2026-09-10, when the export began diffing against HIS annual files and the guard did
-    not: 91,168 written against 91,472 counted, the 304 being the diff working.
+    """Packaging compares these two, so a mismatch refuses a current export for ever. Each
+    time the export learned a new filter and the guard did not, a fresh export read as
+    stale: 726,344 against 726,336, then 91,168 written against 91,472 counted.
     """
     from ark.export import netnew_shipped_pairs
 
@@ -223,14 +210,12 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
 
 
 def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Path) -> None:
-    """The candidate track is scored like the annual one, so its claim is net-new too.
-
-    One pool, not one file per collection: registrable candidates and ISC survey
-    hostnames land in the same list, because a list of names is a list of names and the
-    provenance for each lives in `provenance/` and `isc_survey_provenance.csv`.
-    `candidates.txt` is still the whole working pool and is a different number: measured
-    2026-09-10 it held 2,279,755 names of which 29,327 were absent from his files, so
-    shipping the pool as the contribution would have overstated the registrable half 78x.
+    """The candidate track is scored like the annual one, so its claim is net-new too. One
+    pool, not one file per collection: registrable candidates and ISC survey hostnames land
+    in the same list, and the provenance lives in `provenance/` and
+    `isc_survey_provenance.csv`. `candidates.txt` is the whole working pool and a different
+    number: 2,279,755 names of which 29,327 were absent from his files, so shipping the
+    pool as the contribution overstates the registrable half 78x.
     """
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path)
@@ -261,11 +246,10 @@ def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Pa
 
 
 def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path) -> None:
-    """Diffed against HIS files at export time, not against our ingested copy of them.
-
-    Our baseline evidence is whatever release was ingested, and his current release can
-    add names after it. On 2026-09-10 that gap put 303 names into the 2001 additions that
-    `merged260908` already held, which the merge audit then reported as an overlap.
+    """Diffed against HIS files at export time, not against our ingested copy of them: our
+    baseline evidence is whatever release was ingested, and his current release can add
+    names after it. That gap once put 303 names already in `merged260908` into the 2001
+    additions.
     """
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path)

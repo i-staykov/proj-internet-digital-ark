@@ -1,8 +1,7 @@
 """The round's email prose comes from a tracked file, not from typing into the draft.
 
 `private/email-draft.md` is regenerated from its template on every fill, so prose typed
-straight into the draft is destroyed by the next run. That happened once and the email
-had to be rewritten from a copy kept elsewhere, which is the whole reason
+straight into the draft is destroyed by the next run. That is the whole reason
 `docs/round/email-sections.md` exists.
 """
 

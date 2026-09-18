@@ -54,6 +54,24 @@ STATE_FILE = REPO / "data/raw/availability_queue.done"
 QUEUE_LOCK_WAIT_S = 600
 
 
+QUEUE_TLDS = ("com", "net", "org", "uk")
+
+
+def _weight_order() -> str:
+    """The ORDER BY that puts the richest TLD first, READ from the vendored table.
+
+    Ordering by the TLD NAME truncated the queue to `.com` alone: a 4,000,000 row limit was
+    filled by the alphabetically first TLD and `.uk`, the richest of the four, never entered.
+    The shares are read rather than spelled here, because a second copy of that table is the
+    one thing `test_no_second_copy_of_the_table_exists` exists to stop.
+    """
+    from ark.english_share import english_weights
+
+    weights = english_weights()
+    arms = " ".join(f"WHEN '{t}' THEN {weights.get(t, 0)}" for t in QUEUE_TLDS)
+    return f"CASE d.tld {arms} ELSE 0 END DESC"
+
+
 def queue_sql(limit: int) -> str:
     """Held at 2000, missing 2001, com/net/org/uk, richest English weight first."""
     return f"""
@@ -61,12 +79,12 @@ def queue_sql(limit: int) -> str:
         FROM domain_year dy
         JOIN domain d ON d.domain = dy.domain
         WHERE dy.assigned_year = 2000
-          AND d.tld IN ('com', 'net', 'org', 'uk')
+          AND d.tld IN ({", ".join(repr(t) for t in QUEUE_TLDS)})
           AND NOT EXISTS (
               SELECT 1 FROM domain_year o
               WHERE o.domain = dy.domain AND o.assigned_year = {TARGET_YEAR}
           )
-        ORDER BY d.tld, dy.domain
+        ORDER BY {_weight_order()}, dy.domain
         LIMIT {int(limit)}
     """
 

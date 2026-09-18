@@ -1,15 +1,9 @@
 """Export the provenance store as Parquet, so the result can be checked offline.
 
-The annual files say which domains belong to which years. They do not say why,
-and "why" is the whole claim: every assignment points at a specific evidence row
-recording which source saw the domain, in which artifact, at which timestamp.
-That relationship lives in the store, and the store is 3.5 GB.
-
-Shipping the database itself would cost 1.09 GB gzipped and tie the reader to a
-DuckDB version. Parquet carries the same five tables in 241 MB, loads in any
-engine, and reloads into a queryable database with one statement per table. It
-takes about a second to write, so it is regenerated with every delivery rather
-than maintained.
+The annual files say which domains belong to which years, not why, and "why" is the whole
+claim: every assignment points at an evidence row recording which source saw the domain, in
+which artifact, at which timestamp. Parquet carries the same tables in a fraction of the
+store's size, loads in any engine, and is cheap enough to regenerate per delivery.
 
 Six tables, which together are the whole provenance graph:
 
@@ -19,18 +13,12 @@ Six tables, which together are the whole provenance graph:
     domain_year     the annual assignments, each pointing at one evidence row
     ingested_file   the sha256 ledger, so a file's contribution is traceable
 
-**The reviewer's own rows are excluded, since 2026-09-11.** They were included
-deliberately for eight rounds, so that a reader holding only this archive could
-trace a baseline pair too. It cost more than it was worth: 362.6 million of the
-442.2 million evidence rows were `prior_reused`, one per pair his own release
-already holds, and they were 3 GB of a 6.9 GB archive that then exceeded his
-5 GB limit and had to go by a private link. Measured: 4.544 GB to 1.62 GB.
-
-What is lost is tracing a pair he already has, which he can trace in his own
-release. What is kept is every row this project claims: nothing in `additions/`
-or `hostnames/` rests on a `prior_reused` row, and `ark check` asserts exactly
-that. The assignments that cite an excluded row go with it, so the export never
-points at evidence it does not carry, which the shipped `verify.sh` checks.
+**The reviewer's own rows are excluded.** 362.6 million of 442.2 million evidence rows were
+`prior_reused`, one per pair his release already holds, and 3 GB of an archive that then
+exceeded his 5 GB limit. What is lost is tracing a pair he can trace in his own release;
+what is kept is every row this project claims, and `ark check` asserts that nothing in
+`additions/` or `hostnames/` rests on a `prior_reused` row. Assignments citing an excluded
+row go with it, so the export never points at evidence it does not carry.
 """
 
 import shutil
@@ -46,13 +34,10 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
-# Page-language verdicts, from the standard the reviewer retired in August 2026
-# (the engine was retired and removed). Still exported and still loaded, because a reviewer
-# holding an archive from a round that shipped them must be able to rebuild it,
-# and because a verdict that was acted on once should stay auditable. Optional on
-# load in both directions: an export from before the standard existed has no such
-# file, and one from after it was retired need not either, so neither may raise
-# FileNotFoundError.
+# Page-language verdicts, from the standard the reviewer retired in August 2026. Still
+# exported and loaded, so an archive from a round that shipped them rebuilds and a verdict
+# acted on once stays auditable. Optional on load in both directions: an export from either
+# side of the standard's life may lack the file, so neither may raise FileNotFoundError.
 # `hostname_year` is last on purpose: it references both `domain` and `evidence`,
 # and the rebuild drops in reverse order, so it must go before either of them.
 OPTIONAL_TABLES = ("domain_language", "hostname_year")
@@ -100,21 +85,16 @@ ORDER BY dy.assigned_year;
 # reference into nothing, and the archive's own `verify.sh` refuses that. Everything else
 # goes whole, because the tables are small and a reader guessing at gaps is worse than a
 # reader holding the lot.
-# **The row it is re-pointed at has to be one the assigner would have accepted.** The
-# first version took any observation of the pair, which pointed 1,029,947 assignments at
-# candidate-only evidence and 886,252 at a capture of `www.` in front of the name, and
-# the rebuilt store failed `no_candidate_leakage` and `a_bare_record_is_not_inferred_from_www`
-# on exactly those. So the candidate types and the www-only captures are excluded here,
-# which are the same two rules those checks read, and a pair with nothing left is dropped
-# rather than re-pointed: we cannot prove it, and he can.
+# **An assignment citing one of HIS evidence rows is re-pointed before it is dropped.** A
+# pair he already held was assigned against his marker only because his release was ingested
+# first, and many of those we can prove ourselves; dropping them left 32,432,586 of our own
+# observations unassigned, which `nothing_earned_is_left_unassigned` correctly reads as a
+# domain in the candidate pool holding proof of a year.
 #
-# **An assignment is re-pointed before it is dropped.** A pair he already held was
-# assigned against his marker simply because his release was ingested first, and many of
-# those pairs we can prove ourselves. Dropping them with his evidence row left 32,432,586
-# of our own observations with no assignment, which `nothing_earned_is_left_unassigned`
-# reads, correctly, as a domain sitting in the candidate pool while holding proof of a
-# year. So an assignment citing one of his rows is re-pointed at our own observation of
-# the same pair where one exists, and only the rest go.
+# **The row it is re-pointed at must be one the assigner would have accepted**, so
+# candidate-only types and `www.`-only captures are excluded here, the same two rules
+# `no_candidate_leakage` and `a_bare_record_is_not_inferred_from_www` read. A pair with
+# nothing left is dropped rather than re-pointed: we cannot prove it, and he can.
 SHIPPED = {
     "evidence": "SELECT * FROM evidence WHERE evidence_type <> 'prior_reused'",
     "domain_year": f"""
@@ -158,18 +138,14 @@ def write_provenance(
 def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENANCE_DIR) -> dict:
     """Recreate the store's tables from a provenance export.
 
-    This is the reproduction path that needs no source data: the export holds
-    every observation and every assignment, so re-running the exporter over it
-    regenerates the annual files, and the integrity gate re-runs against it too.
-    Measured on the shipped export: the fourteen result files come back
-    byte-identical in about six seconds.
+    The reproduction path that needs no source data: the export holds every observation and
+    every assignment, so re-running the exporter over it regenerates the annual files and
+    the integrity gate re-runs too. On the shipped export the fourteen result files come
+    back byte-identical in about six seconds.
 
-    **Every table is dropped before any is created, in reverse dependency
-    order.** Dropping and recreating one at a time works only on an empty store,
-    because `domain` references `source` and DuckDB refuses to drop a table a
-    foreign key still points at. That made this fail on any store that had
-    already been initialised, which is the ordinary case for anyone told to run
-    `ark export` before rebuilding.
+    **Every table is dropped before any is created, in reverse dependency order.** Dropping
+    and recreating one at a time works only on an empty store, because `domain` references
+    `source` and DuckDB refuses to drop a table a foreign key still points at.
     """
     missing = [t for t in CORE_TABLES if not (source_dir / f"{t}.parquet").exists()]
     if missing:

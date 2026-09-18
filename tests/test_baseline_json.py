@@ -1,10 +1,8 @@
 """The baseline figures live in `data/baseline.json`, and nowhere else.
 
-A hand-edited constant block is the one place an intake can be silently wrong: the
-module carried a release it was no longer pointed at, and nothing failed. So the test
-is mechanical on both sides. Nothing in the module's code may carry a number of two or
-more digits, which is what a stale figure looks like, and every name the module exposes
-must still be exactly what the JSON says.
+Mechanical on both sides: nothing in the module's code may carry a number of two or more
+digits, which is what a stale figure looks like, and every name it exposes must be exactly
+what the JSON says.
 """
 
 import io

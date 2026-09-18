@@ -1,23 +1,14 @@
 """`docs/lore/key-decisions.md`: the one surface that asks Ivo for a decision.
 
-**Why this is a module and not a convention.** Ivo's instruction, 2026-08-11:
-"Everything I have to sign-off should be in one place, so I know about it." Before
-that there were three places. The old decision log's entries each ended asking for a sign-off he
-does not give and does not want; the approvals file accumulated `pending` classes he
-had no reason to open; and the hypothesis ledger surfaced five unfinished leads as
-though they were his to judge, which he had not known existed. **A question raised in
-a file nobody reads is the same as a question not raised**, and worse, because the
-asker believes it was.
+Ivo's instruction: "Everything I have to sign-off should be in one place, so I know about
+it." **A question raised in a file nobody reads is a question not raised**, and worse,
+because the asker believes it was. So one rule, enforced here rather than remembered:
+**anything waiting on a human is named under `## OPEN` in `key-decisions.md`, or it is not
+waiting on anyone.** The approvals file is still what `ark ingest` enforces.
 
-So there is one rule, enforced here rather than remembered: **anything waiting on a
-human is named under `## OPEN` in `key-decisions.md`, or it is not waiting on anyone.**
-The other files keep their jobs. The approvals file is still what `ark ingest` enforces
-and still the thing he edits; this only guarantees he learns that it wants him.
-
-**What this deliberately does not do.** It does not write the reasoning. An entry's
-body is prose about a judgement, and generating that would produce exactly the
-confident filler this project distrusts. `raise_open` writes a stub that says what is
-waiting and where the working is, and it is the agent's job to make it worth reading.
+**This does not write the reasoning.** An entry's body is prose about a judgement, and
+generating that produces confident filler. `raise_open` writes a stub saying what is
+waiting and where the working is.
 """
 
 import re
@@ -101,21 +92,14 @@ def refresh_open(
     """Rewrite the body of the OPEN entry whose heading contains `needle`.
 
     **For an entry that carries a live figure rather than a question.** `raise_open` is
-    append-once and returns False when the entry already exists, which is right for a
-    judgement and wrong for a count: the triage mirror told Ivo 11 sources were waiting
-    while 44 were, because the entry existed and nothing refreshed it. A stale number on
-    the one surface he reads is worse than no number, since it reads as current.
+    append-once, which is right for a judgement and wrong for a count: a stale number on the
+    one surface Ivo reads is worse than no number, because it reads as current.
 
-    The heading is left exactly as found, so a heading the agent improved by hand
-    survives the refresh. Returns False if no OPEN entry matches.
+    The heading is left exactly as found, so one an agent improved by hand survives the
+    refresh. Returns False if no OPEN entry matches.
 
-    **Pass `heading` when the heading itself carries the live figure.** Protecting the
-    heading is right by default and was wrong for the one caller that had written a count
-    into it: the triage mirror refreshed its body to 55 on 2026-08-18 while its heading
-    still read "49 found, none priced", so the entry disagreed with itself on the one
-    surface Ivo reads, and the stale half is the half he reads first. That is the same
-    defect this function was written to fix, one level up. A caller that owns a figure in
-    its heading must say so rather than rely on a default built for prose.
+    **Pass `heading` when the heading itself carries the live figure**, or the entry
+    disagrees with itself and the stale half is the half he reads first.
     """
     path = Path(path) if path is not None else DEFAULT_PATH
     text = path.read_text(encoding="utf-8")

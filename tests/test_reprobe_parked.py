@@ -1,10 +1,9 @@
 """A host that answers is not a source that exists.
 
-`web-caching.com`, the IRCache proxy-trace host, went from TIMEOUT to a 27,223-byte
-HTTP 200 on 2026-08-15 and the re-prober reported it as a resurrected source. The body
-is a consent-manager parking page. The register's own note for the sibling host says
-"now serves a squatted blog", so the failure is known and the status check cannot see
-it. These tests pin the content check that can.
+`web-caching.com`, the IRCache proxy-trace host, went from TIMEOUT to a 27,223-byte HTTP 200
+and the re-prober reported a resurrected source. The body is a consent-manager parking page,
+and the register's note for the sibling host says "now serves a squatted blog". These pin the
+content check a status check cannot do.
 """
 
 import importlib.util

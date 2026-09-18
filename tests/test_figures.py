@@ -1,10 +1,8 @@
 """The ranking score reproduces the two figures the reviewer has quoted, to the digit.
 
-He quotes S_6 = 6.88 and S_7 = 6.302372. Exactly one rule fits both: t_i is the elapsed
-time from the release of the benchmark package to receipt, in his clock, rounded up to
-whole days. The report shipped round 7 at S = 226.43 by counting calendar days from the
-current release and flooring to one; these tests pin the rule that replaced it and record
-why the alternatives were rejected.
+He quotes S_6 = 6.88 and S_7 = 6.302372. Exactly one rule fits both: t_i is the elapsed time
+from the release of the benchmark package to receipt, in his clock, rounded up to whole days.
+These pin that rule and record why the alternatives were rejected.
 """
 
 import importlib.util
@@ -148,11 +146,9 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
 
 
 def test_the_assignment_rule_of_2026_09_03_is_whole_calendar_days_from_one_origin() -> None:
-    """His 0903 update: t_i = max(1, receipt_date_i - task_assignment_date_member).
-
-    Dates, not stamps, and the origin never moves. Round 7 was received 31 days after
-    2026-08-02, so it scores 2.439 rather than the 6.302372 he awarded under the
-    benchmark rule that was current when he scored it.
+    """His 0903 update: t_i = max(1, receipt_date_i - task_assignment_date_member). Dates, not
+    stamps, and the origin never moves. Round 7 was received 31 days after 2026-08-02, so it
+    scores 2.439 rather than the 6.302372 he awarded under the benchmark rule.
     """
     p = ROWS["7"][5]
     assert t_days_assignment("2026-09-02 05:50") == 31
@@ -166,10 +162,9 @@ def test_the_assignment_rule_of_2026_09_03_is_whole_calendar_days_from_one_origi
 
 
 def test_the_assignment_origin_is_the_one_his_own_divisor_implies() -> None:
-    """One day of error here moves every S_i, so the origin is derived, not guessed.
-
-    He scored round 8 with a divisor of 33 and received it on 2026-09-04. Whole calendar
-    days back from that receipt is the origin, and it must reproduce his 33 exactly.
+    """One day of error here moves every S_i, so the origin is derived, not guessed. He scored
+    round 8 with a divisor of 33 and received it on 2026-09-04, so whole calendar days back
+    from that receipt is the origin and it must reproduce his 33 exactly.
     """
     assert TASK_ASSIGNED_DATE == "2026-08-02"
     his = awarded_score_of("8")
@@ -184,13 +179,11 @@ def test_a_receipt_on_the_assignment_date_still_divides_by_one() -> None:
 
 
 def test_the_benchmark_reading_still_flatters_us_against_his_own_rule() -> None:
-    """Both totals, so nobody quotes the friendlier one by accident.
-
-    Rounds 6 and 7 were awarded under the benchmark rule and those awards stand. From his
-    0903 update the assignment rule governs, and 2026-09-05 settled its origin: round 8's
-    divisor of 33 counts back from its 2026-09-04 receipt to 2026-08-02. Rounds received
-    before that origin divide by the rule's floor of 1, so the totals below are properties
-    of the two formulas rather than claims about those rounds.
+    """Both totals, so nobody quotes the friendlier one by accident. Rounds 6 and 7 were
+    awarded under the benchmark rule and those awards stand; from his 0903 update the
+    assignment rule governs, and round 8's divisor of 33 counts back from its 2026-09-04
+    receipt to 2026-08-02. Rounds received before that origin divide by the rule's floor of
+    1, so the totals below are properties of the two formulas, not claims about the rounds.
     """
     bench = cumulative([score(r[5], t_days(r[6], r[7])) for r in SUBMITTED_ROUNDS])
     assign = cumulative([score(r[5], t_days_assignment(r[7])) for r in SUBMITTED_ROUNDS])

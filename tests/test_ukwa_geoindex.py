@@ -54,13 +54,10 @@ def test_the_spec_is_registered_as_a_self_dating_capture_type() -> None:
 
 
 def test_registering_the_parser_did_not_grant_the_class_anything() -> None:
-    """The gate is the `Decision:` line, not the presence of code. If this ever
-    fails, a parser has been read as an approval, which is the one thing ADR-003
-    exists to prevent.
-
-    Read through the gate's own parser. Until 2026-09-03 this test matched a row of a
-    legacy table that still said `pending` after Ivo had decided the class master on
-    2026-08-24, so it was checking a fossil; that table moved out with the triage split."""
+    """The gate is the `Decision:` line, not the presence of code: if this ever fails, a parser
+    has been read as an approval, which is the one thing ADR-003 exists to prevent. Read
+    through the gate's own parser, so it cannot check a fossil table instead.
+    """
     from pathlib import Path
 
     from ark.approvals import load

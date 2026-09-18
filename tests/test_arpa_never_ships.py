@@ -1,23 +1,13 @@
 """No website ever lived under `.arpa` in 1996-2001, and the TLD scores 1.0000.
 
-Found 2026-08-18 by a hunt lens that noticed `.arpa` entering the metric at weight 1. The
-store held 63 assigned pairs across 18 reverse-DNS zones, harvested out of Usenet `From:`
-headers and out of the reviewer's own baseline, and all six shipped annual files carried them.
+`.arpa` is the highest weight in the CC-MAIN table, above `.mil` at 0.9981, and the
+reviewer's validator accepts `206.in-addr.arpa` as well formed, so junk there is junk in the
+top weight, which is law 5's shape. The ARPANET host transition finished in 1990 and every
+zone delegated under `.arpa` since is infrastructure, so the rule is the whole TLD.
 
-The weight is why it matters more than 63 rows should. `.arpa` is **1.0000** in the CC-MAIN
-model, the highest value in the whole table, above `.mil` at 0.9981, so this was junk
-concentrated in the top weight, which is exactly the shape law 5 describes. The reviewer's own
-validator accepts `206.in-addr.arpa` as a well-formed domain, so his side would have scored it.
-
-Narrowing to `in-addr` and `ip6` left exactly one survivor in the annual files, `ignore.arpa`
-in 2000, a literal placeholder. So the rule is the whole TLD: the ARPANET host transition
-finished in 1990, and every zone delegated under `.arpa` since is infrastructure (`in-addr`,
-`ip6`, `e164`, `uri`, `urn`, `iris`).
-
-Guarded in two places on purpose. `ark.canonical` refuses them at the funnel every domain from
-every source passes through, so none can arrive. `ark.export` filters them from every
-destination, because the ones already stored predate the funnel and deleting store rows is a
-destructive migration this did not need.
+Guarded twice: `ark.canonical` refuses them at the funnel, so none can arrive, and
+`ark.export` filters every destination, because rows stored before the funnel existed are
+still there and deleting store rows is a destructive migration this did not need.
 """
 
 from ark.canonical import reject_reason, to_registrable

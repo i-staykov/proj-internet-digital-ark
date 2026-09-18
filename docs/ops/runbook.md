@@ -1,55 +1,30 @@
 # Runbook: what to run and what each command should print
 
 **The working manual for every command in this repository, with the output each one should
-give.** `README.md` is the short front page; this file is the long form. It was named
-`operations.md` until 2026-09-02.
+give.** `README.md` is the short front page; this file is the long form.
 
 ## Where it runs
 
 ```
-GitHub Actions fleet (private repo, three self-hosted runners on a small VPS)
-   generator, on a schedule ........ proposes hypotheses from the register and the store
-   researcher waves, as often as the window allows  screen and price them; findings land
-                                     as artifacts, and no wave stops a collector (C-77)
-   re-opener, every three hours .... re-reads closed verdicts when a measurement screen retires
-   improver ........................ tunes prompts and model choice from per-run telemetry
-   weekly digest ................... one page of yield, cost and recommendations
-VPS (always on), two accounts by design (C-79)
-   three Actions runners as `digga`, out of that account's ~/runners/{1,2,3}, so every wave,
-   generator and re-opener leg is that user's process tree. Nothing migrates off it.
-   two archive collectors as `istaykov` under systemd, out of /projects, querying
-   capture indexes at zero token cost.
-   They hold `web.archive.org/cdx` and run BESIDE the agent lanes rather than instead of
-   them: the two-clients limit binds that one channel, so an agent may use every other
-   archive.org service and no lane touches CDX (C-77, issue #111)
-Laptop (episodic, human-supervised)
-   `just sync` ..................... drains fleet findings, validates them, prices the
-                                     confirmed ones again on the live store, books, decides,
-                                     ingests, gates, pushes; packaging and reports
+ark-fleet (private repo, five self-hosted runners on a small VPS, systemd, survive reboot)
+   wave ...... scout proposes a source, price measures it, verify tries to refute it.
+               Findings land as artifacts. No wave stops a collector.
+   improver .. tunes lens weights from per-run telemetry, one knob per pull request.
+VPS
+   runners only. It runs NO archive collector: C-88 caps archive clients at three and
+   all three are on the laptop.
+Laptop
+   two CDX collectors on `web.archive.org/cdx`, which no agent may query, plus the
+   availability engine on `archive.org/wayback/available`. That is the three.
+   `just sync` drains fleet findings, re-prices the confirmed ones on the live store,
+   books, decides, ingests, gates, pushes. Packaging and reports.
 ```
 
 Orchestration lives in that separate private repo so this one stays free of secrets and runner
 exposure. Results land here on the `live` branch and reach `main` as merge-commit snapshots, so
-`live` keeps its history.
-
-## The Arquivo.pt hostname lane (C-81, one-off)
-
-Ruled in by Ivo on 2026-09-08 over a terms objection, on the precedent that `arquivo_ia` is
-already in the ingest ledger at registrable grain.
-
-```
-bash scripts/sources/arquivo/fetch_ia_cdxj.sh 5 2
-uv run python scripts/sources/arquivo/cdxj_to_journal.py data/raw/arquivo/IA.cdxj \
-    --out data/raw/arquivo_hostgrain
-uv run python scripts/pricing/price_hostnames.py 'data/raw/arquivo_hostgrain/*.jsonl.gz' --label arquivo_ia
-```
-
-The fetch takes 26 verified 2 GB byte ranges, five at a time, and assembles them only when every
-part matches its stated length; rerunning it keeps the parts already complete. It prints
-`assembled 50930113941 bytes`. The converter prints how many captures it kept and, importantly,
-how many lines carried **no parseable timestamp**: the file's first block is written without a
-SURT or a capture stamp, so that count is expected to be non-zero and is not an error. Ingest only
-if the priced figure clears the 1,000 EE grain floor.
+`live` keeps its history. **`harness.md` in `i-staykov/ark-fleet` is the source of truth on
+everything the other side of that boundary**: the lanes, the pacer, which account pays, and what
+the improver may change on its own.
 
 ## Three ways to check this work
 
@@ -62,10 +37,8 @@ if the priced figure clears the 1,000 EE grain floor.
 Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this repository at all.
 
 **Tier-3 cost figures date from the phase-1 archive and have not been re-measured since.** What tier 3
-cannot re-derive is measured and larger than it used to be: on 2026-08-18, 2,387,824 assignments of
-5,323,465 (44.9%) came from two sources whose inputs cannot ship, one withdrawn by its host and one
-under a licence that forbids redistribution. None of them falls inside this round's additions, and
-tier 2 reproduces all of them from the provenance export. `docs/round/delivery_readme.md` has the table.
+cannot re-derive is larger than they imply, and tier 2 reproduces all of it from the provenance
+export. `docs/round/delivery_readme.md` measures it and has the table.
 
 ## Reproduce the results
 
@@ -98,7 +71,7 @@ just verify offsite --upload --yes       # rclone it to gdrive:ark-offsite, one 
 just verify offsite --verify             # compare the remote by hash, downloading nothing
 ```
 
-The payload is the part of [retention.md](retention.md) that nothing else can bring back: our own
+The payload is the part of [retention.md](../registers/retention.md) that nothing else can bring back: our own
 journals, the reviewer releases (the zstd trees under `data/archive/` among them), the frozen
 `submissions/phase-*`, live inputs with no refetch route, and unpriced corpora other than the two
 Usenet ones archive.org serves again. Regenerable entries and anything with a refetch URL stay local
@@ -162,7 +135,7 @@ right thing to run *before* deciding what to collect.
 
 | check | what a finding means |
 |---|---|
-| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [docs/lore/discovery.md](discovery.md) |
+| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [discovery.md](../lore/discovery.md) |
 | `glob_too_narrow` | the ledger holds a file the documented glob cannot reach. Loses nothing now, but `just reproduce` rebuilds a store without it |
 | `unreferenced` | a directory under `data/raw/` that no ingest glob points into at all |
 | `usenet` | the corpus against its own `.processed` ledger and the catalogue: unread, size mismatches, partial files |
@@ -183,18 +156,18 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 
 | | command | what it does |
 |---|---|---|
-| memory | `just state` | regenerates [docs/ROUND.md](ROUND.md), the current state, from the programs that own each figure |
+| memory | `just state` | regenerates [ROUND.md](../ROUND.md), the current state, from the programs that own each figure |
 | memory | `just hypo list` | the ledger: what has been proposed, priced, adopted or killed, with status |
 | screen | `just screen --dating typed "..."` | kills a proposal that duplicates a closed family, and says whether it was closed on **measurement** or on **availability** |
 | fetch | `uv run python scripts/harness/fetch.py URL [--max-bytes 1G] [--to PATH]` | the fleet's only download path, and runnable by hand. Reads the whole robots.txt of the host in the download URL and refuses a by-name group wherever it sits (exit 3, with the artifact never asked for), re-reads the rules of every redirect hop before following it, honours `Retry-After` on 429, 503 and 504, caps at 1 GB by `Content-Length` and again by the stream (exit 5), refuses a body that ended short of its declared length (exit 7, nothing left on disk), allows only text, JSON, CSV, XML, gzip, mbox and CDX to disk, writes only under `$ARK_PROBE_DIR` or an approved download's corpus directory, extracts nothing, and prints one JSON receipt with the bytes and the sha256. `--to -` streams the payload to a pipe and puts the receipt on stderr, which is how a zip or an unnamed type is read at all |
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | recover | `uv run python scripts/engines/recover_dead_hosts.py` | asks the Wayback Machine for the **data files** of hosts the register wrote off as dead, which is a different question from re-probing the host. Proved twice on 2026-08-16: `nw.com/zone/9701.domains.gz` was recorded unrecoverable and is intact, worth 76,324 pairs; `cybermetrics.wlv.ac.uk` does not resolve and its whole `/database/` tree survives including a 166 MB zip. **It reports and never fetches**, because a file can be available, dated, and 100% already held |
-| probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
+| probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](../lore/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | price-hosts | `just price-hosts data/raw/<x>_hostgrain/` | the same question at **hostname grain**, the second unit the reviewer accepted on 2026-09-01: runs the ingest's own funnel over `{url, timestamp}` journals (or `--items x.jsonl`), differences against `hostname_year` and his baseline files on a read-only connection, and prints net-new hostname years and EE per year with the parent pairs beside. `--head N --sample-of M` samples; the projection it prints is an upper bound and says so |
 | ship it | `just ship` | banks every class a human has newly moved to `master`, then exports, runs the data invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, builds the `.docx`, writes the mail draft and closes the gate issue. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
-| approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [docs/registers/approved-sources-list.md](approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
-| rank | `just triage-rank` | sorts the triage queue in [docs/registers/approved-sources-list.md](approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
+| approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [approved-sources-list.md](../registers/approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
+| rank | `just triage-rank` | sorts the triage queue in [approved-sources-list.md](../registers/approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
 | brief | `uv run python scripts/round/extract_ding_docs.py --package <document-directory> --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>` | refreshes the canonical brief and its companion documents under [docs/brief/ding/](../brief/ding/) from his originals. All provenance arguments are required; the header carries each source file's sha256. Run after each task-package arrival; baseline intake does not do it. See [the transcription instructions](../brief/ding/README.md) |
@@ -206,7 +179,6 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
 | usenet body URLs | `uv run python scripts/sources/usenet/build_usenet_pool.py <pool dir> <out dir> <workers>`, then `uv run ark ingest-usenet-hostnames <out dir>` | the `usenet_body_url_hostnames` lane, `Decision: master` since 2026-09-04 and worth 119,640 equivalent-English over thirteen pools. Reads every archive in a pool rather than a sample, one `{item, year, text}` shard per worker, and takes hosts ONLY from explicit `http`, `https` and `ftp` URLs after the header block. Six workers keeps a laptop responsive and reads about 45 GB an hour. Price with `just price-hosts --items <out dir> ...`, passing every pool in one command, because summing pools double counts by the saturation share |
 | mailing-list body URLs | `uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8`, then `uv run ark ingest-maillist-hostnames data/raw/maillists_items/` | the `maillist_body_url_hostnames` lane, admitted 2026-09-04: the pipermail month files already on disk, read at hostname grain |
-| Apache list relay hosts | `uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover`, then `--harvest`, then `uv run python scripts/sources/mail_corpora/build_apache_header_pool.py data/raw/apache_lists data/raw/apache_header_items 8`, then `uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/` | the `apache_list_header_hostnames` lane, approved 2026-09-09 (C-83) for the `Received: ... by <host>` clause ALONE, the first non-web observation admitted at hostname grain. **Discovery is two passes.** `--discover` is 72 requests: `stats.lua` accepts `list=*&domain=*`, so one request per calendar month of the window enumerates the lists with traffic. But that response CAPS at 15,001 messages, which every month from 2000-07 on hits, so `--expand` then asks each list once for its own `active_months` and rewrites the plan with exact counts. Both passes cache per unit and are safe to interrupt. `mbox.lua` accepts only `d=YYYY-MM`; a year range answers 200 with a 13-message stub. `lists.apache.org/robots.txt` is `Crawl-delay: 5` with no Disallow and every request waits it, so the harvest is roughly a request every five seconds and resumes from what is already on disk. `mail-archives.apache.org` is `Disallow: /` and is never fetched from. Not `web.archive.org/cdx`, so it runs beside the collectors |
 | IETF list relay hosts | `uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`, then `sweep`, then `uv run ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` | the `ietf_list_header_hostnames` lane, C-83's class at a SECOND host and so no new approval: the same `Received: ... by <host>` clause, read by the Apache lane's own parser. **Two mailbox formats**: the `ietf-mail-archive` months are mbox and the `concluded-wg-ietf-mail-archive` months are MMDF, delimited by four `\x01` bytes with no `From ` line, and the mbox boundary alone reads those as zero messages silently. **Single-threaded**: six parallel listings drew HTTP 429 inside a minute, one connection with a 0.75 s pause did 130 in 97 s. `robots.txt` disallows only `/admin/` and `/search/` and states no crawl delay. A month is read off the socket into the parser and never written to disk, so the 1.49 GB partition needs no `data/raw` budget. Both passes resume from what is on disk: `plan` caches a TSV per list, `sweep` appends to `swept.txt`. Not `web.archive.org/cdx`, so it runs beside the collectors |
 | Enron body URLs | `uv run python scripts/sources/mail_corpora/build_enron_pool.py data/raw/enron/enron_mail_20150507.tar.gz data/raw/enron_items`, then `uv run ark ingest-enron-hostnames data/raw/enron_items/` | the `enron_body_url_hostnames` lane, admitted 2026-09-04: the CMU release of the Enron mailbox (443 MB, one request at `Crawl-delay: 10`), streamed without extraction and read at hostname grain; the third member of the body-URL family |
 | unparsed pool | `uv run python scripts/round/unparsed_pool.py`, and inside packaging | the labelled unparsed file of his XI, derived by re-reading the journals and applying the same funnel, so it needed no ingest change while collectors were mid-run. **Exhaustive by default**, about nine minutes over 328M values: the refused set does NOT saturate, and a 25-journal sample of it undercounted 1,178,435 distinct values as 4,306 |
@@ -214,7 +186,6 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | query health | `uv run python scripts/harness/query_health.py --write`, and inside `just cycle` | the failure-state ledger of his section XI, derived from what the collectors already print rather than by changing them, so it works while they run. Three signals: failure rate, throttles per query (the early warning, since the archive slows us before refusing) and a run of batches answering nothing at all. Found on 2026-09-04 that past batches had been failing at 24% to 43% with the delay pinned at its ceiling, unrecorded |
 | what a run has added | `just added [--by-source]` | the store query a long collection run wants every half hour: what the lanes have added since `round_since`, priced, through the export's own predicates so a row counted is a row that would ship. Seconds, and read-only, against the 20 minutes `just state` needs. Records are hostname-YEARS, which is the unit he counts |
 | hostname lane | `just hostnames <epoch>` | **the standing priority in one command, and leave it running.** Ranks platforms by the hosts we LACK rather than the hosts that exist, starts two sweeps (the maximum) and the fold loop, and needs no hand between starting and reading the figures. Measured 2026-09-04: 22.5M capture rows in three and a half hours, 886,216 net-new shippable records, 552,782 equivalent-English, 48% of the 5% gate. At about 750 times the yield of a gap query an idle hour costs more here than anywhere else, so give it a deadline days out and restart it whenever a session ends |
-| hostname lane | **the standing priority in one command** (Ivo, 2026-09-04): ranks platforms by the hosts we LACK rather than the hosts that exist, starts two sweeps (the maximum) and the fold loop, and needs no hand between starting and reading the figures. Measured on 2026-09-04: over 10 million capture rows in 40 minutes, `demon.co.uk` 4,423,683 and `homestead.com` 3,224,657, all under registrables already held |
 | gap hostnames | `uv run python scripts/engines/cdx_gap_hostgrain.py`, then `uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain` | the gap engine's own answers one level down, and `maintain.sh` now runs both every pass so it needs no hand. Free: the archive already named the host in a response we had already paid for. Journals written before 2026-09-04 yield NOTHING, because the query asked `fl=timestamp` and kept `{domain, years}`: 2,984,321 answers across 1,163 journals record no host, which is the measured cost of journalling a conclusion instead of a response |
 | re-split | `bash scripts/engines/compound_splits.sh <epoch>` | **the largest single lever measured in round 7, and it reads nothing new.** The corroboration split promotes a mention to a dated record only when some other source already places that domain in a year, and that test is re-evaluated every time the split runs, so the same journals are worth more as the store grows. On 2026-08-27 re-splitting the address journals paid 30,645.6 equivalent-English against roughly 700 pairs from the 60 new archives that triggered it, and the bare journals paid 11,447.7 against 128.17 for their 400 new archives: ratios of about 40:1 and 90:1 in favour of re-splitting over reading. Loops the promotion tranche and both corpora to a deadline, and skips a pass rather than queueing when the store's single writer is busy |
 | usenet seams | `bash scripts/sources/usenet/work_usenet_addresses.sh <epoch> [batch] [workers] [addresses\|headers]`, `bash scripts/sources/usenet/work_usenet_bare.sh <epoch>` | the three extractors that read what `usenet_announce` does not: `ftp://` and `mailto:` and typed body addresses, the message headers, and the bare `foo.com` written in prose. **All three read `data/raw/usenet`, which was reclaimed once processed and now holds zero archives, so all three had silently become no-ops** over the 16,797 archives that are on disk in `usenet_bulk` and `usenet_new`. Pass a deadline; they batch, stage each batch as symlinks so no bytes move, and bank every eighth batch because the split is O(all journals) while the extraction is O(this batch). Worth 38,639 and 13,955 equivalent-English respectively in round 7 |
@@ -232,7 +203,7 @@ the second, and the line has moved by exactly one step: **from "cannot try a sou
 one"**, which is the step that was worth moving.
 
 **The one thing the harness may never decide for itself.** A source class may not date a year until a
-human has classified it in [docs/registers/approved-sources-list.md](approved-sources-list.md), and `ark ingest` enforces
+human has classified it in [approved-sources-list.md](../registers/approved-sources-list.md), and `ark ingest` enforces
 that before it opens the database. The agent can collect, measure and argue; it cannot promote. The
 journal simply waits on disk, so nothing is lost and collection never blocks: candidate-only evidence
 passes freely, because a candidate claims nothing. **An unapproved source is not quarantined inside the
@@ -240,7 +211,7 @@ store, it was never written to it**, which is stronger than any flag.
 
 **Why this is safe to run unattended**, which is the part that makes it more than a scheduler:
 `domain_year.evidence_id` is `NOT NULL` and foreign-keyed, `assign_year` refuses candidate-only
-evidence, the corroboration split gates anything a human typed, and seventeen invariants run on every pass.
+evidence, the corroboration split gates anything a human typed, and eighteen invariants run on every pass.
 **An unattended agent physically cannot write an unevidenced year here.** It has latitude about what
 to try and none at all about what counts as proof.
 
@@ -344,26 +315,14 @@ how long that one has been running, changes nothing and exits 0, so the hourly j
 not an error. A lock left by a killed run names a pid that is gone and is taken over, with a
 line saying so. `scripts/harness/sync_lock.sh holder` answers who has it.
 
-It is one lock because it used to be none: the wrapper held its own, which protected the hourly
-run from itself and from nothing else, and on 2026-09-09 a terminal recovering two waves and the
-:05 job were in the store together, one of them lost `ark export` to a lock conflict and the
-journal ACK was skipped.
-
 ### Syncing without a session open, and asking for a package from a phone
 
-`just schedule install` loads three launchd jobs: `com.ark.collectors` holds the collector lane,
-`com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at five past every hour, `com.ark.cycle` runs the
-health check four times a day, and `just schedule install <job>` loads one of them on its own. The sync
-wrapper holds a lock, appends to `data/logs/scheduled_sync.log`, runs `just sync`, and then reads one label: `ship-now` on
-any open ark-fleet issue (the gate issue is the natural place) makes it run `just ship all` once, which
-banks, regenerates the report, packages, verifies and writes the mail draft, and stops there. Nothing is
-sent (C-63). The label is removed before the ship starts, so a failure does not retry every hour, and the
-outcome lands as a comment on the issue that carried it. **A laptop that installed the old hourly job needs one `just schedule install`**: it was
-`com.ark.bank` until 2026-09-09, the rename does not reach an installed plist, and the recipe
-unloads and deletes the superseded one on the way past. `just schedule status` shows each job's last
-exit and the last two runs of each log; the exits to know are 126 (launchd cannot read the checkout, so
-usually a plist rendered from the old `~/Documents` path) and 127 (a tool missing from the PATH the
-template sets).
+`scripts/harness/scheduled_sync.sh`, the hourly job in the schedule row above, holds the sync lock,
+appends to `data/logs/scheduled_sync.log`, runs `just sync`, and then reads one label: `ship-now` on
+any open ark-fleet issue (the gate issue is the natural place) makes it run `just ship all` once,
+which banks, regenerates the report, packages, verifies, writes the mail draft and stops there.
+Nothing is sent (C-63). The label is removed before the ship starts, so a failure does not retry
+every hour, and the outcome lands as a comment on the issue that carried it.
 
 ### Screening a source before it costs a request
 
@@ -374,7 +333,7 @@ just screen --list-closed          # the whole closed register, with line number
 
 Two gates, cheapest first. **Does it collide with a family already closed?** Each closed family
 carries the measurement that killed it, and the register is parsed out of
-[docs/registers/sources.md](sources.md) and [docs/registers/sources-closed.md](sources-closed.md) at run time rather
+[sources.md](../registers/sources.md) and [sources-closed.md](../registers/sources-closed.md) at run time rather
 than copied, so no count here can drift from it:
 `just screen --list-closed` prints the register and its size. A collision prints the verdict, so you argue with the measurement instead of rediscovering
 it. **And what dates one item?** `self` needs no corroboration split and must not have its extraction
@@ -382,7 +341,7 @@ widened; `typed` takes the split, which is what makes wide extraction safe; `und
 It **exits 2 if no dating claim is made**, because that answer decides what the source can ever be.
 
 It prices nothing, on purpose: pricing is a sample measured against the live store with a parser per
-source, and [docs/lore/discovery.md](discovery.md) is the method. What this removes is the step
+source, and [discovery.md](../lore/discovery.md) is the method. What this removes is the step
 before pricing, which is the one that wastes days.
 
 ### Part 1: get the inputs (tier 3 only)
@@ -398,7 +357,7 @@ wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
 ```
 
 **The bulk sources** go in `data/raw/<source>/`, one folder per source.
-**[docs/registers/sources.md](sources.md) has the download command for each**, since the routes differ:
+**[sources.md](../registers/sources.md) has the download command for each**, since the routes differ:
 several survive only as web-archive captures, and one address answers HTTP 200 with a stub.
 
 ```bash
@@ -442,13 +401,12 @@ last export and it correctly reports every already-credited pair as a violation.
 
 ### Loading a new reviewer release
 
-He reissues the merged corpus after each round he accepts. Point `src/ark/baseline.py` at it **first**,
-then load:
+He reissues the merged corpus after each round he accepts. `just intake` points the baseline at it
+**first**; loading it into the store stays a separate deliberate step:
 
 ```bash
 cp data/ark.duckdb data/ark.duckdb.pre-<release>.bak   # there is no unload command
-# edit src/ark/baseline.py: CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER,
-# CURRENT_ROUND_SINCE, REVIEWER_BASELINE_PAIRS, REVIEWER_BASELINE_EE, ..._BY_YEAR
+just intake <his.zip>       # verify the sha256, extract, remeasure, write data/baseline.json
 uv run ark ingest-legacy    # expect: 6 files ingested, 0 skipped
 just reproduce deliver      # export, stats, check, in that order
 uv run python scripts/round/round_figures.py --verify
@@ -457,8 +415,8 @@ uv run python scripts/round/round_figures.py --verify
 Two traps, both of which fail quietly:
 
 - **Loading with only `--legacy-dir` is a total no-op.** `--marker-prefix` defaults to the marker in
-  `baseline.py`, so the composed marker already exists in the ledger and all six files are skipped
-  behind six reassuring "already ingested" lines. Edit the constants first, or pass both flags.
+  `data/baseline.json`, so the composed marker already exists in the ledger and all six files are
+  skipped behind six reassuring "already ingested" lines. Run `just intake` first, or pass both flags.
 - **`ark stats` prints the release it measured against.** If that is not the newest one he has sent,
   every figure above it is overstated. That check is the whole reason the constant is centralised.
 
@@ -480,8 +438,8 @@ just ship            # bank the approved, export, gate, package, verify, draft t
 ```
 
 `just ship` ends by writing the mail draft under `private/emails/drafts/`, carrying the figures
-`fill_report.py` filled, the cumulative record from [rounds.md](rounds.md) and one line per open row of
-[questions.md](questions.md) that is due for a reminder, and it closes the gate issue on a verified
+`fill_report.py` filled, the cumulative record from [rounds.md](../registers/rounds.md) and one line per open row of
+[questions.md](../registers/questions.md) that is due for a reminder, and it closes the gate issue on a verified
 delivery. `just ship draft` prints that mail and writes nothing.
 
 Only the **ingest** loop pauses. Collectors writing journals do not move the store, so they keep running
@@ -544,8 +502,11 @@ uv run python scripts/engines/build_query_queue.py --population edge --out data/
 ```
 
 A gap target scores `realisation x English share x bracketed years it could fill`; a pool target
-scores `P(hit) x English share x years a hit returns`. Both multipliers are measured at build time and
-printed with the queue, so a wrong one is visible rather than silent.
+scores `P(hit) x English share x years a hit returns x pool plausibility`, the last being
+`dated / (dated + pool)` per TLD, because **a high English share times an invented name is still
+zero**: before that factor 2,675 `.mil` names held the queue's first 3,000 and 1,200 queries returned
+zero in-window captures. Every multiplier is measured at build time and printed with the queue, so a
+wrong one is visible rather than silent.
 
 **Rebuild after any large ingest.** New evidence creates bracketed gaps as well as filling them, and a
 stale queue cannot reach what it does not list. A larger merged baseline grows the gap pool faster
@@ -565,9 +526,8 @@ publish what it already has. A stopped batch still writes its journal, so the on
 queries it had not made yet. **Never `kill -9` a collector**: that strands the `.part`, and since the
 ingest ledger keys on the finished name, the work inside it becomes unreachable.
 
-Stopping the ingest loop leaves whatever the collectors wrote sitting on disk. That is safe, because
-journals are ledgered by content hash and re-offering an ingested one is skipped in milliseconds, but
-`ark stats` understates the round until the loop runs again.
+Stopping the ingest loop is safe and loses nothing, but `ark stats` understates the round until the
+loop runs again.
 
 `just engines` prints the tier mix, which is how a run's health reads at a glance: `host` is the cheap
 per-host query answering on its own, `root` is a domain so heavily archived that the archive gave up
@@ -576,20 +536,13 @@ stretch of queue that will clear; drifting toward failures means the archive is 
 and the fix is **fewer** workers, not more.
 
 **More workers do not buy more throughput.** The archive limits concurrent connections per IP, and 8
-and 12 workers measure the same, 506 against 510 queries an hour. What raises the ceiling is another
-address, which is the real argument for a second machine.
+and 12 workers measure the same, 506 against 510 queries an hour. Only another address raises that
+ceiling, and C-88 caps the clients on this one.
 
-**Widening the window without stopping anything.** Every unattended loop takes an absolute epoch and
-exits at it, so extending a run means restarting, and restarting kills the batch in flight. Instead:
-
-```bash
-bash scripts/engines/extend_engines.sh $(date -u -v+3d +%s)   # hand each engine over as it expires
-```
-
-It waits for each of the three loops to reach its own deadline and exit, then starts exactly one
-replacement on the new one, re-checking the process table immediately before launching so a second
-invocation cannot produce a second collector. It performs one handover per engine and exits; it is not
-a watchdog and must not become one, which is why a crashed collector is still a human's problem.
+**Widen a window rather than restarting it**: every unattended loop exits at an absolute epoch, and a
+restart kills the batch in flight. `bash scripts/engines/extend_engines.sh <deadline_epoch>` waits for
+each loop to reach its own deadline, then starts exactly one replacement on the new one, re-checking
+the process table first so a second invocation cannot produce a second collector.
 
 ### Growing the pool from the engine's own hits
 
@@ -622,51 +575,29 @@ same page twice for the same harvest. `--roots-only` reproduces the old behaviou
 
 ### The registries, retired
 
-`ark rdap` queried the authoritative RDAP server for each TLD and is gone; see
-[retired.md](retired.md). It was fast (75 queries a second against 0.83 through the redirector)
-and it is closed anyway: the registries' terms forbid the bulk access, and Verisign answers a
-quota rather than a rate. The journals it wrote are still ingested, by the `ark ingest
-rdap_snapshot` lines in the justfile, and `attested_years` still reads them.
+`ark rdap` is gone and the registries are closed on their own terms; [../lore/retired.md](../lore/retired.md)
+carries the retirement. Its journals still ingest through the `ark ingest rdap_snapshot` lines in the
+justfile, and `attested_years` still reads them.
 
-Probe a registry before spending a night on it: 150 queries is enough. Each of the ones tried failed
-differently and each failure is recorded in `docs/registers/sources.md`, including one that blocks with 403
-rather than throttling and one whose namespace was re-registered in 2002 so its creation dates date
-nothing.
+**Probe any registry or bulk endpoint with about 150 queries before spending a night on it.** Every
+failure so far is written up in [../registers/sources.md](../registers/sources.md), and each one
+failed differently.
 
-**Read the plausibility warning the list builder prints.** It reports, per TLD, how many pool names
-there are for every name already holding a year. A real namespace measures about 0.3; `.gov` measures
-**182** and `.mil` **2,624**, and their pool names are invented strings and prose words rather than
-domains. Because the list is ranked by `P(hit) x English share`, a fabricated namespace with a high
-share ranks near the top: `.gov` came fourth by volume at a 0.9825 share. **A high English share times
-an invented name is still zero.** The builder warns rather than excluding, since which TLDs to drop is a
-judgement; act on it with `--tlds`.
+### What a fleet leg may ask the archive
 
-### A second machine, and why there is not one any more
+A leg on the VPS, which runs no collector, may ask about ONE named host through
+`bash scripts/harness/cdx_slot.sh <exact host> ['<extra CDX query>']`. Every query there serialises
+behind one `flock`, waits two seconds after the previous one, honours `Retry-After`, and refuses a
+wildcard host or a `matchType` that would walk a namespace, so a price or verify leg can check a
+sample without becoming a third client on the channel. `ARK_CDX_DRY_RUN=1` prints the question and
+asks nobody.
 
-**The VPS stopped collecting on 2026-09-09.** Both CDX clients of C-77 are this laptop's, the fleet
-host runs research legs only, and its 6.8 GB of journals came home and were deleted there once the
-ingest ledger's own digests said the store held them. The bundle-and-bootstrap pair that seeded a
-second collecting machine is retired with it, in `docs/lore/retired.md`.
-
-What a leg on that host may still do is ask about ONE named host, through
-`bash scripts/harness/cdx_slot.sh <exact host> ['<extra CDX query>']`. Every query on the host
-serialises behind one `flock`, waits two seconds after the previous one, honours `Retry-After`, and
-refuses a wildcard host or a `matchType` that would walk a namespace, so a price or verify leg can
-check a sample without becoming a third client on the channel. `ARK_CDX_DRY_RUN=1` prints the question
-and asks nobody.
-
-The measurements that paid for the split are worth keeping even so. Assignment was by content hash of
-the domain, so shares were disjoint and jointly complete with no coordination and each was a
-representative sample of the value curve rather than a contiguous block of it. Shares have to be sized
-by how fast each machine is: the MacBook sustained 916 queries an hour against the VPS's 262, and an
-even split left the fast machine grinding its cheap tail while the expensive head of the other half
-went untouched (`just query-queue --weights 78,22 --rates 916,262`).
-
-**Bringing a remote machine's journals home was the step that got forgotten**, and its output is
-invisible to every measurement taken here. The VPS once ran for a day and a half with 5,793
-year-records on its disk and absent from the store, because nothing here ever looked. `just engines`
+**A journal left on a remote disk is invisible to every measurement taken here.** `just engines`
 lists any remote journal missing locally and prints the `rsync` that fetches it, and it reports
-**UNKNOWN** rather than "everything is home" when it could not reach the machine to ask.
+**UNKNOWN** rather than "everything is home" when it could not reach the machine to ask. Where work
+is ever split again, assign by content hash of the domain: the shares come out disjoint and jointly
+complete with no coordination, and each is a representative sample of the value curve rather than a
+contiguous block of it.
 
 ### The collector lane under launchd
 
@@ -743,7 +674,7 @@ any a sweep still holds open.
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
 sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
-and residual headroom for every one are in [docs/registers/sources.md](sources.md).
+and residual headroom for every one are in [sources.md](../registers/sources.md).
 
 One recipe, the source as its argument. `just collect` with no source lists them.
 
@@ -763,6 +694,7 @@ just collect enron                # the FERC corpus, dated per message
 just collect maillists            # public pipermail archives, dated per message
 just collect tucows               # software release dates plus the vendor's home page
 just collect pandora-seed         # the PANDORA title index into the candidate pool
+just collect apache-headers       # Apache list relay hosts, dated per message (C-83); not CDX, so it runs beside the collectors
 just expand round <seeds> <n>     # archived page expansion, the outbound-link route
 just expand loop                  # the closed loop: engine hits become the next seeds
 ```

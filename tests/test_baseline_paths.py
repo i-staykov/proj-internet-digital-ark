@@ -1,13 +1,10 @@
 """The baseline and the calculator must be found by what they are, not by where they sat.
 
-This file exists because the same mistake has now broken a delivery three times, and the
-third one broke the reproduction route the archive tells a reviewer to run. The
-repository keeps the baseline under `feedback-phase-N/`, which is **git-ignored**, so no
+The repository keeps the baseline under `feedback-phase-N/`, which is git-ignored, so no
 extraction of `git archive HEAD` has that path; the archive puts the same six files at
-`baseline/<marker>/`, one level above the `source/` directory the code runs from.
-
-Both tests chdir into a synthetic delivery layout, because the bug is entirely about the
-working directory and asserting anything from the repository root cannot see it.
+`baseline/<marker>/`, one level above the `source/` directory the code runs from. Both tests
+chdir into a synthetic delivery layout, because the bug is entirely about the working
+directory.
 """
 
 import os
@@ -58,10 +55,8 @@ def test_an_absent_baseline_returns_the_first_candidate_rather_than_raising(
     tmp_path: Path, monkeypatch
 ) -> None:
     """A missing baseline is the caller's error to report, with a path in the message.
-
-    Returning the first candidate rather than raising is deliberate: `ingest_legacy`
-    already fails with "missing year files in <dir>", which names what to go and find.
-    A resolver that raised would replace that with a less useful message.
+    `ingest_legacy` already fails with "missing year files in <dir>", which names what to go
+    and find; a resolver that raised would replace that with a less useful message.
     """
     monkeypatch.chdir(tmp_path)
     assert baseline_dir().name == CURRENT_BASELINE_MARKER

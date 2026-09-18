@@ -1,10 +1,9 @@
 """Hosts typed as body URLs in dated mailing-list messages, at hostname grain.
 
-Admitted 2026-09-04 under the standing rule as the mailing-list twin of the Usenet lane. The
-funnel is shared; what is new is the item pointer, `<host>/<list>__<YYYY-Month>.txt#<n>`, and
-the archive URL it resolves to, which differs per host: gnome serves gzipped month files and
-python serves them plain. The builder's message boundary is tested against the three sender
-forms pipermail writes and against a body sentence that begins `From `.
+Admitted 2026-09-04 under the standing rule as the mailing-list twin of the Usenet lane. New
+here: the item pointer `<host>/<list>__<YYYY-Month>.txt#<n>` and the archive URL it resolves
+to, which differs per host. The message boundary is tested against the three sender forms
+pipermail writes and against a body sentence beginning `From `.
 """
 
 import gzip

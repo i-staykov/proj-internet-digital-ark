@@ -1,9 +1,8 @@
 """Hosts typed as body URLs in dated Enron messages, at hostname grain.
 
-Admitted 2026-09-04 under the standing rule as the third member of the body-URL family. The
-funnel is shared with the Usenet and mailing-list lanes; what is new is the item pointer, the
-message's own path inside the CMU tarball, and the builder, which streams the tarball and cuts
-each member at its first blank line rather than matching a boundary.
+Admitted 2026-09-04 under the standing rule as the third member of the body-URL family. New
+here: the item pointer, the message's own path inside the CMU tarball, and a builder that
+streams the tarball and cuts each member at its first blank line.
 """
 
 import gzip

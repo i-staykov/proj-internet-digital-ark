@@ -1,12 +1,11 @@
 """One command takes a release: verify, extract, measure, and repoint every figure.
 
-The layout is `tests/test_releases.py`'s, because an intake ends in that script and the
-two must agree about what a release tree looks like. His calculator is stubbed at two
-equivalent-English per line, so the figures the JSON ends up with are checkable by hand.
-
-What the tests pin is the refusal and the repeat, not the happy path alone: a second
-zip under one marker stops the run before anything is written, a second run of the same
-zip writes nothing, and `--dry-run` leaves the disk byte for byte.
+The layout is `tests/test_releases.py`'s, because an intake ends in that script and the two
+must agree about what a release tree looks like. His calculator is stubbed at two
+equivalent-English per line, so the figures are checkable by hand. What is pinned is the
+refusal and the repeat: a second zip under one marker stops the run before anything is
+written, a second run of the same zip writes nothing, and `--dry-run` leaves the disk byte
+for byte.
 """
 
 import hashlib

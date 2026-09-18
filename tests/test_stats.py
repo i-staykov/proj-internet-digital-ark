@@ -58,11 +58,10 @@ def test_collect_stats_counts() -> None:
 
 
 def test_two_outcomes_partition_the_netnew_total() -> None:
-    """Discovery and completeness are disjoint and exhaustive over net-new pairs.
-
-    Written because the near miss here is counting distinct domains over net-new
-    pairs, which once reported 1,161,961 domains against a true 463,566: a domain
-    the baseline already holds gaining a year is a new pair on an old domain.
+    """Discovery and completeness are disjoint and exhaustive over net-new pairs. The near miss
+    is counting distinct domains over net-new pairs, which once reported 1,161,961 domains
+    against a true 463,566: a domain the baseline already holds gaining a year is a new pair
+    on an old domain.
     """
     stats = collect_stats(_populated_db())
     # new.com and corr.com carry no baseline evidence; mixed.com/1999 is a year
@@ -235,12 +234,10 @@ def test_an_unmapped_source_is_its_own_lineage() -> None:
 
 
 def test_every_source_has_an_explicit_provenance_lineage() -> None:
-    """An unclassified source would silently become its own lineage.
-
-    `_lineage_case_sql` falls through to the source name, so a new source that
-    nobody classified counts as independent of everything else and inflates the
-    independent-corroboration headline. NCSA arrived that way: an editorial
-    directory reported as its own body of observation, corroborating ODP.
+    """An unclassified source would silently become its own lineage. `_lineage_case_sql` falls
+    through to the source name, so a new source nobody classified counts as independent of
+    everything else and inflates the independent-corroboration headline. NCSA arrived that
+    way: an editorial directory reported as its own body of observation, corroborating ODP.
     """
     from ark.sources import SOURCES
     from ark.stats import PROVENANCE_LINEAGE

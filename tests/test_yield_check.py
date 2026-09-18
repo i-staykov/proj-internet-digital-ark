@@ -1,14 +1,11 @@
 """Collector yield: the question none of the other checks asked.
 
-`check_collectors` asks whether a process is alive. The supervisor watches journal
-growth. **A journal full of misses grows exactly as fast as a journal full of hits**,
-so on 2026-08-11 a rebuilt queue sent the local engine 1,200 archive queries for zero
-captures while every mechanical check reported clean.
-
-These tests pin the two ways that failure shows up and, more importantly, the two ways
-a naive version would cry wolf: a small sample, and a population that is simply harder
-than another. The gap pool answers 96-97.5% and the candidate pool 36.9-90.6%, so a
-single hardcoded floor would either miss a pool collapse or alarm on a healthy pool.
+`check_collectors` asks whether a process is alive and the supervisor watches journal growth,
+but **a journal full of misses grows exactly as fast as a journal full of hits**: a rebuilt
+queue once sent 1,200 archive queries for zero captures with every mechanical check clean.
+These pin the two ways that shows up and the two ways a naive version cries wolf: the gap pool
+answers 96-97.5% and the candidate pool 36.9-90.6%, so one hardcoded floor either misses a
+collapse or alarms on a healthy pool.
 """
 
 import gzip
@@ -50,9 +47,8 @@ def test_zero_over_a_real_sample_is_flagged_with_no_history_at_all(tmp_path) -> 
 
 
 def test_a_collapse_against_its_own_history_is_flagged(tmp_path) -> None:
-    """The real 11 August reading was 6.8% against 51.6%, not a clean zero, because the
-    recent window straddled the rebuild. An absolute floor low enough to be safe for the
-    candidate pool would have let that through."""
+    """The real reading was 6.8% against 51.6%, not a clean zero, because the recent window
+    straddled the rebuild. An absolute floor safe for the candidate pool lets that through."""
     for day in range(1, 8):
         _journal(tmp_path, f"cdx_pool_202608{day:02d}T000000Z.jsonl.gz", 600, 310)
     for day in (8, 9, 10):
@@ -133,9 +129,8 @@ def test_the_newest_finished_batch_is_reported_separately(tmp_path) -> None:
 
 
 def test_the_newest_reading_never_comes_from_an_in_flight_part(tmp_path) -> None:
-    """Reading a gzip stream still being appended truncates at its last complete block,
-    and the prefix is not a sample: one batch gave 9.5%, then 14.0%, then 27.9% in a
-    single afternoon of hand-inspection."""
+    """Reading a gzip stream still being appended truncates at its last complete block, and
+    the prefix is not a sample: one batch read 9.5%, then 14.0%, then 27.9% in an afternoon."""
     _journal(tmp_path, "cdx_pool_20260811T000000Z.jsonl.gz", 600, 300)
     _journal(tmp_path, "cdx_pool_20260812T000000Z.jsonl.gz.part", 20, 0)
     reading = measure(tmp_path, "cdx_pool")
@@ -162,9 +157,9 @@ def _rdap_journal(directory: Path, name: str, rows) -> None:
 
 
 def test_rdap_counts_a_404_as_an_answer_but_not_a_throttle() -> None:
-    """A registry saying "no such domain" is information, and 1,107,164 of 1,656,921
-    queries on this project have said it. A 429 is not an answer, and counting it would
-    make a rate-limiting registry read as a population that stopped existing."""
+    """A registry saying "no such domain" is information, and 1,107,164 of 1,656,921 queries
+    here have said it. A 429 is not an answer: counting it makes a rate-limiting registry
+    read as a population that stopped existing."""
     from ark.yield_check import rdap_verdict
 
     assert rdap_verdict({"status": 404, "creation_year": None}) == (True, False)
@@ -200,11 +195,9 @@ def test_rdap_yield_is_measured_with_its_own_verdict(tmp_path) -> None:
 
 
 def test_an_unplanned_prefix_is_still_measured(tmp_path) -> None:
-    """Discovery rather than a list, because the list is how a dead engine hid.
-
-    The prefixes were hardcoded to `cdx_pool` and `cdx_gap` on the authority of the
-    supervisor's header. The VPS ran `cdx_q1` for 31 hours against an exhausted shard,
-    3,219 answered queries for zero captures, and no yield line covered it.
+    """Discovery rather than a list, because a list is how a dead engine hides: with the
+    prefixes hardcoded, a box ran `cdx_q1` for 31 hours against an exhausted shard, 3,219
+    answered queries for zero captures, and no yield line covered it.
     """
     from ark.yield_check import active_cdx_collectors
 
@@ -238,10 +231,9 @@ def test_an_in_flight_part_file_still_marks_a_prefix_live(tmp_path) -> None:
 
 
 def test_a_hand_named_probe_is_not_read_as_the_newest_batch(tmp_path) -> None:
-    """The bug this exists for: `rdap_probe_org_step2.jsonl.gz` sorts ahead of every
-    `rdap_pool_<stamp>.jsonl.gz` under a plain reverse filename sort, because "probe"
-    follows "pool". The RDAP yield line reported that static file as the newest finished
-    batch for days, a frozen 38.0% while the live sweep ran at 23% to 26%.
+    """`rdap_probe_org_step2.jsonl.gz` sorts ahead of every `rdap_pool_<stamp>.jsonl.gz` under
+    a reverse filename sort, because "probe" follows "pool". The yield line then reported a
+    static file as the newest batch, a frozen 38.0% while the live sweep ran at 23% to 26%.
     """
 
     def write(name: str, year: int) -> None:
@@ -261,12 +253,9 @@ def test_a_hand_named_probe_is_not_read_as_the_newest_batch(tmp_path) -> None:
 
 
 def test_a_corrupt_stream_is_reported_truncated_rather_than_crashing(tmp_path):
-    """A killed collector leaves a journal whose deflate stream desynchronises mid-file.
-
-    That raises `zlib.error`, which is not a subclass of OSError, EOFError or
-    BadGzipFile, so it used to escape `_count` and take the entire health cycle down
-    with `Error -3 while decompressing data: invalid stored block lengths`. The register
-    documents the same shape on the corrupt ISC survey copies.
+    """A killed collector leaves a journal whose deflate stream desynchronises mid-file. That
+    raises `zlib.error`, which is not a subclass of OSError, EOFError or BadGzipFile, so it
+    escapes `_count` and takes the whole health cycle down.
     """
     import gzip
 

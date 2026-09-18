@@ -1,9 +1,9 @@
 export const meta = {
   name: 'hunt-new-sources',
-  description: 'Five independent lenses propose named historical-domain sources; a sceptic per lens kills the ones already closed or no longer retrievable',
+  description: 'Independent lenses propose named historical-domain sources in parallel; a sceptic per lens screens each against the closed register and the seven measured killers',
   phases: [
-    { title: 'Find', detail: 'one agent per discovery lens, each blind to the others' },
-    { title: 'Refute', detail: 'per lens: collide against the closed register and probe live retrievability' },
+    { title: 'Find', detail: 'one agent per lens, each blind to the others' },
+    { title: 'Refute', detail: 'per lens: collide against the closed register, screen on the seven killers, probe live' },
   ],
 }
 
@@ -11,46 +11,71 @@ export const meta = {
 const REPO = globalThis.process?.env?.ARK_REPO ?? '.'
 
 const BRIEF = `
-You are hunting NEW sources of historical domain names for the Internet Digital Ark project.
-Repository: ${REPO}. Work READ-ONLY: do not create, edit or delete any file in that repository,
-and do not write scripts into scripts/. Use WebSearch and WebFetch freely.
+Hunting NEW sources of historical domain names for the Internet Digital Ark.
+Repository: ${REPO}. READ-ONLY: create, edit and delete nothing in it, and write no scripts.
+Use WebSearch and WebFetch freely.
 
-WHAT COUNTS. The project reconstructs which domains existed in each year 1996-2001. A source is
-only useful if it can attach a domain to a SPECIFIC YEAR in that window, per-item. A capture in
-1998 evidences 1998 and nothing else. Sources with no per-item year are still worth naming, but
-they are candidate-only: they grow a pool that a CDX engine then dates.
+THE JOB. Reconstruct which domains existed in each year 1996-2001. A source pays only if it
+attaches ONE domain to ONE specific year in that window, per item. A 1998 capture evidences 1998
+and nothing else. A source with no per-item year is still worth naming, but it is candidate-only:
+it grows a pool that a CDX engine then dates.
 
-THE METRIC. Each (domain, year) record scores the English page-language share of its right-most
-TLD: .uk 0.9813, .com 0.6321, .net 0.4530, .de 0.1324, .br 0.0934. A large non-English source is
-a SMALL source. Say so when a candidate is mostly non-English.
+THE METRIC. Each (domain, year) scores its TLD's English share: .uk 0.9813, .au 0.9904, .nz 0.9895,
+.edu 0.9717, .ca 0.8365, .org 0.7101, .com 0.6321, .net 0.4530, .de 0.1324, .jp 0.0605, .cz 0.0709.
+A large non-English source is a SMALL source. Say so.
 
-READ THESE FIRST, in the repository:
-- docs/registers/sources.md    every source already developed, plus roughly 60 families already REJECTED,
-                     each with the measurement that closed it. This is long: grep it, do not read
-                     it whole. Anything you propose that is already in here is worthless.
-- docs/lore/discovery.md  the acceptance bar: how a source is priced before a collector is written.
-- docs/brief/ding/project-brief.md  the reviewer's own brief, sections V, VI and IX.
+THE SIZE BAR. Where the round stands is in docs/ROUND.md, which is generated; read it rather than
+any figure quoted in a brief. If it is absent, the standing bar in docs/lore/discovery.md applies.
+A candidate worth a few thousand equivalent-English is a rounding error against a gate measured in
+hundreds of thousands: say plainly when your best candidate is two orders short. That is useful; a
+padded number is not.
 
-WHAT THE REVIEWER ASKED FOR ON 2026-08-17, verbatim:
-"Please continue expanding the historical domain list and exploring additional ready-made
-historical datasets, bulk dated corpora, national web-archive link graphs, academic repositories,
-registry datasets, and other innovative automated discovery methods. Please also continue
-reviewing whether previously successful methods can produce further additions."
+THE SEVEN KILLERS, each established here by measurement. Screen every candidate on these BEFORE
+proposing it, and state which ones it survives:
+ 1. Derived from Internet Archive crawls. Our baseline is IA-derived, so net-new is about zero.
+    The exception is a bulk PROJECTION of IA holdings, which is why the Dartmouth capture census paid.
+ 2. Lists names without asserting they were live. A dated artifact proves the ARTIFACT's date, not the
+    names' liveness. Killed Netcraft and the JANET proxy reports. A byte-volume filter does not fix it.
+ 3. Trust-selected rather than sampled. Certificate bundles hold CAs, relay headers hold ISPs, papers
+    cite universities, award lists hold famous sites. A selected population is small however large the file.
+ 4. A current-state snapshot. Cannot evidence a past year. Killed AFNIC and Companies House.
+ 5. Human-typed. A novel name takes the corroboration split and earns no year, so typed directories
+    cannot produce master evidence for exactly the names that are new.
+ 6. Anonymised or hashed hostnames. Ask for the release's sanitisation paragraph before fetching a byte.
+    Killed the whole 1990s proxy-trace family.
+ 7. Dating and URL-bearing anticorrelate. A record still carrying an in-window date is one nobody has
+    edited since, and a record naming a web site is one somebody has.
+Prose corpora ceiling at about 0.042 net-new pairs per item, so about 119,000 items to clear the bar,
+and that ceiling is a property of SUBJECT MATTER: a million biology abstracts name no web sites at all.
 
-WHAT ALREADY WORKED, so you know the shape worth finding: a 2017 Dartmouth/NBER release of the
-Internet Archive's own capture census (227,273 net-new pairs); a bulk compilation of registry
-creation dates over 171M domains (2,165,523 pairs); the UK Web Archive host link graph; the ISC
-Internet Domain Survey. One bulk dated corpus was worth about twenty times a whole round of
-per-domain archive querying.
+ONE OPERATOR, ONE DATABASE. Ask who HELD the register before asking what the archive holds. \`.ie\`
+paid 18,769.9 EE because a single computing service regenerated one register onto a static
+tree; \`.za\` paid almost nothing because eleven second levels were separately administered, most
+accepting applications by e-mail to a named individual, so there was no single machine to regenerate.
 
-WHAT DOES NOT WORK, measured, so do not propose it: fetching archived pages one at a time to
-harvest their outbound links. Measured as a matched A/B over 240 pages, it harvested 391 domains
-and yielded 5 net-new, because 386 were already held and already dated.
+READ THESE FIRST, by grep and not whole:
+- docs/registers/sources.md   every source developed plus roughly 110 families already REJECTED, each with the
+                    measurement that closed it. Anything already in here is worthless. Grep by NAME and
+                    by POPULATION: the same population closed under another name is still dead.
+- docs/lore/discovery.md the pricing bar and the three laws in full.
+- docs/brief/ding/project-brief.md sections V, VI and IX, the reviewer's own list of what to try, which
+                    names ready-made historical datasets, bulk dated corpora, national web-archive link
+                    graphs, academic repositories and registry datasets, and asks directly whether
+                    previously successful methods can produce further additions.
 
-TARGETING FACT, new this round. The reviewer ships a per-year merge audit. Our 2001 coverage is
-982,881 accepted records against another contributor's 267, because registry creation dates reach
-a year the web archives cover thinly. Our 1998-2000 is being outproduced roughly three to one.
-So a source that reaches 1996, 1997 or 2001 is worth more than one that reaches 1999.
+WHAT THE SHAPE OF A WIN LOOKS LIKE, from what actually paid: a 2017 Dartmouth/NBER release of the
+Internet Archive's own capture census, 227,273 net-new pairs; a bulk compilation of registry creation
+dates over 171M domains, 2,165,523 pairs; the UK Web Archive host link graph; the ISC Internet Domain
+Survey; the Enron mail release at 5,134 pairs, which beat every public technical mailing list per
+message because a business writes to other businesses that each own a domain.
+
+WHAT DOES NOT WORK, measured: fetching archived pages one at a time to harvest their outbound links.
+Over a matched A/B of 240 pages it harvested 391 domains for 5 net-new, because 386 were already held
+and already dated.
+
+THIN YEARS ARE WORTH MORE. Our 2001 is strong, because registry creation dates reach a year the web
+archives cover thinly, and 1996 to 1998 are thin. A source that reaches the early years outranks one
+that reaches 1999 to 2001.
 `
 
 const CANDIDATES = {
@@ -62,16 +87,20 @@ const CANDIDATES = {
       maxItems: 4,
       items: {
         type: 'object',
-        required: ['name', 'url', 'what_it_is', 'what_dates_an_item', 'evidence_type', 'size_estimate', 'english_share_note', 'already_in_register'],
+        required: [
+          'name', 'url', 'what_it_is', 'what_dates_an_item', 'evidence_type',
+          'size_estimate', 'english_share_note', 'already_in_register', 'killers_survived', 'years_reached',
+        ],
         properties: {
           name: { type: 'string', description: 'short snake_case identifier, e.g. arquivo_cdxj' },
           url: { type: 'string', description: 'a URL a human can open right now' },
           what_it_is: { type: 'string' },
-          what_dates_an_item: { type: 'string', description: 'the exact field or fact that attaches ONE domain to ONE year, or "nothing, candidate-only"' },
+          what_dates_an_item: { type: 'string', description: 'the exact field that attaches ONE domain to ONE year, or "nothing, candidate-only"' },
           evidence_type: { type: 'string', enum: ['cdx_timestamp', 'artifact_listing', 'link_source', 'dated_directory', 'whois_creation', 'link_target', 'none'] },
-          size_estimate: { type: 'string', description: 'order of magnitude of in-window domains, and how you got that number' },
+          size_estimate: { type: 'string', description: 'order of magnitude of in-window domains, and HOW you got that number' },
           english_share_note: { type: 'string', description: 'which TLDs dominate and what that does to the metric' },
-          already_in_register: { type: 'string', description: 'what you found when you grepped docs/registers/sources.md for it, by name AND by population' },
+          already_in_register: { type: 'string', description: 'what you found grepping docs/registers/sources.md by name AND by population' },
+          killers_survived: { type: 'string', description: 'which of the seven it survives, and which one is its biggest risk' },
           years_reached: { type: 'string', description: 'which of 1996-2001 it can actually date' },
         },
       },
@@ -87,14 +116,15 @@ const VERDICTS = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['name', 'survives', 'reason', 'retrievable_in_2026', 'closest_closed_family'],
+        required: ['name', 'survives', 'reason', 'retrievable_in_2026', 'closest_closed_family', 'corrected_size'],
         properties: {
           name: { type: 'string' },
           survives: { type: 'boolean' },
           reason: { type: 'string', description: 'why it dies, or what specifically you could not refute' },
-          retrievable_in_2026: { type: 'string', description: 'what the URL actually returned when you fetched it, with the status' },
-          closest_closed_family: { type: 'string', description: 'the nearest entry in the rejected register and why it is or is not the same population' },
-          corrected_size: { type: 'string', description: 'your own estimate if the finder overstated it' },
+          retrievable_in_2026: { type: 'string', description: 'what the URL actually returned, with the HTTP status and byte count' },
+          closest_closed_family: { type: 'string', description: 'nearest entry in the rejected register, and why it is or is not the same population' },
+          corrected_size: { type: 'string', description: 'your own in-window net-new EE estimate, and how you got it' },
+          which_killer: { type: 'string', description: 'the numbered killer it dies on, if it dies' },
         },
       },
     },
@@ -107,28 +137,36 @@ const LENSES = [
     prompt: `LENS: national and regional web archives other than the Internet Archive. Their bulk CDX/CDXJ
 indexes, annual crawl indexes, host and link graphs, and any published dataset derived from them.
 The UK Web Archive host link graph and Arquivo.pt are already developed here; find the OTHERS.
-Think about which countries ran national deposit crawls that reach back to the 1990s, and which of
-them publish an index rather than only a viewer. Prefer archives whose crawl is English-dominant
-or whose link graph reaches English sites.`,
+Which countries ran national deposit crawls reaching back to the 1990s, and which of them publish an
+INDEX rather than only a viewer? Prefer archives whose crawl is English-dominant or whose link graph
+reaches English sites.`,
   },
   {
-    key: 'academic-repositories',
-    prompt: `LENS: academic and institutional data repositories, DOI registries, replication packages and
-paper supplements. The reviewer's own worked example is the University of Minnesota DRUM dataset
-"Link Lists for Websites Tracking the Development of the Early Web from 1996 to 2000"
-(DOI 10.13020/D62684), which another contributor mined for millions of records. The point is the
-PATTERN, not that dataset. Search repository search APIs, dataset registries, and the citation
-graph around early-web research: papers from 1997-2003 that studied the web at scale almost all
-deposited their crawl seeds or link graphs somewhere.`,
+    key: 'dataset-registry-sweep',
+    prompt: `LENS: an automated sweep of dataset registries for deposited 1996-2001 web crawls, link graphs, URL
+lists and seed packages. The reviewer names this method and gives one worked example, the University
+of Minnesota DRUM dataset "Link Lists for Websites Tracking the Development of the Early Web from
+1996 to 2000" (DOI 10.13020/D62684), which another contributor mined for millions of records. The
+point is the PATTERN. Query the search APIs rather than reading landing pages: DataCite, OpenAIRE,
+re3data, ICPSR, Harvard Dataverse, Dryad, figshare, Zenodo, OSF, Mendeley Data, PANGAEA, ADS, and the
+national repositories of the UK, Australia and Canada. Also walk the citation graph around early-web
+measurement research 1997-2003 (Broder, Kleinberg, Lawrence and Giles, Bharat, Kumar, Adamic,
+Huberman, the NEC and IBM web-graph groups), which mostly deposited crawl seeds somewhere. Report the
+queries you ran and the hit counts, so the sweep is reproducible, and name DOIs rather than repositories.`,
   },
   {
-    key: 'registry-and-dns',
-    prompt: `LENS: registry and DNS-infrastructure datasets. Historical zone file snapshots, ccTLD registry
-publications and open data, bulk WHOIS or RDAP compilations, passive DNS archives with history,
-DNS survey series, and any registry that publishes its own historical registration record.
-This is the route that gave us 2001 almost exclusively, so it is the highest-value lens for the
-years the web archives cover thinly. Note carefully which registries publish creation dates as
-open data rather than behind a rate-limited query interface.`,
+    key: 'high-weight-registries',
+    prompt: `LENS: registries for the HIGHEST-weight namespaces publishing their own historical registration
+record. Weights make these worth 1.5x a .com pair: .au 0.9904, .nz 0.9895, .uk 0.9813, .ie, .za, .ca
+0.8365, .sg, .in. The .au family (AUNIC, auDA, AARNet) is already closed here and .uk zone data was
+never published, so grep before proposing either. What is wanted: any registry, registrar association,
+national research network or national library that published a LIST of names with dates, an annual
+report with a machine-readable annex, a deposited dataset, or an academic study of its own namespace
+that deposited the name list. Consider second-level registries with their own records (.ac.uk,
+.gov.uk, .co.nz, .edu.au) and the research networks that ran them. Say whether each artifact is a zone
+snapshot, a creation-date list or an aggregate count, because aggregate counts are worthless here, and
+note which registries publish creation dates as OPEN DATA rather than behind a rate-limited query
+interface. This route gave us 2001 almost entirely.`,
   },
   {
     key: 'crawl-collections',
@@ -142,12 +180,69 @@ date or whether it is candidate-only material for the CDX engine to date.`,
     key: 'residual-in-what-worked',
     prompt: `LENS: residual opportunity inside sources this project has ALREADY used. The reviewer asks
 directly whether previously successful methods can produce further additions, and the two largest
-gains last round were both of this kind: a parser that had been reading 6.76% of a file we already
+gains of one round were both of this kind: a parser that had been reading 6.76% of a file we already
 held, and a survey filed as unrecoverable that was intact under a successor hostname.
-Read docs/registers/sources.md for what each developed source says REMAINS unexhausted, and read the
+Read docs/registers/sources.md for what each developed source says REMAINS unexhausted, and the
 rejected register for entries closed because something could not be REACHED rather than because it
 was measured and found poor. A closure about one copy of an artifact is not a closure about the
 artifact. Propose specific unexhausted material, naming the file or date range, not general ideas.`,
+  },
+  {
+    key: 'uncrawled-subscribers',
+    prompt: `LENS: mailing lists and online communities whose SUBSCRIBERS were an uncrawled population.
+This is a reopen condition this project set for itself and never used. Its own finding, verbatim:
+"If mail is ever reopened, ask whether a list's SUBSCRIBERS were an uncrawled population, never whether
+its headers survived." The developer lists already mined (python.org, gnome.org, Apache) failed because
+a Python developer's homepage is exactly what a web crawl held first. What is wanted is the opposite:
+in-window list or group archives whose posters were ORDINARY small businesses, tradespeople, hobbyists,
+clubs, churches, schools, local societies, each with its own registered domain and no reason to be
+famous. Think genealogy lists, trade and industry lists, regional and municipal lists, hobby and
+collector lists, professional-association lists, eGroups/OneList/Yahoo Groups, Topica, Listserv archives
+at universities, and per-industry commercial lists. For each: is there a BULK route to the raw messages
+with Date and From headers, and how many in-window messages does it hold? Enron yielded 0.0067
+equivalent-English per in-window message; use that rate to say what a corpus is worth before proposing it.`,
+  },
+  {
+    key: 'organisational-mail-releases',
+    prompt: `LENS: bulk releases of an organisation's own 1996-2001 correspondence, the Enron shape at scale.
+Enron paid because a business writes to other businesses that each own a domain, which is the one
+population that beats killer 3. Find more of them. Routes to search: litigation discovery made public
+(antitrust, tobacco, opioid, asbestos, securities), regulator investigation files, US state and federal
+FOIA reading rooms, state-governor and state-agency email archives released under public-records law,
+university and hospital records releases, congressional and parliamentary inquiry exhibits, bankruptcy
+estate document sets, and industry document libraries. For each say: how many items fall in 1996-2001,
+are they born-digital mail with real headers or scanned paper with OCR damage, is there a BULK download
+or only a per-document viewer, and what does the release's own redaction policy do to e-mail addresses.
+Killer 6 applies: a release that redacts addresses is worth nothing, so find the redaction paragraph.`,
+  },
+  {
+    key: 'small-org-open-data',
+    prompt: `LENS: government, regulator and funder open data carrying BOTH a per-row date in 1996-2001 AND
+a web-address or e-mail column, for ORDINARY SMALL organisations. This project already killed the
+academic version: US IPEDS institutional characteristics died because .edu is 95.5% saturated at
+the year an institutional directory attests. So do not propose universities, and do not propose large
+public companies (SEC EDGAR is measured and closed at 0.01 equivalent-English per filing). Propose the
+long tail: small-business registries, trade licensing and professional boards, charity and non-profit
+regulators, local-government supplier and procurement records, agricultural and food producer registers,
+tourism and hospitality licensing, broadcast and telecom licensees, importer and exporter registers,
+trade-mission and export-promotion directories, chamber-of-commerce data releases. High-weight
+jurisdictions pay most: UK 0.9813, Australia 0.9904, New Zealand 0.9895, Canada 0.8365, Ireland, US.
+Killer 4 is the one that kills most of these, so for each say whether the published file is a HISTORICAL
+per-year release or a current-state snapshot with a date column, because the second cannot evidence a past year.`,
+  },
+  {
+    key: 'non-capture-assertions',
+    prompt: `LENS: wildcard. Any machine-generated 1996-2001 artifact that ASSERTS a domain was registered or
+resolving, and is NOT a web capture index, NOT a DNS zone file, and NOT a registry creation-date snapshot.
+All three of those are developed or closed here. Killer 2 is the whole game in this lens: the artifact must
+assert existence, not merely mention a name. Things that assert: a delegation record, a resolution result, a
+successful transfer, a payment, a certificate issued to a host, a registered trade mark citing a domain, a
+peering or routing record naming a domain, a mail-exchanger table, an FTP mirror manifest listing its
+upstream by name, a software licence server host list, a newsgroup control message, a DNS blocklist or
+whitelist with dated entries, a name-server configuration published as documentation. For each, say what
+makes it an assertion rather than a mention, and how many in-window items exist. Reject your own ideas that
+reduce to a mention: this project has closed relay headers, cited references, printed directories, quoted
+whois, trade press and award lists, all on killer 2 or killer 3.`,
   },
 ]
 
@@ -156,9 +251,10 @@ phase('Find')
 const results = await pipeline(
   LENSES,
   (lens) => agent(
-    `${BRIEF}\n\n${lens.prompt}\n\nReturn at most 4 candidates, best first. A candidate you cannot
-    name and link is not a candidate. If a lens is genuinely dry after real searching, return an
-    empty list and say so rather than padding it.`,
+    `${BRIEF}\n\n${lens.prompt}\n\nReturn at most 4 candidates, best first. A candidate you cannot name
+    and link is not a candidate. If the lens is genuinely dry after real searching, return an empty list
+    and say so: an honest empty lens is worth more than a padded one. Never state a number you did not
+    derive, and say how you derived each one.`,
     { label: `find:${lens.key}`, phase: 'Find', schema: CANDIDATES },
   ),
   (found, lens) => {
@@ -167,16 +263,18 @@ const results = await pipeline(
     return agent(
       `${BRIEF}\n\nYou are the SCEPTIC for the "${lens.key}" lens. Another agent proposed these:\n\n` +
       JSON.stringify(list, null, 2) +
-      `\n\nYour job is to REFUTE each one. Default to survives=false when you are unsure. Three tests,
-      all of which must be done rather than reasoned about:
-      1. Grep docs/registers/sources.md for the source BY NAME and BY POPULATION. A source already closed under
-         another name is dead. Roughly 60 families are in the rejected register.
-      2. Actually WebFetch the URL. A dataset that 404s, requires an institutional login, or has been
-         taken down is dead however good it sounds. Report what you actually got back.
-      3. Check the dating claim. If "what dates an item" is really an aggregate snapshot date, or a
-         year inferred from something other than the record itself, it cannot be master evidence and
-         is at best candidate-only. Say which.
-      Also correct any size estimate you think is inflated, and say how you checked.`,
+      `\n\nRefute each one. Default to survives=false when unsure. Four tests, all DONE rather than reasoned:
+      1. Grep docs/registers/sources.md by NAME and by POPULATION. Roughly 110 families are already closed there.
+      2. Actually fetch the URL. Report the HTTP status and byte count you got. A 404, a login wall, a
+         Cloudflare interstitial or a 159-byte stub is dead however good the description sounds. Prove any
+         zero against a positive control fetched in the same minute, because nothing-found and
+         pointed-wrong look identical.
+      3. Check the dating claim against the artifact itself. If "what dates an item" turns out to be an
+         aggregate snapshot date, or a year inferred from anything other than the record, it is
+         candidate-only at best. Say which.
+      4. Name the numbered killer it dies on. Correct any inflated size, and say how you checked. A
+         candidate whose corrected size is a few thousand equivalent-English does not survive: it cannot
+         move the gate and it costs a day to build.`,
       { label: `refute:${lens.key}`, phase: 'Refute', schema: VERDICTS },
     ).then((v) => ({ lens: lens.key, candidates: list, verdicts: (v && v.verdicts) || [] }))
   },

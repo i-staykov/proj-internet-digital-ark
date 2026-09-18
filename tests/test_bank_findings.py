@@ -1,9 +1,8 @@
 """The scribe's row, and the one rule it exists to enforce about figures.
 
 **A fleet figure never reaches the register alone.** The leg measured against a pushed copy
-of this store; the laptop measures against the store. So the row carries both, or it says in
-words why there is only one. A row that printed a single unlabelled number would read exactly
-like a measurement taken here, which is the confusion the whole S9 re-price exists to end.
+of this store, the laptop against the store, so the row carries both or says in words why
+there is only one.
 """
 
 import importlib.util

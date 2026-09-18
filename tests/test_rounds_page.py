@@ -1,10 +1,8 @@
 """The verdict-mail parser writes the ledger row and never reads his score off the mail.
 
-The two fixtures are his template: round 6 without the candidate-pool line or a quoted
-score, round 7 with both. Their lines 1 and 2 are his database, not this project's, and
-round 7's pair is derived from the growth rate rather than quoted, since only lines 3 to
-5 reach the page. What the tests pin is that S and t come out of `ark.figures` and match
-the two figures he has quoted, and that writing one row does not touch another.
+The two fixtures are his template: round 6 without the candidate-pool line or a quoted score,
+round 7 with both. What is pinned is that S and t come out of `ark.figures` and match the two
+figures he has quoted, and that writing one row does not touch another.
 """
 
 import importlib.util
