@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| candidate-bulk-live-lookup-directory-services-sweep / unclassified | 2026-09-19, fleet 20260919T1306Z | not priced | lens no lens recorded. |  |
+| custodian-run-national-archive-link-graph-byproduct-sweep / unclassified | 2026-09-19, fleet 20260919T1306Z | not priced | lens no lens recorded. |  |
 | candidate-bulk-hostname-grain-dns-survey-and-cgi-search-sweep / unclassified | 2026-09-19, fleet 20260919T1206Z | not priced | lens no lens recorded. CLOSED. |  |
 | custodian-capture-indexes-ukgwa-japan-croatia-estonia-ireland-sweep / unclassified | 2026-09-19, fleet 20260919T1106Z | not priced | lens custodian-capture-indexes. CLOSED | https://www.digar.ee/arhiiv/en/info/digar |
 | custodian-capture-indexes-university-and-regional-archive-sweep-stanford-ntu-tasmania / unclassified | 2026-09-19, fleet 20260919T0606Z | not priced | lens custodian-capture-indexes. CLOSED | https://libraries.tas.gov.au/robots.txt |
