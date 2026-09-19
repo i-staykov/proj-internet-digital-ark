@@ -10,8 +10,9 @@ the git log and, for sources, in `sources.md` with its measurement.
 ### The availability engine is dead: reallocate its slot, write to the IA, or leave it idle
 
 `archive.org/wayback/available` answers **429 to every request** and has since 2026-09-17.
-Re-tested 2026-09-19 at 20:50 CEST: still 429, while `archive.org/metadata` answered 200 in
-the same second from the same IP with the same honest User-Agent, and the VPS sees the same.
+Re-tested 2026-09-20 at 00:28 CEST, the third test in three days: still 429, while
+`archive.org/metadata` answered 200 in the same second from the same address with the same
+honest User-Agent, and the VPS sees the same. The session now probes it half-hourly.
 It is the endpoint, not our budget and not our address.
 
 That matters because CLAUDE.md rule 6 says "on throttling, retire a CDX collector, never the
