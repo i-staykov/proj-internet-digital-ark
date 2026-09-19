@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| custodian-capture-indexes-ukgwa-japan-croatia-estonia-ireland-sweep / unclassified | 2026-09-19, fleet 20260919T1106Z | not priced | lens custodian-capture-indexes. CLOSED | https://www.digar.ee/arhiiv/en/info/digar |
 | custodian-capture-indexes-university-and-regional-archive-sweep-stanford-ntu-tasmania / unclassified | 2026-09-19, fleet 20260919T0606Z | not priced | lens custodian-capture-indexes. CLOSED | https://libraries.tas.gov.au/robots.txt |
 | archived-mckinley-magellan-review-listing-page-sweep / unclassified | 2026-09-19, fleet 20260919T0106Z | 2.5284 EE | lens archived-web-directories.. CLOSED. |  |
 | custodian-capture-indexes-nz-blacklight-and-cz-wayback-sweep / unclassified | 2026-09-19, fleet 20260919T0106Z | not priced | lens custodian-capture-indexes. CLOSED This is a different host from `natlib.govt.nz` already closed in the pacific-rim leg (that one hit an Incapsula bot-wall on the marketing site's collection page). |  |

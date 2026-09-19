@@ -10,13 +10,13 @@ floor is here because its high is over it, and the high has been wrong by five o
 of magnitude before now. Both tracks score at the same rate, so a candidate counts
 like a master. 2 live lead(s) clear it on neither and are not listed.
 
-**12 of these 22 items, 157,109 EE at the low estimate, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. Until that is decided, working any of them adds rows to the store and nothing to the claim.
+**12 of these 22 items, 124,509 EE at the low estimate, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. Until that is decided, working any of them adds rows to the store and nothing to the claim.
 
 ## Decide these, biggest first
 
 - **rule**, 7 lead(s), 146,410 to 168,987 EE. Biggest: `Write to Verisign, PIR or Nominet, or leave the RDAP route closed`.
-- **download**, 9 lead(s), 109,900 to 564,262 EE. Biggest: `usenet-unread-hierarchies-server-header-hostnames`.
 - **permission**, 1 lead(s), 100,000 to 353,308 EE. Biggest: `ripe-hostcount-hidden-output-files-on-ftp-ripe-net`.
+- **download**, 9 lead(s), 77,300 to 335,262 EE. Biggest: `net-abuse-quoted-spam-received-by-relay-hosts`.
 - **ingest**, 4 lead(s), 53,958 to 186,958 EE. Biggest: `spacekookie-google-groups-usenet-tarballs-server-header-hosts`.
 - **rerun**, 1 lead(s), 13,437 to 200,662 EE. Biggest: `usenethistorical-isp-hierarchy-nntp-posting-host-bulk`.
 
@@ -26,13 +26,13 @@ like a master. 2 live lead(s) clear it on neither and are not listed.
 |---:|---:|---|---|---|
 | 100,000 | 353,308 | ships | permission | `ripe-hostcount-hidden-output-files-on-ftp-ripe-net` |
 | 63,921 | 63,921 | ships | rule | `Write to Verisign, PIR or Nominet, or leave the RDAP route closed` |
-| 46,000 | 275,000 | stranded | download | `usenet-unread-hierarchies-server-header-hostnames` (store has a near name) |
 | 40,000 | 150,000 | stranded | download | `net-abuse-quoted-spam-received-by-relay-hosts` |
 | 35,856 | 35,856 | ships | rule | `The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it` |
 | 26,370 | 26,370 | ships | rule | `Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere` |
 | 25,000 | 110,000 | stranded | ingest | `spacekookie-google-groups-usenet-tarballs-server-header-hosts` (store has a near name) |
 | 16,958 | 16,958 | ships | ingest | `ia-poland-pl-cctld-extraction-2001-cdx-hostnames` (store has a near name) |
 | 13,437 | 200,662 | stranded | rerun | `usenethistorical-isp-hierarchy-nntp-posting-host-bulk` (store has a near name) |
+| 13,400 | 46,000 | stranded | download | `usenet-unread-hierarchies-server-header-hostnames` (store has a near name) |
 | 8,000 | 45,000 | stranded | ingest | `ietf-mail-archive-received-by` (store has a near name) |
 | 7,792 | 23,641 | ships | rule | `brief-audit-ns-target-candidate-disposition` |
 | 7,200 | 7,200 | ships | rule | `Put a third CDX collector in the dead availability engine's client slot, or leave it idle` |

@@ -46,6 +46,13 @@ The engine itself is sound and is safe to leave running: it counts the throttles
 back and backs off, so a sustained 429 no longer eats the queue (C-90 fix of 2026-09-18). It
 holds a 4,000,000 name queue and will start paying the moment the endpoint answers.
 
+**Run to exhaustion on 2026-09-19 and it is total.** The engine was started at 05:21 CEST
+against a 12:00 deadline and exited reporting `asked 0  exact 0  variant 0  empty 0
+throttled 1,562`: one thousand five hundred and sixty two consecutive refusals over eight and
+a half hours and not one answer. The two output files are 61 and 66 bytes, which is an empty
+gzip. `asked 0` is the part that matters for the queue: the resume marker never advanced, so
+the 4,000,000 names are intact and the C-90 fix held under a sustained 429.
+
 **And it is not our address either.** The same request from the VPS, a different network that
 has never queried this endpoint, also answers 429. So the refusal is the endpoint's and is not
 something we can fix by rearranging our own clients: not by retiring a collector, not by moving
