@@ -96,7 +96,26 @@ def test_nothing_shaped_like_an_address_reaches_the_body(monkeypatch) -> None:
     )
     _, body = digest.compose(snapshot(), now=NOW.timestamp())
     assert "10.1.0.6" not in body
-    assert "open item(s) at or above the 5,000 EE floor" in body
+    assert "thing(s) only you can settle" in body
+
+
+def test_the_digest_carries_the_queue_s_own_header(tmp_path) -> None:
+    """A copy of the header here goes stale the day `queue.md` changes shape, and then it
+    renders a five-column header over four-column rows and the page's real header arrives
+    as the first row of data."""
+    page = tmp_path / "queue.md"
+    page.write_text(
+        "# Queue\n\nprose\n\n| EE | ships? | asks for | what |\n"
+        "|---:|---|---|---|\n"
+        "| 9,000 | ships | rule | `one` |\n"
+        "| 8,000 | ships | rule | `two` |\n",
+        encoding="utf-8",
+    )
+    count, lines = digest.queue_top(limit=1, page=page)
+    assert count == 2, "the header is not an item"
+    assert lines[0] == "| EE | ships? | asks for | what |"
+    assert lines[1].startswith("|---")
+    assert lines[2:] == ["| 9,000 | ships | rule | `one` |"]
 
 
 def test_a_brief_without_the_window_still_composes(monkeypatch) -> None:

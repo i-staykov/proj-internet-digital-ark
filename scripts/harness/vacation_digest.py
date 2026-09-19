@@ -100,18 +100,25 @@ def queue_top(limit: int = 5, page: Path | None = None) -> tuple[int, list[str]]
     low-estimate EE, and it is the one list Ivo decides from (his ruling of 2026-09-19).
     A second ranking on this surface would be a second list, which is the thing he asked
     to stop having.
+
+    **The header comes off the page too, never from a copy here.** This held its own
+    `| EE low | EE high | ...` header and skipped the page's by matching that same text, so
+    when `queue.md` moved to one measured `EE` column on 2026-09-19 the copy would have
+    rendered a five-column header over four-column rows, and the page's own header would
+    have arrived as the first row of data.
     """
     page = page or ROOT / "docs/registers/queue.md"
     try:
         text = page.read_text(encoding="utf-8")
     except OSError:
         return 0, []
-    rows = [
-        line
-        for line in text.splitlines()
-        if line.startswith("| ") and "|---" not in line and not line.startswith("| EE low")
-    ]
-    return len(rows), rows[:limit]
+    table = [line for line in text.splitlines() if line.startswith("|")]
+    head = [line for line in table if "|---" in line]
+    if not head:
+        return 0, []
+    cut = table.index(head[0])
+    header, rows = table[: cut + 1], table[cut + 1 :]
+    return len(rows), header + rows[:limit]
 
 
 def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
@@ -201,11 +208,9 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
     open_count, top = queue_top()
     if top:
         lines += [
-            f"**{open_count} open item(s) at or above the 5,000 EE floor**, biggest first. "
+            f"**{open_count} thing(s) only you can settle**, biggest first. "
             "The whole list is `docs/registers/queue.md`:",
             "",
-            "| EE low | EE high | ships? | asks for | what |",
-            "|---:|---:|---|---|---|",
         ]
         lines += top
         lines += [""]
