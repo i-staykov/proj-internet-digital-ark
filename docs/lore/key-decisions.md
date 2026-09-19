@@ -7,6 +7,24 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Put a third CDX collector in the dead availability engine's client slot, or leave it idle
+
+Rule 6 caps archive clients at three and allocates them: two on `web.archive.org/cdx` and
+the third the availability engine on `archive.org/wayback/available`. The engine has answered
+429 to every request since 2026-09-17 and is not coming back without a letter, so we are
+running two of three. The third slot is idle, not spent.
+
+A third CDX collector would use it at the register's own measured price for one collector,
+about 300 EE/hour of shippable annual evidence. Journal production is 390 to 450 files an hour
+on two clients, so a third is a third more of that.
+
+**This is a reallocation, not a relaxation.** The cap of three is what the rule protects and it
+would still hold. But the rule names the allocation as well as the number, so changing it is
+Ivo's and not the loop's, and it should be reversed the day the engine answers again.
+
+Worth: 7,200 EE a day while the engine stays dark, on the 300 EE/hour the register measured
+when it priced retiring one.
+
 ### The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it
 
 `archive.org/wayback/available` answers **429 to every request** and has done for at least
@@ -48,9 +66,13 @@ of one track and never offered to the other.
 
 Measured 2026-09-19 against the live store: **2,095,426 hostname-year rows** are excluded by the
 XIII screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
-**29,446 rows and 26,369.5 EE are net-new and ship nowhere**. The largest classes are
-`usenet_body_url` (1,199,170 rows), `usenet_server_written_header` (787,819),
-`usfedgov_extract_hostgrain` (57,987) and `ietf_list_received_by` (22,731).
+**29,446 rows and 26,369.5 EE are net-new and ship nowhere**.
+
+**It is one class, not a policy area.** Of that net-new figure, `usenet_server_written_header`
+is 26,343.6 EE over 29,405 rows and everything else together is 26 EE:
+`ietf_list_received_by` 15.1, `usenet_body_url` 9.9, `dated_blocklist_release` 0.9. So the
+question is answerable as a single yes or no about the Usenet server-written header family,
+which C-83 already settled the reading of and which you approved as master on 2026-09-10.
 
 His brief already names the shape: raw ISC hostname lists are "preserved as a separate,
 provenance-linked candidate collection, alongside but distinct from candidate_pool.txt and the

@@ -218,10 +218,11 @@ def render(rows: list[dict], checked: bool = True) -> str:
         "Never hand-edit: an edit here is lost on the next sync, and the lead file is",
         "the thing the dealer reads.",
         "",
-        f"**{len(over)} open item(s) at or above the {FLOOR:,.0f} EE floor**, ranked on the LOW",
-        "estimate, which is what a leg stood behind. The high figure is a projection and has been",
-        "wrong by five orders of magnitude. Both tracks score at the same rate, so a candidate",
-        f"counts like a master. {under} live lead(s) fall under the floor and are not listed.",
+        f"**{len(over)} open item(s) that clear the {FLOOR:,.0f} EE floor on EITHER estimate**,",
+        "ranked on the LOW one, which is what a leg stood behind. A row whose low is under the",
+        "floor is here because its high is over it, and the high has been wrong by five orders",
+        "of magnitude before now. Both tracks score at the same rate, so a candidate counts",
+        f"like a master. {under} live lead(s) clear it on neither and are not listed.",
         "",
     ]
     # **The decisions, not the leads.** 22 rows is not a thing anyone decides; four asks
@@ -272,8 +273,8 @@ def render(rows: list[dict], checked: bool = True) -> str:
     if any(r["held"] == "similar" for r in over):
         out += [
             "",
-            "`similar` means the store already holds a name close to this one. It is a "
-            "guess, not a match: check before spending a decision on it.",
+            "**(store has a near name)** means the store already holds a name close to this "
+            "one. It is a guess, not a match, so check before spending a decision on it.",
         ]
     out += ["", "## What each ask means", ""]
     for name, text in (
