@@ -6,6 +6,9 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| arquivo-pt-dadosabertos-and-govpt-portal-route-sweep / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. |  |
+| candidate-bulk scout: openpgp-sks-keyserver-bulk-export-check / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. CLOSED |  |
+| curated-subject-directory-and-search-front-end-sweep / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens archived-web-directories.. CLOSED. |  |
 | candidate-bulk-live-lookup-directory-services-sweep / unclassified | 2026-09-19, fleet 20260919T1306Z | not priced | lens no lens recorded. |  |
 | custodian-run-national-archive-link-graph-byproduct-sweep / unclassified | 2026-09-19, fleet 20260919T1306Z | not priced | lens no lens recorded. |  |
 | candidate-bulk-hostname-grain-dns-survey-and-cgi-search-sweep / unclassified | 2026-09-19, fleet 20260919T1206Z | not priced | lens no lens recorded. CLOSED. |  |
