@@ -9,6 +9,8 @@ estimate, which is what a leg stood behind. The high figure is a projection and 
 wrong by five orders of magnitude. Both tracks score at the same rate, so a candidate
 counts like a master. 2 live lead(s) fall under the floor and are not listed.
 
+**12 of these 22 items, 157,109 EE at the low estimate, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. Until that is decided, working any of them adds rows to the store and nothing to the claim.
+
 ## Decide these, biggest first
 
 - **rule**, 5 lead(s), 137,210 to 155,787 EE. Biggest: `Write to Verisign, PIR or Nominet, or leave the RDAP route closed`.
@@ -20,30 +22,30 @@ counts like a master. 2 live lead(s) fall under the floor and are not listed.
 
 ## Every live lead above the floor
 
-| EE low | EE high | asks for | what | store |
+| EE low | EE high | ships? | asks for | what |
 |---:|---:|---|---|---|
-| 100,000 | 353,308 | permission | `ripe-hostcount-hidden-output-files-on-ftp-ripe-net` | new |
-| 63,921 | 63,921 | rule | `Write to Verisign, PIR or Nominet, or leave the RDAP route closed` | new |
-| 56,000 | 225,000 | review | `jisc-uk-host-link-graph-targets` | similar |
-| 46,000 | 275,000 | download | `usenet-unread-hierarchies-server-header-hostnames` | similar |
-| 40,000 | 150,000 | download | `net-abuse-quoted-spam-received-by-relay-hosts` | new |
-| 35,856 | 35,856 | rule | `The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it` | new |
-| 26,370 | 26,370 | rule | `Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere` | new |
-| 25,000 | 110,000 | ingest | `spacekookie-google-groups-usenet-tarballs-server-header-hosts` | similar |
-| 16,958 | 16,958 | ingest | `ia-poland-pl-cctld-extraction-2001-cdx-hostnames` | similar |
-| 13,437 | 200,662 | rerun | `usenethistorical-isp-hierarchy-nntp-posting-host-bulk` | similar |
-| 8,000 | 45,000 | ingest | `ietf-mail-archive-received-by` | similar |
-| 7,792 | 23,641 | rule | `brief-audit-ns-target-candidate-disposition` | new |
-| 6,000 | 37,000 | download | `edrm-enron-v2-eml-received-relay-hosts` | new |
-| 5,000 | 40,000 | download | `fatcat-file-export-wayback-urls-1996-2001-scholar-hosts` | similar |
-| 5,000 | 30,000 | download | `isc-usenet-control-message-archive-injecting-server-hosts` | similar |
-| 4,000 | 15,000 | ingest | `ipac-2mass-irsa-monthly-analog-host-reports-1998-2001` | similar |
-| 3,400 | 12,000 | download | `arxiv-bulk-src-ia-mirror-author-mail-hosts` | new |
-| 3,272 | 6,000 | rule | `google-books-ngram-v2-1gram-w-shard-hostname-tokens-year-counts` | new |
-| 3,000 | 20,000 | download | `untroubled-spam-trap-archive-received-relay-hosts-1998-2001` | new |
-| 2,500 | 8,262 | download | `crossref-reference-url-hostnames-1996-2001` | similar |
-| 2,500 | 6,000 | download | `usenet-path-relay-hops-intermediate-servers` | similar |
-| 1,500 | 26,000 | download | `rpm-buildhost-buildtime-package-universe` | new |
+| 100,000 | 353,308 | ships | permission | `ripe-hostcount-hidden-output-files-on-ftp-ripe-net` |
+| 63,921 | 63,921 | ships | rule | `Write to Verisign, PIR or Nominet, or leave the RDAP route closed` |
+| 56,000 | 225,000 | ? | review | `jisc-uk-host-link-graph-targets` (store has a near name) |
+| 46,000 | 275,000 | stranded | download | `usenet-unread-hierarchies-server-header-hostnames` (store has a near name) |
+| 40,000 | 150,000 | stranded | download | `net-abuse-quoted-spam-received-by-relay-hosts` |
+| 35,856 | 35,856 | ships | rule | `The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it` |
+| 26,370 | 26,370 | ships | rule | `Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere` |
+| 25,000 | 110,000 | stranded | ingest | `spacekookie-google-groups-usenet-tarballs-server-header-hosts` (store has a near name) |
+| 16,958 | 16,958 | ships | ingest | `ia-poland-pl-cctld-extraction-2001-cdx-hostnames` (store has a near name) |
+| 13,437 | 200,662 | stranded | rerun | `usenethistorical-isp-hierarchy-nntp-posting-host-bulk` (store has a near name) |
+| 8,000 | 45,000 | stranded | ingest | `ietf-mail-archive-received-by` (store has a near name) |
+| 7,792 | 23,641 | ships | rule | `brief-audit-ns-target-candidate-disposition` |
+| 6,000 | 37,000 | stranded | download | `edrm-enron-v2-eml-received-relay-hosts` |
+| 5,000 | 40,000 | ships | download | `fatcat-file-export-wayback-urls-1996-2001-scholar-hosts` (store has a near name) |
+| 5,000 | 30,000 | stranded | download | `isc-usenet-control-message-archive-injecting-server-hosts` (store has a near name) |
+| 4,000 | 15,000 | ? | ingest | `ipac-2mass-irsa-monthly-analog-host-reports-1998-2001` (store has a near name) |
+| 3,400 | 12,000 | stranded | download | `arxiv-bulk-src-ia-mirror-author-mail-hosts` |
+| 3,272 | 6,000 | stranded | rule | `google-books-ngram-v2-1gram-w-shard-hostname-tokens-year-counts` |
+| 3,000 | 20,000 | stranded | download | `untroubled-spam-trap-archive-received-relay-hosts-1998-2001` |
+| 2,500 | 8,262 | ? | download | `crossref-reference-url-hostnames-1996-2001` (store has a near name) |
+| 2,500 | 6,000 | stranded | download | `usenet-path-relay-hops-intermediate-servers` (store has a near name) |
+| 1,500 | 26,000 | stranded | download | `rpm-buildhost-buildtime-package-universe` |
 
 `similar` means the store already holds a name close to this one. It is a guess, not a match: check before spending a decision on it.
 

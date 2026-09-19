@@ -38,6 +38,20 @@ DECISIONS = REPO / "docs/lore/key-decisions.md"
 CACHE = REPO / "data/banked_slugs.txt"
 FLOOR = 5000.0
 _WORTH = re.compile(r"^Worth:\s*[^\d-]*(-?[\d,]+(?:\.\d+)?)\s*EE", re.M)
+# Whether a class can reach either shipped file at all. Section XIII admits web evidence
+# to the annual masters, and the candidate claim is registrable domains plus the ISC
+# hostnames, so a hostname-grain mail, Usenet or DNS record reaches neither. Matched on
+# the scout's own free-text class, so it is a signal and not a gate.
+_STRANDED = re.compile(
+    r"mail|usenet|relay|received|nntp|posting|header|dns|whois|rdap|ngram|"
+    r"book_mention|author_mail|buildhost",
+    re.I,
+)
+_SHIPS = re.compile(
+    r"cdx|capture|link.?graph|web.?archive|timemap|geoindex|crawl_timestamp|wayback|"
+    r"artifact_listing|dated_directory|registry|cctld",
+    re.I,
+)
 
 # What Ivo is actually being asked for, coarsest first. A lead's `blocked_on` is free
 # text written by a scout, so it is matched rather than parsed.
@@ -113,6 +127,13 @@ def held_state(slug: str, held: set[str]) -> str:
     return ""
 
 
+def _track(evidence_class: str) -> str:
+    """ "stranded" if nothing this class writes can reach a shipped file today."""
+    if _STRANDED.search(evidence_class):
+        return "stranded"
+    return "ships" if _SHIPS.search(evidence_class) else "?"
+
+
 def leads(fleet: Path, held: set[str]) -> list[dict]:
     live = []
     for path in sorted((fleet / "leads").glob("*.json")):
@@ -143,6 +164,7 @@ def leads(fleet: Path, held: set[str]) -> list[dict]:
                 "ask": ask_of(blocked) if blocked else "ingest",
                 "class": str(doc.get("evidence_class") or "").split("(")[0].strip(),
                 "held": state,
+                "track": _track(str(doc.get("evidence_class") or "")),
             }
         )
     return sorted(live, key=lambda r: (-r["low"], -r["high"]))
@@ -180,6 +202,7 @@ def decisions(path: Path) -> list[dict]:
                 "ask": "rule",
                 "class": "decision in key-decisions.md",
                 "held": "",
+                "track": "ships",
             }
         )
     return out
@@ -208,6 +231,17 @@ def render(rows: list[dict], checked: bool = True) -> str:
     for r in over:
         by_ask.setdefault(r["ask"], []).append(r)
     ranked = sorted(by_ask.items(), key=lambda kv: -sum(x["low"] for x in kv[1]))
+    stranded = [r for r in over if r["track"] == "stranded"]
+    if stranded:
+        out += [
+            f"**{len(stranded)} of these {len(over)} items, "
+            f"{sum(r['low'] for r in stranded):,.0f} EE at the low estimate, are in classes "
+            "that ship NOWHERE today.** A hostname-year that "
+            "Section XIII keeps out of the annual masters has no candidate file to fall into: the "
+            "candidate claim is registrable domains plus the ISC hostnames and nothing else. Until "
+            "that is decided, working any of them adds rows to the store and nothing to the claim.",
+            "",
+        ]
     out += ["## Decide these, biggest first", ""]
     for ask, rows_for in ranked:
         low = sum(x["low"] for x in rows_for)
@@ -221,13 +255,13 @@ def render(rows: list[dict], checked: bool = True) -> str:
         "",
         "## Every live lead above the floor",
         "",
-        "| EE low | EE high | asks for | what | store |",
+        "| EE low | EE high | ships? | asks for | what |",
         "|---:|---:|---|---|---|",
     ]
     for r in over:
         out.append(
-            f"| {r['low']:,.0f} | {r['high']:,.0f} | {r['ask']} "
-            f"| `{r['slug']}` | {r['held'] or 'new'} |"
+            f"| {r['low']:,.0f} | {r['high']:,.0f} | {r['track']} | {r['ask']} "
+            f"| `{r['slug']}`{' (store has a near name)' if r['held'] else ''} |"
         )
     if not checked:
         out += [

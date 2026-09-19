@@ -59,7 +59,13 @@ candidates rather than annual evidence. We built that collection for ISC only. H
 hostname grain on 2026-09-05 and kept the provenance-linked collection, so he is cautious here
 and this is his call, not ours.
 
-Worth: 26,369.5 EE now, and it is what makes the Usenet header and mail relay lanes ship at all.
+**It is also most of the queue.** 12 of the 22 live leads at or above the floor are in classes
+this decision governs, 157,109 EE at their own low estimates: every Usenet header, mail relay,
+spam-trap and NNTP lead the fleet keeps finding. Until it is settled, working any of them adds
+rows to the store and nothing to the claim, which is what happened on 2026-09-19.
+
+Worth: 26,369.5 EE measured and already in the store, and it gates the 157,109 EE of leads above.
+The two figures are not added here because one is measured and the other is a scout's estimate.
 It needs an ADR before the export changes, since it changes what travels in the delivery.
 
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
