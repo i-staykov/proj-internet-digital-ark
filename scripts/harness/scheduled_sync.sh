@@ -17,6 +17,18 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
+# **Machine-local config, the same file `collectors.sh` and `maintain.sh` read.** Without
+# it this wrapper ran on the packaged defaults, and `build_round_state.py` died on
+# 2026-09-19 at the 40% cap: `Out of Memory Error: could not allocate block of size
+# 256.0 KiB (13.0 GiB/13.0 GiB used)` inside `stats.py::_corroboration`. That cap was
+# measured right when the store was 52 GB and it is 61 GB now, so the laptop sets
+# ARK_DB_MEMORY_LIMIT here rather than raising a default the 7 GB VPS also reads.
+# Sourcing alone is not enough: `local.env` assigns without `export`, so the value is a
+# shell variable this wrapper can read and every `uv run` child still gets the default.
+# Only this one is exported, so the VPS address stays out of child environments.
+[ -f local.env ] && . ./local.env
+[ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
