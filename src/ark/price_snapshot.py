@@ -322,13 +322,15 @@ def _tally(rows: list[tuple]) -> dict:
     exact to four decimal places and binary floating point does not reproduce them.
     """
     weights = english_weights()
-    total = Decimal(0)
+    total = host_ee = Decimal(0)
     pairs = via_www = hostnames = parent_held = 0
     by_year: dict[int, dict[str, object]] = {}
     by_tld: dict[str, dict[str, object]] = {}
-    for year, tld, count, aliases, hosts, held_parents in rows:
+    for year, tld, kind, count, aliases, hosts, held_parents in rows:
         weight = weights.get(tld, Decimal(0)) * count
         total += weight
+        if kind == "hostname":
+            host_ee += weight
         pairs += count
         via_www += aliases
         hostnames += hosts
@@ -354,19 +356,27 @@ def _tally(rows: list[tuple]) -> dict:
         "www_alias_share": round(via_www / pairs, 4) if pairs else 0.0,
         "parent_held_share": round(parent_held / hostnames, 4) if hostnames else 0.0,
         "hostname_records": hostnames,
+        # **What of this figure is hostname grain**, which on the candidate track is the
+        # part that does not ship. `export.py` builds the candidate pool from registrable
+        # domains plus the ISC survey hostnames and nothing else, while the candidate
+        # filter here admits any name that is not `.arpa` and not already held. So a
+        # hostname-grain source prices here and exports nowhere, and a leg that quotes the
+        # headline alone reports EE the claim will never contain: `ddn-hosts-txt` was
+        # confirmed at 6,401.3 EE this way on 2026-09-19 and ships 0.
+        "ee_hostname": f"{host_ee:.4f}",
     }
 
 
 def _grouped(conn: duckdb.DuckDBPyConnection, where: str, held_parent: str) -> list[tuple]:
     return conn.execute(
         f"""
-        SELECT r.year, lower(split_part(r.name, '.', -1)) AS tld, count(*),
+        SELECT r.year, lower(split_part(r.name, '.', -1)) AS tld, r.kind, count(*),
                sum(CASE WHEN r.via_www THEN 1 ELSE 0 END),
                sum(CASE WHEN r.kind = 'hostname' THEN 1 ELSE 0 END),
                sum(CASE WHEN r.kind = 'hostname' AND {held_parent} THEN 1 ELSE 0 END)
         FROM rec r
         WHERE {where}
-        GROUP BY 1, 2
+        GROUP BY 1, 2, 3
         """
     ).fetchall()
 

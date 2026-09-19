@@ -238,6 +238,35 @@ def test_the_candidate_track(tmp_path: Path) -> None:
     assert priced["counts"]["already_held"] == 1
 
 
+def test_the_candidate_figure_says_how_much_of_it_is_hostname_grain(tmp_path: Path) -> None:
+    """The half that does not ship must be visible in the figure that quotes it.
+
+    `export.py` fills the candidate pool with registrable domains plus the ISC survey
+    hostnames and nothing else, while the filter here admits any name not already held. So
+    a hostname-grain source prices high and exports nothing, and a leg quoting the headline
+    alone reports EE the claim will never contain. `ddn-hosts-txt` was confirmed at
+    6,401.3 EE on 2026-09-19 that way and ships zero.
+    """
+    snapshot = _snapshot(tmp_path, held={1996: ["annual.com"]})
+    items = _items(
+        tmp_path / "items.jsonl",
+        [{"host": "plain.com"}, {"host": "deep.inside.com"}],
+    )
+    priced = price(snapshot, items, track="candidate")
+    assert priced["netnew_pairs"] == 2
+    assert priced["ee"] == f"{COM * 2:.4f}"
+    # Exactly one of the two is a hostname, so exactly half the figure is unshippable.
+    assert priced["ee_hostname"] == f"{COM:.4f}"
+    assert priced["hostname_records"] == 1
+
+
+def test_a_registrable_only_figure_reports_no_stranded_half(tmp_path: Path) -> None:
+    snapshot = _snapshot(tmp_path, held={1996: ["annual.com"]})
+    items = _items(tmp_path / "items.jsonl", [{"host": "one.com"}, {"host": "two.com"}])
+    priced = price(snapshot, items, track="candidate")
+    assert priced["ee_hostname"] == "0.0000"
+
+
 def test_a_zero_line_file_refuses_the_build(tmp_path: Path) -> None:
     """An empty held-set prices every name as net-new, so it is fatal at build time."""
     empty = _write(tmp_path / "1996.txt", [])
