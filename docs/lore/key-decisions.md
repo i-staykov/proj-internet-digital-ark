@@ -7,6 +7,61 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it
+
+`archive.org/wayback/available` answers **429 to every request** and has done for at least
+two days: the 2026-09-18 runs wrote 61 bytes and 0 bytes. It is the third archive client under
+C-88 and the best shippable earner we have, 1,494 net-new EE/hour against about 300 for one CDX
+collector, so it is the largest single loss in the lane right now.
+
+**It is the endpoint, not our budget.** Measured 2026-09-19 in the same second, same IP, same
+honest User-Agent: `archive.org/metadata` answers 200 and `archive.org/wayback/available`
+answers 429. Nothing else we do on archive.org is refused, and `archive.org/download` served
+8.5 GB tonight without one refusal.
+
+That matters because CLAUDE.md rule 6 says "on throttling, retire a CDX collector, never the
+engine", which assumes the two share a budget. Here they do not, so the trade cannot buy
+anything. One collector was retired to test it and recovered nothing; the supervisor restores it
+at the end of the window by itself.
+
+The engine itself is sound and is safe to leave running: it counts the throttles, puts the name
+back and backs off, so a sustained 429 no longer eats the queue (C-90 fix of 2026-09-18). It
+holds a 4,000,000 name queue and will start paying the moment the endpoint answers.
+
+**And it is not our address either.** The same request from the VPS, a different network that
+has never queried this endpoint, also answers 429. So the refusal is the endpoint's and is not
+something we can fix by rearranging our own clients: not by retiring a collector, not by moving
+the lane, not by slowing down.
+
+Worth: 35,856 EE for every day it stays dark, at the measured 1,494 EE/hour of shippable
+annual evidence. It has been dark since 2026-09-17. The only lever left
+is to ask Internet Archive about the limit on that endpoint, which is a letter, not a code
+change. Until then the engine stays up and costs nothing: it backs off, keeps its 4,000,000 name
+queue intact and starts paying the moment the endpoint answers.
+
+### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
+
+A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
+candidate claim in `export.py` is built from registrable domains with no year, plus the ISC
+survey hostnames and nothing else, so every other hostname-grain record we hold is screened out
+of one track and never offered to the other.
+
+Measured 2026-09-19 against the live store: **2,095,426 hostname-year rows** are excluded by the
+XIII screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
+**29,446 rows and 26,369.5 EE are net-new and ship nowhere**. The largest classes are
+`usenet_body_url` (1,199,170 rows), `usenet_server_written_header` (787,819),
+`usfedgov_extract_hostgrain` (57,987) and `ietf_list_received_by` (22,731).
+
+His brief already names the shape: raw ISC hostname lists are "preserved as a separate,
+provenance-linked candidate collection, alongside but distinct from candidate_pool.txt and the
+annual master files" (IV/V), and section XIII makes DNS, registry, mail and Usenet records
+candidates rather than annual evidence. We built that collection for ISC only. He refused ISC at
+hostname grain on 2026-09-05 and kept the provenance-linked collection, so he is cautious here
+and this is his call, not ours.
+
+Worth: 26,369.5 EE now, and it is what makes the Usenet header and mail relay lanes ship at all.
+It needs an ADR before the export changes, since it changes what travels in the delivery.
+
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
 Ask Nominet, through `registrars.nominet.uk` and never `data-release@nominet.uk`, for a two-column extract, domain name and registration date, for `.uk` names registered before 1 January 2002. No registrant data, so it falls outside their personal-data-only Data Release Policy, and they hold the whole window (`demon.co.uk` dated 1996-05-05, inherited with the Naming Committee register). Every registry queried by RDAP forbids high-volume automated querying inside its own responses, so a written permission is the only thing that reopens that channel.

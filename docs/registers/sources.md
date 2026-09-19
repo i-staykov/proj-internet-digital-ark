@@ -5334,6 +5334,43 @@ approved."** He asked in the same breath whether the size objection that had clo
 - collect: `uv run python scripts/sources/usenet/build_usenet_header_pool.py <pool> <out> <n>`;
   ingest with `uv run ark ingest-usenet-header-hostnames <out>`
 
+## `usenet_header_fqdn_hostnames`, the never-read partitions: 25,030.2270 EE from the English hierarchies, and the demon band was 20x optimistic
+
+The entry above closes with two predictions. Both were tested on 2026-09-19 by fetching the
+artifacts rather than reasoning about them, and one of them is wrong.
+
+- **the English-speaking hierarchies, never read for HEADERS.** `usenet-aus`, `usenet-nz`,
+  `usenet-can` and `usenet-za` were read for body URLs and the zips were streamed and discarded,
+  so the header lane had never seen them. 8.51 GB over 378 group zips, fetched from
+  `https://archive.org/download/usenet-aus/`, `.../usenet-nz/`, `.../usenet-can/` and
+  `.../usenet-za/`. 4,481,948 posts, 1,414,625 inside 1996-2001, 558,691 carrying a
+  server-written host, yielding **71,154 distinct (host, year) pairs over 61,362 hosts**
+- **priced against the pushed snapshot, not the store**: `merged260917-2`, `built_at`
+  `2026-09-19T01:37:10+00:00`, manifest sha
+  `57fb9a4848f531a9ea280596e1c9d949f173ee52f46214004e445730474224f1`. **27,567 net-new pairs and
+  25,030.2270 EE** on the annual track, 43,233 of the 71,154 already held. The candidate track on
+  the za/nz/can subset measured 3,911.7620 EE, so the two tracks are not additive and the annual
+  figure is the one quoted. By year: 14,915 at 2001, 8,759 at 2000, 3,160 at 1999, 725 at 1998
+- **the yield per byte is not uniform and a projection off one hierarchy would have been wrong
+  either way**: `za` gave 39 pairs per MB, `nz` 12.7, `can` 4.1, `aus` 10.0. The ccTLD mix is
+  why: `.nz` 7,899 pairs, `.net` 5,104, `.com` 3,964, `.za` 1,347, `.ca` 1,189, `.au` 750
+- **`demon.*` measured at 1,167.9567 EE, against the 20,000 to 60,000 EE band the entry above
+  records.** The whole item was fetched, `https://archive.org/download/usenet-demon/`, 58 zips
+  and 792,780,475 bytes, 1,370,115 posts of which 801,294 are in window and 437,611 carry a
+  host. That is 9,586 pairs, of which 7,768 were already held: **81% saturation**, because the
+  general spool already banked in this class is full of the same Demon news servers. The band
+  was measured before that spool was read and nothing re-measured it afterwards
+- **what dates one item** is unchanged from the entry above, and the extractor is the same file,
+  so the two partitions are comparable: the post's own `Date:` header read beside the
+  server-written clause the host came out of. `www_alias_share` 0.0 on every pass
+- **the discovery value is at hostname grain only.** `parent_held_share` is 0.999, so these are
+  additions under parents the store already holds, and the registrable-domain count barely
+  moves. His 0906 update asks for the two reported separately, which is why it is said here
+- collect: `build_usenet_header_pool.py <zipdir> <out> <n>`, then
+  `uv run ark ingest-usenet-header-hostnames <out>`. `usenet-uk`, 495 zips and 14.48 GB, is the
+  last unfetched half of the pair the class was originally measured on
+
+
 ## `poland_pl_extract_hostnames`: BANKED 2026-09-10 at 15,798.4430 EE, and the terms question that had to go to Ivo
 
 **Ivo, 2026-09-10: "I absolutely approve Poland_pl-ccTLD_2001-12-31 /

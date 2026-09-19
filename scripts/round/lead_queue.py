@@ -31,7 +31,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "docs/registers/queue.md"
 STORE = REPO / "data/ark.duckdb"
+DECISIONS = REPO / "docs/lore/key-decisions.md"
+# Written whenever the store can be read, so a locked store costs freshness and not the
+# check itself. The hourly sync holds the write lock about half of every hour, and a
+# silently skipped check puts banked sources back in front of Ivo.
+CACHE = REPO / "data/banked_slugs.txt"
 FLOOR = 5000.0
+_WORTH = re.compile(r"^Worth:\s*[^\d-]*(-?[\d,]+(?:\.\d+)?)\s*EE", re.M)
 
 # What Ivo is actually being asked for, coarsest first. A lead's `blocked_on` is free
 # text written by a scout, so it is matched rather than parsed.
@@ -64,6 +70,8 @@ def banked(store: Path) -> set[str]:
 
         conn = duckdb.connect(str(store), read_only=True)
     except Exception:
+        if CACHE.is_file():
+            return set(CACHE.read_text(encoding="utf-8").split())
         return set()
     out: set[str] = set()
     try:
@@ -78,6 +86,8 @@ def banked(store: Path) -> set[str]:
         return out
     finally:
         conn.close()
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    CACHE.write_text("\n".join(sorted(out)) + "\n", encoding="utf-8")
     return out
 
 
@@ -91,9 +101,15 @@ def held_state(slug: str, held: set[str]) -> str:
     """
     if slug in held:
         return "banked"
-    parts = [p for p in slug.split("-") if len(p) > 3]
-    if len(parts) >= 3 and any(sum(p in name for p in parts) >= 3 for name in held):
-        return "similar"
+    parts = {p for p in slug.split("-") if len(p) > 3}
+    for name in held:
+        # Both directions, because either side may be the longer word: the ingest wrote
+        # `poland_pl_extract_hostgrain` where the scout wrote `...-extraction-...`, and a
+        # one-way `part in name` test scores that 1 and calls a banked source new.
+        others = {q for q in name.split("-") if len(q) > 3}
+        overlap = sum(any(p in q or q in p for q in others) for p in parts)
+        if overlap >= 2:
+            return "similar"
     return ""
 
 
@@ -132,7 +148,44 @@ def leads(fleet: Path, held: set[str]) -> list[dict]:
     return sorted(live, key=lambda r: (-r["low"], -r["high"]))
 
 
-def render(rows: list[dict]) -> str:
+def decisions(path: Path) -> list[dict]:
+    """The repository's own open asks, read from the OPEN block of `key-decisions.md`.
+
+    They belong in the same list as the fleet's leads because they compete for the same
+    thing, which is one person's attention, and some of them are worth more than any lead.
+    Each carries its own `Worth: <n> EE` line; one without a figure is not ranked here.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    start = text.find("## OPEN")
+    if start < 0:
+        return []
+    body = text[start : text.find("## CLOSED", start) if "## CLOSED" in text else len(text)]
+    out = []
+    for block in re.split(r"\n(?=### )", body)[1:]:
+        title = block.split("\n", 1)[0].removeprefix("### ").strip()
+        found = _WORTH.search(block)
+        if not found:
+            continue
+        worth = abs(float(found.group(1).replace(",", "")))
+        out.append(
+            {
+                "slug": title,
+                "status": "open",
+                "low": worth,
+                "high": worth,
+                "blocked": "rule",
+                "ask": "rule",
+                "class": "decision in key-decisions.md",
+                "held": "",
+            }
+        )
+    return out
+
+
+def render(rows: list[dict], checked: bool = True) -> str:
     over = [r for r in rows if max(r["low"], r["high"]) >= FLOOR]
     under = len(rows) - len(over)
     out = [
@@ -142,7 +195,7 @@ def render(rows: list[dict]) -> str:
         "Never hand-edit: an edit here is lost on the next sync, and the lead file is",
         "the thing the dealer reads.",
         "",
-        f"**{len(over)} live lead(s) at or above the {FLOOR:,.0f} EE floor**, ranked on the LOW",
+        f"**{len(over)} open item(s) at or above the {FLOOR:,.0f} EE floor**, ranked on the LOW",
         "estimate, which is what a leg stood behind. The high figure is a projection and has been",
         "wrong by five orders of magnitude. Both tracks score at the same rate, so a candidate",
         f"counts like a master. {under} live lead(s) fall under the floor and are not listed.",
@@ -168,7 +221,7 @@ def render(rows: list[dict]) -> str:
         "",
         "## Every live lead above the floor",
         "",
-        "| EE low | EE high | asks for | lead | store |",
+        "| EE low | EE high | asks for | what | store |",
         "|---:|---:|---|---|---|",
     ]
     for r in over:
@@ -176,6 +229,12 @@ def render(rows: list[dict]) -> str:
             f"| {r['low']:,.0f} | {r['high']:,.0f} | {r['ask']} "
             f"| `{r['slug']}` | {r['held'] or 'new'} |"
         )
+    if not checked:
+        out += [
+            "",
+            "**The store could not be read this run**, so nothing was dropped as banked and "
+            "the `store` column is not to be trusted here.",
+        ]
     if any(r["held"] == "similar" for r in over):
         out += [
             "",
@@ -215,7 +274,12 @@ def main() -> int:
     if not (args.fleet / "leads").is_dir():
         print(f"no leads/ under {args.fleet}")
         return 1
-    page = render(leads(args.fleet, banked(STORE)))
+    page = render(
+        sorted(
+            leads(args.fleet, banked(STORE)) + decisions(DECISIONS),
+            key=lambda r: (-r["low"], -r["high"]),
+        )
+    )
     if args.write:
         OUT.write_text(page, encoding="utf-8")
         print(f"wrote {OUT.relative_to(REPO)}, {len(page.splitlines())} lines")
