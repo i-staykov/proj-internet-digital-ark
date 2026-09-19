@@ -102,12 +102,12 @@ def clients() -> int:
 def triage_top(limit: int = 5, docs: list[Path] | None = None) -> tuple[int, list[tuple[int, str]]]:
     """(how many are open, the best `limit` of them).
 
-    Two pages, because the queue was split on 2026-09-03: new finds land in
-    `approved-sources-list.md` under its triage heading, and the backlog that was
-    already open moved to `hypotheses-pending.md`. Both carry the same `- potential:`
-    line, so both are read with the same parser and ranked together.
+    One page: new finds land in `approved-sources-list.md` under its triage heading and
+    carry a `- potential:` line. The backlog page was retired on 2026-09-19, all 50 of it
+    re-verified and closed under Ivo's 5,000 EE floor; what is still live is ranked by
+    measured EE in `queue.md`, which this does not parse.
     """
-    pages = docs or [ROOT / TRIAGE_DOC, ROOT / "docs/registers/hypotheses-pending.md"]
+    pages = docs or [ROOT / TRIAGE_DOC]
     open_ones: list[tuple[int, str]] = []
     for path in pages:
         if not path.is_file():

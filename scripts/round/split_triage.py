@@ -9,8 +9,8 @@ line wherever it sits, so moving a block changes no decision:
 - `rejected` blocks become one row each in `docs/registers/sources-closed.md` and leave a two-line
   stub (heading and `Decision: rejected`) in Decided, so `ark ingest` and the request
   generator keep refusing them; the full block stays in this file's history;
-- everything else, the pending blocks with whatever prose sits inside them, goes
-  verbatim to `docs/registers/hypotheses-pending.md`, which the owner moves to the fleet repository.
+- everything else, the pending blocks with whatever prose sits inside them, stays in
+  triage. One queue, one place; `queue.md` ranks what is worth deciding.
 
 Safe to run again when decided blocks accumulate in triage: rows and blocks are appended.
 
@@ -34,7 +34,6 @@ from ark.approvals import parse as parse_approvals  # noqa: E402
 
 DOC = Path("docs/registers/approved-sources-list.md")
 CLOSED = Path("docs/registers/sources-closed.md")
-PENDING = Path("docs/registers/hypotheses-pending.md")
 TRIAGE_HEADING = "## Found, awaiting triage"
 DECIDED_HEADING = "## Decided, with the request that was reviewed"
 CLOSED_COLUMNS = ("source", "date", "measured", "reason", "link")
@@ -265,7 +264,9 @@ def _blocks_text(blocks: list[Block]) -> str:
     return "".join(b.text.rstrip("\n") + "\n\n" for b in blocks)
 
 
-def rebuild_register(text: str, masters: list[Block], rejected: list[Block], today: str) -> str:
+def rebuild_register(
+    text: str, masters: list[Block], rejected: list[Block], kept: list[Block], today: str
+) -> str:
     before, _body, after = split_section(text, TRIAGE_HEADING)
     decided_before, decided_body, decided_after = split_section(before, DECIDED_HEADING)
     stubs = ""
@@ -276,28 +277,18 @@ def rebuild_register(text: str, masters: list[Block], rejected: list[Block], tod
             + "".join(f"### {b.key}\nDecision: rejected\n\n" for b in rejected)
         )
     decided_body = decided_body.rstrip("\n") + "\n\n" + _blocks_text(masters) + stubs
+    # **The undecided blocks stay here.** They used to move to a second page, which was a
+    # second place to look for one queue; Ivo's ruling of 2026-09-19 is that it lives in
+    # one place. What is worth his time is ranked by measured EE in generated `queue.md`.
     triage_body = (
-        f"\n\nEmptied on {today} by `scripts/round/split_triage.py`: decided blocks moved to "
-        "Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to "
-        "`hypotheses-pending.md`. New finds land here as `### key / etype` blocks carrying a "
+        f"\n\nSplit on {today} by `scripts/round/split_triage.py`: decided blocks moved to "
+        "Decided above, rejected ones to `sources-closed.md` behind a stub. Undecided blocks "
+        "stay below. New finds land here as `### key / etype` blocks carrying a "
         "`- potential:` line and a pending decision; `just triage-rank` sorts them.\n\n"
+        + _blocks_text(kept)
     )
     # `split_section` keeps each heading at the end of its `before` part.
     return decided_before + decided_body.rstrip("\n") + "\n\n" + decided_after + triage_body + after
-
-
-def pending_page(existing: str | None, preamble: str, kept: list[Block], today: str) -> str:
-    header = (
-        "# Hypotheses pending\n\n"
-        f"Open triage entries moved out of `approved-sources-list.md` on {today} by "
-        "`scripts/round/split_triage.py`, verbatim and in the order they had. Each is still "
-        "pending, so `ark ingest` refuses it until a request is raised again. This page moves "
-        "to the fleet repository; nothing in this repository reads it.\n\n"
-    )
-    body = existing.rstrip("\n") + "\n\n" if existing else header
-    if preamble.strip():
-        body += preamble.strip() + "\n\n"
-    return body + _blocks_text(kept).rstrip("\n") + "\n"
 
 
 def decisions_by_value(text: str) -> Counter:
@@ -313,7 +304,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--path", type=Path, default=DOC)
     parser.add_argument("--closed", type=Path, default=CLOSED)
-    parser.add_argument("--pending", type=Path, default=PENDING)
     parser.add_argument("--dry-run", action="store_true", help="report the split, write nothing")
     args = parser.parse_args()
     today = date.today().isoformat()
@@ -333,15 +323,9 @@ def main() -> int:
 
     table = legacy_table(body)
     rows = [closed_fields(b, table) for b in rejected]
-    register = rebuild_register(text, masters, rejected, today)
+    register = rebuild_register(text, masters, rejected, kept, today)
     closed = closed_page(
         args.closed.read_text(encoding="utf-8") if args.closed.exists() else None, rows, today
-    )
-    pending = pending_page(
-        args.pending.read_text(encoding="utf-8") if args.pending.exists() else None,
-        preamble,
-        kept,
-        today,
     )
 
     headings = re.findall(r"^## .*$", text, re.M)
@@ -357,11 +341,10 @@ def main() -> int:
 
     was, now = decisions_by_value(text), decisions_by_value(register)
     print(f"triage blocks: {len(blocks)} = {len(masters)} master + {len(rejected)} rejected")
-    print(f"  + {len(kept)} pending or unparsed, moving to {args.pending}")
+    print(f"  + {len(kept)} pending or unparsed, left in triage")
     lines_before = len(_DECISION_LINE.findall(text))
     lines_after = len(_DECISION_LINE.findall(register))
-    lines_moved = len(_DECISION_LINE.findall(pending))
-    print(f"Decision lines: {lines_before} before, {lines_after} after, {lines_moved} moved")
+    print(f"Decision lines: {lines_before} before, {lines_after} after")
     for value in ("master", "rejected", "pending", "candidate-only"):
         print(f"  {value:15} {was[value]:>4} -> {now[value]:>4}")
     for value in ("master", "rejected", "candidate-only"):
@@ -373,7 +356,7 @@ def main() -> int:
     if was["master"] != now["master"] or was["rejected"] != now["rejected"]:
         print("a master or rejected Decision line went missing", file=sys.stderr)
         return 1
-    if was["pending"] != now["pending"] + decisions_by_value(pending)["pending"]:
+    if was["pending"] != now["pending"]:
         print("a pending Decision line went missing", file=sys.stderr)
         return 1
     long_rows = [r for r in closed.splitlines() if len(r) > ROW_LIMIT]
@@ -387,8 +370,7 @@ def main() -> int:
 
     args.path.write_text(register, encoding="utf-8")
     args.closed.write_text(closed, encoding="utf-8")
-    args.pending.write_text(pending, encoding="utf-8")
-    print(f"wrote {args.path}, {args.closed} (+{len(rows)} rows), {args.pending} (+{len(kept)})")
+    print(f"wrote {args.path}, {args.closed} (+{len(rows)} rows); {len(kept)} left in triage")
     return 0
 
 

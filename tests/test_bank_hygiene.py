@@ -375,12 +375,9 @@ def test_a_page_a_program_wrote_warns_and_does_not_refuse() -> None:
     nobody was banking. They sit inside STAGED, so the sync that follows commits them,
     which is the flow the refusal was interrupting.
     """
-    fatal, warn = hyg.unsafe(
-        " M docs/lore/key-decisions.md\n M docs/registers/hypotheses-pending.md"
-        "\n M docs/registers/sources-closed.md"
-    )
+    fatal, warn = hyg.unsafe(" M docs/lore/key-decisions.md\n M docs/registers/sources-closed.md")
     assert fatal == [], "a machine-written page is nobody's work in progress"
-    assert len(warn) == 3
+    assert len(warn) == 2
 
     # the protection itself is unchanged: a human's edit under docs/ still refuses
     fatal, _ = hyg.unsafe(" M docs/lore/laws.md")

@@ -216,3 +216,23 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
     allowed = tmp_path / "fixture.py"
     allowed.write_text(f'STATUS = "== VPS ({fixture_login}) =="\n')
     assert not hygiene.scan([allowed]), "a documentation-range address is a legitimate fixture"
+
+
+def test_no_script_shadows_a_standard_library_module() -> None:
+    """`scripts/<dir>/` joins `sys.path` when anything in it runs, so a module named after
+    a standard one wins every import below it.
+
+    Measured 2026-09-19: `scripts/round/queue.py` shadowed `queue`, `urllib3` died on
+    `queue.LifoQueue` at import, and the hourly sync stopped banking for a cycle. The
+    failure is three libraries deep and says nothing about the file that caused it.
+    """
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    stdlib = set(sys.stdlib_module_names)
+    clashes = [
+        str(path.relative_to(root))
+        for path in (root / "scripts").rglob("*.py")
+        if path.stem in stdlib and "__pycache__" not in path.parts
+    ]
+    assert not clashes, f"these shadow a standard library module: {clashes}"

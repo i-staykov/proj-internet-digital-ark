@@ -40,6 +40,8 @@ SOURCES = (
     "| 10736.0 EE (2026-09-02) | crawl-fed, so novelty is low | 4 hours | PRICED "
     "| <https://example.org/beta> [detail](#beta-family) |\n"
     "\n"
+    "## `delta_family`: the delta listing\n\n"
+    "- what dates one item: the quarter, read from the index.\n\n"
     "## Detail\n\n"
     "### alpha-family\n\n"
     "**alpha_family (2026-09-01)**\n\n"
@@ -71,13 +73,15 @@ APPROVED = (
     "- what dates one item: the transfer stamp\n\n"
     "Decision: master\n"
     "Decided by Ivo, 2026-09-01.\n\n"
-    "### delta_family / artifact_listing\n\n"
+    "### epsilon_family / artifact_listing\n\n"
     "- what dates one item: the same stamp, read from the other endpoint\n\n"
     "Decision: candidate-only\n"
 )
 
-PENDING = (
-    "# Hypotheses pending\n\n"
+# The undecided blocks live in the register's own triage section since the backlog page
+# was retired on 2026-09-19, so the fixture puts them where the tool now reads them.
+TRIAGE = (
+    "\n## Found, awaiting triage\n\n"
     "### delta_family / artifact_listing\n\n"
     "- measured: 1328.31 net-new post-split EE over 1,998 pairs\n"
     "- what dates one item: the quarter the report covers\n\n"
@@ -98,8 +102,7 @@ def register(tmp_path):
     docs.mkdir(parents=True)
     (docs / "sources.md").write_text(SOURCES, encoding="utf-8")
     (docs / "sources-closed.md").write_text(CLOSED, encoding="utf-8")
-    (docs / "approved-sources-list.md").write_text(APPROVED, encoding="utf-8")
-    (docs / "hypotheses-pending.md").write_text(PENDING, encoding="utf-8")
+    (docs / "approved-sources-list.md").write_text(APPROVED + TRIAGE, encoding="utf-8")
     return tmp_path
 
 
@@ -131,7 +134,7 @@ def test_the_closed_page_rows_read_as_closed(register, capsys):
 def test_a_section_hit_inherits_its_decision_line(register, capsys):
     assert run(register, "the quarter the report covers") == 0
     line = capsys.readouterr().out.splitlines()[0]
-    assert line.startswith("pending:")
+    assert line.startswith("approved:")
     assert "delta_family" in line
     assert "pending" in line
     assert "1328.31 EE" in line
@@ -178,8 +181,8 @@ def test_detail_refuses_to_guess_between_two_entries(register, capsys):
     assert run(register, "delta_family", "--detail") == 2
     err = capsys.readouterr().err.splitlines()
     assert len(err) == 1
-    assert "approved#delta_family" in err[0] and "pending#delta_family" in err[0]
-    assert run(register, "pending#delta_family", "--detail") == 0
+    assert "approved#delta_family" in err[0] and "sources#delta_family" in err[0]
+    assert run(register, "approved#delta_family", "--detail") == 0
     assert "Decision: pending" in capsys.readouterr().out
 
 
@@ -264,7 +267,7 @@ def test_no_page_is_read_whole(register, monkeypatch, capsys):
     assert run(register, "alpha-family", "--detail") == 0
     capsys.readouterr()
     # Four pages for the search, four to find the entry, one to print its block.
-    assert len(opened) == 9
+    assert len(opened) == 7
     assert all(handle.lines for handle in opened)
 
 

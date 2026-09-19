@@ -319,6 +319,9 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         # 6. Everything the standing rule did not settle reaches Ivo as one issue and one
         #    mergeable pull request, because merging is something he can do from a phone.
         uv run python scripts/harness/sync_approvals.py || true
+        # 6b. The one list he decides from, rebuilt from the leads this drain just settled.
+        #     It goes stale the moment a lead moves, so it is written here and never by hand.
+        uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
         # 7. The gate, then one commit and one push, and **a commit only when the tree
         #    moved**: an empty commit says a wave was banked when none was.
         uv run ruff check . && uv run ruff format --check . && uv run pytest -q

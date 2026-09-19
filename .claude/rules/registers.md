@@ -3,7 +3,7 @@ paths:
   - docs/registers/sources.md
   - docs/registers/sources-closed.md
   - docs/registers/approved-sources-list.md
-  - docs/registers/hypotheses-pending.md
+  - docs/registers/queue.md
 ---
 
 # Touching a register

@@ -38,3 +38,8 @@ does not rebuild it. The code itself is in git.
 - **Three one-shot collectors** (`collect_yahoo_directory.py`, `collect_dartmouth_bfs_seed.py`,
   `collect_namewinner_2001.py`): the Yahoo family was rejected at 7.73 EE; the other two ran once
   and their bytes sit in `data/raw/` with refetch URLs in the register.
+- **The pending-hypotheses backlog page** and its counter in `discover_cycle.py`: 50 entries
+  ranked by a subjective 0-100 `potential:` score, of which 3 had ever measured at or above Ivo's
+  5,000 EE floor and all 3 were already answered elsewhere. Every entry was re-verified against the
+  closed registers on 2026-09-19 and written back into `sources-closed.md` with its verdict, so
+  nobody re-tests one. What is live is ranked by measured EE in generated `queue.md`.

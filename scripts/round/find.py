@@ -9,7 +9,7 @@ ever reaches the terminal.
 
 The four pages, all of them registers: `docs/registers/sources.md` (its eleven-column table,
 its narrative sections and its `## Detail` blocks), `docs/registers/sources-closed.md`,
-`docs/registers/approved-sources-list.md` and `docs/registers/hypotheses-pending.md`.
+`docs/registers/approved-sources-list.md`.
 
 A hit line is `page:line  key  verdict  net-new EE  where  the matching text`, where
 `where` says which shape the term was found in: a table `row`, a `## Detail` block,
@@ -43,7 +43,6 @@ PAGES = {
     "sources": "docs/registers/sources.md",
     "closed": "docs/registers/sources-closed.md",
     "approved": "docs/registers/approved-sources-list.md",
-    "pending": "docs/registers/hypotheses-pending.md",
 }
 
 # Every row of `sources-closed.md` is closed by the fact it is in that file, and its
@@ -142,7 +141,7 @@ def _columns(cells: list[str]) -> dict[str, int | None]:
     """Which column is which, read off the header rather than assumed.
 
     The four pages carry three different tables: eleven columns in `sources.md`, five
-    in `sources-closed.md`, eight in the priced table of `hypotheses-pending.md`.
+    in `sources-closed.md`.
     """
     lower = [cell.lower() for cell in cells]
 

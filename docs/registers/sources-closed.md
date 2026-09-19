@@ -5836,3 +5836,54 @@ under the retired 5,000 EE bar), ~250 EE live total, not worth banking against t
 capture stamp dates one item (`dated_directory`). 281 distinct domains, 279 already held
 (99.3%), 1 post-split pair; Zeal's listings route through a click-tracker redirector and
 beaucoup contributes little; population enumerated, not sampled, family closed.
+
+| wayback_availability_2001 / cdx_timestamp | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: superseded: the availability engine is the third archive client under C-88 and is running. No longer a pending question. |  |
+| ncua_5300_call_report_webaddr / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| bbbonline_reliability_roster / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| gias_england_school_website_domains / link_target | 2026-09-19, retired | 5,463 EE | RETIRED under Ivo's floor ruling of 2026-09-19: link_target, so it stands or falls with the target-column rule decision already queued as jisc-uk-host-link-graph-targets. Not a separate ask. |  |
+| nces_imls_pls_web_addr_1998_2001 / typed | 2026-09-19, retired | 280.1 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| sec_edgar_filings / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: re-measured 2026-08-26 by sampling: 0.0000 EE per filing in 1999 QTR1 (n=389) and 0.0324 EE per filing in 2001 QTR4 (n=248). The 5,884 EE was right in order of magnitude but wrong in shape. |  |
+| govinfo_cbd_bulk / typed | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| repository_ia_capture_census / cdx_timestamp | 2026-09-19, retired | 103,000 EE | RETIRED under Ivo's floor ruling of 2026-09-19: superseded by the measurement: the same deposit closed 2026-09-09 as drum_earlyweb_link_graph_full_tars at 1.1 EE over 15 disjoint 1 MiB windows read from the live bitstreams. The 103,000 EE was a pro-rata projection off another contributor accepted record count, never a measurement. |  |
+| usco_bulk_registrations / typed | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| squidguard_contrib_2001_origin / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| discmaster_media_index / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| expiring_list_2002_term_inference / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| antispam_media_blocklist / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| truste_licensee_roster / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| untroubled_spam_headers / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| reuters_rcv1_newswire / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| cipo_ca_trademark_marktext_1996_2001 / typed | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| cbd_secretariat_meeting_documents_1996_2001 / link_source | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| ccew_charity_register_contact_domains / link_target | 2026-09-19, retired | 4,557 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| ietf_meeting_attendee_rosters / typed | 2026-09-19, retired | 13.56 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| nic_ve_cartelera / artifact_listing | 2026-09-19, retired | 75.7 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| ffa_link_pages / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| usenet_quoted_whois / whois_creation | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| uspto_tm_marktext / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| zenodo_banner_ads / cdx_timestamp | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| wikipedia_externallinks / cdx_timestamp | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| ia_webdataservices_cctld_extraction / cdx_timestamp | 2026-09-19, retired | 0.0 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| store_url_listing_pages / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| cordis_fp4_fp5_project_websites / link_target | 2026-09-19, retired | 503.5 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| fdncenter_grantmaker_web_sites / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| bomis_ring_member_lists / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| cog2002_gid_localgov_weburl / link_target | 2026-09-19, retired | 500 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| domainsproject_bulk_list / link_target | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| whatsnew_register_tree_capture / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| dotgov_real_names / link_target | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| govuk_domain_name_register_council_seeds / link_target | 2026-09-19, retired | 4,773 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| mailman_public_roster / cdx_timestamp | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| state_sos_entity_registers / typed | 2026-09-19, retired | 437 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| uk_trade_press_extension / dated_directory | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| cog2002_gid_school_systems_weburl / link_target | 2026-09-19, retired | 200 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| udrp_decision_creation_date / whois_creation | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| ripe_db_lastmodified / link_target | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| ukwa_ds2_year_cdx / cdx_timestamp | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| bsd_ports_master_sites_dated_trees / typed | 2026-09-19, retired | 0.0 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| edelman_cipa_blocked_sites_2001 / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| osbar_bulletin_html_issues_2000_2001 / link_source | 2026-09-19, retired | 77 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| winsite_cica_dated_shareware_index / typed | 2026-09-19, retired | 0.0 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| lawsociety_ie_gazette_issue_pdfs_1997_2001 / link_source | 2026-09-19, retired | 130 EE | RETIRED under Ivo's floor ruling of 2026-09-19: measured under the 5,000 EE floor |  |
+| aminet_index_uploader_readme / typed | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
+| whois_server_and_tld_tables / artifact_listing | 2026-09-19, retired | not priced | RETIRED under Ivo's floor ruling of 2026-09-19: never priced; retired unmeasured under the 5,000 EE floor |  |
