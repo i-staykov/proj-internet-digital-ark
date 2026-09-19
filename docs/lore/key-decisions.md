@@ -89,13 +89,9 @@ Ask Nominet, through `registrars.nominet.uk` and never `data-release@nominet.uk`
 
 **The one registry extract we have actually banked says it is worth far more than that.** The 2001 `.dk` zone list was 358,529 rows and banked 43,674 EE, which at the `.dk` weight of 0.1711 is 255,254 net-new names, so **71% of a registry list was names nobody held**, even though his files carry 243,624 `.dk` names. His `.uk` coverage is 999,882 names against a register that passed a million around 2001, and our candidate pool holds a further 853,950, disjoint from his. If `.uk` behaves like `.dk` the letter is worth about **700,000 EE**, which is where the old "702,229 with registration history" figure lands from the other direction.
 
+**The 121 unshipped `.uk` RDAP pairs ride on this answer.** Nominet is the only one of the four whose terms prohibit USE as well as collection: "explicitly prohibited from extracting, copying and/or using or re-using ... all or part". The store holds 4,714 `.uk` RDAP pairs and 4,625.8 EE, of which 121 pairs and 118.7 EE are net-new and unsent; the rest is in his baseline and cannot be recalled. Withholding 121 while 4,593 of identical provenance are already in his hands is a gesture rather than compliance, so they wait on the letter and not on a ruling of their own.
+
 Worth: 698635 EE, extrapolated from one precedent, so the range is wide and the direction is what matters: the letter is worth an order of magnitude more than the 63,921 that was on the list. Do not write to auDA, which never held the window; write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
-
-### Rule on the 118.7 EE of unshipped Nominet pairs
-
-Nominet is the only one of the four whose terms prohibit USE as well as collection: "explicitly prohibited from extracting, copying and/or using or re-using ... all or part". The store holds 4,714 `.uk` RDAP pairs and 4,625.8 EE, of which 121 pairs and 118.7 EE are net-new and not yet sent. The rest is already in his baseline and cannot be recalled.
-
-Worth: -118.7 EE if withdrawn. Withdrawing is the reading the terms support; keeping them needs a reason.
 
 ### Triage the newly found sources: 0 found
 
