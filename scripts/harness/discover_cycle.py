@@ -206,6 +206,7 @@ REBUILD_AFTER_HOURS = 1.5
 # truncated queue, which a collector then reads as a short list rather than as an error.
 # A stale lock is ignored after this long, since a rebuild is minutes and a crashed
 # holder must not block rebuilds forever.
+FLEET_REPO = "i-staykov/ark-fleet"
 REBUILD_LOCK = ROOT / "data/logs/derived_rebuild.lock"
 REBUILD_LOCK_STALE_S = 3600
 
@@ -384,6 +385,58 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
         else:
             findings.append(f"derived: {Path(path).name} stale, no rebuild rule")
     return findings, attention
+
+
+def check_wave_chain() -> tuple[list[str], list[str]]:
+    """Restart the fleet's wave chain when it has stopped, which it does on its own.
+
+    **The chain ends where the budget does, by design.** `collect` dispatches the next
+    wave, so waves follow each other while the pacer deals legs; a wave given zero legs
+    never reaches `collect` and the chain stops. The workflow's own comment says "the cron
+    is what starts it again".
+
+    The cron is `11,31,51 * * * *` and it does not reliably fire. Measured 2026-09-19:
+    the chain stopped at 05:21Z on a zero-leg wave and the cron missed seven consecutive
+    slots, so the fleet scouted nothing for two and a half hours on a night when discovery
+    was the bottleneck. Only 2 of the 12 waves before that came from the schedule at all.
+
+    A wave the pacer then gives zero legs costs one cheap runner minute and no model spend,
+    so asking is close to free and not asking costs a whole discovery lane.
+    """
+    quiet_minutes = 40
+    newest, ran = run(
+        [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            FLEET_REPO,
+            "--workflow",
+            "wave.yaml",
+            "--limit",
+            "1",
+            "--json",
+            "createdAt",
+            "--jq",
+            ".[0].createdAt",
+        ]
+    )
+    if not ran or not newest.strip():
+        return ["wave chain: COULD NOT CHECK"], []
+    try:
+        last = datetime.strptime(newest.strip(), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return ["wave chain: COULD NOT CHECK"], []
+    idle = (datetime.now(UTC) - last).total_seconds() / 60
+    if idle < quiet_minutes:
+        return [f"wave chain: last wave {idle:.0f} min ago"], []
+    said, ran = run(["gh", "workflow", "run", "wave.yaml", "--repo", FLEET_REPO, "--ref", "main"])
+    if ran:
+        return [f"wave chain: {idle:.0f} min quiet, restarted it"], []
+    return [f"wave chain: {idle:.0f} min quiet and the restart failed: {said[:80]}"], [
+        f"the fleet has dealt no wave for {idle:.0f} minutes and this laptop could not "
+        "start one. The pacer may be holding the budget, or the dispatch may be refused"
+    ]
 
 
 def check_ledger() -> tuple[list[str], list[str]]:
@@ -620,6 +673,7 @@ def cycle(number: int, with_network: bool) -> list[str]:
         ("residual", check_residual),
         ("derived", rebuild_derived),
         ("ledger", check_ledger),
+        ("wave", check_wave_chain),
         ("approvals", check_approvals),
         ("state", check_state),
     ):

@@ -180,3 +180,55 @@ def test_the_cycle_no_longer_knows_how_to_restart_a_collector() -> None:
     # deletes the reason for the rule.
     assert '"pkill"' not in source
     assert "cdx_disc" not in source
+
+
+def _wave_run(answers):
+    """A fake `run` that replies to the two commands `check_wave_chain` issues."""
+    calls = []
+
+    def run(cmd, timeout=None):
+        calls.append(cmd)
+        return answers["dispatch"] if cmd[1] == "workflow" else answers["list"]
+
+    run.calls = calls
+    return run
+
+
+def test_a_quiet_wave_chain_is_restarted(monkeypatch) -> None:
+    """The chain ends on a zero-leg wave by design and the cron is meant to restart it.
+
+    Measured 2026-09-19: the cron missed seven consecutive slots and the fleet scouted
+    nothing for two and a half hours, so the laptop asks too.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    old = (datetime.now(UTC) - timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run = _wave_run({"list": (old, True), "dispatch": ("queued", True)})
+    monkeypatch.setattr(cycle, "run", run)
+    findings, attention = cycle.check_wave_chain()
+    assert any("restarted it" in f for f in findings), findings
+    assert attention == [], "a restart that worked is not a thing to wake anyone for"
+    assert any(c[1] == "workflow" for c in run.calls), "it never dispatched"
+
+
+def test_a_busy_wave_chain_is_left_alone(monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    recent = (datetime.now(UTC) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run = _wave_run({"list": (recent, True), "dispatch": ("queued", True)})
+    monkeypatch.setattr(cycle, "run", run)
+    findings, _ = cycle.check_wave_chain()
+    assert any("5 min ago" in f for f in findings), findings
+    assert not any(c[1] == "workflow" for c in run.calls), "it dispatched over a live chain"
+
+
+def test_a_failed_restart_reaches_a_human(monkeypatch) -> None:
+    """A dispatch this laptop cannot make is the one case worth waking someone for."""
+    from datetime import UTC, datetime, timedelta
+
+    old = (datetime.now(UTC) - timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run = _wave_run({"list": (old, True), "dispatch": ("refused", False)})
+    monkeypatch.setattr(cycle, "run", run)
+    findings, attention = cycle.check_wave_chain()
+    assert any("restart failed" in f for f in findings), findings
+    assert attention and "no wave" in attention[0]
