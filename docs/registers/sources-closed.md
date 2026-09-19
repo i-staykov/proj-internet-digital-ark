@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| ncsa-gnn-whats-new-archive-1993-1995-hostgrain / unclassified | 2026-09-19, fleet 20260919T0006Z | not priced | lens pre-1996.. CLOSED |  |
+| scout-report-weekly-issue-external-host-sweep / ia_memento_capture / dated_directory_page | 2026-09-19, fleet 20260919T0006Z | 1.3 EE | lens archived-web-directories. Measured 1.2642 EE annual and 0.0000 EE candidate on 22 percent of the artifact; the whole artifact projects to 5.69 EE against a floor of 5000. |  |
 | custodian-capture-indexes-us-federal-and-nordic-gap-sweep / unclassified | 2026-09-19, fleet 20260918T2206Z | not priced | lens no lens recorded. |  |
 | isc-domain-survey-free-editions-domains-gz-1996-1997 / candidate-dns-survey | 2026-09-19, fleet 20260918T2206Z | 6.2 EE | lens candidate-bulk. Measured 6.248 EE against a 5,000 floor. | https://web.archive.org/web/20030403125351id_/http://www.isc.org/ds/archive-data/9607.domains.gz |
 | custodian-second-tier-national-archives-sweep / unclassified | 2026-09-18, fleet 20260918T2106Z | not priced | lens custodian-capture-indexes. CLOSED fetched, 226 bytes, sha256 `43f2e36c9896f9d84aa806c4465f0c2e54d71837a2bdd84accc8dcd9c078996d`, allowed at root but `Disallow: /pan` (the archive-instance path) and `Disallow: /subject` (the browse index). |  |
