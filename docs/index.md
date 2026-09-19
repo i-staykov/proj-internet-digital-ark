@@ -39,7 +39,7 @@ the delivery archive.
 | [sources.md](registers/sources.md) | Every source tried, admitted or closed, with what dates one item and its link; grep it, never read it whole | before proposing, pricing or briefing anything |
 | [approved-sources-list.md](registers/approved-sources-list.md) | One `Decision:` line per (source, evidence type); `ark ingest` enforces it | before an ingest, and when writing a `Decision:` line |
 | [sources-closed.md](registers/sources-closed.md) | One row per source measured and closed, with the date, the figure and the reason; grep it before proposing | before proposing or briefing a lens |
-| [queue.md](registers/queue.md) | Generated. Every live lead at or above the 5,000 EE floor, ranked on its low estimate, with what it asks Ivo for | when picking what to work next, or deciding one |
+| [queue.md](registers/queue.md) | Generated. **The one list Ivo decides from**: only what he alone can settle, above the 5,000 EE floor, at its measured figure where one exists. A download or an ingest is not his, and is counted at the foot | when he has a moment to rule |
 | [hypotheses.tsv](registers/hypotheses.tsv) | The hypothesis ledger (*generated*: appended by `scripts/harness/hypothesis_ledger.py`) | when opening or closing a hypothesis |
 | [releases.md](registers/releases.md) | Every reviewer release: date, whether received, per-year line counts, sha256 of his zip or of our zstd copy (`just releases` fills it) | before deleting or trusting a release tree |
 | [retention.md](registers/retention.md) | One row per local data entry with its class, checksum digest and refetch route (*generated* by `scripts/round/verify_raw.py`); a path with no row is not deletable | before deleting anything under `data/`, `output/` or `feedback/` |
