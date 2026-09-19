@@ -6,6 +6,9 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| archived-mckinley-magellan-review-listing-page-sweep / unclassified | 2026-09-19, fleet 20260919T0106Z | 2.5284 EE | lens archived-web-directories.. CLOSED. |  |
+| custodian-capture-indexes-nz-blacklight-and-cz-wayback-sweep / unclassified | 2026-09-19, fleet 20260919T0106Z | not priced | lens custodian-capture-indexes. CLOSED This is a different host from `natlib.govt.nz` already closed in the pacific-rim leg (that one hit an Incapsula bot-wall on the marketing site's collection page). |  |
+| sri-nic-hosts-txt-github-mirror-1983-1995 / registry_publication_tree | 2026-09-19, fleet 20260919T0106Z | not priced | lens pre-1996. Measured zero on both tracks. |  |
 | ncsa-gnn-whats-new-archive-1993-1995-hostgrain / unclassified | 2026-09-19, fleet 20260919T0006Z | not priced | lens pre-1996.. CLOSED |  |
 | scout-report-weekly-issue-external-host-sweep / ia_memento_capture / dated_directory_page | 2026-09-19, fleet 20260919T0006Z | 1.3 EE | lens archived-web-directories. Measured 1.2642 EE annual and 0.0000 EE candidate on 22 percent of the artifact; the whole artifact projects to 5.69 EE against a floor of 5000. |  |
 | custodian-capture-indexes-us-federal-and-nordic-gap-sweep / unclassified | 2026-09-19, fleet 20260918T2206Z | not priced | lens no lens recorded. |  |
