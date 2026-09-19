@@ -54,3 +54,58 @@ def test_the_local_section_still_has_both_answers() -> None:
     text = SCRIPT.read_text()
     assert 'loops=$(ps -eo etime,command | grep -E "$LOOPS" || true)' in text
     assert "no collector loop" in text
+
+
+def _lanes_pipeline() -> str:
+    """The counter as the script itself spells it, so a copy pasted here cannot drift out
+    of agreement with the thing under test and keep passing."""
+    line = next(ln for ln in SCRIPT.read_text().splitlines() if "cdx_suffix_sweep[.]py" in ln)
+    return line.strip().lstrip("| ")
+
+
+LANES = _lanes_pipeline()
+
+TWO_LANES = (
+    "uv run python scripts/engines/cdx_suffix_sweep.py ricoh.com --deadline 1789855690\n"
+    "/repo/.venv/bin/python3 scripts/engines/cdx_suffix_sweep.py ricoh.com --deadline 1789855690\n"
+    "uv run python scripts/engines/cdx_suffix_sweep.py sont-ici.org --deadline 1789855690\n"
+    "/repo/.venv/bin/python3 scripts/engines/cdx_suffix_sweep.py sont-ici.org --deadline 178\n"
+)
+
+
+def count_lanes(ps_output: str) -> str:
+    """The counter fed a fixed `ps` listing. A quoted heredoc, because the fixture contains
+    the backslash of a sed backreference and `printf %b` would eat it."""
+    return run(f"cat <<'PS_EOF' | {LANES}\n{ps_output}PS_EOF\n").stdout.strip()
+
+
+def test_a_lane_is_its_parent_not_its_two_processes() -> None:
+    """One lane is a `uv run` wrapper plus its python child, so counting processes doubles
+    it and counting parents does not. Four processes, two lanes."""
+    assert count_lanes(TWO_LANES) == "2"
+
+
+def test_the_counter_leaves_its_own_pipeline_out_of_the_answer() -> None:
+    """`ps -eo command` lists this sed too. Unbracketed it matches itself, and every status
+    line then reads one client too many, which is the same lie in the other direction."""
+    assert count_lanes(TWO_LANES + LANES + "\n") == "2"
+
+
+def test_a_flag_is_not_a_parent() -> None:
+    """A sweep invoked with no parent must not have `--deadline` counted as one."""
+    assert count_lanes("uv run python scripts/engines/cdx_suffix_sweep.py --deadline 178\n") == "0"
+
+
+def test_the_printed_count_is_the_larger_of_journals_and_lanes() -> None:
+    """Measured 2026-09-19: two sweeps were live, one was between parents holding no journal,
+    and the line read "1 (the rule allows 2)". That is an invitation to start a third client
+    and breach C-77, from the one script whose job is to stop exactly that. `local_clients()`
+    in collectors.sh takes the larger of the two, and this has to agree with the function the
+    header cites. The VPS block still counts journals alone, which is right: under C-88 that
+    machine runs no lane, so it has nothing else to count.
+    """
+    text = SCRIPT.read_text()
+    assert "sweep_lanes()" in text, "the second half of the question is not asked"
+    assert '[ "$held" -gt "$clients" ] && clients=$held' in text
+    local = text[text.index("open_now=$(sweep_clients)") : text.index("in-flight .part")]
+    assert "holding a journal open" not in local, "the local count still names only journals"

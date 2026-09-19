@@ -104,6 +104,19 @@ sweep_clients() {
     done | sort -u
 }
 
+# **A lane between parents is still a client**, and counting only open journals read two live
+# sweeps as one on 2026-09-19: the line said "1 (the rule allows 2)" and invited an operator
+# to start a third, which is the C-77 breach this whole script exists to prevent. The header
+# above claims this matches `local_clients()`, and `local_clients()` takes the LARGER of the
+# open journals and the running loops, so this has to ask the second half of that question
+# too. A lane is counted by its parent argument, because one lane is a `uv run` wrapper plus
+# its python child and both carry the same parent; `[.]` keeps this pipeline's own processes
+# out of its answer.
+sweep_lanes() {
+    ps -eo command 2>/dev/null \
+        | sed -nE 's/.*cdx_suffix_sweep[.]py +([^ -][^ ]*).*/\1/p' | sort -u | grep -c . || true
+}
+
 # Any collector LOOP, by family rather than by one name: the laptop runs the supervisor,
 # the VPS runs the platform sweep loop under systemd, and both are collectors.
 LOOPS="supervise_cdx_pool[.]sh|platform_sweep_loop[.]sh"
@@ -129,12 +142,14 @@ else
     echo "   no collector loop"
 fi
 open_now=$(sweep_clients)
-if [ -n "$open_now" ]; then
-    printf '   archive clients holding a journal open: %s (the rule allows 2)\n' \
-        "$(printf '%s\n' "$open_now" | wc -l | tr -d ' ')"
-    printf '%s\n' "$open_now" | sed 's/^/     /'
+held=$(printf '%s\n' "$open_now" | grep -c . || true)
+clients=$(sweep_lanes)
+[ "$held" -gt "$clients" ] && clients=$held
+if [ "$clients" -gt 0 ]; then
+    printf '   archive clients here: %s (the rule allows 2)\n' "$clients"
+    printf '%s\n' "$open_now" | grep . | sed 's/^/     /' || true
 else
-    echo "   no archive client holds a journal open here"
+    echo "   no archive client is running here"
 fi
 # **A stale `.part` is not an in-flight journal, and reading one is how this line lied.**
 # On 2026-09-09 it printed a tally from a `.part` abandoned on 2026-09-01 while two
