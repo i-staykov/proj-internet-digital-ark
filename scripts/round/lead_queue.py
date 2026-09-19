@@ -371,11 +371,23 @@ def render(rows: list[dict], checked: bool = True) -> str:
     out.append("")
     if mine:
         near = sum(1 for r in mine if r["held"])
+        stuck = sum(1 for r in mine if r["track"] == "stranded")
+        # **Not "they need no ruling".** Starting them needs none, which is why they are off
+        # his table, but most are in a class the outlet row governs and reach the claim only
+        # when it is settled. Said the short way the page contradicted itself, listing the
+        # same leads as shipping nowhere and as needing nothing.
+        many = "All of them are" if stuck == len(mine) else f"{stuck} of them are"
+        gate = (
+            f" {many} in the class the outlet row above governs, so working them adds rows to"
+            " the store and nothing to the claim until it is settled."
+            if stuck
+            else ""
+        )
         out += [
             f"**{len(mine)} other live lead(s), {sum(r['low'] for r in mine):,.0f} to "
-            f"{sum(r['high'] for r in mine):,.0f} EE, need no ruling** and are mine to work: they "
-            "ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a "
-            f"re-price that ran out of its window. {near} of them carry a name the store already "
+            f"{sum(r['high'] for r in mine):,.0f} EE, are mine to work**, not yours: they ask "
+            "for a download the fleet runner cannot hold, an ingest nothing blocks, or a "
+            f"re-price that ran out of its window.{gate} {near} carry a name the store already "
             "holds and are checked before any work is spent on them.",
         ]
     if not checked:

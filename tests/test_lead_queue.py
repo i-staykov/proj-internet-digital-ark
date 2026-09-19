@@ -105,7 +105,30 @@ class MeasuredTest(unittest.TestCase):
         table = page[page.index("## Yours to rule") : page.index("- **rule**")]
         self.assertIn("`his`", table)
         self.assertNotIn("`mine`", table)
-        self.assertIn("need no ruling", page)
+        self.assertIn("are mine to work", page)
+
+    def test_the_foot_does_not_call_a_stranded_lead_one_that_needs_nothing(self):
+        """The page said the same leads ship NOWHERE and need no ruling, which are opposite
+        claims about the same rows. Starting them needs no ruling; reaching the claim does."""
+
+        def lead(slug, ask, low, track="ships"):
+            return {
+                "slug": slug,
+                "low": low,
+                "high": low,
+                "ask": ask,
+                "track": track,
+                "held": "",
+                "measured": False,
+                "class": "c",
+                "status": "scouted",
+            }
+
+        page = lead_queue.render(
+            [lead("his", "rule", 9000), lead("mine", "download", 80000, "stranded")]
+        )
+        self.assertIn("All of them are in the class the outlet row above governs", page)
+        self.assertNotIn("need no ruling", page)
 
 
 if __name__ == "__main__":
