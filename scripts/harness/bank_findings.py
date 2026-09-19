@@ -233,14 +233,17 @@ def ee_cell(f: dict) -> str:
 
 # The register's rows are read in a terminal and a test refuses one over 500 characters.
 # It fired three times on 2026-09-04 alone, always on the same cell: a wave writes its
-# REUSABLE finding into `method`, which had no cap while `dates` and `probe` did, and the
-# finding is genuinely worth keeping, so truncating it looked like losing something.
+# REUSABLE finding into `method`, which had no cap while `dates` and `probe` did.
 #
-# It is not lost. The full text is in the fleet's own `hypotheses.md`, which ships inside
-# `source/fleet.tar.gz` with every delivery, so the row can point at the ledger instead of
-# repeating it. A measured LAW earns a section in `laws.md` by hand; a row is an index entry.
+# **A long cell is TRUNCATED, and never replaced by a pointer.** It used to be cut to its
+# first clause and sent to the fleet's `hypotheses.md`, on the reasoning that the row could
+# index the ledger instead of repeating it. That ledger is gone, so 284 rows now read "see
+# the fleet hypothesis ledger" and there is nothing to see, and because the cut was by
+# CLAUSE a reason opening "lens foo." lost everything after the first full stop. Measured
+# three times on 2026-09-19. A row is an index entry, and 400 characters of the reason
+# indexes it where a pointer to a deleted file does not.
 ROW_LIMIT = 500
-_LEDGER = "see the fleet hypothesis ledger"
+_CUT = "..."
 
 
 def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
@@ -254,6 +257,10 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
     The closed row has one prose cell, its reason, and passes `(3,)`. It went without this
     guard until 2026-09-13, when one 898-character reason failed the gate and the dirty
     register refused every hourly sync for forty hours.
+
+    What survives is the START of the cell, cut at a character and not at a clause, because
+    a reason that opens with a short `lens foo.` sentence has its whole substance after that
+    full stop.
     """
 
     def assemble() -> str:
@@ -263,11 +270,11 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
         if len(assemble()) <= ROW_LIMIT:
             break
         overhead = len(assemble()) - len(cells[index])
-        budget = ROW_LIMIT - overhead - len(_LEDGER) - 2
+        budget = ROW_LIMIT - overhead - len(_CUT)
         if budget < 40:
-            cells[index] = _LEDGER
+            cells[index] = _CUT
         else:
-            cells[index] = (first_clause(cells[index], budget).rstrip() + " " + _LEDGER).strip()
+            cells[index] = cells[index][:budget].rstrip() + _CUT
     return assemble()
 
 

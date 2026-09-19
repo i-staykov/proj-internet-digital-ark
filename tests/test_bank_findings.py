@@ -222,8 +222,7 @@ def test_the_recipe_never_stages_the_ledger_unconditionally():
 
 def test_a_closed_row_never_exceeds_the_register_line_limit():
     """2026-09-13: one 898-character reason failed the gate and the dirty register refused
-    every hourly sync for forty hours. The reason is trimmed to the ledger pointer, never
-    the slug or the link."""
+    every hourly sync for forty hours. The reason is trimmed, never the slug or the link."""
     # The real row: the lead's `lens` had swallowed the scout's whole verdict, and that
     # cell had no cap of its own.
     lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
@@ -238,6 +237,26 @@ def test_a_closed_row_never_exceeds_the_register_line_limit():
     assert len(row) <= scribe.ROW_LIMIT
     assert row.startswith("| a-lead / unclassified |")
     assert row.endswith("| http://example.invalid/data.gz |")
+
+
+def test_a_trimmed_reason_keeps_its_substance_and_points_at_no_dead_file():
+    """The reason used to be cut to its FIRST CLAUSE and sent to the fleet's hypotheses.md.
+    That ledger left the fleet with v1, so 284 register rows say "see the fleet hypothesis
+    ledger" about a file that does not exist, and a reason opening with a short `lens foo.`
+    sentence lost everything after the full stop. Measured three times on 2026-09-19."""
+    cells = [
+        "a-lead / link_target",
+        "2026-09-19, laptop",
+        "0 EE",
+        "lens dated-link-graph. CLOSED: every daily register 404s on replay and the one "
+        "capture names zero external hosts. " + "More measured detail. " * 20,
+        "http://example.invalid/x",
+    ]
+    row = scribe._within_limit(cells, order=(3,))
+    assert len(row) <= scribe.ROW_LIMIT
+    assert "hypothesis ledger" not in row, "a pointer to a deleted file is not a record"
+    assert "404s on replay" in row, "the substance after the first clause must survive"
+    assert row.endswith("| http://example.invalid/x |")
 
 
 def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
