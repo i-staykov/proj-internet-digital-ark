@@ -57,7 +57,14 @@ STAGED = ("docs/", "src/", "justfile")
 # dirty, preflight refused, and banking stopped until a human noticed. Measured 2026-09-19:
 # one such counter moving 49 -> 50 stalled the bank for an hour. They are inside `STAGED`,
 # so the sync that follows commits them itself, which is the intended flow.
-GENERATED = ("docs/lore/key-decisions.md", "docs/registers/hypotheses-pending.md")
+GENERATED = (
+    "docs/lore/key-decisions.md",
+    "docs/registers/hypotheses-pending.md",
+    # `bank_findings.py` books every FIND and CLOSED here, mid-sync. Every commit this
+    # file has ever had is a "Sync fleet findings" one. A sync that dies between writing
+    # it and committing leaves the next sync refusing a line it wrote itself.
+    "docs/registers/sources-closed.md",
+)
 
 # Where the bank downloads and parks fleet artifacts.
 INCOMING = "data/fleet_findings/incoming"
