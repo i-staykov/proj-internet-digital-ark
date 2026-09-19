@@ -80,9 +80,9 @@ Nominet is the only one of the four whose terms prohibit USE as well as collecti
 
 Worth: -118.7 EE if withdrawn. Withdrawing is the reading the terms support; keeping them needs a reason.
 
-### Triage the newly found sources: 50 found
+### Triage the newly found sources: 0 found
 
-**50 source(s) found and not yet priced**, in `hypotheses-pending.md` and in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*.
+**0 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*. What is worth deciding is ranked by EE in `queue.md`.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 

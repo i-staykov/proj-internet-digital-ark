@@ -154,10 +154,16 @@ def unsafe(status: str) -> tuple[list[str], list[str]]:
     for line in status.splitlines():
         if not line.strip():
             continue
-        path = line[3:].strip().strip('"')
+        # **The code is split off, never sliced at a fixed offset.** `git()` strips its
+        # output, so the FIRST porcelain line arrives without its leading status space
+        # and `line[3:]` read `cs/lore/key-decisions.md`. That matched nothing in
+        # GENERATED, so the first generated page to go dirty refused the bank every
+        # time: measured twice on 2026-09-19, at 04:05 and 05:05 UTC, banking nothing.
+        code, _, rest = line.strip().partition(" ")
+        path = rest.strip().strip('"')
         if path in GENERATED:
             warn.append(line.strip())
-        elif line[:2] == "??":
+        elif code == "??":
             (fatal if path.startswith(STAGED) else warn).append(line.strip())
         else:
             fatal.append(line.strip())
@@ -188,7 +194,7 @@ def preflight(
         return 2, [f"REFUSED: git status failed: {status}"]
     fatal, warn = unsafe(status)
     for line in warn:
-        path = line[3:].strip().strip('"')
+        path = line.strip().partition(" ")[2].strip().strip('"')
         why = (
             "written by a program, the bank commits it"
             if path in GENERATED

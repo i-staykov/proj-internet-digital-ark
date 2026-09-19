@@ -385,3 +385,21 @@ def test_a_page_a_program_wrote_warns_and_does_not_refuse() -> None:
     # the protection itself is unchanged: a human's edit under docs/ still refuses
     fatal, _ = hyg.unsafe(" M docs/lore/laws.md")
     assert len(fatal) == 1
+
+
+def test_a_generated_page_is_spared_even_as_the_first_status_line() -> None:
+    """`git()` strips its output, so the first porcelain line loses its leading space.
+
+    Slicing `line[3:]` then read `cs/lore/key-decisions.md`, which is in no list, so the
+    first generated page to go dirty refused the bank every time. It cost two banking
+    cycles on 2026-09-19 before anyone reproduced it, because every earlier test passed a
+    status string that still had its leading space.
+    """
+    spaced = " M docs/lore/key-decisions.md\n M docs/registers/queue.md"
+    assert hyg.unsafe(spaced)[0] == []
+    # The same status as `git()` hands it over, first line stripped.
+    assert hyg.unsafe(spaced.strip())[0] == []
+    # And the protection is intact: a human's file first in the list still refuses.
+    assert hyg.unsafe("M docs/lore/laws.md\n M docs/lore/key-decisions.md")[0] == [
+        "M docs/lore/laws.md"
+    ]
