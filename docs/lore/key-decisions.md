@@ -71,9 +71,14 @@ candidate claim in `export.py` is built from registrable domains with no year, p
 survey hostnames and nothing else, so every other hostname-grain record we hold is screened out
 of one track and never offered to the other.
 
+**Proved from the shipped files, not the code, 2026-09-19:** `candidate_additions.txt` holds
+5,721 names, 1,456 registrable and 4,265 hostnames, and those 4,265 are exactly the ISC list.
+No other hostname ships as a candidate. The whole candidate track is 3,360.19 EE today.
+
 Measured 2026-09-19 against the live store: **2,095,426 hostname-year rows** are excluded by the
 XIII screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
-**29,446 rows and 26,369.5 EE are net-new and ship nowhere**.
+**29,446 rows and 26,369.5 EE are net-new and ship nowhere**, which is about eight times the
+entire candidate track as it ships today.
 
 **It is one class, not a policy area.** Of that net-new figure, `usenet_server_written_header`
 is 26,343.6 EE over 29,405 rows and everything else together is 26 EE:
@@ -88,12 +93,14 @@ candidates rather than annual evidence. We built that collection for ISC only. H
 hostname grain on 2026-09-05 and kept the provenance-linked collection, so he is cautious here
 and this is his call, not ours.
 
-**It is also most of the queue.** 12 of the 22 live leads at or above the floor are in classes
-this decision governs, 157,109 EE at their own low estimates: every Usenet header, mail relay,
-spam-trap and NNTP lead the fleet keeps finding. Until it is settled, working any of them adds
-rows to the store and nothing to the claim, which is what happened on 2026-09-19.
+**It is also most of the queue.** 10 of the 11 live leads at or above the floor are in classes
+this decision governs, 83,701 EE at their own low estimates and 341,663 at their high: every
+Usenet header, mail relay, spam-trap and NNTP lead the fleet keeps finding. The NS-target
+corpus folds in here too, 7,792 to 23,641 EE, closed as its own row on 2026-09-19 because it
+asked this same question of a second corpus. Until it is settled, working any of them adds rows
+to the store and nothing to the claim.
 
-Worth: 26,369.5 EE measured and already in the store, and it gates the 157,109 EE of leads above.
+Worth: 26,369.5 EE measured and already in the store, and it gates the 83,701 EE of leads above.
 The two figures are not added here because one is measured and the other is a scout's estimate.
 It needs an ADR before the export changes, since it changes what travels in the delivery.
 
@@ -101,7 +108,11 @@ It needs an ADR before the export changes, since it changes what travels in the 
 
 Ask Nominet, through `registrars.nominet.uk` and never `data-release@nominet.uk`, for a two-column extract, domain name and registration date, for `.uk` names registered before 1 January 2002. No registrant data, so it falls outside their personal-data-only Data Release Policy, and they hold the whole window (`demon.co.uk` dated 1996-05-05, inherited with the Naming Committee register). Every registry queried by RDAP forbids high-volume automated querying inside its own responses, so a written permission is the only thing that reopens that channel.
 
-Worth: 63,921 EE for creation dates alone, 702,229 EE with registration history, both measured as ANNUAL EE before Section XIII made a registration event candidate-only, so they need re-pricing per distinct name. Do not write to auDA, which never held the window; write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
+**Re-priced per distinct name, 2026-09-19, because Section XIII made a registration event candidate-only and the old figure was ANNUAL EE.** A candidate claims no year, so the letter is worth the NAMES it returns that nobody holds, at the `.uk` weight of 0.9813: **981 EE per 1,000 net-new names**. The old 63,921 EE needs 65,139 of them to stand.
+
+**The one registry extract we have actually banked says it is worth far more than that.** The 2001 `.dk` zone list was 358,529 rows and banked 43,674 EE, which at the `.dk` weight of 0.1711 is 255,254 net-new names, so **71% of a registry list was names nobody held**, even though his files carry 243,624 `.dk` names. His `.uk` coverage is 999,882 names against a register that passed a million around 2001, and our candidate pool holds a further 853,950, disjoint from his. If `.uk` behaves like `.dk` the letter is worth about **700,000 EE**, which is where the old "702,229 with registration history" figure lands from the other direction.
+
+Worth: 698635 EE, extrapolated from one precedent, so the range is wide and the direction is what matters: the letter is worth an order of magnitude more than the 63,921 that was on the list. Do not write to auDA, which never held the window; write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
 
 ### Rule on the 118.7 EE of unshipped Nominet pairs
 

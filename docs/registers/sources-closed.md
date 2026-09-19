@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| cdx-sweep-parents-that-time-out / artifact_listing | 2026-09-19, laptop measurement | 8,915 EE | lens collector-audit. CLOSED: 80 parents were attempted and never journaled, the domain-wide count probe timing out (guardian.co.uk waited 1,800s writing nothing). Priced from his files: 8,915 EE of lacked host-years across all 80, guardian 399 and nytimes 302, the rest under 200. News sites with ~100 subdomains, not platforms like cjb.net, which the sweep already took. |  |
+| custodian-capture-indexes-ia-free-us-gov-and-net-art-custodians-sweep / unclassified | 2026-09-19, fleet 20260919T1707Z | not priced | lens custodian-capture-indexes. CLOSED |  |
 | ripe-hostcount-hidden-output-files-on-ftp-ripe-net / artifact_listing | 2026-09-19, laptop re-verification | 0 EE | lens reopen. CLOSED: a monthly AXFR walk is the DNS-survey observation Ding refused on 2026-09-05, it is not in WEB_METHODS, and the candidate pool takes registrable names plus ISC only, so hostname grain ships nowhere. RIPE restricted the output files on 01/02/1999. Stood at 100,000 to 353,308 EE, head of the queue. | https://ftp.ripe.net/ripe/hostcount/ |
 | arquivo-pt-dadosabertos-and-govpt-portal-route-sweep / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. |  |
 | candidate-bulk scout: openpgp-sks-keyserver-bulk-export-check / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. CLOSED |  |
