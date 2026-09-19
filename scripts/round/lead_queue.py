@@ -36,22 +36,16 @@ DECISIONS = REPO / "docs/lore/key-decisions.md"
 # check itself. The hourly sync holds the write lock about half of every hour, and a
 # silently skipped check puts banked sources back in front of Ivo.
 CACHE = REPO / "data/banked_slugs.txt"
+REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
 FLOOR = 5000.0
+_EE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
+# `store 3,681.7 EE` beside `fleet 35,429.9 EE` means the fleet counted rows the store
+# already holds, so the store figure is the one that is net-new and it wins.
+_STORE_EE = re.compile(r"store\s+([\d,]+(?:\.\d+)?)\s*EE", re.I)
 _WORTH = re.compile(r"^Worth:\s*[^\d-]*(-?[\d,]+(?:\.\d+)?)\s*EE", re.M)
-# Whether a class can reach either shipped file at all. Section XIII admits web evidence
-# to the annual masters, and the candidate claim is registrable domains plus the ISC
-# hostnames, so a hostname-grain mail, Usenet or DNS record reaches neither. Matched on
-# the scout's own free-text class, so it is a signal and not a gate.
-_STRANDED = re.compile(
-    r"mail|usenet|relay|received|nntp|posting|header|dns|whois|rdap|ngram|"
-    r"book_mention|author_mail|buildhost",
-    re.I,
-)
-_SHIPS = re.compile(
-    r"cdx|capture|link.?graph|web.?archive|timemap|geoindex|crawl_timestamp|wayback|"
-    r"artifact_listing|dated_directory|registry|cctld",
-    re.I,
-)
+# The ISC survey is the one hostname collection the candidate claim admits by name, so it
+# is the single exception to the grain rule in `_track`.
+_ISC = re.compile(r"\bisc\b|isc_survey", re.I)
 
 # What Ivo is actually being asked for, coarsest first. A lead's `blocked_on` is free
 # text written by a scout, so it is matched rather than parsed.
@@ -127,14 +121,106 @@ def held_state(slug: str, held: set[str]) -> str:
     return ""
 
 
-def _track(evidence_class: str) -> str:
-    """ "stranded" if nothing this class writes can reach a shipped file today."""
-    if _STRANDED.search(evidence_class):
-        return "stranded"
-    return "ships" if _SHIPS.search(evidence_class) else "?"
+def measured(paths: tuple[Path, ...] = REGISTERS) -> dict[str, tuple[float | None, str]]:
+    """What each slug was WORTH when somebody read the artifact, from the register tables.
+
+    **A lead carries a scout's estimate and the register carries a measurement, and only
+    the second is a number.** On 2026-09-19 four leads stood in this queue between 16,958
+    and 200,662 EE that the register already recorded as 93.9 EE, 1,389.1 EE, 0 EE and
+    banked-on-2026-09-10: about 380,000 EE of headroom that does not exist. An estimate is
+    what a leg was willing to guess before reading the artifact, so once the artifact has
+    been read the guess has no standing at all.
+
+    Columns are found by their header rather than counted, because the two registers do
+    not agree on width and a fixed index reads the wrong cell in one of them.
+    """
+    out: dict[str, tuple[float | None, str]] = {}
+    for path in paths:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        cols: dict[str, int] = {}
+        for line in text.splitlines():
+            if not line.startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            head = [c.lower() for c in cells]
+            if "source" in head and "verdict" in head:
+                cols = {name: i for i, name in enumerate(head)}
+                cols["ee"] = next((i for i, name in enumerate(head) if "net-new ee" in name), -1)
+                continue
+            if not cols or cols["ee"] < 0 or len(cells) <= max(cols["ee"], cols["verdict"]):
+                continue
+            slug = cells[cols["source"]].strip("`*").split(" / ")[0].strip()
+            if not slug or slug.startswith("-"):
+                continue
+            cell = cells[cols["ee"]]
+            hit = _STORE_EE.search(cell) or _EE.search(cell)
+            worth = float(hit.group(1).replace(",", "")) if hit else None
+            verdict = cells[cols["verdict"]].upper()
+            prior = out.get(slug)
+            # A CLOSED row is the last word on a slug however many rows precede it: it is
+            # written by the re-price that refused the lead.
+            if prior is None or "CLOSED" in verdict or (prior[0] is None and worth is not None):
+                out[slug] = (worth, verdict)
+    return out
 
 
-def leads(fleet: Path, held: set[str]) -> list[dict]:
+def verdict_of(slug: str, reg: dict[str, tuple[float | None, str]]) -> tuple[float | None, str]:
+    """The register's word on this lead: its measured EE and whether it is closed.
+
+    Matched on the slug itself or on the slug with a suffix, because a re-price is filed as
+    `<slug>-reprice` and is the same lead measured twice. Never on a prefix of the slug,
+    which would let a shorter unrelated name speak for this one.
+    """
+    worth, state = None, ""
+    for name, (value, verdict) in reg.items():
+        if name != slug and not name.startswith(slug + "-"):
+            continue
+        if "CLOSED" in verdict:
+            return value, "closed"
+        if value is not None and (worth is None or value < worth):
+            worth, state = value, "measured"
+    return worth, state
+
+
+def _track(evidence_class: str, grain: str = "") -> str:
+    """Whether anything this lead writes can reach a shipped file today.
+
+    **The GRAIN decides, not the class name.** `export.py` builds the candidate pool from
+    registrable domains plus the ISC survey hostnames and nothing else, and Section XIII
+    admits a host to the annual masters only through `WEB_METHODS`. So a hostname-grain
+    lead whose class is not a web method reaches neither file however well it is dated.
+    Read off the code rather than guessed: the prose regex this replaces called
+    `ripe-hostcount-hidden-output-files` a shipping lead at the head of the queue, worth
+    100,000 EE, because its class string begins `artifact_listing`. That is an AXFR
+    transcript at hostname grain, which is neither a web method nor the ISC survey, and the
+    brief lists DNS among the candidates.
+
+    A class the scout wrote is free text and the ingest may yet write a different method,
+    so an unrecognised grain is "?" and never "ships".
+    """
+    try:
+        from ark.evidence_types import WEB_METHODS
+    except ImportError:
+        return "?"
+    head = (
+        evidence_class.split("(")[0].strip().split()[0].strip(",:").lower()
+        if evidence_class
+        else ""
+    )
+    if head in WEB_METHODS:
+        return "ships"
+    if grain == "registrable":
+        return "ships"
+    if grain == "hostname":
+        return "ships" if _ISC.search(evidence_class) else "stranded"
+    return "?"
+
+
+def leads(fleet: Path, held: set[str], reg: dict | None = None) -> list[dict]:
+    reg = measured() if reg is None else reg
     live = []
     for path in sorted((fleet / "leads").glob("*.json")):
         try:
@@ -154,17 +240,25 @@ def leads(fleet: Path, held: set[str]) -> list[dict]:
         state = held_state(slug, held)
         if state == "banked":
             continue
+        worth, said = verdict_of(slug, reg)
+        if said == "closed":
+            continue
+        if said == "measured":
+            # One figure, not a range: a measurement has no spread and showing the old
+            # estimate beside it invites the estimate to be believed.
+            low = high = worth
         live.append(
             {
                 "slug": slug,
                 "status": doc.get("status"),
                 "low": float(low),
                 "high": float(high),
+                "measured": said == "measured",
                 "blocked": blocked,
                 "ask": ask_of(blocked) if blocked else "ingest",
                 "class": str(doc.get("evidence_class") or "").split("(")[0].strip(),
                 "held": state,
-                "track": _track(str(doc.get("evidence_class") or "")),
+                "track": _track(str(doc.get("evidence_class") or ""), str(doc.get("grain") or "")),
             }
         )
     return sorted(live, key=lambda r: (-r["low"], -r["high"]))
@@ -202,6 +296,7 @@ def decisions(path: Path) -> list[dict]:
                 "ask": "rule",
                 "class": "decision in key-decisions.md",
                 "held": "",
+                "measured": False,
                 "track": "ships",
             }
         )
@@ -209,95 +304,85 @@ def decisions(path: Path) -> list[dict]:
 
 
 def render(rows: list[dict], checked: bool = True) -> str:
+    """The page. **Only what Ivo alone can settle is in the table.**
+
+    A lead blocked on a download or an ingest is not a decision: the laptop has the disk
+    and the standing rule already covers the ruling, so putting it in front of him spends
+    the one thing the queue exists to save. Those are counted in a line at the foot and
+    worked without asking.
+    """
     over = [r for r in rows if max(r["low"], r["high"]) >= FLOOR]
-    under = len(rows) - len(over)
+    mine = [r for r in over if r["ask"] not in ("rule", "permission")]
+    yours = [r for r in over if r["ask"] in ("rule", "permission")]
     out = [
         "# Queue",
         "",
-        "Generated by `scripts/round/lead_queue.py` from the fleet's `leads/*.json`.",
-        "Never hand-edit: an edit here is lost on the next sync, and the lead file is",
-        "the thing the dealer reads.",
+        "Generated by `scripts/round/lead_queue.py` from the fleet's `leads/*.json` and the",
+        "OPEN block of `key-decisions.md`. Never hand-edit: an edit here is lost on the next",
+        "sync, and the lead file is the thing the dealer reads.",
         "",
-        f"**{len(over)} open item(s) that clear the {FLOOR:,.0f} EE floor on EITHER estimate**,",
-        "ranked on the LOW one, which is what a leg stood behind. A row whose low is under the",
-        "floor is here because its high is over it, and the high has been wrong by five orders",
-        "of magnitude before now. Both tracks score at the same rate, so a candidate counts",
-        f"like a master. {under} live lead(s) clear it on neither and are not listed.",
+        f"**{len(yours)} thing(s) only you can settle**, worth "
+        f"{sum(r['low'] for r in yours):,.0f} EE at the low estimate, over a "
+        f"{FLOOR:,.0f} EE floor. Both tracks score at the same rate, so a candidate counts like a "
+        "master. A figure marked "
+        "**measured** was priced against the store "
+        "and is a fact; every other figure is a scout's guess and has been wrong by five orders of "
+        "magnitude.",
         "",
     ]
-    # **The decisions, not the leads.** 22 rows is not a thing anyone decides; four asks
-    # is. Each ask is one ruling that unblocks every lead under it, so it is ranked by
-    # what it unblocks rather than by how many rows carry it.
-    by_ask: dict[str, list[dict]] = {}
-    for r in over:
-        by_ask.setdefault(r["ask"], []).append(r)
-    ranked = sorted(by_ask.items(), key=lambda kv: -sum(x["low"] for x in kv[1]))
     stranded = [r for r in over if r["track"] == "stranded"]
     if stranded:
         out += [
-            f"**{len(stranded)} of these {len(over)} items, "
-            f"{sum(r['low'] for r in stranded):,.0f} EE at the low estimate, are in classes "
-            "that ship NOWHERE today.** A hostname-year that "
-            "Section XIII keeps out of the annual masters has no candidate file to fall into: the "
-            "candidate claim is registrable domains plus the ISC hostnames and nothing else. Until "
-            "that is decided, working any of them adds rows to the store and nothing to the claim.",
+            f"**{len(stranded)} of the {len(over)} live items, "
+            f"{sum(r['low'] for r in stranded):,.0f} EE, are in classes that ship NOWHERE today.** "
+            "A hostname-year that Section XIII keeps out of the annual masters has no candidate "
+            "file to fall into: the candidate claim is registrable domains plus the ISC hostnames "
+            "and nothing else. So the outlet row below governs far more than the figure beside "
+            "it, and is the one to read first whatever its rank.",
             "",
         ]
-    out += ["## Decide these, biggest first", ""]
-    for ask, rows_for in ranked:
-        low = sum(x["low"] for x in rows_for)
-        high = sum(x["high"] for x in rows_for)
-        best = max(rows_for, key=lambda x: x["low"])["slug"]
-        out.append(
-            f"- **{ask}**, {len(rows_for)} lead(s), {low:,.0f} to {high:,.0f} EE. "
-            f"Biggest: `{best}`."
-        )
     out += [
+        "## Yours to rule, biggest first",
         "",
-        "## Every live lead above the floor",
-        "",
-        "| EE low | EE high | ships? | asks for | what |",
-        "|---:|---:|---|---|---|",
+        "| EE | ships? | asks for | what |",
+        "|---:|---|---|---|",
     ]
-    for r in over:
-        out.append(
-            f"| {r['low']:,.0f} | {r['high']:,.0f} | {r['track']} | {r['ask']} "
-            f"| `{r['slug']}`{' (store has a near name)' if r['held'] else ''} |"
-        )
-    if not checked:
-        out += [
-            "",
-            "**The store could not be read this run**, so nothing was dropped as banked and "
-            "the `store` column is not to be trusted here.",
-        ]
-    if any(r["held"] == "similar" for r in over):
-        out += [
-            "",
-            "**(store has a near name)** means the store already holds a name close to this "
-            "one. It is a guess, not a match, so check before spending a decision on it.",
-        ]
-    out += ["", "## What each ask means", ""]
+    for r in yours:
+        ee = f"{r['low']:,.0f}" if r["low"] == r["high"] else f"{r['low']:,.0f} to {r['high']:,.0f}"
+        if r.get("measured"):
+            ee += " (measured)"
+        out.append(f"| {ee} | {r['track']} | {r['ask']} | `{r['slug']}` |")
+    out.append("")
+    # Only the asks actually in the table: a glossary line for an ask no row carries is a
+    # line he reads and gets nothing for.
     for name, text in (
         (
-            "download",
-            "the artifact is over the fleet runner's 1 GiB cap or off its type "
-            "allowlist. The laptop has the disk; this is a runner limit, not a licence "
-            "question.",
-        ),
-        (
             "rule",
-            "a reading of the brief only Ivo settles, such as whether a link TARGET "
-            "may date a year.",
+            "a reading of the brief only you settle, such as whether a hostname Section XIII "
+            "refuses may enter the candidate claim.",
         ),
         (
             "permission",
             "a letter to a custodian, or a terms page nobody has read against our use.",
         ),
-        ("rerun", "no decision at all: a measurement that ran out of its window."),
-        ("ingest", "nothing blocks it."),
     ):
-        if any(r["ask"] == name for r in over):
+        if any(r["ask"] == name for r in yours):
             out.append(f"- **{name}**: {text}")
+    out.append("")
+    if mine:
+        near = sum(1 for r in mine if r["held"])
+        out += [
+            f"**{len(mine)} other live lead(s), {sum(r['low'] for r in mine):,.0f} to "
+            f"{sum(r['high'] for r in mine):,.0f} EE, need no ruling** and are mine to work: they "
+            "ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a "
+            f"re-price that ran out of its window. {near} of them carry a name the store already "
+            "holds and are checked before any work is spent on them.",
+        ]
+    if not checked:
+        out += [
+            "",
+            "**The store could not be read this run**, so nothing was dropped as banked here.",
+        ]
     return "\n".join(out) + "\n"
 
 

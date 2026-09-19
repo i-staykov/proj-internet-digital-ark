@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| ripe-hostcount-hidden-output-files-on-ftp-ripe-net / artifact_listing | 2026-09-19, laptop re-verification | 0 EE | lens reopen. CLOSED: a monthly AXFR walk is the DNS-survey observation Ding refused on 2026-09-05, it is not in WEB_METHODS, and the candidate pool takes registrable names plus ISC only, so hostname grain ships nowhere. RIPE restricted the output files on 01/02/1999. Stood at 100,000 to 353,308 EE, head of the queue. | https://ftp.ripe.net/ripe/hostcount/ |
 | arquivo-pt-dadosabertos-and-govpt-portal-route-sweep / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. |  |
 | candidate-bulk scout: openpgp-sks-keyserver-bulk-export-check / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens no lens recorded. CLOSED |  |
 | curated-subject-directory-and-search-front-end-sweep / unclassified | 2026-09-19, fleet 20260919T1406Z | not priced | lens archived-web-directories.. CLOSED. |  |
