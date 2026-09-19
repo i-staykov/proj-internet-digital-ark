@@ -261,6 +261,12 @@ sync fleet="~/Documents/GitHub/ark-fleet":
             exit 1
         ) || true
     }
+    # 2b. Restart the fleet's wave chain if it has stopped. It stops by design on a zero-leg
+    #     wave, and the GitHub cron meant to restart it does not reliably fire: on 2026-09-19
+    #     the chain died at 17:49Z and no scheduled run came at all. `discover_cycle.py` holds
+    #     the check but its own caller is six-hourly, so this hourly one bounds the gap.
+    #     Never fatal: a dead chain must not take the bank down with it.
+    uv run python scripts/harness/discover_cycle.py --wave-only || true
     # Steps 3 to 7 need findings; 8 to 11 run on every sync, because the collectors fill
     # journals and the round can cross the gate with no fleet finding at all. The two shapes
     # are tested separately: `ls` over both globs fails when EITHER is unmatched.

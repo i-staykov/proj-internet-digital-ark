@@ -8,6 +8,7 @@ collector then reads as a short list rather than as an error.
 
 import importlib.util
 import os
+import sys
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -232,3 +233,27 @@ def test_a_failed_restart_reaches_a_human(monkeypatch) -> None:
     findings, attention = cycle.check_wave_chain()
     assert any("restart failed" in f for f in findings), findings
     assert attention and "no wave" in attention[0]
+
+
+def test_wave_only_runs_the_check_alone_and_exits(monkeypatch, capsys):
+    """The chain stops on a zero-leg wave and the GitHub cron does not reliably restart it.
+    `com.ark.cycle` fires four times a day, so the hourly sync calls this flag instead and
+    the gap is an hour at worst. It must not drag the rest of the cycle in with it."""
+    called = []
+    monkeypatch.setattr(
+        cycle, "check_wave_chain", lambda: (["wave chain: last wave 2 min ago"], [])
+    )
+    monkeypatch.setattr(cycle, "cycle", lambda *a, **kw: called.append("the whole cycle ran"))
+    monkeypatch.setattr(sys, "argv", ["discover_cycle.py", "--wave-only"])
+    cycle.main()
+    assert called == [], "only the wave check may run"
+    assert "last wave 2 min ago" in capsys.readouterr().out
+
+
+def test_the_sync_asks_for_the_wave_check_every_run():
+    """It sits before the findings branch, so a sync with nothing to bank still restarts a
+    dead chain, and it is never fatal: a dead chain must not take the bank down."""
+    recipe = (Path(__file__).resolve().parents[1] / "justfile").read_text(encoding="utf-8")
+    line = next(ln for ln in recipe.splitlines() if "--wave-only" in ln)
+    assert line.strip().endswith("|| true")
+    assert recipe.index("--wave-only") < recipe.index("Steps 3 to 7 need findings")

@@ -717,7 +717,24 @@ def main() -> None:
         action="store_true",
         help="skip the re-probe, which is the only step that leaves the machine",
     )
+    # **The wave check needs an hourly caller and this script has a six-hourly one.**
+    # `com.ark.cycle` fires at 01, 07, 13 and 19, so a chain that stops on a zero-leg wave
+    # sits dead for up to six hours: measured 2026-09-19, it stopped at 17:49Z, the cycle
+    # had already run at 17:00Z, and the GitHub cron missed every slot after it. The hourly
+    # sync calls this flag so the gap is an hour at worst, and the check itself is not
+    # duplicated anywhere.
+    ap.add_argument(
+        "--wave-only",
+        action="store_true",
+        help="run only the wave-chain check and exit, for an hourly caller",
+    )
     args = ap.parse_args()
+
+    if args.wave_only:
+        notes, fixes = check_wave_chain()
+        for line in notes + fixes:
+            print(line)
+        return
 
     number = 1
     while True:
