@@ -7,62 +7,37 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Put a third CDX collector in the dead availability engine's client slot, or leave it idle
+### The availability engine is dead: reallocate its slot, write to the IA, or leave it idle
 
-Rule 6 caps archive clients at three and allocates them: two on `web.archive.org/cdx` and
-the third the availability engine on `archive.org/wayback/available`. The engine has answered
-429 to every request since 2026-09-17 and is not coming back without a letter, so we are
-running two of three. The third slot is idle, not spent.
-
-A third CDX collector would use it at the register's own measured price for one collector,
-about 300 EE/hour of shippable annual evidence. Journal production is 390 to 450 files an hour
-on two clients, so a third is a third more of that.
-
-**This is a reallocation, not a relaxation.** The cap of three is what the rule protects and it
-would still hold. But the rule names the allocation as well as the number, so changing it is
-Ivo's and not the loop's, and it should be reversed the day the engine answers again.
-
-Worth: 7,200 EE a day while the engine stays dark, on the 300 EE/hour the register measured
-when it priced retiring one.
-
-### The availability engine is 429-blocked at the endpoint, and rule 6's trade cannot fix it
-
-`archive.org/wayback/available` answers **429 to every request** and has done for at least
-two days: the 2026-09-18 runs wrote 61 bytes and 0 bytes. It is the third archive client under
-C-88 and the best shippable earner we have, 1,494 net-new EE/hour against about 300 for one CDX
-collector, so it is the largest single loss in the lane right now.
-
-**It is the endpoint, not our budget.** Measured 2026-09-19 in the same second, same IP, same
-honest User-Agent: `archive.org/metadata` answers 200 and `archive.org/wayback/available`
-answers 429. Nothing else we do on archive.org is refused, and `archive.org/download` served
-8.5 GB tonight without one refusal.
+`archive.org/wayback/available` answers **429 to every request** and has since 2026-09-17.
+Re-tested 2026-09-19 at 20:50 CEST: still 429, while `archive.org/metadata` answered 200 in
+the same second from the same IP with the same honest User-Agent, and the VPS sees the same.
+It is the endpoint, not our budget and not our address.
 
 That matters because CLAUDE.md rule 6 says "on throttling, retire a CDX collector, never the
 engine", which assumes the two share a budget. Here they do not, so the trade cannot buy
-anything. One collector was retired to test it and recovered nothing; the supervisor restores it
-at the end of the window by itself.
+anything: one collector was retired to test it and the engine stayed dark.
 
-The engine itself is sound and is safe to leave running: it counts the throttles, puts the name
-back and backs off, so a sustained 429 no longer eats the queue (C-90 fix of 2026-09-18). It
-holds a 4,000,000 name queue and will start paying the moment the endpoint answers.
+**The engine was the best shippable earner we had**, 1,494 net-new EE/hour against about 300
+for one CDX collector, so this is the largest single loss in the lane: **35,856 EE a day**.
+The queue is intact, `asked 0` means the resume marker never advanced, so it resumes whole the
+day the endpoint answers.
 
-**Run to exhaustion on 2026-09-19 and it is total.** The engine was started at 05:21 CEST
-against a 12:00 deadline and exited reporting `asked 0  exact 0  variant 0  empty 0
-throttled 1,562`: one thousand five hundred and sixty two consecutive refusals over eight and
-a half hours and not one answer. The two output files are 61 and 66 bytes, which is an empty
-gzip. `asked 0` is the part that matters for the queue: the resume marker never advanced, so
-the 4,000,000 names are intact and the C-90 fix held under a sustained 429.
+**Three ways out, and they are one decision.** Rule 6 caps archive clients at three and also
+ALLOCATES them: two on `web.archive.org/cdx`, the third the engine. So we run two of three and
+the third slot is idle rather than spent.
 
-**And it is not our address either.** The same request from the VPS, a different network that
-has never queried this endpoint, also answers 429. So the refusal is the endpoint's and is not
-something we can fix by rearranging our own clients: not by retiring a collector, not by moving
-the lane, not by slowing down.
+- **Reallocate the idle slot to a third CDX collector.** Worth about 300 EE/hour, so
+  **7,200 EE a day**, a third more journal production on top of the 390 to 450 files an hour
+  two clients manage. A reallocation and not a relaxation: the cap of three still holds, and it
+  should be reversed the day the engine answers. But the rule names the allocation, so this is
+  yours and not the loop's.
+- **Write to the Internet Archive** and ask why that one endpoint refuses us. Recovers the full
+  1,494 EE/hour if it works, and costs a letter.
+- **Leave it idle** and accept the 35,856 EE a day while the engine is dark.
 
-Worth: 35,856 EE for every day it stays dark, at the measured 1,494 EE/hour of shippable
-annual evidence. It has been dark since 2026-09-17. The only lever left
-is to ask Internet Archive about the limit on that endpoint, which is a letter, not a code
-change. Until then the engine stays up and costs nothing: it backs off, keeps its 4,000,000 name
-queue intact and starts paying the moment the endpoint answers.
+Worth: 35,856 EE a day lost, of which 7,200 a day is recoverable today by reallocating the
+slot. The two figures are one situation and are not added.
 
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
@@ -75,10 +50,10 @@ of one track and never offered to the other.
 5,721 names, 1,456 registrable and 4,265 hostnames, and those 4,265 are exactly the ISC list.
 No other hostname ships as a candidate. The whole candidate track is 3,360.19 EE today.
 
-Measured 2026-09-19 against the live store: **2,095,426 hostname-year rows** are excluded by the
-XIII screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
-**29,446 rows and 26,369.5 EE are net-new and ship nowhere**, which is about eight times the
-entire candidate track as it ships today.
+Measured against the live store: **2,095,426 hostname-year rows** are excluded by the XIII
+screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
+**29,446 rows and 26,369.5 EE are net-new and ship nowhere**, about eight times the entire
+candidate track as it ships today.
 
 **It is one class, not a policy area.** Of that net-new figure, `usenet_server_written_header`
 is 26,343.6 EE over 29,405 rows and everything else together is 26 EE:
@@ -93,16 +68,18 @@ candidates rather than annual evidence. We built that collection for ISC only. H
 hostname grain on 2026-09-05 and kept the provenance-linked collection, so he is cautious here
 and this is his call, not ours.
 
-**It is also most of the queue.** 10 of the 11 live leads at or above the floor are in classes
-this decision governs, 83,701 EE at their own low estimates and 341,663 at their high: every
-Usenet header, mail relay, spam-trap and NNTP lead the fleet keeps finding. The NS-target
-corpus folds in here too, 7,792 to 23,641 EE, closed as its own row on 2026-09-19 because it
-asked this same question of a second corpus. Until it is settled, working any of them adds rows
-to the store and nothing to the claim.
+**It is now the WHOLE queue: all 11 live leads above the floor are in classes it governs**,
+105,634 EE at their low estimates and 363,596 at their high. One of them is measured rather
+than guessed: the NASA July 1995 HTTP log, read whole on 2026-09-19, is 31,654 net-new
+hostname-years and **21,932.30 EE of which all but 1.6 EE is hostname grain**. Its registrable
+half, the part that can ship today, is 11 names and **7.05 EE**. That ratio is the decision in
+one line. The NS-target corpus folds in here too, 7,792 to 23,641 EE, closed as its own row on
+2026-09-19 because it asked this same question of a second corpus.
 
-Worth: 26,369.5 EE measured and already in the store, and it gates the 83,701 EE of leads above.
-The two figures are not added here because one is measured and the other is a scout's estimate.
-It needs an ADR before the export changes, since it changes what travels in the delivery.
+Worth: 26,369.5 EE measured and already in the store, and it gates the 105,634 EE of leads
+above. The two figures are not added here because one is measured and the other is a mix of
+measurement and estimate. It needs an ADR before the export changes, since it changes what
+travels in the delivery.
 
 ### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
 
