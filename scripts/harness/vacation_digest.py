@@ -35,13 +35,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts/harness"))
 
-from rank_triage import DOC as TRIAGE_DOC  # noqa: E402
-from rank_triage import (  # noqa: E402
-    TRIAGE_HEADING,  # noqa: E402
-    parse_entries,
-    split_section,
-)
-
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.key_decisions import open_titles  # noqa: E402
 
@@ -99,27 +92,26 @@ def clients() -> int:
     return int(found.group(1)) if found else 0
 
 
-def triage_top(limit: int = 5, docs: list[Path] | None = None) -> tuple[int, list[tuple[int, str]]]:
-    """(how many are open, the best `limit` of them).
+def queue_top(limit: int = 5, page: Path | None = None) -> tuple[int, list[str]]:
+    """(how many items the queue lists, the best `limit` rows of it).
 
-    One page: new finds land in `approved-sources-list.md` under its triage heading and
-    carry a `- potential:` line. The backlog page was retired on 2026-09-19, all 50 of it
-    re-verified and closed under Ivo's 5,000 EE floor; what is still live is ranked by
-    measured EE in `queue.md`, which this does not parse.
+    **Read out of `queue.md` rather than ranked here.** That page is generated from the
+    fleet's lead files and the repository's own open decisions, ranked on measured or
+    low-estimate EE, and it is the one list Ivo decides from (his ruling of 2026-09-19).
+    A second ranking on this surface would be a second list, which is the thing he asked
+    to stop having.
     """
-    pages = docs or [ROOT / TRIAGE_DOC]
-    open_ones: list[tuple[int, str]] = []
-    for path in pages:
-        if not path.is_file():
-            continue
-        text = path.read_text(encoding="utf-8")
-        body = split_section(text)[1] if TRIAGE_HEADING in text else text
-        try:
-            _, entries = parse_entries(body)
-        except Exception:
-            continue
-        open_ones += [(score, title) for score, title, _block, decided in entries if not decided]
-    return len(open_ones), sorted(open_ones, key=lambda row: -row[0])[:limit]
+    page = page or ROOT / "docs/registers/queue.md"
+    try:
+        text = page.read_text(encoding="utf-8")
+    except OSError:
+        return 0, []
+    rows = [
+        line
+        for line in text.splitlines()
+        if line.startswith("| ") and "|---" not in line and not line.startswith("| EE low")
+    ]
+    return len(rows), rows[:limit]
 
 
 def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
@@ -206,10 +198,16 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
         lines += ["**Priced and waiting for a word** (merge the PR to bank it):", ""]
         lines += [f"- `{a.source_name}` / {a.evidence_type}" for a in priced]
         lines += [""]
-    open_count, top = triage_top()
+    open_count, top = queue_top()
     if top:
-        lines += [f"**{open_count} sources found and not priced**, best first:", ""]
-        lines += [f"- {score}: {title_}" for score, title_ in top]
+        lines += [
+            f"**{open_count} open item(s) at or above the 5,000 EE floor**, biggest first. "
+            "The whole list is `docs/registers/queue.md`:",
+            "",
+            "| EE low | EE high | ships? | asks for | what |",
+            "|---:|---:|---|---|---|",
+        ]
+        lines += top
         lines += [""]
     lines += [
         "Nothing here was measured by this comment: the figures are the hourly bank's, "

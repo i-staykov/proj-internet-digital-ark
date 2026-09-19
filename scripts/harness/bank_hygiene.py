@@ -63,6 +63,9 @@ GENERATED = (
     # file has ever had is a "Sync fleet findings" one. A sync that dies between writing
     # it and committing leaves the next sync refusing a line it wrote itself.
     "docs/registers/sources-closed.md",
+    # `lead_queue.py` rewrites this at step 6b of the sync, from lead files the same run
+    # pulled. It refused the 2026-09-19 04:05 bank while sitting one commit behind.
+    "docs/registers/queue.md",
 )
 
 # Where the bank downloads and parks fleet artifacts.

@@ -90,11 +90,13 @@ def test_nothing_shaped_like_an_address_reaches_the_body(monkeypatch) -> None:
     monkeypatch.setattr(digest, "journal_activity", lambda now, root=None: (41, 0.2))
     monkeypatch.setattr(digest, "clients", lambda: 2)
     monkeypatch.setattr(
-        digest, "triage_top", lambda *a, **kw: (2, [(90, "host at 10.1.0.6 / typed")])
+        digest,
+        "queue_top",
+        lambda *a, **kw: (2, ["| 9,000 | 9,000 | ships | rule | `host at 10.1.0.6` |"]),
     )
     _, body = digest.compose(snapshot(), now=NOW.timestamp())
     assert "10.1.0.6" not in body
-    assert "sources found and not priced" in body
+    assert "open item(s) at or above the 5,000 EE floor" in body
 
 
 def test_a_brief_without_the_window_still_composes(monkeypatch) -> None:
