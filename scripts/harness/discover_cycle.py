@@ -404,6 +404,11 @@ def check_wave_chain() -> tuple[list[str], list[str]]:
     so asking is close to free and not asking costs a whole discovery lane.
     """
     quiet_minutes = 40
+    # **A short timeout, because this now runs inside the hourly sync.** `STEP_TIMEOUT` is
+    # an hour, which is right for a cycle step and wrong here: a slow GitHub would hold the
+    # bank for the whole window and the next sync would land on top of it. Not knowing
+    # whether the chain is quiet costs one wave; not banking costs the hour.
+    ask = 60
     newest, ran = run(
         [
             "gh",
@@ -419,7 +424,8 @@ def check_wave_chain() -> tuple[list[str], list[str]]:
             "createdAt",
             "--jq",
             ".[0].createdAt",
-        ]
+        ],
+        timeout=ask,
     )
     if not ran or not newest.strip():
         return ["wave chain: COULD NOT CHECK"], []
@@ -430,7 +436,10 @@ def check_wave_chain() -> tuple[list[str], list[str]]:
     idle = (datetime.now(UTC) - last).total_seconds() / 60
     if idle < quiet_minutes:
         return [f"wave chain: last wave {idle:.0f} min ago"], []
-    said, ran = run(["gh", "workflow", "run", "wave.yaml", "--repo", FLEET_REPO, "--ref", "main"])
+    said, ran = run(
+        ["gh", "workflow", "run", "wave.yaml", "--repo", FLEET_REPO, "--ref", "main"],
+        timeout=ask,
+    )
     if ran:
         return [f"wave chain: {idle:.0f} min quiet, restarted it"], []
     return [f"wave chain: {idle:.0f} min quiet and the restart failed: {said[:80]}"], [

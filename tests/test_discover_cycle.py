@@ -257,3 +257,19 @@ def test_the_sync_asks_for_the_wave_check_every_run():
     line = next(ln for ln in recipe.splitlines() if "--wave-only" in ln)
     assert line.strip().endswith("|| true")
     assert recipe.index("--wave-only") < recipe.index("Steps 3 to 7 need findings")
+
+
+def test_the_wave_check_is_bounded_for_its_hourly_caller(monkeypatch):
+    """`STEP_TIMEOUT` is an hour, which is right for a cycle step and wrong inside the
+    hourly sync: a slow GitHub would hold the bank for the whole window and the next sync
+    would land on top of it. Not knowing costs one wave; not banking costs the hour."""
+    seen = []
+
+    def fake_run(cmd, timeout=cycle.STEP_TIMEOUT):
+        seen.append(timeout)
+        return ("2026-09-19T10:00:00Z", True)
+
+    monkeypatch.setattr(cycle, "run", fake_run)
+    cycle.check_wave_chain()
+    assert seen, "the check must ask GitHub something"
+    assert all(t <= 120 for t in seen), f"unbounded call in the sync's path: {seen}"
