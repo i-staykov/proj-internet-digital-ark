@@ -189,3 +189,15 @@ def test_the_ranker_depth_is_a_knob_and_is_deeper_than_the_queue_it_feeds() -> N
     assert "--top 20000" not in loop, "the exhausted literal is still there"
     default = int(loop.split('RANK_TOP="${ARK_RANK_TOP:-')[1].split("}")[0])
     assert default >= 40000, f"{default} is not deeper than the 29,057 parents already burned"
+
+
+def test_the_shard_hash_is_taken_modulo_the_lane_count():
+    """`h % 2` was hardcoded, so `shard_of` could never return 2 and a third lane matched
+    no parent at all. Measured 2026-09-20: a full 150,000 parent pool sat on disk while the
+    lane reported "refill found nothing"."""
+    loop = (
+        Path(__file__).resolve().parents[1] / "scripts/engines/platform_sweep_loop.sh"
+    ).read_text()
+    assert 'SHARDS="${ARK_CDX_BUDGET:-2}"' in loop
+    assert "return h % shards" in loop, "the modulus is hardcoded again"
+    assert "return h % 2" not in loop

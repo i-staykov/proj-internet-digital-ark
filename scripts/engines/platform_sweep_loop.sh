@@ -60,6 +60,10 @@ RANK_CAP="${ARK_RANK_CAP:-900}"
 # so the cap was the binding constraint and not the corpus. Asking for more costs almost
 # nothing: the ranker's time goes on reading those files, not on the tail it writes.
 RANK_TOP="${ARK_RANK_TOP:-60000}"
+# How many lanes share the ranked list. `shard_split` hashed modulo a hardcoded 2, so a
+# third lane could never match its own shard and refilled into nothing however deep the
+# ranking went: measured 2026-09-20 against a full 150,000 parent pool on disk.
+SHARDS="${ARK_CDX_BUDGET:-2}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
@@ -99,14 +103,14 @@ SHARD_BYTES='abcdefghijklmnopqrstuvwxyz0123456789.-_'
 shard_split() {
     local want="$1"
     shift
-    awk -v s="$want" -v bytes="$SHARD_BYTES" '
+    awk -v s="$want" -v bytes="$SHARD_BYTES" -v shards="$SHARDS" '
         function shard_of(name,   i, h) {
             # position-weighted, so two names holding the same letters can still differ.
             # `index` returns 0 for a byte outside the table, which hashes it as absent
             # rather than failing.
             h = length(name)
             for (i = 1; i <= length(name); i++) h += i * index(bytes, substr(name, i, 1))
-            return h % 2
+            return h % shards
         }
         NF && $1 !~ /^#/ && shard_of(tolower($1)) == s { print $1 }
     ' "$@"

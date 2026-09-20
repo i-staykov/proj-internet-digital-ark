@@ -30,6 +30,8 @@ cd "$(dirname "$0")/../.." || exit 1
 [ -n "${ARK_RANK_TOP:-}" ] && export ARK_RANK_TOP
 : "${ARK_STATE_DIR:=$HOME/ark/state}"
 : "${ARK_CDX_BUDGET:=2}"
+# The loop shards the ranked list modulo this, so it has to reach the child too.
+export ARK_CDX_BUDGET
 : "${ARK_COLLECTOR_WINDOW:=21600}"
 # Epoch after which this laptop collects nothing more, for a machine that has to be closed.
 # Empty means run forever, which is the default and what the VPS wants.
