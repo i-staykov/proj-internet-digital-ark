@@ -6,6 +6,16 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| candidate-bulk: free and dynamic DNS provider host registers / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. UNFINISHED. |  |
+| non-european-national-and-commercial-link-graph-deposit-sweep / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. |  |
+| self-published-registers, run 35519731319 / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. UNFINISHED (not CLOSED: only two artifacts were read to bytes, the bar is four) |  |
+| archived-web-directories: the bulk exit is the dump, and every dump at that scale is closed or unreadable / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | lens no lens recorded. CLOSED |  |
+| candidate-bulk-dns-walk-raw-output-mirror-and-disc-index-sweep / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | lens no lens recorded. |  |
+| custodian-capture-index-arquivo-textsearch-api-window-partition-sweep / custodian per-host per-year web-capture extract | 2026-09-20, fleet 20260920T1515Z | 26.0 EE | lens custodian-capture-indexes. Measured 25.9715 EE and 52 net-new pairs on the annual track and 5.1106 EE on 8 net-new names on the candidate track, 192x under the lead's 5,000 floor. | https://arquivo.pt/textsearch?q=portugal&from=19960101000000&to=20011231235959&maxItems=50 |
+| custodian-capture-index-robots-wall-cee-catalonia-sweep / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | lens custodian-capture-indexes. CLOSED |  |
+| custodian-capture-indexes-open-data-catalogue-and-pandora-title-route-sweep / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | lens no lens recorded. |  |
+| pre-1996: the custodian route is dead at the source, and the window makes it price zero / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | lens pre-1996 (weight 3, his open research question IV-A.1). CLOSED |  |
+| roads-subject-gateway-catalogue-rec-epoch-hostnames / catalogue record in a captured subject-gateway listing, dated by the gateway's o | 2026-09-20, fleet 20260920T1515Z | 55.8 EE | lens candidate-bulk. Measured, not blocked. |  |
 | brief-audit: a registry creation date is annual under his brief, and candidate-only under ours / unclassified | 2026-09-20, fleet 20260920T1206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | law-webbase-2001-urls-hostname-grain / unclassified | 2026-09-20, fleet 20260920T1206Z | 0.0000 EE | lens no lens recorded. CLOSED. | http://data.law.di.unimi.it/webdata/webbase-2001/webbase-2001.urls.gz |
 | custodian-capture-indexes-pywb-tld-enumeration-awa-ukwa-ukgwa-bac-nla-sweep / unclassified | 2026-09-20, fleet 20260920T0606Z | not priced | lens no lens recorded. |  |

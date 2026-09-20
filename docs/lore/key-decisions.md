@@ -7,7 +7,7 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### The availability engine is dead: reallocate its slot, write to the IA, or leave it idle
+### The availability engine is dead: write to the IA, or leave the letter unwritten
 
 `archive.org/wayback/available` answers **429 to every request** and has since 2026-09-17.
 Re-tested 2026-09-20 at 00:28 CEST, the third test in three days: still 429, while
@@ -24,21 +24,15 @@ for one CDX collector, so this is the largest single loss in the lane: **35,856 
 The queue is intact, `asked 0` means the resume marker never advanced, so it resumes whole the
 day the endpoint answers.
 
-**Three ways out, and they are one decision.** Rule 6 caps archive clients at three and also
-ALLOCATES them: two on `web.archive.org/cdx`, the third the engine. So we run two of three and
-the third slot is idle rather than spent.
+**The idle slot is already reallocated.** Rule 6 caps archive clients at three and ALLOCATES
+them: two on `web.archive.org/cdx`, the third the engine. With the engine dark the third slot
+was idle rather than spent, so on 2026-09-20 `ARK_CDX_BUDGET` became the lane count as well as
+the client count and a third sweep lane took it. The cap of three still holds. Put the knob back
+to 2 the day the endpoint answers. Worth about 300 EE/hour, so **7,200 EE a day**.
 
-- **Reallocate the idle slot to a third CDX collector.** Worth about 300 EE/hour, so
-  **7,200 EE a day**, a third more journal production on top of the 390 to 450 files an hour
-  two clients manage. A reallocation and not a relaxation: the cap of three still holds, and it
-  should be reversed the day the engine answers. But the rule names the allocation, so this is
-  yours and not the loop's.
-- **Write to the Internet Archive** and ask why that one endpoint refuses us. Recovers the full
-  1,494 EE/hour if it works, and costs a letter.
-- **Leave it idle** and accept the 35,856 EE a day while the engine is dark.
-
-Worth: 35,856 EE a day lost, of which 7,200 a day is recoverable today by reallocating the
-slot. The two figures are one situation and are not added.
+**What is left for you is the letter.** Writing to the Internet Archive to ask why that one
+endpoint refuses us recovers the full 1,494 EE/hour if it works, and costs a letter. Not writing
+it accepts the remaining **28,656 EE a day** for as long as the engine stays dark.
 
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
