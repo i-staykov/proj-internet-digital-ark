@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: a registry creation date is annual under his brief, and candidate-only under ours / unclassified | 2026-09-20, fleet 20260920T1206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| law-webbase-2001-urls-hostname-grain / unclassified | 2026-09-20, fleet 20260920T1206Z | 0.0000 EE | lens no lens recorded. CLOSED. | http://data.law.di.unimi.it/webdata/webbase-2001/webbase-2001.urls.gz |
 | custodian-capture-indexes-pywb-tld-enumeration-awa-ukwa-ukgwa-bac-nla-sweep / unclassified | 2026-09-20, fleet 20260920T0606Z | not priced | lens no lens recorded. |  |
 | lanet-lv-wwwstat-monthly-reversed-subdomain-client-hosts-1996-1997 / candidate: server-log client hostnames, wwwstat reversed-subdomain table (trunca | 2026-09-20, fleet 20260920T0506Z | 79.6 EE | lens candidate-bulk. Measured at 79.5835 EE annual (162 net-new pairs) and 29.1410 EE candidate (50 net-new pairs) against merged260917-2, against a floor of 5,000. | http://www.lanet.lv/util/wwwstat/9712l.html |
 | kleinberg-hits-query-graphs-cornell-cs685-1998-hostgrain / unclassified | 2026-09-20, fleet 20260920T0306Z | not priced | lens no lens recorded. CLOSED. |  |
