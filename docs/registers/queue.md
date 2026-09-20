@@ -13,7 +13,7 @@ sync, and the lead file is the thing the dealer reads.
 | EE | ships? | asks for | what |
 |---:|---|---|---|
 | 698,635 | ships | rule | `Write to Verisign, PIR or Nominet, or leave the RDAP route closed` |
-| 28,656 | ships | rule | `The availability engine is dead: write to the IA, or leave the letter unwritten` |
+| 28,656 | ships | rule | `Write to the Internet Archive about the availability endpoint, or leave the letter unwritten` |
 | 26,370 | ships | rule | `Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere` |
 
 - **rule**: a reading of the brief only you settle, such as whether a hostname Section XIII refuses may enter the candidate claim.

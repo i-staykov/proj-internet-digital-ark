@@ -6,6 +6,9 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| archiveorg-data-item-registry-register-publication-sweep / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens self-published-registers.. CLOSED |  |
+| brief-audit: our XIII screen voids a registration record he admits by name / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| cdx-summarize custodian-published summary files: the window wall / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens custodian-capture-indexes. CLOSED |  |
 | brief-audit: the 5,000 EE floor was written to rank asks and is being used to delete measured sources / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision for Ivo. |  |
 | ch-at-registry-bulk-register-publication-probe / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens self-published-registers. BLOCKED |  |
 | eblast-britannica-internet-guide-static-category-tree / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens archived-web-directories (weight 2).. CLOSED |  |

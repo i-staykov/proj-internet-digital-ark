@@ -7,35 +7,32 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### The availability engine is dead: write to the IA, or leave the letter unwritten
+### Write to the Internet Archive about the availability endpoint, or leave the letter unwritten
 
-`archive.org/wayback/available` answers **429 to every request** and has since 2026-09-17.
-Re-tested 2026-09-20 at 00:28 CEST, the third test in three days: still 429, while
-`archive.org/metadata` answered 200 in the same second from the same address with the same
-honest User-Agent, and the VPS sees the same. The session now probes it half-hourly.
-It is the endpoint, not our budget and not our address.
+`archive.org/wayback/available` FLAPS: three days of 429, one 200 window at 21:39 on 2026-09-20
+verified on four known-good domains, then 429 again fifteen minutes later. `archive.org/metadata`
+answers 200 throughout from the same address with the same honest User-Agent, so it is that one
+endpoint and not our budget or our address. The engine holds the third archive slot (C-88) and
+rides the throttle without a hand, so it banks whatever windows open; the letter is what would
+make those windows reliable.
 
-That matters because CLAUDE.md rule 6 says "on throttling, retire a CDX collector, never the
-engine", which assumes the two share a budget. Here they do not, so the trade cannot buy
-anything: one collector was retired to test it and the engine stayed dark.
+**Measured tonight, and the 1,494 EE/hour of C-88 did not reproduce.** Over the one open
+window: 250 asks, 0 exact and 1 variant, while the endpoint throttled 60 times. Two ordering
+faults were found and fixed first, so the figure is not a verdict on the queue: 3,725 direct
+`.uk` names led it and cannot have 2001 captures, and the rest was plain alphabetical, so the
+head was numeric-prefixed junk. It is now shuffled on seed 20260920 and unmeasured, because the
+endpoint went back to 429 before a second window opened.
 
-**The engine was the best shippable earner we had**, 1,494 net-new EE/hour against about 300
-for one CDX collector, so this is the largest single loss in the lane: **35,856 EE a day**.
-The queue is intact, `asked 0` means the resume marker never advanced, so it resumes whole the
-day the endpoint answers.
+**The slot is on a sweep lane again, on the measurement and not on a mood.** It was given back
+to the engine at 21:40 on a SINGLE 200, which is the error this repo keeps relearning: one
+reading is not a rate. Thirty minutes later the engine had asked 0 of its 4,000,000 and been
+throttled 100 times, so the slot was earning nothing. `ARK_CDX_BUDGET` is 3 again and lane 2
+runs to the 06:00 stop. Give the slot back to the engine when it sustains asks, not when it
+answers once.
 
-**The idle slot is already reallocated.** Rule 6 caps archive clients at three and ALLOCATES
-them: two on `web.archive.org/cdx`, the third the engine. With the engine dark the third slot
-was idle rather than spent, so on 2026-09-20 `ARK_CDX_BUDGET` became the lane count as well as
-the client count and a third sweep lane took it. The cap of three still holds. Put the knob back
-to 2 the day the endpoint answers. Worth about 300 EE/hour, so **7,200 EE a day**.
-
-**What is left for you is the letter.** Writing to the Internet Archive to ask why that one
-endpoint refuses us recovers the full 1,494 EE/hour if it works, and costs a letter. Not writing
-it accepts the remaining **28,656 EE a day** for as long as the engine stays dark.
-
-Worth: 28656 EE, the 35,856 a day the dark engine costs less the 7,200 the reallocated slot
-already recovers. A letter, not a ruling, and the only lever left on this row.
+Worth: 28656 EE a day if C-88's 1,494 EE/hour holds, less the 7,200 a sweep lane recovers in its
+place. A letter, not a ruling, and the letter is the only thing that makes the endpoint reliable
+enough to be worth the slot.
 
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
@@ -108,6 +105,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-91** | 2026-09-20 | **The availability endpoint FLAPS; it did not recover.** `archive.org/wayback/available` answered 200 at 21:39 CEST after three days of 429, verified on four known-good domains, and was back to 429 on three consecutive probes 15 minutes later. So it is intermittent, not fixed, and one 200 is not evidence of recovery. The engine holds the third slot again per C-88, `ARK_CDX_BUDGET` is back to 2, and it rides the throttle: it waits on `Retry-After` and a throttle does not eat the queue, so it catches any open window without a hand. Its queue was also found MIS-ORDERED: 3,725 direct `.uk` names sat at the head and cannot have 2001 captures, Nominet having opened direct `.uk` only in 2014, so 150 asks returned 0 hits. They are moved to the tail and the 3,483,951 `.com` and 512,324 `.org` names now lead. The letter to the IA is still unwritten and still the open lever. |
 | **C-90** | 2026-09-17 | **Spec XIII binds: the annual masters are a website-evidence product.** Only exact-host year-specific web evidence enters the annual files; DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are candidates. Screened over round 10: **32,228 of 346,389 registrable rows pass (9.3%), 2,674,952 of 3,554,784 hostname rows pass (75.2%)**, table in `laws.md`. Largest casualty is C-87, the DK zone list, 255,211 rows. Failing rows re-track to candidates. Export and `ark check` still have to enforce it. |
 | **C-89** | 2026-09-17 | **The 5% gate stands; an early submission is ASKED FOR, not taken.** We may ask Ding to accept below the floor when the research side carries it, and he decides. `merged260917-2` puts the gate at 2,803,730 EE, rising about 110,000 EE/day against our 23,000. |
 | **C-88** | 2026-09-17 | **The archive client cap goes to three; the third is the availability engine.** `archive.org/wayback/available` is a second budget: 1.27 q/s at 0.67% throttled while both CDX collectors ran at 0.308 q/s each and 27.3% throttled. It pays 1,494 net-new EE/hour over 4,137,392 com/net/org/uk names held at 2000 and missing 2001, against 600 EE/hour for both CDX collectors together. **On throttling, retire a CDX collector, never the engine.** |
