@@ -6,7 +6,7 @@ sync, and the lead file is the thing the dealer reads.
 
 **3 thing(s) only you can settle**, worth 760,860 EE at the low estimate, over a 5,000 EE floor. Both tracks score at the same rate, so a candidate counts like a master. A figure marked **measured** was priced against the store and is a fact; every other figure is a scout's guess and has been wrong by five orders of magnitude.
 
-**11 of the 14 live items, 105,634 EE, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. So the outlet row below governs far more than the figure beside it, and is the one to read first whatever its rank.
+**11 of the 15 live items, 105,634 EE, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. So the outlet row below governs far more than the figure beside it, and is the one to read first whatever its rank.
 
 ## Yours to rule, biggest first
 
@@ -18,4 +18,4 @@ sync, and the lead file is the thing the dealer reads.
 
 - **rule**: a reading of the brief only you settle, such as whether a hostname Section XIII refuses may enter the candidate claim.
 
-**11 other live lead(s), 105,634 to 363,596 EE, are mine to work**, not yours: they ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a re-price that ran out of its window. All of them are in the class the outlet row above governs, so working them adds rows to the store and nothing to the claim until it is settled. 5 carry a name the store already holds and are checked before any work is spent on them.
+**12 other live lead(s), 109,134 to 370,596 EE, are mine to work**, not yours: they ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a re-price that ran out of its window. 11 of them are in the class the outlet row above governs, so working them adds rows to the store and nothing to the claim until it is settled. 5 carry a name the store already holds and are checked before any work is spent on them.
