@@ -451,10 +451,21 @@ def export_all(
     # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and 29,327
     # of them were absent from his files, so shipping the pool as the contribution would
     # overstate the registrable half of this track by 78x.
+    #
+    # **A registrable name whose every year fails XIII is a candidate, not nothing** (C-90:
+    # "failing rows re-track to candidates"). Until 2026-09-21 the pool took only names with
+    # NO year at all, so a registry list ingested as `artifact_listing` earned a year the
+    # annual screen then refused, and the name fell between the two tracks: the `.dk` zone
+    # list's 251,114 rows shipped in neither file. His own baseline rows are excluded by
+    # type rather than by method, because `prior_reused` is not a web method either and
+    # every one of his 33.7M names would otherwise enter the pool only to be deleted below.
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE candidate_pool AS
         SELECT DISTINCT d.domain AS name, 'registrable' AS unit FROM domain d
-        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy
+                          WHERE dy.domain = d.domain AND {web_evidence_exists("dy.evidence_id")})
+          AND NOT EXISTS (SELECT 1 FROM evidence p
+                          WHERE p.domain = d.domain AND p.evidence_type = '{BASELINE_TYPE}')
           AND {_shipping_filter("d.", with_year=False)}
     """)
     # the ISC survey hostnames, already reduced by `export_isc_hostnames` against his

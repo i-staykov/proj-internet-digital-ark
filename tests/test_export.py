@@ -290,6 +290,45 @@ def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Pa
     assert summary["track"] == "candidate"
 
 
+def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> None:
+    """C-90: a row the annual screen refuses is a candidate, not a loss. A registry list is
+    `artifact_listing` by type and so earns a `domain_year`, and XIII then keeps it out of the
+    annual file by METHOD; until 2026-09-21 the candidate pool took only names with no year
+    at all, so 251,114 `.dk` rows shipped in neither file."""
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    registry = ensure_source(conn, "dk_zone_list", "timestamped")
+    add_candidate(conn, "zone-only.dk", registry)
+    assign_year(
+        conn,
+        record_evidence(
+            conn,
+            "zone-only.dk",
+            registry,
+            2001,
+            "artifact_listing",
+            "20011217: DK Zonen header",
+            acquisition_method="registry_zone_list_wayback_capture",
+        ),
+    )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    additions = (tmp_path / "netnew" / "candidate_additions.txt").read_text().split()
+    assert "zone-only.dk" in additions
+    assert "zone-only.dk" not in (tmp_path / "netnew" / "2001.txt").read_text().split()
+    # a name that earned a WEB year is still an annual record and never a candidate
+    assert "new.com" not in additions
+    # and his own baseline names never enter the pool by the back door
+    assert "base.com" not in additions
+
+
 def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path) -> None:
     """Diffed against HIS files at export time, not against our ingested copy of them: our
     baseline evidence is whatever release was ingested, and his current release can add

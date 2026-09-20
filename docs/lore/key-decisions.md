@@ -7,33 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Write to the Internet Archive about the availability endpoint, or leave the letter unwritten
-
-`archive.org/wayback/available` FLAPS: three days of 429, one 200 window at 21:39 on 2026-09-20
-verified on four known-good domains, then 429 again fifteen minutes later. `archive.org/metadata`
-answers 200 throughout from the same address with the same honest User-Agent, so it is that one
-endpoint and not our budget or our address. The engine holds the third archive slot (C-88) and
-rides the throttle without a hand, so it banks whatever windows open; the letter is what would
-make those windows reliable.
-
-**Measured tonight, and the 1,494 EE/hour of C-88 did not reproduce.** Over the one open
-window: 250 asks, 0 exact and 1 variant, while the endpoint throttled 60 times. Two ordering
-faults were found and fixed first, so the figure is not a verdict on the queue: 3,725 direct
-`.uk` names led it and cannot have 2001 captures, and the rest was plain alphabetical, so the
-head was numeric-prefixed junk. It is now shuffled on seed 20260920 and unmeasured, because the
-endpoint went back to 429 before a second window opened.
-
-**The slot is on a sweep lane again, on the measurement and not on a mood.** It was given back
-to the engine at 21:40 on a SINGLE 200, which is the error this repo keeps relearning: one
-reading is not a rate. Thirty minutes later the engine had asked 0 of its 4,000,000 and been
-throttled 100 times, so the slot was earning nothing. `ARK_CDX_BUDGET` is 3 again and lane 2
-runs to the 06:00 stop. Give the slot back to the engine when it sustains asks, not when it
-answers once.
-
-Worth: 28656 EE a day if C-88's 1,494 EE/hour holds, less the 7,200 a sweep lane recovers in its
-place. A letter, not a ruling, and the letter is the only thing that makes the endpoint reliable
-enough to be worth the slot.
-
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
 A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
@@ -83,18 +56,6 @@ above. The two figures are not added here because one is measured and the other 
 measurement and estimate. It needs an ADR before the export changes, since it changes what
 travels in the delivery.
 
-### Write to Verisign, PIR or Nominet, or leave the RDAP route closed
-
-Ask Nominet, through `registrars.nominet.uk` and never `data-release@nominet.uk`, for a two-column extract, domain name and registration date, for `.uk` names registered before 1 January 2002. No registrant data, so it falls outside their personal-data-only Data Release Policy, and they hold the whole window (`demon.co.uk` dated 1996-05-05, inherited with the Naming Committee register). Every registry queried by RDAP forbids high-volume automated querying inside its own responses, so a written permission is the only thing that reopens that channel.
-
-**Re-priced per distinct name, 2026-09-19, because Section XIII made a registration event candidate-only and the old figure was ANNUAL EE.** A candidate claims no year, so the letter is worth the NAMES it returns that nobody holds, at the `.uk` weight of 0.9813: **981 EE per 1,000 net-new names**. The old 63,921 EE needs 65,139 of them to stand.
-
-**The one registry extract we have actually banked says it is worth far more than that.** The 2001 `.dk` zone list was 358,529 rows and banked 43,674 EE, which at the `.dk` weight of 0.1711 is 255,254 net-new names, so **71% of a registry list was names nobody held**, even though his files carry 243,624 `.dk` names. His `.uk` coverage is 999,882 names against a register that passed a million around 2001, and our candidate pool holds a further 853,950, disjoint from his. If `.uk` behaves like `.dk` the letter is worth about **700,000 EE**, which is where the old "702,229 with registration history" figure lands from the other direction.
-
-**The 121 unshipped `.uk` RDAP pairs ride on this answer.** Nominet is the only one of the four whose terms prohibit USE as well as collection: "explicitly prohibited from extracting, copying and/or using or re-using ... all or part". The store holds 4,714 `.uk` RDAP pairs and 4,625.8 EE, of which 121 pairs and 118.7 EE are net-new and unsent; the rest is in his baseline and cannot be recalled. Withholding 121 while 4,593 of identical provenance are already in his hands is a gesture rather than compliance, so they wait on the letter and not on a ruling of their own.
-
-Worth: 698635 EE, extrapolated from one precedent, so the range is wide and the direction is what matters: the letter is worth an order of magnitude more than the 63,921 that was on the list. Do not write to auDA, which never held the window; write to CIRA only for the 2000-2002 transition slice, ~24,900 EE.
-
 ### Triage the newly found sources: 0 found
 
 **0 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*. What is worth deciding is ranked by EE in `queue.md`.
@@ -105,6 +66,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-92** | 2026-09-21 | **Letters are off the table for this submission (Ivo, 2026-09-21).** The two OPEN letter asks are closed unwritten: Verisign, PIR or Nominet for a registration-date extract (698,635 EE extrapolated from the one `.dk` precedent) and the Internet Archive for the availability endpoint (28,656 EE a day at C-88's rate, which did not reproduce). Too slow for the round; the RDAP route stays closed and the engine rides the throttle without a hand. |
 | **C-91** | 2026-09-20 | **The availability endpoint FLAPS; it did not recover.** `archive.org/wayback/available` answered 200 at 21:39 CEST after three days of 429, verified on four known-good domains, and was back to 429 on three consecutive probes 15 minutes later. So it is intermittent, not fixed, and one 200 is not evidence of recovery. The engine holds the third slot again per C-88, `ARK_CDX_BUDGET` is back to 2, and it rides the throttle: it waits on `Retry-After` and a throttle does not eat the queue, so it catches any open window without a hand. Its queue was also found MIS-ORDERED: 3,725 direct `.uk` names sat at the head and cannot have 2001 captures, Nominet having opened direct `.uk` only in 2014, so 150 asks returned 0 hits. They are moved to the tail and the 3,483,951 `.com` and 512,324 `.org` names now lead. The letter to the IA is still unwritten and still the open lever. |
 | **C-90** | 2026-09-17 | **Spec XIII binds: the annual masters are a website-evidence product.** Only exact-host year-specific web evidence enters the annual files; DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are candidates. Screened over round 10: **32,228 of 346,389 registrable rows pass (9.3%), 2,674,952 of 3,554,784 hostname rows pass (75.2%)**, table in `laws.md`. Largest casualty is C-87, the DK zone list, 255,211 rows. Failing rows re-track to candidates. Export and `ark check` still have to enforce it. |
 | **C-89** | 2026-09-17 | **The 5% gate stands; an early submission is ASKED FOR, not taken.** We may ask Ding to accept below the floor when the research side carries it, and he decides. `merged260917-2` puts the gate at 2,803,730 EE, rising about 110,000 EE/day against our 23,000. |
