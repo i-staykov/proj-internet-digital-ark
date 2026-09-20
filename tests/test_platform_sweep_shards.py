@@ -172,3 +172,20 @@ def test_a_command_over_the_cap_is_stopped_rather_than_waited_on() -> None:
     done = _bounded(5, "sleep 120")
     assert done.returncode == 124, done.stdout + done.stderr
     assert "was stopped" in done.stdout
+
+
+def test_the_ranker_depth_is_a_knob_and_is_deeper_than_the_queue_it_feeds() -> None:
+    """Both shards idled on 2026-09-20 with "refill found nothing" because the ranking was
+    capped at 20,000 and every one of those parents was already queued or carried a `.done`
+    marker. 32,734 markers existed against a 29,057-parent queue, so the cap was the binding
+    constraint and not the corpus: the ranker's pool is every registrable parent carrying a
+    hostname in his files. The number is read from the environment so the next exhaustion
+    needs no code change, and the default has to exceed what the two queues can burn.
+    """
+    script = Path(__file__).resolve().parents[1] / "scripts/engines/platform_sweep_loop.sh"
+    loop = script.read_text()
+    assert 'RANK_TOP="${ARK_RANK_TOP:-' in loop, "the depth is hardcoded again"
+    assert '--top "$RANK_TOP"' in loop, "the knob is set but not passed to the ranker"
+    assert "--top 20000" not in loop, "the exhausted literal is still there"
+    default = int(loop.split('RANK_TOP="${ARK_RANK_TOP:-')[1].split("}")[0])
+    assert default >= 40000, f"{default} is not deeper than the 29,057 parents already burned"

@@ -52,6 +52,14 @@ RPH_MAX="${ARK_RPH_MAX:-8}"
 # which is 63,801 files and growing, so neither is bounded by its own logic.
 COSTS_CAP="${ARK_COSTS_CAP:-600}"
 RANK_CAP="${ARK_RANK_CAP:-900}"
+# **How deep the ranker is asked to go, and it is a knob because it RAN OUT.** At 20,000
+# both shards reached "queue empty and refill found nothing" by 2026-09-20T03:03Z and sat
+# idle: of shard 0's 10,155 ranked parents, 8,911 were already in its queue and 1,230 of the
+# remaining 1,244 carried a `.done` marker, leaving nothing. The pool behind the ranker is
+# every registrable parent carrying a hostname in his files, which is far deeper than this,
+# so the cap was the binding constraint and not the corpus. Asking for more costs almost
+# nothing: the ranker's time goes on reading those files, not on the tail it writes.
+RANK_TOP="${ARK_RANK_TOP:-60000}"
 SWEEP="scripts/engines/cdx_suffix_sweep.py"
 [ -f "$SWEEP" ] || SWEEP="scripts/cdx_suffix_sweep.py"
 RANKER="scripts/engines/rank_platform_parents.py"
@@ -242,7 +250,7 @@ refill() {
             >/dev/null 2>&1 || true
     fi
     local ranked="data/raw/cdx/ranked_shard${SHARD}.txt"
-    bounded "$RANK_CAP" uv run python "$RANKER" --net-new --top 20000 --out "$ranked" \
+    bounded "$RANK_CAP" uv run python "$RANKER" --net-new --top "$RANK_TOP" --out "$ranked" \
         >/dev/null 2>&1 || return 1
     [ -s "$ranked" ] || return 1
     # **A park list nothing reads is a leak, and these two were leaking the best parents.**
