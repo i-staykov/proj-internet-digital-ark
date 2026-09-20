@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| lanet-lv-wwwstat-monthly-reversed-subdomain-client-hosts-1996-1997 / candidate: server-log client hostnames, wwwstat reversed-subdomain table (trunca | 2026-09-20, fleet 20260920T0506Z | 79.6 EE | lens candidate-bulk. Measured at 79.5835 EE annual (162 net-new pairs) and 29.1410 EE candidate (50 net-new pairs) against merged260917-2, against a floor of 5,000. | http://www.lanet.lv/util/wwwstat/9712l.html |
 | kleinberg-hits-query-graphs-cornell-cs685-1998-hostgrain / unclassified | 2026-09-20, fleet 20260920T0306Z | not priced | lens no lens recorded. CLOSED. |  |
 | about-com-guide-net-links-msub-pages-wayback-2000-external-hosts / dated page snapshot (IA replay capture of a directory page; | 2026-09-20, fleet 20260920T0206Z | not priced | lens archived-web-directories. Measured zero on both tracks. |  |
 | custodian-capture-indexes-archive-it-aggregate-cdx-unt-and-pywb-tld-enumeration-sweep / unclassified | 2026-09-19, fleet 20260919T2006Z | not priced | lens no lens recorded. |  |
