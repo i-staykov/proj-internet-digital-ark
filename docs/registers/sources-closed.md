@@ -6,6 +6,10 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: the 5,000 EE floor was written to rank asks and is being used to delete measured sources / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision for Ivo. |  |
+| ch-at-registry-bulk-register-publication-probe / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens self-published-registers. BLOCKED |  |
+| eblast-britannica-internet-guide-static-category-tree / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens archived-web-directories (weight 2).. CLOSED |  |
+| gtld-launch-registry-and-ia-zone-deposit-register-sweep / unclassified | 2026-09-20, fleet 20260920T1906Z | not priced | lens self-published-registers.. CLOSED |  |
 | custodian-capture-indexes-open-flag-in-window-web-items-datanode-401-wall / unclassified | 2026-09-20, fleet 20260920T1806Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | dated-link-graph-repository-api-and-network-catalogue-wall / unclassified | 2026-09-20, fleet 20260920T1806Z | not priced | lens no lens recorded. CLOSED |  |
 | brief-audit: our XIII screen kills `whois_creation`, which his IV.6 admits by name / unclassified | 2026-09-20, fleet 20260920T1706Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
