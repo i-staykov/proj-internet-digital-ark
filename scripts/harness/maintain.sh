@@ -77,6 +77,17 @@ ingest_all() {
 for i in $(seq 1 "$ITERATIONS"); do
     echo "$(date '+%F %T') pass ${i}" >> "$LOG"
 
+    # **Yield the single writer to a sync.** DuckDB takes one writer, and a fold pass
+    # over a full journal directory holds it for longer than the sync's 900s patience:
+    # measured 2026-09-20, the 17:14 sync died on "Conflicting lock is held" by this
+    # loop and banked nothing. The sync ingests the same journals itself, so a skipped
+    # turn loses no work, where a lost sync loses the hour.
+    if holder=$(bash scripts/harness/sync_lock.sh holder 2>/dev/null); then
+        echo "  a sync holds the store as pid ${holder}, skipping this turn" >> "$LOG"
+        sleep "$PAUSE"
+        continue
+    fi
+
     # Fetch the other machine's journals before ingesting anything, because work
     # that is still on the VPS appears in no number measured here. Leaving this to
     # a human has failed twice: 5,793 year-records sat remote for a day and a half

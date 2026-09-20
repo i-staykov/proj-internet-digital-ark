@@ -25,6 +25,9 @@ cd "$(dirname "$0")/../.." || exit 1
 # local.env is the machine-local config (gitignored): the VPS address lives there, and so
 # does any knob this laptop wants different from the default. The environment still wins.
 [ -f local.env ] && . ./local.env
+# The sweep loop is a CHILD process, so a knob it reads itself has to be exported and not
+# merely set: `local.env` assigns without `export` and the loop would get the default.
+[ -n "${ARK_RANK_TOP:-}" ] && export ARK_RANK_TOP
 : "${ARK_STATE_DIR:=$HOME/ark/state}"
 : "${ARK_CDX_BUDGET:=2}"
 : "${ARK_COLLECTOR_WINDOW:=21600}"

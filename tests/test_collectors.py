@@ -141,3 +141,15 @@ def test_the_lane_count_follows_the_client_budget():
     # and every lane past the two seeded ones needs its own shard file, or it dies on a
     # missing path instead of ranking its own queue
     assert "for shard in $(seq 2 $(( BUDGET - 1 ))); do" in text
+    # and the ranker depth the loop reads for itself has to cross the process boundary,
+    # or three lanes share a pool sized for two and the last one refills into nothing
+    assert "export ARK_RANK_TOP" in text
+
+
+def test_the_fold_loop_yields_the_single_writer_to_a_sync():
+    """DuckDB takes one writer. A fold pass over a full journal directory outlasts the
+    sync's 900s patience, and on 2026-09-20 it killed the 17:14 sync outright. The sync
+    ingests the same journals, so a skipped turn costs nothing and a lost sync costs the
+    hour."""
+    text = (ROOT / "scripts/harness/maintain.sh").read_text()
+    assert "sync_lock.sh holder" in text, "the fold loop races the sync for the store"
