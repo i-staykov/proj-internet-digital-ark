@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| about-com-guide-net-links-msub-pages-wayback-2000-external-hosts / dated page snapshot (IA replay capture of a directory page; | 2026-09-20, fleet 20260920T0206Z | not priced | lens archived-web-directories. Measured zero on both tracks. |  |
 | custodian-capture-indexes-archive-it-aggregate-cdx-unt-and-pywb-tld-enumeration-sweep / unclassified | 2026-09-19, fleet 20260919T2006Z | not priced | lens no lens recorded. |  |
 | ia-early-crawl-items-as-bulk-artifacts / cdx_timestamp | 2026-09-19, laptop search | 0 EE | lens web-archive-indexes. CLOSED: the 1996-2001 Wayback holdings came from Alexa's crawls, so the question is whether any are downloadable items rather than API-only. None are. advancedsearch on identifier alexa1996* through alexa2001* returns 0; the 276,045 alexa* items all carry 2018-2020 dates. So in-window IA captures stay behind web.archive.org/cdx, whi... | https://archive.org/advancedsearch.php |
 | ia-national-extraction-collections-sweep / cdx_timestamp | 2026-09-19, laptop search | 0 EE | lens web-archive-indexes. CLOSED: the Poland 2001 extraction banked 15,798 EE off its item-level CDX, so the obvious next move is a sibling ccTLD extraction. There is none. advancedsearch for identifier *-19xx-EXTRACTION* and *-200x-EXTRACTION* across the window returns 19 items and every one is `pl`. The parent collections webdataservices and earlygo... | https://archive.org/details/webdataservices |
