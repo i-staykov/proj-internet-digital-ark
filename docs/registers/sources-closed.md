@@ -6,6 +6,10 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: our XIII screen kills `whois_creation`, which his IV.6 admits by name / unclassified | 2026-09-20, fleet 20260920T1706Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| candidate-bulk, run 35523907232 / unclassified | 2026-09-20, fleet 20260920T1706Z | not priced | lens no lens recorded. BLOCKED |  |
+| custodian-capture-indexes-ia-donation-set-and-native-crawler-access-walls / unclassified | 2026-09-20, fleet 20260920T1706Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
+| custodian-capture-indexes: replay-sitemap and census-custodian shapes / unclassified | 2026-09-20, fleet 20260920T1706Z | not priced | lens no lens recorded. CLOSED |  |
 | candidate-bulk: free and dynamic DNS provider host registers / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. UNFINISHED. |  |
 | non-european-national-and-commercial-link-graph-deposit-sweep / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. |  |
 | self-published-registers, run 35519731319 / unclassified | 2026-09-20, fleet 20260920T1606Z | not priced | lens no lens recorded. UNFINISHED (not CLOSED: only two artifacts were read to bytes, the bar is four) |  |
