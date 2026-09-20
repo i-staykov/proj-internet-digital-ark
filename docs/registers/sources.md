@@ -5379,8 +5379,14 @@ artifacts rather than reasoning about them, and one of them is wrong.
   additions under parents the store already holds, and the registrable-domain count barely
   moves. His 0906 update asks for the two reported separately, which is why it is said here
 - collect: `build_usenet_header_pool.py <zipdir> <out> <n>`, then
-  `uv run ark ingest-usenet-header-hostnames <out>`. `usenet-uk`, 495 zips and 14.48 GB, is the
-  last unfetched half of the pair the class was originally measured on
+  `uv run ark ingest-usenet-header-hostnames <out>`. **`usenet-uk` is now FETCHED and banked at
+  0 shippable EE, 2026-09-20**: 71 archives and 8.47 GB gave 14,486,018 posts, 3,723,644 in
+  window, 2,569,006 carrying a server-written host, and 39,999 hostname-year rows. The export
+  moved by ZERO. **The C-83 master approval of 2026-09-10 was superseded by Spec XIII (C-90)**:
+  `usenet_header_fqdn_hostnames` is not in `WEB_METHODS`, so every row in this class is screened
+  out of the annual masters and has no candidate outlet either. The rows are real and ship the
+  day that outlet is ruled on; until then this whole class is worth 0. Do not re-fetch the
+  remaining 424 zips expecting EE
 
 
 ## `poland_pl_extract_hostnames`: BANKED 2026-09-10 at 15,798.4430 EE, and the terms question that had to go to Ivo
