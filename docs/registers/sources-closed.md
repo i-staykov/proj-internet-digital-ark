@@ -6,6 +6,9 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| archived-directory-page-fetch-bound-bulk-ceiling / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. |  |
+| brief-audit: the XIII allowlist voids `dated_directory` entirely, by default rather than by decision / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| custodian-capture-indexes-host-facet-search-and-robots-redirect-wall / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | archiveorg-data-item-registry-register-publication-sweep / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens self-published-registers.. CLOSED |  |
 | brief-audit: our XIII screen voids a registration record he admits by name / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | cdx-summarize custodian-published summary files: the window wall / unclassified | 2026-09-21, fleet 20260920T2206Z | not priced | lens custodian-capture-indexes. CLOSED |  |
