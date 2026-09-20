@@ -129,3 +129,12 @@ def test_the_script_carries_a_hard_stop_knob(tmp_path):
     # the loop exits at the stop, and a window is clamped to it rather than overrunning
     assert 'note "reached ARK_COLLECTOR_UNTIL' in text
     assert 'deadline="$ARK_COLLECTOR_UNTIL"' in text
+
+
+def test_the_lane_count_follows_the_client_budget():
+    """The budget is the client count, so it has to be the lane count too. Hardcoding two
+    lanes left the third archive slot idle whenever rule 6 freed it, which is exactly the
+    case while the availability engine is dark."""
+    text = COLLECTORS.read_text()
+    assert "for shard in $(seq 0 $(( BUDGET - 1 ))); do" in text
+    assert "for shard in 0 1; do" not in text, "the lane count is hardcoded again"

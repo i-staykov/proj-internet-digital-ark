@@ -42,8 +42,10 @@ WINDOW="$ARK_COLLECTOR_WINDOW"
 # Two archive clients maximum, and the limit binds the CDX CHANNEL, not the machine
 # (C-77). So the budget is spent against every client on the channel, this laptop's and
 # the VPS's, which is why the supervisor asks the VPS before it starts anything: the two
-# slots become the laptop's when the VPS sweeps stop (S8), with no step here. Raise
-# ARK_CDX_BUDGET only for a deliberate S9-to-S8 overlap Ivo has asked for.
+# slots become the laptop's when the VPS sweeps stop (S8), with no step here.
+# ARK_CDX_BUDGET is the client count AND the lane count. Rule 6 caps archive clients at
+# three and spends the third on the availability engine; while that endpoint is dark the
+# slot is idle, so 3 reallocates it to a sweep lane. Put it back to 2 when the engine answers.
 BUDGET="$ARK_CDX_BUDGET"
 SHARD_PREFIX="data/raw/cdx/collector_shard"
 LOCK="data/logs/.collectors.lock"
@@ -298,7 +300,7 @@ cmd_run() {
 
         pids=""
         started=0
-        for shard in 0 1; do
+        for shard in $(seq 0 $(( BUDGET - 1 ))); do
             [ "$started" -ge "$room" ] && break
             nohup bash "$SWEEP_LOOP" "$deadline" "${SHARD_PREFIX}${shard}.txt" "$shard" \
                 >> "data/logs/collectors_shard${shard}.log" 2>&1 < /dev/null &
