@@ -175,6 +175,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
     trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    # The store outgrew the 40% default, so the laptop sets the limit in local.env and
+    # scheduled_sync.sh exports it. A sync started BY HAND skipped that and ran the round
+    # state at the default, where `_corroboration` dies out of memory on a 61 GB store.
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
     FLEET=$(eval echo {{fleet}})
     IN=data/fleet_findings/incoming
     mkdir -p "$IN" data/fleet_findings/banked data/logs
