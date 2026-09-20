@@ -297,6 +297,11 @@ cmd_run() {
         fi
         seed_shard 0 data/raw/cdx/platform_queue_netnew.txt
         seed_shard 1 data/raw/cdx/suffix_queue_r9.txt
+        # Any lane past the two seeded ones starts empty and ranks its own queue. Without
+        # this its shard file never exists and the loop fails on a missing path.
+        for shard in $(seq 2 $(( BUDGET - 1 ))); do
+            seed_shard "$shard" ""
+        done
 
         pids=""
         started=0

@@ -138,3 +138,6 @@ def test_the_lane_count_follows_the_client_budget():
     text = COLLECTORS.read_text()
     assert "for shard in $(seq 0 $(( BUDGET - 1 ))); do" in text
     assert "for shard in 0 1; do" not in text, "the lane count is hardcoded again"
+    # and every lane past the two seeded ones needs its own shard file, or it dies on a
+    # missing path instead of ranking its own queue
+    assert "for shard in $(seq 2 $(( BUDGET - 1 ))); do" in text
