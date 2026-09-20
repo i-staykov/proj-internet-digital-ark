@@ -34,6 +34,9 @@ to 2 the day the endpoint answers. Worth about 300 EE/hour, so **7,200 EE a day*
 endpoint refuses us recovers the full 1,494 EE/hour if it works, and costs a letter. Not writing
 it accepts the remaining **28,656 EE a day** for as long as the engine stays dark.
 
+Worth: 28656 EE, the 35,856 a day the dark engine costs less the 7,200 the reallocated slot
+already recovers. A letter, not a ruling, and the only lever left on this row.
+
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
 A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
@@ -71,7 +74,14 @@ half, the part that can ship today, is 11 names and **7.05 EE**. That ratio is t
 one line. The NS-target corpus folds in here too, 7,792 to 23,641 EE, closed as its own row on
 2026-09-19 because it asked this same question of a second corpus.
 
-Worth: 26,369.5 EE measured and already in the store, and it gates the 105,634 EE of leads
+**Measured again on 2026-09-20, and the gate is wider than the figure.** The uk Usenet
+hierarchy was fetched that evening under the C-83 class approval, 8.47 GB and 2,569,006
+host-carrying posts, and banked **39,999 hostname-year rows for 0 shippable EE**, because
+XIII screens the whole class. One archive collection, one hour, using tooling that already
+existed. Usenet, mail headers, DNS surveys and registry publications all sit on that side of
+the screen, so this row does not gate a fixed pile: it gates a rate.
+
+Worth: 26,369.5 EE measured and already in the store, and it gates the 165,634 EE of leads
 above. The two figures are not added here because one is measured and the other is a mix of
 measurement and estimate. It needs an ADR before the export changes, since it changes what
 travels in the delivery.
