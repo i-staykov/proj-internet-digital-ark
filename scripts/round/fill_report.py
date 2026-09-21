@@ -127,6 +127,10 @@ def per_year_table(f: dict) -> str:
 # appears, described by its evidence class, so the table can never silently drop a row.
 # Hostname sources are keyed by acquisition method because both live under one source row.
 GROUNDS: dict[str, tuple[str, str]] = {
+    "bulk_cdx_file": (
+        "a public Internet Archive CDX index read whole",
+        "the row's own 14-digit capture timestamp in the archive's index",
+    ),
     "nypw_timemap_hostgrain": (
         "NYPW TimeMaps (IA, CC BY 4.0), 34 parts held since round 6, re-read at hostname grain",
         "the row's own 14-digit capture timestamp",
@@ -419,7 +423,9 @@ def accepted_totals() -> dict | None:
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
-ATTRIBUTION_TOP_ROWS = 6
+# A source is named in the report when it carries at least this much of the round; the rest
+# is one row pointing at the register (Ivo, 2026-09-22: nothing under 4,000 EE by name).
+ATTRIBUTION_FLOOR_EE = Decimal(4000)
 
 
 def attribution_rows(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> list[tuple]:
@@ -443,7 +449,8 @@ def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     pointing at the register. Ivo, 2026-09-02: the full table cost a page of the
     report and belongs in `sources.md` and `audit/source_contribution.csv`."""
     rows = attribution_rows(f, hosts)
-    shown, rest = rows[:ATTRIBUTION_TOP_ROWS], rows[ATTRIBUTION_TOP_ROWS:]
+    shown = [r for r in rows if r[5] >= ATTRIBUTION_FLOOR_EE]
+    rest = rows[len(shown) :]
     lines = [
         "| Source | Unit | What dates one record | Records | EE |",
         "|------------------------|------|----------------------------|--------:|-------:|",
@@ -860,8 +867,9 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
         f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
         f"{growth:.4f}% and round 1 on records. Time-weighted score "
         f"{addends} = {as_he_wrote_it(total)}, your own scores for rounds {labels}. Under "
-        f"your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 "
-        f"days), this round is t = {t_now}. Domain-Year Score: S = 10 x ({growth:.6f} / "
+        f"the time-weighted score rule of your 3 September update, from the origin your round 8 "
+        f"divisor implies (2026-09-04 less 33 days), this round is t = {t_now}. "
+        f"Domain-Year Score: S = 10 x ({growth:.6f} / "
         f"{t_now}) = {score(growth, t_now):.6f}. Candidate-Pool Score: S = 10 x "
         f"({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )

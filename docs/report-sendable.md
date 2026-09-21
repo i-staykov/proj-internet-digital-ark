@@ -1,135 +1,149 @@
-# Internet Digital Ark: round 9
+# Internet Digital Ark: round 10
 
-Additions to the 1996-2001 annual lists, against `merged260908`. Every figure is generated from the
-evidence store, so nothing here can disagree with the files beside it. The round's research
-findings are in `findings.md`, the failures, yields and next steps in `experience-summary.md`, the
-per-source receipts in `sources.md`, and the route through the archive in `README.md`.
+Additions to the 1996-2001 annual lists and to the candidate pool, against your release
+`merged260917-2`; every figure is generated from our evidence store. "The specification" is your
+`Internet_Digital_Ark_Project_0917_Update.docx` of 17 September, "the evidence rule" its section XIII
+(Mandatory Evidence Classification and Hostname Integrity Gate), "the two open questions" its
+section IV-A. EE is equivalent-English.
 
 ## 1. Results
 
 | | |
 |---|--:|
-| 1. Total original domain-year records 1996-2001 | 65,313,842 |
-| 2. Equivalent-English total | 34,887,095.7393 |
-| 3. Increment | **3,399,258** records |
-| 4. Equivalent-English increment | **1,874,979.2367** |
-| 5. Equivalent-English growth rate | **5.3744%** |
+| 1. Total original domain-year records 1996-2001 | 103,223,503 |
+| 2. Equivalent-English total | 56,074,593.5291 |
+| 3. Increment | **591,027** records |
+| 4. Equivalent-English increment | **329,140.5166** |
+| 5. Equivalent-English growth rate | **0.5870%** |
 
-91,168 records (65,738.2990 EE) are registrable domains in `additions/` and 3,308,090 (1,809,240.9377
-EE) are hostnames beneath them in `hostnames/`: disjoint in every year, and either set can be
-merged or discarded whole. 84,942 distinct domains carry the increment, 44,919 of them
-absent from your six files in every year.
+841 records (395.9463 EE) are registrable domains, in `additions/`; 590,186 (328,744.5703 EE)
+are hostnames beneath them, in `hostnames/`: disjoint in every year, either set mergeable or
+discardable whole, every record carrying its own exact-host capture in that year. 723
+registrable domains are absent from your six files in every year; the rest fills years on names
+you hold.
 
 | Year | Registrables | Hostnames | Equivalent-English added |
 |------|-----------:|-----------:|--------------:|
-| 1996 | 1,354 | 6,138 | 4,706.0329 |
-| 1997 | 4,620 | 11,473 | 9,965.1210 |
-| 1998 | 5,642 | 41,452 | 28,290.1568 |
-| 1999 | 19,884 | 136,285 | 94,087.1613 |
-| 2000 | 20,232 | 329,152 | 194,617.8658 |
-| 2001 | 39,436 | 2,783,590 | 1,543,312.8989 |
-| **Total** | **91,168** | **3,308,090** | **1,874,979.2367** |
+| 1996 | 0 | 437 | 233.1241 |
+| 1997 | 0 | 4,576 | 2,742.2903 |
+| 1998 | 0 | 11,521 | 6,360.0689 |
+| 1999 | 0 | 44,926 | 24,681.8126 |
+| 2000 | 7 | 145,416 | 80,361.4079 |
+| 2001 | 834 | 383,310 | 214,761.8128 |
+| **Total** | **841** | **590,186** | **329,140.5166** |
 
-Cumulative verified percentage 80.5097%, this round at its own unverified 5.3744% and round 1 on records. Time-weighted score 18.874694 over the three rounds you scored, your own figure where you stated one. Under your 0903 rule, at the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 39 and adds 1.378057.
+**The candidate track, claimed separately and never added to the above.** `candidate_additions.txt`:
+261,977 names, 77,497.7487 EE, **0.1382%** of the same denominator, after removing every
+name in your `candidate_pool.txt` or annual files. 217,900 are registrable domains whose only dated
+evidence the evidence rule keeps out of the annual files (registry zone and drop lists, dated
+directories, author e-mail hosts); 44,077 are hostnames from the two collections of section 3.
+
+Cumulative verified percentage 79.4048%, this round at its own unverified 0.5870% and round 1 on records. Time-weighted score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392, your own scores for rounds 6, 7, 8 and 9. Under the time-weighted score rule of your 3 September update, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 50. Domain-Year Score: S = 10 x (0.586969 / 50) = 0.117394. Candidate-Pool Score: S = 10 x (0.138205 / 50) = 0.027641.
 
 ## 2. What is new, and where it came from
 
-| Source, unit | Artifact, and how it was obtained | What dates one record | Records | EE |
-|--------------|--------------------------|----------------------|--------:|-------:|
-| `ia_cdx_domain_sweep`, hostname | IA CDX `matchType=domain` sweeps, two clients, parents ranked by the hosts we lack | the row's own 14-digit capture timestamp | 2,262,861 | 1,353,286 |
-| `usenet_server_written_header`, hostname | Usenet spool (IA), already held, re-read for the three headers a news server writes about itself: `Path:`, `X-Trace:`, `NNTP-Posting-Host:` | the post's own machine-written `Date:` header | 736,440 | 350,946 |
-| `usenet_body_url`, hostname | Every non-alt Usenet hierarchy (IA), 224 GB read whole, hosts only from explicit http, https and ftp URLs in the post body | the post's own machine-written `Date:` header | 109,258 | 64,821 |
-| `ia_cdx_bulk`, registrable | IA CDX per-domain queries over bracketed year gaps and the candidate pool | the capture timestamp of a URL on that host | 30,343 | 29,954 |
-| `usenet_address`, registrable | Usenet archives (IA), sender and body addresses | the post's `Date:` header, corroborated by a second source | 33,288 | 19,565 |
-| `poland_pl_extract_hostgrain`, hostname | Poland `.pl` ccTLD extraction 2001-12-31 (IA), 19 CDX indexes, 1.24 GB, each verified against its published sha256 | the row's own 14-digit capture timestamp, from the original URL and never the SURT key | 147,649 | 15,798 |
-| `ietf_list_received_by`, hostname | IETF mail archive, one raw mbox per list-month | the message's `Date:` header, checked against the month the archive filed it under | 21,465 | 11,986 |
-| `usenet_body_url_hostnames`, registrable | the registrable half of the Usenet body-URL lane | the post's own machine-written `Date:` header | 11,413 | 7,074 |
-| `apache_list_received_by`, hostname | Apache mailing-list archive, the same clause at a second host | the message's `Date:` header, checked against the month the archive filed it under | 12,669 | 7,013 |
-| `usenet_bare`, registrable | Usenet archives (IA), bare hostnames in bodies | the post's `Date:` header, corroborated by a second source | 7,520 | 4,875 |
-| `arquivo_ia_cdxj_hostgrain`, hostname | Arquivo.pt `IA.cdxj` capture index, held since 2026-08, re-read at hostname grain | the row's own 14-digit capture timestamp | 16,366 | 4,144 |
-| `usenet_header_fqdn_hostnames`, registrable | the registrable half of the Usenet server-header lane above | the post's own machine-written `Date:` header | 5,826 | 3,026 |
-| `ia_cdx_gap_hostgrain`, hostname | IA CDX queries over bracketed year gaps, read at hostname grain | the row's own 14-digit capture timestamp | 1,382 | 1,248 |
-| 7 further sources | each under 1,000 EE, listed in `audit/source_contribution.csv` | | 2,778 | 1,244 |
-| **Total** | | | **3,399,258** | **1,874,979** |
+| Source | Unit | What dates one record | Records | EE |
+|------------------------|------|----------------------------|--------:|-------:|
+| `ia_cdx_domain_sweep` | hostname | the row's own 14-digit capture timestamp | 341,489 | 190,023 |
+| `bulk_cdx_file` | hostname | the row's own 14-digit capture timestamp in the archive's index | 238,911 | 134,590 |
+| `nypw_timemap_hostgrain` | hostname | the row's own 14-digit capture timestamp | 9,717 | 4,106 |
+| 6 further sources | both | one row each in `sources.md` and `audit/source_contribution.csv` | 910 | 422 |
+| **Total** | | | **591,027** | **329,141** |
 
-Every stamp is machine-written and inside the artifact, so no human judgement dates a year, and the
-middle column names the stamp per source. Nothing here is a record you already hold: the export
-diffs every shipped list against your own annual files, so section 5's overlap is zero by
-construction.
+Both large sources are **Internet Archive capture indexes (CDX) read whole at hostname grain**:
+every captured URL with the archive's own 14-digit timestamp, the evidence rule's reference
+pattern. We keep the exact hostname and stamp of every HTTP 200 row dated 1996-2001.
 
-**One class is new**, a server writing its own name: the `Received: ... by <host>` clause a
-receiving mail server writes about itself, and the `Path:`, `X-Trace:` and `NNTP-Posting-Host:`
-headers a news server writes about a transaction it completed. No sender-supplied field is read.
-`findings.md` gives the exclusions and the two parsing traps caught first. A capture proves
-presence and never absence, and a header attests its own message's year and no other, so both err
-toward omission.
+- **Dartmouth NBER ARCS**, a research crawl collection on archive.org with a CDX beside each of
+  its 282 items: the 25 with 1996-2001 stamps, read whole (4.1 GB), paid 135,005 records and
+  84,119 EE. We had closed it in August at registrable grain, where every parent was held.
+- **Storage node ia600702**, the public 57.6 GB CDX of every capture on one archive.org node:
+  1,031,419,773 rows, 14,192,504 of them HTTP 200 and dated 1996-2001, 931,864 host-years,
+  **88% already in your release or our store**; the remaining 104,347 records paid 50,722 EE. A
+  bulk index read now measures the benchmark's saturation as much as it adds to it.
 
-## 3. The candidate track, counted the same way
+The autonomous research loop now refuses at filing any hostname-grain source whose class the
+evidence rule keeps out of the annual files; the last such fetch was 8.5 GB for 0 shippable EE.
 
-You score candidates separately, at the same rate, over the same denominator, so this is a
-contribution and is held to the annual standard: every collection we hold unioned into one pool,
-then diffed against your `candidate_pool.txt` and all six annual files.
+## 3. Two candidate collections, separate from the annual files
 
-| | Names | Equivalent-English |
-|---|--:|--:|
-| registrable domains | 29,327 | 4,237.1081 |
-| exact hostnames | 13,109,834 | 6,691,826.9522 |
-| **`candidate_additions.txt`** | **13,139,161** | **6,696,064.0603** |
+`isc_survey_hostnames/` is unchanged from round 9: 4,265 hosts of the 1996-1997 Internet Domain
+Survey, candidates by your ruling of 5 September that a DNS listing is not website evidence.
 
-**19.1935%** of the same denominator as section 1, never added to it.
+`server_header_hostnames/` is new, as the evidence rule instructs for mail and Usenet delivery
+headers: 39,812 exact hostnames whose only dated evidence is a header a mail or news server wrote
+about itself (`Received: by`, `Path`, `X-Trace`, `NNTP-Posting-Host`), proof of a host in service,
+not of a website. It ships with per-host provenance and the seven-column exclusion ledger of its
+validation run; a host promotes only beside an exact-host capture for that year.
 
-The hostnames are the ISC Internet Domain Survey of 1996-1997, dated by each edition's own code:
-a DNS observation, which your 0905 ruling makes candidate-only and promotable one host at a time on
-exact-host web evidence. The registrables are names our lanes found without a year we could defend.
-**Provenance is per name and not in this list**: `provenance/` joins each name to its evidence row,
-and `isc_survey_hostnames/isc_survey_provenance.csv` carries the survey edition, source file,
-recovery URL, record location, extraction method and year for every hostname, the shape you
-specified on 2026-09-06. That folder still ships; its names are inside the pool and not counted
-twice.
+Its worth, measured on 98,381 header-dated host-years from eight Usenet hierarchies with no new
+requests: **1.16% carry an exact-host capture for the same year** (95% interval 1.10 to 1.23),
+against 0.56% to 0.86% at a year shifted by one to three; 2.10% in any in-window year, beside the
+2.67% you measured on Internet Domain Survey hosts over 1996-2013. By leftmost label: dial-up shaped
+names 0.06%, infrastructure names 4.07%, `www` and `web` names 31.1%. Lower bounds against a partial
+index, Usenet only: a ranked verification queue.
 
-One measurement worth passing on: our working pool holds 2,279,755 undated names, of which
-29,327 are absent from your files. Shipping a working set as a contribution would have
-overstated that half of the track by 78x.
+## 4. The two open questions
 
-## 4. How the work runs, and where it goes next
+**Q1. Discovering pre-1996 web data at scale.**
 
-Two archive clients at most, ever, with an honest User-Agent naming the project and a contact, and
-they hold the CDX channel exclusively. An autonomous research harness runs beside them on a
-self-hosted runner: one lane proposes sources, one prices each against a snapshot of the store, a
-separate admitter re-derives every figure locally before anything is banked, and a re-opener
-re-tests closed verdicts whenever a measurement screen retires. **The research lanes cannot write
-to the store**, which is why an agent's own figure has never decided a record.
+No pre-1996 hostname can meet the evidence rule as written: every qualifying pattern is a web
+capture, and the Internet Archive began crawling in 1996. The question needs a pre-1996 evidence
+standard before it needs sources; we propose three tiers, named by what wrote the date.
 
-**No agent assigns a year, and no source reaches an annual file without a written decision.** A
-year comes from a machine-written stamp inside the artifact; `ark ingest` refuses any class with no
-`Decision:` line and refused twice this round until one existed. Eighteen invariants run before
-every commit and again inside this archive.
+Tier A, a pre-1996 web capture held by another custodian (national libraries, university archives,
+software mirrors that kept HTTP logs): the evidence rule's own standard, small and institutional in
+coverage. Tier B, a server naming the exact host at a date: news and mail headers as in section 3,
+dated FTP mirror listings, UUCP maps; before 1996 the only machine-stamped option, proving a host in
+service, not a website. Tier C, dated human-written mentions: candidates only.
 
-Next, in the order we would spend the hours: the server-header class at the archives it has not
-been run against, which needs no new bandwidth; the ISP Usenet hierarchies, where the customer host
-appears rather than the news server; sibling national ccTLD extractions of the shape the Poland
-index has; second-level suffix namespaces at hostname grain, where `co.uk` alone is 3.39M index
-blocks and 1.2% walked; and promoting ISC candidates as exact-host web evidence arrives, the one
-route that turns 6,691,826.9522 candidate equivalent-English into annual records.
+What we can add is the tier-B corpus and its cost: about 110 GB of Usenet reaching before 1996 is
+already on disk with per-post `Date` and server headers, and the shipped extractor reads 2.6
+million host-carrying posts an hour. Limits: the server's clock dates it, the hosts are servers and
+relays, coverage skews to institutions that ran news. Retention: a pre-1996 collection held apart
+from 1996-2001, with source, message-id, header field and stamp per host, and an overlap report
+against the benchmark.
+
+**Q2. Determining the year a website existed more accurately.**
+
+Three evidence levels with measured error rates, the level travelling with the record. Direct: an
+exact-host capture in the target year from an archive index or a custodian's per-host
+extract, the only route into an annual file. Second engine: the Wayback availability endpoint,
+graded against CDX ground truth on disk, 187 of 204 year-pairs recovered (91.7%, 94.3% at 2001)
+and 40 of 40 CDX-negative domains empty; it returns HTTP 200 captures only and drops `www.`, so
+every miss under-claims. Discovery-only: DNS surveys and server-written headers at the rates of
+section 3, which rank a verification queue before a request is spent.
+
+Reconciliation: at export every candidate is diffed against your `candidate_pool.txt` and six
+annual files, and a name accepted annually leaves the pool. We propose one field per record,
+`evidence_level` (direct, discovery, unresolved), so the reconciliation is machine-checkable on your
+side; our manifests carry `evidence_type` and `acquisition_method`, from which it is a lookup.
+Promotion only beside an exact-host, target-year capture; nothing is inferred between a bare name
+and its `www.` form or between adjacent years.
+
+Where the second engine pays: of 6,568,275 domains held in year N and missing N+1, one query pinned
+at mid-2001 recovers 55.0% +/- 6.3%; on the 2.41 million undated pool it is closed at 114 EE an
+hour. Both instruments err toward omission.
 
 ## 5. Merge, overlap and reconciliation (D3)
 
 | | records | equivalent-English |
 |---|--:|--:|
-| baseline `merged260908` | 65,313,842 | 34,887,095.7393 |
-| **accepted increment** | **3,399,258** | **1,874,979.2367** |
-| post-merge total | 68,713,100 | 36,762,074.9760 |
+| baseline `merged260917-2` | 103,223,503 | 56,074,593.5291 |
+| **accepted increment** | **591,027** | **329,140.5166** |
+| post-merge total | 103,814,530 | 56,403,734.0457 |
 
-**Not one of the 3,399,258 records submitted is already in the baseline**, so every one of them counts exactly once: the export diffs each shipped list against your own annual files before it writes them. **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
+**Not one of the 591,027 records submitted is already in the baseline**, so every one of them counts exactly once: the export diffs each shipped list against your own annual files before it writes them. **28 of 28 reconciliation checks pass**. `merge_against_baseline.py` unions both units into the baseline, deduplicates on the lowercased line within each year and scores every file with your own calculator; the per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in `audit/merge_stats_ark_*.csv`, in your column names.
 
-## 6. Reproduction, and the four deliverables
+## 6. Reproduction, deliverables, limits
 
-`README.md` in the archive gives the route and the file map. Every evidence row names its source,
-evidence type, dated value, URL and extraction method; `additions/evidence_manifest.csv` and
-`hostnames/hostnames_evidence_manifest.csv` repeat those columns per record. Before sending, a fresh extraction of this archive was put through that route: all eleven `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` reproduces every per-year count, passes the seventeen invariants and returns all twenty-one result files byte-identical to the ones shipped. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size.
+Before sending, a fresh extraction of this archive was put through that route: the checksum beside the archive verifies, all twelve `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` alone reproduces every per-year count, passes the eighteen invariants and returns every shipped file this project claims byte-identical to the one here. The six `masters/` files are the exception by design, since this round: they are your own release plus our additions, and your own rows are no longer shipped back to you inside the provenance table. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size. `README.md` gives the route and the file map. **D1** `source/source.tar.gz`
+at `source/COMMIT.txt`, the autonomous loop as `source/fleet.tar.gz`; **D2** `experience-summary.md`
+and `findings.md`; **D3** section 5 and `audit/`; **D4** `equivalent_english_domain_calculator/`,
+your program vendored unmodified.
 
-**D1** code and instructions: `source/source.tar.gz` at `source/COMMIT.txt`, with the autonomous
-research loop as `source/fleet.tar.gz`. **D2** experience summary: `experience-summary.md`, with
-this round's findings in `findings.md`. **D3** merge and dedup code, overlap and reconciliation:
-section 5 and `audit/`. **D4** runnable metric code: `equivalent_english_domain_calculator/`, your
-program vendored unmodified and explained in `metric-explained.md`.
+Two gaps against the evidence rule: the seven-column exclusion ledger exists for the header
+collection's run only (`candidates_unparsed.txt` carries a reason per line for the rest), and the
+TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. Worth
+expanding next, priced in `experience-summary.md`: dated registry datasets for the candidate track,
+and exact-host captures beside the two candidate collections, the one route that promotes either.
