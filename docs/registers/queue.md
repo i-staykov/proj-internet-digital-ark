@@ -27,7 +27,7 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Measured and shippable, ingested without asking
 
-- 0.0 EE `ia-node-host-cdx-file-ia600702-hostgrain`: downloading, `bulk_cdx_file`
+- 50,721.9 EE `ia-node-host-cdx-file-ia600702-hostgrain`: banked, `bulk_cdx_file`
 
 ## Not yet measured
 

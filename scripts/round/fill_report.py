@@ -635,6 +635,14 @@ def substitutions(f: dict) -> dict[str, str]:
         row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})
         subs[token] = f"{row['names']:,}"
         subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
+    # The two provenance-linked hostname collections inside that hostname half.
+    for token, name in (
+        ("CANDISC", "isc_candidates_summary.json"),
+        ("CANDHDR", "header_candidates_summary.json"),
+    ):
+        path = NETNEW_DIR / name
+        n = json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else 0
+        subs[token] = f"{n:,}"
 
     # Both scores at the six places he awards in, and the divisor he would use today.
     # The email states them as he states them, `S = 10 x (p / t)`, so he can check the

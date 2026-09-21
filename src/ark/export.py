@@ -339,6 +339,92 @@ def _not_in_his_annual(column: str, year_expr: str) -> str:
     """
 
 
+def export_header_candidates(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
+) -> None:
+    """XIII's source-specific candidate asset: every hostname in the claim whose only dated
+    evidence is a non-web class (a server-written mail or Usenet header, a DNS listing), with
+    per-host provenance, a summary and the exclusion ledger of the same validation run. Runs
+    after the pool is reconciled, so every name here is in `candidate_additions.txt`."""
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE header_provenance AS
+        SELECT DISTINCT hy.hostname, hy.assigned_year AS target_year, s.name AS source,
+               e.acquisition_method, e.evidence_type, e.evidence_value AS record_location,
+               e.evidence_url AS source_url
+        FROM candidate_pool c
+        JOIN hostname_year hy ON hy.hostname = c.name
+        JOIN evidence e ON e.evidence_id = hy.evidence_id
+        JOIN source s ON s.source_id = e.source_id
+        WHERE c.unit = 'hostname' AND NOT ({web_evidence_sql("e")})
+    """)
+    stats["header_candidates"] = _copy_query(
+        conn,
+        "SELECT DISTINCT hostname FROM header_provenance ORDER BY hostname",
+        netnew_dir / "header_candidates.txt",
+    )
+    provenance_path = netnew_dir / "header_candidates_provenance.csv"
+    conn.execute(f"""
+        COPY (SELECT * FROM header_provenance
+              ORDER BY hostname, target_year, source, record_location)
+        TO '{provenance_path}' (HEADER true)
+    """)
+    # The exclusion ledger XIII asks of every validation run, for this collection: the rows
+    # the hostname gate quarantined, one per record, with the reason and the decision.
+    ledger_path = netnew_dir / "header_candidates_exclusions.csv"
+    conn.execute(f"""
+        COPY (
+            SELECT DISTINCT hy.hostname,
+                   'candidate' AS scope,
+                   e.evidence_url AS source_file,
+                   e.evidence_value AS record_location,
+                   'fails the hostname syntax or suffix rule (XIII gate)' AS exclusion_reason,
+                   'lowercased at ingest; quarantined, not exported' AS normalization_decision,
+                   e.evidence_url AS evidence_reference
+            FROM hostname_year hy
+            JOIN evidence e ON e.evidence_id = hy.evidence_id
+            WHERE NOT ({web_evidence_sql("e")}) AND NOT ({HOSTNAME_SHIPPING_FILTER})
+            ORDER BY hy.hostname
+        ) TO '{ledger_path}' (HEADER true)
+    """)
+    tlds = conn.execute("""
+        SELECT regexp_extract(hostname, '[^.]+$') AS tld, count(*) AS hosts
+        FROM (SELECT DISTINCT hostname FROM header_provenance) GROUP BY tld ORDER BY tld
+    """).fetchall()
+    weights = english_weights()
+    ee = sum((weights.get(tld, Decimal(0)) * n for tld, n in tlds), Decimal(0))
+    by_source = dict(
+        conn.execute(
+            "SELECT source, count(DISTINCT hostname) FROM header_provenance GROUP BY 1 ORDER BY 1"
+        ).fetchall()
+    )
+    by_year = {
+        str(year): n
+        for year, n in conn.execute(
+            "SELECT target_year, count(*) FROM header_provenance GROUP BY 1 ORDER BY 1"
+        ).fetchall()
+    }
+    count_csv = "SELECT count(*) FROM read_csv(?, header=true, all_varchar=true)"
+    summary = {
+        "baseline": CURRENT_BASELINE_MARKER,
+        "track": "candidate",
+        "collection": "hostnames whose only dated evidence is a non-web class (Section XIII)",
+        "counting_unit": "distinct exact hostname across years",
+        "candidates": stats["header_candidates"],
+        "equivalent_english": str(ee.quantize(Decimal("0.0001"))),
+        "hostname_years": sum(by_year.values()),
+        "by_year": by_year,
+        "by_source": by_source,
+        "provenance_rows": conn.execute(count_csv, [str(provenance_path)]).fetchone()[0],
+        "excluded_by_integrity_gate": conn.execute(count_csv, [str(ledger_path)]).fetchone()[0],
+        "promotion": "an exact-host, target-year web capture retained beside the record",
+    }
+    (netnew_dir / "header_candidates_summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
+    logger.info(f"header candidates: {summary['candidates']:,}, {ee} equivalent-English")
+    conn.execute("DROP TABLE header_provenance")
+
+
 def export_all(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
@@ -474,6 +560,20 @@ def export_all(
         INSERT INTO candidate_pool
         SELECT DISTINCT hostname, 'hostname' FROM isc_export
     """)
+    # **A hostname whose every year fails XIII is a candidate too.** XIII names the classes
+    # (mail and Usenet delivery headers, DNS listings, registry events, mentions) and says to
+    # store them as source-specific candidate assets with provenance; the ISC arm above is that
+    # shape for one source. Same rule as the registrable arm: no web-method year for the exact
+    # host, the hostname gate, then the reconciliation below against his files.
+    conn.execute(f"""
+        INSERT INTO candidate_pool
+        SELECT DISTINCT hy.hostname, 'hostname' FROM hostname_year hy
+        WHERE NOT EXISTS (SELECT 1 FROM hostname_year hz
+                          WHERE hz.hostname = hy.hostname
+                            AND {web_evidence_exists("hz.evidence_id")})
+          AND NOT EXISTS (SELECT 1 FROM candidate_pool c WHERE c.name = hy.hostname)
+          AND {HOSTNAME_SHIPPING_FILTER}
+    """)
     his_pool = baseline / "candidate_pool.txt"
     if his_pool.is_file():
         conn.execute(
@@ -496,6 +596,7 @@ def export_all(
         "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
         netnew_dir / "candidate_additions.txt",
     )
+    export_header_candidates(conn, netnew_dir, stats)
     weights = english_weights()
     counts = conn.execute(
         """

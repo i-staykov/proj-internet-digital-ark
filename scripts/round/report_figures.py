@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
 from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
-from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.evidence_types import MASTER_TYPES, web_evidence_exists  # noqa: E402
 from ark.export import load_his_annual_files  # noqa: E402
 from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
 
@@ -56,7 +56,10 @@ NOT_BASELINE = """
 # and a 2,380,575-line candidate pool beside annual files holding 1,929,655, 1,660,226
 # and 2,380,517. Found 2026-08-26 by grepping the shipped manifest for the round's
 # largest source and getting four fewer pairs than the report printed.
-SHIPPED = _shipping_filter("dy.")
+# Since C-90 the annual files also take a row only on web evidence for the exact name and
+# year (Section XIII); the 251,114 `.dk` zone rows of 2001 sit in the store as dated pairs and
+# in no shipped file, so the report screened them the same way from 2026-09-21.
+SHIPPED = _shipping_filter("dy.") + f"\n      AND {web_evidence_exists('dy.evidence_id')}"
 CANDIDATES_SHIPPED = _shipping_filter("d.", with_year=False)
 
 # The same diff the export applies, so the report's per-source table cannot count a row

@@ -1,5 +1,6 @@
 """Exports: net-new files, manifest, candidates, and merged masters."""
 
+import csv
 import json
 from pathlib import Path
 
@@ -327,6 +328,84 @@ def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> No
     assert "new.com" not in additions
     # and his own baseline names never enter the pool by the back door
     assert "base.com" not in additions
+
+
+def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
+    tmp_path: Path,
+) -> None:
+    """XIII: a mail or Usenet delivery header is hostname-in-use evidence, stored as a
+    source-specific candidate asset with provenance; a host with a web-method year stays an
+    annual record, and a host he already lists is reconciled out."""
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    (baseline / "1999.txt").write_text("already-his.com\nrelay.example.org\n")
+    news = ensure_source(conn, "usenet_header_fqdn_hostnames", "timestamped")
+    add_candidate(conn, "example.org", news)
+
+    def header(host: str, year: int) -> int:
+        return record_evidence(
+            conn,
+            "example.org",
+            news,
+            year,
+            "artifact_listing",
+            f"alt.test.mbox.zip#7 {host}",
+            "https://archive.org/download/usenet-alt/alt.test.mbox.zip",
+            acquisition_method="usenet_server_written_header",
+        )
+
+    web = record_evidence(
+        conn,
+        "example.org",
+        news,
+        2000,
+        "cdx_timestamp",
+        "20000101000000",
+        acquisition_method="ia_cdx_domain_sweep",
+    )
+    for host, year, eid in (
+        ("news.example.org", 2000, header("news.example.org", 2000)),
+        ("news.example.org", 2001, header("news.example.org", 2001)),
+        ("relay.example.org", 1999, header("relay.example.org", 1999)),
+        ("capture-ark-test.example.org", 2000, web),
+    ):
+        # the parent is dated in that year by the same row, as the ingest does it
+        assign_year(conn, eid)
+        conn.execute(
+            "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+            "VALUES (?, 'example.org', ?, ?)",
+            [host, year, eid],
+        )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    netnew = tmp_path / "netnew"
+    additions = (netnew / "candidate_additions.txt").read_text().split()
+    assert "news.example.org" in additions
+    assert "relay.example.org" not in additions
+    assert "capture-ark-test.example.org" not in additions
+    assert "capture-ark-test.example.org" in (netnew / "2000_hostnames.txt").read_text().split()
+    assert (netnew / "header_candidates.txt").read_text().split() == ["news.example.org"]
+    with (netnew / "header_candidates_provenance.csv").open(encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert [(r["hostname"], r["target_year"]) for r in rows] == [
+        ("news.example.org", "2000"),
+        ("news.example.org", "2001"),
+    ]
+    assert rows[0]["acquisition_method"] == "usenet_server_written_header"
+    assert rows[0]["source_url"].endswith("alt.test.mbox.zip")
+    summary = json.loads((netnew / "header_candidates_summary.json").read_text())
+    assert summary["candidates"] == 1
+    assert summary["by_source"] == {"usenet_header_fqdn_hostnames": 1}
+    assert summary["hostname_years"] == 2
+    ledger = (netnew / "header_candidates_exclusions.csv").read_text().splitlines()
+    assert ledger[0].split(",")[:2] == ["hostname", "scope"]
 
 
 def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path) -> None:

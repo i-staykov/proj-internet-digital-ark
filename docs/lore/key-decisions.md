@@ -7,55 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
-
-A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
-candidate claim in `export.py` is built from registrable domains with no year, plus the ISC
-survey hostnames and nothing else, so every other hostname-grain record we hold is screened out
-of one track and never offered to the other.
-
-**Proved from the shipped files, not the code, 2026-09-19:** `candidate_additions.txt` holds
-5,721 names, 1,456 registrable and 4,265 hostnames, and those 4,265 are exactly the ISC list.
-No other hostname ships as a candidate. The whole candidate track is 3,360.19 EE today.
-
-Measured against the live store: **2,095,426 hostname-year rows** are excluded by the XIII
-screen, 1,199,041.6 EE gross. Netted against his baseline files and the shipping filter,
-**29,446 rows and 26,369.5 EE are net-new and ship nowhere**, about eight times the entire
-candidate track as it ships today.
-
-**It is one class, not a policy area.** Of that net-new figure, `usenet_server_written_header`
-is 26,343.6 EE over 29,405 rows and everything else together is 26 EE:
-`ietf_list_received_by` 15.1, `usenet_body_url` 9.9, `dated_blocklist_release` 0.9. So the
-question is answerable as a single yes or no about the Usenet server-written header family,
-which C-83 already settled the reading of and which you approved as master on 2026-09-10.
-
-His brief already names the shape: raw ISC hostname lists are "preserved as a separate,
-provenance-linked candidate collection, alongside but distinct from candidate_pool.txt and the
-annual master files" (IV/V), and section XIII makes DNS, registry, mail and Usenet records
-candidates rather than annual evidence. We built that collection for ISC only. He refused ISC at
-hostname grain on 2026-09-05 and kept the provenance-linked collection, so he is cautious here
-and this is his call, not ours.
-
-**It is now the WHOLE queue: all 11 live leads above the floor are in classes it governs**,
-105,634 EE at their low estimates and 363,596 at their high. One of them is measured rather
-than guessed: the NASA July 1995 HTTP log, read whole on 2026-09-19, is 31,654 net-new
-hostname-years and **21,932.30 EE of which all but 1.6 EE is hostname grain**. Its registrable
-half, the part that can ship today, is 11 names and **7.05 EE**. That ratio is the decision in
-one line. The NS-target corpus folds in here too, 7,792 to 23,641 EE, closed as its own row on
-2026-09-19 because it asked this same question of a second corpus.
-
-**Measured again on 2026-09-20, and the gate is wider than the figure.** The uk Usenet
-hierarchy was fetched that evening under the C-83 class approval, 8.47 GB and 2,569,006
-host-carrying posts, and banked **39,999 hostname-year rows for 0 shippable EE**, because
-XIII screens the whole class. One archive collection, one hour, using tooling that already
-existed. Usenet, mail headers, DNS surveys and registry publications all sit on that side of
-the screen, so this row does not gate a fixed pile: it gates a rate.
-
-Worth: 26,369.5 EE measured and already in the store, and it gates the 165,634 EE of leads
-above. The two figures are not added here because one is measured and the other is a mix of
-measurement and estimate. It needs an ADR before the export changes, since it changes what
-travels in the delivery.
-
 ### Triage the newly found sources: 0 found
 
 **0 source(s) found and not yet priced**, in `approved-sources-list.md` under `## Found, awaiting triage`. One word each, *candidate pool* or *fold in directly*. What is worth deciding is ranked by EE in `queue.md`.
@@ -66,6 +17,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-95** | 2026-09-21 | **XIII-excluded hostname-years ship as a source-specific candidate collection and in the candidate claim, the ISC shape (Ivo, 2026-09-21).** XIII line 290 instructs it (store them as candidate assets with provenance and a verification route), sections V and XI call such a collection a peer product of `candidate_pool.txt`, and he raised ISC to that level on 2026-09-06. `export.py` pools every hostname with no web-method year that passes the gate and is in none of his files; `server_header_hostnames/` ships the names, per-host provenance, a summary and the exclusion ledger of the run. Measured before the export: 39,812 names, 30,384 EE. Never an annual record; promotion needs an exact-host capture for the year. |
 | **C-94** | 2026-09-21 | **The fleet's Dartmouth band lead is not a decision: it is the same collection the laptop banked as `dartmouth_arcs_cdx_hostnames` under rule 7.** Its re-price found 4.5 EE net-new because the 25 in-window items were already in the store; the approval entry the sync wrote is closed as superseded, not refused. |
 | **C-93** | 2026-09-21 | **XIII-failed registrables re-track into the candidate claim, as C-90 said they would.** The candidate pool took only names with no year at all, so a registry list ingested as `artifact_listing` earned a year the annual screen refused and shipped in neither file. Measured on the store: 189,251 `.dk` names from the zone list, plus a few dozen from other classes. `export.py` now pools every registrable name with no web-method year and no baseline row; the candidate claim went from 5,721 names and 3,360.19 EE to 200,668 names and 36,954.36 EE in the 02:00 export. The hostname-grain outlet stays OPEN above: that one is his. |
 | **C-92** | 2026-09-21 | **Letters are off the table for this submission (Ivo, 2026-09-21).** The two OPEN letter asks are closed unwritten: Verisign, PIR or Nominet for a registration-date extract (698,635 EE extrapolated from the one `.dk` precedent) and the Internet Archive for the availability endpoint (28,656 EE a day at C-88's rate, which did not reproduce). Too slow for the round; the RDAP route stays closed and the engine rides the throttle without a hand. |

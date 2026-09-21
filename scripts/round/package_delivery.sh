@@ -249,6 +249,12 @@ cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
 cp scripts/round/verify_isc_candidates.py "$STAGE/"
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
+# Section XIII's second source-specific candidate collection: hosts whose only dated evidence
+# is a server-written header or another non-web class, with provenance and the run's ledger.
+mkdir -p "$STAGE/server_header_hostnames"
+cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
+    output/netnew/header_candidates_summary.json output/netnew/header_candidates_exclusions.csv \
+    "$STAGE/server_header_hostnames/"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`

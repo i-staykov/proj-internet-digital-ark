@@ -1,67 +1,78 @@
-# Findings, round 9
+# Findings, round 10
 
-Three results from this round that we think transfer to anyone doing this work. The figures are
-measured against the store, not projected, and each says what it was measured on. The round's
-totals are in `report.md`; failures, yields and next steps are in `experience-summary.md`.
+Three results from this round that transfer to anyone doing this work, each measured against the
+store and each saying what it was measured on. The round's totals are in `report.md`; failures,
+yields and next steps are in `experience-summary.md`.
 
-## 1. A server writing its own name is one evidence class, not one source, and it crosses protocols
+## 1. Price a collection at the grain that ships, and measure the shipped files, not the code
 
-Last round admitted the `Received: ... by <host>` clause of a dated mailing-list message: the
-receiving mail server names itself, about itself, in a transaction it completed. The finding this
-round is that the clause is not the point. The **authorship** is. A news server writes `Path:`,
-`X-Trace:` and `NNTP-Posting-Host:` about a transaction it completed in exactly the same sense, so
-the same reading admits Usenet server headers with no new rule and no new approval class.
+The Dartmouth NBER ARCS collection on archive.org carries a public per-item aggregate CDX beside
+each ARC set. Our register closed it in August as "already banked": true at registrable grain,
+where every parent was held. Read again at hostname grain on 2026-09-21, a 256 KB head read of all
+282 items' indexes found 25 whose stamps fall in 1996-2001; those 4.09 GB read whole paid
+**135,005 net-new hostname records and 84,119 equivalent-English**, 20.6 EE per MB of index, 94% of
+them `www.` forms of a parent already held, each carrying its own exact-host status-200 capture
+stamp. The pocket is now exhausted: the WARCS siblings are 2009-2017, 54 items have no index, and
+592 per-ARC parts of the remaining items hold no in-window row.
 
-That lane paid **350,946 equivalent-English on 736,440 records**, entirely from spool already on
-disk. The same clause at two mailing-list archives paid a further 18,999 on 34,134.
+The same habit found a gap in our own two-track export. A registry zone list ingested as a dated
+artifact listing had earned a year the annual screen refuses under Section XIII, so 189,251 `.dk`
+names shipped in neither file. The candidate pool took only names with no year at all. The pool
+predicate now takes every registrable with no web-method year and no baseline row, and the
+candidate claim went from 5,721 names and 3,360 EE to 200,668 names and 36,954 EE in one export,
+found by diffing the shipped files against the store rather than by reading the code.
 
-**Three exclusions come with it, each costing yield.** The `from` HELO name is chosen by the
-sender. The parenthesised reverse-DNS is written by the receiver but was outside the approval. A
-`Message-ID` host is stamped by the sending client. None of the three is read.
+## 2. A whole-node IA CDX is a saturation measurement first and a source second
 
-**Two parsing traps, because both banked fiction before they were caught.** A news server appends
-its own verdict to a `Path` element. `.POSTED` marks the injecting site, and left in place it banks
-`news2-win.server.<parent>.posted` as a host in its own right: 2,006 rows in a 35 MB test.
-`.MISMATCH` is the server stating that the reverse-DNS did **not** match, so those elements are
-dropped rather than cleaned. A further filter removes dial-up lease names, which name a session and
-not a machine: an address embedded in the label, a pool word beside a digit, a bare numeric or long
-hex first label. It drops 6.5% of candidate hosts against 6.9% expected.
+Item `host_cdx_ia600702` is the public CDX of every capture stored on one Internet Archive node:
+57.6 GB of gzip, 1,031,419,773 rows, one gzip stream, so no mid-file sample exists and the
+SURT-ordered head (IP-literal keys) prices at zero. Read whole: **14,192,504 status-200 rows
+stamped 1996-2001** (1997, 2000 and 2001 only, since a node holds particular crawls), 931,864
+host-years, **88% already held** in the merged baseline or the store. Net-new: 104,347 hostname
+records, 50,722 EE, 0.9 EE per MB against the Dartmouth pocket's 20.6. Cost: one resumable GET,
+about 2.5 hours at 3.5 to 7 MB/s, a 20-minute conversion, and one failure state, an ingest that
+died at the 13 GB default DuckDB memory limit and completed at 28 GB. No sibling `host_cdx_*` item
+exists on archive.org.
 
-**The side effect worth noting.** 21.9% of this round's hostname records are a `www.` form, against
-95.0% last round. Mail relays and news servers are not named `www`, so an evidence class written by
-servers reaches names that a crawl of the public web cannot.
+The 88% is the finding. For the hosts one storage node happened to hold, the benchmark already
+covers seven in eight pre-2002 host-years at hostname grain, so a bulk index read now measures the
+benchmark's saturation as much as it adds to it.
 
-## 2. A closure is a measurement about our search, not a fact about the artifact
+## 3. Refuse a class at filing, not at banking
 
-The Usenet header class had been closed in our own register on 2026-09-08 as "224 GB, on neither
-machine any more". Re-measured from the archive's own metadata, the two collections it was priced
-on are **15.3 GB**, and 104.8 GB of the same corpus was already on the laptop. The class needed no
-fetch at all and became the second-largest lane of the round. The rejection was not wrong about the
-policy; it was wrong about a number nobody had re-run.
+On the morning of 2026-09-21 all 15 live leads of the autonomous fleet were hostname-grain classes
+that Section XIII bars from the annual masters and that the candidate claim does not take: mail
+`Received: by` clauses, Usenet `Path`, `X-Trace` and `NNTP-Posting-Host` headers, DNS surveys.
+Each was fetched and priced here at 14 to 9,537 EE and shipped nowhere. The cost of the old order
+was measured on the uk Usenet hierarchy the evening before: 8.47 GB, 2,569,006 host-carrying
+posts, 39,999 hostname-year rows, 0 shippable EE, one hour of tooling that already existed.
 
-Two further families closed at 0.0000 were re-probed for the same reason and were also wrong. One
-because the inventory page was one link deeper than the sweep had looked. One because an FTP index
-was assumed already held, and 31.5% to 64.3% of its hosts were missing at their own year.
+The dealer now refuses a hostname-grain lead whose class is not a web method at filing time, with
+the Section XIII reason, and never deals it to a price leg; findings carry grain and class; the
+lenses were re-weighted toward self-published registers and dated registrable-domain lists. Since
+the change every scout lead has closed on an access wall, and none was a header class. The
+records already extracted ship as the source-specific candidate collection
+`server_header_hostnames/` and in the candidate claim, as Section XIII directs and as the ISC
+collection does: names, per-host provenance, a summary and the exclusion ledger of the run. They
+promote only when an exact-host capture for that year arrives.
 
-So a verdict resting on "we looked and found nothing" is now re-run against the artifact's own
-structure rather than against the path we guessed, and every closure records the measurement under
-it so that the measurement can be repeated.
+**What such a record is worth, measured.** On 98,381 header-dated host-year pairs from eight Usenet
+hierarchies (read from the pre-ingest journals, because the store keeps one evidence row per
+host-year and cannot see co-occurrence), 1.16% carry an exact-host capture in our own index for the
+same year (Wilson 95% interval 1.10 to 1.23), against 0.56% to 0.86% for the same hosts at a year
+shifted by one to three: the header's own year lifts the hit rate 1.4 to 2.1 times. Any in-window
+year: 2.10%, beside the 2.67% the reviewer measured on ISC hostnames over 1996-2013. By the shape of
+the leftmost label: client-shaped names (digits, ppp, dialup, dyn, pool) 0.06%, infrastructure names
+4.07%, `www`, `web` and `ftp` names 31.1%, a 500-fold spread on one string split. Lower bounds
+against a partial index, on a named 11% sample, Usenet only: a ranked verification route, not a pile.
 
-## 3. Rank a query queue on what is missing, and plan with the sustained rate
+## Equivalent-English per hour of work, this round
 
-A domain-wide capture query is worth what the years we hold its parent in are worth, not what its
-host count is: a capture under a parent we do not hold for that year cannot become a record.
-Ranking parents on hosts-we-lack times years-we-hold, minus host-years already held, took the
-accepted share of one night's sweep from **4.9% to 21%**.
-
-The rate that ranking produces is not a property of the source. The same query, code and two
-clients paid about **193,000 equivalent-English per client-hour** on a fresh ranked head and **210
-per hour** two nights later, once that head had been walked. Measured over ten hours from a
-re-rank, two clients wrote 1,067 MB of journal for 247,042 equivalent-English: **231 per MB, where
-the head alone reads 565.** Plan an hour with the sustained figure.
-
-**The caution that goes with it.** Correlating a parent's rank against what it actually banked
-gives Spearman **+0.746** over 198 parents, which reads as an exactly inverted ranker and is not:
-the head of any ranking is swept first, so re-measuring it measures sweep history. Over the 54
-parents swept fresh from a new ranking, the same correlation is **-0.655**. Price a ranker only on
-parents it has never been used on.
+| method | EE | hours | per hour |
+|---|---:|---:|---:|
+| export predicate fix, XIII-failed registrables into the candidate claim | 33,594 | 0.9 | 36,600 |
+| Dartmouth ARCS CDX at hostname grain | 84,119 | 2.5 | 33,600 |
+| whole-node IA CDX at hostname grain | 50,722 | 4.0 | 12,700 |
+| registrable lists seeded as candidates (FICORA, drop lists, arXiv, Computer Shopper) | 4,634 | 1.5 | 3,100 |
+| three CDX suffix-sweep lanes, continuous | 3,700 a day | continuous | 330 to 580 |
+| pricing eight stranded header-class leads | 2,600 measured, 0 shippable | 2.5 | 0 |
