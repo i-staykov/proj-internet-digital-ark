@@ -7,12 +7,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
-### Approve ia_arc_extraction_in_window_item_band_sweep / cdx_timestamp
-
-Found and priced by the fleet under the custodian-capture-indexes lens, confirmed by a second leg: **4.5 EE net-new on the live store** over 7 records. The block is under `## Pending requests` in `approved-sources-list.md`; merge the approval pull request to say yes, close it to leave the source pending.
-
-Worth: 4 EE.
-
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
 A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
@@ -72,6 +66,7 @@ A counter rather than a request, by your instruction of 2026-08-15. Nothing is b
 
 | | date | decision |
 |---|---|---|
+| **C-94** | 2026-09-21 | **The fleet's Dartmouth band lead is not a decision: it is the same collection the laptop banked as `dartmouth_arcs_cdx_hostnames` under rule 7.** Its re-price found 4.5 EE net-new because the 25 in-window items were already in the store; the approval entry the sync wrote is closed as superseded, not refused. |
 | **C-93** | 2026-09-21 | **XIII-failed registrables re-track into the candidate claim, as C-90 said they would.** The candidate pool took only names with no year at all, so a registry list ingested as `artifact_listing` earned a year the annual screen refused and shipped in neither file. Measured on the store: 189,251 `.dk` names from the zone list, plus a few dozen from other classes. `export.py` now pools every registrable name with no web-method year and no baseline row; the candidate claim went from 5,721 names and 3,360.19 EE to 200,668 names and 36,954.36 EE in the 02:00 export. The hostname-grain outlet stays OPEN above: that one is his. |
 | **C-92** | 2026-09-21 | **Letters are off the table for this submission (Ivo, 2026-09-21).** The two OPEN letter asks are closed unwritten: Verisign, PIR or Nominet for a registration-date extract (698,635 EE extrapolated from the one `.dk` precedent) and the Internet Archive for the availability endpoint (28,656 EE a day at C-88's rate, which did not reproduce). Too slow for the round; the RDAP route stays closed and the engine rides the throttle without a hand. |
 | **C-91** | 2026-09-20 | **The availability endpoint FLAPS; it did not recover.** `archive.org/wayback/available` answered 200 at 21:39 CEST after three days of 429, verified on four known-good domains, and was back to 429 on three consecutive probes 15 minutes later. So it is intermittent, not fixed, and one 200 is not evidence of recovery. The engine holds the third slot again per C-88, `ARK_CDX_BUDGET` is back to 2, and it rides the throttle: it waits on `Retry-After` and a throttle does not eat the queue, so it catches any open window without a hand. Its queue was also found MIS-ORDERED: 3,725 direct `.uk` names sat at the head and cannot have 2001 captures, Nominet having opened direct `.uk` only in 2014, so 150 asks returned 0 hits. They are moved to the tail and the 3,483,951 `.com` and 512,324 `.org` names now lead. The letter to the IA is still unwritten and still the open lever. Re-tested 2026-09-21 02:15 to 02:40 in the third slot after three hourly 200 probes: 450 asks, 0 exact, 3 variant, 20 throttles, and known-good names (yahoo.com, bbc.co.uk, w3.org) answered 429 at 02:38. About 5 EE/hour against a sweep lane's 80. Slot returned to lane 2. |
