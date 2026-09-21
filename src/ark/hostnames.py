@@ -70,6 +70,13 @@ ARQUIVO_METHOD = "arquivo_ia_cdxj_hostgrain"
 # without login.
 POLAND_SOURCE = "poland_pl_extract_hostnames"
 POLAND_METHOD = "poland_pl_extract_hostgrain"
+# The Internet Archive's per-item aggregate CDX beside the DARTMOUTH-NBER-RESEARCH-2017 ARCs:
+# a bulk IA CDX file, read at hostname grain for the items whose stamps fall in the window
+# (found 2026-09-21 by the fleet at 5,107 EE on a tenth of one item). Its own source row
+# because it is its own collection; the method is the allowlist's bulk-CDX name, since a row
+# is an IA capture with the URL and stamp retained, which is XIII's reference pattern.
+DARTMOUTH_ARCS_SOURCE = "dartmouth_arcs_cdx_hostnames"
+DARTMOUTH_ARCS_METHOD = "bulk_cdx_file"
 
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
@@ -92,6 +99,8 @@ def source_for(path: Path) -> tuple[str, str]:
         return ARQUIVO_SOURCE, ARQUIVO_METHOD
     if path.name.startswith("poland_pl_"):
         return POLAND_SOURCE, POLAND_METHOD
+    if path.name.startswith("dartmouth_arcs_"):
+        return DARTMOUTH_ARCS_SOURCE, DARTMOUTH_ARCS_METHOD
     return SOURCE_NAME, SWEEP_METHOD
 
 
@@ -107,6 +116,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         USFEDGOV_SOURCE,
         ARQUIVO_SOURCE,
         POLAND_SOURCE,
+        DARTMOUTH_ARCS_SOURCE,
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.

@@ -268,6 +268,25 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### dartmouth_arcs_cdx_hostnames / cdx_timestamp
+
+- ingest: `ark ingest-hostnames data/raw/dartmouth_arcs_hostgrain/`, the Internet Archive's
+  per-item aggregate `cdx.gz` beside the `DARTMOUTH-NBER-RESEARCH-2017-ARCS-*` ARCs, re-emitted as
+  `{url, timestamp}` capture journals, HTTP 200 rows only, 1996-2001 only, one journal per item
+- source: https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-04001-04107/
+  and the sibling items whose 256 KB probe showed in-window stamps (`data/raw/dartmouth_arcs/probe.tsv`)
+- what dates one item: CDX field 2, the archive's own 14-digit capture stamp, e.g.
+  `au,com,neumann)/heat/computer.html 20010124010300 http://www.neumann.com.au:80/heat/computer.html text/html 200`
+- measured 2026-09-21 on the pushed snapshot, item 04001-04107 whole: 3,130,572 rows, 2,767,179
+  in-window 200 rows, 239,133 host-years, **35,767 net-new, 22,401.65 EE**, 94.1% `www.` of a held
+  parent, which ADR-008 admits and the reviewer accepted (C-72)
+- terms: archive.org terms of use; the index files are public, the ARCs are never fetched
+- **Decision written by the loop under rule 7**: the class is an IA CDX capture with URL and stamp
+  retained (XIII's reference pattern, method `bulk_cdx_file` in `WEB_METHODS`), the stamp is
+  machine-written and quoted above, the terms permit the read, and `ark check` runs after the ingest
+
+Decision: master
+
 ### arquivo_ia_hostnames / cdx_timestamp
 
 - ingest: `ark ingest-hostnames data/raw/arquivo_hostgrain/`, Arquivo.pt's donated Internet

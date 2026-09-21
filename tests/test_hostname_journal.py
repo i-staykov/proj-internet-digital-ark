@@ -156,6 +156,12 @@ def test_arquivo_journals_get_their_own_source_row() -> None:
     )
 
     assert source_for(Path("arquivo_ia_0000.jsonl.gz")) == (ARQUIVO_SOURCE, ARQUIVO_METHOD)
+    from ark.hostnames import DARTMOUTH_ARCS_METHOD, DARTMOUTH_ARCS_SOURCE
+
+    assert source_for(Path("dartmouth_arcs_00235-00278.jsonl.gz")) == (
+        DARTMOUTH_ARCS_SOURCE,
+        DARTMOUTH_ARCS_METHOD,
+    )
     assert ARQUIVO_SOURCE != SOURCE_NAME
     # A sweep journal is untouched by the new branch.
     assert source_for(Path("suffix_example_com_20260908T000000Z.jsonl.gz")) == (
