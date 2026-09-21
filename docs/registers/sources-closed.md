@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| custodian-capture-indexes-openwayback-replay-robots-wall / unclassified | 2026-09-21, fleet 20260921T0011Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | archived-directory-page-fetch-bound-bulk-ceiling / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. |  |
 | brief-audit: the XIII allowlist voids `dated_directory` entirely, by default rather than by decision / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | custodian-capture-indexes-host-facet-search-and-robots-redirect-wall / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
