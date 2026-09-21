@@ -6,6 +6,9 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| custodian-capture-indexes: discovery-route sweep, run 35547455999 / unclassified | 2026-09-21, fleet 20260921T0106Z | not priced | lens no lens recorded. CLOSED |  |
+| pre1996-utzoo-uucp-bang-path-grain-wall / unclassified | 2026-09-21, fleet 20260921T0106Z | not priced | lens pre-1996 (his open research question IV-A.1). CLOSED |  |
+| unclaimeddomains-weekly-deleted-name-roster / registry-deletion roster published by a commercial expired-domain service, candi | 2026-09-21, fleet 20260921T0106Z | 2,264.1 EE | lens candidate-bulk. Measured 2264.0615 EE annual-arithmetic and 1870.7818 EE candidate against a 20000 EE floor, and the sample is 100 percent of the artifact, so no projection can close the gap. | https://web.archive.org/web/20000929025531/http://www.unclaimeddomains.com/freesample.html/ |
 | custodian-capture-indexes-openwayback-replay-robots-wall / unclassified | 2026-09-21, fleet 20260921T0011Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | archived-directory-page-fetch-bound-bulk-ceiling / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. |  |
 | brief-audit: the XIII allowlist voids `dated_directory` entirely, by default rather than by decision / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
