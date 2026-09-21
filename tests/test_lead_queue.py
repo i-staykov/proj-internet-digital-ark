@@ -84,34 +84,12 @@ class MeasuredTest(unittest.TestCase):
             p.unlink()
         fleet.rmdir()
 
-    def test_only_a_ruling_reaches_his_table(self):
-        """A download is the laptop's disk and an ingest is the standing rule: neither is
-        his to settle, and a queue that lists them spends the attention it exists to save."""
+    def test_only_a_measured_figure_is_a_row_and_a_ruling_heads_its_group(self):
+        """Ivo's approval list: a rule decision is a heading, the measured stranded leads sit
+        under the outlet heading with their own shares, and a lead a scout only estimated is
+        named at the foot rather than asked about. Nothing is marked as the laptop's to do."""
 
-        def lead(slug, ask, low):
-            return {
-                "slug": slug,
-                "low": low,
-                "high": low,
-                "ask": ask,
-                "track": "ships",
-                "held": "",
-                "measured": False,
-                "class": "c",
-                "status": "scouted",
-            }
-
-        page = lead_queue.render([lead("his", "rule", 9000), lead("mine", "download", 80000)])
-        table = page[page.index("## Yours to rule") : page.index("- **rule**")]
-        self.assertIn("`his`", table)
-        self.assertNotIn("`mine`", table)
-        self.assertIn("are mine to work", page)
-
-    def test_the_foot_does_not_call_a_stranded_lead_one_that_needs_nothing(self):
-        """The page said the same leads ship NOWHERE and need no ruling, which are opposite
-        claims about the same rows. Starting them needs no ruling; reaching the claim does."""
-
-        def lead(slug, ask, low, track="ships"):
+        def lead(slug, ask, low, track="ships", measured=False, cls="c"):
             return {
                 "slug": slug,
                 "low": low,
@@ -119,16 +97,43 @@ class MeasuredTest(unittest.TestCase):
                 "ask": ask,
                 "track": track,
                 "held": "",
-                "measured": False,
-                "class": "c",
+                "measured": measured,
+                "class": cls,
                 "status": "scouted",
+                "url": f"https://example.org/{slug}",
+                "dates": "Received: ... ; Tue, 4 May 1999 11:02:13 -0700",
+                "terms": "",
+                "said": "parked (outlet), measured on 2.8%",
             }
 
-        page = lead_queue.render(
-            [lead("his", "rule", 9000), lead("mine", "download", 80000, "stranded")]
+        outlet = lead(
+            "Give the XIII-excluded hostnames a candidate outlet",
+            "rule",
+            26370.0,
+            measured=True,
+            cls="decision in key-decisions.md",
         )
-        self.assertIn("All of them are in the class the outlet row above governs", page)
-        self.assertNotIn("need no ruling", page)
+        page = lead_queue.render(
+            [
+                outlet,
+                lead("relay-hosts", "download", 445.1, track="stranded", measured=True),
+                lead("guessed", "download", 80000.0, track="stranded"),
+            ]
+        )
+        heading = page.index("### Give the XIII-excluded hostnames")
+        foot = page.index("## Not yet measured")
+        group = page[heading:foot]
+        self.assertIn("26,815 EE", group, "the ruling's worth is the store plus its sources")
+        self.assertIn("[`relay-hosts`](https://example.org/relay-hosts)", group)
+        self.assertIn("445.1", group)
+        self.assertNotIn("guessed", group, "an estimate is not a row")
+        self.assertIn("`guessed`", page[foot:])
+        self.assertNotIn("mine to work", page)
+        self.assertNotIn("80,000", page)
+
+    def test_an_empty_foot_says_everything_is_priced(self):
+        page = lead_queue.render([])
+        self.assertIn("None. Every live lead has been read and priced.", page)
 
 
 if __name__ == "__main__":
