@@ -5,22 +5,19 @@
 # dependencies live inside source/ and are not available until a reviewer has
 # already decided to trust the contents.
 #
-# Ten checks, each printed with its own verdict (D3 prints two):
-#   1. every file matches SHA256SUMS
-#   2. the six annual addition files, with their pair counts
-#   3. every one of those pairs is present in the evidence manifest
-#   2b, 3b. the same two for the hostname files, plus that they repeat no registrable line
-#   2c. the two candidate collections: counts match their summaries, provenance is complete
-#   4. every assignment in the provenance export cites evidence shipped beside it
-#   5. the code snapshot carries its dependency manifest and lockfile          (D1)
-#   6. the experience summary is here and covers what he asked it to cover     (D2)
-#   7. the merge audit is here and every reconciliation check in it passed     (D3)
-#   8. his own calculator runs here and reproduces the audit's baseline figure (D4)
+# The verdicts, in the order printed: checksums; the annual addition files and their counts;
+# an evidence row for every addition; the hostname files, disjoint from the registrable files,
+# and an evidence row for each; the ISC candidate collection reconciled against the reference
+# release; the header candidate collection complete and inside the claim; the evidence wall
+# (every provenance assignment cites an evidence row shipped here); then the four deliverables
+# D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
+# asked, every merge reconciliation check passed and agrees with the shipped files, and the
+# reviewer's own calculator reproduces the audit's baseline figure.
 #
 # Checks 5 to 8 police the four deliverables he added on 2026-08-17, called D1 to D4
 # throughout this project. They are checks rather than a checklist for one reason: the
 # evidence wall broke in a shipped archive because the requirement lived only in
-# prose, and check 4 exists because of that.
+# prose, and the evidence-wall check exists because of that.
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail

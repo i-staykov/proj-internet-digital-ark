@@ -115,8 +115,24 @@ def test_year_growth_uses_the_supplied_merge_stats_shape(tmp_path) -> None:
     isc = ensure_source(conn, "isc_survey", "timestamped")
     add_candidate(conn, "base.com", prior)
     assign_year(conn, record_evidence(conn, "base.com", prior, 1997, "prior_reused", "1997.txt"))
-    add_candidate(conn, "added.com", isc)
-    assign_year(conn, record_evidence(conn, "added.com", isc, 1997, "artifact_listing", "1997-07"))
+    cdx = ensure_source(conn, "ia_cdx_hostnames", "timestamped")
+    add_candidate(conn, "added.com", cdx)
+    assign_year(
+        conn,
+        record_evidence(
+            conn,
+            "added.com",
+            cdx,
+            1997,
+            "cdx_timestamp",
+            "19970101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
+    )
+    # a survey listing earns no annual year under XIII, so it is in neither
+    # `masters/` nor `additions/` and the table must not count it
+    add_candidate(conn, "listed.com", isc)
+    assign_year(conn, record_evidence(conn, "listed.com", isc, 1997, "artifact_listing", "1997-07"))
 
     write_contribution_tables(conn, tmp_path)
     rows = {r["year"]: r for r in _rows(tmp_path / "year_growth.csv")}

@@ -133,7 +133,8 @@ GROUNDS: dict[str, tuple[str, str]] = {
     ),
     "nypw_timemap_hostgrain": (
         "NYPW TimeMaps (IA, CC BY 4.0), 34 parts held since round 6, re-read at hostname grain",
-        "the row's own 14-digit capture timestamp",
+        "the row's own 14-digit capture timestamp, in the archive's Not Your Parents' Web "
+        "first-capture index",
     ),
     "ia_cdx_domain_sweep": (
         "IA CDX `matchType=domain` sweeps, two clients, parents ranked by the hosts we lack",
@@ -814,18 +815,15 @@ def merge_reconciliation() -> str:
             "",
             (
                 f"**Not one of the {int(t['submitted_records']):,} records submitted is already "
-                "in the baseline**, so every one of them counts exactly once: the export diffs "
-                "each shipped list against your own annual files before it writes them. "
+                "in the baseline"
                 if int(t["already_in_baseline_records"]) == 0
                 else f"Of the {int(t['submitted_records']):,} records submitted, "
                 f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and "
-                "are excluded, so the accepted increment counts each remaining record once. "
+                "are excluded"
             )
-            + f"**{passed} of {len(checks)} reconciliation checks pass**. "
-            "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
-            "lowercased line within each year and scores every file with your own calculator; the "
-            "per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in "
-            "`audit/merge_stats_ark_*.csv`, in your column names.",
+            + f"; {passed} of {len(checks)} reconciliation checks pass.** Per-check verdicts: "
+            "`audit/merge_audit_ark_*.json`; the per-year form, in your column names: "
+            "`audit/merge_stats_ark_*.csv`.",
         ]
     )
 
@@ -864,14 +862,12 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
     cand = candidate_growth()
     return (
-        f"Cumulative verified percentage {pct:.4f}%, this round at its own unverified "
-        f"{growth:.4f}% and round 1 on records. Time-weighted score "
-        f"{addends} = {as_he_wrote_it(total)}, your own scores for rounds {labels}. Under "
-        f"the time-weighted score rule of your 3 September update, from the origin your round 8 "
-        f"divisor implies (2026-09-04 less 33 days), this round is t = {t_now}. "
-        f"Domain-Year Score: S = 10 x ({growth:.6f} / "
-        f"{t_now}) = {score(growth, t_now):.6f}. Candidate-Pool Score: S = 10 x "
-        f"({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
+        f"Cumulative credited percentage {pct:.4f}%: each scored round at the figure you credited, "
+        f"this round at its own unverified {growth:.4f}%. Time-weighted score {addends} = "
+        f"{as_he_wrote_it(total)}, your own scores for rounds {labels}. Under the specification's "
+        f"time-weighted score this round is t = {t_now}, whole days since the 2 August assignment. "
+        f"Domain-Year Score: S = 10 x ({growth:.6f} / {t_now}) = {score(growth, t_now):.6f}. "
+        f"Candidate-Pool Score: S = 10 x ({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )
 
 

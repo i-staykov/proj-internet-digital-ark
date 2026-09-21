@@ -292,7 +292,6 @@ cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 # nothing, and the archive loudly documented a rule nobody is applying. The
 # deliverable is `additions/`, and `candidates.txt` beside it holds the names that
 # have not earned a year.
-cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
 # domain counting unit necessarily drops
@@ -401,38 +400,13 @@ cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 # BOTH baselines, in separate folders, because conflating them made the shipped
 # archive wrong about its own scoring reference.
 #
-# `original/` is the first baseline supplied to this project. It is what
-# `ark ingest-legacy` reads, so tier 3 needs it.
-#
-# The second folder is the reference this round's additions are COUNTED against,
-# and it was once not shipped at all. A reviewer following tier 3 would have
-# rebuilt against `original/` and scored against a much smaller baseline, which
-# cannot reproduce any headline in the report. Worse, the archive looked
-# self-contained while being unable to reproduce its own central figure.
-#
-# Ding supplies that baseline, so this ships his own file back to him. That is the
-# point: the archive should be checkable without reference to anything outside it.
-#
-# **Both the folder name and the source directory come from `ark.baseline`, not
-# from this script.** They were hardcoded to `merged260730` and stayed there after
-# the store moved to `merged260802`, so the archive would have shipped a
-# superseded baseline while asserting in `baseline/README.txt` that it was the one
-# the figures mean. Scoring these additions against it gives a different answer
-# than the report claims, and nothing in the archive would have revealed why.
-# `shlex.quote`, because the reviewer's own directory names contain spaces:
-# `feedback-phase-6/Domain_Data_Collection_Task 2/merged260821`. Unquoted, `eval` split
-# that into three words and ran `2/merged260821` as a command, so the baseline never
-# reached the archive and packaging died at the copy with "No such file or directory".
 eval "$(uv run python -c "
 import shlex
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 print(f'MERGED={shlex.quote(str(CURRENT_BASELINE_DIR))}')
 print(f'MARKER={shlex.quote(CURRENT_BASELINE_MARKER)}')
 ")"
-mkdir -p "$STAGE/baseline/original" "$STAGE/baseline/$MARKER"
-cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/original/" 2>/dev/null || true
-cp legacy-data/merge_stats_new0714.csv "$STAGE/baseline/original/" 2>/dev/null || true
-cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/original/" 2>/dev/null || true
+mkdir -p "$STAGE/baseline/$MARKER"
 
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
@@ -452,26 +426,13 @@ uv run python scripts/round/verify_isc_candidates.py \
 MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARKER"/200[01].txt \
     | wc -l | tr -d ' ')
 cat > "$STAGE/baseline/README.txt" <<BASELINES
-Two baselines, and they are not interchangeable.
-
-original/
-    The first baseline supplied to this project. \`ark ingest-legacy\` reads these
-    six year files, so the tier-3 rebuild starts here. 8,224,963 raw lines.
-
 $MARKER/
-    The shared reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued
-    by the reviewer. $MERGED_LINES raw lines, copied unchanged. Keep normalized
-    hostname identity when comparing these files (project brief IV.8); a
-    registrable roll-up is secondary. Every "net-new" figure in report.md means
-    "not present in these files".
-
-    The pipeline ingests these under a marker namespace so their rows stay
-    distinguishable from this project's evidence, which is what makes the net-new
-    calculation possible at all.
-
-If you score these additions against original/ instead of $MARKER/ you will get a
-larger number than the report claims, because $MARKER already contains the
-previous rounds of additions.
+    The reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued by the
+    reviewer: the six annual files and candidate_pool.txt, $MERGED_LINES raw annual
+    lines, copied unchanged. Keep normalized hostname identity when comparing these
+    files; a registrable roll-up is secondary. Every "net-new" figure in report.md
+    means "not present in these files". Additions scored against any earlier release
+    give a larger number than the report claims.
 BASELINES
 
 # the provenance graph as Parquet: which source saw which domain in which year,

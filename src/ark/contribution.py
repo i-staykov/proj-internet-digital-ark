@@ -18,7 +18,7 @@ from pathlib import Path
 import duckdb
 
 from ark.delegation import shipping_filter as _shipping_filter
-from ark.evidence_types import web_evidence_sql
+from ark.evidence_types import web_evidence_exists, web_evidence_sql
 from ark.ingest import YEARS
 from ark.stats import BASELINE_TYPE, _lineage_case_sql
 
@@ -135,6 +135,7 @@ LEFT JOIN (
 -- `added_unique` equals `wc -l additions/<year>.txt`. Without it the table claimed to
 -- reconcile the shipped files and was 70 lines above them in 1996 alone.
 WHERE {_shipping_filter("dy.")}
+  AND (b.domain IS NOT NULL OR {web_evidence_exists("dy.evidence_id")})
 GROUP BY y.year ORDER BY y.year
 """
 

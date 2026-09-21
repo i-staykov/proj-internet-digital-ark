@@ -453,9 +453,14 @@ def export_all(
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
         stats[f"netnew_{year}"] = count
+        # His rows plus ours, under the same XIII screen the additions pass: the merged
+        # annual file is a website-evidence product too, and until 2026-09-22 it carried
+        # the registrable rows the screen refused (251,178 of them in 2001).
         masters_query = f"""
-            SELECT DISTINCT domain FROM domain_year
-            WHERE assigned_year = {year} AND {_NOT_REVERSE_DNS} ORDER BY domain
+            SELECT DISTINCT dy.domain FROM domain_year dy
+            WHERE dy.assigned_year = {year} AND {_shipping_filter("dy.")}
+              AND (NOT ({_NOT_IN_BASELINE}) OR {web_evidence_exists("dy.evidence_id")})
+            ORDER BY dy.domain
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")
 

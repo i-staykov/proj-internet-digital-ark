@@ -1,104 +1,91 @@
-# Internet Digital Ark: 1996-2001 annual domain lists
+# Internet Digital Ark: round 10
 
 Evidence-backed annual domain lists for 1996-2001. **The annual files are a website-evidence
-product** under your Section XIII: a line qualifies only on exact-host, year-specific web evidence,
-and a name known by any other route ships as a candidate instead. The standard is at the end.
+product** under the evidence rule (section XIII of your specification of 17 September, Mandatory
+Evidence Classification and Hostname Integrity Gate): a line qualifies only on exact-host,
+year-specific web evidence, and a name known by any other route ships as a candidate instead. The
+standard is at the end.
 
-**The counts live in `report.docx` and in `verify.sh`, not here.** Quoting figures in two places is how
-they come to disagree. `bash verify.sh` prints the current totals from the shipped files in about ten
-seconds.
+**The counts are in `report.md` and printed by `bash verify.sh`, not here.**
 
-Two things to know before opening anything:
+Before opening anything:
 
-- **The reference baseline is the one in `baseline/`, named for the reviewer release it came from,
-  and `baseline/README.txt` says which.** Additions are counted against it, so a figure quoted
-  against any earlier release is not comparable.
+- **Additions are counted against the release in `baseline/`; `baseline/README.txt` names it.** A
+  figure against any earlier release is not comparable.
 - **`additions/` and `hostnames/` are the deliverable and `candidates.txt` is separate.** The
-  first holds registrable domains, the second valid hostnames beneath them (the unit the
-  reviewer accepted on 2026-09-01), disjoint per year and each backed by its own evidence
-  manifest. A name in `candidates.txt` has been seen but has not earned a year, and is never
-  mixed into the annual lists.
-- **`isc_survey_hostnames/` is a separate scored candidate collection.** Exact names already
-  in the reference candidate pool or any annual file, yours or ours, are excluded across all
-  six years. A held parent does not exclude a distinct hostname. Count each surviving name
-  once across survey years, at its TLD's English share. Candidate and annual scores are separate
-  tracks with the same rate and annual equivalent-English denominator. ISC contributes nothing
-  to the annual increment or annual score.
+  first holds registrable domains, the second valid hostnames beneath them, disjoint per year and
+  each backed by its own evidence manifest. A name in `candidates.txt` has been seen but has not
+  earned a year, and is never mixed into the annual lists.
+- **`isc_survey_hostnames/` (the Internet Systems Consortium Domain Survey) and
+  `server_header_hostnames/` are candidate collections**, claimed with `candidates.txt` in
+  `candidate_additions.txt` and priced separately at the same rate. Nothing in them enters an
+  annual figure.
 
 ## What is in here
 
 | Path | Contents |
 |---|---|
 | `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
-| `masters/<year>.txt` | **Secondary registrable roll-up**: the reference baseline normalized to registered domains, plus registrable additions. `audit/year_growth.csv` reconciles this roll-up. It is not the full hostname result: merge both `additions/` and `hostnames/` into the reference annual files without collapsing hostnames (project brief IV.8) |
+| `masters/<year>.txt` | **Secondary registrable roll-up**: the reference baseline normalized to registered domains, plus registrable additions. `audit/year_growth.csv` reconciles this roll-up. It is not the full hostname result: merge both `additions/` and `hostnames/` into the reference annual files without collapsing hostnames |
 | `additions/<year>.txt` | **Additions only**, against the reference baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
-| `hostnames/<year>_hostnames.txt` | **Annual hostname additions**, not auxiliary seeds: qualifying exact hostnames beneath held registrables, disjoint from `additions/` |
+| `hostnames/<year>_hostnames.txt` | **Annual hostname additions**: qualifying exact hostnames beneath held registrables, disjoint from `additions/` |
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
-| `isc_survey_hostnames/<year>-ISC.txt` | **Candidate collection**, grouped by DNS survey year, not annual website evidence. Promotion requires additional exact-host web evidence for that target year. Never merge these files directly into annual masters |
+| `isc_survey_hostnames/<year>-ISC.txt` | **Candidate collection**, grouped by DNS survey year, not annual website evidence |
 | `isc_survey_hostnames/isc_candidates.txt` | The deduplicated candidate collection, one exact hostname per line across all survey years |
-| `isc_survey_hostnames/isc_survey_provenance.csv` | Per-host provenance for every surviving hostname-year: survey edition, source filename, original or recovery URL, record location keyed by hostname, extraction method and target year. Provenance alone does not promote a DNS observation |
+| `isc_survey_hostnames/isc_survey_provenance.csv` | Per-host provenance for every surviving hostname-year: survey edition, source filename, original or recovery URL, record location keyed by hostname, extraction method and target year |
 | `isc_survey_hostnames/isc_candidates_summary.json` | Measured distinct candidate count and equivalent-English total, survey-year counts, provenance rows and TLD counts, tied to the reference release. Year counts must not be summed as the candidate score |
-| `server_header_hostnames/header_candidates.txt` | **Candidate collection**, Section XIII: exact hostnames whose only dated evidence is a server-written mail or Usenet header or another non-web class. Hostname-in-use evidence, not website evidence; never merge into annual masters |
+| `server_header_hostnames/header_candidates.txt` | **Candidate collection** under the evidence rule: exact hostnames whose only dated evidence is a server-written mail or Usenet header, not a web capture |
 | `server_header_hostnames/header_candidates_provenance.csv` | Per-host provenance for every name: target year, source, acquisition method, evidence type, record location (archive item and message index) and source URL |
-| `server_header_hostnames/header_candidates_summary.json` | Distinct count, equivalent-English, host-years by year and by source, provenance rows, rows quarantined by the integrity gate, and the promotion route |
-| `server_header_hostnames/header_candidates_exclusions.csv` | The exclusion ledger of this collection's validation run (Section XIII): hostname, scope, source file, record location, exclusion reason, normalization decision, evidence reference |
+| `server_header_hostnames/header_candidates_summary.json` | Distinct count, equivalent-English, host-years by year and by source, provenance rows, rows the evidence rule's hostname integrity gate refused, and the promotion route |
+| `server_header_hostnames/header_candidates_exclusions.csv` | The exclusion ledger of this collection's validation run: hostname, scope, source file, record location, exclusion reason, normalization decision, evidence reference |
 | `candidates.txt` | Domains lacking year-specific evidence. Never mixed into the annual lists |
-| `candidate_additions.txt` | **The candidate-track claim, one pool**: every candidate collection we hold, registrable domains, ISC survey hostnames and server-header hostnames together, minus every name in your `candidate_pool.txt` or in any of your six annual files. Provenance per name is in `provenance/`, `isc_survey_hostnames/isc_survey_provenance.csv` and `server_header_hostnames/header_candidates_provenance.csv`, not in this list. Priced in the report separately from the annual increment and never added to it |
+| `candidate_additions.txt` | **The candidate-track claim, one pool**: every candidate collection we hold, registrable domains, ISC survey hostnames and server-header hostnames together, minus every name in your `candidate_pool.txt` or in any of your six annual files. Provenance per name is in `provenance/`, `isc_survey_hostnames/isc_survey_provenance.csv` and `server_header_hostnames/header_candidates_provenance.csv`, not in this list |
 | `candidate_additions_summary.json` | That pool's measured size and equivalent-English, split by counting unit, tied to the reference release |
-| `candidates_unparsed.txt` | **The unparsed pool of your section XI**, one row per malformed-but-recoverable value with the reason the funnel refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`, `is_registrable`. In no figure |
-| `baseline/original/` | The first supplied baseline. `ark ingest-legacy` reads these, so tier 3 starts here |
+| `candidates_unparsed.txt` | **The separately labelled unparsed file your specification asks for**, one row per malformed-but-recoverable value with the reason the parser refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`. In no figure |
 | `baseline/<release>/` | **The reference the additions are counted against**, including the six annual files and `candidate_pool.txt` for exact-name ISC reconciliation. See `baseline/README.txt` |
-| `dropped_domains.txt` | Baseline lines excluded by the pipeline, grouped by reason |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
-| `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header, never hand-maintained. **Thirteen columns since 2026-09-03**: the eight of phase 7 in their old order, plus `coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link`, so every field of the requested schema reaches the CSV rather than only the register page. A cell reading `n/a` is the register saying the entry does not say; an empty cell means that page has no such column |
-| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Twelve journal sets are excluded on size** (about 39 GB against under 1 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
+| `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header, never hand-maintained. **Thirteen columns**, one per field of the schema you asked for (`coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link` among them). `n/a` means the source entry does not say; an empty cell means that page has no such column |
+| `journals/` | The raw response of every archive and page query, plus the extraction journals: the offline inputs of the full replay (step 3 under "Checking the result"). **Twelve journal sets are excluded on size** (about 39 GB against under 1 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
-| `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
+| `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the code of the unattended research agents (workflows, prompts, policy), at the commit named in `FLEET_COMMIT.txt` |
 | `sources.md` | Per-source detail, including **the commands to download each**, and one row per source evaluated |
-| `sources-closed.md` | The other half of that register: one row per family closed on a measurement, with the figure and the reason |
+| `sources-closed.md` | The other half of the source list: one row per family closed on a measurement, with the figure and the reason |
 | `findings.md` | The round's research findings in full, with the measurement behind each. The report cites them rather than carrying them |
-| `experience-summary.md` | **D2**: what worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full register this distils |
-| `metric-explained.md` | **D4**: the equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
-| `audit/merge_stats_ark_*.csv` | **D3**: the merge against the current baseline in the reviewer's own column names, so his audit and this one can be diffed directly |
-| `audit/merge_audit_ark_*.json` | **D3**: the same figures plus every reconciliation check that was run, and whether it passed |
-| `equivalent_english_domain_calculator/` | **D4**: the reviewer's own scorer, vendored unmodified with its fixed model, so every figure here can be re-derived without fetching anything |
+| `experience-summary.md` | What worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full source list this distils |
+| `metric-explained.md` | The equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
+| `audit/merge_stats_ark_*.csv` | The merge against the current baseline in your own column names, so your audit and this one can be diffed directly |
+| `audit/merge_audit_ark_*.json` | The same figures plus every reconciliation check that was run, and whether it passed |
+| `equivalent_english_domain_calculator/` | Your own scorer, copied in unmodified with its fixed model, so every figure here can be re-derived without fetching anything |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | Checksums and verification, including ISC candidate reconciliation, provenance coverage and equivalent-English recalculation |
 
 
-## The four deliverables he asked for on 2026-08-17
+## The four deliverables you asked for
 
-Named here in his order, because the table above is sorted by path.
-
-| | he asked for | where it is |
+| | you asked for | where it is |
 |---|---|---|
 | **D1** | the complete runnable code, scripts, configurations, dependencies and execution instructions | `source/source.tar.gz`, which is the repository at the commit named in `source/COMMIT.txt`, including `pyproject.toml` and `uv.lock`. Execution instructions are its `README.md` and the three tiers below |
-| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` and `sources-closed.md` as the full register behind it |
+| **D2** | a concise experience summary | `experience-summary.md`, with `sources.md` and `sources-closed.md` as the full source list behind it |
 | **D3** | the code and explanation that normalises, merges and deduplicates against the latest baseline, with overlap counts, the accepted increment and reconciliation checks | `source/scripts/round/merge_against_baseline.py`, its output in `audit/merge_stats_ark_*.csv` and `audit/merge_audit_ark_*.json`, explained in section 5 of `metric-explained.md` |
 | **D4** | the runnable equivalent-English calculation and its explanation | `equivalent_english_domain_calculator/` and `metric-explained.md` |
-
-`verify.sh` checks all four: check 5 that the code snapshot carries its lockfile, 6 that the summary
-covers every topic he listed, 7 that every reconciliation check in the merge audit passed, and 8 that
-his own calculator, run here, reproduces the audit's baseline figure.
 
 ## File formats
 
 - **Generated `.txt` name lists**: one name per line, lowercase ASCII, C-locale sorted, newline
   terminated, no header, no blank lines. Masters and registrable additions use the Public Suffix
   List boundary. Hostname additions and ISC candidates retain the exact hostname without collapsing
-  it to its parent or removing `www.`. Survey years identify observations, not website existence.
+  it to its parent or removing `www.`.
 - **Every `.csv`**: RFC 4180, comma separated, UTF-8, one header row.
 - **`journals/*.jsonl.gz`**: gzipped JSON Lines, one object per query made.
 - **`provenance/*.parquet`**: Parquet with ZSTD, readable by any engine. `LOAD.sql` recreates the
   tables in DuckDB; `trace.py` answers the common question without SQL.
-- **Empty `audit/*.csv` files are meaningful, not broken.** A header and no rows records that the
-  audited condition did not occur. A missing file would be ambiguous; an empty one is not.
+- **An `audit/*.csv` with a header and no rows** means the audited condition did not occur.
 
 ## Checking the result
 
-### 1. Verify what is here (about 10 seconds)
+### 1. Verify what is here
 
 The `.sha256` sidecar is delivered **beside** the `.tar.gz`, not inside it:
 
@@ -113,22 +100,15 @@ bash verify.sh
 ```
 
 It needs `shasum`, `python3` and `uv` for the ISC file audit, prints a verdict per check, and exits
-non-zero on failure. The ISC audit uses DuckDB with bounded memory and temporary disk space.
-**Twelve checks.** The first seven are the result and the evidence behind it: every file against
-`SHA256SUMS`, the annual addition files and their counts, every added pair present in
-`additions/evidence_manifest.csv`, the hostname files and their counts (disjoint from
-`additions/`), every hostname traced to a capture, `isc_survey_hostnames/` counted and shown to be
-disjoint from the reference candidate pool and every annual year, with complete per-host provenance
-and a reproduced candidate-only equivalent-English total, and every assignment in the Parquet provenance
-resolving to an evidence row shipped beside it. Checks 8 to 12 are the four artifacts of the
-section above, D1 to D4: that the code snapshot carries its dependency manifest and lockfile, that
-the experience summary covers every topic asked for, that every reconciliation check in the merge
-audit passed and that the audit agrees with the shipped files on the record count, and that **the
-reviewer's own calculator, run from inside this archive, reproduces the audit's baseline figure**.
-
-It prints SKIP where the thing a check examines is not in the archive, and says which of the twelve
-failed rather than only that something did. The last check needs a writable extraction, because it runs the
-calculator into `audit/` and cleans up after itself.
+non-zero on failure. **Thirteen labelled verdicts**: checksums; the six annual and six hostname
+files with their counts, their disjointness and an evidence row per line; the ISC collection
+disjoint from your candidate pool and annual files, with its equivalent-English total reproduced;
+the header collection complete and inside the claim; every provenance assignment resolving to an
+evidence row shipped beside it; and the four deliverables: the code snapshot carries its lockfile,
+the experience summary covers every topic asked for, every merge reconciliation check passed and
+agrees with the shipped files, and **your own calculator, run from inside this archive, reproduces
+the audit's baseline figure**. SKIP means the checked thing is not in the archive. The last check
+needs a writable extraction, because it runs the calculator into `audit/` and cleans up after itself.
 
 To look up why a single domain is in a given year, no database needed, only
 [`uv`](https://docs.astral.sh/uv/):
@@ -142,14 +122,12 @@ uv run --with duckdb --no-project python trace.py bbc.co.uk 1999     # why this 
 One line per observation: which source saw the domain, what kind of evidence, and the artifact or
 capture timestamp, with a link where one exists.
 
-### 2. Rebuild the result from the evidence (about 1 minute)
+### 2. Rebuild the result from the evidence
 
-No source data and no network: the export holds every observation this project made and
-every assignment resting on one. It does not hold YOUR rows. One evidence row per pair your
-own release already carries was 3 GB of an archive that has to fit 5 GB, and it told you only
-what your own file tells you, so the assignments citing those rows are out with them and the
-rebuilt `masters/` come back as our additions rather than the merged lists. Everything this
-project claims is here and rebuilds byte-identical.
+No source data and no network: the export holds every observation this project made and every
+assignment resting on one, but not your own rows. One evidence row per pair your release already
+carries was 3 GB of a 5 GB archive and repeated your own file, so the rebuilt `masters/` are our
+additions alone; everything else this project claims rebuilds byte-identical.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
@@ -158,14 +136,13 @@ uv run ark rebuild ../provenance     # annual files, candidates, manifest
 uv run ark check                     # the integrity invariants
 ```
 
-Everything comes back byte-identical:
+Everything but `masters/` comes back byte-identical:
 
 ```
 for y in 1996 1997 1998 1999 2000 2001; do
     cmp output/netnew/$y.txt            ../additions/$y.txt
     cmp output/netnew/${y}_hostnames.txt ../hostnames/${y}_hostnames.txt
     cmp output/netnew/$y-ISC.txt        ../isc_survey_hostnames/$y-ISC.txt
-    cmp data/exports/$y.txt             ../masters/$y.txt
 done
 cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
 cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
@@ -180,29 +157,10 @@ for f in header_candidates.txt header_candidates_provenance.csv header_candidate
 done
 ```
 
-The archive renames things, so here is the map:
-
-| in the rebuild | in this archive |
-|---|---|
-| `output/netnew/<year>.txt` | `additions/<year>.txt` |
-| `output/netnew/evidence_manifest.csv` | `additions/evidence_manifest.csv` |
-| `output/netnew/<year>_hostnames.txt` | `hostnames/<year>_hostnames.txt` |
-| `output/netnew/hostnames_evidence_manifest.csv` | `hostnames/hostnames_evidence_manifest.csv` |
-| `output/netnew/<year>-ISC.txt` | `isc_survey_hostnames/<year>-ISC.txt` |
-| `output/netnew/isc_candidates.txt` | `isc_survey_hostnames/isc_candidates.txt` |
-| `output/netnew/isc_survey_provenance.csv` | `isc_survey_hostnames/isc_survey_provenance.csv` |
-| `output/netnew/isc_candidates_summary.json` | `isc_survey_hostnames/isc_candidates_summary.json` |
-| `output/netnew/header_candidates*` | `server_header_hostnames/header_candidates*` |
-| `output/candidate_unverified.txt` | `candidates.txt` |
-| `output/netnew/candidate_additions.txt` | `candidate_additions.txt` |
-| `output/netnew/candidate_additions_summary.json` | `candidate_additions_summary.json` |
-| `data/exports/<year>.txt` | `masters/<year>.txt` |
-| `output/provenance/` | `provenance/` |
-
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
 from the original sources, which is tier 3.
 
-### 3. Rebuild from the original sources (a download, then about 20 minutes)
+### 3. Rebuild from the original sources (not run this round)
 
 **`README.md` inside `source/` documents the route step by step**, with each source's download address
 in `sources.md`.
@@ -210,52 +168,36 @@ in `sources.md`.
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source   # if not already done in step 2
 uv sync
-cp -R ../baseline/original/. legacy-data/                # the first supplied baseline
 mkdir -p data/raw && cp -R ../journals/. data/raw/       # the replay inputs, tree preserved
-just reproduce
+just reproduce                  # the command runner: https://just.systems
 ```
 
-The `journals/` copy is what makes the network stages reproduce offline: every ingest command
-addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
-this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing.
-**The excluded journal sets will replay nothing** until they are restored: the RDAP logs on
-request, the rest by re-deriving them from the public sources `sources.md` links.
-Every assignment they back is checkable by tier 2, which is the route below.
+Without `journals/` in `data/raw/` the replay runs clean and ingests nothing. The excluded sets
+replay nothing until restored: the RDAP logs on request, the rest by re-downloading from the
+addresses in `sources.md`; every assignment they back is checked by step 2. The replay also needs
+the first baseline release in `legacy-data/`, which this archive does not carry.
 
-About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
-about 3 GB.** Those per-source cost figures were measured on the phase-1 archive and have not been
-re-measured since, so treat them as indicative.
+About 50 GB of downloads, of which the 47 GB Arquivo.pt (Portuguese web archive) capture index is
+most; sizes measured once, on the first delivery, indicative.
 
-**What tier 3 cannot re-derive, stated plainly.** Measured on 2026-08-27:
+**What the replay cannot re-derive.** Three sources cannot be re-fetched: `domain_creation_bulk`
+(a Kaggle dataset that needs an account and may not be redistributed), `dartmouth_nber_captures` (an
+archive.org item that stopped serving the day after it was downloaded) and `rdap_snapshot` (journals
+held back on size, sent on request). `sources.md` gives the acquisition route for all three, and
+`audit/dartmouth_nber_captures_audit.csv` and `audit/domain_creation_bulk_audit.csv` record what
+the first two contributed. **Step 2 reproduces all of it, and that is the check to run**: the
+provenance export ships the evidence row behind every assignment, which is why the `evidence wall
+intact` verdict of `verify.sh` tests that every assignment resolves to an evidence row in this
+archive.
 
-| | assignments | share |
-|---|--:|--:|
-| carrying this project's own evidence | 7,254,144 | |
-| **not re-derivable by tier 3** | **3,139,263** | **43.3%** |
-
-Three sources account for all of it. `domain_creation_bulk`, 2,165,506 assignments, is a Kaggle
-dataset that needs an account and may not be redistributed. `dartmouth_nber_captures`, 227,273, came
-from an archive.org item that **stopped serving the day after it was downloaded**, so it cannot be
-re-fetched by us or by anyone. `rdap_snapshot`, 746,484, is the one whose journals exist and are held
-back on size, as the layout table above says; ask and they will be sent. `sources.md` gives the
-acquisition route for all three, and `audit/dartmouth_nber_captures_audit.csv` and
-`audit/domain_creation_bulk_audit.csv` record what the first two contributed.
-
-**Tier 2 reproduces all of it, and that is the check to run.** The provenance export ships the
-evidence row behind every single assignment, including those 3,139,263, which is why `verify.sh`
-check 4 tests that every assignment resolves to an evidence row **in this archive**. Tier 3 proves
-the evidence follows from the source data; tier 2 proves the result follows from the evidence. Only
-the first is limited by what a third party is willing to keep serving.
-
-Two sources are live rather than hash-pinned, so a later download need not match: the `.fr` file is
-republished monthly (this used the June 2026 edition) and the Internet Scout feed keeps growing. The
-journals and the provenance export shipped here do not move.
+Two live sources need not match a later download: the `.fr` open-data file (June 2026 edition used
+here) and the Internet Scout feed. The journals and the provenance export shipped here do not move.
 
 ## Evidence standard
 
-**Your Section XIII: the annual master is a website-evidence product.** A hostname-year qualifies
-for `masters/`, `additions/` or `hostnames/` only on retained evidence of that exact hostname's web
-presence in that year, in one of four patterns:
+**The evidence rule: the annual master is a website-evidence product.** A hostname-year enters
+`masters/`, `additions/` or `hostnames/` only on retained evidence of that exact hostname's web
+presence in that year, in one of the rule's four forms:
 
 - an exact-host Internet Archive CDX capture, with the captured URL or hostname and the target-year
   timestamp retained;
