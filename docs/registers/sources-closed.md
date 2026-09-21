@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| archiveorg-metadata-layer-in-window-link-graph-deposit-absence-sweep / unclassified | 2026-09-21, fleet 20260921T1506Z | not priced | lens no lens recorded. CLOSED (0 EE). | https://archive.org/advancedsearch.php |
 | brief-audit: a robots refusal closes the SOURCE here, and his section VIII names the route it forecloses / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | computermagazine-ocr-advertiser-registrable-corpus / textual mention of a registrable name in a printed periodical whose issue date i | 2026-09-21, fleet 20260921T1406Z | 151.1 EE | lens registrable-lists. Measured negative on yield. | https://archive.org/download/ComputerShopper_2001-12/ComputerShopper_December2001_djvu.txt |
 | custodian-capture-indexes-ct-log-discovery-and-shine-was-retirement-sweep / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
