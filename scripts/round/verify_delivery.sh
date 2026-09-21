@@ -10,6 +10,7 @@
 #   2. the six annual addition files, with their pair counts
 #   3. every one of those pairs is present in the evidence manifest
 #   2b, 3b. the same two for the hostname files, plus that they repeat no registrable line
+#   2c. the two candidate collections: counts match their summaries, provenance is complete
 #   4. every assignment in the provenance export cites evidence shipped beside it
 #   5. the code snapshot carries its dependency manifest and lockfile          (D1)
 #   6. the experience summary is here and covers what he asked it to cover     (D2)
@@ -139,6 +140,37 @@ if [ -d isc_survey_hostnames ]; then
     fi
 else
     say "ISC candidates" "SKIP  no isc_survey_hostnames/ in this archive"
+fi
+
+# The header candidate collection: its count matches its summary, every name has a provenance
+# row, every name sits inside the candidate-track claim that counts it, and the exclusion
+# ledger of its validation run is here.
+if [ -d server_header_hostnames ]; then
+python3 - <<'PY' || fail=1
+import csv, json, sys
+from pathlib import Path
+def say(k, v): print(f"{k:<46} {v}")
+d = Path("server_header_hostnames")
+names = {l.strip() for l in (d / "header_candidates.txt").read_text().splitlines() if l.strip()}
+summary = json.loads((d / "header_candidates_summary.json").read_text())
+with (d / "header_candidates_provenance.csv").open(newline="") as f:
+    prov = {r["hostname"] for r in csv.DictReader(f)}
+claim = {l.strip() for l in Path("candidate_additions.txt").read_text().splitlines() if l.strip()}
+problems = []
+if len(names) != summary["candidates"]:
+    problems.append(f"{len(names)} names, summary says {summary['candidates']}")
+if names - prov:
+    problems.append(f"{len(names - prov)} names without a provenance row")
+if names - claim:
+    problems.append(f"{len(names - claim)} names outside candidate_additions.txt")
+if not (d / "header_candidates_exclusions.csv").is_file():
+    problems.append("no exclusion ledger")
+if problems:
+    say("header candidates", "FAIL  " + "; ".join(problems)); sys.exit(1)
+say("header candidates", f"PASS  {len(names)} names, each with a provenance row, each in the claim")
+PY
+else
+    say "header candidates" "SKIP  no server_header_hostnames/ in this archive"
 fi
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------

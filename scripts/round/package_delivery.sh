@@ -330,11 +330,14 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
 #
-# **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
-# else.** 6.5 GB of walks that the registries' terms do not let us re-run, so tier 3 cannot
-# replay `rdap_snapshot`; tier 2 covers every pair it backs, which is what `verify.sh`
-# tests. Available on request. Ivo, 2026-08-26. The journals README below names all five
-# excluded sets with their sizes, so the archive states its own limitation.
+# **Journal sets held out of the archive on size, on one three-part test**: the assignments
+# they back are in the provenance Parquet, which `verify.sh` tests (tier 2); the source they
+# parse is linked in `sources.md`; and the parser ships in `source/`, so they re-derive offline
+# and only a tier-3 replay needs them. The RDAP logs fail the second part (the registries' terms
+# forbid re-walking them) and are held out on size alone, sent on request. A set that fails the
+# test ships whatever its size: the two bulk IA CDX reads at hostname grain, whose converter is
+# not in `source/`, and the Usenet header extraction journals, which no register row names. The
+# journals README below carries the sizes, so the archive states its own limitation.
 #
 # ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
 # tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
@@ -342,52 +345,45 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 #
 # One expression for the copy and for the count guard at the bottom, so the two cannot
 # disagree about what should be present.
-# **Four more size exclusions, same argument as the RDAP logs (2026-09-01).** The Usenet
-# extraction journals (usenet_addr 8.4 GB, usenet_bare 1.8 GB) are our own extractors'
-# output over archive.org mboxes the register links, so they re-derive offline; the raw
-# platform-sweep journals (cdx_suffix, 0.8 GB) and the NYPW hostname-grain conversions
-# (0.3 GB) re-derive the same way. Together they pushed the archive from 1.9 GB to
-# 13 GB. Every assignment they back is in the provenance Parquet (tier 2), which
-# `verify.sh` tests. Available on request.
-#
-# **Three more, on the same measured argument (Ivo, 2026-09-02).** The three remaining
-# Usenet journal sets (usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB) were
-# 0.86 GB of a 4.5 GB archive, 19% of it, for sources banked in earlier rounds and shipped
-# with those archives. The same three-part test as above decides it: the assignments are in
-# the provenance Parquet, the mboxes they parse are linked in the register, and the parser
-# ships in `source/`, so they re-derive offline and only a tier-3 replay of those older
-# sources needs them.
 journal_paths() {
     find data/raw -name '*.jsonl.gz' \
         -not -path '*/superseded/*' \
-        -not -path 'data/raw/rdap/*' \
-        -not -path 'data/raw/rdap_pool/*' \
-        -not -path 'data/raw/usenet_addr/*' \
-        -not -path 'data/raw/usenet_bare/*' \
-        -not -path 'data/raw/cdx_suffix/*' \
-        -not -path 'data/raw/nypw_hostgrain/*' \
-        -not -path 'data/raw/usenet/*' \
-        -not -path 'data/raw/usenet_hdr/*' \
-        -not -path 'data/raw/usenet_new/*' "$@"
+        -not -path 'data/raw/rdap/*' -not -path 'data/raw/rdap_pool/*' \
+        -not -path 'data/raw/usenet_addr/*' -not -path 'data/raw/usenet_bare/*' \
+        -not -path 'data/raw/usenet/*' -not -path 'data/raw/usenet_hdr/*' \
+        -not -path 'data/raw/usenet_new/*' -not -path 'data/raw/cdx_suffix/*' \
+        -not -path 'data/raw/nypw_hostgrain/*' -not -path 'data/raw/nypw_firstcdx_hostgrain/*' \
+        -not -path 'data/raw/ukwa_hostgrain/*' -not -path 'data/raw/arquivo_hostgrain/*' \
+        -not -path 'data/raw/usenet_alt_items/*' -not -path 'data/raw/usenet_alt2_items/*' \
+        -not -path 'data/raw/usenet_aus_items/*' -not -path 'data/raw/usenet_biz_items/*' \
+        -not -path 'data/raw/usenet_bulk_items/*' -not -path 'data/raw/usenet_can_items/*' \
+        -not -path 'data/raw/usenet_comp_items/*' -not -path 'data/raw/usenet_misc_items/*' \
+        -not -path 'data/raw/usenet_new_items/*' -not -path 'data/raw/usenet_news_items/*' \
+        -not -path 'data/raw/usenet_rec_items/*' -not -path 'data/raw/usenet_sci_items/*' \
+        -not -path 'data/raw/usenet_soc_items/*' -not -path 'data/raw/usenet_talk_items/*' \
+        -not -path 'data/raw/usenet_uk_items/*' "$@"
 }
 if [ -z "${ARK_SLIM:-}" ]; then
     journal_paths -print0 \
         | tar -cf - --null -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
     cat > "$STAGE/journals/README.txt" <<'EXCL'
-Eight raw-journal sets are deliberately not here, on size and nothing else: the RDAP walks
-(rdap/, rdap_pool/, 6.5 GB), the Usenet extraction and posting journals (usenet_addr/
-8.4 GB, usenet_bare/ 1.8 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB), the
-raw platform-sweep capture journals (cdx_suffix/, 0.9 GB) and the NYPW hostname-grain
-conversions (nypw_hostgrain/, 0.3 GB). Together they are about 19 GB against under 2 GB for
-everything else.
+Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on disk,
+2026-09-22): the RDAP walks (rdap/, 3.6 GB), the Usenet extraction and posting journals
+(usenet_addr/ 9.9 GB, usenet_bare/ 2.1 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/
+123 MB), the raw platform-sweep capture journals (cdx_suffix/, 21.6 GB), the NYPW hostname-grain
+conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web Archive geoindex
+conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
+and the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB).
+Together about 39 GB against under 1 GB for everything here.
 
 Every assignment they back still ships and is still checkable: each (domain, year) and
 (hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
 over every assignment. Each set re-derives from a linked public source named in sources.md
-(archive.org mboxes for the Usenet sets, the NYPW TimeMap item for nypw_hostgrain, the IA
-CDX API for cdx_suffix) with the parser in source/, so tier 3 can rebuild them; the RDAP
-logs cannot be re-walked under the registries' terms and will be sent on request.
+(archive.org mboxes for the Usenet sets, the NYPW first-capture and TimeMap items, the UK Web
+Archive geoindex, the Arquivo.pt CDXJ dataset, the IA CDX API for cdx_suffix) with the parser
+in source/, so tier 3 can rebuild them; the RDAP logs cannot be re-walked under the registries'
+terms and will be sent on request.
 EXCL
 fi
 

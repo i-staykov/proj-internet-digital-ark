@@ -53,7 +53,7 @@ Two things to know before opening anything:
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
 | `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header, never hand-maintained. **Thirteen columns since 2026-09-03**: the eight of phase 7 in their old order, plus `coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link`, so every field of the requested schema reaches the CSV rather than only the register page. A cell reading `n/a` is the register saying the entry does not say; an empty cell means that page has no such column |
-| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Eight journal sets are excluded on size** (about 19 GB against under 2 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
+| `journals/` | The raw response of every archive and page query, plus the extraction journals. This is what tier 3 replays, so every network stage reproduces offline. **The directory tree is the one the pipeline expects**, so `cp -R journals/. data/raw/` restores it and the ingest commands find their inputs. **Twelve journal sets are excluded on size** (about 39 GB against under 1 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the unattended research loop (workflows, prompts, policy, hypothesis register) at `FLEET_COMMIT.txt` |
@@ -175,6 +175,9 @@ cmp output/netnew/candidate_additions_summary.json ../candidate_additions_summar
 cmp output/netnew/isc_candidates.txt ../isc_survey_hostnames/isc_candidates.txt
 cmp output/netnew/isc_survey_provenance.csv ../isc_survey_hostnames/isc_survey_provenance.csv
 cmp output/netnew/isc_candidates_summary.json ../isc_survey_hostnames/isc_candidates_summary.json
+for f in header_candidates.txt header_candidates_provenance.csv header_candidates_summary.json header_candidates_exclusions.csv; do
+    cmp output/netnew/$f ../server_header_hostnames/$f
+done
 ```
 
 The archive renames things, so here is the map:
@@ -189,6 +192,7 @@ The archive renames things, so here is the map:
 | `output/netnew/isc_candidates.txt` | `isc_survey_hostnames/isc_candidates.txt` |
 | `output/netnew/isc_survey_provenance.csv` | `isc_survey_hostnames/isc_survey_provenance.csv` |
 | `output/netnew/isc_candidates_summary.json` | `isc_survey_hostnames/isc_candidates_summary.json` |
+| `output/netnew/header_candidates*` | `server_header_hostnames/header_candidates*` |
 | `output/candidate_unverified.txt` | `candidates.txt` |
 | `output/netnew/candidate_additions.txt` | `candidate_additions.txt` |
 | `output/netnew/candidate_additions_summary.json` | `candidate_additions_summary.json` |
@@ -214,8 +218,8 @@ just reproduce
 The `journals/` copy is what makes the network stages reproduce offline: every ingest command
 addresses its inputs by nested path, and the archive ships that tree rather than a flat directory so
 this one command restores it. Without it `just reproduce journals` runs clean and ingests nothing.
-**The eight excluded journal sets will replay nothing** until they are restored: the RDAP logs on
-request, the other seven by re-deriving them from the public sources `sources.md` links.
+**The excluded journal sets will replay nothing** until they are restored: the RDAP logs on
+request, the rest by re-deriving them from the public sources `sources.md` links.
 Every assignment they back is checkable by tier 2, which is the route below.
 
 About 50 GB, of which a single 47 GB capture index is most. **Skipping the Arquivo indexes leaves
