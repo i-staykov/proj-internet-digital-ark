@@ -268,6 +268,24 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### ia_node_host_cdx_hostnames / cdx_timestamp
+
+- ingest: `ark ingest-hostnames data/raw/hostcdx_hostgrain/`, the public CDX of one Internet Archive
+  storage node (item `host_cdx_ia600702`, one 57.6 GB gzip, 1,031,419,773 rows) re-emitted as
+  `{url, timestamp}` capture journals, HTTP 200 rows only, 1996-2001 only, four parts
+- source: https://archive.org/download/host_cdx_ia600702/ia600702.hostcdx.gz
+- what dates one item: CDX field 2, the archive's own 14-digit capture stamp, e.g.
+  `ac,acetato)/acetato_nav4layer.css 20011127022501 http://www.acetato.ac:80/Acetato_NAV4Layer.css text/css 200`
+- measured 2026-09-21 on the pushed snapshot, four parts: 14,192,504 in-window 200 rows, 931,864
+  host-years, **104,347 net-new hostname records, 50,721.88 EE**, 67% to 78% `www.` of a held parent
+  (ADR-008, C-72); the stamps fall in 1997, 2000 and 2001 only
+- terms: archive.org terms of use; the index is a public file, no ARC is fetched
+- **Decision written by the loop under rule 7**: the class is an IA CDX capture with URL and stamp
+  retained (method `bulk_cdx_file` in `WEB_METHODS`), the stamp is machine-written and quoted above,
+  the terms permit the read, and `ark check` runs after the ingest
+
+Decision: master
+
 ### dartmouth_arcs_cdx_hostnames / cdx_timestamp
 
 - ingest: `ark ingest-hostnames data/raw/dartmouth_arcs_hostgrain/`, the Internet Archive's

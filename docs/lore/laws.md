@@ -531,6 +531,7 @@ three places, which is why it is worth stating as one law.
 | domain-wide sweep, 75 minutes, 2026-09-04 | 193,000 EE per client-hour |
 | same query, code and two clients, 2026-09-06 | 210 EE per hour between them |
 | a partner research extraction's public per-item IA CDX at hostname grain, 25 in-window Dartmouth items, 2026-09-21 | 20.6 EE per MB of gzip index, 1,363 to 29,078 EE an item, 60% to 98% `www.` of a held parent |
+| a public per-node IA CDX read whole at hostname grain (57.6 GB gzip, 1.03 billion rows, item `host_cdx_ia600702`) | 14.2M in-window 200 rows, 931,864 host-years, 88% already held: 104,347 records, 50,722 EE, 0.9 EE per MB of gzip, stamps in 1997, 2000 and 2001 only; the ingest needs the 28 GB limit from `local.env`; one such item exists (2026-09-21) |
 | `probe_thin_parents.py`, 2026-09-06 | 642 EE per client-hour |
 
 The 193,000 figure was quoted for four days as if it were the collector's rate, and it decided
