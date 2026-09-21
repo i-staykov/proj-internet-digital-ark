@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| ia-webwidecrawl-2001-item-cdx-index-node-401-wall / bulk_cdx_file | 2026-09-21, laptop | walled | the same wall measured here at 10:40 on five in-window Alexa and wide-crawl items: every `.cdx.gz` is `private: true` and the data node answers 401 to a ranged GET. Only research extractions published for a partner serve theirs. CLOSED as unreachable; do not re-file. | https://archive.org/download/arc29.20010121230056-c/ |
 | custodian-capture-indexes-open-data-layer-and-echo-archive-roster-sweep / unclassified | 2026-09-21, fleet 20260921T1606Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | archiveorg-metadata-layer-in-window-link-graph-deposit-absence-sweep / unclassified | 2026-09-21, fleet 20260921T1506Z | not priced | lens no lens recorded. CLOSED (0 EE). | https://archive.org/advancedsearch.php |
 | brief-audit: a robots refusal closes the SOURCE here, and his section VIII names the route it forecloses / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
