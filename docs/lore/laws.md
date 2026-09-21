@@ -53,7 +53,9 @@ is unaffected and the sweeps run normally, so the limit is per service, not per 
 Asking the same queue through `ark cdx` instead ran at **0.100 q/s** over a five-minute window,
 which at the measured 0.3459 net-new EE per query is **125 EE/hour against roughly 300 for one
 suffix sweep**. The swap costs more than it buys, so the third client stays off and both CDX
-collectors run. Re-test the endpoint before spending anything else on it.
+collectors run. Re-tested 2026-09-21 after three hourly 200 probes: 25 minutes in the third
+slot asked 450 names for 0 exact and 3 variant hits at 20 throttles, about 5 EE/hour, and
+known-good names then answered 429. Three probes an hour apart are still probes, not a rate.
 
 The queue build had two defects worth keeping: it ordered by TLD NAME, so a 4,000,000 row limit
 filled with `.com` alone and `.uk` at 0.9813, the richest of the four, never entered; and a
