@@ -10,7 +10,7 @@ orders of magnitude.
 
 **1 thing(s) only you can settle**, worth 26,370 EE at the low estimate, over a 5,000 EE floor. Both tracks score at the same rate, so a candidate counts like a master. A figure marked **measured** was priced against the store and is a fact; every other figure is a scout's guess and has been wrong by five orders of magnitude.
 
-**12 of the 13 live items, 125,634 EE, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. So the outlet row below governs far more than the figure beside it, and is the one to read first whatever its rank.
+**13 of the 14 live items, 130,741 EE, are in classes that ship NOWHERE today.** A hostname-year that Section XIII keeps out of the annual masters has no candidate file to fall into: the candidate claim is registrable domains plus the ISC hostnames and nothing else. So the outlet row below governs far more than the figure beside it, and is the one to read first whatever its rank.
 
 ## Yours to rule, biggest first
 
@@ -20,7 +20,7 @@ orders of magnitude.
 
 - **rule**: a reading of the brief only you settle, such as whether a hostname Section XIII refuses may enter the candidate claim.
 
-**12 other live lead(s), 125,634 to 763,596 EE, are mine to work**, not yours: they ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a re-price that ran out of its window. All of them are in the class the outlet row above governs, so working them adds rows to the store and nothing to the claim until it is settled. 5 carry a name the store already holds and are checked before any work is spent on them.
+**13 other live lead(s), 130,741 to 768,703 EE, are mine to work**, not yours: they ask for a download the fleet runner cannot hold, an ingest nothing blocks, or a re-price that ran out of its window. All of them are in the class the outlet row above governs, so working them adds rows to the store and nothing to the claim until it is settled. 5 carry a name the store already holds and are checked before any work is spent on them.
 
 ## The concrete sources behind those figures
 
@@ -32,6 +32,7 @@ orders of magnitude.
 | 13,400 | scout | stranded | hostname | download | [`usenet-unread-hierarchies-server-header-hostnames`](https://archive.org/download/usenet-comp/) | Date: 1998/12/31 / X-Trace: news.rdc1.sfba.home.com 915130168 [ip] (Thu, 31 Dec 1998 10:49:28 PDT) | https://archive.org/about/terms.php |
 | 6,401 | measured | stranded | hostname | ingest | [`ddn-hosts-txt-1992-1995-editions-military-hostgrain`](https://raw.githubusercontent.com/ttkzw/hosts.txt/master/pub/hosts/19950517/HOSTS.TXT) | Nothing does, by design: each of the four editions carries one header stamp dating every record beneath it (`; DoD Internet Host Table` / `; 17-May-95`, and si… | none recorded |
 | 6,000 | scout | stranded | hostname | download | [`edrm-enron-v2-eml-received-relay-hosts`](https://archive.org/download/edrm.enron.email.data.set.v2.xml/) | Received: from content119b.lga2.nytimes.com (content119b.lga2.nytimes.com [[ip]]) by mailman.enron.com (8.11.4/8.11.4/corp-1.06) with ESMTP id fAJ2EDV27625 for… | https://archive.org/download/edrm.enron.email.data.set.v2.xml/README.txt |
+| 5,107 | measured | stranded | hostname | ingest | [`ia-webdataservices-arc-extraction-per-arc-public-cdx`](https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-04001-04107/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-PART-04001-000002.arc.os.cdx.gz) | au,com,neumann)/heat/computer.html 20010124010300 http://www.neumann.com.au:80/heat/computer.html text/html 200 | https://archive.org/about/terms.php |
 | 5,000 | scout | stranded | hostname | download | [`isc-usenet-control-message-archive-injecting-server-hosts`](https://archive.org/download/2015.04.ftp.isc.org/2015.04.ftp.isc.org.tar/) | Date: Thu, 29 Oct 1998 19:47:51 -0000 / X-Trace: 31 Oct 1998 17:26:51 -0500, cgowave-76-43.cgocable.net / NNTP-Posting-Host: cgowave-76-43.cgocable.net / From… | https://archive.org/about/terms.php |
 | 3,400 | scout | stranded | hostname | download | [`arxiv-bulk-src-ia-mirror-author-mail-hosts`](https://archive.org/download/arXiv_src_9606_001/arXiv_src_9606_001.tar) | Date: Tue, 02 Jan 1996 11:25:54 -0500 (16kb) | https://info.arxiv.org/help/bulk_data_s3.html |
 | 3,000 | scout | stranded | hostname | download | [`untroubled-spam-trap-archive-received-relay-hosts-1998-2001`](https://untroubled.org/spam/1997-1998-spam-headers.bz2) | The by clause and the trailing timestamp of each Received: line in 1997-1998-spam-headers.bz2, RFC 822 dated 1997 to 1998. NOT YET QUOTED: fetch.py refused app… | https://untroubled.org/spam/ |

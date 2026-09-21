@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: he named the link TARGET as annual evidence; we refuse the class outright / unclassified | 2026-09-21, fleet 20260921T0506Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision for Ivo. |  |
+| custodian-capture-indexes-trec-web-free-files-and-custodian-code-repo-sweep / unclassified | 2026-09-21, fleet 20260921T0506Z | not priced | lens custodian-capture-indexes. CLOSED |  |
 | registry-self-publication-cgi-lookup-cutover-sweep-it-de-fr-at-nl-gov / unclassified | 2026-09-21, fleet 20260921T0406Z | not priced | lens self-published-registers.. CLOSED | https://web.archive.org/web/20010130103300id_/http://www.nic.gov/ |
 | Distributed directory master indexes: vlib.org and Governments on the WWW / unclassified | 2026-09-21, fleet 20260921T0306Z | 5000 EE | lens archived-web-directories.. UNFINISHED. | https://web.archive.org/web/19990128001545id_/http://www.vlib.org/Home.html |
 | bulk-dated-link-graph-remainder-sweep-freehost-url-dumps-and-nypw / unclassified | 2026-09-21, fleet 20260921T0306Z | not priced | lens web-link-graphs \| weight 2. CLOSED |  |
