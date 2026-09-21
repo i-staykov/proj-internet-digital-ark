@@ -141,7 +141,7 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # and both of this round's scores in the two lines he writes them in himself.
     assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392" in sentence
     assert "your own scores for rounds 6, 7, 8 and 9" in sentence
-    assert "2026-09-04 less 33 days" in sentence
+    assert "whole days since the 2 August assignment" in sentence
     assert "this round is t = 32" in sentence
     assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
     assert "Candidate-Pool Score: S = 10 x (" in sentence
