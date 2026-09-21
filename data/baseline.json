@@ -96,6 +96,18 @@
       "submission_received": "2026-09-04 13:08",
       "awarded_score": "5.687792",
       "awarded_score_divisor": 33
+    },
+    {
+      "label": "9",
+      "date": "2026-09-11",
+      "records": 2702431,
+      "equivalent_english": "1456513.4776",
+      "baseline": "merged260911-2",
+      "awarded_percent": "3.682488",
+      "benchmark_released": "2026-09-08 10:54",
+      "submission_received": "2026-09-10 09:20",
+      "awarded_score": "0.944228",
+      "awarded_score_divisor": 39
     }
   ],
   "round_one_is_record_based": "1",

@@ -42,7 +42,7 @@ under your 0905 ruling (`isc_survey_hostnames/`), and 39,812 hosts whose only da
 a server-written mail or Usenet header, candidates under Section XIII (`server_header_hostnames/`).
 Provenance is per name, in `provenance/` and each collection's own CSV.
 
-Cumulative verified percentage 75.7223%, this round at its own unverified 0.5870% and round 1 on records. Time-weighted score 6.88 + 6.302372 + 5.687792 = 18.870164, your own scores for rounds 6, 7 and 8. Under your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 50. Domain-Year Score: S = 10 x (0.586969 / 50) = 0.117394. Candidate-Pool Score: S = 10 x (0.138205 / 50) = 0.027641.
+Cumulative verified percentage 79.4048%, this round at its own unverified 0.5870% and round 1 on records. Time-weighted score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392, your own scores for rounds 6, 7, 8 and 9. Under your 0903 rule, from the origin your round 8 divisor implies (2026-09-04 less 33 days), this round is t = 50. Domain-Year Score: S = 10 x (0.586969 / 50) = 0.117394. Candidate-Pool Score: S = 10 x (0.138205 / 50) = 0.027641.
 
 ## 2. Where the increment came from, and what dates each record
 

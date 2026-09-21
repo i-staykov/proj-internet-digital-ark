@@ -80,8 +80,8 @@ def test_cumulative_is_the_sum_of_the_rounds_he_scored() -> None:
     assert cumulative([]) == Decimal(0)
 
 
-def test_the_rule_covers_rounds_6_7_and_8() -> None:
-    assert [r[0] for r in SUBMITTED_ROUNDS if scored_under_rule(r[7])] == ["6", "7", "8"]
+def test_the_rule_covers_rounds_6_to_9() -> None:
+    assert [r[0] for r in SUBMITTED_ROUNDS if scored_under_rule(r[7])] == ["6", "7", "8", "9"]
 
 
 def test_a_receipt_inside_the_release_minute_still_divides_by_one() -> None:
@@ -119,10 +119,13 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # And rounds 6 and 7 the same way: he wrote 6.88 and 6.302372 in his own mails, so the
     # total is the sum of his three figures. Our model gives round 6 6.884530, which he
     # rounded; a total four thousandths off his own is a total he has to reconcile.
-    assert "**S = 18.870164**" in text
+    # Round 9 the same: he wrote 0.944228 at a divisor of 39, and 39 whole days back from its
+    # 2026-09-10 receipt is the same 2026-08-02 origin round 8 implied.
+    assert "**S = 19.814392**" in text
     assert "6: 4.130718% / 6d = 6.880000" in text
     assert "7: 7.562846% / 12d = 6.302372" in text
     assert "8: 18.769714% / 33d = 5.687792" in text
+    assert "9: 3.682488% / 39d = 0.944228" in text
     assert "would add 15.000000 at t = 1" in text
     assert "Rounds 1, 3, 4 and 5 predate the rule" in text
     assert "5: 14.901054% / 2d = 74.505270" in text
@@ -136,8 +139,8 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     # round 8 divisor answers that, so it states the derivation and asks nothing.
     # The addends, because a sum he can check in his head beats a total he has to trust,
     # and both of this round's scores in the two lines he writes them in himself.
-    assert "score 6.88 + 6.302372 + 5.687792 = 18.870164" in sentence
-    assert "your own scores for rounds 6, 7 and 8" in sentence
+    assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392" in sentence
+    assert "your own scores for rounds 6, 7, 8 and 9" in sentence
     assert "2026-09-04 less 33 days" in sentence
     assert "this round is t = 32" in sentence
     assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
@@ -187,6 +190,6 @@ def test_the_benchmark_reading_still_flatters_us_against_his_own_rule() -> None:
     """
     bench = cumulative([score(r[5], t_days(r[6], r[7])) for r in SUBMITTED_ROUNDS])
     assign = cumulative([score(r[5], t_days_assignment(r[7])) for r in SUBMITTED_ROUNDS])
-    assert bench == Decimal("327.985892")
-    assert assign == Decimal("225.512431")
+    assert bench == Decimal("346.398332")
+    assert assign == Decimal("226.456659")
     assert bench > assign
