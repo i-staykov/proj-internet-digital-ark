@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| wlv-uk-july-2001-academic-link-database-replay-timeout-wall / link database | 2026-09-21, laptop | see academic_web_link_database_wlv_2000_2001 | the Wolverhampton academic link databases are already in the register at hostname grain, PARKED (outlet) at 55,383 EE and 5,206 EE; this leg hit a replay timeout and adds no artifact. CLOSED as a duplicate of a parked class. | https://web.archive.org/web/20040603081706id_/http://cybermetrics.wlv.ac.uk/database/ |
 | ia-webwidecrawl-2001-item-cdx-index-node-401-wall / bulk_cdx_file | 2026-09-21, laptop | walled | the same wall measured here at 10:40 on five in-window Alexa and wide-crawl items: every `.cdx.gz` is `private: true` and the data node answers 401 to a ranged GET. Only research extractions published for a partner serve theirs. CLOSED as unreachable; do not re-file. | https://archive.org/download/arc29.20010121230056-c/ |
 | custodian-capture-indexes-open-data-layer-and-echo-archive-roster-sweep / unclassified | 2026-09-21, fleet 20260921T1606Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
 | archiveorg-metadata-layer-in-window-link-graph-deposit-absence-sweep / unclassified | 2026-09-21, fleet 20260921T1506Z | not priced | lens no lens recorded. CLOSED (0 EE). | https://archive.org/advancedsearch.php |

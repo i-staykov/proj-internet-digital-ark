@@ -31,4 +31,4 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Not yet measured
 
-1 lead(s) carry only a scout's estimate and are not asked about until read: `wlv-uk-july-2001-academic-link-database-replay-timeout-wall`.
+None. Every live lead has been read and priced.
