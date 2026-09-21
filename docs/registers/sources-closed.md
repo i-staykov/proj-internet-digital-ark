@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| custodian-capture-indexes-cloud-public-dataset-registry-s3-bucket-sweep / unclassified | 2026-09-21, fleet 20260921T0706Z | not priced | lens no lens recorded. CLOSED |  |
+| self-published-registers, run 35567303010: the AUNIC/APNIC route to a .au full register / unclassified | 2026-09-21, fleet 20260921T0706Z | not priced | lens no lens recorded. CLOSED. |  |
 | link-graph-deposit-discovery-api-robots-wall-and-ia-data-corpus-window-gap / unclassified | 2026-09-21, fleet 20260921T0606Z | not priced | lens web-link-graphs. CLOSED (0 EE, nothing above the floor) |  |
 | brief-audit: he named the link TARGET as annual evidence; we refuse the class outright / unclassified | 2026-09-21, fleet 20260921T0506Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision for Ivo. |  |
 | custodian-capture-indexes-trec-web-free-files-and-custodian-code-repo-sweep / unclassified | 2026-09-21, fleet 20260921T0506Z | not priced | lens custodian-capture-indexes. CLOSED |  |
