@@ -6,6 +6,11 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: a robots refusal closes the SOURCE here, and his section VIII names the route it forecloses / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| computermagazine-ocr-advertiser-registrable-corpus / textual mention of a registrable name in a printed periodical whose issue date i | 2026-09-21, fleet 20260921T1406Z | 151.1 EE | lens registrable-lists. Measured negative on yield. | https://archive.org/download/ComputerShopper_2001-12/ComputerShopper_December2001_djvu.txt |
+| custodian-capture-indexes-ct-log-discovery-and-shine-was-retirement-sweep / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
+| ia-wds-dartmouth-10kweburls-gwb-bfs-arc-extraction / unclassified | 2026-09-21, fleet 20260921T1406Z | 802.2037 EE | lens no lens recorded. CLOSED. | https://archive.org/download/Dartmouth_10KwebURLs_GWB-20180911224740_BFS-lvl-0-00000-00001_arc/Dartmouth_10KwebURLs_GWB-20180911224740_BFS-lvl-0-00000.arc.os.cdx.gz |
+| web-link-graph-published-corpus-node-label-and-robots-wall-sweep / unclassified | 2026-09-21, fleet 20260921T1406Z | not priced | lens web-link-graphs.. CLOSED |  |
 | Australian Web Archive CDX at hostname grain (NLA-EXTRACTION-1996-2004 inside AWA) | 2026-09-21, laptop | not read | the in-window AWA data is an IA extraction for the NLA, so a hostname-grain sweep looked like the Dartmouth shape; but `web.archive.org.au/robots.txt` is `User-agent: * Disallow: /`, the CDX endpoint answers 307 to a login, and no NLA-EXTRACTION item exists on archive.org. CLOSED on robots and access. | https://web.archive.org.au/robots.txt |
 | brief-audit: rule 6 answers a rate limit by removing CDX capacity, and his section VII forbids exactly that / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | dead-registry-host-replay-robots-gate-asia-latam-register-path-sweep / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens self-published-registers. CLOSED. |  |

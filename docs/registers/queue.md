@@ -10,14 +10,14 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
-**37,524 EE**: 26,370 EE of hostname-years already in the store and 11,154 EE measured in the 10 sources below, each read on this laptop. All hostname grain, all classes XIII keeps out of the annual files, none in the candidate claim until you rule.
+**46,526 EE**: 26,370 EE of hostname-years already in the store and 20,156 EE measured in the 10 sources below, each read on this laptop. All hostname grain, all classes XIII keeps out of the annual files, none in the candidate claim until you rule.
 
 | EE | source | measured on | what dates one item | terms |
 |---:|---|---|---|---|
+| 9,537.2 | [`arxiv-bulk-src-ia-mirror-author-mail-hosts`](https://archive.org/download/arXiv_src_9606_001/arXiv_src_9606_001.tar) | parked (outlet), seeded (candidate) | Date: Tue, 02 Jan 1996 11:25:54 -0500 (16kb) | https://info.arxiv.org/help/bulk_data_s3.html |
 | 4,914.2 | [`ietf-mail-archive-received-by`](https://www.ietf.org/ietf-ftp/ietf-mail-archive/ietf/1999-05.mail) | find (pending) | Received: from fmaila4.real-net.net (fmaila4.real-net.net [ip]) by ietf.org (8.9.1a/8.9.1a) with ESMTP id NAA29204 for <ietf@ietf.org>; Sat… | https://trustee.ietf.org/documents/trust-legal-provisions/ |
 | 3,681.7 | [`ipac-2mass-irsa-monthly-analog-host-reports-1998-2001`](https://www.ipac.caltech.edu/2mass/data_processing/internal/stats/apr1999.html) | find (confirmed) | Analyzed requests from Thu, Apr 01 1999 06:14 to Sat, May 01 1999 04:28 (29.9 days). | none recorded |
 | 775.1 | [`usenet-unread-hierarchies-server-header-hostnames`](https://archive.org/download/usenet-comp/) | parked (outlet), measured on 1.5% | Date: 1998/12/31 / X-Trace: news.rdc1.sfba.home.com 915130168 [ip] (Thu, 31 Dec 1998 10:49:28 PDT) | https://archive.org/about/terms.php |
-| 535.0 | [`arxiv-bulk-src-ia-mirror-author-mail-hosts`](https://archive.org/download/arXiv_src_9606_001/arXiv_src_9606_001.tar) | parked (outlet), measured on 4.2% | Date: Tue, 02 Jan 1996 11:25:54 -0500 (16kb) | https://info.arxiv.org/help/bulk_data_s3.html |
 | 456.7 | [`net-abuse-quoted-spam-received-by-relay-hosts`](https://archive.org/download/FULL-USENET-BACKUP-2020-Oct-news.admin.net-abuse.sightings.3902507.mbox.7z/news.admin.net-abuse.sightings.(3902507).mbox.7z) | parked (outlet), measured whole | the Received line's own server stamp, the clause after the semicolon: `; Mon, 11 Jan 1999 23:51:03 -0500 (EST)`, written by the relay named… | https://archive.org/about/terms.php |
 | 445.1 | [`untroubled-spam-trap-archive-received-relay-hosts-1998-2001`](https://untroubled.org/spam/1997-1998-spam-headers.bz2) | parked (outlet), measured | The by clause and the trailing timestamp of each Received: line in 1997-1998-spam-headers.bz2, RFC 822 dated 1997 to 1998. NOT YET QUOTED:… | https://untroubled.org/spam/ |
 | 229.4 | [`usenet-path-relay-hops-intermediate-servers`](https://archive.org/download/usenet-aus/aus.jokes.mbox.zip) | parked (outlet), measured on 1.5% | Date: Mon, 17 Dec 2001 07:21:21 -0500 / Path: archiver1.google.com!news1.google.com!newsfeed.stanford.edu!news.tele.dk!small.news.tele.dk![… | https://archive.org/about/terms.php |
