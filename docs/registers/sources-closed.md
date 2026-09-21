@@ -6,6 +6,7 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| Australian Web Archive CDX at hostname grain (NLA-EXTRACTION-1996-2004 inside AWA) | 2026-09-21, laptop | not read | the in-window AWA data is an IA extraction for the NLA, so a hostname-grain sweep looked like the Dartmouth shape; but `web.archive.org.au/robots.txt` is `User-agent: * Disallow: /`, the CDX endpoint answers 307 to a login, and no NLA-EXTRACTION item exists on archive.org. CLOSED on robots and access. | https://web.archive.org.au/robots.txt |
 | brief-audit: rule 6 answers a rate limit by removing CDX capacity, and his section VII forbids exactly that / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | dead-registry-host-replay-robots-gate-asia-latam-register-path-sweep / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens self-published-registers. CLOSED. |  |
 | DARTMOUTH-NBER ARCS items whose index head showed under 1% in-window rows, per-ARC parts probe | 2026-09-21, laptop | 0 in-window rows | three random per-ARC index parts read whole from each of the 202 low-share items (about 600 parts): not one 1996-2001 stamp, so the pocket is the 25 items already banked and the collection is closed at hostname grain. | https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00000-00020/ |
