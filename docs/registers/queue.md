@@ -31,4 +31,4 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Not yet measured
 
-None. Every live lead has been read and priced.
+1 lead(s) carry only a scout's estimate and are not asked about until read: `ia-webwidecrawl-2001-item-cdx-index-node-401-wall`.
