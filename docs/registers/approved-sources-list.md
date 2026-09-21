@@ -2153,6 +2153,20 @@ Decision: master
 
 ## Pending requests
 
+### ia_arc_extraction_in_window_item_band_sweep / cdx_timestamp
+
+- ingest spec: none in this repository yet. The fleet found and priced this; no collector or parser here reads it, so a yes is a decision to write one and `bank_approved.py` will say it banked nothing until that exists
+- journal: `data/fleet_findings/incoming/ia-arc-extraction-in-window-item-band-sweep/items.jsonl`, the items the figures below were measured from
+- refetch: https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00235-00278/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-PART-00235-000000.arc.os.cdx.gz
+- terms: https://archive.org/about/terms.php, robots allowed
+- what dates one item: au,com,boral)/timber/facts/btt.htm 20000617183342 http://www.boral.com.au:80/timber/facts/btt.htm text/html 200 3PQLOJJPTR4NMUE7XGPOVYQVLEV65JL3 - - 2740 22168543 DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00235-00278/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-PART-00235-000000.arc.gz
+- measured 2026-09-21: **4.5 EE net-new on the live store** over 7 records, by `price_hostnames.py`. The fleet said 8,343.6 EE against the pushed snapshot; the store figure is the one to read
+- fleet run 35572184588, lens custodian-capture-indexes, grain hostname, verified by a second leg
+- potential: 4
+
+Decision: master
+Decided by the loop under the standing approval rule (CLAUDE.md rule 7, Ivo 2026-08-29): the class is already master-eligible, the stamp "au,com,boral)/timber/facts/btt.htm 20000617183342 http://www.boral.com.au:80/timber/facts/btt.htm text/html 200 3PQLOJJPTR4NMUE7XGPOVYQVLEV65JL3 - - 2740 22168543 DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00235-00278/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-PART-00235-000000.arc.gz" dates one item, the terms at https://archive.org/about/terms.php permit it, and the ingest this line releases is gated by `ark check`, which parks the line back to pending if it fails. Fleet run 35572184588, store re-price 4.5 EE.
+
 ## Found, awaiting triage
 
 A find lands here as a `### key / etype` block carrying a `- potential:` line and a pending decision; `just triage-rank` sorts them. `scripts/round/split_triage.py` drains it: decided blocks to Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to a backlog page, and only when triage leaves one.

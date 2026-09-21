@@ -7,6 +7,12 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 ## OPEN
 
+### Approve ia_arc_extraction_in_window_item_band_sweep / cdx_timestamp
+
+Found and priced by the fleet under the custodian-capture-indexes lens, confirmed by a second leg: **4.5 EE net-new on the live store** over 7 records. The block is under `## Pending requests` in `approved-sources-list.md`; merge the approval pull request to say yes, close it to leave the source pending.
+
+Worth: 4 EE.
+
 ### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
 
 A hostname-year excluded from the annual masters by Section XIII has nowhere to go. The
