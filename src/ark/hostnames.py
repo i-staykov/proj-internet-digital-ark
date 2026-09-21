@@ -78,6 +78,11 @@ POLAND_METHOD = "poland_pl_extract_hostgrain"
 DARTMOUTH_ARCS_SOURCE = "dartmouth_arcs_cdx_hostnames"
 DARTMOUTH_ARCS_METHOD = "bulk_cdx_file"
 
+# The public CDX of one IA storage node, item `host_cdx_ia600702`, the same class read the same
+# way (2026-09-21). Its own source row because it is a different collection.
+HOSTCDX_SOURCE = "ia_node_host_cdx_hostnames"
+HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
+
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
 # sweep, because both are IA CDX responses, and its own method so the contribution table can
@@ -101,6 +106,8 @@ def source_for(path: Path) -> tuple[str, str]:
         return POLAND_SOURCE, POLAND_METHOD
     if path.name.startswith("dartmouth_arcs_"):
         return DARTMOUTH_ARCS_SOURCE, DARTMOUTH_ARCS_METHOD
+    if path.name.startswith("hostcdx_"):
+        return HOSTCDX_SOURCE, HOSTCDX_METHOD
     return SOURCE_NAME, SWEEP_METHOD
 
 
@@ -117,6 +124,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         ARQUIVO_SOURCE,
         POLAND_SOURCE,
         DARTMOUTH_ARCS_SOURCE,
+        HOSTCDX_SOURCE,
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
