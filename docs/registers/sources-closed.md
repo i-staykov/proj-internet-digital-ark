@@ -6,6 +6,8 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: rule 6 answers a rate limit by removing CDX capacity, and his section VII forbids exactly that / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| dead-registry-host-replay-robots-gate-asia-latam-register-path-sweep / unclassified | 2026-09-21, fleet 20260921T1206Z | not priced | lens self-published-registers. CLOSED. |  |
 | DARTMOUTH-NBER ARCS items whose index head showed under 1% in-window rows, per-ARC parts probe | 2026-09-21, laptop | 0 in-window rows | three random per-ARC index parts read whole from each of the 202 low-share items (about 600 parts): not one 1996-2001 stamp, so the pocket is the 25 items already banked and the collection is closed at hostname grain. | https://archive.org/download/DARTMOUTH-NBER-RESEARCH-2017-ARCS-20170721000000-00000-00020/ |
 | custodian-capture-indexes-iipc-roster-population-closure-sweep / unclassified | 2026-09-21, fleet 20260921T1017Z | not priced | lens no lens recorded. |  |
 | expired-name rosters, second pass: namewinner 20011214 capture and domainsbot.com | 2026-09-21, laptop | 0 names | the only other in-window capture of namewinner's whole_list.php (20011214232242) is a 0-byte body; domainsbot.com's 2001 captures are a members-only search directory with no list page. CLOSED. | https://web.archive.org/web/20011214232242id_/http://www.namewinner.com/whole_list.php?del=tab |
