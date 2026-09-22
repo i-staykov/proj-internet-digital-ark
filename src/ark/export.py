@@ -281,7 +281,8 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None 
     against 726,336.
 
     The diff against his own annual files is part of the same argument: it drops 304 pairs
-    our ingested baseline evidence does not know he holds.
+    our ingested baseline evidence does not know he holds. The XIII screen is the third part:
+    without it the guard counted 252,019 against the 841 the export wrote (2026-09-22).
     """
     load_his_annual_files(conn, baseline)
     total = 0
@@ -292,6 +293,7 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None 
             WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
               AND {_shipping_filter("dy.")}
               AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
+              AND {web_evidence_exists("dy.evidence_id")}
             """
         ).fetchone()[0]
     return total
