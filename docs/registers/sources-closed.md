@@ -6,6 +6,10 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: "never the same lens twice running" is our rule, not his, and on today's two-lens roster it overrides the 8:1 weight to 1:1 / unclassified | 2026-09-22, fleet 20260922T2106Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision for Ivo. |  |
+| brief-audit: "never the same lens twice running" rotates on a clock, his section V rotates on measured zero yield, and it turns our 8:1 re-weight into 1:1 / unclassified | 2026-09-22, fleet 20260922T2106Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
+| custodian-capture-indexes-harvest-soif-broker-kb-sweden-and-loc-search-sweep / unclassified | 2026-09-22, fleet 20260922T2106Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
+| pre-1996 bulk sender/uploader-host corpora outside Usenet and the NIC files / unclassified | 2026-09-22, fleet 20260922T2106Z | not priced | lens no lens recorded. CLOSED |  |
 | brief-audit: the 5% gate recedes faster than we climb, and his section III never made it a bar on sending / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens brief-audit.. FIND. |  |
 | custodian-capture-indexes: defacement-mirror siblings and per-URL citation archives / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens custodian-capture-indexes. CLOSED |  |
 | custodian-crawl-log-layer-desire-combine-nwi-ircache-dns-death / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens custodian-capture-indexes. CLOSED |  |
