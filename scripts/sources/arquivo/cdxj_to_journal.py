@@ -43,7 +43,12 @@ def main() -> int:
     ap.add_argument(
         "--status",
         default="200",
-        help="keep only this HTTP status; a capture that did not serve is not evidence",
+        help="keep only statuses matching this regex; ADR-011 admits `3[0-9][0-9]` as well",
+    )
+    ap.add_argument(
+        "--prefix",
+        default="arquivo_ia",
+        help="shard name prefix; a second pass needs its own, since the ledger keys on the name",
     )
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -71,7 +76,7 @@ def main() -> int:
             except ValueError:
                 broken += 1
                 continue
-            if args.status and str(row.get("status")) != args.status:
+            if args.status and not re.fullmatch(args.status, str(row.get("status"))):
                 skipped_status += 1
                 continue
             url = row.get("url")
@@ -81,7 +86,7 @@ def main() -> int:
             if handle is None or kept % args.shard_lines == 0:
                 if handle is not None:
                     handle.close()
-                handle = gzip.open(args.out / f"arquivo_ia_{shard:04d}.jsonl.gz", "wt")
+                handle = gzip.open(args.out / f"{args.prefix}_{shard:04d}.jsonl.gz", "wt")
                 shard += 1
             handle.write(json.dumps({"url": url, "timestamp": stamp}) + "\n")
             kept += 1

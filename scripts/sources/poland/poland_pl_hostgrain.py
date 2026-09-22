@@ -15,6 +15,10 @@ Asserts each file's byte size and sha256 against `receipts.tsv` first. A size fl
 not a content check, and a truncated index would date hosts off a half-read file.
 
     uv run python scripts/sources/poland/poland_pl_hostgrain.py data/raw/poland_cdx/
+
+`--redirects-only` is that pass: 3xx rows alone, into `poland_hostgrain_3xx/`, the reading
+`early_web_nonok_hostgrain.py --redirects-only` applied to Early Web under the
+`nypw_timemaps_nonok` ruling.
 """
 
 from __future__ import annotations
@@ -55,7 +59,7 @@ def receipts() -> dict[str, tuple[int, str]]:
     return out
 
 
-def reduce_one(index: Path, expected: tuple[int, str]) -> int:
+def reduce_one(index: Path, expected: tuple[int, str], redirects: bool = False) -> int:
     size, sha = expected
     actual = index.stat().st_size
     if actual != size:
@@ -67,8 +71,10 @@ def reduce_one(index: Path, expected: tuple[int, str]) -> int:
         return 2
     # After the receipts, not before: a refused index must leave no directory behind to
     # suggest it was read.
-    OUT.mkdir(parents=True, exist_ok=True)
-    dest = OUT / ("poland_pl_" + index.name.replace(".cdx.gz", "") + "_hostgrain.jsonl.gz")
+    out_dir = OUT.with_name(OUT.name + "_3xx") if redirects else OUT
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = "poland_pl_3xx_" if redirects else "poland_pl_"
+    dest = out_dir / (stem + index.name.replace(".cdx.gz", "") + "_hostgrain.jsonl.gz")
     # (host, year) -> (timestamp, url); the earliest 200 capture dates the pair
     best: dict[tuple[str, int], tuple[str, str]] = {}
     rows = headers = malformed = skipped = 0
@@ -84,7 +90,8 @@ def reduce_one(index: Path, expected: tuple[int, str]) -> int:
                 continue
             ts, original, status = fields[1], fields[2], fields[4]
             year = int(ts[:4])
-            if status != "200" or year not in YEARS:
+            wanted = status.startswith("3") and len(status) == 3 if redirects else status == "200"
+            if not wanted or year not in YEARS:
                 skipped += 1
                 continue
             key = (host_of(original), year)
@@ -104,6 +111,7 @@ def reduce_one(index: Path, expected: tuple[int, str]) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("path", type=Path, help="an index, or a directory of them")
+    ap.add_argument("--redirects-only", action="store_true", help="3xx rows, not 200")
     args = ap.parse_args()
     known = receipts()
     files = sorted(args.path.glob("*.cdx.gz")) if args.path.is_dir() else [args.path]
@@ -117,7 +125,7 @@ def main() -> int:
             print(f"{index.name}: not in receipts.tsv, refusing", file=sys.stderr)
             bad += 1
             continue
-        bad += 1 if reduce_one(index, expected) else 0
+        bad += 1 if reduce_one(index, expected, args.redirects_only) else 0
     return 2 if bad else 0
 
 
