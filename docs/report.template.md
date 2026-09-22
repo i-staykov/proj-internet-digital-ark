@@ -127,6 +127,9 @@ copied in unmodified: `equivalent_english_domain_calculator/`.
 
 Two gaps against the evidence rule: the seven-column exclusion ledger exists for the header
 collection's run only (`candidates_unparsed.txt` carries a reason per line for the rest), and the
-TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. Worth
+TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. One
+conservative exclusion: a registrable domain your release holds only as hostnames beneath it is
+treated as held, so 2,114 domain-years (1,019 EE) with their own exact-host capture are not
+claimed; they are what the rebuild in section 6's route returns in excess. Worth
 expanding next, priced in `experience-summary.md`: dated registry datasets for the candidate track,
 and exact-host captures beside the two candidate collections, the one route that promotes either.

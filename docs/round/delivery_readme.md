@@ -125,9 +125,12 @@ capture timestamp, with a link where one exists.
 ### 2. Rebuild the result from the evidence
 
 No source data and no network: the export holds every observation this project made and every
-assignment resting on one, but not your own rows. One evidence row per pair your release already
-carries was 3 GB of a 5 GB archive and repeated your own file, so the rebuilt `masters/` are our
-additions alone; everything else this project claims rebuilds byte-identical.
+assignment resting on one, but not your own rows (one evidence row per pair your release already
+carries was 3 GB of a 5 GB archive and repeated your own file). Two consequences. The rebuilt
+`masters/` are our own web-evidenced records, your rows not among them. And the registrable
+additions and the candidate lists come back as supersets, because the store also excludes a
+registrable domain your release holds only as hostnames beneath it, and the shipped provenance does
+not record that; every shipped line is among them, which the second block below checks.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
@@ -136,25 +139,30 @@ uv run ark rebuild ../provenance     # annual files, candidates, manifest
 uv run ark check                     # the integrity invariants
 ```
 
-Everything but `masters/` comes back byte-identical:
+Byte-identical:
 
 ```
 for y in 1996 1997 1998 1999 2000 2001; do
-    cmp output/netnew/$y.txt            ../additions/$y.txt
     cmp output/netnew/${y}_hostnames.txt ../hostnames/${y}_hostnames.txt
     cmp output/netnew/$y-ISC.txt        ../isc_survey_hostnames/$y-ISC.txt
 done
-cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
 cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
-cmp output/candidate_unverified.txt      ../candidates.txt
-cmp output/netnew/candidate_additions.txt ../candidate_additions.txt
-cmp output/netnew/candidate_additions_summary.json ../candidate_additions_summary.json
 cmp output/netnew/isc_candidates.txt ../isc_survey_hostnames/isc_candidates.txt
 cmp output/netnew/isc_survey_provenance.csv ../isc_survey_hostnames/isc_survey_provenance.csv
 cmp output/netnew/isc_candidates_summary.json ../isc_survey_hostnames/isc_candidates_summary.json
 for f in header_candidates.txt header_candidates_provenance.csv header_candidates_summary.json header_candidates_exclusions.csv; do
     cmp output/netnew/$f ../server_header_hostnames/$f
 done
+```
+
+Supersets, every shipped line present (each count is 0):
+
+```
+for y in 1996 1997 1998 1999 2000 2001; do
+    comm -23 <(sort ../additions/$y.txt) <(sort output/netnew/$y.txt) | wc -l
+done
+comm -23 <(sort ../candidates.txt) <(sort output/candidate_unverified.txt) | wc -l
+comm -23 <(sort ../candidate_additions.txt) <(sort output/netnew/candidate_additions.txt) | wc -l
 ```
 
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence

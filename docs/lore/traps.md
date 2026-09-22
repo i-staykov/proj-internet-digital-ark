@@ -11,6 +11,12 @@ the measured laws of pricing are in [laws.md](laws.md), the rules in [rules.md](
 
 **Verify every number, including a subagent's.** Several were fabricated or out by 1000x.
 
+**A screen belongs on every query that counts the same population.** The XIII web-evidence screen
+reached the net-new export on 2026-09-18, the report figures on 2026-09-21, and the merged annual
+files and the packaging guard only on 2026-09-22, when `masters/2001.txt` carried 251,178 rows the
+additions refused and the packager compared 841 shipped pairs against 252,019 in the store. When a
+predicate changes, grep for every query over `domain_year` and `hostname_year`, not the one in hand.
+
 **`prior_task` is a SOURCE name, `prior_reused` is the EVIDENCE TYPE.** The baseline filter
 is `evidence_type = 'prior_reused'` (`stats.BASELINE_TYPE`). Writing `'prior_task'` matches
 nothing, so the filter silently passes everything and the answer looks plausible: it cost

@@ -385,7 +385,7 @@ def export_header_candidates(
             FROM hostname_year hy
             JOIN evidence e ON e.evidence_id = hy.evidence_id
             WHERE NOT ({web_evidence_sql("e")}) AND NOT ({HOSTNAME_SHIPPING_FILTER})
-            ORDER BY hy.hostname
+            ORDER BY hy.hostname, e.evidence_url, e.evidence_value
         ) TO '{ledger_path}' (HEADER true)
     """)
     tlds = conn.execute("""
