@@ -407,11 +407,16 @@ def main() -> None:
         )
     track = candidate_track()
     if track["candidates"]:
-        ee = Decimal(track["equivalent_english"])
+        # Its own name. Binding this to `ee` clobbered the round-since registrable total two
+        # lines below, so `mean weight` printed the CANDIDATE EE over the ANNUAL record count:
+        # round 10 read 0.3075, which is 77,497.7487 / 252,019 and not a weight at all. It read
+        # plausibly only while the two tracks were the same order of magnitude; merged260922
+        # made it 26.4712, above the 1.0 that any English share can be.
+        track_ee = Decimal(track["equivalent_english"])
         print(
             f"  CANDIDATE TRACK CLAIM (candidate_additions.txt), scored separately at the "
-            f"same rate: {track['candidates']:,} names, {ee:,.4f} EE, "
-            f"{ee / BASELINE_EE * 100:.6f}% of the same denominator"
+            f"same rate: {track['candidates']:,} names, {track_ee:,.4f} EE, "
+            f"{track_ee / BASELINE_EE * 100:.6f}% of the same denominator"
         )
 
     mean = ee / pairs

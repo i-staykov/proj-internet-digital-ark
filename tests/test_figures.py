@@ -193,3 +193,33 @@ def test_the_benchmark_reading_still_flatters_us_against_his_own_rule() -> None:
     assert bench == Decimal("346.398332")
     assert assign == Decimal("226.456659")
     assert bench > assign
+
+
+def test_the_round_since_total_is_bound_once_in_main() -> None:
+    """`mean weight` is the round-since registrable EE over its own record count, so anything
+    that rebinds either name between their assignment and that line prints a different
+    quantity under the same label. The candidate claim did exactly that: round 10 printed
+    0.3075, which is 77,497.7487 / 252,019, the CANDIDATE EE over the ANNUAL records, and it
+    passed unnoticed because the two tracks were the same order of magnitude. merged260922
+    made the same expression read 26.4712, above the 1.0 that any English share can be.
+    """
+    import ast
+
+    source = (ROOT / "scripts/round/round_figures.py").read_text()
+    main = next(
+        n
+        for n in ast.walk(ast.parse(source))
+        if isinstance(n, ast.FunctionDef) and n.name == "main"
+    )
+    bound: list[str] = []
+    for node in ast.walk(main):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                bound += [x.id for x in ast.walk(target) if isinstance(x, ast.Name)]
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and isinstance(node.target, ast.Name):
+            bound.append(node.target.id)
+    for name in ("ee", "pairs"):
+        assert bound.count(name) == 1, (
+            f"{name} is bound {bound.count(name)} times in main(); the mean weight line "
+            "reads whatever was assigned last"
+        )

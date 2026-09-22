@@ -24,6 +24,18 @@ three wrong measurements on 2026-09-18, one of which reported "98.3% of net-new 
 when it had counted all 43.7M of HIS baseline rows as ours. Import `BASELINE_TYPE`; never
 type either string.
 
+**His baseline can SHRINK, and a diff against it turns last week's concession into this
+week's claim.** merged260922 dropped 22,666,119 names from `candidate_pool.txt` and added
+39,250,344. The candidate export is a pure diff, so it did exactly what it says and the claim
+went from 261,977 names to 13,104,122, from 0.1382% to 10.209646%: measured, 12,870,758 of
+them (98.2%) sat in his PREVIOUS pool, 0 are in his current one, and only 46,717 moved to his
+new 2002-2015 files. They are the DNS-survey shape his own ruling of 2026-09-06 excludes,
+`pppch225046.dacom.co.kr` and `a26b225.rogerswave.ca`, led by `.jp`, `.net`, `.de` and 925,817
+`.mil`, so he purged them deliberately. Re-offering them is not discovery, it is his
+bookkeeping handed back at fifty times our real rate. **Diff the diff: when a claim jumps an
+order of magnitude, measure it against the PREVIOUS release as well as the current one**, and
+treat a large drop on his side as a question for him rather than a finding of ours.
+
 **An already-ingested journal shows 0 net-new by construction.** Measure against a pre-ingest
 snapshot.
 
