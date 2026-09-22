@@ -6,6 +6,11 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: the 5% gate recedes faster than we climb, and his section III never made it a bar on sending / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens brief-audit.. FIND. |  |
+| custodian-capture-indexes: defacement-mirror siblings and per-URL citation archives / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens custodian-capture-indexes. CLOSED |  |
+| custodian-crawl-log-layer-desire-combine-nwi-ircache-dns-death / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens custodian-capture-indexes. CLOSED |  |
+| pre1996-trace-catalogue-and-address-database-deposit-absence / unclassified | 2026-09-22, fleet 20260922T2006Z | not priced | lens pre-1996.. CLOSED |  |
+| usenet-pre1996-author-host-candidate-sweep / usenet_header_author_host | 2026-09-22, fleet 20260922T2006Z | 473.9 EE | lens pre-1996. Measured on both tracks over 27.7% of the artifact: 911 net-new (host, year) pairs and 473.9361 EE annual, 192 net-new names and 100.0069 EE candidate, against a 5,000 EE floor, with the whole item projecting to 1,711 EE at its ceiling. | https://archive.org/download/usenet-gnu/gnu.emacs.help.mbox.zip |
 | brief-audit: XIII is a test in his text and a spelling list in ours / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | brief-audit: `CLOSED` is our only terminal state, and a 401 or a 500 is spending it on a work-state / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
 | brief-audit: his qualifying patterns are an open list, ours is a closed enum of 20 names / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
