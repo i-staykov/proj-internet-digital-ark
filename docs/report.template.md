@@ -37,7 +37,7 @@ directories, author e-mail hosts); [CANDHOST] are hostnames from the two collect
 
 `ia_cdx_domain_sweep` queries the Internet Archive's capture index (CDX) domain by domain for
 names in your files and keeps every captured hostname beneath them, each with the archive's own
-14-digit timestamp, the evidence rule's reference pattern. `bulk_cdx_file` is two such indexes
+14-digit timestamp. `bulk_cdx_file` is two such indexes
 **read whole at hostname grain**, keeping every HTTP 200 row dated 1996-2001:
 
 - **Dartmouth NBER ARCS**, a research crawl collection on archive.org with a CDX beside each of
@@ -62,8 +62,8 @@ a DNS listing is not website evidence.
 `server_header_hostnames/` is new, as the evidence rule instructs for mail and Usenet delivery
 headers: [CANDHDR] exact hostnames whose only dated evidence is a header a mail or news server wrote
 about itself (`Received: by`, `Path`, `X-Trace`, `NNTP-Posting-Host`), proof of a host in service,
-not of a website. It ships with per-host provenance and the seven-column exclusion ledger of its
-validation run; a host promotes only beside an exact-host capture for that year.
+not of a website. It ships with per-host provenance and its run's exclusion ledger; a host
+promotes only beside an exact-host capture for that year.
 
 Its worth, measured on 98,381 header-dated host-years from eight Usenet hierarchies, against
 captures already in our database: **1.16% carry an exact-host capture for the same year** (95% interval
@@ -95,7 +95,7 @@ against the benchmark.
 
 **Q2. Determining the year a website existed more accurately.**
 
-Three evidence levels with measured error rates, the level travelling with the record. Direct: an
+Three evidence levels with measured error rates. Direct: an
 exact-host capture in the target year from an archive index or a custodian's per-host
 extract, the only route into an annual file. Availability check: the Wayback Machine availability
 API, graded against CDX ground truth on disk, 187 of 204 year-pairs recovered (91.7%, 94.3% at 2001)
@@ -130,6 +130,4 @@ collection's run only (`candidates_unparsed.txt` carries a reason per line for t
 TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. One
 conservative exclusion: a registrable domain your release holds only as hostnames beneath it is
 treated as held, so 2,114 domain-years (1,019 EE) with their own exact-host capture are not
-claimed; they are what the rebuild in section 6's route returns in excess. Worth
-expanding next, priced in `experience-summary.md`: dated registry datasets for the candidate track,
-and exact-host captures beside the two candidate collections, the one route that promotes either.
+claimed; they are the excess the rebuild above returns.

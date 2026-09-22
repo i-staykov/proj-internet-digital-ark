@@ -51,7 +51,7 @@ Cumulative credited percentage 79.4048%: each scored round at the figure you cre
 
 `ia_cdx_domain_sweep` queries the Internet Archive's capture index (CDX) domain by domain for
 names in your files and keeps every captured hostname beneath them, each with the archive's own
-14-digit timestamp, the evidence rule's reference pattern. `bulk_cdx_file` is two such indexes
+14-digit timestamp. `bulk_cdx_file` is two such indexes
 **read whole at hostname grain**, keeping every HTTP 200 row dated 1996-2001:
 
 - **Dartmouth NBER ARCS**, a research crawl collection on archive.org with a CDX beside each of
@@ -76,8 +76,8 @@ a DNS listing is not website evidence.
 `server_header_hostnames/` is new, as the evidence rule instructs for mail and Usenet delivery
 headers: 39,812 exact hostnames whose only dated evidence is a header a mail or news server wrote
 about itself (`Received: by`, `Path`, `X-Trace`, `NNTP-Posting-Host`), proof of a host in service,
-not of a website. It ships with per-host provenance and the seven-column exclusion ledger of its
-validation run; a host promotes only beside an exact-host capture for that year.
+not of a website. It ships with per-host provenance and its run's exclusion ledger; a host
+promotes only beside an exact-host capture for that year.
 
 Its worth, measured on 98,381 header-dated host-years from eight Usenet hierarchies, against
 captures already in our database: **1.16% carry an exact-host capture for the same year** (95% interval
@@ -109,7 +109,7 @@ against the benchmark.
 
 **Q2. Determining the year a website existed more accurately.**
 
-Three evidence levels with measured error rates, the level travelling with the record. Direct: an
+Three evidence levels with measured error rates. Direct: an
 exact-host capture in the target year from an archive index or a custodian's per-host
 extract, the only route into an annual file. Availability check: the Wayback Machine availability
 API, graded against CDX ground truth on disk, 187 of 204 year-pairs recovered (91.7%, 94.3% at 2001)
@@ -140,13 +140,14 @@ an hour, too little to run. Both instruments err toward omission.
 
 ## 6. Reproduction and limits
 
-Before sending, a fresh extraction of this archive was put through that route: the checksum beside the archive verifies, all twelve `verify.sh` checks pass, and the tier-2 rebuild from `provenance/` alone reproduces every per-year count, passes the eighteen invariants and returns every shipped file this project claims byte-identical to the one here. The six `masters/` files are the exception by design, since this round: they are your own release plus our additions, and your own rows are no longer shipped back to you inside the provenance table. Tier 3, the full replay, was not run: about 50 GB, with eight journal sets held out of the archive on size. `README.md` gives the route and the file map. Code: `source/source.tar.gz` at
+Before sending, a fresh extraction of this archive was put through the route in `README.md` on a copy with no repository behind it: the checksum beside the archive verifies, all thirteen `verify.sh` verdicts pass (26 seconds), and the rebuild from `provenance/` alone (5 minutes) passes the eighteen store invariants and returns every hostname file with its evidence manifest, and both candidate collections' names, provenance and summaries, byte-identical to the ones here. The registrable additions come back as a superset (2,955 domain-years against the 841 shipped, every shipped line among them) and the candidate lists likewise, because the shipped provenance does not record which registrable domains your release holds only as hostnames beneath them; the shipped files are the smaller set. The six `masters/` files come back as our own web-evidenced records, your rows not among them. The full replay from the original sources was not run. `README.md` gives the route and the file map. Code: `source/source.tar.gz` at
 the commit in `source/COMMIT.txt`, the research loop as `source/fleet.tar.gz`; method and results:
 `experience-summary.md` and `findings.md`; the merge audit: section 5 and `audit/`; your calculator,
 copied in unmodified: `equivalent_english_domain_calculator/`.
 
 Two gaps against the evidence rule: the seven-column exclusion ledger exists for the header
 collection's run only (`candidates_unparsed.txt` carries a reason per line for the rest), and the
-TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. Worth
-expanding next, priced in `experience-summary.md`: dated registry datasets for the candidate track,
-and exact-host captures beside the two candidate collections, the one route that promotes either.
+TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. One
+conservative exclusion: a registrable domain your release holds only as hostnames beneath it is
+treated as held, so 2,114 domain-years (1,019 EE) with their own exact-host capture are not
+claimed; they are the excess the rebuild above returns.
