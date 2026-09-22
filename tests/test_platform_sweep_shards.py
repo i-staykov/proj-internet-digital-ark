@@ -204,3 +204,58 @@ def test_the_shard_hash_is_taken_modulo_the_lane_count():
     assert 'SHARDS="${ARK_CDX_BUDGET:-2}"' in loop
     assert "return h % shards" in loop, "the modulus is hardcoded again"
     assert "return h % 2" not in loop
+
+
+def _dud_of(name: str, sizes: list[int], tmp_path: Path) -> str:
+    """The script's own cumulative test, over journals of the given sizes."""
+    suffix = tmp_path / f"suffix_{name}"
+    suffix.mkdir()
+    safe = name.replace(".", "_")
+    for n, size in enumerate(sizes):
+        (suffix / f"suffix_{safe}_2026092{n % 10}T000000Z.jsonl.gz").write_bytes(b"x" * size)
+    done = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'ARK_SWEEP_LOOP_LIB=1 . "$1" 0 /dev/null 0; dud_of "$2"',
+            "sweep-loop-under-test",
+            str(SCRIPT),
+            safe,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        env={
+            **os.environ,
+            "ARK_SUFFIX_DIR": str(suffix),
+            "ARK_DUD_RUNS": "3",
+            "ARK_DUD_BPR": "50000",
+        },
+    )
+    assert done.returncode == 0, done.stderr
+    return done.stdout.strip()
+
+
+def test_a_parent_barren_over_many_runs_is_answered_not_unmeasured(tmp_path: Path) -> None:
+    """`yield_of` reads the newest journal alone, so a parent deep in failure reads as
+    unmeasured, waits out PARENT_MAX and is queued for retry, for ever. google.com had taken
+    39 runs at 1,625 bytes each and blogspot.com 41 at 2,276 while both held a client.
+    """
+    assert _dud_of("google.com", [1625] * 39, tmp_path) == "dud"
+    assert _dud_of("blogspot.com", [2276] * 41, tmp_path) == "dud"
+
+
+def test_the_cut_cannot_reach_a_productive_parent(tmp_path: Path) -> None:
+    """The first version of this filter read a per-run counter as a lifetime one and would have
+    dropped the lane's best earners: com.au had written 254.0 MB over 17 runs and co.uk 111.4 MB
+    over 16. The two populations are three orders of magnitude apart, so the cut is not close.
+    """
+    assert _dud_of("com.au", [14_943_000] * 17, tmp_path) == "new"
+    assert _dud_of("co.uk", [6_964_000] * 16, tmp_path) == "new"
+
+
+def test_a_parent_with_few_runs_is_still_unmeasured(tmp_path: Path) -> None:
+    """A slow first page, or an archive answering 503, must not be read as a dud: that is the
+    mistake the flat time cap made."""
+    assert _dud_of("newparent.com", [40], tmp_path) == "new"
+    assert _dud_of("newparent2.com", [40, 40, 40], tmp_path) == "new"

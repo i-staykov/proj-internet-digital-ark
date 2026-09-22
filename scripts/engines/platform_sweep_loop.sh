@@ -48,6 +48,11 @@ SHARD="${3:-0}"
 PARENT_CAP="${ARK_PARENT_CAP:-300}"
 PARENT_MAX="${ARK_PARENT_MAX:-2700}"
 RPH_MAX="${ARK_RPH_MAX:-8}"
+SUFFIX_DIR="${ARK_SUFFIX_DIR:-data/raw/cdx_suffix}"
+# A parent is unmeasured only on its first runs. Beyond DUD_RUNS journals averaging under
+# DUD_BPR bytes each, it is measured barren and belongs in the permanent park.
+DUD_RUNS="${ARK_DUD_RUNS:-3}"
+DUD_BPR="${ARK_DUD_BPR:-50000}"
 # Caps for the two refill helpers, in seconds. Both read the whole journal directory,
 # which is 63,801 files and growing, so neither is bounded by its own logic.
 COSTS_CAP="${ARK_COSTS_CAP:-600}"
@@ -76,7 +81,7 @@ RICH="data/raw/cdx/platform_rich.txt"
 # page boundary and a torn tail is simply skipped.
 yield_of() {
     local journal
-    journal=$(ls -t "data/raw/cdx_suffix/suffix_${1}_"*.jsonl.gz 2>/dev/null | head -1)
+    journal=$(ls -t "$SUFFIX_DIR/suffix_${1}_"*.jsonl.gz 2>/dev/null | head -1)
     [ -n "$journal" ] || { echo "0 0"; return; }
     gzip -cd "$journal" 2>/dev/null | python3 -c '
 import sys, json
@@ -91,6 +96,29 @@ for line in sys.stdin:
     hosts.add(url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].lower())
 print(rows, len(hosts))
 ' 2>/dev/null || echo "0 0"
+}
+
+# Whether a parent has already proved barren ACROSS runs, as "dud" or "new".
+#
+# `yield_of` reads the newest journal alone, which is the right question for this run and the
+# wrong one for a parent that has failed many times: with an empty journal the silence branch
+# reads every parent as unmeasured, waits PARENT_MAX for it, and queues it for retry, so the
+# same names come back for ever. Measured 2026-09-22 over 45,680 journals: google.com had
+# taken 39 runs at 1,625 bytes each and blogspot.com 41 at 2,276, and both were holding a
+# client. Of the 252 parents asked three or more times, 33 average under 50,000 bytes a run
+# and the best average 16 to 44 MILLION, so the two populations are three orders of magnitude
+# apart and the cut is nowhere near either. Sizes come from stat, so this reads no journal.
+dud_of() {
+    local runs bytes
+    set -- "$SUFFIX_DIR/suffix_${1}_"*.jsonl.gz
+    [ -e "$1" ] || { echo "new"; return; }
+    runs=$#
+    [ "$runs" -gt "$DUD_RUNS" ] || { echo "new"; return; }
+    bytes=0
+    for journal in "$@"; do
+        bytes=$(( bytes + $(wc -c < "$journal" 2>/dev/null || echo 0) ))
+    done
+    if [ "$(( bytes / runs ))" -lt "$DUD_BPR" ]; then echo "dud"; else echo "new"; fi
 }
 
 # The shard is a hash of the name, not a line ordinal: the two shards rank at different
@@ -155,6 +183,15 @@ sweep_one() {
         # mistake the flat time cap made. Nothing is known yet, so keep waiting, and if it
         # is still silent at PARENT_MAX put it on the retry list rather than the dud list.
         if [ "${hosts:-0}" -eq 0 ]; then
+            # Silent AND barren over its earlier runs is not unmeasured, it is answered.
+            if [ "$(dud_of "$safe")" = "dud" ]; then
+                echo "$parent: barren over $DUD_RUNS or more earlier runs, parked not retried"
+                echo "$parent" >> "$DEEP"
+                kill -TERM "$pid" 2>/dev/null
+                pgrep -f "$SWEEP $parent " | while read -r child; do kill -TERM "$child" 2>/dev/null; done
+                sleep 3
+                return 0
+            fi
             if [ "$waited" -lt "$PARENT_MAX" ]; then
                 echo "$parent: ${waited}s, nothing written yet, waiting"
                 continue
