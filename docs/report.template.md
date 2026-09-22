@@ -46,7 +46,7 @@ names in your files and keeps every captured hostname beneath them, each with th
   down it pays.
 - **Storage node ia600702**, the public 57.6 GB CDX of every capture on one archive.org node:
   1,031,419,773 rows, 14,192,504 of them HTTP 200 and dated 1996-2001, 931,864 host-years,
-  **88.8% already in your release or our store**; the rest, 104,347 records, paid 50,722 EE. A
+  **88.8% already in your release or our database**; the rest, 104,347 records, paid 50,722 EE. A
   bulk index read now measures the benchmark's saturation as much as it adds to it.
 
 Our research loop now rejects, before download, any hostname source whose evidence class the
@@ -66,7 +66,7 @@ not of a website. It ships with per-host provenance and the seven-column exclusi
 validation run; a host promotes only beside an exact-host capture for that year.
 
 Its worth, measured on 98,381 header-dated host-years from eight Usenet hierarchies, against
-captures already in our store: **1.16% carry an exact-host capture for the same year** (95% interval
+captures already in our database: **1.16% carry an exact-host capture for the same year** (95% interval
 1.10 to 1.23), against 0.14% to 0.82% at a year shifted by one to three; 2.10% in any in-window year, beside the
 2.67% you measured on Internet Domain Survey hosts over 1996-2013. By leftmost label: dial-up shaped
 names 0.06%, infrastructure names 4.07%, `www` and `web` names 31.1%. All are lower bounds (partial
