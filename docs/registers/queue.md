@@ -8,9 +8,9 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## What your yes unlocks, biggest first
 
-### Give the XIII-excluded hostnames a candidate outlet, or accept that they ship nowhere
+### Give the XIII-excluded hostnames a candidate outlet
 
-**46,526 EE**: 26,370 EE of hostname-years already in the store and 20,156 EE measured in the 10 sources below, each read on this laptop. All hostname grain, all classes XIII keeps out of the annual files, none in the candidate claim until you rule.
+**20,156 EE**
 
 | EE | source | measured on | what dates one item | terms |
 |---:|---|---|---|---|
@@ -31,4 +31,4 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Not yet measured
 
-None. Every live lead has been read and priced.
+2 lead(s) carry only a scout's estimate and are not asked about until read: `crl-political-arc-payload-outlink-targets-1996-2001`, `wlv-uk-july-2001-link-database-partial-target-hosts`.

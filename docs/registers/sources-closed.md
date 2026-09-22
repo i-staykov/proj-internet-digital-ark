@@ -6,6 +6,18 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: XIII is a test in his text and a spelling list in ours / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| brief-audit: `CLOSED` is our only terminal state, and a 401 or a 500 is spending it on a work-state / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| brief-audit: his qualifying patterns are an open list, ours is a closed enum of 20 names / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| custodian-capture-indexes-initiative-roster-residue-sweep / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
+| custodian-capture-indexes: roster discovery past IIPC, and the hosts it names / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens no lens recorded. CLOSED |  |
+| custodian-capture-indexes: the IA in-window item CDX wall does not follow the restriction flag / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens custodian-capture-indexes. **CLOSED** |  |
+| ita-pre1996-clarknet-usask-server-log-client-hostnames / http_server_log_reverse_resolved_client | 2026-09-22, fleet 20260922T1806Z | not priced | lens pre-1996. Measured zero: the trace is seven months of 1995 and holds no record a stamp dates into 1996-2001, so both tracks price 0.0 EE against merged260922 and the 5,000 floor cannot be approached. | https://ita.ee.lbl.gov/traces/usask_access_log.gz |
+| link-graph-corpus-discovery-ntcir-wdc-zenodo-api-wall-sweep / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens web-link-graphs (weight 3).. CLOSED |  |
+| modern-registry-open-data-creation-date-and-robots-301-wall / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens registrable-lists.. CLOSED |  |
+| open-market-commercial-sites-index-alphabetical-listings-1996 / dated_directory | 2026-09-22, fleet 20260922T1806Z | 20.5 EE | lens registrable-lists. Measured on the whole artifact, not a sample. |  |
+| registry-register-dumps-deposited-as-archiveorg-items-window-wall / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens self-published-registers.. CLOSED |  |
+| web-link-graph-archiveorg-deposit-census-and-law-in-window-dataset-wall / unclassified | 2026-09-22, fleet 20260922T1806Z | not priced | lens web-link-graphs (weight 3). CLOSED |  |
 | in-window-web-collection-item-cdx-private-flag-and-arquivo-cdxj-robots-wall / unclassified | 2026-09-21, fleet 20260921T1706Z | not priced | lens no lens recorded. |  |
 | wlv-uk-july-2001-academic-link-database-replay-timeout-wall / link database | 2026-09-21, laptop | see academic_web_link_database_wlv_2000_2001 | the Wolverhampton academic link databases are already in the register at hostname grain, PARKED (outlet) at 55,383 EE and 5,206 EE; this leg hit a replay timeout and adds no artifact. CLOSED as a duplicate of a parked class. | https://web.archive.org/web/20040603081706id_/http://cybermetrics.wlv.ac.uk/database/ |
 | ia-webwidecrawl-2001-item-cdx-index-node-401-wall / bulk_cdx_file | 2026-09-21, laptop | walled | the same wall measured here at 10:40 on five in-window Alexa and wide-crawl items: every `.cdx.gz` is `private: true` and the data node answers 401 to a ranged GET. Only research extractions published for a partner serve theirs. CLOSED as unreachable; do not re-file. | https://archive.org/download/arc29.20010121230056-c/ |
