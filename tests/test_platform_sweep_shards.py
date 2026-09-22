@@ -9,6 +9,7 @@ these hold the two properties the ordinal split lacked: the halves share no pare
 between them they cover the list.
 """
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -63,6 +64,8 @@ def split(names: list[str], shard: int, tmp_path: Path) -> list[str]:
         capture_output=True,
         text=True,
         cwd=REPO,
+        # the two-shard properties hold at the default lane count, whatever local.env sets
+        env={**os.environ, "ARK_CDX_BUDGET": "2"},
     )
     assert done.returncode == 0, done.stderr
     return done.stdout.split()
