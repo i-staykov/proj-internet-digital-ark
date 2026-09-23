@@ -79,13 +79,20 @@ def _pids(pattern: str) -> set[str]:
 def other_clients() -> int:
     """Archive clients already running: one per sweep lane, one per other copy of this script.
     A `uv run` copy is a wrapper plus a python child, so only the python processes count."""
-    thin = {
-        p
-        for p in _pids("cdx_thin_sweep[.]py")
-        if "python"
-        in subprocess.run(["ps", "-o", "comm=", "-p", p], capture_output=True, text=True).stdout
-    }
-    return len(_pids("platform_sweep_loop[.]sh")) + len(thin)
+
+    def python(pattern: str) -> set[str]:
+        return {
+            p
+            for p in _pids(pattern)
+            if "python"
+            in subprocess.run(
+                ["ps", "-o", "comm=", "-p", p], capture_output=True, text=True
+            ).stdout.lower()
+        }
+
+    thin = python("cdx_thin_sweep[.]py")
+    walk = python("cdx_(platform_walk|yearfill)[.]py")
+    return len(_pids("platform_sweep_loop[.]sh")) + len(thin) + len(walk)
 
 
 def sweep_parent(parent: str, args: argparse.Namespace) -> str:

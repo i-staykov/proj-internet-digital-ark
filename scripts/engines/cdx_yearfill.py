@@ -120,7 +120,7 @@ def _comm(pid: str) -> str:
 def _python_pids(pattern: str) -> set[str]:
     out = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True).stdout
     pids = set(out.split()) - {str(os.getpid())}
-    return {p for p in pids if "python" in _comm(p)}
+    return {p for p in pids if "python" in _comm(p).lower()}
 
 
 def cdx_clients() -> int:
@@ -133,6 +133,8 @@ def cdx_clients() -> int:
         len(loops)
         + len(_python_pids("cdx_thin_sweep[.]py"))
         + len(_python_pids("cdx_yearfill[.]py"))
+        + len(_python_pids("cdx_platform_walk[.]py"))
+        + len(_python_pids("cdx_suffix_sweep[.]py"))
     )
 
 

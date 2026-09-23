@@ -58,11 +58,10 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
 4. `private/` never ships.
 5. **Big data must never reach git.**
-6. **Three archive clients maximum** (C-88): two hold `web.archive.org/cdx` and no agent may
-   query it, the third is the availability engine on `archive.org/wayback/available`. The rest of
-   archive.org is open to a research lane; no lane pauses a collector. Honest User-Agent, honour
-   `Retry-After`. **On throttling, retire a CDX collector, never the engine**: that costs 300
-   EE/hour and buys 1,494.
+6. **Three archive clients maximum** (C-97): all three hold `web.archive.org/cdx`, two on the
+   laptop and one on the VPS, and no agent may query it. The rest of archive.org is open to a
+   research lane; no lane pauses a collector. Honest User-Agent, honour `Retry-After`. **On
+   throttling, retire a client, never add one.**
 7. **The loop writes its own `Decision:` line when all four hold**: the class is master-eligible
    under XIII, a machine-written stamp in the artifact dates one item and is quoted, the terms
    permit it, and `ark check` passes after the ingest. Any one failing parks it `pending`.
