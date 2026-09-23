@@ -50,8 +50,12 @@ MAX_THROTTLED = 5
 MAX_FAILS = 3
 RESEED_S = 3600
 END_CONFIRM_S = 30
-THROTTLES = {"HTTP429", "HTTP500", "HTTP502", "HTTP503", "HTTP504", "REFUSED"}
+THROTTLES = {"HTTP429", "HTTP503", "REFUSED"}
+# A 5xx on a giant (yahoo.com) is the server failing to finish the page, not a pace signal: it
+# rests and counts against this platform, and three failed runs park it as too heavy.
+SERVER_FAILS = {"HTTP500", "HTTP502", "HTTP504"}
 REFUSALS = {"HTTP400", "HTTP403", "HTTP404"}
+MAX_FAILED_RUNS = 3
 
 
 class Throttled(SystemExit):
@@ -166,6 +170,7 @@ class Walk:
         self.key = state.get("resume_key")
         self.pages = state.get("pages", 0)
         self.written = state.get("written", 0)
+        self.failed_runs = state.get("failed_runs", 0)
         self.seen: set[tuple[str, str]] = set()
         self.fh = self.part = None
         self.since_rotate = 0
@@ -174,7 +179,12 @@ class Walk:
             left.rename(left.with_name(left.name.removesuffix(".part")))
 
     def save(self) -> None:
-        state = {"resume_key": self.key, "pages": self.pages, "written": self.written}
+        state = {
+            "resume_key": self.key,
+            "pages": self.pages,
+            "written": self.written,
+            "failed_runs": self.failed_runs,
+        }
         tmp = self.state_path.with_name(self.state_path.name + ".tmp")
         tmp.write_text(json.dumps(state) + "\n")
         os.replace(tmp, self.state_path)
@@ -251,10 +261,17 @@ class Walk:
                 if status != "200":
                     fails += 1
                     if fails >= MAX_FAILS:
+                        self.failed_runs += 1
+                        self.save()
+                        if self.failed_runs >= MAX_FAILED_RUNS:
+                            self.refused_path.write_text(f"too heavy: {status} at key {self.key}\n")
+                            return f"page {self.pages} failed {self.failed_runs} runs; parked"
                         return f"page {self.pages} failed {fails} times on {status}; resumable"
-                    self.rest(a.delay * 3)
+                    rest = wait if status in SERVER_FAILS and wait is not None else 60.0
+                    self.rest(rest if status in SERVER_FAILS else a.delay * 3)
                     continue
                 throttled = fails = 0
+                self.failed_runs = 0
                 rows, key = split_page(body)
                 new = self.write(rows)
                 print(

@@ -147,6 +147,16 @@ def test_retry_after_is_slept_and_five_throttles_stop_the_client(tmp_path, monke
         walk.Walk("b.net", _args(tmp_path)).run()
 
 
+def test_a_giant_that_keeps_timing_out_is_parked_not_the_lane(tmp_path, monkeypatch):
+    args = _args(tmp_path)
+    for run in range(3):
+        slept, _ = _fake(monkeypatch, tmp_path, [("HTTP504", "", None)] * 3)
+        outcome = walk.Walk("a.net", args).run()
+        assert ("parked" in outcome) == (run == 2)
+        assert 60.0 in slept
+    assert (args.state_dir / "a_net.refused").exists()
+
+
 def test_lanes_split_the_seeds_disjointly():
     seeds = [f"p{i}.net" for i in range(60)]
     lanes = [[s for s in seeds if walk.mine(s, k, 3)] for k in range(3)]
