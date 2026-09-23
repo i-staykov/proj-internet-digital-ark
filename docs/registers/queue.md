@@ -8,6 +8,10 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## What your yes unlocks, biggest first
 
+### Ask Ding whether the www/bare variant of a host he holds at 2001 may be scored as a candidate
+
+**15,550,418 EE**
+
 ### Give the XIII-excluded hostnames a candidate outlet
 
 **18,082 EE**
