@@ -638,6 +638,7 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["CANDADD"] = f"{pool['candidates']:,}"
     subs["CANDTRACKEE"] = f"{Decimal(pool['equivalent_english']):,.4f}"
     subs["CANDTRACKPCT"] = f"{Decimal(pool['equivalent_english']) / f['ee_baseline'] * 100:.4f}%"
+    subs["CANDHELD"] = f"{pool.get('held_by_him', {}).get('names', 0):,}"
     by_unit = pool.get("by_unit", {})
     for unit, token in (("registrable", "CANDREG"), ("hostname", "CANDHOST")):
         row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})

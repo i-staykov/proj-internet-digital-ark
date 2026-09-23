@@ -340,18 +340,19 @@ def his_held_candidate_files(baseline: Path) -> list[Path]:
 def _drop_names_he_holds(
     conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path
 ) -> None:
-    """Delete from `table` every name in any of `his_held_candidate_files`."""
+    """Delete from `table` every name in any of `his_held_candidate_files`, noting each one in
+    `held_by_him`, so the summary can say how many names his files took out of the claim."""
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS held_by_him (name VARCHAR)")
+    held = f"""{column} IN (
+        SELECT lower(trim(column0)) FROM read_csv(
+            ?, header=false, delim='\x01', quote='', columns={{'column0': 'VARCHAR'}})
+    )"""
     for path in his_held_candidate_files(baseline):
         conn.execute(
-            f"""
-            DELETE FROM {table} WHERE {column} IN (
-                SELECT lower(trim(column0)) FROM read_csv(
-                    ?, header=false, delim='\x01', quote='',
-                    columns={{'column0': 'VARCHAR'}})
-            )
-        """,
+            f"INSERT INTO held_by_him SELECT DISTINCT {column} FROM {table} WHERE {held}",
             [str(path)],
         )
+        conn.execute(f"DELETE FROM {table} WHERE {held}", [str(path)])
 
 
 def _not_in_his_annual(column: str, year_expr: str) -> str:
@@ -495,6 +496,7 @@ def export_all(
     # with `round_figures.py` so the reported and exported populations cannot drift.
     load_baseline_hostnames(conn)
     not_in_baseline = NOT_IN_BASELINE_HOSTNAME
+    conn.execute("CREATE OR REPLACE TEMP TABLE held_by_him (name VARCHAR)")
     for year in YEARS:
         hostname_query = f"""
             SELECT DISTINCT hy.hostname FROM hostname_year hy
@@ -636,6 +638,11 @@ def export_all(
         "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
         "by_unit": {
             u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
+        },
+        # what his release already held, and so what the claim is net of
+        "held_by_him": {
+            "names": conn.execute("SELECT count(DISTINCT name) FROM held_by_him").fetchone()[0],
+            "files": [str(p.relative_to(baseline)) for p in his_held_candidate_files(baseline)],
         },
     }
     (netnew_dir / "candidate_additions_summary.json").write_text(

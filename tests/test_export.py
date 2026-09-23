@@ -365,6 +365,16 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
     assert summary["by_unit"]["registrable"]["names"] == 1
     assert summary["by_unit"]["hostname"]["names"] == 2
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
+    # isc-his.org, survey.net, his.survey.net, mail.org and relay.mail.org, each counted once
+    assert summary["held_by_him"] == {
+        "names": 5,
+        "files": [
+            "candidate_pool.txt",
+            "candidate_pool_unparsed_format.txt",
+            "isc_survey_hostnames/1996-ISC.txt",
+            "isc_survey_hostnames/1997-ISC.txt",
+        ],
+    }
 
 
 def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> None:
