@@ -6,6 +6,13 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: a crawled page kept with its server's own `Date:` header is a dated webpage snapshot / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision. |  |
+| brief-audit: a dated link-graph record names its target, and XIII admits it; we refuse it / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
+| brief-audit: a dated link-graph record naming a host is annual under his XIII, candidate under C-85 / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
+| brief-audit: a dated web link-graph record dates its target under his XIII, and never under our C-85 / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. |  |
+| brief-audit: our TLD allowlist says `.info` and `.biz` did not exist in 2001, and his gate admits them / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision. |  |
+| custodian-capture-indexes-nara-presidential-snapshot-webharvest-and-catalog-robots-wall / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. CLOSED | https://clintonwhitehouse4.archives.gov/ |
+| custodian-capture-indexes-research-data-platform-search-api-robots-wall / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. CLOSED |  |
 | brief-audit: XIII names a dated link-graph record for the TARGET hostname as annual evidence; C-85 makes every link target candidate-only / unclassified | 2026-09-23, fleet 20260923T0106Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
 | brief-audit: a custodian's dated web link graph dates its target host under XIII, and ours refuses it / unclassified | 2026-09-23, fleet 20260923T0106Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision. |  |
 | brief-audit: an IA CDX capture that answered 4xx is annual evidence under his XIII, and not under ours / unclassified | 2026-09-23, fleet 20260923T0106Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
