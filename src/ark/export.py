@@ -338,20 +338,22 @@ def his_held_candidate_files(baseline: Path) -> list[Path]:
 
 
 def _drop_names_he_holds(
-    conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path
+    conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path, note: bool = True
 ) -> None:
     """Delete from `table` every name in any of `his_held_candidate_files`, noting each one in
-    `held_by_him`, so the summary can say how many names his files took out of the claim."""
+    `held_by_him` when `note`, so the summary can say how many names his files took out of
+    the claim."""
     conn.execute("CREATE TEMP TABLE IF NOT EXISTS held_by_him (name VARCHAR)")
     held = f"""{column} IN (
         SELECT lower(trim(column0)) FROM read_csv(
             ?, header=false, delim='\x01', quote='', columns={{'column0': 'VARCHAR'}})
     )"""
     for path in his_held_candidate_files(baseline):
-        conn.execute(
-            f"INSERT INTO held_by_him SELECT DISTINCT {column} FROM {table} WHERE {held}",
-            [str(path)],
-        )
+        if note:
+            conn.execute(
+                f"INSERT INTO held_by_him SELECT DISTINCT {column} FROM {table} WHERE {held}",
+                [str(path)],
+            )
         conn.execute(f"DELETE FROM {table} WHERE {held}", [str(path)])
 
 
@@ -545,17 +547,21 @@ def export_all(
     path.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(f"COPY ({manifest_query}) TO '{path}' (HEADER true)")
 
-    candidates_query = (
+    # `candidates.txt` ships beside the claim, so it holds none of his names either: it was a
+    # store-only list, and 341,674 of its 375,476 names were in his `candidate_pool.txt`.
+    conn.execute(
         """
+        CREATE OR REPLACE TEMP TABLE candidate_unverified AS
         SELECT d.domain FROM domain d
         WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
           AND """
         + _shipping_filter("d.", with_year=False)
-        + """
-        ORDER BY d.domain
-    """
     )
-    stats["candidates"] = _copy_query(conn, candidates_query, candidates_path)
+    _drop_names_he_holds(conn, "candidate_unverified", "domain", baseline, note=False)
+    conn.execute("DELETE FROM candidate_unverified WHERE domain IN (SELECT name FROM his_annual)")
+    stats["candidates"] = _copy_query(
+        conn, "SELECT domain FROM candidate_unverified ORDER BY domain", candidates_path
+    )
 
     # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
     # rate as annual records, so this is held to the same net-new standard: every candidate

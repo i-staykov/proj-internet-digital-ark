@@ -356,6 +356,8 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
         baseline=baseline,
     )
     netnew = tmp_path / "netnew"
+    # `candidates.txt` ships beside the claim and names none of his either
+    assert (tmp_path / "candidates.txt").read_text().split() == ["cand.org"]
     claim = ["cand.org", "keep.survey.net", "news.mail.org"]
     assert (netnew / "candidate_additions.txt").read_text().split() == claim
     assert (netnew / "isc_candidates.txt").read_text().split() == ["keep.survey.net"]
