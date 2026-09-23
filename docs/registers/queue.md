@@ -10,11 +10,11 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ### Give the XIII-excluded hostnames a candidate outlet
 
-**20,156 EE**
+**18,082 EE**
 
 | EE | source | measured on | what dates one item | terms |
 |---:|---|---|---|---|
-| 9,537.2 | [`arxiv-bulk-src-ia-mirror-author-mail-hosts`](https://archive.org/download/arXiv_src_9606_001/arXiv_src_9606_001.tar) | parked (outlet), seeded (candidate) | Date: Tue, 02 Jan 1996 11:25:54 -0500 (16kb) | https://info.arxiv.org/help/bulk_data_s3.html |
+| 7,463.5 | [`arxiv-bulk-src-ia-mirror-author-mail-hosts`](https://archive.org/download/arXiv_src_9606_001/arXiv_src_9606_001.tar) | parked (outlet), seeded (candidate) | Date: Tue, 02 Jan 1996 11:25:54 -0500 (16kb) | https://info.arxiv.org/help/bulk_data_s3.html |
 | 4,914.2 | [`ietf-mail-archive-received-by`](https://www.ietf.org/ietf-ftp/ietf-mail-archive/ietf/1999-05.mail) | find (pending) | Received: from fmaila4.real-net.net (fmaila4.real-net.net [ip]) by ietf.org (8.9.1a/8.9.1a) with ESMTP id NAA29204 for <ietf@ietf.org>; Sat… | https://trustee.ietf.org/documents/trust-legal-provisions/ |
 | 3,681.7 | [`ipac-2mass-irsa-monthly-analog-host-reports-1998-2001`](https://www.ipac.caltech.edu/2mass/data_processing/internal/stats/apr1999.html) | find (confirmed) | Analyzed requests from Thu, Apr 01 1999 06:14 to Sat, May 01 1999 04:28 (29.9 days). | none recorded |
 | 775.1 | [`usenet-unread-hierarchies-server-header-hostnames`](https://archive.org/download/usenet-comp/) | parked (outlet), measured on 1.5% | Date: 1998/12/31 / X-Trace: news.rdc1.sfba.home.com 915130168 [ip] (Thu, 31 Dec 1998 10:49:28 PDT) | https://archive.org/about/terms.php |
@@ -31,4 +31,4 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Not yet measured
 
-2 lead(s) carry only a scout's estimate and are not asked about until read: `crl-political-arc-payload-outlink-targets-1996-2001`, `wlv-uk-july-2001-link-database-partial-target-hosts`.
+3 lead(s) carry only a scout's estimate and are not asked about until read: `crl-political-arc-payload-outlink-targets-1996-2001`, `infomagic-world-wide-catalog-summer-1995-iso-snapshot-outlink-hosts`, `wlv-uk-july-2001-link-database-partial-target-hosts`.
