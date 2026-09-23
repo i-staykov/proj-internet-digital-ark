@@ -261,7 +261,8 @@ cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenanc
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
-# name he already lists in his candidate pool or in any annual file. He scores candidates
+# name his release holds as a candidate (pool, ISC collection, unparsed names) or lists in
+# any annual file. He scores candidates
 # separately and at the same rate as annual records, so the claim is held to the same
 # net-new standard the annual files are. Provenance for each name is in `provenance/` and
 # in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
@@ -411,6 +412,11 @@ mkdir -p "$STAGE/baseline/$MARKER"
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
     cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
+    # the rest of what the candidate claim is diffed against (`export.his_held_candidate_files`),
+    # or a reproduce from this archive hands his ISC names back to him
+    cp "$MERGED/candidate_pool_unparsed_format.txt" "$STAGE/baseline/$MARKER/"
+    mkdir -p "$STAGE/baseline/$MARKER/isc_survey_hostnames"
+    cp "$MERGED"/isc_survey_hostnames/*.txt "$STAGE/baseline/$MARKER/isc_survey_hostnames/"
     cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/$MARKER/" 2>/dev/null || true
 else
     echo "refusing to package: $MARKER not found at $MERGED, so the archive could not" >&2
@@ -428,8 +434,8 @@ MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARK
 cat > "$STAGE/baseline/README.txt" <<BASELINES
 $MARKER/
     The reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued by the
-    reviewer: the six annual files and candidate_pool.txt, $MERGED_LINES raw annual
-    lines, copied unchanged. Keep normalized hostname identity when comparing these
+    reviewer: the six annual files, candidate_pool.txt, candidate_pool_unparsed_format.txt
+    and isc_survey_hostnames/*.txt, $MERGED_LINES raw annual lines, copied unchanged. Keep normalized hostname identity when comparing these
     files; a registrable roll-up is secondary. Every "net-new" figure in report.md
     means "not present in these files". Additions scored against any earlier release
     give a larger number than the report claims.

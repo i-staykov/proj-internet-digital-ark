@@ -25,7 +25,7 @@ on names you hold.
 
 **The candidate track, claimed separately and never added to the above.** `candidate_additions.txt`:
 [CANDADD] names, [CANDTRACKEE] EE, **[CANDTRACKPCT]** of the same denominator, after removing every
-name in your `candidate_pool.txt` or annual files. [CANDREG] are registrable domains whose only dated
+name in your `candidate_pool.txt`, `candidate_pool_unparsed_format.txt`, ISC survey files or annual files. [CANDREG] are registrable domains whose only dated
 evidence the evidence rule keeps out of the annual files (registry zone and drop lists, dated
 directories, author e-mail hosts); [CANDHOST] are hostnames from the two collections of section 3.
 

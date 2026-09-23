@@ -370,6 +370,25 @@ def test_staging_holds_exactly_what_the_manifest_names(tmp_path: Path) -> None:
     assert json.loads((out / "manifest.json").read_text()) == manifest
 
 
+def test_the_snapshot_holds_what_he_keeps_outside_his_pool(tmp_path: Path, monkeypatch) -> None:
+    """His ISC collection and unparsed names are candidates he holds, as the export diffs them."""
+    baseline = tmp_path / "baseline"
+    _write(baseline / "candidate_pool.txt", ["his.com"])
+    _write(baseline / "candidate_pool_unparsed_format.txt", ["odd_name.com"])
+    _write(baseline / "isc_survey_hostnames" / "1996-ISC.txt", ["host.isc.com"])
+    _write(baseline / "isc_survey_hostnames" / "README.md", ["not.a.list.com"])
+    monkeypatch.setattr(snapshot_manifest, "EXPORT_NETNEW", tmp_path / "netnew")
+    monkeypatch.setattr(snapshot_manifest, "EXPORT_CANDIDATES", tmp_path / "absent.txt")
+    files, optional, _absent = snapshot_manifest.sources(baseline, MARKER)
+    held = {rel for rel in files if rel.startswith("candidates/")}
+    assert held == {
+        "candidates/candidate_pool.txt",
+        "candidates/candidate_pool_unparsed_format.txt",
+        "candidates/isc_survey_hostnames/1996-ISC.txt",
+    }
+    assert held <= optional
+
+
 def test_an_absent_export_family_refuses_the_build(tmp_path: Path, monkeypatch) -> None:
     """A held-set the pricer never loads reads exactly like an empty one, so absence is fatal.
     Both units we ship have to be there for all six years: a stale or half-written

@@ -2,12 +2,14 @@
 
 import csv
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.export import export_all
+from ark.english_share import weight_of
+from ark.export import ISC_SOURCE, export_all
 
 
 def _populated_db() -> duckdb.DuckDBPyConnection:
@@ -289,6 +291,80 @@ def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Pa
     summary = json.loads((tmp_path / "netnew" / "candidate_additions_summary.json").read_text())
     assert summary["candidates"] == len(additions)
     assert summary["track"] == "candidate"
+
+
+def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_pool(
+    tmp_path: Path,
+) -> None:
+    """His release holds candidates outside `candidate_pool.txt`: the ISC survey hostnames as a
+    reference collection, and the names he could not parse. Each of the three arms of the pool
+    loses what any file of his names, and only a `.txt` list counts.
+    """
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    isc_dir = baseline / "isc_survey_hostnames"
+    isc_dir.mkdir()
+    (isc_dir / "1996-ISC.txt").write_text("isc-his.org\nhis.survey.net\n")
+    (isc_dir / "1997-ISC.txt").write_text(" SURVEY.net \n")
+    (isc_dir / "README.md").write_text("cand.org\n")
+    (baseline / "candidate_pool_unparsed_format.txt").write_text("mail.org\nrelay.mail.org\n")
+
+    # the registrable arm
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "isc-his.org", cdx)
+    # the ISC arm
+    isc = ensure_source(conn, ISC_SOURCE, "timestamped")
+    add_candidate(conn, "survey.net", isc)
+    for host in ("keep.survey.net", "his.survey.net"):
+        record_evidence(
+            conn,
+            "survey.net",
+            isc,
+            1996,
+            "artifact_listing",
+            f"isc survey 1996-07 host {host}",
+            "http://nw.com/zone/9607.hosts/net.gz",
+            "isc_survey_host_listing",
+        )
+    # the arm of hostnames whose every year fails XIII
+    news = ensure_source(conn, "usenet_header_fqdn_hostnames", "timestamped")
+    add_candidate(conn, "mail.org", news)
+    for host in ("news.mail.org", "relay.mail.org"):
+        eid = record_evidence(
+            conn,
+            "mail.org",
+            news,
+            1999,
+            "artifact_listing",
+            f"alt.test.mbox.zip#7 {host}",
+            "https://archive.org/download/usenet-alt/alt.test.mbox.zip",
+            acquisition_method="usenet_server_written_header",
+        )
+        assign_year(conn, eid)
+        conn.execute(
+            "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+            "VALUES (?, 'mail.org', 1999, ?)",
+            [host, eid],
+        )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    netnew = tmp_path / "netnew"
+    claim = ["cand.org", "keep.survey.net", "news.mail.org"]
+    assert (netnew / "candidate_additions.txt").read_text().split() == claim
+    assert (netnew / "isc_candidates.txt").read_text().split() == ["keep.survey.net"]
+    assert (netnew / "header_candidates.txt").read_text().split() == ["news.mail.org"]
+    summary = json.loads((netnew / "candidate_additions_summary.json").read_text())
+    assert summary["candidates"] == 3
+    assert summary["by_unit"]["registrable"]["names"] == 1
+    assert summary["by_unit"]["hostname"]["names"] == 2
+    assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
 
 
 def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> None:
