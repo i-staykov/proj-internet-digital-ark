@@ -90,6 +90,19 @@ NOT_IN_BASELINE_HOSTNAME = """
 HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year")
 
 
+# **Every line of a file of his, as every diff reads it.** No dialect sniffing, which refuses a
+# file whose line endings are mixed, and no quote, escape or comment character, so no line of
+# his is ever parsed away; a carriage return is dropped from the name, and a blank line reads
+# as NULL, which matches nothing.
+def his_lines(source: str = "?") -> str:
+    """SQL selecting `name`, one per line of the file `source` names (a `?` or a literal)."""
+    return (
+        "SELECT lower(trim(replace(column0, chr(13), ''))) AS name FROM read_csv("
+        f"{source}, header=false, delim='\x01', quote='', escape='', auto_detect=false, "
+        "strict_mode=false, new_line='\\n', columns={'column0': 'VARCHAR'})"
+    )
+
+
 def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
     """The reviewer's own annual files as a temp table, which both rules above read.
 
@@ -102,12 +115,10 @@ def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
     for year in YEARS:
         baseline_file = baseline_files / f"{year}.txt"
         if baseline_file.exists():
-            conn.execute(f"""
-                INSERT INTO baseline_hostname
-                SELECT lower(trim(column0)), {year}
-                FROM read_csv('{baseline_file}', header=false, delim='\\x01',
-                              columns={{'column0': 'VARCHAR'}})
-            """)
+            conn.execute(
+                f"INSERT INTO baseline_hostname SELECT name, {year} FROM ({his_lines('?')})",
+                [str(baseline_file)],
+            )
         else:
             logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
 
@@ -312,13 +323,7 @@ def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None
         if not path.is_file():
             raise FileNotFoundError(f"the export needs the reviewer's {year}.txt to diff against")
         conn.execute(
-            f"""
-            INSERT INTO his_annual
-            SELECT lower(trim(column0)), {year} FROM read_csv(
-                ?, header=false, delim='\x01', quote='',
-                columns={{'column0': 'VARCHAR'}})
-            """,
-            [str(path)],
+            f"INSERT INTO his_annual SELECT name, {year} FROM ({his_lines('?')})", [str(path)]
         )
 
 
@@ -344,10 +349,7 @@ def _drop_names_he_holds(
     `held_by_him` when `note`, so the summary can say how many names his files took out of
     the claim."""
     conn.execute("CREATE TEMP TABLE IF NOT EXISTS held_by_him (name VARCHAR)")
-    held = f"""{column} IN (
-        SELECT lower(trim(column0)) FROM read_csv(
-            ?, header=false, delim='\x01', quote='', columns={{'column0': 'VARCHAR'}})
-    )"""
+    held = f"{column} IN (SELECT name FROM ({his_lines('?')}))"
     for path in his_held_candidate_files(baseline):
         if note:
             conn.execute(
@@ -481,13 +483,14 @@ def export_all(
         """
         count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
         stats[f"netnew_{year}"] = count
-        # His rows plus ours, under the same XIII screen the additions pass: the merged
-        # annual file is a website-evidence product too, and until 2026-09-22 it carried
-        # the registrable rows the screen refused (251,178 of them in 2001).
+        # His rows plus ours. Ours pass the shipping filter and the XIII screen the additions
+        # pass; his pass nothing, because his files are his truth and the filter is a rule
+        # about what WE claim, never a reason to drop a row of his.
         masters_query = f"""
             SELECT DISTINCT dy.domain FROM domain_year dy
-            WHERE dy.assigned_year = {year} AND {_shipping_filter("dy.")}
-              AND (NOT ({_NOT_IN_BASELINE}) OR {web_evidence_exists("dy.evidence_id")})
+            WHERE dy.assigned_year = {year}
+              AND (NOT ({_NOT_IN_BASELINE})
+                   OR ({_shipping_filter("dy.")} AND {web_evidence_exists("dy.evidence_id")}))
             ORDER BY dy.domain
         """
         stats[f"master_{year}"] = _copy_query(conn, masters_query, masters_dir / f"{year}.txt")

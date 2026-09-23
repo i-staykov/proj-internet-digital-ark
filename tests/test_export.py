@@ -546,3 +546,41 @@ def test_the_provenance_graph_is_off_unless_asked_for() -> None:
     import ark.export as ex
 
     assert inspect.signature(ex.export_all).parameters["with_provenance"].default is False
+
+
+def test_the_masters_keep_every_row_of_his_and_filter_only_ours(tmp_path: Path) -> None:
+    """The shipping filter is about what we claim. A row of his under a TLD it refuses for that
+    year stays in his merged file; the same pair of ours does not ship."""
+    conn = _populated_db()
+    prior = ensure_source(conn, "prior_task", "timestamped")
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, "his-early.info", prior)
+    assign_year(
+        conn, record_evidence(conn, "his-early.info", prior, 1997, "prior_reused", "1997.txt")
+    )
+    add_candidate(conn, "our-early.info", cdx)
+    assign_year(
+        conn,
+        record_evidence(
+            conn,
+            "our-early.info",
+            cdx,
+            1997,
+            "cdx_timestamp",
+            "19970101000000",
+            acquisition_method="ia_cdx_domain_sweep",
+        ),
+    )
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        masters_dir=tmp_path / "masters",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=_fake_baseline(tmp_path),
+    )
+    masters = (tmp_path / "masters" / "1997.txt").read_text().split()
+    assert "his-early.info" in masters
+    assert "our-early.info" not in masters
+    assert "our-early.info" not in (tmp_path / "netnew" / "1997.txt").read_text().split()
