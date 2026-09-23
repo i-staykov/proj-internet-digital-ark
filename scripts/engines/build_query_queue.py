@@ -321,18 +321,9 @@ def build(weights: list[int]) -> dict:
     # Scored on the MEASURED conditional rate for its own edge year, times the TLD's English
     # share, and deliberately counting the edge year ALONE even though an answer returns 3.52
     # in-window years on average. That understates the population and keeps it comparable with
-    # the gap rows, which are scored on the years they can actually name.
-    #
-    # A domain can hold both edges, so scores are summed per domain: one query answers both.
-    edge_score: dict[str, Decimal] = {}
-    for domain, edge_year in edge_rows:
-        if domain in already or is_reverse_dns(domain):
-            continue
-        tld = domain.rsplit(".", 1)[-1]
-        rate = Decimal(EDGE_RATE[edge_year])
-        edge_score[domain] = edge_score.get(domain, Decimal(0)) + rate * tld_weight.get(
-            tld, Decimal(0)
-        )
+    # the gap rows, which are scored on the years they can actually name. Only the edge the
+    # list is asked for is queued (`edge_targets`).
+    edge_score = edge_targets(edge_rows, already, tld_weight)
     for domain, score in edge_score.items():
         tld = domain.rsplit(".", 1)[-1]
         rows.append(
@@ -452,6 +443,26 @@ def report(built: dict, need: Decimal | None, rates: list[float]) -> None:
         )
 
 
+# The year the `edge` list is asked for. The list is one name per line and its one consumer,
+# `cdx_yearfill.py`, pins every question to this year, so a name whose only missing edge is
+# 1996 would be asked for a 2001 it already has: 504,343 of the 9,519,797 names the three
+# lanes were handed on 2026-09-23 were in his 2001 file for exactly that reason.
+EDGE_QUERY_YEAR = 2001
+
+
+def edge_targets(
+    edge_rows: list[tuple[str, int]], already: set[str], tld_weight: dict[str, Decimal]
+) -> dict[str, Decimal]:
+    """Names missing the queried edge year, scored on that year's measured rate."""
+    scores: dict[str, Decimal] = {}
+    for domain, edge_year in edge_rows:
+        if edge_year != EDGE_QUERY_YEAR or domain in already or is_reverse_dns(domain):
+            continue
+        tld = domain.rsplit(".", 1)[-1]
+        scores[domain] = Decimal(EDGE_RATE[edge_year]) * tld_weight.get(tld, Decimal(0))
+    return scores
+
+
 def write_single(built: dict, population: str, out: Path) -> None:
     """One ranked list for one population, for one machine.
 
@@ -484,9 +495,9 @@ def write_single(built: dict, population: str, out: Path) -> None:
     if population == "gap":
         print("    completeness: every hit is a new pair on a domain already held")
     elif population == "edge":
-        print("    completeness at the window's edge: 1996 and 2001, which no bracketed")
-        print("    query can reach. Ranked on EDGE_RATE, 0.597 for 2001 and 0.000 for")
-        print("    1996, which are the pilot rates against a FIXED snapshot. The 94.4%")
+        print(f"    completeness at the window's edge: names missing {EDGE_QUERY_YEAR}, which no")
+        print("    bracketed query can reach. Ranked on EDGE_RATE, 0.597 for 2001 (1996 is no")
+        print("    edge: 0.000), which is the pilot rate against a FIXED snapshot. The 94.4%")
         print("    and 60.0% in ADR-006 are the superseded CEILING, conditional on the")
         print("    archive holding the adjacent capture, and must not be quoted as the")
         print("    operative rate. A hit adds a pair and never a domain.")

@@ -281,3 +281,23 @@ def test_the_pool_wide_prior_is_not_windowed() -> None:
     assert pool == Decimal("0.5")
     unmeasured = build_query_queue.expected_hit_rate("brand_new", "zz", {}, {}, {}, pool)
     assert unmeasured == Decimal("0.5")
+
+
+def test_the_edge_list_holds_only_names_missing_the_year_it_is_asked_for() -> None:
+    """One name per line, and `cdx_yearfill.py` asks every name for 2001: a name whose only
+    missing edge is 1996 would be asked for a 2001 it holds. That put 504,343 names of his
+    2001 file into the lanes' 9,519,797 on 2026-09-23."""
+    from ark.english_share import english_weights
+
+    weights = english_weights()
+    rows = [
+        ("only1996.com", 1996),
+        ("only2001.com", 2001),
+        ("both.com", 1996),
+        ("both.com", 2001),
+        ("asked.com", 2001),
+        ("5.4.3.in-addr.arpa", 2001),
+    ]
+    scores = build_query_queue.edge_targets(rows, {"asked.com"}, weights)
+    assert set(scores) == {"only2001.com", "both.com"}
+    assert scores["both.com"] == scores["only2001.com"] == Decimal("0.597") * weights["com"]
