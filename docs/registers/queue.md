@@ -25,6 +25,10 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 | 37.4 | [`isc-usenet-control-message-archive-injecting-server-hosts`](https://archive.org/download/2015.04.ftp.isc.org/2015.04.ftp.isc.org.tar/) | parked (outlet), measured on 0.19% | Date: Thu, 29 Oct 1998 19:47:51 -0000 / X-Trace: 31 Oct 1998 17:26:51 -0500, cgowave-76-43.cgocable.net / NNTP-Posting-Host: cgowave-76-43.… | https://archive.org/about/terms.php |
 | 13.9 | [`rpm-buildhost-buildtime-package-universe`](http://ftp.icm.edu.pl/packages/linux-redhat-contrib/libc6/i386/) | parked (outlet), measured on 2.8% | Build date: Fri Mar 22 14:20:55 2002 | none recorded |
 
+### Admit 4xx CDX captures to the hostname masters, or confirm ADR-011's 3xx line
+
+**8,547 EE**
+
 ## Measured and shippable, ingested without asking
 
 - 50,721.9 EE `ia-node-host-cdx-file-ia600702-hostgrain`: banked, `bulk_cdx_file`

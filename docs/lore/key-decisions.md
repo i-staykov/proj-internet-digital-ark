@@ -13,6 +13,11 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
+### Admit 4xx CDX captures to the hostname masters, or confirm ADR-011's 3xx line
+
+ADR-011 keeps 4xx out ("the server answered, not the host served"); XIII names "an exact-host IA CDX capture" with no status condition, and `early_web_nonok` banked every non-200 status at hostname grain on 2026-09-04, before ADR-011. Priced on files already on disk, nothing ingested, snapshot 78a795f2: node CDX 15,298 net-new host-years on the half streamed so far, Poland 7,934, Arquivo 1.
+Worth: 8,547.2 EE measured (node CDX half 7,697.6360, Poland 848.9380, Arquivo 0.6321), roughly twice the node figure once its stream ends; a yes is one local ingest per file and no archive request.
+
 ## CLOSED
 
 | | date | decision |
