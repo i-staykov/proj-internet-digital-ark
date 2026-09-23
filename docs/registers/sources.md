@@ -96,7 +96,7 @@ delivery used the June 2026 edition.
 
 ---
 
-## `ukwa_link_source` and `ukwa_link_target`: UK Web Archive host link graph
+## `ukwa_link_source`, `ukwa_link_target` and `ukwa_link_target_bare`: UK Web Archive host link graph
 
 The JISC UK Web Domain Dataset host link graph 1996-2010, rows of
 `year|source_host|target_host<TAB>count`. Wayback only: the original address answers HTTP 200 with a
@@ -114,13 +114,15 @@ curl -L -o host-linkage.tsv.gz \
 cd -
 uv run ark ingest ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
 uv run ark ingest ukwa_link_target data/raw/ukwa/host-linkage.tsv.gz
+uv run ark ingest ukwa_link_target_bare data/raw/ukwa/host-linkage.tsv.gz
 ```
 
 **Dating: the year column of each row, the crawl year that observed the link.**
 
 The source host was crawled successfully that year to produce the row, so `link_source` is
-master-eligible; the target was merely linked to, so `link_target` is candidate-only. One file,
-ingested twice. `.uk`-weighted.
+master-eligible. A target is annual only when it is its own registrable (`ukwa_link_target_bare`,
+`artifact_listing`, host in the value, C-85); the collapsed targets stay `link_target`,
+candidate-only. One file, ingested three times. `.uk`-weighted.
 
 ---
 

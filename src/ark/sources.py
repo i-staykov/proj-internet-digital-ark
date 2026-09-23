@@ -1637,13 +1637,37 @@ def parse_ukwa_link_source(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 
 def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield the TARGET host of each row as `link_target`, which is candidate-only.
+    """Yield the TARGET host of each row as `link_target`, candidate-only.
 
-    Being linked to proves nothing about the target: dead links, typos and names registered
-    only later are all common. Kept for provenance and verification priority, never a year.
-    Targets are worldwide, unlike the `.uk`-biased source hosts.
+    The loader collapses the host to its registrable and the value keeps only the year, so a
+    `www.` or deeper target, 77% of them, would date a name the record does not identify.
+    `parse_ukwa_link_target_bare` is the annual half (C-85). Targets are worldwide, unlike the
+    `.uk`-biased source hosts.
     """
     yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
+
+
+def parse_ukwa_link_target_bare(path: Path, stats: Counter) -> Iterator[BulkRecord]:
+    """Yield the TARGET of each row that names a registrable itself, as `artifact_listing`.
+
+    The brief: "UK Web Archive host/link graph records may serve as direct annual evidence when
+    their year association is explicit and documented", and XIII admits "a dated web link-graph
+    record that identifies the target hostname". A registrable is identified only when the
+    target IS it: a `www.` or deeper target dates that host, never the name beneath it (his
+    ruling of 2026-09-06). The host stays in the value.
+    """
+    for record in _parse_ukwa(path, stats, _UKWA_TARGET_COL):
+        host = record.raw.strip().lower()
+        registrable = to_registrable(host)
+        if registrable is None or host.startswith("www."):
+            stats["target_unparseable_or_www"] += 1
+            continue
+        if registrable != host:
+            stats["target_below_its_registrable"] += 1
+            continue
+        yield BulkRecord(
+            raw=host, year=record.year, evidence_value=f"{record.evidence_value} {host}"
+        )
 
 
 # The British Library geoindex of the JISC UK Web Domain Dataset: every `.uk` resource IA
@@ -2353,6 +2377,15 @@ SOURCES: dict[str, SourceSpec] = {
         evidence_type="link_target",
         acquisition_method="ukwa_host_link_graph",
         parse=parse_ukwa_link_target,
+    ),
+    # its annual half: a dated listing of a target that IS its registrable (C-85), under the
+    # same web method as the source side
+    "ukwa_link_target_bare": SourceSpec(
+        key="ukwa_link_target_bare",
+        source_name="ukwa_link_target_bare",
+        evidence_type="artifact_listing",
+        acquisition_method="ukwa_host_link_graph",
+        parse=parse_ukwa_link_target_bare,
     ),
     "expansion_links": SourceSpec(
         key="expansion_links",

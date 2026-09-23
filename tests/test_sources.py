@@ -505,9 +505,11 @@ def test_ukwa_source_and_target_read_different_columns(tmp_path: Path) -> None:
 def test_ukwa_target_is_registered_as_candidate_only() -> None:
     spec = SOURCES["ukwa_link_target"]
     assert spec.evidence_type == "link_target"
-    # this is the whole point: being linked to can never assign a year
+    # its rows keep no host, so they cannot identify the name they would date
     assert spec.is_candidate_only is True
     assert SOURCES["ukwa_link_source"].is_candidate_only is False
+    # the bare-target half can (C-85); `test_link_graph_target.py` has why
+    assert SOURCES["ukwa_link_target_bare"].is_candidate_only is False
 
 
 EXPANSION_RECORDS = [

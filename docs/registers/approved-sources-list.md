@@ -268,6 +268,19 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### ukwa_link_target_bare / artifact_listing
+
+- ingest specs: `ukwa_link_target_bare`
+- journal: `data/raw/ukwa/host-linkage.tsv.gz`
+- what dates one item: the row's year column, the crawl year that observed the link, beside the
+  target host kept in the value (`host_link_graph:1999 <host>`)
+- authority: Ivo, 2026-09-23, asked for UKWA link-graph targets to be annual, on the brief's "UK
+  Web Archive host/link graph records may serve as direct annual evidence when their year
+  association is explicit and documented". The narrowing to targets that are their own
+  registrable is the implementer's (C-85), for him to confirm
+
+Decision: master
+
 ### ia_node_host_cdx_hostnames / cdx_timestamp
 
 - ingest: `ark ingest-hostnames data/raw/hostcdx_hostgrain/`, the public CDX of one Internet Archive
