@@ -690,6 +690,8 @@ reproduce stage="all":
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv.gz
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest ukwa_link_target_bare data/raw/ukwa/host-linkage.tsv.gz
         # The BL geoindex extract. `ark ingest` refuses it until its `Decision:` line is set,
         # so the line is a no-op until then and keeps the documented reproduction complete.
         # Build the input with `bash scripts/sources/ukwa/ukwa_geoindex_pull.sh`.

@@ -234,16 +234,7 @@ def export_isc_hostnames(
         absent = [str(path) for path in required if not path.is_file()]
         if absent:
             raise FileNotFoundError(f"ISC reconciliation requires current baseline files: {absent}")
-        conn.execute(
-            """
-            DELETE FROM isc_export WHERE hostname IN (
-                SELECT lower(trim(column0)) FROM read_csv(
-                    ?, header=false, delim='\x01', quote='',
-                    columns={'column0': 'VARCHAR'})
-            )
-        """,
-            [str(baseline / "candidate_pool.txt")],
-        )
+        _drop_names_he_holds(conn, "isc_export", "hostname", baseline)
         for table, column in (
             ("baseline_hostname", "hostname"),
             ("hostname_year", "hostname"),
@@ -327,6 +318,38 @@ def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None
                 ?, header=false, delim='\x01', quote='',
                 columns={{'column0': 'VARCHAR'}})
             """,
+            [str(path)],
+        )
+
+
+def his_held_candidate_files(baseline: Path) -> list[Path]:
+    """Every file of his release naming a candidate he holds, in the active pool or outside it.
+
+    **The pool is not all he holds.** His release keeps the ISC survey hostnames as a
+    reference collection beside the pool and the names he could not parse in a third file.
+    Diffed against the pool alone, the claim hands his own ISC names back to him: 98% of it.
+    """
+    files = [baseline / "candidate_pool.txt", baseline / "candidate_pool_unparsed_format.txt"]
+    isc_dir = baseline / "isc_survey_hostnames"
+    if baseline.is_dir() and not isc_dir.is_dir():
+        logger.warning(f"no ISC collection at {isc_dir}: the candidate claim is not diffed on it")
+    files += sorted(isc_dir.glob("*.txt"))
+    return [path for path in files if path.is_file()]
+
+
+def _drop_names_he_holds(
+    conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path
+) -> None:
+    """Delete from `table` every name in any of `his_held_candidate_files`."""
+    for path in his_held_candidate_files(baseline):
+        conn.execute(
+            f"""
+            DELETE FROM {table} WHERE {column} IN (
+                SELECT lower(trim(column0)) FROM read_csv(
+                    ?, header=false, delim='\x01', quote='',
+                    columns={{'column0': 'VARCHAR'}})
+            )
+        """,
             [str(path)],
         )
 
@@ -534,8 +557,8 @@ def export_all(
 
     # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
     # rate as annual records, so this is held to the same net-new standard: every candidate
-    # collection we hold, unioned, minus every name he already has in his candidate pool or
-    # in any of his six annual files.
+    # collection we hold, unioned, minus every name his release holds as a candidate
+    # (`his_held_candidate_files`) or lists in any of his six annual files.
     #
     # One file, not one per collection: provenance belongs in `provenance/` and
     # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
@@ -561,8 +584,8 @@ def export_all(
                           WHERE p.domain = d.domain AND p.evidence_type = '{BASELINE_TYPE}')
           AND {_shipping_filter("d.", with_year=False)}
     """)
-    # the ISC survey hostnames, already reduced by `export_isc_hostnames` against his
-    # candidate pool and every annual file, and against everything we hold ourselves
+    # the ISC survey hostnames, already reduced by `export_isc_hostnames` against every
+    # candidate and annual name he holds, and against everything we hold ourselves
     conn.execute("""
         INSERT INTO candidate_pool
         SELECT DISTINCT hostname, 'hostname' FROM isc_export
@@ -582,19 +605,9 @@ def export_all(
           AND {HOSTNAME_SHIPPING_FILTER}
     """)
     his_pool = baseline / "candidate_pool.txt"
-    if his_pool.is_file():
-        conn.execute(
-            """
-            DELETE FROM candidate_pool WHERE name IN (
-                SELECT lower(trim(column0)) FROM read_csv(
-                    ?, header=false, delim='\x01', quote='',
-                    columns={'column0': 'VARCHAR'})
-            )
-        """,
-            [str(his_pool)],
-        )
-    elif baseline.is_dir():
+    if baseline.is_dir() and not his_pool.is_file():
         raise FileNotFoundError(f"the candidate claim needs his pool to diff against: {his_pool}")
+    _drop_names_he_holds(conn, "candidate_pool", "name", baseline)
     conn.execute("""
         DELETE FROM candidate_pool WHERE name IN (SELECT name FROM his_annual)
     """)

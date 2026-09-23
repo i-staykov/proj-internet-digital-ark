@@ -268,6 +268,19 @@ Decision: master
 
 ## Decided, with the request that was reviewed
 
+### ukwa_link_target_bare / artifact_listing
+
+- ingest specs: `ukwa_link_target_bare`
+- journal: `data/raw/ukwa/host-linkage.tsv.gz`
+- what dates one item: the row's year column, the crawl year that observed the link, beside the
+  target host kept in the value (`host_link_graph:1999 <host>`)
+- authority: Ivo, 2026-09-23, asked for UKWA link-graph targets to be annual, on the brief's "UK
+  Web Archive host/link graph records may serve as direct annual evidence when their year
+  association is explicit and documented". The narrowing to targets that are their own
+  registrable is the implementer's (C-85), for him to confirm
+
+Decision: master
+
 ### ia_node_host_cdx_hostnames / cdx_timestamp
 
 - ingest: `ark ingest-hostnames data/raw/hostcdx_hostgrain/`, the public CDX of one Internet Archive
@@ -2176,4 +2189,21 @@ None.
 ## Found, awaiting triage
 
 A find lands here as a `### key / etype` block carrying a `- potential:` line and a pending decision; `just triage-rank` sorts them. `scripts/round/split_triage.py` drains it: decided blocks to Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to a backlog page, and only when triage leaves one.
+
+### global_wayback_cdx_badlines_hostnames / cdx_timestamp
+
+- the artifact: `GlobalWaybackCdxConversionBadLines20110606`, one public 515,591,058-byte text
+  file of the lines IA's 2011 global CDX conversion rejected, under https://archive.org/about/terms.php:
+  https://archive.org/download/GlobalWaybackCdxConversionBadLines20110606/global_wayback_cdx_conversion_bad_lines_20110606.txt
+- what dates one item: field 2, IA's 14-digit capture stamp. Only 78% of lines hold a valid
+  month, so the year is usually right and never proven: candidate-grade, never annual
+- measured 2026-09-23: 4,281.5 EE, 7,914 net-new 2000 host-years by `comm` against merged260922
+- bank path: its own hostname family, with a method outside `WEB_METHODS` so XIII keeps it a
+  candidate (C-95); never `ark ingest-hostnames` on a `hostcdx_` or unprefixed journal, which
+  files it under a web method
+- graded candidate by Ivo, 2026-09-23; pending because a `cdx_timestamp` ingest needs
+  `master`, and the method, not the word, holds it to the candidate track
+- potential: 40 (candidate track only, one GET)
+
+Decision: pending
 

@@ -381,7 +381,7 @@ runs one; the stage bodies are the authoritative list of what gets ingested.
 | Stage | Recipe | What it does, and what to look for |
 |---|---|---|
 | 1 | `just reproduce baseline` | `ark init`, then loads the current release, writes the exclusion droplist, writes the normalization audit. Expect **6 files ingested, 0 skipped**. `6 skipped` means the marker namespace already exists, which is the silent no-op described below |
-| 2 | `just reproduce sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph both ways, NCSA What's New |
+| 2 | `just reproduce sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph (sources, targets, bare targets), NCSA What's New |
 | 3 | `just reproduce candidates` | Grows the candidate pool from the year-unlabelled host lists |
 | 4 | `just reproduce journals` | Replays every stored network response: CDX, RDAP, page expansion, Usenet and its three re-read seams, UUCP, rtfm, Enron, mailing lists, trade press |
 | 5 | `just reproduce seeds` | Rebuilds the auxiliary hostname and URL pool, the granularity the registered-domain unit drops |

@@ -104,6 +104,7 @@ PROVENANCE_LINEAGE = {
     "ukwa_link_source": "uk_web_archive",
     "ukwa_geoindex": "uk_web_archive",
     "ukwa_link_target": "uk_web_archive",
+    "ukwa_link_target_bare": "uk_web_archive",
     "arquivo_roteiro": "arquivo_pt",
     "usenet_announce": "usenet",
     "usenet_mention": "usenet",
