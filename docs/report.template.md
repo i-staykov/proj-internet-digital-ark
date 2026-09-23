@@ -25,9 +25,9 @@ on names you hold.
 
 **The candidate track, claimed separately and never added to the above.** `candidate_additions.txt`:
 [CANDADD] names, [CANDTRACKEE] EE, **[CANDTRACKPCT]** of the same denominator, after removing every
-name in your `candidate_pool.txt`, `candidate_pool_unparsed_format.txt`, ISC survey files or annual files. [CANDREG] are registrable domains whose only dated
+name your release already holds (section 3). [CANDREG] are registrable domains whose only dated
 evidence the evidence rule keeps out of the annual files (registry zone and drop lists, dated
-directories, author e-mail hosts); [CANDHOST] are hostnames from the two collections of section 3.
+directories, author e-mail hosts); [CANDHOST] are hostnames, section 3.
 
 [CUMULATIVE_SENTENCE]
 
@@ -53,11 +53,15 @@ Our research loop now rejects, before download, any hostname source whose eviden
 evidence rule keeps out of the annual files; the last such download was 8.5 GB for nothing
 shippable.
 
-## 3. Two candidate collections, separate from the annual files
+## 3. The candidate claim, net of everything your release holds
 
-`isc_survey_hostnames/` holds what round 9's 13.1 million Internet Domain Survey hosts left outside
-your release: [CANDISC] hosts of the 1996-1997 surveys, candidates by your ruling of 5 September that
-a DNS listing is not website evidence.
+`candidate_additions.txt` is every candidate we hold, [CANDADD] names, after removing
+[CANDHELD] names that your release already holds outside the annual files: in
+`candidate_pool.txt`, in `candidate_pool_unparsed_format.txt`, or in your
+`isc_survey_hostnames/` collection, which holds nearly every Internet Domain Survey host we
+collected. Names in any of your six annual files are removed as well. What remains is
+[CANDREG] registrable domains and [CANDHOST] hostnames. `isc_survey_hostnames/` now ships
+[CANDISC] hosts, since your collection already holds the rest.
 
 `server_header_hostnames/` is new, as the evidence rule instructs for mail and Usenet delivery
 headers: [CANDHDR] exact hostnames whose only dated evidence is a header a mail or news server wrote
