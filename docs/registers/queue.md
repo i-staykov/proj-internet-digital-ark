@@ -27,7 +27,7 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ### Admit 4xx CDX captures to the hostname masters, or confirm ADR-011's 3xx line
 
-**8,547 EE**
+**9,623 EE**
 
 ## Measured and shippable, ingested without asking
 
@@ -35,4 +35,4 @@ scout only estimated is named at the foot and not asked about. Letters are off t
 
 ## Not yet measured
 
-4 lead(s) carry only a scout's estimate and are not asked about until read: `crl-political-arc-payload-outlink-targets-1996-2001`, `infomagic-world-wide-catalog-summer-1995-iso-snapshot-outlink-hosts`, `wlv-uk-july-2001-link-database-partial-target-hosts`, `wwwstat-live-server-report-reversed-subdomain-client-hosts-1995-vt-scholar`.
+3 lead(s) carry only a scout's estimate and are not asked about until read: `crl-political-arc-payload-outlink-targets-1996-2001`, `infomagic-world-wide-catalog-summer-1995-iso-snapshot-outlink-hosts`, `wlv-uk-july-2001-link-database-partial-target-hosts`.
