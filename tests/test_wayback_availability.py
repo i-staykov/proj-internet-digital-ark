@@ -50,6 +50,12 @@ def test_a_www_answer_is_not_evidence_for_the_bare_name(monkeypatch) -> None:
     assert found["host"] == "www.example.com" != found["asked"]
 
 
+def test_the_host_is_read_from_the_captured_url_not_the_playback_address() -> None:
+    playback = "http://web.archive.org/web/20010724014254/http://www.Example.com:80/"
+    assert engine.host_of(playback) == "www.example.com"
+    assert engine.host_of("http://example.com/") == "example.com"
+
+
 def test_a_throttle_is_not_an_answer(monkeypatch) -> None:
     """A 429 must never be recorded as "no capture": that eats the queue silently."""
     monkeypatch.setattr(engine, "ask", lambda d: (None, None, 12.0))

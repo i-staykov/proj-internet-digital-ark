@@ -24,6 +24,7 @@ import argparse
 import gzip
 import json
 import queue
+import re
 import threading
 import time
 import urllib.error
@@ -146,8 +147,15 @@ def ask(domain: str) -> tuple[str | None, str | None, float]:
     return closest.get("url"), closest.get("timestamp"), 0.0
 
 
+# `closest.url` is the playback address, `http://web.archive.org/web/<stamp>/<original>`, so
+# parsing it whole names web.archive.org for every hit. Measured 2026-09-23: all 63 hits of the
+# VPS's first hour were filed as that one host, and no answer could ever be exact.
+_PLAYBACK = re.compile(r"^https?://web\.archive\.org/web/\d+[a-z_]*/", re.I)
+
+
 def host_of(url: str) -> str | None:
-    """The host the archive named, lowercased, port and trailing dot removed."""
+    """The host of the captured page, lowercased, port and trailing dot removed."""
+    url = _PLAYBACK.sub("", url)
     try:
         parsed = urllib.parse.urlsplit(url if "//" in url else f"http://{url}")
     except ValueError:
