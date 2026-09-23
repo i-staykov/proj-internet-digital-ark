@@ -165,6 +165,10 @@ def test_arquivo_journals_get_their_own_source_row() -> None:
     from ark.hostnames import HOSTCDX_METHOD, HOSTCDX_SOURCE
 
     assert source_for(Path("hostcdx_ia600702_000.jsonl.gz")) == (HOSTCDX_SOURCE, HOSTCDX_METHOD)
+    assert source_for(Path("availability_host_vps_20260923T070000Z.jsonl.gz")) == (
+        SOURCE_NAME,
+        "wayback_availability",
+    )
     assert ARQUIVO_SOURCE != SOURCE_NAME
     # A sweep journal is untouched by the new branch.
     assert source_for(Path("suffix_example_com_20260908T000000Z.jsonl.gz")) == (

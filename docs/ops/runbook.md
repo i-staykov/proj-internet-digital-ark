@@ -11,11 +11,12 @@ ark-fleet (private repo, five self-hosted runners on a small VPS, systemd, survi
                Findings land as artifacts. No wave stops a collector.
    improver .. tunes lens weights from per-run telemetry, one knob per pull request.
 VPS
-   runners only. It runs NO archive collector: C-88 caps archive clients at three and
-   all three are on the laptop.
+   runners, plus the availability engine on `archive.org/wayback/available` (C-96), the
+   third archive client, in hourly chunks: `availability_vps_loop.sh`, brought home by
+   `availability_home.sh`.
 Laptop
-   two CDX collectors on `web.archive.org/cdx`, which no agent may query, plus the
-   availability engine on `archive.org/wayback/available`. That is the three.
+   two CDX clients on `web.archive.org/cdx`, which no agent may query: `cdx_yearfill.py`
+   lanes asking each name held at 2000 and missing 2001 for 2001 alone. That is the three.
    `just sync` drains fleet findings, re-prices the confirmed ones on the live store,
    books, decides, ingests, gates, pushes. Packaging and reports.
 ```
@@ -602,8 +603,10 @@ contiguous block of it.
 
 ### The collector lane under launchd
 
-The parent sweeps are the laptop's standing lane and launchd owns them, so there is no start and no
-stop, only three words:
+The parent sweeps are held off by the `human` pause flag (C-96: they enumerate subdomains of parents
+he holds, which his 0918 text calls duplicative); the year-fill lanes run outside the supervisor and
+stop on their own flag, `~/ark/state/pause-yearfill`. launchd owns the supervisor, so there is no
+start and no stop, only three words:
 
 ```bash
 just collectors status    # running or paused, the current parent, the last journal, the hit rate

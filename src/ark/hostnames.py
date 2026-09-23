@@ -88,12 +88,17 @@ HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
 # sweep, because both are IA CDX responses, and its own method so the contribution table can
 # say which query shape found a host.
 GAP_METHOD = "ia_cdx_gap_hostgrain"
+# The availability engine's rows about another host than the one asked, almost always the
+# `www.` form: the same IA capture index through `wayback/available`, named as such.
+AVAILABILITY_METHOD = "wayback_availability"
 
 
 def source_for(path: Path) -> tuple[str, str]:
     """(source name, acquisition method) for one journal, from its filename family."""
     if path.name.startswith("cdx_gap_"):
         return SOURCE_NAME, GAP_METHOD
+    if path.name.startswith("availability_host_"):
+        return SOURCE_NAME, AVAILABILITY_METHOD
     if path.name.startswith("nypw_"):
         return SOURCE_NAME, NYPW_METHOD
     if path.name.startswith("early_web_"):
