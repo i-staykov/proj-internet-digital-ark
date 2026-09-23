@@ -6,6 +6,21 @@ The date is the latest one the entry cites; the figure is what the entry reports
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| brief-audit: a dated link-graph record naming a target host is annual under his XIII, candidate-only under ours / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens brief-audit.. FIND. |  |
+| brief-audit: a dated web link-graph record names its TARGET, and C-85 admits only the source / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision for Ivo. | https://web.archive.org/web/20200106181208id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz |
+| brief-audit: a host that is itself a public suffix is a record in his files, and garbage in ours / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
+| brief-audit: a pre-1996 dated name is a candidate under his wording and prices zero under ours / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision (lens `brief-audit`, run 35820489700, 2026-09-23, snapshot merged260922) |  |
+| brief-audit: the candidate-validation CDX queries admit 200 only, where XIII sets no status and ADR-011 admits 3xx / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision. |  |
+| custodian-capture-indexes-35815929206-leg-35815929206-0 / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens custodian-capture-indexes (population: third-party corpora t. CLOSED |  |
+| custodian-capture-indexes-35820089958-leg-35820089958-0 / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. CLOSED |  |
+| custodian-capture-indexes-archives-unleashed-derivatives-and-uk-illinois-stanford-route-wall / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens custodian-capture-indexes. CLOSED |  |
+| custodian-capture-indexes-arquivo-foreign-tld-cdx-nli-nlb-cz-robots-wall / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens custodian-capture-indexes.. CLOSED |  |
+| custodian-capture-indexes-code-forge-cdxj-repository-and-summary-sample-sweep / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. CLOSED |  |
+| custodian-capture-indexes-korea-oasis-2002-epoch-and-chile-belarus-dead-custodian-sweep / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens no lens recorded. CLOSED |  |
+| custodian-capture-indexes-kulturarw3-ucla-campaign-nli-access-wall / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens custodian-capture-indexes. CLOSED |  |
+| pre-1996-35816627692-leg-35816627692-1 / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens pre-1996. CLOSED | https://ftp.gnu.org/old-gnu/emacs/emacs-19.34b.tar.gz |
+| pre-1996-35820089958-leg-35820089958-1 / unclassified | 2026-09-23, fleet 20260923T0706Z | not priced | lens pre-1996.. CLOSED |  |
+| wwwstat-live-server-report-reversed-subdomain-client-hosts-1995-vt-scholar / server_own_wwwstat_report_client_subdomain | 2026-09-23, fleet 20260923T0706Z | 170.1 EE | lens pre-1996. Measured at 170.0609 EE candidate (284 net-new names of 15,298 priced, 14,983 already held, 29 already in the candidate pool) and 22.7591 EE annual (27 net-new 1997 pairs of 7,188, 7,160 held) against merged260922, floor 5,000. | https://scholar.lib.vt.edu/stats/scholar3.1995-stats.html |
 | brief-audit: a crawled page kept with its server's own `Date:` header is a dated webpage snapshot / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens brief-audit.. FIND, a proposed `rule` decision. |  |
 | brief-audit: a dated link-graph record names its target, and XIII admits it; we refuse it / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
 | brief-audit: a dated link-graph record naming a host is annual under his XIII, candidate under C-85 / unclassified | 2026-09-23, fleet 20260923T0306Z | not priced | lens no lens recorded. FIND, a proposed `rule` decision. |  |
