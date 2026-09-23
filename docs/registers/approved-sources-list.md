@@ -272,6 +272,8 @@ Decision: master
 
 - ingest specs: `ukwa_link_target_bare`
 - journal: `data/raw/ukwa/host-linkage.tsv.gz`
+- measured 2026-09-23 against merged260922: 48,406 bare-target host-years, 48,280 already his;
+  the other 126 are truncated `www.<label>` names the parser drops, so 0 real net-new EE
 - what dates one item: the row's year column, the crawl year that observed the link, beside the
   target host kept in the value (`host_link_graph:1999 <host>`)
 - authority: Ivo, 2026-09-23, asked for UKWA link-graph targets to be annual, on the brief's "UK
