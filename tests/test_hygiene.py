@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from ark.hygiene import IPV4, KNOWN_ADDRESSES, scan
+from ark.hygiene import IPV4, KNOWN_ADDRESSES, scan, tracked_files
 
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
@@ -29,14 +29,6 @@ needs_git = pytest.mark.skipif(
 )
 
 
-def _tracked() -> list[str]:
-    """Paths `git ls-files` knows, as repo-relative strings."""
-    out = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True
-    ).stdout
-    return [p for p in out.decode("utf-8").split("\0") if p and (ROOT / p).is_file()]
-
-
 def _fleet_paths() -> list[str]:
     lines = FLEET_LIST.read_text(encoding="utf-8").splitlines()
     return [ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")]
@@ -44,8 +36,9 @@ def _fleet_paths() -> list[str]:
 
 @needs_git
 def test_fleet_invoked_paths_are_tracked() -> None:
-    """Every path on the fleet-invoked list is a tracked file, so the list cannot rot."""
-    tracked = set(_tracked())
+    """Every path on the fleet-invoked list is a file the scan reads, so the list cannot rot
+    and the scan cannot pass the hook by reading nothing."""
+    tracked = {str(p.relative_to(ROOT)) for p in tracked_files(ROOT)}
     missing = [p for p in _fleet_paths() if p not in tracked]
     assert not missing, f"fleet_invoked_paths.txt names files that are not tracked: {missing}"
 

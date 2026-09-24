@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One unattended pass of the health check, for a scheduler to call.
 #
-# `just cycle` is the thing that notices what a program cannot decide: an idle
-# collector, an unbanked journal, a stale queue, a yield that has gone to zero.
+# `just cycle` is the thing that notices what a program cannot decide: an unbanked
+# journal, a stale derived list, a yield that has gone to zero.
 # Nothing here acts on what it finds, deliberately. This is a scheduled *reporter*,
 # not a watchdog: a loop that restarted collectors on its own would eventually
 # restart one with settings that had since been retuned, which is the failure the

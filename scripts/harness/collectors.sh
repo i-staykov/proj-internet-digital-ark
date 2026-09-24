@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The laptop's CDX parent sweep lane and the three commands that steer it. The lane is
-# closed: its sweep loop is deleted, so `run` (what launchd calls) starts nothing and exits.
-# `just collectors pause|resume|status` is the whole interface.
+# closed: `run` (what launchd calls) starts nothing and exits. `just collectors
+# pause|resume|status` is the whole interface.
 #
 # The pause is a flag FILE, which is what makes it survive sleep and reboot: the sweep
 # checks it between pages (`cdx_suffix_sweep.py`), so a pause costs at most the page in
@@ -13,7 +13,7 @@
 #   bash scripts/harness/collectors.sh run       launchd calls this; the lane is closed
 #   bash scripts/harness/collectors.sh pause     stop after the current page
 #   bash scripts/harness/collectors.sh resume    continue from the marker
-#   bash scripts/harness/collectors.sh status    running or paused, parent, journal, hit rate
+#   bash scripts/harness/collectors.sh status    paused or not, clients, journal, hit rate
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
@@ -25,14 +25,11 @@ cd "$(dirname "$0")/../.." || exit 1
 
 STATE_DIR="$ARK_STATE_DIR"
 FLAG="$STATE_DIR/pause"
-# A pause a human asked for must not expire. The sweep loop expires a flag left behind by
-# a fleet wave after 9,000 s, which is right for a forgotten heartbeat and wrong here, so
-# this one says who wrote it on its first line and the loop leaves it alone.
+# A pause a human asked for says so on its first line.
 FLAG_MARK="human"
 # The archive-client cap binds the CDX channel, not the machine, so `status` counts every
 # client on it, this laptop's and the VPS's, against ARK_CDX_BUDGET.
 BUDGET="$ARK_CDX_BUDGET"
-LOCK="data/logs/.collectors.lock"
 
 note() { printf '%s %s\n' "$(date -u '+%FT%TZ')" "$*"; }
 
@@ -173,16 +170,14 @@ cmd_resume() {
 }
 
 cmd_status() {
-    local job clients n parent journal
+    local job clients n journal
     job=$(launchctl list 2>/dev/null | awk '$3 == "com.ark.collectors" { print "pid " $1 ", last exit " $2 }')
     echo "launchd: ${job:-com.ark.collectors not loaded}"
 
     if paused; then
         echo "state:   PAUSED since $(sed -n 2p "$FLAG" 2>/dev/null || echo unknown)"
-    elif [ -d "$LOCK" ]; then
-        echo "state:   running, supervisor pid $(cat "$LOCK/pid" 2>/dev/null || echo unknown)"
     else
-        echo "state:   no supervisor here"
+        echo "state:   not paused; the lane is closed, so nothing runs"
     fi
 
     clients=$(local_clients)
@@ -198,13 +193,6 @@ cmd_status() {
     *) echo "         VPS: $there on the same channel" ;;
     esac
 
-    parent=$(ls -t data/logs/collectors_shard*.log 2>/dev/null | head -1)
-    if [ -n "$parent" ]; then
-        echo "parent:  $(grep -h '^=== ' "$parent" | tail -1 | sed 's/^=== //; s/ ===$//')"
-    else
-        echo "parent:  no shard log yet"
-    fi
-
     journal=$(newest_journal)
     if [ -n "$journal" ]; then
         echo "journal: $(basename "$journal") last written $(date -r "$journal" '+%F %H:%M:%S %Z')"
@@ -215,7 +203,7 @@ cmd_status() {
 }
 
 cmd_run() {
-    # A KeepAlive restart under a hold does nothing: only `just hold off` brings the lane back.
+    # Under a hold a restart prints held and exits; the lane is closed either way.
     if bash scripts/harness/hold.sh holds com.ark.collectors; then echo held; exit 0; fi
     note "the CDX parent sweep lane is closed, nothing starts"
     exit 0
