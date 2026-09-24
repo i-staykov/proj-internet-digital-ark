@@ -141,6 +141,24 @@ def _c(n: int) -> str:
 # anchors into the detail blocks that are gone. The numbers are spelled through `_adr` and
 # `_c` so that this file quotes none of them.
 REWORD: tuple[tuple[str, str], ...] = (
+    # A decision is written as the fact it makes true, never as who made it or when.
+    (
+        r"REJECTED on Ivo's standing answer to O5 of 2026-08-24, \"[^\"]*\"",
+        "REJECTED on a standing decision: no bulk queries the terms may forbid",
+    ),
+    (r"REJECTED on Ivo's own standing decision", "REJECTED on a standing decision"),
+    (r"\bclass Ivo decided master\b", "class decided master"),
+    (r"had to go to Ivo", "needed the owner's decision"),
+    (r"which Ivo approved master on 2026-08-24 and", "which is approved master and"),
+    (r"which Ivo approved on 2026-09-09 as", "which is approved as"),
+    (r"from bytes Ivo downloaded by hand", "from bytes downloaded by hand"),
+    (r"closed under Ivo's 1,000 EE floor", "closed under the 1,000 EE floor"),
+    (r"that is Ivo's call rather than mine:", "that is the owner's call:"),
+    (r"what needs Ivo's ruling", "what needs a ruling"),
+    (r"Ivo's amendment of 2026-09-02 stands", "the amendment of 2026-09-02 stands"),
+    (r"a new reading Ivo has not made", "a reading not yet made"),
+    (r"raised for Ivo rather than decided", "raised rather than decided"),
+    (r"Ivo asked on 2026-09-10 whether", "The question was whether"),
     (
         rf"which {_adr(7)} refused for one day and {_adr(8)} ships",
         "which the `www.` alias rule ships",
@@ -812,6 +830,9 @@ def compact(pages: dict[str, str]) -> dict[str, str]:
     """All three pages compacted; refuses when a `Decision:` line would read differently."""
     open_text, closed_text = compact_sources(pages)
     approved = compact_approved(pages[APPROVED_PAGE])
+    # Once more over the finished pages: a phrase an old page split across lines only
+    # reads whole after its lines are joined, and one pass has to be the fixed point.
+    open_text, closed_text, approved = (reword(x) for x in (open_text, closed_text, approved))
     before = {k: (a.decision, a.section) for k, a in parse_approvals(pages[APPROVED_PAGE]).items()}
     after = {k: (a.decision, a.section) for k, a in parse_approvals(approved).items()}
     if before != after:
